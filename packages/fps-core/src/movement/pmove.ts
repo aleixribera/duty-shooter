@@ -2,7 +2,7 @@ import type { Vec3 } from '../math';
 import { STATS } from '../stats';
 import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
-import { EPSILON, X, Y, Z, offset, sweep, type Hull } from './collision';
+import { EPSILON, X, Y, Z, hullBlocked, offset, sweep, type Hull } from './collision';
 
 /**
  * Player movement ("pmove"), Quake/IW lineage: friction, then acceleration
@@ -19,6 +19,8 @@ const GROUND_PROBE = 1e-3;
 /** What the player is doing, as reported in the match outputs. */
 export type MovementState = 'walk' | 'sprint' | 'tacticalSprint';
 
+export type Stance = 'stand' | 'crouch' | 'prone';
+
 /** The movement-relevant state of one player. Mutated in place by {@link pmove}. */
 export interface MoveState {
   position: Vec3;
@@ -26,6 +28,13 @@ export interface MoveState {
   yaw: number;
   grounded: boolean;
   movement: MovementState;
+  stance: Stance;
+  /** The stance the current transition started from. */
+  stanceFrom: Stance;
+  /** Eye height above the feet (m); moves toward the stance's eye height. */
+  eyeHeight: number;
+  /** Speed of the current eye-height transition (m/s). */
+  eyeRate: number;
   /** Tactical sprint time left, in seconds. */
   tacticalStamina: number;
   /** Buttons of the previous tick's usercmd, for press detection. */
@@ -39,6 +48,10 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     yaw,
     grounded: false,
     movement: 'walk',
+    stance: 'stand',
+    stanceFrom: 'stand',
+    eyeHeight: S.standEyeHeight.value,
+    eyeRate: 0,
     tacticalStamina: M.tacticalSprintDuration.value,
     prevButtons: 0,
   };
@@ -54,7 +67,7 @@ function pressedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolean
  * empty over the recharge time.
  */
 function updateSprint(state: MoveState, cmd: UserCmd, dt: number): void {
-  const canSprint = state.grounded && cmd.forward > 0 && !isPressed(cmd, 'Ads');
+  const canSprint = state.grounded && state.stance === 'stand' && cmd.forward > 0 && !isPressed(cmd, 'Ads');
   const wantsSprint = isPressed(cmd, 'Sprint') || isPressed(cmd, 'TacticalSprint');
   const wasTac = state.movement === 'tacticalSprint';
   const tacHeld = canSprint && isPressed(cmd, 'TacticalSprint') && state.tacticalStamina > 0;
@@ -69,8 +82,43 @@ function updateSprint(state: MoveState, cmd: UserCmd, dt: number): void {
   state.movement = tac ? 'tacticalSprint' : canSprint && wantsSprint ? 'sprint' : 'walk';
 }
 
-function hullFor(): Hull {
-  return { halfWidth: S.hullHalfWidth.value, height: S.standHullHeight.value };
+function hullFor(stance: Stance): Hull {
+  const height = stance === 'stand' ? S.standHullHeight : stance === 'crouch' ? S.crouchHullHeight : S.proneHullHeight;
+  return { halfWidth: S.hullHalfWidth.value, height: height.value };
+}
+
+function eyeFor(stance: Stance): number {
+  return (stance === 'stand' ? S.standEyeHeight : stance === 'crouch' ? S.crouchEyeHeight : S.proneEyeHeight).value;
+}
+
+/** Stats-file time for a full transition between two stances. */
+function transitionTime(from: Stance, to: Stance): number {
+  if (to === 'prone') return S.toProneTime.value;
+  if (from === 'prone') return (to === 'stand' ? S.proneToStandTime : S.proneToCrouchTime).value;
+  return S.standCrouchTime.value;
+}
+
+/**
+ * Moves toward the stance the buttons ask for (prone over crouch over
+ * stand), if there is headroom, and moves the eye toward that stance's
+ * height at the rate its transition time implies.
+ */
+function updateStance(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
+  let desired: Stance = isPressed(cmd, 'Prone') ? 'prone' : isPressed(cmd, 'Crouch') ? 'crouch' : 'stand';
+  if (desired === 'prone' && !state.grounded) desired = state.stance;
+  if (desired !== state.stance && !hullBlocked(world, state.position, hullFor(desired))) {
+    state.eyeRate = Math.abs(eyeFor(state.stance) - eyeFor(desired)) / transitionTime(state.stance, desired);
+    state.stanceFrom = state.stance;
+    state.stance = desired;
+  }
+  const target = eyeFor(state.stance);
+  const step = state.eyeRate * dt;
+  state.eyeHeight = Math.abs(target - state.eyeHeight) <= step ? target : state.eyeHeight + Math.sign(target - state.eyeHeight) * step;
+}
+
+/** Going prone and getting up from prone are committal: no movement until the transition ends. */
+function inProneTransition(state: MoveState): boolean {
+  return state.eyeHeight !== eyeFor(state.stance) && (state.stance === 'prone' || state.stanceFrom === 'prone');
 }
 
 /** Unit forward and right vectors on the ground plane for a view yaw (yaw 0 looks down -Z). */
@@ -101,15 +149,26 @@ function wish(cmd: UserCmd, yaw: number, baseSpeed: number): { dir: readonly [nu
   return { dir: [x / speed, z / speed], speed };
 }
 
+function stanceScale(stance: Stance): number {
+  return stance === 'crouch' ? M.crouchMultiplier.value : stance === 'prone' ? M.proneMultiplier.value : 1;
+}
+
 /** Top speed for the current movement mode before directional scaling. */
 function baseSpeed(state: MoveState, cmd: UserCmd): number {
   if (state.movement === 'tacticalSprint') return M.tacticalSprintSpeed.value;
   if (state.movement === 'sprint') return M.sprintSpeed.value;
-  let speed = M.walkSpeed.value;
+  if (inProneTransition(state)) return 0;
+  let speed = M.walkSpeed.value * stanceScale(state.stance);
   if (isPressed(cmd, 'Ads')) speed *= M.adsMoveMultiplier.value;
   return speed;
 }
 
+/**
+ * Quake-style ground friction. The stop speed is scaled by the stance speed
+ * multiplier so friction and acceleration keep the same balance in every
+ * stance (unscaled, it would stall a prone crawl). That scaling is a
+ * modelling choice, not a sourced MW2019 behaviour.
+ */
 function applyFriction(state: MoveState, dt: number): void {
   const [vx, vy, vz] = state.velocity;
   const speed = Math.hypot(vx, vz);
@@ -117,7 +176,7 @@ function applyFriction(state: MoveState, dt: number): void {
     state.velocity = [0, vy, 0];
     return;
   }
-  const control = Math.max(speed, M.stopSpeed.value);
+  const control = Math.max(speed, M.stopSpeed.value * stanceScale(state.stance));
   const next = Math.max(0, speed - control * M.groundFriction.value * dt);
   const k = next / speed;
   state.velocity = [vx * k, vy, vz * k];
@@ -138,9 +197,10 @@ function onGround(world: World, pos: Vec3, hull: Hull): boolean {
 
 /** Advances one player by one tick. */
 export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
-  const hull = hullFor();
   state.yaw = cmd.yaw;
-  state.grounded = onGround(world, state.position, hull);
+  state.grounded = onGround(world, state.position, hullFor(state.stance));
+  updateStance(state, cmd, world, dt);
+  const hull = hullFor(state.stance);
 
   updateSprint(state, cmd, dt);
   const w = wish(cmd, state.yaw, baseSpeed(state, cmd));

@@ -1,5 +1,5 @@
 import type { Vec3 } from './math';
-import { createMoveState, pmove, type MoveState, type MovementState } from './movement/pmove';
+import { createMoveState, pmove, type MoveState, type MovementState, type Stance } from './movement/pmove';
 import { usercmd, type UserCmd } from './usercmd';
 import type { World } from './world';
 
@@ -32,6 +32,10 @@ export interface PlayerOutput {
   readonly pitch: number;
   /** What the player is doing this tick. */
   readonly movement: MovementState;
+  /** The stance the player is in or moving into. */
+  readonly stance: Stance;
+  /** Eye height above the feet (m); eases between stances over their transition times. */
+  readonly eyeHeight: number;
 }
 
 /** Everything observable about the match after a tick. Plain data. */
@@ -115,6 +119,8 @@ export class Simulation {
         yaw: p.move.yaw,
         pitch: p.pitch,
         movement: p.move.movement,
+        stance: p.move.stance,
+        eyeHeight: p.move.eyeHeight,
       })),
     };
   }
