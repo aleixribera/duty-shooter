@@ -135,6 +135,7 @@ export const STATS = {
     lowVaultDuration: estimated(0.45, 's', 'Placeholder; measure by frame count.', 0.1),
     waistMantleDuration: estimated(0.75, 's', 'Placeholder; measure by frame count.', 0.1),
     highClimbDuration: estimated(1.2, 's', 'Placeholder; measure by frame count.', 0.15),
+    reach: estimated(20 * IW_UNIT, 'm', 'IW lineage dvar mantle_check_range 20 u (horizontal distance from the player bounds to the ledge), remembered from CoD4/WaW; not verified.'),
   },
 
   /** Slide from sprint and slide-cancel. */

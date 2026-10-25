@@ -3,6 +3,7 @@ import { STATS } from '../stats';
 import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
 import { EPSILON, X, Y, Z, hullBlocked, offset, sweep, type Hull } from './collision';
+import { findLedge, mantleDuration, type MantleBand } from './mantle';
 
 /**
  * Player movement ("pmove"), Quake/IW lineage: friction, then acceleration
@@ -17,9 +18,18 @@ const S = STATS.stance;
 const GROUND_PROBE = 1e-3;
 
 /** What the player is doing, as reported in the match outputs. */
-export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne';
+export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle';
 
 export type Stance = 'stand' | 'crouch' | 'prone';
+
+/** A mantle in progress: a timed, committal move from `from` to `to`. */
+interface MantleProgress {
+  readonly band: MantleBand;
+  readonly from: Vec3;
+  readonly to: Vec3;
+  readonly duration: number;
+  ticks: number;
+}
 
 /** The movement-relevant state of one player. Mutated in place by {@link pmove}. */
 export interface MoveState {
@@ -43,6 +53,9 @@ export interface MoveState {
   airPeak: number | null;
   /** Height fallen (m) if the player landed this tick, otherwise null. */
   landedFrom: number | null;
+  mantle: MantleProgress | null;
+  /** Band of the mantle reported this tick, or null when not mantling. */
+  mantleBand: MantleBand | null;
 }
 
 export function createMoveState(position: Vec3, yaw: number): MoveState {
@@ -60,7 +73,27 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     prevButtons: 0,
     airPeak: null,
     landedFrom: null,
+    mantle: null,
+    mantleBand: null,
   };
+}
+
+/** Moves the mantle on by one tick along a straight line; on arrival the player stands on the ledge. */
+function advanceMantle(state: MoveState, m: MantleProgress, dt: number): void {
+  m.ticks += 1;
+  const f = Math.min(1, (m.ticks * dt) / m.duration);
+  const lerp = (a: number, b: number) => a + (b - a) * f;
+  const next: Vec3 = f >= 1 - 1e-9 ? m.to : [lerp(m.from[0], m.to[0]), lerp(m.from[1], m.to[1]), lerp(m.from[2], m.to[2])];
+  state.velocity = [(next[0] - state.position[0]) / dt, (next[1] - state.position[1]) / dt, (next[2] - state.position[2]) / dt];
+  state.position = next;
+  state.movement = 'mantle';
+  state.mantleBand = m.band;
+  if (next === m.to) {
+    state.mantle = null;
+    state.velocity = [0, 0, 0];
+    state.grounded = true;
+    state.airPeak = null;
+  }
 }
 
 function pressedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolean {
@@ -239,9 +272,27 @@ function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): 
 export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
   state.yaw = cmd.yaw;
   state.landedFrom = null;
+  if (state.mantle) {
+    advanceMantle(state, state.mantle, dt);
+    state.prevButtons = cmd.buttons;
+    return;
+  }
+  state.mantleBand = null;
   state.grounded = onGround(world, state.position, hullFor(state.stance));
   updateStance(state, cmd, world, dt);
   const hull = hullFor(state.stance);
+
+  // Mantle: press jump facing a ledge in a height band (on the ground or in the air).
+  if (pressedNow(state, cmd, 'Jump') && state.stance === 'stand') {
+    const ledge = findLedge(world, state.position, state.yaw, hull);
+    if (ledge) {
+      const m: MantleProgress = { band: ledge.band, from: state.position, to: ledge.destination, duration: mantleDuration(ledge.band), ticks: 0 };
+      state.mantle = m;
+      advanceMantle(state, m, dt);
+      state.prevButtons = cmd.buttons;
+      return;
+    }
+  }
 
   let jumped = false;
   if (state.grounded && state.stance === 'stand' && pressedNow(state, cmd, 'Jump')) {

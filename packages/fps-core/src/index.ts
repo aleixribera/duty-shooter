@@ -4,6 +4,7 @@ export type { Box, Material, World } from './world';
 export { Button, isPressed, usercmd } from './usercmd';
 export type { ButtonName, UserCmd } from './usercmd';
 export { Simulation, TICK_RATE, TICK_SECONDS } from './simulation';
+export type { MantleBand } from './movement/mantle';
 export type { MovementState, Stance } from './movement/pmove';
 export type { Landing, PlayerId, PlayerOutput, PlayerSpawn, TeamId, TickCmds, TickOutput } from './simulation';
 export { IW_UNIT, STATS } from './stats';

@@ -1,5 +1,6 @@
 import { fallDamage } from './health';
 import type { Vec3 } from './math';
+import type { MantleBand } from './movement/mantle';
 import { createMoveState, pmove, type MoveState, type MovementState, type Stance } from './movement/pmove';
 import { STATS } from './stats';
 import { usercmd, type UserCmd } from './usercmd';
@@ -34,6 +35,8 @@ export interface PlayerOutput {
   readonly pitch: number;
   /** What the player is doing this tick. */
   readonly movement: MovementState;
+  /** The mantle height band while mantling, otherwise null. */
+  readonly mantle: MantleBand | null;
   /** The stance the player is in or moving into. */
   readonly stance: Stance;
   /** Eye height above the feet (m); eases between stances over their transition times. */
@@ -144,6 +147,7 @@ export class Simulation {
         yaw: p.move.yaw,
         pitch: p.pitch,
         movement: p.move.movement,
+        mantle: p.move.mantleBand,
         stance: p.move.stance,
         eyeHeight: p.move.eyeHeight,
         health: p.health,
