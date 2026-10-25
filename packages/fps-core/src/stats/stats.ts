@@ -209,6 +209,13 @@ export const STATS = {
     maxFov: sourced(120, 'deg', PCGAMINGWIKI, 0, 'Horizontal at 16:9 (89 deg vertical).'),
     adsSensitivityMultiplier: estimated(1.0, 'multiplier', 'Default of the ADS (low zoom) multiplier; separate low/high zoom multipliers are sourced (PCGamingWiki) but the 1.00 default is not.'),
     monitorDistanceCoefficient: estimated(1.33, 'multiplier', 'Remembered MW2019 menu default for Relative ADS sensitivity; not verified.'),
+    maxPitch: estimated(85, 'deg', `IW lineage player_view_pitch_up / player_view_pitch_down 85 (${WAW_DVAR_DUMP}); not verified for MW2019.`, 5),
+    doubleTapWindow: estimated(
+      0.3,
+      's',
+      'Longest gap between two sprint presses that still counts as the tactical sprint double-tap. Not published; a common double-tap interval, tune by feel.',
+      0.1,
+    ),
   },
 } as const;
 
