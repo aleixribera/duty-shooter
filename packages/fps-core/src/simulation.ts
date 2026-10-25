@@ -1,5 +1,5 @@
 import type { Vec3 } from './math';
-import { createMoveState, pmove, type MoveState } from './movement/pmove';
+import { createMoveState, pmove, type MoveState, type MovementState } from './movement/pmove';
 import { usercmd, type UserCmd } from './usercmd';
 import type { World } from './world';
 
@@ -30,6 +30,8 @@ export interface PlayerOutput {
   readonly velocity: Vec3;
   readonly yaw: number;
   readonly pitch: number;
+  /** What the player is doing this tick. */
+  readonly movement: MovementState;
 }
 
 /** Everything observable about the match after a tick. Plain data. */
@@ -112,6 +114,7 @@ export class Simulation {
         velocity: clean(p.move.velocity),
         yaw: p.move.yaw,
         pitch: p.pitch,
+        movement: p.move.movement,
       })),
     };
   }

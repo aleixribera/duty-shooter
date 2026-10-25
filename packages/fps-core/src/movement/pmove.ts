@@ -1,6 +1,6 @@
 import type { Vec3 } from '../math';
 import { STATS } from '../stats';
-import { isPressed, type UserCmd } from '../usercmd';
+import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
 import { EPSILON, X, Y, Z, offset, sweep, type Hull } from './collision';
 
@@ -16,16 +16,57 @@ const S = STATS.stance;
 /** How far below the feet the ground check looks. Numerical, not a gameplay value. */
 const GROUND_PROBE = 1e-3;
 
+/** What the player is doing, as reported in the match outputs. */
+export type MovementState = 'walk' | 'sprint' | 'tacticalSprint';
+
 /** The movement-relevant state of one player. Mutated in place by {@link pmove}. */
 export interface MoveState {
   position: Vec3;
   velocity: Vec3;
   yaw: number;
   grounded: boolean;
+  movement: MovementState;
+  /** Tactical sprint time left, in seconds. */
+  tacticalStamina: number;
+  /** Buttons of the previous tick's usercmd, for press detection. */
+  prevButtons: number;
 }
 
 export function createMoveState(position: Vec3, yaw: number): MoveState {
-  return { position, velocity: [0, 0, 0], yaw, grounded: false };
+  return {
+    position,
+    velocity: [0, 0, 0],
+    yaw,
+    grounded: false,
+    movement: 'walk',
+    tacticalStamina: M.tacticalSprintDuration.value,
+    prevButtons: 0,
+  };
+}
+
+function pressedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolean {
+  return isPressed(cmd, button) && (state.prevButtons & Button[button]) === 0;
+}
+
+/**
+ * Chooses walk, sprint or tactical sprint and updates tactical sprint
+ * stamina: it drains over the tactical sprint duration and refills from
+ * empty over the recharge time.
+ */
+function updateSprint(state: MoveState, cmd: UserCmd, dt: number): void {
+  const canSprint = state.grounded && cmd.forward > 0 && !isPressed(cmd, 'Ads');
+  const wantsSprint = isPressed(cmd, 'Sprint') || isPressed(cmd, 'TacticalSprint');
+  const wasTac = state.movement === 'tacticalSprint';
+  const tacHeld = canSprint && isPressed(cmd, 'TacticalSprint') && state.tacticalStamina > 0;
+  const tac = tacHeld && (wasTac || pressedNow(state, cmd, 'TacticalSprint'));
+
+  const duration = M.tacticalSprintDuration.value;
+  if (tac) {
+    state.tacticalStamina = Math.max(0, state.tacticalStamina - dt);
+  } else {
+    state.tacticalStamina = Math.min(duration, state.tacticalStamina + (dt * duration) / M.tacticalSprintRecharge.value);
+  }
+  state.movement = tac ? 'tacticalSprint' : canSprint && wantsSprint ? 'sprint' : 'walk';
 }
 
 function hullFor(): Hull {
@@ -61,7 +102,9 @@ function wish(cmd: UserCmd, yaw: number, baseSpeed: number): { dir: readonly [nu
 }
 
 /** Top speed for the current movement mode before directional scaling. */
-function baseSpeed(cmd: UserCmd): number {
+function baseSpeed(state: MoveState, cmd: UserCmd): number {
+  if (state.movement === 'tacticalSprint') return M.tacticalSprintSpeed.value;
+  if (state.movement === 'sprint') return M.sprintSpeed.value;
   let speed = M.walkSpeed.value;
   if (isPressed(cmd, 'Ads')) speed *= M.adsMoveMultiplier.value;
   return speed;
@@ -99,7 +142,8 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   state.yaw = cmd.yaw;
   state.grounded = onGround(world, state.position, hull);
 
-  const w = wish(cmd, state.yaw, baseSpeed(cmd));
+  updateSprint(state, cmd, dt);
+  const w = wish(cmd, state.yaw, baseSpeed(state, cmd));
   if (state.grounded) {
     applyFriction(state, dt);
     accelerate(state, w.dir, w.speed, M.groundAcceleration.value, dt);
@@ -131,4 +175,5 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   }
 
   state.position = pos;
+  state.prevButtons = cmd.buttons;
 }

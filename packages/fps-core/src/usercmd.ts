@@ -8,6 +8,12 @@ export const Button = {
   Jump: 1 << 5,
   Reload: 1 << 6,
   Melee: 1 << 7,
+  /**
+   * Tactical sprint. Its press starts a tactical sprint (when sprinting is
+   * possible and stamina remains); holding it keeps it going. The client sets
+   * it on a double-tap of the sprint key and holds it while the key is held.
+   */
+  TacticalSprint: 1 << 8,
 } as const;
 
 export type ButtonName = keyof typeof Button;

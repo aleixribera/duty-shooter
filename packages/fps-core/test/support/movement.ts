@@ -31,6 +31,17 @@ export function hold(match: HeadlessMatch, count: number, cmd: UserCmd): PlayerO
   return match.run(count, () => ({ p: cmd })).map(me);
 }
 
+/** Steps with the same usercmd until `done` is true for the player's outputs (inclusive), up to `maxTicks`. */
+export function holdUntil(match: HeadlessMatch, cmd: UserCmd, done: (p: PlayerOutput) => boolean, maxTicks = ticks(30)): PlayerOutput[] {
+  const outputs: PlayerOutput[] = [];
+  for (let i = 0; i < maxTicks; i++) {
+    const p = me(match.step({ p: cmd }));
+    outputs.push(p);
+    if (done(p)) return outputs;
+  }
+  throw new Error(`condition not reached within ${maxTicks} ticks`);
+}
+
 /** Horizontal speed (m/s) from the reported velocity. */
 export function horizontalSpeed(player: PlayerOutput): number {
   return Math.hypot(player.velocity[0], player.velocity[2]);
