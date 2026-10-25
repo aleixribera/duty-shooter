@@ -1,0 +1,15 @@
+{
+  "name": "@duty-shooter/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Authoritative game server (stub until the netcode tickets).",
+  "scripts": {
+    "build": "vite build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@duty-shooter/fps-core": "^0.0.0"
+  }
+}

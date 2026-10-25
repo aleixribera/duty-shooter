@@ -1,0 +1,20 @@
+{
+  "name": "@duty-shooter/range",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@duty-shooter/fps-client": "^0.0.0",
+    "@duty-shooter/fps-core": "^0.0.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0"
+  }
+}
