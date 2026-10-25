@@ -1,5 +1,7 @@
+import { fallDamage } from './health';
 import type { Vec3 } from './math';
 import { createMoveState, pmove, type MoveState, type MovementState, type Stance } from './movement/pmove';
+import { STATS } from './stats';
 import { usercmd, type UserCmd } from './usercmd';
 import type { World } from './world';
 
@@ -36,6 +38,15 @@ export interface PlayerOutput {
   readonly stance: Stance;
   /** Eye height above the feet (m); eases between stances over their transition times. */
   readonly eyeHeight: number;
+  readonly health: number;
+  readonly alive: boolean;
+  /** Set only on the tick the player lands: how far they fell (m) and the fall damage taken. */
+  readonly landing: Landing | null;
+}
+
+export interface Landing {
+  readonly fallHeight: number;
+  readonly damage: number;
 }
 
 /** Everything observable about the match after a tick. Plain data. */
@@ -54,6 +65,8 @@ interface PlayerState {
   readonly team: TeamId;
   readonly move: MoveState;
   pitch: number;
+  health: number;
+  landing: Landing | null;
 }
 
 /** Turns -0 into 0 so outputs compare cleanly with deep equality. */
@@ -88,6 +101,8 @@ export class Simulation {
       team: spawn.team,
       move: createMoveState(spawn.position, spawn.yaw ?? 0),
       pitch: spawn.pitch ?? 0,
+      health: STATS.health.max.value,
+      landing: null,
     });
   }
 
@@ -99,9 +114,19 @@ export class Simulation {
   step(cmds: TickCmds = {}): TickOutput {
     for (const player of this.#players.values()) {
       // No usercmd means no input; the view keeps its last angles.
-      const cmd = cmds[player.id] ?? usercmd({ yaw: player.move.yaw, pitch: player.pitch });
+      // A dead player's input is ignored apart from the view.
+      const sent = cmds[player.id];
+      const alive = player.health > 0;
+      const cmd = sent && alive ? sent : usercmd({ yaw: sent?.yaw ?? player.move.yaw, pitch: sent?.pitch ?? player.pitch });
       player.pitch = cmd.pitch;
       pmove(player.move, cmd, this.world, TICK_SECONDS);
+      player.landing = null;
+      const fell = player.move.landedFrom;
+      if (fell !== null) {
+        const damage = alive ? fallDamage(fell) : 0;
+        player.health = Math.max(0, player.health - damage);
+        player.landing = { fallHeight: fell, damage };
+      }
     }
     this.#tick += 1;
     return this.output();
@@ -121,6 +146,9 @@ export class Simulation {
         movement: p.move.movement,
         stance: p.move.stance,
         eyeHeight: p.move.eyeHeight,
+        health: p.health,
+        alive: p.health > 0,
+        landing: p.landing,
       })),
     };
   }

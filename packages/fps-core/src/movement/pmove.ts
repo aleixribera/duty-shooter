@@ -39,6 +39,10 @@ export interface MoveState {
   tacticalStamina: number;
   /** Buttons of the previous tick's usercmd, for press detection. */
   prevButtons: number;
+  /** Highest feet height since leaving the ground, or null while grounded. */
+  airPeak: number | null;
+  /** Height fallen (m) if the player landed this tick, otherwise null. */
+  landedFrom: number | null;
 }
 
 export function createMoveState(position: Vec3, yaw: number): MoveState {
@@ -54,6 +58,8 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     eyeRate: 0,
     tacticalStamina: M.tacticalSprintDuration.value,
     prevButtons: 0,
+    airPeak: null,
+    landedFrom: null,
   };
 }
 
@@ -232,6 +238,7 @@ function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): 
 /** Advances one player by one tick. */
 export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
   state.yaw = cmd.yaw;
+  state.landedFrom = null;
   state.grounded = onGround(world, state.position, hullFor(state.stance));
   updateStance(state, cmd, world, dt);
   const hull = hullFor(state.stance);
@@ -277,7 +284,13 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
     if (r.hit && vy1 < 0 && !jumped) state.grounded = true;
   }
 
-  if (!state.grounded) state.movement = 'airborne';
+  if (state.grounded) {
+    if (state.airPeak !== null) state.landedFrom = Math.max(0, state.airPeak - pos[1]);
+    state.airPeak = null;
+  } else {
+    state.movement = 'airborne';
+    state.airPeak = Math.max(state.airPeak ?? state.position[1], state.position[1], pos[1]);
+  }
   state.position = pos;
   state.prevButtons = cmd.buttons;
 }
