@@ -32,6 +32,7 @@ describe('ground movement speeds', () => {
     const ads = measuredSpeed(hold(soloMatch(), ticks(2), usercmd({ forward: 1, buttons: ['Ads'] })));
 
     expectStat(ads / hip, movement.adsMoveMultiplier, 'ADS speed ratio');
+    expectStat(ads, movement.adsWalkSpeed, 'ADS walk speed');
   });
 
   it('accelerates from standing and stops again when input is released', () => {

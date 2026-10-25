@@ -6,9 +6,11 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * public measurement is marked `estimated` with the method.
  *
  * Research notes behind this file (collected 2026-10-25): sym.gg has no
- * MW2019 data and TrueGameData no longer serves it, so nearly all movement
- * values are estimates from IW-engine lineage dvars (CoD4/WaW defaults) and
- * close relatives. They are placeholders to replace with measured values.
+ * MW2019 data and TrueGameData no longer serves it. The M4A1 walk, ADS walk,
+ * sprint and tactical sprint speeds come from an archived TrueGameData
+ * Warzone 1 dataset; most other movement values are estimates from IW-engine
+ * lineage dvars (CoD4/WaW defaults) and close relatives. They are
+ * placeholders to replace with measured values.
  *
  * IW engine units are inches; values given in units by the research are
  * converted with {@link IW_UNIT}.
@@ -43,23 +45,25 @@ const PCGAMINGWIKI: Omit<Source, 'collected'> = {
   url: 'https://www.pcgamingwiki.com/wiki/Call_of_Duty:_Modern_Warfare',
 };
 
-const WALK_SPEED = 190 * IW_UNIT;
+/**
+ * TrueGameData's Warzone 1 base data (final WZ1 patch, 2023-10-23), whose rows
+ * carry game "mw": the MW2019 weapons. Handling and movement were shared with
+ * MW2019 multiplayer in that era, but the dataset itself cannot prove it.
+ * Unit definitions: TGD glossary, https://web.archive.org/web/20210115214145/https://truegamedata.com/glossary.php
+ */
+const TGD_WZ1_M4A1: Omit<Source, 'collected'> = {
+  name: 'TrueGameData Warzone 1 base data, M4A1 row (Wayback capture 2023-11-18)',
+  url: 'https://web.archive.org/web/20231118105140id_/https://www.truegamedata.com/api/weapons/api.php?game=wz&action=all_base_data',
+};
+
+const WALK_SPEED = 4.78;
+const ADS_WALK_SPEED = 2.52;
 
 export const STATS = {
   /** Ground and air movement for a player holding the stock M4A1. */
   movement: {
-    walkSpeed: estimated(
-      WALK_SPEED,
-      'm/s',
-      `IW-engine g_speed default of 190 u/s (${WAW_DVAR_DUMP}, https://xlabs-mirror.github.io/console_commands) times an assumed M4A1 move scale of 1.00. An unverified third-party table gives the M4A1 99% movement speed.`,
-      0.05 * WALK_SPEED,
-    ),
-    sprintSpeed: estimated(
-      256 * IW_UNIT,
-      'm/s',
-      'About 1.35x walk speed (256 u/s), between the CoD Mobile ratio (1.30) and IW lineage player_sprintSpeedScale 1.5, chosen to stay under the sourced 7.0 m/s upper bound (see sprintSpeedUpperBound).',
-      0.3,
-    ),
+    walkSpeed: sourced(WALK_SPEED, 'm/s', TGD_WZ1_M4A1, 0.05, 'TGD field movement: 4.78. Replaces the earlier IW-lineage estimate (g_speed 190 u/s = 4.83 m/s).'),
+    sprintSpeed: sourced(6.22, 'm/s', TGD_WZ1_M4A1, 0.05, 'TGD field sprint: 6.22. Replaces the earlier estimate of 6.50 m/s (1.35x walk).'),
     sprintSpeedUpperBound: sourced(
       7.0,
       'm/s',
@@ -70,12 +74,7 @@ export const STATS = {
       0,
       'The OTs 9 is the only Warzone (MW2019 engine) weapon whose base sprint exceeds 7 m/s, so the M4A1 base sprint is below this.',
     ),
-    tacticalSprintSpeed: estimated(
-      307 * IW_UNIT,
-      'm/s',
-      'About 1.2x sprint speed (307 u/s), an assumed ratio for the IW8/IW9 family. No MW2019 measurement found.',
-      0.5,
-    ),
+    tacticalSprintSpeed: sourced(7.43, 'm/s', TGD_WZ1_M4A1, 0.05, 'TGD field tac_sprint: 7.43. Replaces the earlier estimate of 7.80 m/s (1.2x sprint).'),
     tacticalSprintDuration: estimated(
       2.0,
       's',
@@ -88,13 +87,27 @@ export const STATS = {
       'Placeholder, not measured. Sources only say stamina regenerates over time after each use (https://callofduty.fandom.com/wiki/Tactical_Sprint).',
       2.0,
     ),
-    strafeMultiplier: estimated(0.8, 'multiplier', `IW lineage player_strafeSpeedScale 0.8 (${WAW_DVAR_DUMP}).`, 0.05),
-    backpedalMultiplier: estimated(0.7, 'multiplier', `IW lineage player_backSpeedScale 0.7 (${WAW_DVAR_DUMP}).`, 0.05),
-    adsMoveMultiplier: estimated(
-      0.6,
+    strafeMultiplier: estimated(
+      0.8,
       'multiplier',
-      'Ratio borrowed from CoD Mobile M4 (2.8 m/s ADS vs 4.67 m/s walk, https://callofduty.fandom.com/wiki/M4A1), which is not MW2019.',
+      `IW lineage player_strafeSpeedScale 0.8 (${WAW_DVAR_DUMP}). Not yet replaced by TGD's strafe value (see tgdStrafeSpeed): whether that is a hipfire or an ADS strafe speed could not be checked.`,
       0.05,
+    ),
+    tgdStrafeSpeed: sourced(
+      2.85,
+      'm/s',
+      TGD_WZ1_M4A1,
+      0.05,
+      'TGD field strafe: 2.85. Not used by the simulation yet: the archived glossary could not be read to tell whether this is hipfire strafe (it would make the strafe multiplier 2.85 / 4.78 = 0.60) or ADS strafe.',
+    ),
+    backpedalMultiplier: estimated(0.7, 'multiplier', `IW lineage player_backSpeedScale 0.7 (${WAW_DVAR_DUMP}).`, 0.05),
+    adsWalkSpeed: sourced(ADS_WALK_SPEED, 'm/s', TGD_WZ1_M4A1, 0.05, 'TGD field ads_movement: 2.52.'),
+    adsMoveMultiplier: sourced(
+      ADS_WALK_SPEED / WALK_SPEED,
+      'multiplier',
+      TGD_WZ1_M4A1,
+      0.01,
+      'Derived: ads_movement / movement = 2.52 / 4.78 = 0.527. Replaces the earlier 0.6 borrowed from CoD Mobile.',
     ),
     crouchMultiplier: estimated(0.65, 'multiplier', 'IW3 (CoD4) pmove crouch scale 0.65, remembered from decompiled PM_CmdScale_Walk; no web page verified it.', 0.05),
     proneMultiplier: estimated(0.15, 'multiplier', 'IW3 (CoD4) pmove prone scale 0.15, remembered; not verified.', 0.05),
