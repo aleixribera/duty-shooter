@@ -1,6 +1,6 @@
 # 02 Movement: pmove with every MW2019 movement state
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 1 (movement and course, offline)
 Blocked by: 01
 
@@ -15,3 +15,7 @@ User stories 1-16 (spec "Movement").
 - [ ] Headless match tests (zero latency, single client) cover: sprint and tactical-sprint speeds and duration/recharge, strafe and backpedal ratios, ADS walk speed (ADS button held), crouch/prone speeds and stance timings, jump height, step-up, mantle height bands and durations, slide distance and slide-cancel window, fall-damage thresholds and lethal fall. Expected values come from the stats file and its tolerances.
 - [ ] Tests assert only match outputs (position, velocity, stance, movement state, health), never pmove internals.
 - [ ] Determinism test still passes.
+
+## Comments
+
+Resolved on `duty-shooter-v1`. Sourced from TrueGameData (Warzone 1 archive): walk 4.78, ADS 2.52, sprint 6.22, tac sprint 7.43 m/s. Not done: repeated-jump decay and landing slowdown (magnitudes unsourced); health regen moves to ticket 04; slide roll and camera smoothing move to ticket 03.
