@@ -9,6 +9,6 @@
     "./harness": "./src/harness/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p . && tsc -p test"
   }
 }
