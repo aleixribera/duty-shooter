@@ -18,7 +18,7 @@ const S = STATS.stance;
 const GROUND_PROBE = 1e-3;
 
 /** What the player is doing, as reported in the match outputs. */
-export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle';
+export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle' | 'slide';
 
 export type Stance = 'stand' | 'crouch' | 'prone';
 
@@ -56,6 +56,14 @@ export interface MoveState {
   mantle: MantleProgress | null;
   /** Band of the mantle reported this tick, or null when not mantling. */
   mantleBand: MantleBand | null;
+  slide: SlideProgress | null;
+}
+
+/** A slide in progress: direction locked at entry, speed falling from the entry speed. */
+interface SlideProgress {
+  readonly dir: readonly [number, number];
+  readonly entrySpeed: number;
+  ticks: number;
 }
 
 export function createMoveState(position: Vec3, yaw: number): MoveState {
@@ -75,6 +83,7 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     landedFrom: null,
     mantle: null,
     mantleBand: null,
+    slide: null,
   };
 }
 
@@ -98,6 +107,59 @@ function advanceMantle(state: MoveState, m: MantleProgress, dt: number): void {
 
 function pressedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolean {
   return isPressed(cmd, button) && (state.prevButtons & Button[button]) === 0;
+}
+
+function releasedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolean {
+  return !isPressed(cmd, button) && (state.prevButtons & Button[button]) !== 0;
+}
+
+/**
+ * Slide speed falls linearly from the entry speed over the slide duration.
+ * The deceleration is derived so a slide entered at sprint speed covers the
+ * stats-file slide distance. The linear curve is a modelling choice; MW2019's
+ * curve is unmeasured (see the stats file).
+ */
+const SLIDE_DECELERATION = Math.max(
+  0,
+  (2 * (M.sprintSpeed.value * STATS.slide.duration.value - STATS.slide.distance.value)) / STATS.slide.duration.value ** 2,
+);
+
+/**
+ * Starts, cancels or ends a slide. A slide starts when crouch is pressed
+ * while sprinting on the ground. Once the cancel window is open, releasing
+ * crouch or pressing jump cancels it into a standing sprint and refreshes
+ * tactical sprint (MW2019 behaviour). Returns a stance to force this tick.
+ */
+function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undefined {
+  const slide = state.slide;
+  if (slide) {
+    const elapsed = slide.ticks * dt;
+    if (!state.grounded) {
+      state.slide = null;
+      return undefined;
+    }
+    const windowOpen = elapsed >= STATS.slide.cancelWindowOpen.value - 1e-9;
+    if (windowOpen && (releasedNow(state, cmd, 'Crouch') || pressedNow(state, cmd, 'Jump'))) {
+      state.slide = null;
+      state.tacticalStamina = M.tacticalSprintDuration.value;
+      state.movement = isPressed(cmd, 'TacticalSprint') ? 'tacticalSprint' : 'sprint';
+      return 'stand';
+    }
+    if (elapsed >= STATS.slide.duration.value - 1e-9) {
+      state.slide = null;
+      return undefined;
+    }
+    return 'crouch';
+  }
+  const sprinting = state.movement === 'sprint' || state.movement === 'tacticalSprint';
+  if (state.grounded && sprinting && state.stance === 'stand' && pressedNow(state, cmd, 'Crouch')) {
+    const speed = Math.hypot(state.velocity[0], state.velocity[2]);
+    const dir: readonly [number, number] =
+      speed > EPSILON ? [state.velocity[0] / speed, state.velocity[2] / speed] : basis(state.yaw).forward;
+    state.slide = { dir, entrySpeed: speed, ticks: 0 };
+    return 'crouch';
+  }
+  return undefined;
 }
 
 /**
@@ -142,8 +204,8 @@ function transitionTime(from: Stance, to: Stance): number {
  * stand), if there is headroom, and moves the eye toward that stance's
  * height at the rate its transition time implies.
  */
-function updateStance(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
-  let desired: Stance = isPressed(cmd, 'Prone') ? 'prone' : isPressed(cmd, 'Crouch') ? 'crouch' : 'stand';
+function updateStance(state: MoveState, cmd: UserCmd, world: World, dt: number, forced?: Stance): void {
+  let desired: Stance = forced ?? (isPressed(cmd, 'Prone') ? 'prone' : isPressed(cmd, 'Crouch') ? 'crouch' : 'stand');
   if (desired === 'prone' && !state.grounded) desired = state.stance;
   if (desired !== state.stance && !hullBlocked(world, state.position, hullFor(desired))) {
     state.eyeRate = Math.abs(eyeFor(state.stance) - eyeFor(desired)) / transitionTime(state.stance, desired);
@@ -279,7 +341,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   }
   state.mantleBand = null;
   state.grounded = onGround(world, state.position, hullFor(state.stance));
-  updateStance(state, cmd, world, dt);
+  updateStance(state, cmd, world, dt, updateSlide(state, cmd, dt));
   const hull = hullFor(state.stance);
 
   // Mantle: press jump facing a ledge in a height band (on the ground or in the air).
@@ -304,7 +366,14 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
 
   updateSprint(state, cmd, dt);
   const w = wish(cmd, state.yaw, baseSpeed(state, cmd));
-  if (state.grounded) {
+  if (state.slide) {
+    // Committed to the slide: speed follows the slide curve (midpoint of this tick), direction is locked.
+    const s = state.slide;
+    const speed = Math.max(0, s.entrySpeed - SLIDE_DECELERATION * (s.ticks + 0.5) * dt);
+    state.velocity = [s.dir[0] * speed, 0, s.dir[1] * speed];
+    state.movement = 'slide';
+    s.ticks += 1;
+  } else if (state.grounded) {
     applyFriction(state, dt);
     accelerate(state, w.dir, w.speed, M.groundAcceleration.value, dt);
     state.velocity = [state.velocity[0], 0, state.velocity[2]];
