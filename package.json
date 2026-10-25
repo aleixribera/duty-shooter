@@ -10,7 +10,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @duty-shooter/range",
+    "dev": "npm run dev -w @duty-shooter/range --",
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",

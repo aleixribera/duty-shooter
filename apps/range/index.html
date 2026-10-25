@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Duty Shooter</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #111418;
+        color: #e6e8eb;
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      #view {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #status {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        padding: 4px 8px;
+        background: rgb(0 0 0 / 0.5);
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="status">Starting renderer…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
