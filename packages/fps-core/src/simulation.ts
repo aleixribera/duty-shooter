@@ -88,7 +88,14 @@ export class Simulation {
   }
 
   /** Advances the simulation by one tick and returns the resulting outputs. */
-  step(_cmds: TickCmds = {}): TickOutput {
+  step(cmds: TickCmds = {}): TickOutput {
+    for (const player of this.#players.values()) {
+      const cmd = cmds[player.id];
+      if (cmd) {
+        player.yaw = cmd.yaw;
+        player.pitch = cmd.pitch;
+      }
+    }
     this.#tick += 1;
     return this.output();
   }
