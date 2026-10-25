@@ -17,7 +17,7 @@ const S = STATS.stance;
 const GROUND_PROBE = 1e-3;
 
 /** What the player is doing, as reported in the match outputs. */
-export type MovementState = 'walk' | 'sprint' | 'tacticalSprint';
+export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne';
 
 export type Stance = 'stand' | 'crouch' | 'prone';
 
@@ -195,12 +195,54 @@ function onGround(world: World, pos: Vec3, hull: Hull): boolean {
   return sweep(world, pos, hull, Y, -GROUND_PROBE).hit;
 }
 
+interface MoveResult {
+  readonly pos: Vec3;
+  readonly blocked: readonly [x: boolean, z: boolean];
+}
+
+/** Moves horizontally one axis at a time, stopping at boxes. */
+function slideMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): MoveResult {
+  const rx = sweep(world, pos, hull, X, dx);
+  const afterX = offset(pos, X, rx.moved);
+  const rz = sweep(world, afterX, hull, Z, dz);
+  return {
+    pos: offset(afterX, Z, rz.moved),
+    blocked: [rx.hit && Math.abs(rx.moved) < Math.abs(dx), rz.hit && Math.abs(rz.moved) < Math.abs(dz)],
+  };
+}
+
+/**
+ * Ground move with step-up: if walking is blocked, try the same move from
+ * up to one step height higher and settle back down onto the step. The
+ * stepped move wins if it lands on something and gets further.
+ */
+function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): MoveResult {
+  const flat = slideMove(world, pos, hull, dx, dz);
+  if (!flat.blocked[0] && !flat.blocked[1]) return flat;
+  const up = sweep(world, pos, hull, Y, M.stepHeight.value).moved;
+  if (up <= EPSILON) return flat;
+  const raised = slideMove(world, offset(pos, Y, up), hull, dx, dz);
+  const down = sweep(world, raised.pos, hull, Y, -up);
+  if (!down.hit) return flat;
+  const travelled = (r: MoveResult) => Math.hypot(r.pos[0] - pos[0], r.pos[2] - pos[2]);
+  if (travelled(raised) <= travelled(flat) + EPSILON) return flat;
+  return { pos: offset(raised.pos, Y, down.moved), blocked: raised.blocked };
+}
+
 /** Advances one player by one tick. */
 export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
   state.yaw = cmd.yaw;
   state.grounded = onGround(world, state.position, hullFor(state.stance));
   updateStance(state, cmd, world, dt);
   const hull = hullFor(state.stance);
+
+  let jumped = false;
+  if (state.grounded && state.stance === 'stand' && pressedNow(state, cmd, 'Jump')) {
+    state.velocity = [state.velocity[0], Math.sqrt(2 * M.gravity.value * M.jumpHeight.value), state.velocity[2]];
+    state.grounded = false;
+    jumped = true;
+  }
+  const startedGrounded = state.grounded;
 
   updateSprint(state, cmd, dt);
   const w = wish(cmd, state.yaw, baseSpeed(state, cmd));
@@ -212,28 +254,30 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
     accelerate(state, w.dir, w.speed, M.airAcceleration.value, dt);
   }
 
-  // Horizontal move, one axis at a time.
-  let pos = state.position;
-  for (const axis of [X, Z] as const) {
-    const r = sweep(world, pos, hull, axis, state.velocity[axis] * dt);
-    pos = offset(pos, axis, r.moved);
-    if (r.hit && Math.abs(r.moved) < Math.abs(state.velocity[axis] * dt)) {
-      const v: [number, number, number] = [...state.velocity];
-      v[axis] = 0;
-      state.velocity = v;
-    }
-  }
+  const dx = state.velocity[0] * dt;
+  const dz = state.velocity[2] * dt;
+  const moved = startedGrounded ? stepMove(world, state.position, hull, dx, dz) : slideMove(world, state.position, hull, dx, dz);
+  let pos = moved.pos;
+  state.velocity = [moved.blocked[0] ? 0 : state.velocity[0], state.velocity[1], moved.blocked[1] ? 0 : state.velocity[2]];
 
-  // Vertical move: exact parabola within the tick (average of start and end velocity).
-  if (!state.grounded) {
+  if (startedGrounded) {
+    // Ground snapping: follow the floor down steps; past a step height, start falling.
+    if (!onGround(world, pos, hull)) {
+      const down = sweep(world, pos, hull, Y, -M.stepHeight.value);
+      if (down.hit) pos = offset(pos, Y, down.moved);
+      else state.grounded = false;
+    }
+  } else {
+    // Airborne: exact parabola within the tick (average of start and end velocity).
     const vy0 = state.velocity[1];
     const vy1 = vy0 - M.gravity.value * dt;
     const r = sweep(world, pos, hull, Y, ((vy0 + vy1) / 2) * dt);
     pos = offset(pos, Y, r.moved);
     state.velocity = [state.velocity[0], r.hit ? 0 : vy1, state.velocity[2]];
-    if (r.hit && vy1 < 0) state.grounded = true;
+    if (r.hit && vy1 < 0 && !jumped) state.grounded = true;
   }
 
+  if (!state.grounded) state.movement = 'airborne';
   state.position = pos;
   state.prevButtons = cmd.buttons;
 }
