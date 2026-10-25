@@ -1,5 +1,6 @@
-import { ZERO, type Vec3 } from './math';
-import type { UserCmd } from './usercmd';
+import type { Vec3 } from './math';
+import { createMoveState, pmove, type MoveState } from './movement/pmove';
+import { usercmd, type UserCmd } from './usercmd';
 import type { World } from './world';
 
 /** Simulation rate in ticks per second, identical on client and server. */
@@ -45,10 +46,13 @@ export type TickCmds = Readonly<Partial<Record<PlayerId, UserCmd>>>;
 interface PlayerState {
   readonly id: PlayerId;
   readonly team: TeamId;
-  position: Vec3;
-  velocity: Vec3;
-  yaw: number;
+  readonly move: MoveState;
   pitch: number;
+}
+
+/** Turns -0 into 0 so outputs compare cleanly with deep equality. */
+function clean(v: Vec3): Vec3 {
+  return [v[0] + 0, v[1] + 0, v[2] + 0];
 }
 
 /**
@@ -76,9 +80,7 @@ export class Simulation {
     this.#players.set(spawn.id, {
       id: spawn.id,
       team: spawn.team,
-      position: spawn.position,
-      velocity: ZERO,
-      yaw: spawn.yaw ?? 0,
+      move: createMoveState(spawn.position, spawn.yaw ?? 0),
       pitch: spawn.pitch ?? 0,
     });
   }
@@ -90,11 +92,10 @@ export class Simulation {
   /** Advances the simulation by one tick and returns the resulting outputs. */
   step(cmds: TickCmds = {}): TickOutput {
     for (const player of this.#players.values()) {
-      const cmd = cmds[player.id];
-      if (cmd) {
-        player.yaw = cmd.yaw;
-        player.pitch = cmd.pitch;
-      }
+      // No usercmd means no input; the view keeps its last angles.
+      const cmd = cmds[player.id] ?? usercmd({ yaw: player.move.yaw, pitch: player.pitch });
+      player.pitch = cmd.pitch;
+      pmove(player.move, cmd, this.world, TICK_SECONDS);
     }
     this.#tick += 1;
     return this.output();
@@ -107,9 +108,9 @@ export class Simulation {
       players: [...this.#players.values()].map((p) => ({
         id: p.id,
         team: p.team,
-        position: [...p.position],
-        velocity: [...p.velocity],
-        yaw: p.yaw,
+        position: clean(p.move.position),
+        velocity: clean(p.move.velocity),
+        yaw: p.move.yaw,
         pitch: p.pitch,
       })),
     };

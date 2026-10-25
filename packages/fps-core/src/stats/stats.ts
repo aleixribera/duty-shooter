@@ -121,6 +121,10 @@ export const STATS = {
     toProneTime: estimated(0.6, 's', 'Placeholder: MW2019 prone is visibly slower than crouch; measure by frame count.', 0.1),
     proneToStandTime: estimated(0.7, 's', 'Placeholder; measure by frame count.', 0.1),
     proneToCrouchTime: estimated(0.5, 's', 'Placeholder; measure by frame count.', 0.1),
+    hullHalfWidth: estimated(15 * IW_UNIT, 'm', 'IW3 (CoD4) player bounds mins (-15, -15, 0) / maxs (15, 15, 70), remembered from the IW3 game source lineage; not verified for MW2019.'),
+    standHullHeight: estimated(70 * IW_UNIT, 'm', 'IW3 (CoD4) standing bounds maxs z = 70 u, remembered; not verified for MW2019.'),
+    crouchHullHeight: estimated(50 * IW_UNIT, 'm', 'IW3 (CoD4) crouched bounds maxs z = 50 u, remembered; not verified for MW2019.'),
+    proneHullHeight: estimated(30 * IW_UNIT, 'm', 'IW3 (CoD4) prone bounds maxs z = 30 u, remembered; not verified for MW2019.'),
   },
 
   /** Mantle height bands (upper edge of each band, above the step height) and durations. */
