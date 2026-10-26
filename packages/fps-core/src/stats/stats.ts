@@ -1,3 +1,4 @@
+import type { Material } from '../world';
 import type { Estimated, Source, Stat, Unit } from './types';
 
 /**
@@ -40,6 +41,25 @@ function estimated<U extends Unit>(value: number, unit: U, method: string, toler
   const provenance: Estimated = { kind: 'estimated', method, collected: COLLECTED, ...(tolerance === undefined ? {} : { tolerance }) };
   return { value, unit, provenance };
 }
+
+/** How a material treats a bullet: it stops it, or the bullet carries on, paying for the thickness and losing damage. */
+export type PenetrationRow =
+  | { readonly stops: true }
+  | { readonly stops: false; readonly cost: Stat<'budget/m'>; readonly damage: Stat<'multiplier'> };
+
+const PENETRATION_DATE = '2026-10-26';
+
+/** A material bullets pass through: `cost` budget per metre of thickness, damage multiplied by `damage` per solid. */
+function pierce(cost: number, damage: number, why: string): PenetrationRow {
+  const method = `Tuned for playability, not measured from any game (ADR 0003). ${why}`;
+  return {
+    stops: false,
+    cost: { value: cost, unit: 'budget/m', provenance: { kind: 'estimated', method, collected: PENETRATION_DATE } },
+    damage: { value: damage, unit: 'multiplier', provenance: { kind: 'estimated', method, collected: PENETRATION_DATE } },
+  };
+}
+
+const STOPS: PenetrationRow = { stops: true };
 
 // Sources referenced more than once.
 const WAW_DVAR_DUMP = 'https://www.ugx-mods.com/forum/scripting/50/dvar-dump/21388/';
@@ -257,6 +277,47 @@ export const STATS = {
     lungeRange: estimated(2.0, 'm', 'Not found. IW-lineage player_meleeRange 64 u (1.6 m) plus a short lunge.', 0.25),
     impactTime: estimated(0.15, 's', 'Time from press to the hit; visual estimate.'),
     duration: estimated(0.65, 's', 'Time until the gun can fire again; visual estimate.'),
+  },
+
+  /**
+   * Bullet penetration by material (ADR 0003). A bullet starts with the
+   * budget and pays each penetrable solid's cost per metre of thickness; one
+   * it cannot afford stops it. Damage is multiplied by each solid's
+   * multiplier. The aim is the Nuketown feel: house walls, fences, the bus
+   * and car bodies are wallbang-able, two walls still kill at close range,
+   * and brick, concrete, engine blocks and the ground are safe cover.
+   */
+  penetration: {
+    budget: {
+      value: 1,
+      unit: 'budget',
+      provenance: {
+        kind: 'estimated',
+        method: 'The scale the per-material costs are tuned against: one bullet affords about two house walls (2 x 0.2 m of wood) or a car body (2 x 0.05 m of sheet metal) plus a pane of glass.',
+        collected: PENETRATION_DATE,
+      },
+    },
+    materials: {
+      // Siding and interior stud walls: the classic Nuketown wallbang. 0.2 m costs 0.4, so two walls go through.
+      wood: pierce(2, 0.75, 'Siding, stud walls, fences and doors: a 0.2 m wall costs 0.4 of the budget, so a bullet goes through two walls, at 75 % damage per wall.'),
+      // Interior drywall is thinner and slightly softer than the siding.
+      plaster: pierce(2.5, 0.8, 'Interior drywall: 0.12 m costs 0.3; 80 % damage per wall.'),
+      // Windows barely slow a bullet.
+      glass: pierce(0.5, 0.95, 'Windows: nearly free (0.01 m costs 0.005), 95 % damage.'),
+      // Bus and car body panels: thin but each one takes a bite, so shooting through a car is a real cost.
+      sheetMetal: pierce(6, 0.65, 'Bus and car body panels: a 0.05 m panel costs 0.3 and leaves 65 % damage, so both sides of a car leave 42 %.'),
+      // Bins, mannequin bodies and garden furniture.
+      plastic: pierce(1, 0.9, 'Bins, garden furniture and mannequin bodies: cheap to shoot through, 90 % damage.'),
+      // Safe cover and the ground stop bullets outright.
+      concrete: STOPS,
+      brick: STOPS,
+      metal: STOPS, // engine blocks and steel
+      dirt: STOPS,
+      grass: STOPS,
+      sand: STOPS,
+      gravel: STOPS,
+      asphalt: STOPS,
+    } satisfies Record<Material, PenetrationRow>,
   },
 
   /** Hit reactions, lag compensation and range dummies. */

@@ -13,7 +13,9 @@ export type Unit =
   | 'deg/s'
   | 'level'
   | 'rounds'
-  | 'multiplier';
+  | 'multiplier'
+  | 'budget'
+  | 'budget/m';
 
 /** Where a measured number came from. */
 export interface Source {

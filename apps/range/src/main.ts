@@ -12,6 +12,7 @@ import {
   saveSettings,
   type GameDriver,
   type Lobby,
+  type LobbyInfo,
   type Settings,
 } from '@duty-shooter/fps-client';
 import { createWorld } from '@duty-shooter/fps-core';
@@ -91,8 +92,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     {
       playOffline: () => play(new OfflineDriver({ solids, spawn: map.rangeSpawn, dummies: map.dummies })),
       playOnline: (name, passphrase) => {
-        const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-        play(new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids, name, passphrase }));
+        // The lobby status first: a full server is reported without opening a socket.
+        void lobbyStatus().then((status) => {
+          if (lobby?.kind === 'server') lobby.status = status;
+          if (status && status.players >= status.capacity) {
+            menu.show('join', 'The server is full.');
+            return;
+          }
+          const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+          play(new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids, name, passphrase }));
+        });
       },
       resume: () => void enter(),
       leave: () => {
@@ -156,6 +165,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   });
 }
 
+/** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
+async function lobbyStatus(): Promise<LobbyInfo | null> {
+  try {
+    const res = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+    return res.ok ? ((await res.json()) as LobbyInfo) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Where online play is: the game server that served this page (it answers
  * /healthz), else the server's address baked into a copy built without one
@@ -167,7 +186,7 @@ async function findLobby(): Promise<Lobby | null> {
     try {
       const res = await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
       const health = res.ok && res.headers.get('content-type')?.includes('application/json') ? ((await res.json()) as { status?: unknown; public?: unknown }) : null;
-      if (health?.status === 'ok') return { kind: 'server', public: health.public === true };
+      if (health?.status === 'ok') return { kind: 'server', public: health.public === true, status: await lobbyStatus() };
     } catch {
       // No game server behind this page.
     }

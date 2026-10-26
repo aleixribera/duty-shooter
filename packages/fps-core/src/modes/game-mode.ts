@@ -1,5 +1,6 @@
 import type { Vec3 } from '../math';
 import type { PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
+import type { World } from '../world';
 
 /** A place players can spawn. */
 export interface SpawnPoint {
@@ -7,14 +8,25 @@ export interface SpawnPoint {
   readonly yaw: number;
 }
 
+/** The game modes a lobby can run. */
+export type ModeId = 'tdm' | 'ffa';
+export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa'];
+
 /** What a game mode can see of the match. */
 export interface ModeContext {
   readonly tick: number;
   /** Simulation time in seconds. */
   readonly time: number;
+  /** Seconds since the current match started. */
+  readonly matchTime: number;
   /** Real players (not dummies), alive or dead. */
   readonly players: readonly PlayerOutput[];
+  /** Free-for-all spawn points, spread over the map. */
   readonly spawns: readonly SpawnPoint[];
+  /** One spawn set per team (team 1, then team 2), or null on a map without them. */
+  readonly teamSpawns: readonly (readonly SpawnPoint[])[] | null;
+  /** For line-of-sight checks when choosing spawns. */
+  readonly world: World;
 }
 
 /** One row of the scoreboard. */
@@ -27,19 +39,48 @@ export interface Score {
   readonly score: number;
 }
 
-/** Something the game mode wants clients to know about. */
+/** A team's total in a team mode. */
+export interface TeamScore {
+  readonly team: TeamId;
+  readonly score: number;
+}
+
+/** How a match ended. `winner` is a player id in free-for-all and a team id in team modes; null on a draw. */
+export interface MatchResult {
+  readonly winner: PlayerId | TeamId | null;
+  readonly winnerName: string | null;
+  readonly draw: boolean;
+  readonly reason: 'killLimit' | 'timeLimit';
+}
+
+/** Something the game mode or the match flow wants clients to know about. */
 export type ModeEvent =
   | { readonly type: 'killFeed'; readonly killer: PlayerId | null; readonly killerName: string | null; readonly victim: PlayerId; readonly victimName: string; readonly cause: 'bullet' | 'melee' | 'fall'; readonly headshot: boolean }
-  | { readonly type: 'matchEnd'; readonly winner: PlayerId | TeamId | null; readonly winnerName: string | null }
-  | { readonly type: 'matchStart' };
+  | ({ readonly type: 'matchEnd' } & MatchResult)
+  | { readonly type: 'matchStart'; readonly mode: ModeId };
+
+/** A player as a mode sees them at the start of a match: their team in the previous match, if any. */
+export interface MatchEntrant {
+  readonly id: PlayerId;
+  readonly name: string;
+  readonly team: TeamId | null;
+}
 
 /**
- * Game rules: scoring, team assignment, friendly fire, spawn selection,
- * round flow and win conditions. The server owns one; the simulation knows
- * nothing about it beyond the damage rule.
+ * Game rules: scoring, team assignment, friendly fire, spawn selection and
+ * win conditions. The server owns one of each kind and switches between them
+ * at match start; the simulation knows nothing about them beyond the damage
+ * rule. The intermission and voting between matches belong to the server.
  */
 export interface GameMode {
+  readonly id: ModeId;
   readonly name: string;
+  /** Kills that win the match (a player's in free-for-all, a team's in team modes); null for none. */
+  readonly killLimit: number | null;
+  /** Seconds a match lasts before the leader wins; null for no limit. */
+  readonly timeLimit: number | null;
+  /** Seconds a dead player waits before respawning (0 = instant). */
+  readonly respawnDelay: number;
   /** A joining player's team. */
   join(id: PlayerId, name: string, ctx: ModeContext): TeamId;
   leave(id: PlayerId): void;
@@ -47,13 +88,16 @@ export interface GameMode {
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean;
   /** Where `id` should (re)spawn. */
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint;
-  /** Seconds a dead player waits before respawning (0 = instant). */
-  readonly respawnDelay: number;
+  /**
+   * A new match: scores back to zero, and every player gets a team, moving as
+   * few players as possible from the team they had. Returns everyone's team.
+   */
+  start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId>;
   /** Reacts to a tick's simulation events (kills, ...) and returns what clients should hear about. */
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[];
-  /** Round flow, once per tick. `restart` asks the server to respawn everyone (a new round). */
-  update(ctx: ModeContext): { events: ModeEvent[]; restart: boolean };
+  /** How the match ended, once a kill or time limit is reached; null while it is on. */
+  result(ctx: ModeContext): MatchResult | null;
   scores(): Score[];
-  /** The winner once a win condition is met, otherwise null. */
-  winner(): PlayerId | TeamId | null;
+  /** Team totals in a team mode, null otherwise. */
+  teamScores(): readonly TeamScore[] | null;
 }

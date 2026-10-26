@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
 import { GameServer, TICK_SECONDS, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
-import { FreeForAll } from '@duty-shooter/fps-core/modes';
+import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { buildMap, collisionSolids } from '@duty-shooter/range/map';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -17,6 +17,8 @@ export interface ServerOptions {
   readonly staticDir: string;
   /** The release this server was built from (`git describe`), reported by /healthz. */
   readonly version: string;
+  /** The mode an empty server starts in (a first joiner may pick another). */
+  readonly mode: ModeId;
 }
 
 export interface RunningServer {
@@ -195,7 +197,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const game = new GameServer(transport, {
     world: createWorld(collisionSolids(map)),
-    mode: new FreeForAll(),
+    map: 'range',
+    mode: options.mode,
     spawns: map.arenaSpawns,
     dummies: map.dummies,
     passphrase: options.passphrase,
@@ -205,6 +208,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version }));
+      return;
+    }
+    if (req.url === '/status') {
+      // The lobby as the Play Online menu shows it, fetched before joining.
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(game.status()));
       return;
     }
     void serveStatic(root, req, res);
@@ -274,6 +282,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   const passphrase = env['PASSPHRASE'] ?? '';
   const maxPlayers = Number(env['MAX_PLAYERS'] ?? 8);
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
+  const mode = env['MODE'] ?? 'tdm';
+  if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
   return {
     port: Number(env['PORT'] ?? 3000),
     host: env['HOST'] ?? '0.0.0.0',
@@ -281,5 +291,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     maxPlayers,
     staticDir: env['STATIC_DIR'] ?? defaultStaticDir,
     version: env['DUTY_VERSION'] || 'dev',
+    mode: mode as ModeId,
   };
 }

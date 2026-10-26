@@ -1,6 +1,6 @@
 import { hitBody, zoneCentre, type HitPose, type HitZone } from './combat/hitboxes';
 import { bulletDamage } from './combat/damage';
-import { advance, raycastWorld, type Projectile } from './combat/projectiles';
+import { advance, raycastWorld, solidNormal, solidSpan, type Projectile } from './combat/projectiles';
 import { fallDamage } from './health';
 import { DEG, distance, dot, length, lerpVec, sub, viewDirection, type Vec3 } from './math';
 import type { MantleBand } from './movement/mantle';
@@ -9,7 +9,7 @@ import { hashString, noise } from './random';
 import { STATS } from './stats';
 import { Button, usercmd, type UserCmd } from './usercmd';
 import { createWeaponState, currentSpread, updateWeapon, wantsFire, type ReloadKind, type WeaponAction, type WeaponState } from './weapon/weapon';
-import type { Material, World } from './world';
+import type { Material, Solid, World } from './world';
 
 /** Simulation rate in ticks per second, identical on client and server. */
 export const TICK_RATE = 60;
@@ -104,7 +104,17 @@ export type SimEvent =
       readonly killed: boolean;
       readonly cause: 'bullet' | 'melee';
     }
-  | { readonly type: 'impact'; readonly shooter: PlayerId; readonly point: Vec3; readonly normal: Vec3; readonly material: Material }
+  | {
+      readonly type: 'impact';
+      readonly shooter: PlayerId;
+      readonly point: Vec3;
+      readonly normal: Vec3;
+      readonly material: Material;
+      /** Where the bullet met the surface: going in, or coming out of a solid it penetrated. */
+      readonly side: 'entry' | 'exit';
+    }
+  /** A bullet went through a prop (a mannequin head). Props never slow a bullet. */
+  | { readonly type: 'prop'; readonly shooter: PlayerId; readonly prop: string; readonly point: Vec3; readonly direction: Vec3 }
   | { readonly type: 'kill'; readonly killer: PlayerId | null; readonly victim: PlayerId; readonly cause: 'bullet' | 'melee' | 'fall'; readonly zone: HitZone | null }
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
   | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null };
@@ -144,7 +154,7 @@ export interface PlayerInfo {
  */
 export interface PlayerState {
   readonly id: PlayerId;
-  readonly team: TeamId;
+  team: TeamId;
   readonly kind: EntityKind;
   move: MoveState;
   weapon: WeaponState;
@@ -253,6 +263,12 @@ export class Simulation {
       spawn: { position: spawn.position, yaw },
       dummy: spawn.dummy ?? null,
     });
+  }
+
+  /** Moves a player to another team (team modes rebalance at match start). */
+  setTeam(id: PlayerId, team: TeamId): void {
+    const p = this.#players.get(id);
+    if (p) p.team = team;
   }
 
   removePlayer(id: PlayerId): void {
@@ -385,6 +401,9 @@ export class Simulation {
         velocity: [direction[0] * speed, direction[1] * speed, direction[2] * speed],
         rewind,
         pending: (1 - shot.fraction) * TICK_SECONDS,
+        budget: STATS.penetration.budget.value,
+        damageScale: 1,
+        passed: [],
       });
       this.#events.push({ type: 'shot', shooter: player.id, origin: eye, direction, index: shot.index, fraction: shot.fraction });
       // Recoil kicks the view after the shot leaves.
@@ -487,7 +506,6 @@ export class Simulation {
       const seconds = p.pending;
       p.pending = TICK_SECONDS;
       const { from, to, velocity } = advance(p, seconds);
-      const world = raycastWorld(this.world, from, to);
       let body: { victim: PlayerState; zone: HitZone; t: number } | null = null;
       const shooter = this.#players.get(p.shooter);
       for (const [id, pose] of this.#posesAt(p.rewind)) {
@@ -497,24 +515,60 @@ export class Simulation {
         const hit = hitBody(pose, from, to);
         if (hit && (!body || hit.t < body.t)) body = { victim, zone: hit.zone, t: hit.t };
       }
-      if (body && (!world || body.t <= world.t)) {
+      const stopped = this.#traceWorld(p, from, to, body?.t ?? Infinity);
+      if (body && (stopped === null || body.t <= stopped)) {
         const point = lerpVec(from, to, body.t);
         const dist = distance(p.origin, point);
-        const damage = bulletDamage(dist, body.zone);
+        const damage = bulletDamage(dist, body.zone) * p.damageScale;
         const killed = this.#damage(body.victim, damage, p.shooter, 'bullet', body.zone);
         this.#events.push({ type: 'hit', shooter: p.shooter, victim: body.victim.id, zone: body.zone, damage, distance: dist, point, killed, cause: 'bullet' });
         this.#flinch(body.victim);
         continue;
       }
-      if (world) {
-        this.#events.push({ type: 'impact', shooter: p.shooter, point: world.point, normal: world.normal, material: world.material });
-        continue;
-      }
+      if (stopped !== null) continue;
       p.position = to;
       p.velocity = velocity;
       if (distance(p.origin, to) < maxRange) next.push(p);
     }
     this.#projectiles = next;
+  }
+
+  /**
+   * Walks a bullet's segment through the solids it meets before `limit`
+   * (where it would hit a body), in order: props report a hit and are passed
+   * freely, penetrable solids it can afford are passed at a cost in budget
+   * and damage, with an impact on each side. Returns where a solid stopped
+   * it (after its entry impact), or null if it got through.
+   */
+  #traceWorld(p: Projectile, from: Vec3, to: Vec3, limit: number): number | null {
+    const met: { index: number; solid: Solid; enter: number; exit: number }[] = [];
+    for (const index of this.world.bullets.alongSegment(from, to)) {
+      if (p.passed.includes(index)) continue;
+      const solid = this.world.solids[index] as Solid;
+      const span = solidSpan(from, to, solid);
+      if (span && span.enter < limit) met.push({ index, solid, ...span });
+    }
+    met.sort((a, b) => a.enter - b.enter || a.index - b.index);
+    const length = distance(from, to);
+    for (const { index, solid, enter, exit } of met) {
+      const point = lerpVec(from, to, enter);
+      p.passed.push(index);
+      if (solid.prop !== null) {
+        const direction: Vec3 = [(to[0] - from[0]) / length, (to[1] - from[1]) / length, (to[2] - from[2]) / length];
+        this.#events.push({ type: 'prop', shooter: p.shooter, prop: solid.prop, point, direction });
+        continue;
+      }
+      this.#events.push({ type: 'impact', shooter: p.shooter, point, normal: solidNormal(solid, point), material: solid.material, side: 'entry' });
+      const row = STATS.penetration.materials[solid.material];
+      if (row.stops) return enter;
+      const cost = (exit - enter) * length * row.cost.value;
+      if (cost > p.budget + 1e-9) return enter;
+      p.budget -= cost;
+      p.damageScale *= row.damage.value;
+      const out = lerpVec(from, to, exit);
+      this.#events.push({ type: 'impact', shooter: p.shooter, point: out, normal: solidNormal(solid, out), material: solid.material, side: 'exit' });
+    }
+    return null;
   }
 
   /** Applies damage; returns true if it killed. Emits the kill event. */

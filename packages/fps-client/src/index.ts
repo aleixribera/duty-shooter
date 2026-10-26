@@ -17,7 +17,7 @@ export { PlayersView } from './players-view';
 export { Hud } from './hud/hud';
 export type { HitKind, HudState } from './hud/hud';
 export { Menu } from './ui/menu';
-export type { Lobby, MenuCallbacks } from './ui/menu';
+export type { Lobby, LobbyInfo, MenuCallbacks } from './ui/menu';
 export { OfflineDriver, OnlineDriver } from './session';
 export type { DriverTick, GameDriver, OfflineOptions, OnlineOptions, PresentedEvent } from './session';
 export { connectWebSocket } from './net/websocket';

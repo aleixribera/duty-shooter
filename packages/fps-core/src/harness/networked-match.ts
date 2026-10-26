@@ -1,5 +1,6 @@
-import { FreeForAll } from '../modes/ffa';
-import type { GameMode, SpawnPoint } from '../modes/game-mode';
+import type { FreeForAllOptions } from '../modes/ffa';
+import type { ModeEvent, ModeId, SpawnPoint } from '../modes/game-mode';
+import type { TeamDeathmatchOptions } from '../modes/tdm';
 import { GameClient, type ClientFrame } from '../net/client';
 import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } from '../net/memory';
 import { GameServer } from '../net/server';
@@ -10,9 +11,13 @@ import { createWorld, type Solid } from '../world';
 export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly solids: readonly Solid[];
   readonly spawns: readonly SpawnPoint[];
+  /** One spawn set per team, for team deathmatch. */
+  readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
   readonly dummies?: readonly PlayerSpawn[];
-  /** Defaults to free-for-all. */
-  readonly mode?: GameMode;
+  /** The mode the server starts in. Defaults to free-for-all (the live server defaults to team deathmatch). */
+  readonly mode?: ModeId;
+  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions };
+  readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** The server's passphrase; defaults to 'letmein'. */
   readonly passphrase?: string;
   readonly maxPlayers?: number;
@@ -37,13 +42,15 @@ export type NetworkedScript = (tick: number) => Readonly<Record<string, UserCmd>
 export interface NetworkedMatch {
   readonly server: GameServer;
   readonly network: MemoryNetwork;
-  /** Connects a client that will join with `name` and `passphrase` (the server's by default). */
-  join(name: string, options?: { passphrase?: string }): NetworkedClient;
+  /** Connects a client that will join with `name` and `passphrase` (the server's by default), optionally asking for a mode. */
+  join(name: string, options?: { passphrase?: string; mode?: ModeId }): NetworkedClient;
   /** One tick: deliver due messages, step the server, then step every client with its usercmd. */
   step(cmds?: Readonly<Record<string, UserCmd>>): TickOutput;
   run(ticks: number, script?: NetworkedScript): TickOutput[];
   /** The server's outputs of every tick so far. */
   readonly history: readonly TickOutput[];
+  /** The server's game-mode events (kill feed, match end and start) of every tick so far, aligned with `history`. */
+  readonly modeHistory: readonly (readonly ModeEvent[])[];
   client(name: string): NetworkedClient;
 }
 
@@ -52,14 +59,18 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
   const passphrase = options.passphrase ?? 'letmein';
   const server = new GameServer(network.server, {
     world: createWorld(options.solids),
-    mode: options.mode ?? new FreeForAll(),
+    mode: options.mode ?? 'ffa',
     spawns: options.spawns,
+    ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
+    ...(options.modes ? { modes: options.modes } : {}),
+    ...(options.intermission ? { intermission: options.intermission } : {}),
     passphrase,
     ...(options.dummies ? { dummies: options.dummies } : {}),
     ...(options.maxPlayers === undefined ? {} : { maxPlayers: options.maxPlayers }),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];
+  const modeHistory: (readonly ModeEvent[])[] = [];
 
   const view = (c: { name: string; client: GameClient; frames: ClientFrame[] }): NetworkedClient => ({
     name: c.name,
@@ -74,6 +85,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     network.advance(TICK_SECONDS);
     const out = server.tick();
     history.push(out);
+    modeHistory.push(server.modeEvents);
     for (const c of clients.values()) c.frames.push(c.client.tick(cmds[c.name] ?? usercmd()));
     return out;
   };
@@ -83,7 +95,13 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     network,
     join(name, joinOptions = {}) {
       if (clients.has(name)) throw new Error(`Client ${name} already joined`);
-      const client = new GameClient({ connection: network.connect(), world: createWorld(options.solids), name, passphrase: joinOptions.passphrase ?? passphrase });
+      const client = new GameClient({
+        connection: network.connect(),
+        world: createWorld(options.solids),
+        name,
+        passphrase: joinOptions.passphrase ?? passphrase,
+        ...(joinOptions.mode ? { mode: joinOptions.mode } : {}),
+      });
       const entry = { name, client, frames: [] as ClientFrame[] };
       clients.set(name, entry);
       return view(entry);
@@ -96,6 +114,9 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     },
     get history() {
       return history;
+    },
+    get modeHistory() {
+      return modeHistory;
     },
     client(name) {
       const c = clients.get(name);

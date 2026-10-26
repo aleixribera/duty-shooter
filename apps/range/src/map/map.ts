@@ -55,6 +55,15 @@ export interface GapStation {
   readonly height: number;
 }
 
+/** Targets behind one panel each, to check wallbang damage against the stats file's penetration table. */
+export interface PenetrationStation {
+  /** Where to stand, facing the panels. */
+  readonly shooter: SpawnPoint;
+  readonly lanes: readonly { readonly material: Material; readonly thickness: number; readonly dummy: string }[];
+  /** A mannequin whose head is a prop. */
+  readonly mannequinHead: string;
+}
+
 export interface GameMap {
   /** Solids that are drawn and collided against. */
   readonly solids: readonly Solid[];
@@ -75,6 +84,7 @@ export interface GameMap {
     readonly stairs: { readonly start: SpawnPoint; readonly top: number };
     readonly ramp: { readonly start: SpawnPoint; readonly top: number };
   };
+  readonly penetration: PenetrationStation;
 }
 
 /** Every solid the simulation collides against. */
@@ -113,6 +123,7 @@ export function buildMap(): GameMap {
   buildRange(add, labels);
   const course = buildCourse(add, hidden, ramps, labels);
   const arenaSpawns = buildArena(add, labels);
+  const penetration = buildPenetrationStation(add, solids, labels);
 
   const dummies: PlayerSpawn[] = [
     { id: 'dummy-10', team: 0, position: [-58, 0, -10], yaw: Math.PI, dummy: {} },
@@ -120,6 +131,7 @@ export function buildMap(): GameMap {
     { id: 'dummy-50', team: 0, position: [-40, 0, -50], yaw: Math.PI, dummy: {} },
     { id: 'dummy-walk', team: 0, position: [-33, 0, -20], yaw: Math.PI, dummy: { rail: { to: [-22, 0, -20], speed: STATS.movement.walkSpeed.value } } },
     { id: 'dummy-sprint', team: 0, position: [-33, 0, -40], yaw: Math.PI, dummy: { rail: { to: [-22, 0, -40], speed: STATS.movement.sprintSpeed.value } } },
+    ...penetration.lanes.map((lane, i): PlayerSpawn => ({ id: lane.dummy, team: 0, position: [PEN_X0 + i * PEN_LANE, 0, PEN_DUMMY_Z], yaw: Math.PI, dummy: {} })),
   ];
 
   return {
@@ -131,6 +143,7 @@ export function buildMap(): GameMap {
     rangeSpawn: { position: [-48, 0, 0], yaw: FACING_NEG_Z },
     dummies,
     course,
+    penetration,
   };
 }
 
@@ -288,6 +301,51 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
     stairs: { start: { position: [8, 0, -1], yaw: FACING_NEG_Z }, top: deck },
     ramp: { start: { position: [14, 0, -1], yaw: FACING_NEG_Z }, top: deck },
   };
+}
+
+const PEN_X0 = 33;
+const PEN_LANE = 6;
+const PEN_PANEL_Z = 18;
+const PEN_DUMMY_Z = 13;
+
+/**
+ * The penetration station, in the open strip behind the firing line east of
+ * the course: four lanes with a dummy behind a wood panel, a plaster wall, a
+ * sheet-metal panel and a brick wall, each signed with the damage that gets
+ * through. Beside it, a mannequin whose head can be shot off.
+ */
+function buildPenetrationStation(add: Add, solids: Solid[], labels: Label[]): PenetrationStation {
+  const lanes = [
+    { material: 'wood', thickness: 0.2 },
+    { material: 'plaster', thickness: 0.12 },
+    { material: 'sheetMetal', thickness: 0.05 },
+    { material: 'brick', thickness: 0.25 },
+  ] as const;
+  const out: { material: Material; thickness: number; dummy: string }[] = [];
+  lanes.forEach(({ material, thickness }, i) => {
+    const x = PEN_X0 + i * PEN_LANE;
+    add([x - 1.5, 0, PEN_PANEL_Z - thickness], [x + 1.5, 2.4, PEN_PANEL_Z], material);
+    const row = STATS.penetration.materials[material];
+    const through = row.stops ? 'STOPS' : `${Math.round(row.damage.value * 100)} %`;
+    labels.push({ text: `${material.toUpperCase()} ${through}`, position: [x, 2.7, PEN_PANEL_Z + 0.01], yaw: FACING_NEG_Z, size: 0.35 });
+    out.push({ material, thickness, dummy: `dummy-pen-${material}` });
+  });
+  // Lane dividers, so a stray shot does not land in the next lane.
+  for (let i = 0; i <= lanes.length; i++) {
+    const x = PEN_X0 - PEN_LANE / 2 + i * PEN_LANE;
+    add([x - 0.15, 0, PEN_DUMMY_Z - 2], [x + 0.15, 2.4, PEN_PANEL_Z], 'concrete');
+  }
+  add([PEN_X0 - PEN_LANE / 2, 0, PEN_DUMMY_Z - 2.3], [PEN_X0 - PEN_LANE / 2 + PEN_LANE * lanes.length, 3, PEN_DUMMY_Z - 2], 'concrete');
+  labels.push({ text: 'PENETRATION', position: [PEN_X0 + (PEN_LANE * (lanes.length - 1)) / 2, 3.4, PEN_DUMMY_Z - 1.99], yaw: FACING_NEG_Z, size: 0.6 });
+
+  // A mannequin on a stand: plastic body, its head a prop that a shot knocks off.
+  const mx = PEN_X0 + PEN_LANE * lanes.length + 1;
+  const mz = PEN_PANEL_Z - 2;
+  add([mx - 0.25, 0, mz - 0.15], [mx + 0.25, 1.45, mz + 0.15], 'plastic');
+  const mannequinHead = 'range-mannequin-head';
+  solids.push(box({ min: [mx - 0.12, 1.47, mz - 0.12], max: [mx + 0.12, 1.75, mz + 0.12], material: 'plastic', prop: mannequinHead }));
+
+  return { shooter: { position: [PEN_X0 + PEN_LANE * 1.5, 0, 26], yaw: FACING_NEG_Z }, lanes: out, mannequinHead };
 }
 
 /**

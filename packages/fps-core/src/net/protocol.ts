@@ -1,9 +1,9 @@
-import type { ModeEvent, Score } from '../modes/game-mode';
+import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type Score, type TeamScore } from '../modes/game-mode';
 import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -20,8 +20,40 @@ export interface SequencedCmd {
 }
 
 export type ClientMessage =
-  | { readonly t: 'join'; readonly name: string; readonly passphrase: string; readonly protocol: number }
-  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[] };
+  | {
+      readonly t: 'join';
+      readonly name: string;
+      readonly passphrase: string;
+      readonly protocol: number;
+      /** The mode the joiner would like; honoured only on an empty server. */
+      readonly mode?: ModeId;
+    }
+  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[] }
+  /** A vote for the next match's mode, changeable until the vote window closes. */
+  | { readonly t: 'vote'; readonly mode: ModeId };
+
+/**
+ * Where the match is: playing, or in the intermission after `matchEnd`
+ * (the nuke, then the scoreboard and vote, then `matchStart`).
+ */
+export type Phase = 'playing' | 'nuke' | 'vote';
+
+/** The match as every client needs it: mode, phase and its deadline, limits, team scores and the vote. */
+export interface MatchStatus {
+  readonly mode: ModeId;
+  readonly phase: Phase;
+  /** Simulation time (s) the phase ends: the time limit while playing (null without one), the next phase in the intermission. */
+  readonly phaseEnds: number | null;
+  readonly killLimit: number | null;
+  readonly timeLimit: number | null;
+  readonly teamScores: readonly TeamScore[] | null;
+  /** Votes cast so far for each mode. */
+  readonly votes: Readonly<Record<ModeId, number>>;
+  /** The mode the next match will be if the vote ended now. */
+  readonly next: ModeId;
+  /** How the match ended, during the intermission. */
+  readonly result: MatchResult | null;
+}
 
 /** A simulation or game-mode event, stamped with its tick and position in that tick for de-duplication. */
 export interface StampedEvent {
@@ -43,10 +75,13 @@ export interface Snapshot {
   readonly scores: readonly Score[];
   /** Display names by player id. */
   readonly names: Readonly<Record<string, string>>;
+  /** Ids of the props shot this match (mannequin heads knocked off), in the order they went. */
+  readonly popped: readonly string[];
+  readonly match: MatchStatus;
 }
 
 export type ServerMessage =
-  | { readonly t: 'welcome'; readonly id: string; readonly tick: number; readonly mode: string; readonly maxPlayers: number }
+  | { readonly t: 'welcome'; readonly id: string; readonly tick: number; readonly mode: ModeId; readonly map: string; readonly maxPlayers: number }
   | { readonly t: 'reject'; readonly reason: RejectReason }
   | Snapshot;
 
@@ -64,9 +99,14 @@ export function decodeClient(data: string): ClientMessage | null {
   }
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
-    const { name, passphrase, protocol } = value;
+    const { name, passphrase, protocol, mode } = value;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
-    return { t: 'join', name, passphrase, protocol };
+    if (mode !== undefined && !isMode(mode)) return null;
+    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }) };
+  }
+  if (value['t'] === 'vote') {
+    const { mode } = value;
+    return isMode(mode) ? { t: 'vote', mode } : null;
   }
   if (value['t'] === 'cmds') {
     const cmds = value['cmds'];
@@ -89,6 +129,10 @@ export function decodeServer(data: string): ServerMessage | null {
   } catch {
     return null;
   }
+}
+
+function isMode(value: unknown): value is ModeId {
+  return typeof value === 'string' && (MODE_IDS as readonly string[]).includes(value);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

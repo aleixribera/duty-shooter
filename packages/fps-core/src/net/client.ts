@@ -1,9 +1,9 @@
 import { angleDelta, lerpVec, type Vec3 } from '../math';
-import type { ModeEvent, Score } from '../modes/game-mode';
+import type { ModeEvent, ModeId, Score } from '../modes/game-mode';
 import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 import type { World } from '../world';
-import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
+import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
 import type { Connection } from './transport';
 
 export interface GameClientOptions {
@@ -11,6 +11,8 @@ export interface GameClientOptions {
   readonly world: World;
   readonly name: string;
   readonly passphrase: string;
+  /** The mode to ask for; the server honours it only when nobody else is playing. */
+  readonly mode?: ModeId;
   /** How far behind the newest snapshot other players are drawn, in ticks. */
   readonly interpolationDelay?: number;
   /** Half-life (s) of the visual smoothing applied to prediction corrections. */
@@ -127,6 +129,26 @@ export class GameClient {
     return this.#latest?.names ?? {};
   }
 
+  /** Mode, phase, clock, team scores and vote, per the newest snapshot. */
+  get match(): MatchStatus | null {
+    return this.#latest?.match ?? null;
+  }
+
+  /** The server's simulation time (s) as this client estimates it now, for counting down to `match.phaseEnds`. */
+  get serverTime(): number {
+    return this.#serverTick * TICK_SECONDS;
+  }
+
+  /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
+  vote(mode: ModeId): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));
+  }
+
+  /** Ids of the props shot this match, per the newest snapshot. */
+  get popped(): readonly string[] {
+    return this.#latest?.popped ?? [];
+  }
+
   /** The newest authoritative snapshot. */
   get snapshot(): Snapshot | null {
     return this.#latest;
@@ -150,7 +172,9 @@ export class GameClient {
     const server = [...this.#fresh.splice(0), ...this.#readInbox()];
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
-      this.#connection.send(encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION }));
+      this.#connection.send(
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}) }),
+      );
     }
     this.#advanceClock();
     this.#decayCorrection();
@@ -163,10 +187,16 @@ export class GameClient {
     const sent: UserCmd = { ...cmd, viewTick: this.renderTick };
     this.#pending.push({ seq, cmd: sent });
     this.#sentAt.set(seq, this.#ticks);
-    const out = this.#local.step({ [this.#id]: sent });
+    // The server ignores input during the intermission, so prediction does too.
+    const out = this.#local.step({ [this.#id]: this.#frozen ? [] : sent });
     this.#self = out.players.find((p) => p.id === this.#id) ?? null;
     this.#connection.send(encode({ t: 'cmds', cmds: this.#pending.slice(-REDUNDANT_CMDS) }));
     return { self: this.#self, predicted: out.events, server };
+  }
+
+  get #frozen(): boolean {
+    const phase = this.#latest?.match.phase;
+    return phase !== undefined && phase !== 'playing';
   }
 
   #readInbox(): (SimEvent | ModeEvent)[] {
@@ -251,7 +281,7 @@ export class GameClient {
     this.#pending = this.#pending.filter((p) => p.seq > snap.ack);
     for (const seq of [...this.#sentAt.keys()]) if (seq < snap.ack) this.#sentAt.delete(seq);
     let out = this.#local.output();
-    for (const p of this.#pending) out = this.#local.step({ [id]: p.cmd }, { replay: true });
+    for (const p of this.#pending) out = this.#local.step({ [id]: this.#frozen ? [] : p.cmd }, { replay: true });
     const after = out.players.find((p) => p.id === id) ?? null;
     if (before && after) {
       const delta: Vec3 = [before[0] - after.position[0], before[1] - after.position[1], before[2] - after.position[2]];
@@ -310,6 +340,7 @@ function isOwnCosmetic(event: SimEvent | ModeEvent, id: PlayerId | null): boolea
   switch (event.type) {
     case 'shot':
     case 'impact':
+    case 'prop':
       return event.shooter === id;
     case 'reload':
       return event.player === id;

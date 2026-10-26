@@ -38,3 +38,5 @@ Wallbangs and shootable mannequin heads. See the spec section "Bullet penetratio
 - [ ] The playtester agent confirms the range station in the browser: impacts on both sides, and damage numbers that match the table.
 
 ## Comments
+
+Implementation done; the browser check by the playtester is still open. Penetration table in `STATS.penetration` (stats file), the trace in `Simulation.#traceWorld`, tests in `packages/fps-core/test/penetration.test.ts` (including the networked wallbang and the popped-prop tests) and `apps/range/test/map.test.ts` (the station lanes). Impact events carry `side: 'entry' | 'exit'`. The server keeps popped props in every snapshot (`popped`), so a late joiner gets them; they clear at `matchStart`. The client draws props as their own meshes, hides popped ones and drops a tumbling copy. Range overlay gained a "Last hit" readout so the station's numbers can be read off. First browser attempt: the browser pane refused pointer lock; retry with `?nolock` once ticket 06 adds a spot to start at.

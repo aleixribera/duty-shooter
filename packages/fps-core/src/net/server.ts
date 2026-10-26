@@ -1,4 +1,6 @@
-import type { GameMode, ModeContext, ModeEvent, SpawnPoint } from '../modes/game-mode';
+import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
+import { MODE_IDS, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type SpawnPoint } from '../modes/game-mode';
+import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type TickOutput } from '../simulation';
 import type { UserCmd } from '../usercmd';
 import type { World } from '../world';
@@ -8,6 +10,8 @@ import {
   compactOutput,
   decodeClient,
   encode,
+  type MatchStatus,
+  type Phase,
   type RejectReason,
   type ServerMessage,
   type StampedEvent,
@@ -16,8 +20,18 @@ import type { Connection, ServerTransport } from './transport';
 
 export interface GameServerOptions {
   readonly world: World;
-  readonly mode: GameMode;
+  /** The map's id, reported to clients and the lobby status. */
+  readonly map?: string;
+  /** The mode the server starts in. Defaults to team deathmatch. */
+  readonly mode?: ModeId;
+  /** Limits for each mode; by default TDM is 75 kills, FFA 30, both 600 s. */
+  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions };
+  /** Intermission phase lengths (s). Defaults: 6 s of nuke, then 14 s of scoreboard and vote. */
+  readonly intermission?: { readonly nuke?: number; readonly vote?: number };
+  /** Free-for-all spawn points, spread over the map. */
   readonly spawns: readonly SpawnPoint[];
+  /** One spawn set per team (team 1, then team 2); without them team modes use the free-for-all points. */
+  readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
   /** Range dummies, simulated by the server for everyone. */
   readonly dummies?: readonly PlayerSpawn[];
   /** The shared passphrase every join must carry; empty runs a public lobby anyone can join. */
@@ -35,6 +49,8 @@ const DEFAULT_RATE = 180;
 /** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
 const MAX_QUEUED_CMDS = 12;
 const MAX_NAME = 16;
+const NUKE_SECONDS = 6;
+const VOTE_SECONDS = 14;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
 const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart']);
 
@@ -50,28 +66,88 @@ interface Client {
   windowStart: number;
 }
 
+/** What the lobby status endpoint reports. */
+export interface LobbyStatus {
+  readonly map: string;
+  readonly mode: ModeId;
+  readonly players: number;
+  readonly capacity: number;
+  readonly phase: Phase;
+}
+
 /**
  * The authoritative server: owns the real simulation, accepts joins
  * (passphrase, player cap), runs each client's usercmds in order, applies the
  * game mode and sends every client a snapshot each tick.
+ *
+ * Between matches it runs the intermission: `matchEnd`, the nuke, the
+ * scoreboard and mode vote, then `matchStart`. Usercmds are ignored and no
+ * damage is done for the whole of it. The mode only changes at match start.
  */
 export class GameServer {
   readonly simulation: Simulation;
-  readonly mode: GameMode;
   readonly #options: GameServerOptions;
+  readonly #modes: Readonly<Record<ModeId, GameMode>>;
+  #mode: GameMode;
+  #phase: Phase = 'playing';
+  /** Simulation time the current match started, and the time it ended (null while it is on). */
+  #matchStart = 0;
+  #endedAt: number | null = null;
+  #result: MatchResult | null = null;
+  readonly #votes = new Map<PlayerId, ModeId>();
+  #modeEvents: readonly ModeEvent[] = [];
   readonly #clients = new Set<Client>();
   readonly #names = new Map<PlayerId, string>();
   #nextId = 1;
   #recentEvents: StampedEvent[] = [];
   #last: TickOutput;
+  /** Props shot this match; cleared when a match starts. */
+  readonly #popped = new Set<string>();
 
   constructor(transport: ServerTransport, options: GameServerOptions) {
     this.#options = options;
-    this.mode = options.mode;
-    this.simulation = new Simulation(options.world, { canDamage: (a, v) => v.kind === 'dummy' || this.mode.canDamage(a, v) });
+    this.#modes = { tdm: new TeamDeathmatch(options.modes?.tdm), ffa: new FreeForAll(options.modes?.ffa) };
+    this.#mode = this.#modes[options.mode ?? 'tdm'];
+    this.simulation = new Simulation(options.world, {
+      canDamage: (a, v) => this.#phase === 'playing' && (v.kind === 'dummy' || this.#mode.canDamage(a, v)),
+    });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);
     this.#last = this.simulation.output();
     transport.onConnection((connection) => this.#accept(connection));
+  }
+
+  /** The mode being played. */
+  get mode(): GameMode {
+    return this.#mode;
+  }
+
+  get phase(): Phase {
+    return this.#phase;
+  }
+
+  /** What the lobby status endpoint reports. */
+  status(): LobbyStatus {
+    return { map: this.#options.map ?? 'range', mode: this.#mode.id, players: this.playerCount, capacity: this.maxPlayers, phase: this.#phase };
+  }
+
+  /** The match status sent in every snapshot. */
+  matchStatus(): MatchStatus {
+    const { nuke, vote } = this.#intermissionLengths();
+    const ended = this.#endedAt ?? 0;
+    const votes = Object.fromEntries(MODE_IDS.map((m) => [m, 0])) as Record<ModeId, number>;
+    for (const m of this.#votes.values()) votes[m] += 1;
+    const limit = this.#mode.timeLimit;
+    return {
+      mode: this.#mode.id,
+      phase: this.#phase,
+      phaseEnds: this.#phase === 'playing' ? (limit === null ? null : this.#matchStart + limit) : this.#phase === 'nuke' ? ended + nuke : ended + nuke + vote,
+      killLimit: this.#mode.killLimit,
+      timeLimit: limit,
+      teamScores: this.#mode.teamScores(),
+      votes,
+      next: this.#nextMode(),
+      result: this.#result,
+    };
   }
 
   get maxPlayers(): number {
@@ -87,9 +163,19 @@ export class GameServer {
     return this.#last;
   }
 
+  /** The game-mode and match-flow events of the latest tick (kill feed, match end and start). */
+  get modeEvents(): readonly ModeEvent[] {
+    return this.#modeEvents;
+  }
+
   /** Display names of joined players by id. */
   get names(): ReadonlyMap<PlayerId, string> {
     return this.#names;
+  }
+
+  /** Ids of the props shot this match, in the order they went. */
+  get popped(): readonly string[] {
+    return [...this.#popped];
   }
 
   #accept(connection: Connection): void {
@@ -131,12 +217,16 @@ export class GameServer {
         client.connection.close('join first');
         return;
       }
-      this.#join(client, message.name, message.passphrase, message.protocol);
+      this.#join(client, message.name, message.passphrase, message.protocol, message.mode ?? null);
       return;
     }
     if (message.t === 'join') {
       // The welcome was lost: say it again.
-      this.#send(client, { t: 'welcome', id: client.id, tick: this.simulation.tick, mode: this.mode.name, maxPlayers: this.maxPlayers });
+      this.#welcome(client);
+      return;
+    }
+    if (message.t === 'vote') {
+      if (this.#phase === 'vote') this.#votes.set(client.id, message.mode);
       return;
     }
     if (message.t === 'cmds') {
@@ -150,29 +240,86 @@ export class GameServer {
     }
   }
 
-  #join(client: Client, rawName: string, passphrase: string, protocol: number): void {
+  #join(client: Client, rawName: string, passphrase: string, protocol: number, preferred: ModeId | null): void {
     if (protocol !== PROTOCOL_VERSION) return this.#reject(client, 'protocol');
     if (this.#options.passphrase && !samePassphrase(passphrase, this.#options.passphrase)) return this.#reject(client, 'passphrase');
     if (this.playerCount >= this.maxPlayers) return this.#reject(client, 'full');
     const name = cleanName(rawName);
     if (!name) return this.#reject(client, 'name');
+    const first = this.playerCount === 0;
     const id = `p${this.#nextId++}`;
     client.id = id;
     client.name = name;
     this.#names.set(id, name);
-    const ctx = this.#context();
-    const team = this.mode.join(id, name, ctx);
-    const spawn = this.mode.chooseSpawn(id, ctx);
-    this.simulation.addPlayer({ id, team, position: spawn.position, yaw: spawn.yaw });
-    this.#send(client, { t: 'welcome', id, tick: this.simulation.tick, mode: this.mode.name, maxPlayers: this.maxPlayers });
+    if (first) {
+      // The first player on an empty server starts a fresh match, in the mode they asked for.
+      this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0] });
+      this.#startMatch(preferred ?? this.#mode.id);
+    } else {
+      const ctx = this.#context();
+      const team = this.#mode.join(id, name, ctx);
+      const spawn = this.#mode.chooseSpawn(id, ctx);
+      this.simulation.addPlayer({ id, team, position: spawn.position, yaw: spawn.yaw });
+    }
+    this.#welcome(client);
+  }
+
+  #welcome(client: Client): void {
+    if (client.id === null) return;
+    this.#send(client, { t: 'welcome', id: client.id, tick: this.simulation.tick, mode: this.#mode.id, map: this.#options.map ?? 'range', maxPlayers: this.maxPlayers });
+  }
+
+  #intermissionLengths(): { nuke: number; vote: number } {
+    return { nuke: this.#options.intermission?.nuke ?? NUKE_SECONDS, vote: this.#options.intermission?.vote ?? VOTE_SECONDS };
+  }
+
+  /** The vote's plurality; a tie or no votes keeps the current mode. */
+  #nextMode(): ModeId {
+    const counts = new Map<ModeId, number>();
+    for (const m of this.#votes.values()) counts.set(m, (counts.get(m) ?? 0) + 1);
+    const [top, second] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    if (!top || (second && second[1] === top[1])) return this.#mode.id;
+    return top[0];
+  }
+
+  /** A new match in `mode`: scores reset, teams (re)balanced, everyone respawned at fresh spawns, props restored. */
+  #startMatch(mode: ModeId): ModeEvent {
+    const previous = this.#mode;
+    this.#mode = this.#modes[mode];
+    this.#phase = 'playing';
+    this.#matchStart = this.simulation.time;
+    this.#endedAt = null;
+    this.#result = null;
+    this.#votes.clear();
+    this.#popped.clear();
+    const joined = this.#joined();
+    const entrants = joined.map((c) => ({
+      id: c.id as PlayerId,
+      name: c.name,
+      // Teams carry over only between matches of the same mode.
+      team: previous.id === this.#mode.id ? (this.simulation.playerState(c.id as PlayerId)?.team ?? null) : null,
+    }));
+    const teams = this.#mode.start(entrants);
+    for (const [id, team] of teams) this.simulation.setTeam(id, team);
+    for (const c of joined) {
+      const spawn = this.#mode.chooseSpawn(c.id as PlayerId, this.#context());
+      this.simulation.respawn(c.id as PlayerId, spawn.position, spawn.yaw);
+    }
+    return { type: 'matchStart', mode: this.#mode.id };
+  }
+
+  /** Joined clients in join order. */
+  #joined(): Client[] {
+    return [...this.#clients].filter((c) => c.id !== null).sort((a, b) => Number((a.id as string).slice(1)) - Number((b.id as string).slice(1)));
   }
 
   #drop(client: Client): void {
     this.#clients.delete(client);
     if (client.id !== null) {
       this.simulation.removePlayer(client.id);
-      this.mode.leave(client.id);
+      this.#mode.leave(client.id);
       this.#names.delete(client.id);
+      this.#votes.delete(client.id);
     }
   }
 
@@ -181,13 +328,17 @@ export class GameServer {
     return {
       tick: sim.tick,
       time: this.simulation.time,
+      matchTime: this.simulation.time - this.#matchStart,
       players: sim.players.filter((p) => p.kind === 'player'),
       spawns: this.#options.spawns,
+      teamSpawns: this.#options.teamSpawns ?? null,
+      world: this.simulation.world,
     };
   }
 
-  /** Runs one server tick: queued usercmds, the simulation, the game mode, then snapshots. */
+  /** Runs one server tick: queued usercmds, the simulation, the game mode and match flow, then snapshots. */
   tick(): TickOutput {
+    const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd[]> = {};
     for (const client of this.#clients) {
       if (client.id === null) continue;
@@ -201,22 +352,13 @@ export class GameServer {
         client.ack = seq;
         return cmd;
       });
+      // The intermission ignores input: acknowledged, never applied.
+      if (frozen) cmds[client.id] = [];
     }
     const out = this.simulation.step(cmds);
-    const ctx = this.#context();
-    const modeEvents: ModeEvent[] = this.mode.onEvents(out.events, ctx);
-    const round = this.mode.update(ctx);
-    modeEvents.push(...round.events);
-
-    // Respawns: after the mode's delay, at the spot it picks (everyone on a restart).
-    for (const p of ctx.players) {
-      const diedAt = p.alive ? null : (this.simulation.playerState(p.id)?.diedAt ?? null);
-      const due = diedAt !== null && ctx.time - diedAt >= this.mode.respawnDelay - 1e-9;
-      if (due || round.restart) {
-        const spawn = this.mode.chooseSpawn(p.id, this.#context());
-        this.simulation.respawn(p.id, spawn.position, spawn.yaw);
-      }
-    }
+    for (const e of out.events) if (e.type === 'prop') this.#popped.add(e.prop);
+    const modeEvents = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
+    this.#modeEvents = modeEvents;
 
     const tick = out.tick;
     const stamped = [...out.events, ...modeEvents].map((event, index) => ({ tick, index, event }));
@@ -228,10 +370,44 @@ export class GameServer {
     return this.#last;
   }
 
+  /** A tick of play: scoring, the end of the match, respawns. */
+  #playing(out: TickOutput): ModeEvent[] {
+    const ctx = this.#context();
+    const events = this.#mode.onEvents(out.events, ctx);
+    const result = this.#mode.result(ctx);
+    if (result) {
+      this.#phase = 'nuke';
+      this.#endedAt = ctx.time;
+      this.#result = result;
+      events.push({ type: 'matchEnd', ...result });
+      return events;
+    }
+    // Respawns: after the mode's delay, at the spot it picks.
+    for (const p of ctx.players) {
+      const diedAt = p.alive ? null : (this.simulation.playerState(p.id)?.diedAt ?? null);
+      if (diedAt !== null && ctx.time - diedAt >= this.#mode.respawnDelay - 1e-9) {
+        const spawn = this.#mode.chooseSpawn(p.id, this.#context());
+        this.simulation.respawn(p.id, spawn.position, spawn.yaw);
+      }
+    }
+    return events;
+  }
+
+  /** A tick of the intermission: the nuke, then the vote, then the next match. */
+  #intermission(): ModeEvent[] {
+    const since = this.simulation.time - (this.#endedAt ?? 0);
+    const { nuke, vote } = this.#intermissionLengths();
+    if (since >= nuke + vote - 1e-9) return [this.#startMatch(this.#nextMode())];
+    if (since >= nuke - 1e-9) this.#phase = 'vote';
+    return [];
+  }
+
   #broadcast(): void {
     const all = this.#last.players;
-    const scores = this.mode.scores();
+    const scores = this.#mode.scores();
+    const match = this.matchStatus();
     const names = Object.fromEntries(this.#names);
+    const popped = [...this.#popped];
     for (const client of this.#clients) {
       if (client.id === null) continue;
       const others: PlayerOutput[] = all.filter((p) => p.id !== client.id).map(compactOutput);
@@ -244,6 +420,8 @@ export class GameServer {
         events: this.#recentEvents,
         scores,
         names,
+        popped,
+        match,
       });
     }
   }

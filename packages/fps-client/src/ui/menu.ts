@@ -54,7 +54,26 @@ export interface MenuCallbacks {
  * passphrase or as one public lobby. `link`: a copy of the page without a
  * server (GitHub Pages), which sends players to the server's address.
  */
-export type Lobby = { readonly kind: 'server'; readonly public: boolean } | { readonly kind: 'link'; readonly url: string };
+/** What the lobby status endpoint reports, shown on the join screen. */
+export interface LobbyInfo {
+  readonly map: string;
+  readonly mode: string;
+  readonly players: number;
+  readonly capacity: number;
+  readonly phase: string;
+}
+
+export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
+
+const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
+const MAP_NAMES: Readonly<Record<string, string>> = { range: 'the Practice Range', 'survival-town': 'Survival Town' };
+
+/** "Team deathmatch on Survival Town · 3/8 players", or null before the status is known. */
+function lobbyLine(lobby: Lobby | null): string | null {
+  const s = lobby?.kind === 'server' ? lobby.status : null;
+  if (!s) return null;
+  return `${MODE_NAMES[s.mode] ?? s.mode} on ${MAP_NAMES[s.map] ?? s.map} · ${s.players}/${s.capacity} players`;
+}
 
 type Screen = 'main' | 'join' | 'pause' | 'settings' | 'tip';
 
@@ -234,7 +253,9 @@ export class Menu {
       case 'join': {
         const open = this.#lobby?.kind === 'server' && this.#lobby.public;
         p.append(title, h('h2', open ? 'Public lobby' : 'Join the server'));
-        if (open) p.append(h('p', 'Free-for-all. Anyone with the link can join.'));
+        const line = lobbyLine(this.#lobby);
+        if (line) p.append(h('p', line));
+        if (open) p.append(h('p', 'Anyone with the link can join.'));
         const form = h('form') as HTMLFormElement;
         const field = (label: string, input: HTMLInputElement) => {
           const wrap = h('label', '', 'ds-field');

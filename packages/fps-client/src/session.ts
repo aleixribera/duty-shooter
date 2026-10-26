@@ -4,7 +4,9 @@ import {
   TICK_SECONDS,
   createWorld,
   type Solid,
+  type MatchStatus,
   type ModeEvent,
+  type ModeId,
   type PlayerId,
   type PlayerOutput,
   type PlayerSpawn,
@@ -42,6 +44,14 @@ export interface GameDriver {
   /** Round-trip time in seconds, or null offline. */
   readonly ping: number | null;
   readonly scores: readonly Score[];
+  /** Props the server says were shot this match, or null offline (the page's own events are the truth there). */
+  readonly popped: readonly string[] | null;
+  /** Mode, phase, clock, team scores and vote; null offline. */
+  readonly match: MatchStatus | null;
+  /** The server's simulation time (s) now, to count down to `match.phaseEnds`. */
+  readonly serverTime: number;
+  /** Votes for the next match's mode (online only). */
+  vote(mode: ModeId): void;
   nameOf(id: PlayerId): string;
   /** 'playing', 'connecting', or why the connection ended. */
   readonly status: string;
@@ -63,6 +73,8 @@ export class OfflineDriver implements GameDriver {
   readonly correction: Vec3 = [0, 0, 0];
   readonly ping = null;
   readonly scores: readonly Score[] = [];
+  readonly popped = null;
+  readonly match = null;
   readonly status = 'playing';
   readonly #sim: Simulation;
   readonly #spawn: SpawnPoint;
@@ -82,6 +94,12 @@ export class OfflineDriver implements GameDriver {
     this.#prev = this.#cur;
     this.#spawnFacing = { yaw: options.spawn.yaw, pitch: 0 };
   }
+
+  get serverTime(): number {
+    return this.#sim.time;
+  }
+
+  vote(): void {}
 
   takeSpawn(): { yaw: number; pitch: number } | null {
     const facing = this.#spawnFacing;
@@ -125,6 +143,8 @@ export class OfflineDriver implements GameDriver {
 export interface OnlineOptions {
   readonly url: string;
   readonly solids: readonly Solid[];
+  /** The mode to ask for, honoured only on an empty server. */
+  readonly mode?: ModeId;
   readonly name: string;
   readonly passphrase: string;
 }
@@ -140,6 +160,7 @@ export class OnlineDriver implements GameDriver {
       world: createWorld(options.solids),
       name: options.name,
       passphrase: options.passphrase,
+      ...(options.mode ? { mode: options.mode } : {}),
     });
   }
 
@@ -161,6 +182,22 @@ export class OnlineDriver implements GameDriver {
 
   get scores(): readonly Score[] {
     return this.#client.scores;
+  }
+
+  get popped(): readonly string[] {
+    return this.#client.popped;
+  }
+
+  get match(): MatchStatus | null {
+    return this.#client.match;
+  }
+
+  get serverTime(): number {
+    return this.#client.serverTime;
+  }
+
+  vote(mode: ModeId): void {
+    this.#client.vote(mode);
   }
 
   get status(): string {

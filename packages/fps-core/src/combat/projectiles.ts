@@ -14,6 +14,12 @@ export interface Projectile {
   readonly rewind: number;
   /** Seconds to advance on the next step (part of a tick for a bullet fired mid-tick). */
   pending: number;
+  /** Penetration budget left (see the stats file's penetration table). */
+  budget: number;
+  /** Product of the damage multipliers of every solid passed through so far. */
+  damageScale: number;
+  /** Solids already passed through (or props already hit), never met again. */
+  readonly passed: number[];
 }
 
 export interface WorldHit {
@@ -39,9 +45,12 @@ export function advance(p: Projectile, seconds: number): { from: Vec3; to: Vec3;
   return { from, to, velocity: [p.velocity[0], p.velocity[1] - g * seconds, p.velocity[2]] };
 }
 
-/** The first solid that blocks bullets the segment a→b enters, or null. Player clip never takes part. */
+/** The first solid that blocks bullets the segment a→b enters, or null. Player clip and props never take part. */
 export function raycastWorld(world: World, a: Vec3, b: Vec3): WorldHit | null {
-  const best = world.bullets.firstHit(a, b, (i) => segmentSolid(a, b, world.solids[i] as Solid));
+  const best = world.bullets.firstHit(a, b, (i) => {
+    const s = world.solids[i] as Solid;
+    return s.prop === null ? segmentSolid(a, b, s) : null;
+  });
   if (!best) return null;
   const solid = world.solids[best.index] as Solid;
   const point = add(a, scale([b[0] - a[0], b[1] - a[1], b[2] - a[2]], best.t));
@@ -53,6 +62,37 @@ export function segmentSolid(a: Vec3, b: Vec3, s: Solid): number | null {
   const o = s.orientation;
   if (!o) return segmentBox(a, b, s.min, s.max);
   return segmentBox(toLocal(o, a), toLocal(o, b), [-o.half[0], -o.half[1], -o.half[2]], o.half);
+}
+
+/**
+ * Where the line through a→b enters and leaves a solid, as fractions of a→b:
+ * entry within the segment (0 if `a` is inside), exit possibly beyond `b`.
+ * Null if the segment never reaches it.
+ */
+export function solidSpan(a: Vec3, b: Vec3, s: Solid): { enter: number; exit: number } | null {
+  const o = s.orientation;
+  return o ? lineBox(toLocal(o, a), toLocal(o, b), [-o.half[0], -o.half[1], -o.half[2]], o.half) : lineBox(a, b, s.min, s.max);
+}
+
+function lineBox(a: Vec3, b: Vec3, min: Vec3, max: Vec3): { enter: number; exit: number } | null {
+  let enter = 0;
+  let exit = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const o = a[i] as number;
+    const d = (b[i] as number) - o;
+    const lo = min[i] as number;
+    const hi = max[i] as number;
+    if (Math.abs(d) < 1e-12) {
+      if (o < lo || o > hi) return null;
+      continue;
+    }
+    const t1 = (lo - o) / d;
+    const t2 = (hi - o) / d;
+    enter = Math.max(enter, Math.min(t1, t2));
+    exit = Math.min(exit, Math.max(t1, t2));
+    if (enter > exit) return null;
+  }
+  return enter <= 1 ? { enter, exit } : null;
 }
 
 /** Outward normal of the solid's face nearest to a point on its surface. */

@@ -256,6 +256,7 @@ export class Effects {
   readonly #casingMesh: InstancedMesh;
   readonly #casings: Casing[] = [];
   readonly #flashes: { mesh: Mesh; age: number }[] = [];
+  readonly #falling: { mesh: Mesh; v: Vector3; spin: Vector3; age: number; resting: boolean }[] = [];
   readonly #flashMaterial: MeshBasicNodeMaterial;
   #features: PresetFeatures;
   readonly #recentShots: number[] = [];
@@ -428,6 +429,45 @@ export class Effects {
     this.#smoke.update(dt, camera);
     this.#blood.update(dt, camera);
     this.#updateCasings(dt);
+    this.#updateFalling(dt);
+  }
+
+  /** Drops a knocked-off prop (a mannequin head): it flies off along the shot, tumbles, bounces and is cleared after a while. Presentation only. */
+  fall(mesh: Mesh, direction: Vec3): void {
+    this.#root.add(mesh);
+    const v = new Vector3(direction[0], direction[1], direction[2]).multiplyScalar(3.5).add(new Vector3(0, 1.8, 0));
+    const spin = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(14);
+    this.#falling.push({ mesh, v, spin, age: 0, resting: false });
+  }
+
+  #updateFalling(dt: number): void {
+    for (let i = this.#falling.length - 1; i >= 0; i--) {
+      const f = this.#falling[i]!;
+      f.age += dt;
+      if (f.age > 12) {
+        f.mesh.removeFromParent();
+        this.#falling.splice(i, 1);
+        continue;
+      }
+      if (f.resting) continue;
+      f.v.y -= 9.81 * dt;
+      const p = f.mesh.position;
+      const a: Vec3 = [p.x, p.y, p.z];
+      const b: Vec3 = [p.x + f.v.x * dt, p.y + f.v.y * dt, p.z + f.v.z * dt];
+      const hit = raycastWorld(this.#world, a, b);
+      if (hit) {
+        const n = new Vector3(hit.normal[0], hit.normal[1], hit.normal[2]);
+        const into = f.v.dot(n);
+        f.v.addScaledVector(n, -into * 1.35).multiplyScalar(0.5);
+        f.spin.multiplyScalar(0.5);
+        p.set(hit.point[0], hit.point[1], hit.point[2]).addScaledVector(n, 0.12);
+        if (n.y > 0.7 && Math.abs(into) < 1) f.resting = true;
+      } else {
+        p.set(b[0], b[1], b[2]);
+        const w = f.spin.length();
+        if (w > 0) f.mesh.quaternion.premultiply(tmpQ.setFromAxisAngle(f.spin.clone().divideScalar(w), w * dt));
+      }
+    }
   }
 
   /** The muzzle-flash light's current strength, 0 to 1 (drives the bloom boost). */

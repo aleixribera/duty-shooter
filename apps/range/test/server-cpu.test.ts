@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { FreeForAll } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { buildMap, collisionSolids } from '../src/map/map';
 
@@ -12,7 +11,7 @@ import { buildMap, collisionSolids } from '../src/map/map';
 describe.skipIf(!process.env['BENCH'])('server CPU', () => {
   it('8 players on the Practice Range', () => {
     const map = buildMap();
-    const m = createNetworkedMatch({ solids: collisionSolids(map), spawns: map.arenaSpawns, dummies: map.dummies, mode: new FreeForAll(), passphrase: '', latency: 0.03 });
+    const m = createNetworkedMatch({ solids: collisionSolids(map), spawns: map.arenaSpawns, dummies: map.dummies, passphrase: '', latency: 0.03 });
     const names = Array.from({ length: 8 }, (_, i) => `bot${i}`);
     for (const n of names) m.join(n);
     const script = (t: number) =>

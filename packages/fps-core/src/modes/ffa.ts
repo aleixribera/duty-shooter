@@ -1,12 +1,12 @@
 import { distance } from '../math';
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
-import type { GameMode, ModeContext, ModeEvent, Score, SpawnPoint } from './game-mode';
+import type { GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, Score, SpawnPoint, TeamScore } from './game-mode';
 
 export interface FreeForAllOptions {
-  /** Kills that win the match; null plays forever. */
-  readonly scoreLimit?: number | null;
-  /** Seconds between the end of a match and the next one. */
-  readonly restartDelay?: number;
+  /** Kills that win the match; null for none. Defaults to 30. */
+  readonly killLimit?: number | null;
+  /** Seconds a match lasts; null for no limit. Defaults to 600. */
+  readonly timeLimit?: number | null;
 }
 
 interface Entry {
@@ -19,23 +19,25 @@ interface Entry {
 
 /**
  * Free-for-all: everyone on their own team, instant respawn at the spawn
- * point furthest from living enemies, a kill feed, kills and deaths.
+ * point furthest from living enemies, a kill feed, kills and deaths. The
+ * first to the kill limit wins; at the time limit the most kills wins, and a
+ * tie at the top is a draw.
  */
 export class FreeForAll implements GameMode {
+  readonly id = 'ffa';
   readonly name = 'Free-for-all';
   readonly respawnDelay = 0;
+  readonly killLimit: number | null;
+  readonly timeLimit: number | null;
   readonly #entries = new Map<PlayerId, Entry>();
   #nextTeam = 1;
-  readonly #scoreLimit: number | null;
-  readonly #restartDelay: number;
-  #endedAt: number | null = null;
-  #winner: PlayerId | null = null;
+  #result: MatchResult | null = null;
   /** Rotates spawns when no living enemy separates them. */
   #nextSpawn = 0;
 
   constructor(options: FreeForAllOptions = {}) {
-    this.#scoreLimit = options.scoreLimit ?? null;
-    this.#restartDelay = options.restartDelay ?? 10;
+    this.killLimit = options.killLimit === undefined ? 30 : options.killLimit;
+    this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
   }
 
   join(id: PlayerId, name: string): TeamId {
@@ -72,6 +74,14 @@ export class FreeForAll implements GameMode {
     return best;
   }
 
+  start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
+    this.#entries.clear();
+    this.#result = null;
+    const teams = new Map<PlayerId, TeamId>();
+    for (const e of entrants) teams.set(e.id, this.join(e.id, e.name));
+    return teams;
+  }
+
   onEvents(events: readonly SimEvent[]): ModeEvent[] {
     const out: ModeEvent[] = [];
     const headshots = new Set<PlayerId>();
@@ -80,10 +90,10 @@ export class FreeForAll implements GameMode {
       if (e.type !== 'kill') continue;
       const victim = this.#entries.get(e.victim);
       if (!victim) continue; // a dummy
-      victim.deaths += 1;
+      // Once the match is decided, nothing more scores.
+      const scoring = this.#result === null;
+      if (scoring) victim.deaths += 1;
       const killer = e.killer === null || e.killer === e.victim ? undefined : this.#entries.get(e.killer);
-      // Once someone has won, later kills (the same tick, the intermission) no longer score.
-      const scoring = this.#winner === null;
       if (killer && scoring) killer.kills += 1;
       out.push({
         type: 'killFeed',
@@ -94,28 +104,20 @@ export class FreeForAll implements GameMode {
         cause: e.cause,
         headshot: headshots.has(e.victim),
       });
-      if (killer && scoring && this.#scoreLimit !== null && killer.kills >= this.#scoreLimit) {
-        this.#winner = killer.id;
+      if (killer && scoring && this.killLimit !== null && killer.kills >= this.killLimit) {
+        this.#result = { winner: killer.id, winnerName: killer.name, draw: false, reason: 'killLimit' };
       }
     }
     return out;
   }
 
-  update(ctx: ModeContext): { events: ModeEvent[]; restart: boolean } {
-    if (this.#winner !== null && this.#endedAt === null) {
-      this.#endedAt = ctx.time;
-      return { events: [{ type: 'matchEnd', winner: this.#winner, winnerName: this.#entries.get(this.#winner)?.name ?? null }], restart: false };
+  result(ctx: ModeContext): MatchResult | null {
+    if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
+      const [first, second] = this.scores();
+      const draw = !first || (second !== undefined && second.kills === first.kills);
+      this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
-    if (this.#endedAt !== null && ctx.time - this.#endedAt >= this.#restartDelay) {
-      this.#endedAt = null;
-      this.#winner = null;
-      for (const e of this.#entries.values()) {
-        e.kills = 0;
-        e.deaths = 0;
-      }
-      return { events: [{ type: 'matchStart' }], restart: true };
-    }
-    return { events: [], restart: false };
+    return this.#result;
   }
 
   scores(): Score[] {
@@ -124,7 +126,7 @@ export class FreeForAll implements GameMode {
       .sort((a, b) => b.score - a.score || a.deaths - b.deaths);
   }
 
-  winner(): PlayerId | null {
-    return this.#winner;
+  teamScores(): readonly TeamScore[] | null {
+    return null;
   }
 }

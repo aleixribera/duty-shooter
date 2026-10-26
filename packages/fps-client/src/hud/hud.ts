@@ -1,4 +1,4 @@
-import type { PlayerOutput, Score } from '@duty-shooter/fps-core';
+import type { MatchStatus, ModeId, PlayerOutput, Score } from '@duty-shooter/fps-core';
 
 const CSS = `
 .ds-hud { position: fixed; inset: 0; pointer-events: none; font: 600 14px/1.2 'Rajdhani', 'Segoe UI', system-ui, sans-serif; color: #f2f4f5; text-shadow: 0 1px 2px rgb(0 0 0 / 0.8); user-select: none; z-index: 5; }
@@ -31,6 +31,16 @@ const CSS = `
 .ds-feed .you { border-left-color: #6bd4ff; }
 .ds-feed .gun { opacity: 0.7; margin: 0 6px; font-size: 12px; }
 .ds-stats { position: absolute; right: 16px; top: 12px; font-size: 12px; opacity: 0.85; text-align: right; font-variant-numeric: tabular-nums; }
+.ds-match { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: flex; gap: 14px; align-items: baseline; background: rgb(10 12 14 / 0.55); padding: 5px 14px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.ds-match .t1 { color: #6bb8ff; }
+.ds-match .t2 { color: #ffab4a; }
+.ds-match .clock { font-size: 18px; }
+.ds-end { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); text-align: center; display: none; }
+.ds-end h2 { margin: 0 0 4px; font-size: 30px; letter-spacing: 3px; text-transform: uppercase; }
+.ds-end .next { opacity: 0.85; }
+.ds-votes { display: flex; gap: 10px; justify-content: center; margin-top: 8px; pointer-events: auto; }
+.ds-votes button { font: inherit; color: inherit; background: rgb(10 12 14 / 0.8); border: 1px solid rgb(255 255 255 / 0.25); padding: 6px 14px; cursor: pointer; }
+.ds-votes button.mine { border-color: #f2c14e; color: #f2c14e; }
 .ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
 .ds-overlay { position: absolute; left: 24px; bottom: 26px; background: rgb(10 12 14 / 0.6); border: 1px solid rgb(255 255 255 / 0.12); padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; font-variant-numeric: tabular-nums; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 6px; background: rgb(0 0 0 / 0.35); }
@@ -58,12 +68,32 @@ export interface HudState {
   readonly scores: readonly Score[];
   readonly selfId: string | null;
   readonly showScoreboard: boolean;
+  /** The online match: mode, phase, time left, team scores and the vote. Null offline. */
+  readonly match: MatchView | null;
   /** A centred message (e.g. "connecting"), or null. */
   readonly message: string | null;
   readonly dt: number;
 }
 
 export type HitKind = 'hit' | 'kill' | 'headshot' | 'headshotKill';
+
+/** The match as the HUD shows it. */
+export interface MatchView {
+  readonly status: MatchStatus;
+  /** Seconds left in the phase, or null with no time limit. */
+  readonly secondsLeft: number | null;
+  /** The local player's team (team modes), or null. */
+  readonly team: number | null;
+  /** The mode the local player voted for this intermission, if any. */
+  readonly myVote: ModeId | null;
+}
+
+const MODE_LABEL: Readonly<Record<ModeId, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
+
+function clock(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 
 interface Indicator {
   readonly el: HTMLDivElement;
@@ -99,8 +129,13 @@ export class Hud {
   readonly #ttk: HTMLSpanElement;
   readonly #dist: HTMLSpanElement;
   readonly #shots: HTMLSpanElement;
+  readonly #lastHit: HTMLSpanElement;
   readonly #trace: HTMLCanvasElement;
   readonly #board: HTMLDivElement;
+  readonly #match: HTMLDivElement;
+  readonly #end: HTMLDivElement;
+  /** Called when a vote button is pressed. */
+  onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
   #traceShots: { yaw: number; pitch: number }[] = [];
@@ -141,13 +176,20 @@ export class Hud {
       'div',
       'ds-overlay',
       this.root,
-      '<span class="k">TTK</span><span class="ttk">–</span><span class="k">Distance</span><span class="dist">–</span><span class="k">Shots / hits</span><span class="shots">–</span><canvas width="180" height="150"></canvas>',
+      '<span class="k">TTK</span><span class="ttk">–</span><span class="k">Distance</span><span class="dist">–</span><span class="k">Shots / hits</span><span class="shots">–</span><span class="k">Last hit</span><span class="last-hit">–</span><canvas width="180" height="150"></canvas>',
     );
     this.#ttk = this.#overlay.querySelector('.ttk') as HTMLSpanElement;
     this.#dist = this.#overlay.querySelector('.dist') as HTMLSpanElement;
     this.#shots = this.#overlay.querySelector('.shots') as HTMLSpanElement;
+    this.#lastHit = this.#overlay.querySelector('.last-hit') as HTMLSpanElement;
     this.#trace = this.#overlay.querySelector('canvas') as HTMLCanvasElement;
     this.#board = el('div', 'ds-board', this.root);
+    this.#match = el('div', 'ds-match', this.root);
+    this.#end = el('div', 'ds-end', this.root);
+    this.#end.addEventListener('click', (e) => {
+      const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
+      if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
+    });
     this.#toast = el('div', 'ds-toast', this.root);
   }
 
@@ -198,6 +240,11 @@ export class Hud {
   setRangeStats(ttk: number | null, shots: number, hits: number): void {
     this.#ttk.textContent = ttk === null ? '–' : `${Math.round(ttk * 1000)} ms`;
     this.#shots.textContent = `${shots} / ${hits}`;
+  }
+
+  /** Range overlay: the damage of your latest hit, to check against the penetration table. */
+  setLastHit(damage: number): void {
+    this.#lastHit.textContent = `${damage.toFixed(1)} HP`;
   }
 
   toast(text: string, seconds = 8): void {
@@ -296,10 +343,18 @@ export class Hud {
     this.#overlay.style.display = state.showOverlay ? '' : 'none';
     this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;
 
-    this.#board.style.display = state.showScoreboard && state.scores.length > 0 ? 'block' : 'none';
-    if (state.showScoreboard) {
-      this.#board.innerHTML = `<table><tr><th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr>${state.scores
-        .map((s) => `<tr class="${s.id === state.selfId ? 'you' : ''}"><td>${escape(s.name)}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${(s.kills / Math.max(1, s.deaths)).toFixed(2)}</td></tr>`)
+    this.#updateMatch(state.match);
+    // The scoreboard is held open on Tab, and stays up for the scoreboard and vote after a match.
+    const board = (state.showScoreboard || state.match?.status.phase === 'vote') && state.scores.length > 0;
+    this.#board.style.display = board ? 'block' : 'none';
+    if (board) {
+      const teams = state.match?.status.mode === 'tdm';
+      this.#board.style.top = state.match?.status.phase === 'vote' ? '30%' : '';
+      this.#board.innerHTML = `<table><tr>${teams ? '<th>TEAM</th>' : ''}<th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr>${state.scores
+        .map(
+          (s) =>
+            `<tr class="${s.id === state.selfId ? 'you' : ''}">${teams ? `<td class="t${s.team}">${s.team === 1 ? 'BLUE' : 'ORANGE'}</td>` : ''}<td>${escape(s.name)}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${(s.kills / Math.max(1, s.deaths)).toFixed(2)}</td></tr>`,
+        )
         .join('')}</table>`;
     }
 
@@ -307,6 +362,32 @@ export class Hud {
       this.#toastTime -= dt;
       if (this.#toastTime <= 0) this.#toast.style.opacity = '0';
     }
+  }
+
+  /** The match bar (mode, clock, team scores) and, after a match, the result, countdown and vote. */
+  #updateMatch(view: MatchView | null): void {
+    this.#match.style.display = view ? 'flex' : 'none';
+    this.#end.style.display = view && view.status.phase !== 'playing' ? 'block' : 'none';
+    if (!view) return;
+    const s = view.status;
+    const time = view.secondsLeft === null ? '' : `<span class="clock">${clock(view.secondsLeft)}</span>`;
+    const scores = s.teamScores ? s.teamScores.map((t) => `<span class="t${t.team}">${t.team === 1 ? 'BLUE' : 'ORANGE'} ${t.score}</span>`).join('<span>–</span>') : '';
+    const you = view.team === 1 || view.team === 2 ? `<span class="t${view.team}">YOU: ${view.team === 1 ? 'BLUE' : 'ORANGE'}</span>` : '';
+    this.#match.innerHTML = `<span>${MODE_LABEL[s.mode].toUpperCase()}</span>${s.phase === 'playing' ? time : ''}${scores}${s.phase === 'playing' ? you : ''}${s.killLimit === null ? '' : `<span>FIRST TO ${s.killLimit}</span>`}`;
+    if (s.phase === 'playing') return;
+    const r = s.result;
+    const headline = !r ? 'Match over' : r.draw ? 'Draw' : `${r.winnerName ?? 'Someone'} wins`;
+    const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
+    let html = `<h2>${escape(headline)}</h2>`;
+    if (s.phase === 'nuke') html += `<div class="next">Scoreboard in ${left}</div>`;
+    else {
+      html += `<div class="next">Next match: ${MODE_LABEL[s.next]} in ${left}</div><div class="ds-votes">`;
+      for (const [i, mode] of (['tdm', 'ffa'] as const).entries()) {
+        html += `<button data-mode="${mode}" class="${view.myVote === mode ? 'mine' : ''}">[${i + 1}] ${MODE_LABEL[mode]} · ${s.votes[mode]}</button>`;
+      }
+      html += '</div>';
+    }
+    this.#end.innerHTML = html;
   }
 
   dispose(): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, type PlayerOutput, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
+import { STATS, TICK_SECONDS, anglesOf, bulletDamage, zoneCentre, type PlayerOutput, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { buildMap, collisionSolids } from '../src/map/map';
 
@@ -98,9 +98,49 @@ describe('map: movement course', () => {
   }
 });
 
+describe('map: penetration station', () => {
+  /** One aimed shot from the station's firing line, square to the lane, at its dummy; the hit, if any. */
+  function shootLane(dummy: string) {
+    const target = map.dummies.find((d) => d.id === dummy)!;
+    const from = map.penetration.shooter;
+    const match = createHeadlessMatch({ solids, players: [{ id: 'p', team: 1, position: [target.position[0], from.position[1], from.position[2]], yaw: from.yaw }, target] });
+    const eye = (): [number, number, number] => {
+      const me = match.latest.players[0]!;
+      return [me.position[0], me.position[1] + me.eyeHeight, me.position[2]];
+    };
+    const aim = () => {
+      const centre = zoneCentre(match.latest.players[1]!, 'upperTorso');
+      const e = eye();
+      return anglesOf([centre[0] - e[0], centre[1] - e[1], centre[2] - e[2]]);
+    };
+    run(match, STATS.weapon.drawTime.value + 0.5, () => usercmd({ ...aim(), buttons: ['Ads'] }));
+    const a = aim();
+    const out = [match.step({ p: usercmd({ ...a, buttons: ['Ads', 'Fire'], firePresses: [0] }) }), ...Array.from({ length: 20 }, () => match.step({ p: usercmd({ ...a, buttons: ['Ads'] }) }))];
+    return out.flatMap((o) => o.events).find((e) => e.type === 'hit') ?? null;
+  }
+
+  for (const lane of map.penetration.lanes) {
+    it(`the ${lane.material} lane lets through what the table says`, () => {
+      const row = STATS.penetration.materials[lane.material];
+      const hit = shootLane(lane.dummy);
+      if (row.stops) {
+        expect(hit).toBeNull();
+        return;
+      }
+      expect(hit?.type).toBe('hit');
+      if (hit?.type !== 'hit') return;
+      expect(hit.damage).toBeCloseTo(bulletDamage(hit.distance, hit.zone) * row.damage.value, 6);
+    });
+  }
+
+  it('covers wood, plaster, sheet metal and brick', () => {
+    expect(map.penetration.lanes.map((l) => l.material)).toEqual(['wood', 'plaster', 'sheetMetal', 'brick']);
+  });
+});
+
 describe('map: range', () => {
   it('has static dummies 10, 25 and 50 m from the firing line', () => {
-    const lanes = map.dummies.filter((d) => !d.dummy?.rail).map((d) => -d.position[2] + map.rangeSpawn.position[2]);
+    const lanes = map.dummies.filter((d) => !d.dummy?.rail && !d.id.startsWith('dummy-pen-')).map((d) => -d.position[2] + map.rangeSpawn.position[2]);
     expect(lanes).toEqual([10, 25, 50]);
   });
 

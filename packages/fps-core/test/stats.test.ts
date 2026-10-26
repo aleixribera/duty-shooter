@@ -44,7 +44,10 @@ describe('stats file', () => {
     const report = leaves(STATS).flatMap(({ path, value }) =>
       value !== null && typeof value === 'object'
         ? problems(path, value as Stat)
-        : [`${path}: bare ${typeof value} outside a stat`],
+        : // Flags (a material that stops bullets) are not numbers.
+          typeof value === 'boolean'
+          ? []
+          : [`${path}: bare ${typeof value} outside a stat`],
     );
 
     expect(report).toEqual([]);

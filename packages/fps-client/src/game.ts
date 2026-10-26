@@ -5,6 +5,7 @@ import {
   raycastWorld,
   viewDirection,
   type Material,
+  type ModeId,
   type PlayerId,
   type PlayerOutput,
   type UserCmd,
@@ -115,6 +116,12 @@ export class Game {
   #paused = true;
   #message: string | null = null;
   #resizeObserver: ResizeObserver;
+  /** The mode this player voted for in the current intermission. */
+  #myVote: ModeId | null = null;
+  readonly #onVoteKey = (e: KeyboardEvent) => {
+    if (e.code === 'Digit1') this.#vote('tdm');
+    else if (e.code === 'Digit2') this.#vote('ffa');
+  };
 
   constructor(options: GameOptions) {
     this.#renderer = options.renderer;
@@ -146,6 +153,8 @@ export class Game {
     this.input = new InputController(options.canvas, options.settings);
     this.hud = new Hud(document.body);
     this.hud.visible = false;
+    this.hud.onVote = (mode) => this.#vote(mode);
+    addEventListener('keydown', this.#onVoteKey);
     this.applySettings(options.settings);
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
     this.#resizeObserver.observe(options.canvas);
@@ -302,9 +311,20 @@ export class Game {
     this.#pipeline.render(dt);
   }
 
+  /** Votes for the next match's mode, while the vote is open. */
+  #vote(mode: ModeId): void {
+    const driver = this.#driver;
+    if (!driver?.match || driver.match.phase !== 'vote') return;
+    this.#myVote = mode;
+    driver.vote(mode);
+    this.#play('hitMarker');
+  }
+
   #updateHud(dt: number, eye: Vec3, forward: Vec3): void {
     const driver = this.#driver;
     if (!driver) return;
+    const match = driver.match;
+    if (!match || match.phase === 'playing') this.#myVote = null;
     const cam = this.#camera.camera;
     const pixelsPerDegree = this.#canvas.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360) / (180 / Math.PI);
     const status = driver.status;
@@ -320,6 +340,14 @@ export class Game {
       scores: driver.scores,
       selfId: driver.selfId,
       showScoreboard: this.input.scoreboard && driver.online,
+      match: match
+        ? {
+            status: match,
+            secondsLeft: match.phaseEnds === null ? null : match.phaseEnds - driver.serverTime,
+            team: match.mode === 'tdm' ? (this.#cur?.team ?? null) : null,
+            myVote: this.#myVote,
+          }
+        : null,
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
       dt,
     });
@@ -364,6 +392,7 @@ export class Game {
     this.#cmd = cmd;
     if (self && before) this.#selfFoley(before, self, cmd);
     for (const e of result.events) this.#present(e, start);
+    if (driver.popped) this.#worldView.hideProps(driver.popped);
     this.#footsteps();
   }
 
@@ -462,6 +491,14 @@ export class Game {
         this.#effects.impact(e.point, e.normal, e.material);
         this.#play('impact', { position: e.point, material: e.material });
         break;
+      case 'prop': {
+        const head = this.#worldView.popProp(e.prop);
+        if (head) {
+          this.#effects.fall(head, e.direction);
+          this.#play('impact', { position: e.point, material: 'plastic' });
+        }
+        break;
+      }
       case 'hit': {
         const from = this.#eyeOf(e.shooter) ?? e.point;
         const d: Vec3 = [e.point[0] - from[0], e.point[1] - from[1], e.point[2] - from[2]];
@@ -480,6 +517,7 @@ export class Game {
           const eng = this.#engagements.get(e.victim) ?? { start: this.#simTime - e.distance / STATS.weapon.muzzleVelocity.value, shots: 1, hits: 0 };
           eng.hits += 1;
           this.#engagements.set(e.victim, eng);
+          this.hud.setLastHit(e.damage);
           if (e.killed) {
             this.hud.setRangeStats(this.#simTime - eng.start, eng.shots, eng.hits);
             this.#engagements.delete(e.victim);
@@ -518,6 +556,7 @@ export class Game {
         break;
       case 'matchStart':
         this.hud.toast('New match.', 3);
+        this.#worldView.restoreProps();
         break;
     }
   }
@@ -548,6 +587,7 @@ export class Game {
   }
 
   dispose(): void {
+    removeEventListener('keydown', this.#onVoteKey);
     this.setDriver(null);
     this.#resizeObserver.disconnect();
     this.input.dispose();

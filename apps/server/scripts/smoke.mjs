@@ -26,7 +26,7 @@ function join(pass, headers = {}) {
       ws.terminate();
     };
     const timer = setTimeout(() => done('timeout'), 5000);
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: pass, protocol: 1 })));
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: pass, protocol: 2 })));
     ws.on('message', (data) => {
       first ??= JSON.parse(data.toString());
       if (first.t === 'welcome') {
@@ -48,6 +48,8 @@ function join(pass, headers = {}) {
 
 const health = await fetch(new URL('/healthz', base)).then((r) => r.json()).catch((e) => ({ error: String(e) }));
 check('health check', health.status === 'ok' && health.public === !passphrase && typeof health.version === 'string', JSON.stringify(health));
+const lobby = await fetch(new URL('/status', base)).then((r) => r.json()).catch((e) => ({ error: String(e) }));
+check('lobby status', typeof lobby.map === 'string' && ['tdm', 'ffa'].includes(lobby.mode) && Number.isInteger(lobby.players) && Number.isInteger(lobby.capacity) && typeof lobby.phase === 'string', JSON.stringify(lobby));
 const page = await fetch(base).catch(() => null);
 const html = page ? await page.text() : '';
 check('serves the game page', page?.status === 200 && html.includes('<canvas'), `status ${page?.status}`);

@@ -1,6 +1,6 @@
 # 04 Intermission sequence, mode voting and lobby status
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 1 (core, headless)
 Blocked by: 03
 
@@ -30,20 +30,22 @@ The loop between matches, and how the lobby picks its mode. See the spec section
 
 ## Acceptance criteria
 
-- [ ] Networked tests:
+- [x] Networked tests:
   - phase timing at 6 s and 20 s
   - input frozen during the intermission
   - no kills or scores after `matchEnd`
   - the next match starts on fresh spawns
-- [ ] Voting tests:
+- [x] Voting tests:
   - the plurality wins
   - a tie or no votes keeps the mode
   - a changed vote counts once
   - votes after the window closes are ignored
   - the mode never changes mid-match
-- [ ] Join tests:
+- [x] Join tests:
   - the first joiner's mode is honoured on an empty server and ignored on a busy one
   - an old protocol version is rejected
-- [ ] A server test calls the status endpoint and checks its fields.
+- [x] A server test calls the status endpoint and checks its fields.
 
 ## Comments
+
+Resolved. The server (`packages/fps-core/src/net/server.ts`) owns the flow: `matchEnd`, 6 s `nuke`, 14 s `vote`, then `matchStart` in the vote's mode. During the intermission usercmds are acknowledged but not applied (the client predicts with no input too) and the damage rule returns false, so nothing moves, fires, scores or dies. Every snapshot carries a `MatchStatus` (mode, phase and its deadline in server time, limits, team scores, live tally, next mode, result); protocol version 2, and the smoke and load-test scripts send it. The first player on an empty server starts a fresh match in the mode their join asks for. `/status` sits next to `/healthz` (test in `apps/server/test/status.test.ts`), the server takes `MODE=tdm|ffa` for an empty server's mode, and the Play Online flow fetches `/status` first. The minimal HUD shows mode, clock and team score, and after a match the result, countdown and two vote buttons (also keys 1 and 2). Not yet checked in a browser; that happens with the UI build checks.

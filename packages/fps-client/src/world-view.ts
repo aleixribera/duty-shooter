@@ -163,6 +163,8 @@ export class WorldView {
   readonly #root = new Group();
   #csm: CSMShadowNode | null = null;
   #quality: ShadowQuality = 'normal';
+  /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
+  readonly #props = new Map<string, Mesh>();
 
   constructor(renderer: WebGPURenderer, content: WorldContent) {
     const scene = this.scene;
@@ -183,7 +185,22 @@ export class WorldView {
       list.push(g.index ? g.toNonIndexed() : g);
       byMaterial.set(material, list);
     };
-    for (const b of content.solids) push(b.material, boxGeometry(b));
+    for (const b of content.solids) {
+      if (b.prop === null) {
+        push(b.material, boxGeometry(b));
+        continue;
+      }
+      // Centred on its own origin, so a knocked-off copy tumbles about its middle.
+      const geometry = boxGeometry(b);
+      const centre: Vec3 = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
+      geometry.translate(-centre[0], -centre[1], -centre[2]);
+      const mesh = new Mesh(geometry, gridMaterial(b.material));
+      mesh.position.set(...centre);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.#props.set(b.prop, mesh);
+      this.#root.add(mesh);
+    }
     for (const r of content.ramps ?? []) push(r.material, rampGeometry(r));
     for (const [material, geometries] of byMaterial) {
       const merged = mergeGeometries(geometries, false);
@@ -197,6 +214,32 @@ export class WorldView {
     for (const label of content.labels ?? []) this.#root.add(labelMesh(label));
     scene.add(this.#root);
     this.setShadowQuality('normal');
+  }
+
+  /**
+   * Knocks a prop off: hides it and returns a copy for the effects to drop,
+   * or null if it was already gone.
+   */
+  popProp(id: string): Mesh | null {
+    const mesh = this.#props.get(id);
+    if (!mesh || !mesh.visible) return null;
+    mesh.visible = false;
+    const copy = mesh.clone();
+    copy.visible = true;
+    return copy;
+  }
+
+  /** Hides props the server says are already gone (a late join), with no falling copy. */
+  hideProps(ids: readonly string[]): void {
+    for (const id of ids) {
+      const mesh = this.#props.get(id);
+      if (mesh) mesh.visible = false;
+    }
+  }
+
+  /** Puts every prop back (a new match). */
+  restoreProps(): void {
+    for (const mesh of this.#props.values()) mesh.visible = true;
   }
 
   /** Low: one small shadow map near the player. Normal: one larger map. High: three cascades. */

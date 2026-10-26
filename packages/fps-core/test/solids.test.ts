@@ -145,11 +145,11 @@ describe('player clip and bullet surfaces', () => {
   });
 
   it('bullet surfaces stop bullets', () => {
-    const surface = box({ min: [-5, 0, -6.2], max: [5, 3, -6], material: 'wood', blocks: 'bullets' });
+    const surface = box({ min: [-5, 0, -6.2], max: [5, 3, -6], material: 'concrete', blocks: 'bullets' });
     const out = shoot(range(surface));
 
     expect(out.flatMap((o) => o.events).filter((e) => e.type === 'hit')).toHaveLength(0);
-    expect(out.flatMap((o) => o.events).find((e) => e.type === 'impact')).toMatchObject({ material: 'wood', normal: [0, 0, 1] });
+    expect(out.flatMap((o) => o.events).find((e) => e.type === 'impact')).toMatchObject({ material: 'concrete', normal: [0, 0, 1] });
   });
 
   it('bullet surfaces never block the hull', () => {
