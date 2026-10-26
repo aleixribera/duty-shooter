@@ -68,7 +68,9 @@ describe('authored M4A1', () => {
     const throughSight = new Raycaster(new Vector3(sight.x, sight.y, .005), new Vector3(0, 0, -1), 0, .06);
     expect(throughSight.intersectObject(receiver).length).toBe(0);
     const onRing = new Raycaster(new Vector3(sight.x + .004, sight.y, .005), new Vector3(0, 0, -1), 0, .06);
-    expect(onRing.intersectObject(receiver).length).toBeGreaterThan(0);
+    expect(onRing.intersectObject(receiver).length).toBe(0);
+    // The folded rear mount also stays clear if the authored asset cannot load.
+    expect(onRing.intersectObject(gun.root.getObjectByName('rearSightBody')!).length).toBe(0);
     const gripSocket = gun.sockets.rightGrip.position;
     const grip = scene.getObjectByName('authored_stock')!;
     const towardGrip = new Raycaster(gripSocket.clone(), new Vector3(-1, 0, 0), 0, .03);

@@ -426,40 +426,8 @@ def muzzle_device():
 muzzle_device()
 
 def rear_sight():
-    # A compact folding aperture on the existing sight line. The ring's center
-    # and .0025 m aperture match the socket used by the ADS camera.
+    # Folded base only: leave the front sight visible when aiming.
     box('sight clamp base', (0, .0283, -.0215), (.025, .012, .031), anod, .001)
-    for side in (-1, 1):
-        box('aperture support', (side*.0056, .0485, -.022), (.0035, .030, .0045), anod, .0007)
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=.0048, depth=.004,
-                                            location=point(side*.014, .030, -.028),
-                                            rotation=(0, math.pi/2, 0))
-        knob = move_to_details(bpy.context.object)
-        knob.name = 'sight windage knob'
-        knob.data.materials.append(anod)
-        bevel = knob.modifiers.new('Knob rim', 'BEVEL')
-        bevel.width = .0005
-        bevel.segments = 3
-        knob.modifiers.new('Weighted normals', 'WEIGHTED_NORMAL')
-    bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=.0072, depth=.005,
-                                        location=point(0, .066, -.022), rotation=(math.pi/2, 0, 0))
-    ring = move_to_details(bpy.context.object)
-    ring.name = 'rear sight aperture'
-    ring.data.materials.append(anod)
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=40, radius=.0025, depth=.012,
-                                        location=point(0, .066, -.022), rotation=(math.pi/2, 0, 0))
-    cutter = bpy.context.object
-    mod = ring.modifiers.new('Sight aperture', 'BOOLEAN')
-    mod.operation = 'DIFFERENCE'
-    mod.object = cutter
-    bpy.context.view_layer.objects.active = ring
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-    bpy.data.objects.remove(cutter, do_unlink=True)
-    bevel = ring.modifiers.new('Aperture edge', 'BEVEL')
-    bevel.width = .00035
-    bevel.segments = 3
-    ring.modifiers.new('Weighted normals', 'WEIGHTED_NORMAL')
 
 rear_sight()
 
