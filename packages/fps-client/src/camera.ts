@@ -5,6 +5,9 @@ import { Spring } from './spring';
 
 const DEG = Math.PI / 180;
 
+/** Movement FOV, as a multiplier: a touch wider at speed, eased in and out, and never while aiming. */
+const MOVE_FOV: Partial<Record<PlayerOutput['movement'], number>> = { sprint: 1.04, tacticalSprint: 1.08, slide: 1.06 };
+
 export interface CameraFrame {
   /** The local player's outputs at the previous and latest tick. */
   readonly prev: PlayerOutput;
@@ -24,7 +27,8 @@ export interface CameraFrame {
 /**
  * The first-person camera: eye position interpolated between ticks, mouse
  * look applied every frame on top of the simulation's recoil and flinch,
- * smooth step-ups, a landing dip, slide tilt, ADS zoom and shot shake.
+ * smooth step-ups, a landing dip, slide tilt, ADS zoom, a slightly wider
+ * view at speed and shot shake.
  */
 export class FirstPersonCamera {
   readonly camera: PerspectiveCamera;
@@ -53,11 +57,6 @@ export class FirstPersonCamera {
     this.#shakePitch.velocity += pitch * DEG * 30;
     this.#shakeYaw.velocity += yaw * DEG * 30;
     this.#shakeRoll.velocity += roll * DEG * 30;
-  }
-
-  /** Extra FOV multiplier (e.g. a tactical-sprint widening). */
-  set fovScale(v: number) {
-    this.#fovScale = v;
   }
 
   update(frame: CameraFrame, settings: Settings): { position: Vec3; yaw: number; pitch: number } {
@@ -100,6 +99,8 @@ export class FirstPersonCamera {
     const eased = ads * ads * (3 - 2 * ads);
     const hip = verticalFov(settings.fov);
     const aimed = verticalFov(adsFovDeg(settings));
+    const moveTarget = 1 + ((MOVE_FOV[cur.movement] ?? 1) - 1) * (1 - eased);
+    this.#fovScale += (moveTarget - this.#fovScale) * (1 - Math.exp(-dt / 0.15));
     const fov = (hip + (aimed - hip) * eased) * this.#fovScale;
     if (Math.abs(cam.fov - fov / DEG) > 1e-4) {
       cam.fov = fov / DEG;

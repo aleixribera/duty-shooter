@@ -72,6 +72,13 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 
 The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls has the layout, stick sensitivity, ADS multiplier, deadzone and invert Y. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
 
+### Changes from MW2019
+
+- The reserve is unlimited (shown as ∞). You still reload the 30-round magazine.
+- Sprinting doesn't cancel a reload.
+- The defaults are mouse sensitivity 10, stick sensitivity 12 and FOV 90°. That's twice MW2019's sensitivity, and wider than its 80°. Saves made under the old defaults move to the new ones; values you changed yourself are kept.
+- The view widens slightly while sprinting and sliding. Kills show an "Eliminated" or "Headshot" callout under the crosshair.
+
 ## Layout
 
 - `packages/fps-core`: the headless, deterministic simulation shared by the client and the server. It covers movement (pmove), the weapon, hit zones, lag compensation, netcode, game modes and the sourced stats file. It has no DOM, rendering or audio code.

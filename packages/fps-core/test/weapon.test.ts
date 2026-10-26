@@ -150,7 +150,18 @@ describe('reload', () => {
     expect(outputs[0]).toMatchObject({ action: 'reload', reload: 'tactical' });
     expectStat(timeUntil(outputs, (w) => w.ammo === W.magazineSize.value), W.tacticalReloadAddAmmo, 'tactical add-ammo point');
     expectStat(timeUntil(outputs, (w) => w.action === 'ready'), W.tacticalReloadDuration, 'tactical reload duration');
-    expect(outputs.at(-1)?.reserve).toBe(before.reserve - 5);
+  });
+
+  it('the reserve is unlimited: every reload fills the magazine, however many came before', () => {
+    const match = range();
+    drawn(match);
+    for (let mag = 0; mag < 6; mag++) {
+      match.run(Math.floor(((W.magazineSize.value - 1) * SHOT_INTERVAL) / TICK_SECONDS) + 1, () => ({ [SHOOTER]: fire }));
+      expect(weaponOf(match).ammo, `magazine ${mag + 1} emptied`).toBe(0);
+      match.step({ [SHOOTER]: usercmd({ buttons: ['Reload'] }) });
+      match.run(ticks(W.emptyReloadDuration.value + 0.2), () => ({ [SHOOTER]: idle }));
+      expect(weaponOf(match), `magazine ${mag + 1} reloaded`).toMatchObject({ action: 'ready', ammo: W.magazineSize.value });
+    }
   });
 
   it('empty reload (bolt release) takes the longer empty timings', () => {
@@ -172,24 +183,19 @@ describe('reload', () => {
     expect(out).toMatchObject({ action: 'reload', reload: 'empty' });
   });
 
-  it('sprinting before the add-ammo point cancels the reload with no rounds added', () => {
+  it('sprinting does not cancel a reload: it carries on and adds the rounds', () => {
     const match = fired(5);
     reload(match, W.tacticalReloadAddAmmo.value - 0.3);
 
-    const outputs = match.run(ticks(0.5), () => ({ [SHOOTER]: usercmd({ forward: 1, buttons: ['Sprint'] }) }));
+    const sprint = usercmd({ forward: 1, buttons: ['Sprint'] });
+    const during = match.run(ticks(0.1), () => ({ [SHOOTER]: sprint }));
+    expect(playerIn(during.at(-1)!, SHOOTER).movement).toBe('sprint');
+    expect(playerIn(during.at(-1)!, SHOOTER).weapon.action).toBe('reload');
 
+    const outputs = match.run(ticks(W.tacticalReloadDuration.value), () => ({ [SHOOTER]: sprint }));
     const w = playerIn(outputs.at(-1)!, SHOOTER).weapon;
-    expect(w).toMatchObject({ action: 'ready', ammo: W.magazineSize.value - 5 });
-    expect(eventsOf(outputs, 'reload').map((e) => e.phase)).toEqual(['cancel']);
-  });
-
-  it('sprinting after the add-ammo point ends the reload and keeps the rounds', () => {
-    const match = fired(5);
-    reload(match, W.tacticalReloadAddAmmo.value + 0.1);
-
-    const w = playerIn(match.run(ticks(0.2), () => ({ [SHOOTER]: usercmd({ forward: 1, buttons: ['Sprint'] }) })).at(-1)!, SHOOTER).weapon;
-
     expect(w).toMatchObject({ action: 'ready', ammo: W.magazineSize.value });
+    expect(eventsOf([...during, ...outputs], 'reload').map((e) => e.phase)).toEqual(['addAmmo']);
   });
 
   it('cannot fire before the add-ammo point; firing after it skips the rest of the animation', () => {

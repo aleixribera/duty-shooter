@@ -12,6 +12,10 @@ const CSS = `
 .ds-hit i { position: absolute; width: 11px; height: 2.4px; background: #fff; left: -5.5px; top: -1.2px; box-shadow: 0 0 2px rgb(0 0 0 / 0.6); }
 .ds-hit.kill i { background: #ff2a2a; }
 .ds-hit.head i { width: 15px; left: -7.5px; height: 3px; }
+.ds-elim { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); text-align: center; letter-spacing: 3px; text-transform: uppercase; opacity: 0; white-space: nowrap; }
+.ds-elim .what { font-size: 13px; color: #ff4a3a; }
+.ds-elim .what.head { color: #f2c14e; }
+.ds-elim .who { font-size: 18px; font-weight: 700; }
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgb(255 40 30 / 0.85); filter: blur(0.6px); transform-origin: 70px 230px; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgb(140 0 0 / 0.75) 100%); opacity: 0; }
@@ -80,11 +84,13 @@ export class Hud {
   readonly #arms: HTMLElement[];
   readonly #hit: HTMLDivElement;
   #hitAge = 1;
+  #hitLife = 0.28;
+  readonly #elim: HTMLDivElement;
+  #elimAge = 10;
   readonly #dmg: HTMLDivElement;
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
-  readonly #reserve: HTMLSpanElement;
   readonly #bar: HTMLElement;
   readonly #feed: HTMLDivElement;
   readonly #stats: HTMLDivElement;
@@ -123,10 +129,10 @@ export class Hud {
       const a = 45 + n * 90;
       (i as HTMLElement).style.transform = `rotate(${a}deg) translateX(12px)`;
     });
+    this.#elim = el('div', 'ds-elim', this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
-    const ammo = el('div', 'ds-ammo', this.root, '<div class="name">M4A1</div><span class="mag">30</span><span class="res">90</span><div class="bar"><i></i></div>');
+    const ammo = el('div', 'ds-ammo', this.root, '<div class="name">M4A1</div><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
-    this.#reserve = ammo.querySelector('.res') as HTMLSpanElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
     this.#feed = el('div', 'ds-feed', this.root);
     this.#stats = el('div', 'ds-stats', this.root);
@@ -150,8 +156,16 @@ export class Hud {
   }
 
   hitMarker(kind: HitKind): void {
-    this.#hit.className = `ds-hit${kind === 'kill' || kind === 'headshotKill' ? ' kill' : ''}${kind === 'headshot' || kind === 'headshotKill' ? ' head' : ''}`;
+    const kill = kind === 'kill' || kind === 'headshotKill';
+    this.#hit.className = `ds-hit${kill ? ' kill' : ''}${kind === 'headshot' || kind === 'headshotKill' ? ' head' : ''}`;
     this.#hitAge = 0;
+    this.#hitLife = kill ? 0.5 : 0.28;
+  }
+
+  /** The callout under the crosshair for a kill you made. */
+  eliminated(victim: string, headshot: boolean): void {
+    this.#elim.innerHTML = `<div class="what${headshot ? ' head' : ''}">${headshot ? 'Headshot' : 'Eliminated'}</div><div class="who">${escape(victim)}</div>`;
+    this.#elimAge = 0;
   }
 
   /** A hit taken from an attacker at world yaw `worldYaw` (the direction from you to them). */
@@ -247,7 +261,11 @@ export class Hud {
     }
 
     this.#hitAge += dt;
-    this.#hit.style.opacity = String(Math.max(0, 1 - this.#hitAge / 0.28));
+    this.#hit.style.opacity = String(Math.max(0, 1 - this.#hitAge / this.#hitLife));
+    // The marker pops out and settles over its first 80 ms.
+    this.#hit.style.transform = `scale(${1 + 0.4 * Math.max(0, 1 - this.#hitAge / 0.08)})`;
+    this.#elimAge += dt;
+    this.#elim.style.opacity = String(Math.max(0, Math.min(1, this.#elimAge / 0.06, (1.6 - this.#elimAge) / 0.4)));
     const scale = 1 + Math.max(0, 0.12 - this.#hitAge) * 2.5;
     this.#hit.style.transform = `scale(${scale})`;
 
@@ -266,7 +284,6 @@ export class Hud {
     if (w) {
       this.#mag.textContent = String(w.ammo);
       this.#mag.classList.toggle('low', w.ammo <= 6);
-      this.#reserve.textContent = String(w.reserve);
       this.#bar.style.width = `${(w.ammo / 30) * 100}%`;
     }
 

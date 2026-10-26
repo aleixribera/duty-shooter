@@ -244,7 +244,8 @@ export class Viewmodel {
     const ads = ease(Math.min(1, Math.max(0, state.ads)));
     const sprinting = state.movement === 'sprint' || state.movement === 'tacticalSprint';
     const k = (tau: number) => 1 - Math.exp(-dt / tau);
-    this.#sprint += ((sprinting && state.action !== 'melee' ? 1 : 0) - this.#sprint) * k(0.09);
+    // A reload carries on through a sprint, so the gun stays in its reload pose rather than the sprint cant.
+    this.#sprint += ((sprinting && state.action !== 'melee' && state.action !== 'reload' ? 1 : 0) - this.#sprint) * k(0.09);
     this.#tactical += ((state.movement === 'tacticalSprint' ? 1 : 0) - this.#tactical) * k(0.1);
 
     // Viewmodel FOV: a little narrower when aimed, so the sights fill more of the view.

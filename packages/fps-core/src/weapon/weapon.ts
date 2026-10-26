@@ -21,8 +21,8 @@ export type WeaponAction = 'draw' | 'ready' | 'reload' | 'inspect' | 'melee';
 export type ReloadKind = 'tactical' | 'empty';
 
 export interface WeaponState {
+  /** Rounds in the magazine. The reserve is unlimited: a reload always fills it. */
   ammo: number;
-  reserve: number;
   action: WeaponAction;
   /** Seconds since the current action started. */
   actionTime: number;
@@ -49,7 +49,6 @@ export interface WeaponState {
 export function createWeaponState(): WeaponState {
   return {
     ammo: W.magazineSize.value,
-    reserve: W.reserveAmmo.value,
     action: 'draw',
     actionTime: 0,
     reload: null,
@@ -141,9 +140,7 @@ function finishAction(state: WeaponState): void {
 }
 
 function addAmmo(state: WeaponState, events: WeaponEvents): void {
-  const take = Math.min(W.magazineSize.value - state.ammo, state.reserve);
-  state.ammo += take;
-  state.reserve -= take;
+  state.ammo = W.magazineSize.value;
   state.ammoAdded = true;
   events.ammoAdded = true;
 }
@@ -174,11 +171,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
   if (sprinting) {
     const lock = ctx.movement === 'tacticalSprint' ? W.tacticalSprintToFire.value : W.sprintToFire.value;
     state.fireReadyAt = Math.max(state.fireReadyAt, t1 + lock);
-    if (state.action === 'reload') {
-      // Sprinting cancels a reload; ammo already added stays in the magazine.
-      if (!state.ammoAdded) events.reloadCancelled = true;
-      finishAction(state);
-    }
+    // A reload carries on through a sprint (MW2019 cancelled it); an inspect stops.
     if (state.action === 'inspect') finishAction(state);
   }
   if (ctx.movement === 'mantle') state.fireReadyAt = Math.max(state.fireReadyAt, t1);
@@ -230,7 +223,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
       break;
   }
 
-  if (state.action === 'ready' && state.ammo < W.magazineSize.value && state.reserve > 0) {
+  if (state.action === 'ready' && state.ammo < W.magazineSize.value) {
     if (reloadPress || (fire && state.ammo === 0)) startReload(state, events);
   }
   if (state.action === 'ready' && state.ammo === W.magazineSize.value && state.reloadHeld >= W.inspectHoldTime.value - 1e-9 && !fire) {

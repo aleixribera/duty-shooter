@@ -15,8 +15,8 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * Weapon research (2026-10-26): the same archived TGD dataset gives the
  * M4A1's fire rate, ADS, sprint-to-fire, reload, magazine, bullet velocity
  * and zoom. The damage profile comes from MeinMMO's write-up of MutantMedia
- * and TheXclusiveAce data (December 2019). Hit-zone multipliers, reserve
- * ammo, spread, recoil, melee, flinch and draw time were not found anywhere
+ * and TheXclusiveAce data (December 2019). Hit-zone multipliers,
+ * spread, recoil, melee, flinch and draw time were not found anywhere
  * and are estimates.
  *
  * IW engine units are inches; values given in units by the research are
@@ -197,7 +197,6 @@ export const STATS = {
   weapon: {
     fireRate: sourced(809, 'rpm', TGD_WZ1_M4A1, 10, 'TGD field rpm: 809. MeinMMO (2019-12-10) and Kavo give 800 and 793.'),
     magazineSize: sourced(30, 'rounds', TGD_WZ1_M4A1, 0, 'TGD field mag_size: 30.'),
-    reserveAmmo: estimated(90, 'rounds', 'Not found in any source (research 2026-10-26). Three spare magazines, the usual IW spawn loadout for a primary.'),
     muzzleVelocity: sourced(628, 'm/s', TGD_WZ1_M4A1, 10, 'TGD field bv (bullet velocity): 628.'),
     projectileGravity: estimated(9.81, 'm/s²', 'Standard gravity. MW2019 bullets drop, but the drop rate has not been published.', 1),
     projectileMaxRange: estimated(1000, 'm', 'Beyond any sightline on the map; projectiles are removed past this distance.'),

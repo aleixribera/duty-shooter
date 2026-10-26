@@ -48,7 +48,6 @@ export interface WeaponOutput {
   readonly actionTime: number;
   readonly reload: ReloadKind | null;
   readonly ammo: number;
-  readonly reserve: number;
   /** ADS fraction: 0 hipfire, 1 fully aimed. */
   readonly ads: number;
   /** Current spread half-angle in degrees (0 when fully aimed). */
@@ -607,7 +606,6 @@ export class Simulation {
         actionTime: w.actionTime,
         reload: w.reload,
         ammo: w.ammo,
-        reserve: w.reserve,
         ads: w.ads,
         spread: currentSpread(w, p.move.movement, speed),
         canFire: p.health > 0 && w.action === 'ready' && w.ammo > 0 && !sprinting && w.clock >= w.fireReadyAt - 1e-9,

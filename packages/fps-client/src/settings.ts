@@ -91,16 +91,17 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: DEFAULT_BINDINGS,
   adsMode: 'hold',
   crouchMode: 'toggle',
-  sensitivity: 5,
+  // Twice MW2019's defaults (5 and 6/6), which felt slow in the browser; FOV 90 instead of 80.
+  sensitivity: 10,
   adsMultiplier: STATS.input.adsSensitivityMultiplier.value,
   padLayout: 'default',
-  padSensitivityX: STATS.input.stickSensitivity.value,
-  padSensitivityY: STATS.input.stickSensitivity.value,
+  padSensitivityX: STATS.input.stickSensitivity.value * 2,
+  padSensitivityY: STATS.input.stickSensitivity.value * 2,
   padAdsMultiplier: STATS.input.stickAdsMultiplier.value,
   padInvertY: false,
   padDeadzone: STATS.input.stickDeadzone.value,
   adsFov: 'affected',
-  fov: STATS.input.defaultFov.value,
+  fov: 90,
   preset: 'normal',
   showFps: false,
   showPing: true,
@@ -112,6 +113,16 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 const KEY = 'duty-shooter.settings.v1';
+
+/** Stored with the settings: which defaults they were saved under. */
+const DEFAULTS_VERSION = 2;
+
+/**
+ * The defaults before version 2. Saves were written whole, so a value still
+ * at one of these is the old default rather than a choice, and moves to the
+ * new default.
+ */
+const V1_DEFAULTS = { sensitivity: 5, padSensitivityX: 6, padSensitivityY: 6, fov: 80 } as const;
 
 /** Reads browser storage, guarded: a blocked or full storage just means defaults. */
 function readStorage(): string | null {
@@ -139,7 +150,10 @@ const str = (v: unknown, fallback: string, max = 64) => (typeof v === 'string' ?
 export function parseSettings(raw: unknown): Settings {
   const d = DEFAULT_SETTINGS;
   if (raw === null || typeof raw !== 'object') return d;
-  const r = raw as Record<string, unknown>;
+  const r = { ...(raw as Record<string, unknown>) };
+  if (r['defaultsVersion'] !== DEFAULTS_VERSION) {
+    for (const [key, old] of Object.entries(V1_DEFAULTS)) if (r[key] === old) r[key] = d[key as keyof typeof V1_DEFAULTS];
+  }
   const storedBindings = (r['bindings'] ?? {}) as Record<string, unknown>;
   const bindings = Object.fromEntries(ACTIONS.map((a) => [a, str(storedBindings[a], d.bindings[a], 32)])) as Record<Action, string>;
   return {
@@ -178,7 +192,7 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(settings: Settings): void {
-  writeStorage(JSON.stringify(settings));
+  writeStorage(JSON.stringify({ ...settings, defaultsVersion: DEFAULTS_VERSION }));
 }
 
 /** Human-readable name of a binding code. */

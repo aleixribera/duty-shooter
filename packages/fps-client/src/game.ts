@@ -384,7 +384,6 @@ export class Game {
     const pw = before.weapon;
     if (w.ads > pw.ads && pw.ads === 0) this.#play('adsIn', local);
     if (w.ads < pw.ads && pw.ads === 1) this.#play('adsOut', local);
-    if (cmd.firePresses.length > 0 && w.ammo === 0 && w.reserve === 0) this.#play('dryFire', local);
     // Weapon foley at fixed points of each action.
     const sameAction = pw.action === w.action && w.actionTime >= pw.actionTime;
     const from = sameAction ? pw.actionTime : -1;
@@ -507,9 +506,11 @@ export class Game {
         }
         break;
       case 'kill':
+        if (!driver.online && e.killer === selfId && e.victim !== selfId) this.hud.eliminated(driver.nameOf(e.victim), e.zone === 'head');
         if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId);
         break;
       case 'killFeed':
+        if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot);
         this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : e.killerName, e.victimName, e.headshot, e.killer === selfId || e.victim === selfId);
         break;
       case 'matchEnd':
