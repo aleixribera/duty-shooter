@@ -8,8 +8,10 @@ import {
   createSoundSystem,
   isFirefox,
   loadSettings,
+  padName,
   saveSettings,
   type GameDriver,
+  type Lobby,
   type Settings,
 } from '@duty-shooter/fps-client';
 import { createWorld } from '@duty-shooter/fps-core';
@@ -50,20 +52,31 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   setTimeout(() => (status.hidden = true), 4000);
   // `?nolock` (dev only): play without pointer lock, for automated playtesting.
   if (import.meta.env.DEV && params.has('nolock')) game.input.lockFree = true;
-  // The built page is only ever served by the game server; in dev, `?online` assumes one behind Vite's proxy.
-  const online = !import.meta.env.DEV || params.has('online');
+  const lobby = await findLobby();
 
-  /** Takes the pointer and starts input; shows the pause menu if the browser refuses. */
+  /**
+   * Takes the pointer and starts input; shows the pause menu if the browser
+   * refuses. On a controller there is no pointer to take.
+   */
   const enter = async () => {
-    await sound.unlock();
-    await game.input.lock();
+    // Not awaited: without a click or key press (a controller press does not
+    // count) the browser holds audio back until the next one.
+    void sound.unlock();
+    if (!game.input.padMode) await game.input.lock();
     if (game.input.locked) {
       menu.hide();
       game.paused = false;
+      if (!sound.unlocked && game.input.padMode) game.hud.toast('Sound starts after a click or a key press: the browser does not count controller buttons.', 6);
     } else {
       menu.show('pause', 'The browser refused the mouse lock. Click Resume again.');
     }
   };
+  // Sound the browser held back starts on the first click or key press.
+  const retrySound = () => {
+    if (!sound.unlocked) void sound.unlock();
+  };
+  document.addEventListener('pointerdown', retrySound, true);
+  document.addEventListener('keydown', retrySound, true);
   /** First entry shows the one-time Firefox tip about raw mouse input. */
   let driver: GameDriver | null = null;
   const play = (next: GameDriver) => {
@@ -95,8 +108,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => game.input.captureNext(),
     },
-    { online },
+    { lobby, padName: () => game.input.padName },
   );
+  game.input.onPadMenu = (nav) => menu.navigate(nav);
+  addEventListener('gamepadconnected', (e) => game.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
   game.input.onUnlock = () => {
     if (!game.paused && game.driver) {
       game.paused = true;
@@ -139,4 +154,24 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       }
     }
   });
+}
+
+/**
+ * Where online play is: the game server that served this page (it answers
+ * /healthz), else the server's address baked into a copy built without one
+ * (GitHub Pages), else nowhere. In dev, `?online` looks for a server behind
+ * Vite's proxy.
+ */
+async function findLobby(): Promise<Lobby | null> {
+  if (!import.meta.env.DEV || params.has('online')) {
+    try {
+      const res = await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+      const health = res.ok && res.headers.get('content-type')?.includes('application/json') ? ((await res.json()) as { status?: unknown; public?: unknown }) : null;
+      if (health?.status === 'ok') return { kind: 'server', public: health.public === true };
+    } catch {
+      // No game server behind this page.
+    }
+  }
+  const url = import.meta.env.VITE_LOBBY_URL;
+  return url ? { kind: 'link', url } : null;
 }

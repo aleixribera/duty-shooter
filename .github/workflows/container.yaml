@@ -35,9 +35,6 @@ jobs:
           npm run typecheck
           npm test
           docker compose config --quiet
-        env:
-          # compose.yaml requires a passphrase; any value validates the file.
-          PASSPHRASE: ci-only
       - name: Image name
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
@@ -55,13 +52,19 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Exercise the actual container
         run: |
+          # The public lobby (how the home server runs it) and the passphrase mode.
           docker run -d --name game-smoke --read-only --cap-drop ALL --security-opt no-new-privileges:true \
-            -e PASSPHRASE=smoke-test -p 127.0.0.1:3090:3000 duty-shooter-smoke:local
-          for i in $(seq 1 30); do
-            [ "$(docker inspect --format '{{.State.Health.Status}}' game-smoke)" = healthy ] && break
-            sleep 1
+            -p 127.0.0.1:3090:3000 duty-shooter-smoke:local
+          docker run -d --name game-smoke-passphrase --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+            -e PASSPHRASE=smoke-test -p 127.0.0.1:3091:3000 duty-shooter-smoke:local
+          for name in game-smoke game-smoke-passphrase; do
+            for i in $(seq 1 30); do
+              [ "$(docker inspect --format '{{.State.Health.Status}}' "$name")" = healthy ] && break
+              sleep 1
+            done
           done
-          node apps/server/scripts/smoke.mjs http://127.0.0.1:3090 smoke-test --lockout
+          node apps/server/scripts/smoke.mjs http://127.0.0.1:3090
+          node apps/server/scripts/smoke.mjs http://127.0.0.1:3091 smoke-test --lockout
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -83,4 +86,6 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Container logs
         if: always()
-        run: docker logs game-smoke 2>/dev/null || true
+        run: |
+          docker logs game-smoke 2>/dev/null || true
+          docker logs game-smoke-passphrase 2>/dev/null || true

@@ -10,6 +10,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 export interface ServerOptions {
   readonly port: number;
   readonly host: string;
+  /** Empty runs one public lobby. */
   readonly passphrase: string;
   readonly maxPlayers: number;
   /** The built range app (apps/range/dist). */
@@ -201,7 +202,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers }));
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '' }));
       return;
     }
     void serveStatic(root, req, res);
@@ -262,10 +263,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   };
 }
 
-/** Reads the server settings from the environment. The passphrase is required and never logged. */
+/**
+ * Reads the server settings from the environment. Without a PASSPHRASE the
+ * server runs one public lobby that anyone with the link can join. The
+ * passphrase is never logged.
+ */
 export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string): ServerOptions {
   const passphrase = env['PASSPHRASE'] ?? '';
-  if (passphrase.length === 0) throw new Error('PASSPHRASE is not set. Set it in the environment (see .env.example).');
   const maxPlayers = Number(env['MAX_PLAYERS'] ?? 8);
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
   return {

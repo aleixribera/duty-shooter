@@ -1,4 +1,5 @@
 import { STATS } from '@duty-shooter/fps-core';
+import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
 
 const CSS = `
@@ -28,6 +29,9 @@ const CSS = `
 .ds-tabs { display: flex; gap: 6px; margin: 12px 0 4px; }
 .ds-tabs button { flex: 1; padding: 8px; background: transparent; color: inherit; border: 1px solid rgb(255 255 255 / 0.12); font: inherit; letter-spacing: 2px; text-transform: uppercase; font-size: 12px; cursor: pointer; }
 .ds-tabs button.on { border-color: #f2c14e; color: #f2c14e; }
+.ds-menu.pad [data-pad-focus] { outline: 2px solid #f2c14e; outline-offset: 2px; }
+.ds-menu.pad .ds-btn[data-pad-focus] { background: rgb(242 193 78 / 0.16); border-color: #f2c14e; }
+.ds-menu.pad .ds-btn.primary[data-pad-focus] { background: #ffd36b; }
 `;
 
 export interface MenuCallbacks {
@@ -45,6 +49,13 @@ export interface MenuCallbacks {
   captureKey(): Promise<string | null>;
 }
 
+/**
+ * Where online play is. `server`: this page's own game server, with a
+ * passphrase or as one public lobby. `link`: a copy of the page without a
+ * server (GitHub Pages), which sends players to the server's address.
+ */
+export type Lobby = { readonly kind: 'server'; readonly public: boolean } | { readonly kind: 'link'; readonly url: string };
+
 type Screen = 'main' | 'join' | 'pause' | 'settings' | 'tip';
 
 /**
@@ -60,13 +71,15 @@ export class Menu {
   #back: Screen = 'main';
   #tab: 'controls' | 'bindings' | 'video' | 'interface' = 'controls';
   #error = '';
-  readonly #online: boolean;
+  readonly #lobby: Lobby | null;
   #afterTip: (() => void) | null = null;
+  readonly #padName: () => string | null;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { online: boolean }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; padName?: () => string | null }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
-    this.#online = options.online;
+    this.#lobby = options.lobby;
+    this.#padName = options.padName ?? (() => null);
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
       style.id = 'ds-menu-css';
@@ -79,6 +92,8 @@ export class Menu {
     this.#panel.className = 'ds-panel';
     this.#root.append(this.#panel);
     document.body.append(this.#root);
+    // The focus ring is for the controller; the mouse hides it again.
+    this.#root.addEventListener('mousemove', () => this.#root.classList.remove('pad'));
     this.#render();
   }
 
@@ -99,6 +114,76 @@ export class Menu {
 
   hide(): void {
     this.#root.hidden = true;
+  }
+
+  /**
+   * Controller navigation: up and down (left and right outside sliders and
+   * lists) move the focus, left and right change the focused slider or list,
+   * Cross activates, Circle goes back and Options resumes from the pause menu.
+   */
+  navigate(nav: PadNav): void {
+    if (!this.open) return;
+    this.#root.classList.add('pad');
+    this.#navigate(nav);
+    this.#markFocus();
+  }
+
+  #navigate(nav: PadNav): void {
+    const items = [...this.#panel.querySelectorAll<HTMLElement>('button, input, select')].filter((e) => e.offsetParent !== null);
+    const focused = items.indexOf(document.activeElement as HTMLElement);
+    const current = items[focused];
+    const focus = (i: number) => items[(i + items.length) % items.length]?.focus();
+    const step = (d: 1 | -1) => {
+      if (current instanceof HTMLInputElement && current.type === 'range') {
+        if (d > 0) current.stepUp();
+        else current.stepDown();
+        current.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (current instanceof HTMLSelectElement) {
+        const i = Math.max(0, Math.min(current.options.length - 1, current.selectedIndex + d));
+        if (i !== current.selectedIndex) {
+          current.selectedIndex = i;
+          current.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } else focus(focused < 0 ? 0 : focused + d);
+    };
+    const press = (label: string) => [...this.#panel.querySelectorAll<HTMLButtonElement>('.ds-btn')].find((b) => b.textContent === label)?.click();
+    switch (nav) {
+      case 'up':
+        focus(focused < 0 ? 0 : focused - 1);
+        return;
+      case 'down':
+        focus(focused < 0 ? 0 : focused + 1);
+        return;
+      case 'left':
+        step(-1);
+        return;
+      case 'right':
+        step(1);
+        return;
+      case 'accept': {
+        if (!current) {
+          focus(0);
+          return;
+        }
+        const screen = this.#screen;
+        if (current instanceof HTMLInputElement && current.type !== 'range') current.form?.requestSubmit();
+        else if (current instanceof HTMLButtonElement) current.click();
+        // A click that re-rendered the panel keeps the focus where it was on the same screen.
+        if (this.open && !this.#panel.contains(document.activeElement)) {
+          const next = [...this.#panel.querySelectorAll<HTMLElement>('button, input, select')].filter((e) => e.offsetParent !== null);
+          next[this.#screen === screen ? Math.min(focused, next.length - 1) : 0]?.focus();
+        }
+        return;
+      }
+      case 'back':
+        if (this.#screen === 'pause') this.#callbacks.resume();
+        else if (this.#screen === 'tip') press('Got it');
+        else press('Back');
+        return;
+      case 'start':
+        if (this.#screen === 'pause') this.#callbacks.resume();
+        return;
+    }
   }
 
   /** Shows the one-time tip (Firefox has no raw mouse input), then runs `then`. */
@@ -133,17 +218,23 @@ export class Menu {
     switch (this.#screen) {
       case 'main': {
         p.append(title, h('p', 'Firing range, movement course and arena. M4A1, iron sights.'));
-        if (this.#online) button('Play online', () => this.show('join'), true);
-        button(this.#online ? 'Practice offline' : 'Play', () => this.#callbacks.playOffline(), !this.#online);
+        const lobby = this.#lobby;
+        if (lobby?.kind === 'server') button(lobby.public ? 'Join public lobby' : 'Play online', () => this.show('join'), true);
+        if (lobby?.kind === 'link') button('Join public lobby', () => location.assign(lobby.url), true);
+        button(lobby ? 'Practice offline' : 'Play', () => this.#callbacks.playOffline(), !lobby);
         button('Settings', () => {
           this.#back = 'main';
           this.show('settings');
         });
+        if (lobby?.kind === 'link') p.append(h('div', 'The public lobby runs on the home server and opens its own page. This page is for offline practice.', 'ds-hint'));
         p.append(h('div', 'WASD move · Shift sprint (double-tap: tactical) · C crouch/slide · Ctrl prone · Space jump/mantle · R reload (hold: inspect) · V melee · Esc menu', 'ds-hint'));
+        p.append(h('div', 'Controller: L3 sprint (double-click: tactical) · ○ crouch/slide (hold: prone) · ✕ jump · □ reload (hold: inspect) · R3 melee · L2 aim · R2 fire · Options menu', 'ds-hint'));
         break;
       }
       case 'join': {
-        p.append(title, h('h2', 'Join the server'));
+        const open = this.#lobby?.kind === 'server' && this.#lobby.public;
+        p.append(title, h('h2', open ? 'Public lobby' : 'Join the server'));
+        if (open) p.append(h('p', 'Free-for-all. Anyone with the link can join.'));
         const form = h('form') as HTMLFormElement;
         const field = (label: string, input: HTMLInputElement) => {
           const wrap = h('label', '', 'ds-field');
@@ -160,7 +251,7 @@ export class Menu {
         pass.value = this.#settings.passphrase;
         pass.autocomplete = 'current-password';
         field('Name', name);
-        field('Passphrase', pass);
+        if (!open) field('Passphrase', pass);
         form.append(h('div', this.#error, 'ds-error'));
         const go = h('button', 'Join', 'ds-btn primary') as HTMLButtonElement;
         go.type = 'submit';
@@ -169,12 +260,17 @@ export class Menu {
           e.preventDefault();
           const n = name.value.trim().slice(0, 16);
           if (!n) return;
-          this.#change({ name: n, passphrase: pass.value });
-          this.#callbacks.playOnline(n, pass.value);
+          if (open) {
+            this.#change({ name: n });
+            this.#callbacks.playOnline(n, '');
+          } else {
+            this.#change({ name: n, passphrase: pass.value });
+            this.#callbacks.playOnline(n, pass.value);
+          }
         });
         p.append(form);
         button('Back', () => this.show('main'));
-        queueMicrotask(() => (name.value ? pass : name).focus());
+        queueMicrotask(() => (name.value && !open ? pass : name).focus());
         break;
       }
       case 'pause': {
@@ -211,6 +307,21 @@ export class Menu {
         this.#renderSettings(p, h, button);
         break;
     }
+    // Keep the controller's focus on screen: the first control of a new screen.
+    // Queued last, after any focus a screen sets itself.
+    if (this.#root.classList.contains('pad')) {
+      queueMicrotask(() => {
+        if (!this.#panel.contains(document.activeElement)) this.#panel.querySelector<HTMLElement>('.ds-btn, input, select')?.focus();
+        this.#markFocus();
+      });
+    }
+  }
+
+  /** Marks the focused control for the controller's focus ring (the page may not have window focus, so :focus is not enough). */
+  #markFocus(): void {
+    for (const e of this.#panel.querySelectorAll('[data-pad-focus]')) e.removeAttribute('data-pad-focus');
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && this.#panel.contains(active)) active.dataset['padFocus'] = '';
   }
 
   #renderSettings(p: HTMLElement, h: (tag: string, text?: string, cls?: string) => HTMLElement, button: (text: string, onClick: () => void, primary?: boolean) => HTMLButtonElement): void {
@@ -287,6 +398,17 @@ export class Menu {
         ['toggle', 'Toggle'],
         ['hold', 'Hold'],
       ], (v) => this.#change({ crouchMode: v }));
+      const pad = this.#padName();
+      p.append(h('h2', 'Controller'), h('p', pad ? `Connected: ${padName(pad)}` : 'None detected. Connect a controller and press any button.'));
+      select('Button layout', s.padLayout, [
+        ['default', 'Default'],
+        ['tactical', 'Tactical (crouch on R3, melee on ○)'],
+      ], (v) => this.#change({ padLayout: v }));
+      slider('Horizontal stick sensitivity', s.padSensitivityX, 1, 20, 1, (v) => String(v), (v) => this.#change({ padSensitivityX: v }));
+      slider('Vertical stick sensitivity', s.padSensitivityY, 1, 20, 1, (v) => String(v), (v) => this.#change({ padSensitivityY: v }));
+      slider('Controller ADS multiplier', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
+      slider('Stick deadzone', s.padDeadzone, 0, 0.3, 0.01, (v) => v.toFixed(2), (v) => this.#change({ padDeadzone: v }));
+      toggle('Invert vertical look', s.padInvertY, (v) => this.#change({ padInvertY: v }));
     } else if (this.#tab === 'bindings') {
       for (const action of ACTIONS) row(ACTION_LABELS[action], this.#bindButton(action, h));
       button('Reset keys to defaults', () => {

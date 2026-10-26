@@ -10,6 +10,8 @@ export type Unit =
   | 'HP/s'
   | 'deg'
   | 'deg/count'
+  | 'deg/s'
+  | 'level'
   | 'rounds'
   | 'multiplier';
 
