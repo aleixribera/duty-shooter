@@ -1,5 +1,7 @@
 import { STATS } from '@duty-shooter/fps-core';
 import { DirectionalLight, Euler, Group, HemisphereLight, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, type Texture } from 'three/webgpu';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { attachAuthoredM4, disposeAuthored } from './authored-m4a1';
 import { Spring } from '../spring';
 import { buildArms, type ArmsModel } from './arms';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, type M4A1Model } from './m4a1';
@@ -184,6 +186,8 @@ export class Viewmodel {
   #tactical = 0;
   #boltCycle = 1;
   #time = 0;
+  #disposed = false;
+  #disposeAuthored: (() => void) | null = null;
 
   constructor(environment: Texture | null = null) {
     this.scene.environment = environment;
@@ -197,6 +201,22 @@ export class Viewmodel {
     this.camera.rotation.order = 'YXZ';
 
     this.gun = buildM4A1({ detail: 'high' });
+    // The animation targets and sockets remain on the procedural model. The
+    // authored detail pass is attached in the same metre-scale gun space.
+    void new GLTFLoader().loadAsync(new URL('./assets/m4a1-details.glb', import.meta.url).href).then(({ scene }) => {
+      if (this.#disposed) {
+        disposeAuthored(scene);
+        return;
+      }
+      try {
+        this.#disposeAuthored = attachAuthoredM4(this.gun, scene);
+      } catch (error) {
+        disposeAuthored(scene);
+        throw error;
+      }
+    }).catch((error: unknown) => {
+      console.warn('Unable to load M4A1 detail asset:', error);
+    });
     this.arms = buildArms();
     this.#pivot.add(this.gun.root);
     this.root.add(this.#pivot, this.arms.root, this.#leftTarget);
@@ -330,6 +350,10 @@ export class Viewmodel {
   }
 
   dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    this.#disposeAuthored?.();
+    this.#disposeAuthored = null;
     this.gun.dispose();
     this.arms.dispose();
   }
