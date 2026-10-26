@@ -1,7 +1,7 @@
 import type { Vec3 } from '../math';
 import { STATS } from '../stats';
 import type { Solid, World } from '../world';
-import { EPSILON, distanceToFootprint, hullBlocked, solidsNear, type Hull } from './collision';
+import { EPSILON, distanceToFootprint, hullBlocked, solidsNear, standingHeight, type Hull } from './collision';
 
 /** The three MW2019 mantle height bands, lowest first. */
 export type MantleBand = 'lowVault' | 'waist' | 'highClimb';
@@ -31,7 +31,9 @@ export interface Ledge {
 /**
  * Looks for a ledge to mantle in the view direction: a solid's top within
  * one of the height bands, whose face is within reach of the hull, with room
- * to rise above the player and to stand on top. The nearest such ledge wins.
+ * to rise above the player and to stand on top. Standing on top may mean a
+ * step up onto what lies beyond the edge (a sloped roof's fine player clip
+ * steps). The nearest such ledge wins.
  */
 export function findLedge(world: World, feet: Vec3, yaw: number, hull: Hull): Ledge | null {
   const dir = [-Math.sin(yaw), -Math.cos(yaw)] as const;
@@ -43,10 +45,12 @@ export function findLedge(world: World, feet: Vec3, yaw: number, hull: Hull): Le
     if (!band) continue;
     const distance = distanceToFootprint(feet, dir, b, hull);
     if (distance === null || distance > MT.reach.value) continue;
-    const top = b.max[1];
     const advance = distance + 2 * hull.halfWidth;
-    const destination: Vec3 = [feet[0] + dir[0] * advance, top, feet[2] + dir[1] * advance];
-    if (hullBlocked(world, [feet[0], top, feet[2]], hull) || hullBlocked(world, destination, hull)) continue;
+    const x = feet[0] + dir[0] * advance;
+    const z = feet[2] + dir[1] * advance;
+    const top = standingHeight(world, [x, b.max[1], z], hull, b.max[1] + STATS.movement.stepHeight.value);
+    if (top === null || hullBlocked(world, [feet[0], top, feet[2]], hull)) continue;
+    const destination: Vec3 = [x, top, z];
     if (!best || distance < best.distance - EPSILON || (Math.abs(distance - best.distance) <= EPSILON && height < best.height)) {
       best = { ledge: { band, destination }, distance, height };
     }

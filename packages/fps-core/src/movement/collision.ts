@@ -82,6 +82,23 @@ export function hullBlocked(world: World, pos: Vec3, hull: Hull): boolean {
   return false;
 }
 
+/**
+ * Where a hull can stand at `pos`: `pos[1]` if it fits there, else on top of
+ * whatever it overlaps there (a stepped slope) if that is no higher than
+ * `limit` and the hull fits on it. Null when it cannot stand.
+ */
+export function standingHeight(world: World, pos: Vec3, hull: Hull, limit: number): number | null {
+  if (!hullBlocked(world, pos, hull)) return pos[1];
+  const w = hull.halfWidth;
+  let top = pos[1];
+  for (const i of nearby(world, pos[0] - w, pos[2] - w, pos[0] + w, pos[2] + w)) {
+    const s = world.solids[i] as Solid;
+    if (overlapsY(pos, hull, s) && overlapsFlat(pos, hull, s)) top = Math.max(top, s.max[1]);
+  }
+  if (top > limit + EPSILON) return null;
+  return hullBlocked(world, [pos[0], top, pos[2]], hull) ? null : top;
+}
+
 export interface SweepResult {
   /** How far the hull can move along the axis (same sign as the request, never longer). */
   readonly moved: number;

@@ -6,6 +6,8 @@ export type RenderBackend = 'webgpu' | 'webgl2';
 export interface CreateRendererOptions {
   /** Skip WebGPU and use the WebGL2 backend, e.g. for testing the fallback. */
   readonly forceWebGL?: boolean;
+  /** Measure GPU time with timestamp queries where the browser allows it (the benchmark). */
+  readonly trackTimestamp?: boolean;
 }
 
 export interface GameRenderer {
@@ -26,6 +28,7 @@ export async function createRenderer(
     canvas,
     antialias: true,
     forceWebGL: options.forceWebGL ?? false,
+    trackTimestamp: options.trackTimestamp ?? false,
   });
   await renderer.init();
   const isWebGPU = 'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend === true;

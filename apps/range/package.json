@@ -18,6 +18,7 @@
     "@types/three": "^0.186.0"
   },
   "exports": {
-    "./map": "./src/map/map.ts"
+    "./map": "./src/map/map.ts",
+    "./maps": "./src/map/maps.ts"
   }
 }

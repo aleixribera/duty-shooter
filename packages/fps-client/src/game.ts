@@ -95,7 +95,7 @@ export class Game {
   readonly #pipeline: GamePipeline;
   readonly #loop = new FixedTickLoop();
   readonly #sound: SoundSystem;
-  readonly #overview: GameOptions['overview'];
+  #overview: GameOptions['overview'];
   readonly #worldFlashes: Mesh[] = [];
   #nextWorldFlash = 0;
   #viewFlash: Mesh;
@@ -159,6 +159,15 @@ export class Game {
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
     this.#resizeObserver.observe(options.canvas);
     this.#resize();
+  }
+
+  /** Where the camera sits with no player to follow: the map's overview, a reference spot, or a benchmark path. */
+  set overview(view: GameOptions['overview']) {
+    this.#overview = view;
+  }
+
+  get overview(): GameOptions['overview'] {
+    return this.#overview;
   }
 
   /** The preset actually in use (the WebGL2 fallback caps High at Normal). */
@@ -297,6 +306,7 @@ export class Game {
       eye = o.position;
       forward = viewDirection(o.yaw, o.pitch);
       this.#viewmodel.root.visible = false;
+      this.#worldView.follow(o.position);
     }
     this.#lastLook = look;
     this.#sound.setListener(eye, forward, [0, 1, 0]);
@@ -595,5 +605,6 @@ export class Game {
     this.#pipeline.dispose();
     this.#effects.dispose();
     this.#players.dispose();
+    this.#worldView.dispose();
   }
 }

@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { extname, normalize, resolve, sep } from 'node:path';
 import { GameServer, TICK_SECONDS, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
-import { buildMap, collisionSolids } from '@duty-shooter/range/map';
+import { MAP_IDS, buildMapById, mapSolids, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 export interface ServerOptions {
@@ -19,6 +19,8 @@ export interface ServerOptions {
   readonly version: string;
   /** The mode an empty server starts in (a first joiner may pick another). */
   readonly mode: ModeId;
+  /** The map the lobby runs. */
+  readonly map: MapId;
 }
 
 export interface RunningServer {
@@ -192,14 +194,15 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
 /** Starts the HTTP server, the WebSocket endpoint at /ws and the 60 Hz game loop. */
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const root = resolve(options.staticDir);
-  const map = buildMap();
+  const map = buildMapById(options.map);
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const game = new GameServer(transport, {
-    world: createWorld(collisionSolids(map)),
-    map: 'range',
+    world: createWorld(mapSolids(map)),
+    map: map.id,
     mode: options.mode,
-    spawns: map.arenaSpawns,
+    spawns: map.spawns.ffa,
+    ...(map.spawns.teams ? { teamSpawns: map.spawns.teams } : {}),
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
@@ -284,6 +287,9 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
   const mode = env['MODE'] ?? 'tdm';
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
+  // The range stays the lobby's map until the release makes Survival Town the default.
+  const map = env['MAP'] ?? 'range';
+  if (!(MAP_IDS as readonly string[]).includes(map)) throw new Error(`MAP must be one of ${MAP_IDS.join(', ')}.`);
   return {
     port: Number(env['PORT'] ?? 3000),
     host: env['HOST'] ?? '0.0.0.0',
@@ -292,5 +298,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     staticDir: env['STATIC_DIR'] ?? defaultStaticDir,
     version: env['DUTY_VERSION'] || 'dev',
     mode: mode as ModeId,
+    map: map as MapId,
   };
 }

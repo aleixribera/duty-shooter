@@ -48,6 +48,23 @@ describe('mantle', () => {
     expect(outputs[0]).toMatchObject({ movement: 'mantle', mantle: to });
   });
 
+  it('mantles onto a sloped roof of fine steps, ending on the highest step under the hull', () => {
+    // A roof edge 1.8 m up (high climb), then 5 cm steps rising away from the player every 0.25 m.
+    const face = -(stance.hullHalfWidth.value + mantle.reach.value / 2);
+    const steps = Array.from({ length: 16 }, (_, i) =>
+      box({ min: [-2, 0, face - 0.25 * (i + 1)], max: [2, 1.8 + 0.05 * i, face - 0.25 * i], material: 'wood', blocks: 'players' }),
+    );
+    const match = soloMatch({ solids: [FLOOR, ...steps] });
+    const outputs = hold(match, ticks(2), jump);
+    const last = me(match.latest);
+
+    expect(outputs[0]).toMatchObject({ movement: 'mantle', mantle: 'highClimb' });
+    expect(last.movement).toBe('walk');
+    // Standing on the steps, no lower than the edge and within a step of it.
+    expect(last.position[1]).toBeGreaterThan(1.8);
+    expect(last.position[1]).toBeLessThanOrEqual(1.8 + movement.stepHeight.value);
+  });
+
   it('starts the low vault just above the step height', () => {
     const { outputs } = jumpAt(movement.stepHeight.value + tolerance(movement.stepHeight));
 

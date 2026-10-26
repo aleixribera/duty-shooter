@@ -242,6 +242,20 @@ export class WorldView {
     for (const mesh of this.#props.values()) mesh.visible = true;
   }
 
+  /** Frees the GPU resources this view made (switching maps builds a new one). */
+  dispose(): void {
+    this.scene.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      o.geometry.dispose();
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        (m as { map?: { dispose(): void } | null }).map?.dispose();
+        m.dispose();
+      }
+    });
+    this.scene.environment?.dispose();
+    this.sun.shadow.map?.dispose();
+  }
+
   /** Low: one small shadow map near the player. Normal: one larger map. High: three cascades. */
   setShadowQuality(quality: ShadowQuality): void {
     this.#quality = quality;

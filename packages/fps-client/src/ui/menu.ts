@@ -37,6 +37,8 @@ const CSS = `
 export interface MenuCallbacks {
   /** Play solo on the range. */
   playOffline(): void;
+  /** Walk Survival Town offline; the entry is shown only when this is given. */
+  exploreTown?(): void;
   /** Join the server with this name and passphrase. */
   playOnline(name: string, passphrase: string): void;
   /** Close the pause menu and take the pointer again. */
@@ -241,6 +243,8 @@ export class Menu {
         if (lobby?.kind === 'server') button(lobby.public ? 'Join public lobby' : 'Play online', () => this.show('join'), true);
         if (lobby?.kind === 'link') button('Join public lobby', () => location.assign(lobby.url), true);
         button(lobby ? 'Practice offline' : 'Play', () => this.#callbacks.playOffline(), !lobby);
+        const explore = this.#callbacks.exploreTown;
+        if (explore) button('Explore Survival Town', () => explore());
         button('Settings', () => {
           this.#back = 'main';
           this.show('settings');
