@@ -889,45 +889,8 @@ function bufferTube(q: Q): { tube: Part; steel: Part } {
 }
 
 function rearSight(q: Q): Part {
-  const parts: Part[] = [];
-  parts.push(frontLoft(rectRing(-0.0125, 0.0222, 0.0125, 0.0345, 0.0025, q.fil), [], -0.037, -0.006, 0.001, q));
-  const plate = polyRound(
-    [
-      [-0.0105, 0.0335, 0.001],
-      [0.0105, 0.0335, 0.001],
-      [0.008, 0.056, 0.003],
-      ...arc(0, SIGHT_Y, 0.0068, (-40 * Math.PI) / 180, (220 * Math.PI) / 180, q.hi ? 26 : 8),
-      [-0.008, 0.056, 0.003],
-    ],
-    q.fil,
-  );
-  const aperture = circleRing(0, SIGHT_Y, 0.0025, q.hi ? 32 : 10, 0.6, 1);
-  parts.push(frontLoft(plate, [aperture], REAR_SIGHT_Z - 0.0025, REAR_SIGHT_Z + 0.0025, 0.0007, q));
-  if (q.hi) {
-    const knurl = (th: number, z: number, s: GridSample): void => {
-      if (z < -0.0008 && z > -0.0052) s.x += 0.0003 * (Math.cos(th * 22) > 0 ? 1 : 0);
-    };
-    const knob = (len: number, r: number): RP[] => [
-      { z: 0.001, r },
-      { z: -len + 0.0006, r },
-      { z: -len, r: r * 0.85, wear: 1 },
-      { z: -len, r: 0.0001 },
-    ];
-    parts.push(radial(knob(0.004, 0.0048), 48, knurl).transform(mat(0.0125, 0.03, -0.015, aim(X))));
-    parts.push(radial(knob(0.0062, 0.0058), 48, knurl).transform(mat(-0.0125, 0.0285, -0.028, aim(NX))));
-    parts.push(
-      radial(
-        [
-          { z: 0.0112, r: 0.0001 },
-          { z: 0.0112, r: 0.0018 },
-          { z: -0.0112, r: 0.0018 },
-          { z: -0.0112, r: 0.0001 },
-        ],
-        16,
-      ).transform(mat(0, 0.0345, REAR_SIGHT_Z, aim(X))),
-    );
-  }
-  return merge(...parts);
+  // A low folded mounting base keeps the front post unobstructed when aiming.
+  return frontLoft(rectRing(-0.0125, 0.0222, 0.0125, 0.0345, 0.0025, q.fil), [], -0.037, -0.006, 0.001, q);
 }
 
 function chargingHandle(q: Q): Part {
