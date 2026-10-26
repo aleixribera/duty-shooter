@@ -47,7 +47,7 @@ function join(pass, headers = {}) {
 }
 
 const health = await fetch(new URL('/healthz', base)).then((r) => r.json()).catch((e) => ({ error: String(e) }));
-check('health check', health.status === 'ok' && health.public === !passphrase, JSON.stringify(health));
+check('health check', health.status === 'ok' && health.public === !passphrase && typeof health.version === 'string', JSON.stringify(health));
 const page = await fetch(base).catch(() => null);
 const html = page ? await page.text() : '';
 check('serves the game page', page?.status === 200 && html.includes('<canvas'), `status ${page?.status}`);

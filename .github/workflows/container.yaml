@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Tags and history, for `git describe`.
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -37,7 +40,10 @@ jobs:
           docker compose config --quiet
       - name: Image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          # A tagged release reads v1.2.0; later commits read v1.2.0-3-gabc1234.
+          echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: Set up multi-platform emulation
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Set up Docker builder
@@ -46,6 +52,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          build-args: VERSION=${{ steps.image.outputs.version }}
           load: true
           tags: duty-shooter-smoke:local
           cache-from: type=gha
@@ -75,6 +82,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          build-args: VERSION=${{ steps.image.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |

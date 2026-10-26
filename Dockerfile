@@ -13,9 +13,11 @@ RUN npm run build -w @duty-shooter/range && npm run build -w @duty-shooter/serve
 
 # Runtime stage: the bundled server, its one npm dependency (ws) and the static client.
 FROM node:24-alpine
+# The release (`git describe`), passed in by CI and reported by /healthz.
+ARG VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/aleixribera/duty-shooter"
 LABEL org.opencontainers.image.description="Duty Shooter: browser FPS with an authoritative 60 Hz server"
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DUTY_VERSION=${VERSION}
 WORKDIR /app
 # ws has no runtime dependencies of its own.
 COPY --from=build /src/node_modules/ws ./node_modules/ws

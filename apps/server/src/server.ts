@@ -15,6 +15,8 @@ export interface ServerOptions {
   readonly maxPlayers: number;
   /** The built range app (apps/range/dist). */
   readonly staticDir: string;
+  /** The release this server was built from (`git describe`), reported by /healthz. */
+  readonly version: string;
 }
 
 export interface RunningServer {
@@ -202,7 +204,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '' }));
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version }));
       return;
     }
     void serveStatic(root, req, res);
@@ -278,5 +280,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     passphrase,
     maxPlayers,
     staticDir: env['STATIC_DIR'] ?? defaultStaticDir,
+    version: env['DUTY_VERSION'] || 'dev',
   };
 }
