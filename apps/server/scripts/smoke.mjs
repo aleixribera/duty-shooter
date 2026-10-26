@@ -1,10 +1,14 @@
 // Smoke test for a running server or container: the page, the health check,
 // a join with the right passphrase, a rejected wrong one and a refused
-// cross-site socket. Usage: node scripts/smoke.mjs <base-url> <passphrase>
+// cross-site socket. With --lockout it also checks that repeated wrong
+// passphrases lock the address out; that locks out the machine running it for
+// ten minutes, so CI passes it and a check against the live server should not.
+// Usage: node scripts/smoke.mjs <base-url> <passphrase> [--lockout]
 import { WebSocket } from 'ws';
 
 const base = new URL(process.argv[2] ?? 'http://127.0.0.1:3000');
 const passphrase = process.argv[3] ?? process.env.PASSPHRASE ?? '';
+const lockout = process.argv.includes('--lockout');
 const wsUrl = `${base.protocol === 'https:' ? 'wss' : 'ws'}://${base.host}/ws`;
 let failed = false;
 const check = (name, ok, detail = '') => {
@@ -56,4 +60,10 @@ const wrong = await join(`${passphrase}-wrong`);
 check('wrong passphrase rejected', wrong.first?.t === 'reject' && wrong.closed === 'rejected: passphrase', JSON.stringify(wrong));
 const foreign = await join(passphrase, { origin: 'https://elsewhere.example' });
 check('cross-site socket refused', foreign.closed === 'http 403', JSON.stringify(foreign));
+if (lockout) {
+  // One wrong guess above; the server allows ten before locking the address out.
+  const guesses = [];
+  for (let i = 0; i < 10; i++) guesses.push((await join(`${passphrase}-guess-${i}`)).closed);
+  check('passphrase guessing locked out', guesses.slice(0, 9).every((c) => c === 'rejected: passphrase') && guesses[9] === 'http 429', JSON.stringify(guesses));
+}
 process.exit(failed ? 1 : 0);

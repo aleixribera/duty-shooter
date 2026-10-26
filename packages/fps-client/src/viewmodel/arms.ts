@@ -28,7 +28,7 @@ import type { GridSample, SkinRef } from './meshkit';
 
 export interface ArmsModel {
   readonly root: Group;
-  /** Places the hands: each hand's palm matches the target's world transform exactly (two-bone IK from fixed shoulders; elbows bend outward/down naturally). Targets are Object3Ds anywhere in the scene graph. */
+  /** Places the hands: each hand's palm matches the target's world transform exactly (two-bone IK from the shoulders, elbows bend outward/down; a target beyond 93% of full reach slides that shoulder toward it, which the default left hand on the handguard does by about 14 cm, like a bladed stance). Targets are Object3Ds anywhere in the scene graph. */
   solve(rightTarget: Object3D, leftTarget: Object3D): void;
   /** Finger curl 0 (open) .. 1 (closed grip) per hand, for reload/inspect poses. */
   setGrip(right: number, left: number): void;
@@ -70,20 +70,26 @@ const THUMB_DIR = new Vector3(-0.62, -0.34, -0.71).normalize();
 const THUMB_LEN: readonly [number, number, number] = [0.044, 0.033, 0.028];
 const THUMB_R: readonly [number, number, number] = [0.0128, 0.0113, 0.0103];
 
-/** Per-joint curl at grip = 1: [index, middle, ring, pinky, thumb] x [base, mid, tip] (radians). */
-const GRIP_RIGHT: readonly (readonly [number, number, number])[] = [
-  [0.3, 0.95, 0.45],
-  [1.3, 1.5, 0.55],
-  [1.35, 1.5, 0.55],
-  [1.4, 1.45, 0.55],
+/**
+ * Per-joint curl at grip = 1: [index, middle, ring, pinky, thumb] x
+ * [base, mid, tip] (radians), plus an optional base splay toward the little
+ * finger (radians, negative) blended in with the grip.
+ */
+type GripRow = readonly [number, number, number, number?];
+const GRIP_RIGHT: readonly GripRow[] = [
+  // Index across the front of the trigger.
+  [0.1, 1.0, 0.6, -0.45],
+  [1.05, 1.35, 0.45],
+  [1.05, 1.35, 0.45],
+  [1.05, 1.35, 0.45],
   [0.35, 0.55, 0.45],
 ];
-const GRIP_LEFT: readonly (readonly [number, number, number])[] = [
-  [0.85, 1.05, 0.5],
-  [0.95, 1.1, 0.5],
-  [1.0, 1.1, 0.5],
-  [1.05, 1.1, 0.5],
-  [0.15, 0.25, 0.2],
+const GRIP_LEFT: readonly GripRow[] = [
+  [0.3, 0.6, 0.3],
+  [0.6, 0.95, 0.45],
+  [0.65, 1.0, 0.45],
+  [0.75, 1.0, 0.45],
+  [0.8, 0.8, 0.5],
 ];
 const GRIP_OPEN: readonly [number, number, number] = [0.08, 0.14, 0.08];
 
@@ -650,14 +656,17 @@ export function buildArms(options: ArmsOptions = {}): ArmsModel {
     rig.hand.quaternion.copy(qTmp.copy(qF).invert().multiply(Qh));
   };
 
-  const curl = (rig: ArmRig, g: number, table: readonly (readonly [number, number, number])[]): void => {
+  const curl = (rig: ArmRig, g: number, table: readonly GripRow[]): void => {
     const k = Math.max(0, Math.min(1, g));
     rig.fingers.forEach((chain, ci) => {
       const full = table[ci]!;
       chain.forEach((b, j) => {
         const angle = GRIP_OPEN[j]! + (full[j]! - GRIP_OPEN[j]!) * k;
         const bend = qAxis(new Vector3(1, 0, 0), -angle);
-        if (j === 0) b.quaternion.copy(rig.restFinger[ci]!).multiply(bend);
+        if (j === 0) {
+          const splay = qAxis(Y, (full[3] ?? 0) * k * rig.sign);
+          b.quaternion.copy(rig.restFinger[ci]!).multiply(splay).multiply(bend);
+        }
         else b.quaternion.copy(bend);
       });
     });

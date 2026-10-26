@@ -30,6 +30,8 @@ export class FreeForAll implements GameMode {
   readonly #restartDelay: number;
   #endedAt: number | null = null;
   #winner: PlayerId | null = null;
+  /** Rotates spawns when no living enemy separates them. */
+  #nextSpawn = 0;
 
   constructor(options: FreeForAllOptions = {}) {
     this.#scoreLimit = options.scoreLimit ?? null;
@@ -52,10 +54,15 @@ export class FreeForAll implements GameMode {
 
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
     const enemies = ctx.players.filter((p) => p.id !== id && p.alive);
+    if (enemies.length === 0) {
+      const spawn = ctx.spawns[this.#nextSpawn++ % ctx.spawns.length];
+      if (!spawn) throw new Error('No spawn points');
+      return spawn;
+    }
     let best: SpawnPoint | undefined;
     let bestDistance = -1;
     for (const spawn of ctx.spawns) {
-      const nearest = enemies.length === 0 ? Infinity : Math.min(...enemies.map((e) => distance(e.position, spawn.position)));
+      const nearest = Math.min(...enemies.map((e) => distance(e.position, spawn.position)));
       if (nearest > bestDistance) {
         best = spawn;
         bestDistance = nearest;
@@ -67,14 +74,17 @@ export class FreeForAll implements GameMode {
 
   onEvents(events: readonly SimEvent[]): ModeEvent[] {
     const out: ModeEvent[] = [];
-    const headshots = new Set(events.filter((e) => e.type === 'hit' && e.killed && e.zone === 'head').map((e) => (e.type === 'hit' ? e.victim : '')));
+    const headshots = new Set<PlayerId>();
+    for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
       if (e.type !== 'kill') continue;
       const victim = this.#entries.get(e.victim);
       if (!victim) continue; // a dummy
       victim.deaths += 1;
       const killer = e.killer === null || e.killer === e.victim ? undefined : this.#entries.get(e.killer);
-      if (killer && this.#endedAt === null) killer.kills += 1;
+      // Once someone has won, later kills (the same tick, the intermission) no longer score.
+      const scoring = this.#winner === null;
+      if (killer && scoring) killer.kills += 1;
       out.push({
         type: 'killFeed',
         killer: killer?.id ?? null,
@@ -84,7 +94,7 @@ export class FreeForAll implements GameMode {
         cause: e.cause,
         headshot: headshots.has(e.victim),
       });
-      if (killer && this.#endedAt === null && this.#scoreLimit !== null && killer.kills >= this.#scoreLimit) {
+      if (killer && scoring && this.#scoreLimit !== null && killer.kills >= this.#scoreLimit) {
         this.#winner = killer.id;
       }
     }

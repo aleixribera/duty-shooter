@@ -65,8 +65,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   };
   /** First entry shows the one-time Firefox tip about raw mouse input. */
-  const play = (driver: GameDriver) => {
-    game.setDriver(driver);
+  let driver: GameDriver | null = null;
+  const play = (next: GameDriver) => {
+    driver = next;
+    game.setDriver(next);
     if (isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
     else void enter();
   };
@@ -103,7 +105,19 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
 
   // Dev builds expose the game for debugging and playtesting from the console.
-  if (import.meta.env.DEV) Object.assign(globalThis, { duty: { game, renderer, sound, menu } });
+  if (import.meta.env.DEV) {
+    Object.assign(globalThis, {
+      duty: {
+        game,
+        renderer,
+        sound,
+        menu,
+        get driver() {
+          return driver;
+        },
+      },
+    });
+  }
 
   let watched: GameDriver | null = null;
   let lastStatus = '';

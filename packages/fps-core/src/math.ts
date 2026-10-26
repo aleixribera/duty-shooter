@@ -49,3 +49,11 @@ export function viewDirection(yaw: number, pitch: number): Vec3 {
 export function anglesOf(dir: Vec3): { yaw: number; pitch: number } {
   return { yaw: Math.atan2(-dir[0], -dir[2]), pitch: Math.atan2(dir[1], Math.hypot(dir[0], dir[2])) };
 }
+
+/** The shortest signed turn from angle a to angle b (radians, -π..π). */
+export function angleDelta(a: number, b: number): number {
+  let d = (b - a) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}

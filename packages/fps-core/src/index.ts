@@ -1,5 +1,5 @@
 export type { Vec3 } from './math';
-export { DEG, anglesOf, viewDirection } from './math';
+export { DEG, angleDelta, anglesOf, viewDirection } from './math';
 export { box, createWorld } from './world';
 export type { Box, Material, World } from './world';
 export { Button, isPressed, usercmd } from './usercmd';

@@ -61,7 +61,7 @@ jobs:
             [ "$(docker inspect --format '{{.State.Health.Status}}' game-smoke)" = healthy ] && break
             sleep 1
           done
-          node apps/server/scripts/smoke.mjs http://127.0.0.1:3090 smoke-test
+          node apps/server/scripts/smoke.mjs http://127.0.0.1:3090 smoke-test --lockout
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:

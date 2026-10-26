@@ -39,8 +39,57 @@ const TYPES: Readonly<Record<string, string>> = {
   '.wasm': 'application/wasm',
 };
 
-/** fps-core's Connection over one WebSocket. */
-function wsConnection(socket: WebSocket): Connection {
+/** Wrong passphrases allowed per address before it is locked out for a while. */
+const MAX_FAILED_JOINS = 10;
+const LOCKOUT_MS = 10 * 60 * 1000;
+/** Open sockets allowed per address, joined or not (a household behind one NAT, the 8-bot load test). */
+const MAX_SOCKETS_PER_ADDRESS = 12;
+
+const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+
+/**
+ * The visitor's address. Tailscale Funnel connects from loopback and names the
+ * visitor in X-Forwarded-For; the header is trusted from loopback only.
+ */
+function clientAddress(req: IncomingMessage): string {
+  const remote = req.socket.remoteAddress;
+  const forwarded = req.headers['x-forwarded-for'];
+  if (isLoopback(remote) && typeof forwarded === 'string' && forwarded.length > 0) return forwarded.split(',')[0]!.trim();
+  return remote ?? 'unknown';
+}
+
+/** Per-address limits on open sockets and passphrase guesses. */
+class AddressGuard {
+  readonly #open = new Map<string, number>();
+  readonly #failures = new Map<string, { count: number; since: number }>();
+
+  /** Whether a new socket from this address is allowed now. */
+  admits(address: string, now: number): boolean {
+    const failures = this.#failures.get(address);
+    if (failures && now - failures.since > LOCKOUT_MS) this.#failures.delete(address);
+    else if (failures && failures.count >= MAX_FAILED_JOINS) return false;
+    return (this.#open.get(address) ?? 0) < MAX_SOCKETS_PER_ADDRESS;
+  }
+
+  opened(address: string): void {
+    this.#open.set(address, (this.#open.get(address) ?? 0) + 1);
+  }
+
+  closed(address: string): void {
+    const open = (this.#open.get(address) ?? 1) - 1;
+    if (open <= 0) this.#open.delete(address);
+    else this.#open.set(address, open);
+  }
+
+  failedJoin(address: string, now: number): void {
+    const failures = this.#failures.get(address);
+    if (failures) failures.count += 1;
+    else this.#failures.set(address, { count: 1, since: now });
+  }
+}
+
+/** fps-core's Connection over one WebSocket. `onLocalClose` sees the reason whenever the game server closes it. */
+function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void): Connection {
   let onMessage: ((data: string) => void) | null = null;
   let onClose: ((reason: string) => void) | null = null;
   const inbox: string[] = [];
@@ -76,6 +125,7 @@ function wsConnection(socket: WebSocket): Connection {
     close(reason = 'closed') {
       if (closed) return;
       closed = true;
+      onLocalClose(reason);
       onClose?.(reason);
       socket.close(1000, reason.slice(0, 120));
     },
@@ -93,8 +143,11 @@ function wsConnection(socket: WebSocket): Connection {
 function sameOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // non-browser clients (tests, load scripts)
+  // Behind a proxy on loopback (Funnel), the public host may arrive as X-Forwarded-Host.
+  const forwarded = isLoopback(req.socket.remoteAddress) ? req.headers['x-forwarded-host'] : undefined;
   try {
-    return new URL(origin).host === req.headers.host;
+    const host = new URL(origin).host;
+    return host === req.headers.host || (typeof forwarded === 'string' && host === forwarded.split(',')[0]!.trim());
   } catch {
     return false;
   }
@@ -125,7 +178,7 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
     const cache = file.includes(`${sep}assets${sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache';
     res.writeHead(200, { 'content-type': type, 'content-length': info.size, 'cache-control': cache, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' });
     if (req.method === 'HEAD') res.end();
-    else createReadStream(file).pipe(res);
+    else createReadStream(file).on('error', () => res.destroy()).pipe(res);
   } catch {
     res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
   }
@@ -154,12 +207,26 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     void serveStatic(root, req, res);
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: false });
+  const guard = new AddressGuard();
   http.on('upgrade', (req, socket, head) => {
     if (new URL(req.url ?? '/', 'http://x').pathname !== '/ws' || !sameOrigin(req)) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => accept?.(wsConnection(ws)));
+    const address = clientAddress(req);
+    if (!guard.admits(address, Date.now())) {
+      socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      guard.opened(address);
+      ws.on('close', () => guard.closed(address));
+      accept?.(
+        wsConnection(ws, (reason) => {
+          if (reason === 'rejected: passphrase') guard.failedJoin(address, Date.now());
+        }),
+      );
+    });
   });
 
   // Fixed 60 Hz: run however many ticks are due, scheduling the next check for the next deadline.

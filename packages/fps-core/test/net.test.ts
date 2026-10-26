@@ -298,6 +298,19 @@ describe('free-for-all', () => {
     expect(bob!.client.takeSpawn()).toBeNull();
   });
 
+  it('rotates through the spawns when nobody else is alive, so a lone player does not always land in the same place', () => {
+    const m = match({ spawns: SPREAD, loss: 0 });
+    const seen: string[] = [];
+    for (const name of ['alice', 'bob', 'carol']) {
+      const [c] = joinAll(m, name);
+      seen.push(JSON.stringify(serverPlayer(m, c!.client.id).position));
+      c!.client.close();
+      m.run(ticks(0.5));
+    }
+
+    expect(new Set(seen).size).toBe(3);
+  });
+
   it('gives every player their own team', () => {
     const m = match({ loss: 0 });
     const clients = joinAll(m, 'a', 'b');

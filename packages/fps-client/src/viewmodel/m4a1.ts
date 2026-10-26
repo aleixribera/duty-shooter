@@ -78,15 +78,16 @@ const BOLT_CATCH_PIVOT = new Vector3(-0.015, -0.0175, -0.104);
 
 /** Palm placements (see palmFrame): position, palm-facing direction, wrist direction. */
 const RIGHT_PALM = {
-  pos: new Vector3(0.016, -0.071, -0.004),
-  normal: new Vector3(-0.92, 0, 0.38),
-  wrist: new Vector3(0.4, -0.1, 0.91),
+  pos: new Vector3(0.0152, -0.074, 0.004),
+  normal: new Vector3(-1, 0, 0),
+  wrist: new Vector3(0.15, -0.25, 0.95),
 };
-const LEFT_NORMAL = new Vector3(0.15, 0.99, 0).normalize();
+// Left palm: knuckles under the handguard, palm facing up and cupping its lower
+// left, fingers up the right side, thumb along the left; forearm in from the left.
 const LEFT_PALM = {
-  pos: new Vector3(-LEFT_NORMAL.x * 0.0262, -LEFT_NORMAL.y * 0.0262, -0.278),
-  normal: LEFT_NORMAL,
-  wrist: new Vector3(-0.6, -0.1, 0.8),
+  pos: new Vector3(-0.0369, -0.0285, -0.2642),
+  normal: new Vector3(0, 1, 0),
+  wrist: new Vector3(-0.819, 0, 0.574),
 };
 
 /** Charging handle rearward travel when fully pulled (m). */

@@ -1,4 +1,4 @@
-import { lerpVec, type Vec3 } from '../math';
+import { angleDelta, lerpVec, type Vec3 } from '../math';
 import type { ModeEvent, Score } from '../modes/game-mode';
 import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
@@ -302,13 +302,6 @@ export class GameClient {
     this.#connection.close('client left');
     this.#status = 'closed';
   }
-}
-
-function angleDelta(a: number, b: number): number {
-  let d = (b - a) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return d;
 }
 
 /** Your own shots, impacts and reloads are already predicted locally, so the server's copies are skipped. */

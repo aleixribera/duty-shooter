@@ -549,18 +549,28 @@ export function loft(outerIn: Ring, holesIn: readonly Ring[], stations: readonly
       const ins = clampInset(pi, inset);
       return new Vector2(x - pi.mx * ins, y - pi.my * ins);
     });
+  // Triangulate the un-inset contour once. Its topology is clean, while a bevel
+  // inset can fold tiny loops at tight fillets and make earcut drop triangles.
+  // The inset ring has the same vertices in the same order, so the indices carry over.
+  const rawContour = outer.p.map(([x, y]) => new Vector2(x, y));
+  const rawHoles = holes.map((h) => h.p.map(([x, y]) => new Vector2(x, y)));
+  const rawAll = [rawContour, ...rawHoles].flat();
+  const rawFaces = ShapeUtils.triangulateShape(rawContour, rawHoles);
   const cap = (st: Station, dir: 1 | -1): void => {
     const contour = offsetRing(outer, infos[0]!, st.inset);
     const holePts = holes.map((h, i) => offsetRing(h, infos[i + 1]!, st.inset));
-    const faces = ShapeUtils.triangulateShape(contour, holePts);
+    const insetFaces = ShapeUtils.triangulateShape(contour, holePts);
+    const useRaw = insetFaces.length < rawFaces.length;
+    const faces = useRaw ? rawFaces : insetFaces;
     const all = [contour, ...holePts].flat();
+    const ref = useRaw ? rawAll : all;
     const base = part.vertexCount;
     for (const v of all) part.vert(v.x, v.y, st.z, 0, 0, dir, outer.tint, 0, ao);
     for (const f of faces) {
       const [a, b, c] = f as [number, number, number];
-      const pa = all[a]!;
-      const pb = all[b]!;
-      const pc = all[c]!;
+      const pa = ref[a]!;
+      const pb = ref[b]!;
+      const pc = ref[c]!;
       const area = (pb.x - pa.x) * (pc.y - pa.y) - (pc.x - pa.x) * (pb.y - pa.y);
       if (area > 0 === dir > 0) part.tri(base + a, base + b, base + c);
       else part.tri(base + a, base + c, base + b);

@@ -108,7 +108,7 @@ function rampGeometry(r: RampShape): BufferGeometry {
   // Shape x -> world -Z, extrusion -> world +X.
   g.rotateY(Math.PI / 2);
   g.translate(r.x0, 0, r.z0);
-  return g.toNonIndexed();
+  return g; // ExtrudeGeometry is already non-indexed
 }
 
 function labelMesh(label: WorldLabel): Mesh {
@@ -183,7 +183,7 @@ export class WorldView {
   }
 
   /** Low: one small shadow map near the player. Normal: one larger map. High: three cascades. */
-  setShadowQuality(quality: ShadowQuality, camera?: PerspectiveCamera): void {
+  setShadowQuality(quality: ShadowQuality): void {
     this.#quality = quality;
     const shadow = this.sun.shadow;
     const size = quality === 'low' ? 1024 : 2048;
@@ -201,9 +201,10 @@ export class WorldView {
     cam.updateProjectionMatrix();
     shadow.map?.dispose();
     shadow.map = null;
-    if (quality === 'high' && camera) {
+    if (quality === 'high') {
+      // The node takes the rendering camera and builds its cascades on its first
+      // render; setting its camera here would skip that set-up.
       this.#csm = new CSMShadowNode(this.sun, { cascades: 3, maxFar: 120, mode: 'practical', lightMargin: 60 });
-      this.#csm.camera = camera;
       shadow.shadowNode = this.#csm;
     } else {
       this.#csm = null;
@@ -223,6 +224,7 @@ export class WorldView {
 
   /** Re-fits the cascades after the camera's projection changes. */
   updateCascades(): void {
-    this.#csm?.updateFrustums();
+    // Before its first render the node has no camera or frustums yet.
+    if (this.#csm?.camera) this.#csm.updateFrustums();
   }
 }

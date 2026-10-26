@@ -1,6 +1,7 @@
 import {
   STATS,
   TICK_SECONDS,
+  angleDelta,
   raycastWorld,
   viewDirection,
   type Material,
@@ -125,6 +126,7 @@ export class Game {
     this.#overview = options.overview;
     options.renderer.toneMapping = ACESFilmicToneMapping;
     options.renderer.toneMappingExposure = 0.95;
+    options.renderer.shadowMap.enabled = true;
     this.#worldView = new WorldView(options.renderer, options.content);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
     const preset = effectivePreset(options.settings.preset, options.backend);
@@ -198,7 +200,7 @@ export class Game {
     if (preset !== this.#pipeline.preset || !this.#pipelineReady) {
       this.#pipeline.setPreset(preset);
       this.#pipelineReady = true;
-      this.#worldView.setShadowQuality(PRESETS[preset].shadows, this.#camera.camera);
+      this.#worldView.setShadowQuality(PRESETS[preset].shadows);
       this.#effects.setFeatures(PRESETS[preset]);
     }
   }
@@ -353,7 +355,7 @@ export class Game {
     const result = driver.tick(cmd);
     this.#simTime += TICK_SECONDS;
     const before = this.#cur;
-    let self = result.self;
+    const self = result.self;
     // Respawn or first spawn: skip interpolating across the map.
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;
@@ -361,8 +363,7 @@ export class Game {
     this.#cmd = cmd;
     if (self && before) this.#selfFoley(before, self, cmd);
     for (const e of result.events) this.#present(e, start);
-    self = this.#cur;
-    if (driver) this.#othersFoley(start);
+    this.#footsteps();
   }
 
   /** Sounds and camera reactions to the local player's own movement and weapon. */
@@ -391,7 +392,7 @@ export class Game {
   }
 
   /** Footsteps for everyone, the local player included. */
-  #othersFoley(_start: number): void {
+  #footsteps(): void {
     const selfId = this.#driver?.selfId ?? null;
     const everyone = this.#cur ? [this.#cur, ...this.#others] : this.#others;
     for (const p of everyone) {
@@ -450,7 +451,7 @@ export class Game {
           this.#effects.shot(e.origin, e.direction);
           const flash = this.#worldFlashes[this.#nextWorldFlash] as Mesh;
           this.#nextWorldFlash = (this.#nextWorldFlash + 1) % this.#worldFlashes.length;
-          flash.position.set(e.origin[0] + e.direction[0] * 0.9 - 0.0, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
+          flash.position.set(e.origin[0] + e.direction[0] * 0.9, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
           flash.quaternion.copy(this.#camera.camera.quaternion);
           this.#effects.flash(flash);
           this.#crack(e.origin, e.direction);
@@ -553,11 +554,4 @@ export class Game {
     this.#effects.dispose();
     this.#players.dispose();
   }
-}
-
-function angleDelta(a: number, b: number): number {
-  let d = (b - a) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return d;
 }
