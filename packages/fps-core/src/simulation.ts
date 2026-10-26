@@ -161,12 +161,15 @@ export interface PlayerState {
   landing: Landing | null;
   /** Simulation time (s) the player died, or null while alive. */
   diedAt: number | null;
+  /** Counts respawns, so lag-compensated hits cannot reach a later life. */
+  life: number;
   readonly spawn: { readonly position: Vec3; readonly yaw: number };
   readonly dummy: DummyOptions | null;
 }
 
 interface HistoryPose extends HitPose {
   readonly alive: boolean;
+  readonly life: number;
 }
 
 /** Deep copy of plain data (objects, arrays, primitives). */
@@ -178,6 +181,12 @@ function clone<T>(value: T): T {
     return out as T;
   }
   return value;
+}
+
+/** The usercmds to apply to one player this tick (see {@link TickCmds}). */
+function cmdList(sent: UserCmd | readonly UserCmd[] | undefined): readonly (UserCmd | undefined)[] {
+  if (sent === undefined) return [undefined];
+  return Array.isArray(sent) ? sent : [sent as UserCmd];
 }
 
 /** Turns -0 into 0 so outputs compare cleanly with deep equality. */
@@ -241,6 +250,7 @@ export class Simulation {
       lastDamage: -1e9,
       landing: null,
       diedAt: null,
+      life: 0,
       spawn: { position: spawn.position, yaw },
       dummy: spawn.dummy ?? null,
     });
@@ -268,6 +278,7 @@ export class Simulation {
     p.lastDamage = -1e9;
     p.diedAt = null;
     p.landing = null;
+    p.life += 1;
   }
 
   /** The full state of a player, deep-copied, for client prediction. */
@@ -287,10 +298,28 @@ export class Simulation {
     return p ? this.#poseOf(p) : null;
   }
 
-  /** Advances the simulation by one tick and returns the resulting outputs. */
-  step(cmds: TickCmds = {}): TickOutput {
+  /** Moves the tick counter, e.g. to line client prediction up with the server's tick. */
+  setTick(tick: number): void {
+    this.#tick = tick;
+  }
+
+  /**
+   * Advances the simulation by one tick and returns the resulting outputs.
+   * With `replay`, only players move and their weapons run: no projectiles,
+   * melee, regeneration, history or events. Client prediction uses it to
+   * re-apply usercmds the server has not acknowledged yet.
+   */
+  step(cmds: TickCmds = {}, options: { readonly replay?: boolean } = {}): TickOutput {
     this.#events = [];
     this.#tick += 1;
+    if (options.replay) {
+      for (const player of this.#players.values()) {
+        if (player.dummy) continue;
+        for (const cmd of cmdList(cmds[player.id])) this.#stepPlayer(player, cmd, [], []);
+      }
+      this.#events = [];
+      return this.output();
+    }
     const spawned: Projectile[] = [];
     const melees: { attacker: PlayerState; rewind: number }[] = [];
     for (const player of this.#players.values()) {
@@ -299,9 +328,7 @@ export class Simulation {
         this.#stepDummy(player);
         continue;
       }
-      const sent = cmds[player.id];
-      const list: readonly (UserCmd | undefined)[] = sent === undefined ? [undefined] : Array.isArray(sent) ? sent : [sent as UserCmd];
-      for (const cmd of list) this.#stepPlayer(player, cmd, spawned, melees);
+      for (const cmd of cmdList(cmds[player.id])) this.#stepPlayer(player, cmd, spawned, melees);
     }
     this.#regenerate();
     this.#record();
@@ -415,6 +442,7 @@ export class Simulation {
       stance: p.move.stance,
       eyeHeight: p.move.eyeHeight,
       alive: p.health > 0,
+      life: p.life,
     };
   }
 
@@ -446,7 +474,8 @@ export class Simulation {
         yaw: pa.yaw + (pb.yaw - pa.yaw) * f,
         eyeHeight: pa.eyeHeight + (pb.eyeHeight - pa.eyeHeight) * f,
         stance: f < 0.5 ? pa.stance : pb.stance,
-        alive: pa.alive && pb.alive,
+        alive: pa.alive && pb.alive && pa.life === pb.life,
+        life: pa.life,
       });
     }
     return out;
@@ -464,7 +493,7 @@ export class Simulation {
       const shooter = this.#players.get(p.shooter);
       for (const [id, pose] of this.#posesAt(p.rewind)) {
         const victim = this.#players.get(id);
-        if (!victim || id === p.shooter || !pose.alive || victim.health <= 0) continue;
+        if (!victim || id === p.shooter || !pose.alive || pose.life !== victim.life || victim.health <= 0) continue;
         if (shooter && !this.#canDamage(shooter, victim)) continue;
         const hit = hitBody(pose, from, to);
         if (hit && (!body || hit.t < body.t)) body = { victim, zone: hit.zone, t: hit.t };
@@ -516,7 +545,7 @@ export class Simulation {
     let best: { victim: PlayerState; pose: HistoryPose; dist: number } | null = null;
     for (const [id, pose] of this.#posesAt(rewind)) {
       const victim = this.#players.get(id);
-      if (!victim || id === attacker.id || !pose.alive || victim.health <= 0 || !this.#canDamage(attacker, victim)) continue;
+      if (!victim || id === attacker.id || !pose.alive || pose.life !== victim.life || victim.health <= 0 || !this.#canDamage(attacker, victim)) continue;
       const chest = zoneCentre(pose, 'upperTorso');
       const flat: Vec3 = [chest[0] - eye[0], 0, chest[2] - eye[2]];
       const flatDist = length(flat);
