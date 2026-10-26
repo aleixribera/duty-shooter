@@ -1,6 +1,6 @@
 # Duty Shooter
 
-A browser FPS built to feel like Call of Duty: Modern Warfare (2019). One weapon, the M4A1 with iron sights, on one original map. The map has a firing range, a movement course and a small arena. You can practise alone offline, or join a passphrase-protected free-for-all on an authoritative 60 Hz server.
+A browser FPS built to feel like Call of Duty: Modern Warfare (2019). One weapon, the M4A1 with iron sights, on one original map. The map has a firing range, a movement course and a small arena. You can practise alone offline, or join the one public free-for-all lobby on an authoritative 60 Hz server.
 
 TypeScript, Three.js (WebGPU, with a WebGL2 fallback), Vite, Node 24.
 
@@ -24,8 +24,10 @@ To play online locally:
 2. Start the server:
 
    ```bash
-   PASSPHRASE=dev node apps/server/dist/main.js
+   node apps/server/dist/main.js
    ```
+
+   That runs a public lobby. Set `PASSPHRASE=...` to require a passphrase instead.
 
 3. Open <http://localhost:3000>.
 
@@ -81,4 +83,4 @@ The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls
 
 ## Deploy
 
-See [docs/deploy.md](docs/deploy.md). CI publishes a container image to GHCR, and the home server runs it with Compose behind Tailscale Funnel.
+See [docs/deploy.md](docs/deploy.md). CI publishes a container image to GHCR, and the home server runs it with Compose behind Tailscale Funnel as the single public lobby. GitHub Pages hosts a copy for offline practice that links to that lobby.

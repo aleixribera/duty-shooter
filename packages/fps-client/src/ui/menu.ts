@@ -49,6 +49,13 @@ export interface MenuCallbacks {
   captureKey(): Promise<string | null>;
 }
 
+/**
+ * Where online play is. `server`: this page's own game server, with a
+ * passphrase or as one public lobby. `link`: a copy of the page without a
+ * server (GitHub Pages), which sends players to the server's address.
+ */
+export type Lobby = { readonly kind: 'server'; readonly public: boolean } | { readonly kind: 'link'; readonly url: string };
+
 type Screen = 'main' | 'join' | 'pause' | 'settings' | 'tip';
 
 /**
@@ -64,14 +71,14 @@ export class Menu {
   #back: Screen = 'main';
   #tab: 'controls' | 'bindings' | 'video' | 'interface' = 'controls';
   #error = '';
-  readonly #online: boolean;
+  readonly #lobby: Lobby | null;
   #afterTip: (() => void) | null = null;
   readonly #padName: () => string | null;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { online: boolean; padName?: () => string | null }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; padName?: () => string | null }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
-    this.#online = options.online;
+    this.#lobby = options.lobby;
     this.#padName = options.padName ?? (() => null);
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
@@ -211,18 +218,23 @@ export class Menu {
     switch (this.#screen) {
       case 'main': {
         p.append(title, h('p', 'Firing range, movement course and arena. M4A1, iron sights.'));
-        if (this.#online) button('Play online', () => this.show('join'), true);
-        button(this.#online ? 'Practice offline' : 'Play', () => this.#callbacks.playOffline(), !this.#online);
+        const lobby = this.#lobby;
+        if (lobby?.kind === 'server') button(lobby.public ? 'Join public lobby' : 'Play online', () => this.show('join'), true);
+        if (lobby?.kind === 'link') button('Join public lobby', () => location.assign(lobby.url), true);
+        button(lobby ? 'Practice offline' : 'Play', () => this.#callbacks.playOffline(), !lobby);
         button('Settings', () => {
           this.#back = 'main';
           this.show('settings');
         });
+        if (lobby?.kind === 'link') p.append(h('div', 'The public lobby runs on the home server and opens its own page. This page is for offline practice.', 'ds-hint'));
         p.append(h('div', 'WASD move · Shift sprint (double-tap: tactical) · C crouch/slide · Ctrl prone · Space jump/mantle · R reload (hold: inspect) · V melee · Esc menu', 'ds-hint'));
         p.append(h('div', 'Controller: L3 sprint (double-click: tactical) · ○ crouch/slide (hold: prone) · ✕ jump · □ reload (hold: inspect) · R3 melee · L2 aim · R2 fire · Options menu', 'ds-hint'));
         break;
       }
       case 'join': {
-        p.append(title, h('h2', 'Join the server'));
+        const open = this.#lobby?.kind === 'server' && this.#lobby.public;
+        p.append(title, h('h2', open ? 'Public lobby' : 'Join the server'));
+        if (open) p.append(h('p', 'Free-for-all. Anyone with the link can join.'));
         const form = h('form') as HTMLFormElement;
         const field = (label: string, input: HTMLInputElement) => {
           const wrap = h('label', '', 'ds-field');
@@ -239,7 +251,7 @@ export class Menu {
         pass.value = this.#settings.passphrase;
         pass.autocomplete = 'current-password';
         field('Name', name);
-        field('Passphrase', pass);
+        if (!open) field('Passphrase', pass);
         form.append(h('div', this.#error, 'ds-error'));
         const go = h('button', 'Join', 'ds-btn primary') as HTMLButtonElement;
         go.type = 'submit';
@@ -248,12 +260,17 @@ export class Menu {
           e.preventDefault();
           const n = name.value.trim().slice(0, 16);
           if (!n) return;
-          this.#change({ name: n, passphrase: pass.value });
-          this.#callbacks.playOnline(n, pass.value);
+          if (open) {
+            this.#change({ name: n });
+            this.#callbacks.playOnline(n, '');
+          } else {
+            this.#change({ name: n, passphrase: pass.value });
+            this.#callbacks.playOnline(n, pass.value);
+          }
         });
         p.append(form);
         button('Back', () => this.show('main'));
-        queueMicrotask(() => (name.value ? pass : name).focus());
+        queueMicrotask(() => (name.value && !open ? pass : name).focus());
         break;
       }
       case 'pause': {

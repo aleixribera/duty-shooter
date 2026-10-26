@@ -10,6 +10,8 @@ export default defineConfig({
       '/healthz': SERVER,
     },
   },
+  // Relative asset paths: the same build works at the server's root and under GitHub Pages' /duty-shooter/.
+  base: './',
   build: {
     // Top-level await (renderer.init) and WebGPU need a modern target.
     target: 'es2022',

@@ -3,11 +3,12 @@
 // cross-site socket. With --lockout it also checks that repeated wrong
 // passphrases lock the address out; that locks out the machine running it for
 // ten minutes, so CI passes it and a check against the live server should not.
-// Usage: node scripts/smoke.mjs <base-url> <passphrase> [--lockout]
+// Without a passphrase it checks a public lobby instead: any join is welcome.
+// Usage: node scripts/smoke.mjs <base-url> [<passphrase>] [--lockout]
 import { WebSocket } from 'ws';
 
 const base = new URL(process.argv[2] ?? 'http://127.0.0.1:3000');
-const passphrase = process.argv[3] ?? process.env.PASSPHRASE ?? '';
+const passphrase = (process.argv[3]?.startsWith('--') ? undefined : process.argv[3]) ?? process.env.PASSPHRASE ?? '';
 const lockout = process.argv.includes('--lockout');
 const wsUrl = `${base.protocol === 'https:' ? 'wss' : 'ws'}://${base.host}/ws`;
 let failed = false;
@@ -46,7 +47,7 @@ function join(pass, headers = {}) {
 }
 
 const health = await fetch(new URL('/healthz', base)).then((r) => r.json()).catch((e) => ({ error: String(e) }));
-check('health check', health.status === 'ok', JSON.stringify(health));
+check('health check', health.status === 'ok' && health.public === !passphrase, JSON.stringify(health));
 const page = await fetch(base).catch(() => null);
 const html = page ? await page.text() : '';
 check('serves the game page', page?.status === 200 && html.includes('<canvas'), `status ${page?.status}`);
@@ -55,12 +56,15 @@ check('no files outside the client', escape !== null && escape.status >= 400, `s
 if (passphrase) {
   const ok = await join(passphrase);
   check('join with the passphrase', ok.first?.t === 'welcome', JSON.stringify(ok));
+  const wrong = await join(`${passphrase}-wrong`);
+  check('wrong passphrase rejected', wrong.first?.t === 'reject' && wrong.closed === 'rejected: passphrase', JSON.stringify(wrong));
+} else {
+  const ok = await join('');
+  check('join the public lobby', ok.first?.t === 'welcome', JSON.stringify(ok));
 }
-const wrong = await join(`${passphrase}-wrong`);
-check('wrong passphrase rejected', wrong.first?.t === 'reject' && wrong.closed === 'rejected: passphrase', JSON.stringify(wrong));
 const foreign = await join(passphrase, { origin: 'https://elsewhere.example' });
 check('cross-site socket refused', foreign.closed === 'http 403', JSON.stringify(foreign));
-if (lockout) {
+if (lockout && passphrase) {
   // One wrong guess above; the server allows ten before locking the address out.
   const guesses = [];
   for (let i = 0; i < 10; i++) guesses.push((await join(`${passphrase}-guess-${i}`)).closed);

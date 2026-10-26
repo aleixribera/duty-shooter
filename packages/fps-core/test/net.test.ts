@@ -74,6 +74,18 @@ describe('joining', () => {
     expect(m.server.latest.players).toHaveLength(0);
   });
 
+  it('runs a public lobby when the server has no passphrase: anyone joins, whatever they send', () => {
+    const m = match({ passphrase: '' });
+    const anyone = m.join('anyone', { passphrase: '' });
+    const stale = m.join('stale', { passphrase: 'remembered-from-before' });
+
+    m.run(ticks(2));
+
+    expect(anyone.client.status).toBe('joined');
+    expect(stale.client.status).toBe('joined');
+    expect(m.server.playerCount).toBe(2);
+  });
+
   it('drops a connection that sends game messages before joining', () => {
     const m = createNetworkedMatch({ boxes: [FLOOR], spawns: LANE });
     const raw = m.network.connect();

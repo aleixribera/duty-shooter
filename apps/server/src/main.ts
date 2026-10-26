@@ -12,7 +12,7 @@ try {
   process.exit(1);
 }
 const server = await startServer(options);
-console.log(`Duty Shooter server on http://${options.host}:${server.port} (max ${options.maxPlayers} players, serving ${options.staticDir})`);
+console.log(`Duty Shooter server on http://${options.host}:${server.port} (${options.passphrase ? 'passphrase' : 'public lobby'}, max ${options.maxPlayers} players, serving ${options.staticDir})`);
 
 const shutdown = () => {
   void server.close().then(() => process.exit(0));

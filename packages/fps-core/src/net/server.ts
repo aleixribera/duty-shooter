@@ -20,7 +20,7 @@ export interface GameServerOptions {
   readonly spawns: readonly SpawnPoint[];
   /** Range dummies, simulated by the server for everyone. */
   readonly dummies?: readonly PlayerSpawn[];
-  /** The shared passphrase every join must carry. */
+  /** The shared passphrase every join must carry; empty runs a public lobby anyone can join. */
   readonly passphrase: string;
   readonly maxPlayers?: number;
   /** Largest accepted message, in characters. */
@@ -152,7 +152,7 @@ export class GameServer {
 
   #join(client: Client, rawName: string, passphrase: string, protocol: number): void {
     if (protocol !== PROTOCOL_VERSION) return this.#reject(client, 'protocol');
-    if (!samePassphrase(passphrase, this.#options.passphrase)) return this.#reject(client, 'passphrase');
+    if (this.#options.passphrase && !samePassphrase(passphrase, this.#options.passphrase)) return this.#reject(client, 'passphrase');
     if (this.playerCount >= this.maxPlayers) return this.#reject(client, 'full');
     const name = cleanName(rawName);
     if (!name) return this.#reject(client, 'name');
