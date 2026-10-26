@@ -260,13 +260,13 @@ The simulation is built in fixed ticks from milestone 1, so netcode slots in wit
 
 - Attachments, loadouts, and any weapon other than the stock M4A1, including secondaries and weapon switching.
 - Lethal and tactical equipment (frags, flashbangs, …).
-- Bullet penetration. Material tags are included so it can be added later.
-- Game modes other than free-for-all. The interface is built, but team deathmatch, Gunfight and Domination aren't implemented.
+- Bullet penetration. Material tags are included so it can be added later. _Now in scope in the Survival Town spec._
+- Game modes other than free-for-all. The interface is built, but team deathmatch, Gunfight and Domination aren't implemented. _Team deathmatch is now in scope in the Survival Town spec._
 - Killcams and replays.
 - Voice chat.
 - Controller support and aim assist.
 - Weapon mounting, door-peek leaning, and dolphin dive or omnimovement.
-- Realistic themed environments, and realistic character models.
+- Realistic themed environments, and realistic character models. _Themed maps (stylised realism, generated in code) and a reworked soldier are now in scope in the Survival Town spec._
 - Downloaded or purchased art and audio assets.
 - Accounts, persistent progression, matchmaking, and multiple lobbies.
 - Safari support.

@@ -1,0 +1,82 @@
+# Glossary
+
+The words this project uses for its domain. Use these terms in code, issues, tests and docs, and avoid the listed synonyms.
+
+## World and collision
+
+**Solid**:
+One piece of world collision: an axis-aligned box, or a box rotated around the vertical axis. Bullet surfaces may have any rotation. Each solid has a material, and declares whether it blocks players, bullets or both.
+_Avoid_: brush, collider, box (except for a plain axis-aligned solid)
+
+**Material**:
+The surface type of a solid (wood, brick, sheet metal, …). It decides impacts, footsteps and penetration.
+_Avoid_: surface type, physmat
+
+**Player clip**:
+A solid that blocks players but never bullets. Examples: the boundary wall, and the hidden steps under sloped roofs.
+_Avoid_: invisible wall (for the concept in general), clip brush
+
+**Bullet surface**:
+A solid that blocks bullets but never players. Examples: a sloped roof's visible face, and the near scenery.
+_Avoid_: hitscan collider
+
+**Boundary**:
+The player clip around a map's playable area, reaching into the sky.
+_Avoid_: out-of-bounds, kill zone (there is none)
+
+**Penetration**:
+A bullet carrying on through a penetrable solid with reduced damage, as set by the material's row in the stats file.
+_Avoid_: wallbang (fine in player-facing text, not in code)
+
+**Prop**:
+A solid with an id that bullets can hit without losing damage, for example a mannequin head. Hitting one produces a prop event. Popped props reset at match start.
+_Avoid_: breakable, destructible
+
+**Decoration**:
+Visual-only geometry tied to the solid it decorates, kept within 5 cm of that solid's surface.
+_Avoid_: detail mesh
+
+## Maps
+
+**Map**:
+Data the app supplies to the core. It holds the solids, spawn sets, indoor zones, decoration, props, scenery, reference spots and camera paths. The core imports nothing from any map.
+_Avoid_: level
+
+**Survival Town**:
+The recreation of the original 2010 Nuketown, and the public lobby's map. Never call it "Nuketown" in the product.
+
+**Practice Range**:
+The offline range map: firing lanes, dummies and the movement course.
+_Avoid_: the range app (that's the `apps/range` package, which hosts both maps)
+
+**Reference file**:
+The sourced public measurements of the original map, each with a tolerance class: structural ±15 cm, other ±30 cm.
+
+**Reference spot**:
+A named camera position in a map, used for repeatable screenshots and accuracy comparisons.
+
+**Indoor zone**:
+A volume in a map that switches audio to indoor reverb.
+
+## Matches
+
+**Mode**:
+The rules of a match: team deathmatch (TDM) or free-for-all (FFA).
+_Avoid_: playlist, game type
+
+**Intermission**:
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout.
+_Avoid_: post-game, between rounds
+
+**Mode vote**:
+The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode.
+
+**Headless match**:
+The real simulation run in-process with no rendering. It's the main seam for automated tests, and the networked variant adds the server, clients and a simulated network.
+
+**Usercmd**:
+One tick of a player's input, sent from client to server.
+_Avoid_: input packet
+
+**Preset**:
+A graphics quality level (Low, Normal, High) with its own performance budget.

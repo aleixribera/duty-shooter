@@ -383,11 +383,11 @@ I can't copy anything from Black Ops, and I don't own it. Everything has to come
 
 - **"Millimetre" accuracy isn't reachable without the game's own data**, which won't be used. The reference file's sourced measurements and tolerances define what "accurate" means here. The owner doesn't own Black Ops, so there are no in-game captures.
 - **This spec replaces parts of the v1 spec's out-of-scope list:** themed environments, team deathmatch and penetration are now in scope. The v1 spec's out-of-scope list is updated to match.
-- **Planned decision records:**
-  - separating movement collision from bullet collision (player clip and bullet surfaces)
-  - solids rotated around the vertical axis, plus the spatial grid
-  - penetration by material
-- **Glossary terms to define:** solid, player clip, bullet surface, penetration, prop and intermission.
+- **Decision records:**
+  - `docs/adr/0001`: separating movement collision from bullet collision (player clip and bullet surfaces)
+  - `docs/adr/0002`: solids rotated around the vertical axis, plus the spatial grid
+  - `docs/adr/0003`: penetration by material
+- **The terms used here are defined in `GLOSSARY.md`.**
 - **Baking lighting at build time** adds a build step that runs in both the container build and the Pages build. Its output is generated, never committed or downloaded.
 - **The repo is public.** No secrets, hostnames or passphrases in any file.
 - **Uncommitted changes:** the working tree had uncommitted deletions of v1 issues 03–12 and edits under `docs/agents/` before this work started. Those are the owner's and stay untouched. Commits stage only this work's files.
