@@ -12,6 +12,13 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * lineage dvars (CoD4/WaW defaults) and close relatives. They are
  * placeholders to replace with measured values.
  *
+ * Weapon research (2026-10-26): the same archived TGD dataset gives the
+ * M4A1's fire rate, ADS, sprint-to-fire, reload, magazine, bullet velocity
+ * and zoom. The damage profile comes from MeinMMO's write-up of MutantMedia
+ * and TheXclusiveAce data (December 2019). Hit-zone multipliers, reserve
+ * ammo, spread, recoil, melee, flinch and draw time were not found anywhere
+ * and are estimates.
+ *
  * IW engine units are inches; values given in units by the research are
  * converted with {@link IW_UNIT}.
  */
@@ -184,6 +191,84 @@ export const STATS = {
     ),
     regenDelay: sourced(6, 's', UPCOMER_REGEN, 0.5, 'Secondary source; the article says "around 6 seconds" after the last damage.'),
     regenDuration: sourced(1.4, 's', UPCOMER_REGEN, 0.3, 'Time from regen start to full health. Secondary source.'),
+  },
+
+  /** The stock M4A1 (iron sights, full auto, no attachments). */
+  weapon: {
+    fireRate: sourced(809, 'rpm', TGD_WZ1_M4A1, 10, 'TGD field rpm: 809. MeinMMO (2019-12-10) and Kavo give 800 and 793.'),
+    magazineSize: sourced(30, 'rounds', TGD_WZ1_M4A1, 0, 'TGD field mag_size: 30.'),
+    reserveAmmo: estimated(90, 'rounds', 'Not found in any source (research 2026-10-26). Three spare magazines, the usual IW spawn loadout for a primary.'),
+    muzzleVelocity: sourced(628, 'm/s', TGD_WZ1_M4A1, 10, 'TGD field bv (bullet velocity): 628.'),
+    projectileGravity: estimated(9.81, 'm/s²', 'Standard gravity. MW2019 bullets drop, but the drop rate has not been published.', 1),
+    projectileMaxRange: estimated(1000, 'm', 'Beyond any sightline on the map; projectiles are removed past this distance.'),
+    adsTime: sourced(0.242, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field ads: 242 ms. ADS out uses the same time (estimated).'),
+    ironSightZoom: sourced(1.1, 'multiplier', TGD_WZ1_M4A1, 0, 'TGD field zoom1: 1.1, read as the iron-sight magnification: ADS FOV = hipfire FOV / 1.1 (interpretation not confirmed).'),
+    sprintToFire: sourced(0.246, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field stf: 246 ms.'),
+    tacticalSprintToFire: sourced(0.371, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field sstf (super sprint to fire): 371 ms.'),
+    tacticalReloadAddAmmo: sourced(
+      1.39,
+      's',
+      { name: 'MeinMMO (MutantMedia and TheXclusiveAce data, 2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' },
+      0.1,
+      'Article lists reload 1.39 s without saying which; read as the tactical add-ammo point, the time testers usually report.',
+    ),
+    tacticalReloadDuration: sourced(2.23, 's', TGD_WZ1_M4A1, 0.1, 'TGD field reload: 2.23 s, read as the full tactical reload animation (interpretation not confirmed).'),
+    emptyReloadAddAmmo: estimated(1.8, 's', 'Tactical add-ammo point (1.39 s) plus about 0.4 s for the bolt release, the gap typical of IW ARs; unmeasured.', 0.15),
+    emptyReloadDuration: estimated(2.75, 's', 'Tactical duration (2.23 s) plus about 0.5 s for the bolt release; unmeasured.', 0.15),
+    drawTime: estimated(0.8, 's', 'Spawn raise animation; not found in any source. Visual estimate from MW2019 footage.', 0.1),
+    inspectHoldTime: estimated(0.4, 's', 'How long reload must be held to inspect; chosen so a normal reload tap never inspects.'),
+    inspectDuration: estimated(4.5, 's', 'Inspect animation length; visual estimate.'),
+    recoilResetTime: estimated(0.25, 's', 'Pause in fire after which the recoil pattern restarts from the first shot; IW-style.'),
+  },
+
+  /** Damage profile of the stock M4A1 (torso damage per range band). */
+  damage: {
+    closeDamage: sourced(
+      28,
+      'HP',
+      { name: 'MeinMMO (MutantMedia and TheXclusiveAce data, 2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' },
+      0,
+      'Pre-January-2020 patch values; the 2020-01-28 patch made a small range cut that was never quantified.',
+    ),
+    closeRange: sourced(27, 'm', { name: 'MeinMMO (2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' }, 1, '"About 27 m".'),
+    midDamage: sourced(23, 'HP', { name: 'MeinMMO (2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' }, 0),
+    midRange: sourced(50, 'm', { name: 'MeinMMO (2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' }, 1, '"About 50 m".'),
+    farDamage: sourced(18, 'HP', { name: 'MeinMMO (2019-12-10)', url: 'https://mein-mmo.de/en/cod-modern-warfare-m4a1-the-best-loadouts-and-setups,451183' }, 0),
+    headMultiplier: estimated(1.4, 'multiplier', 'Not found in any source. 1.4x is the head multiplier commonly quoted for MW2019 ARs; makes three close-range headshots plus a body shot lethal.'),
+    neckMultiplier: estimated(1.0, 'multiplier', 'Not found; MW2019 ARs are commonly listed with a 1.0x neck.'),
+    upperTorsoMultiplier: estimated(1.0, 'multiplier', 'Not found; the torso is the base damage the range bands describe.'),
+    lowerTorsoMultiplier: estimated(1.0, 'multiplier', 'Not found; MW2019 ARs are commonly listed with a 1.0x lower torso.'),
+    armMultiplier: estimated(1.0, 'multiplier', 'Not found; MW2019 ARs are commonly listed with 1.0x limbs.'),
+    legMultiplier: estimated(0.9, 'multiplier', 'Not found; a small leg reduction, so leg shots can add a shot to kill at range.'),
+  },
+
+  /** Hipfire spread cone (half-angle) and the recoil pattern. */
+  accuracy: {
+    hipSpreadStill: estimated(2.0, 'deg', 'TGD lists hipfire 15.21 for the M4A1 in an unknown unit. Half-angle chosen so a still hipfire burst groups within a man-sized target at about 10 m.'),
+    hipSpreadMoving: estimated(3.5, 'deg', 'Spread at full walk speed; MW2019 hipfire visibly blooms while moving. Visual estimate.'),
+    hipSpreadAirborne: estimated(7.0, 'deg', 'Spread while airborne; MW2019 punishes jump-shots heavily. Visual estimate.'),
+    firstShotKick: estimated(0.55, 'deg', 'Vertical kick of the first shot; the M4A1 has a noticeable first-shot jump. Visual estimate.'),
+    verticalKick: estimated(0.38, 'deg', 'Vertical climb per later shot; tuned so a full magazine climbs about 11 deg without compensation. Visual estimate.'),
+    horizontalKick: estimated(0.16, 'deg', 'Peak horizontal drift per shot; the M4A1 drifts right then left. Visual estimate.'),
+  },
+
+  /** Quick melee (gun butt). */
+  melee: {
+    damage: estimated(55, 'HP', 'Not found. MW2019 quick melee is a two-hit kill at full health.'),
+    lungeRange: estimated(2.0, 'm', 'Not found. IW-lineage player_meleeRange 64 u (1.6 m) plus a short lunge.', 0.25),
+    impactTime: estimated(0.15, 's', 'Time from press to the hit; visual estimate.'),
+    duration: estimated(0.65, 's', 'Time until the gun can fire again; visual estimate.'),
+  },
+
+  /** Hit reactions, lag compensation and range dummies. */
+  combat: {
+    flinch: estimated(1.2, 'deg', 'Upward view kick on the victim per hit; not found in any source. Visual estimate from MW2019 footage.', 0.01),
+    lagCompensationWindow: estimated(
+      0.3,
+      's',
+      'Not an MW2019 measurement: covers 80 ms latency plus interpolation delay and jitter with margin. Source engine caps the same rewind at 1 s (sv_maxunlag).',
+    ),
+    dummyResetDelay: estimated(1.5, 's', 'Range dummies stand back up at full health this long after dying; a design choice.'),
   },
 
   /** Mouse sensitivity and field of view. */

@@ -414,3 +414,9 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   state.position = pos;
   state.prevButtons = cmd.buttons;
 }
+
+/** Moves the player horizontally toward `target` (a melee lunge), stopping at boxes. */
+export function lunge(state: MoveState, world: World, target: Vec3): void {
+  const moved = slideMove(world, state.position, hullFor(state.stance), target[0] - state.position[0], target[2] - state.position[2]);
+  state.position = moved.pos;
+}

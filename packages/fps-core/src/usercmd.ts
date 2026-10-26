@@ -37,6 +37,12 @@ export interface UserCmd {
    * [0, 1), in press order. Lets shots resolve between ticks.
    */
   readonly firePresses: readonly number[];
+  /**
+   * The server tick (fractional) at which this client was drawing the other
+   * players when it produced the usercmd. The server rewinds hitboxes to it
+   * for lag compensation, within a capped window. Omitted offline.
+   */
+  readonly viewTick?: number;
 }
 
 /** Builds a usercmd, defaulting every field to "no input". */
