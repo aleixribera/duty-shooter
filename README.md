@@ -50,6 +50,26 @@ These are MW2019's defaults, and every one can be rebound in Settings.
 | Scoreboard | Tab |
 | Menu | Esc |
 
+### Controller
+
+A PS4 controller (or any pad the browser reports with the standard mapping) works for menus and play, with no aim assist. The layout follows MW2019's Default preset:
+
+| Action | Button |
+| --- | --- |
+| Move and look | Left stick and right stick |
+| Sprint | L3, while pushing forward (click twice for tactical sprint) |
+| Crouch, or slide while sprinting | Circle (hold to go prone) |
+| Jump or mantle | Cross |
+| Fire | R2 |
+| Aim down sights | L2 |
+| Reload | Square |
+| Inspect | Hold Square with a full magazine |
+| Melee | R3 |
+| Scoreboard | Touchpad |
+| Menu | Options |
+
+The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls has the layout, stick sensitivity, ADS multiplier, deadzone and invert Y. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
+
 ## Layout
 
 - `packages/fps-core`: the headless, deterministic simulation shared by the client and the server. It covers movement (pmove), the weapon, hit zones, lag compensation, netcode, game modes and the sourced stats file. It has no DOM, rendering or audio code.

@@ -8,6 +8,7 @@ import {
   createSoundSystem,
   isFirefox,
   loadSettings,
+  padName,
   saveSettings,
   type GameDriver,
   type Settings,
@@ -53,17 +54,29 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The built page is only ever served by the game server; in dev, `?online` assumes one behind Vite's proxy.
   const online = !import.meta.env.DEV || params.has('online');
 
-  /** Takes the pointer and starts input; shows the pause menu if the browser refuses. */
+  /**
+   * Takes the pointer and starts input; shows the pause menu if the browser
+   * refuses. On a controller there is no pointer to take.
+   */
   const enter = async () => {
-    await sound.unlock();
-    await game.input.lock();
+    // Not awaited: without a click or key press (a controller press does not
+    // count) the browser holds audio back until the next one.
+    void sound.unlock();
+    if (!game.input.padMode) await game.input.lock();
     if (game.input.locked) {
       menu.hide();
       game.paused = false;
+      if (!sound.unlocked && game.input.padMode) game.hud.toast('Sound starts after a click or a key press: the browser does not count controller buttons.', 6);
     } else {
       menu.show('pause', 'The browser refused the mouse lock. Click Resume again.');
     }
   };
+  // Sound the browser held back starts on the first click or key press.
+  const retrySound = () => {
+    if (!sound.unlocked) void sound.unlock();
+  };
+  document.addEventListener('pointerdown', retrySound, true);
+  document.addEventListener('keydown', retrySound, true);
   /** First entry shows the one-time Firefox tip about raw mouse input. */
   let driver: GameDriver | null = null;
   const play = (next: GameDriver) => {
@@ -95,8 +108,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => game.input.captureNext(),
     },
-    { online },
+    { online, padName: () => game.input.padName },
   );
+  game.input.onPadMenu = (nav) => menu.navigate(nav);
+  addEventListener('gamepadconnected', (e) => game.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
   game.input.onUnlock = () => {
     if (!game.paused && game.driver) {
       game.paused = true;

@@ -242,6 +242,7 @@ export class Game {
     this.#frameStart = this.#lastFrame ?? now - TICK_MS;
     this.#lastFrame = now;
     this.#fps = this.#fps * 0.95 + (1 / Math.max(1e-3, dt)) * 0.05;
+    this.input.poll(now, dt);
     const driver = this.#driver;
     let alpha = 0;
     if (driver) alpha = this.#loop.frame(now, (start, end) => this.#tick(driver, start, end));

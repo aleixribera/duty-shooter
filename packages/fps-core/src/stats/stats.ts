@@ -294,6 +294,22 @@ export const STATS = {
     maxFov: sourced(120, 'deg', PCGAMINGWIKI, 0, 'Horizontal at 16:9 (89 deg vertical).'),
     adsSensitivityMultiplier: estimated(1.0, 'multiplier', 'Default of the ADS (low zoom) multiplier; separate low/high zoom multipliers are sourced (PCGamingWiki) but the 1.00 default is not.'),
     monitorDistanceCoefficient: estimated(1.33, 'multiplier', 'Remembered MW2019 menu default for Relative ADS sensitivity; not verified.'),
+    stickSensitivity: estimated(
+      6,
+      'level',
+      'Controller look sensitivity on the 1-20 scale, horizontal and vertical. 6/6 is the commonly cited default, seen as an author setting in the GameRevolution alpha settings (https://www.gamerevolution.com/?p=586077); Activision does not state it.',
+    ),
+    stickTurnRate: estimated(180, 'deg/s', 'Turn rate at full stick deflection at sensitivity 6; no measured MW2019 figure was found, so a typical console-shooter rate is used and scaled linearly with the sensitivity.', 40),
+    stickResponseExponent: estimated(1.6, 'multiplier', 'Exponent of the stick response curve (deflection^n); the MW2019 "Standard" curve is undocumented, this keeps fine aim near the centre.'),
+    stickAdsMultiplier: estimated(1.0, 'multiplier', 'Controller ADS sensitivity multiplier; the MW2019 default is undocumented, 1.00 matches the mouse default.'),
+    stickDeadzone: sourced(
+      0.07,
+      'multiplier',
+      { name: 'GameRevolution, CoD Modern Warfare and Warzone deadzone guide', url: 'https://www.gamerevolution.com/guides/652540-cod-modern-warfare-warzone-what-is-deadzone' },
+      0.02,
+      'Stick deadzone as a fraction of full travel.',
+    ),
+    proneHoldTime: estimated(0.35, 's', 'Holding the controller crouch button this long goes prone (Activision: tap Circle to crouch, hold to go prone); the hold length is not documented.', 0.1),
   },
 } as const;
 

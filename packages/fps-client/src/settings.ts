@@ -1,4 +1,5 @@
 import { STATS } from '@duty-shooter/fps-core';
+import type { PadLayout } from './gamepad';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
 export type Action =
@@ -45,6 +46,16 @@ export interface Settings {
   readonly sensitivity: number;
   /** ADS sensitivity multiplier (low zoom). */
   readonly adsMultiplier: number;
+  /** Controller button layout (MW2019's Default or Tactical). */
+  readonly padLayout: PadLayout;
+  /** Controller stick sensitivity, MW2019's 1-20 scale, horizontal and vertical. */
+  readonly padSensitivityX: number;
+  readonly padSensitivityY: number;
+  /** Controller ADS sensitivity multiplier. */
+  readonly padAdsMultiplier: number;
+  readonly padInvertY: boolean;
+  /** Stick deadzone, as a fraction of full travel. */
+  readonly padDeadzone: number;
   /** MW2019's "ADS Field of View": affected by the FOV slider, or independent of it. */
   readonly adsFov: 'affected' | 'independent';
   /** Horizontal field of view at 16:9, in degrees. */
@@ -82,6 +93,12 @@ export const DEFAULT_SETTINGS: Settings = {
   crouchMode: 'toggle',
   sensitivity: 5,
   adsMultiplier: STATS.input.adsSensitivityMultiplier.value,
+  padLayout: 'default',
+  padSensitivityX: STATS.input.stickSensitivity.value,
+  padSensitivityY: STATS.input.stickSensitivity.value,
+  padAdsMultiplier: STATS.input.stickAdsMultiplier.value,
+  padInvertY: false,
+  padDeadzone: STATS.input.stickDeadzone.value,
   adsFov: 'affected',
   fov: STATS.input.defaultFov.value,
   preset: 'normal',
@@ -131,6 +148,12 @@ export function parseSettings(raw: unknown): Settings {
     crouchMode: oneOf(r['crouchMode'], ['hold', 'toggle'], d.crouchMode),
     sensitivity: clamp(r['sensitivity'], 0.1, 50, d.sensitivity),
     adsMultiplier: clamp(r['adsMultiplier'], 0.1, 3, d.adsMultiplier),
+    padLayout: oneOf(r['padLayout'], ['default', 'tactical'], d.padLayout),
+    padSensitivityX: clamp(r['padSensitivityX'], 1, 20, d.padSensitivityX),
+    padSensitivityY: clamp(r['padSensitivityY'], 1, 20, d.padSensitivityY),
+    padAdsMultiplier: clamp(r['padAdsMultiplier'], 0.1, 3, d.padAdsMultiplier),
+    padInvertY: bool(r['padInvertY'], d.padInvertY),
+    padDeadzone: clamp(r['padDeadzone'], 0, 0.5, d.padDeadzone),
     adsFov: oneOf(r['adsFov'], ['affected', 'independent'], d.adsFov),
     fov: clamp(r['fov'], STATS.input.minFov.value, STATS.input.maxFov.value, d.fov),
     preset: oneOf(r['preset'], ['low', 'normal', 'high'], d.preset),
@@ -182,18 +205,27 @@ export function adsFovDeg(settings: Settings): number {
 }
 
 /**
- * Sensitivity scale while aiming: the ADS multiplier times MW2019's
- * relative (monitor distance) scaling at its coefficient, from the hipfire
- * to the ADS FOV.
+ * Sensitivity scale while aiming: the ADS multiplier (the mouse's, or the
+ * controller's) times MW2019's relative (monitor distance) scaling at its
+ * coefficient, from the hipfire to the ADS FOV.
  */
-export function adsSensitivityScale(settings: Settings): number {
+export function adsSensitivityScale(settings: Settings, multiplier = settings.adsMultiplier): number {
   const c = STATS.input.monitorDistanceCoefficient.value;
   const hip = verticalFov(settings.fov);
   const ads = verticalFov(adsFovDeg(settings));
-  return settings.adsMultiplier * (Math.atan(c * Math.tan(ads / 2)) / Math.atan(c * Math.tan(hip / 2)));
+  return multiplier * (Math.atan(c * Math.tan(ads / 2)) / Math.atan(c * Math.tan(hip / 2)));
 }
 
 /** Radians of yaw per mouse count at this sensitivity (hipfire). */
 export function radiansPerCount(settings: Settings): number {
   return settings.sensitivity * STATS.input.yawPerCount.value * RAD;
+}
+
+/**
+ * Turn rate (radians per second) at full stick deflection for a stick
+ * sensitivity: linear in the sensitivity, through the sourced rate at the
+ * default.
+ */
+export function stickTurnRate(sensitivity: number): number {
+  return STATS.input.stickTurnRate.value * (sensitivity / STATS.input.stickSensitivity.value) * RAD;
 }

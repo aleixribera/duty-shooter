@@ -2,6 +2,8 @@ export { createRenderer } from './renderer';
 export type { CreateRendererOptions, GameRenderer, RenderBackend } from './renderer';
 export * from './settings';
 export { InputController, isFirefox } from './input';
+export { PAD, PAD_LAYOUTS, deadzone, padName, readPad } from './gamepad';
+export type { PadButton, PadLayout, PadNav, PadReading } from './gamepad';
 export { FixedTickLoop } from './loop';
 export { Spring } from './spring';
 export { FirstPersonCamera } from './camera';
