@@ -1,5 +1,7 @@
 import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type Vec3, type World } from '@duty-shooter/fps-core';
-import { BoxGeometry, Color, Group, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type Object3D, type Scene } from 'three/webgpu';
+import { BoxGeometry, CapsuleGeometry, Color, Group, Mesh, MeshStandardNodeMaterial, Quaternion, SphereGeometry, Vector3, type BufferGeometry, type Material, type Object3D, type Scene } from 'three/webgpu';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 interface Look {
   readonly uniform: number;
@@ -14,7 +16,7 @@ const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet:
 
 type Part = 'pelvis' | 'torso' | 'head' | 'upperArmL' | 'upperArmR' | 'foreArmL' | 'foreArmR' | 'thighL' | 'thighR' | 'shinL' | 'shinR';
 
-/** A stylised blocky soldier: a pivot hierarchy of boxes posed procedurally from the simulation output. */
+/** A lightweight tactical soldier, posed by the existing animation hierarchy. */
 class Soldier {
   readonly root = new Group();
   readonly #hips = new Group();
@@ -32,6 +34,7 @@ class Soldier {
   readonly parts = new Map<Part, Mesh>();
   readonly #materials: MeshStandardNodeMaterial[] = [];
   #phase = 0;
+  #strideBlend = 0;
   #flash = 0;
   #pitch = 0;
   #crouch = 0;
@@ -51,9 +54,28 @@ class Soldier {
     const skin = mat(look.skin, 0.7);
     const helmet = mat(look.helmet, 0.6);
     const boots = mat(look.boots, 0.9);
-    const box = (part: Part | null, parent: Object3D, size: Vec3, at: Vec3, material: MeshStandardNodeMaterial) => {
-      const m = new Mesh(new BoxGeometry(size[0], size[1], size[2]), material);
+    const gear = vest;
+    const lens = mat(0x172128, 0.3);
+    const box = (part: Part | null, parent: Object3D, size: Vec3, at: Vec3, material: MeshStandardNodeMaterial, shape: 'box' | 'capsule' | 'sphere' = 'box') => {
+      const radius = Math.min(...size) * 0.22;
+      let geometry: BufferGeometry = look === DUMMY ? new BoxGeometry(size[0], size[1], size[2]) : new RoundedBoxGeometry(size[0], size[1], size[2], 1, radius);
+      if (look !== DUMMY && shape === 'capsule') {
+        geometry.dispose();
+        geometry = new CapsuleGeometry(size[0] / 2, Math.max(0, size[1] - size[0]), 3, 8);
+        geometry.scale(1, 1, size[2] / size[0]);
+      } else if (look !== DUMMY && shape === 'sphere') {
+        geometry.dispose();
+        geometry = new SphereGeometry(.5, 12, 8);
+        geometry.scale(size[0], size[1], size[2]);
+      }
+      if (look !== DUMMY && geometry.index) {
+        const unindexed = geometry.toNonIndexed();
+        geometry.dispose();
+        geometry = unindexed;
+      }
+      const m = new Mesh(geometry, material);
       m.position.set(at[0], at[1], at[2]);
+      if (part) m.name = part;
       m.castShadow = true;
       parent.add(m);
       if (part) this.parts.set(part, m);
@@ -66,11 +88,24 @@ class Soldier {
     this.#spine.position.y = 0.14;
     box('torso', this.#spine, [0.42, 0.42, 0.25], [0, 0.22, 0], uniform);
     box(null, this.#spine, [0.44, 0.34, 0.29], [0, 0.24, 0], vest);
+    if (look !== DUMMY) {
+      // Shallow modular pouches and a belt read at distance without changing
+      // the simulation's hit zones or increasing the character's footprint.
+      for (const x of [-0.13, 0, 0.13]) box(null, this.#spine, [0.10, 0.13, 0.045], [x, 0.21, -0.158], vest);
+      box(null, this.#spine, [0.26, 0.045, 0.035], [0, 0.34, -0.16], gear);
+      box(null, this.#hips, [0.37, 0.055, 0.235], [0, 0.11, 0], gear);
+    }
     this.#spine.add(this.#neck);
     this.#neck.position.y = 0.46;
-    box('head', this.#neck, [0.2, 0.24, 0.22], [0, 0.15, 0], skin);
-    box(null, this.#neck, [0.25, 0.12, 0.27], [0, 0.27, 0.01], helmet);
-    box(null, this.#neck, [0.16, 0.035, 0.02], [0, 0.17, -0.11], mat(0x1c1e20, 0.3));
+    box('head', this.#neck, [0.2, 0.24, 0.22], [0, 0.15, 0], skin, 'sphere');
+    box(null, this.#neck, [0.25, 0.15, 0.27], [0, 0.27, 0.01], helmet, 'sphere');
+    box(null, this.#neck, [0.16, 0.035, 0.02], [0, 0.17, -0.11], look === DUMMY ? mat(0x1c1e20, 0.3) : lens);
+    if (look !== DUMMY) {
+      box(null, this.#neck, [0.21, 0.105, 0.10], [0, 0.09, -0.073], gear);
+      box(null, this.#neck, [0.18, 0.052, 0.025], [0, 0.185, -0.116], lens);
+      box(null, this.#neck, [0.09, 0.045, 0.035], [0, 0.29, -0.125], helmet);
+      for (const side of [-1, 1]) box(null, this.#neck, [0.035, 0.09, 0.10], [side * 0.12, 0.19, 0], gear);
+    }
 
     // Arms hold the rifle at the ready: forward and in toward the centre line.
     for (const [shoulder, elbow, side, upper, fore] of [
@@ -79,11 +114,15 @@ class Soldier {
     ] as const) {
       this.#spine.add(shoulder);
       shoulder.position.set(0.26 * side, 0.38, 0);
-      box(upper, shoulder, [0.11, 0.3, 0.11], [0, -0.13, 0], uniform);
+      box(upper, shoulder, [0.11, 0.3, 0.11], [0, -0.13, 0], uniform, 'capsule');
       shoulder.add(elbow);
       elbow.position.y = -0.27;
-      box(fore, elbow, [0.1, 0.28, 0.1], [0, -0.12, 0], uniform);
-      box(null, elbow, [0.09, 0.08, 0.1], [0, -0.28, 0], skin);
+      box(fore, elbow, [0.1, 0.28, 0.1], [0, -0.12, 0], uniform, 'capsule');
+      box(null, elbow, [0.09, 0.08, 0.1], [0, -0.28, 0], look === DUMMY ? skin : gear);
+      if (look !== DUMMY) {
+        box(null, shoulder, [0.13, 0.13, 0.13], [0, -0.06, 0], uniform);
+        box(null, elbow, [0.105, 0.08, 0.115], [0, -0.015, 0.01], gear);
+      }
     }
     for (const [hip, knee, side, thigh, shin] of [
       [this.#hipL, this.#kneeL, -1, 'thighL', 'shinL'],
@@ -91,11 +130,15 @@ class Soldier {
     ] as const) {
       this.#hips.add(hip);
       hip.position.set(0.1 * side, 0, 0);
-      box(thigh, hip, [0.16, 0.44, 0.17], [0, -0.22, 0], uniform);
+      box(thigh, hip, [0.16, 0.44, 0.17], [0, -0.22, 0], uniform, 'capsule');
       hip.add(knee);
       knee.position.y = -0.43;
-      box(shin, knee, [0.14, 0.4, 0.15], [0, -0.2, 0], uniform);
+      box(shin, knee, [0.14, 0.4, 0.15], [0, -0.2, 0], uniform, 'capsule');
       box(null, knee, [0.15, 0.1, 0.25], [0, -0.39, -0.04], boots);
+      if (look !== DUMMY) {
+        box(null, hip, [0.17, 0.16, 0.18], [0, -0.13, 0.015], uniform);
+        box(null, knee, [0.15, 0.11, 0.055], [0, -0.045, -0.085], boots);
+      }
     }
     this.#spine.add(this.#gunMount);
     this.#gunMount.position.set(0.12, 0.3, -0.25);
@@ -104,6 +147,35 @@ class Soldier {
         if ((o as Mesh).isMesh) o.castShadow = true;
       });
       this.#gunMount.add(weapon);
+    }
+    if (look !== DUMMY) {
+      // Merge stationary pieces on each animated pivot by material. This keeps
+      // the added detail inexpensive for several players on laptop GPUs.
+      for (const parent of [this.#hips, this.#spine, this.#neck, this.#shoulderL, this.#shoulderR, this.#elbowL, this.#elbowR, this.#hipL, this.#hipR, this.#kneeL, this.#kneeR]) {
+        const groups = new Map<Material, Mesh[]>();
+        for (const child of parent.children) {
+          const mesh = child as Mesh;
+          if (!mesh.isMesh || Array.isArray(mesh.material)) continue;
+          const list = groups.get(mesh.material) ?? [];
+          list.push(mesh);
+          groups.set(mesh.material, list);
+        }
+        for (const [material, meshes] of groups) {
+          if (meshes.length < 2) continue;
+          const geometries = meshes.map((mesh) => { mesh.updateMatrix(); return mesh.geometry.clone().applyMatrix4(mesh.matrix); });
+          const combined = mergeGeometries(geometries);
+          for (const geometry of geometries) geometry.dispose();
+          if (!combined) continue;
+          const merged = new Mesh(combined, material);
+          merged.castShadow = true;
+          for (const mesh of meshes) {
+            if (mesh.name) this.parts.set(mesh.name as Part, merged);
+            parent.remove(mesh);
+            mesh.geometry.dispose();
+          }
+          parent.add(merged);
+        }
+      }
     }
   }
 
@@ -125,14 +197,15 @@ class Soldier {
     this.#pitch = ease(this.#pitch, p.pitch, 0.05);
 
     // Stride: legs swing with distance travelled.
-    const stride = this.#prone > 0.5 ? 0.9 : 1.6;
+    const stride = 1.6 - this.#prone * 0.7;
     this.#phase += (speed * dt * Math.PI) / stride;
-    const swing = Math.min(1, speed / 3) * (this.#slide > 0.5 ? 0 : 1) * (1 - this.#air);
-    const s = Math.sin(this.#phase) * swing * (0.55 + this.#sprint * 0.35);
+    const targetSwing = Math.min(1, speed / 3) * (1 - this.#slide) * (1 - this.#air);
+    this.#strideBlend = ease(this.#strideBlend, targetSwing, 0.12);
+    const s = Math.sin(this.#phase) * this.#strideBlend * (0.55 + this.#sprint * 0.35);
 
     // Crouch lowers the hips and folds the legs; prone lays the body along its facing.
     const crouchDrop = this.#crouch * 0.34 + this.#slide * 0.4;
-    this.#hips.position.y = 0.86 - crouchDrop - this.#prone * 0.68;
+    this.#hips.position.y = 0.86 - crouchDrop - this.#prone * 0.68 + Math.abs(Math.sin(this.#phase)) * this.#strideBlend * 0.018 * (1 - this.#prone);
     this.#hips.rotation.x = -this.#prone * (Math.PI / 2) * 0.98 + this.#slide * 0.5;
     this.#hipL.rotation.x = s + this.#crouch * 1.15 + this.#slide * 1.3 + this.#air * 0.6;
     this.#hipR.rotation.x = -s + this.#crouch * 0.55 + this.#slide * 1.1 + this.#air * 0.2;
@@ -148,6 +221,7 @@ class Soldier {
     // Upper body: aim pitch, sprint lean with the rifle lowered.
     const aim = this.#pitch * (1 - this.#sprint * 0.8);
     this.#spine.rotation.x = this.#sprint * -0.25 + aim * 0.45 - this.#slide * 0.2 + this.#prone * (Math.PI / 2) * 0.85;
+    this.#spine.rotation.z = -s * 0.045 * (1 - this.#prone);
     this.#neck.rotation.x = aim * 0.4 - this.#prone * 0.6;
     const armAim = aim * 0.55 + this.#prone * 0.3;
     this.#shoulderR.rotation.set(1.25 + armAim - this.#sprint * 0.7, 0, -0.15);
@@ -198,13 +272,14 @@ class Ragdoll {
       const height = m.position.y - centre.y;
       const v = new Vector3(velocity[0] + push[0] * (0.6 + height), velocity[1] + 0.6 + push[1], velocity[2] + push[2] * (0.6 + height));
       v.add(new Vector3((Math.random() - 0.5) * 0.6, Math.random() * 0.4, (Math.random() - 0.5) * 0.6));
-      const box = (mesh.geometry as BoxGeometry).parameters;
+      mesh.geometry.computeBoundingBox();
+      const size = mesh.geometry.boundingBox?.getSize(new Vector3());
       this.#parts.push({
         mesh: m,
         v,
         w: new Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 6),
         floor: below ? below.point[1] : centre.y,
-        half: box ? Math.min(box.width, box.height, box.depth) / 2 : 0.05,
+        half: size ? Math.min(size.x * Math.abs(m.scale.x), size.y * Math.abs(m.scale.y), size.z * Math.abs(m.scale.z)) / 2 : 0.05,
       });
     }
   }

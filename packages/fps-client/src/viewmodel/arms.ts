@@ -152,8 +152,8 @@ function lerpTable(table: readonly (readonly [number, number])[], x: number): nu
 function sleeve(): Part {
   const a0 = -0.07;
   const a1 = L1 + 0.105;
-  const n = 90;
-  const segs = 40;
+  const n = 60;
+  const segs = 32;
   const radius: readonly (readonly [number, number])[] = [
     [-0.07, 0.054],
     [0.05, 0.052],
@@ -196,8 +196,8 @@ function sleeve(): Part {
 function forearm(): Part {
   const a0 = L1 + 0.075;
   const a1 = L1 + L2 + 0.015;
-  const n = 40;
-  const segs = 32;
+  const n = 28;
+  const segs = 24;
   const width: readonly (readonly [number, number])[] = [
     [a0, 0.04],
     [L1 + 0.12, 0.0405],
@@ -232,8 +232,8 @@ function forearm(): Part {
 function gloveCuff(): Part {
   const z0 = 0.052;
   const z1 = -0.012;
-  const n = 30;
-  const segs = 36;
+  const n = 26;
+  const segs = 28;
   return grid(n, segs, (i, j, s) => {
     const z = z0 + ((z1 - z0) * i) / (n - 1);
     const th = (j / segs) * Math.PI * 2;
@@ -271,8 +271,8 @@ function palm(): Part {
   const z0 = 0.014;
   const z1 = -0.105;
   const zr = -0.087; // start of the rounded front
-  const n = 34;
-  const segs = 40;
+  const n = 30;
+  const segs = 32;
   const width: readonly (readonly [number, number])[] = [
     [-0.105, 0.044],
     [-0.085, 0.0445],
@@ -326,8 +326,8 @@ function palm(): Part {
 function fingerTube(len: readonly [number, number, number], r0: number, rTip: number, padSegments: number, thumb: boolean): Part {
   const total = len[0] + len[1] + len[2];
   const tStart = thumb ? -0.014 : -0.012;
-  const n = 46;
-  const segs = 22;
+  const n = 32;
+  const segs = 18;
   return grid(n, segs, (i, j, s) => {
     const u = i / (n - 1);
     // Denser sampling near the tip for a round cap.
@@ -362,7 +362,8 @@ function fingerTube(len: readonly [number, number, number], r0: number, rTip: nu
     s.x = x;
     s.y = y;
     s.z = -t;
-    s.tint = Math.min(1 - palmSide * 0.85, 1 - pad * 0.95, 1 - tipReinforce * 0.8, 1 - seam * 0.5);
+    const jointSeam = Math.max(Math.exp(-(((t - len[0]) / .0018) ** 2)), Math.exp(-(((t - len[0] - len[1]) / .0018) ** 2)));
+    s.tint = Math.min(1 - palmSide * 0.85, 1 - pad * 0.95, 1 - tipReinforce * 0.8, 1 - seam * 0.5) * (1 - jointSeam * .3);
     s.wear = pad * 0.5 + tipReinforce * 0.3;
     s.ao = 1 - 0.3 * Math.exp(-(((t - len[0]) / 0.004) ** 2)) * palmSide;
   });
@@ -379,8 +380,8 @@ function gloveMaterial(): MeshStandardNodeMaterial {
   const weave = sin(p.x.mul(2300).add(p.z.mul(900))).mul(sin(p.y.mul(2300).sub(p.z.mul(1100))));
   const grain = mx_noise_float(p.mul(420));
   const blot = mx_fractal_noise_float(p.mul(35), 3, 2, 0.5);
-  const coyote = vec3(0.21, 0.16, 0.108).mul(blot.mul(0.1).add(1));
-  const black = vec3(0.03, 0.029, 0.028).mul(grain.mul(0.15).add(1));
+  const coyote = vec3(0.12, 0.135, 0.095).mul(blot.mul(0.1).add(1));
+  const black = vec3(0.024, 0.027, 0.024).mul(grain.mul(0.15).add(1));
   const scuff = smoothstep(0.35, 0.8, s.y.add(grain.mul(0.25)));
   m.colorNode = mix(black, coyote, s.x).mul(scuff.mul(0.35).add(1)).mul(weave.mul(0.05).add(1));
   m.roughnessNode = mix(float(0.62), float(0.9), s.x).add(grain.mul(0.04)).sub(scuff.mul(0.08));
@@ -415,7 +416,7 @@ function skinMaterial(): MeshStandardNodeMaterial {
   const p = positionGeometry;
   const pores = mx_noise_float(p.mul(900));
   const blot = mx_fractal_noise_float(p.mul(30), 3, 2, 0.5);
-  const base = vec3(0.56, 0.38, 0.29).mul(blot.mul(0.08).add(1));
+  const base = vec3(0.43, 0.28, 0.21).mul(blot.mul(0.08).add(1));
   m.colorNode = base.mul(s.x);
   m.roughnessNode = float(0.55).add(pores.mul(0.06)).add(blot.mul(0.05));
   m.metalnessNode = float(0);

@@ -1,7 +1,6 @@
 /**
- * Procedural stock M4A1 carbine (flat-top, BUIS rear, A2 front sight post,
- * 14.5" barrel with M4 cut, A2 birdcage, M4 handguards, 6-position stock,
- * A2 grip, 30-round GI magazine). No external assets.
+ * Procedural M4A1 fallback and lightweight third-person carbine. The
+ * first-person view attaches the authored parts from the Blender asset.
  *
  * Gun space: metres, bore axis along Z (muzzle toward -Z), +Y up, +X right.
  * Origin: on the bore axis at the rear face of the upper receiver.
@@ -567,7 +566,14 @@ function handguard(q: Q): Part {
     { z: -0.3365, r: 0.0224 },
     { z: -0.338, r: 0.0222 },
   ];
-  if (!q.hi) return radial(prof, 14);
+  if (!q.hi) {
+    // Match the authored ventilated rail's silhouette at a distance without
+    // carrying the first-person slot and fastener geometry for every player.
+    return merge(
+      radial(prof, 8),
+      frontLoft(rectRing(-0.01, 0.021, 0.01, 0.028, 0.001, q.fil), [], -0.337, -0.198, 0.0005, q),
+    );
+  }
   const holesZ = [-0.2185, -0.2405, -0.2625, -0.2845, -0.3065];
   const holeTh = [Math.PI / 2, (3 * Math.PI) / 2];
   const ribs = 30;
@@ -608,30 +614,7 @@ function handguard(q: Q): Part {
 // Lower receiver group
 // ---------------------------------------------------------------------------
 
-function lowerReceiver(q: Q): Part {
-  const parts: Part[] = [];
-  parts.push(
-    sideLoft(
-      [
-        [-0.1805, -0.013, 0.0008],
-        [0, -0.013, 0],
-        [0, 0.0135, 0.0015],
-        [0.0115, 0.0135, 0.003],
-        [0.0115, -0.017, 0.004],
-        [0.004, -0.029, 0.006],
-        [-0.006, -0.0315, 0.003],
-        [-0.048, -0.0315, 0.001],
-        [-0.0985, -0.0315, 0],
-        [-0.0985, -0.024, 0],
-        [-0.169, -0.024, 0],
-        [-0.17, -0.03, 0.0015],
-        [-0.1805, -0.028, 0.0035],
-      ],
-      LW,
-      0.0012,
-      q,
-    ),
-  );
+function magWell(q: Q): Part {
   // Magazine well (vertical prism with the mag passage).
   const wellOuter = polyRound(
     [
@@ -665,7 +648,34 @@ function lowerReceiver(q: Q): Part {
         { z: -0.079, inset: 0, phi: -Math.PI / 4, wear: 0 },
         { z: -0.025, inset: 0, phi: 0, wear: 0 },
       ];
-  parts.push(loft(wellOuter, [wellHole], wellSt, { capEnd: false }).transform(TOP));
+  return loft(wellOuter, [wellHole], wellSt, { capEnd: false }).transform(TOP);
+}
+
+function lowerShell(q: Q): Part {
+  return sideLoft(
+    [
+      [-0.1805, -0.013, 0.0008],
+      [0, -0.013, 0],
+      [0, 0.0135, 0.0015],
+      [0.0115, 0.0135, 0.003],
+      [0.0115, -0.017, 0.004],
+      [0.004, -0.029, 0.006],
+      [-0.006, -0.0315, 0.003],
+      [-0.048, -0.0315, 0.001],
+      [-0.0985, -0.0315, 0],
+      [-0.0985, -0.024, 0],
+      [-0.169, -0.024, 0],
+      [-0.17, -0.03, 0.0015],
+      [-0.1805, -0.028, 0.0035],
+    ],
+    LW,
+    0.0012,
+    q,
+  );
+}
+
+function lowerReceiver(q: Q): Part {
+  const parts: Part[] = [];
   // Trigger guard.
   parts.push(
     sideLoft(
@@ -765,7 +775,17 @@ function stock(q: Q): Part {
               ],
               holeTint: 0.3,
             }
-          : {}),
+          : {
+              holes: [[
+                [0.186, -0.049, 0.002],
+                [0.223, -0.067, 0.002],
+                [0.235, -0.064, 0.002],
+                [0.235, -0.040, 0.002],
+                [0.224, -0.032, 0.002],
+                [0.170, -0.032, 0.002],
+              ] as Corner[]],
+              holeTint: 0.3,
+            }),
       },
     ),
   );
@@ -1139,15 +1159,20 @@ function wornMaterial(spec: WornSpec): MeshStandardNodeMaterial {
   const s = surfNode();
   const p = positionGeometry;
   const fine = mx_noise_float(p.mul(spec.bumpFreq));
+  // A second, directionally stretched grain keeps the anodized and steel
+  // finishes from reading as a single uniform plastic surface in close-up.
+  const machining = mx_noise_float(p.mul(vec3(340, 1200, 95)));
   const chip = mx_noise_float(p.mul(150));
   const blot = mx_fractal_noise_float(p.mul(spec.blotchScale), 3, 2.0, 0.5);
-  const wearAmt = smoothstep(0.5, 0.72, s.y.mul(0.85).add(chip.mul(0.32)).add(blot.mul(0.12)).sub(spec.wearBias));
-  const base = vec3(...spec.base).mul(blot.mul(spec.blotchAmount).add(1));
+  // Edge wear is a restrained change in finish, not a bright outline on every
+  // bevel. Break it up with two scales of noise and leave most coating intact.
+  const wearAmt = smoothstep(0.55, 0.82, s.y.mul(0.72).add(chip.mul(0.28)).add(blot.mul(0.16)).sub(spec.wearBias)).mul(0.42);
+  const base = vec3(...spec.base).mul(blot.mul(spec.blotchAmount).add(1)).mul(machining.mul(spec.metal * 0.025).add(1));
   m.colorNode = mix(base, vec3(...spec.worn), wearAmt).mul(s.x);
   m.metalnessNode = mix(float(spec.metal), float(spec.wornMetal), wearAmt);
-  m.roughnessNode = mix(float(spec.rough).add(fine.mul(spec.roughVar)).add(blot.mul(spec.roughVar * 1.5)), float(spec.wornRough), wearAmt);
+  m.roughnessNode = mix(float(spec.rough).add(fine.mul(spec.roughVar)).add(blot.mul(spec.roughVar * 1.5)).add(machining.mul(spec.metal * 0.025)), float(spec.wornRough), wearAmt);
   m.aoNode = s.z;
-  m.normalNode = bumpNormal(fine.mul(spec.bump));
+  m.normalNode = bumpNormal(fine.mul(spec.bump).add(machining.mul(spec.bump * spec.metal * 0.3)));
   return m;
 }
 
@@ -1289,9 +1314,16 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
   root.name = 'M4A1';
 
   const anod = new GeoBuilder();
+  const upperB = hi ? new GeoBuilder() : anod;
+  const muzzleB = hi ? new GeoBuilder() : anod;
+  const rearSightB = hi ? new GeoBuilder() : anod;
   const steelB = hi ? new GeoBuilder() : anod;
   const poly = new GeoBuilder();
+  const handguardB = hi ? new GeoBuilder() : poly;
+  const stockB = hi ? new GeoBuilder() : poly;
   const magB = new GeoBuilder();
+  const wellB = hi ? new GeoBuilder() : anod;
+  const lowerB = hi ? new GeoBuilder() : anod;
   const brassB = new GeoBuilder();
   const chB = hi ? new GeoBuilder() : anod;
   const boltB = new GeoBuilder();
@@ -1300,11 +1332,11 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
   const steelTint = hi ? 1 : 1.15;
 
   // Upper receiver group.
-  anod.add(upperReceiver(q));
+  upperB.add(upperReceiver(q));
   const teeth: number[] = [];
   for (let k = 0; k < 17; k++) teeth.push(-0.0085 - 0.01 * k);
   anod.add(picatinny(q, -0.1795, -0.003, teeth));
-  anod.add(rearSight(q));
+  rearSightB.add(rearSight(q));
   if (hi) {
     const fa = forwardAssist(q);
     anod.add(fa.housing);
@@ -1372,7 +1404,7 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
 
   // Barrel group.
   steelB.add(barrel(q).surf(steelTint));
-  steelB.add(flashHider(q).surf(steelTint));
+  muzzleB.add(flashHider(q).surf(steelTint));
   steelB.add(frontSightBase(q).surf(steelTint));
   steelB.add(deltaRing(q).surf(steelTint));
   steelB.add(handguardCap(q).surf(steelTint));
@@ -1389,15 +1421,17 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
       ),
     );
   }
-  poly.add(handguard(q));
+  handguardB.add(handguard(q));
 
   // Lower receiver group.
   anod.add(lowerReceiver(q));
+  lowerB.add(lowerShell(q));
+  wellB.add(magWell(q));
   const bt = bufferTube(q);
   anod.add(bt.tube);
   steelB.add(bt.steel.surf(steelTint));
   poly.add(pistolGrip(q));
-  poly.add(stock(q));
+  stockB.add(stock(q));
   steelB.add(
     sideLoft(
       [
@@ -1546,8 +1580,15 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
     const mats = makeMaterials();
     materials.push(mats.anod, mats.steel, mats.poly, mats.mag, mats.brass, mats.nitride);
     mesh(anod, mats.anod, 'receivers', root);
+    mesh(upperB, mats.anod, 'upperReceiver', root);
+    mesh(rearSightB, mats.anod, 'rearSightBody', root);
+    mesh(wellB, mats.anod, 'magwell', root);
+    mesh(lowerB, mats.anod, 'lowerReceiverBody', root);
     mesh(steelB, mats.steel, 'steel', root);
+    mesh(muzzleB, mats.steel, 'muzzleDevice', root);
     mesh(poly, mats.poly, 'polymer', root);
+    mesh(handguardB, mats.poly, 'handguard', root);
+    mesh(stockB, mats.poly, 'stock', root);
     mesh(magB, mats.mag, 'magazineBody', magazine);
     mesh(brassB, mats.brass, 'cartridges', magazine);
     mesh(chB, mats.anod, 'chargingHandle', chargingHandleObj);
