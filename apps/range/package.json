@@ -16,5 +16,8 @@
   },
   "devDependencies": {
     "@types/three": "^0.186.0"
+  },
+  "exports": {
+    "./map": "./src/map/map.ts"
   }
 }

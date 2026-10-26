@@ -274,6 +274,30 @@ describe('free-for-all', () => {
     expect(alice!.client.scores.find((s) => s.name === 'alice')?.kills).toBe(1);
   });
 
+  it('tells a client which way its spawn and each respawn face, once, so its next usercmd can look that way', () => {
+    const m = match({ spawns: SPREAD, loss: 0 });
+    const [alice] = joinAll(m, 'alice');
+    const [bob] = joinAll(m, 'bob');
+    const bobId = bob!.client.id!;
+    expect(bob!.client.takeSpawn()).toEqual({ yaw: Math.PI, pitch: 0 });
+    expect(bob!.client.takeSpawn()).toBeNull();
+
+    // Bob looks away and is shot dead; the server respawns him facing the spawn's way.
+    m.run(ticks(1), () => ({ bob: usercmd({ yaw: -Math.PI / 2 }) }));
+    let aim = { yaw: 0, pitch: 0 };
+    let killed = false;
+    for (let i = 0; i < ticks(5) && !killed; i++) {
+      aim = aimAtSeen(alice!, bobId, 'upperTorso', aim);
+      const out = m.step({ alice: usercmd({ ...aim, buttons: ['Ads', 'Fire'] }), bob: usercmd({ yaw: -Math.PI / 2 }) });
+      killed = out.events.some((e) => e.type === 'kill');
+    }
+    expect(killed).toBe(true);
+    m.run(ticks(0.5), () => ({ bob: usercmd({ yaw: -Math.PI / 2 }) }));
+
+    expect(bob!.client.takeSpawn()).toEqual({ yaw: Math.PI, pitch: 0 });
+    expect(bob!.client.takeSpawn()).toBeNull();
+  });
+
   it('gives every player their own team', () => {
     const m = match({ loss: 0 });
     const clients = joinAll(m, 'a', 'b');

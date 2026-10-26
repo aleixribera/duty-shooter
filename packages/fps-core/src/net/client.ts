@@ -62,6 +62,11 @@ export class GameClient {
   #ping = 0;
   #self: PlayerOutput | null = null;
   #correction: Vec3 = [0, 0, 0];
+  /** Server events read but not yet returned by a tick. */
+  #fresh: (SimEvent | ModeEvent)[] = [];
+  /** The local player's life counter in the newest snapshot; a change means a (re)spawn. */
+  #life = -1;
+  #spawn: { yaw: number; pitch: number } | null = null;
 
   constructor(options: GameClientOptions) {
     this.#options = options;
@@ -127,10 +132,22 @@ export class GameClient {
     return this.#latest;
   }
 
+  /**
+   * Reads the network and returns the facing of a spawn or respawn the server
+   * just reported, once. Call before building the next usercmd, so it can
+   * look where the spawn faces instead of where the mouse pointed before.
+   */
+  takeSpawn(): { yaw: number; pitch: number } | null {
+    this.#fresh.push(...this.#readInbox());
+    const spawn = this.#spawn;
+    this.#spawn = null;
+    return spawn;
+  }
+
   /** One client tick: reads the network, reconciles, predicts `cmd` and sends it. */
   tick(cmd: UserCmd): ClientFrame {
     this.#ticks += 1;
-    const server = this.#readInbox();
+    const server = [...this.#fresh.splice(0), ...this.#readInbox()];
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION }));
@@ -173,6 +190,10 @@ export class GameClient {
         }
         if (!this.#latest || message.tick > this.#latest.tick) {
           this.#latest = message;
+          if (message.self && message.self.life !== this.#life) {
+            this.#life = message.self.life;
+            this.#spawn = { yaw: message.self.cmdYaw + message.self.viewYaw, pitch: message.self.cmdPitch + message.self.viewPitch };
+          }
           this.#serverTick = Math.max(this.#serverTick, message.tick);
           const rtt = this.#sentAt.get(message.ack);
           if (rtt !== undefined) this.#ping = this.#ping === 0 ? (this.#ticks - rtt) * TICK_SECONDS : this.#ping * 0.9 + (this.#ticks - rtt) * TICK_SECONDS * 0.1;
@@ -240,9 +261,12 @@ export class GameClient {
     this.#self = after;
   }
 
-  /** Other players and dummies, interpolated between snapshots at {@link renderTick}. */
-  others(): PlayerOutput[] {
-    const at = this.renderTick;
+  /**
+   * Other players and dummies, interpolated between snapshots at
+   * {@link renderTick}, plus `offset` ticks (the render frame's fraction of a tick).
+   */
+  others(offset = 0): PlayerOutput[] {
+    const at = this.renderTick + offset;
     const buffer = this.#buffer;
     if (buffer.length === 0) return [];
     let a = buffer[0] as Snapshot;
