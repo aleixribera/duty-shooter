@@ -1,6 +1,6 @@
 # 01 Monorepo scaffold, fixed-tick simulation and headless match harness
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 1 (movement and course, offline)
 Blocked by: none
 
@@ -22,3 +22,7 @@ The foundation every later ticket builds on. See spec sections "Platform and str
 - [ ] `fps-core` has no imports of three, DOM or audio (enforced by a test or lint rule).
 - [ ] Stats file exists with sourced movement values.
 - [ ] `npm run dev` serves the range app with a rendered scene.
+
+## Comments
+
+Resolved on `duty-shooter-v1` (commits 7eb9e32..bf357fb). Movement values in the stats file are mostly estimated: sym.gg and TrueGameData no longer host MW2019 data. Weapon values move to ticket 04.

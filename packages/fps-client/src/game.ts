@@ -1,0 +1,557 @@
+import {
+  STATS,
+  TICK_SECONDS,
+  angleDelta,
+  raycastWorld,
+  viewDirection,
+  type Material,
+  type PlayerId,
+  type PlayerOutput,
+  type UserCmd,
+  type Vec3,
+  type World,
+} from '@duty-shooter/fps-core';
+import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
+import type { SoundEventName, SoundParams, SoundSystem } from './audio';
+import { FirstPersonCamera } from './camera';
+import { Effects } from './effects';
+import { Hud, type HitKind } from './hud/hud';
+import { InputController } from './input';
+import { FixedTickLoop } from './loop';
+import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
+import { PlayersView } from './players-view';
+import type { RenderBackend } from './renderer';
+import type { GameDriver, PresentedEvent } from './session';
+import { verticalFov, type Settings } from './settings';
+import { Viewmodel } from './viewmodel/viewmodel';
+import { WorldView, type WorldContent } from './world-view';
+
+const TICK_MS = TICK_SECONDS * 1000;
+
+export interface GameOptions {
+  readonly canvas: HTMLCanvasElement;
+  readonly renderer: WebGPURenderer;
+  readonly backend: RenderBackend;
+  readonly content: WorldContent;
+  /** Collision world, for footstep surfaces, casings, blood splats and the range distance readout. */
+  readonly world: World;
+  readonly settings: Settings;
+  readonly sound: SoundSystem;
+  /** Where to look from while there is no local player (connecting, spectating). */
+  readonly overview: { readonly position: Vec3; readonly yaw: number; readonly pitch: number };
+  /** Builds a third-person rifle for other players, or null for none. */
+  readonly thirdPersonWeapon?: (() => Object3D) | null;
+}
+
+/** Per-action timings for the weapon's foley, in seconds into the action. */
+function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventName])[] {
+  const w = self.weapon;
+  if (w.action === 'reload') {
+    const add = w.reload === 'empty' ? STATS.weapon.emptyReloadAddAmmo.value : STATS.weapon.tacticalReloadAddAmmo.value;
+    const cues: [number, SoundEventName][] = [
+      [0.32, 'reloadMagOut'],
+      [add - (w.reload === 'empty' ? 0.55 : 0.22), 'reloadMagIn'],
+    ];
+    if (w.reload === 'empty') cues.push([add - 0.08, 'reloadBoltRelease']);
+    return cues;
+  }
+  if (w.action === 'draw') return [[0.02, 'weaponRaise']];
+  if (w.action === 'inspect') return [[0.45, 'inspectRattle'], [2.1, 'inspectRattle'], [3.6, 'reloadChargingHandle']];
+  if (w.action === 'melee') return [[0.01, 'meleeSwing']];
+  return [];
+}
+
+const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, tacticalSprint: 2.0, crouch: 1.1, prone: 0.9 };
+
+interface Tracked {
+  stepDistance: number;
+  last: Vec3;
+}
+
+interface Engagement {
+  start: number;
+  shots: number;
+  hits: number;
+}
+
+/**
+ * One running game in the page: the fixed-tick loop over a driver (offline
+ * or online), the camera, viewmodel, other players, effects, sound and HUD,
+ * all fed from the simulation's output and events.
+ */
+export class Game {
+  readonly input: InputController;
+  readonly hud: Hud;
+  readonly #renderer: WebGPURenderer;
+  readonly #backend: RenderBackend;
+  readonly #canvas: HTMLCanvasElement;
+  readonly #worldView: WorldView;
+  readonly #world: World;
+  readonly #camera = new FirstPersonCamera();
+  readonly #viewmodel: Viewmodel;
+  readonly #players: PlayersView;
+  readonly #effects: Effects;
+  readonly #pipeline: GamePipeline;
+  readonly #loop = new FixedTickLoop();
+  readonly #sound: SoundSystem;
+  readonly #overview: GameOptions['overview'];
+  readonly #worldFlashes: Mesh[] = [];
+  #nextWorldFlash = 0;
+  #viewFlash: Mesh;
+  #settings: Settings;
+  #driver: GameDriver | null = null;
+  #prev: PlayerOutput | null = null;
+  #cur: PlayerOutput | null = null;
+  #cmd: UserCmd | null = null;
+  #others: readonly PlayerOutput[] = [];
+  #lastFrame: number | null = null;
+  #frameStart = 0;
+  #fps = 60;
+  #lastLook = { yaw: 0, pitch: 0 };
+  #simTime = 0;
+  readonly #tracked = new Map<PlayerId, Tracked>();
+  readonly #engagements = new Map<PlayerId, Engagement>();
+  #burstStart = -1;
+  #paused = true;
+  #message: string | null = null;
+  #resizeObserver: ResizeObserver;
+
+  constructor(options: GameOptions) {
+    this.#renderer = options.renderer;
+    this.#backend = options.backend;
+    this.#canvas = options.canvas;
+    this.#settings = options.settings;
+    this.#world = options.world;
+    this.#sound = options.sound;
+    this.#overview = options.overview;
+    options.renderer.toneMapping = ACESFilmicToneMapping;
+    options.renderer.toneMappingExposure = 0.95;
+    options.renderer.shadowMap.enabled = true;
+    this.#worldView = new WorldView(options.renderer, options.content);
+    this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
+    const preset = effectivePreset(options.settings.preset, options.backend);
+    this.#effects = new Effects(this.#worldView.scene, options.world, PRESETS[preset]);
+    this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
+    this.#viewFlash = this.#effects.createFlash();
+    this.#viewmodel.muzzle.add(this.#viewFlash);
+    for (let i = 0; i < 4; i++) {
+      const flash = this.#effects.createFlash();
+      flash.scale.setScalar(1.4);
+      this.#worldFlashes.push(flash);
+      this.#worldView.scene.add(flash);
+    }
+    this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+    this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera, pixelRatio);
+    this.input = new InputController(options.canvas, options.settings);
+    this.hud = new Hud(document.body);
+    this.hud.visible = false;
+    this.applySettings(options.settings);
+    this.#resizeObserver = new ResizeObserver(() => this.#resize());
+    this.#resizeObserver.observe(options.canvas);
+    this.#resize();
+  }
+
+  /** The preset actually in use (the WebGL2 fallback caps High at Normal). */
+  get preset() {
+    return this.#pipeline.preset;
+  }
+
+  get fps(): number {
+    return this.#fps;
+  }
+
+  get driver(): GameDriver | null {
+    return this.#driver;
+  }
+
+  /** Starts playing on `driver`, dropping any previous one. */
+  setDriver(driver: GameDriver | null): void {
+    this.#driver?.dispose();
+    this.#driver = driver;
+    this.#prev = null;
+    this.#cur = null;
+    this.#others = [];
+    this.#tracked.clear();
+    this.#engagements.clear();
+    this.#loop.reset();
+    this.hud.visible = driver !== null;
+  }
+
+  /** Paused: no input reaches the game (the simulation keeps running so online play stays in sync). */
+  set paused(on: boolean) {
+    this.#paused = on;
+    this.input.enabled = !on;
+  }
+
+  get paused(): boolean {
+    return this.#paused;
+  }
+
+  set message(text: string | null) {
+    this.#message = text;
+  }
+
+  applySettings(settings: Settings): void {
+    this.#settings = settings;
+    this.input.settings = settings;
+    this.#sound.setVolume(settings.volume);
+    const preset = effectivePreset(settings.preset, this.#backend);
+    if (preset !== this.#pipeline.preset || !this.#pipelineReady) {
+      this.#pipeline.setPreset(preset);
+      this.#pipelineReady = true;
+      this.#worldView.setShadowQuality(PRESETS[preset].shadows);
+      this.#effects.setFeatures(PRESETS[preset]);
+    }
+  }
+
+  #pipelineReady = false;
+
+  #resize(): void {
+    const width = this.#canvas.clientWidth;
+    const height = this.#canvas.clientHeight;
+    if (width === 0 || height === 0) return;
+    this.#renderer.setSize(width, height, false);
+    this.#camera.resize(width, height);
+    this.#viewmodel.resize(width / height);
+    this.#worldView.updateCascades();
+  }
+
+  #play(event: SoundEventName, params: SoundParams = {}): void {
+    this.#sound.play(event, params);
+  }
+
+  #materialUnder(position: Vec3): Material {
+    const hit = raycastWorld(this.#world, [position[0], position[1] + 0.1, position[2]], [position[0], position[1] - 0.5, position[2]]);
+    return hit?.material ?? 'concrete';
+  }
+
+  #playerById(id: PlayerId): PlayerOutput | null {
+    if (this.#cur && id === this.#driver?.selfId) return this.#cur;
+    return this.#others.find((p) => p.id === id) ?? null;
+  }
+
+  #eyeOf(id: PlayerId): Vec3 | null {
+    const p = this.#playerById(id);
+    return p ? [p.position[0], p.position[1] + p.eyeHeight, p.position[2]] : null;
+  }
+
+  /** One rendered frame. Call from the renderer's animation loop. */
+  frame(now: number): void {
+    const dt = this.#lastFrame === null ? 1 / 60 : Math.min(0.1, (now - this.#lastFrame) / 1000);
+    this.#frameStart = this.#lastFrame ?? now - TICK_MS;
+    this.#lastFrame = now;
+    this.#fps = this.#fps * 0.95 + (1 / Math.max(1e-3, dt)) * 0.05;
+    const driver = this.#driver;
+    let alpha = 0;
+    if (driver) alpha = this.#loop.frame(now, (start, end) => this.#tick(driver, start, end));
+
+    const self = this.#cur;
+    const look = this.input.angles;
+    let eye: Vec3;
+    let forward: Vec3;
+    if (driver && self && this.#prev && this.#cmd) {
+      const pose = this.#camera.update(
+        { prev: this.#prev, cur: self, alpha, look, cmd: { yaw: this.#cmd.yaw, pitch: this.#cmd.pitch }, correction: driver.correction, dt },
+        this.#settings,
+      );
+      eye = pose.position;
+      forward = viewDirection(pose.yaw, pose.pitch);
+      this.input.aiming = self.weapon.ads > 0.5;
+      const speed = Math.hypot(self.velocity[0], self.velocity[2]);
+      const lookDelta = { yaw: angleDelta(this.#lastLook.yaw, look.yaw), pitch: look.pitch - this.#lastLook.pitch };
+      this.#viewmodel.root.visible = self.alive;
+      this.#viewmodel.update(
+        {
+          action: self.weapon.action,
+          actionTime: self.weapon.actionTime + alpha * TICK_SECONDS,
+          reload: self.weapon.reload,
+          ammo: self.weapon.ammo,
+          ads: self.weapon.ads,
+          movement: self.movement,
+          stance: self.stance,
+          speed,
+          grounded: self.movement !== 'airborne' && self.movement !== 'mantle',
+          lookDelta,
+          alive: self.alive,
+        },
+        dt,
+        verticalFov(this.#settings.fov),
+      );
+      this.#worldView.follow(self.position);
+    } else {
+      const o = this.#overview;
+      const cam = this.#camera.camera;
+      cam.position.set(o.position[0], o.position[1], o.position[2]);
+      cam.rotation.set(o.pitch, o.yaw, 0);
+      eye = o.position;
+      forward = viewDirection(o.yaw, o.pitch);
+      this.#viewmodel.root.visible = false;
+    }
+    this.#lastLook = look;
+    this.#sound.setListener(eye, forward, [0, 1, 0]);
+
+    if (driver) {
+      this.#others = driver.others(alpha);
+      this.#players.update(this.#others, dt);
+    }
+    this.#effects.update(dt, this.#camera.camera);
+    this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
+    this.#updateHud(dt, eye, forward);
+    this.#pipeline.render(dt);
+  }
+
+  #updateHud(dt: number, eye: Vec3, forward: Vec3): void {
+    const driver = this.#driver;
+    if (!driver) return;
+    const cam = this.#camera.camera;
+    const pixelsPerDegree = this.#canvas.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360) / (180 / Math.PI);
+    const status = driver.status;
+    this.hud.update({
+      self: this.#cur,
+      pixelsPerDegree,
+      fps: this.#fps,
+      ping: driver.ping === null ? null : driver.ping * 1000,
+      showFps: this.#settings.showFps,
+      showPing: this.#settings.showPing,
+      showOverlay: this.#settings.showRangeOverlay && this.#inRange(),
+      targetDistance: this.#targetDistance(eye, forward),
+      scores: driver.scores,
+      selfId: driver.selfId,
+      showScoreboard: this.input.scoreboard && driver.online,
+      message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
+      dt,
+    });
+  }
+
+  /** The range overlay shows on the firing range (west of the course). */
+  #inRange(): boolean {
+    const p = this.#cur?.position;
+    return !!p && p[0] < -18;
+  }
+
+  #targetDistance(eye: Vec3, forward: Vec3): number | null {
+    const far: Vec3 = [eye[0] + forward[0] * 200, eye[1] + forward[1] * 200, eye[2] + forward[2] * 200];
+    const hit = raycastWorld(this.#world, eye, far);
+    let best = hit ? hit.t * 200 : Infinity;
+    for (const p of this.#others) {
+      if (!p.alive) continue;
+      // Ray against a vertical capsule-ish cylinder around the body.
+      const c: Vec3 = [p.position[0] - eye[0], p.position[1] + p.eyeHeight * 0.6 - eye[1], p.position[2] - eye[2]];
+      const along = c[0] * forward[0] + c[1] * forward[1] + c[2] * forward[2];
+      if (along <= 0) continue;
+      const off = Math.hypot(c[0] - forward[0] * along, c[2] - forward[2] * along);
+      const dy = Math.abs(c[1] - forward[1] * along);
+      if (off < 0.35 && dy < p.eyeHeight * 0.6 && along < best) best = along;
+    }
+    return Number.isFinite(best) ? best : null;
+  }
+
+  #tick(driver: GameDriver, start: number, end: number): void {
+    // A (re)spawn turns the view to the spawn's facing before this tick's usercmd is built.
+    const facing = driver.takeSpawn();
+    if (facing) this.input.setAngles(facing.yaw, facing.pitch);
+    const cmd = this.input.sample(start, end);
+    const result = driver.tick(cmd);
+    this.#simTime += TICK_SECONDS;
+    const before = this.#cur;
+    const self = result.self;
+    // Respawn or first spawn: skip interpolating across the map.
+    if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
+    else this.#prev = before;
+    this.#cur = self;
+    this.#cmd = cmd;
+    if (self && before) this.#selfFoley(before, self, cmd);
+    for (const e of result.events) this.#present(e, start);
+    this.#footsteps();
+  }
+
+  /** Sounds and camera reactions to the local player's own movement and weapon. */
+  #selfFoley(before: PlayerOutput, self: PlayerOutput, cmd: UserCmd): void {
+    const local = { local: true } as const;
+    if (self.landing && self.alive) {
+      this.#play('land', { ...local, material: this.#materialUnder(self.position), intensity: Math.min(1, self.landing.fallHeight / 6) });
+      this.#camera.land(self.landing.fallHeight);
+      this.#viewmodel.land(self.landing.fallHeight);
+    }
+    if (before.movement !== 'airborne' && self.movement === 'airborne' && self.velocity[1] > 1) this.#play('jump', local);
+    if (before.movement !== 'slide' && self.movement === 'slide') this.#play('slide', { ...local, material: this.#materialUnder(self.position) });
+    if (before.movement !== 'mantle' && self.movement === 'mantle') this.#play('mantle', local);
+    if (before.stance !== self.stance && self.stance === 'prone') this.#play('prone', local);
+    if (before.stance === 'stand' && self.stance === 'crouch' && self.movement !== 'slide') this.#play('crouch', local);
+    const w = self.weapon;
+    const pw = before.weapon;
+    if (w.ads > pw.ads && pw.ads === 0) this.#play('adsIn', local);
+    if (w.ads < pw.ads && pw.ads === 1) this.#play('adsOut', local);
+    if (cmd.firePresses.length > 0 && w.ammo === 0 && w.reserve === 0) this.#play('dryFire', local);
+    // Weapon foley at fixed points of each action.
+    const sameAction = pw.action === w.action && w.actionTime >= pw.actionTime;
+    const from = sameAction ? pw.actionTime : -1;
+    for (const [t, event] of foleyCues(self)) if (t > from && t <= w.actionTime) this.#play(event, local);
+    if (!self.alive) this.#viewmodel.root.visible = false;
+  }
+
+  /** Footsteps for everyone, the local player included. */
+  #footsteps(): void {
+    const selfId = this.#driver?.selfId ?? null;
+    const everyone = this.#cur ? [this.#cur, ...this.#others] : this.#others;
+    for (const p of everyone) {
+      const t = this.#tracked.get(p.id) ?? { stepDistance: 0, last: p.position };
+      const d = Math.hypot(p.position[0] - t.last[0], p.position[2] - t.last[2]);
+      t.last = p.position;
+      this.#tracked.set(p.id, t);
+      const grounded = p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'slide';
+      if (!p.alive || !grounded || d > 1) continue;
+      const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? p.movement : 'walk';
+      t.stepDistance += d;
+      const length = (STEP_LENGTH[mode] ?? 1.45) / 2;
+      if (t.stepDistance >= length) {
+        t.stepDistance = 0;
+        const own = p.id === selfId;
+        this.#play('footstep', {
+          ...(own ? { local: true } : { position: p.position }),
+          material: this.#materialUnder(p.position),
+          movement: mode,
+          intensity: Math.min(1, Math.hypot(p.velocity[0], p.velocity[2]) / 6),
+        });
+      }
+    }
+  }
+
+  /** Seconds from now until a moment inside the tick that started at `start` (ms), keeping sub-tick spacing. */
+  #when(start: number, fraction: number): number {
+    return Math.max(0, (start + fraction * TICK_MS - this.#frameStart) / 1000);
+  }
+
+  #present(e: PresentedEvent, tickStart: number): void {
+    const driver = this.#driver;
+    if (!driver) return;
+    const selfId = driver.selfId;
+    switch (e.type) {
+      case 'shot': {
+        const own = e.shooter === selfId;
+        if (own) {
+          this.#play('gunshot', { local: true, when: this.#when(tickStart, e.fraction) });
+          this.#viewmodel.fire();
+          this.#effects.flash(this.#viewFlash);
+          this.#camera.kick(0.35, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.6);
+          const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
+          this.#effects.shot(muzzle, e.direction);
+          const cam = this.#camera.camera;
+          const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+          const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+          const v = this.#cur?.velocity ?? [0, 0, 0];
+          this.#effects.eject(this.#viewToWorld(this.#viewmodel.ejectionPort), [right.x, right.y, right.z], [up.x, up.y, up.z], v);
+          const [yaw, pitch] = [Math.atan2(-e.direction[0], -e.direction[2]), Math.asin(Math.max(-1, Math.min(1, e.direction[1])))];
+          this.hud.recordShot(yaw, pitch, e.index === 0 || this.#burstStart < 0);
+          this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
+          for (const eng of this.#engagements.values()) eng.shots += 1;
+        } else {
+          this.#play('gunshot', { position: e.origin, when: this.#when(tickStart, e.fraction) });
+          this.#effects.shot(e.origin, e.direction);
+          const flash = this.#worldFlashes[this.#nextWorldFlash] as Mesh;
+          this.#nextWorldFlash = (this.#nextWorldFlash + 1) % this.#worldFlashes.length;
+          flash.position.set(e.origin[0] + e.direction[0] * 0.9, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
+          flash.quaternion.copy(this.#camera.camera.quaternion);
+          this.#effects.flash(flash);
+          this.#crack(e.origin, e.direction);
+        }
+        break;
+      }
+      case 'impact':
+        this.#effects.impact(e.point, e.normal, e.material);
+        this.#play('impact', { position: e.point, material: (e.material as Material) ?? 'concrete' });
+        break;
+      case 'hit': {
+        const from = this.#eyeOf(e.shooter) ?? e.point;
+        const d: Vec3 = [e.point[0] - from[0], e.point[1] - from[1], e.point[2] - from[2]];
+        const len = Math.hypot(d[0], d[1], d[2]) || 1;
+        const dir: Vec3 = [d[0] / len, d[1] / len, d[2] / len];
+        if (e.victim !== selfId) {
+          this.#effects.blood(e.point, dir, e.zone === 'head');
+          this.#players.hit(e.victim, dir, e.damage);
+        }
+        if (e.shooter === selfId && e.victim !== selfId) {
+          const head = e.zone === 'head';
+          const kind: HitKind = e.killed ? (head ? 'headshotKill' : 'kill') : head ? 'headshot' : 'hit';
+          this.hud.hitMarker(kind);
+          this.#play(e.killed ? 'killMarker' : head ? 'headshotMarker' : 'hitMarker');
+          if (e.cause === 'melee') this.#play('meleeHit', { local: true });
+          const eng = this.#engagements.get(e.victim) ?? { start: this.#simTime - e.distance / STATS.weapon.muzzleVelocity.value, shots: 1, hits: 0 };
+          eng.hits += 1;
+          this.#engagements.set(e.victim, eng);
+          if (e.killed) {
+            this.hud.setRangeStats(this.#simTime - eng.start, eng.shots, eng.hits);
+            this.#engagements.delete(e.victim);
+          } else this.hud.setRangeStats(null, eng.shots, eng.hits);
+        }
+        if (e.victim === selfId) {
+          const attacker = this.#playerById(e.shooter);
+          if (attacker && e.shooter !== selfId && this.#cur) {
+            const yaw = Math.atan2(-(attacker.position[0] - this.#cur.position[0]), -(attacker.position[2] - this.#cur.position[2]));
+            this.hud.damage(yaw);
+          }
+          this.#play('damageTaken', { local: true, intensity: Math.min(1, e.damage / 40) });
+          if (e.cause === 'melee') this.#play('meleeHit', { local: true });
+        }
+        break;
+      }
+      case 'melee':
+        if (e.attacker !== selfId) this.#play('meleeSwing', { position: this.#playerById(e.attacker)?.position ?? [0, 0, 0] });
+        break;
+      case 'reload':
+        if (e.player !== selfId && e.phase === 'start') {
+          const p = this.#playerById(e.player);
+          if (p) this.#play('reloadMagOut', { position: p.position });
+        }
+        break;
+      case 'kill':
+        if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId);
+        break;
+      case 'killFeed':
+        this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : e.killerName, e.victimName, e.headshot, e.killer === selfId || e.victim === selfId);
+        break;
+      case 'matchEnd':
+        this.hud.toast(e.winnerName ? `${e.winnerName} wins the match.` : 'Match over.');
+        break;
+      case 'matchStart':
+        this.hud.toast('New match.', 3);
+        break;
+    }
+  }
+
+  /** A supersonic crack when someone else's bullet passes close to the listener. */
+  #crack(origin: Vec3, direction: Vec3): void {
+    const self = this.#cur;
+    if (!self || !self.alive) return;
+    const eye: Vec3 = [self.position[0], self.position[1] + self.eyeHeight, self.position[2]];
+    const c: Vec3 = [eye[0] - origin[0], eye[1] - origin[1], eye[2] - origin[2]];
+    const along = c[0] * direction[0] + c[1] * direction[1] + c[2] * direction[2];
+    if (along < 8) return;
+    const closest: Vec3 = [origin[0] + direction[0] * along, origin[1] + direction[1] * along, origin[2] + direction[2] * along];
+    const miss = Math.hypot(closest[0] - eye[0], closest[1] - eye[1], closest[2] - eye[2]);
+    if (miss < 3) this.#play('bulletCrack', { position: closest, intensity: 1 - miss / 3, when: along / STATS.weapon.muzzleVelocity.value });
+  }
+
+  /**
+   * Maps a point on the viewmodel (drawn by its own camera at the origin) into
+   * the world, as if the viewmodel camera sat at the world camera.
+   */
+  #viewToWorld(object: Object3D): Vec3 {
+    const v = new Vector3();
+    object.getWorldPosition(v);
+    v.applyMatrix4(this.#viewmodel.camera.matrixWorldInverse);
+    v.applyMatrix4(this.#camera.camera.matrixWorld);
+    return [v.x, v.y, v.z];
+  }
+
+  dispose(): void {
+    this.setDriver(null);
+    this.#resizeObserver.disconnect();
+    this.input.dispose();
+    this.hud.dispose();
+    this.#pipeline.dispose();
+    this.#effects.dispose();
+    this.#players.dispose();
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@duty-shooter/fps-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless, deterministic 60 Hz simulation shared by client and server. No DOM, rendering or audio.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./harness": "./src/harness/index.ts",
+    "./modes": "./src/modes/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . && tsc -p test"
+  }
+}

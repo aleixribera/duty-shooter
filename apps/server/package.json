@@ -1,0 +1,20 @@
+{
+  "name": "@duty-shooter/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Authoritative game server: WebSocket transport at 60 Hz, serves the built range app.",
+  "scripts": {
+    "build": "vite build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@duty-shooter/fps-core": "^0.0.0",
+    "@duty-shooter/range": "^0.0.0",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
