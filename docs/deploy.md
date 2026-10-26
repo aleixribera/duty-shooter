@@ -66,11 +66,17 @@ sudo tailscale funnel --https=443 off
 
 ## Updating
 
-Updates are pulled by hand. Do it when nobody is playing: restarting ends the match.
+Updates are automatic. A push to `main` publishes a new image in about 3 minutes. The home server's `game-autoupdate` timer (in the `homelab-stacks` repo, `game-autoupdate/`) checks every 3 minutes. When the image changed **and the lobby is empty**, it recreates the container and waits for the health check. A new image that fails the check is rolled back. While anyone is playing, the update waits for a later check, so an update never ends a match.
+
+```bash
+journalctl --user -u game-autoupdate -n 50 --no-pager   # updates, waits and failures
+systemctl --user start game-autoupdate.service          # check now
+```
+
+The Homepage "Update Containers" button (`docker-updater`) also pulls and restarts every stack immediately, whoever is playing. To update by hand:
 
 ```bash
 cd /opt/homelab/stacks/duty-shooter
-curl -fsS http://127.0.0.1:3090/healthz   # players should be 0
 docker compose pull
 docker compose up -d --wait
 ```
