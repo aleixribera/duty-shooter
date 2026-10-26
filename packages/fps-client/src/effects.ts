@@ -215,6 +215,25 @@ const HOLE_TINT: Readonly<Record<Material, number>> = {
   dirt: 0x907860,
   grass: 0x907860,
   glass: 0xe0f0ff,
+  brick: 0xc89a88,
+  asphalt: 0x8a8a8a,
+  gravel: 0x9a9080,
+  sand: 0xb8a582,
+  sheetMetal: 0xc0c8d0,
+  plastic: 0xf0f0f0,
+};
+
+/** Dust and chip colour per material (sparks are used for metal and glass instead). */
+const DUST: Partial<Record<Material, number>> = {
+  wood: 0x8a6038,
+  dirt: 0x7c6a52,
+  grass: 0x7c6a52,
+  plaster: 0xd8d4cc,
+  brick: 0xa8604a,
+  asphalt: 0x55575a,
+  gravel: 0x8c8478,
+  sand: 0xc9b58c,
+  plastic: 0xe8e4dc,
 };
 
 /**
@@ -339,20 +358,20 @@ export class Effects {
   }
 
   /** A bullet hitting the world: a decal plus sparks (metal), splinters (wood) or dust. */
-  impact(point: Vec3, normal: Vec3, material: string): void {
-    const m = (material in HOLE_TINT ? material : 'concrete') as Material;
+  impact(point: Vec3, normal: Vec3, material: Material): void {
+    const m = material;
     this.#holes.add(point, normal, 0.06 + Math.random() * 0.03, new Color(HOLE_TINT[m]));
     const n = new Vector3(normal[0], normal[1], normal[2]);
     const p = new Vector3(point[0], point[1], point[2]).addScaledVector(n, 0.02);
     const k = this.#features.particles;
     const spread = () => new Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2);
-    if (m === 'metal' || m === 'glass') {
+    if (m === 'metal' || m === 'glass' || m === 'sheetMetal') {
       for (let i = 0; i < Math.round(9 * k); i++) {
         this.#sparks.emit({ p: p.clone(), v: n.clone().multiplyScalar(3 + Math.random() * 4).add(spread().multiplyScalar(3)), life: 0.18 + Math.random() * 0.2, size: 0.025, gravity: 9, drag: 2, color: new Color(1, 0.75 + Math.random() * 0.2, 0.4) });
       }
       this.#dust.emit({ p: p.clone(), v: n.clone().multiplyScalar(0.5), life: 0.4, size: 0.06, grow: 0.3, alpha: 0.35, drag: 3, color: new Color(0x9a9a9a) });
     } else {
-      const color = m === 'wood' ? 0x8a6038 : m === 'dirt' || m === 'grass' ? 0x7c6a52 : m === 'plaster' ? 0xd8d4cc : 0xb2b0ac;
+      const color = DUST[m] ?? 0xb2b0ac;
       for (let i = 0; i < Math.round(5 * k); i++) {
         this.#dust.emit({ p: p.clone(), v: n.clone().multiplyScalar(1 + Math.random() * 1.6).add(spread().multiplyScalar(0.6)), life: 0.5 + Math.random() * 0.5, size: 0.05, grow: 0.35, alpha: 0.55, gravity: 0.6, drag: 3.5, color: new Color(color) });
       }

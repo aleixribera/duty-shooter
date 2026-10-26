@@ -2,9 +2,10 @@
 import { bp, buffer, crackle, finish, hp, lp, mix, modes, noiseBurst, normalize, scatter, shape, thump, white, type Rng } from './dsp';
 import { thud } from './parts';
 import { synthVoice } from './synth-voice';
+import { MATERIALS as ALL_MATERIALS } from '@duty-shooter/fps-core';
 import type { SurfaceMaterial, Voice, VoiceExtras } from './types';
 
-const MATERIALS: readonly SurfaceMaterial[] = ['concrete', 'metal', 'wood', 'dirt', 'grass', 'glass', 'plaster'];
+const MATERIALS: readonly SurfaceMaterial[] = ALL_MATERIALS;
 
 function debris(dst: Float32Array, sr: number, rng: Rng, at: number, dur: number, rate: number, gain: number, f: { hp?: number; lp?: number }): void {
   const c = crackle(sr, dur, rng, rate, (t) => (t < 0.01 ? t / 0.01 : Math.exp(-(t - 0.01) / (dur * 0.3))));
@@ -15,7 +16,7 @@ function debris(dst: Float32Array, sr: number, rng: Rng, at: number, dur: number
 }
 
 function renderImpact(material: SurfaceMaterial, rng: Rng, sr: number, variant: number): Float32Array[] {
-  const dst = buffer(sr, material === 'metal' || material === 'glass' ? 0.6 : 0.35);
+  const dst = buffer(sr, material === 'metal' || material === 'glass' || material === 'sheetMetal' ? 0.6 : 0.35);
   switch (material) {
     case 'concrete':
       noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.001, gain: 1, mode: 'highpass', freq: 2500, length: 0.01 });
@@ -57,6 +58,48 @@ function renderImpact(material: SurfaceMaterial, rng: Rng, sr: number, variant: 
       }
       debris(dst, sr, rng, 0.003, 0.35, 3000, 0.5, { hp: 4000 });
       break;
+    case 'brick':
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.001, gain: 0.9, mode: 'highpass', freq: 2200, length: 0.01 });
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0002, tau: 0.008, gain: 0.9, mode: 'bandpass', freq: rng.range(1000, 1400), q: 1 });
+      thud(dst, sr, rng, 0, { freq: 260, gain: 0.5, tau: 0.012 });
+      debris(dst, sr, rng, 0.006, 0.3, 1600, 0.5, { hp: 1200, lp: 7000 });
+      break;
+    case 'asphalt':
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.0012, gain: 0.8, mode: 'highpass', freq: 2000, length: 0.01 });
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0003, tau: 0.009, gain: 0.9, mode: 'bandpass', freq: rng.range(700, 1000), q: 0.9 });
+      thump(dst, sr, { at: 0, f0: 140, f1: 90, glideTau: 0.01, attack: 0.001, tau: 0.012, gain: 0.4 });
+      debris(dst, sr, rng, 0.005, 0.22, 1300, 0.35, { hp: 1500, lp: 5000 });
+      break;
+    case 'gravel':
+      thump(dst, sr, { at: 0, f0: 130, f1: 80, glideTau: 0.01, attack: 0.001, tau: 0.018, gain: 0.6 });
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.002, gain: 0.7, mode: 'highpass', freq: 1800, length: 0.01 });
+      for (const t of scatter(rng, 14, 0.005, 0.28, 1.6)) {
+        const f = rng.range(1500, 4500);
+        modes(dst, sr, t, [f, f * 1.7], [1, 0.4], [0.008, 0.005], rng.range(0.1, 0.3));
+      }
+      debris(dst, sr, rng, 0.003, 0.3, 2500, 0.45, { hp: 1200 });
+      break;
+    case 'sand':
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.003, tau: 0.03, gain: 1, mode: 'lowpass', freq: 420 });
+      thump(dst, sr, { at: 0, f0: 100, f1: 70, glideTau: 0.01, attack: 0.002, tau: 0.02, gain: 0.45 });
+      debris(dst, sr, rng, 0.01, 0.35, 2600, 0.35, { lp: 2200, hp: 400 });
+      break;
+    case 'sheetMetal': {
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.0008, gain: 1, mode: 'highpass', freq: 3500, length: 0.008 });
+      const b = rng.range(450, 800);
+      modes(dst, sr, 0, [b, b * 1.52, b * 2.33, b * 3.7, b * 0.61], [1, 0.7, 0.5, 0.3, 0.6], [0.12, 0.09, 0.06, 0.04, 0.15], 0.6);
+      // The panel buzzing against its fixings.
+      debris(dst, sr, rng, 0.004, 0.12, 4000, 0.25, { hp: 2500 });
+      break;
+    }
+    case 'plastic': {
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0002, tau: 0.007, gain: 1, mode: 'bandpass', freq: rng.range(900, 1300), q: 1.4 });
+      const b = rng.range(1600, 2200);
+      modes(dst, sr, 0, [b, b * 1.9], [1, 0.4], [0.015, 0.008], 0.4);
+      noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.001, gain: 0.5, mode: 'highpass', freq: 3000, length: 0.008 });
+      debris(dst, sr, rng, 0.002, 0.06, 2000, 0.2, { hp: 2000 });
+      break;
+    }
     case 'plaster':
       noiseBurst(dst, sr, rng, { at: 0, attack: 0.0003, tau: 0.012, gain: 1, mode: 'bandpass', freq: rng.range(600, 800), q: 0.8 });
       noiseBurst(dst, sr, rng, { at: 0, attack: 0.0001, tau: 0.0015, gain: 0.4, mode: 'lowpass', freq: 3000, length: 0.01 });
@@ -84,8 +127,8 @@ export function impactVoice(): Voice & VoiceExtras {
 /** Brass casing bouncing: each bounce rings the thin tube's modes; the surface sets damping. */
 function renderCasing(material: SurfaceMaterial, rng: Rng, sr: number): Float32Array[] {
   const dst = buffer(sr, 0.45);
-  const soft = material === 'dirt' || material === 'grass';
-  const dull = material === 'wood' || material === 'plaster';
+  const soft = material === 'dirt' || material === 'grass' || material === 'sand' || material === 'gravel';
+  const dull = material === 'wood' || material === 'plaster' || material === 'plastic' || material === 'asphalt';
   const bounces = soft ? 1 : rng.bool(0.5) ? 3 : 4;
   let t = 0;
   let gap = rng.range(0.08, 0.11);
@@ -95,7 +138,7 @@ function renderCasing(material: SurfaceMaterial, rng: Rng, sr: number): Float32A
     const tau = soft ? 0.004 : dull ? 0.012 : 0.025;
     modes(dst, sr, t, [base, base * 1.5, base * 2.25, base * 3.6], [1, 0.7, 0.45, 0.25], [tau, tau * 0.8, tau * 0.6, tau * 0.4], amp * 0.6);
     noiseBurst(dst, sr, rng, { at: t, attack: 0.0001, tau: 0.0006, gain: amp * 0.5, mode: 'highpass', freq: soft ? 1500 : 4000, length: 0.005 });
-    if (material === 'metal') modes(dst, sr, t, [rng.range(1600, 2000), 2900], [1, 0.4], [0.03, 0.015], amp * 0.25);
+    if (material === 'metal' || material === 'sheetMetal') modes(dst, sr, t, [rng.range(1600, 2000), 2900], [1, 0.4], [0.03, 0.015], amp * 0.25);
     if (material === 'wood') noiseBurst(dst, sr, rng, { at: t, attack: 0.0002, tau: 0.005, gain: amp * 0.35, mode: 'bandpass', freq: 700, q: 1.5 });
     t += gap;
     gap *= rng.range(0.55, 0.7);

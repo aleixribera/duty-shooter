@@ -1,4 +1,4 @@
-import type { Box, Material, Vec3 } from '@duty-shooter/fps-core';
+import type { Material, Solid, Vec3 } from '@duty-shooter/fps-core';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, screenUV, select, smoothstep } from 'three/tsl';
 import {
   BoxGeometry,
@@ -9,6 +9,7 @@ import {
   ExtrudeGeometry,
   Group,
   HemisphereLight,
+  Matrix4,
   Mesh,
   MeshBasicNodeMaterial,
   MeshStandardNodeMaterial,
@@ -17,6 +18,7 @@ import {
   Scene,
   Shape,
   SRGBColorSpace,
+  Vector3,
   type WebGPURenderer,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -43,7 +45,8 @@ export interface WorldLabel {
 }
 
 export interface WorldContent {
-  readonly boxes: readonly Box[];
+  /** Solids to draw (collision-only solids are left out by the map). */
+  readonly solids: readonly Solid[];
   readonly ramps?: readonly RampShape[];
   readonly labels?: readonly WorldLabel[];
 }
@@ -59,6 +62,12 @@ const LOOK: Readonly<Record<Material, { tint: number; line: number; roughness: n
   dirt: { tint: 0x8c7a62, line: 0x5e5040, roughness: 0.95, metalness: 0 },
   grass: { tint: 0x6f8a58, line: 0x4c6340, roughness: 0.95, metalness: 0 },
   glass: { tint: 0x9fc4d4, line: 0x6a8c99, roughness: 0.1, metalness: 0.1 },
+  brick: { tint: 0xa8624c, line: 0x6e3e30, roughness: 0.88, metalness: 0 },
+  asphalt: { tint: 0x55585c, line: 0x35373a, roughness: 0.92, metalness: 0 },
+  gravel: { tint: 0x8f887c, line: 0x625c52, roughness: 0.95, metalness: 0 },
+  sand: { tint: 0xc9b48a, line: 0x9a8662, roughness: 0.96, metalness: 0 },
+  sheetMetal: { tint: 0x9aa4ae, line: 0x5c666e, roughness: 0.5, metalness: 0.55 },
+  plastic: { tint: 0xe6e0d4, line: 0xa8a294, roughness: 0.55, metalness: 0 },
 };
 
 /**
@@ -89,9 +98,17 @@ function gridMaterial(material: Material): MeshStandardNodeMaterial {
   return m;
 }
 
-function boxGeometry(b: Box): BufferGeometry {
-  const g = new BoxGeometry(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
-  g.translate((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2);
+function boxGeometry(b: Solid): BufferGeometry {
+  const o = b.orientation;
+  if (!o) {
+    const g = new BoxGeometry(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+    g.translate((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2);
+    return g;
+  }
+  const g = new BoxGeometry(o.half[0] * 2, o.half[1] * 2, o.half[2] * 2);
+  const [x, y, z] = o.axes;
+  g.applyMatrix4(new Matrix4().makeBasis(new Vector3(...x), new Vector3(...y), new Vector3(...z)));
+  g.translate(o.center[0], o.center[1], o.center[2]);
   return g;
 }
 
@@ -166,7 +183,7 @@ export class WorldView {
       list.push(g.index ? g.toNonIndexed() : g);
       byMaterial.set(material, list);
     };
-    for (const b of content.boxes) push(b.material, boxGeometry(b));
+    for (const b of content.solids) push(b.material, boxGeometry(b));
     for (const r of content.ramps ?? []) push(r.material, rampGeometry(r));
     for (const [material, geometries] of byMaterial) {
       const merged = mergeGeometries(geometries, false);

@@ -2,9 +2,10 @@
 import { bp, buffer, crackle, finish, hp, lp, mix, modes, noiseBurst, normalize, scatter, shape, thump, white, wobble, type Rng } from './dsp';
 import { cloth, rattle, thud } from './parts';
 import { synthVoice, unit } from './synth-voice';
+import { MATERIALS as ALL_MATERIALS } from '@duty-shooter/fps-core';
 import type { SurfaceMaterial, Voice, VoiceExtras, VoiceParams } from './types';
 
-const MATERIALS: readonly SurfaceMaterial[] = ['concrete', 'metal', 'wood', 'dirt', 'grass', 'glass', 'plaster'];
+const MATERIALS: readonly SurfaceMaterial[] = ALL_MATERIALS;
 
 /** One foot contact (heel or toe) on a surface. `hard` = sprint strike, else walk/crouch. */
 function contact(dst: Float32Array, sr: number, rng: Rng, at: number, material: SurfaceMaterial, hard: boolean, amp: number): void {
@@ -60,6 +61,67 @@ function contact(dst: Float32Array, sr: number, rng: Rng, at: number, material: 
       }
       break;
     }
+    case 'brick': {
+      // Concrete's cousin: a lower, rougher knock with more grit between the courses.
+      noiseBurst(dst, sr, rng, { at, attack: 0.0001, tau: 0.0012, gain: amp * 0.45 * h, mode: 'highpass', freq: 1800, length: 0.01 });
+      noiseBurst(dst, sr, rng, { at, attack: 0.0006, tau: hard ? 0.012 : 0.015, gain: amp, mode: 'bandpass', freq: rng.range(280, 380), q: 0.9 });
+      const g = crackle(sr, 0.09, rng, hard ? 900 : 500, (t) => Math.exp(-t / 0.03));
+      bp(g, sr, 2000, 0.6);
+      normalize(g, 1);
+      mix(dst, g, sr, at, amp * 0.3);
+      break;
+    }
+    case 'asphalt': {
+      // A soft-soled slap on a slightly gritty, dead surface.
+      noiseBurst(dst, sr, rng, { at, attack: 0.0004, tau: hard ? 0.009 : 0.012, gain: amp, mode: 'bandpass', freq: rng.range(300, 420), q: 0.8 });
+      noiseBurst(dst, sr, rng, { at, attack: 0.0001, tau: 0.001, gain: amp * 0.35 * h, mode: 'highpass', freq: 2000, length: 0.008 });
+      const g = crackle(sr, 0.1, rng, hard ? 1400 : 800, (t) => Math.exp(-t / 0.035));
+      hp(g, sr, 1800);
+      lp(g, sr, 6000);
+      normalize(g, 1);
+      mix(dst, g, sr, at, amp * 0.28);
+      break;
+    }
+    case 'gravel': {
+      // Stones grinding under the sole: a dense, long crunch over a low thud.
+      const c = crackle(sr, 0.2, rng, hard ? 5000 : 3600, (t) => (t < 0.006 ? t / 0.006 : Math.exp(-(t - 0.006) / (hard ? 0.045 : 0.06))));
+      bp(c, sr, rng.range(2400, 3600), 0.6);
+      normalize(c, 1);
+      mix(dst, c, sr, at, amp * 0.85);
+      for (const t of scatter(rng, hard ? 9 : 6, 0, 0.08, 1.3)) {
+        const f = rng.range(1800, 4200);
+        modes(dst, sr, at + t, [f, f * 1.6], [1, 0.4], [0.006, 0.004], amp * rng.range(0.08, 0.2));
+      }
+      noiseBurst(dst, sr, rng, { at, attack: 0.002, tau: 0.018, gain: amp * 0.55, mode: 'lowpass', freq: 240, steep: true });
+      break;
+    }
+    case 'sand': {
+      // A muffled, sliding hush with almost no attack.
+      const c = crackle(sr, 0.16, rng, 2200, (t) => (t < 0.01 ? t / 0.01 : Math.exp(-(t - 0.01) / 0.05)));
+      bp(c, sr, 1600, 0.5);
+      lp(c, sr, 2600);
+      normalize(c, 1);
+      mix(dst, c, sr, at, amp * 0.5);
+      noiseBurst(dst, sr, rng, { at, attack: 0.006, tau: 0.04, gain: amp * 0.35, mode: 'bandpass', freq: 900, q: 0.4 });
+      noiseBurst(dst, sr, rng, { at, attack: 0.003, tau: 0.02, gain: amp * 0.5, mode: 'lowpass', freq: 200, steep: true });
+      break;
+    }
+    case 'sheetMetal': {
+      // Thin corrugated metal on a frame: a boomy, wobbling drum hit.
+      noiseBurst(dst, sr, rng, { at, attack: 0.0001, tau: 0.0012, gain: amp * 0.5 * h, mode: 'highpass', freq: 2500, length: 0.008 });
+      const b = rng.range(110, 150);
+      modes(dst, sr, at, [b, b * 1.47, b * 2.21, b * 3.4, b * 5.3], [0.8, 0.6, 0.45, 0.3, 0.2], [0.16, 0.12, 0.08, 0.05, 0.03], amp * 0.7 * h);
+      thump(dst, sr, { at, f0: 95, f1: 70, glideTau: 0.02, attack: 0.001, tau: 0.05, gain: amp * 0.5, vibrato: { rate: rng.range(9, 14), depth: 0.03 } });
+      break;
+    }
+    case 'plastic': {
+      // A hollow, light knock.
+      const b = rng.range(520, 700);
+      modes(dst, sr, at, [b, b * 1.8, b * 3.1], [1, 0.4, 0.2], [0.018, 0.01, 0.006], amp * 0.6);
+      noiseBurst(dst, sr, rng, { at, attack: 0.0003, tau: 0.006, gain: amp * 0.6, mode: 'bandpass', freq: rng.range(900, 1300), q: 1.5 });
+      noiseBurst(dst, sr, rng, { at, attack: 0.0001, tau: 0.0008, gain: amp * 0.3 * h, mode: 'highpass', freq: 3000, length: 0.006 });
+      break;
+    }
     case 'plaster': {
       noiseBurst(dst, sr, rng, { at, attack: 0.0006, tau: 0.015, gain: amp, mode: 'bandpass', freq: rng.range(220, 290), q: 0.8 });
       noiseBurst(dst, sr, rng, { at, attack: 0.0003, tau: 0.003, gain: amp * 0.4 * h, mode: 'lowpass', freq: 1500 });
@@ -73,7 +135,7 @@ function contact(dst: Float32Array, sr: number, rng: Rng, at: number, material: 
 }
 
 function renderStep(material: SurfaceMaterial, hard: boolean, rng: Rng, sr: number): Float32Array[] {
-  const dst = buffer(sr, material === 'metal' ? 0.5 : 0.3);
+  const dst = buffer(sr, material === 'metal' || material === 'sheetMetal' ? 0.5 : 0.3);
   const gap = hard ? rng.range(0.025, 0.04) : rng.range(0.045, 0.07);
   contact(dst, sr, rng, 0, material, hard, 1);
   contact(dst, sr, rng, gap, material, hard, rng.range(0.45, 0.7));

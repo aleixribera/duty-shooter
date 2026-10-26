@@ -1,12 +1,12 @@
-import { STATS, box, type Box, type Material, type MantleBand, type PlayerSpawn, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, box, orientedBox, playerClip, type Material, type MantleBand, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
 
 /**
  * The one original map: a firing range (10/25/50 m lanes, static and rail
  * dummies), a movement course and a small symmetrical arena, all built from
- * material-tagged boxes. 1 unit = 1 metre, Y up; the range faces -Z.
+ * material-tagged solids. 1 unit = 1 metre, Y up; the range faces -Z.
  */
 
-/** A sloped surface drawn as a ramp but collided against as fine steps. */
+/** A sloped surface: drawn as a ramp, walked on as fine player clip steps, shot at as a sloped bullet surface. */
 export interface Ramp {
   /** Footprint corners (x/z) and the low and high edge heights. Rises along -Z from `z0` to `z1`. */
   readonly x0: number;
@@ -56,10 +56,10 @@ export interface GapStation {
 }
 
 export interface GameMap {
-  /** Boxes that are drawn and collided against. */
-  readonly boxes: readonly Box[];
-  /** Collision-only boxes (the fine steps under ramps). */
-  readonly hiddenBoxes: readonly Box[];
+  /** Solids that are drawn and collided against. */
+  readonly solids: readonly Solid[];
+  /** Collision-only solids (the player clip steps and bullet surfaces under ramps). */
+  readonly hiddenSolids: readonly Solid[];
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
   /** Free-for-all spawn points, in the arena. */
@@ -77,9 +77,9 @@ export interface GameMap {
   };
 }
 
-/** Every box the simulation collides against. */
-export function collisionBoxes(map: GameMap): Box[] {
-  return [...map.boxes, ...map.hiddenBoxes];
+/** Every solid the simulation collides against. */
+export function collisionSolids(map: GameMap): Solid[] {
+  return [...map.solids, ...map.hiddenSolids];
 }
 
 const b = (min: Vec3, max: Vec3, material: Material) => box({ min, max, material });
@@ -90,11 +90,11 @@ const FACING_POS_X = -Math.PI / 2;
 const FACING_NEG_X = Math.PI / 2;
 
 export function buildMap(): GameMap {
-  const boxes: Box[] = [];
-  const hidden: Box[] = [];
+  const solids: Solid[] = [];
+  const hidden: Solid[] = [];
   const ramps: Ramp[] = [];
   const labels: Label[] = [];
-  const add = (min: Vec3, max: Vec3, material: Material) => boxes.push(b(min, max, material));
+  const add = (min: Vec3, max: Vec3, material: Material) => solids.push(b(min, max, material));
 
   // Ground: separate tiles so each area has its own surface material. Top at y = 0.
   add([-80, -1, 8], [90, 0, 30], 'concrete'); // the strip behind the firing line and the course start
@@ -123,8 +123,8 @@ export function buildMap(): GameMap {
   ];
 
   return {
-    boxes,
-    hiddenBoxes: hidden,
+    solids,
+    hiddenSolids: hidden,
     ramps,
     labels,
     arenaSpawns,
@@ -182,7 +182,7 @@ function buildRange(add: Add, labels: Label[]): void {
  * and a ramp up to a gap run, a climb up two towers with a damaging and a
  * lethal drop, and a slide lane.
  */
-function buildCourse(add: Add, hidden: Box[], ramps: Ramp[], labels: Label[]): GameMap['course'] {
+function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]): GameMap['course'] {
   const M = STATS.mantle;
   // Mantle ledges, centred in their bands, 2 m deep, faces at z = -6.
   const ledgeHeights: Record<MantleBand, number> = {
@@ -206,13 +206,26 @@ function buildCourse(add: Add, hidden: Box[], ramps: Ramp[], labels: Label[]): G
   const deck = 2;
   for (let i = 0; i < 10; i++) add([6, 0, -2 - 0.35 * (i + 1)], [10, 0.2 * (i + 1), -2 - 0.35 * i], 'concrete');
   add([6, 0, -12], [10, deck, -5.5], 'concrete');
-  // Ramp beside it: drawn as a slope, collided as 0.1 m steps.
+  // Ramp beside it: drawn as a slope, walked on as 0.1 m player clip steps, shot at as a sloped bullet surface.
   ramps.push({ x0: 12, x1: 16, z0: -2, z1: -12, h0: 0, h1: deck, material: 'concrete' });
   const rampSteps = 20;
   for (let i = 0; i < rampSteps; i++) {
     const z1 = -2 - (10 / rampSteps) * i;
-    hidden.push(box({ min: [12, 0, z1 - 10 / rampSteps], max: [16, (deck / rampSteps) * (i + 1), z1], material: 'concrete' }));
+    hidden.push(playerClip({ min: [12, 0, z1 - 10 / rampSteps], max: [16, (deck / rampSteps) * (i + 1), z1], material: 'concrete' }));
   }
+  const pitch = Math.atan2(deck, 10);
+  const thickness = 0.5;
+  hidden.push(
+    orientedBox({
+      center: [14, deck / 2 - (Math.cos(pitch) * thickness) / 2, -7 - (Math.sin(pitch) * thickness) / 2],
+      size: [4, thickness, Math.hypot(10, deck)],
+      yaw: 0,
+      pitch,
+      roll: 0,
+      material: 'concrete',
+      blocks: 'bullets',
+    }),
+  );
   // Deck joining stairs and ramp, then the gap run along -Z at 2 m.
   add([10, 0, -18], [16, deck, -12], 'concrete');
   add([6, 0, -18], [10, deck, -12], 'concrete');

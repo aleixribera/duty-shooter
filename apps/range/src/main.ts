@@ -15,7 +15,7 @@ import {
   type Settings,
 } from '@duty-shooter/fps-client';
 import { createWorld } from '@duty-shooter/fps-core';
-import { buildMap, collisionBoxes } from './map/map';
+import { buildMap, collisionSolids } from './map/map';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -35,14 +35,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const { renderer, backend } = await createRenderer(canvas, { forceWebGL });
   document.body.dataset['backend'] = backend;
   const map = buildMap();
-  const boxes = collisionBoxes(map);
+  const solids = collisionSolids(map);
   const sound = createSoundSystem();
   const game = new Game({
     canvas,
     renderer,
     backend,
     content: map,
-    world: createWorld(boxes),
+    world: createWorld(solids),
     settings,
     sound,
     overview: { position: [-42, 7, 14], yaw: 0.25, pitch: -0.28 },
@@ -89,10 +89,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const menu = new Menu(
     settings,
     {
-      playOffline: () => play(new OfflineDriver({ boxes, spawn: map.rangeSpawn, dummies: map.dummies })),
+      playOffline: () => play(new OfflineDriver({ solids, spawn: map.rangeSpawn, dummies: map.dummies })),
       playOnline: (name, passphrase) => {
         const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-        play(new OnlineDriver({ url: `${scheme}://${location.host}/ws`, boxes, name, passphrase }));
+        play(new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids, name, passphrase }));
       },
       resume: () => void enter(),
       leave: () => {

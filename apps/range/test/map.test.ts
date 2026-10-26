@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, TICK_SECONDS, type PlayerOutput, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
-import { buildMap, collisionBoxes } from '../src/map/map';
+import { buildMap, collisionSolids } from '../src/map/map';
 
 const map = buildMap();
-const boxes = collisionBoxes(map);
+const solids = collisionSolids(map);
 
 /** A match on the real map with one player standing at `at`. */
 function standAt(at: SpawnPoint) {
-  return createHeadlessMatch({ boxes, players: [{ id: 'p', team: 1, position: at.position, yaw: at.yaw }] });
+  return createHeadlessMatch({ solids, players: [{ id: 'p', team: 1, position: at.position, yaw: at.yaw }] });
 }
 
 function run(match: ReturnType<typeof standAt>, seconds: number, cmd: (i: number) => UserCmd): PlayerOutput[] {
@@ -109,7 +109,7 @@ describe('map: range', () => {
   });
 
   it('gives every box a material tag', () => {
-    expect(boxes.every((b) => typeof b.material === 'string' && b.material.length > 0)).toBe(true);
+    expect(solids.every((b) => typeof b.material === 'string' && b.material.length > 0)).toBe(true);
   });
 
   it('spawns players standing on the ground, not inside geometry', () => {

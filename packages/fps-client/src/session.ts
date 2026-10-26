@@ -3,7 +3,7 @@ import {
   Simulation,
   TICK_SECONDS,
   createWorld,
-  type Box,
+  type Solid,
   type ModeEvent,
   type PlayerId,
   type PlayerOutput,
@@ -49,7 +49,7 @@ export interface GameDriver {
 }
 
 export interface OfflineOptions {
-  readonly boxes: readonly Box[];
+  readonly solids: readonly Solid[];
   readonly spawn: SpawnPoint;
   readonly dummies?: readonly PlayerSpawn[];
   /** Seconds after death before the local player respawns. */
@@ -73,7 +73,7 @@ export class OfflineDriver implements GameDriver {
   #spawnFacing: { yaw: number; pitch: number } | null;
 
   constructor(options: OfflineOptions) {
-    this.#sim = new Simulation(createWorld(options.boxes));
+    this.#sim = new Simulation(createWorld(options.solids));
     this.#spawn = options.spawn;
     this.#respawnDelay = options.respawnDelay ?? 1.5;
     this.#sim.addPlayer({ id: this.selfId, team: 1, position: options.spawn.position, yaw: options.spawn.yaw });
@@ -124,7 +124,7 @@ export class OfflineDriver implements GameDriver {
 
 export interface OnlineOptions {
   readonly url: string;
-  readonly boxes: readonly Box[];
+  readonly solids: readonly Solid[];
   readonly name: string;
   readonly passphrase: string;
 }
@@ -137,7 +137,7 @@ export class OnlineDriver implements GameDriver {
   constructor(options: OnlineOptions) {
     this.#client = new GameClient({
       connection: connectWebSocket(options.url),
-      world: createWorld(options.boxes),
+      world: createWorld(options.solids),
       name: options.name,
       passphrase: options.passphrase,
     });

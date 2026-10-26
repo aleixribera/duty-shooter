@@ -16,9 +16,9 @@ export function playerIn(output: TickOutput, id: string): PlayerOutput {
 }
 
 /** A lane: shooter at the origin facing -Z, a static dummy `distance` metres down range facing the shooter. */
-export function lane(distance: number, options: { boxes?: readonly import('@duty-shooter/fps-core').Box[]; targetIsPlayer?: boolean } = {}): HeadlessMatch {
+export function lane(distance: number, options: { solids?: readonly import('@duty-shooter/fps-core').Solid[]; targetIsPlayer?: boolean } = {}): HeadlessMatch {
   return createHeadlessMatch({
-    boxes: options.boxes ?? [FLOOR],
+    solids: options.solids ?? [FLOOR],
     players: [
       { id: SHOOTER, team: 1, position: [0, 0, 0] },
       { id: TARGET, team: 2, position: [0, 0, -distance], yaw: Math.PI, ...(options.targetIsPlayer ? {} : { dummy: {} }) },

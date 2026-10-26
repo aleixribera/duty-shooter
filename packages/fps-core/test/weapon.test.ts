@@ -13,7 +13,7 @@ const weaponOf = (match: HeadlessMatch) => playerIn(match.latest, SHOOTER).weapo
 
 /** An empty range with a far wall and no target. */
 function range() {
-  return createHeadlessMatch({ boxes: [FLOOR, wallAt(-500)], players: [{ id: SHOOTER, team: 1, position: [0, 0, 0] }] });
+  return createHeadlessMatch({ solids: [FLOOR, wallAt(-500)], players: [{ id: SHOOTER, team: 1, position: [0, 0, 0] }] });
 }
 
 describe('draw', () => {
@@ -326,7 +326,7 @@ describe('recoil', () => {
 describe('projectiles', () => {
   it('travel at the muzzle velocity and drop under gravity', () => {
     const distance = 100;
-    const match = lane(400, { boxes: [FLOOR, wallAt(-distance)] });
+    const match = lane(400, { solids: [FLOOR, wallAt(-distance)] });
     drawn(match);
 
     match.run(ticks(0.5), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads'] }) }));

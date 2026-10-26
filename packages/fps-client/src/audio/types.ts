@@ -1,3 +1,4 @@
+import type { Material } from '@duty-shooter/fps-core';
 export type SoundEventName =
   | 'gunshot' // the M4A1 firing. params.local=true for your own gun (non-positional, full detail)
   | 'dryFire'
@@ -26,7 +27,8 @@ export type SoundEventName =
   | 'headshotMarker'
   | 'damageTaken';
 
-export type SurfaceMaterial = 'concrete' | 'metal' | 'wood' | 'dirt' | 'grass' | 'glass' | 'plaster';
+/** Every world material has its own footsteps, impacts and casing bounces. */
+export type SurfaceMaterial = Material;
 
 export interface SoundParams {
   readonly position?: readonly [number, number, number]; // world metres; omitted = non-positional (UI / your own body)

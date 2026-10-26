@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { extname, normalize, resolve, sep } from 'node:path';
 import { GameServer, TICK_SECONDS, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
 import { FreeForAll } from '@duty-shooter/fps-core/modes';
-import { buildMap, collisionBoxes } from '@duty-shooter/range/map';
+import { buildMap, collisionSolids } from '@duty-shooter/range/map';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 export interface ServerOptions {
@@ -194,7 +194,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const game = new GameServer(transport, {
-    world: createWorld(collisionBoxes(map)),
+    world: createWorld(collisionSolids(map)),
     mode: new FreeForAll(),
     spawns: map.arenaSpawns,
     dummies: map.dummies,

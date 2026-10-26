@@ -460,7 +460,7 @@ export class Game {
       }
       case 'impact':
         this.#effects.impact(e.point, e.normal, e.material);
-        this.#play('impact', { position: e.point, material: (e.material as Material) ?? 'concrete' });
+        this.#play('impact', { position: e.point, material: e.material });
         break;
       case 'hit': {
         const from = this.#eyeOf(e.shooter) ?? e.point;

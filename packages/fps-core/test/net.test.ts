@@ -13,7 +13,7 @@ const LANE: readonly SpawnPoint[] = [
 ];
 
 function match(options: Partial<Parameters<typeof createNetworkedMatch>[0]> = {}): NetworkedMatch {
-  return createNetworkedMatch({ boxes: [FLOOR], spawns: LANE, ...BAD_NETWORK, ...options });
+  return createNetworkedMatch({ solids: [FLOOR], spawns: LANE, ...BAD_NETWORK, ...options });
 }
 
 /** Steps until every named client has joined (or fails after 3 s). */
@@ -87,7 +87,7 @@ describe('joining', () => {
   });
 
   it('drops a connection that sends game messages before joining', () => {
-    const m = createNetworkedMatch({ boxes: [FLOOR], spawns: LANE });
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns: LANE });
     const raw = m.network.connect();
     let closed = '';
     raw.onClose((reason) => (closed = reason));

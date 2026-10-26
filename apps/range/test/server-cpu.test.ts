@@ -1,0 +1,37 @@
+import { describe, expect, it } from 'vitest';
+import { FreeForAll } from '@duty-shooter/fps-core/modes';
+import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
+import { buildMap, collisionSolids } from '../src/map/map';
+
+/**
+ * Server CPU benchmark: 8 scripted players who move, turn and fire at 60 Hz,
+ * like apps/server/scripts/load-test.mjs, through the in-memory network. It
+ * reports the server's share of one core. Run it with BENCH=1; the normal
+ * test run skips it.
+ */
+describe.skipIf(!process.env['BENCH'])('server CPU', () => {
+  it('8 players on the Practice Range', () => {
+    const map = buildMap();
+    const m = createNetworkedMatch({ solids: collisionSolids(map), spawns: map.arenaSpawns, dummies: map.dummies, mode: new FreeForAll(), passphrase: '', latency: 0.03 });
+    const names = Array.from({ length: 8 }, (_, i) => `bot${i}`);
+    for (const n of names) m.join(n);
+    const script = (t: number) =>
+      Object.fromEntries(
+        names.map((n, i) => [n, usercmd({ forward: 1, right: Math.sin(t / 40 + i), yaw: i + t * 0.01 * Math.sin(i + t / 90), buttons: (t + i * 7) % 16 < 8 ? ['Fire'] : [] })]),
+      );
+    m.run(120, script);
+    const seconds = 20;
+    let serverMs = 0;
+    const tick = m.server.tick.bind(m.server);
+    m.server.tick = () => {
+      const start = performance.now();
+      const out = tick();
+      serverMs += performance.now() - start;
+      return out;
+    };
+    m.run(seconds * 60, script);
+    const percent = (serverMs / (seconds * 1000)) * 100;
+    console.log(`server: ${(serverMs / (seconds * 60)).toFixed(3)} ms per tick, ${percent.toFixed(2)} % of one core at 60 Hz`);
+    expect(m.server.playerCount).toBe(8);
+  });
+});

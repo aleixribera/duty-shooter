@@ -5,10 +5,10 @@ import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } fr
 import { GameServer } from '../net/server';
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
-import { createWorld, type Box } from '../world';
+import { createWorld, type Solid } from '../world';
 
 export interface NetworkedMatchOptions extends MemoryNetworkOptions {
-  readonly boxes: readonly Box[];
+  readonly solids: readonly Solid[];
   readonly spawns: readonly SpawnPoint[];
   readonly dummies?: readonly PlayerSpawn[];
   /** Defaults to free-for-all. */
@@ -51,7 +51,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
   const network = createMemoryNetwork(options);
   const passphrase = options.passphrase ?? 'letmein';
   const server = new GameServer(network.server, {
-    world: createWorld(options.boxes),
+    world: createWorld(options.solids),
     mode: options.mode ?? new FreeForAll(),
     spawns: options.spawns,
     passphrase,
@@ -83,7 +83,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     network,
     join(name, joinOptions = {}) {
       if (clients.has(name)) throw new Error(`Client ${name} already joined`);
-      const client = new GameClient({ connection: network.connect(), world: createWorld(options.boxes), name, passphrase: joinOptions.passphrase ?? passphrase });
+      const client = new GameClient({ connection: network.connect(), world: createWorld(options.solids), name, passphrase: joinOptions.passphrase ?? passphrase });
       const entry = { name, client, frames: [] as ClientFrame[] };
       clients.set(name, entry);
       return view(entry);

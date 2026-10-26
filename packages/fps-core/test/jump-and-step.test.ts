@@ -60,7 +60,7 @@ describe('jump', () => {
 describe('step-up and ground snapping', () => {
   it('walks up onto a ledge no higher than the step height', () => {
     const height = movement.stepHeight.value - tolerance(movement.stepHeight);
-    const match = soloMatch({ boxes: [FLOOR, stepAhead(height)] });
+    const match = soloMatch({ solids: [FLOOR, stepAhead(height)] });
 
     const outputs = hold(match, ticks(1.5), usercmd({ forward: 1 }));
 
@@ -72,7 +72,7 @@ describe('step-up and ground snapping', () => {
 
   it('is stopped by a ledge above the step height when not jumping', () => {
     const height = movement.stepHeight.value + tolerance(movement.stepHeight);
-    const match = soloMatch({ boxes: [FLOOR, stepAhead(height)] });
+    const match = soloMatch({ solids: [FLOOR, stepAhead(height)] });
 
     hold(match, ticks(1.5), usercmd({ forward: 1 }));
 
@@ -87,12 +87,12 @@ describe('step-up and ground snapping', () => {
     const drop = movement.stepHeight.value * 3;
     const platform = (h: number) => box({ min: [-2, 0, -1], max: [2, h, 1], material: 'wood' });
 
-    const down = soloMatch({ boxes: [FLOOR, platform(step)], position: [0, step, 0] });
+    const down = soloMatch({ solids: [FLOOR, platform(step)], position: [0, step, 0] });
     const downOutputs = hold(down, ticks(1), usercmd({ forward: 1 }));
     expect(downOutputs.some((p) => p.movement === 'airborne')).toBe(false);
     expect(me(down.latest).position[1]).toBe(0);
 
-    const off = soloMatch({ boxes: [FLOOR, platform(drop)], position: [0, drop, 0] });
+    const off = soloMatch({ solids: [FLOOR, platform(drop)], position: [0, drop, 0] });
     const offOutputs = hold(off, ticks(1), usercmd({ forward: 1 }));
     expect(offOutputs.some((p) => p.movement === 'airborne')).toBe(true);
     expect(me(off.latest).position[1]).toBe(0);

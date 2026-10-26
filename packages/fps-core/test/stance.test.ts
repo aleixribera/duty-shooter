@@ -45,7 +45,7 @@ describe('crouch', () => {
   it('stays crouched under a ceiling too low to stand in', () => {
     const ceilingY = (stance.crouchHullHeight.value + stance.standHullHeight.value) / 2;
     const ceiling = box({ min: [-2, ceilingY, -2], max: [2, ceilingY + 0.5, 2], material: 'concrete' });
-    const match = soloMatch({ boxes: [FLOOR, ceiling] });
+    const match = soloMatch({ solids: [FLOOR, ceiling] });
     hold(match, ticks(1), crouch);
 
     const outputs = hold(match, ticks(1), stand);

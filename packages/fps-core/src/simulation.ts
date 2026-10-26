@@ -9,7 +9,7 @@ import { hashString, noise } from './random';
 import { STATS } from './stats';
 import { Button, usercmd, type UserCmd } from './usercmd';
 import { createWeaponState, currentSpread, updateWeapon, wantsFire, type ReloadKind, type WeaponAction, type WeaponState } from './weapon/weapon';
-import type { World } from './world';
+import type { Material, World } from './world';
 
 /** Simulation rate in ticks per second, identical on client and server. */
 export const TICK_RATE = 60;
@@ -104,7 +104,7 @@ export type SimEvent =
       readonly killed: boolean;
       readonly cause: 'bullet' | 'melee';
     }
-  | { readonly type: 'impact'; readonly shooter: PlayerId; readonly point: Vec3; readonly normal: Vec3; readonly material: string }
+  | { readonly type: 'impact'; readonly shooter: PlayerId; readonly point: Vec3; readonly normal: Vec3; readonly material: Material }
   | { readonly type: 'kill'; readonly killer: PlayerId | null; readonly victim: PlayerId; readonly cause: 'bullet' | 'melee' | 'fall'; readonly zone: HitZone | null }
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
   | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null };

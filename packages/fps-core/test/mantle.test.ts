@@ -14,7 +14,7 @@ function ledge(height: number, gap = mantle.reach.value / 2) {
 }
 
 function jumpAt(height: number, options: { gap?: number; cmd?: UserCmd } = {}) {
-  const match = soloMatch({ boxes: [FLOOR, ledge(height, options.gap)] });
+  const match = soloMatch({ solids: [FLOOR, ledge(height, options.gap)] });
   const outputs = hold(match, ticks(2), options.cmd ?? jump);
   return { outputs, last: me(match.latest) };
 }
@@ -72,7 +72,7 @@ describe('mantle', () => {
   it('is committal: input during the mantle does not change it', () => {
     const height = mantle.waistMantleMaxHeight.value - tolerance(mantle.waistMantleMaxHeight);
     const plain = jumpAt(height);
-    const fighting = soloMatch({ boxes: [FLOOR, ledge(height)] });
+    const fighting = soloMatch({ solids: [FLOOR, ledge(height)] });
     fighting.step({ p: jump });
     const outputs = hold(fighting, ticks(2), usercmd({ forward: -1, right: 1, buttons: ['Crouch', 'Sprint'] }));
 
@@ -89,7 +89,7 @@ describe('mantle', () => {
     const face = -(stance.hullHalfWidth.value + mantle.reach.value / 2);
     const lowCeiling = height + (stance.crouchHullHeight.value + stance.standHullHeight.value) / 2;
     const low = box({ min: [-2, lowCeiling, face - 5], max: [2, lowCeiling + 1, face], material: 'concrete' });
-    const match = soloMatch({ boxes: [FLOOR, ledge(height), low] });
+    const match = soloMatch({ solids: [FLOOR, ledge(height), low] });
 
     const outputs = hold(match, ticks(1), jump);
 

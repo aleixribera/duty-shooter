@@ -1,6 +1,6 @@
-import { add, scale, type Vec3 } from '../math';
+import { add, dot, scale, type Vec3 } from '../math';
 import { STATS } from '../stats';
-import type { Material, World } from '../world';
+import type { Material, Orientation, Solid, World } from '../world';
 import { segmentBox } from './hitboxes';
 
 /** A bullet in flight. Simulated with gravity drop; never interacts with other bullets. */
@@ -20,9 +20,11 @@ export interface WorldHit {
   /** Fraction along the segment. */
   readonly t: number;
   readonly point: Vec3;
-  /** Outward face normal of the box that was hit. */
+  /** Outward face normal of the solid that was hit. */
   readonly normal: Vec3;
   readonly material: Material;
+  /** Index of the solid in the world's solids. */
+  readonly solid: number;
 }
 
 /** Where a bullet moves over `seconds`: ballistic, exact within the step. */
@@ -37,18 +39,35 @@ export function advance(p: Projectile, seconds: number): { from: Vec3; to: Vec3;
   return { from, to, velocity: [p.velocity[0], p.velocity[1] - g * seconds, p.velocity[2]] };
 }
 
-/** The first world box the segment a→b enters, or null. */
+/** The first solid that blocks bullets the segment a→b enters, or null. Player clip never takes part. */
 export function raycastWorld(world: World, a: Vec3, b: Vec3): WorldHit | null {
-  let best: { t: number; index: number } | null = null;
-  world.boxes.forEach((box, index) => {
-    const t = segmentBox(a, b, box.min, box.max);
-    if (t !== null && (!best || t < best.t)) best = { t, index };
-  });
+  const best = world.bullets.firstHit(a, b, (i) => segmentSolid(a, b, world.solids[i] as Solid));
   if (!best) return null;
-  const { t, index } = best as { t: number; index: number };
-  const box = world.boxes[index]!;
-  const point = add(a, scale([b[0] - a[0], b[1] - a[1], b[2] - a[2]], t));
-  return { t, point, normal: faceNormal(box.min, box.max, point), material: box.material };
+  const solid = world.solids[best.index] as Solid;
+  const point = add(a, scale([b[0] - a[0], b[1] - a[1], b[2] - a[2]], best.t));
+  return { t: best.t, point, normal: solidNormal(solid, point), material: solid.material, solid: best.index };
+}
+
+/** Entry fraction of the segment a→b into a solid, or null on a miss. */
+export function segmentSolid(a: Vec3, b: Vec3, s: Solid): number | null {
+  const o = s.orientation;
+  if (!o) return segmentBox(a, b, s.min, s.max);
+  return segmentBox(toLocal(o, a), toLocal(o, b), [-o.half[0], -o.half[1], -o.half[2]], o.half);
+}
+
+/** Outward normal of the solid's face nearest to a point on its surface. */
+export function solidNormal(s: Solid, p: Vec3): Vec3 {
+  const o = s.orientation;
+  if (!o) return faceNormal(s.min, s.max, p);
+  const n = faceNormal([-o.half[0], -o.half[1], -o.half[2]], o.half, toLocal(o, p));
+  const [ax, ay, az] = o.axes;
+  return [ax[0] * n[0] + ay[0] * n[1] + az[0] * n[2], ax[1] * n[0] + ay[1] * n[1] + az[1] * n[2], ax[2] * n[0] + ay[2] * n[1] + az[2] * n[2]];
+}
+
+/** A world point in a rotated solid's own frame, centred on it. */
+function toLocal(o: Orientation, p: Vec3): Vec3 {
+  const d: Vec3 = [p[0] - o.center[0], p[1] - o.center[1], p[2] - o.center[2]];
+  return [dot(d, o.axes[0]), dot(d, o.axes[1]), dot(d, o.axes[2])];
 }
 
 /** Normal of the box face nearest to a point on its surface. */

@@ -6,7 +6,7 @@ const floor = box({ min: [-10, -1, -10], max: [10, 0, 10], material: 'concrete' 
 describe('headless match', () => {
   it('keeps an idle player standing where it spawned', () => {
     const match = createHeadlessMatch({
-      boxes: [floor],
+      solids: [floor],
       players: [{ id: 'p1', team: 1, position: [0, 0, 0] }],
     });
 
@@ -27,7 +27,7 @@ describe('headless match', () => {
 
   it('reports the view angles carried by each tick usercmd', () => {
     const match = createHeadlessMatch({
-      boxes: [floor],
+      solids: [floor],
       players: [{ id: 'p1', team: 1, position: [0, 0, 0] }],
     });
 
@@ -40,7 +40,7 @@ describe('headless match', () => {
 
   it('keeps the last view angles when a player sends no usercmd for a tick', () => {
     const match = createHeadlessMatch({
-      boxes: [floor],
+      solids: [floor],
       players: [{ id: 'p1', team: 1, position: [0, 0, 0] }],
     });
 

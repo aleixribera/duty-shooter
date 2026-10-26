@@ -2,7 +2,7 @@ import type { Vec3 } from '../math';
 import { STATS } from '../stats';
 import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
-import { EPSILON, X, Y, Z, hullBlocked, offset, sweep, type Hull } from './collision';
+import { EPSILON, Y, clipVelocity, hullBlocked, offset, slideMove, sweepY, type Flat, type Hull, type MoveResult } from './collision';
 import { findLedge, mantleDuration, type MantleBand } from './mantle';
 
 /**
@@ -293,23 +293,7 @@ function accelerate(state: MoveState, dir: readonly [number, number], wishSpeed:
 }
 
 function onGround(world: World, pos: Vec3, hull: Hull): boolean {
-  return sweep(world, pos, hull, Y, -GROUND_PROBE).hit;
-}
-
-interface MoveResult {
-  readonly pos: Vec3;
-  readonly blocked: readonly [x: boolean, z: boolean];
-}
-
-/** Moves horizontally one axis at a time, stopping at boxes. */
-function slideMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): MoveResult {
-  const rx = sweep(world, pos, hull, X, dx);
-  const afterX = offset(pos, X, rx.moved);
-  const rz = sweep(world, afterX, hull, Z, dz);
-  return {
-    pos: offset(afterX, Z, rz.moved),
-    blocked: [rx.hit && Math.abs(rx.moved) < Math.abs(dx), rz.hit && Math.abs(rz.moved) < Math.abs(dz)],
-  };
+  return sweepY(world, pos, hull, -GROUND_PROBE).hit;
 }
 
 /**
@@ -319,15 +303,15 @@ function slideMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number):
  */
 function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): MoveResult {
   const flat = slideMove(world, pos, hull, dx, dz);
-  if (!flat.blocked[0] && !flat.blocked[1]) return flat;
-  const up = sweep(world, pos, hull, Y, M.stepHeight.value).moved;
+  if (flat.normals.length === 0) return flat;
+  const up = sweepY(world, pos, hull, M.stepHeight.value).moved;
   if (up <= EPSILON) return flat;
   const raised = slideMove(world, offset(pos, Y, up), hull, dx, dz);
-  const down = sweep(world, raised.pos, hull, Y, -up);
+  const down = sweepY(world, raised.pos, hull, -up);
   if (!down.hit) return flat;
   const travelled = (r: MoveResult) => Math.hypot(r.pos[0] - pos[0], r.pos[2] - pos[2]);
   if (travelled(raised) <= travelled(flat) + EPSILON) return flat;
-  return { pos: offset(raised.pos, Y, down.moved), blocked: raised.blocked };
+  return { pos: offset(raised.pos, Y, down.moved), normals: raised.normals };
 }
 
 /** Advances one player by one tick. */
@@ -385,12 +369,13 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   const dz = state.velocity[2] * dt;
   const moved = startedGrounded ? stepMove(world, state.position, hull, dx, dz) : slideMove(world, state.position, hull, dx, dz);
   let pos = moved.pos;
-  state.velocity = [moved.blocked[0] ? 0 : state.velocity[0], state.velocity[1], moved.blocked[1] ? 0 : state.velocity[2]];
+  const [vx, vz]: Flat = clipVelocity(state.velocity[0], state.velocity[2], moved.normals);
+  state.velocity = [vx, state.velocity[1], vz];
 
   if (startedGrounded) {
     // Ground snapping: follow the floor down steps; past a step height, start falling.
     if (!onGround(world, pos, hull)) {
-      const down = sweep(world, pos, hull, Y, -M.stepHeight.value);
+      const down = sweepY(world, pos, hull, -M.stepHeight.value);
       if (down.hit) pos = offset(pos, Y, down.moved);
       else state.grounded = false;
     }
@@ -398,7 +383,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
     // Airborne: exact parabola within the tick (average of start and end velocity).
     const vy0 = state.velocity[1];
     const vy1 = vy0 - M.gravity.value * dt;
-    const r = sweep(world, pos, hull, Y, ((vy0 + vy1) / 2) * dt);
+    const r = sweepY(world, pos, hull, ((vy0 + vy1) / 2) * dt);
     pos = offset(pos, Y, r.moved);
     state.velocity = [state.velocity[0], r.hit ? 0 : vy1, state.velocity[2]];
     if (r.hit && vy1 < 0 && !jumped) state.grounded = true;
@@ -415,7 +400,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   state.prevButtons = cmd.buttons;
 }
 
-/** Moves the player horizontally toward `target` (a melee lunge), stopping at boxes. */
+/** Moves the player horizontally toward `target` (a melee lunge), stopping at solids. */
 export function lunge(state: MoveState, world: World, target: Vec3): void {
   const moved = slideMove(world, state.position, hullFor(state.stance), target[0] - state.position[0], target[2] - state.position[2]);
   state.position = moved.pos;

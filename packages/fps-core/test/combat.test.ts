@@ -100,7 +100,7 @@ describe('range dummies', () => {
   it('a rail dummy moves back and forth along its rail at its speed', () => {
     const speed = STATS.movement.walkSpeed.value;
     const match = createHeadlessMatch({
-      boxes: [FLOOR],
+      solids: [FLOOR],
       players: [{ id: TARGET, team: 2, position: [-5, 0, -20], dummy: { rail: { to: [5, 0, -20], speed } } }],
     });
 

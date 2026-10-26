@@ -1,15 +1,15 @@
 import { expect } from 'vitest';
 import { TICK_SECONDS, type PlayerOutput, type Stat, type TickOutput, type UserCmd } from '@duty-shooter/fps-core';
 import { box, createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
-import type { Box } from '@duty-shooter/fps-core';
+import type { Solid } from '@duty-shooter/fps-core';
 
 /** A large flat concrete floor whose top surface is y = 0. */
 export const FLOOR = box({ min: [-200, -1, -200], max: [200, 0, 200], material: 'concrete' });
 
-/** A single-player match on the given boxes (a flat floor by default), player 'p' at the origin facing -Z. */
-export function soloMatch(options: { boxes?: readonly Box[]; position?: readonly [number, number, number]; yaw?: number } = {}): HeadlessMatch {
+/** A single-player match on the given solids (a flat floor by default), player 'p' at the origin facing -Z. */
+export function soloMatch(options: { solids?: readonly Solid[]; position?: readonly [number, number, number]; yaw?: number } = {}): HeadlessMatch {
   return createHeadlessMatch({
-    boxes: options.boxes ?? [FLOOR],
+    solids: options.solids ?? [FLOOR],
     players: [{ id: 'p', team: 1, position: options.position ?? [0, 0, 0], ...(options.yaw === undefined ? {} : { yaw: options.yaw }) }],
   });
 }

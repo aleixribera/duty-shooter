@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { box, createHeadlessMatch, usercmd, type CmdScript } from '@duty-shooter/fps-core/harness';
 
-const boxes = [
+const solids = [
   box({ min: [-20, -1, -20], max: [20, 0, 20], material: 'concrete' }),
   box({ min: [2, 0, -6], max: [4, 1, -4], material: 'wood' }),
   box({ min: [-5, 0, -10], max: [5, 3, -9], material: 'metal' }),
@@ -35,15 +35,15 @@ const script: CmdScript = (tick) => ({
 
 describe('determinism', () => {
   it('produces identical outputs when the same usercmd script runs twice', () => {
-    const first = createHeadlessMatch({ boxes, players }).run(600, script);
-    const second = createHeadlessMatch({ boxes, players }).run(600, script);
+    const first = createHeadlessMatch({ solids, players }).run(600, script);
+    const second = createHeadlessMatch({ solids, players }).run(600, script);
 
     expect(second).toEqual(first);
   });
 
   it('produces different outputs for a different script, so the comparison above is meaningful', () => {
-    const first = createHeadlessMatch({ boxes, players }).run(600, script);
-    const other = createHeadlessMatch({ boxes, players }).run(600, (tick) => ({
+    const first = createHeadlessMatch({ solids, players }).run(600, script);
+    const other = createHeadlessMatch({ solids, players }).run(600, (tick) => ({
       ...script(tick),
       a: usercmd({ yaw: -tick * 0.013 }),
     }));
