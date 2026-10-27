@@ -34,12 +34,24 @@ viewer (`?viewer` and `?viewer&webgl`) through reload, inspect, and aim.
 
 # The v2 arsenal
 
-The Warden 9's detailed replacement is built by `warden.py` instead of the
-original arsenal generator. From the repository root, run
-`blender --background --factory-startup --python tools/weapon/warden.py`.
-It writes `tools/weapon/pistol.blend` and the matching game GLB, including its
-packed surface textures. The `slide` and `mag` nodes retain the original rig
-pivots; check idle, aim, inspect and both reloads in the viewer after editing.
+The remodelled weapons each have a generator built on `gunsmith.py`: it models
+in the M4A1's gun space, bakes procedural finishes (edge wear, cavity grime,
+stipple, wood grain, normals) in Cycles into one 2048 texture set per weapon,
+and writes the game GLB, the editable `.blend` (every piece with its modifiers,
+before the bake) and a preview sheet under `previews/`. Each exported material
+carries its flat colour as the glTF extra `tint` for the third-person view.
+From the repository root:
+
+```text
+blender --background --factory-startup --python tools/weapon/pistol.py
+```
+
+In the Blender session, `bkit.run(r"tools/weapon/pistol.py", draft=True)`
+renders a quick flat-shaded sheet without baking. The rig numbers in
+`packages/fps-client/src/viewmodel/kit.ts` follow the landmarks at the top of
+each generator; check idle, aim, reload and inspect in the viewer after editing.
+
+- `pistol.py`: the Warden 9 (slide and magazine pivots match the rig).
 
 The Wasp 9's detailed replacement is built in the same way with
 `blender --background --factory-startup --python tools/weapon/wasp.py`.

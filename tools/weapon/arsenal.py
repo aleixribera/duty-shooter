@@ -1,4 +1,6 @@
-"""Build the v2 weapons and the frag grenade for the first-person view.
+"""Build the remaining v2 weapons and the frag grenade for the first-person view.
+
+The pistol has its own generator, pistol.py (see gunsmith.py).
 
 Run in the Blender session (see the blender skill):
     bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="smg")
@@ -178,27 +180,6 @@ def build_smg():
     return body + [mag]
 
 
-def build_pistol():
-    """Warden 9: a polymer-frame 9 mm pistol with a steel slide."""
-    s, d, p = [], [], []
-    p.append(prism("frame", [(-0.02, -0.0), (0.12, -0.0), (0.12, -0.016), (0.02, -0.016), (0.0, -0.03), (-0.02, -0.03)], 0.026, POLY, 0.003))
-    p.append(prism("grip", [(-0.03, -0.012), (0.012, -0.012), (0.004, -0.12), (-0.04, -0.118)], 0.03, POLY, 0.005))
-    p.append(prism("trigger_guard", [(0.012, -0.014), (0.07, -0.014), (0.07, -0.022), (0.058, -0.048), (0.012, -0.048), (0.012, -0.042), (0.052, -0.042), (0.062, -0.022), (0.012, -0.022)], 0.01, POLY, 0.001))
-    d.append(box("trigger", (0.005, 0.005, 0.02), (0, 0.03, -0.028), DARK, 0.0))
-    d.append(cyl("barrel_tip", 0.0062, 0.01, (0, 0.135, 0.016), DARK, verts=14))
-    body = bodies({"steel": s, "dark": d, "polymer": p})
-    # The slide recoils along -Y on its own.
-    slide = [box("slide_body", (0.026, 0.19, 0.032), (0, 0.04, 0.016), STEEL, 0.0025)]
-    for i in range(6):
-        slide.append(box(f"serration{i}", (0.0275, 0.003, 0.026), (0, -0.045 + i * 0.006, 0.016), DARK, 0.0))
-    slide.append(box("front_sight", (0.004, 0.006, 0.006), (0, 0.125, 0.035), DARK, 0.0))
-    slide.append(box("rear_sight", (0.02, 0.008, 0.007), (0, -0.045, 0.035), DARK, 0.0))
-    slide.append(box("port", (0.004, 0.022, 0.008), (0.012, 0.03, 0.022), DARK, 0.0))
-    slide_part = part("slide", slide, (0, 0.04, 0.016))
-    mag = part("mag", [box("mag_body", (0.02, 0.03, 0.1), (0, -0.012, -0.07), STEEL, 0.002), box("mag_base", (0.026, 0.038, 0.008), (0, -0.016, -0.122), POLY, 0.002)], (0, -0.012, -0.02))
-    return body + [slide_part, mag]
-
-
 def build_shotgun():
     """Harrow 12: a 12-gauge pump with a walnut stock and forend, steel receiver, tube under the barrel."""
     s, d, w = [], [], []
@@ -286,7 +267,7 @@ def build_frag():
     return body + [spoon, ring_part]
 
 
-BUILDERS = {"smg": build_smg, "pistol": build_pistol, "shotgun": build_shotgun, "sniper": build_sniper, "frag": build_frag}
+BUILDERS = {"smg": build_smg, "shotgun": build_shotgun, "sniper": build_sniper, "frag": build_frag}
 objs = BUILDERS[WEAPON]()
 result = bkit.check(objs, budget=20000)  # noqa: F821
 result["objects"] = [o.name for o in objs]

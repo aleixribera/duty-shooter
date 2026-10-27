@@ -13,3 +13,6 @@ coverage/
 # Blender backups and preview sheets
 *.blend1
 tools/weapon/previews/
+
+# Python bytecode from the Blender generators
+__pycache__/

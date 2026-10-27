@@ -460,7 +460,7 @@ class GunModels {
     });
   }
 
-  /** Bakes `root`'s meshes into one geometry in its own space, coloured `tint` or by each material's colour. */
+  /** Bakes `root`'s meshes into one geometry in its own space, coloured `tint` or by each material's flat colour. */
   #merge(root: Object3D, tint: Color | null): { geometry: BufferGeometry; material: MeshStandardNodeMaterial } {
     root.updateMatrixWorld(true);
     const inverse = root.matrixWorld.clone().invert();
@@ -474,8 +474,10 @@ class GunModels {
       if (source.getAttribute('normal')) g.setAttribute('normal', source.getAttribute('normal'));
       else g.computeVertexNormals();
       g.applyMatrix4(inverse.clone().multiply(mesh.matrixWorld));
-      const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as { color?: Color };
-      const c = tint ?? material.color ?? GUNMETAL;
+      const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as { color?: Color; userData: { tint?: [number, number, number] } };
+      // Textured weapon materials carry their flat colour as the glTF extra `tint`.
+      const flat = material.userData.tint ? new Color().fromArray(material.userData.tint) : null;
+      const c = tint ?? flat ?? material.color ?? GUNMETAL;
       const n = g.getAttribute('position').count;
       const colour = new Float32Array(n * 3);
       for (let v = 0; v < n; v++) colour.set([c.r, c.g, c.b], v * 3);
