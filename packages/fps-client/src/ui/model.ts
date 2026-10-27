@@ -12,6 +12,8 @@ export interface LobbyInfo {
   readonly botsPerTeam?: number;
   /** The most bots a side a first joiner may pick; 0 when the server has bots off. */
   readonly maxBotsPerTeam?: number;
+  /** Seats held for people who dropped and may come back (absent from servers older than rejoining). */
+  readonly away?: number;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
@@ -111,7 +113,7 @@ export interface ConnectionError {
 /** A failed join or a dropped connection, as the error screen explains it. `status` is the driver's status line, or null when the server did not answer. */
 export function connectionError(status: string | null): ConnectionError {
   if (status === 'Disconnected: idle.') {
-    return { kind: 'idle', title: 'Left the match', body: 'The game was in the background for over a minute, so the server gave your slot up. Join again to keep playing.' };
+    return { kind: 'idle', title: 'Left the match', body: 'The game was in the background for over a minute, so the server let you go. Join again within a few minutes to carry on where you left off.' };
   }
   if (status === null || status.startsWith('Disconnected') || status === 'down') {
     const detail = status && status !== 'down' ? ` (${status.replace(/^Disconnected: /, '').replace(/\.$/, '')})` : '';
@@ -147,7 +149,8 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
     players: `${status.players}/${status.capacity}`,
     mode: MODE_NAMES[status.mode] ?? status.mode,
     map: MAP_NAMES[status.map] ?? status.map,
-    pickMode: status.players === 0,
+    // Seats held for people who dropped keep the match on, so it is not the joiner's to pick.
+    pickMode: status.players === 0 && !(status.away ?? 0),
     full: status.players >= status.capacity,
     bots: status.bots ?? 0,
     botsPerTeam: status.botsPerTeam ?? 0,

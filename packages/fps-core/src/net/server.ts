@@ -2,10 +2,10 @@ import { Bot, type BotView } from '../bots/bot';
 import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
-import { MODE_IDS, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type SpawnPoint } from '../modes/game-mode';
+import { MODE_IDS, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint } from '../modes/game-mode';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { hashString } from '../random';
-import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type SimEvent, type TickOutput } from '../simulation';
+import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TickOutput } from '../simulation';
 import type { UserCmd } from '../usercmd';
 import type { World } from '../world';
 import {
@@ -52,6 +52,8 @@ export interface GameServerOptions {
   readonly bots?: BotOptions;
   /** Seconds a fresh spawn can't be hurt (it ends early once the player fires); SPAWN_PROTECTION by default. */
   readonly spawnProtection?: number;
+  /** Seconds a dropped player's seat is held for them to come back to; RECONNECT_GRACE by default, 0 lets it go at once. */
+  readonly reconnectGrace?: number;
 }
 
 /**
@@ -83,6 +85,12 @@ export const DEFAULT_MAX_PLAYERS = 8;
  * stand frozen in the match and keep the lobby from ever emptying.
  */
 export const IDLE_TIMEOUT = 60;
+/**
+ * Seconds a dropped player's seat is held. The match keeps running meanwhile,
+ * bots and all, even with everyone gone; a player back in time picks up where
+ * they left off, in the same spot with the same health, ammo and score.
+ */
+export const RECONNECT_GRACE = 300;
 const DEFAULT_MAX_MESSAGE = 8 * 1024;
 const DEFAULT_RATE = 180;
 /** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
@@ -105,6 +113,22 @@ interface Client {
   windowStart: number;
   /** Simulation time of the client's last message. */
   heard: number;
+  /** The seat's secret, sent in the welcome; joining again with it takes the seat back after a drop. */
+  token: string;
+}
+
+/** A seat held for a player who dropped, until they come back or the grace period runs out. */
+interface AwaySeat {
+  readonly id: PlayerId;
+  readonly name: string;
+  readonly token: string;
+  /** Their full simulation state and scoreboard row when they dropped. */
+  readonly state: PlayerState;
+  readonly score: Score;
+  /** The match they left; back in a later one, they join it fresh. */
+  readonly match: number;
+  /** Simulation time the seat is let go. */
+  readonly until: number;
 }
 
 /** What the lobby status endpoint reports. */
@@ -113,6 +137,8 @@ export interface LobbyStatus {
   readonly mode: ModeId;
   /** People playing (bots aside). */
   readonly players: number;
+  /** Seats held for people who dropped and may come back; the match runs on for them. */
+  readonly away: number;
   readonly capacity: number;
   readonly phase: Phase;
   /** Bots playing now. */
@@ -162,6 +188,10 @@ export class GameServer {
   #lastEvents: readonly SimEvent[] = [];
   /** When each player last spawned, while their spawn protection lasts. */
   readonly #protectedSince = new Map<PlayerId, number>();
+  /** Held seats by token. */
+  readonly #away = new Map<string, AwaySeat>();
+  /** Counts matches started, so a held seat knows whether its match is still on. */
+  #matchNumber = 0;
 
   constructor(transport: ServerTransport, options: GameServerOptions) {
     this.#options = options;
@@ -208,6 +238,7 @@ export class GameServer {
       map: this.#options.map ?? 'range',
       mode: this.#mode.id,
       players: this.playerCount,
+      away: this.#away.size,
       capacity: this.maxPlayers,
       phase: this.#phase,
       bots: this.#bots.size,
@@ -246,6 +277,11 @@ export class GameServer {
     return [...this.#clients].filter((c) => c.id !== null).length;
   }
 
+  /** People playing plus seats held for those who dropped: what bots and the player cap make room for. */
+  get #seated(): number {
+    return this.playerCount + this.#away.size;
+  }
+
   get latest(): TickOutput {
     return this.#last;
   }
@@ -266,7 +302,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '' };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose(() => this.#drop(client));
@@ -305,7 +341,7 @@ export class GameServer {
         client.connection.close('join first');
         return;
       }
-      this.#join(client, message.name, message.passphrase, message.protocol, message.mode ?? null, message.bots ?? null);
+      this.#join(client, message.name, message.passphrase, message.protocol, message.mode ?? null, message.bots ?? null, message.resume ?? null);
       return;
     }
     if (message.t === 'join') {
@@ -329,16 +365,27 @@ export class GameServer {
     }
   }
 
-  #join(client: Client, rawName: string, passphrase: string, protocol: number, preferred: ModeId | null, bots: number | null): void {
+  #join(client: Client, rawName: string, passphrase: string, protocol: number, preferred: ModeId | null, bots: number | null, resume: string | null): void {
     if (protocol !== PROTOCOL_VERSION) return this.#reject(client, 'protocol');
     if (this.#options.passphrase && !samePassphrase(passphrase, this.#options.passphrase)) return this.#reject(client, 'passphrase');
-    if (this.playerCount >= this.maxPlayers) return this.#reject(client, 'full');
+    if (resume !== null) {
+      // The seat is still connected (a half-open socket, another tab): that connection drops, holding the seat for this one.
+      const holder = [...this.#clients].find((c) => c !== client && c.id !== null && c.token === resume);
+      if (holder) {
+        this.#drop(holder);
+        holder.connection.close('replaced');
+      }
+      const away = this.#away.get(resume);
+      if (away) return this.#resume(client, away);
+    }
+    if (this.#seated >= this.maxPlayers) return this.#reject(client, 'full');
     const name = cleanName(rawName);
     if (!name) return this.#reject(client, 'name');
-    const first = this.playerCount === 0;
+    const first = this.#seated === 0;
     const id = `p${this.#nextId++}`;
     client.id = id;
     client.name = name;
+    client.token = seatToken();
     this.#names.set(id, name);
     if (first && !this.#options.bots?.alwaysOn) {
       // The first player on an empty server starts a fresh match, in the mode and with the bots they asked for.
@@ -355,7 +402,23 @@ export class GameServer {
 
   #welcome(client: Client): void {
     if (client.id === null) return;
-    this.#send(client, { t: 'welcome', id: client.id, tick: this.simulation.tick, mode: this.#mode.id, map: this.#options.map ?? 'range', maxPlayers: this.maxPlayers });
+    this.#send(client, { t: 'welcome', id: client.id, tick: this.simulation.tick, mode: this.#mode.id, map: this.#options.map ?? 'range', maxPlayers: this.maxPlayers, token: client.token });
+  }
+
+  /** A player back in their held seat: in the match they left, exactly where and as they were; in a later one, joining it fresh. */
+  #resume(client: Client, away: AwaySeat): void {
+    this.#away.delete(away.token);
+    client.id = away.id;
+    client.name = away.name;
+    client.token = away.token;
+    this.#names.set(away.id, away.name);
+    if (away.match === this.#matchNumber) {
+      this.#mode.rejoin(away.score);
+      this.simulation.setPlayerState(away.state);
+      // A moment's protection while the returning page finds its feet.
+      this.#protectedSince.set(away.id, this.simulation.time);
+    } else this.#add(away.id, away.name);
+    this.#welcome(client);
   }
 
   #intermissionLengths(): { nuke: number; vote: number } {
@@ -375,6 +438,7 @@ export class GameServer {
   #startMatch(mode: ModeId): ModeEvent {
     const previous = this.#mode;
     this.#mode = this.#modes[mode];
+    this.#matchNumber += 1;
     this.#phase = 'playing';
     this.#matchStart = this.simulation.time;
     this.#endedAt = null;
@@ -436,9 +500,9 @@ export class GameServer {
     return since !== undefined && this.simulation.time - since < (this.#options.spawnProtection ?? SPAWN_PROTECTION) - 1e-9;
   }
 
-  /** How many bots should be playing. */
+  /** How many bots should be playing: a held seat stays empty for its player, and keeps the bots on with nobody connected. */
   #botTarget(): number {
-    const people = this.playerCount;
+    const people = this.#seated;
     if (!this.#options.bots || (people === 0 && !this.#options.bots.alwaysOn)) return 0;
     const wanted = this.#botsPerTeam * 2 - people;
     return Math.max(0, Math.min(wanted, this.maxPlayers - people));
@@ -486,13 +550,33 @@ export class GameServer {
   }
 
   #drop(client: Client): void {
-    this.#clients.delete(client);
-    if (client.id !== null) {
-      this.#remove(client.id);
-      // The last person out takes the bots along, and the next lobby starts from the default.
-      if (this.playerCount === 0 && !this.#options.bots?.alwaysOn) this.#botsPerTeam = this.#defaultBots();
-      this.#fillBots();
-    }
+    if (!this.#clients.delete(client) || client.id === null) return;
+    this.#hold(client);
+    this.#remove(client.id);
+    this.#seatsChanged();
+  }
+
+  /** Holds a dropped player's seat for the grace period, with their state and score as they left. */
+  #hold(client: Client): void {
+    const id = client.id as PlayerId;
+    const grace = this.#options.reconnectGrace ?? RECONNECT_GRACE;
+    const state = this.simulation.playerState(id);
+    const score = this.#mode.scores().find((s) => s.id === id);
+    if (grace <= 0 || !state || !score) return;
+    this.#away.set(client.token, { id, name: client.name, token: client.token, state, score, match: this.#matchNumber, until: this.simulation.time + grace });
+  }
+
+  /** Lets go of held seats whose grace period ran out. */
+  #releaseAway(): void {
+    const held = this.#away.size;
+    for (const [token, away] of this.#away) if (this.simulation.time >= away.until - 1e-9) this.#away.delete(token);
+    if (this.#away.size < held) this.#seatsChanged();
+  }
+
+  /** A seat emptied: bots fill or leave to match. The last seat out takes the bots along, and the next lobby starts from the default. */
+  #seatsChanged(): void {
+    if (this.#seated === 0 && !this.#options.bots?.alwaysOn) this.#botsPerTeam = this.#defaultBots();
+    this.#fillBots();
   }
 
   #context(): ModeContext {
@@ -510,6 +594,7 @@ export class GameServer {
 
   /** Runs one server tick: queued usercmds, the simulation, the game mode and match flow, then snapshots. */
   tick(): TickOutput {
+    this.#releaseAway();
     const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd | UserCmd[]> = {};
     for (const client of [...this.#clients]) {
@@ -641,6 +726,14 @@ function samePassphrase(given: string, expected: string): boolean {
   let diff = given.length ^ expected.length;
   for (let i = 0; i < Math.max(given.length, expected.length); i++) diff |= (given.charCodeAt(i) || 0) ^ (expected.charCodeAt(i) || 0);
   return diff === 0;
+}
+
+/** A fresh, unguessable seat token (32 hex digits). */
+function seatToken(): string {
+  const bytes = new Uint8Array(16);
+  // Web Crypto is global in Node and every browser, secure context or not; fps-core's lib settings just don't declare it.
+  (globalThis as unknown as { crypto: { getRandomValues(array: Uint8Array): Uint8Array } }).crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** Trims a display name to printable characters and a maximum length. */

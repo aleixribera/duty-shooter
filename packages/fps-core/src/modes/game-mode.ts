@@ -89,6 +89,8 @@ export interface GameMode {
   /** A joining player's team. */
   join(id: PlayerId, name: string, ctx: ModeContext): TeamId;
   leave(id: PlayerId): void;
+  /** A player back from a drop in the same match: their row, team and kills as they left them, already spawned. */
+  rejoin(score: Score): void;
   /** Friendly-fire rule. Dummies are always fair game. */
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean;
   /** Where `id` should (re)spawn. */

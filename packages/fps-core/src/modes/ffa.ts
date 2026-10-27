@@ -55,6 +55,11 @@ export class FreeForAll implements GameMode {
     this.#spawned.delete(id);
   }
 
+  rejoin(score: Score): void {
+    this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths });
+    this.#spawned.add(score.id);
+  }
+
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
     return attacker.id !== victim.id;
   }

@@ -15,6 +15,8 @@ export interface GameClientOptions {
   readonly mode?: ModeId;
   /** Bots a side to ask for; also honoured only on an empty server. */
   readonly bots?: number;
+  /** A seat token from an earlier welcome, to take that seat back if the server still holds it. */
+  readonly resume?: string;
   /** How far behind the newest snapshot other players are drawn, in ticks. */
   readonly interpolationDelay?: number;
   /** Half-life (s) of the visual smoothing applied to prediction corrections. */
@@ -53,6 +55,7 @@ export class GameClient {
   #rejectReason: RejectReason | null = null;
   #closeReason: string | null = null;
   #id: PlayerId | null = null;
+  #token: string | null = null;
   #ticks = 0;
   #lastJoin = -Infinity;
   #seq = 0;
@@ -98,6 +101,11 @@ export class GameClient {
 
   get closeReason(): string | null {
     return this.#closeReason;
+  }
+
+  /** This seat's token once joined: join again with it as `resume` to come back to the seat after a drop. */
+  get token(): string | null {
+    return this.#token;
   }
 
   get id(): PlayerId | null {
@@ -180,7 +188,7 @@ export class GameClient {
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}) }),
       );
     }
     this.#advanceClock();
@@ -214,6 +222,7 @@ export class GameClient {
       if (message.t === 'welcome') {
         this.#status = 'joined';
         this.#id = message.id;
+        this.#token = message.token;
         this.#serverTick = message.tick;
       } else if (message.t === 'reject') {
         this.#status = 'rejected';

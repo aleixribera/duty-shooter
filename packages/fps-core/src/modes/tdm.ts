@@ -66,6 +66,11 @@ export class TeamDeathmatch implements GameMode {
     this.#recent.forget(id);
   }
 
+  rejoin(score: Score): void {
+    this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths, order: this.#order++ });
+    this.#spawned.add(score.id);
+  }
+
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
     return attacker.id !== victim.id && attacker.team !== victim.team;
   }

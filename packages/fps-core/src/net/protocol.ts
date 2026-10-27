@@ -3,13 +3,16 @@ import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
 
 /** Events stay in snapshots for this many ticks, so a lost snapshot's events arrive with a later one. */
 export const EVENT_RESEND_TICKS = 20;
+
+/** Longest seat token accepted in a join. */
+const MAX_TOKEN = 64;
 
 export type RejectReason = 'passphrase' | 'full' | 'protocol' | 'name';
 
@@ -29,6 +32,8 @@ export type ClientMessage =
       readonly mode?: ModeId;
       /** Bots a side the joiner would like (within the server's cap); honoured only on an empty server. */
       readonly bots?: number;
+      /** The seat token from an earlier welcome: a player back within the grace period takes up where they left off. */
+      readonly resume?: string;
     }
   /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
   | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
@@ -91,7 +96,8 @@ export interface Snapshot {
 }
 
 export type ServerMessage =
-  | { readonly t: 'welcome'; readonly id: string; readonly tick: number; readonly mode: ModeId; readonly map: string; readonly maxPlayers: number }
+  /** `token` is this seat's secret: joining again with it as `resume` takes the seat back after a drop. */
+  | { readonly t: 'welcome'; readonly id: string; readonly tick: number; readonly mode: ModeId; readonly map: string; readonly maxPlayers: number; readonly token: string }
   | { readonly t: 'reject'; readonly reason: RejectReason }
   | Snapshot;
 
@@ -109,11 +115,12 @@ export function decodeClient(data: string): ClientMessage | null {
   }
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
-    const { name, passphrase, protocol, mode, bots } = value;
+    const { name, passphrase, protocol, mode, bots, resume } = value;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
     if (mode !== undefined && !isMode(mode)) return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
-    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }) };
+    if (resume !== undefined && !(typeof resume === 'string' && resume.length <= MAX_TOKEN)) return null;
+    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }), ...(resume === undefined ? {} : { resume }) };
   }
   if (value['t'] === 'vote') {
     const { mode } = value;

@@ -44,7 +44,7 @@ const teamSizes = (m: NetworkedMatch) => [1, 2].map((t) => fighters(m).filter((p
 
 describe('bot fill', () => {
   it('makes nobody wait: one person gets five bots for a 3v3, people take their seats, and the bots go when the last person leaves', () => {
-    const m = match();
+    const m = match({ reconnectGrace: 0 });
     expect(m.server.bots.size).toBe(0);
     const alice = join(m, 'alice');
     expect(m.server.bots.size).toBe(5);
@@ -79,7 +79,7 @@ describe('bot fill', () => {
   });
 
   it("takes the first player's choice of bots per side, up to the cap, until the server empties", () => {
-    const m = match();
+    const m = match({ reconnectGrace: 0 });
     const alice = join(m, 'alice', { bots: 1 });
     expect(m.server.bots.size).toBe(1);
     // Later joiners don't get a say.

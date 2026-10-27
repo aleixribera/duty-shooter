@@ -24,6 +24,7 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly idleTimeout?: number;
   readonly bots?: BotOptions;
   readonly spawnProtection?: number;
+  readonly reconnectGrace?: number;
 }
 
 /** A client in the match, with every frame it produced. */
@@ -46,7 +47,7 @@ export interface NetworkedMatch {
   readonly server: GameServer;
   readonly network: MemoryNetwork;
   /** Connects a client that will join with `name` and `passphrase` (the server's by default), optionally asking for a mode. */
-  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number }): NetworkedClient;
+  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number; resume?: string }): NetworkedClient;
   /** One tick: deliver due messages, step the server, then step every client with its usercmd. */
   step(cmds?: Readonly<Record<string, UserCmd>>): TickOutput;
   run(ticks: number, script?: NetworkedScript): TickOutput[];
@@ -73,6 +74,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.idleTimeout === undefined ? {} : { idleTimeout: options.idleTimeout }),
     ...(options.bots ? { bots: options.bots } : {}),
     ...(options.spawnProtection === undefined ? {} : { spawnProtection: options.spawnProtection }),
+    ...(options.reconnectGrace === undefined ? {} : { reconnectGrace: options.reconnectGrace }),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];
@@ -100,7 +102,8 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     server,
     network,
     join(name, joinOptions = {}) {
-      if (clients.has(name)) throw new Error(`Client ${name} already joined`);
+      // A name whose client has closed may join again (coming back after a drop).
+      if (clients.get(name)?.client.status === 'joined') throw new Error(`Client ${name} already joined`);
       const client = new GameClient({
         connection: network.connect(),
         world: createWorld(options.solids),
@@ -108,6 +111,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
         passphrase: joinOptions.passphrase ?? passphrase,
         ...(joinOptions.mode ? { mode: joinOptions.mode } : {}),
         ...(joinOptions.bots === undefined ? {} : { bots: joinOptions.bots }),
+        ...(joinOptions.resume ? { resume: joinOptions.resume } : {}),
       });
       const entry = { name, client, frames: [] as ClientFrame[] };
       clients.set(name, entry);

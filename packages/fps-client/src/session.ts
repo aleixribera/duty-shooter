@@ -171,14 +171,20 @@ export interface OnlineOptions {
   readonly bots?: number;
   readonly name: string;
   readonly passphrase: string;
+  /** Where the page keeps its seat token (localStorage), so a dropped or reloaded game takes its seat back; none without. */
+  readonly seatKey?: string;
 }
 
 /** Networked play against the authoritative server, with prediction and interpolation. */
 export class OnlineDriver implements GameDriver {
   readonly online = true;
   readonly #client: GameClient;
+  readonly #seatKey: string | null;
+  #savedToken: string | null;
 
   constructor(options: OnlineOptions) {
+    this.#seatKey = options.seatKey ?? null;
+    this.#savedToken = this.#seatKey === null ? null : readStorage(this.#seatKey);
     this.#client = new GameClient({
       connection: typeof options.server === 'string' ? connectWebSocket(options.server) : options.server,
       world: createWorld(options.solids),
@@ -186,6 +192,7 @@ export class OnlineDriver implements GameDriver {
       passphrase: options.passphrase,
       ...(options.mode ? { mode: options.mode } : {}),
       ...(options.bots === undefined ? {} : { bots: options.bots }),
+      ...(this.#savedToken ? { resume: this.#savedToken } : {}),
     });
   }
 
@@ -255,6 +262,11 @@ export class OnlineDriver implements GameDriver {
 
   tick(cmd: UserCmd): DriverTick {
     const frame = this.#client.tick(cmd);
+    const token = this.#client.token;
+    if (this.#seatKey !== null && token !== null && token !== this.#savedToken) {
+      this.#savedToken = token;
+      writeStorage(this.#seatKey, token);
+    }
     return { self: frame.self, events: [...frame.predicted, ...frame.server] };
   }
 
@@ -269,6 +281,23 @@ export class OnlineDriver implements GameDriver {
 
   dispose(): void {
     this.#client.close();
+  }
+}
+
+/** localStorage can be missing or throw (private windows, blocked site data); the seat is then just not remembered. */
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not remembered: a rejoin starts afresh.
   }
 }
 
