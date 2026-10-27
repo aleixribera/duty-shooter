@@ -57,6 +57,16 @@ export function raycastWorld(world: World, a: Vec3, b: Vec3): WorldHit | null {
   return { t: best.t, point, normal: solidNormal(solid, point), material: solid.material, solid: best.index };
 }
 
+/** True when a person's sight from `a` to `b` is blocked: walls, roofs and cars hide, windows and props don't. */
+export function sightBlocked(world: World, a: Vec3, b: Vec3): boolean {
+  return (
+    world.bullets.firstHit(a, b, (i) => {
+      const s = world.solids[i] as Solid;
+      return s.prop === null && s.material !== 'glass' ? segmentSolid(a, b, s) : null;
+    }) !== null
+  );
+}
+
 /** Entry fraction of the segment a→b into a solid, or null on a miss. */
 export function segmentSolid(a: Vec3, b: Vec3, s: Solid): number | null {
   const o = s.orientation;

@@ -1,5 +1,5 @@
 import { zoneCentre, type HitPose, type HitZone } from '../combat/hitboxes';
-import { segmentSolid } from '../combat/projectiles';
+import { sightBlocked } from '../combat/projectiles';
 import { angleDelta, anglesOf, DEG, type Vec3 } from '../math';
 import { hashString, noise } from '../random';
 import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
@@ -68,16 +68,6 @@ const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, 
 const eyeOf = (p: PlayerOutput): Vec3 => [p.position[0], p.position[1] + p.eyeHeight, p.position[2]];
 const flat = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[2] - a[2]);
 const yawTo = (a: Vec3, b: Vec3) => Math.atan2(-(b[0] - a[0]), -(b[2] - a[2]));
-
-/** True when glass-free sight from `a` to `b` is blocked: walls, roofs and cars hide, windows don't. */
-function sightBlocked(world: World, a: Vec3, b: Vec3): boolean {
-  return (
-    world.bullets.firstHit(a, b, (i) => {
-      const s = world.solids[i]!;
-      return s.prop === null && s.material !== 'glass' ? segmentSolid(a, b, s) : null;
-    }) !== null
-  );
-}
 
 /**
  * One bot: reads the match the way a player would (what's in its view and

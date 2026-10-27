@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
+import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, sightBlocked, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { environmentAt } from '@duty-shooter/fps-client/map-sound';
@@ -148,6 +148,23 @@ describe('Survival Town: spawns', () => {
       expect(forward[0]! * -x + forward[1]! * -z).toBeGreaterThan(0);
     }
   });
+
+  it('no spawn faces a wall: the view ahead is open for 4 m', () => {
+    for (const spawn of [...map.spawns.ffa, ...map.spawns.teams!.flat()]) {
+      const [x, y, z] = spawn.position;
+      const eye: Vec3 = [x, y + STATS.stance.standEyeHeight.value, z];
+      const ahead: Vec3 = [x - Math.sin(spawn.yaw) * 4, eye[1], z - Math.cos(spawn.yaw) * 4];
+      expect(sightBlocked(world, eye, ahead), `${spawn.position.join(',')}`).toBe(false);
+    }
+  });
+
+  for (const [name, set] of sets) {
+    it(`no two ${name} spawns are within 3 m of each other`, () => {
+      for (const [i, a] of set.entries()) {
+        for (const b of set.slice(i + 1)) expect(Math.hypot(a.position[0] - b.position[0], a.position[2] - b.position[2]), `${a.position.join(',')} / ${b.position.join(',')}`).toBeGreaterThan(3);
+      }
+    });
+  }
 });
 
 describe('Survival Town: routes', () => {

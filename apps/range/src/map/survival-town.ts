@@ -1081,19 +1081,20 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
   const team = (s: -1 | 1) => YARD_SPAWNS.map(([x, d]): SpawnPoint => ({ position: [x, 0, s * d], yaw: faceCentre(x, s * d) }));
   const ffa: SpawnPoint[] = [];
   for (const s of [-1, 1] as const) {
-    for (const [x, d] of [
-      [-18, 38],
-      [-4, 40],
-      [-7.5, 45.5],
-      [-19.9, 24], // west side yard, clear of the fence
-      [8.5, 18.5], // east side path
-      [-19, 6], // front lawn, west
-      [16.5, 6.5], // the sidewalk by the street end
-      [-12.5, 16.5], // inside the garage
-      [8.15, 30.5], // east side path, past the raised bed
-      [15, 4.5], // by the street end, beside the bus and the truck
+    // Along the side paths, facing down them toward the street rather than into the house wall beside them.
+    const alongPath = s > 0 ? 0 : Math.PI;
+    for (const [x, d, yaw] of [
+      [-18, 38, null],
+      [-4, 40, null],
+      [-7.5, 45.5, null],
+      [-19.9, 24, alongPath], // west side yard, clear of the fence
+      [8.5, 18.5, null], // east side path
+      [-19, 6, null], // front lawn, west
+      [-12.5, 16.5, null], // inside the garage
+      [8.15, 30.5, alongPath], // east side path, past the raised bed
+      [15, 4.5, null], // by the street end, beside the bus and the truck
     ] as const) {
-      ffa.push({ position: [x, 0, s * d], yaw: faceCentre(x, s * d) });
+      ffa.push({ position: [x, 0, s * d], yaw: yaw ?? faceCentre(x, s * d) });
     }
   }
   return { ffa, teams: [team(-1), team(1)] };

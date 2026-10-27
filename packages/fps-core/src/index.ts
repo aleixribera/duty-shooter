@@ -26,7 +26,7 @@ export type {
 export { hitboxes, zoneCentre } from './combat/hitboxes';
 export type { HitPose, HitZone } from './combat/hitboxes';
 export { bulletDamage, rangeDamage, zoneMultiplier } from './combat/damage';
-export { raycastWorld, segmentSolid, solidNormal } from './combat/projectiles';
+export { raycastWorld, segmentSolid, sightBlocked, solidNormal } from './combat/projectiles';
 export type { WorldHit } from './combat/projectiles';
 export { recoilKick } from './weapon/weapon';
 export { BOT_NAMES, Bot, botName, botProfile, buildNavGraph, findPath, linkKind, nearestNode } from './bots';

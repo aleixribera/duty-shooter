@@ -1,4 +1,4 @@
-import { raycastWorld } from '../combat/projectiles';
+import { sightBlocked } from '../combat/projectiles';
 import { distance, type Vec3 } from '../math';
 import type { PlayerOutput } from '../simulation';
 import { STATS } from '../stats';
@@ -17,9 +17,28 @@ function eye(position: Vec3, height: number): Vec3 {
   return [position[0], position[1] + height, position[2]];
 }
 
-/** True when the living enemy can see a player standing on the spawn point. */
+/** True when the living enemy can see a player standing on the spawn point (windows don't hide anyone). */
 function seenBy(enemy: PlayerOutput, spawn: SpawnPoint, ctx: ModeContext): boolean {
-  return raycastWorld(ctx.world, eye(enemy.position, enemy.eyeHeight), eye(spawn.position, STATS.stance.standEyeHeight.value)) === null;
+  return !sightBlocked(ctx.world, eye(enemy.position, enemy.eyeHeight), eye(spawn.position, STATS.stance.standEyeHeight.value));
+}
+
+/** Two spawn points closer than this (m) are the same place. */
+const SAME_PLACE = 0.5;
+
+function samePlace(a: SpawnPoint, b: SpawnPoint): boolean {
+  return distance(a.position, b.position) < SAME_PLACE;
+}
+
+/** `spawns` with any point at the same place as an earlier one left out. */
+export function distinctSpawns(spawns: readonly SpawnPoint[]): SpawnPoint[] {
+  const out: SpawnPoint[] = [];
+  for (const s of spawns) if (!out.some((o) => samePlace(o, s))) out.push(s);
+  return out;
+}
+
+/** True when a living enemy stands within 8 m of the spawn. */
+export function overrun(spawn: SpawnPoint, enemies: readonly PlayerOutput[]): boolean {
+  return enemies.some((e) => distance(e.position, spawn.position) < TOO_CLOSE);
 }
 
 /**
@@ -37,7 +56,7 @@ export function scoredSpawn(candidates: readonly SpawnPoint[], teammates: readon
     const rank = [
       nearestEnemy >= TOO_CLOSE ? 1 : 0,
       enemies.some((e) => seenBy(e, spawn, ctx)) ? 0 : 1,
-      recent.includes(spawn) ? 0 : 1,
+      recent.some((r) => samePlace(r, spawn)) ? 0 : 1,
       Math.min(FAR_ENOUGH, nearestEnemy) - TEAMMATE_WEIGHT * Math.min(FAR_ENOUGH, nearestMate),
     ];
     if (!best || better(rank, best.rank)) best = { spawn, rank };

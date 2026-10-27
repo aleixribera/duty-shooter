@@ -35,6 +35,8 @@ export class FreeForAll implements GameMode {
   /** Rotates spawns when no living enemy separates them. */
   #nextSpawn = 0;
   readonly #recent = new RecentSpawns();
+  /** Players who have spawned since the match started. */
+  readonly #spawned = new Set<PlayerId>();
 
   constructor(options: FreeForAllOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 30 : options.killLimit;
@@ -50,6 +52,7 @@ export class FreeForAll implements GameMode {
   leave(id: PlayerId): void {
     this.#entries.delete(id);
     this.#recent.forget(id);
+    this.#spawned.delete(id);
   }
 
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
@@ -57,7 +60,9 @@ export class FreeForAll implements GameMode {
   }
 
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
-    const enemies = ctx.players.filter((p) => p.id !== id && p.alive);
+    // Only players placed this match count: the rest still stand where the last match left them.
+    const enemies = ctx.players.filter((p) => p.id !== id && p.alive && this.#spawned.has(p.id));
+    this.#spawned.add(id);
     if (enemies.length === 0) {
       const spawn = ctx.spawns[this.#nextSpawn++ % ctx.spawns.length];
       if (!spawn) throw new Error('No spawn points');
@@ -71,6 +76,7 @@ export class FreeForAll implements GameMode {
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
     this.#entries.clear();
     this.#recent.clear();
+    this.#spawned.clear();
     this.#result = null;
     const teams = new Map<PlayerId, TeamId>();
     for (const e of entrants) teams.set(e.id, this.join(e.id, e.name));

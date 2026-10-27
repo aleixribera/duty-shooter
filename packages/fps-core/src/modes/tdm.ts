@@ -1,6 +1,6 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
 import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type Score, type SpawnPoint, type TeamScore } from './game-mode';
-import { RecentSpawns, scoredSpawn } from './spawns';
+import { RecentSpawns, distinctSpawns, overrun, scoredSpawn } from './spawns';
 
 export interface TeamDeathmatchOptions {
   /** Team kills that win the match; null for none. Defaults to 75. */
@@ -27,7 +27,7 @@ interface Entry {
  * Team deathmatch: two teams, no friendly fire. Joiners go to the smaller
  * team (on a tie, the one behind on score); teams are rebalanced at match
  * start with as few moves as possible. A player's first spawn of a match is
- * at their team's spawn set; later spawns are out of enemy sight, near
+ * at their team's spawn set, unless enemies stand in it; later spawns are out of enemy sight, near
  * teammates and away from enemies. The first team to the kill limit wins; at
  * the time limit the leading team wins, and a tie is a draw.
  */
@@ -73,17 +73,23 @@ export class TeamDeathmatch implements GameMode {
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
     const team = this.#entries.get(id)?.team ?? TEAMS[0];
     const first = !this.#spawned.has(id);
+    // Only players placed this match count: the rest still stand where the last match left them.
+    const living = ctx.players.filter((p) => p.id !== id && p.alive && this.#spawned.has(p.id));
     this.#spawned.add(id);
-    const own = ctx.teamSpawns?.[TEAMS.indexOf(team)] ?? null;
-    if (first && own && own.length > 0) {
-      const i = this.#nextFirst.get(team) ?? 0;
-      this.#nextFirst.set(team, i + 1);
-      return this.#recent.add(id, own[i % own.length] as SpawnPoint);
-    }
-    const living = ctx.players.filter((p) => p.id !== id && p.alive);
     const mates = living.filter((p) => p.team === team);
     const enemies = living.filter((p) => p.team !== team);
-    const candidates = [...(ctx.teamSpawns ?? []).flat(), ...ctx.spawns];
+    const own = ctx.teamSpawns?.[TEAMS.indexOf(team)] ?? null;
+    if (first && own && own.length > 0) {
+      // The next of the team's own spawns with no enemy on it (at match start, all of them); a joiner mid-match whose yard is overrun spawns as on a respawn.
+      const i = this.#nextFirst.get(team) ?? 0;
+      for (let k = 0; k < own.length; k++) {
+        const spawn = own[(i + k) % own.length] as SpawnPoint;
+        if (overrun(spawn, enemies)) continue;
+        this.#nextFirst.set(team, i + k + 1);
+        return this.#recent.add(id, spawn);
+      }
+    }
+    const candidates = distinctSpawns([...(ctx.teamSpawns ?? []).flat(), ...ctx.spawns]);
     const spawn = scoredSpawn(candidates, mates, enemies, ctx, this.#recent.of(id));
     if (!spawn) throw new Error('No spawn points');
     return this.#recent.add(id, spawn);
