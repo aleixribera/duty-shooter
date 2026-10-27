@@ -17,6 +17,8 @@ export interface GameClientOptions {
   readonly bots?: number;
   /** A seat token from an earlier welcome, to take that seat back if the server still holds it. */
   readonly resume?: string;
+  /** Marks a scripted player (smoke and load tests) for the server's event log. */
+  readonly script?: boolean;
   /** How far behind the newest snapshot other players are drawn, in ticks. */
   readonly interpolationDelay?: number;
   /** Half-life (s) of the visual smoothing applied to prediction corrections. */
@@ -188,7 +190,7 @@ export class GameClient {
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}) }),
       );
     }
     this.#advanceClock();

@@ -22,11 +22,15 @@ FROM node:24-alpine
 ARG VERSION=dev
 LABEL org.opencontainers.image.source="https://github.com/aleixribera/duty-shooter"
 LABEL org.opencontainers.image.description="Duty Shooter: browser FPS with an authoritative 60 Hz server"
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DUTY_VERSION=${VERSION}
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DUTY_VERSION=${VERSION} EVENT_LOG=/data/events.jsonl
 WORKDIR /app
+# The event log's volume: the only writable path, owned by the user the server runs as.
+RUN mkdir /data && chown node:node /data
+VOLUME /data
 # ws has no runtime dependencies of its own.
 COPY --from=build /src/node_modules/ws ./node_modules/ws
 COPY --from=build /src/apps/server/dist/main.js ./server/main.mjs
+COPY --from=build /src/apps/server/dist/report.js ./server/report.mjs
 COPY --from=build /src/apps/range/dist ./public
 USER node
 EXPOSE 3000

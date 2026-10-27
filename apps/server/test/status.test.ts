@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -84,6 +84,32 @@ describe('server map setting', () => {
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', timeLimit: 45 });
     try {
       expect(server.game.matchStatus()).toMatchObject({ mode: 'tdm', timeLimit: 45 });
+    } finally {
+      await server.close();
+    }
+  });
+});
+
+describe('the event log', () => {
+  it('appends a JSON line for the start, a join and a leave, marks script players, and reports the protocol in the health check', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'duty-log-'));
+    const file = join(dir, 'data', 'events.jsonl');
+    const printed: string[] = [];
+    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir: dir, version: 'test', mode: 'tdm', map: 'range', eventLog: file, printLog: (line) => printed.push(line) });
+    try {
+      const health = await (await fetch(`http://127.0.0.1:${server.port}/healthz`)).json();
+      expect(health.protocol).toBe(PROTOCOL_VERSION);
+      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      await new Promise((done) => ws.addEventListener('open', done));
+      ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: '', protocol: health.protocol, script: true }));
+      await new Promise((done) => ws.addEventListener('message', done));
+      ws.close();
+      for (let i = 0; i < 50 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
+      const lines = readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      expect(lines.map((l) => l.event)).toEqual(['serverStart', 'join', 'matchStart', 'leave']);
+      expect(lines[1]).toMatchObject({ name: 'smoke', bot: false, script: true });
+      expect(lines.every((l) => typeof l.time === 'string')).toBe(true);
+      expect(printed).toHaveLength(lines.length);
     } finally {
       await server.close();
     }

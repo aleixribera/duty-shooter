@@ -12,7 +12,9 @@ Nothing secret lives in this repository. The player cap (and a passphrase, if yo
 
 1. Installs, typechecks and runs the test suite, and validates `compose.yaml`.
 2. Builds the image, runs it read-only with all capabilities dropped and checks it with `apps/server/scripts/smoke.mjs`. It runs two containers: one as a public lobby and one with a passphrase. The smoke test covers the page, `/healthz`, a join to the public lobby, a join with the passphrase, a rejected wrong passphrase, a refused cross-site socket and the passphrase lockout.
-3. Publishes `ghcr.io/aleixribera/duty-shooter:latest` and `:sha-<commit>` for amd64 and arm64.
+3. Publishes the image for amd64 and arm64: a push to `main` as `:latest`, a version tag `vX.Y.Z` as `:vX.Y.Z`, and both as `:sha-<commit>`. Only `main` moves `:latest`, so a release that pushes a commit and its tag together restarts the lobby once.
+
+The smoke test joins with the protocol `/healthz` reports. From v1.3.1 to v1.3.8 it sent a hard-coded protocol number that the protocol bump had left behind, every release failed the smoke step, and the live lobby stayed on v1.3.0 while main moved on.
 
 The first time, make the package public (or log the server in to GHCR): GitHub → your profile → Packages → `duty-shooter` → Package settings → Change visibility.
 
@@ -32,7 +34,7 @@ docker compose up -d --wait
 curl -fsS -w '\n' http://127.0.0.1:3090/healthz
 ```
 
-The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0"}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
+The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0","protocol":6}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
 
 The image's build stage bakes each map's lighting on the CPU, so a build takes a few minutes longer than the client alone. It runs on the builder's own platform, not under emulation.
 
@@ -40,7 +42,32 @@ The container listens on 3000 inside and is published on **127.0.0.1:3090** only
 
 The server limits each visitor's address to 12 open sockets and, with a passphrase set, 10 wrong passphrases. After the tenth wrong passphrase, that address is refused for 10 minutes. Funnel connects from loopback and names the visitor in `X-Forwarded-For`, which the server trusts from loopback only.
 
-Hardening, the same as the existing game: localhost-only binding, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, a 512 MB memory limit, `init`, and log rotation (3 × 10 MB). The server needs no writable paths.
+Hardening, the same as the existing game: localhost-only binding, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, a 512 MB memory limit, `init`, and log rotation (3 × 10 MB). The only writable path is `/data`, the `duty-data` named volume that holds the event log.
+
+## The event log and the play report
+
+The server appends one JSON line to `/data/events.jsonl` for every person or bot joining (`join`) and leaving (`leave`), every match starting (`matchStart`) and ending (`matchEnd`, with its length and result), and each server start (`serverStart`). Every line has the time, and joins and leaves say whether it was a bot (`bot`) or the smoke or load-test script (`script`). The same lines go to `docker compose logs`. The volume outlives the container, so redeploys keep the history.
+
+The play report reads the log and prints sessions per day, the peak of people at once, matches finished, and the time played by people and by bots. Script players are left out.
+
+```bash
+cd /opt/homelab/stacks/duty-shooter
+docker compose exec duty node server/report.mjs
+```
+
+## Pinning the live version
+
+The stack's `.env` can pin the image with `DUTY_IMAGE`. With a pin, `docker compose pull` and the auto-updater keep the container on that image whatever CI publishes.
+
+During the v2 arc (from 2026-10-27), the live lobby is pinned to the v1.3.9 image by digest, because v1.3.9 predates version-tagged images:
+
+```bash
+DUTY_IMAGE=ghcr.io/aleixribera/duty-shooter@sha256:6e38d814af6b4eb63d6266ac3135619cb9e8f480992bf3cfd1a458f086dbf215
+```
+
+Every ticket of the arc is still tagged and published (`:vX.Y.Z`), but none of them reaches the lobby.
+
+**Releasing v2.0.0** is one step: set the line back to `DUTY_IMAGE=ghcr.io/aleixribera/duty-shooter:latest` (or delete it) and run `docker compose up -d --wait`. To pin any later release instead, use its tag, for example `DUTY_IMAGE=ghcr.io/aleixribera/duty-shooter:v2.0.0`.
 
 ## Publish on Funnel port 443
 
@@ -68,7 +95,7 @@ sudo tailscale funnel --https=443 off
 
 ## Updating
 
-Updates are automatic. A push to `main` publishes a new image in about 3 minutes. The home server's `game-autoupdate` timer (in the `homelab-stacks` repo, `game-autoupdate/`) checks every 3 minutes. When the image changed **and the lobby is empty**, it recreates the container and waits for the health check. A new image that fails the check is rolled back. While anyone is playing, the update waits for a later check, so an update never ends a match. A player whose client goes silent for 60 s (a background tab or a minimised window, where the browser stops the game's frame loop) is let go, so a forgotten tab doesn't hold an update back.
+Updates are automatic unless the image is pinned (see above). A push to `main` publishes a new image in about 3 minutes. The home server's `game-autoupdate` timer (in the `homelab-stacks` repo, `game-autoupdate/`) checks every 3 minutes. When the image changed **and the lobby is empty**, it recreates the container (forced, so the new image always takes) and waits for the health check. A new image that fails the check is rolled back. While anyone is playing, the update waits for a later check, so an update never ends a match. A player whose client goes silent for 60 s (a background tab or a minimised window, where the browser stops the game's frame loop) is let go, so a forgotten tab doesn't hold an update back.
 
 ```bash
 journalctl --user -u game-autoupdate -n 50 --no-pager   # updates, waits and failures

@@ -15,6 +15,8 @@ const server = spawn(process.execPath, ['dist/main.js'], {
 });
 server.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
 await new Promise((r) => setTimeout(r, 800));
+// The protocol the server speaks, so this script never goes stale when it changes.
+const { protocol } = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.json());
 
 const sockets = [];
 for (let i = 0; i < clients; i++) {
@@ -25,7 +27,7 @@ for (let i = 0; i < clients; i++) {
   let received = 0;
   ws.on('message', () => (received += 1));
   ws.on('open', () => {
-    ws.send(JSON.stringify({ t: 'join', name: `bot${i}`, passphrase, protocol: 6 }));
+    ws.send(JSON.stringify({ t: 'join', name: `bot${i}`, passphrase, protocol, script: true }));
     const timer = setInterval(() => {
       seq += 1;
       yaw += (Math.random() - 0.5) * 0.1;

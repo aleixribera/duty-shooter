@@ -2,7 +2,8 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { GameServer, MAX_BOTS_PER_TEAM, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
+import { GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
+import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { MAP_IDS, buildMapById, mapSolids, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -27,6 +28,10 @@ export interface ServerOptions {
   readonly botsPerTeam?: number;
   /** The most bots a side a first joiner may ask for; 0 or absent turns bots off. Only on maps with a nav graph. */
   readonly maxBotsPerTeam?: number;
+  /** Where the event log is appended (one JSON line per join, leave, match start and end); stdout only when absent. */
+  readonly eventLog?: string;
+  /** Replaces stdout for the event log's lines (tests). */
+  readonly printLog?: (line: string) => void;
 }
 
 export interface RunningServer {
@@ -205,6 +210,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const world = createWorld(mapSolids(map));
   const maxBots = options.maxBotsPerTeam ?? 0;
+  const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});
+  log.write({ event: 'serverStart', version: options.version });
   const game = new GameServer(transport, {
     world,
     map: map.id,
@@ -216,11 +223,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     maxPlayers: options.maxPlayers,
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit } } }),
     ...(map.nav && maxBots > 0 ? { bots: { nav: buildNavGraph(world, map.nav), perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
+    onLog: (event) => log.write(event),
   });
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version }));
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version, protocol: PROTOCOL_VERSION }));
       return;
     }
     if (req.url === '/status') {
@@ -317,5 +325,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     ...(timeLimit === undefined ? {} : { timeLimit }),
     botsPerTeam,
     maxBotsPerTeam,
+    ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),
   };
 }

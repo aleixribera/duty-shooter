@@ -34,6 +34,8 @@ export type ClientMessage =
       readonly bots?: number;
       /** The seat token from an earlier welcome: a player back within the grace period takes up where they left off. */
       readonly resume?: string;
+      /** Set by the smoke and load-test scripts, so the event log doesn't count them as people. */
+      readonly script?: boolean;
     }
   /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
   | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
@@ -115,12 +117,22 @@ export function decodeClient(data: string): ClientMessage | null {
   }
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
-    const { name, passphrase, protocol, mode, bots, resume } = value;
+    const { name, passphrase, protocol, mode, bots, resume, script } = value;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
     if (mode !== undefined && !isMode(mode)) return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
     if (resume !== undefined && !(typeof resume === 'string' && resume.length <= MAX_TOKEN)) return null;
-    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }), ...(resume === undefined ? {} : { resume }) };
+    if (script !== undefined && typeof script !== 'boolean') return null;
+    return {
+      t: 'join',
+      name,
+      passphrase,
+      protocol,
+      ...(mode === undefined ? {} : { mode }),
+      ...(bots === undefined ? {} : { bots }),
+      ...(resume === undefined ? {} : { resume }),
+      ...(script ? { script } : {}),
+    };
   }
   if (value['t'] === 'vote') {
     const { mode } = value;

@@ -54,7 +54,23 @@ export interface GameServerOptions {
   readonly spawnProtection?: number;
   /** Seconds a dropped player's seat is held for them to come back to; RECONNECT_GRACE by default, 0 lets it go at once. */
   readonly reconnectGrace?: number;
+  /** Hears every join, leave, match start and match end, for the lobby's event log. */
+  readonly onLog?: (event: LobbyEvent) => void;
 }
+
+/** Something the lobby's event log records. Script players are the smoke and load tests'. */
+export type LobbyEvent =
+  | { readonly event: 'join' | 'leave'; readonly id: PlayerId; readonly name: string; readonly bot: boolean; readonly script: boolean }
+  | { readonly event: 'matchStart'; readonly map: string; readonly mode: ModeId; readonly hvb: boolean }
+  | {
+      readonly event: 'matchEnd';
+      readonly map: string;
+      readonly mode: ModeId;
+      readonly hvb: boolean;
+      /** Seconds the match lasted. */
+      readonly duration: number;
+      readonly result: MatchResult;
+    };
 
 /**
  * Bot fill: while anyone is playing, bots top the match up to `perTeam` a
@@ -115,6 +131,8 @@ interface Client {
   heard: number;
   /** The seat's secret, sent in the welcome; joining again with it takes the seat back after a drop. */
   token: string;
+  /** Joined by the smoke or load-test script. */
+  script: boolean;
 }
 
 /** A seat held for a player who dropped, until they come back or the grace period runs out. */
@@ -302,7 +320,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '' };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '', script: false };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose(() => this.#drop(client));
@@ -341,6 +359,7 @@ export class GameServer {
         client.connection.close('join first');
         return;
       }
+      client.script = message.script === true;
       this.#join(client, message.name, message.passphrase, message.protocol, message.mode ?? null, message.bots ?? null, message.resume ?? null);
       return;
     }
@@ -387,6 +406,7 @@ export class GameServer {
     client.name = name;
     client.token = seatToken();
     this.#names.set(id, name);
+    this.#log({ event: 'join', id, name, bot: false, script: client.script });
     if (first && !this.#options.bots?.alwaysOn) {
       // The first player on an empty server starts a fresh match, in the mode and with the bots they asked for.
       if (bots !== null) this.#botsPerTeam = Math.min(bots, this.maxBotsPerTeam);
@@ -412,6 +432,7 @@ export class GameServer {
     client.name = away.name;
     client.token = away.token;
     this.#names.set(away.id, away.name);
+    this.#log({ event: 'join', id: away.id, name: away.name, bot: false, script: client.script });
     if (away.match === this.#matchNumber) {
       this.#mode.rejoin(away.score);
       this.simulation.setPlayerState(away.state);
@@ -458,6 +479,7 @@ export class GameServer {
     const teams = this.#mode.start(entrants);
     for (const [id, team] of teams) this.simulation.setTeam(id, team);
     for (const seat of seats) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));
+    this.#log({ event: 'matchStart', map: this.#mapId, mode: this.#mode.id, hvb: false });
     return { type: 'matchStart', mode: this.#mode.id };
   }
 
@@ -512,9 +534,7 @@ export class GameServer {
   #rosterBots(): void {
     const target = this.#botTarget();
     while (this.#bots.size > target) {
-      const id = [...this.#bots.keys()].at(-1)!;
-      this.#bots.delete(id);
-      this.#remove(id);
+      this.#dismissBot([...this.#bots.keys()].at(-1)!);
     }
     while (this.#bots.size < target) {
       const id = this.#newBot();
@@ -530,9 +550,7 @@ export class GameServer {
       for (const p of this.simulation.output().players) if (p.kind === 'player') sizes.set(p.team, (sizes.get(p.team) ?? 0) + 1);
       const team = (id: PlayerId) => this.simulation.playerState(id)?.team ?? 0;
       const ids = [...this.#bots.keys()].reverse();
-      const id = ids.reduce((best, id) => ((sizes.get(team(id)) ?? 0) > (sizes.get(team(best)) ?? 0) ? id : best), ids[0]!);
-      this.#bots.delete(id);
-      this.#remove(id);
+      this.#dismissBot(ids.reduce((best, id) => ((sizes.get(team(id)) ?? 0) > (sizes.get(team(best)) ?? 0) ? id : best), ids[0]!));
     }
     while (this.#bots.size < target) {
       const id = this.#newBot();
@@ -546,11 +564,28 @@ export class GameServer {
     const name = botName(new Set(this.#names.values()), hashString(id));
     this.#names.set(id, name);
     this.#bots.set(id, { name, bot: new Bot(id, botProfile(name), this.#options.bots!.nav, this.simulation.world) });
+    this.#log({ event: 'join', id, name, bot: true, script: false });
     return id;
+  }
+
+  /** A bot leaves its seat. */
+  #dismissBot(id: PlayerId): void {
+    this.#log({ event: 'leave', id, name: this.#names.get(id) ?? id, bot: true, script: false });
+    this.#bots.delete(id);
+    this.#remove(id);
+  }
+
+  #log(event: LobbyEvent): void {
+    this.#options.onLog?.(event);
+  }
+
+  get #mapId(): string {
+    return this.#options.map ?? 'range';
   }
 
   #drop(client: Client): void {
     if (!this.#clients.delete(client) || client.id === null) return;
+    this.#log({ event: 'leave', id: client.id, name: client.name, bot: false, script: client.script });
     this.#hold(client);
     this.#remove(client.id);
     this.#seatsChanged();
@@ -662,6 +697,7 @@ export class GameServer {
       this.#endedAt = ctx.time;
       this.#result = result;
       events.push({ type: 'matchEnd', ...result });
+      this.#log({ event: 'matchEnd', map: this.#mapId, mode: this.#mode.id, hvb: false, duration: ctx.matchTime, result });
       return events;
     }
     // Respawns: after the mode's delay, at the spot it picks.

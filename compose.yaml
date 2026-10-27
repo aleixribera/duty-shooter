@@ -17,6 +17,9 @@ services:
       # Bots a side the lobby fills to while anyone plays, and the most a first joiner may pick.
       BOTS_PER_TEAM: "${BOTS_PER_TEAM:-3}"
       MAX_BOTS_PER_TEAM: "${MAX_BOTS_PER_TEAM:-4}"
+    # The event log (joins, leaves, matches) on the one writable path, kept across redeploys.
+    volumes:
+      - duty-data:/data
     read_only: true
     cap_drop:
       - ALL
@@ -28,3 +31,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  duty-data:

@@ -35,7 +35,7 @@ export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { IW_UNIT, STATS } from './stats';
 export type { Estimated, Provenance, Source, Sourced, Stat, Stats, Unit } from './stats';
 export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT, MAX_BOTS_PER_TEAM, RECONNECT_GRACE, SPAWN_PROTECTION } from './net/server';
-export type { BotOptions, GameServerOptions, LobbyStatus } from './net/server';
+export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus } from './net/server';
 export { GameClient } from './net/client';
 export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client';
 export type { Connection, ServerTransport } from './net/transport';

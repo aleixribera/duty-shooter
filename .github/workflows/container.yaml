@@ -44,6 +44,13 @@ jobs:
           echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           # A tagged release reads v1.2.0; later commits read v1.2.0-3-gabc1234.
           echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+          # A version tag publishes :vX.Y.Z (what the server can pin); only main moves :latest,
+          # so a release that pushes main and its tag together restarts the lobby once, not twice.
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "moving=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "moving=latest" >> "$GITHUB_OUTPUT"
+          fi
       - name: Set up multi-platform emulation
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Set up Docker builder
@@ -78,7 +85,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish latest and commit-tagged images
+      - name: Publish the latest (or version) and commit-tagged images
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -86,7 +93,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.moving }}
             ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
