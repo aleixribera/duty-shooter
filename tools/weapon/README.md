@@ -52,6 +52,12 @@ It writes `tools/weapon/shotgun.blend` and the game GLB. Its pump and support
 hand sit farther forward so the full pump stroke clears the receiver; keep
 the pump pivot and `KIT_RIGS.shotgun.left` aligned when changing the model.
 
+The Ridgeline replacement is built with
+`blender --background --factory-startup --python tools/weapon/ridgeline.py`.
+It writes `tools/weapon/sniper.blend` and the game GLB; the scope eye position,
+`bolt` pivot and `mag` pivot match the existing rig. Check the viewer's bolt,
+reload and inspect clips after editing.
+
 `arsenal.py` builds the SMG, pistol, shotgun, sniper and frag grenade, one per
 run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
 turns into game -Z; the right palm near the origin). Each GLB holds the body
