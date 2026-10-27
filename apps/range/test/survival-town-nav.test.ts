@@ -1,23 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { Simulation, buildNavGraph, createWorld, inSite, inZone, type RoundReason, type Vec3 } from '@duty-shooter/fps-core';
-import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
+import { Simulation, buildNavGraph, createWorld, inSite, inZone } from '@duty-shooter/fps-core';
+import { usercmd } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, mapSolids } from '../src/map/definition';
+import { reachable } from './support/bots';
 import { BOUNDARY, buildSurvivalTown } from '../src/map/survival-town';
 
 const map = buildSurvivalTown();
 const solids = mapSolids(map);
 const world = createWorld(solids);
 const nav = buildNavGraph(world, map.nav!);
-
-/** Every node reachable from node 0 along the links (or against them, with `reverse`). */
-function reachable(reverse: boolean): Set<number> {
-  const into: number[][] = nav.nodes.map(() => []);
-  for (const [i, links] of nav.links.entries()) for (const l of links) into[reverse ? l.to : i]!.push(reverse ? i : l.to);
-  const seen = new Set([0]);
-  const queue = [0];
-  while (queue.length) for (const next of into[queue.pop()!]!) if (!seen.has(next)) seen.add(next), queue.push(next);
-  return seen;
-}
 
 describe('Survival Town: nav graph', () => {
   it('covers the ground, the upstairs rooms and the roofs', () => {
@@ -28,8 +19,8 @@ describe('Survival Town: nav graph', () => {
   });
 
   it('lets a bot get from anywhere to anywhere', () => {
-    expect(reachable(false).size).toBe(nav.nodes.length);
-    expect(reachable(true).size).toBe(nav.nodes.length);
+    expect(reachable(nav, false).size).toBe(nav.nodes.length);
+    expect(reachable(nav, true).size).toBe(nav.nodes.length);
   });
 
   it('puts every node inside the boundary, where a player can stand still', () => {
@@ -71,76 +62,4 @@ describe('Survival Town: nav graph', () => {
       expect(near, `spawn ${s.position}`).toBe(true);
     }
   });
-});
-
-describe('Survival Town: bots on their own', () => {
-  it('play three minutes of 3v3 team deathmatch: both teams score, nobody wanders off or stands stuck', () => {
-    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, mode: 'tdm', bots: { nav, perTeam: 3, alwaysOn: true } });
-    /** Where each living bot was when it last moved 1.5 m, and since when it has only roamed there. */
-    const still = new Map<string, { at: Vec3; since: number }>();
-    let longest = 0;
-    let where = '';
-    const outside: string[] = [];
-    for (let i = 0; i < 180 * 60; i++) {
-      const out = m.step();
-      for (const p of out.players) {
-        const bot = m.server.bots.get(p.id)?.bot;
-        if (!p.alive || !bot) {
-          still.delete(p.id);
-          continue;
-        }
-        if (!insidePolygon(BOUNDARY, p.position[0], p.position[2])) outside.push(`${p.id} at ${p.position}`);
-        const s = still.get(p.id);
-        // Fighting or holding an angle is standing still on purpose; only roaming in place is stuck.
-        if (!s || bot.activity !== 'roam' || Math.hypot(p.position[0] - s.at[0], p.position[2] - s.at[2]) > 1.5) still.set(p.id, { at: p.position, since: i });
-        else if ((i - s.since) / 60 > longest) {
-          longest = (i - s.since) / 60;
-          where = `${p.id} at ${p.position.map((v) => v.toFixed(1))}`;
-        }
-      }
-    }
-    expect(outside).toEqual([]);
-    expect(longest, where).toBeLessThan(8);
-    const scores = m.server.mode.teamScores()!;
-    expect(scores.map((t) => t.score).every((n) => n > 0), JSON.stringify(scores)).toBe(true);
-  }, 120_000);
-
-  it('play 3v3 Outposts to the end: both teams take zones, and zones change hands', () => {
-    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, zones: map.zones, mode: 'outposts', modes: { outposts: { scoreLimit: null, timeLimit: 240 } }, bots: { nav, perTeam: 3, alwaysOn: true } });
-    const captures: { team: number; previous: number }[] = [];
-    let ended = false;
-    for (let i = 0; i < 241 * 60 && !ended; i++) {
-      m.step();
-      for (const e of m.server.modeEvents) {
-        if (e.type === 'capture') captures.push({ team: e.team, previous: e.previous });
-        if (e.type === 'matchEnd') ended = true;
-      }
-    }
-    expect(ended).toBe(true);
-    expect(new Set(captures.map((c) => c.team)), JSON.stringify(captures)).toEqual(new Set([1, 2]));
-    expect(captures.some((c) => c.previous !== 0), JSON.stringify(captures)).toBe(true);
-  }, 180_000);
-
-  it('play 3v3 Charge to the end: the charge gets planted, and rounds go both ways', () => {
-    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, sites: map.sites, mode: 'charge', bots: { nav, perTeam: 3, alwaysOn: true } });
-    const rounds: { winner: number; reason: RoundReason; attackers: number }[] = [];
-    let attackers = 1;
-    let plants = 0;
-    let ended = false;
-    for (let i = 0; i < 15 * 60 * 60 && !ended; i++) {
-      m.step();
-      for (const e of m.server.modeEvents) {
-        if (e.type === 'roundStart') attackers = e.attackers;
-        if (e.type === 'roundEnd') rounds.push({ winner: e.winner, reason: e.reason, attackers });
-        if (e.type === 'charge' && e.action === 'plant') plants += 1;
-        if (e.type === 'matchEnd') ended = true;
-      }
-    }
-    const log = JSON.stringify({ plants, rounds });
-    expect(ended, log).toBe(true);
-    expect(plants, log).toBeGreaterThan(0);
-    // Attackers and defenders each win rounds.
-    expect(rounds.some((r) => r.winner === r.attackers), log).toBe(true);
-    expect(rounds.some((r) => r.winner !== r.attackers), log).toBe(true);
-  }, 300_000);
 });

@@ -11,7 +11,7 @@
     "./session": "./src/session.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p . && tsc -p test"
   },
   "dependencies": {
     "@duty-shooter/fps-core": "^0.0.0",

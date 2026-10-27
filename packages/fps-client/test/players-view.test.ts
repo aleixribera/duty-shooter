@@ -3,8 +3,8 @@ import { Box3, Mesh, Scene, Vector3, type Object3D } from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { PlayersView } from '../src/players-view';
 
-function player(kind: 'player' | 'dummy' = 'player', id = 1, team = 0): PlayerOutput {
-  return { id, team, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6 } as PlayerOutput;
+function player(kind: 'player' | 'dummy' = 'player', id = 'p1', team = 0): PlayerOutput {
+  return { id, team, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6 } as unknown as PlayerOutput;
 }
 
 /** The colours a soldier is drawn in (hex). */
@@ -18,10 +18,10 @@ function colours(root: Object3D): Set<string> {
 }
 
 /** Ids of the players whose nameplates are showing. */
-function nameplates(scene: Scene): number[] {
-  const out: number[] = [];
+function nameplates(scene: Scene): string[] {
+  const out: string[] = [];
   scene.traverse((o) => {
-    if (o.name === 'nameplate' && o.visible && o.parent?.visible) out.push(o.userData['player'] as number);
+    if (o.name === 'nameplate' && o.visible && o.parent?.visible) out.push(o.userData['player'] as string);
   });
   return out.sort();
 }
@@ -85,10 +85,10 @@ describe('player presentation', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);
     const roots = () => scene.children[0]!.children;
-    view.update([player('player', 1, 1), player('player', 2, 2)], 1 / 60, { teams: true, self: 1, names: new Map() });
+    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: true, self: 1, names: new Map() });
     const [blue, orange] = roots().map(colours);
     expect(blue).not.toEqual(orange);
-    view.update([player('player', 1, 1), player('player', 2, 2)], 1 / 60, { teams: false, self: null, names: new Map() });
+    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: false, self: null, names: new Map() });
     const [a, b] = roots().map(colours);
     expect(a).toEqual(b);
     expect(a).not.toEqual(blue);
@@ -100,16 +100,16 @@ describe('player presentation', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);
     const names = new Map([
-      [2, 'Ally'],
-      [3, 'Enemy'],
-      [4, 'Ally two'],
+      ['p2', 'Ally'],
+      ['p3', 'Enemy'],
+      ['p4', 'Ally two'],
     ]);
-    const players = [player('player', 2, 1), player('player', 3, 2), player('player', 4, 1)];
+    const players = [player('player', 'p2', 1), player('player', 'p3', 2), player('player', 'p4', 1)];
     view.update(players, 1 / 60, { teams: true, self: 1, names });
-    expect(nameplates(scene)).toEqual([2, 4]);
+    expect(nameplates(scene)).toEqual(['p2', 'p4']);
     // A teammate down loses theirs.
     view.update([players[0]!, players[1]!, { ...players[2]!, alive: false }], 1 / 60, { teams: true, self: 1, names });
-    expect(nameplates(scene)).toEqual([2]);
+    expect(nameplates(scene)).toEqual(['p2']);
     // No teams, no teammates.
     view.update(players, 1 / 60, { teams: false, self: null, names });
     expect(nameplates(scene)).toEqual([]);
@@ -119,7 +119,7 @@ describe('player presentation', () => {
   it('depth-tests nameplates, so a wall in front of a teammate hides theirs', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);
-    view.update([player('player', 2, 1)], 1 / 60, { teams: true, self: 1, names: new Map([[2, 'Ally']]) });
+    view.update([player('player', 'p2', 1)], 1 / 60, { teams: true, self: 1, names: new Map([['p2', 'Ally']]) });
     let plate: Object3D | null = null;
     scene.traverse((o) => {
       if (o.name === 'nameplate') plate = o;

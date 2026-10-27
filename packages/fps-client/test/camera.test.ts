@@ -34,8 +34,8 @@ describe('first-person camera FOV', () => {
 describe('first-person camera through a scope', () => {
   it('drifts with the scope sway, so the reticle sits where the round goes', () => {
     const cam = new FirstPersonCamera();
-    const prev = player('idle', 1, [0.002, -0.001]);
-    const cur = player('idle', 1, [0.004, -0.003]);
+    const prev = player('walk', 1, [0.002, -0.001]);
+    const cur = player('walk', 1, [0.004, -0.003]);
     const pose = cam.update({ prev, cur, alpha: 0.5, look: { yaw: 0.3, pitch: 0.1 }, cmd: { yaw: 0, pitch: 0 }, dt: 1 / 60 }, DEFAULT_SETTINGS);
     expect(pose.yaw).toBeCloseTo(0.3 + 0.003, 9);
     expect(pose.pitch).toBeCloseTo(0.1 - 0.002, 9);

@@ -1,7 +1,9 @@
 // Starts the built server with LOG_STATS=1, connects N simulated clients that
 // move, turn and fire at 60 Hz like real players, and prints the server's CPU
-// and memory lines. Usage: node scripts/load-test.mjs [clients=8] [seconds=40]
+// and memory lines. Build the server first (`npm run load-test` does).
+// Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 
 const clients = Number(process.argv[2] ?? 8);
@@ -9,7 +11,7 @@ const seconds = Number(process.argv[3] ?? 40);
 const port = 3999;
 const passphrase = 'load-test';
 
-const server = spawn(process.execPath, ['dist/main.js'], {
+const server = spawn(process.execPath, [fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
   env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(clients), LOG_STATS: '1', STATIC_DIR: '.' },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

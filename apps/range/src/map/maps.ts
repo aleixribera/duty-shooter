@@ -55,6 +55,7 @@ export function buildRange(): MapDefinition {
     overview: { name: 'overview', position: [-42, 7, 14], yaw: 0.25, pitch: -0.28 },
     dummies: map.dummies,
     loadoutStation: map.loadoutStation,
+    rangeLanesWestOf: -18,
     indoorZones: [],
     referenceSpots: [
       { name: 'firing line', position: [-48, 1.6, 0], yaw: FACING_NEG_Z, pitch: 0 },

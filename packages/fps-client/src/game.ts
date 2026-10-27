@@ -71,6 +71,8 @@ export interface GameOptions {
   readonly thirdPersonWeapon?: (() => Object3D) | null;
   /** Where Use opens the loadout screen (the range's station), if the map has one. */
   readonly loadoutStation?: { readonly position: Vec3; readonly radius: number } | null;
+  /** The range's firing lanes, west of this x, where the TTK overlay shows; null (the default) on a map without them. */
+  readonly rangeLanesWestOf?: number | null;
 }
 
 /** Per-action timings for the weapon's foley, in seconds into the action. */
@@ -172,6 +174,7 @@ export class Game {
   #paused = true;
   #message: string | null = null;
   readonly #loadoutStation: GameOptions['loadoutStation'];
+  readonly #rangeLanesWestOf: number | null;
   /** The map's Outposts zones, for their markers. */
   readonly #zones: readonly Zone[];
   /** The map's Charge sites, for their markers. */
@@ -219,6 +222,7 @@ export class Game {
     this.#overview = options.overview;
     this.#nukeAt = options.content.nuke ?? null;
     this.#loadoutStation = options.loadoutStation ?? null;
+    this.#rangeLanesWestOf = options.rangeLanesWestOf ?? null;
     this.#indoorZones = options.content.indoorZones;
     this.#zones = options.content.zones ?? [];
     this.#sites = options.content.sites ?? [];
@@ -279,6 +283,11 @@ export class Game {
 
   get driver(): GameDriver | null {
     return this.#driver;
+  }
+
+  /** The local player as of the latest tick, or null with none (for scripts and tests: read, never change). */
+  get player(): PlayerOutput | null {
+    return this.#cur;
   }
 
   /** Lets go of the driver without ending it, for the game on another map to take over. */
@@ -682,10 +691,10 @@ export class Game {
     this.#viewmodel.setLighting(sun, ambient, dt);
   }
 
-  /** The range overlay shows on the firing range and the sniping lane (west of the course). */
+  /** The range overlay shows on the firing range and the sniping lane (west of the course), on the Practice Range only. */
   #inRange(): boolean {
     const p = this.#cur?.position;
-    return !!p && p[0] < -18;
+    return !!p && this.#rangeLanesWestOf !== null && p[0] < this.#rangeLanesWestOf;
   }
 
   #atStation(self: PlayerOutput): boolean {

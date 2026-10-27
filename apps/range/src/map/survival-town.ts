@@ -1355,6 +1355,7 @@ export function buildSurvivalTown(): MapDefinition {
     overview: { name: 'overview', position: [-30, 34, 0], yaw: LOOK.east, pitch: -0.75 },
     dummies,
     loadoutStation: null,
+    rangeLanesWestOf: null,
     indoorZones: indoorZones(),
     referenceSpots: referenceSpots(),
     benchmarkPath: benchmarkPath(),

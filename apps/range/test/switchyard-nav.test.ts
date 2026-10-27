@@ -2,22 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { Simulation, buildNavGraph, createWorld, findPath, inSite, inZone, nearestNode } from '@duty-shooter/fps-core';
 import { usercmd } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, mapSolids } from '../src/map/definition';
+import { reachable } from './support/bots';
 import { BOUNDARY, CAR_ROOF, SIGNAL_BOX, TRACKS, buildSwitchyard } from '../src/map/switchyard';
 
 const map = buildSwitchyard();
 const solids = mapSolids(map);
 const world = createWorld(solids);
 const nav = buildNavGraph(world, map.nav!);
-
-/** Every node reachable from node 0 along the links (or against them, with `reverse`). */
-function reachable(reverse: boolean): Set<number> {
-  const into: number[][] = nav.nodes.map(() => []);
-  for (const [i, links] of nav.links.entries()) for (const l of links) into[reverse ? l.to : i]!.push(reverse ? i : l.to);
-  const seen = new Set([0]);
-  const queue = [0];
-  while (queue.length) for (const next of into[queue.pop()!]!) if (!seen.has(next)) seen.add(next), queue.push(next);
-  return seen;
-}
 
 describe('Switchyard: nav graph', () => {
   it('covers the ground, the car roofs, the lever room and the platforms', () => {
@@ -30,8 +21,8 @@ describe('Switchyard: nav graph', () => {
   });
 
   it('lets a bot get from anywhere to anywhere', () => {
-    expect(reachable(false).size).toBe(nav.nodes.length);
-    expect(reachable(true).size).toBe(nav.nodes.length);
+    expect(reachable(nav, false).size).toBe(nav.nodes.length);
+    expect(reachable(nav, true).size).toBe(nav.nodes.length);
   });
 
   it('puts every node inside the boundary, where a player can stand still', () => {

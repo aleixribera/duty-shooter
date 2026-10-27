@@ -9,7 +9,7 @@ import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
 import { hashString } from '../random';
-import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TeamId, type TickOutput } from '../simulation';
+import { Simulation, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TeamId, type TickOutput } from '../simulation';
 import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
@@ -1037,5 +1037,3 @@ function cleanName(name: string): string {
     .trim()
     .slice(0, MAX_NAME);
 }
-
-export const SERVER_TICK_RATE = TICK_RATE;

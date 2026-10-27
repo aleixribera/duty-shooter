@@ -852,10 +852,6 @@ export function smoothstep(a: number, b: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-export function clamp01(x: number): number {
-  return Math.max(0, Math.min(1, x));
-}
-
 /** Cheap deterministic value noise on 1D/2D, -1..1. */
 export function hash1(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;

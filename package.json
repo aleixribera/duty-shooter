@@ -11,10 +11,22 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @duty-shooter/range --",
+    "server": "npm run serve -w @duty-shooter/server",
     "build": "npm run build --workspaces --if-present",
+    "check": "npm run typecheck && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "test:core": "vitest run packages/fps-core",
+    "test:client": "vitest run packages/fps-client",
+    "test:range": "vitest run apps/range",
+    "test:server": "vitest run apps/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "bench": "node apps/range/scripts/bench.mjs",
+    "spots": "node apps/range/scripts/spots.mjs",
+    "bot-runs": "node apps/range/scripts/bot-runs.mjs",
+    "record": "node apps/range/scripts/record.mjs",
+    "smoke": "node apps/server/scripts/smoke.mjs",
+    "load-test": "npm run load-test -w @duty-shooter/server --"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

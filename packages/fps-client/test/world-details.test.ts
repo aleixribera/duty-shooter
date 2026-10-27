@@ -12,10 +12,13 @@ const solids: Solid[] = [
 const layout = layoutSurfaces(solids, { finishes: {}, looks: [], decorations: [], indoor: [] });
 const horizon: Horizon = { ground: 'default:sand', inner: { x0: -10, x1: 10, z0: -10, z1: 10 }, light: [-8, -8] };
 
-function triangles(): [number, number, number][][] {
+type Vertex = [number, number, number];
+
+function triangles(): [Vertex, Vertex, Vertex][] {
   const p = farGroundGeometry(layout, horizon).getAttribute('position');
-  const out: [number, number, number][][] = [];
-  for (let i = 0; i < p.count; i += 3) out.push([0, 1, 2].map((k) => [p.getX(i + k), p.getY(i + k), p.getZ(i + k)]));
+  const out: [Vertex, Vertex, Vertex][] = [];
+  const at = (k: number): Vertex => [p.getX(k), p.getY(k), p.getZ(k)];
+  for (let i = 0; i < p.count; i += 3) out.push([at(i), at(i + 1), at(i + 2)]);
   return out;
 }
 

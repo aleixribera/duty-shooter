@@ -7,7 +7,9 @@
   "scripts": {
     "build": "vite build",
     "start": "node dist/main.js",
-    "typecheck": "tsc -p ."
+    "serve": "vite build && node dist/main.js",
+    "load-test": "vite build && node scripts/load-test.mjs",
+    "typecheck": "tsc -p . && tsc -p test"
   },
   "dependencies": {
     "@duty-shooter/fps-core": "^0.0.0",

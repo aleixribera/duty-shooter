@@ -92,6 +92,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       overview: map.overview,
       thirdPersonWeapon: () => buildM4A1({ detail: 'low' }).root,
       loadoutStation: map.loadoutStation,
+      rangeLanesWestOf: map.rangeLanesWestOf,
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;

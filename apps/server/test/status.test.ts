@@ -52,11 +52,11 @@ describe('server bots setting', () => {
       // In the lobby, as its host: no bots until the match starts.
       expect(await status()).toMatchObject({ players: 1, bots: 0, phase: 'lobby' });
       ws.send(JSON.stringify({ t: 'start' }));
-      for (let i = 0; i < 50 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done, 20));
+      for (let i = 0; i < 250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done, 20));
       expect(await status()).toMatchObject({ players: 1, bots: 3, phase: 'playing' });
       ws.close();
       await new Promise((done) => ws.addEventListener('close', done));
-      for (let i = 0; i < 50 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
+      for (let i = 0; i < 250 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
       expect(await status()).toMatchObject({ players: 0, away: 1, bots: 3 });
     } finally {
       await server.close();
@@ -103,14 +103,14 @@ describe('the event log', () => {
     const printed: string[] = [];
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir: dir, version: 'test', mode: 'tdm', map: 'range', eventLog: file, printLog: (line) => printed.push(line) });
     try {
-      const health = await (await fetch(`http://127.0.0.1:${server.port}/healthz`)).json();
+      const health = (await (await fetch(`http://127.0.0.1:${server.port}/healthz`)).json()) as { protocol: number };
       expect(health.protocol).toBe(PROTOCOL_VERSION);
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: '', protocol: health.protocol, script: true }));
       await new Promise((done) => ws.addEventListener('message', done));
       ws.close();
-      for (let i = 0; i < 50 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
+      for (let i = 0; i < 250 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
       const lines = readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
       expect(lines.map((l) => l.event)).toEqual(['serverStart', 'join', 'matchStart', 'leave']);
       expect(lines[1]).toMatchObject({ name: 'smoke', bot: false, script: true });

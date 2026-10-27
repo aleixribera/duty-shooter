@@ -1,6 +1,7 @@
 // A Chrome driven over the DevTools protocol, for the benchmark and the
 // reference-spot screenshots: 1920 x 1080, WebGPU on, vsync off. Headless
-// unless HEADED=1; CHROME overrides the browser path.
+// unless HEADED=1, and muted unless SOUND=1 (a headless page still plays
+// through the speakers); CHROME overrides the browser path.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -25,6 +26,7 @@ export async function launchChrome() {
     'about:blank',
   ];
   if (!process.env.HEADED) args.unshift('--headless=new');
+  if (!process.env.SOUND) args.unshift('--mute-audio');
   const browser = spawn(chrome, args, { stdio: 'ignore' });
   let target;
   for (let i = 0; i < 50 && !target; i++) {

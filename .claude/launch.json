@@ -9,8 +9,8 @@
     },
     {
       "name": "server",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["apps/server/dist/main.js"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "server"],
       "env": { "PASSPHRASE": "dev", "PORT": "3000" },
       "port": 3000
     }

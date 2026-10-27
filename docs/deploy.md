@@ -2,7 +2,7 @@
 
 The game runs as one container: the authoritative server, which also serves the built client and the WebSocket endpoint (`/ws`) on the same origin. CI builds the image and publishes it to GHCR. The home server pulls it by hand and runs it with Compose behind Tailscale Funnel on **HTTPS port 443**. The existing game on port 8443 is not touched.
 
-The server runs **one public lobby** of up to 12 players (`MAX_PLAYERS`), in team deathmatch on Survival Town by default, that everyone with the link joins with just a name. The first person in is the host: in the lobby they pick the mode, the map (Survival Town or Switchyard, both held by the server), the bots a side up to `MAX_BOTS_PER_TEAM` (default 6; 0 turns bots off) or humans vs bots, and press Start; after every match everyone goes back to the lobby. `MAP` (`survival-town`, `switchyard` or `range`) and `MODE` (`tdm`, `ffa`, `outposts` or `charge`) in the stack's `.env` set the first map and mode, `TIME_LIMIT` (seconds) shortens every match, and `BOTS_PER_TEAM` (default 3) is the lobby's starting fill: bots top each side up to that many, a person joining takes a bot's seat, and the bots leave with the last person, so an empty lobby stays empty. Setting `PASSPHRASE` in the stack's `.env` turns it into a private server instead, where every player types the passphrase.
+The server runs **one public lobby** of up to 12 players (`MAX_PLAYERS`), in team deathmatch on Survival Town by default, that everyone with the link joins with just a name. The first person in is the host: in the lobby they pick the mode, the map (Survival Town or Switchyard, both held by the server), the bots a side up to `MAX_BOTS_PER_TEAM` (default 6) or humans vs bots, and press Start; after every match everyone goes back to the lobby. `MAP` (`survival-town`, `switchyard` or `range`) and `MODE` (`tdm`, `ffa`, `outposts` or `charge`) in the stack's `.env` set the first map and mode, `TIME_LIMIT` (seconds) shortens every match, and `BOTS_PER_TEAM` (default 3) is the lobby's starting fill: bots top each side up to that many, a person joining takes a bot's seat, and the bots leave with the last person, so an empty lobby stays empty. For no bots at all, set both `BOTS_PER_TEAM` and `MAX_BOTS_PER_TEAM` to 0 (the server refuses to start with a fill above the cap). Setting `PASSPHRASE` in the stack's `.env` turns it into a private server instead, where every player types the passphrase.
 
 Nothing secret lives in this repository. The player cap (and a passphrase, if you set one) are in the stack's `.env` on the server, and the public address lives only in the server's Funnel setup and a repository variable.
 
@@ -34,7 +34,7 @@ docker compose up -d --wait
 curl -fsS -w '\n' http://127.0.0.1:3090/healthz
 ```
 
-The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0","protocol":7}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
+The health response looks like `{"status":"ok","players":0,"maxPlayers":12,"public":true,"version":"v2.0.0","protocol":7}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"away":0,"capacity":12,"phase":"lobby","bots":0,"botsPerTeam":3,"maxBotsPerTeam":6,"lobby":true,"hvb":false}` for the main menu's Play Online tile.
 
 The image's build stage bakes each map's lighting on the CPU, so a build takes a few minutes longer than the client alone. It runs on the builder's own platform, not under emulation.
 
@@ -116,7 +116,7 @@ To change the player cap or set a passphrase, edit `.env` and run `docker compos
 
 ## The GitHub Pages copy
 
-`.github/workflows/pages.yaml` publishes the client alone to `https://aleixribera.github.io/duty-shooter/` on every push to `main`. That copy has no server, so its main menu offers Practice Range and Explore Survival Town and hides Play Online; a small link under the title opens the home server's public lobby instead.
+`.github/workflows/pages.yaml` publishes the client alone to `https://aleixribera.github.io/duty-shooter/` on every push to `main`. That copy has no server, so its main menu offers Bot Match and Practice Range and hides Play Online; a small link under the title opens the home server's public lobby instead.
 
 The link comes from the `LOBBY_URL` repository variable (Settings → Secrets and variables → Actions → Variables), so the address is never committed:
 
@@ -159,4 +159,4 @@ npm run build -w @duty-shooter/server
 PASSPHRASE=dev node apps/server/dist/main.js
 ```
 
-Then open <http://localhost:3000>. For client development with hot reload, keep the server running and use `npm run dev`. Vite proxies `/ws` and `/healthz` to port 3000.
+Then open <http://localhost:3000>. For client development with hot reload, keep the server running, use `npm run dev` and open <http://localhost:5173/?online>: Vite proxies `/ws`, `/healthz` and `/status` to port 3000, and a dev page looks for the server only with `?online`.

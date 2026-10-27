@@ -971,6 +971,7 @@ export function buildSwitchyard(): MapDefinition {
     overview: { name: 'overview', position: [0, 40, 50], yaw: LOOK.north, pitch: -0.75 },
     dummies: [],
     loadoutStation: null,
+    rangeLanesWestOf: null,
     indoorZones: indoorZones(),
     referenceSpots: referenceSpots(),
     benchmarkPath: benchmarkPath(),

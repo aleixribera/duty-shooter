@@ -103,6 +103,8 @@ export interface MapDefinition {
   readonly dummies: readonly PlayerSpawn[];
   /** Where the Use button opens the loadout screen (the range's station), or null. */
   readonly loadoutStation: { readonly position: Vec3; readonly radius: number } | null;
+  /** The range's firing lanes, west of this x, where the TTK overlay shows; null on a map without them. */
+  readonly rangeLanesWestOf: number | null;
   readonly indoorZones: readonly IndoorZone[];
   readonly referenceSpots: readonly CameraSpot[];
   readonly benchmarkPath: readonly CameraKey[];
