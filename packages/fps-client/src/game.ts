@@ -1,6 +1,7 @@
 import {
   STATS,
   TICK_SECONDS,
+  Button,
   angleDelta,
   isShellReload,
   raycastWorld,
@@ -30,7 +31,8 @@ import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 import { PlayersView } from './players-view';
 import type { RenderBackend } from './renderer';
 import type { GameDriver, PresentedEvent } from './session';
-import { verticalFov, type Settings } from './settings';
+import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
+import { bindingLabel, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
 import { LIGHTING, type BakeFile } from './surfaces';
@@ -55,6 +57,8 @@ export interface GameOptions {
   readonly overview: { readonly position: Vec3; readonly yaw: number; readonly pitch: number };
   /** Builds a third-person rifle for other players, or null for none. */
   readonly thirdPersonWeapon?: (() => Object3D) | null;
+  /** Where Use opens the loadout screen (the range's station), if the map has one. */
+  readonly loadoutStation?: { readonly position: Vec3; readonly radius: number } | null;
 }
 
 /** Per-action timings for the weapon's foley, in seconds into the action. */
@@ -155,6 +159,14 @@ export class Game {
   #burstStart = -1;
   #paused = true;
   #message: string | null = null;
+  readonly #loadoutStation: GameOptions['loadoutStation'];
+  /** Use held on the last tick, so a press opens the loadout screen once. */
+  #useHeld = false;
+  /**
+   * Use pressed while dead (`death`) or at the range's loadout station
+   * (`station`): the page opens the loadout screen.
+   */
+  onLoadout: ((from: 'death' | 'station') => void) | null = null;
   #resizeObserver: ResizeObserver;
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
@@ -180,6 +192,7 @@ export class Game {
     this.#sound = options.sound;
     this.#overview = options.overview;
     this.#nukeAt = options.content.nuke ?? null;
+    this.#loadoutStation = options.loadoutStation ?? null;
     this.#indoorZones = options.content.indoorZones;
     this.#ambience = new Ambience(options.content.ambience ?? []);
     options.renderer.toneMapping = ACESFilmicToneMapping;
@@ -468,6 +481,7 @@ export class Game {
           }
         : null,
       respawnIn: match && match.phase !== 'playing' ? null : driver.respawnIn,
+      prompt: this.#cur && (!this.#cur.alive || this.#atStation(this.#cur)) && (!match || match.phase === 'playing') ? `${this.#useLabel()}  Loadout` : null,
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
       dt,
     });
@@ -485,10 +499,32 @@ export class Game {
     this.#viewmodel.setLighting(sun, ambient, dt);
   }
 
-  /** The range overlay shows on the firing range (west of the course). */
+  /** The range overlay shows on the firing range and the sniping lane (west of the course). */
   #inRange(): boolean {
     const p = this.#cur?.position;
     return !!p && p[0] < -18;
+  }
+
+  #atStation(self: PlayerOutput): boolean {
+    const s = this.#loadoutStation;
+    return !!s && Math.hypot(self.position[0] - s.position[0], self.position[2] - s.position[2]) <= s.radius;
+  }
+
+  /** A range dummy's report of one hit: the damage over the point it landed, and how far and how many pellets. */
+  #damageNumber(point: Vec3, damage: number, head: boolean, distance: number, pellets: number, weapon: KillWeapon): void {
+    const p = new Vector3(point[0], point[1] + 0.25, point[2]).project(this.#camera.camera);
+    if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) return;
+    const x = ((p.x + 1) / 2) * this.#canvas.clientWidth;
+    const y = ((1 - p.y) / 2) * this.#canvas.clientHeight;
+    const total = STATS.weapons[weapon as WeaponId]?.damage.pellets?.value ?? 1;
+    const detail = [`${distance.toFixed(0)} m`, ...(total > 1 ? [`${pellets}/${total} pellets`] : [])].join(' · ');
+    this.hud.damageNumber(x, y, Math.round(damage), head, detail);
+  }
+
+  /** How the Use button is written in prompts: the pad's button in pad mode, else the key. */
+  #useLabel(): string {
+    const pad = PAD_LAYOUTS[this.#settings.padLayout].use;
+    return this.input.padMode && pad ? padButtonLabel(pad) : bindingLabel(this.#settings.bindings.use);
   }
 
   #targetDistance(eye: Vec3, forward: Vec3): number | null {
@@ -522,6 +558,9 @@ export class Game {
     else this.#prev = before;
     this.#cur = self;
     this.#cmd = cmd;
+    const use = (cmd.buttons & Button.Use) !== 0;
+    if (use && !this.#useHeld && self && (!self.alive || this.#atStation(self))) this.onLoadout?.(self.alive ? 'station' : 'death');
+    this.#useHeld = use;
     if (self && before) this.#selfFoley(before, self, cmd);
     for (const e of result.events) this.#present(e, start);
     if (driver.popped) this.#worldView.hideProps(driver.popped);
@@ -668,14 +707,19 @@ export class Game {
           this.hud.hitMarker(kind);
           this.#play(e.killed ? 'killMarker' : head ? 'headshotMarker' : 'hitMarker');
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
-          const eng = this.#engagements.get(e.victim) ?? { start: this.#simTime - e.distance / STATS.weapon.muzzleVelocity.value, shots: 1, hits: 0 };
-          eng.hits += 1;
-          this.#engagements.set(e.victim, eng);
-          this.hud.setLastHit(e.damage);
-          if (e.killed) {
-            this.hud.setRangeStats(this.#simTime - eng.start, eng.shots, eng.hits);
-            this.#engagements.delete(e.victim);
-          } else this.hud.setRangeStats(null, eng.shots, eng.hits);
+          this.hud.setLastHit(e.damage, e.zone, e.distance);
+          if (e.victim.startsWith('dummy')) this.#damageNumber(e.point, e.damage, e.zone === 'head', e.distance, e.pellets, e.weapon);
+          // The TTK readout times gunfire: a frag or a melee kill is not an engagement.
+          if (e.cause === 'bullet') {
+            const travel = e.distance / STATS.weapons[e.weapon as WeaponId].handling.muzzleVelocity.value;
+            const eng = this.#engagements.get(e.victim) ?? { start: this.#simTime - travel, shots: 1, hits: 0 };
+            eng.hits += 1;
+            this.#engagements.set(e.victim, eng);
+            if (e.killed) {
+              this.hud.setRangeStats(this.#simTime - eng.start, eng.shots, eng.hits);
+              this.#engagements.delete(e.victim);
+            } else this.hud.setRangeStats(null, eng.shots, eng.hits);
+          } else if (e.killed) this.#engagements.delete(e.victim);
         }
         if (e.victim === selfId) {
           const attacker = this.#playerById(e.shooter);

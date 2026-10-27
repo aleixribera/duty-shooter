@@ -1,4 +1,4 @@
-import { STATS } from '@duty-shooter/fps-core';
+import { DEFAULT_LOADOUT, STATS, parseLoadout, type Loadout } from '@duty-shooter/fps-core';
 import type { PadLayout } from './gamepad';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
@@ -72,6 +72,8 @@ export interface Settings {
   readonly showRangeOverlay: boolean;
   readonly volume: number;
   readonly name: string;
+  /** What to carry, applied from the next spawn. */
+  readonly loadout: Loadout;
   readonly passphrase: string;
   readonly firefoxTipShown: boolean;
 }
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showRangeOverlay: true,
   volume: 0.8,
   name: '',
+  loadout: DEFAULT_LOADOUT,
   passphrase: '',
   firefoxTipShown: false,
 };
@@ -185,6 +188,7 @@ export function parseSettings(raw: unknown): Settings {
     showRangeOverlay: bool(r['showRangeOverlay'], d.showRangeOverlay),
     volume: clamp(r['volume'], 0, 1, d.volume),
     name: str(r['name'], d.name, 16),
+    loadout: parseLoadout(r['loadout']) ?? d.loadout,
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
   };

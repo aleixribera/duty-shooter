@@ -81,6 +81,32 @@ export function deadzone(x: number, y: number, inner: number): [number, number] 
   return [(x / m) * scaled, (y / m) * scaled];
 }
 
+const BUTTON_LABELS: Readonly<Record<PadButton, string>> = {
+  cross: '✕',
+  circle: '○',
+  square: '□',
+  triangle: '△',
+  l1: 'L1',
+  r1: 'R1',
+  l2: 'L2',
+  r2: 'R2',
+  share: 'Share',
+  options: 'Options',
+  l3: 'L3',
+  r3: 'R3',
+  up: 'Up',
+  down: 'Down',
+  left: 'Left',
+  right: 'Right',
+  ps: 'PS',
+  touchpad: 'Touchpad',
+};
+
+/** How a pad button is written in prompts: the DualShock 4's own marks. */
+export function padButtonLabel(button: PadButton): string {
+  return BUTTON_LABELS[button];
+}
+
 /** The pad's display name: the browser's id without its vendor and product details. */
 export function padName(id: string): string {
   return id.replace(/\s*\(.*$/, '').trim() || 'Controller';

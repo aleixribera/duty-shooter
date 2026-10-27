@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { connectionError, endSummary, lobbyTile, matchBar, matchSize, ordinal, scoreboard } from '../src/ui/model';
+import { connectionError, endSummary, loadoutOptions, lobbyTile, matchBar, matchSize, ordinal, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -104,5 +104,49 @@ describe('the Play Online tile', () => {
 
   it('writes places as ordinals', () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd']);
+  });
+});
+
+describe('the loadout screen', () => {
+  const bar = (id: Parameters<typeof weaponCard>[0], key: string) => weaponCard(id).bars.find((b) => b.key === key)!;
+
+  it('offers every primary, the pistol and the frag (or none), all unlocked', () => {
+    expect(loadoutOptions()).toEqual({ primary: ['m4a1', 'smg', 'shotgun', 'sniper'], secondary: ['pistol'], grenade: ['frag', null] });
+  });
+
+  it("shows each weapon's name, role and four bars between empty and full", () => {
+    for (const id of ['m4a1', 'smg', 'shotgun', 'sniper', 'pistol'] as const) {
+      const card = weaponCard(id);
+      expect(card.name.length).toBeGreaterThan(0);
+      expect(card.role.length).toBeGreaterThan(0);
+      expect(card.bars.map((b) => b.key)).toEqual(['rate', 'damage', 'range', 'handling']);
+      for (const b of card.bars) {
+        expect(b.value).toBeGreaterThan(0);
+        expect(b.value).toBeLessThanOrEqual(1);
+        expect(b.text.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('ranks the bars the way the weapons play', () => {
+    expect(bar('smg', 'rate').value).toBe(1);
+    expect(bar('m4a1', 'rate').value).toBeGreaterThan(bar('pistol', 'rate').value);
+    expect(bar('pistol', 'rate').value).toBeGreaterThan(bar('shotgun', 'rate').value);
+    expect(bar('shotgun', 'damage').value).toBeGreaterThan(bar('m4a1', 'damage').value);
+    expect(bar('sniper', 'damage').value).toBeGreaterThan(bar('smg', 'damage').value);
+    expect(bar('sniper', 'range').value).toBe(1);
+    expect(bar('m4a1', 'range').value).toBeGreaterThan(bar('smg', 'range').value);
+    expect(bar('smg', 'range').value).toBeGreaterThan(bar('shotgun', 'range').value);
+    expect(bar('pistol', 'handling').value).toBe(1);
+    expect(bar('sniper', 'handling').value).toBeLessThan(bar('m4a1', 'handling').value);
+  });
+
+  it('writes the figure behind each bar', () => {
+    expect(bar('m4a1', 'rate').text).toBe('809 rpm');
+    expect(bar('m4a1', 'damage').text).toBe('28');
+    expect(bar('shotgun', 'damage').text).toBe('8 × 20');
+    expect(bar('m4a1', 'range').text).toBe('50 m');
+    expect(bar('sniper', 'range').text).toBe('100 m+');
+    expect(bar('m4a1', 'handling').text).toBe('ADS 0.24 s');
   });
 });

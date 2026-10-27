@@ -408,6 +408,14 @@ export class Simulation {
     p.life += 1;
   }
 
+  /** Re-arms a player where they stand (the range's loadout station): fresh weapons, the primary drawing. */
+  equip(id: PlayerId, loadout: Loadout): void {
+    const p = this.#players.get(id);
+    if (!p) throw new Error(`No player ${id}`);
+    Object.assign(p, arms(loadout));
+    p.grenade = null;
+  }
+
   /** The full state of a player, deep-copied, for client prediction. */
   playerState(id: PlayerId): PlayerState | null {
     const p = this.#players.get(id);

@@ -88,10 +88,18 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       sound,
       overview: map.overview,
       thirdPersonWeapon: () => buildM4A1({ detail: 'low' }).root,
+      loadoutStation: map.loadoutStation,
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
     g.input.onPadMenu = (nav) => menu.navigate(nav);
+    // Use while dead, or at the range's station: the loadout screen, back into the game when done.
+    g.onLoadout = () => {
+      if (game.paused) return;
+      game.paused = true;
+      game.input.unlock();
+      menu.loadout('game');
+    };
     g.input.onUnlock = () => {
       if (!game.paused && game.driver) {
         game.paused = true;
@@ -147,6 +155,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const play = (next: GameDriver) => {
     driver = next;
     game.setDriver(next);
+    menu.loadoutNote = next.online ? 'Applies from your next spawn.' : 'Applies at once.';
     if (isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
     else void enter();
   };
@@ -156,7 +165,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     await whenLoaded(id);
     useMap(id);
     const { map, solids } = load(id);
-    play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies }));
+    play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
   /** An offline match against bots on Survival Town, once its lighting is in. */
   const playBots = async (mode: ModeId, botsPerTeam: number) => {
@@ -167,7 +176,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (!map.nav) return;
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ solids, spawns: map.spawns, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You' }));
+    play(new BotMatchDriver({ solids, spawns: map.spawns, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -195,7 +204,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
-          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, seatKey: 'duty-shooter.seat', ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, seatKey: 'duty-shooter.seat', loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
         });
@@ -217,6 +226,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu.show('main');
       },
       changeSettings: (next) => {
+        if (next.loadout !== settings.loadout) game.driver?.setLoadout(next.loadout);
         settings = next;
         saveSettings(next);
         game.applySettings(next);

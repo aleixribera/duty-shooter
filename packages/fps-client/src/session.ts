@@ -10,6 +10,7 @@ import {
   createWorld,
   type Connection,
   type GrenadeOutput,
+  type Loadout,
   type MemoryNetwork,
   type NavOptions,
   type Solid,
@@ -67,6 +68,8 @@ export interface GameDriver {
   readonly respawnIn: number | null;
   /** Votes for the next match's mode (online only). */
   vote(mode: ModeId): void;
+  /** What to carry from the next spawn (offline: at once while alive). */
+  setLoadout(loadout: Loadout): void;
   nameOf(id: PlayerId): string;
   /** 'playing', 'connecting', or why the connection ended. */
   readonly status: string;
@@ -81,6 +84,8 @@ export interface OfflineOptions {
   readonly dummies?: readonly PlayerSpawn[];
   /** Seconds after death before the local player respawns (default {@link RESPAWN_DELAY}). */
   readonly respawnDelay?: number;
+  /** What the player carries; the default loadout when absent. */
+  readonly loadout?: Loadout;
 }
 
 /** Solo play: the whole simulation runs in the page. */
@@ -103,12 +108,14 @@ export class OfflineDriver implements GameDriver {
   #cur: readonly PlayerOutput[] = [];
   #grenades: readonly GrenadeOutput[] = [];
   #spawnFacing: { yaw: number; pitch: number } | null;
+  /** A loadout chosen while dead, for the respawn. */
+  #nextLoadout: Loadout | undefined;
 
   constructor(options: OfflineOptions) {
     this.#sim = new Simulation(createWorld(options.solids));
     this.#spawn = options.spawn;
     this.#respawnDelay = options.respawnDelay ?? RESPAWN_DELAY;
-    this.#sim.addPlayer({ id: this.selfId, team: 1, position: options.spawn.position, yaw: options.spawn.yaw });
+    this.#sim.addPlayer({ id: this.selfId, team: 1, position: options.spawn.position, yaw: options.spawn.yaw, ...(options.loadout ? { loadout: options.loadout } : {}) });
     for (const d of options.dummies ?? []) this.#sim.addPlayer(d);
     this.#cur = this.#sim.output().players.filter((p) => p.id !== this.selfId);
     this.#prev = this.#cur;
@@ -125,6 +132,12 @@ export class OfflineDriver implements GameDriver {
 
   vote(): void {}
 
+  /** Solo play has no one to be fair to: a living player re-arms where they stand. */
+  setLoadout(loadout: Loadout): void {
+    if (this.#sim.output().players.find((p) => p.id === this.selfId)?.alive) this.#sim.equip(this.selfId, loadout);
+    else this.#nextLoadout = loadout;
+  }
+
   takeSpawn(): { yaw: number; pitch: number } | null {
     const facing = this.#spawnFacing;
     this.#spawnFacing = null;
@@ -138,7 +151,8 @@ export class OfflineDriver implements GameDriver {
       this.#deadFor += TICK_SECONDS;
       if (this.#deadFor >= this.#respawnDelay) {
         this.#deadFor = 0;
-        this.#sim.respawn(this.selfId, this.#spawn.position, this.#spawn.yaw);
+        this.#sim.respawn(this.selfId, this.#spawn.position, this.#spawn.yaw, this.#nextLoadout);
+        this.#nextLoadout = undefined;
         this.#spawnFacing = { yaw: this.#spawn.yaw, pitch: 0 };
         self = this.#sim.output().players.find((p) => p.id === this.selfId) ?? null;
       }
@@ -180,6 +194,8 @@ export interface OnlineOptions {
   readonly bots?: number;
   readonly name: string;
   readonly passphrase: string;
+  /** What to carry; the default loadout when absent. */
+  readonly loadout?: Loadout;
   /** Where the page keeps its seat token (localStorage), so a dropped or reloaded game takes its seat back; none without. */
   readonly seatKey?: string;
 }
@@ -202,6 +218,7 @@ export class OnlineDriver implements GameDriver {
       ...(options.mode ? { mode: options.mode } : {}),
       ...(options.bots === undefined ? {} : { bots: options.bots }),
       ...(this.#savedToken ? { resume: this.#savedToken } : {}),
+      ...(options.loadout ? { loadout: options.loadout } : {}),
     });
   }
 
@@ -250,6 +267,10 @@ export class OnlineDriver implements GameDriver {
 
   vote(mode: ModeId): void {
     this.#client.vote(mode);
+  }
+
+  setLoadout(loadout: Loadout): void {
+    this.#client.setLoadout(loadout);
   }
 
   get status(): string {
@@ -323,6 +344,7 @@ export interface BotMatchOptions {
   /** Bots a side (free-for-all: twice this many in all, counting you). */
   readonly botsPerTeam: number;
   readonly name: string;
+  readonly loadout?: Loadout;
 }
 
 /**
@@ -347,7 +369,7 @@ export class BotMatchDriver extends OnlineDriver {
       passphrase: '',
       bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
     });
-    super({ server: network.connect(), solids: options.solids, mode: options.mode, bots: perTeam, name: options.name, passphrase: '' });
+    super({ server: network.connect(), solids: options.solids, mode: options.mode, bots: perTeam, name: options.name, passphrase: '', ...(options.loadout ? { loadout: options.loadout } : {}) });
     this.#network = network;
     this.#server = server;
   }

@@ -7,8 +7,8 @@ import { DEFAULT_SETTINGS } from '../src/settings';
 const DEG = Math.PI / 180;
 
 /** Just the fields the camera reads. */
-function player(movement: PlayerOutput['movement'], ads = 0): PlayerOutput {
-  return { position: [0, 0, 0], eyeHeight: 1.6, movement, yaw: 0, pitch: 0, weapon: { id: 'm4a1', ads } } as unknown as PlayerOutput;
+function player(movement: PlayerOutput['movement'], ads = 0, sway: readonly [number, number] = [0, 0]): PlayerOutput {
+  return { position: [0, 0, 0], eyeHeight: 1.6, movement, yaw: 0, pitch: 0, weapon: { id: 'm4a1', ads, sway } } as unknown as PlayerOutput;
 }
 
 /** The camera's vertical FOV (degrees) after a second in this state. */
@@ -28,6 +28,17 @@ describe('first-person camera FOV', () => {
 
   it('does not widen while aiming', () => {
     expect(settledFov(player('sprint', 1))).toBeCloseTo(settledFov(player('walk', 1)), 3);
+  });
+});
+
+describe('first-person camera through a scope', () => {
+  it('drifts with the scope sway, so the reticle sits where the round goes', () => {
+    const cam = new FirstPersonCamera();
+    const prev = player('idle', 1, [0.002, -0.001]);
+    const cur = player('idle', 1, [0.004, -0.003]);
+    const pose = cam.update({ prev, cur, alpha: 0.5, look: { yaw: 0.3, pitch: 0.1 }, cmd: { yaw: 0, pitch: 0 }, dt: 1 / 60 }, DEFAULT_SETTINGS);
+    expect(pose.yaw).toBeCloseTo(0.3 + 0.003, 9);
+    expect(pose.pitch).toBeCloseTo(0.1 - 0.002, 9);
   });
 });
 

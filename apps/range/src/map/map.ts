@@ -2,7 +2,8 @@ import { STATS, box, orientedBox, playerClip, type Material, type MantleBand, ty
 
 /**
  * The one original map: a firing range (10/25/50 m lanes, static and rail
- * dummies) and a movement course, all built from material-tagged solids. 1 unit = 1 metre, Y up; the range faces -Z.
+ * dummies), a 100 m sniping lane and a movement course, all built from
+ * material-tagged solids. 1 unit = 1 metre, Y up; the range faces -Z.
  */
 
 /** A sloped surface: drawn as a ramp, walked on as fine player clip steps, shot at as a sloped bullet surface. */
@@ -63,6 +64,19 @@ export interface PenetrationStation {
   readonly mannequinHead: string;
 }
 
+/** Targets 25 to 100 m out, to read every weapon's falloff and to practise with the scope. */
+export interface SnipingLane {
+  /** Where to stand, facing down the lane. */
+  readonly shooter: SpawnPoint;
+  readonly targets: readonly { readonly distance: number; readonly dummy: string }[];
+}
+
+/** Where the loadout screen opens with the Use button: around `position`, within `radius` metres. */
+export interface LoadoutStation {
+  readonly position: Vec3;
+  readonly radius: number;
+}
+
 export interface GameMap {
   /** Solids that are drawn and collided against. */
   readonly solids: readonly Solid[];
@@ -84,6 +98,8 @@ export interface GameMap {
     readonly ramp: { readonly start: SpawnPoint; readonly top: number };
   };
   readonly penetration: PenetrationStation;
+  readonly sniping: SnipingLane;
+  readonly loadoutStation: LoadoutStation;
 }
 
 /** Every solid the simulation collides against. */
@@ -122,6 +138,8 @@ export function buildMap(): GameMap {
   buildRange(add, labels);
   const course = buildCourse(add, hidden, ramps, labels);
   const penetration = buildPenetrationStation(add, solids, labels);
+  const sniping = buildSnipingLane(add, labels);
+  const loadoutStation = buildLoadoutStation(add, labels);
 
   const dummies: PlayerSpawn[] = [
     { id: 'dummy-10', team: 0, position: [-58, 0, -10], yaw: Math.PI, dummy: {} },
@@ -130,6 +148,7 @@ export function buildMap(): GameMap {
     { id: 'dummy-walk', team: 0, position: [-33, 0, -20], yaw: Math.PI, dummy: { rail: { to: [-22, 0, -20], speed: STATS.movement.walkSpeed.value } } },
     { id: 'dummy-sprint', team: 0, position: [-33, 0, -40], yaw: Math.PI, dummy: { rail: { to: [-22, 0, -40], speed: STATS.movement.sprintSpeed.value } } },
     ...penetration.lanes.map((lane, i): PlayerSpawn => ({ id: lane.dummy, team: 0, position: [PEN_X0 + i * PEN_LANE, 0, PEN_DUMMY_Z], yaw: Math.PI, dummy: {} })),
+    ...sniping.targets.map((t): PlayerSpawn => ({ id: t.dummy, team: 0, position: snipingTarget(t.distance), yaw: FACING_NEG_X, dummy: {} })),
   ];
 
   return {
@@ -145,7 +164,61 @@ export function buildMap(): GameMap {
     dummies,
     course,
     penetration,
+    sniping,
+    loadoutStation,
   };
+}
+
+/** The sniping lane runs east along the strip south of the range, from a bench at its west end. */
+const SNIPE_FROM: Vec3 = [-77, 0, -77.5];
+/**
+ * Each target's offset across the lane: the near ones to one side and the far
+ * ones to the other, so every target is in clear view of the bench.
+ */
+const SNIPE_OFFSET: Readonly<Record<number, number>> = { 25: 6, 50: 2, 75: -2, 100: -6 };
+/** A sign's yaw turns its face from +Z: this one faces back up the lane (-X), toward the bench. */
+const TOWARD_BENCH = -Math.PI / 2;
+
+/** Where the target `distance` metres from the bench stands. */
+function snipingTarget(distance: number): Vec3 {
+  const offset = SNIPE_OFFSET[distance] ?? 0;
+  return [SNIPE_FROM[0] + Math.sqrt(distance * distance - offset * offset), 0, SNIPE_FROM[2] + offset];
+}
+
+/**
+ * The sniping lane, on the grass strip behind the range's backstop: a bench
+ * at the west end and targets at 25, 50, 75 and 100 m, each standing in front
+ * of a board that shows its distance and catches the misses, then an earth
+ * bank to stop the rounds.
+ */
+function buildSnipingLane(add: Add, labels: Label[]): SnipingLane {
+  const [x, , z] = SNIPE_FROM;
+  add([x - 1.5, 0, z - 3], [x + 1, 0.02, z + 3], 'concrete');
+  add([x + 1, 0, z - 2.5], [x + 1.5, 0.95, z + 2.5], 'wood');
+  labels.push({ text: 'SNIPING LANE', position: [x + 0.98, 0.75, z], yaw: TOWARD_BENCH, size: 0.35 });
+  const targets = [25, 50, 75, 100].map((distance) => ({ distance, dummy: `dummy-snipe-${distance}` }));
+  for (const { distance } of targets) {
+    const [tx, , tz] = snipingTarget(distance);
+    add([tx + 0.8, 0, tz - 0.8], [tx + 1, 2.6, tz + 0.8], 'wood');
+    // The figures grow with distance, so each reads through the scope from the bench.
+    labels.push({ text: `${distance} m`, position: [tx + 0.78, 2.25, tz], yaw: TOWARD_BENCH, size: 0.2 + distance * 0.004 });
+  }
+  add([30, 0, -88], [33, 4, -67], 'dirt');
+  // A sign beside the firing line, pointing the way.
+  add([-72.05, 0, -2.05], [-71.95, 2, -1.95], 'wood');
+  add([-73, 1.4, -2.02], [-71, 2.2, -1.98], 'wood');
+  labels.push({ text: 'SNIPING 100 m', position: [-72, 1.8, -1.96], yaw: 0, size: 0.3 });
+  return { shooter: { position: SNIPE_FROM, yaw: FACING_POS_X }, targets };
+}
+
+/** The loadout station: a rack table just behind the firing line, where Use opens the loadout screen. */
+function buildLoadoutStation(add: Add, labels: Label[]): LoadoutStation {
+  const [x, z] = [-44, 3.5];
+  add([x - 1.2, 0, z - 0.4], [x + 1.2, 0.9, z + 0.4], 'metal');
+  add([x - 1.2, 0.9, z + 0.3], [x + 1.2, 2, z + 0.4], 'wood');
+  labels.push({ text: 'LOADOUT', position: [x, 1.7, z + 0.28], yaw: Math.PI, size: 0.35 });
+  labels.push({ text: 'USE', position: [x, 1.35, z + 0.28], yaw: Math.PI, size: 0.22 });
+  return { position: [x, 0, z], radius: 2.5 };
 }
 
 type Add = (min: Vec3, max: Vec3, material: Material) => void;

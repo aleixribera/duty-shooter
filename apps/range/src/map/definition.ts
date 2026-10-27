@@ -87,6 +87,8 @@ export interface MapDefinition {
   /** Where the camera waits when there is no player to follow. */
   readonly overview: CameraSpot;
   readonly dummies: readonly PlayerSpawn[];
+  /** Where the Use button opens the loadout screen (the range's station), or null. */
+  readonly loadoutStation: { readonly position: Vec3; readonly radius: number } | null;
   readonly indoorZones: readonly IndoorZone[];
   readonly referenceSpots: readonly CameraSpot[];
   readonly benchmarkPath: readonly CameraKey[];

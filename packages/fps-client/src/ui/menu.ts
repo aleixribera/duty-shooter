@@ -1,7 +1,7 @@
-import { STATS, type ModeId } from '@duty-shooter/fps-core';
+import { STATS, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
-import { MODE_NAMES, connectionError, lobbyTile, matchSize, type LobbyInfo } from './model';
+import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, matchSize, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, icon, installTheme } from './theme';
 
 export type { LobbyInfo } from './model';
@@ -102,6 +102,18 @@ const CSS = `
 .ds-steps li.now { color: var(--ds-text); }
 .ds-steps li.now::before { border-color: var(--ds-signal); }
 .ds-menu.pad [data-pad-focus]:not(.ds-tile) { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
+.ds-kit { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ds-kit .ds-mode { text-align: center; padding: 10px 8px; }
+.ds-kit .ds-mode b { font-size: 15px; }
+.ds-kit .ds-mode span { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-card { margin: 14px 0 4px; padding: 12px 14px; background: var(--ds-raised); border-radius: 4px; }
+.ds-card .role { margin: 0 0 10px; color: var(--ds-text-2); font-size: 14px; }
+.ds-card .name { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.ds-bars { display: grid; grid-template-columns: 110px 1fr 82px; gap: 7px 12px; align-items: center; font-size: 13px; }
+.ds-bars .k { color: var(--ds-text-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.14em; }
+.ds-bars .bar { height: 6px; background: rgb(255 255 255 / 0.08); border-radius: 3px; overflow: hidden; }
+.ds-bars .bar i { display: block; height: 100%; background: var(--ds-signal); border-radius: 3px; }
+.ds-bars .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ds-text-2); }
 `;
 
 export interface MenuCallbacks {
@@ -121,7 +133,7 @@ export interface MenuCallbacks {
   resume(): void;
   /** Leave the current game for the main menu. */
   leave(): void;
-  /** Settings changed (already validated); persist and apply them. */
+  /** Settings changed (already validated); persist and apply them. A new `loadout` goes to the game too. */
   changeSettings(settings: Settings): void;
   /** Wait for the next key or mouse button, for rebinding; null cancels. */
   captureKey(): Promise<string | null>;
@@ -134,7 +146,7 @@ export interface MenuCallbacks {
  */
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
-type Screen = 'main' | 'online' | 'bots' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip';
+type Screen = 'main' | 'online' | 'bots' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout';
 
 /**
  * Every screen outside play: the main menu over the map's fly-through,
@@ -165,6 +177,9 @@ export class Menu {
   /** Connecting: which step is under way. */
   #step = 0;
   #afterTip: (() => void) | null = null;
+  /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
+  #loadoutBack: 'pause' | 'game' = 'pause';
+  #loadoutNote = '';
   readonly #padName: () => string | null;
 
   constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null }) {
@@ -339,6 +354,20 @@ export class Menu {
     }
   }
 
+  /**
+   * The loadout screen, from the pause menu (Done goes back to it) or from
+   * the death screen or the range's station (Done goes back into the game).
+   */
+  loadout(back: 'pause' | 'game'): void {
+    this.#loadoutBack = back;
+    this.show('loadout');
+  }
+
+  /** When a loadout change applies in the game being played, as the loadout screen says it. */
+  set loadoutNote(text: string) {
+    this.#loadoutNote = text;
+  }
+
   /** Shows the one-time tip (Firefox has no raw mouse input), then runs `then`. */
   tip(then: () => void): void {
     this.#afterTip = then;
@@ -438,6 +467,7 @@ export class Menu {
         heading(p, 'Paused', 'settings');
         if (this.#error) p.append(h('div', this.#error, 'ds-error'));
         button(p, 'Resume', () => this.#callbacks.resume(), 'primary');
+        button(p, 'Loadout', () => this.loadout('pause'));
         button(p, 'Settings', () => {
           this.#back = 'pause';
           this.show('settings');
@@ -445,6 +475,11 @@ export class Menu {
         button(p, 'Leave', () => this.#callbacks.leave());
         p.append(h('div', 'WASD move · Shift sprint (double-tap: tactical) · C crouch/slide · Ctrl prone · Space jump/mantle · R reload (hold: inspect) · V melee · Q / 1 / 2 / wheel switch weapon · G grenade (hold to cook) · F use · Tab scores · Esc menu', 'ds-hint'));
         p.append(h('div', 'Controller: L3 sprint (double-click: tactical) · ○ crouch/slide (hold: prone) · ✕ jump · □ reload (hold: inspect) · R3 melee · △ switch weapon · R1 grenade · L1 use · L2 aim · R2 fire · Touchpad scores · Options menu', 'ds-hint'));
+        break;
+      }
+      case 'loadout': {
+        const p = panel('wide');
+        this.#renderLoadout(p, h, heading, button);
         break;
       }
       case 'tip': {
@@ -677,6 +712,61 @@ export class Menu {
     const start = button(row, 'Start', () => this.#callbacks.botMatch(this.#botMode, this.#botsPerTeam), 'primary');
     button(row, 'Back', () => this.show('main'), 'back');
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => start.focus());
+  }
+
+  /**
+   * Primary, secondary and grenade as rows of tiles, and a card with the
+   * focused (or chosen) weapon's role and bars. A choice is kept at once.
+   */
+  #renderLoadout(
+    p: HTMLElement,
+    h: (tag: string, text?: string, cls?: string) => HTMLElement,
+    heading: (p: HTMLElement, text: string, iconName: string) => void,
+    button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | '') => HTMLButtonElement,
+  ): void {
+    heading(p, 'Loadout', 'range');
+    p.append(h('p', this.#loadoutNote || 'Applies from your next spawn.'));
+    const options = loadoutOptions();
+    const card = h('div', '', 'ds-card');
+    const showCard = (id: WeaponId) => {
+      const c = weaponCard(id);
+      const bars = c.bars.map((b) => `<span class="k">${escapeHtml(b.label)}</span><span class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></span><span class="v">${escapeHtml(b.text)}</span>`);
+      card.innerHTML = `<div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p><div class="ds-bars">${bars.join('')}</div>`;
+    };
+    const row = <T extends WeaponId | GrenadeId | null>(title: string, slot: keyof Loadout, choices: readonly T[], label: (c: T) => [string, string]) => {
+      p.append(h('h3', title));
+      const tiles = h('div', '', 'ds-kit');
+      for (const choice of choices) {
+        const b = h('button', '', `ds-mode${this.#settings.loadout[slot] === choice ? ' on' : ''}`) as HTMLButtonElement;
+        b.type = 'button';
+        const [name, detail] = label(choice);
+        b.innerHTML = `<b>${escapeHtml(name)}</b><span>${escapeHtml(detail)}</span>`;
+        b.addEventListener('click', () => {
+          this.#change({ loadout: { ...this.#settings.loadout, [slot]: choice } });
+          for (const t of tiles.children) t.classList.toggle('on', t === b);
+        });
+        if (slot !== 'grenade') {
+          const show = () => showCard(choice as WeaponId);
+          b.addEventListener('focus', show);
+          b.addEventListener('mouseenter', show);
+          b.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
+        }
+        tiles.append(b);
+      }
+      p.append(tiles);
+    };
+    const weapon = (id: WeaponId): [string, string] => {
+      const t = STATS.weapons[id].traits;
+      return [t.name, t.sight === 'scope' ? 'scoped' : t.fireMode];
+    };
+    row('Primary', 'primary', options.primary, weapon);
+    row('Secondary', 'secondary', options.secondary, weapon);
+    row('Grenade', 'grenade', options.grenade, (g) => (g ? ['Frag', `${STATS.grenade.perLife.value} a life`] : ['None', 'hands free']));
+    showCard(this.#settings.loadout.primary);
+    p.append(card);
+    const done = button(p, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#callbacks.resume()), 'primary');
+    done.dataset['back'] = '';
+    if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus());
   }
 
   /** Marks the focused control for the controller's focus ring (the page may not have window focus, so :focus is not enough). */

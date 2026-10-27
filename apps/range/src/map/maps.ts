@@ -28,6 +28,7 @@ const GRID_FINISHES: Readonly<Record<string, Finish>> = Object.fromEntries(
 export function buildRange(): MapDefinition {
   const map = buildMap();
   const pen = map.penetration.shooter.position;
+  const snipe = map.sniping.shooter.position;
   return {
     id: 'range',
     name: 'Practice Range',
@@ -46,11 +47,14 @@ export function buildRange(): MapDefinition {
     offlineSpawn: map.rangeSpawn,
     overview: { name: 'overview', position: [-42, 7, 14], yaw: 0.25, pitch: -0.28 },
     dummies: map.dummies,
+    loadoutStation: map.loadoutStation,
     indoorZones: [],
     referenceSpots: [
       { name: 'firing line', position: [-48, 1.6, 0], yaw: FACING_NEG_Z, pitch: 0 },
       { name: 'movement course', position: [0, 1.6, 4], yaw: FACING_NEG_Z, pitch: -0.05 },
       { name: 'penetration station', position: [pen[0], 1.6, pen[2]], yaw: FACING_NEG_Z, pitch: -0.05 },
+      { name: 'sniping lane', position: [snipe[0], 1.6, snipe[2]], yaw: map.sniping.shooter.yaw, pitch: -0.01 },
+      { name: 'loadout station', position: [map.loadoutStation.position[0] + 1.5, 1.6, map.loadoutStation.position[2] - 3], yaw: Math.PI - 0.4, pitch: -0.12 },
     ],
     // Along the open strip behind the firing line, looking down the lanes and over the course.
     benchmarkPath: [

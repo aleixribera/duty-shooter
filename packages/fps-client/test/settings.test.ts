@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_LOADOUT } from '@duty-shooter/fps-core';
 import { DEFAULT_SETTINGS, parseSettings } from '../src/settings';
 
 describe('settings', () => {
@@ -17,6 +18,13 @@ describe('settings', () => {
     expect(old.padSensitivityY).toBe(12);
     expect(old.fov).toBe(90);
     expect(old.name).toBe('kept');
+  });
+
+  it('remembers the loadout, and starts from the M4A1, the pistol and a frag otherwise', () => {
+    expect(DEFAULT_SETTINGS.loadout).toEqual(DEFAULT_LOADOUT);
+    expect(parseSettings({ name: 'x' }).loadout).toEqual(DEFAULT_LOADOUT);
+    expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: null } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: null });
+    expect(parseSettings({ loadout: { primary: 'pistol', secondary: 'pistol', grenade: 'frag' } }).loadout).toEqual(DEFAULT_LOADOUT);
   });
 
   it('keeps values the player chose, before and after the new defaults', () => {

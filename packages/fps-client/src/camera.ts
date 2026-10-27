@@ -89,8 +89,11 @@ export class FirstPersonCamera {
     const rollTarget = cur.movement === 'slide' ? STATS.slide.cameraRoll.value * DEG : 0;
     this.#roll += (rollTarget - this.#roll) * (1 - Math.exp(-dt / 0.08));
 
-    const yaw = frame.look.yaw + this.#offsetYaw;
-    const pitch = Math.max(-89 * DEG, Math.min(89 * DEG, frame.look.pitch + this.#offsetPitch));
+    // A scope's sway moves the round off the aim: the view drifts with it, so the reticle shows where it goes.
+    const swayYaw = lerp(prev.weapon.sway[0], cur.weapon.sway[0]);
+    const swayPitch = lerp(prev.weapon.sway[1], cur.weapon.sway[1]);
+    const yaw = frame.look.yaw + this.#offsetYaw + swayYaw;
+    const pitch = Math.max(-89 * DEG, Math.min(89 * DEG, frame.look.pitch + this.#offsetPitch + swayPitch));
     const cam = this.camera;
     cam.position.set(feet[0], this.#smoothY + this.#dip.value * 0.06, feet[2]);
     cam.rotation.set(pitch + this.#shakePitch.value, yaw + this.#shakeYaw.value, this.#roll + this.#shakeRoll.value);

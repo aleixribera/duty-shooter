@@ -1,4 +1,4 @@
-import type { MatchResult, ModeId, PlayerId, Score, TeamScore } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, type GrenadeId, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -161,4 +161,73 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
 /** How a match of `perTeam` a side reads in `mode`: "3v3", or "6 players" in free-for-all (you included). */
 export function matchSize(mode: ModeId, perTeam: number): string {
   return mode === 'tdm' ? `${perTeam}v${perTeam}` : `${perTeam * 2} players`;
+}
+
+/** What the loadout screen offers in each slot. Everything is unlocked from the start. */
+export function loadoutOptions(): { readonly primary: readonly WeaponId[]; readonly secondary: readonly WeaponId[]; readonly grenade: readonly (GrenadeId | null)[] } {
+  return { primary: slotWeapons('primary'), secondary: slotWeapons('secondary'), grenade: ['frag', null] };
+}
+
+export interface StatBar {
+  readonly key: 'rate' | 'damage' | 'range' | 'handling';
+  readonly label: string;
+  /** How full the bar is, 0-1, against the rest of the arsenal. */
+  readonly value: number;
+  /** The figure behind it. */
+  readonly text: string;
+}
+
+export interface WeaponCard {
+  readonly id: WeaponId;
+  readonly name: string;
+  readonly role: string;
+  readonly bars: readonly StatBar[];
+}
+
+/** The longest range a bar shows: past it a weapon reads as full. */
+const RANGE_CAP = 100;
+/** Half a torso's width (m): a shotgun's pattern wider than this stops landing whole. */
+const TORSO_HALF_WIDTH = 0.25;
+
+/**
+ * How far a weapon keeps its punch: the end of the last damage band still
+ * worth three quarters of its close damage, and for a shotgun no further than
+ * its aimed pattern stays on a torso.
+ */
+function effectiveRange(id: WeaponId): number {
+  const row = STATS.weapons[id];
+  const close = rangeDamage(0, id);
+  let reach = 0;
+  for (const band of Object.values(row.damage.bands)) {
+    if (band.damage.value < close * 0.75) break;
+    reach = band.range?.value ?? Infinity;
+  }
+  const spread = row.accuracy.aimedSpread?.value ?? 0;
+  if ((row.damage.pellets?.value ?? 1) > 1 && spread > 0) reach = Math.min(reach, TORSO_HALF_WIDTH / Math.tan((spread * Math.PI) / 180));
+  return reach;
+}
+
+/** ADS plus sprint-to-fire: how long the weapon takes to come to bear. */
+const bearTime = (id: WeaponId) => STATS.weapons[id].handling.adsTime.value + STATS.weapons[id].handling.sprintToFire.value;
+
+/** A weapon on the loadout screen: its role and simple bars for rate of fire, damage, range and handling. */
+export function weaponCard(id: WeaponId): WeaponCard {
+  const row = STATS.weapons[id];
+  const h = row.handling;
+  const pellets = row.damage.pellets?.value ?? 1;
+  const perPellet = rangeDamage(0, id);
+  const topRate = Math.max(...WEAPON_IDS.map((w) => STATS.weapons[w].handling.fireRate.value));
+  const quickest = Math.min(...WEAPON_IDS.map(bearTime));
+  const reach = effectiveRange(id);
+  return {
+    id,
+    name: row.traits.name,
+    role: row.traits.role,
+    bars: [
+      { key: 'rate', label: 'Rate of fire', value: h.fireRate.value / topRate, text: `${Math.round(h.fireRate.value)} rpm` },
+      { key: 'damage', label: 'Damage', value: Math.min(1, (pellets * perPellet) / STATS.health.max.value), text: pellets > 1 ? `${pellets} × ${perPellet}` : `${perPellet}` },
+      { key: 'range', label: 'Range', value: Math.min(RANGE_CAP, reach) / RANGE_CAP, text: reach >= RANGE_CAP ? `${RANGE_CAP} m+` : `${Math.round(reach)} m` },
+      { key: 'handling', label: 'Handling', value: quickest / bearTime(id), text: `ADS ${h.adsTime.value.toFixed(2)} s` },
+    ],
+  };
 }

@@ -46,8 +46,14 @@ _Avoid_: level
 The recreation of the original 2010 Nuketown, and the public lobby's map. Never call it "Nuketown" in the product.
 
 **Practice Range**:
-The offline range map: firing lanes, dummies and the movement course.
+The offline range map: firing lanes, dummies, the sniping lane, the loadout station and the movement course.
 _Avoid_: the range app (that's the `apps/range` package, which hosts both maps)
+
+**Sniping lane**:
+The Practice Range's long lane: a bench and targets at 25, 50, 75 and 100 m, each on a board showing its distance.
+
+**Loadout station**:
+The rack behind the Practice Range's firing line where the Use button opens the loadout screen.
 
 **Reference file**:
 The sourced public measurements of the original map, each with a tolerance class: structural ±15 cm, other ±30 cm.
@@ -57,6 +63,26 @@ A named camera position in a map, used for repeatable screenshots and accuracy c
 
 **Indoor zone**:
 A volume in a map that switches audio to indoor reverb.
+
+## Weapons
+
+**Weapon**:
+One gun with its row in the stats file: the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun, the Ridgeline .308 sniper rifle or the Warden 9 pistol.
+_Avoid_: gun (fine in player-facing text), item
+
+**Loadout**:
+What a player carries into a life: a primary, a secondary and a grenade (or none). A change applies at the next spawn; offline, at once.
+_Avoid_: class, kit
+
+**Primary**:
+The loadout's main weapon, in slot 1: the M4A1, the SMG, the shotgun or the sniper rifle.
+
+**Secondary**:
+The loadout's sidearm, in slot 2: the pistol.
+
+**Frag**:
+The fragmentation grenade: cooked by holding the grenade button, thrown on release, one a life.
+_Avoid_: nade (fine in player-facing text)
 
 ## Matches
 

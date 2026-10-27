@@ -138,9 +138,62 @@ describe('map: penetration station', () => {
   });
 });
 
+describe('map: sniping lane', () => {
+  /** One aimed shot with `weapon` from the lane's firing point at a target's upper torso; the hit, if any. */
+  function shootTarget(dummy: string, weapon: 'sniper' | 'm4a1') {
+    const target = map.dummies.find((d) => d.id === dummy)!;
+    const from = map.sniping.shooter;
+    const match = createHeadlessMatch({ solids, players: [{ id: 'p', team: 1, position: from.position, yaw: from.yaw, loadout: { primary: weapon, secondary: 'pistol', grenade: null } }, target] });
+    const aim = () => {
+      const me = match.latest.players[0]!;
+      const centre = zoneCentre(match.latest.players[1]!, 'upperTorso');
+      return anglesOf([centre[0] - me.position[0], centre[1] - me.position[1] - me.eyeHeight, centre[2] - me.position[2]]);
+    };
+    // Aimed and settled (the scope's sway dies down standing still).
+    run(match, 4, () => usercmd({ ...aim(), buttons: ['Ads'] }));
+    // Shots leave along the aim plus the scope's sway: aim against it, as a player does.
+    const me = match.latest.players[0]!;
+    const a = { yaw: aim().yaw - me.weapon.sway[0], pitch: aim().pitch - me.weapon.sway[1] };
+    const out = [match.step({ p: usercmd({ ...a, buttons: ['Ads', 'Fire'], firePresses: [0] }) }), ...Array.from({ length: 30 }, () => match.step({ p: usercmd({ ...a, buttons: ['Ads'] }) }))];
+    return out.flatMap((o) => o.events).find((e) => e.type === 'hit') ?? null;
+  }
+
+  it('has targets 25, 50, 75 and 100 m from its firing point', () => {
+    const from = map.sniping.shooter.position;
+    const distances = map.sniping.targets.map((t) => {
+      const d = map.dummies.find((x) => x.id === t.dummy)!.position;
+      return Math.hypot(d[0] - from[0], d[2] - from[2]);
+    });
+    expect(distances.map((d) => Math.round(d))).toEqual([25, 50, 75, 100]);
+    expect(map.sniping.targets.map((t) => t.distance)).toEqual([25, 50, 75, 100]);
+  });
+
+  for (const distance of [25, 50, 75, 100]) {
+    it(`gives a clear shot at the ${distance} m target, one sniper round to the body, and the rifle's damage at that range`, () => {
+      const dummy = map.sniping.targets.find((t) => t.distance === distance)!.dummy;
+      const snipe = shootTarget(dummy, 'sniper');
+      expect(snipe).toMatchObject({ type: 'hit', killed: true });
+      const rifle = shootTarget(dummy, 'm4a1');
+      expect(rifle?.type).toBe('hit');
+      if (rifle?.type !== 'hit') return;
+      expect(rifle.damage).toBeCloseTo(bulletDamage(rifle.distance, rifle.zone), 6);
+    });
+  }
+});
+
+describe('map: loadout station', () => {
+  it('stands beside the firing line, where a player can walk up to it', () => {
+    const s = map.loadoutStation;
+    expect(Math.hypot(s.position[0] - map.rangeSpawn.position[0], s.position[2] - map.rangeSpawn.position[2])).toBeLessThan(10);
+    const spot: SpawnPoint = { position: [s.position[0], 0, s.position[2] + s.radius * 0.6], yaw: 0 };
+    const out = run(standAt(spot), 0.5, () => usercmd({ yaw: 0 }));
+    expect(out.at(-1)!.position).toEqual(spot.position);
+  });
+});
+
 describe('map: range', () => {
   it('has static dummies 10, 25 and 50 m from the firing line', () => {
-    const lanes = map.dummies.filter((d) => !d.dummy?.rail && !d.id.startsWith('dummy-pen-')).map((d) => -d.position[2] + map.rangeSpawn.position[2]);
+    const lanes = map.dummies.filter((d) => !d.dummy?.rail && !d.id.startsWith('dummy-pen-') && !d.id.startsWith('dummy-snipe-')).map((d) => -d.position[2] + map.rangeSpawn.position[2]);
     expect(lanes).toEqual([10, 25, 50]);
   });
 

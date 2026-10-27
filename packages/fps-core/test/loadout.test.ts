@@ -67,6 +67,18 @@ describe('loadouts', () => {
     sim.respawn(SHOOTER, [0, 0, 0], 0);
     expect(sim.output().players[0]).toMatchObject({ loadout: { primary: 'shotgun' }, weapon: { id: 'shotgun', ammo: row('shotgun').handling.magazineSize.value } });
   });
+
+  it('equips a living player in place on the range (the loadout station): same spot and health, fresh weapons drawing', () => {
+    const sim = new Simulation(createWorld([FLOOR]));
+    sim.addPlayer({ id: SHOOTER, team: 1, position: [3, 0, -4], yaw: 1 });
+    for (let i = 0; i < 30; i++) sim.step({ [SHOOTER]: usercmd({ yaw: 1, forward: 1 }) });
+    const before = sim.output().players[0]!;
+    sim.equip(SHOOTER, { primary: 'sniper', secondary: 'pistol', grenade: null });
+    const after = sim.output().players[0]!;
+    expect(after.position).toEqual(before.position);
+    expect(after.health).toBe(before.health);
+    expect(after).toMatchObject({ loadout: { primary: 'sniper', grenade: null }, grenades: 0, weapon: { id: 'sniper', slot: 0, action: 'draw', ammo: row('sniper').handling.magazineSize.value } });
+  });
 });
 
 describe('switching weapons', () => {

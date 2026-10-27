@@ -56,6 +56,13 @@ const CSS = `
 .ds-match .clock { font-size: 20px; font-weight: 700; }
 .ds-match .sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); margin-top: 2px; }
 .ds-match .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ds-prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 6px 12px; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; }
+.ds-prompt[hidden] { display: none; }
+.ds-dmgnum { position: absolute; transform: translate(-50%, -100%); text-align: center; pointer-events: none; text-shadow: 0 1px 4px rgb(0 0 0 / 0.8); animation: ds-dmgnum 1.4s ease-out forwards; }
+.ds-dmgnum b { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ds-dmgnum.head b { color: var(--ds-alert); }
+.ds-dmgnum small { display: block; font-size: 11px; letter-spacing: 0.1em; color: var(--ds-text-2); }
+@keyframes ds-dmgnum { 0% { opacity: 0; margin-top: 6px; } 10% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -34px; } }
 .ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; white-space: pre-line; line-height: 1.6; }
 .ds-overlay { position: absolute; left: 24px; bottom: 112px; padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 6px; background: rgb(0 0 0 / 0.35); }
@@ -119,6 +126,8 @@ export interface HudState {
   readonly match: MatchView | null;
   /** Seconds until you respawn while dead, or null while alive. */
   readonly respawnIn: number | null;
+  /** A button prompt under the centre (the loadout screen's), or null. */
+  readonly prompt?: string | null;
   /** A centred message (e.g. "connecting"), or null. */
   readonly message: string | null;
   readonly dt: number;
@@ -179,6 +188,7 @@ export class Hud {
   readonly #feed: HTMLDivElement;
   readonly #stats: HTMLDivElement;
   readonly #center: HTMLDivElement;
+  readonly #prompt: HTMLDivElement;
   readonly #overlay: HTMLDivElement;
   readonly #ttk: HTMLSpanElement;
   readonly #dist: HTMLSpanElement;
@@ -234,6 +244,7 @@ export class Hud {
     this.#feed = el('div', 'ds-feed', this.root);
     this.#stats = el('div', 'ds-stats', this.root);
     this.#center = el('div', 'ds-center', this.root);
+    this.#prompt = el('div', 'ds-prompt ds-plate', this.root);
     this.#overlay = el(
       'div',
       'ds-overlay ds-plate',
@@ -305,9 +316,21 @@ export class Hud {
     this.#shots.textContent = `${shots} / ${hits}`;
   }
 
-  /** Range overlay: the damage of your latest hit, to check against the penetration table. */
-  setLastHit(damage: number): void {
-    this.#lastHit.textContent = `${damage.toFixed(1)} HP`;
+  /** Range overlay: the damage of your latest hit (and where and how far), to check against the stats tables. */
+  setLastHit(damage: number, zone?: string, distance?: number): void {
+    const where = [zone?.replace(/([A-Z])/g, ' $1').toLowerCase(), distance === undefined ? undefined : `${distance.toFixed(0)} m`].filter(Boolean).join(' · ');
+    this.#lastHit.textContent = `${damage.toFixed(1)} HP${where ? ` · ${where}` : ''}`;
+  }
+
+  /** A damage number rising from a range dummy at screen point (x, y), with a smaller line under it. */
+  damageNumber(x: number, y: number, damage: number, head: boolean, detail: string): void {
+    const div = document.createElement('div');
+    div.className = `ds-dmgnum${head ? ' head' : ''}`;
+    div.innerHTML = `<b>${damage}</b><small>${escape(detail)}</small>`;
+    this.root.append(div);
+    div.style.left = `${x}px`;
+    div.style.top = `${y}px`;
+    div.addEventListener('animationend', () => div.remove());
   }
 
   toast(text: string, seconds = 8): void {
@@ -417,6 +440,9 @@ export class Hud {
     this.#stats.textContent = stats.join('  ·  ');
     const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';
     this.#center.textContent = state.message ?? (self && !self.alive ? `You died${respawn}` : '');
+    const prompt = state.message ? null : (state.prompt ?? null);
+    this.#prompt.hidden = prompt === null;
+    if (prompt !== null && this.#prompt.textContent !== prompt) this.#prompt.textContent = prompt;
 
     this.#overlay.style.display = state.showOverlay ? '' : 'none';
     this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;
