@@ -26,20 +26,38 @@ const CHIMES = [277.2, 329.6, 415.3, 493.9, 554.4];
  */
 function blast(out: Float32Array, sr: number, rng: Rng, at: number, length: number, gain: number): void {
   const start = Math.round(at * sr);
-  const count = Math.round((length + 0.25) * sr);
+  const count = Math.min(Math.round((length + 0.25) * sr), out.length - start);
+  // These envelopes are identical for all five chimes.
+  const pitchEnvelope = new Float64Array(count);
+  const amplitude = new Float64Array(count);
+  for (let i = 0; i < count; i++) {
+    const t = i / sr;
+    pitchEnvelope[i] = 1 - 0.03 * Math.exp(-t / 0.06);
+    amplitude[i] = Math.min(1, t / 0.07) * (t > length ? Math.exp(-(t - length) / 0.04) : 1);
+  }
   for (const f of CHIMES) {
     const detune = rng.range(0.996, 1.004);
     const drift = rng.range(0.7, 1.4);
     let phase = rng.next();
-    for (let i = 0; i < count && start + i < out.length; i++) {
+    for (let i = 0; i < count; i++) {
       const t = i / sr;
       // The pitch sags a little as the valve opens, then holds with a slow waver.
-      const fi = f * detune * (1 - 0.03 * Math.exp(-t / 0.06)) * (1 + 0.002 * Math.sin(2 * Math.PI * drift * t));
+      const fi = f * detune * pitchEnvelope[i]! * (1 + 0.002 * Math.sin(2 * Math.PI * drift * t));
       phase += fi / sr;
+      // Generate the same seven sine harmonics by recurrence, avoiding six
+      // additional transcendental calls for every sample of every chime.
+      const angle = 2 * Math.PI * phase;
+      const twiceCos = 2 * Math.cos(angle);
+      let previous = 0;
+      let harmonic = Math.sin(angle);
       let s = 0;
-      for (let k = 1; k <= 7; k++) s += Math.sin(2 * Math.PI * k * phase) / k;
-      const env = Math.min(1, t / 0.07) * (t > length ? Math.exp(-(t - length) / 0.04) : 1);
-      out[start + i] = (out[start + i] ?? 0) + s * env * gain;
+      for (let k = 1; k <= 7; k++) {
+        s += harmonic / k;
+        const next = twiceCos * harmonic - previous;
+        previous = harmonic;
+        harmonic = next;
+      }
+      out[start + i] = (out[start + i] ?? 0) + s * amplitude[i]! * gain;
     }
   }
 }

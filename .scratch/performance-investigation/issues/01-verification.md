@@ -12,3 +12,5 @@ The configured runner was found through Git Bash. The home server is reachable; 
 
 
 Full home-server check passed (792 tests; 8 benchmark-only skips); the subsequent leg-exposure regression test also passed. A 45-second moving and firing Survival Town match passed with no reported stalls or browser errors and a minimum sampled 100 FPS on the RTX 5060. The script can still run into a wall, so this does not prove worst-case combat or integrated-GPU performance. Further work: investigate long frame outliers and audio warm-up, measure under varied combat and on integrated graphics, and compare changes against a controlled baseline.
+
+Train-horn warm-up was identified in a gameplay profile. A sample-by-sample comparison against the previous synthesis at 22,050 and 48,000 Hz showed a maximum difference of 4.1e-11; median server generation time fell from about 87 to 43 ms at 22,050 Hz and from 186 to 85 ms at 48,000 Hz. The full suite passed again (793 tests; 8 benchmark-only skips).
