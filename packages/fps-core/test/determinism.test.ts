@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slotWeapons } from '@duty-shooter/fps-core';
 import { box, createHeadlessMatch, usercmd, type CmdScript } from '@duty-shooter/fps-core/harness';
 
 const solids = [
@@ -39,6 +40,23 @@ describe('determinism', () => {
     const second = createHeadlessMatch({ solids, players }).run(600, script);
 
     expect(second).toEqual(first);
+  });
+
+  it('stays identical with every weapon, switching, reloading and firing', () => {
+    for (const primary of slotWeapons('primary')) {
+      const armed = players.map((p) => ({ ...p, loadout: { primary, secondary: 'pistol' as const, grenade: 'frag' as const } }));
+      const busy: CmdScript = (tick) => {
+        const cmds = script(tick);
+        const switching = tick % 150 === 75 ? ['SwitchWeapon' as const] : [];
+        const reloading = tick % 200 === 199 ? ['Reload' as const] : [];
+        return { ...cmds, a: usercmd({ ...cmds['a'], buttons: [...switching, ...reloading, ...(tick % 120 < 50 ? (['Ads'] as const) : [])] }) };
+      };
+      const first = createHeadlessMatch({ solids, players: armed }).run(600, busy);
+      const second = createHeadlessMatch({ solids, players: armed }).run(600, busy);
+
+      expect(second, primary).toEqual(first);
+      expect(first.some((o) => o.events.some((e) => e.type === 'shot' && e.weapon === primary)), primary).toBe(true);
+    }
   });
 
   it('produces different outputs for a different script, so the comparison above is meaningful', () => {
