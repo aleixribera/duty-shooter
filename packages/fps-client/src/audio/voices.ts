@@ -1,3 +1,4 @@
+import { boltCloseVoice, boltOpenVoice, explosionVoice, grenadeBounceVoice, grenadePinVoice, grenadeThrowVoice, pumpRackVoice, shellInsertVoice } from './arsenal';
 import { crouchVoice, footstepVoice, jumpVoice, landVoice, mantleVoice, proneVoice, slideVoice } from './foley';
 import { gunshotVoice } from './gunshot';
 import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
@@ -42,6 +43,14 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     adsOut: adsOutVoice(),
     meleeSwing: meleeSwingVoice(),
     meleeHit: meleeHitVoice(),
+    pumpRack: pumpRackVoice(),
+    boltOpen: boltOpenVoice(),
+    boltClose: boltCloseVoice(),
+    shellInsert: shellInsertVoice(),
+    grenadePin: grenadePinVoice(),
+    grenadeThrow: grenadeThrowVoice(),
+    grenadeBounce: grenadeBounceVoice(),
+    explosion: explosionVoice(),
     impact: impactVoice(),
     casing: casingVoice(),
     bulletCrack: bulletCrackVoice(),

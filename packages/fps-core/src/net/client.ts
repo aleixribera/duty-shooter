@@ -371,7 +371,7 @@ export class GameClient {
   }
 }
 
-/** Your own shots, impacts and reloads are already predicted locally, so the server's copies are skipped. */
+/** Your own shots, impacts, reloads, switches and grenade handling are already predicted locally, so the server's copies are skipped. */
 function isOwnCosmetic(event: SimEvent | ModeEvent, id: PlayerId | null): boolean {
   if (id === null) return false;
   switch (event.type) {
@@ -380,6 +380,8 @@ function isOwnCosmetic(event: SimEvent | ModeEvent, id: PlayerId | null): boolea
     case 'prop':
       return event.shooter === id;
     case 'reload':
+    case 'switch':
+    case 'grenade':
       return event.player === id;
     case 'melee':
       return event.attacker === id && event.victim === null;

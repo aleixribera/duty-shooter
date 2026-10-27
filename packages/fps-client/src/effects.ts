@@ -260,6 +260,9 @@ export class Effects {
   readonly #flashMaterial: MeshBasicNodeMaterial;
   #features: PresetFeatures;
   readonly #recentShots: number[] = [];
+  /** A frag's flash: brighter and longer than a muzzle's. */
+  readonly #blastLight = new PointLight(0xffa860, 0, 22, 1.4);
+  #blastAge = 1;
   #time = 0;
   /** Called when a casing hits a surface hard enough to be heard. */
   onCasingBounce: ((position: Vec3, material: Material, intensity: number) => void) | null = null;
@@ -283,6 +286,7 @@ export class Effects {
     this.#casingMesh.frustumCulled = false;
     this.#casingMesh.castShadow = true;
     this.#flashMaterial = flashMaterial();
+    this.#root.add(this.#blastLight);
     this.#root.add(this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh);
     scene.add(this.#root);
   }
@@ -383,6 +387,46 @@ export class Effects {
     }
   }
 
+  /** A frag going off at `point`: a flash, a burst of sparks and fragments, a dust cloud and a scorch on the ground. */
+  explosion(point: Vec3): void {
+    const p = new Vector3(point[0], point[1] + 0.1, point[2]);
+    this.#blastLight.position.copy(p).add(new Vector3(0, 0.6, 0));
+    this.#blastAge = 0;
+    const k = this.#features.particles;
+    const dir = () => {
+      const u = Math.random() * Math.PI * 2;
+      const up = Math.random();
+      const r = Math.sqrt(1 - up * up);
+      return new Vector3(Math.cos(u) * r, up, Math.sin(u) * r);
+    };
+    for (let i = 0; i < Math.round(36 * k); i++) {
+      this.#sparks.emit({ p: p.clone(), v: dir().multiplyScalar(8 + Math.random() * 14), life: 0.2 + Math.random() * 0.35, size: 0.035, gravity: 9, drag: 1.5, color: new Color(1, 0.7 + Math.random() * 0.25, 0.35) });
+    }
+    // The fireball: a few big additive puffs that die fast.
+    for (let i = 0; i < Math.round(6 * k); i++) {
+      this.#sparks.emit({ p: p.clone().add(dir().multiplyScalar(0.3)), v: dir().multiplyScalar(2), life: 0.16 + Math.random() * 0.1, size: 1.2, grow: 3, alpha: 0.8, drag: 4, color: new Color(1, 0.6, 0.25) });
+    }
+    for (let i = 0; i < Math.round(18 * k); i++) {
+      this.#smoke.emit({
+        p: p.clone().add(dir().multiplyScalar(0.4)),
+        v: dir().multiplyScalar(2.5 + Math.random() * 2).add(new Vector3(0, 0.8, 0)),
+        life: 2.5 + Math.random() * 1.5,
+        size: 0.6,
+        grow: 1.4,
+        spin: (Math.random() - 0.5) * 0.6,
+        alpha: 0.5,
+        drag: 2.4,
+        color: new Color(0x8a8278).multiplyScalar(0.7 + Math.random() * 0.3),
+      });
+    }
+    // Dirt and grit thrown up and falling back.
+    for (let i = 0; i < Math.round(28 * k); i++) {
+      this.#dust.emit({ p: p.clone(), v: dir().multiplyScalar(3 + Math.random() * 5).add(new Vector3(0, 2, 0)), life: 0.9 + Math.random() * 0.6, size: 0.03, alpha: 1, gravity: 9.8, drag: 0.4, color: new Color(0x4a4238) });
+    }
+    const ground = raycastWorld(this.#world, [point[0], point[1] + 0.3, point[2]], [point[0], point[1] - 1, point[2]]);
+    if (ground) this.#splats.add(ground.point, ground.normal, 1.6 + Math.random() * 0.4, new Color(0.08, 0.07, 0.06));
+  }
+
   /** A hit on a player or dummy at `point`, travelling along `direction`. */
   blood(point: Vec3, direction: Vec3, heavy: boolean): void {
     const p = new Vector3(point[0], point[1], point[2]);
@@ -416,6 +460,8 @@ export class Effects {
       const light = this.#lights[i] as PointLight;
       light.intensity = age < 0.05 ? 14 * (1 - age / 0.05) + 4 : 0;
     }
+    this.#blastAge += dt;
+    this.#blastLight.intensity = this.#blastAge < 0.25 ? 80 * (1 - this.#blastAge / 0.25) ** 2 : 0;
     for (let i = this.#flashes.length - 1; i >= 0; i--) {
       const f = this.#flashes[i]!;
       f.age += dt;

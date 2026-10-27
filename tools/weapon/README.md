@@ -31,3 +31,25 @@ with its existing procedural materials. The first-person asset groups pieces by
 material, while the code-built low-detail version remains suitable for other
 players at a distance. After rebuilding, run the client tests and check the
 viewer (`?viewer` and `?viewer&webgl`) through reload, inspect, and aim.
+
+# The v2 arsenal
+
+`arsenal.py` builds the SMG, pistol, shotgun, sniper and frag grenade, one per
+run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
+turns into game -Z; the right palm near the origin). Each GLB holds the body
+grouped by material plus the moving parts (`mag`, `slide`, `pump`, `bolt`,
+`spoon`, `ring`) with their pivots as origins. The palm, sight, muzzle and
+ejection-port numbers the client needs live in
+`packages/fps-client/src/viewmodel/kit.ts`, measured from the same script.
+
+Run it in the Blender session (the `blender` skill's bkit helpers):
+
+```text
+bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="shotgun")
+bkit.preview(r"tools/weapon/previews/shotgun.png", None, ["side", "three_quarter", "top", "front"])
+bkit.export_glb(r"packages/fps-client/src/viewmodel/assets/shotgun.glb", None)
+bkit.save_blend(r"tools/weapon/shotgun.blend")
+```
+
+Then check every clip in the viewer: `?viewer&weapon=shotgun`, one clip with
+`&clip=shell`, held at a moment with `&t=0.9`.

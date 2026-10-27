@@ -98,7 +98,7 @@ export class FirstPersonCamera {
     const ads = cur.weapon.ads;
     const eased = ads * ads * (3 - 2 * ads);
     const hip = verticalFov(settings.fov);
-    const aimed = verticalFov(adsFovDeg(settings));
+    const aimed = verticalFov(adsFovDeg(settings, STATS.weapons[cur.weapon.id].handling.zoom.value));
     const moveTarget = 1 + ((MOVE_FOV[cur.movement] ?? 1) - 1) * (1 - eased);
     this.#fovScale += (moveTarget - this.#fovScale) * (1 - Math.exp(-dt / 0.15));
     const fov = (hip + (aimed - hip) * eased) * this.#fovScale;

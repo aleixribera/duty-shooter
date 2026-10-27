@@ -1,4 +1,4 @@
-import type { MovementState, ReloadKind, Stance, WeaponAction } from '@duty-shooter/fps-core';
+import type { MovementState, ReloadKind, Stance, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
 
 /**
  * Everything the first-person viewmodel needs from the game, per rendered
@@ -6,6 +6,8 @@ import type { MovementState, ReloadKind, Stance, WeaponAction } from '@duty-shoo
  * the dev viewer feeds it scripted values.
  */
 export interface ViewmodelState {
+  /** The weapon in hand; the M4A1 when absent. */
+  readonly weapon?: WeaponId;
   readonly action: WeaponAction;
   /** Seconds into the current action. */
   readonly actionTime: number;
@@ -21,4 +23,6 @@ export interface ViewmodelState {
   /** How far the view turned this frame (radians), for sway and turn inertia. */
   readonly lookDelta: { readonly yaw: number; readonly pitch: number };
   readonly alive: boolean;
+  /** A grenade in hand: cooking, or just thrown, and for how long (s). */
+  readonly grenade?: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;
 }

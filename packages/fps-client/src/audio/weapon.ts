@@ -8,7 +8,7 @@ import type { Voice, VoiceExtras, VoiceParams } from './types';
 const near = (localGain: number, remoteGain: number) => (p: VoiceParams) =>
   p.local === true || p.position === undefined ? localGain : remoteGain;
 
-function oneShot(
+export function oneShot(
   id: string,
   seconds: number,
   draw: (dst: Float32Array, sr: number, rng: Rng) => void,

@@ -1,4 +1,4 @@
-import type { MatchStatus, ModeId, PlayerOutput, Score } from '@duty-shooter/fps-core';
+import { STATS, type MatchStatus, type ModeId, type PlayerOutput, type Score } from '@duty-shooter/fps-core';
 import { MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 
@@ -25,6 +25,16 @@ const CSS = `
 .ds-ammo .mag { font-size: 44px; font-weight: 700; line-height: 1; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: 18px; color: var(--ds-text-2); margin-left: 6px; }
+.ds-ammo .nade { display: inline-block; margin-right: 12px; font-size: 13px; letter-spacing: 0.08em; color: var(--ds-text-2); vertical-align: 6px; }
+.ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.5; }
+.ds-ammo .nade.cook { color: var(--ds-alert); }
+.ds-scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent 38vmin, rgb(0 0 0 / 0.55) 38.3vmin, #000 39vmin); }
+.ds-scope i { position: absolute; background: #000; }
+.ds-scope i.h { left: calc(50% - 38vmin); right: calc(50% - 38vmin); top: calc(50% - 1px); height: 2px; }
+.ds-scope i.v { top: calc(50% - 38vmin); bottom: calc(50% - 38vmin); left: calc(50% - 1px); width: 2px; }
+.ds-scope i.h.thick { left: calc(50% - 38vmin); right: calc(50% + 8vmin); height: 5px; top: calc(50% - 2.5px); }
+.ds-scope i.h.thick.r { left: calc(50% + 8vmin); right: calc(50% - 38vmin); }
+.ds-scope i.v.thick { top: calc(50% + 8vmin); bottom: calc(50% - 38vmin); width: 5px; left: calc(50% - 2.5px); }
 .ds-ammo .bar, .ds-health .bar { height: 3px; background: rgb(243 241 234 / 0.18); margin-top: 8px; border-radius: 2px; overflow: hidden; }
 .ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; background: var(--ds-text); }
 .ds-health { position: absolute; left: 24px; bottom: 24px; min-width: 200px; padding: 10px 14px 12px; }
@@ -159,6 +169,9 @@ export class Hud {
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
+  readonly #gun: HTMLElement;
+  readonly #nade: HTMLElement;
+  readonly #scope: HTMLDivElement;
   readonly #health: HTMLDivElement;
   readonly #hp: HTMLElement;
   readonly #hpBar: HTMLElement;
@@ -199,6 +212,7 @@ export class Hud {
       return e;
     };
     this.root = el('div', 'ds-hud ds-ui', parent);
+    this.#scope = el('div', 'ds-scope', this.root, '<i class="h"></i><i class="v"></i><i class="h thick"></i><i class="h thick r"></i><i class="v thick"></i>');
     this.#vignette = el('div', 'ds-vignette', this.root);
     this.#cross = el('div', 'ds-cross', this.root, '<i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><b></b>');
     this.#arms = [...this.#cross.querySelectorAll('i')] as HTMLElement[];
@@ -212,8 +226,10 @@ export class Hud {
     this.#health = el('div', 'ds-health ds-plate', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
-    const ammo = el('div', 'ds-ammo ds-plate', this.root, '<div class="ds-label">M4A1</div><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
+    const ammo = el('div', 'ds-ammo ds-plate', this.root, '<div class="ds-label">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
+    this.#gun = ammo.querySelector('.ds-label') as HTMLElement;
+    this.#nade = ammo.querySelector('.nade') as HTMLElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
     this.#feed = el('div', 'ds-feed', this.root);
     this.#stats = el('div', 'ds-stats', this.root);
@@ -264,12 +280,12 @@ export class Hud {
     this.#flash = 1;
   }
 
-  /** A kill feed line; `bots` marks which side of it is a bot. */
-  killFeed(killer: string | null, victim: string, headshot: boolean, involvesYou: boolean, bots: { readonly killer?: boolean; readonly victim?: boolean } = {}): void {
+  /** A kill feed line; `bots` marks which side of it is a bot, `gun` names what did it. */
+  killFeed(killer: string | null, victim: string, headshot: boolean, involvesYou: boolean, bots: { readonly killer?: boolean; readonly victim?: boolean } = {}, gun = 'M4A1'): void {
     const row = document.createElement('div');
     if (involvesYou) row.className = 'you';
     const k = killer === null ? '' : playerName(killer, bots.killer === true);
-    row.innerHTML = `${k}<span class="gun">${killer ? (headshot ? '✛ M4A1' : 'M4A1') : '☠'}</span>${playerName(victim, bots.victim === true)}`;
+    row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}</span>${playerName(victim, bots.victim === true)}`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -381,11 +397,19 @@ export class Hud {
     this.#hpBar.style.width = `${health}%`;
     this.#health.classList.toggle('low', health <= 35);
 
-    if (w) {
+    if (w && self) {
+      const row = STATS.weapons[w.id];
+      const size = row.handling.magazineSize.value;
+      this.#set(this.#gun, escape(row.traits.name));
       this.#mag.textContent = String(w.ammo);
-      this.#mag.classList.toggle('low', w.ammo <= 6);
-      this.#bar.style.width = `${(w.ammo / 30) * 100}%`;
+      this.#mag.classList.toggle('low', w.ammo <= Math.max(1, Math.floor(size / 5)));
+      this.#bar.style.width = `${(w.ammo / size) * 100}%`;
+      const cooking = self.grenade?.phase === 'cook';
+      this.#nade.textContent = cooking ? `◆ ${Math.max(0, STATS.grenade.fuse.value - (self.grenade?.time ?? 0)).toFixed(1)}` : `◆ ${self.grenades}`;
+      this.#nade.className = `nade${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
     }
+    // The scope: the view through the glass once aimed (the viewmodel steps aside at the same point).
+    this.#scope.style.display = self?.alive && w && STATS.weapons[w.id].traits.sight === 'scope' && w.ads >= 0.9 ? 'block' : 'none';
 
     const stats: string[] = [];
     if (state.showFps) stats.push(`${Math.round(state.fps)} FPS`);

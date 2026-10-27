@@ -8,7 +8,7 @@ const DEG = Math.PI / 180;
 
 /** Just the fields the camera reads. */
 function player(movement: PlayerOutput['movement'], ads = 0): PlayerOutput {
-  return { position: [0, 0, 0], eyeHeight: 1.6, movement, yaw: 0, pitch: 0, weapon: { ads } } as unknown as PlayerOutput;
+  return { position: [0, 0, 0], eyeHeight: 1.6, movement, yaw: 0, pitch: 0, weapon: { id: 'm4a1', ads } } as unknown as PlayerOutput;
 }
 
 /** The camera's vertical FOV (degrees) after a second in this state. */

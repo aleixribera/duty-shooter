@@ -15,9 +15,12 @@ export type Action =
   | 'jump'
   | 'reload'
   | 'melee'
+  | 'switchWeapon'
+  | 'grenade'
+  | 'use'
   | 'scoreboard';
 
-export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'scoreboard'];
+export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard'];
 
 export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   forward: 'Move forward',
@@ -32,6 +35,9 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   jump: 'Jump / mantle',
   reload: 'Reload (hold: inspect)',
   melee: 'Melee',
+  switchWeapon: 'Switch weapon (also 1 / 2, mouse wheel)',
+  grenade: 'Grenade (hold to cook)',
+  use: 'Use (hold: plant / defuse)',
   scoreboard: 'Scoreboard',
 };
 
@@ -84,6 +90,9 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
   jump: 'Space',
   reload: 'KeyR',
   melee: 'KeyV',
+  switchWeapon: 'KeyQ',
+  grenade: 'KeyG',
+  use: 'KeyF',
   scoreboard: 'Tab',
 };
 
@@ -212,10 +221,10 @@ export function verticalFov(horizontal16x9Deg: number): number {
   return 2 * Math.atan(Math.tan((horizontal16x9Deg * RAD) / 2) / (16 / 9));
 }
 
-/** The ADS horizontal FOV (at 16:9) for the iron sights, under the ADS FOV setting. */
-export function adsFovDeg(settings: Settings): number {
+/** The ADS horizontal FOV (at 16:9) for a sight of magnification `zoom` (the iron sights by default), under the ADS FOV setting. */
+export function adsFovDeg(settings: Settings, zoom = STATS.weapon.ironSightZoom.value): number {
   const base = settings.adsFov === 'affected' ? settings.fov : STATS.input.defaultFov.value;
-  return (2 * Math.atan(Math.tan((base * RAD) / 2) / STATS.weapon.ironSightZoom.value)) / RAD;
+  return (2 * Math.atan(Math.tan((base * RAD) / 2) / zoom)) / RAD;
 }
 
 /**
@@ -223,10 +232,10 @@ export function adsFovDeg(settings: Settings): number {
  * controller's) times MW2019's relative (monitor distance) scaling at its
  * coefficient, from the hipfire to the ADS FOV.
  */
-export function adsSensitivityScale(settings: Settings, multiplier = settings.adsMultiplier): number {
+export function adsSensitivityScale(settings: Settings, multiplier = settings.adsMultiplier, zoom?: number): number {
   const c = STATS.input.monitorDistanceCoefficient.value;
   const hip = verticalFov(settings.fov);
-  const ads = verticalFov(adsFovDeg(settings));
+  const ads = verticalFov(adsFovDeg(settings, zoom));
   return multiplier * (Math.atan(c * Math.tan(ads / 2)) / Math.atan(c * Math.tan(hip / 2)));
 }
 

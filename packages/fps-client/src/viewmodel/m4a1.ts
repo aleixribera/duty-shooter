@@ -1249,7 +1249,7 @@ function makeLowMaterials(): { metal: MeshStandardNodeMaterial; poly: MeshStanda
  * direction the palm faces (toward the gripped surface); `wrist` is the
  * rough direction from the palm toward the wrist / forearm.
  */
-function palmFrame(obj: Object3D, pos: Vector3, palmNormal: Vector3, wrist: Vector3): void {
+export function palmFrame(obj: Object3D, pos: Vector3, palmNormal: Vector3, wrist: Vector3): void {
   const yAxis = palmNormal.clone().normalize().negate();
   const zAxis = wrist.clone().sub(yAxis.clone().multiplyScalar(wrist.dot(yAxis))).normalize();
   const xAxis = new Vector3().crossVectors(yAxis, zAxis).normalize();

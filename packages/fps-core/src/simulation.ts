@@ -112,6 +112,8 @@ export interface PlayerOutput {
   readonly loadout: Loadout;
   /** Grenades left this life. */
   readonly grenades: number;
+  /** A grenade in hand: cooking, or just thrown, and for how long (s); null otherwise. */
+  readonly grenade: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;
 }
 
 export interface Landing {
@@ -923,6 +925,7 @@ export class Simulation {
       },
       loadout: p.loadout,
       grenades: p.grenades,
+      grenade: p.grenade ? { phase: p.grenade.phase, time: w.clock - p.grenade.since } : null,
     };
   }
 }

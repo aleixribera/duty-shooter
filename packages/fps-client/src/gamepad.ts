@@ -35,8 +35,8 @@ export type PadLayout = 'default' | 'tactical';
  * prone is a hold of the crouch button and Options opens the menu.
  */
 export const PAD_LAYOUTS: Readonly<Record<PadLayout, Readonly<Partial<Record<Action, PadButton>>>>> = {
-  default: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'circle', jump: 'cross', reload: 'square', melee: 'r3', scoreboard: 'touchpad' },
-  tactical: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'r3', jump: 'cross', reload: 'square', melee: 'circle', scoreboard: 'touchpad' },
+  default: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'circle', jump: 'cross', reload: 'square', melee: 'r3', switchWeapon: 'triangle', grenade: 'r1', use: 'l1', scoreboard: 'touchpad' },
+  tactical: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'r3', jump: 'cross', reload: 'square', melee: 'circle', switchWeapon: 'triangle', grenade: 'r1', use: 'l1', scoreboard: 'touchpad' },
 };
 
 /** Menu navigation from the pad. */

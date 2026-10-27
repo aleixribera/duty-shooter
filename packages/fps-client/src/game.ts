@@ -2,18 +2,22 @@ import {
   STATS,
   TICK_SECONDS,
   angleDelta,
+  isShellReload,
   raycastWorld,
   sightBlocked,
   viewDirection,
+  type KillWeapon,
   type Material,
   type ModeId,
   type PlayerId,
   type PlayerOutput,
   type UserCmd,
   type Vec3,
+  type WeaponId,
   type World,
 } from '@duty-shooter/fps-core';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
+import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera } from './camera';
 import { Effects } from './effects';
@@ -56,20 +60,42 @@ export interface GameOptions {
 /** Per-action timings for the weapon's foley, in seconds into the action. */
 function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventName])[] {
   const w = self.weapon;
+  const row = STATS.weapons[w.id];
   if (w.action === 'reload') {
-    const add = w.reload === 'empty' ? STATS.weapon.emptyReloadAddAmmo.value : STATS.weapon.tacticalReloadAddAmmo.value;
+    const r = row.reload;
+    if (isShellReload(r)) {
+      // One shell going in at each add point; the reload ends when the tube is full, so later cues never come.
+      return Array.from({ length: row.handling.magazineSize.value }, (_, k) => [r.start.value + k * r.perShell.value - 0.05, 'shellInsert'] as const);
+    }
+    const empty = w.reload === 'empty';
+    const add = empty ? r.emptyAddAmmo.value : r.tacticalAddAmmo.value;
     const cues: [number, SoundEventName][] = [
       [0.32, 'reloadMagOut'],
-      [add - (w.reload === 'empty' ? 0.55 : 0.22), 'reloadMagIn'],
+      [add - (empty ? 0.55 : 0.22), 'reloadMagIn'],
     ];
-    if (w.reload === 'empty') cues.push([add - 0.08, 'reloadBoltRelease']);
+    if (empty) cues.push([add - 0.08, w.id === 'm4a1' || w.id === 'pistol' ? 'reloadBoltRelease' : 'reloadChargingHandle']);
     return cues;
   }
+  if (w.action === 'cycle') {
+    const cycle = row.handling.cycleTime?.value ?? 0;
+    if (row.traits.fireMode === 'pump') return [[cycle * 0.15, 'pumpRack']];
+    return [[cycle * 0.12, 'boltOpen'], [cycle * 0.5, 'boltClose']];
+  }
   if (w.action === 'draw') return [[0.02, 'weaponRaise']];
-  if (w.action === 'inspect') return [[0.45, 'inspectRattle'], [2.1, 'inspectRattle'], [3.6, 'reloadChargingHandle']];
+  if (w.action === 'inspect') return w.id === 'm4a1' ? [[0.45, 'inspectRattle'], [2.1, 'inspectRattle'], [3.6, 'reloadChargingHandle']] : [[0.45, 'inspectRattle'], [2.1, 'inspectRattle']];
   if (w.action === 'melee') return [[0.01, 'meleeSwing']];
   return [];
 }
+
+/** How a kill feed line names what did it. */
+function killedWith(cause: string, weapon: KillWeapon | null): string {
+  if (cause === 'melee') return 'Melee';
+  if (weapon === 'frag') return 'Frag';
+  return weapon ? STATS.weapons[weapon].traits.name : '';
+}
+
+/** How hard each gun kicks the camera, against the M4A1's 1. */
+const CAMERA_KICK: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.7, pistol: 0.9, shotgun: 2.6, sniper: 3 };
 
 const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, tacticalSprint: 2.0, crouch: 1.1, prone: 0.9 };
 
@@ -102,6 +128,9 @@ export class Game {
   readonly #camera = new FirstPersonCamera();
   readonly #viewmodel: Viewmodel;
   readonly #players: PlayersView;
+  readonly #arsenal: ArsenalView;
+  /** Explosions already shown (the server repeats important events in case a snapshot is lost). */
+  readonly #explosions = new Set<number>();
   readonly #effects: Effects;
   readonly #pipeline: GamePipeline;
   readonly #loop = new FixedTickLoop();
@@ -170,6 +199,7 @@ export class Game {
       this.#worldView.scene.add(flash);
     }
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
+    this.#arsenal = new ArsenalView(this.#worldView.scene);
     const pixelRatio = Math.min(window.devicePixelRatio, 2);
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera, pixelRatio);
     this.input = new InputController(options.canvas, options.settings);
@@ -311,11 +341,14 @@ export class Game {
       eye = pose.position;
       forward = viewDirection(pose.yaw, pose.pitch);
       this.input.aiming = self.weapon.ads > 0.5;
+      this.input.setWeapon(self.weapon.slot, STATS.weapons[self.weapon.id].handling.zoom.value);
       const speed = Math.hypot(self.velocity[0], self.velocity[2]);
       const lookDelta = { yaw: angleDelta(this.#lastLook.yaw, look.yaw), pitch: look.pitch - this.#lastLook.pitch };
       this.#viewmodel.root.visible = self.alive;
       this.#viewmodel.update(
         {
+          weapon: self.weapon.id,
+          grenade: self.grenade,
           action: self.weapon.action,
           actionTime: self.weapon.actionTime + alpha * TICK_SECONDS,
           reload: self.weapon.reload,
@@ -352,6 +385,8 @@ export class Game {
       this.#others = driver.others(alpha);
       const teams = driver.match?.mode === 'tdm';
       this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null, names: new Map(driver.scores.map((s) => [s.id, s.name])) });
+      this.#arsenal.grenades(driver.grenades(), alpha);
+      this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }
     this.#updateNuke(driver, eye);
     this.#effects.update(dt, this.#camera.camera);
@@ -578,10 +613,11 @@ export class Game {
       case 'shot': {
         const own = e.shooter === selfId;
         if (own) {
-          this.#play('gunshot', { local: true, when: this.#when(tickStart, e.fraction) });
+          this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
           this.#effects.flash(this.#viewFlash);
-          this.#camera.kick(0.35, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.6);
+          const kick = CAMERA_KICK[e.weapon];
+          this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
           this.#effects.shot(muzzle, e.direction);
           const cam = this.#camera.camera;
@@ -594,7 +630,7 @@ export class Game {
           this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
           for (const eng of this.#engagements.values()) eng.shots += 1;
         } else {
-          this.#play('gunshot', { position: e.origin, when: this.#when(tickStart, e.fraction) });
+          this.#play('gunshot', { position: e.origin, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#effects.shot(e.origin, e.direction);
           const flash = this.#worldFlashes[this.#nextWorldFlash] as Mesh;
           this.#nextWorldFlash = (this.#nextWorldFlash + 1) % this.#worldFlashes.length;
@@ -654,15 +690,47 @@ export class Game {
       }
       case 'kill':
         if (!driver.online && e.killer === selfId && e.victim !== selfId) this.hud.eliminated(driver.nameOf(e.victim), e.zone === 'head');
-        if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId);
+        if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId, {}, killedWith(e.cause, e.weapon));
         break;
       case 'killFeed':
         if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot);
-        this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : e.killerName, e.victimName, e.headshot, e.killer === selfId || e.victim === selfId, {
-          killer: driver.scores.some((s) => s.id === e.killer && s.bot),
-          victim: driver.scores.some((s) => s.id === e.victim && s.bot),
-        });
+        this.hud.killFeed(
+          e.killer === null || e.killer === e.victim ? null : e.killerName,
+          e.victimName,
+          e.headshot,
+          e.killer === selfId || e.victim === selfId,
+          {
+            killer: driver.scores.some((s) => s.id === e.killer && s.bot),
+            victim: driver.scores.some((s) => s.id === e.victim && s.bot),
+          },
+          killedWith(e.cause, e.weapon),
+        );
         break;
+      case 'grenade': {
+        const own = e.player === selfId;
+        const at = own ? { local: true } : { position: this.#eyeOf(e.player) ?? [0, 0, 0] as Vec3 };
+        if (e.phase === 'cook') this.#play('grenadePin', at);
+        else if (e.phase === 'throw') this.#play('grenadeThrow', at);
+        break;
+      }
+      case 'bounce':
+        this.#play('grenadeBounce', { position: e.point, intensity: Math.min(1, e.speed / 10) });
+        break;
+      case 'explosion': {
+        if (this.#explosions.has(e.grenade)) break;
+        this.#explosions.add(e.grenade);
+        if (this.#explosions.size > 64) this.#explosions.delete(this.#explosions.values().next().value as number);
+        this.#effects.explosion(e.point);
+        this.#play('explosion', { position: e.point });
+        const self = this.#cur;
+        if (self?.alive) {
+          // Close blasts shake the view.
+          const d = Math.hypot(self.position[0] - e.point[0], self.position[1] - e.point[1], self.position[2] - e.point[2]);
+          const shake = Math.max(0, 1 - d / 20);
+          if (shake > 0) this.#camera.kick(2.5 * shake, (Math.random() - 0.5) * 3 * shake, (Math.random() - 0.5) * 4 * shake);
+        }
+        break;
+      }
       case 'matchEnd':
         this.hud.toast(e.winnerName ? `${e.winnerName} wins the match.` : 'Match over.');
         break;
@@ -707,6 +775,7 @@ export class Game {
     this.#pipeline.dispose();
     this.#effects.dispose();
     this.#players.dispose();
+    this.#arsenal.dispose();
     this.#worldView.dispose();
   }
 }

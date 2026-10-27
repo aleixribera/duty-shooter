@@ -1,6 +1,6 @@
-import type { Material } from '@duty-shooter/fps-core';
+import type { Material, WeaponId } from '@duty-shooter/fps-core';
 export type SoundEventName =
-  | 'gunshot' // the M4A1 firing. params.local=true for your own gun (non-positional, full detail)
+  | 'gunshot' // a gun firing (params.weapon, the M4A1 when absent). params.local=true for your own gun (non-positional, full detail)
   | 'dryFire'
   | 'footstep' // params.material, params.movement
   | 'jump'
@@ -19,6 +19,14 @@ export type SoundEventName =
   | 'adsOut'
   | 'meleeSwing'
   | 'meleeHit'
+  | 'pumpRack' // a shotgun's pump worked back and forward
+  | 'boltOpen' // a bolt lifted and drawn back
+  | 'boltClose' // a bolt run home and locked
+  | 'shellInsert' // one shell pushed into a shotgun's tube
+  | 'grenadePin' // a frag's pin pulled
+  | 'grenadeThrow' // the spoon flying off and the throw
+  | 'grenadeBounce' // a frag landing or bouncing (params.intensity)
+  | 'explosion' // a frag going off
   | 'impact' // bullet hitting a surface: params.material
   | 'casing' // shell casing bounce: params.material
   | 'bulletCrack' // supersonic crack of a bullet passing near the listener
@@ -45,6 +53,7 @@ export interface SoundParams {
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor
   readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter
   readonly when?: number; // seconds from now (>= 0) for sub-frame scheduling, default 0
+  readonly weapon?: WeaponId; // which gun a gunshot is
 }
 
 /** One synthesized or sampled sound. Swapping a voice for a recorded sample means registering a different Voice. */

@@ -443,8 +443,8 @@ export class Menu {
           this.show('settings');
         });
         button(p, 'Leave', () => this.#callbacks.leave());
-        p.append(h('div', 'WASD move · Shift sprint (double-tap: tactical) · C crouch/slide · Ctrl prone · Space jump/mantle · R reload (hold: inspect) · V melee · Tab scores · Esc menu', 'ds-hint'));
-        p.append(h('div', 'Controller: L3 sprint (double-click: tactical) · ○ crouch/slide (hold: prone) · ✕ jump · □ reload (hold: inspect) · R3 melee · L2 aim · R2 fire · Touchpad scores · Options menu', 'ds-hint'));
+        p.append(h('div', 'WASD move · Shift sprint (double-tap: tactical) · C crouch/slide · Ctrl prone · Space jump/mantle · R reload (hold: inspect) · V melee · Q / 1 / 2 / wheel switch weapon · G grenade (hold to cook) · F use · Tab scores · Esc menu', 'ds-hint'));
+        p.append(h('div', 'Controller: L3 sprint (double-click: tactical) · ○ crouch/slide (hold: prone) · ✕ jump · □ reload (hold: inspect) · R3 melee · △ switch weapon · R1 grenade · L1 use · L2 aim · R2 fire · Touchpad scores · Options menu', 'ds-hint'));
         break;
       }
       case 'tip': {

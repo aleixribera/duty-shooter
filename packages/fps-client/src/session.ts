@@ -9,6 +9,7 @@ import {
   createMemoryNetwork,
   createWorld,
   type Connection,
+  type GrenadeOutput,
   type MemoryNetwork,
   type NavOptions,
   type Solid,
@@ -47,6 +48,8 @@ export interface GameDriver {
   tick(cmd: UserCmd): DriverTick;
   /** Other players and dummies to draw, `alpha` of a tick past the latest one. */
   others(alpha: number): readonly PlayerOutput[];
+  /** Live grenades to draw, as of the latest tick. */
+  grenades(): readonly GrenadeOutput[];
   /** Prediction-correction offset still being smoothed out. */
   readonly correction: Vec3;
   /** Round-trip time in seconds, or null offline. */
@@ -98,6 +101,7 @@ export class OfflineDriver implements GameDriver {
   #dead = false;
   #prev: readonly PlayerOutput[] = [];
   #cur: readonly PlayerOutput[] = [];
+  #grenades: readonly GrenadeOutput[] = [];
   #spawnFacing: { yaw: number; pitch: number } | null;
 
   constructor(options: OfflineOptions) {
@@ -142,7 +146,12 @@ export class OfflineDriver implements GameDriver {
     this.#dead = !!self && !self.alive;
     this.#prev = this.#cur;
     this.#cur = out.players.filter((p) => p.id !== this.selfId);
+    this.#grenades = out.grenades;
     return { self, events: out.events };
+  }
+
+  grenades(): readonly GrenadeOutput[] {
+    return this.#grenades;
   }
 
   others(alpha: number): readonly PlayerOutput[] {
@@ -272,6 +281,10 @@ export class OnlineDriver implements GameDriver {
 
   others(alpha: number): readonly PlayerOutput[] {
     return this.#client.others(alpha);
+  }
+
+  grenades(): readonly GrenadeOutput[] {
+    return this.#client.grenades;
   }
 
   nameOf(id: PlayerId): string {

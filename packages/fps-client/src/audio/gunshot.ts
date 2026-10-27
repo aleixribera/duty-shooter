@@ -28,6 +28,7 @@ import {
 } from './dsp';
 import { kitFor } from './kit';
 import { dbToGain, jit, cleanupOnEnd } from './synth-voice';
+import type { WeaponId } from '@duty-shooter/fps-core';
 import type { SoundParams, Voice, VoiceExtras, VoiceParams } from './types';
 
 const LOCAL = 'gunshot/local';
@@ -147,6 +148,19 @@ const render = {
 };
 
 /** Distance (m) where the near/far banks cross-fade. */
+/**
+ * How each gun differs from the M4A1's recording: its pitch and length
+ * (playback rate), loudness, brightness, how much of the action is heard,
+ * and extra low end for the big bores.
+ */
+const CHARACTER: Readonly<Record<WeaponId, { rate: number; gain: number; tone: number; mech: number; boom: number }>> = {
+  m4a1: { rate: 1, gain: 1, tone: 0, mech: 1, boom: 0 },
+  smg: { rate: 1.22, gain: 0.72, tone: 1.5, mech: 1.3, boom: 0 },
+  pistol: { rate: 1.3, gain: 0.68, tone: 2, mech: 0.6, boom: 0 },
+  shotgun: { rate: 0.74, gain: 1.15, tone: -3, mech: 0.4, boom: 0.6 },
+  sniper: { rate: 0.8, gain: 1.25, tone: -1, mech: 0.3, boom: 0.4 },
+};
+
 const FAR_START = 40;
 const FAR_FULL = 110;
 
@@ -173,23 +187,26 @@ export function gunshotVoice(): Voice & VoiceExtras {
       const kit = kitFor(ctx);
       const t = Math.max(startTime, ctx.currentTime);
       // Per-shot jitter shared by every layer of this shot so they stay phase-locked.
-      const rate = 1 + jit(0.02);
-      const shotGain = dbToGain(jit(1));
+      const character = CHARACTER[p.weapon ?? 'm4a1'];
+      const rate = character.rate * (1 + jit(0.02));
+      const shotGain = dbToGain(jit(1)) * character.gain;
 
       // One tone filter per shot: random high-shelf tilt so consecutive shots differ in colour.
       const tone = ctx.createBiquadFilter();
       tone.type = 'highshelf';
       tone.frequency.value = 2800;
-      tone.gain.value = -2.5 + Math.random() * 3.5;
+      tone.gain.value = -2.5 + Math.random() * 3.5 + character.tone;
       const bus = ctx.createGain();
       bus.gain.value = shotGain;
       tone.connect(bus).connect(out);
 
-      const layers: Array<{ buffer: AudioBuffer; gain: number; delay: number }> = [];
+      const layers: Array<{ buffer: AudioBuffer; gain: number; delay: number; rate?: number }> = [];
       const local = p.local === true || p.distance === undefined;
       if (local) {
         layers.push({ buffer: kit.pick(LOCAL, LOCAL_VARIANTS, render.local), gain: 1, delay: 0 });
-        layers.push({ buffer: kit.pick(MECH, MECH_VARIANTS, render.mech), gain: 0.3, delay: Math.random() * 0.003 });
+        layers.push({ buffer: kit.pick(MECH, MECH_VARIANTS, render.mech), gain: 0.3 * character.mech, delay: Math.random() * 0.003 });
+        // The big bores: the same shot an octave down under it.
+        if (character.boom > 0) layers.push({ buffer: kit.pick(LOCAL, LOCAL_VARIANTS, render.local), gain: character.boom, delay: 0, rate: 0.5 });
       } else {
         const d = p.distance ?? 0;
         const w = Math.min(1, Math.max(0, (d - FAR_START) / (FAR_FULL - FAR_START)));
@@ -197,7 +214,8 @@ export function gunshotVoice(): Voice & VoiceExtras {
         const farGain = Math.sin((w * Math.PI) / 2);
         if (nearGain > 0.01) layers.push({ buffer: kit.pick(NEAR, NEAR_VARIANTS, render.near), gain: 0.85 * nearGain, delay: 0 });
         if (farGain > 0.01) layers.push({ buffer: kit.pick(FAR, FAR_VARIANTS, render.far), gain: 0.85 * farGain, delay: 0 });
-        if (d < 12) layers.push({ buffer: kit.pick(MECH, MECH_VARIANTS, render.mech), gain: 0.14 * (1 - d / 12), delay: 0 });
+        if (d < 12) layers.push({ buffer: kit.pick(MECH, MECH_VARIANTS, render.mech), gain: 0.14 * (1 - d / 12) * character.mech, delay: 0 });
+        if (character.boom > 0 && nearGain > 0.01) layers.push({ buffer: kit.pick(NEAR, NEAR_VARIANTS, render.near), gain: character.boom * nearGain * 0.8, delay: 0, rate: 0.5 });
       }
 
       let remaining = layers.length;
@@ -211,7 +229,7 @@ export function gunshotVoice(): Voice & VoiceExtras {
       for (const layer of layers) {
         const src = ctx.createBufferSource();
         src.buffer = layer.buffer;
-        src.playbackRate.value = rate;
+        src.playbackRate.value = rate * (layer.rate ?? 1);
         const g = ctx.createGain();
         g.gain.value = layer.gain;
         src.connect(g).connect(tone);

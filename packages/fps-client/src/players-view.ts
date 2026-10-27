@@ -1,4 +1,4 @@
-import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type World } from '@duty-shooter/fps-core';
+import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import {
   Bone,
   BoxGeometry,
@@ -25,6 +25,8 @@ import {
 } from 'three/webgpu';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { KIT_RIGS } from './viewmodel/kit';
 
 interface Look {
   readonly uniform: number;
@@ -146,7 +148,10 @@ class Soldier {
   #sprint = 0;
   #air = 0;
 
-  constructor(look: Look, weapon: Object3D | null) {
+  #gun: Mesh | null = null;
+  #gunId: WeaponId | null = null;
+
+  constructor(look: Look) {
     const mat = (color: number, roughness = 0.85) => {
       const m = new MeshStandardNodeMaterial({ color, roughness, metalness: 0 });
       this.#materials.push(m);
@@ -246,12 +251,6 @@ class Soldier {
     }
     this.#spine.add(this.#gunMount);
     this.#gunMount.position.set(0.12, 0.3, -0.25);
-    if (weapon) {
-      weapon.traverse((o) => {
-        if ((o as Mesh).isMesh) o.castShadow = true;
-      });
-      this.#gunMount.add(weapon);
-    }
     if (look !== DUMMY) {
       // Merge stationary pieces on each animated pivot by material. This keeps
       // the added detail inexpensive for several players on laptop GPUs.
@@ -347,6 +346,18 @@ class Soldier {
     this.#flash = 1;
   }
 
+  /** The weapon in hand: `gun` is a shared model (see GunModels), drawn on the gun mount outside the skinned body. */
+  get gunId(): WeaponId | null {
+    return this.#gunId;
+  }
+
+  hold(id: WeaponId, gun: Mesh | null): void {
+    this.#gun?.removeFromParent();
+    this.#gun = gun;
+    this.#gunId = gun ? id : null;
+    if (gun) this.#gunMount.add(gun);
+  }
+
   update(p: PlayerOutput, dt: number): void {
     this.root.position.set(p.position[0], p.position[1], p.position[2]);
     this.root.rotation.y = p.yaw;
@@ -402,10 +413,87 @@ class Soldier {
   }
 
   dispose(): void {
+    // The gun's geometry is shared between soldiers.
+    this.#gun?.removeFromParent();
     this.root.traverse((o) => {
       if ((o as Mesh).isMesh) (o as Mesh).geometry.dispose();
     });
     for (const m of this.#materials) m.dispose();
+  }
+}
+
+/**
+ * Each weapon as one vertex-coloured mesh for third person (one draw call per
+ * soldier's gun): the M4A1 from its procedural builder in gunmetal, the
+ * others from their GLBs in their own colours. Loaded on first use; a
+ * soldier holds nothing until its model has arrived.
+ */
+class GunModels {
+  readonly #m4a1: () => Object3D;
+  readonly #models = new Map<WeaponId, { geometry: BufferGeometry; material: MeshStandardNodeMaterial } | null>();
+  #disposed = false;
+
+  constructor(m4a1: () => Object3D) {
+    this.#m4a1 = m4a1;
+  }
+
+  /** A new mesh of weapon `id` sharing the cached model, or null while it loads. */
+  mesh(id: WeaponId): Mesh | null {
+    if (!this.#models.has(id)) this.#load(id);
+    const model = this.#models.get(id);
+    if (!model) return null;
+    const mesh = new Mesh(model.geometry, model.material);
+    mesh.castShadow = true;
+    return mesh;
+  }
+
+  #load(id: WeaponId): void {
+    this.#models.set(id, null);
+    if (id === 'm4a1') {
+      this.#models.set(id, this.#merge(this.#m4a1(), GUNMETAL));
+      return;
+    }
+    void new GLTFLoader().loadAsync(KIT_RIGS[id].url).then(({ scene }) => {
+      if (!this.#disposed) this.#models.set(id, this.#merge(scene, null));
+    }).catch((error: unknown) => {
+      console.warn(`Unable to load the ${id} model:`, error);
+    });
+  }
+
+  /** Bakes `root`'s meshes into one geometry in its own space, coloured `tint` or by each material's colour. */
+  #merge(root: Object3D, tint: Color | null): { geometry: BufferGeometry; material: MeshStandardNodeMaterial } {
+    root.updateMatrixWorld(true);
+    const inverse = root.matrixWorld.clone().invert();
+    const geometries: BufferGeometry[] = [];
+    root.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      const source = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+      const g = new BufferGeometry();
+      g.setAttribute('position', source.getAttribute('position'));
+      if (source.getAttribute('normal')) g.setAttribute('normal', source.getAttribute('normal'));
+      else g.computeVertexNormals();
+      g.applyMatrix4(inverse.clone().multiply(mesh.matrixWorld));
+      const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as { color?: Color };
+      const c = tint ?? material.color ?? GUNMETAL;
+      const n = g.getAttribute('position').count;
+      const colour = new Float32Array(n * 3);
+      for (let v = 0; v < n; v++) colour.set([c.r, c.g, c.b], v * 3);
+      g.setAttribute('color', new BufferAttribute(colour, 3));
+      geometries.push(g);
+      source.dispose();
+    });
+    const geometry = mergeGeometries(geometries) ?? new BufferGeometry();
+    for (const g of geometries) g.dispose();
+    return { geometry, material: new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.2 }) };
+  }
+
+  dispose(): void {
+    this.#disposed = true;
+    for (const model of this.#models.values()) {
+      model?.geometry.dispose();
+      model?.material.dispose();
+    }
   }
 }
 
@@ -484,14 +572,14 @@ export class PlayersView {
   readonly #alive = new Map<PlayerId, boolean>();
   readonly #ragdolls: Ragdoll[] = [];
   readonly #lastPush = new Map<PlayerId, Vec3>();
-  readonly #weapon: (() => Object3D) | null;
+  readonly #guns: GunModels | null;
   /** The look each soldier was built in, so a team change rebuilds it. */
   readonly #looks = new Map<PlayerId, Look>();
   readonly #plates = new Map<PlayerId, Nameplate>();
 
   constructor(scene: Scene, world: World, weapon: (() => Object3D) | null) {
     this.#world = world;
-    this.#weapon = weapon;
+    this.#guns = weapon ? new GunModels(weapon) : null;
     scene.add(this.#root);
   }
 
@@ -527,12 +615,16 @@ export class PlayersView {
         soldier = undefined;
       }
       if (!soldier) {
-        soldier = new Soldier(look, look === DUMMY || !this.#weapon ? null : this.#weapon());
+        soldier = new Soldier(look);
         this.#soldiers.set(p.id, soldier);
         this.#looks.set(p.id, look);
         this.#root.add(soldier.root);
       }
       this.#nameplate(p, soldier, allegiance);
+      if (look !== DUMMY && this.#guns && soldier.gunId !== p.weapon.id) {
+        const gun = this.#guns.mesh(p.weapon.id);
+        if (gun) soldier.hold(p.weapon.id, gun);
+      }
       const wasAlive = this.#alive.get(p.id) ?? p.alive;
       if (wasAlive && !p.alive) {
         soldier.update(p, 0);
@@ -584,6 +676,7 @@ export class PlayersView {
 
   dispose(): void {
     for (const s of this.#soldiers.values()) s.dispose();
+    this.#guns?.dispose();
     for (const plate of this.#plates.values()) plate.dispose();
     this.#root.removeFromParent();
   }

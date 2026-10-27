@@ -9,3 +9,7 @@ coverage/
 !.env.example
 .worktrees/
 .claude/worktrees/
+
+# Blender backups and preview sheets
+*.blend1
+tools/weapon/previews/

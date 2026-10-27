@@ -115,7 +115,7 @@ const DEFAULT_RATE = 180;
 const MAX_QUEUED_CMDS = 12;
 const MAX_NAME = 16;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart']);
+const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion']);
 
 interface Client {
   readonly connection: Connection;

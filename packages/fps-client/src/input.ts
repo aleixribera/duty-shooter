@@ -2,6 +2,9 @@ import { Button, MAX_PITCH, STATS, usercmd, type UserCmd } from '@duty-shooter/f
 import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 
+/** Mouse-wheel steps closer together than this (ms) count as one switch. */
+const WHEEL_MS = 180;
+
 /** Two sprint presses within this many milliseconds start a tactical sprint. */
 const DOUBLE_TAP_MS = 300;
 /** Pushing the move stick less than this far forward ends a controller sprint. */
@@ -37,6 +40,13 @@ export class InputController {
   #proneToggled = false;
   #adsToggled = false;
   #aiming = false;
+  /** The sight magnification while aiming, for the ADS sensitivity scale. */
+  #zoom: number | undefined = undefined;
+  /** The weapon slot in hand (0 primary, 1 secondary), so 1 and 2 only switch when they name the other one. */
+  #slot = 0;
+  /** A switch asked for since the last tick: sent as a one-tick press of the switch button. */
+  #switch = false;
+  #lastWheel = -Infinity;
   #rawInput = false;
   #enabled = false;
   /** Testing without pointer lock (automated browsers): input counts as captured whenever enabled. */
@@ -73,6 +83,7 @@ export class InputController {
     on(document, 'mousedown', (e) => this.#down(`Mouse${e.button}`, e));
     on(document, 'mouseup', (e) => this.#up(`Mouse${e.button}`));
     on(document, 'mousemove', (e) => this.#move(e));
+    on(document, 'wheel', (e) => this.#wheel(e));
     on(document, 'contextmenu', (e) => {
       if (this.locked) e.preventDefault();
     });
@@ -165,6 +176,12 @@ export class InputController {
     this.#aiming = on;
   }
 
+  /** The weapon in hand: its slot (for the number keys) and its sight's magnification (for the ADS sensitivity). */
+  setWeapon(slot: number, zoom: number): void {
+    this.#slot = slot;
+    this.#zoom = zoom;
+  }
+
   /** The controller code for an action under the current layout, if it has a button. */
   #padCode(action: Action): string | null {
     const button = PAD_LAYOUTS[this.#settings.padLayout][action];
@@ -200,7 +217,7 @@ export class InputController {
       return;
     }
     if (!this.#enabled || !this.locked) return;
-    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC') e?.preventDefault();
+    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC' || code === 'KeyQ' || code === 'KeyG' || code === 'KeyF') e?.preventDefault();
     if (this.#held.has(code)) return; // key repeat
     this.#held.add(code);
     this.#tapped.add(code);
@@ -238,6 +255,15 @@ export class InputController {
       this.#adsToggled = !this.#adsToggled;
       this.#padSprint = false;
     }
+    // The number keys pick a slot: a switch only when it's the other one.
+    if (this.#is('switchWeapon', code) || (code === 'Digit1' && this.#slot !== 0) || (code === 'Digit2' && this.#slot !== 1)) this.#switch = true;
+  }
+
+  #wheel(e: WheelEvent): void {
+    if (!this.#enabled || !this.locked || e.deltaY === 0) return;
+    const now = performance.now();
+    if (now - this.#lastWheel > WHEEL_MS) this.#switch = true;
+    this.#lastWheel = now;
   }
 
   #up(code: string): void {
@@ -321,7 +347,7 @@ export class InputController {
     const m = Math.hypot(lx, ly);
     const curve = Math.pow(m, STATS.input.stickResponseExponent.value) / m;
     const s = this.#settings;
-    const scale = curve * dt * (this.#aiming ? adsSensitivityScale(s, s.padAdsMultiplier) : 1);
+    const scale = curve * dt * (this.#aiming ? adsSensitivityScale(s, s.padAdsMultiplier, this.#zoom) : 1);
     this.#yaw -= lx * stickTurnRate(s.padSensitivityX) * scale;
     const pitch = ly * stickTurnRate(s.padSensitivityY) * scale * (s.padInvertY ? -1 : 1);
     this.#pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.#pitch - pitch));
@@ -353,7 +379,7 @@ export class InputController {
 
   #move(e: MouseEvent): void {
     if (!this.#enabled || !this.locked) return;
-    const scale = radiansPerCount(this.#settings) * (this.#aiming ? adsSensitivityScale(this.#settings) : 1);
+    const scale = radiansPerCount(this.#settings) * (this.#aiming ? adsSensitivityScale(this.#settings, this.#settings.adsMultiplier, this.#zoom) : 1);
     this.#yaw -= e.movementX * scale;
     this.#pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.#pitch - e.movementY * scale));
   }
@@ -379,6 +405,10 @@ export class InputController {
     if (held('jump')) buttons |= Button.Jump;
     if (held('reload')) buttons |= Button.Reload;
     if (held('melee')) buttons |= Button.Melee;
+    if (held('grenade')) buttons |= Button.Grenade;
+    if (held('use')) buttons |= Button.Use;
+    if (active && this.#switch) buttons |= Button.SwitchWeapon;
+    this.#switch = false;
 
     const presses: number[] = [];
     const later: number[] = [];
