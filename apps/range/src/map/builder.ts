@@ -276,8 +276,9 @@ export class Builder {
   /**
    * A walkable sloped plane from an edge at height `low` up to an edge at
    * `high`: drawn and shot at as a sloped bullet surface whose top is the
-   * plane, walked on as player clip steps filled down to `base` (none when
-   * `walkable` is false).
+   * plane, walked on as player clip steps (none when `walkable` is false).
+   * Each step reaches no lower than the drawn surface's underside (nor below
+   * `base`), so under an overhang a jump meets the roof where it is drawn.
    */
   slope(spec: { readonly from: readonly [number, number]; readonly to: readonly [number, number]; readonly across: readonly [number, number]; readonly along: 'x' | 'z'; readonly base: number; readonly low: number; readonly high: number; readonly material: Material; readonly walkable?: boolean }): void {
     const { along, base, low, high } = spec;
@@ -287,16 +288,19 @@ export class Builder {
     const run = Math.abs(b - a);
     const sign = Math.sign(b - a);
     const [c0, c1] = spec.across;
+    const pitch = Math.atan2(high - low, run);
+    // The drawn surface's vertical thickness.
+    const under = SLOPE_THICKNESS / Math.cos(pitch);
     const steps = spec.walkable === false ? 0 : Math.ceil((high - low) / SLOPE_STEP - 1e-9);
     for (let i = 0; i < steps; i++) {
       const p = a + (sign * run * i) / steps;
       const q = a + (sign * run * (i + 1)) / steps;
       const top = low + ((high - low) * (i + 1)) / steps;
-      const min: Vec3 = along === 'x' ? [Math.min(p, q), base, c0] : [c0, base, Math.min(p, q)];
+      const bottom = Math.max(base, low + ((high - low) * i) / steps - under);
+      const min: Vec3 = along === 'x' ? [Math.min(p, q), bottom, c0] : [c0, bottom, Math.min(p, q)];
       const max: Vec3 = along === 'x' ? [Math.max(p, q), top, c1] : [c1, top, Math.max(p, q)];
       this.hidden.push(playerClip({ min, max, material: spec.material }));
     }
-    const pitch = Math.atan2(high - low, run);
     const d: Vec3 = along === 'x' ? [sign, 0, 0] : [0, 0, sign];
     const yaw = Math.atan2(-d[0], -d[2]);
     const mid = (a + b) / 2;

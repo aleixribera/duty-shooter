@@ -4,7 +4,7 @@ import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { environmentAt } from '@duty-shooter/fps-client/map-sound';
 import { insidePolygon, mapSolids } from '../src/map/definition';
-import { HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
+import { BOUNDARY, HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
 import { REFERENCE, TOLERANCE } from '../src/map/survival-town-reference';
 
 const map = buildSurvivalTown();
@@ -313,7 +313,7 @@ describe('Survival Town: containment', () => {
     expect(cut.map((s) => `${s.material} ${s.min.map((v) => v.toFixed(2))}..${s.max.map((v) => v.toFixed(2))}`)).toEqual([]);
   });
 
-  it('the boundary clip stands wholly outside the edge, even at its inside corners', () => {
+  it('the boundary clip stands wholly outside its line, even at its inside corners, and closes it', () => {
     const clips = map.hiddenSolids.filter((s) => s.max[1] > 50);
     const inClip = (s: Solid, x: number, z: number) => {
       const o = s.orientation;
@@ -325,10 +325,26 @@ describe('Survival Town: containment', () => {
     const eaten: string[] = [];
     for (let x = -30; x < 25; x += 0.1) {
       for (let z = -55; z < 55; z += 0.1) {
-        if (insidePolygon(area, x, z) && clips.some((s) => inClip(s, x, z))) eaten.push(`${x.toFixed(1)}, ${z.toFixed(1)}`);
+        if (insidePolygon(BOUNDARY, x, z) && clips.some((s) => inClip(s, x, z))) eaten.push(`${x.toFixed(1)}, ${z.toFixed(1)}`);
       }
     }
     expect(eaten).toEqual([]);
+    // Flush with it: just past the line, all the way round, is clip (but for
+    // the slivers at inside corners, which a corner post stands over).
+    const gaps: string[] = [];
+    for (let i = 0; i < BOUNDARY.length; i++) {
+      const [ax, az] = BOUNDARY[i]!;
+      const [bx, bz] = BOUNDARY[(i + 1) % BOUNDARY.length]!;
+      const len = Math.hypot(bx - ax, bz - az);
+      let n: [number, number] = [-(bz - az) / len, (bx - ax) / len];
+      if (insidePolygon(BOUNDARY, (ax + bx) / 2 + n[0] * 0.1, (az + bz) / 2 + n[1] * 0.1)) n = [-n[0], -n[1]];
+      for (let t = 0.2; t < len - 0.2; t += 0.1) {
+        const x = ax + ((bx - ax) * t) / len + n[0] * 0.02;
+        const z = az + ((bz - az) * t) / len + n[1] * 0.02;
+        if (!insidePolygon(BOUNDARY, x, z) && !clips.some((s) => inClip(s, x, z))) gaps.push(`${x.toFixed(2)}, ${z.toFixed(2)}`);
+      }
+    }
+    expect(gaps).toEqual([]);
   });
 
   it('a fence or the road barricade shows the edge everywhere, before the invisible boundary', () => {

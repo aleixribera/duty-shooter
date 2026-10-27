@@ -1,7 +1,7 @@
 import { createWorld, raycastWorld, yawBox, type Material, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World } from '@duty-shooter/fps-core';
 import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
-import { Builder, FRAME_PROUD, groundTiles, SINK, type Opening, type Rect, type WallTrim } from './builder';
-import { mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
+import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
+import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
 
 /**
@@ -30,8 +30,13 @@ const DOOR_W = 0.91;
 const CIRCLE_R = 8.75;
 const STREET_HALF = 4.5;
 const STREET_END = 20;
-/** The road barricade across the street end stands this far inside it. */
+/** The road barricade across the street end stands this far inside it; its rails' and board's town-facing face is a little nearer the town. */
 const BARRICADE_X = STREET_END - 0.6;
+const BARRICADE_FACE = BARRICADE_X - 0.1;
+/** The edge fences: their centre line's distance in from the playable edge, their thickness, and their posts' half width. */
+const FENCE_INSET = 0.45;
+const FENCE_T = 0.08;
+const POST_HALF = 0.07;
 /** Boundary clip reaches this high: out of reach of any jump or mantle. */
 const SKY = 100;
 
@@ -356,6 +361,16 @@ function buildHouse(side: Side): void {
   });
   const [dz0, dz1] = [side.z(M.d0 - h - eave), side.z(M.d1 + h)].sort((p, q) => p - q) as [number, number];
   side.paint(ROOF, () => b.slope({ from: [M.x0 - h, 0], to: [M.upperX0 - h, 0], along: 'x', across: [dz0, dz1], base: UPPER_FLOOR, low: UPPER_FLOOR, high: R.denHigh, material: 'wood' }));
+  // The lean-to's two ends closed in siding over the front and back walls, in bands under the slope.
+  const leanRun = M.upperX0 - M.x0;
+  const under = SLOPE_THICKNESS / Math.cos(Math.atan2(R.denHigh - UPPER_FLOOR, leanRun));
+  side.paint(out, () => {
+    for (let y = UPPER_FLOOR; y < R.denHigh - 1e-6; y += 0.1) {
+      const x0 = M.x0 - h + ((y + 0.1 + under - UPPER_FLOOR) / (R.denHigh - UPPER_FLOOR)) * leanRun;
+      if (x0 > M.upperX0 - h - 0.02) break;
+      for (const d of [M.d0, M.d1]) side.box(Math.max(M.x0 - h, x0), y, d - h, M.upperX0 - h, y + 0.1, d + h, 'wood');
+    }
+  });
   const [gz0, gz1] = [side.z(G.d0 - h - eave), side.z(G.d1 + h + eave)].sort((p, q) => p - q) as [number, number];
   b.gableRoof({
     x0: G.x0 - h - eave,
@@ -648,14 +663,13 @@ function buildYards(b: Builder): void {
 }
 
 /**
- * Picket fences just inside the whole playable edge (far enough in that
- * standing on one never touches the boundary), with posts at the corners and
- * every few metres: round both houses and yards from the street end's
- * barricade on one side to the barricade on the other.
+ * Picket fences just inside the whole playable edge, with posts at the
+ * corners and every few metres: round both houses and yards from the street
+ * end's barricade on one side to the barricade on the other. The boundary
+ * stands just in front of them, so they can't be climbed onto.
  */
 function buildFences(b: Builder): void {
-  const inset = 0.45;
-  const inner = PLAY_AREA.map((_, i) => insetVertex(PLAY_AREA, i, inset));
+  const inner = PLAY_AREA.map((_, i) => insetVertex(PLAY_AREA, i, FENCE_INSET));
   // The two ends meet the barricade across the street end.
   inner[0] = [BARRICADE_X, inner[0]![1]];
   inner[inner.length - 1] = [BARRICADE_X, inner.at(-1)![1]];
@@ -670,11 +684,11 @@ function buildFences(b: Builder): void {
     for (let k = 0; k < n; k++) {
       const p = [ax + ((bx - ax) * k) / n, az + ((bz - az) * k) / n] as const;
       const q = [ax + ((bx - ax) * (k + 1)) / n, az + ((bz - az) * (k + 1)) / n] as const;
-      b.turned([(p[0] + q[0]) / 2, 0.5, (p[1] + q[1]) / 2], [len / n - 0.14, 1.0, 0.08], yaw, 'wood', { side: 'fence', top: 'trim' });
+      b.turned([(p[0] + q[0]) / 2, 0.5, (p[1] + q[1]) / 2], [len / n - 0.14, 1.0, FENCE_T], yaw, 'wood', { side: 'fence', top: 'trim' });
       posts.push(q);
     }
   }
-  for (const [x, z] of posts) b.add([x - 0.07, 0, z - 0.07], [x + 0.07, 1.1, z + 0.07], 'wood', { look: 'trim' });
+  for (const [x, z] of posts) b.add([x - POST_HALF, 0, z - POST_HALF], [x + POST_HALF, 1.1, z + POST_HALF], 'wood', { look: 'trim' });
 }
 
 /**
@@ -689,7 +703,7 @@ function buildBarricade(b: Builder): Label[] {
   const sections = 7;
   const w = (2 * span) / sections;
   const rails = [0.3, 0.7, 1.1];
-  const rail = { h: 0.22, t: 0.025 };
+  const rail = { h: 0.22 };
   const stripe = 0.3;
   for (let i = 0; i < sections; i++) {
     const z0 = -span + i * w;
@@ -698,17 +712,17 @@ function buildBarricade(b: Builder): Label[] {
     // A post at each end, inside the fence's end post at the edges, the middle pair carrying the board.
     for (const z of [z0 + 0.12, z1 - 0.2]) b.add([x - 0.04, 0, z], [x + 0.04, middle ? 2.2 : 1.4, z + 0.08], 'metal', { look: 'site.steel' });
     for (const y of rails) {
-      const r = b.add([x - 0.04 - rail.t, y, z0 + 0.04], [x - 0.04, y + rail.h, z1 - 0.04], 'wood', { look: 'barricade.white' });
+      const r = b.add([BARRICADE_FACE, y, z0 + 0.04], [x - 0.04, y + rail.h, z1 - 0.04], 'wood', { look: 'barricade.white' });
       // Orange bands across the town-facing side, alternating with the white.
       // Each band wraps a hair over the rail's top and bottom, so no face shares the rail's plane.
-      const face = x - 0.04 - rail.t;
+      const face = BARRICADE_FACE;
       for (let z = z0 + 0.04 + stripe / 2; z + stripe <= z1 - 0.04 + 1e-6; z += 2 * stripe) {
         b.decorateBox(r, [face - 0.012, y - 0.003, z], [face + SINK, y + rail.h + 0.003, z + stripe], 'barricade.orange');
       }
     }
-    if (middle) b.add([x - 0.1, 1.55, z0 + 0.04], [x - 0.04, 2.15, z1 - 0.04], 'wood', { look: 'barricade.white' });
+    if (middle) b.add([BARRICADE_FACE, 1.55, z0 + 0.04], [x - 0.04, 2.15, z1 - 0.04], 'wood', { look: 'barricade.white' });
   }
-  return [{ text: 'ROAD CLOSED', position: [x - 0.106, 1.85, 0], yaw: -Math.PI / 2, size: 0.38 }];
+  return [{ text: 'ROAD CLOSED', position: [BARRICADE_FACE - 0.006, 1.85, 0], yaw: -Math.PI / 2, size: 0.38 }];
 }
 
 /** Mannequin heads are props named like this, numbered from 0. */
@@ -981,24 +995,39 @@ function insetVertex(line: readonly (readonly [number, number])[], i: number, in
 }
 
 /**
- * Player clip along every edge of the playable area, from the ground into the
- * sky, just outside the edge. Each slab runs on past an outside corner to
- * close it, but stops at an inside corner, where running on would stand in
- * the playable area.
+ * Where the boundary's player clip stands: against the edge fences (in front
+ * of their square posts' corners, a few centimetres off the panels, where a
+ * fence runs on the slant) and flush with the barricade's face across the
+ * street end. So whatever stops a player at the edge is drawn right there,
+ * and nobody stands on a fence or post with an invisible wall beyond it.
+ * (x, z), the same way round as the playable edge.
+ */
+export const BOUNDARY: readonly (readonly [number, number])[] = (() => {
+  const line = PLAY_AREA.map((_, i) => insetVertex(PLAY_AREA, i, FENCE_INSET + POST_HALF * Math.SQRT2));
+  line[0] = [BARRICADE_FACE, line[0]![1]];
+  line[line.length - 1] = [BARRICADE_FACE, line.at(-1)![1]];
+  return line;
+})();
+
+/**
+ * Player clip along every edge of the boundary, from the ground into the
+ * sky, just outside it. Each slab runs on past an outside corner to close
+ * it, but stops at an inside corner, where running on would stand inside.
  */
 function buildBoundary(b: Builder): void {
-  const n = PLAY_AREA.length;
+  const n = BOUNDARY.length;
   const thickness = 1;
+  const within = (x: number, z: number) => insidePolygon(BOUNDARY, x, z);
   for (let i = 0; i < n; i++) {
-    const [ax, az] = PLAY_AREA[i]!;
-    const [bx, bz] = PLAY_AREA[(i + 1) % n]!;
+    const [ax, az] = BOUNDARY[i]!;
+    const [bx, bz] = BOUNDARY[(i + 1) % n]!;
     const len = Math.hypot(bx - ax, bz - az);
     const dx = (bx - ax) / len;
     const dz = (bz - az) / len;
     // Outward normal: the side the polygon's inside is not on.
     let nx = -dz;
     let nz = dx;
-    if (inside((ax + bx) / 2 + nx * 0.1, (az + bz) / 2 + nz * 0.1)) {
+    if (within((ax + bx) / 2 + nx * 0.1, (az + bz) / 2 + nz * 0.1)) {
       nx = -nx;
       nz = -nz;
     }
@@ -1008,11 +1037,11 @@ function buildBoundary(b: Builder): void {
     const past = (x: number, z: number, along: 1 | -1, [ox, oz]: readonly [number, number]) => {
       if ((ox - x) * nx + (oz - z) * nz <= 0) return thickness / 2;
       let s = 0;
-      while (s < len / 2 && inside(x - dx * along * s + nx * thickness, z - dz * along * s + nz * thickness)) s += 0.01;
+      while (s < len / 2 && within(x - dx * along * s + nx * thickness, z - dz * along * s + nz * thickness)) s += 0.01;
       return -s;
     };
-    const back = past(ax, az, -1, PLAY_AREA[(i + n - 1) % n]!);
-    const on = past(bx, bz, 1, PLAY_AREA[(i + 2) % n]!);
+    const back = past(ax, az, -1, BOUNDARY[(i + n - 1) % n]!);
+    const on = past(bx, bz, 1, BOUNDARY[(i + 2) % n]!);
     const mid = (on - back) / 2;
     b.hidden.push(
       yawBox({
