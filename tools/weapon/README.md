@@ -46,6 +46,12 @@ The Wasp 9's detailed replacement is built in the same way with
 It writes `tools/weapon/smg.blend` and the game GLB; its `mag` origin matches
 the existing reload rig. Check the viewer after changing it.
 
+The Harrow 12 replacement is built with
+`blender --background --factory-startup --python tools/weapon/harrow.py`.
+It writes `tools/weapon/shotgun.blend` and the game GLB. Its pump and support
+hand sit farther forward so the full pump stroke clears the receiver; keep
+the pump pivot and `KIT_RIGS.shotgun.left` aligned when changing the model.
+
 `arsenal.py` builds the SMG, pistol, shotgun, sniper and frag grenade, one per
 run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
 turns into game -Z; the right palm near the origin). Each GLB holds the body

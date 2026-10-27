@@ -78,7 +78,7 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
   shotgun: {
     url: asset('shotgun'),
     right: { pos: [0.021, -0.022, 0.07], normal: [-1, 0, 0], wrist: [0.1, -0.5, 0.86] },
-    left: { pos: [-0.008, -0.03, -0.29], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
+    left: { pos: [-0.008, -0.03, -0.36], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
     leftOnPump: true,
     rearSight: [0, 0.056, 0.04],
     eyeRelief: 0.2,
