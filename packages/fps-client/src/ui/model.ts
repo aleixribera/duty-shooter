@@ -1,4 +1,4 @@
-import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -16,12 +16,14 @@ export interface LobbyInfo {
   readonly away?: number;
   /** The host picks and starts each match in a lobby (absent from servers older than the lobby). */
   readonly lobby?: boolean;
+  /** Whether the match is humans vs bots (absent from servers older than it). */
+  readonly hvb?: boolean;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
-export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town' };
+export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard' };
 /** Teams always appear with their mark and name, never by colour alone. */
 export const TEAMS: Readonly<Record<number, { readonly name: string; readonly mark: string }>> = { 1: { name: 'Blue', mark: '◆' }, 2: { name: 'Orange', mark: '▲' } };
 
@@ -187,11 +189,13 @@ export interface LobbyTile {
   /** The fill the server starts with, and the most bots a side a first player may pick (0: bots off). */
   readonly botsPerTeam: number;
   readonly maxBotsPerTeam: number;
+  /** Whether the match is humans vs bots. */
+  readonly hvb: boolean;
 }
 
 /** The Play Online tile's lines from the lobby status, or the server shown as down. */
 export function lobbyTile(status: LobbyInfo | null): LobbyTile {
-  if (!status) return { online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 };
+  if (!status) return { online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false };
   return {
     online: true,
     players: `${status.players}/${status.capacity}`,
@@ -203,7 +207,19 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
     bots: status.bots ?? 0,
     botsPerTeam: status.botsPerTeam ?? 0,
     maxBotsPerTeam: status.maxBotsPerTeam ?? 0,
+    hvb: status.hvb === true,
   };
+}
+
+/** The lobby's note on who the people here will play with and against when the host starts. */
+export function lobbyFill(lobby: LobbyState): string {
+  const people = lobby.players.length;
+  if (lobby.hvb && teamMode(lobby.mode) && lobby.maxBots > 0) {
+    const bots = hvbBots(people, lobby.maxBots, lobby.capacity);
+    return `Humans vs bots: everyone here plays together against ${bots} bots, one more for each player who joins.`;
+  }
+  if (lobby.bots > 0) return `Bots fill the match to ${matchSize(lobby.mode, lobby.bots)} when it starts.`;
+  return people >= lobby.capacity ? 'Every seat is taken by a player.' : 'No bots: just the people here.';
 }
 
 /** How a match of `perTeam` a side reads in `mode`: "3v3", or "6 players" in free-for-all (you included). */

@@ -1,10 +1,17 @@
 # 12 Humans vs bots, the 12-player lobby and the match vote with map switching
 
-Status: open
+Status: resolved
 Blocked by: 11
+Release: v1.11.0
 
 HvB team sizing, MAX_PLAYERS 12, MAX_BOTS_PER_TEAM 6, server holds every lobby map and switches at matchStart, 3-option vote + HvB majority, map announced before matchStart, ready message / spectator until ready, status fields, next protocol version, ADR.
 
 ## Comments
 
 - 2026-10-27, from the owner (in the lobby-page session, outside this arc): the online server now has a **lobby** between matches, and the owner chose "the host presses Start" over a vote. The first person in is the host; they pick mode, bots a side and map on the lobby page and press Start. After every match: nuke (6 s), scoreboard (10 s), then everyone goes back to the lobby. So online there is no 3-option vote any more: the mode vote only runs in Bot Match. For this ticket that means: map switching becomes the host's map pick (`LobbyState.maps` already lists the lobby's maps; today only the server's one map), the HvB sizing goes in as a lobby choice, and "ready / spectator until ready" maps onto the lobby (people in the lobby are out of play until Start; a mid-match joiner plays at once). Code: `GameServer` option `lobby`, `LobbyState` on `MatchStatus.lobby`, client messages `lobby` and `start` (protocol stays 7), `packages/fps-client/src/ui/lobby.ts`. Tests: `packages/fps-core/test/lobby.test.ts`.
+- 2026-10-27, implementation (decisions, per the owner's comment above and ADR 0005):
+  - **Humans vs bots** is a setting (`hvb`) on `GameServer`, the `join` message (empty server only, like `mode`), the `lobby` message (host only) and `BotMatchOptions`. In team modes people get side 1 and bots side 2 through a new `MatchEntrant.side` / `GameMode.join(…, side)`, which `TeamRoster` never moves when it balances. The bot team is `hvbBots(people, maxPerTeam, maxPlayers)` = min(max(4, people + 2), 6, seats left); free-for-all ignores it. `status().hvb`, `LobbyState.hvb` and the matchStart/matchEnd log lines carry it. The lobby page has a "Mixed teams / Humans vs bots" choice for team modes (the bots-a-side row hides under HvB), and the Play Online tile shows "· vs bots" and the bot count.
+  - `MAX_BOTS_PER_TEAM` 4 → 6 and `DEFAULT_MAX_PLAYERS` 8 → 12 (server env default, compose and `.env.example` too). Tests that pinned the old caps were updated.
+  - **Maps**: the server builds every lobby map at startup (`LOBBY_MAPS`: Survival Town and Switchyard; the Practice Range is not one) and switches to the host's pick at `matchStart`, giving each bot a fresh brain on the new nav graph. `LobbyState.maps` lists both; `MatchStatus.map` names the map being played. The page follows the pick while still in the lobby (a new `Game` takes the same `OnlineDriver` over, predicting on the new collision), and "Join the match" reads "Loading <map>…" until its lighting is in.
+  - **Not done, by the owner's lobby decision**: the 3-option map-and-mode vote and the HvB majority vote (no vote online; Bot Match keeps its mode vote), and a server-side ready message / spectating until ready (the lobby page already keeps a loading player out of the match). Protocol stays 7: every new field is optional.
+  - Checked in a browser against a local server: the host picked Switchyard and humans vs bots, the page moved to Switchyard in the lobby, and the match started there with the player on Blue.

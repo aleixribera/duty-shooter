@@ -569,7 +569,7 @@ export class Menu {
       const b = tile('online', 'Play Online', lobby.public ? 'The public lobby: anyone with the link can join.' : 'Join the server with its passphrase.', () => this.#openOnline(), true);
       b.insertAdjacentHTML(
         'beforeend',
-        `<span class="ds-dot${t.online ? ' up' : ''}">${t.online ? (t.full ? 'Full' : 'Online') : 'Offline'}</span><div class="facts"><div><span class="ds-label">Players</span><span>${t.players}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div></div>`,
+        `<span class="ds-dot${t.online ? ' up' : ''}">${t.online ? (t.full ? 'Full' : 'Online') : 'Offline'}</span><div class="facts"><div><span class="ds-label">Players</span><span>${t.players}${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div></div>`,
       );
     }
     tile('bots', 'Bot Match', 'Survival Town against bots. Offline.', () => this.show('bots'));
@@ -607,7 +607,7 @@ export class Menu {
     const status = h('span', t.online ? (t.full ? 'Server full' : 'Server online') : 'Server not answering', `ds-dot${t.online ? ' up' : ''}`);
     p.append(status);
     const facts = h('div', '', 'ds-facts');
-    facts.innerHTML = `<div><span class="ds-label">Players</span><span>${t.players}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div>`;
+    facts.innerHTML = `<div><span class="ds-label">Players</span><span>${t.players}${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div>`;
     p.append(facts);
     const form = h('form') as HTMLFormElement;
     p.append(form);

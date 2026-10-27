@@ -188,7 +188,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (!map.nav) return;
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
+    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -288,10 +288,30 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     menu.hide();
     game.paused = false;
   };
+  /**
+   * Onto the map the server plays next (the host's pick, in the lobby) or now,
+   * keeping the online session: a new game on that map takes the driver over,
+   * predicting on its collision, its lighting streaming in meanwhile.
+   */
+  const followMap = (driver: OnlineDriver, id: MapId) => {
+    if (id === mapId) return;
+    const { paused, overviewOnly } = game;
+    const hud = game.hud.visible;
+    game.releaseDriver();
+    useMap(id);
+    driver.setMap(load(id).solids);
+    game.setDriver(driver);
+    game.paused = paused;
+    game.overviewOnly = overviewOnly;
+    game.hud.visible = hud;
+  };
   /** Each frame: the lobby page up while the server is in its lobby, and until this player is back in the match after it. */
   const updateLobby = () => {
     const driver = game.driver;
     const match = driver?.online ? driver.match : null;
+    // Servers from before map switching name no map in their status.
+    const next = match ? MAP_IDS.find((m) => m === (match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map)) : undefined;
+    if (next && driver instanceof OnlineDriver) followMap(driver, next);
     if (!driver || !match?.lobby || (match.phase !== 'lobby' && !lobbyPage.open)) {
       if (lobbyPage.open) leaveLobby();
       return;
@@ -306,9 +326,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
     const names: Record<string, string> = {};
     for (const id of match.lobby.players) names[id] = id === driver.selfId ? onlineName : driver.nameOf(id);
-    const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores };
+    // Into the match only once its map is lit: the player stays on the page (out of the fight's way) until then.
+    const entry = load(mapId);
+    const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: entry.ready ? null : entry.map.name };
     lobbyPage.show(view);
-    if (match.phase !== 'lobby' && lobbyJoin) {
+    if (match.phase !== 'lobby' && lobbyJoin && entry.ready) {
       lobbyJoin = false;
       void joinMatch();
     }

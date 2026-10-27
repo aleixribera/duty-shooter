@@ -49,7 +49,7 @@ describe('bot fill', () => {
     const alice = join(m, 'alice');
     expect(m.server.bots.size).toBe(5);
     expect(teamSizes(m)).toEqual([3, 3]);
-    expect(m.server.status()).toMatchObject({ players: 1, bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
+    expect(m.server.status()).toMatchObject({ players: 1, bots: 5, botsPerTeam: 3, maxBotsPerTeam: 6 });
 
     const bob = join(m, 'bob');
     expect(m.server.bots.size).toBe(4);
@@ -100,8 +100,8 @@ describe('bot fill', () => {
     leave(m, bob);
 
     join(m, 'carol', { bots: 9 });
-    expect(m.server.status().botsPerTeam).toBe(4);
-    expect(m.server.bots.size).toBe(7);
+    expect(m.server.status().botsPerTeam).toBe(6);
+    expect(m.server.bots.size).toBe(11);
     leave(m, m.client('carol'));
     expect(m.server.status().botsPerTeam).toBe(3);
 

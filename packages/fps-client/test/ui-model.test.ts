@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { connectionError, endSummary, lastMatch, loadoutOptions, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
+import { connectionError, endSummary, lastMatch, loadoutOptions, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -98,10 +98,11 @@ describe('connection errors', () => {
 describe('the Play Online tile', () => {
   it('shows the server up with players, mode and map, and offers the mode picker only when empty', () => {
     const up = lobbyTile({ map: 'survival-town', mode: 'tdm', players: 3, capacity: 8, phase: 'playing' });
-    expect(up).toEqual({ online: true, players: '3/8', mode: 'Team deathmatch', map: 'Survival Town', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
+    expect(up).toEqual({ online: true, players: '3/8', mode: 'Team deathmatch', map: 'Survival Town', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'playing' }).pickMode).toBe(true);
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
-    expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
+    expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
+    expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true })).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
     expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
     // With a lobby the host picks the mode there, not the join form.
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }).pickMode).toBe(false);
@@ -162,7 +163,7 @@ describe('the loadout screen', () => {
 });
 
 describe('the lobby', () => {
-  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, maxBots: 4, maps: ['survival-town'], map: 'survival-town' } as const;
+  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town' } as const;
 
   it('seats people in the order they joined, marks the host and you, then the open seats', () => {
     const seats = lobbySeats(lobby, 'a', { a: 'Ada', b: 'Bo' }, { a: 40, b: 150 });
@@ -173,6 +174,16 @@ describe('the lobby', () => {
       [4, null, '', null, false, false],
       [5, null, '', null, false, false],
     ]);
+  });
+
+  it('says who the people will play with: bots filling the sides, humans vs bots in a team mode, or just the people', () => {
+    expect(lobbyFill(lobby)).toBe('Bots fill the match to 2v2 when it starts.');
+    const big = { ...lobby, capacity: 12, maxBots: 6 };
+    expect(lobbyFill({ ...big, hvb: true })).toMatch(/everyone here plays together against 5 bots/);
+    expect(lobbyFill({ ...big, hvb: true, players: ['a'] })).toMatch(/against 4 bots/);
+    // Free-for-all has no sides to take.
+    expect(lobbyFill({ ...big, hvb: true, mode: 'ffa' })).toBe('Bots fill the match to 4 players when it starts.');
+    expect(lobbyFill({ ...lobby, bots: 0 })).toBe('No bots: just the people here.');
   });
 
   it('colours pings good under 100 ms, fair under 200, poor above', () => {

@@ -112,8 +112,8 @@ export class Charge implements GameMode {
     this.#freezeTime = options.freezeTime ?? FREEZE_TIME;
   }
 
-  join(id: PlayerId, name: string): TeamId {
-    return this.#roster.join(id, name, (t) => this.#wins.get(t) ?? 0);
+  join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {
+    return this.#roster.join(id, name, (t) => this.#wins.get(t) ?? 0, side);
   }
 
   leave(id: PlayerId): void {

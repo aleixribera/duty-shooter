@@ -181,6 +181,8 @@ export interface MatchEntrant {
   readonly id: PlayerId;
   readonly name: string;
   readonly team: TeamId | null;
+  /** The team they must play on, whatever the balance (humans vs bots); team modes only. */
+  readonly side?: TeamId;
 }
 
 /** Seconds a dead player waits before respawning, online and in bot matches. */
@@ -203,8 +205,8 @@ export interface GameMode {
   readonly timeLimit: number | null;
   /** Seconds a dead player waits before respawning (0 = instant). */
   readonly respawnDelay: number;
-  /** A joining player's team. */
-  join(id: PlayerId, name: string, ctx: ModeContext): TeamId;
+  /** A joining player's team: `side` when given (humans vs bots, team modes only). */
+  join(id: PlayerId, name: string, ctx: ModeContext, side?: TeamId): TeamId;
   leave(id: PlayerId): void;
   /** A player back from a drop in the same match: their row, team and kills as they left them, already spawned. */
   rejoin(score: Score): void;

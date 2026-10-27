@@ -17,6 +17,8 @@ export interface GameClientOptions {
   readonly mode?: ModeId;
   /** Bots a side to ask for; also honoured only on an empty server. */
   readonly bots?: number;
+  /** Humans vs bots, asked for like the mode. */
+  readonly hvb?: boolean;
   /** A seat token from an earlier welcome, to take that seat back if the server still holds it. */
   readonly resume?: string;
   /** Marks a scripted player (smoke and load tests) for the server's event log. */
@@ -168,8 +170,13 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'loadout', loadout }));
   }
 
+  /** Predicts on another map from now on: the one a new match is played on. */
+  setWorld(world: World): void {
+    this.#local.setWorld(world);
+  }
+
   /** The host's picks for the next match, in the lobby (ignored from anyone else). */
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void {
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'lobby', ...settings }));
   }
 
@@ -217,7 +224,7 @@ export class GameClient {
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}), ...(this.#loadout ? { loadout: this.#loadout } : {}) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.hvb === undefined ? {} : { hvb: this.#options.hvb }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}), ...(this.#loadout ? { loadout: this.#loadout } : {}) }),
       );
     }
     this.#advanceClock();

@@ -17,6 +17,8 @@ export interface TeamEntry {
   points: number;
   /** Join order, so ties are settled the same way every time. */
   readonly order: number;
+  /** Placed on a side that balancing never moves them from (humans vs bots). */
+  readonly fixed?: boolean;
 }
 
 /**
@@ -48,12 +50,12 @@ export class TeamRoster {
     return this.entries().filter((e) => e.team === team);
   }
 
-  /** Adds a joiner to the smaller team, or on a tie the one behind on `standing`. */
-  join(id: PlayerId, name: string, standing: (team: TeamId) => number): TeamId {
+  /** Adds a joiner to `side` when given, otherwise to the smaller team, or on a tie the one behind on `standing`. */
+  join(id: PlayerId, name: string, standing: (team: TeamId) => number, side?: TeamId): TeamId {
     const [a, b] = TEAMS;
     const size = (t: TeamId) => this.members(t).length;
-    const team = size(a) !== size(b) ? (size(a) < size(b) ? a : b) : standing(a) <= standing(b) ? a : b;
-    this.#entries.set(id, { id, name, team, kills: 0, deaths: 0, points: 0, order: this.#order++ });
+    const team = side ?? (size(a) !== size(b) ? (size(a) < size(b) ? a : b) : standing(a) <= standing(b) ? a : b);
+    this.#entries.set(id, { id, name, team, kills: 0, deaths: 0, points: 0, order: this.#order++, fixed: side !== undefined });
     return team;
   }
 
@@ -76,19 +78,20 @@ export class TeamRoster {
     this.#nextFirst.clear();
     this.#recent.clear();
     const [a, b] = TEAMS;
-    const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, points: 0, order: this.#order++ });
-    // Players keep their team where they had one; the rest fill the smaller team.
+    const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, points: 0, order: this.#order++, fixed: e.side !== undefined });
+    // Players with a side take it; the rest keep their team where they had one, then fill the smaller team.
     const unplaced: MatchEntrant[] = [];
     for (const e of entrants) {
-      if (e.team === a || e.team === b) add(e, e.team);
+      if (e.side !== undefined) add(e, e.side);
+      else if (e.team === a || e.team === b) add(e, e.team);
       else unplaced.push(e);
     }
     for (const e of unplaced) add(e, this.members(a).length <= this.members(b).length ? a : b);
-    // Then the fewest moves that even the teams out: the latest joiners of the bigger team cross over.
+    // Then the fewest moves that even the teams out: the latest joiners of the bigger team cross over (never one with a side).
     for (;;) {
       const big = this.members(a).length > this.members(b).length + 1 ? a : this.members(b).length > this.members(a).length + 1 ? b : null;
-      if (big === null) break;
-      const mover = this.members(big).sort((x, y) => y.order - x.order)[0] as TeamEntry;
+      const mover = big === null ? undefined : this.members(big).filter((e) => !e.fixed).sort((x, y) => y.order - x.order)[0];
+      if (!mover) break;
       mover.team = big === a ? b : a;
     }
     return new Map(this.entries().map((e) => [e.id, e.team]));

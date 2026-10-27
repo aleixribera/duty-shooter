@@ -1,6 +1,6 @@
-import { MODE_IDS, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
+import { MODE_IDS, teamMode, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbySeats, matchSize, pingTone } from './model';
+import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, pingTone } from './model';
 import { escapeHtml, installTheme } from './theme';
 
 const CSS = `
@@ -97,11 +97,13 @@ export interface LobbyView {
   readonly mode: ModeId;
   readonly result: MatchResult | null;
   readonly teamScores: readonly TeamScore[] | null;
+  /** The name of the next match's map while its lighting is still on its way; null once it is in. */
+  readonly loading: string | null;
 }
 
 export interface LobbyCallbacks {
   /** The host's picks for the next match. */
-  pick(settings: { readonly mode?: ModeId; readonly bots?: number }): void;
+  pick(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void;
   /** The host starts the match. */
   start(): void;
   /** Into the match that has started. */
@@ -193,6 +195,8 @@ export class LobbyPage {
     const value = el.dataset['value'] ?? '';
     if (act === 'mode') this.#callbacks.pick({ mode: value as ModeId });
     else if (act === 'bots') this.#callbacks.pick({ bots: Number(value) });
+    else if (act === 'hvb') this.#callbacks.pick({ hvb: value === 'on' });
+    else if (act === 'map') this.#callbacks.pick({ map: value });
     else if (act === 'start') this.#callbacks.start();
     else if (act === 'join') this.#callbacks.join();
     else if (act === 'loadout') this.#callbacks.loadout();
@@ -225,7 +229,7 @@ export class LobbyPage {
       .join('');
     // Rows fill the left column first, then the right.
     const rows = Math.ceil(Math.max(l.capacity, 1) / 2);
-    const fill = l.bots > 0 ? `Bots fill the match to ${matchSize(l.mode, l.bots)} when it starts.` : people >= l.capacity ? 'Every seat is taken by a player.' : 'No bots: just the people here.';
+    const fill = lobbyFill(l);
     const last = lastMatch(v.result, v.mode, v.teamScores);
     const lastHtml = last
       ? `<section class="last"><h2>Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
@@ -233,14 +237,20 @@ export class LobbyPage {
 
     const lock = host && !underway ? '' : ' disabled';
     const modes = MODE_IDS.map((m) => `<button type="button" data-act="mode" data-value="${m}" data-key="mode-${m}" class="${m === l.mode ? 'on' : ''}"${lock}>${escapeHtml(MODE_NAMES[m] ?? m)}</button>`).join('');
+    // Humans vs bots is a choice in team modes; it sizes the bot team itself.
+    const sides = l.maxBots > 0 && teamMode(l.mode);
+    const hvb = sides && l.hvb;
+    const versus = sides
+      ? `<span class="label">Sides</span><div class="seg">${(['off', 'on'] as const).map((v) => `<button type="button" data-act="hvb" data-value="${v}" data-key="hvb-${v}" class="${(v === 'on') === l.hvb ? 'on' : ''}"${lock}>${v === 'on' ? 'Humans vs bots' : 'Mixed teams'}</button>`).join('')}</div>`
+      : '';
     const bots =
-      l.maxBots > 0
+      l.maxBots > 0 && !hvb
         ? `<span class="label">Bots a side</span><div class="seg">${Array.from({ length: l.maxBots + 1 }, (_, n) => `<button type="button" data-act="bots" data-value="${n}" data-key="bots-${n}" class="${n === l.bots ? 'on' : ''}"${lock}>${n === 0 ? 'None' : n}</button>`).join('')}</div>`
         : '';
     const maps = l.maps
       .map((id) => {
         const m = this.#map(id);
-        return `<button type="button" data-key="map-${id}" class="${id === l.map ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}"${lock}><span>${escapeHtml(m.name)}</span></button>`;
+        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${id === l.map ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}"${lock}><span>${escapeHtml(m.name)}</span></button>`;
       })
       .join('');
     const copied = performance.now() < this.#copiedUntil;
@@ -249,7 +259,9 @@ export class LobbyPage {
       : '';
     const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
     const start = underway
-      ? `<button type="button" class="start" data-act="join" data-key="start">Join the match</button>`
+      ? v.loading
+        ? `<button type="button" class="start" disabled>Loading ${escapeHtml(v.loading)}…</button>`
+        : `<button type="button" class="start" data-act="join" data-key="start">Join the match</button>`
       : host
         ? `<button type="button" class="start" data-act="start" data-key="start">Start</button>`
         : `<button type="button" class="start" disabled>Waiting for the host</button>`;
@@ -261,7 +273,7 @@ export class LobbyPage {
 <aside>
 <div class="card" style="${map.image ? `background-image:url('${map.image}')` : ''}"><div class="text"><div class="kicker">${modeName} · ${peopleText.toUpperCase()}</div><div class="map">${escapeHtml(map.name)}</div></div></div>
 <p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>
-<div class="picks${host && !underway ? '' : ' locked'}"><span class="label">Mode${host ? '' : ': the host picks'}</span><div class="seg">${modes}</div>${bots}<span class="label">Map</span><div class="maps">${maps}</div></div>
+<div class="picks${host && !underway ? '' : ' locked'}"><span class="label">Mode${host ? '' : ': the host picks'}</span><div class="seg">${modes}</div>${versus}${bots}<span class="label">Map</span><div class="maps">${maps}</div></div>
 ${invite}
 ${start}
 <div class="more"><button type="button" data-act="loadout" data-key="loadout">Loadout</button><button type="button" data-act="settings" data-key="settings">Settings</button><button type="button" data-act="leave" data-key="leave">Leave</button></div>

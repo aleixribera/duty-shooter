@@ -2,10 +2,10 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
-import { MAP_IDS, buildMapById, mapSolids, type MapId } from '@duty-shooter/range/maps';
+import { LOBBY_MAPS, MAP_IDS, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 export interface ServerOptions {
@@ -20,7 +20,7 @@ export interface ServerOptions {
   readonly version: string;
   /** The mode an empty server starts in (a first joiner may pick another). */
   readonly mode: ModeId;
-  /** The map the lobby runs. */
+  /** The map the lobby starts on; the host may switch to any other lobby map between matches. */
   readonly map: MapId;
   /** Seconds per match in every mode, for short matches; each mode's own limit when absent. */
   readonly timeLimit?: number;
@@ -206,26 +206,42 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
 /** Starts the HTTP server, the WebSocket endpoint at /ws and the 60 Hz game loop. */
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const root = resolve(options.staticDir);
+  const maxBots = options.maxBotsPerTeam ?? 0;
+  /** A map as the game server runs it, its nav graph built when bots are on. */
+  const serverMap = (def: MapDefinition): ServerMap => {
+    const world = createWorld(mapSolids(def));
+    return {
+      id: def.id,
+      world,
+      spawns: def.spawns.ffa,
+      ...(def.spawns.teams ? { teamSpawns: def.spawns.teams } : {}),
+      zones: def.zones,
+      sites: def.sites,
+      ...(def.nav && maxBots > 0 ? { nav: buildNavGraph(world, def.nav) } : {}),
+    };
+  };
   const map = buildMapById(options.map);
+  const first = serverMap(map);
+  // Every lobby map is built up front, so a switch at a match's start costs nothing.
+  const others = LOBBY_MAPS.includes(options.map) ? LOBBY_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
-  const world = createWorld(mapSolids(map));
-  const maxBots = options.maxBotsPerTeam ?? 0;
   const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});
   log.write({ event: 'serverStart', version: options.version });
   const game = new GameServer(transport, {
-    world,
-    map: map.id,
+    world: first.world,
+    map: first.id,
+    maps: others,
     mode: options.mode,
-    spawns: map.spawns.ffa,
-    ...(map.spawns.teams ? { teamSpawns: map.spawns.teams } : {}),
-    zones: map.zones,
-    sites: map.sites,
+    spawns: first.spawns,
+    ...(first.teamSpawns ? { teamSpawns: first.teamSpawns } : {}),
+    ...(first.zones ? { zones: first.zones } : {}),
+    ...(first.sites ? { sites: first.sites } : {}),
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit } } }),
-    ...(map.nav && maxBots > 0 ? { bots: { nav: buildNavGraph(world, map.nav), perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
+    ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
     // Between matches everyone waits in the lobby for the host to start the next.
     lobby: true,
@@ -306,7 +322,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
  */
 export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string): ServerOptions {
   const passphrase = env['PASSPHRASE'] ?? '';
-  const maxPlayers = Number(env['MAX_PLAYERS'] ?? 8);
+  const maxPlayers = Number(env['MAX_PLAYERS'] ?? DEFAULT_MAX_PLAYERS);
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
   const mode = env['MODE'] ?? 'tdm';
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);

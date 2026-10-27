@@ -33,6 +33,10 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly onLog?: (event: LobbyEvent) => void;
   /** Run a lobby between matches, with a host who starts them. */
   readonly lobby?: boolean;
+  /** Humans vs bots from the start. */
+  readonly hvb?: boolean;
+  /** More maps the lobby's host may pick. */
+  readonly maps?: GameServerOptions['maps'];
 }
 
 /** A client in the match, with every frame it produced. */
@@ -88,6 +92,8 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.map ? { map: options.map } : {}),
     ...(options.onLog ? { onLog: options.onLog } : {}),
     ...(options.lobby ? { lobby: true } : {}),
+    ...(options.hvb ? { hvb: true } : {}),
+    ...(options.maps ? { maps: options.maps } : {}),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];

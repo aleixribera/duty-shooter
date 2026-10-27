@@ -71,7 +71,7 @@ export interface GameDriver {
   /** Votes for the next match's mode (online only). */
   vote(mode: ModeId): void;
   /** The host's picks for the next match, in the lobby (online only; ignored from anyone else). */
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void;
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void;
   /** The host starts the next match from the lobby (online only; ignored from anyone else). */
   startMatch(): void;
   /** What to carry from the next spawn (offline: at once while alive). */
@@ -202,6 +202,8 @@ export interface OnlineOptions {
   readonly mode?: ModeId;
   /** Bots a side to ask for, honoured only on an empty server. */
   readonly bots?: number;
+  /** Humans vs bots, asked for like the mode. */
+  readonly hvb?: boolean;
   readonly name: string;
   readonly passphrase: string;
   /** What to carry; the default loadout when absent. */
@@ -227,9 +229,15 @@ export class OnlineDriver implements GameDriver {
       passphrase: options.passphrase,
       ...(options.mode ? { mode: options.mode } : {}),
       ...(options.bots === undefined ? {} : { bots: options.bots }),
+      ...(options.hvb === undefined ? {} : { hvb: options.hvb }),
       ...(this.#savedToken ? { resume: this.#savedToken } : {}),
       ...(options.loadout ? { loadout: options.loadout } : {}),
     });
+  }
+
+  /** Predicts on another map's collision from now on: the one the next match is on. */
+  setMap(solids: readonly Solid[]): void {
+    this.#client.setWorld(createWorld(solids));
   }
 
   get client(): GameClient {
@@ -279,7 +287,7 @@ export class OnlineDriver implements GameDriver {
     this.#client.vote(mode);
   }
 
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void {
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void {
     this.#client.setLobby(settings);
   }
 
@@ -354,6 +362,8 @@ function writeStorage(key: string, value: string): void {
 }
 
 export interface BotMatchOptions {
+  /** The map's id, as the match reports it. */
+  readonly map: string;
   readonly solids: readonly Solid[];
   readonly spawns: { readonly ffa: readonly SpawnPoint[]; readonly teams: readonly (readonly SpawnPoint[])[] | null };
   /** The map's Outposts zones. */
@@ -365,6 +375,8 @@ export interface BotMatchOptions {
   readonly mode: ModeId;
   /** Bots a side (free-for-all: twice this many in all, counting you). */
   readonly botsPerTeam: number;
+  /** Humans vs bots: you on your own against a bot team, in team modes. */
+  readonly hvb?: boolean;
   readonly name: string;
   readonly loadout?: Loadout;
 }
@@ -385,7 +397,9 @@ export class BotMatchDriver extends OnlineDriver {
     const perTeam = Math.max(0, Math.min(MAX_BOTS_PER_TEAM, options.botsPerTeam));
     const server = new GameServer(network.server, {
       world,
+      map: options.map,
       mode: options.mode,
+      ...(options.hvb ? { hvb: true } : {}),
       spawns: options.spawns.ffa,
       ...(options.spawns.teams ? { teamSpawns: options.spawns.teams } : {}),
       ...(options.zones ? { zones: options.zones } : {}),

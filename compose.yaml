@@ -9,14 +9,14 @@ services:
       # All come from the stack's .env (see .env.example); the repo never holds the real values.
       # No passphrase: one public lobby anyone with the link can join.
       PASSPHRASE: "${PASSPHRASE:-}"
-      MAX_PLAYERS: "${MAX_PLAYERS:-8}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-12}"
       MAP: "${MAP:-survival-town}"
       MODE: "${MODE:-tdm}"
       # Empty: each mode's own time limit.
       TIME_LIMIT: "${TIME_LIMIT:-}"
       # Bots a side the lobby fills to while anyone plays, and the most a first joiner may pick.
       BOTS_PER_TEAM: "${BOTS_PER_TEAM:-3}"
-      MAX_BOTS_PER_TEAM: "${MAX_BOTS_PER_TEAM:-4}"
+      MAX_BOTS_PER_TEAM: "${MAX_BOTS_PER_TEAM:-6}"
     # The event log (joins, leaves, matches) on the one writable path, kept across redeploys.
     volumes:
       - duty-data:/data

@@ -147,14 +147,14 @@ describe('joining', () => {
     expect(m.server.playerCount).toBe(2);
   });
 
-  it('defaults the cap to 8 players', () => {
-    const m = match({ loss: 0, spawns: Array.from({ length: 9 }, (_, i) => ({ position: [i * 3, 0, 0] as const, yaw: 0 })) });
-    joinAll(m, ...Array.from({ length: 8 }, (_, i) => `p${i}`));
-    const ninth = m.join('ninth');
+  it('defaults the cap to 12 players', () => {
+    const m = match({ loss: 0, spawns: Array.from({ length: 13 }, (_, i) => ({ position: [i * 3, 0, 0] as const, yaw: 0 })) });
+    joinAll(m, ...Array.from({ length: 12 }, (_, i) => `p${i}`));
+    const thirteenth = m.join('thirteenth');
 
     m.run(ticks(2));
 
-    expect(ninth.client.rejectReason).toBe('full');
+    expect(thirteenth.client.rejectReason).toBe('full');
   });
 });
 

@@ -34,6 +34,8 @@ export type ClientMessage =
       readonly mode?: ModeId;
       /** Bots a side the joiner would like (within the server's cap); honoured only on an empty server. */
       readonly bots?: number;
+      /** Humans vs bots, as the joiner would like it; honoured only on an empty server. */
+      readonly hvb?: boolean;
       /** The seat token from an earlier welcome: a player back within the grace period takes up where they left off. */
       readonly resume?: string;
       /** Set by the smoke and load-test scripts, so the event log doesn't count them as people. */
@@ -48,7 +50,7 @@ export type ClientMessage =
   /** A vote for the next match's mode, changeable until the vote window closes. */
   | { readonly t: 'vote'; readonly mode: ModeId }
   /** The host's choices for the next match, in the lobby. */
-  | { readonly t: 'lobby'; readonly mode?: ModeId; readonly bots?: number }
+  | { readonly t: 'lobby'; readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' };
 
@@ -75,13 +77,17 @@ export interface LobbyState {
   readonly bots: number;
   /** The most bots a side the host may pick; 0 when the server has none. */
   readonly maxBots: number;
+  /** Humans vs bots for the next match (team modes only). */
+  readonly hvb: boolean;
   /** The maps the lobby can play, and the one picked. */
   readonly maps: readonly string[];
   readonly map: string;
 }
 
-/** The match as every client needs it: mode, phase and its deadline, limits, team scores and the vote. */
+/** The match as every client needs it: map, mode, phase and its deadline, limits, team scores and the vote. */
 export interface MatchStatus {
+  /** The map the match is on (it changes only at a match's start). */
+  readonly map: string;
   readonly mode: ModeId;
   readonly phase: Phase;
   /** Simulation time (s) the phase ends: the time limit while playing (null without one), the next phase in the intermission. */
@@ -154,7 +160,7 @@ export function decodeClient(data: string): ClientMessage | null {
   }
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
-    const { name, passphrase, protocol, mode, bots, resume, script } = value;
+    const { name, passphrase, protocol, mode, bots, hvb, resume, script } = value;
     const loadout = value['loadout'] === undefined ? undefined : parseLoadout(value['loadout']);
     if (loadout === null) return null;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
@@ -162,6 +168,7 @@ export function decodeClient(data: string): ClientMessage | null {
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
     if (resume !== undefined && !(typeof resume === 'string' && resume.length <= MAX_TOKEN)) return null;
     if (script !== undefined && typeof script !== 'boolean') return null;
+    if (hvb !== undefined && typeof hvb !== 'boolean') return null;
     return {
       t: 'join',
       name,
@@ -169,6 +176,7 @@ export function decodeClient(data: string): ClientMessage | null {
       protocol,
       ...(mode === undefined ? {} : { mode }),
       ...(bots === undefined ? {} : { bots }),
+      ...(hvb === undefined ? {} : { hvb }),
       ...(resume === undefined ? {} : { resume }),
       ...(script ? { script } : {}),
       ...(loadout ? { loadout } : {}),
@@ -183,10 +191,12 @@ export function decodeClient(data: string): ClientMessage | null {
     return isMode(mode) ? { t: 'vote', mode } : null;
   }
   if (value['t'] === 'lobby') {
-    const { mode, bots } = value;
+    const { mode, bots, hvb, map } = value;
     if (mode !== undefined && !isMode(mode)) return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
-    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }) };
+    if (hvb !== undefined && typeof hvb !== 'boolean') return null;
+    if (map !== undefined && !(typeof map === 'string' && map.length <= 40)) return null;
+    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
   if (value['t'] === 'cmds') {

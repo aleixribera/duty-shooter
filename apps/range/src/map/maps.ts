@@ -79,6 +79,8 @@ export function buildRange(): MapDefinition {
 }
 
 export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range'];
+/** The maps an online lobby plays: those built for matches (not the Practice Range). */
+export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
 
 const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange };
 

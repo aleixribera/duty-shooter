@@ -144,7 +144,7 @@ The page every online player sits on between matches: the players with their pin
 _Avoid_: menu, waiting room
 
 **Host**:
-The person in the lobby who picks the next match's mode, bots and map and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away.
+The person in the lobby who picks the next match's mode, bots, map and whether it is humans vs bots, and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away. The server holds every lobby map (Survival Town and Switchyard) and moves to the host's pick when the match starts; each page follows the pick while still in the lobby, so the map is loaded by then.
 _Avoid_: owner, admin, leader
 
 **Headless match**:
@@ -155,7 +155,11 @@ A computer-controlled player: a seat on the game server with no connection, whic
 _Avoid_: AI player, NPC
 
 **Bot fill**:
-Topping a match up with bots to a number a side while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person.
+Topping a match up with bots to a number a side while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. Humans vs bots sizes the bots its own way instead.
+
+**Humans vs bots**:
+A setting for any team mode, not a mode of its own: every person plays on Blue, against an Orange team of bots two bigger than the group (at least four, at most six, and never more than the free seats). A person joining mid-match brings another bot to Orange. Free-for-all ignores it. The host picks it in the lobby; Bot Match offers it too.
+_Avoid_: co-op, PvE
 
 **Bot Match**:
 An offline match against bots on Survival Town. The game server runs in the page.

@@ -313,7 +313,7 @@ const MELEE_STOP = 0.75;
  * outputs.
  */
 export class Simulation {
-  readonly world: World;
+  #world: World;
   #tick = 0;
   readonly #players = new Map<PlayerId, PlayerState>();
   #projectiles: Projectile[] = [];
@@ -331,10 +331,22 @@ export class Simulation {
   readonly #canDamage: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
 
   constructor(world: World, options: SimulationOptions = {}) {
-    this.world = world;
+    this.#world = world;
     this.#canDamage = options.canDamage ?? ((a, v) => a.id !== v.id);
     this.#selfDamage = options.selfDamage ?? (() => true);
     this.#predictOnly = options.predictOnly ?? false;
+  }
+
+  get world(): World {
+    return this.#world;
+  }
+
+  /** Moves the simulation to another map, between matches: shots and grenades in flight are gone; players stay put until respawned. */
+  setWorld(world: World): void {
+    this.#world = world;
+    this.#projectiles = [];
+    this.#grenades = [];
+    this.#history.clear();
   }
 
   get tick(): number {

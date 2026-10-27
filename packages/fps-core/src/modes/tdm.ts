@@ -31,8 +31,8 @@ export class TeamDeathmatch implements GameMode {
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
   }
 
-  join(id: PlayerId, name: string): TeamId {
-    return this.#roster.join(id, name, (t) => this.#teamScore(t));
+  join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {
+    return this.#roster.join(id, name, (t) => this.#teamScore(t), side);
   }
 
   leave(id: PlayerId): void {
