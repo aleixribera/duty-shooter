@@ -1,74 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { Button, STATS, TICK_SECONDS, isShellReload, recoilKick, shotsToKill, timeToKill, type HitZone, type TickOutput, type UserCmd, type WeaponId } from '@duty-shooter/fps-core';
-import { createHeadlessMatch, usercmd, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
-import { SHOOTER, TARGET, aimAt, eventsOf, playerIn, shotTime, wallAt } from './support/combat';
-import { FLOOR, ticks } from './support/movement';
+import { Button, STATS, TICK_SECONDS, isShellReload, recoilKick, shotsToKill, timeToKill, type WeaponId } from '@duty-shooter/fps-core';
+import { usercmd, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
+import { holding, measuredKill, trigger } from './support/arsenal';
+import { SHOOTER, eventsOf, playerIn, shotTime } from './support/combat';
+import { ticks } from './support/movement';
 
 /** The weapons whose handling this file checks against their rows (the M4A1 has its own file). */
-export const UNDER_TEST: readonly WeaponId[] = ['smg', 'pistol'];
+const UNDER_TEST: readonly WeaponId[] = ['smg', 'pistol', 'shotgun', 'sniper'];
 
 const row = (id: WeaponId) => STATS.weapons[id];
 const idle = usercmd();
-const isAuto = (id: WeaponId) => row(id).traits.fireMode === 'auto';
-
-/** A loadout that puts `id` in hand at spawn: a primary in the first slot, the pistol in the second. */
-function loadoutFor(id: WeaponId) {
-  return row(id).traits.slot === 'primary' ? { primary: id, secondary: 'pistol' as const, grenade: null } : { primary: 'm4a1' as const, secondary: id, grenade: null };
-}
-
-/** A shooter holding `id`, raised and ready, on an empty range (or facing a player `distance` metres away). */
-function holding(id: WeaponId, distance?: number): HeadlessMatch {
-  const players = [{ id: SHOOTER, team: 1, position: [0, 0, 0] as const, loadout: loadoutFor(id) }];
-  const m = createHeadlessMatch({
-    solids: [FLOOR, wallAt(-500)],
-    players: distance === undefined ? players : [...players, { id: TARGET, team: 2, position: [0, 0, -distance] as const, yaw: Math.PI }],
-  });
-  const w = () => playerIn(m.latest, SHOOTER).weapon;
-  if (row(id).traits.slot === 'secondary') {
-    m.run(ticks(1), () => ({ [SHOOTER]: idle }));
-    m.step({ [SHOOTER]: usercmd({ buttons: ['SwitchWeapon'] }) });
-  }
-  for (let i = 0; i < ticks(3) && !(w().id === id && w().action === 'ready'); i++) m.step({ [SHOOTER]: idle });
-  return m;
-}
-
-/** The trigger as each weapon wants it: held for full auto, a press each tick for the rest. */
-function trigger(id: WeaponId, buttons: UserCmd['buttons'] = 0, angles: { yaw?: number; pitch?: number } = {}): UserCmd {
-  return isAuto(id) ? usercmd({ ...angles, buttons: buttons | Button.Fire }) : usercmd({ ...angles, buttons, firePresses: [0.5] });
-}
-
 const weaponOf = (m: HeadlessMatch) => playerIn(m.latest, SHOOTER).weapon;
-
-/**
- * Aims down sights, then fires at a zone of the target until it dies,
- * pulling against recoil so every shot is on the zone. Returns the outputs.
- */
-function fightTo(m: HeadlessMatch, id: WeaponId, zone: HitZone, seconds = 3): TickOutput[] {
-  const ads = Button.Ads;
-  m.run(ticks(row(id).handling.adsTime.value + 0.05), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads'], ...aimAt(m, zone) }) }));
-  const outputs: TickOutput[] = [];
-  let cmdYaw = playerIn(m.latest, SHOOTER).yaw;
-  let cmdPitch = playerIn(m.latest, SHOOTER).pitch;
-  for (let i = 0; i < ticks(seconds) && playerIn(m.latest, TARGET).alive; i++) {
-    const me = playerIn(m.latest, SHOOTER);
-    const aim = aimAt(m, zone);
-    cmdYaw = aim.yaw - (me.yaw - cmdYaw);
-    cmdPitch = aim.pitch - (me.pitch - cmdPitch);
-    outputs.push(m.step({ [SHOOTER]: trigger(id, ads, { yaw: cmdYaw, pitch: cmdPitch }) }));
-  }
-  return outputs;
-}
-
-/** Hits to kill and the time from the first shot to the killing shot, as the simulation plays it. */
-function measuredKill(id: WeaponId, distance: number, zone: HitZone = 'upperTorso') {
-  const m = holding(id, distance);
-  const outputs = fightTo(m, id, zone);
-  const hits = eventsOf(outputs, 'hit').filter((h) => h.victim === TARGET);
-  const kill = hits.findIndex((h) => h.killed);
-  const shots = eventsOf(outputs, 'shot');
-  expect(kill, `${id} kills at ${distance} m`).toBeGreaterThanOrEqual(0);
-  return { hits: kill + 1, time: shotTime(shots[kill]!) - shotTime(shots[0]!), zone: hits[0]!.zone };
-}
 
 describe.each(UNDER_TEST)('%s handling against its row', (id) => {
   const h = row(id).handling;
@@ -84,9 +26,10 @@ describe.each(UNDER_TEST)('%s handling against its row', (id) => {
 
   it('holds its magazine, then reloads', () => {
     const m = holding(id);
-    const outputs = m.run(ticks(interval * h.magazineSize.value + 0.5), () => ({ [SHOOTER]: trigger(id) }));
-    expect(eventsOf(outputs, 'shot')).toHaveLength(h.magazineSize.value);
-    expect(weaponOf(m)).toMatchObject({ action: 'reload', reload: 'empty' });
+    const outputs = m.run(ticks(interval * h.magazineSize.value + 0.3), () => ({ [SHOOTER]: trigger(id) }));
+    const reload = eventsOf(outputs, 'reload')[0]!;
+    expect(reload).toMatchObject({ phase: 'start', kind: 'empty' });
+    expect(eventsOf(outputs, 'shot').filter((s) => s.tick <= reload.tick)).toHaveLength(h.magazineSize.value);
   });
 
   it('reloads on its row\'s timings', () => {
@@ -125,6 +68,8 @@ describe.each(UNDER_TEST)('%s handling against its row', (id) => {
   });
 
   it('kills in the shots its damage bands say, at every range', () => {
+    // Pellets don't all land past a few metres: the shotgun's file checks its kills.
+    if (row(id).damage.pellets) return;
     for (const distance of [8, 20, 40]) {
       const { hits } = measuredKill(id, distance);
       expect(hits, `${id} at ${distance} m`).toBe(shotsToKill(id, distance));

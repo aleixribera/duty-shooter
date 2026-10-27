@@ -267,7 +267,7 @@ export const SHOTGUN: WeaponRow = {
   damage: {
     bands: {
       point: { range: tuned(5, 'm', 'the one-shot band of the target ("one shot within 5 m").'), damage: tuned(20, 'HP', 'per pellet: 5 of the 8 pellets kill, and inside 5 m nearly all of them land.') },
-      close: { range: tuned(12, 'm', 'the two-shot band of the target ("two shots within 12 m").'), damage: tuned(13, 'HP', 'per pellet: 8 x 13 = 104 needs every pellet, so one shot rarely kills, and two do.') },
+      close: { range: tuned(12, 'm', 'the two-shot band of the target ("two shots within 12 m").'), damage: tuned(15, 'HP', 'per pellet: at 12 m about half the pellets of an aimed blast land (measured in the simulation), so two blasts kill (7 pellets, 105), and seven of eight up to about 7 m still kill in one.') },
       medium: { range: tuned(18, 'm', 'past this the target asks for no reliable kill.'), damage: tuned(7, 'HP', 'per pellet: half the pellets land at this range, so it takes three or four shots.') },
       long: { damage: tuned(3, 'HP', 'per pellet: a full hit is 24, no reliable kill past 18 m.') },
     },
