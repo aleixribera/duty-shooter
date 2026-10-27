@@ -63,6 +63,17 @@ describe('bot fill', () => {
     expect(fighters(m)).toEqual([]);
   });
 
+  it('arms each bot with its own loadout', () => {
+    const m = match();
+    join(m, 'alice');
+    m.run(ticks(1));
+    for (const [id, seat] of m.server.bots) {
+      const p = m.server.latest.players.find((x) => x.id === id)!;
+      expect(p.weapon.id, seat.name).toBe(seat.bot.profile.loadout.primary);
+      expect(p.grenades, seat.name).toBe(1);
+    }
+  });
+
   it('fills a free-for-all to six', () => {
     const m = match({ mode: 'ffa' });
     join(m, 'alice');

@@ -1,11 +1,13 @@
+import { moveGrenade, type Grenade, type GrenadeOutput } from '../combat/grenade';
 import { zoneCentre, type HitPose, type HitZone } from '../combat/hitboxes';
 import { sightBlocked } from '../combat/projectiles';
-import { angleDelta, anglesOf, DEG, type Vec3 } from '../math';
+import { angleDelta, anglesOf, DEG, viewDirection, type Vec3 } from '../math';
 import { hashString, noise } from '../random';
 import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
+import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
-import { findPath, linkKind, nearestNode, type NavGraph } from './nav';
+import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, type NavGraph } from './nav';
 import type { BotProfile } from './profile';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
@@ -18,6 +20,8 @@ export interface BotView {
   readonly players: readonly PlayerOutput[];
   /** The latest tick's events. */
   readonly events: readonly SimEvent[];
+  /** Live grenades, as anyone could see them land; none when absent. */
+  readonly grenades?: readonly GrenadeOutput[];
   /** Whether `other` is on the other side (any other player in free-for-all). */
   isEnemy(other: PlayerOutput): boolean;
 }
@@ -43,6 +47,53 @@ const SETTLE = 0.35;
 const LOOK_RATE = 200 * DEG;
 /** Fraction of the remaining turn made each second (easing, before the rate cap). */
 const EASE = 16;
+
+/**
+ * How a bot fights with each weapon. `range`: the band its preferred
+ * distance falls in, placed by how far the bot likes to fight, or null to keep
+ * the profile's own (the M4A1, which the profiles were tuned on). `ads`: aims
+ * down sights beyond this (m), null for the profile's. `reach`: fires only
+ * this near (m). `push`: closes in even with the target in view. `scoped`:
+ * stops to aim, fires only scoped in, and holds long lanes.
+ */
+interface Tactics {
+  readonly range: readonly [number, number] | null;
+  readonly ads: number | null;
+  readonly reach: number;
+  readonly push: boolean;
+  readonly scoped: boolean;
+}
+
+const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
+  m4a1: { range: null, ads: null, reach: Infinity, push: false, scoped: false },
+  smg: { range: [5, 10], ads: 12, reach: 45, push: true, scoped: false },
+  shotgun: { range: [2.5, 5], ads: 7, reach: 10, push: true, scoped: false },
+  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, scoped: true },
+  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, scoped: false },
+};
+/** The profiles' fight ranges run from about this close to this far (m): a weapon's band is placed along it. */
+const FIGHT_RANGES: readonly [number, number] = [5, 26];
+/** With the primary dry and an enemy this near (m), out comes the pistol. */
+const PISTOL_RANGE = 10;
+/** A scoped bot backs off from a target this much closer than it likes. */
+const BACK_OFF = 0.45;
+/** Scoped in enough to fire, and slow enough (m/s) to count as stopped. */
+const SCOPED_IN = 0.9;
+const STOPPED = 0.6;
+
+/** A frag goes to an enemy seen this recently (s), this near (m) and out of sight, landing within `THROW_MISS` (m) of them. */
+const THROW_MEMORY = 4;
+const THROW_RANGE = 25;
+const THROW_MISS = 3;
+/** Never at someone this near (m): the blast would reach the thrower. */
+const THROW_MIN = STATS.grenade.radius.value + 1;
+/** Seconds a frag is cooked before it leaves the hand, and between throws. */
+const COOK = 1.2;
+const THROW_PAUSE = 6;
+/** A live frag this near (m) and in sight sends a bot running. */
+const FLEE_RANGE = STATS.grenade.radius.value;
+/** Where a bot runs from a frag: nodes this far (m) around it. */
+const FLEE_SEARCH = 14;
 
 interface Sighting {
   readonly position: Vec3;
@@ -132,6 +183,13 @@ export class Bot {
   #lastButtons = 0;
   #meleeAt = 0;
   #lastTime = 0;
+  /** No weapon switch before then (one press at a time). */
+  #switchAt = 0;
+  /** A frag being cooked: where to throw it, and when it leaves the hand. */
+  #throw: { yaw: number; pitch: number; release: number; started: number } | null = null;
+  #nextThrow = 0;
+  /** Running from a live frag: to which node, until when, and which grenade. */
+  #flee: { node: number; until: number; grenade: number } | null = null;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -164,7 +222,9 @@ export class Bot {
   }
 
   /** What the bot is up to, for tests and debugging. */
-  get activity(): 'fight' | 'chase' | 'hold' | 'roam' {
+  get activity(): 'flee' | 'throw' | 'fight' | 'chase' | 'hold' | 'roam' {
+    if (this.#flee) return 'flee';
+    if (this.#throw) return 'throw';
     if (this.#target) return 'fight';
     if (this.#chasing) return 'chase';
     return this.#holdUntil > this.#lastTime ? 'hold' : 'roam';
@@ -178,6 +238,8 @@ export class Bot {
     if (!self.alive) {
       this.#alive = false;
       this.#target = null;
+      this.#throw = null;
+      this.#flee = null;
       return this.#cmd(0, 0, []);
     }
     if (!this.#alive || flat(self.position, this.#lastPos) > 3) this.#reset(view);
@@ -200,6 +262,11 @@ export class Bot {
     }
     const fighting = target !== null && tp !== undefined && time >= target.react;
     const range = tp ? flat(self.position, tp.position) : Infinity;
+    const tactics = TACTICS[self.weapon.id];
+    const want = this.#fightRange(tactics);
+    const speed = Math.hypot(self.velocity[0], self.velocity[2]);
+    this.#watchGrenades(view, eye);
+    if (!this.#throw && !fighting && (view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
 
     // Where to look.
     // The view is the usercmd plus recoil and flinch; follow that offset, a little late.
@@ -228,15 +295,21 @@ export class Bot {
       lookYaw = aim.yaw + target.errYaw;
       lookPitch = aim.pitch + target.errPitch;
       rate = p.turnRate;
-      ads = range > p.adsRange && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
+      ads = range > (tactics.ads ?? p.adsRange) && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
+      // A scope comes up only once the bot has stopped.
+      if (tactics.scoped) ads = speed < STOPPED * 2;
       if (target.visible) {
         // Fire once the view (with recoil) is where the bot means to aim, to within the body's width.
         const off = Math.hypot(angleDelta(self.yaw, aim.yaw + target.errYaw), self.pitch - (aim.pitch + target.errPitch));
         const tolerance = Math.atan2(0.32, Math.max(range, 1)) + (ads ? 0.4 : 1.2) * DEG;
         // Sight is checked a few times a second; a shot checks it again, so a target that just stepped behind cover isn't shot through it.
         const clear = () => !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'head')) || !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
-        if (off < tolerance && self.weapon.ammo > 0 && clear()) {
-          if (range > this.profile.burstRange) {
+        const ready = !tactics.scoped || (self.weapon.ads >= SCOPED_IN && speed < STOPPED);
+        if (off < tolerance && self.weapon.ammo > 0 && range <= tactics.reach && ready && clear()) {
+          if (STATS.weapons[self.weapon.id].traits.fireMode !== 'auto') {
+            // One round a press: release, then press again.
+            fire = !(this.#lastButtons & Button.Fire);
+          } else if (range > this.profile.burstRange) {
             if (time >= target.pauseUntil && time >= target.burstUntil) {
               target.burstUntil = time + (0.22 + 0.25 * r(11)) * this.profile.burst;
               target.pauseUntil = target.burstUntil + 0.18 + 0.2 * r(12);
@@ -249,12 +322,17 @@ export class Bot {
           this.#meleeAt = time + 0.8;
         }
       }
+    } else if (this.#throw) {
+      lookYaw = this.#throw.yaw;
+      lookPitch = this.#throw.pitch;
     } else if (this.#alert && time < this.#alert.until) {
       lookYaw = this.#alert.yaw;
       lookPitch = 0;
     } else if (time < this.#holdUntil) {
-      lookYaw = this.#holdYaw + 0.45 * Math.sin(time * 0.9 + (this.#seed % 11));
+      // A sniper watches its lane down the scope, sweeping less.
+      lookYaw = this.#holdYaw + (tactics.scoped ? 0.15 : 0.45) * Math.sin(time * 0.9 + (this.#seed % 11));
       lookPitch = -0.04;
+      if (tactics.scoped) ads = true;
     } else {
       const ahead = this.#lookAhead(self.position);
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
@@ -270,12 +348,22 @@ export class Bot {
 
     // Where to go.
     let move: Vec3 | null = null;
-    if (fighting && target && tp) {
-      const want = this.profile.fightRange;
-      if (!target.visible || range > want + 4) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id);
+    let backOff = false;
+    if (this.#flee) {
+      move = this.#fleeStep(view);
+    } else if (this.#throw) {
+      // Standing still to throw.
+    } else if (fighting && target && tp) {
+      const closeIn = tactics.scoped ? !target.visible : !target.visible || range > want + (tactics.push ? 2 : 4);
+      if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id);
       if (time >= this.#strafeUntil) {
         this.#strafe = r(13) < this.profile.standStill ? 0 : r(14) < 0.5 ? -1 : 1;
         this.#strafeUntil = time + this.profile.strafeTime * (0.6 + 0.8 * r(15));
+      }
+      // A sniper stands still to shoot, and backs away from someone getting close.
+      if (tactics.scoped && target.visible) {
+        this.#strafe = 0;
+        backOff = range < want * BACK_OFF;
       }
       if (target.crouch && range > 14 && !move) buttons.push('Crouch');
     } else {
@@ -292,8 +380,8 @@ export class Bot {
     }
 
     // Steering: the move direction in the bot's own frame.
-    let forward = 0;
-    let right = fighting ? this.#strafe * (ads ? 1 : 0.8) : 0;
+    let forward = backOff ? -0.8 : 0;
+    let right = fighting && !this.#throw ? this.#strafe * (ads ? 1 : 0.8) : 0;
     const climbing = move !== null && this.#nextLink() === 'climb';
     if (move) {
       const dir = yawTo(self.position, move);
@@ -304,9 +392,10 @@ export class Bot {
       right = fighting ? Math.max(-1, Math.min(1, right * 0.6 - Math.sin(d) * k)) : -Math.sin(d) * k;
       const speed = Math.hypot(self.velocity[0], self.velocity[2]);
       this.#blocked = speed < 0.5 && self.movement !== 'mantle' && self.movement !== 'airborne' ? this.#blocked + 1 : 0;
-      // Sprint the long legs when nothing's in sight; slide now and then.
+      // Sprint the long legs when nothing's in sight, and away from a frag; slide now and then.
       const long = this.#remaining(self.position) > 7;
-      if (!fighting && long && forward > 0.8 && !climbing) {
+      if (this.#flee && forward > 0.5 && !climbing) buttons.push('Sprint');
+      else if (!fighting && long && forward > 0.8 && !climbing) {
         buttons.push('Sprint');
         if (this.#tactical) buttons.push('TacticalSprint');
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
@@ -323,9 +412,19 @@ export class Bot {
       this.#progress = { position: self.position, time };
     }
 
-    // Reload in a quiet moment, or when empty.
+    // The pistol when the primary runs dry close up; the primary again once things are quiet.
     const w = self.weapon;
-    if (w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
+    const busy = w.action === 'holster' || w.action === 'draw' || w.action === 'grenade' || self.grenade !== null;
+    const toPistol = w.slot === 0 && w.ammo === 0 && fighting && target?.visible === true && range < PISTOL_RANGE;
+    const toPrimary = w.slot === 1 && !fighting && time - this.#lastEnemySeen > 2;
+    const switching = (toPistol || toPrimary) && !busy && time >= this.#switchAt && !(this.#lastButtons & Button.SwitchWeapon);
+    if (switching) {
+      buttons.push('SwitchWeapon');
+      this.#switchAt = time + 1;
+    }
+    // Reload in a quiet moment, or when empty.
+    if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
+    if (this.#cooking(view)) buttons.push('Grenade');
 
     if (ads) buttons.push('Ads');
     if (fire) buttons.push('Fire');
@@ -355,6 +454,106 @@ export class Bot {
     this.#unstickUntil = 0;
     this.#slideUntil = 0;
     this.#strafe = 0;
+    this.#throw = null;
+    this.#flee = null;
+  }
+
+  /** Where the bot likes to fight with this weapon (m). */
+  #fightRange(tactics: Tactics): number {
+    if (!tactics.range) return this.profile.fightRange;
+    const [lo, hi] = tactics.range;
+    const t = Math.max(0, Math.min(1, (this.profile.fightRange - FIGHT_RANGES[0]) / (FIGHT_RANGES[1] - FIGHT_RANGES[0])));
+    return lo + (hi - lo) * t;
+  }
+
+  /**
+   * A frag for an enemy that ducked out of sight: seen moments ago, near
+   * enough to reach and far enough to be safe, and a solved arc that lands
+   * close to where they were. The bot then stands, cooks and throws.
+   */
+  #considerThrow(view: BotView, eye: Vec3): void {
+    const { self, time } = view;
+    if (self.grenades <= 0 || self.grenade !== null || time < this.#nextThrow || self.movement === 'mantle') return;
+    for (const [id, m] of this.#memory) {
+      const d = flat(self.position, m.position);
+      if (!m.seen || time - m.time > THROW_MEMORY || d > THROW_RANGE || d < THROW_MIN) continue;
+      const p = view.players.find((x) => x.id === id);
+      if (!p?.alive) continue;
+      const body: Vec3 = [m.position[0], m.position[1] + 1, m.position[2]];
+      if (!sightBlocked(this.#world, eye, body)) continue;
+      const arc = solveThrow(this.#world, eye, m.position, STATS.grenade.fuse.value - COOK);
+      // Tried either way: no fresh look for a moment.
+      this.#nextThrow = time + 2;
+      if (arc.miss > THROW_MISS) continue;
+      this.#throw = { yaw: arc.yaw, pitch: arc.pitch, release: time + COOK, started: time };
+      this.#holdUntil = 0;
+      return;
+    }
+  }
+
+  /** Whether to hold the grenade button this tick: through the cook, until the view is on the arc. */
+  #cooking(view: BotView): boolean {
+    const t = this.#throw;
+    if (!t) return false;
+    const { self, time } = view;
+    // The press didn't take (the weapon was busy): give up.
+    if (time > t.started + 0.3 && self.grenade === null) {
+      this.#throw = null;
+      return false;
+    }
+    const aimed = Math.abs(angleDelta(self.yaw, t.yaw)) < 0.6 * DEG && Math.abs(self.pitch - t.pitch) < 0.6 * DEG;
+    const late = time - t.started > STATS.grenade.fuse.value - 0.8;
+    if (self.grenade?.phase === 'cook' && ((time >= t.release && aimed) || late)) {
+      this.#throw = null;
+      this.#nextThrow = time + THROW_PAUSE;
+      return false;
+    }
+    return true;
+  }
+
+  /** A live frag near and in sight: run for the spot nearby that is out of its reach or behind cover. */
+  #watchGrenades(view: BotView, eye: Vec3): void {
+    const { self, time } = view;
+    if (this.#flee && time >= this.#flee.until) {
+      this.#flee = null;
+      this.#goal = null;
+      this.#path = [];
+    }
+    for (const g of view.grenades ?? []) {
+      if (this.#flee?.grenade === g.id) continue;
+      const at: Vec3 = [g.position[0], g.position[1] + 0.2, g.position[2]];
+      if (flat(self.position, g.position) > FLEE_RANGE || Math.abs(g.position[1] - self.position[1]) > 3 || sightBlocked(this.#world, eye, at)) continue;
+      const node = this.#cover(self.position, at);
+      this.#flee = { node, until: g.explodeAt + 0.1, grenade: g.id };
+      this.#throw = null;
+      this.#holdUntil = 0;
+      this.#plan(self.position, node, view);
+      return;
+    }
+  }
+
+  /** The node near `from` that best gets away from a blast at `blast`: out of its sight or reach, and not far to run. */
+  #cover(from: Vec3, blast: Vec3): number {
+    const nodes = this.#nav.nodes;
+    let best = nearestNode(this.#nav, this.#world, from);
+    let bestScore = -Infinity;
+    for (const [i, n] of nodes.entries()) {
+      const run = flat(from, n.position);
+      if (run > FLEE_SEARCH || Math.abs(n.position[1] - from[1]) > 2.5) continue;
+      const away = flat(blast, n.position);
+      const hidden = sightBlocked(this.#world, blast, [n.position[0], n.position[1] + 1.2, n.position[2]]);
+      const score = (hidden ? 30 : 0) + Math.min(away, FLEE_RANGE + 3) * 3 - run;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  #fleeStep(view: BotView): Vec3 | null {
+    const flee = this.#flee!;
+    return this.#advance(view.self, this.#nav.nodes[flee.node]!.position);
   }
 
   /** Eases the usercmd angles toward a look direction, no faster than `rate`. */
@@ -494,10 +693,13 @@ export class Bot {
   #roam(view: BotView, r: (n: number) => number): Vec3 | null {
     const { self, time } = view;
     if (this.#goal !== null && this.#step >= this.#path.length) {
+      const reached = this.#nav.nodes[this.#goal]!;
       this.#goal = null;
-      if (r(21) < this.profile.hold) {
-        this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22));
-        this.#holdYaw = this.#holdFacing(self.position);
+      // A sniper always settles in to watch the lane it came for, and for longer.
+      const scoped = TACTICS[self.weapon.id].scoped;
+      if (scoped || r(21) < this.profile.hold) {
+        this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22)) * (scoped ? 2.5 : 1);
+        this.#holdYaw = scoped && reached.sightline >= LONG_SIGHTLINE ? reached.sightYaw : this.#holdFacing(self.position);
         this.#holdCrouch = r(23) < this.profile.crouch;
         return null;
       }
@@ -525,7 +727,10 @@ export class Bot {
       const off = 8 + r(93) * 12;
       hunch = [e[0] + Math.cos(angle) * off, e[1], e[2] + Math.sin(angle) * off];
     }
-    const candidates = Array.from({ length: 16 }, (_, k) => Math.floor(r(30 + k) * nodes.length));
+    // A sniper picks among the spots with a long view.
+    const lanes = TACTICS[self.weapon.id].scoped ? this.#longSightlines() : [];
+    const pool = lanes.length > 0 ? lanes : null;
+    const candidates = Array.from({ length: 16 }, (_, k) => (pool ? pool[Math.floor(r(30 + k) * pool.length)]! : Math.floor(r(30 + k) * nodes.length)));
     if (hunch) candidates.push(nearestTo(nodes, hunch));
     let best = 0;
     let bestScore = -Infinity;
@@ -545,6 +750,14 @@ export class Bot {
     }
     this.#recentGoals = [best, ...this.#recentGoals].slice(0, 4);
     return best;
+  }
+
+  #lanes: number[] | null = null;
+
+  /** The nav nodes with a long view, for holding a lane with a sniper rifle. */
+  #longSightlines(): readonly number[] {
+    this.#lanes ??= this.#nav.nodes.flatMap((n, i) => (n.sightline >= LONG_SIGHTLINE ? [i] : []));
+    return this.#lanes;
   }
 
   /** Which way to watch while holding: toward the last noise, else toward the middle of the map. */
@@ -651,6 +864,41 @@ export class Bot {
       this.#plan(self.position, this.#goal, view);
     }
   }
+}
+
+/** Where a frag thrown from `eye` along (yaw, pitch) is when it goes off `fuse` seconds later, stepped as the simulation steps it. */
+function blastPoint(world: World, eye: Vec3, yaw: number, pitch: number, fuse: number): Vec3 {
+  const G = STATS.grenade;
+  const d = viewDirection(yaw, pitch + G.throwLift.value * DEG);
+  const g: Grenade = { id: -1, thrower: '', team: 0, position: [eye[0], eye[1], eye[2]], velocity: [d[0] * G.throwSpeed.value, d[1] * G.throwSpeed.value, d[2] * G.throwSpeed.value], explodeAt: fuse, resting: false };
+  for (let t = 0; t < fuse - 1e-9 && !g.resting; t += TICK_SECONDS) moveGrenade(g, world, TICK_SECONDS);
+  return g.position;
+}
+
+/**
+ * The throw that sets a frag off nearest `target`: straight at it, at the
+ * pitch (searched coarsely, then finely) whose bounces and roll end closest.
+ * `miss` is how far from the target it goes off (m).
+ */
+export function solveThrow(world: World, eye: Vec3, target: Vec3, fuse: number): { yaw: number; pitch: number; miss: number } {
+  const yaw = yawTo(eye, target);
+  const missAt = (pitch: number) => {
+    const p = blastPoint(world, eye, yaw, pitch, fuse);
+    return flat(p, target) + Math.abs(p[1] - target[1]);
+  };
+  let best = { yaw, pitch: 0, miss: Infinity };
+  for (let deg = -20; deg <= 60; deg += 4) {
+    const miss = missAt(deg * DEG);
+    if (miss < best.miss) best = { yaw, pitch: deg * DEG, miss };
+  }
+  const coarse = best.pitch;
+  for (let k = -3; k <= 3; k++) {
+    if (k === 0) continue;
+    const pitch = coarse + k * 0.66 * DEG;
+    const miss = missAt(pitch);
+    if (miss < best.miss) best = { yaw, pitch, miss };
+  }
+  return best;
 }
 
 /** The node nearest `p` in plan, a little against height differences. */

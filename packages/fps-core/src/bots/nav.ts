@@ -31,7 +31,15 @@ export interface NavNode {
   readonly indoor: boolean;
   /** Placed by the map at a doorway, stair or climb: a bot passes close to it, rather than cutting the corner. */
   readonly precise: boolean;
+  /** The longest clear view from here at eye height (m, up to {@link SIGHTLINE_MAX}), and the yaw it looks along. */
+  readonly sightline: number;
+  readonly sightYaw: number;
 }
+
+/** How far a node's sightline is measured. */
+export const SIGHTLINE_MAX = 80;
+/** A node with a clear view this long (m) is a spot to hold a lane from with a sniper rifle. */
+export const LONG_SIGHTLINE = 35;
 
 export interface NavGraph {
   readonly nodes: readonly NavNode[];
@@ -266,9 +274,23 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
   const index = new Map<number, number>();
   keep.forEach((old, i) => index.set(old, i));
   return {
-    nodes: keep.map((old) => ({ position: points[old]!.p, indoor: covered(world, points[old]!.p), precise: points[old]!.hint })),
+    nodes: keep.map((old) => ({ position: points[old]!.p, indoor: covered(world, points[old]!.p), precise: points[old]!.hint, ...sightline(world, points[old]!.p) })),
     links: keep.map((old) => links[old]!.filter((l) => index.has(l.to)).map((l) => ({ ...l, to: index.get(l.to)! }))),
   };
+}
+
+/** The longest clear view from `p` at eye height, among 16 directions, and its yaw. */
+function sightline(world: World, p: Vec3): { sightline: number; sightYaw: number } {
+  const eye: Vec3 = [p[0], p[1] + 1.5, p[2]];
+  let best = { sightline: 0, sightYaw: 0 };
+  for (let k = 0; k < 16; k++) {
+    const yaw = (k / 16) * Math.PI * 2;
+    const far: Vec3 = [eye[0] - Math.sin(yaw) * SIGHTLINE_MAX, eye[1], eye[2] - Math.cos(yaw) * SIGHTLINE_MAX];
+    const hit = raycastWorld(world, eye, far);
+    const d = hit ? hit.t * SIGHTLINE_MAX : SIGHTLINE_MAX;
+    if (d > best.sightline) best = { sightline: d, sightYaw: yaw };
+  }
+  return best;
 }
 
 /** The largest strongly connected set of nodes (Tarjan), in ascending order. */

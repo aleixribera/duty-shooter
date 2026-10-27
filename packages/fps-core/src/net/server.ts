@@ -513,9 +513,9 @@ export class GameServer {
     this.#protectedSince.set(id, this.simulation.time);
   }
 
-  /** The loadout a player's next spawn carries, as spawn options (empty for the default). */
+  /** The loadout a player's next spawn carries (a bot's from its profile), as spawn options (empty for the default). */
   #loadoutOf(id: PlayerId): { loadout?: Loadout } {
-    const loadout = [...this.#clients].find((c) => c.id === id)?.loadout ?? null;
+    const loadout = [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
     return loadout ? { loadout } : {};
   }
 
@@ -698,7 +698,7 @@ export class GameServer {
         continue;
       }
       const info = { id, team: self.team, kind: self.kind };
-      const view: BotView = { tick, time, self, players, events: this.#lastEvents, isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other) };
+      const view: BotView = { tick, time, self, players, events: this.#lastEvents, grenades: this.#last.grenades, isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other) };
       cmds[id] = seat.bot.think(view);
     }
   }

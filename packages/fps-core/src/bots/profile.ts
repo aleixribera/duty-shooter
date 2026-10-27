@@ -1,5 +1,7 @@
 import { DEG } from '../math';
 import { hashString, noise } from '../random';
+import type { WeaponId } from '../stats';
+import type { Loadout } from '../weapon/loadout';
 
 /** How a bot likes to play. */
 export type BotStyle = 'rusher' | 'flanker' | 'anchor' | 'roamer' | 'support';
@@ -16,6 +18,8 @@ export const BOT_STYLES: readonly BotStyle[] = ['rusher', 'flanker', 'anchor', '
 export interface BotProfile {
   readonly name: string;
   readonly style: BotStyle;
+  /** What it carries: a primary picked by its style's weights, the pistol and a frag. */
+  readonly loadout: Loadout;
   /** Seconds from first seeing an enemy to starting to aim at them. */
   readonly reaction: number;
   /** Aim error (radians) on a fresh target; it settles toward a wobble of `wobble` times this. */
@@ -77,7 +81,7 @@ export const BOT_NAMES: readonly string[] = [
   'Bramble', 'Flint', 'Mako', 'Ember', 'Quill', 'Static', 'Nomad', 'Briar', 'Cinder', 'Lark', 'Onyx', 'Rusty',
 ];
 
-type Tunable = Exclude<keyof BotProfile, 'name' | 'style'>;
+type Tunable = Exclude<keyof BotProfile, 'name' | 'style' | 'loadout'>;
 type Range = readonly [number, number];
 
 /** What every style starts from: each number is picked in its range. */
@@ -143,6 +147,26 @@ const STYLES: Readonly<Record<BotStyle, Partial<Record<Tunable, Range>>>> = {
   },
 };
 
+/** How likely each style is to carry each primary: a rusher always brings something for close range, an anchor mostly something for long. */
+const PRIMARY_WEIGHTS: Readonly<Record<BotStyle, Readonly<Partial<Record<WeaponId, number>>>>> = {
+  rusher: { smg: 5, shotgun: 4 },
+  flanker: { smg: 4, m4a1: 3, shotgun: 2, sniper: 1 },
+  anchor: { sniper: 5, m4a1: 4, smg: 1 },
+  roamer: { m4a1: 4, smg: 3, sniper: 2, shotgun: 1 },
+  support: { m4a1: 6, smg: 2, sniper: 2 },
+};
+
+/** A primary for `style`, picked by its weights with `roll` (0 to 1). */
+function pickPrimary(style: BotStyle, roll: number): WeaponId {
+  const weights = Object.entries(PRIMARY_WEIGHTS[style]) as [WeaponId, number][];
+  let left = roll * weights.reduce((n, [, w]) => n + w, 0);
+  for (const [id, w] of weights) {
+    left -= w;
+    if (left < 0) return id;
+  }
+  return weights.at(-1)![0];
+}
+
 /** The moderate bot's personality for `name`: the same name always plays the same way. */
 export function botProfile(name: string): BotProfile {
   const seed = hashString(name);
@@ -157,7 +181,8 @@ export function botProfile(name: string): BotProfile {
       return [k, lo + (hi - lo) * noise(seed, i + 1)];
     }),
   ) as Record<Tunable, number>;
-  return { name, style, ...values, reloadBelow: Math.round(values.reloadBelow) };
+  const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: 'pistol', grenade: 'frag' };
+  return { name, style, loadout, ...values, reloadBelow: Math.round(values.reloadBelow) };
 }
 
 /** The style a listed name plays, or null for any other name. */
