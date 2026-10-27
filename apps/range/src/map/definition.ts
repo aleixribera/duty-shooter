@@ -1,4 +1,5 @@
 import type { PlayerSpawn, Solid, SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
+import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -44,8 +45,38 @@ export interface MapDefinition {
   readonly solids: readonly Solid[];
   /** Collision-only solids: player clip (the boundary, the steps under sloped roofs) and hidden bullet surfaces. */
   readonly hiddenSolids: readonly Solid[];
+  /** The map's named finishes (colour and pattern), beside the per-material defaults. */
+  readonly finishes: Readonly<Record<string, Finish>>;
+  /** Per drawn solid, how its faces look; null where its material's default finish will do. */
+  readonly looks: readonly (Look | null)[];
+  /** Visual-only trim, each within 5 cm of the solid it sits on. */
+  readonly decorations: readonly Decoration[];
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
+  /**
+   * Where the population sign's live display goes (the board's front face:
+   * its centre, facing `yaw`, and its size), or null for a map without one.
+   */
+  readonly populationSign: { readonly center: Vec3; readonly yaw: number; readonly width: number; readonly height: number } | null;
+  /**
+   * The far world, drawn but never collided with: ground in the finish
+   * `ground` from the edge of the map's own ground (`inner`, x0..x1 by
+   * z0..z1) out to mountains on the horizon. It is lit like the open
+   * ground at `light` (x, z), which must see the sun.
+   */
+  readonly horizon: {
+    readonly ground: string;
+    readonly inner: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number };
+    readonly light: readonly [number, number];
+  };
+  /**
+   * The end-of-match nuke (drawn and heard only): where the bomb goes off,
+   * on the ground out in the desert, and where the town's air-raid siren
+   * sounds from; null for a map that never ends in one.
+   */
+  readonly nuke: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
+  /** What the map makes heard: the wind everywhere, and birds, a sign or a radio at a place. */
+  readonly ambience: readonly ({ readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio'; readonly position: Vec3 })[];
   readonly spawns: {
     readonly ffa: readonly SpawnPoint[];
     /** One set per team (team 1, team 2), each at its own side of the map; null where the map has no team spawns. */

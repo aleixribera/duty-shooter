@@ -287,8 +287,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
   const mode = env['MODE'] ?? 'tdm';
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
-  // The range stays the lobby's map until the release makes Survival Town the default.
-  const map = env['MAP'] ?? 'range';
+  const map = env['MAP'] ?? 'survival-town';
   if (!(MAP_IDS as readonly string[]).includes(map)) throw new Error(`MAP must be one of ${MAP_IDS.join(', ')}.`);
   return {
     port: Number(env['PORT'] ?? 3000),

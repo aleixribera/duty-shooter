@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "lib": [
       "ES2023",
       "DOM",
@@ -13,6 +14,7 @@
   "include": [
     "src",
     "test",
+    "bake",
     "vite.config.ts"
   ]
 }

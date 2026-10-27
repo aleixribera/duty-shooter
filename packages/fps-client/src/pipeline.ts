@@ -1,4 +1,4 @@
-import { float, mix, mrt, normalView, output, pass, screenUV, vec4, velocity } from 'three/tsl';
+import { dot, float, getViewPosition, mix, mrt, normalView, output, pass, perspectiveDepthToViewZ, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
 import { RenderPipeline, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
@@ -12,6 +12,32 @@ export function effectivePreset(preset: GraphicsPreset, backend: RenderBackend):
 }
 
 const BLOOM = 0.18;
+
+/**
+ * Heat shimmer: what lies far off (the desert, the mountains) wavers a
+ * little in the hot air over the ground, more the farther it is; the sky,
+ * anything nearer than 150 m and anything seen well above the horizon (a
+ * cloud) stay still. A pixel only borrows from a neighbour that is itself
+ * far off, so near things never smear into the distance round their edges.
+ * Two extra texture reads a pixel.
+ */
+function shimmer(image: TextureNode, depth: TextureNode, camera: PerspectiveCamera): Node<'vec4'> {
+  const projectionInverse = uniform(camera.projectionMatrixInverse);
+  const view = uniform(camera.matrixWorldInverse);
+  const up = view.mul(vec4(0, 1, 0, 0)).xyz;
+  const heat = (uv: Node<'vec2'>) => {
+    const z = depth.sample(uv).r;
+    const d = perspectiveDepthToViewZ(z, float(camera.near), float(camera.far)).negate();
+    const elevation = dot(getViewPosition(uv, z, projectionInverse).normalize(), up);
+    return smoothstep(float(150), float(600), d)
+      .mul(float(1).sub(step(float(camera.far * 0.99), d)))
+      .mul(float(1).sub(smoothstep(float(0.015), float(0.05), elevation)));
+  };
+  const t = time;
+  const wave = vec2(sin(screenUV.y.mul(700).add(t.mul(6))).mul(0.0009), sin(screenUV.x.mul(300).sub(t.mul(4))).mul(0.0004));
+  const shifted = screenUV.add(wave.mul(heat(screenUV)));
+  return image.sample(mix(screenUV, shifted, step(float(0.5), heat(shifted)))) as unknown as Node<'vec4'>;
+}
 
 /** What each preset turns on. */
 export interface PresetFeatures {
@@ -37,7 +63,7 @@ export const PRESETS: Readonly<Record<GraphicsPreset, PresetFeatures>> = {
  * The frame: the world pass (with ambient occlusion and temporal AA by
  * preset), the viewmodel drawn in its own pass with its own camera and FOV
  * and composited on top (so it never clips into walls), then bloom and the
- * renderer's tone mapping. Low adjusts the render scale to hold the frame rate.
+ * renderer's tone mapping. Normal and High add a heat shimmer far off. Low adjusts the render scale to hold the frame rate.
  */
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
@@ -52,6 +78,9 @@ export class GamePipeline {
   #frameTimes: number[] = [];
   #sinceAdjust = 0;
   #bloom: ReturnType<typeof bloom> | null = null;
+  /** The nuke's white-out and colour grade, 0..1 (see `setNuke`). */
+  readonly #flash = uniform(0);
+  readonly #grade = uniform(0);
   /** Nodes owning render targets, released when the preset changes. */
   #owned: { dispose(): void }[] = [];
 
@@ -98,18 +127,27 @@ export class GamePipeline {
       aoPass.radius.value = 0.6;
       aoPass.samples.value = f.ao === 'half' ? 8 : 16;
       const occlusion = aoPass.getTextureNode().sample(screenUV).r;
-      color = vec4(color.rgb.mul(mix(float(1), occlusion, 0.85)), color.a);
+      // Light: the bake already darkens the static world's corners; this adds contact shading round moving things.
+      color = vec4(color.rgb.mul(mix(float(1), occlusion, 0.45)), color.a);
     }
     if (taa) {
       const t = traa(color, depth, worldPass.getTextureNode('velocity'), this.#camera);
       this.#owned.push(t);
-      color = t as unknown as Node<'vec4'>;
+      // The shimmer goes after the reprojection, so the two don't fight. (The types leave out TRAA's texture node.)
+      const image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();
+      color = shimmer(image, depth, this.#camera);
     }
     // The viewmodel is small and close: 4x MSAA on its own pass keeps its edges clean under every preset.
     const viewPass = pass(this.#view, this.#viewCamera, { samples: 4 });
     this.#owned.push(viewPass);
     const vm = viewPass.getTextureNode('output');
     let composite: Node<'vec4'> = vec4(mix(color.rgb, vm.rgb, vm.a), 1);
+    // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
+    const c = composite.rgb;
+    const luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
+    const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
+    composite = vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);
     if (f.bloom) {
       this.#bloom = bloom(composite, BLOOM, 0.35, 0.92);
       this.#owned.push(this.#bloom);
@@ -121,6 +159,12 @@ export class GamePipeline {
     this.#pipeline.needsUpdate = true;
     this.#scale = 1;
     this.#renderer.setPixelRatio(this.#basePixelRatio);
+  }
+
+  /** The nuke's white-out and colour grade this frame (0 to 1 each; both 0 outside the intermission). */
+  setNuke(flash: number, grade: number): void {
+    this.#flash.value = flash;
+    this.#grade.value = grade;
   }
 
   /** Raises bloom briefly (the muzzle flash). */

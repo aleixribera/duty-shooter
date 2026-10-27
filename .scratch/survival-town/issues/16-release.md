@@ -1,6 +1,6 @@
 # 16 Release Survival Town
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 4 (ship)
 Blocked by: 13, 15
 
@@ -20,3 +20,42 @@ Make it live. See the spec section "Rollout".
 - [ ] The playtester agent plays one live match through the nuke, the vote and the next match, with no console errors.
 
 ## Comments
+
+Resolved under the owner's no-questions instruction, on the home server, and released as **v1.2.0**.
+
+**Defaults and removals.**
+
+- The server's `MAP` now defaults to `survival-town`; `MODE` already defaulted to `tdm`.
+- The client opens on Survival Town behind the new main menu.
+- The `?town` flag and the old start, join and pause screens are gone; the menu was rewritten in ticket 14.
+- The arena was already removed earlier.
+- `?map=range` remains as a dev convenience for starting with the range behind the menu.
+
+**The version** now reaches the client. The container's build stage passes `VERSION` into `VITE_VERSION`, and the Pages build sets it from `git describe` (with tags fetched). `/healthz` already reports it on the server.
+
+**Docs.**
+
+- `README.md`: the map, the modes and the intermission, the offline entries, the dev URL parameters, the lighting bake and the status endpoint.
+- `docs/deploy.md`: `MAP` and `MODE`, the `/status` shape, the version in `/healthz`, the bake in the image build, and how the Pages copy behaves.
+
+**The side-by-side gallery** (deferred from ticket 09). Artifacts can't be published from this server, so it's a local page for the owner: `~/work/duty-shooter-handoff/gallery.html` on the home server.
+
+- It links to the public sources for the original's frames. Those frames aren't copied, because the sources sit behind bot checks and the repo is public.
+- It has a slot for every reference spot, filled by running `node apps/range/scripts/spots.mjs survival-town <gallery>/spots` on the RTX PC; SwiftShader takes minutes a frame here.
+- It includes all the UI screenshots.
+
+The owner can publish it.
+
+**Checks before shipping:** typecheck clean in every workspace, 411 tests passed (2 opt-in benchmarks skipped), and a code review. Its findings were fixed:
+
+- the lobby poll re-rendering over typing;
+- vote clicks lost to the HUD's per-frame redraw;
+- joining before the map had loaded;
+- a stale failure after Cancel;
+- an unmeasured ping shown as 0.
+
+**Not verified here, for the owner:**
+
+- A live match through the nuke, the vote and the next match in a real browser. This server has software rendering only; see tickets 14 and 15.
+- The GPU budgets on the RTX 5060.
+- The Pages copy in a browser. Its menu logic is the same code path as the dev page with no server, which was screenshotted.

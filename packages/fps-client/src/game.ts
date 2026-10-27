@@ -19,6 +19,8 @@ import { Effects } from './effects';
 import { Hud, type HitKind } from './hud/hud';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
+import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
+import { Ambience, environmentAt } from './map-sound';
 import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 import { PlayersView } from './players-view';
 import type { RenderBackend } from './renderer';
@@ -26,6 +28,7 @@ import type { GameDriver, PresentedEvent } from './session';
 import { verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
+import type { BakeFile } from './surfaces';
 
 const TICK_MS = TICK_SECONDS * 1000;
 
@@ -34,6 +37,8 @@ export interface GameOptions {
   readonly renderer: WebGPURenderer;
   readonly backend: RenderBackend;
   readonly content: WorldContent;
+  /** The map's baked lighting (see loadBake); the world draws unbaked until it arrives, or for good if it is null. */
+  readonly bake?: Promise<BakeFile | null>;
   /** Collision world, for footstep surfaces, casings, blood splats and the range distance readout. */
   readonly world: World;
   readonly settings: Settings;
@@ -118,6 +123,14 @@ export class Game {
   #resizeObserver: ResizeObserver;
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
+  readonly #nukeAt: WorldContent['nuke'];
+  readonly #indoorZones: WorldContent['indoorZones'];
+  readonly #ambience: Ambience;
+  /** Where the listener last was, for placing sounds made with no position. */
+  #listener: Vec3 = [0, 0, 0];
+  #nuke: Nuke | null = null;
+  /** Which of the nuke's sounds this intermission has already started. */
+  #nukeHeard = { siren: false, blast: false };
   readonly #onVoteKey = (e: KeyboardEvent) => {
     if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
@@ -131,10 +144,13 @@ export class Game {
     this.#world = options.world;
     this.#sound = options.sound;
     this.#overview = options.overview;
+    this.#nukeAt = options.content.nuke ?? null;
+    this.#indoorZones = options.content.indoorZones;
+    this.#ambience = new Ambience(options.content.ambience ?? []);
     options.renderer.toneMapping = ACESFilmicToneMapping;
     options.renderer.toneMappingExposure = 0.95;
     options.renderer.shadowMap.enabled = true;
-    this.#worldView = new WorldView(options.renderer, options.content);
+    this.#worldView = new WorldView(options.renderer, options.content, options.bake);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
     const preset = effectivePreset(options.settings.preset, options.backend);
     this.#effects = new Effects(this.#worldView.scene, options.world, PRESETS[preset]);
@@ -154,6 +170,7 @@ export class Game {
     this.hud = new Hud(document.body);
     this.hud.visible = false;
     this.hud.onVote = (mode) => this.#vote(mode);
+    this.input.onPadVote = (side) => this.#vote(side === 'left' ? 'tdm' : 'ffa');
     addEventListener('keydown', this.#onVoteKey);
     this.applySettings(options.settings);
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
@@ -220,6 +237,8 @@ export class Game {
       this.#pipelineReady = true;
       this.#worldView.setShadowQuality(PRESETS[preset].shadows);
       this.#effects.setFeatures(PRESETS[preset]);
+      this.#nuke?.dispose();
+      this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero, preset) : null;
     }
   }
 
@@ -236,7 +255,7 @@ export class Game {
   }
 
   #play(event: SoundEventName, params: SoundParams = {}): void {
-    this.#sound.play(event, params);
+    this.#sound.play(event, params.environment ? params : { ...params, environment: environmentAt(this.#indoorZones, params.position ?? this.#listener) });
   }
 
   #materialUnder(position: Vec3): Material {
@@ -310,15 +329,51 @@ export class Game {
     }
     this.#lastLook = look;
     this.#sound.setListener(eye, forward, [0, 1, 0]);
+    this.#listener = eye;
+    for (const c of this.#ambience.update(performance.now() / 1000, environmentAt(this.#indoorZones, eye) === 'indoor')) this.#play(c.event, c.params);
 
     if (driver) {
       this.#others = driver.others(alpha);
-      this.#players.update(this.#others, dt);
+      const teams = driver.match?.mode === 'tdm';
+      this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null, names: new Map(driver.scores.map((s) => [s.id, s.name])) });
     }
+    this.#updateNuke(driver, eye);
     this.#effects.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
+    this.#worldView.lightMoving();
     this.#pipeline.render(dt);
+  }
+
+  /**
+   * The end-of-match nuke, from the time since the match ended: the siren
+   * as the intermission starts, then the flash, cloud, grade and shake, and
+   * the blast (which the sound system delays by its distance, like the
+   * shock). A player who joins part-way through sees it from that moment and
+   * hears only what is still to come.
+   */
+  #updateNuke(driver: GameDriver | null, eye: Vec3): void {
+    const t = driver && this.#nuke ? sinceMatchEnd(driver.match, driver.serverTime) : null;
+    this.#nuke?.update(t);
+    if (t === null || !this.#nuke || !this.#nukeAt) {
+      this.#nukeHeard = { siren: false, blast: false };
+      this.#pipeline.setNuke(0, 0);
+      return;
+    }
+    if (!this.#nukeHeard.siren) {
+      this.#nukeHeard.siren = true;
+      if (t < 1.5) this.#play('nukeSiren', { position: this.#nukeAt.siren });
+    }
+    if (!this.#nukeHeard.blast && t > DETONATION - 0.1) {
+      this.#nukeHeard.blast = true;
+      if (t < DETONATION + 0.5) this.#play('nukeBlast', { position: this.#nukeAt.groundZero, when: Math.max(0, DETONATION - t) });
+    }
+    const f = nukeFrame(t, this.#nuke.distanceTo(eye));
+    this.#pipeline.setNuke(f.flash, f.grade);
+    if (f.shake > 0.02) {
+      const s = f.shake * 0.5;
+      this.#camera.kick((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s * 1.5);
+    }
   }
 
   /** Votes for the next match's mode, while the vote is open. */
@@ -335,6 +390,8 @@ export class Game {
     if (!driver) return;
     const match = driver.match;
     if (!match || match.phase === 'playing') this.#myVote = null;
+    // The population sign: everyone in the lobby (at least you) and this match's kills.
+    this.#worldView.setPopulation(Math.max(driver.scores.length, this.#cur ? 1 : 0), driver.scores.reduce((n, s) => n + s.kills, 0));
     const cam = this.#camera.camera;
     const pixelsPerDegree = this.#canvas.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360) / (180 / Math.PI);
     const status = driver.status;
@@ -348,6 +405,7 @@ export class Game {
       showOverlay: this.#settings.showRangeOverlay && this.#inRange(),
       targetDistance: this.#targetDistance(eye, forward),
       scores: driver.scores,
+      pings: driver.pings,
       selfId: driver.selfId,
       showScoreboard: this.input.scoreboard && driver.online,
       match: match

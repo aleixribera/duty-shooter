@@ -2,7 +2,7 @@
 
 The game runs as one container: the authoritative server, which also serves the built client and the WebSocket endpoint (`/ws`) on the same origin. CI builds the image and publishes it to GHCR. The home server pulls it by hand and runs it with Compose behind Tailscale Funnel on **HTTPS port 443**. The existing game on port 8443 is not touched.
 
-The server runs **one public lobby**: a single free-for-all that everyone with the link joins with just a name, the same model as the existing game. Setting `PASSPHRASE` in the stack's `.env` turns it into a private server instead, where every player types the passphrase.
+The server runs **one public lobby** on Survival Town, in team deathmatch by default, that everyone with the link joins with just a name, the same model as the existing game. `MAP` (`survival-town` or `range`) and `MODE` (`tdm` or `ffa`) in the stack's `.env` change the map and the starting mode; after each match the players vote on the next mode. Setting `PASSPHRASE` in the stack's `.env` turns it into a private server instead, where every player types the passphrase.
 
 Nothing secret lives in this repository. The player cap (and a passphrase, if you set one) are in the stack's `.env` on the server, and the public address lives only in the server's Funnel setup and a repository variable.
 
@@ -32,7 +32,9 @@ docker compose up -d --wait
 curl -fsS -w '\n' http://127.0.0.1:3090/healthz
 ```
 
-The health response is `{"status":"ok","players":0,"maxPlayers":8,"public":true}`. The page reads `public` to decide whether the join screen asks for a passphrase.
+The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0"}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
+
+The image's build stage bakes each map's lighting on the CPU, so a build takes a few minutes longer than the client alone. It runs on the builder's own platform, not under emulation.
 
 The container listens on 3000 inside and is published on **127.0.0.1:3090** only. Pick another host port with `DUTY_PORT` in `.env` if 3090 is taken. The existing game uses 3080.
 
@@ -87,7 +89,7 @@ To change the player cap or set a passphrase, edit `.env` and run `docker compos
 
 ## The GitHub Pages copy
 
-`.github/workflows/pages.yaml` publishes the client alone to `https://aleixribera.github.io/duty-shooter/` on every push to `main`. That copy has no server, so it offers offline practice, and its **Join public lobby** button opens the home server's public link.
+`.github/workflows/pages.yaml` publishes the client alone to `https://aleixribera.github.io/duty-shooter/` on every push to `main`. That copy has no server, so its main menu offers Practice Range and Explore Survival Town and hides Play Online; a small link under the title opens the home server's public lobby instead.
 
 The link comes from the `LOBBY_URL` repository variable (Settings → Secrets and variables → Actions → Variables), so the address is never committed:
 

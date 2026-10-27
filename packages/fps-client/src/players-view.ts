@@ -1,5 +1,28 @@
-import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type Vec3, type World } from '@duty-shooter/fps-core';
-import { BoxGeometry, CapsuleGeometry, Color, Group, Mesh, MeshStandardNodeMaterial, Quaternion, SphereGeometry, Vector3, type BufferGeometry, type Material, type Object3D, type Scene } from 'three/webgpu';
+import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type World } from '@duty-shooter/fps-core';
+import {
+  Bone,
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  CanvasTexture,
+  CapsuleGeometry,
+  Color,
+  Group,
+  Mesh,
+  MeshStandardNodeMaterial,
+  Quaternion,
+  Skeleton,
+  SkinnedMesh,
+  Sphere,
+  SphereGeometry,
+  Sprite,
+  SpriteNodeMaterial,
+  SRGBColorSpace,
+  Vector3,
+  type Material,
+  type Object3D,
+  type Scene,
+} from 'three/webgpu';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
@@ -9,28 +32,108 @@ interface Look {
   readonly skin: number;
   readonly helmet: number;
   readonly boots: number;
+  /** Shoulder pads: the team colour, where there is one. */
+  readonly accent: number;
 }
 
-const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xc08f6a, helmet: 0x4b5139, boots: 0x2a2622 };
-const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet: 0xe07a2e, boots: 0x6e6a62 };
+/** Free-for-all: nobody's side, in olive drab. */
+const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xc08f6a, helmet: 0x4b5139, boots: 0x2a2622, accent: 0x5d6447 };
+/** The two teams, in the UI's team colours (blue #3D8BFF, orange #FF9A3C) on the pads and toned-down versions on the cloth. */
+const TEAM_LOOKS: Readonly<Record<number, Look>> = {
+  1: { uniform: 0x40577a, vest: 0x26364d, skin: 0xc08f6a, helmet: 0x2f4362, boots: 0x22252b, accent: 0x3d8bff },
+  2: { uniform: 0x8a6544, vest: 0x5b412c, skin: 0xb98563, helmet: 0x6e4c30, boots: 0x2a2420, accent: 0xff9a3c },
+};
+/** The third-person rifle's one colour. */
+const GUNMETAL = new Color(0x2b2d31);
+const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet: 0xe07a2e, boots: 0x6e6a62, accent: 0xe07a2e };
+
+/** What the view needs to know about sides: whether the match has teams, the local player's team, and names for nameplates. */
+export interface Allegiance {
+  readonly teams: boolean;
+  readonly self: TeamId | null;
+  readonly names: ReadonlyMap<PlayerId, string>;
+}
+
+const NO_TEAMS: Allegiance = { teams: false, self: null, names: new Map() };
+
+function lookFor(p: PlayerOutput, allegiance: Allegiance): Look {
+  if (p.kind === 'dummy') return DUMMY;
+  return (allegiance.teams && TEAM_LOOKS[p.team]) || SOLDIER;
+}
+
+/**
+ * A teammate's name over their head: a sprite that keeps the same size on
+ * screen at any distance, depth-tested so walls hide it like anything else.
+ */
+class Nameplate {
+  readonly sprite: Sprite;
+  readonly #material: SpriteNodeMaterial;
+  readonly #canvas: HTMLCanvasElement | null;
+  readonly #texture: CanvasTexture | null;
+  #shown: string | null = null;
+
+  constructor(player: PlayerId) {
+    // Headless (tests, the server's tools) there is no canvas; the plate is still placed and shown.
+    this.#canvas = typeof document === 'undefined' ? null : document.createElement('canvas');
+    this.#texture = this.#canvas ? new CanvasTexture(this.#canvas) : null;
+    if (this.#texture) this.#texture.colorSpace = SRGBColorSpace;
+    // It writes depth too, so the heat shimmer takes it for the near thing it is.
+    this.#material = new SpriteNodeMaterial({ transparent: true, depthWrite: true, depthTest: true, sizeAttenuation: false });
+    if (this.#texture) this.#material.map = this.#texture;
+    this.sprite = new Sprite(this.#material);
+    this.sprite.name = 'nameplate';
+    this.sprite.userData['player'] = player;
+    this.sprite.renderOrder = 10;
+  }
+
+  show(name: string, colour: number): void {
+    const key = `${name}/${colour}`;
+    if (key === this.#shown) return;
+    this.#shown = key;
+    const canvas = this.#canvas;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || !this.#texture) return;
+    const font = '600 40px "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", sans-serif';
+    ctx.font = font;
+    canvas.width = Math.ceil(ctx.measureText(name).width) + 44;
+    canvas.height = 56;
+    ctx.font = font;
+    ctx.fillStyle = 'rgba(11, 14, 19, 0.72)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = `#${colour.toString(16).padStart(6, '0')}`;
+    ctx.fillRect(0, 0, 6, canvas.height);
+    ctx.fillStyle = '#f3f1ea';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, 22, canvas.height / 2 + 2);
+    this.#texture.needsUpdate = true;
+    // About 2.4 % of the screen's height, whatever the distance.
+    const h = 0.034;
+    this.sprite.scale.set((h * canvas.width) / canvas.height, h, 1);
+  }
+
+  dispose(): void {
+    this.#texture?.dispose();
+    this.#material.dispose();
+  }
+}
 
 type Part = 'pelvis' | 'torso' | 'head' | 'upperArmL' | 'upperArmR' | 'foreArmL' | 'foreArmR' | 'thighL' | 'thighR' | 'shinL' | 'shinR';
 
 /** A lightweight tactical soldier, posed by the existing animation hierarchy. */
 class Soldier {
   readonly root = new Group();
-  readonly #hips = new Group();
-  readonly #spine = new Group();
-  readonly #neck = new Group();
-  readonly #shoulderL = new Group();
-  readonly #shoulderR = new Group();
-  readonly #elbowL = new Group();
-  readonly #elbowR = new Group();
-  readonly #hipL = new Group();
-  readonly #hipR = new Group();
-  readonly #kneeL = new Group();
-  readonly #kneeR = new Group();
-  readonly #gunMount = new Group();
+  readonly #hips = new Bone();
+  readonly #spine = new Bone();
+  readonly #neck = new Bone();
+  readonly #shoulderL = new Bone();
+  readonly #shoulderR = new Bone();
+  readonly #elbowL = new Bone();
+  readonly #elbowR = new Bone();
+  readonly #hipL = new Bone();
+  readonly #hipR = new Bone();
+  readonly #kneeL = new Bone();
+  readonly #kneeR = new Bone();
+  readonly #gunMount = new Bone();
   readonly parts = new Map<Part, Mesh>();
   readonly #materials: MeshStandardNodeMaterial[] = [];
   #phase = 0;
@@ -54,6 +157,7 @@ class Soldier {
     const skin = mat(look.skin, 0.7);
     const helmet = mat(look.helmet, 0.6);
     const boots = mat(look.boots, 0.9);
+    const accent = mat(look.accent, 0.7);
     const gear = vest;
     const lens = mat(0x172128, 0.3);
     const box = (part: Part | null, parent: Object3D, size: Vec3, at: Vec3, material: MeshStandardNodeMaterial, shape: 'box' | 'capsule' | 'sphere' = 'box') => {
@@ -120,7 +224,7 @@ class Soldier {
       box(fore, elbow, [0.1, 0.28, 0.1], [0, -0.12, 0], uniform, 'capsule');
       box(null, elbow, [0.09, 0.08, 0.1], [0, -0.28, 0], look === DUMMY ? skin : gear);
       if (look !== DUMMY) {
-        box(null, shoulder, [0.13, 0.13, 0.13], [0, -0.06, 0], uniform);
+        box(null, shoulder, [0.13, 0.13, 0.13], [0, -0.06, 0], accent);
         box(null, elbow, [0.105, 0.08, 0.115], [0, -0.015, 0.01], gear);
       }
     }
@@ -177,6 +281,66 @@ class Soldier {
         }
       }
     }
+    this.#skin();
+  }
+
+  /**
+   * Draws the whole soldier, rifle included, as one skinned mesh: each piece
+   * rides its pivot as a rigidly weighted bone, in its material's colour. One
+   * draw call (two with its shadow) however detailed the soldier gets. The
+   * pieces stay, hidden, for the ragdoll to throw.
+   */
+  #skin(): void {
+    const bones = [this.#hips, this.#spine, this.#neck, this.#shoulderL, this.#shoulderR, this.#elbowL, this.#elbowR, this.#hipL, this.#hipR, this.#kneeL, this.#kneeR, this.#gunMount];
+    this.root.updateMatrixWorld(true);
+    const pieces: Mesh[] = [];
+    const geometries: BufferGeometry[] = [];
+    this.root.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      let bone: Object3D | null = mesh.parent;
+      while (bone && !(bone as Bone).isBone) bone = bone.parent;
+      const index = bones.indexOf(bone as Bone);
+      if (index < 0) return;
+      const source = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+      const g = new BufferGeometry();
+      g.setAttribute('position', source.getAttribute('position').clone());
+      if (source.getAttribute('normal')) g.setAttribute('normal', source.getAttribute('normal').clone());
+      else g.computeVertexNormals();
+      if (source !== mesh.geometry) source.dispose();
+      g.applyMatrix4(mesh.matrixWorld);
+      // The rifle's materials draw their colour in nodes; at third-person distance it reads as gunmetal.
+      const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as { color?: Color };
+      const c = bone === this.#gunMount ? GUNMETAL : (material.color ?? GUNMETAL);
+      const n = g.getAttribute('position').count;
+      const colour = new Float32Array(n * 3);
+      const skinIndex = new Uint16Array(n * 4);
+      const skinWeight = new Float32Array(n * 4);
+      for (let v = 0; v < n; v++) {
+        colour.set([c.r, c.g, c.b], v * 3);
+        skinIndex[v * 4] = index;
+        skinWeight[v * 4] = 1;
+      }
+      g.setAttribute('color', new BufferAttribute(colour, 3));
+      g.setAttribute('skinIndex', new BufferAttribute(skinIndex, 4));
+      g.setAttribute('skinWeight', new BufferAttribute(skinWeight, 4));
+      geometries.push(g);
+      pieces.push(mesh);
+    });
+    const merged = mergeGeometries(geometries);
+    for (const g of geometries) g.dispose();
+    if (!merged) return;
+    const material = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+    this.#materials.push(material);
+    const body = new SkinnedMesh(merged, material);
+    body.name = 'body';
+    body.castShadow = true;
+    this.root.add(body);
+    body.updateMatrixWorld(true);
+    body.bind(new Skeleton(bones));
+    // Posed, a soldier reaches about a metre and a half from its feet (prone, rifle forward).
+    body.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.6);
+    for (const piece of pieces) piece.visible = false;
   }
 
   hitFlash(): void {
@@ -263,7 +427,9 @@ class Ragdoll {
     soldier.root.updateMatrixWorld(true);
     const centre = new Vector3();
     soldier.root.getWorldPosition(centre);
+    // The pieces the soldier is drawn from, not the skinned body that draws them.
     for (const mesh of soldier.root.getObjectsByProperty('isMesh', true) as Mesh[]) {
+      if ((mesh as SkinnedMesh).isSkinnedMesh) continue;
       const m = new Mesh(mesh.geometry, mesh.material);
       mesh.matrixWorld.decompose(m.position, m.quaternion, m.scale);
       m.castShadow = true;
@@ -319,6 +485,9 @@ export class PlayersView {
   readonly #ragdolls: Ragdoll[] = [];
   readonly #lastPush = new Map<PlayerId, Vec3>();
   readonly #weapon: (() => Object3D) | null;
+  /** The look each soldier was built in, so a team change rebuilds it. */
+  readonly #looks = new Map<PlayerId, Look>();
+  readonly #plates = new Map<PlayerId, Nameplate>();
 
   constructor(scene: Scene, world: World, weapon: (() => Object3D) | null) {
     this.#world = world;
@@ -341,17 +510,29 @@ export class PlayersView {
     return [p.x, p.y + 1.2, p.z];
   }
 
-  update(players: readonly PlayerOutput[], dt: number): void {
+  /**
+   * Poses everyone from this frame's output. With teams on, soldiers wear
+   * their team's uniform and teammates of the local player carry nameplates.
+   */
+  update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS): void {
     const seen = new Set<PlayerId>();
     for (const p of players) {
       seen.add(p.id);
       let soldier = this.#soldiers.get(p.id);
+      const look = lookFor(p, allegiance);
+      if (soldier && this.#looks.get(p.id) !== look) {
+        // Changed sides (or teams came on or off between matches): rebuild in the new uniform.
+        soldier.root.removeFromParent();
+        soldier.dispose();
+        soldier = undefined;
+      }
       if (!soldier) {
-        const dummy = p.kind === 'dummy';
-        soldier = new Soldier(dummy ? DUMMY : SOLDIER, dummy || !this.#weapon ? null : this.#weapon());
+        soldier = new Soldier(look, look === DUMMY || !this.#weapon ? null : this.#weapon());
         this.#soldiers.set(p.id, soldier);
+        this.#looks.set(p.id, look);
         this.#root.add(soldier.root);
       }
+      this.#nameplate(p, soldier, allegiance);
       const wasAlive = this.#alive.get(p.id) ?? p.alive;
       if (wasAlive && !p.alive) {
         soldier.update(p, 0);
@@ -368,7 +549,10 @@ export class PlayersView {
       soldier.root.removeFromParent();
       soldier.dispose();
       this.#soldiers.delete(id);
+      this.#looks.delete(id);
       this.#alive.delete(id);
+      this.#plates.get(id)?.dispose();
+      this.#plates.delete(id);
     }
     for (let i = this.#ragdolls.length - 1; i >= 0; i--) {
       const rag = this.#ragdolls[i]!;
@@ -379,8 +563,28 @@ export class PlayersView {
     }
   }
 
+  /** A teammate's nameplate, above their head; nobody else gets one. */
+  #nameplate(p: PlayerOutput, soldier: Soldier, allegiance: Allegiance): void {
+    const ally = allegiance.teams && allegiance.self !== null && p.kind !== 'dummy' && p.team === allegiance.self;
+    let plate = this.#plates.get(p.id);
+    if (!ally) {
+      if (plate) plate.sprite.visible = false;
+      return;
+    }
+    if (!plate) {
+      plate = new Nameplate(p.id);
+      this.#plates.set(p.id, plate);
+    }
+    // On the soldier, so it hides with them when they die.
+    if (plate.sprite.parent !== soldier.root) soldier.root.add(plate.sprite);
+    plate.show(allegiance.names.get(p.id) ?? '', TEAM_LOOKS[p.team]?.accent ?? 0xf3f1ea);
+    plate.sprite.visible = true;
+    plate.sprite.position.set(0, p.eyeHeight + 0.55, 0);
+  }
+
   dispose(): void {
     for (const s of this.#soldiers.values()) s.dispose();
+    for (const plate of this.#plates.values()) plate.dispose();
     this.#root.removeFromParent();
   }
 }

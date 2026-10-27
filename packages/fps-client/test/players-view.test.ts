@@ -1,10 +1,29 @@
 import { createWorld, type PlayerOutput } from '@duty-shooter/fps-core';
-import { Box3, Mesh, Scene, Vector3 } from 'three/webgpu';
+import { Box3, Mesh, Scene, Vector3, type Object3D } from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { PlayersView } from '../src/players-view';
 
-function player(kind: 'player' | 'dummy' = 'player'): PlayerOutput {
-  return { id: 1, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6 } as PlayerOutput;
+function player(kind: 'player' | 'dummy' = 'player', id = 1, team = 0): PlayerOutput {
+  return { id, team, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6 } as PlayerOutput;
+}
+
+/** The colours a soldier is drawn in (hex). */
+function colours(root: Object3D): Set<string> {
+  const out = new Set<string>();
+  root.traverseVisible((o) => {
+    const c = (o as Mesh).isMesh ? (o as Mesh).geometry.getAttribute('color') : undefined;
+    for (let i = 0; c && i < c.count; i++) out.add([c.getX(i), c.getY(i), c.getZ(i)].map((v) => v.toFixed(4)).join());
+  });
+  return out;
+}
+
+/** Ids of the players whose nameplates are showing. */
+function nameplates(scene: Scene): number[] {
+  const out: number[] = [];
+  scene.traverse((o) => {
+    if (o.name === 'nameplate' && o.visible && o.parent?.visible) out.push(o.userData['player'] as number);
+  });
+  return out.sort();
 }
 
 describe('player presentation', () => {
@@ -47,17 +66,66 @@ describe('player presentation', () => {
     scene.updateMatrixWorld(true);
     let draws = 0;
     let triangles = 0;
-    scene.traverse((object) => {
+    scene.traverseVisible((object) => {
       const mesh = object as Mesh;
       if (!mesh.isMesh) return;
       draws++;
       triangles += (mesh.geometry.index?.count ?? mesh.geometry.getAttribute('position').count) / 3;
     });
-    expect(draws).toBeLessThanOrEqual(22);
+    // One skinned mesh: eight soldiers in view cost 8 draw calls, 16 with their shadows.
+    expect(draws).toBe(1);
     expect(triangles).toBeLessThan(10_000);
     const size = new Box3().setFromObject(scene).getSize(new Vector3());
     expect(size.y).toBeGreaterThan(1.5);
     expect(size.y).toBeLessThan(2);
+    view.dispose();
+  });
+
+  it('dresses each team in its own uniform, and everyone in free-for-all in a neutral one', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const roots = () => scene.children[0]!.children;
+    view.update([player('player', 1, 1), player('player', 2, 2)], 1 / 60, { teams: true, self: 1, names: new Map() });
+    const [blue, orange] = roots().map(colours);
+    expect(blue).not.toEqual(orange);
+    view.update([player('player', 1, 1), player('player', 2, 2)], 1 / 60, { teams: false, self: null, names: new Map() });
+    const [a, b] = roots().map(colours);
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(blue);
+    expect(a).not.toEqual(orange);
+    view.dispose();
+  });
+
+  it('shows nameplates over living teammates only', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const names = new Map([
+      [2, 'Ally'],
+      [3, 'Enemy'],
+      [4, 'Ally two'],
+    ]);
+    const players = [player('player', 2, 1), player('player', 3, 2), player('player', 4, 1)];
+    view.update(players, 1 / 60, { teams: true, self: 1, names });
+    expect(nameplates(scene)).toEqual([2, 4]);
+    // A teammate down loses theirs.
+    view.update([players[0]!, players[1]!, { ...players[2]!, alive: false }], 1 / 60, { teams: true, self: 1, names });
+    expect(nameplates(scene)).toEqual([2]);
+    // No teams, no teammates.
+    view.update(players, 1 / 60, { teams: false, self: null, names });
+    expect(nameplates(scene)).toEqual([]);
+    view.dispose();
+  });
+
+  it('depth-tests nameplates, so a wall in front of a teammate hides theirs', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    view.update([player('player', 2, 1)], 1 / 60, { teams: true, self: 1, names: new Map([[2, 'Ally']]) });
+    let plate: Object3D | null = null;
+    scene.traverse((o) => {
+      if (o.name === 'nameplate') plate = o;
+    });
+    const material = (plate as unknown as Mesh).material as { depthTest: boolean };
+    expect(material.depthTest).toBe(true);
     view.dispose();
   });
 });

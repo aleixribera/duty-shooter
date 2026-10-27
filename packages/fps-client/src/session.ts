@@ -44,6 +44,8 @@ export interface GameDriver {
   /** Round-trip time in seconds, or null offline. */
   readonly ping: number | null;
   readonly scores: readonly Score[];
+  /** Each player's round trip (ms), for the scoreboard; empty offline. */
+  readonly pings: Readonly<Record<string, number>>;
   /** Props the server says were shot this match, or null offline (the page's own events are the truth there). */
   readonly popped: readonly string[] | null;
   /** Mode, phase, clock, team scores and vote; null offline. */
@@ -73,6 +75,7 @@ export class OfflineDriver implements GameDriver {
   readonly correction: Vec3 = [0, 0, 0];
   readonly ping = null;
   readonly scores: readonly Score[] = [];
+  readonly pings = {};
   readonly popped = null;
   readonly match = null;
   readonly status = 'playing';
@@ -182,6 +185,10 @@ export class OnlineDriver implements GameDriver {
 
   get scores(): readonly Score[] {
     return this.#client.scores;
+  }
+
+  get pings(): Readonly<Record<string, number>> {
+    return this.#client.pings;
   }
 
   get popped(): readonly string[] {

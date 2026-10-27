@@ -1,14 +1,17 @@
+import type { AmbientSource } from './map-sound';
 import type { Material, Solid, Vec3 } from '@duty-shooter/fps-core';
-import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, screenUV, select, smoothstep } from 'three/tsl';
+import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, positionWorldDirection, select, smoothstep, uniform } from 'three/tsl';
+import { Vector2 } from 'three/webgpu';
 import {
   BoxGeometry,
+  BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  Color,
   DirectionalLight,
   DoubleSide,
   ExtrudeGeometry,
   Group,
-  HemisphereLight,
   Matrix4,
   Mesh,
   MeshBasicNodeMaterial,
@@ -16,6 +19,7 @@ import {
   PlaneGeometry,
   PMREMGenerator,
   Scene,
+  SphereGeometry,
   Shape,
   SRGBColorSpace,
   Vector3,
@@ -24,7 +28,9 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
-import type { PerspectiveCamera } from 'three/webgpu';
+import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type Finish, type Look, type SurfaceLayout } from './surfaces';
+import { lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial } from './surface-materials';
+import { dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
 export interface RampShape {
@@ -47,8 +53,21 @@ export interface WorldLabel {
 export interface WorldContent {
   /** Solids to draw (collision-only solids are left out by the map). */
   readonly solids: readonly Solid[];
+  /** How the solids look (see SurfaceSpec): named finishes, a look per solid, decoration and the indoor zones. */
+  readonly finishes: Readonly<Record<string, Finish>>;
+  readonly looks: readonly (Look | null)[];
+  readonly decorations: readonly Decoration[];
+  readonly indoorZones: readonly { readonly min: Vec3; readonly max: Vec3 }[];
   readonly ramps?: readonly RampShape[];
   readonly labels?: readonly WorldLabel[];
+  /** Where the population sign's live face goes, if the map has one. */
+  readonly populationSign?: SignPlacement | null;
+  /** The far ground and mountains round the map, if it has them. */
+  readonly horizon?: Horizon | null;
+  /** The end-of-match nuke's ground zero and siren, if the map has one (see Nuke). */
+  readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
+  /** The map's ambient sound sources (see Ambience). */
+  readonly ambience?: readonly AmbientSource[];
 }
 
 export type ShadowQuality = 'low' | 'normal' | 'high';
@@ -128,6 +147,63 @@ function rampGeometry(r: RampShape): BufferGeometry {
   return g; // ExtrudeGeometry is already non-indexed
 }
 
+/**
+ * The static surfaces as one geometry per finish: each face a quad with its
+ * normal, its own coordinates in metres (uv: along it horizontally and up it,
+ * for the finish patterns) and its lightmap coordinates (uv1).
+ */
+function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map<string, BufferGeometry> {
+  const byFinish = new Map<string, number[]>();
+  layout.faces.forEach((f, i) => {
+    if (f.solid >= 0 && solids[f.solid]!.prop !== null) return;
+    const list = byFinish.get(f.finish) ?? [];
+    list.push(i);
+    byFinish.set(f.finish, list);
+  });
+  const out = new Map<string, BufferGeometry>();
+  for (const [finish, faces] of byFinish) {
+    const position = new Float32Array(faces.length * 12);
+    const normal = new Float32Array(faces.length * 12);
+    const uv = new Float32Array(faces.length * 8);
+    const uv1 = new Float32Array(faces.length * 8);
+    const index = new Uint32Array(faces.length * 6);
+    faces.forEach((fi, k) => {
+      const f = layout.faces[fi]!;
+      const rect = layout.atlas.rects[fi];
+      const [nx, ny, nz] = f.normal;
+      // Pattern axes: horizontal along the surface, then up it (or along -Z on a floor).
+      let h: Vec3 = Math.abs(ny) < 0.99 ? [nz, 0, -nx] : [1, 0, 0];
+      const hl = Math.hypot(h[0], h[1], h[2]);
+      h = [h[0] / hl, h[1] / hl, h[2] / hl];
+      const w: Vec3 = [ny * h[2] - nz * h[1], nz * h[0] - nx * h[2], nx * h[1] - ny * h[0]];
+      const corners: [number, number][] = [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ];
+      corners.forEach(([a, b], c) => {
+        const p: Vec3 = [f.origin[0] + f.u[0] * a + f.v[0] * b, f.origin[1] + f.u[1] * a + f.v[1] * b, f.origin[2] + f.u[2] * a + f.v[2] * b];
+        const v = k * 4 + c;
+        position.set(p, v * 3);
+        normal.set(f.normal, v * 3);
+        uv.set([p[0] * h[0] + p[1] * h[1] + p[2] * h[2], p[0] * w[0] + p[1] * w[1] + p[2] * w[2]], v * 2);
+        uv1.set(rect ? atlasUv(layout.atlas, rect, a, b) : [0, 0], v * 2);
+      });
+      index.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
+    });
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(position, 3));
+    g.setAttribute('normal', new BufferAttribute(normal, 3));
+    g.setAttribute('uv', new BufferAttribute(uv, 2));
+    g.setAttribute('uv1', new BufferAttribute(uv1, 2));
+    g.setIndex(new BufferAttribute(index, 1));
+    g.computeBoundingSphere();
+    out.set(finish, g);
+  }
+  return out;
+}
+
 function labelMesh(label: WorldLabel): Mesh {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -154,66 +230,134 @@ function labelMesh(label: WorldLabel): Mesh {
 }
 
 /**
- * The static world: merged grid-lined meshes per material, ramps, signs, a
- * sky, image-based lighting and a sun with shadows scaled by preset.
+ * The static world: lightmapped surfaces merged per finish, ramps, signs,
+ * the sky, and the sun. Static surfaces take their light from the bake;
+ * moving objects take theirs from its probe grid and the realtime sun, whose
+ * shadows only they cast.
  */
 export class WorldView {
   readonly scene = new Scene();
   readonly sun: DirectionalLight;
+  /** The baked light probes, for lighting moving objects. */
+  readonly probes = new ProbeField();
   readonly #root = new Group();
   #csm: CSMShadowNode | null = null;
   #quality: ShadowQuality = 'normal';
   /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
   readonly #props = new Map<string, Mesh>();
+  /** Standard materials already switched to probe lighting. */
+  readonly #lit = new WeakSet<object>();
+  readonly #sign: PopulationSign | null = null;
 
-  constructor(renderer: WebGPURenderer, content: WorldContent) {
+  constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
-    scene.backgroundNode = mix(color(0xc9d3dc), color(0x5d7fa3), smoothstep(float(0.2), float(1.0), screenUV.y.oneMinus()));
+    scene.backgroundNode = skyNode(positionWorldDirection as never);
+    // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     const pmrem = new PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.55;
+    scene.environmentIntensity = 0.3;
 
-    scene.add(new HemisphereLight(0xdfe8f2, 0x5a5650, 0.9));
-    this.sun = new DirectionalLight(0xfff1dc, 2.6);
-    this.sun.position.set(-40, 80, 30);
+    // Three's lights divide by pi where the bake's light does not.
+    this.sun = new DirectionalLight(new Color(...LIGHTING.sunColor), LIGHTING.sunIntensity * Math.PI);
     this.sun.castShadow = true;
     scene.add(this.sun, this.sun.target);
+    this.follow([0, 0, 0]);
 
-    const byMaterial = new Map<Material, BufferGeometry[]>();
-    const push = (material: Material, g: BufferGeometry) => {
-      const list = byMaterial.get(material) ?? [];
-      list.push(g.index ? g.toNonIndexed() : g);
-      byMaterial.set(material, list);
-    };
-    for (const b of content.solids) {
-      if (b.prop === null) {
-        push(b.material, boxGeometry(b));
-        continue;
+    const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones });
+    const size = uniform(new Vector2(1, 1));
+    const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0) };
+    for (const [key, geometry] of surfaceGeometries(layout, content.solids)) {
+      const mesh = new Mesh(geometry, surfaceMaterial(layout.finishes[key]!, baked));
+      // Static surfaces get their sun shadows from the bake; only moving objects cast realtime ones.
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      this.#root.add(mesh);
+    }
+    if (content.horizon) {
+      const finish = layout.finishes[content.horizon.ground];
+      if (!finish) throw new Error(`Unknown horizon finish "${content.horizon.ground}"`);
+      const ground = new Mesh(farGroundGeometry(layout, content.horizon), surfaceMaterial(finish, baked));
+      ground.castShadow = false;
+      ground.receiveShadow = true;
+      const { x0, x1, z0, z1 } = content.horizon.inner;
+      this.#root.add(ground, mountains((x0 + x1) / 2, (z0 + z1) / 2, finish.color));
+    }
+    void bake.then((file) => {
+      if (!file) return;
+      if (file.key !== layout.key) {
+        console.warn(`Baked lighting is for another layout (${file.key}, not ${layout.key}); drawing without it.`);
+        return;
       }
+      (baked.lightmap as unknown as { value: unknown }).value = lightmapTexture(file);
+      size.value.set(file.width, file.height);
+      baked.ready.value = 1;
+      this.probes.load(file);
+    });
+
+    for (const [i, b] of content.solids.entries()) {
+      if (b.prop === null) continue;
       // Centred on its own origin, so a knocked-off copy tumbles about its middle.
-      const geometry = boxGeometry(b);
       const centre: Vec3 = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
-      geometry.translate(-centre[0], -centre[1], -centre[2]);
-      const mesh = new Mesh(geometry, gridMaterial(b.material));
+      const finish = layout.finishes[content.looks[i]?.side ?? ''];
+      let mesh: Mesh;
+      if (finish && finish.family !== 'grid') {
+        // A mannequin head in its finish: an egg filling the prop's box.
+        const geometry = new SphereGeometry(0.5, 20, 14);
+        geometry.scale(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+        mesh = new Mesh(geometry, new MeshStandardNodeMaterial({ color: new Color(finish.color), roughness: 0.45 }));
+      } else {
+        const geometry = boxGeometry(b);
+        geometry.translate(-centre[0], -centre[1], -centre[2]);
+        mesh = new Mesh(geometry, gridMaterial(b.material));
+      }
       mesh.position.set(...centre);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.#props.set(b.prop, mesh);
       this.#root.add(mesh);
     }
-    for (const r of content.ramps ?? []) push(r.material, rampGeometry(r));
-    for (const [material, geometries] of byMaterial) {
+    const ramps = new Map<Material, BufferGeometry[]>();
+    for (const r of content.ramps ?? []) ramps.set(r.material, [...(ramps.get(r.material) ?? []), rampGeometry(r)]);
+    for (const [material, geometries] of ramps) {
       const merged = mergeGeometries(geometries, false);
       if (!merged) continue;
       for (const g of geometries) g.dispose();
       const mesh = new Mesh(merged, gridMaterial(material));
-      mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.#root.add(mesh);
     }
     for (const label of content.labels ?? []) this.#root.add(labelMesh(label));
+    if (content.populationSign) {
+      this.#sign = new PopulationSign(content.populationSign);
+      this.#root.add(this.#sign.mesh);
+    }
+    const dust = dustMotes(content.indoorZones, this.probes);
+    if (dust) this.#root.add(dust);
     scene.add(this.#root);
+    this.lightMoving();
     this.setShadowQuality('normal');
+  }
+
+  /** Shows the lobby's head count and this match's kills on the population sign, if the map has one. */
+  setPopulation(population: number, kills: number): void {
+    this.#sign?.show(population, kills);
+  }
+
+  /**
+   * Switches every standard material in the scene not yet switched to probe
+   * lighting. Called before each frame, so soldiers, decals and casings added
+   * since are lit like the rest.
+   */
+  lightMoving(): void {
+    this.scene.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!(m instanceof MeshStandardNodeMaterial) || this.#lit.has(m)) continue;
+        probeLit(m, this.probes, this.sun);
+        m.needsUpdate = true;
+        this.#lit.add(m);
+      }
+    });
   }
 
   /**
@@ -272,6 +416,7 @@ export class WorldView {
     cam.bottom = -extent;
     cam.near = 1;
     cam.far = 220;
+    // Only moving objects cast, so the map need not fill the shadow map.
     cam.updateProjectionMatrix();
     shadow.map?.dispose();
     shadow.map = null;
@@ -292,7 +437,8 @@ export class WorldView {
     const snap = this.#quality === 'low' ? 2 : 4;
     const x = Math.round(position[0] / snap) * snap;
     const z = Math.round(position[2] / snap) * snap;
-    this.sun.position.set(x - 40, 80, z + 30);
+    const d = LIGHTING.sunDirection;
+    this.sun.position.set(x + d[0] * 100, d[1] * 100, z + d[2] * 100);
     this.sun.target.position.set(x, 0, z);
   }
 

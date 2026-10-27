@@ -1,5 +1,7 @@
-# Build stage: install the workspace, build the range client and bundle the server.
-FROM node:24-alpine AS build
+# Build stage: install the workspace, build the range client (baking each map's
+# lighting) and bundle the server. Its output is plain JavaScript and data, so it
+# runs on the builder's own platform: under emulation the bake would take many times longer.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/fps-core/package.json packages/fps-core/
@@ -9,6 +11,9 @@ COPY apps/server/package.json apps/server/
 RUN npm ci
 COPY packages ./packages
 COPY apps ./apps
+# The release, shown on the client's main menu as well as reported by /healthz.
+ARG VERSION=dev
+ENV VITE_VERSION=${VERSION}
 RUN npm run build -w @duty-shooter/range && npm run build -w @duty-shooter/server
 
 # Runtime stage: the bundled server, its one npm dependency (ws) and the static client.

@@ -7,6 +7,7 @@ import {
   createRenderer,
   createSoundSystem,
   isFirefox,
+  loadBake,
   loadSettings,
   padName,
   saveSettings,
@@ -15,9 +16,10 @@ import {
   type LobbyInfo,
   type Settings,
 } from '@duty-shooter/fps-client';
-import { createWorld, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
+import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
+import { createWorld, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
-import { Benchmark, type BenchPreset, type BenchReport } from './bench';
+import { Benchmark, CameraPath, type BenchPreset, type BenchReport } from './bench';
 import { MAP_IDS, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
@@ -40,28 +42,46 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const { renderer, backend } = await createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
   document.body.dataset['backend'] = backend;
   const sound = createSoundSystem();
-  // `?town` (until the release): adds "Explore Survival Town" to the main menu.
-  const townFlag = params.has('town');
+  // The release this page belongs to (`git describe`, set by the build), shown on the main menu.
+  const version = import.meta.env.VITE_VERSION ?? 'dev';
 
-  /** A map's definition and collision, built once each. */
-  const loaded = new Map<MapId, { map: MapDefinition; solids: Solid[] }>();
+  /** A map's definition and collision, built once each, and how far its baked lighting has downloaded. */
+  const loaded = new Map<MapId, { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean }>();
   const load = (id: MapId) => {
     let entry = loaded.get(id);
     if (!entry) {
       const map = buildMapById(id);
-      entry = { map, solids: mapSolids(map) };
+      const e: { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean } = { map, solids: mapSolids(map), bake: Promise.resolve(null), progress: null, ready: false };
+      e.bake = loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
+      // For the screenshot scripts: whether this map's lighting is in.
+      void e.bake.then((file) => {
+        e.ready = true;
+        document.body.dataset['bake'] = file ? 'ready' : 'none';
+      });
+      entry = e;
       loaded.set(id, entry);
     }
     return entry;
   };
+  /** Shows the loading screen until the map's lighting is in (at once if it already is). */
+  const whenLoaded = async (id: MapId) => {
+    const entry = load(id);
+    if (entry.ready) return;
+    const title = `Loading ${entry.map.name}`;
+    menu.loading(title, entry.progress);
+    const timer = setInterval(() => menu.loading(title, entry.progress), 100);
+    await entry.bake;
+    clearInterval(timer);
+  };
   /** A game on one map; switching maps builds a new one. */
   const createGame = (id: MapId) => {
-    const { map, solids } = load(id);
+    const { map, solids, bake } = load(id);
     const g = new Game({
       canvas,
       renderer,
       backend,
       content: map,
+      bake,
       world: createWorld(solids),
       settings,
       sound,
@@ -83,7 +103,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const at = import.meta.env.DEV ? params.get('at')?.split(',').map(Number) : undefined;
   const offlineSpawn = (map: MapDefinition): SpawnPoint =>
     at && at.length >= 2 && at.every(Number.isFinite) ? { position: [at[0]!, 0, at[1]!], yaw: at[2] ?? 0 } : map.offlineSpawn;
-  const initial: MapId = params.get('map') === 'survival-town' ? 'survival-town' : 'range';
+  // Survival Town is the main menu's backdrop; `?map=range` starts on the range instead.
+  const initial: MapId = params.get('map') === 'range' ? 'range' : 'survival-town';
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
@@ -129,42 +150,57 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     else void enter();
   };
 
+  /** An offline session on `id`, once its lighting is in. */
+  const playOffline = async (id: MapId) => {
+    await whenLoaded(id);
+    useMap(id);
+    const { map, solids } = load(id);
+    play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies }));
+  };
+  /** Bumped by Cancel, so a join still in flight is dropped. */
+  let joinAttempt = 0;
   const menu = new Menu(
     settings,
     {
-      playOffline: () => {
-        useMap('range');
-        const { map, solids } = load('range');
-        play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies }));
-      },
-      ...(townFlag
-        ? {
-            exploreTown: () => {
-              useMap('survival-town');
-              const { map, solids } = load('survival-town');
-              play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies }));
-            },
-          }
-        : {}),
-      playOnline: (name, passphrase) => {
-        // The lobby status first: a full server is reported without opening a socket.
-        void lobbyStatus().then((status) => {
-          if (lobby?.kind === 'server') lobby.status = status;
-          if (status && status.players >= status.capacity) {
-            menu.show('join', 'The server is full.');
-            return;
-          }
-          // The server's map, for prediction and drawing; an older server without /status runs the range.
-          const id = MAP_IDS.find((m) => m === status?.map) ?? 'range';
-          useMap(id);
+      practiceRange: () => void playOffline('range'),
+      exploreTown: () => void playOffline('survival-town'),
+      playOnline: (name: string, passphrase: string, mode: ModeId | null) => {
+        const attempt = ++joinAttempt;
+        menu.connecting(0);
+        // The lobby status first: a server that is down or full is reported without opening a socket.
+        void lobbyStatus().then(async (status) => {
+          if (attempt !== joinAttempt) return;
+          menu.updateLobby(status);
+          if (!status) return menu.failed(null);
+          if (status.players >= status.capacity) return menu.failed('The server is full.');
+          // The server's map, for prediction and drawing.
+          const id = MAP_IDS.find((m) => m === status.map) ?? 'survival-town';
+          // The map's lighting first: joined, the player is in the match (and can be shot) at once.
+          menu.connecting(1);
+          await load(id).bake;
+          if (attempt !== joinAttempt) return;
+          menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-          play(new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase }));
+          // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
+          const next = new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, ...(mode ? { mode } : {}) });
+          useMap(id);
+          play(next);
         });
+      },
+      refreshLobby: async () => {
+        const status = await lobbyStatus();
+        if (lobby?.kind === 'server') lobby.status = status;
+        return status;
+      },
+      cancelJoin: () => {
+        joinAttempt++;
+        menu.show('main');
       },
       resume: () => void enter(),
       leave: () => {
         game.setDriver(null);
         game.paused = true;
+        game.input.unlock();
         menu.show('main');
       },
       changeSettings: (next) => {
@@ -175,17 +211,25 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => game.input.captureNext(),
     },
-    { lobby, padName: () => game.input.padName },
+    { lobby, version, padName: () => game.input.padName },
   );
   game = createGame(initial);
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
   const spotName = params.get('spot');
+  let fixedCamera = false;
   if (spotName !== null) {
     const spot = load(mapId).map.referenceSpots.find((s) => s.name === spotName);
     if (spot) {
       game.overview = spot;
+      fixedCamera = true;
       menu.hide();
     }
+  }
+  // The Play Online tile keeps up with the server while the main menu is open.
+  if (lobby?.kind === 'server') {
+    setInterval(() => {
+      if (menu.open && menu.screen === 'main' && !game.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
+    }, 10_000);
   }
   addEventListener('gamepadconnected', (e) => game.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
 
@@ -209,7 +253,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     });
   }
 
-  if (benching) menu.hide();
+  if (benching) {
+    fixedCamera = true;
+    menu.hide();
+    // Measure the finished look: wait for the baked lighting.
+    await load(mapId).bake;
+  }
   const bench = benching ? startBenchmarkOn(game, renderer, load(mapId).map, backend, settings) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
@@ -217,6 +266,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (bench) {
       bench(time);
       return;
+    }
+    // Behind the menus, with no game running, the camera flies the map's menu path.
+    if (!game.driver && !fixedCamera) {
+      const path = flyPath(load(mapId).map);
+      if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
     game.frame(time);
     // An online session that ended (rejected, kicked, server gone) returns to the join screen.
@@ -231,10 +285,18 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         game.setDriver(null);
         game.paused = true;
         game.input.unlock();
-        menu.show('join', driver.status);
+        menu.failed(driver.status);
       }
     }
   });
+}
+
+/** The main menu's camera: metres per second along the map's fly-through. */
+const FLY_SPEED = 4;
+const flyPaths = new Map<MapDefinition, CameraPath | null>();
+function flyPath(map: MapDefinition): CameraPath | null {
+  if (!flyPaths.has(map)) flyPaths.set(map, map.flyThrough.length >= 2 ? new CameraPath(map.flyThrough) : null);
+  return flyPaths.get(map)!;
 }
 
 /**
@@ -296,7 +358,8 @@ ${JSON.stringify(report, null, 1)}`;
 /** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
 async function lobbyStatus(): Promise<LobbyInfo | null> {
   try {
-    const res = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+    // A slow page (a busy main thread) still gets its answer; a server that is down fails fast anyway.
+    const res = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
     return res.ok ? ((await res.json()) as LobbyInfo) : null;
   } catch {
     return null;

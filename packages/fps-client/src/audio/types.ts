@@ -25,7 +25,13 @@ export type SoundEventName =
   | 'hitMarker'
   | 'killMarker'
   | 'headshotMarker'
-  | 'damageTaken';
+  | 'damageTaken'
+  | 'nukeSiren' // the town's air-raid siren before the end-of-match nuke
+  | 'nukeBlast' // the nuke's blast, from ground zero (arrives after the flash, by distance)
+  | 'ambientWind' // the map's wind bed, all round you (intensity: 1 outdoors, lower indoors)
+  | 'ambientBirds' // a distant bird, from a perch
+  | 'ambientCreak' // a sign creaking on its chains (intensity: how hard the wind is pushing it)
+  | 'ambientRadio'; // one segment of the radio playing in a house
 
 /** Every world material has its own footsteps, impacts and casing bounces. */
 export type SurfaceMaterial = Material;

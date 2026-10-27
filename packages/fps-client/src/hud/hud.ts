@@ -1,8 +1,9 @@
 import type { MatchStatus, ModeId, PlayerOutput, Score } from '@duty-shooter/fps-core';
+import { MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
+import { escapeHtml as escape, installTheme } from '../ui/theme';
 
 const CSS = `
-.ds-hud { position: fixed; inset: 0; pointer-events: none; font: 600 14px/1.2 'Rajdhani', 'Segoe UI', system-ui, sans-serif; color: #f2f4f5; text-shadow: 0 1px 2px rgb(0 0 0 / 0.8); user-select: none; z-index: 5; }
-.ds-hud * { box-sizing: border-box; }
+.ds-hud { position: fixed; inset: 0; pointer-events: none; font: 400 14px/1.2 var(--ds-font); color: var(--ds-text); text-shadow: 0 1px 2px rgb(0 0 0 / 0.7); user-select: none; z-index: 5; }
 .ds-cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transition: opacity 80ms linear; }
 .ds-cross i { position: absolute; background: #fff; box-shadow: 0 0 1px 1px rgb(0 0 0 / 0.55); }
 .ds-cross i.h { width: 9px; height: 2px; top: -1px; }
@@ -10,47 +11,80 @@ const CSS = `
 .ds-cross b { position: absolute; left: -1px; top: -1px; width: 2px; height: 2px; background: #fff; box-shadow: 0 0 1px 1px rgb(0 0 0 / 0.5); }
 .ds-hit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 .ds-hit i { position: absolute; width: 11px; height: 2.4px; background: #fff; left: -5.5px; top: -1.2px; box-shadow: 0 0 2px rgb(0 0 0 / 0.6); }
-.ds-hit.kill i { background: #ff2a2a; }
+.ds-hit.kill i { background: var(--ds-alert); }
 .ds-hit.head i { width: 15px; left: -7.5px; height: 3px; }
-.ds-elim { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); text-align: center; letter-spacing: 3px; text-transform: uppercase; opacity: 0; white-space: nowrap; }
-.ds-elim .what { font-size: 13px; color: #ff4a3a; }
-.ds-elim .what.head { color: #f2c14e; }
-.ds-elim .who { font-size: 18px; font-weight: 700; }
+.ds-elim { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); text-align: center; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0; white-space: nowrap; }
+.ds-elim .what { font-size: 12px; color: var(--ds-alert); }
+.ds-elim .what.head { color: var(--ds-signal); }
+.ds-elim .who { font-size: 20px; font-weight: 700; letter-spacing: 0.06em; }
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-.ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgb(255 40 30 / 0.85); filter: blur(0.6px); transform-origin: 70px 230px; }
+.ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgb(255 97 89 / 0.85); filter: blur(0.6px); transform-origin: 70px 230px; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgb(140 0 0 / 0.75) 100%); opacity: 0; }
-.ds-ammo { position: absolute; right: 42px; bottom: 34px; text-align: right; }
-.ds-ammo .mag { font-size: 44px; font-weight: 700; letter-spacing: 1px; }
-.ds-ammo .mag.low { color: #ff5a4a; }
-.ds-ammo .res { font-size: 20px; opacity: 0.75; margin-left: 6px; }
-.ds-ammo .name { font-size: 13px; letter-spacing: 3px; opacity: 0.7; text-transform: uppercase; }
-.ds-ammo .bar { height: 3px; background: rgb(255 255 255 / 0.25); margin-top: 6px; }
-.ds-ammo .bar i { display: block; height: 100%; background: #f2f4f5; }
-.ds-feed { position: absolute; left: 24px; top: 70px; display: flex; flex-direction: column; gap: 4px; }
-.ds-feed div { background: rgb(10 12 14 / 0.55); padding: 4px 10px; border-left: 3px solid #f2c14e; transition: opacity 400ms linear; }
-.ds-feed .you { border-left-color: #6bd4ff; }
-.ds-feed .gun { opacity: 0.7; margin: 0 6px; font-size: 12px; }
-.ds-stats { position: absolute; right: 16px; top: 12px; font-size: 12px; opacity: 0.85; text-align: right; font-variant-numeric: tabular-nums; }
-.ds-match { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: flex; gap: 14px; align-items: baseline; background: rgb(10 12 14 / 0.55); padding: 5px 14px; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
-.ds-match .t1 { color: #6bb8ff; }
-.ds-match .t2 { color: #ffab4a; }
-.ds-match .clock { font-size: 18px; }
-.ds-end { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); text-align: center; display: none; }
-.ds-end h2 { margin: 0 0 4px; font-size: 30px; letter-spacing: 3px; text-transform: uppercase; }
-.ds-end .next { opacity: 0.85; }
-.ds-votes { display: flex; gap: 10px; justify-content: center; margin-top: 8px; pointer-events: auto; }
-.ds-votes button { font: inherit; color: inherit; background: rgb(10 12 14 / 0.8); border: 1px solid rgb(255 255 255 / 0.25); padding: 6px 14px; cursor: pointer; }
-.ds-votes button.mine { border-color: #f2c14e; color: #f2c14e; }
-.ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
-.ds-overlay { position: absolute; left: 24px; bottom: 26px; background: rgb(10 12 14 / 0.6); border: 1px solid rgb(255 255 255 / 0.12); padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; font-variant-numeric: tabular-nums; }
+.ds-plate { background: rgb(11 14 19 / 0.62); border: 1px solid var(--ds-line); border-radius: 4px; text-shadow: none; }
+.ds-ammo { position: absolute; right: 24px; bottom: 24px; min-width: 168px; padding: 10px 14px 12px; text-align: right; }
+.ds-ammo .mag { font-size: 44px; font-weight: 700; line-height: 1; }
+.ds-ammo .mag.low { color: var(--ds-alert); }
+.ds-ammo .res { font-size: 18px; color: var(--ds-text-2); margin-left: 6px; }
+.ds-ammo .bar, .ds-health .bar { height: 3px; background: rgb(243 241 234 / 0.18); margin-top: 8px; border-radius: 2px; overflow: hidden; }
+.ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; background: var(--ds-text); }
+.ds-health { position: absolute; left: 24px; bottom: 24px; min-width: 200px; padding: 10px 14px 12px; }
+.ds-health .hp { font-size: 36px; font-weight: 700; line-height: 1; margin-top: 4px; }
+.ds-health.low .hp { color: var(--ds-alert); }
+.ds-health.low .bar i { background: var(--ds-alert); }
+.ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ds-feed div { background: rgb(11 14 19 / 0.62); padding: 5px 10px; border-radius: 3px; text-shadow: none; transition: opacity 400ms linear; animation: ds-slide 200ms ease-out; }
+.ds-feed .you { box-shadow: inset 2px 0 0 var(--ds-signal); background: rgb(11 14 19 / 0.8); }
+.ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
+.ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
+.ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+.ds-match > div { padding: 6px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ds-match .score { font-size: 26px; font-weight: 700; line-height: 1; }
+.ds-match .team { min-width: 92px; }
+.ds-match .team.mine { box-shadow: inset 0 -2px 0 currentColor; background: rgb(243 241 234 / 0.06); }
+.ds-match .mid { border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); min-width: 96px; }
+.ds-match .clock { font-size: 20px; font-weight: 700; }
+.ds-match .sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); margin-top: 2px; }
+.ds-match .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; }
+.ds-overlay { position: absolute; left: 24px; bottom: 112px; padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 6px; background: rgb(0 0 0 / 0.35); }
-.ds-overlay .k { opacity: 0.65; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
-.ds-board { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); min-width: 420px; background: rgb(10 12 14 / 0.82); padding: 14px 18px; display: none; }
-.ds-board table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.ds-board th { text-align: left; font-size: 11px; letter-spacing: 1.5px; opacity: 0.6; padding: 4px 6px; }
-.ds-board td { padding: 5px 6px; border-top: 1px solid rgb(255 255 255 / 0.08); }
-.ds-board tr.you td { color: #6bd4ff; }
-.ds-toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 560px; background: rgb(10 12 14 / 0.85); border: 1px solid rgb(242 193 78 / 0.6); padding: 10px 14px; font-size: 14px; line-height: 1.4; opacity: 0; transition: opacity 300ms; }
+.ds-overlay .k { color: var(--ds-text-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.16em; }
+.ds-board { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); padding: 18px 20px; display: none; background: rgb(18 22 29 / 0.9); border-radius: 6px; animation: ds-in 160ms ease-out; }
+.ds-board.end { top: auto; bottom: 56px; }
+.ds-board .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ds-board .cols.one { grid-template-columns: 1fr; }
+.ds-board h3 { margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ds-board h3 .total { font-size: 28px; }
+.ds-board table { width: 100%; border-collapse: collapse; }
+.ds-board th { text-align: right; font-size: 11px; font-weight: 400; letter-spacing: 0.16em; color: var(--ds-text-3); padding: 4px 8px; text-transform: uppercase; }
+.ds-board th:nth-child(-n+2), .ds-board td:nth-child(-n+2) { text-align: left; }
+.ds-board td { padding: 6px 8px; border-top: 1px solid var(--ds-line); text-align: right; }
+.ds-board td.place { color: var(--ds-text-3); width: 36px; }
+.ds-board tr.you td { background: rgb(143 227 200 / 0.12); }
+.ds-board tr.you td:first-child { box-shadow: inset 2px 0 0 var(--ds-signal); }
+.ds-board .ping { color: var(--ds-text-2); }
+.ds-end { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); text-align: center; display: none; animation: ds-in 160ms ease-out; }
+.ds-end .result { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-end h2 { margin: 6px 0 14px; font-size: 52px; line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
+.ds-end .mystats { display: flex; justify-content: center; gap: 0; margin: 0 auto 14px; width: fit-content; }
+.ds-end .mystats > div { padding: 8px 20px; border-left: 1px solid var(--ds-line); }
+.ds-end .mystats > div:first-child { border-left: 0; }
+.ds-end .mystats b { display: block; font-size: 26px; }
+.ds-end .vote { margin: 0 auto; width: min(560px, 100%); padding: 12px 14px; text-align: left; }
+.ds-end .vote header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.ds-end .vote .clock { font-size: 22px; font-weight: 700; color: var(--ds-signal); }
+.ds-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: auto; }
+.ds-votes button { position: relative; overflow: hidden; font: inherit; color: inherit; text-align: left; background: var(--ds-raised); border: 1px solid var(--ds-line); border-radius: 4px; padding: 10px 12px; cursor: pointer; }
+.ds-votes button:hover { border-color: var(--ds-text-2); }
+.ds-votes button.mine { border-color: var(--ds-signal); box-shadow: 0 0 0 1px var(--ds-signal); }
+.ds-votes button > span { display: block; }
+.ds-votes button .key { font-size: 11px; letter-spacing: 0.16em; color: var(--ds-text-3); }
+.ds-votes button .mode { display: block; font-size: 18px; font-weight: 700; text-transform: uppercase; margin: 2px 0 6px; }
+.ds-votes button .tally { height: 4px; background: rgb(243 241 234 / 0.12); border-radius: 2px; overflow: hidden; }
+.ds-votes button .tally i { display: block; height: 100%; background: var(--ds-signal); transition: width 200ms ease-out; }
+.ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: 22px; font-weight: 700; }
+.ds-end .next { margin-top: 8px; font-size: 13px; color: var(--ds-text-2); }
+.ds-toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 560px; background: rgb(18 22 29 / 0.92); border: 1px solid var(--ds-line); border-left: 2px solid var(--ds-signal); border-radius: 4px; padding: 10px 14px; font-size: 14px; line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
 `;
 
 export interface HudState {
@@ -66,6 +100,8 @@ export interface HudState {
   /** Range overlay: distance to whatever the crosshair is on. */
   readonly targetDistance: number | null;
   readonly scores: readonly Score[];
+  /** Each player's round trip (ms), online. */
+  readonly pings: Readonly<Record<string, number>>;
   readonly selfId: string | null;
   readonly showScoreboard: boolean;
   /** The online match: mode, phase, time left, team scores and the vote. Null offline. */
@@ -88,7 +124,6 @@ export interface MatchView {
   readonly myVote: ModeId | null;
 }
 
-const MODE_LABEL: Readonly<Record<ModeId, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.ceil(seconds));
@@ -121,6 +156,9 @@ export class Hud {
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
+  readonly #health: HTMLDivElement;
+  readonly #hp: HTMLElement;
+  readonly #hpBar: HTMLElement;
   readonly #bar: HTMLElement;
   readonly #feed: HTMLDivElement;
   readonly #stats: HTMLDivElement;
@@ -140,8 +178,10 @@ export class Hud {
   #toastTime = 0;
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
+  readonly #html = new WeakMap<HTMLElement, string>();
 
   constructor(parent: HTMLElement) {
+    installTheme();
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
@@ -155,7 +195,7 @@ export class Hud {
       parentEl.append(e);
       return e;
     };
-    this.root = el('div', 'ds-hud', parent);
+    this.root = el('div', 'ds-hud ds-ui', parent);
     this.#vignette = el('div', 'ds-vignette', this.root);
     this.#cross = el('div', 'ds-cross', this.root, '<i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><b></b>');
     this.#arms = [...this.#cross.querySelectorAll('i')] as HTMLElement[];
@@ -166,7 +206,10 @@ export class Hud {
     });
     this.#elim = el('div', 'ds-elim', this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
-    const ammo = el('div', 'ds-ammo', this.root, '<div class="name">M4A1</div><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
+    this.#health = el('div', 'ds-health ds-plate', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
+    this.#hp = this.#health.querySelector('.hp') as HTMLElement;
+    this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
+    const ammo = el('div', 'ds-ammo ds-plate', this.root, '<div class="ds-label">M4A1</div><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
     this.#feed = el('div', 'ds-feed', this.root);
@@ -174,7 +217,7 @@ export class Hud {
     this.#center = el('div', 'ds-center', this.root);
     this.#overlay = el(
       'div',
-      'ds-overlay',
+      'ds-overlay ds-plate',
       this.root,
       '<span class="k">TTK</span><span class="ttk">–</span><span class="k">Distance</span><span class="dist">–</span><span class="k">Shots / hits</span><span class="shots">–</span><span class="k">Last hit</span><span class="last-hit">–</span><canvas width="180" height="150"></canvas>',
     );
@@ -184,7 +227,7 @@ export class Hud {
     this.#lastHit = this.#overlay.querySelector('.last-hit') as HTMLSpanElement;
     this.#trace = this.#overlay.querySelector('canvas') as HTMLCanvasElement;
     this.#board = el('div', 'ds-board', this.root);
-    this.#match = el('div', 'ds-match', this.root);
+    this.#match = el('div', 'ds-match ds-plate', this.root);
     this.#end = el('div', 'ds-end', this.root);
     this.#end.addEventListener('click', (e) => {
       const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
@@ -328,6 +371,12 @@ export class Hud {
     const hurt = self ? 1 - self.health / 100 : 0;
     this.#vignette.style.opacity = String(Math.min(1, hurt * 0.9 + this.#flash * 0.35));
 
+    const health = self ? Math.max(0, Math.round(self.health)) : 0;
+    this.#health.style.display = self ? '' : 'none';
+    this.#hp.textContent = String(health);
+    this.#hpBar.style.width = `${health}%`;
+    this.#health.classList.toggle('low', health <= 35);
+
     if (w) {
       this.#mag.textContent = String(w.ammo);
       this.#mag.classList.toggle('low', w.ammo <= 6);
@@ -343,20 +392,13 @@ export class Hud {
     this.#overlay.style.display = state.showOverlay ? '' : 'none';
     this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;
 
-    this.#updateMatch(state.match);
-    // The scoreboard is held open on Tab, and stays up for the scoreboard and vote after a match.
-    const board = (state.showScoreboard || state.match?.status.phase === 'vote') && state.scores.length > 0;
+    this.#updateMatch(state);
+    // The scoreboard is held open on Tab, and stays up for the vote after a match.
+    const voting = state.match?.status.phase === 'vote';
+    const board = (state.showScoreboard || voting) && state.scores.length > 0;
     this.#board.style.display = board ? 'block' : 'none';
-    if (board) {
-      const teams = state.match?.status.mode === 'tdm';
-      this.#board.style.top = state.match?.status.phase === 'vote' ? '30%' : '';
-      this.#board.innerHTML = `<table><tr>${teams ? '<th>TEAM</th>' : ''}<th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr>${state.scores
-        .map(
-          (s) =>
-            `<tr class="${s.id === state.selfId ? 'you' : ''}">${teams ? `<td class="t${s.team}">${s.team === 1 ? 'BLUE' : 'ORANGE'}</td>` : ''}<td>${escape(s.name)}</td><td>${s.kills}</td><td>${s.deaths}</td><td>${(s.kills / Math.max(1, s.deaths)).toFixed(2)}</td></tr>`,
-        )
-        .join('')}</table>`;
-    }
+    this.#board.classList.toggle('end', voting);
+    if (board) this.#set(this.#board, boardHtml(state));
 
     if (this.#toastTime > 0) {
       this.#toastTime -= dt;
@@ -364,30 +406,67 @@ export class Hud {
     }
   }
 
-  /** The match bar (mode, clock, team scores) and, after a match, the result, countdown and vote. */
-  #updateMatch(view: MatchView | null): void {
-    this.#match.style.display = view ? 'flex' : 'none';
+  /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
+  #updateMatch(state: HudState): void {
+    const view = state.match;
+    this.#match.style.display = view && view.status.phase === 'playing' ? 'flex' : 'none';
     this.#end.style.display = view && view.status.phase !== 'playing' ? 'block' : 'none';
     if (!view) return;
     const s = view.status;
-    const time = view.secondsLeft === null ? '' : `<span class="clock">${clock(view.secondsLeft)}</span>`;
-    const scores = s.teamScores ? s.teamScores.map((t) => `<span class="t${t.team}">${t.team === 1 ? 'BLUE' : 'ORANGE'} ${t.score}</span>`).join('<span>–</span>') : '';
-    const you = view.team === 1 || view.team === 2 ? `<span class="t${view.team}">YOU: ${view.team === 1 ? 'BLUE' : 'ORANGE'}</span>` : '';
-    this.#match.innerHTML = `<span>${MODE_LABEL[s.mode].toUpperCase()}</span>${s.phase === 'playing' ? time : ''}${scores}${s.phase === 'playing' ? you : ''}${s.killLimit === null ? '' : `<span>FIRST TO ${s.killLimit}</span>`}`;
-    if (s.phase === 'playing') return;
-    const r = s.result;
-    const headline = !r ? 'Match over' : r.draw ? 'Draw' : `${r.winnerName ?? 'Someone'} wins`;
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
-    let html = `<h2>${escape(headline)}</h2>`;
+    if (s.phase === 'playing') {
+      const bar = matchBar(s, state.scores, state.selfId, view.team);
+      const mid = `<div class="mid"><span class="clock">${left || '–'}</span><span class="sub">${s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
+      if (bar.kind === 'tdm') {
+        const [a, b] = bar.teams.map(
+          (t) => `<div class="team ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span></div>`,
+        );
+        this.#set(this.#match, `${a}${mid}${b}`);
+      } else {
+        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
+        const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
+        this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
+      }
+      return;
+    }
+    const end = endSummary(s.result, s.mode, state.scores, state.selfId);
+    const h = end.headline;
+    const headline =
+      h.kind === 'draw'
+        ? 'Draw'
+        : h.kind === 'team'
+          ? `<span class="ds-t${h.team}">${TEAMS[h.team]?.mark ?? ''} ${TEAMS[h.team]?.name ?? 'Team'} wins</span>`
+          : h.kind === 'player'
+            ? h.you
+              ? 'You win'
+              : `${escape(h.name)} wins`
+            : 'Match over';
+    const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result?.reason === 'timeLimit' ? 'time limit' : 'kill limit'}`;
+    let html = `<div class="result">${sub}</div><h2>${headline}</h2>`;
+    if (end.you) {
+      const y = end.you;
+      html += `<div class="mystats ds-plate"><div><span class="ds-label">Kills</span><b>${y.kills}</b></div><div><span class="ds-label">Deaths</span><b>${y.deaths}</b></div><div><span class="ds-label">K/D</span><b>${y.ratio}</b></div><div><span class="ds-label">Place</span><b>${ordinal(y.place)}<small> / ${y.of}</small></b></div></div>`;
+    }
     if (s.phase === 'nuke') html += `<div class="next">Scoreboard in ${left}</div>`;
     else {
-      html += `<div class="next">Next match: ${MODE_LABEL[s.next]} in ${left}</div><div class="ds-votes">`;
+      const total = Math.max(1, s.votes.tdm + s.votes.ffa);
+      html += `<div class="vote ds-plate"><header><span class="ds-label">Vote for the next mode</span><span class="clock">${left}</span></header><div class="ds-votes">`;
       for (const [i, mode] of (['tdm', 'ffa'] as const).entries()) {
-        html += `<button data-mode="${mode}" class="${view.myVote === mode ? 'mine' : ''}">[${i + 1}] ${MODE_LABEL[mode]} · ${s.votes[mode]}</button>`;
+        html += `<button data-mode="${mode}" class="${view.myVote === mode ? 'mine' : ''}"><span class="key">[${i + 1}] · D-PAD ${i === 0 ? '◀' : '▶'}</span><span class="mode">${MODE_NAMES[mode]}</span><span class="n">${s.votes[mode]}</span><span class="tally"><i style="width:${(s.votes[mode] / total) * 100}%"></i></span></button>`;
       }
-      html += '</div>';
+      html += `</div><div class="next">Next match: ${MODE_NAMES[s.next]}${s.votes.tdm + s.votes.ffa === 0 ? ' (no votes: the mode stays)' : ''}</div></div>`;
     }
-    this.#end.innerHTML = html;
+    this.#set(this.#end, html);
+  }
+
+  /**
+   * Replaces an element's markup only when it changed: rebuilt every frame,
+   * the vote buttons would be swapped out between a mouse press and its release.
+   */
+  #set(el: HTMLElement, html: string): void {
+    if (this.#html.get(el) === html) return;
+    this.#html.set(el, html);
+    el.innerHTML = html;
   }
 
   dispose(): void {
@@ -395,6 +474,19 @@ export class Hud {
   }
 }
 
-function escape(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+/** The held scoreboard: both teams side by side, or the free-for-all ranking, with kills, deaths and ping. */
+function boardHtml(state: HudState): string {
+  const mode: ModeId = state.match?.status.mode ?? 'ffa';
+  const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
+  const table = (rows: readonly BoardRow[]) =>
+    `<table><tr><th>#</th><th>Player</th><th>K</th><th>D</th><th>Ping</th></tr>${rows
+      .map(
+        (r) =>
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${escape(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
+      )
+      .join('')}</table>`;
+  if (board.kind === 'ffa') return `<h3><span>${MODE_NAMES.ffa}</span></h3><div class="cols one"><div>${table(board.rows)}</div></div>`;
+  return `<div class="cols">${board.teams
+    .map((t) => `<div><h3 class="ds-t${t.team}"><span>${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}</span><span class="total">${t.score}</span></h3>${table(t.rows)}</div>`)
+    .join('')}</div>`;
 }

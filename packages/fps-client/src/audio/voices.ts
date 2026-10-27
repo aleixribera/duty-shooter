@@ -1,6 +1,8 @@
 import { crouchVoice, footstepVoice, jumpVoice, landVoice, mantleVoice, proneVoice, slideVoice } from './foley';
 import { gunshotVoice } from './gunshot';
 import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
+import { nukeBlastVoice, nukeSirenVoice } from './nuke';
+import { birdsVoice, creakVoice, radioVoice, windVoice } from './ambience';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
 import { damageTakenVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice } from './ui';
@@ -47,6 +49,12 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     killMarker: killMarkerVoice(),
     headshotMarker: headshotMarkerVoice(),
     damageTaken: damageTakenVoice(),
+    nukeSiren: nukeSirenVoice(),
+    nukeBlast: nukeBlastVoice(),
+    ambientWind: windVoice(),
+    ambientBirds: birdsVoice(),
+    ambientCreak: creakVoice(),
+    ambientRadio: radioVoice(),
   };
 }
 

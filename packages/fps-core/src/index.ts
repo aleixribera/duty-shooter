@@ -23,7 +23,7 @@ export type {
   TickOutput,
   WeaponOutput,
 } from './simulation';
-export { zoneCentre } from './combat/hitboxes';
+export { hitboxes, zoneCentre } from './combat/hitboxes';
 export type { HitPose, HitZone } from './combat/hitboxes';
 export { bulletDamage, rangeDamage, zoneMultiplier } from './combat/damage';
 export { raycastWorld, segmentSolid, solidNormal } from './combat/projectiles';
@@ -39,7 +39,7 @@ export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client'
 export type { Connection, ServerTransport } from './net/transport';
 export { createMemoryNetwork } from './net/memory';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
-export { PROTOCOL_VERSION } from './net/protocol';
+export { INTERMISSION, PROTOCOL_VERSION } from './net/protocol';
 export type { ClientMessage, MatchStatus, Phase, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
 export { MODE_IDS } from './modes/game-mode';
 export type { GameMode, MatchResult, ModeContext, ModeEvent, ModeId, Score, SpawnPoint, TeamScore } from './modes/game-mode';

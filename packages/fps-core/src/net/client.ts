@@ -129,6 +129,11 @@ export class GameClient {
     return this.#latest?.names ?? {};
   }
 
+  /** Every player's round trip (ms) as last reported to the server. */
+  get pings(): Readonly<Record<string, number>> {
+    return this.#latest?.pings ?? {};
+  }
+
   /** Mode, phase, clock, team scores and vote, per the newest snapshot. */
   get match(): MatchStatus | null {
     return this.#latest?.match ?? null;
@@ -190,7 +195,7 @@ export class GameClient {
     // The server ignores input during the intermission, so prediction does too.
     const out = this.#local.step({ [this.#id]: this.#frozen ? [] : sent });
     this.#self = out.players.find((p) => p.id === this.#id) ?? null;
-    this.#connection.send(encode({ t: 'cmds', cmds: this.#pending.slice(-REDUNDANT_CMDS) }));
+    this.#connection.send(encode({ t: 'cmds', cmds: this.#pending.slice(-REDUNDANT_CMDS), ping: Math.round(this.#ping * 1000) }));
     return { self: this.#self, predicted: out.events, server };
   }
 

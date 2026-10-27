@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Presentation and input layer: rendering, viewmodel, effects, audio, HUD.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./surfaces": "./src/surfaces/index.ts",
+    "./map-sound": "./src/map-sound.ts"
   },
   "scripts": {
     "typecheck": "tsc -p ."

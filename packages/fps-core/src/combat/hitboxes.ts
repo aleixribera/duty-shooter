@@ -63,6 +63,11 @@ function boxesFor(pose: HitPose): readonly LocalBox[] {
   return STANDING.map((b) => local(b.zone, [b.min[0], b.min[1] * k, b.min[2]], [b.max[0], b.max[1] * k, b.max[2]]));
 }
 
+/** The pose's hitboxes in its local frame (x right, y up from the feet, z forward): what a shot is tested against. */
+export function hitboxes(pose: HitPose): readonly { readonly zone: HitZone; readonly min: Vec3; readonly max: Vec3 }[] {
+  return boxesFor(pose);
+}
+
 /** World point to the pose's local frame (x right, y up, z forward). */
 function toLocal(pose: HitPose, p: Vec3): Vec3 {
   const dx = p[0] - pose.position[0];

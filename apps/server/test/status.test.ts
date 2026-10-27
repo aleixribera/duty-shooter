@@ -38,9 +38,9 @@ describe('server map setting', () => {
     }
   });
 
-  it('reads MAP from the environment, defaulting to the range until the release', () => {
-    expect(optionsFromEnv({}, 'dist').map).toBe('range');
-    expect(optionsFromEnv({ MAP: 'survival-town' }, 'dist').map).toBe('survival-town');
+  it('reads MAP from the environment, defaulting to Survival Town', () => {
+    expect(optionsFromEnv({}, 'dist').map).toBe('survival-town');
+    expect(optionsFromEnv({ MAP: 'range' }, 'dist').map).toBe('range');
     expect(() => optionsFromEnv({ MAP: 'arena' }, 'dist')).toThrow(/MAP must be one of/);
   });
 });

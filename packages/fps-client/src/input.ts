@@ -46,6 +46,8 @@ export class InputController {
   onUnlock: (() => void) | null = null;
   /** Menu navigation from the controller while input is disabled (menus open). */
   onPadMenu: ((nav: PadNav) => void) | null = null;
+  /** The D-pad's left or right pressed in play (unbound there): the intermission's vote. */
+  onPadVote: ((side: 'left' | 'right') => void) | null = null;
   /** The last reading's pressed buttons, for press and release edges. */
   #padPressed: readonly boolean[] = [];
   #padMove: { forward: number; right: number } = { forward: 0, right: 0 };
@@ -292,6 +294,7 @@ export class InputController {
       if (pad.pressed[i] === was) continue;
       if (!pad.pressed[i]) this.#up(`Pad${i}`);
       else if (i === PAD.options) options = true;
+      else if (i === PAD.left || i === PAD.right) this.onPadVote?.(i === PAD.left ? 'left' : 'right');
       else this.#down(`Pad${i}`);
     }
     if (options) {

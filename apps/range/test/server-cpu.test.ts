@@ -13,7 +13,7 @@ import { buildSurvivalTown } from '../src/map/survival-town';
 describe.skipIf(!process.env['BENCH'])('server CPU', () => {
   it('8 players on the Practice Range', () => {
     const map = buildMap();
-    measure(createNetworkedMatch({ solids: collisionSolids(map), spawns: map.arenaSpawns, dummies: map.dummies, passphrase: '', latency: 0.03 }));
+    measure(createNetworkedMatch({ solids: collisionSolids(map), spawns: [map.rangeSpawn], dummies: map.dummies, passphrase: '', latency: 0.03 }));
   });
 
   it('8 players in team deathmatch on Survival Town', () => {

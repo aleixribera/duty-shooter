@@ -9,6 +9,7 @@ export { Spring } from './spring';
 export { FirstPersonCamera } from './camera';
 export type { CameraFrame } from './camera';
 export { WorldView } from './world-view';
+export { loadBake } from './bake-loader';
 export type { RampShape, ShadowQuality, WorldContent, WorldLabel } from './world-view';
 export { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 export type { PresetFeatures } from './pipeline';

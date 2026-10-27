@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
+import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
+import { environmentAt } from '@duty-shooter/fps-client/map-sound';
 import { insidePolygon, mapSolids } from '../src/map/definition';
-import { buildSurvivalTown } from '../src/map/survival-town';
+import { HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
 import { REFERENCE, TOLERANCE } from '../src/map/survival-town-reference';
 
 const map = buildSurvivalTown();
@@ -385,5 +387,122 @@ describe('Survival Town: camera spots and paths', () => {
     for (const p of [at(-1, 0, 1, 20), at(1, 0, 1, 20), at(-1, 2, 4, 20), at(1, 2, 4, 20), at(-1, -12, 1, 16), at(1, -12, 1, 16)]) {
       expect(map.indoorZones.some((z) => p.every((v, i) => v >= z.min[i]! && v <= z.max[i]!))).toBe(true);
     }
+  });
+});
+
+describe('Survival Town surfaces', () => {
+  it('keeps every decoration within 5 cm of the solid it decorates', () => {
+    expect(map.decorations.length).toBeGreaterThan(100);
+    const bad = decorationErrors(map.solids, map.decorations).map((i) => map.decorations[i]);
+    expect(bad).toEqual([]);
+  });
+
+  it('hangs the population sign display on the face of a drawn board', () => {
+    const sign = map.populationSign!;
+    const [x, y, z] = sign.center;
+    const board = map.solids.find((s) => Math.abs(s.max[2] - z) < 0.005 && s.min[0] < x - sign.width / 2 && s.max[0] > x + sign.width / 2 && s.min[1] < y - sign.height / 2 && s.max[1] > y + sign.height / 2);
+    expect(board).toBeDefined();
+    expect(insidePolygon(area, x, z)).toBe(true);
+  });
+
+  it('gives every drawn solid a look slot and every look a known finish', () => {
+    expect(map.looks).toHaveLength(map.solids.length);
+    const layout = layoutSurfaces(map.solids, { finishes: map.finishes, looks: map.looks, decorations: map.decorations, indoor: map.indoorZones });
+    expect(new Set(layout.faces.map((f) => f.finish)).size).toBeGreaterThan(20);
+  });
+});
+
+describe('Survival Town: mannequins', () => {
+  const heads = map.solids.filter((s) => s.prop?.startsWith(MANNEQUIN_HEAD));
+  const centre = (s: Solid): Vec3 => [(s.min[0] + s.max[0]) / 2, (s.min[1] + s.max[1]) / 2, (s.min[2] + s.max[2]) / 2];
+
+  it('stands at least 14, each head its own prop resting on a torso', () => {
+    expect(heads.length).toBeGreaterThanOrEqual(14);
+    expect(new Set(heads.map((h) => h.prop)).size).toBe(heads.length);
+    for (const h of heads) {
+      const [x, , z] = centre(h);
+      const torso = map.solids.find((s) => s.prop === null && s.material === 'plastic' && Math.abs(s.max[1] - h.min[1]) < 0.05 && s.min[0] < x && s.max[0] > x && s.min[2] < z && s.max[2] > z);
+      expect(torso, h.prop!).toBeDefined();
+    }
+  });
+
+  it('keeps clear of every spawn', () => {
+    const spawns = [...map.spawns.ffa, ...map.spawns.teams!.flat()];
+    for (const h of heads) {
+      const [x, , z] = centre(h);
+      for (const s of spawns) expect(Math.hypot(s.position[0] - x, s.position[2] - z), h.prop!).toBeGreaterThan(1.5);
+    }
+  });
+
+  it('a shot through a head reports the prop and flies on to what is behind it', () => {
+    // The mannequin out by the bus, shot from 3 m south of it, looking north.
+    const head = heads.find((h) => Math.hypot(centre(h)[0] - 8.6, centre(h)[2] - 4.7) < 0.1)!;
+    const match = standAt([8.6, 0, 7.7], 0);
+    const aim = usercmd({ yaw: 0, buttons: ['Ads'] });
+    for (let i = 0; i < Math.ceil(1.5 / TICK_SECONDS); i++) step(match, aim);
+    const events = [match.step({ p: usercmd({ yaw: 0, buttons: ['Ads', 'Fire'], firePresses: [0] }) })];
+    for (let i = 0; i < 10; i++) events.push(match.step({ p: aim }));
+    const all = events.flatMap((o) => o.events);
+    expect(all.flatMap((e) => (e.type === 'prop' ? [e.prop] : []))).toEqual([head.prop]);
+    const impact = all.find((e) => e.type === 'impact');
+    expect(impact && impact.type === 'impact' && impact.point[2] < head.min[2]).toBe(true);
+  });
+});
+
+describe('Survival Town: scenery', () => {
+  it('bullets fired outward from inside the boundary hit scenery or fly on, never player clip', () => {
+    for (const { point, out } of edgeSamples(2, 1)) {
+      const from: Vec3 = [point[0], surfaceBelow(point[0], point[1]) + 1.6, point[1]];
+      for (const pitch of [0, 0.05, 0.2, 0.6]) {
+        const to: Vec3 = [from[0] + out[0] * 500, from[1] + 500 * Math.tan(pitch), from[2] + out[1] * 500];
+        const hit = raycastWorld(world, from, to);
+        if (hit) expect(world.solids[hit.solid]!.blocks).not.toBe('players');
+      }
+    }
+  });
+
+  it('a shot at the water tower lands on its tank, outside the town', () => {
+    const from: Vec3 = [-21.5, 1.6, 13];
+    const tank: Vec3 = [-46, 16.5, 14];
+    const hit = raycastWorld(world, from, [from[0] + (tank[0] - from[0]) * 2, from[1] + (tank[1] - from[1]) * 2, from[2] + (tank[2] - from[2]) * 2]);
+    expect(hit).not.toBeNull();
+    expect(insidePolygon(area, hit!.point[0], hit!.point[2])).toBe(false);
+    expect(hit!.point[0]).toBeCloseTo(-43, 3);
+    expect(world.solids[hit!.solid]!.blocks).toBe('both');
+  });
+});
+
+describe('map audio', () => {
+  const DOOR_W = 0.91;
+  const zones = map.indoorZones;
+  // Each outside door: its x span, the wall's d, its floor, and which way (in d) is inside.
+  const doors = [
+    { name: 'front door', x: HOUSE.frontDoor.x0 + DOOR_W / 2, d: HOUSE.main.d0, floor: 0, inward: 1 },
+    { name: 'back door', x: -4 + DOOR_W / 2, d: HOUSE.main.d1, floor: 0, inward: -1 },
+    { name: 'deck door', x: 0 + DOOR_W / 2, d: HOUSE.main.d1, floor: UPPER_FLOOR, inward: -1 },
+    { name: 'garage door', x: -12.5, d: HOUSE.garage.d0, floor: 0, inward: 1 },
+    { name: 'garage back door', x: -12 + DOOR_W / 2, d: HOUSE.garage.d1, floor: 0, inward: -1 },
+  ];
+  for (const s of [-1, 1]) {
+    for (const door of doors) {
+      it(`switches the reverb at the ${s < 0 ? 'north' : 'south'} ${door.name}`, () => {
+        const at = (off: number): Vec3 => [door.x, door.floor + 1, s * (door.d + door.inward * off)];
+        expect(environmentAt(zones, at(0.6))).toBe('indoor');
+        expect(environmentAt(zones, at(-0.6))).toBe('outdoor');
+      });
+    }
+  }
+
+  it('places every ambient source inside the map, with the radio indoors', () => {
+    const sources = map.ambience.flatMap((a) => (a.kind === 'wind' ? [] : [a]));
+    expect(map.ambience.some((a) => a.kind === 'wind')).toBe(true);
+    expect(new Set(sources.map((a) => a.kind))).toEqual(new Set(['birds', 'sign', 'radio']));
+    for (const a of sources) {
+      expect(Math.abs(a.position[0]), a.kind).toBeLessThanOrEqual(map.horizon.inner.x1);
+      expect(Math.abs(a.position[2]), a.kind).toBeLessThanOrEqual(map.horizon.inner.z1);
+      expect(a.position[1]).toBeGreaterThanOrEqual(0);
+    }
+    const radio = sources.find((a) => a.kind === 'radio')!;
+    expect(environmentAt(zones, radio.position)).toBe('indoor');
   });
 });

@@ -123,6 +123,20 @@ describe('joining', () => {
   });
 });
 
+describe('ping', () => {
+  it("shares every player's measured ping with everyone, for the scoreboard", () => {
+    const m = match({ jitter: 0, loss: 0 });
+    const [a, b] = joinAll(m, 'alice', 'bob');
+    m.run(ticks(2));
+
+    const pings = b!.client.pings;
+    expect(Object.keys(pings).sort()).toEqual([a!.client.id, b!.client.id].sort());
+    // 80 ms each way: a round trip of about 160 ms, measured in whole ticks.
+    expect(pings[a!.client.id!]).toBeGreaterThan(140);
+    expect(pings[a!.client.id!]).toBeLessThan(220);
+  });
+});
+
 describe('client prediction', () => {
   /** A busy movement and weapon script. */
   const busy = (t: number): UserCmd =>

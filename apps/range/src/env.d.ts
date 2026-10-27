@@ -5,4 +5,6 @@ interface ImportMetaEnv {
    * address is never committed.
    */
   readonly VITE_LOBBY_URL?: string;
+  /** The release (`git describe`), shown on the main menu; set by the container and Pages builds. */
+  readonly VITE_VERSION?: string;
 }

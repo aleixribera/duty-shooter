@@ -6,6 +6,7 @@ import type { UserCmd } from '../usercmd';
 import type { World } from '../world';
 import {
   EVENT_RESEND_TICKS,
+  INTERMISSION,
   PROTOCOL_VERSION,
   compactOutput,
   decodeClient,
@@ -49,8 +50,6 @@ const DEFAULT_RATE = 180;
 /** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
 const MAX_QUEUED_CMDS = 12;
 const MAX_NAME = 16;
-const NUKE_SECONDS = 6;
-const VOTE_SECONDS = 14;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
 const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart']);
 
@@ -61,6 +60,8 @@ interface Client {
   /** Highest sequence number processed. */
   ack: number;
   readonly queue: Map<number, UserCmd>;
+  /** The round trip (ms) the client last reported. */
+  ping: number;
   /** Messages counted in the current one-second window. */
   messages: number;
   windowStart: number;
@@ -179,7 +180,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), messages: 0, windowStart: this.simulation.time };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose(() => this.#drop(client));
@@ -230,6 +231,7 @@ export class GameServer {
       return;
     }
     if (message.t === 'cmds') {
+      if (message.ping !== undefined) client.ping = message.ping;
       for (const { seq, cmd } of message.cmds) {
         if (seq > client.ack && !client.queue.has(seq)) client.queue.set(seq, cmd);
       }
@@ -270,7 +272,7 @@ export class GameServer {
   }
 
   #intermissionLengths(): { nuke: number; vote: number } {
-    return { nuke: this.#options.intermission?.nuke ?? NUKE_SECONDS, vote: this.#options.intermission?.vote ?? VOTE_SECONDS };
+    return { nuke: this.#options.intermission?.nuke ?? INTERMISSION.nuke, vote: this.#options.intermission?.vote ?? INTERMISSION.vote };
   }
 
   /** The vote's plurality; a tie or no votes keeps the current mode. */
@@ -408,6 +410,9 @@ export class GameServer {
     const match = this.matchStatus();
     const names = Object.fromEntries(this.#names);
     const popped = [...this.#popped];
+    const pings: Record<string, number> = {};
+    // A client that has not measured its round trip yet is left out (shown as unknown).
+    for (const c of this.#clients) if (c.id !== null && c.ping > 0) pings[c.id] = c.ping;
     for (const client of this.#clients) {
       if (client.id === null) continue;
       const others: PlayerOutput[] = all.filter((p) => p.id !== client.id).map(compactOutput);
@@ -420,6 +425,7 @@ export class GameServer {
         events: this.#recentEvents,
         scores,
         names,
+        pings,
         popped,
         match,
       });

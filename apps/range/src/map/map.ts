@@ -2,8 +2,7 @@ import { STATS, box, orientedBox, playerClip, type Material, type MantleBand, ty
 
 /**
  * The one original map: a firing range (10/25/50 m lanes, static and rail
- * dummies), a movement course and a small symmetrical arena, all built from
- * material-tagged solids. 1 unit = 1 metre, Y up; the range faces -Z.
+ * dummies) and a movement course, all built from material-tagged solids. 1 unit = 1 metre, Y up; the range faces -Z.
  */
 
 /** A sloped surface: drawn as a ramp, walked on as fine player clip steps, shot at as a sloped bullet surface. */
@@ -71,8 +70,6 @@ export interface GameMap {
   readonly hiddenSolids: readonly Solid[];
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
-  /** Free-for-all spawn points, in the arena. */
-  readonly arenaSpawns: readonly SpawnPoint[];
   /** Where an offline session starts: the range's firing line. */
   readonly rangeSpawn: SpawnPoint;
   readonly dummies: readonly PlayerSpawn[];
@@ -107,22 +104,21 @@ export function buildMap(): GameMap {
   const add = (min: Vec3, max: Vec3, material: Material) => solids.push(b(min, max, material));
 
   // Ground: separate tiles so each area has its own surface material. Top at y = 0.
-  add([-80, -1, 8], [90, 0, 30], 'concrete'); // the strip behind the firing line and the course start
+  add([-80, -1, 8], [62, 0, 30], 'concrete'); // the strip behind the firing line: the course start and the penetration station
   add([-66, -1, -66], [-18, 0, 8], 'dirt'); // range lanes
-  add([-18, -1, -66], [32, 0, 8], 'concrete'); // course
-  add([32, -1, -66], [90, 0, 8], 'concrete'); // arena surroundings
+  add([-18, -1, -66], [33, 0, 8], 'concrete'); // course
   add([-80, -1, -66], [-66, 0, 8], 'grass');
-  add([-80, -1, -90], [90, 0, -66], 'grass');
+  add([33, -1, -66], [62, 0, 8], 'grass');
+  add([-80, -1, -90], [62, 0, -66], 'grass');
 
   // Perimeter fence so nobody walks off the world.
-  add([-80, 0, 29], [90, 3, 30], 'concrete');
-  add([-80, 0, -90], [90, 3, -89], 'concrete');
+  add([-80, 0, 29], [62, 3, 30], 'concrete');
+  add([-80, 0, -90], [62, 3, -89], 'concrete');
   add([-81, 0, -90], [-80, 3, 30], 'concrete');
-  add([90, 0, -90], [91, 3, 30], 'concrete');
+  add([61, 0, -89], [62, 3, 29], 'concrete');
 
   buildRange(add, labels);
   const course = buildCourse(add, hidden, ramps, labels);
-  const arenaSpawns = buildArena(add, labels);
   const penetration = buildPenetrationStation(add, solids, labels);
 
   const dummies: PlayerSpawn[] = [
@@ -139,7 +135,6 @@ export function buildMap(): GameMap {
     hiddenSolids: hidden,
     ramps,
     labels,
-    arenaSpawns,
     rangeSpawn: { position: [-48, 0, 0], yaw: FACING_NEG_Z },
     dummies,
     course,
@@ -346,69 +341,6 @@ function buildPenetrationStation(add: Add, solids: Solid[], labels: Label[]): Pe
   solids.push(box({ min: [mx - 0.12, 1.47, mz - 0.12], max: [mx + 0.12, 1.75, mz + 0.12], material: 'plastic', prop: mannequinHead }));
 
   return { shooter: { position: [PEN_X0 + PEN_LANE * 1.5, 0, 26], yaw: FACING_NEG_Z }, lanes: out, mannequinHead };
-}
-
-/**
- * A small symmetrical arena, about Gunfight size (36 x 36 m inside), east of
- * the course with an opening toward it. Cover is mirrored through the centre.
- */
-function buildArena(add: Add, labels: Label[]): SpawnPoint[] {
-  const cx = 58;
-  const cz = -16;
-  const half = 18;
-  const wall = 4.5;
-  // Outer walls, with a doorway on the west side facing the course.
-  add([cx - half - 0.5, 0, cz - half - 0.5], [cx + half + 0.5, wall, cz - half], 'plaster');
-  add([cx - half - 0.5, 0, cz + half], [cx + half + 0.5, wall, cz + half + 0.5], 'plaster');
-  add([cx + half, 0, cz - half], [cx + half + 0.5, wall, cz + half], 'plaster');
-  add([cx - half - 0.5, 0, cz - half], [cx - half, wall, cz - 2], 'plaster');
-  add([cx - half - 0.5, 0, cz + 2], [cx - half, wall, cz + half], 'plaster');
-  add([cx - half - 0.5, 3, cz - 2], [cx - half, wall, cz + 2], 'plaster');
-  labels.push({ text: 'ARENA', position: [cx - half - 0.55, 3.6, cz], yaw: FACING_NEG_X, size: 0.6 });
-
-  // Centre: a solid block too tall to climb, ringed by waist-high walls.
-  add([cx - 2, 0, cz - 2], [cx + 2, 2.4, cz + 2], 'concrete');
-  const mirrored = (x0: number, z0: number, x1: number, z1: number, h: number, material: Material) => {
-    for (const [sx, sz] of [
-      [1, 1],
-      [-1, -1],
-    ] as const) {
-      const ax = cx + sx * x0;
-      const bx = cx + sx * x1;
-      const az = cz + sz * z0;
-      const bz = cz + sz * z1;
-      add([Math.min(ax, bx), 0, Math.min(az, bz)], [Math.max(ax, bx), h, Math.max(az, bz)], material);
-    }
-  };
-  // Point symmetry: every piece of cover has a twin rotated 180 degrees about the centre.
-  mirrored(4, -1.5, 4.4, 1.5, 1.05, 'concrete');
-  mirrored(-1.5, 4, 1.5, 4.4, 1.05, 'concrete');
-  mirrored(8, 6, 14, 8.4, 2.6, 'metal'); // shipping containers
-  mirrored(-14, 6, -8, 8.4, 2.6, 'metal');
-  mirrored(9, -9, 10.2, -7.8, 1.2, 'wood'); // crates
-  mirrored(10.2, -9, 11.4, -7.8, 1.2, 'wood');
-  mirrored(9.6, -9, 10.8, -7.8, 2.4, 'wood');
-  mirrored(-11, -12, -10.6, -6, 1.05, 'concrete');
-  mirrored(14, -2, 15.2, 2, 1.2, 'wood');
-  mirrored(3, 12, 7, 12.4, 1.05, 'concrete');
-  mirrored(-7, -13, -3, -12.6, 1.05, 'concrete');
-
-  const spawns: SpawnPoint[] = [];
-  for (const [x, z] of [
-    [-15, -15],
-    [15, 15],
-    [-15, 15],
-    [15, -15],
-    [0, -15.5],
-    [0, 15.5],
-    [-15.5, 0],
-    [15.5, 0],
-  ] as const) {
-    // Face the centre.
-    const yaw = Math.atan2(x, z);
-    spawns.push({ position: [cx + x, 0, cz + z], yaw });
-  }
-  return spawns;
 }
 
 export { FACING_NEG_X, FACING_NEG_Z, FACING_POS_X };

@@ -43,7 +43,7 @@ export class FirstPersonCamera {
   #fovScale = 1;
 
   constructor() {
-    this.camera = new PerspectiveCamera(70, 16 / 9, 0.03, 600);
+    this.camera = new PerspectiveCamera(70, 16 / 9, 0.03, 2500);
     this.camera.rotation.order = 'YXZ';
   }
 

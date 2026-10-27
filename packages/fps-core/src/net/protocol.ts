@@ -3,7 +3,7 @@ import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -28,7 +28,8 @@ export type ClientMessage =
       /** The mode the joiner would like; honoured only on an empty server. */
       readonly mode?: ModeId;
     }
-  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[] }
+  /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
+  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
   /** A vote for the next match's mode, changeable until the vote window closes. */
   | { readonly t: 'vote'; readonly mode: ModeId };
 
@@ -37,6 +38,9 @@ export type ClientMessage =
  * (the nuke, then the scoreboard and vote, then `matchStart`).
  */
 export type Phase = 'playing' | 'nuke' | 'vote';
+
+/** The intermission's default phase lengths (s): the nuke, then the scoreboard and vote. */
+export const INTERMISSION = { nuke: 6, vote: 14 } as const;
 
 /** The match as every client needs it: mode, phase and its deadline, limits, team scores and the vote. */
 export interface MatchStatus {
@@ -75,6 +79,8 @@ export interface Snapshot {
   readonly scores: readonly Score[];
   /** Display names by player id. */
   readonly names: Readonly<Record<string, string>>;
+  /** Each player's round trip (ms) as their client measured it. */
+  readonly pings: Readonly<Record<string, number>>;
   /** Ids of the props shot this match (mannequin heads knocked off), in the order they went. */
   readonly popped: readonly string[];
   readonly match: MatchStatus;
@@ -117,7 +123,8 @@ export function decodeClient(data: string): ClientMessage | null {
       if (!cmd || !isObject(c) || !Number.isInteger(c['seq'])) return null;
       out.push({ seq: c['seq'] as number, cmd });
     }
-    return { t: 'cmds', cmds: out };
+    const ping = value['ping'];
+    return finite(ping) ? { t: 'cmds', cmds: out, ping: Math.round(Math.min(9999, Math.max(0, ping))) } : { t: 'cmds', cmds: out };
   }
   return null;
 }

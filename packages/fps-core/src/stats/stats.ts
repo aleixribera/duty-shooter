@@ -283,7 +283,7 @@ export const STATS = {
    * Bullet penetration by material (ADR 0003). A bullet starts with the
    * budget and pays each penetrable solid's cost per metre of thickness; one
    * it cannot afford stops it. Damage is multiplied by each solid's
-   * multiplier. The aim is the Nuketown feel: house walls, fences, the bus
+   * multiplier. The aim is the classic small-town-map feel: house walls, fences, the bus
    * and car bodies are wallbang-able, two walls still kill at close range,
    * and brick, concrete, engine blocks and the ground are safe cover.
    */
@@ -298,7 +298,7 @@ export const STATS = {
       },
     },
     materials: {
-      // Siding and interior stud walls: the classic Nuketown wallbang. 0.2 m costs 0.4, so two walls go through.
+      // Siding and interior stud walls: the classic wallbang. 0.2 m costs 0.4, so two walls go through.
       wood: pierce(2, 0.75, 'Siding, stud walls, fences and doors: a 0.2 m wall costs 0.4 of the budget, so a bullet goes through two walls, at 75 % damage per wall.'),
       // Interior drywall is thinner and slightly softer than the siding.
       plaster: pierce(2.5, 0.8, 'Interior drywall: 0.12 m costs 0.3; 80 % damage per wall.'),

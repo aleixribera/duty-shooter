@@ -153,7 +153,7 @@ describe('map: range', () => {
   });
 
   it('spawns players standing on the ground, not inside geometry', () => {
-    for (const spawn of [map.rangeSpawn, ...map.arenaSpawns]) {
+    for (const spawn of [map.rangeSpawn]) {
       const match = standAt(spawn);
       const out = run(match, 0.5, () => usercmd({ yaw: spawn.yaw }));
       expect(out.at(-1)!.position).toEqual(spawn.position);

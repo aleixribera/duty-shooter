@@ -56,7 +56,25 @@ const PROFILES: Record<SoundEventName, Profile> = {
   killMarker: ui,
   headshotMarker: { ...ui, cap: 3 },
   damageTaken: { ...ui, cap: 3 },
+  // Heard across the whole town and far beyond: barely fades with distance, and rings off the desert.
+  nukeSiren: { cap: 1, ref: 40, rolloff: 0.5, send: 0.5, indoorSend: 0.3 },
+  nukeBlast: { cap: 1, ref: 600, rolloff: 0.2, send: 0.6, indoorSend: 0.4 },
+  // Ambience: the wind is a bed all round you; the rest come from where the map puts them, and fade fast.
+  ambientWind: { cap: 2, ref: 1, rolloff: 1, send: 0, indoorSend: 0 },
+  ambientBirds: { cap: 3, ref: 6, rolloff: 1, send: 0.3, indoorSend: 0.3 },
+  ambientCreak: { cap: 2, ref: 3, rolloff: 1.2, send: 0.15, indoorSend: 0.2 },
+  ambientRadio: { cap: 2, ref: 1.5, rolloff: 1.4, send: 0.1, indoorSend: 0.35 },
 };
+
+/**
+ * How much of an event's direct sound reaches a listener `distance` m away
+ * (the panner's inverse law); 1 for a sound that isn't placed in the world.
+ */
+export function distanceGain(event: SoundEventName, distance: number | null): number {
+  const p = PROFILES[event];
+  if (distance === null || p.ui) return 1;
+  return p.ref / (p.ref + p.rolloff * (Math.max(distance, p.ref) - p.ref));
+}
 
 /** Hard cap on simultaneous voices across all events. */
 const GLOBAL_CAP = 64;
@@ -283,8 +301,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       sendFrom = node;
       // The dry path falls off as ref / (ref + rolloff * (d - ref)); the diffuse tail falls off
       // only with its square root, so distant shots are quieter but relatively more reverberant.
-      const fall = profile.ref / (profile.ref + profile.rolloff * (Math.max(distance, profile.ref) - profile.ref));
-      sendScale = Math.sqrt(fall);
+      sendScale = Math.sqrt(distanceGain(event, distance));
     } else {
       input.connect(g.local);
     }
