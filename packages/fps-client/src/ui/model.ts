@@ -225,7 +225,7 @@ export function weaponCard(id: WeaponId): WeaponCard {
     role: row.traits.role,
     bars: [
       { key: 'rate', label: 'Rate of fire', value: h.fireRate.value / topRate, text: `${Math.round(h.fireRate.value)} rpm` },
-      { key: 'damage', label: 'Damage', value: Math.min(1, (pellets * perPellet) / STATS.health.max.value), text: pellets > 1 ? `${pellets} × ${perPellet}` : `${perPellet}` },
+      { key: 'damage', label: 'Damage', value: Math.min(1, (pellets * perPellet) / STATS.health.max.value), text: pellets > 1 ? `${pellets} Ã— ${perPellet}` : `${perPellet}` },
       { key: 'range', label: 'Range', value: Math.min(RANGE_CAP, reach) / RANGE_CAP, text: reach >= RANGE_CAP ? `${RANGE_CAP} m+` : `${Math.round(reach)} m` },
       { key: 'handling', label: 'Handling', value: quickest / bearTime(id), text: `ADS ${h.adsTime.value.toFixed(2)} s` },
     ],

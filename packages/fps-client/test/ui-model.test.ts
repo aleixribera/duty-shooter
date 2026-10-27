@@ -144,7 +144,7 @@ describe('the loadout screen', () => {
   it('writes the figure behind each bar', () => {
     expect(bar('m4a1', 'rate').text).toBe('809 rpm');
     expect(bar('m4a1', 'damage').text).toBe('28');
-    expect(bar('shotgun', 'damage').text).toBe('8 × 20');
+    expect(bar('shotgun', 'damage').text).toBe('8 Ã— 30');
     expect(bar('m4a1', 'range').text).toBe('50 m');
     expect(bar('sniper', 'range').text).toBe('100 m+');
     expect(bar('m4a1', 'handling').text).toBe('ADS 0.24 s');

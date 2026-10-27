@@ -43,6 +43,9 @@ const TRAIL = 0.4;
 const LOSE_TARGET = 0.6;
 /** How fast aim error settles (s). */
 const SETTLE = 0.35;
+/** A target counts as moving steadily when its velocity over two spans this long (s) differs by under `STEADY_CHANGE` (m/s). */
+const STEADY = 0.1;
+const STEADY_CHANGE = 1.2;
 /** Turning while not fighting (rad/s). */
 const LOOK_RATE = 200 * DEG;
 /** Fraction of the remaining turn made each second (easing, before the rate cap). */
@@ -53,30 +56,43 @@ const EASE = 16;
  * distance falls in, placed by how far the bot likes to fight, or null to keep
  * the profile's own (the M4A1, which the profiles were tuned on). `ads`: aims
  * down sights beyond this (m), null for the profile's. `reach`: fires only
- * this near (m). `push`: closes in even with the target in view. `scoped`:
- * stops to aim, fires only scoped in, and holds long lanes.
+ * this near (m). `push`: closes in even with the target in view. `rush`:
+ * sprints at a target in view farther than this (m), holding fire, or null.
+ * `scoped`: stops to aim, fires only scoped in, and holds long lanes.
+ * `hold`: with the target in view, closes in only beyond this (m); null for
+ * just beyond the preferred distance. `juke`: near its preferred distance, strafes all the time, changing
+ * direction this much more often.
  */
 interface Tactics {
   readonly range: readonly [number, number] | null;
   readonly ads: number | null;
   readonly reach: number;
   readonly push: boolean;
+  readonly rush: number | null;
+  readonly hold: number | null;
   readonly scoped: boolean;
+  readonly juke: number;
 }
 
 const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
-  m4a1: { range: null, ads: null, reach: Infinity, push: false, scoped: false },
-  smg: { range: [5, 10], ads: 12, reach: 45, push: true, scoped: false },
-  shotgun: { range: [2.5, 5], ads: 7, reach: 10, push: true, scoped: false },
-  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, scoped: true },
-  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, scoped: false },
+  m4a1: { range: null, ads: null, reach: Infinity, push: false, rush: null, hold: 35, scoped: false, juke: 1 },
+  smg: { range: [9, 13], ads: 10, reach: 45, push: false, rush: null, hold: 22, scoped: false, juke: 2 },
+  shotgun: { range: [2.5, 4], ads: 6, reach: 10, push: true, rush: 8, hold: null, scoped: false, juke: 1 },
+  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, rush: null, hold: null, scoped: true, juke: 1 },
+  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1 },
 };
 /** The profiles' fight ranges run from about this close to this far (m): a weapon's band is placed along it. */
 const FIGHT_RANGES: readonly [number, number] = [5, 26];
 /** With the primary dry and an enemy this near (m), out comes the pistol. */
 const PISTOL_RANGE = 10;
+/** Inside this range (m) a shotgun's cone covers the body: no need to line the shot up. */
+const POINT_BLANK = 7;
 /** A scoped bot backs off from a target this much closer than it likes. */
 const BACK_OFF = 0.45;
+/** Jukes within this far (m) beyond the preferred distance. */
+const JUKE_REACH = 5;
+/** Aimed enough to open fire, when aiming down sights. */
+const SIGHTED = 0.7;
 /** Scoped in enough to fire, and slow enough (m/s) to count as stopped. */
 const SCOPED_IN = 0.9;
 const STOPPED = 0.6;
@@ -92,6 +108,8 @@ const COOK = 1.2;
 const THROW_PAUSE = 6;
 /** A live frag this near (m) and in sight sends a bot running. */
 const FLEE_RANGE = STATS.grenade.radius.value;
+/** What a node in an enemy's sight adds to a route closing in on it (m of detour). */
+const EXPOSED = 6;
 /** Where a bot runs from a frag: nodes this far (m) around it. */
 const FLEE_SEARCH = 14;
 
@@ -279,34 +297,58 @@ export class Bot {
     let ads = false;
     let fire = false;
     const buttons: ButtonName[] = [];
+    const rushing = fighting && target !== null && target.visible && tactics.rush !== null && range > tactics.rush && self.weapon.ammo > 0;
     if (fighting && target && tp) {
       // Out of sight for a moment: keep aiming where it was last seen.
       const last = this.#memory.get(tp.id)?.position ?? tp.position;
       // Aim where the target was a moment ago, carried on the way it was moving then: a person's eye and hand
       // lag behind what moves and follow its motion, so they keep up with a steady strafe and fall behind when it turns.
-      const seen = this.#perceived(target, tp, time);
+      const flight = range / STATS.weapons[self.weapon.id].handling.muzzleVelocity.value;
+      const seen = this.#perceived(target, tp, time, flight);
       const point: Vec3 = target.visible ? zoneCentre(seen, target.zone) : [last[0], last[1] + 1.4, last[2]];
       const aim = anglesOf([point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]]);
       const settle = Math.exp(-TICK_SECONDS / SETTLE);
       const p = this.profile;
-      const wobble = p.aimError * p.wobble;
+      // A scope magnifies the picture, so the same unsteady hand is off by less of an angle.
+      const magnified = 1 + (STATS.weapons[self.weapon.id].handling.zoom.value - 1) * self.weapon.ads;
+      const wobble = (p.aimError * p.wobble) / magnified;
       target.errYaw = target.errYaw * settle + wobble * Math.sin(time * p.wobbleRate + (this.#seed % 7)) * (1 - settle);
-      target.errPitch = target.errPitch * settle + (wobble * 0.6 * Math.sin(time * p.wobbleRate * 1.3 + (this.#seed % 5)) + p.aimBias) * (1 - settle);
-      lookYaw = aim.yaw + target.errYaw;
-      lookPitch = aim.pitch + target.errPitch;
+      target.errPitch = target.errPitch * settle + (wobble * 0.6 * Math.sin(time * p.wobbleRate * 1.3 + (this.#seed % 5)) + p.aimBias / magnified) * (1 - settle);
+      // Through a scope, steer against the sway as far as the bot's hand is steady.
+      const [swayYaw, swayPitch] = self.weapon.sway;
+      lookYaw = aim.yaw + target.errYaw - swayYaw * p.recoilControl;
+      lookPitch = aim.pitch + target.errPitch - swayPitch * p.recoilControl;
       rate = p.turnRate;
+      // Rushing in: eyes on the route, which may swing out to cover, until the target is near.
+      const ahead = this.#lookAhead(self.position);
+      if ((rushing || (tactics.push && !target.visible)) && ahead && flat(self.position, ahead) > 0.5) {
+        lookYaw = yawTo(self.position, ahead);
+        lookPitch = 0;
+      }
       ads = range > (tactics.ads ?? p.adsRange) && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
       // A scope comes up only once the bot has stopped.
       if (tactics.scoped) ads = speed < STOPPED * 2;
-      if (target.visible) {
+      if (rushing) ads = false;
+      if (target.visible && !rushing) {
         // Fire once the view (with recoil) is where the bot means to aim, to within the body's width.
-        const off = Math.hypot(angleDelta(self.yaw, aim.yaw + target.errYaw), self.pitch - (aim.pitch + target.errPitch));
-        const tolerance = Math.atan2(0.32, Math.max(range, 1)) + (ads ? 0.4 : 1.2) * DEG;
+        // Through a scope, that's where the swaying reticle sits.
+        const off = Math.hypot(angleDelta(self.yaw + swayYaw, aim.yaw + target.errYaw), self.pitch + swayPitch - (aim.pitch + target.errPitch));
+        // One round a cycle (pump or bolt) is placed with care: a shotgun's cone centred on the body, or half the pellets go past it
+        // (but point blank, where the cone covers the body anyway); a rifle round inside the torso, not at its edge.
+        const mode = STATS.weapons[self.weapon.id].traits.fireMode;
+        const careful = mode === 'bolt' || (mode === 'pump' && range > POINT_BLANK);
+        const width = careful ? 0.2 : 0.32;
+        const tolerance = Math.atan2(width, Math.max(range, 1)) + (ads ? (careful ? 0.1 : 0.4) : 1.2) * DEG;
         // Sight is checked a few times a second; a shot checks it again, so a target that just stepped behind cover isn't shot through it.
         const clear = () => !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'head')) || !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
-        const ready = !tactics.scoped || (self.weapon.ads >= SCOPED_IN && speed < STOPPED);
+        // And only once the aim has settled on the body and the target has moved steadily for a moment, so the lead is right.
+        const lined = Math.hypot(target.errYaw, target.errPitch) < Math.atan2(width, Math.max(range, 1));
+        const steady = !careful || (lined && this.#steady(target, time));
+        // Sights on the way up: wait for them rather than spray the first rounds (the M4A1 keeps the profiles' tuned habit).
+        const sighted = !ads || tactics.range === null || self.weapon.ads >= SIGHTED;
+        const ready = steady && sighted && (!tactics.scoped || (self.weapon.ads >= SCOPED_IN && speed < STOPPED));
         if (off < tolerance && self.weapon.ammo > 0 && range <= tactics.reach && ready && clear()) {
-          if (STATS.weapons[self.weapon.id].traits.fireMode !== 'auto') {
+          if (mode !== 'auto') {
             // One round a press: release, then press again.
             fire = !(this.#lastButtons & Button.Fire);
           } else if (range > this.profile.burstRange) {
@@ -354,11 +396,16 @@ export class Bot {
     } else if (this.#throw) {
       // Standing still to throw.
     } else if (fighting && target && tp) {
-      const closeIn = tactics.scoped ? !target.visible : !target.visible || range > want + (tactics.push ? 2 : 4);
-      if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id);
+      // With the target in view, a bot closes in only beyond the distance its weapon holds at: walking straight at a gun is the easiest shot there is.
+      const holdAt = tactics.hold ?? want + (tactics.rush !== null && tactics.rush < 12 ? 0.5 : 2);
+      const closeIn = rushing || !target.visible || (!tactics.scoped && range > holdAt);
+      // Closing in to fight up close: by the way the target can't see.
+      if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id, tactics.push ? eyeOf(tp) : null);
       if (time >= this.#strafeUntil) {
-        this.#strafe = r(13) < this.profile.standStill ? 0 : r(14) < 0.5 ? -1 : 1;
-        this.#strafeUntil = time + this.profile.strafeTime * (0.6 + 0.8 * r(15));
+        // Jukes only near its own fighting distance; farther out it fights like anyone.
+        const juke = range < want + JUKE_REACH ? tactics.juke : 1;
+        this.#strafe = r(13) < this.profile.standStill && juke === 1 ? 0 : r(14) < 0.5 ? -1 : 1;
+        this.#strafeUntil = time + (this.profile.strafeTime * (0.6 + 0.8 * r(15))) / juke;
       }
       // A sniper stands still to shoot, and backs away from someone getting close.
       if (tactics.scoped && target.visible) {
@@ -395,7 +442,11 @@ export class Bot {
       // Sprint the long legs when nothing's in sight, and away from a frag; slide now and then.
       const long = this.#remaining(self.position) > 7;
       if (this.#flee && forward > 0.5 && !climbing) buttons.push('Sprint');
-      else if (!fighting && long && forward > 0.8 && !climbing) {
+      else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing) {
+        // Weaving a little on the way in.
+        right = 0.35 * Math.sin(time * 2.6 + (this.#seed % 13));
+        buttons.push('Sprint', 'TacticalSprint');
+      } else if (!fighting && long && forward > 0.8 && !climbing) {
         buttons.push('Sprint');
         if (this.#tactical) buttons.push('TacticalSprint');
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
@@ -569,8 +620,18 @@ export class Bot {
     this.#pitch = this.#lookPitch - this.#compPitch;
   }
 
-  /** The target as the bot perceives it: where it was `perceptionLag` ago, led on by its motion at the time. */
-  #perceived(target: Engagement, tp: PlayerOutput, time: number): HitPose {
+  /** Whether the target has moved steadily (no turn or sudden start) over the last moment the bot has seen. */
+  #steady(target: Engagement, time: number): boolean {
+    const seenUntil = time - this.profile.perceptionLag;
+    const at = (t: number) => target.trail.find((x) => x.time >= t)?.pose.position;
+    const [a, b, c] = [at(seenUntil - 2 * STEADY), at(seenUntil - STEADY), at(seenUntil)];
+    if (!a || !b || !c) return false;
+    const change = Math.hypot(c[0] - 2 * b[0] + a[0], c[2] - 2 * b[2] + a[2]) / STEADY;
+    return change < STEADY_CHANGE;
+  }
+
+  /** The target as the bot perceives it: where it was `perceptionLag` ago, led on by its motion at the time (and on for `flight` more seconds, the round's time in the air). */
+  #perceived(target: Engagement, tp: PlayerOutput, time: number, flight = 0): HitPose {
     const { perceptionLag: lag, tracking } = this.profile;
     const trail = target.trail;
     const i = trail.findIndex((t) => t.time >= time - lag);
@@ -579,7 +640,7 @@ export class Bot {
     const before = trail[Math.max(0, i - 6)]!;
     const dt = trail[i]!.time - before.time;
     if (dt <= 0) return then;
-    const lead = (lag * tracking) / dt;
+    const lead = ((lag + flight) * tracking) / dt;
     const p = then.position;
     const q = before.pose.position;
     return { ...then, position: [p[0] + (p[0] - q[0]) * lead, p[1] + (p[1] - q[1]) * lead, p[2] + (p[2] - q[2]) * lead] };
@@ -679,12 +740,12 @@ export class Bot {
   }
 
   /** The next point along the route to `goal` (a moving one is re-planned now and then). */
-  #follow(view: BotView, goal: Vec3, key: PlayerId): Vec3 | null {
+  #follow(view: BotView, goal: Vec3, key: PlayerId, unseenBy: Vec3 | null = null): Vec3 | null {
     const { self, time } = view;
     if (this.#chasing !== key || time >= this.#replanAt || this.#step >= this.#path.length) {
       this.#chasing = key;
       this.#replanAt = time + 1;
-      this.#plan(self.position, nearestNode(this.#nav, this.#world, goal), view);
+      this.#plan(self.position, nearestNode(this.#nav, this.#world, goal), view, true, unseenBy);
     }
     return this.#advance(self, goal);
   }
@@ -776,9 +837,22 @@ export class Bot {
   }
 
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */
-  #plan(from: Vec3, to: number, view: BotView, fresh = true): void {
+  #plan(from: Vec3, to: number, view: BotView, fresh = true, unseenBy: Vec3 | null = null): void {
     const start = nearestNode(this.#nav, this.#world, from);
-    const path = findPath(this.#nav, start, to) ?? [];
+    // Out of sight of `unseenBy` where there's a way: each node it can see costs as much as a detour.
+    const seen = new Map<number, number>();
+    const exposure = unseenBy
+      ? (i: number) => {
+          let c = seen.get(i);
+          if (c === undefined) {
+            const p = this.#nav.nodes[i]!.position;
+            c = sightBlocked(this.#world, unseenBy, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
+            seen.set(i, c);
+          }
+          return c;
+        }
+      : undefined;
+    const path = findPath(this.#nav, start, to, exposure) ?? [];
     this.#path = path;
     this.#step = 0;
     this.#from = from;

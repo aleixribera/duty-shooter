@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_NAMES, Bot, STATS, Simulation, botProfile, buildNavGraph, createWorld, parseLoadout, sightBlocked, viewDirection, type Loadout, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3, type WeaponId } from '@duty-shooter/fps-core';
-import { box, usercmd, type UserCmd } from '@duty-shooter/fps-core/harness';
+import { BOT_NAMES, Bot, STATS, Simulation, botProfile, buildNavGraph, createWorld, parseLoadout, sightBlocked, viewDirection, type Loadout, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type UserCmd, type Vec3, type WeaponId } from '@duty-shooter/fps-core';
+import { box, usercmd } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
 const AREA: [number, number][] = [

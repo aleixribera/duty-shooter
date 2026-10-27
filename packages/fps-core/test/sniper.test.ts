@@ -66,9 +66,10 @@ describe('the scope', () => {
 
   it('sends the shot where the sway points', () => {
     const m = holding('sniper', 60);
-    m.run(ticks(0.8), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads'], ...aimAt(m, 'upperTorso') }) }));
-    const me = playerIn(m.latest, SHOOTER);
-    expect(Math.hypot(...me.weapon.sway)).toBeGreaterThan(0.002);
+    // Scoped in, at a moment the sway has carried the aim well off the mark.
+    const swayed = () => playerIn(m.latest, SHOOTER).weapon;
+    for (let i = 0; i < ticks(1.2) && !(swayed().ads >= 1 && Math.hypot(...swayed().sway) > 0.004); i++) m.step({ [SHOOTER]: usercmd({ buttons: ['Ads'], ...aimAt(m, 'upperTorso') }) });
+    expect(Math.hypot(...swayed().sway)).toBeGreaterThan(0.004);
     // Aiming dead on without allowing for the sway misses the upper torso at 60 m.
     const aim = aimAt(m, 'upperTorso');
     const outputs = [m.step({ [SHOOTER]: trigger('sniper', 1 << 1, aim) }), ...m.run(ticks(0.3), () => ({ [SHOOTER]: aimed }))];

@@ -66,7 +66,7 @@ const killed = (outputs: readonly TickOutput[], victim: string) => outputs.findI
 
 describe('nav graph', () => {
   it('finds the shortest way through a small graph, and none to a node out of reach', () => {
-    const node = (x: number, z: number) => ({ position: [x, 0, z] as Vec3, indoor: false, precise: false });
+    const node = (x: number, z: number) => ({ position: [x, 0, z] as Vec3, indoor: false, precise: false, sightline: 0, sightYaw: 0 });
     const graph: NavGraph = {
       nodes: [node(0, 0), node(10, 0), node(10, 10), node(0, 10), node(50, 50)],
       links: [
