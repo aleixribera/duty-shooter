@@ -28,9 +28,10 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
-import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type Finish, type Look, type SurfaceLayout } from './surfaces';
-import { lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial } from './surface-materials';
-import { dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
+import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type Finish, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
+import { loadMapModels } from './map-models';
+import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial, useLighting } from './surface-materials';
+import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
 export interface RampShape {
@@ -57,6 +58,8 @@ export interface WorldContent {
   readonly finishes: Readonly<Record<string, Finish>>;
   readonly looks: readonly (Look | null)[];
   readonly decorations: readonly Decoration[];
+  /** Modelled things drawn in place of the solids they stand for (see ModelPlacement). */
+  readonly models?: MapModels | null;
   readonly indoorZones: readonly { readonly min: Vec3; readonly max: Vec3 }[];
   /** The Outposts zones, for the HUD's markers (none on a map without them). */
   readonly zones?: readonly Zone[];
@@ -70,6 +73,8 @@ export interface WorldContent {
   readonly horizon?: Horizon | null;
   /** The end-of-match nuke's ground zero and siren, if the map has one (see Nuke). */
   readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
+  /** The map's sun and sky (the afternoon if not given). */
+  readonly lighting?: Lighting;
   /** The map's ambient sound sources (see Ambience). */
   readonly ambience?: readonly AmbientSource[];
 }
@@ -258,6 +263,7 @@ export class WorldView {
 
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
+    useLighting(content.lighting ?? LIGHTING);
     scene.backgroundNode = skyNode(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     const pmrem = new PMREMGenerator(renderer);
@@ -267,7 +273,7 @@ export class WorldView {
     this.#sun = this.#makeSun();
     this.follow([0, 0, 0]);
 
-    const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones });
+    const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones, modelled: content.models?.placements.flatMap((p) => p.solids) ?? [] });
     const size = uniform(new Vector2(1, 1));
     const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0), shadowCentre: this.#shadowCentre as never, shadowRadius: this.#shadowRadius as never };
     for (const [key, geometry] of surfaceGeometries(layout, content.solids)) {
@@ -285,6 +291,13 @@ export class WorldView {
       ground.receiveShadow = true;
       const { x0, x1, z0, z1 } = content.horizon.inner;
       this.#root.add(ground, mountains((x0 + x1) / 2, (z0 + z1) / 2, finish.color));
+      if (content.horizon.town) this.#root.add(distantTown(content.horizon.town));
+    }
+    if (content.models) {
+      void loadMapModels(content.models, layout.finishes).then(
+        (group) => this.#root.add(group),
+        (error: unknown) => console.error(`Map models failed to load: ${String(error)}`),
+      );
     }
     void bake.then((file) => {
       if (!file) return;
@@ -350,7 +363,8 @@ export class WorldView {
 
   /** A fresh sun light in the scene. Three's lights divide by pi where the bake's light does not. */
   #makeSun(): DirectionalLight {
-    const sun = new DirectionalLight(new Color(...LIGHTING.sunColor), LIGHTING.sunIntensity * Math.PI);
+    const l = currentLighting();
+    const sun = new DirectionalLight(new Color(...l.sunColor), l.sunIntensity * Math.PI);
     sun.castShadow = true;
     this.scene.add(sun, sun.target);
     return sun;
@@ -472,7 +486,7 @@ export class WorldView {
   follow(position: Vec3): void {
     this.#shadowCentre.value.set(position[0], position[2]);
     if (this.#csm) return;
-    const d = LIGHTING.sunDirection;
+    const d = currentLighting().sunDirection;
     // The light's view: x and y across it, z toward the sun (as lookAt builds it with +y up).
     const z = new Vector3(d[0], d[1], d[2]);
     const x = new Vector3(0, 1, 0).cross(z).normalize();

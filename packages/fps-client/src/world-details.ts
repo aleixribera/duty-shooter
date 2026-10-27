@@ -1,8 +1,8 @@
 import type { Vec3 } from '@duty-shooter/fps-core';
 import { attribute, color, cos, dot, float, max, mix, normalWorld, positionLocal, sin, smoothstep, time, vec3 } from 'three/tsl';
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, PlaneGeometry, SRGBColorSpace } from 'three/webgpu';
-import { atlasUv, LIGHTING, type SurfaceLayout } from './surfaces';
-import { haze, type ProbeField } from './surface-materials';
+import { atlasUv, type SurfaceLayout } from './surfaces';
+import { haze, horizonColor, sunColor, sunDir, type ProbeField } from './surface-materials';
 
 /** Where a live sign's face goes: its centre on the board, facing `yaw`, and its size (m). */
 export interface SignPlacement {
@@ -101,6 +101,8 @@ export interface Horizon {
   readonly inner: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number };
   /** Open ground whose baked light the far ground borrows (x, z). */
   readonly light: readonly [number, number];
+  /** A town out on the plain, if the map looks out on one. */
+  readonly town?: DistantTown;
 }
 
 /** How far the far ground runs from the map's middle (m); the mountains stand inside it. */
@@ -284,11 +286,10 @@ export function mountains(cx: number, cz: number, ground: number): Mesh {
   g.computeBoundingSphere();
   // Lit by the sky and the sun, lighter on the ridges than in the gullies, then hazed with distance.
   const material = new MeshBasicNodeMaterial();
-  const sun = vec3(...LIGHTING.sunDirection);
   const y = positionLocal.y;
   const rock = mix(color(ground), mix(color(0x6f5b49), color(0x9d8467), smoothstep(float(20), float(110), y)), smoothstep(float(2), float(30), y));
-  const lit = rock.mul(vec3(0.42, 0.44, 0.47).add(vec3(...LIGHTING.sunColor).mul(LIGHTING.sunIntensity * 0.8).mul(max(dot(normalWorld, sun), float(0)))));
-  material.colorNode = haze(mix(lit, vec3(...LIGHTING.skyHorizon).mul(LIGHTING.skyIntensity), 0.1) as never);
+  const lit = rock.mul(vec3(0.42, 0.44, 0.47).add(sunColor.mul(0.8).mul(max(dot(normalWorld, sunDir), float(0)))));
+  material.colorNode = haze(mix(lit, horizonColor, 0.1) as never);
   const mesh = new Mesh(g, material);
   mesh.castShadow = false;
   mesh.receiveShadow = false;
@@ -351,6 +352,87 @@ export function dustMotes(zones: readonly { readonly min: Vec3; readonly max: Ve
   material.colorNode = color(0xfff1d6);
   material.opacityNode = float(0.04).add(probes.sun().mul(0.5));
   const mesh = new Mesh(geometry, material);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  return mesh;
+}
+
+/** A town out on the plain: where its blocks stand (x0..x1 by z0..z1) and a seed for their layout. */
+export interface DistantTown {
+  readonly x0: number;
+  readonly x1: number;
+  readonly z0: number;
+  readonly z1: number;
+  readonly seed: number;
+}
+
+/**
+ * A town far off on the plain at dusk: houses, a few taller blocks and
+ * chimneys as one mesh of boxes, dark against the sky with some of their
+ * windows lit, then hazed with distance. Drawn only; nothing reaches it.
+ */
+export function distantTown(town: DistantTown): Mesh {
+  const rand = random(town.seed);
+  const position: number[] = [];
+  const normal: number[] = [];
+  const index: number[] = [];
+  const box = (x: number, z: number, w: number, d: number, h: number) => {
+    const faces: [Vec3, Vec3, Vec3][] = [
+      // normal, then two edges from the corner (u along, v up or across).
+      [[1, 0, 0], [0, 0, -d], [0, h, 0]],
+      [[-1, 0, 0], [0, 0, d], [0, h, 0]],
+      [[0, 0, 1], [w, 0, 0], [0, h, 0]],
+      [[0, 0, -1], [-w, 0, 0], [0, h, 0]],
+      [[0, 1, 0], [w, 0, 0], [0, 0, -d]],
+    ];
+    const origin: Record<string, Vec3> = {
+      '1,0,0': [x + w / 2, 0, z + d / 2],
+      '-1,0,0': [x - w / 2, 0, z - d / 2],
+      '0,0,1': [x - w / 2, 0, z + d / 2],
+      '0,0,-1': [x + w / 2, 0, z - d / 2],
+      '0,1,0': [x - w / 2, h, z + d / 2],
+    };
+    for (const [n, u, v] of faces) {
+      const o = origin[n.join(',')]!;
+      const first = position.length / 3;
+      for (const [a, b] of [[0, 0], [1, 0], [1, 1], [0, 1]] as const) {
+        position.push(o[0] + u[0] * a + v[0] * b, o[1] + u[1] * a + v[1] * b, o[2] + u[2] * a + v[2] * b);
+        normal.push(...n);
+      }
+      index.push(first, first + 1, first + 2, first, first + 2, first + 3);
+    }
+  };
+  const w = town.x1 - town.x0;
+  const d = town.z1 - town.z0;
+  for (let i = 0; i < 260; i++) {
+    const x = town.x0 + rand() * w;
+    const z = town.z0 + rand() * d;
+    const tall = rand() < 0.08;
+    box(x, z, 8 + rand() * 10, 7 + rand() * 9, tall ? 18 + rand() * 22 : 5 + rand() * 5);
+  }
+  // A water tower and two works chimneys.
+  box(town.x0 + w * 0.3, town.z0 + d * 0.6, 10, 10, 34);
+  box(town.x0 + w * 0.72, town.z0 + d * 0.3, 4, 4, 55);
+  box(town.x0 + w * 0.76, town.z0 + d * 0.35, 4, 4, 48);
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(position, 3));
+  g.setAttribute('normal', new Float32BufferAttribute(normal, 3));
+  g.setIndex(index);
+  g.computeBoundingSphere();
+  const material = new MeshBasicNodeMaterial();
+  const p = positionLocal;
+  const light = vec3(0.3, 0.32, 0.38).add(sunColor.mul(0.5).mul(max(dot(normalWorld, sunDir), float(0))));
+  const lit = color(0x3a3532).mul(light as never);
+  // Windows: a grid on the walls, 3 m apart and 3.2 m up, about a quarter of them lit.
+  const along = normalWorld.x.abs().greaterThan(0.5).select(p.z, p.x);
+  const cellX = along.div(3).floor();
+  const cellY = p.y.div(3.2).floor();
+  const pick = sin(cellX.mul(12.9898).add(cellY.mul(78.233))).mul(43758.5453).fract();
+  const inside = along.div(3).fract().sub(0.5).abs().lessThan(0.22).and(p.y.div(3.2).fract().sub(0.55).abs().lessThan(0.18)).and(p.y.greaterThan(1.5));
+  const wall = normalWorld.y.lessThan(0.5);
+  const window = inside.and(wall).and(pick.greaterThan(0.74)).select(float(1), float(0));
+  material.colorNode = mix(haze(lit as never), color(0xffc27a).mul(2.2), window.mul(0.85)) as never;
+  const mesh = new Mesh(g, material);
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   return mesh;

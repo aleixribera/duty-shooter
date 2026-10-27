@@ -115,8 +115,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const at = import.meta.env.DEV ? params.get('at')?.split(',').map(Number) : undefined;
   const offlineSpawn = (map: MapDefinition): SpawnPoint =>
     at && at.length >= 2 && at.every(Number.isFinite) ? { position: [at[0]!, 0, at[1]!], yaw: at[2] ?? 0 } : map.offlineSpawn;
-  // Survival Town is the main menu's backdrop; `?map=range` starts on the range instead.
-  const initial: MapId = params.get('map') === 'range' ? 'range' : 'survival-town';
+  // Survival Town is the main menu's backdrop; `?map=<id>` (`range`, `switchyard`) starts on another map instead.
+  const initial: MapId = MAP_IDS.find((m) => m === params.get('map')) ?? 'survival-town';
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
@@ -395,7 +395,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
 }
 
 /** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
-const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town']);
+const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard']);
 
 /** The main menu's camera: metres per second along the map's fly-through. */
 const FLY_SPEED = 4;

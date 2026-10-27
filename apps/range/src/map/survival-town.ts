@@ -1,5 +1,5 @@
 import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
-import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
+import { LIGHTING, type Finish, type Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
@@ -1337,11 +1337,14 @@ export function buildSurvivalTown(): MapDefinition {
     finishes: FINISHES,
     looks: b.looks,
     decorations: b.decorations,
+    models: null,
     ramps: [],
     labels,
     populationSign,
     horizon: { ground: 'desert', inner: { x0: -90, x1: 90, z0: -90, z1: 90 }, light: [-80, -80] },
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.
+    lighting: LIGHTING,
+    lamps: [],
     nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14] },
     ambience: ambience(populationSign),
     spawns,

@@ -36,6 +36,10 @@ _Avoid_: breakable, destructible
 Visual-only geometry tied to the solid it decorates, kept within 5 cm of that solid's surface.
 _Avoid_: detail mesh
 
+**Map model**:
+A Blender model from a map's model file, drawn in place of the solids it stands for (a freight car's underframe, a tank's barrel). Those solids still collide and still cast shadows in the bake, but get no faces of their own, and every vertex of the model stays within 5 cm of them.
+_Avoid_: prop (that's a shootable solid), mesh
+
 ## Maps
 
 **Map**:

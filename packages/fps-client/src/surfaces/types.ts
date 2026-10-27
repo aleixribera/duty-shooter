@@ -22,7 +22,9 @@ export type Family =
   | 'plaster'
   | 'dirt'
   | 'gravel'
-  | 'tile';
+  | 'tile'
+  /** A lit lamp: it glows in its colour, whatever light falls on it. */
+  | 'lamp';
 
 /** One finish: a family in a colour (sRGB hex), with an optional second colour some families use (mortar, grooves, stripes). */
 export interface Finish {
@@ -59,6 +61,28 @@ export interface Decoration {
   readonly solid: number;
 }
 
+/**
+ * A model from the map's model file, placed in the world: its asset (a
+ * top-level node of the file, by name), turned `yaw` about +y (radians;
+ * its +x then looks along (cos yaw, 0, -sin yaw)) and moved to `position`.
+ * It draws `solids` (indices into the map's drawn solids) in their place:
+ * they keep colliding and casting shadows in the bake but get no faces of
+ * their own, and every vertex of the model lies within the decoration
+ * tolerance of one of them.
+ */
+export interface ModelPlacement {
+  readonly asset: string;
+  readonly position: Vec3;
+  readonly yaw: number;
+  readonly solids: readonly number[];
+}
+
+/** A map's models: the GLB file (a URL the page loads) and where each goes. */
+export interface MapModels {
+  readonly url: string;
+  readonly placements: readonly ModelPlacement[];
+}
+
 /** How far decoration may stand proud of the solid it decorates (m). */
 export const DECORATION_TOLERANCE = 0.05;
 
@@ -70,6 +94,8 @@ export interface SurfaceSpec {
   readonly decorations: readonly Decoration[];
   /** Boxes that count as indoors, for choosing inside finishes. */
   readonly indoor: readonly { readonly min: Vec3; readonly max: Vec3 }[];
+  /** Drawn solids a map model draws instead (see ModelPlacement): they get no faces. */
+  readonly modelled?: readonly number[];
 }
 
 /** The finish a solid of each material wears when its map gives it no look. */

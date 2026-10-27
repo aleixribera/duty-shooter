@@ -39,6 +39,7 @@ import {
   type DirectionalLight,
   LightingModel,
   LinearFilter,
+  MeshBasicNodeMaterial,
   MeshStandardNodeMaterial,
   NodeMaterial,
   PhysicalLightingModel,
@@ -48,7 +49,7 @@ import {
   type NodeBuilder,
 } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
-import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type ProbeGrid } from './surfaces';
+import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
 
 /**
  * How the world is lit in the browser: static surfaces from the baked
@@ -67,9 +68,44 @@ type N2 = Node<'vec2'>;
 type N3 = Node<'vec3'>;
 type N4 = Node<'vec4'>;
 
-const SUN = new Vector3(...LIGHTING.sunDirection);
-const sunDir = vec3(SUN.x, SUN.y, SUN.z);
-const sunColor = vec3(...LIGHTING.sunColor).mul(LIGHTING.sunIntensity);
+/**
+ * The current map's sun and sky, as uniforms every material reads, so a map
+ * with its own light (Switchyard's dusk) relights them all; see useLighting.
+ */
+const light = {
+  sunDirection: uniform(new Vector3(...LIGHTING.sunDirection)),
+  sunColor: uniform(new Vector3(...LIGHTING.sunColor)),
+  sunIntensity: uniform(LIGHTING.sunIntensity),
+  skyZenith: uniform(new Vector3(...LIGHTING.skyZenith)),
+  skyHorizon: uniform(new Vector3(...LIGHTING.skyHorizon)),
+  skyIntensity: uniform(LIGHTING.skyIntensity),
+  ground: uniform(new Vector3(...LIGHTING.ground)),
+};
+let current: Lighting = LIGHTING;
+
+/** Lights every world material with `lighting` from now on (a map's WorldView sets its own). */
+export function useLighting(lighting: Lighting): void {
+  current = lighting;
+  light.sunDirection.value.set(...lighting.sunDirection);
+  light.sunColor.value.set(...lighting.sunColor);
+  light.sunIntensity.value = lighting.sunIntensity;
+  light.skyZenith.value.set(...lighting.skyZenith);
+  light.skyHorizon.value.set(...lighting.skyHorizon);
+  light.skyIntensity.value = lighting.skyIntensity;
+  light.ground.value.set(...lighting.ground);
+}
+
+/** The light the world is drawn in now. */
+export function currentLighting(): Lighting {
+  return current;
+}
+
+/** Toward the sun, as a node. */
+export const sunDir = light.sunDirection as unknown as N3;
+/** The sun's colour times its strength, as a node. */
+export const sunColor = (light.sunColor as unknown as N3).mul(light.sunIntensity) as N3;
+/** The horizon's colour times the sky's strength, as a node: what the haze fades toward. */
+export const horizonColor = (light.skyHorizon as unknown as N3).mul(light.skyIntensity) as N3;
 /** Fill light (linear) added to the darkest baked light; warm, like light bounced off wood and plaster. */
 const INDOOR_FILL = [0.2, 0.18, 0.15] as const;
 
@@ -86,13 +122,13 @@ function decode(c: N3): N3 {
 
 /** The sky in direction `d`, as the bake sees it, with a warm glow round the sun. */
 export function skyNode(d: N3): N3 {
-  const z = vec3(...LIGHTING.skyZenith);
-  const h = vec3(...LIGHTING.skyHorizon);
+  const z = light.skyZenith as unknown as N3;
+  const h = light.skyHorizon as unknown as N3;
   const up = max(d.y, float(0));
-  const base = mix(h, z, sqrt(up)).mul(LIGHTING.skyIntensity);
+  const base = mix(h, z, sqrt(up)).mul(light.skyIntensity);
   const toSun = max(dot(d, sunDir), float(0));
-  const glow = vec3(...LIGHTING.sunColor).mul(pow(toSun, float(12)).mul(0.35).add(pow(toSun, float(900)).mul(12)));
-  const ground = vec3(...LIGHTING.ground).mul(0.9);
+  const glow = (light.sunColor as unknown as N3).mul(pow(toSun, float(12)).mul(0.35).add(pow(toSun, float(900)).mul(12)));
+  const ground = (light.ground as unknown as N3).mul(0.9);
   return mix(ground, base.add(glow), smoothstep(float(-0.04), float(0.02), d.y)) as N3;
 }
 
@@ -100,7 +136,7 @@ export function skyNode(d: N3): N3 {
 export function haze(lit: N3): N3 {
   const dist = length(positionWorld.sub(cameraPosition));
   const k = float(1).sub(exp(dist.mul(-0.0035)));
-  return mix(lit, vec3(...LIGHTING.skyHorizon).mul(LIGHTING.skyIntensity), k.mul(0.45)) as N3;
+  return mix(lit, horizonColor, k.mul(0.45)) as N3;
 }
 
 /** 0..1 value noise in world space. */
@@ -142,6 +178,7 @@ const SHINE: Readonly<Record<Family, { ks: number; power: number }>> = {
   dirt: { ks: 0.01, power: 4 },
   gravel: { ks: 0.02, power: 6 },
   tile: { ks: 0.2, power: 60 },
+  lamp: { ks: 0, power: 1 },
 };
 
 /**
@@ -234,6 +271,7 @@ function albedo(finish: Finish): N3 {
     }
     case 'glass':
     case 'plastic':
+    case 'lamp':
       return base;
   }
 }
@@ -340,9 +378,20 @@ class SurfaceMaterial extends NodeMaterial {
 /** The material for one finish on static, lightmapped surfaces. */
 export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   if (finish.family === 'glass') return glassMaterial(finish);
+  if (finish.family === 'lamp') return lampMaterial(finish);
   const a = albedo(finish);
   const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family]));
   m.colorNode = vec4(a, 1);
+  return m;
+}
+
+/** How much brighter than white a lit lamp glows (HDR, so the bloom catches it). */
+const LAMP_GLOW = 6;
+
+/** A lit lamp's glass: its colour, bright enough to bloom, unlit by anything else. */
+export function lampMaterial(finish: Finish): NodeMaterial {
+  const m = new MeshBasicNodeMaterial();
+  m.colorNode = vec4((color(finish.color) as unknown as N3).mul(LAMP_GLOW), 1);
   return m;
 }
 

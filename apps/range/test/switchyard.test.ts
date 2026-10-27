@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, sightBlocked, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
+import { surfaceSpec } from '../src/bake/spec';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { buildSurvivalTown } from '../src/map/survival-town';
 import { BOUNDARY, CAR_FLOOR, CLIMB_HIGH, CLIMB_LOW, CAR_ROOF, OPEN_BOXCARS, ROOF_CLIMBS, SIGNAL_BOX, SIGNAL_STAIRS, TRACKS, buildSwitchyard } from '../src/map/switchyard';
@@ -365,7 +366,9 @@ describe('Switchyard: bullets, materials and invisible blockers', () => {
   });
 
   it('no two drawn surfaces lie in the same plane facing the same way and overlapping (z-fighting)', () => {
-    const boxes = map.solids.filter((s) => !s.orientation);
+    // Solids a model draws have no faces of their own.
+    const modelled = new Set(map.models?.placements.flatMap((p) => p.solids));
+    const boxes = map.solids.filter((s, i) => !s.orientation && !modelled.has(i));
     const fights: string[] = [];
     for (const axis of [0, 1, 2] as const) {
       const [u, v] = axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1];
@@ -423,7 +426,7 @@ describe('Switchyard: cameras and surfaces', () => {
 
   it('gives every drawn solid a look slot and every look a known finish', () => {
     expect(map.looks).toHaveLength(map.solids.length);
-    const layout = layoutSurfaces(map.solids, { finishes: map.finishes, looks: map.looks, decorations: map.decorations, indoor: map.indoorZones });
+    const layout = layoutSurfaces(map.solids, surfaceSpec(map));
     for (const f of layout.faces) expect(f.finish in map.finishes || f.finish.startsWith('default:'), f.finish).toBe(true);
     expect(new Set(layout.faces.map((f) => f.finish)).size).toBeGreaterThan(20);
   });

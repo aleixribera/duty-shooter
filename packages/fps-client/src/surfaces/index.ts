@@ -12,9 +12,10 @@ export { readBakeFile, writeBakeFile } from './file';
 export type { BakeFile } from './file';
 export { decorationErrors, decorationFrame, frameFaces, insideFrame, isClear, solidFrame, surfaceFaces, toFrame } from './faces';
 export type { Face, Frame } from './faces';
-export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, skyRadiance } from './lighting';
+export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
+export type { Lamp, Lighting } from './lighting';
 export { DECORATION_TOLERANCE, DEFAULT_FINISHES, defaultFinishKey } from './types';
-export type { Decoration, Family, Finish, Look, SurfaceSpec } from './types';
+export type { Decoration, Family, Finish, Look, MapModels, ModelPlacement, SurfaceSpec } from './types';
 
 /** A map's surfaces, laid out: what both the bake and the renderer start from. */
 export interface SurfaceLayout {

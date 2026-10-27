@@ -1,5 +1,5 @@
 import type { ChargeSite, NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces';
+import type { Decoration, Finish, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -51,6 +51,8 @@ export interface MapDefinition {
   readonly looks: readonly (Look | null)[];
   /** Visual-only trim, each within 5 cm of the solid it sits on. */
   readonly decorations: readonly Decoration[];
+  /** Modelled things (Blender models) drawn in place of the solids they stand for, or null for a map without any. */
+  readonly models: MapModels | null;
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
   /**
@@ -68,7 +70,13 @@ export interface MapDefinition {
     readonly ground: string;
     readonly inner: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number };
     readonly light: readonly [number, number];
+    /** A town out on the plain, beyond the boundary: where its blocks stand and a seed for their layout. */
+    readonly town?: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number; readonly seed: number };
   };
+  /** The map's sun and sky, for its bake and its drawing. */
+  readonly lighting: Lighting;
+  /** Lamps baked into its lighting (their glowing heads are the map's own geometry). */
+  readonly lamps: readonly Lamp[];
   /**
    * The end-of-match nuke (drawn and heard only): where the bomb goes off,
    * on the ground out in the desert, and where the town's air-raid siren

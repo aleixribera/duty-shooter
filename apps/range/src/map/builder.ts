@@ -1,5 +1,5 @@
 import { box, orientedBox, playerClip, yawBox, type Blocks, type Material, type Solid, type Vec3 } from '@duty-shooter/fps-core';
-import { defaultFinishKey, type Decoration, type Look } from '@duty-shooter/fps-client/surfaces';
+import { defaultFinishKey, type Decoration, type Look, type ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 
 /** A gap in a wall (a door or window), measured along the wall in world coordinates. */
 export interface Opening {
@@ -110,7 +110,19 @@ export class Builder {
   /** Per drawn solid, its look (null: its material's default finish). */
   readonly looks: (Look | null)[] = [];
   readonly #decorations: { solid: Solid; center: Vec3; size: Vec3; yaw: number; finish: string }[] = [];
+  /** Models placed so far (see model). */
+  readonly models: ModelPlacement[] = [];
   #look: Look | null = null;
+
+  /**
+   * Places a model (an asset of the map's model file, turned `yaw` and moved
+   * to `position`) that draws every solid added inside `fn` in their place.
+   */
+  model(asset: string, position: Vec3, yaw: number, fn: () => void): void {
+    const from = this.solids.length;
+    fn();
+    this.models.push({ asset, position, yaw, solids: Array.from({ length: this.solids.length - from }, (_, i) => from + i) });
+  }
 
   /** Draws every solid added inside `fn` in `look` (a finish key for every face, or a look by face). */
   paint(look: Look | string, fn: () => void): void {

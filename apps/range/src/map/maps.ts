@@ -1,5 +1,5 @@
 import { buildMap, FACING_NEG_Z } from './map';
-import type { Finish } from '@duty-shooter/fps-client/surfaces';
+import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
 import { buildSwitchyard } from './switchyard';
@@ -38,10 +38,13 @@ export function buildRange(): MapDefinition {
     finishes: GRID_FINISHES,
     looks: map.solids.map((s) => ({ side: `grid:${s.material}` })),
     decorations: [],
+    models: null,
     ramps: map.ramps,
     labels: map.labels,
     populationSign: null,
     horizon: { ground: 'grid:grass', inner: { x0: -80, x1: 62, z0: -90, z1: 30 }, light: [-40, -80] },
+    lighting: LIGHTING,
+    lamps: [],
     nuke: null,
     ambience: [{ kind: 'wind' }],
     spawns: { ffa: [map.rangeSpawn, ...map.teamSpawns.flat()], teams: map.teamSpawns },

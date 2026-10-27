@@ -1,5 +1,5 @@
 import type { ChargeSite, Material, NavOptions, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
+import { linearRgb, normalize, type Finish, type Lamp, type Lighting, type Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
 
@@ -40,12 +40,19 @@ const BALLAST_H = 0.15;
 const RAIL_HALF_GAUGE = 0.7175;
 const RAIL_W = 0.07;
 const RAIL_H = 0.14;
-/** Freight cars: underframe bottom, floor (deck) height, roof top, half width, shell thickness. */
+/** Freight cars: underframe bottom, the deck plate's underside, floor (deck) height, roof top, half width, shell thickness. */
 const FRAME_BOTTOM = 0.3;
+const DECK_BOTTOM = 1.0;
 export const CAR_FLOOR = 1.1;
 export const CAR_ROOF = 3.9;
 const CAR_HALF = 1.5;
 const SHELL = 0.05;
+/** A tank car's barrel collision, three steps: inset from each end, half width, bottom and top. */
+export const TANK_STEPS: readonly (readonly [number, number, number, number])[] = [
+  [0.4, 0.7, 1.1, 3.7],
+  [0.5, 1.1, 1.3, 3.5],
+  [0.6, 1.4, 1.6, 3.2],
+];
 /** Track centre lines (z): the long lane's two tracks, the two rows of cars, and the shed road. */
 export const TRACKS = { north: -23.5, south: -17.5, rowA: -7, rowB: 1, shed: 18 } as const;
 /** The signal box's walls (centre lines) and its upper floor. */
@@ -118,7 +125,32 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   forklift: { family: 'paint', color: 0xd9a52b },
   bench: { family: 'floor', color: 0x6f5640, accent: 0x5a4433 },
   pole: { family: 'floor', color: 0x5e4734, accent: 0x4c3a2b },
+  'lamp.post': { family: 'paint', color: 0x4a5048 },
+  wheel: { family: 'paint', color: 0x2c2724 },
+  placard: { family: 'paint', color: 0xd27a2c },
+  grille: { family: 'paint', color: 0x26292b },
+  window: { family: 'glass', color: 0x1c2a33 },
+  'lamp.glow': { family: 'lamp', color: 0xffb25e },
 };
+
+/**
+ * Dusk: the sun a dozen degrees up in the south-west, orange, throwing long
+ * shadows north-east across the yard; a deep blue sky going orange at the
+ * horizon, and dim ground light.
+ */
+export const DUSK: Lighting = {
+  sunDirection: normalize([-0.6, 0.21, 0.75]),
+  sunColor: [1.0, 0.56, 0.3],
+  sunIntensity: 2.3,
+  sunSpread: 0.025,
+  skyZenith: [0.13, 0.19, 0.4],
+  skyHorizon: [1.0, 0.6, 0.38],
+  skyIntensity: 0.62,
+  ground: [0.3, 0.22, 0.16],
+};
+
+/** The sodium lamps' light (linear): deep orange-yellow. */
+const SODIUM = linearRgb(0xffb46a);
 
 /** An outside wall: its finish out, plaster in, trim on its ends, top and underside. */
 const wallLook = (outside: string, inside = 'plaster'): Look => ({ side: outside, inside, edge: 'trim', top: 'trim', bottom: 'trim' });
@@ -233,6 +265,78 @@ function buildScenery(b: Builder): void {
 }
 
 // ---------------------------------------------------------------------------
+// Sodium lamps.
+
+/** Which way a lamp's arm reaches from its post or wall. */
+type Reach = 'north' | 'south' | 'east' | 'west';
+const REACH: Readonly<Record<Reach, readonly [number, number]>> = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+
+/** Turns a model's +x toward each reach. */
+const REACH_YAW: Readonly<Record<Reach, number>> = { east: 0, north: Math.PI / 2, west: Math.PI, south: -Math.PI / 2 };
+/** A lamp head's housing: its length along the arm, width across it and height (the `lamp-head` model, glass underneath). */
+export const LAMP_HEAD = { along: 0.55, across: 0.32, height: 0.16 } as const;
+
+/** A lamp's glowing head (the `lamp-head` model): a housing on its arm's end with the glass under it; the light hangs just below the glass. */
+function lampHead(b: Builder, x: number, y: number, z: number, reach: Reach): Vec3 {
+  const [dx] = REACH[reach];
+  const hx = (dx ? LAMP_HEAD.along : LAMP_HEAD.across) / 2;
+  const hz = (dx ? LAMP_HEAD.across : LAMP_HEAD.along) / 2;
+  b.model('lamp-head', [x, y, z], REACH_YAW[reach], () => b.add([x - hx, y, z - hz], [x + hx, y + LAMP_HEAD.height, z + hz], 'metal', { look: 'lamp.post' }));
+  return [x, y - 0.3, z];
+}
+
+/** A lamp post at (x, z), 7.4 m tall, its arm reaching 1.2 m out; returns where its light is. */
+function lampPost(b: Builder, x: number, z: number, reach: Reach): Vec3 {
+  const [dx, dz] = REACH[reach];
+  const top = 7.4;
+  b.add([x - 0.1, 0, z - 0.1], [x + 0.1, top, z + 0.1], 'metal', { look: 'lamp.post' });
+  const ax = x + dx * 1.2;
+  const az = z + dz * 1.2;
+  // Its top a little under the post's, so the two never fight.
+  b.add([Math.min(x, ax) - 0.05, top - 0.18, Math.min(z, az) - 0.05], [Math.max(x, ax) + 0.05, top - 0.04, Math.max(z, az) + 0.05], 'metal', { look: 'lamp.post' });
+  return lampHead(b, ax + dx * 0.2, top - 0.3, az + dz * 0.2, reach);
+}
+
+/** A lamp on a wall at (x, z) (the wall's face), `y` up, its short arm reaching 0.6 m out. */
+function wallLamp(b: Builder, x: number, y: number, z: number, reach: Reach): Vec3 {
+  const [dx, dz] = REACH[reach];
+  const ax = x + dx * 0.6;
+  const az = z + dz * 0.6;
+  b.add([Math.min(x, ax) - 0.04, y + 0.16, Math.min(z, az) - 0.04], [Math.max(x, ax) + 0.04, y + 0.26, Math.max(z, az) + 0.04], 'metal', { look: 'lamp.post' });
+  return lampHead(b, ax, y, az, reach);
+}
+
+/** A lamp hanging from a roof whose underside is at `ceiling`, its glass `y` up. */
+function hangingLamp(b: Builder, x: number, y: number, z: number, ceiling: number): Vec3 {
+  b.add([x - 0.02, y + 0.16, z - 0.02], [x + 0.02, ceiling, z + 0.02], 'metal', { look: 'lamp.post' });
+  return lampHead(b, x, y, z, 'east');
+}
+
+/**
+ * The sodium lamps, just come on: posts along the main line's barrier, the
+ * alley between the cars and the service road; lamps on the signal box and
+ * the back wall; and lamps hanging in the shed and the workshop.
+ */
+function buildLamps(b: Builder): Lamp[] {
+  const post = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 34, range: 22 });
+  const small = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 12, range: 14 });
+  const inside = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 9, range: 12 });
+  return [
+    ...[-36, -12, 12, 32].map((x) => post(lampPost(b, x, -26.6, 'south'))),
+    post(lampPost(b, -27, -3, 'east')),
+    post(lampPost(b, 9, -3, 'west')),
+    ...[-38, -8, 16, 40].map((x) => post(lampPost(b, x, 3.9, 'south'))),
+    small(wallLamp(b, 21.5, 2.5, SIGNAL_BOX.z1 + 0.1, 'south')),
+    small(wallLamp(b, -20, 2.4, INNER_Z, 'north')),
+    small(wallLamp(b, 20, 2.4, INNER_Z, 'north')),
+    inside(hangingLamp(b, -2, 5.6, 16, 7)),
+    inside(hangingLamp(b, 12, 5.6, 16, 7)),
+    inside(hangingLamp(b, -38, 3.2, 18, 4)),
+    inside(hangingLamp(b, -30, 3.2, 18, 4)),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Track and freight cars.
 
 /**
@@ -266,18 +370,20 @@ type CarKind = 'flatbed' | 'open' | 'closed' | 'tank';
  * stepped steel barrel, flatbeds just the deck.
  */
 function car(b: Builder, kind: CarKind, x0: number, x1: number, c: number, finish: string): void {
-  b.add([x0, FRAME_BOTTOM, c - CAR_HALF], [x1, CAR_FLOOR, c + CAR_HALF], 'metal', { look: { side: 'steel', top: kind === 'flatbed' ? 'floor' : 'steel' } });
+  const mid = (x0 + x1) / 2;
+  const length = x1 - x0;
+  if (length !== 12 && length !== 9) throw new Error(`No underframe model for a ${length} m car`);
+  // The underframe and its bogies (modelled), under a deck plate.
+  b.model(`frame-${length}`, [mid, 0, c], 0, () => b.add([x0, FRAME_BOTTOM, c - CAR_HALF], [x1, DECK_BOTTOM, c + CAR_HALF], 'metal', { look: 'steel' }));
+  b.add([x0, DECK_BOTTOM, c - CAR_HALF], [x1, CAR_FLOOR, c + CAR_HALF], 'metal', { look: { side: 'steel', top: kind === 'flatbed' ? 'floor' : 'steel' } });
   if (kind === 'flatbed') return;
   if (kind === 'tank') {
-    // Narrow and tall, then wider and lower: a round barrel in steps, each a little shorter than the last.
-    b.paint({ side: finish, top: finish, bottom: 'steel' }, () => {
-      b.add([x0 + 0.4, CAR_FLOOR, c - 0.7], [x1 - 0.4, CAR_ROOF - 0.2, c + 0.7], 'metal');
-      b.add([x0 + 0.5, CAR_FLOOR + 0.2, c - 1.1], [x1 - 0.5, CAR_ROOF - 0.4, c + 1.1], 'metal');
-      b.add([x0 + 0.6, CAR_FLOOR + 0.5, c - 1.4], [x1 - 0.6, CAR_ROOF - 0.7, c + 1.4], 'metal');
+    // A round barrel (modelled) whose collision is three steps: narrow and tall, then wider and lower, each a little shorter than the last.
+    b.model('tank-car', [mid, 0, c], 0, () => {
+      for (const [inset, half, bottom, top] of TANK_STEPS) b.add([x0 + inset, bottom, c - half], [x1 - inset, top, c + half], 'metal', { look: finish });
     });
     return;
   }
-  const mid = (x0 + x1) / 2;
   const doors: Opening[] = kind === 'open' ? [{ from: mid - 1, to: mid + 1, bottom: 0, top: 2.3 }] : [];
   const shell = CAR_ROOF - SHELL - CAR_FLOOR;
   const look: Look = { side: finish, inside: 'steel', edge: finish, top: finish, bottom: 'steel' };
@@ -503,12 +609,14 @@ function buildEngineShed(b: Builder): void {
     east: [road],
   });
   flatRoof(b, { x0, x1, z0, z1, thickness: t }, 7, 0.3);
-  // The locomotive: underframe, the long hood and the cab at the east end.
-  b.paint({ side: 'loco', top: 'loco', bottom: 'steel' }, () => {
-    b.add([-1, FRAME_BOTTOM, TRACKS.shed - 1.4], [11, 1.2, TRACKS.shed + 1.4], 'metal');
-    b.add([-0.8, 1.2, TRACKS.shed - 1.1], [7, 3.6, TRACKS.shed + 1.1], 'metal');
+  // The locomotive (modelled): underframe and bogies, the long hood and the cab at the east end, round its walkway deck.
+  const z = TRACKS.shed;
+  b.model('loco', [5, 0, z], 0, () => {
+    b.add([-1, FRAME_BOTTOM, z - 1.4], [11, 1.1, z + 1.4], 'metal', { look: 'steel' });
+    b.add([-0.8, 1.2, z - 1.1], [7, 3.6, z + 1.1], 'metal', { look: 'loco' });
+    b.add([7, 1.2, z - 1.4], [10.8, 4.2, z + 1.4], 'metal', { look: { side: 'loco.cab', top: 'loco', bottom: 'steel' } });
   });
-  b.add([7, 1.2, TRACKS.shed - 1.4], [10.8, 4.2, TRACKS.shed + 1.4], 'metal', { look: { side: 'loco.cab', top: 'loco', bottom: 'steel' } });
+  b.add([-1, 1.1, z - 1.4], [11, 1.2, z + 1.4], 'metal', { look: { side: 'loco', top: 'steel', bottom: 'steel' } });
   // The inspection platform, with steps at each end.
   const back = z1 - t / 2;
   block(b, -4, 12, 21.5, back, CAR_FLOOR, 'concrete', 'slab');
@@ -552,10 +660,11 @@ function buildDepot(b: Builder): void {
   });
   for (const c of DEPOT_TANKS) {
     block(b, 28.5, 37.5, c - 0.8, c + 0.8, 0.6, 'concrete', 'slab');
-    b.paint({ side: 'tank.silver', top: 'tank.silver', bottom: 'steel' }, () => {
-      b.add([28.2, 0.6, c - 0.75], [37.8, 3.6, c + 0.75], 'metal');
-      b.add([28.1, 0.8, c - 1.15], [37.9, 3.4, c + 1.15], 'metal');
-      b.add([28, 1.2, c - 1.5], [38, 3.0, c + 1.5], 'metal');
+    // A round tank (modelled) lying on the plinth, whose collision is three steps.
+    b.model('depot-tank', [33, 0, c], 0, () => {
+      b.add([28.2, 0.6, c - 0.75], [37.8, 3.6, c + 0.75], 'metal', { look: 'tank.silver' });
+      b.add([28.1, 0.8, c - 1.15], [37.9, 3.4, c + 1.15], 'metal', { look: 'tank.silver' });
+      b.add([28, 1.2, c - 1.5], [38, 3.0, c + 1.5], 'metal', { look: 'tank.silver' });
     });
   }
   const pump = { x0: 40, x1: 44, z0: 14, z1: 19, thickness: 0.2 };
@@ -764,6 +873,7 @@ export function buildSwitchyard(): MapDefinition {
   buildWorkshop(b);
   buildDepot(b);
   buildScenery(b);
+  const lamps = buildLamps(b);
   buildBoundary(b);
   const spawns = spawnSets();
   return {
@@ -774,10 +884,14 @@ export function buildSwitchyard(): MapDefinition {
     finishes: FINISHES,
     looks: b.looks,
     decorations: b.decorations,
+    models: { url: 'models/switchyard.glb', placements: b.models },
     ramps: [],
     labels: [],
     populationSign: null,
-    horizon: { ground: 'land', inner: { x0: -160, x1: 160, z0: -120, z1: 120 }, light: [-120, 90] },
+    lighting: DUSK,
+    lamps,
+    // Out past the main line, a town on the plain.
+    horizon: { ground: 'land', inner: { x0: -160, x1: 160, z0: -120, z1: 120 }, light: [-120, 90], town: { x0: -380, x1: 260, z0: -470, z1: -330, seed: 1961 } },
     // The freight train comes with ticket 15.
     nuke: null,
     ambience: [{ kind: 'wind' }, { kind: 'birds', position: [0, 7.5, -29.5] }, { kind: 'birds', position: [-60, 7.5, -29.5] }, { kind: 'radio', position: [23.5, 4, -9] }],

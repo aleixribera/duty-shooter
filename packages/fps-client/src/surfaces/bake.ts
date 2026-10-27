@@ -1,12 +1,13 @@
 import { createWorld, raycastWorld, type Solid, type Vec3, type World } from '@duty-shooter/fps-core';
 import { ATLAS_BORDER, type Atlas } from './atlas';
 import { insideFrame, isClear, solidFrame, type Face, type Frame } from './faces';
-import { LIGHTING, encodeLight, skyRadiance } from './lighting';
+import { LIGHTING, encodeLight, skyRadiance, type Lamp, type Lighting } from './lighting';
 
 /**
  * The lighting bake: for every lightmap texel, how much sun reaches it
- * (soft-edged shadows) and how much light arrives from the sky and from
- * sunlit surfaces nearby (ambient occlusion and one bounce). Runs on the CPU
+ * (soft-edged shadows) and how much light arrives from the sky, from the
+ * map's lamps and from lit surfaces nearby (ambient occlusion and a bounce).
+ * Runs on the CPU
  * at build time; the output ships with the build.
  *
  * Passes can be split over texel ranges so the build can spread them over
@@ -37,8 +38,13 @@ export interface BakeInput {
   readonly atlas: Atlas;
   /** Linear albedo per face. */
   readonly albedo: readonly Vec3[];
+  /** The map's sun and sky (the afternoon if not given). */
+  readonly lighting?: Lighting;
+  /** Lamps lighting the map (none if not given). */
+  readonly lamps?: readonly Lamp[];
 }
 
+const ZERO: Vec3 = [0, 0, 0];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const len2 = (a: Vec3) => dot(a, a);
 
@@ -77,6 +83,8 @@ const HEMISPHERE: readonly [number, number, number][] = Array.from({ length: SKY
 
 export class Baker {
   readonly #input: BakeInput;
+  readonly #light: Lighting;
+  readonly #lamps: readonly Lamp[];
   readonly #world: World;
   /** Occluder index -> drawn solid index. */
   readonly #solidOf: number[];
@@ -92,6 +100,8 @@ export class Baker {
 
   constructor(input: BakeInput) {
     this.#input = input;
+    this.#light = input.lighting ?? LIGHTING;
+    this.#lamps = input.lamps ?? [];
     const occluders = input.solids.map((s, i) => ({ s, i })).filter(({ s }) => !isClear(s) && s.prop === null);
     this.#solidOf = occluders.map(({ i }) => i);
     this.#world = createWorld(occluders.map(({ s }) => (s.blocks === 'players' ? { ...s, blocks: 'both' as const } : s)));
@@ -150,12 +160,12 @@ export class Baker {
   }
 
   #sunVisibility(p: Vec3, seed: number): number {
-    const L = LIGHTING.sunDirection;
+    const L = this.#light.sunDirection;
     const [t1, t2] = tangents(L);
     let lit = 0;
     for (let r = 0; r < SUN_RAYS; r++) {
       const a = 2 * Math.PI * ((r + hash(seed)) / SUN_RAYS);
-      const s = LIGHTING.sunSpread * Math.sqrt((r + 0.5) / SUN_RAYS);
+      const s = this.#light.sunSpread * Math.sqrt((r + 0.5) / SUN_RAYS);
       const d: Vec3 = [L[0] + (t1[0] * Math.cos(a) + t2[0] * Math.sin(a)) * s, L[1] + (t1[1] * Math.cos(a) + t2[1] * Math.sin(a)) * s, L[2] + (t1[2] * Math.cos(a) + t2[2] * Math.sin(a)) * s];
       if (!raycastWorld(this.#world, p, [p[0] + d[0] * SUN_REACH, p[1] + d[1] * SUN_REACH, p[2] + d[2] * SUN_REACH])) lit++;
     }
@@ -167,7 +177,7 @@ export class Baker {
    * texel buried in another solid (filled from its neighbours later).
    */
   sun(from: number, to: number, out: Float32Array): void {
-    const L = LIGHTING.sunDirection;
+    const L = this.#light.sunDirection;
     for (let k = from; k < to; k++) {
       const { p, n, face } = this.#point(k);
       const f = this.#input.faces[face]!;
@@ -210,24 +220,50 @@ export class Baker {
    */
   #radiance(p: Vec3, d: Vec3, sun: Float32Array, bounce: Float32Array | null): Vec3 {
     const hit = raycastWorld(this.#world, p, [p[0] + d[0] * SKY_REACH, p[1] + d[1] * SKY_REACH, p[2] + d[2] * SKY_REACH]);
-    if (!hit) return skyRadiance(d);
+    if (!hit) return skyRadiance(d, this.#light);
     if (dot(hit.normal, d) > 0) return [0, 0, 0];
     const at = this.#texelAt(this.#solidOf[hit.solid]!, hit.point, hit.normal);
     if (!at) return [0, 0, 0];
     const a = this.#input.albedo[at.face]!;
-    const c = LIGHTING.sunColor;
-    const sunlit = LIGHTING.sunIntensity * Math.max(0, sun[at.texel]!);
+    const c = this.#light.sunColor;
+    const sunlit = this.#light.sunIntensity * Math.max(0, sun[at.texel]!);
     // Without an earlier pass, the surface's own skylight, roughly: half the open sky's.
-    const sky = 0.5 * LIGHTING.skyIntensity * 0.6;
+    const sky = 0.5 * this.#light.skyIntensity * 0.6;
     const k = 3 * at.texel;
     const [ir, ig, ib] = bounce && sun[at.texel]! >= 0 ? [bounce[k]!, bounce[k + 1]!, bounce[k + 2]!] : [sky, sky, sky];
     return [a[0] * (sunlit * c[0] + ir), a[1] * (sunlit * c[1] + ig), a[2] * (sunlit * c[2] + ib)];
   }
 
   /**
+   * Light reaching `p` straight from the lamps, on a surface facing `n` (or,
+   * with no `n`, the mean over every facing, for a probe). Each lamp fades
+   * with the square of distance and smoothly to nothing at its range, and a
+   * ray to it must get through: the lamp's own head (the last 30 cm) never
+   * blocks it.
+   */
+  #lampLight(p: Vec3, n: Vec3 | null): Vec3 {
+    const out: [number, number, number] = [0, 0, 0];
+    for (const lamp of this.#lamps) {
+      const d: Vec3 = [lamp.position[0] - p[0], lamp.position[1] - p[1], lamp.position[2] - p[2]];
+      const dist = Math.sqrt(len2(d));
+      if (dist >= lamp.range || dist < 1e-3) continue;
+      const cos = n ? dot(n, d) / dist : 0.25;
+      if (cos <= 0) continue;
+      const k = 1 - Math.min(0.3, dist) / dist;
+      if (raycastWorld(this.#world, p, [p[0] + d[0] * k, p[1] + d[1] * k, p[2] + d[2] * k])) continue;
+      const fade = (1 - (dist / lamp.range) ** 4) ** 2;
+      const e = (lamp.intensity * cos * fade) / Math.max(1, dist * dist);
+      out[0] += lamp.color[0] * e;
+      out[1] += lamp.color[1] * e;
+      out[2] += lamp.color[2] * e;
+    }
+    return out;
+  }
+
+  /**
    * Indirect pass over texels [from, to): mean incoming light over the
-   * hemisphere (cosine-weighted), RGB per texel. `bounce` is the previous
-   * indirect pass, or null on the first.
+   * hemisphere (cosine-weighted), plus the lamps' light, RGB per texel.
+   * `bounce` is the previous indirect pass, or null on the first.
    */
   indirect(sun: Float32Array, bounce: Float32Array | null, from: number, to: number, out: Float32Array): void {
     for (let k = from; k < to; k++) {
@@ -249,9 +285,10 @@ export class Baker {
         g += l[1];
         b += l[2];
       }
-      out[3 * k] = r / SKY_RAYS;
-      out[3 * k + 1] = g / SKY_RAYS;
-      out[3 * k + 2] = b / SKY_RAYS;
+      const lamps = this.#lamps.length ? this.#lampLight(p, n) : ZERO;
+      out[3 * k] = r / SKY_RAYS + lamps[0];
+      out[3 * k + 1] = g / SKY_RAYS + lamps[1];
+      out[3 * k + 2] = b / SKY_RAYS + lamps[2];
     }
   }
 
@@ -370,9 +407,10 @@ export class Baker {
             g += l[1];
             b += l[2];
           }
-          value[4 * k] = r / dirs.length;
-          value[4 * k + 1] = g / dirs.length;
-          value[4 * k + 2] = b / dirs.length;
+          const lamps = this.#lamps.length ? this.#lampLight(p, null) : ZERO;
+          value[4 * k] = r / dirs.length + lamps[0];
+          value[4 * k + 1] = g / dirs.length + lamps[1];
+          value[4 * k + 2] = b / dirs.length + lamps[2];
           value[4 * k + 3] = this.#sunVisibility(p, k * 3 + 11);
           ok[k] = 1;
         }

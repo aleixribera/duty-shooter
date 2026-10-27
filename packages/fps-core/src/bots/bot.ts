@@ -161,6 +161,16 @@ interface Engagement {
 const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, stance: p.stance, eyeHeight: p.eyeHeight });
 const eyeOf = (p: PlayerOutput): Vec3 => [p.position[0], p.position[1] + p.eyeHeight, p.position[2]];
 const flat = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[2] - a[2]);
+/** Whether `p` is partway along the leg a→b: between its ends, within 0.5 m of its line, at a's level. */
+function onLeg(p: Vec3, a: Vec3, b: Vec3): boolean {
+  const dx = b[0] - a[0];
+  const dz = b[2] - a[2];
+  const len = Math.hypot(dx, dz);
+  if (len < 0.1 || Math.abs(p[1] - a[1]) > 0.8) return false;
+  const along = ((p[0] - a[0]) * dx + (p[2] - a[2]) * dz) / len;
+  const across = Math.abs((p[0] - a[0]) * dz - (p[2] - a[2]) * dx) / len;
+  return along > 0 && along < len && across < 0.5;
+}
 /** `p` moved a random 0..`radius` m sideways (a rough idea of where something is). */
 const blur = (p: Vec3, radius: number, r1: number, r2: number): Vec3 => [p[0] + Math.cos(r1 * Math.PI * 2) * radius * r2, p[1], p[2] + Math.sin(r1 * Math.PI * 2) * radius * r2];
 const yawTo = (a: Vec3, b: Vec3) => Math.atan2(-(b[0] - a[0]), -(b[2] - a[2]));
@@ -916,7 +926,9 @@ export class Bot {
       : undefined;
     const path = findPath(this.#nav, start, to, exposure) ?? [];
     this.#path = path;
-    this.#step = 0;
+    // Replanned partway along the first leg (the nearest node is the one just left behind): carry on along it rather than turn back to its start.
+    // Out of a fight only: a fighting bot strafes off its route, so where it stands says nothing about which way it was going.
+    this.#step = this.#target === null && path.length > 1 && linkKind(this.#nav, path[0]!, path[1]!) !== 'climb' && onLeg(from, this.#nav.nodes[path[0]!]!.position, this.#nav.nodes[path[1]!]!.position) ? 1 : 0;
     this.#from = from;
     if (fresh) this.#progress = { position: from, time: view.time };
     this.#tactical = noise(this.#seed, view.tick, 40) < this.profile.tacticalSprint;
@@ -957,9 +969,17 @@ export class Bot {
     return linkKind(this.#nav, this.#path[this.#step - 1]!, this.#path[this.#step]!);
   }
 
-  /** A point a little ahead along the route, to look at while moving. */
+  /**
+   * A point a little ahead along the route, to look at while moving. Facing
+   * a climb, the ledge itself: a mantle goes the way the bot looks, and a
+   * look past the ledge (up a roof climb, say) can aim it off the crate.
+   */
   #lookAhead(from: Vec3): Vec3 | null {
     const nodes = this.#nav.nodes;
+    if (this.#nextLink() === 'climb') {
+      const p = nodes[this.#path[this.#step]!]!.position;
+      return [p[0], p[1] + 1.5, p[2]];
+    }
     for (let i = this.#step; i < this.#path.length; i++) {
       const p = nodes[this.#path[i]!]!.position;
       if (flat(from, p) > 3 || i === this.#path.length - 1) return [p[0], p[1] + 1.5, p[2]];

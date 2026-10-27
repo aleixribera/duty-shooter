@@ -15,7 +15,7 @@ import {
   type Scene,
 } from 'three/webgpu';
 import type { GraphicsPreset } from './settings';
-import { LIGHTING } from './surfaces';
+import { sunDir } from './surface-materials';
 
 /** Seconds after the match ends that the bomb goes off; the siren fills the time before. */
 export const DETONATION = 2.4;
@@ -67,7 +67,7 @@ function cloudMaterial(heat: Node<'float'>, seed: number, shadow = 0x5b4a3e, lig
   const p = positionLocal.mul(2.2).add(vec3(seed, time.mul(0.35), seed * 0.7));
   const bump = mx_noise_float(p).mul(0.16).add(mx_noise_float(p.mul(2.7)).mul(0.06));
   m.positionNode = positionLocal.add(normalLocal.mul(bump));
-  const sun = vec3(...LIGHTING.sunDirection);
+  const sun = sunDir;
   const lit = max(dot(normalWorld, sun), float(0));
   const smoke = mix(color(shadow), color(light), smoothstep(float(-0.4), float(0.9), normalWorld.y).mul(0.6).add(lit.mul(0.4)));
   const shade = float(0.55).add(lit.mul(0.75)).add(bump.mul(1.5));

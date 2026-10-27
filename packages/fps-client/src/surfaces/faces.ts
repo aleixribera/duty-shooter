@@ -133,7 +133,9 @@ export function surfaceFaces(solids: readonly Solid[], spec: SurfaceSpec): Face[
   const below = (origin: Vec3, u: Vec3, v: Vec3) => Math.max(origin[1], origin[1] + u[1], origin[1] + v[1], origin[1] + u[1] + v[1]) <= 0.0005;
 
   const out: Face[] = [];
+  const modelled = new Set(spec.modelled ?? []);
   solids.forEach((s, index) => {
+    if (modelled.has(index)) return;
     const frame = solidFrame(s);
     for (const f of frameFaces(frame)) {
       if (below(f.origin, f.u, f.v) && f.normal[1] < 0.7) continue;

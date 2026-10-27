@@ -1,4 +1,4 @@
-import { Baker, LIGHTING, layoutSurfaces, writeBakeFile, type ProbeGrid, type SurfaceLayout } from '@duty-shooter/fps-client/surfaces';
+import { Baker, layoutSurfaces, writeBakeFile, type ProbeGrid, type SurfaceLayout } from '@duty-shooter/fps-client/surfaces';
 import { buildMapById, type MapDefinition, type MapId } from '../map/maps';
 import { probeGrid, surfaceSpec } from './spec';
 
@@ -25,7 +25,7 @@ function prepare(id: MapId): Prepared {
   if (!p) {
     const map = buildMapById(id);
     const layout = layoutSurfaces(map.solids, surfaceSpec(map));
-    const baker = new Baker({ solids: map.solids, faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo });
+    const baker = new Baker({ solids: map.solids, faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo, lighting: map.lighting, lamps: map.lamps });
     p = { map, layout, baker, grid: probeGrid(map) };
     prepared.set(id, p);
   }
@@ -34,7 +34,7 @@ function prepare(id: MapId): Prepared {
 
 function fingerprint(p: Prepared): string {
   let h = 2166136261;
-  const text = JSON.stringify([BAKE_VERSION, LIGHTING, p.layout.key, p.map.solids, p.layout.faces.map((f) => f.finish), p.layout.finishes, p.grid]);
+  const text = JSON.stringify([BAKE_VERSION, p.map.lighting, p.map.lamps, p.layout.key, p.map.solids, p.layout.faces.map((f) => f.finish), p.layout.finishes, p.grid]);
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
   return h.toString(16);
 }

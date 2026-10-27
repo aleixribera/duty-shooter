@@ -44,7 +44,8 @@ import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
 import { bindingLabel, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
-import { LIGHTING, type BakeFile } from './surfaces';
+import type { BakeFile } from './surfaces';
+import { currentLighting } from './surface-materials';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
 const OPEN_AMBIENT = 0.4;
@@ -635,7 +636,7 @@ export class Game {
 
   /** Lights the gun like where the player stands: in the sun or not, and how bright the light round them is. */
   #lightViewmodel(eye: Vec3, dt: number): void {
-    const d = LIGHTING.sunDirection;
+    const d = currentLighting().sunDirection;
     const sun = sightBlocked(this.#world, eye, [eye[0] + d[0] * 80, eye[1] + d[1] * 80, eye[2] + d[2] * 80]) ? 0 : 1;
     const probe = this.#worldView.probes.sample(eye);
     const luma = probe ? 0.2126 * probe.ambient[0] + 0.7152 * probe.ambient[1] + 0.0722 * probe.ambient[2] : OPEN_AMBIENT;

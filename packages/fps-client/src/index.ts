@@ -11,6 +11,7 @@ export type { CameraFrame } from './camera';
 export { WorldView } from './world-view';
 export { loadBake } from './bake-loader';
 export type { RampShape, ShadowQuality, WorldContent, WorldLabel } from './world-view';
+export type { DistantTown } from './world-details';
 export { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 export type { PresetFeatures } from './pipeline';
 export { Effects } from './effects';

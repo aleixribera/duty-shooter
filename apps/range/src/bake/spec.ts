@@ -3,7 +3,7 @@ import type { MapDefinition } from '../map/definition';
 
 /** What the surface pipeline needs from a map. */
 export function surfaceSpec(map: MapDefinition): SurfaceSpec {
-  return { finishes: map.finishes, looks: map.looks, decorations: map.decorations, indoor: map.indoorZones };
+  return { finishes: map.finishes, looks: map.looks, decorations: map.decorations, indoor: map.indoorZones, modelled: map.models?.placements.flatMap((p) => p.solids) ?? [] };
 }
 
 /** Light probes over the playable area (or the whole range), from just above the ground to above the roofs. */
