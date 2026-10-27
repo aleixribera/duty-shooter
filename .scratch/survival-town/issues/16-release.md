@@ -59,3 +59,16 @@ The owner can publish it.
 - A live match through the nuke, the vote and the next match in a real browser. This server has software rendering only; see tickets 14 and 15.
 - The GPU budgets on the RTX 5060.
 - The Pages copy in a browser. Its menu logic is the same code path as the dev page with no server, which was screenshotted.
+
+**v1.2.1.** The v1.2.0 container build failed its smoke test. `apps/server/scripts/smoke.mjs` and `load-test.mjs` still joined with protocol 2, and the ping change bumped the protocol to 3. Both now send 3, released as v1.2.1. The v1.2.0 tag stays where it is, since a pushed tag is never moved.
+
+**Deployed.** The container workflow passed for v1.2.1, including the smoke test against the real image. The home server's `game-autoupdate` timer recreated the container on its own (the lobby was empty).
+
+Checks on the home server afterwards:
+
+- The container is healthy, running image `sha256:02b2e1bd…`.
+- `/healthz` reports `v1.2.1`.
+- `/status` reports `survival-town`, `tdm`, 0/8, playing.
+- The served bundle carries the new menu.
+
+The Pages workflow also passed. This commit (v1.2.2) only adds these notes; the timer rolls it out the same way.
