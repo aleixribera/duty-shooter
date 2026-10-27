@@ -31,6 +31,9 @@ export interface Finish {
   readonly family: Family;
   readonly color: number;
   readonly accent?: number;
+  /** How a map model in this finish shines, where it differs from its family's (glass, chrome); baked surfaces ignore these. */
+  readonly roughness?: number;
+  readonly metalness?: number;
 }
 
 /**

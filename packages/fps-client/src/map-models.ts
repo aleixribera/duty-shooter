@@ -1,4 +1,5 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { color, float, mix, vertexColor } from 'three/tsl';
 import { Color, Group, InstancedMesh, Matrix4, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type BufferGeometry, type Material, type Object3D } from 'three/webgpu';
 import { lampMaterial } from './surface-materials';
 import type { Family, Finish, MapModels, ModelPlacement } from './surfaces';
@@ -11,11 +12,24 @@ const SHEEN: Partial<Record<Family, { roughness: number; metalness: number }>> =
   plastic: { roughness: 0.5, metalness: 0 },
 };
 
-/** A model material for a finish: its colour, lit like the moving things (see WorldView.lightMoving), or a lamp's glow. */
-function modelMaterial(finish: Finish): Material {
+/** How much of the light baked occlusion takes away in the deepest creases: all of the ambient, part of the sun (contact shading). */
+const CREASE_SUN = 0.45;
+
+/**
+ * A model material for a finish: its colour, lit like the moving things (see
+ * WorldView.lightMoving), or a lamp's glow. A model with ambient occlusion
+ * baked into its vertex colours (`occluded`) darkens its creases with it.
+ */
+function modelMaterial(finish: Finish, occluded: boolean): Material {
   if (finish.family === 'lamp') return lampMaterial(finish);
   const sheen = SHEEN[finish.family] ?? { roughness: 0.85, metalness: 0 };
-  return new MeshStandardNodeMaterial({ color: new Color(finish.color), ...sheen });
+  const m = new MeshStandardNodeMaterial({ color: new Color(finish.color), roughness: finish.roughness ?? sheen.roughness, metalness: finish.metalness ?? sheen.metalness });
+  if (occluded) {
+    const ao = vertexColor().r;
+    m.aoNode = ao;
+    m.colorNode = color(finish.color).mul(mix(float(1 - CREASE_SUN), float(1), ao));
+  }
+  return m;
 }
 
 /** A placement's transform: turned `yaw` about +y, then moved to its position. */
@@ -33,13 +47,14 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
   const { scene } = await new GLTFLoader().loadAsync(models.url);
   scene.updateMatrixWorld(true);
   const materials = new Map<string, Material>();
-  const materialFor = (name: string) => {
-    let m = materials.get(name);
+  const materialFor = (name: string, occluded: boolean) => {
+    const key = `${name}${occluded ? ':ao' : ''}`;
+    let m = materials.get(key);
     if (!m) {
       const finish = finishes[name];
       if (!finish) throw new Error(`Map model material "${name}" names no finish`);
-      m = modelMaterial(finish);
-      materials.set(name, m);
+      m = modelMaterial(finish, occluded);
+      materials.set(key, m);
     }
     return m;
   };
@@ -54,7 +69,8 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
     root.traverse((o: Object3D) => {
       if (!(o instanceof Mesh)) return;
       const geometry = (o.geometry as BufferGeometry).clone().applyMatrix4(toRoot.clone().multiply(o.matrixWorld));
-      for (const m of Array.isArray(o.material) ? o.material : [o.material]) parts.push({ geometry, material: materialFor((m as Material).name) });
+      const occluded = geometry.hasAttribute('color');
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) parts.push({ geometry, material: materialFor((m as Material).name, occluded) });
     });
     const matrices = placements.map(placementMatrix);
     for (const part of parts) {

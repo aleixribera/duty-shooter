@@ -99,19 +99,25 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'ac.unit': { family: 'sheetMetal', color: 0xc4c9cc },
   soil: { family: 'dirt', color: 0x6f5841, accent: 0x5a4634 },
   // Vehicles and the boat.
-  'bus.paint': { family: 'paint', color: 0xe3a92b },
+  'bus.paint': { family: 'paint', color: 0xe3a92b, roughness: 0.35 },
   'bus.roof': { family: 'paint', color: 0xeeeae0 },
   'bus.trim': { family: 'paint', color: 0x26282b },
-  'van.paint': { family: 'paint', color: 0xe7e3d8 },
-  'van.stripe': { family: 'paint', color: 0x2f8a87 },
-  'pickup.paint': { family: 'paint', color: 0x9a3a2f },
-  'wagon.paint': { family: 'paint', color: 0x88aabd },
+  'van.paint': { family: 'paint', color: 0xe7e3d8, roughness: 0.35 },
+  'van.stripe': { family: 'paint', color: 0x2f8a87, roughness: 0.35 },
+  'pickup.paint': { family: 'paint', color: 0x9a3a2f, roughness: 0.35 },
+  'wagon.paint': { family: 'paint', color: 0x88aabd, roughness: 0.35 },
   'wagon.wood': { family: 'floor', color: 0x9a6a3f, accent: 0x7b5230 },
+  'wagon.frame': { family: 'floor', color: 0xc9a36b, accent: 0xa8844f, roughness: 0.55 },
   'window.tint': { family: 'paint', color: 0x2a3843 },
-  tyre: { family: 'plastic', color: 0x1e1f21 },
-  chrome: { family: 'sheetMetal', color: 0xc8ccd0 },
-  lamp: { family: 'plastic', color: 0xf3edd0 },
-  'tail.lamp': { family: 'plastic', color: 0xb3362c },
+  'auto.glass': { family: 'glass', color: 0x1c262d, roughness: 0.05, metalness: 0.1 },
+  tyre: { family: 'plastic', color: 0x1e1f21, roughness: 0.9 },
+  whitewall: { family: 'plastic', color: 0xe8e4da, roughness: 0.75 },
+  chrome: { family: 'sheetMetal', color: 0xc8ccd0, roughness: 0.18, metalness: 1 },
+  underbody: { family: 'paint', color: 0x232426, roughness: 0.85, metalness: 0.2 },
+  lamp: { family: 'plastic', color: 0xf3edd0, roughness: 0.15 },
+  'amber.lamp': { family: 'plastic', color: 0xe08a2a, roughness: 0.2 },
+  'tail.lamp': { family: 'plastic', color: 0xb3362c, roughness: 0.2 },
+  tarp: { family: 'plastic', color: 0x5e5b45, roughness: 0.95 },
   'boat.hull': { family: 'paint', color: 0xf1efe8 },
   'boat.stripe': { family: 'paint', color: 0x2b6f9e },
   'boat.deck': { family: 'floor', color: 0xb08355, accent: 0x8a6640 },
@@ -568,80 +574,43 @@ class Frame {
   }
 }
 
-/** Windows in a row along a part's sides: `count` panes `pane` long from `a0`, `gap` apart. */
-function windowRow(f: Frame, solid: Solid, p: Part, which: 1 | -1 | 0, a0: number, count: number, pane: number, gap: number, y0: number, y1: number): void {
-  for (let i = 0; i < count; i++) f.side(solid, p, which, a0 + i * (pane + gap), a0 + i * (pane + gap) + pane, y0, y1, 'window.tint', 0.012);
-}
-
 const BUS = { center: [5.4, 2.2] as const, yaw: 0.28, length: 12.2 };
 
-/** The cul-de-sac's vehicles: a school bus, a moving van, a pickup and a station wagon, all original designs. */
+/**
+ * The cul-de-sac's vehicles: a school bus, a moving van, a pickup and a
+ * station wagon, all original designs, modelled in Blender
+ * (tools/map/survival-town.py) over the boxes they collide as.
+ */
 function buildStreet(b: Builder): void {
+  const vehicle = (asset: string, center: readonly [number, number], yaw: number, parts: readonly Omit<Part, 'look'>[]) => {
+    const f = new Frame(b, center, yaw);
+    b.model(asset, [center[0], 0, center[1]], yaw, () => {
+      for (const p of parts) f.part({ ...p, look: 'underbody' });
+    });
+  };
   // The school bus, nose to the east: body and engine hood.
   const half = BUS.length / 2;
-  const bus = new Frame(b, BUS.center, BUS.yaw);
-  const body: Part = { from: -half, to: half - 1.8, width: 2.5, height: 3.1, material: 'sheetMetal', look: { side: 'bus.paint', top: 'bus.roof' } };
-  const hood: Part = { from: half - 1.8, to: half, width: 2.2, height: 1.45, material: 'metal', look: 'bus.paint' };
-  const bodySolid = bus.part(body);
-  const hoodSolid = bus.part(hood);
-  windowRow(bus, bodySolid, body, 0, -5.5, 7, 0.8, 0.2, 1.75, 2.55);
-  windowRow(bus, bodySolid, body, 1, 1.5, 2, 0.8, 0.2, 1.75, 2.55);
-  // The door on the curb side (the bus's right), and black rub rails up to it.
-  bus.side(bodySolid, body, -1, 2.15, 3.05, 0.35, 2.6, 'window.tint', 0.012);
-  for (const y of [0.95, 1.45]) {
-    bus.side(bodySolid, body, -1, -half + 0.1, 2.05, y, y + 0.08, 'bus.trim', 0.02);
-    bus.side(bodySolid, body, 1, -half + 0.1, half - 1.9, y, y + 0.08, 'bus.trim', 0.02);
-  }
-  bus.end(bodySolid, body, 1, -1.1, 1.1, 1.75, 2.6, 'window.tint');
-  bus.end(bodySolid, body, -1, -0.6, 0.6, 1.8, 2.5, 'window.tint');
-  bus.tail(bodySolid, body, 0.9);
-  bus.wheels(bodySolid, body, [-3.6, 3.45], 0.5);
-  bus.face(hoodSolid, hood, 0.6, 0.95);
-
+  vehicle('bus', BUS.center, BUS.yaw, [
+    { from: -half, to: half - 1.8, width: 2.5, height: 3.1, material: 'sheetMetal' },
+    { from: half - 1.8, to: half, width: 2.2, height: 1.45, material: 'metal' },
+  ]);
   // The moving van, its cab toward the pickup: box, cab and hood.
-  const van = new Frame(b, [-6.3, -3.0], 0.05);
-  const box: Part = { from: -4.2, to: 1.8, width: 2.5, height: 3.4, material: 'sheetMetal', look: 'van.paint' };
-  const cab: Part = { from: 1.8, to: 3.6, width: 2.3, height: 2.3, material: 'metal', look: { side: 'van.stripe', top: 'van.paint' } };
-  const vanHood: Part = { from: 3.6, to: 4.4, width: 2.0, height: 1.3, material: 'metal', look: 'van.stripe' };
-  const boxSolid = van.part(box);
-  const cabSolid = van.part(cab);
-  const vanHoodSolid = van.part(vanHood);
-  van.side(boxSolid, box, 0, -4.1, 1.7, 1.9, 2.3, 'van.stripe');
-  van.end(boxSolid, box, -1, -0.02, 0.02, 0.5, 3.2, 'bus.trim', 0.01);
-  van.tail(boxSolid, box, 0.8);
-  van.wheels(boxSolid, box, [-3.1, -1.9], 0.45);
-  van.side(cabSolid, cab, 0, 2.0, 3.3, 1.35, 2.0, 'window.tint', 0.012);
-  van.trim(cabSolid, 3.6 - SINK, 3.6 + 0.015, 1.35, 2.05, -1.0, 1.0, 'window.tint');
-  van.wheels(cabSolid, cab, [2.7], 0.45);
-  van.face(vanHoodSolid, vanHood, 0.5, 0.75);
-
+  vehicle('van', [-6.3, -3.0], 0.05, [
+    { from: -4.2, to: 1.8, width: 2.5, height: 3.4, material: 'sheetMetal' },
+    { from: 1.8, to: 3.6, width: 2.3, height: 2.3, material: 'metal' },
+    { from: 3.6, to: 4.4, width: 2.0, height: 1.3, material: 'metal' },
+  ]);
   // The pickup truck: bed, cab and hood.
-  const pickup = new Frame(b, [2.2, -3.6], -0.1);
-  const bed: Part = { from: -2.7, to: -0.4, width: 2.0, height: 1.0, material: 'sheetMetal', look: { side: 'pickup.paint', top: 'deck' } };
-  const pcab: Part = { from: -0.4, to: 1.3, width: 2.0, height: 1.8, material: 'metal', look: 'pickup.paint' };
-  const phood: Part = { from: 1.3, to: 2.7, width: 1.9, height: 1.15, material: 'metal', look: 'pickup.paint' };
-  const bedSolid = pickup.part(bed);
-  const pcabSolid = pickup.part(pcab);
-  const phoodSolid = pickup.part(phood);
-  pickup.tail(bedSolid, bed, 0.7);
-  pickup.wheels(bedSolid, bed, [-1.9], 0.4);
-  pickup.side(pcabSolid, pcab, 0, -0.25, 0.95, 1.15, 1.65, 'window.tint', 0.012);
-  pickup.trim(pcabSolid, -0.4 - 0.012, -0.4 + SINK, 1.15, 1.65, -0.7, 0.7, 'window.tint');
-  pickup.trim(pcabSolid, 1.3 - SINK, 1.3 + 0.012, 1.2, 1.7, -0.85, 0.85, 'window.tint');
-  pickup.wheels(phoodSolid, phood, [2.0], 0.4);
-  pickup.face(phoodSolid, phood, 0.45, 0.7);
-
-  // A woody station wagon parked across the street end.
-  const wagon = new Frame(b, [15.75, -0.75], Math.PI / 2 + 0.06);
-  const car: Part = { from: -2.4, to: 2.4, width: 1.9, height: 1.45, material: 'sheetMetal', look: 'wagon.paint' };
-  const carSolid = wagon.part(car);
-  wagon.side(carSolid, car, 0, -2.2, 1.2, 0.48, 0.92, 'wagon.wood');
-  windowRow(wagon, carSolid, car, 0, -2.2, 3, 1.0, 0.15, 1.0, 1.38);
-  wagon.end(carSolid, car, 1, -0.75, 0.75, 0.98, 1.38, 'window.tint');
-  wagon.end(carSolid, car, -1, -0.7, 0.7, 0.98, 1.36, 'window.tint');
-  wagon.wheels(carSolid, car, [-1.5, 1.5], 0.36);
-  wagon.face(carSolid, car, 0.45, 0.62);
-  wagon.tail(carSolid, car, 0.62);
+  vehicle('pickup', [2.2, -3.6], -0.1, [
+    { from: -2.7, to: -0.4, width: 2.0, height: 1.0, material: 'sheetMetal' },
+    { from: -0.4, to: 1.3, width: 2.0, height: 1.8, material: 'metal' },
+    { from: 1.3, to: 2.7, width: 1.9, height: 1.15, material: 'metal' },
+  ]);
+  // A woody station wagon parked across the street end: the body, and the glasshouse back from the windscreen.
+  vehicle('wagon', [15.75, -0.75], Math.PI / 2 + 0.06, [
+    { from: -2.4, to: 2.4, width: 1.9, height: 0.95, material: 'sheetMetal' },
+    { from: -2.4, to: 1.05, width: 1.8, height: 0.5, bottom: 0.95, material: 'glass' },
+  ]);
 }
 
 function buildYards(b: Builder): void {
@@ -1337,7 +1306,7 @@ export function buildSurvivalTown(): MapDefinition {
     finishes: FINISHES,
     looks: b.looks,
     decorations: b.decorations,
-    models: null,
+    models: { url: 'models/survival-town.glb', placements: b.models },
     ramps: [],
     labels,
     populationSign,
