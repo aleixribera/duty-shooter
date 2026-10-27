@@ -162,7 +162,7 @@ A setting for any team mode, not a mode of its own: every person plays on Blue, 
 _Avoid_: co-op, PvE
 
 **Bot Match**:
-An offline match against bots on Survival Town. The game server runs in the page.
+An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams up to 6v6 or as humans vs bots. The game server runs in the page.
 
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.

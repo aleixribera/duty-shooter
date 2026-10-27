@@ -179,16 +179,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const { map, solids } = load(id);
     play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
-  /** An offline match against bots on Survival Town, once its lighting is in. */
-  const playBots = async (mode: ModeId, botsPerTeam: number) => {
+  /** An offline match against bots on `id`, once its lighting is in. */
+  const playBots = async (id: MapId, mode: ModeId, botsPerTeam: number, hvb: boolean) => {
     menu.loading('Bot Match', null);
-    await whenLoaded('survival-town');
-    useMap('survival-town');
-    const { map, solids } = load('survival-town');
+    await whenLoaded(id);
+    useMap(id);
+    const { map, solids } = load(id);
     if (!map.nav) return;
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
+    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -196,8 +196,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     settings,
     {
       practiceRange: () => void playOffline('range'),
-      exploreTown: () => void playOffline('survival-town'),
-      botMatch: (mode: ModeId, botsPerTeam: number) => void playBots(mode, botsPerTeam),
+      explore: (id: string) => void playOffline(MAP_IDS.find((m) => m === id) ?? 'survival-town'),
+      botMatch: (id: string, mode: ModeId, botsPerTeam: number, hvb: boolean) => void playBots(MAP_IDS.find((m) => m === id) ?? 'survival-town', mode, botsPerTeam, hvb),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
         onlineName = name.trim() || 'You';

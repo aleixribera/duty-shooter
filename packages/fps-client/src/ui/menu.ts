@@ -1,7 +1,7 @@
-import { STATS, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, STATS, hvbBots, teamMode, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
-import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, matchSize, weaponCard, type LobbyInfo } from './model';
+import { MAP_NAMES, MODE_NAMES, connectionError, loadoutOptions, lobbyTile, matchSize, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, icon, installTheme } from './theme';
 
 export type { LobbyInfo } from './model';
@@ -116,13 +116,16 @@ const CSS = `
 .ds-bars .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ds-text-2); }
 `;
 
+/** The maps Bot Match plays on. */
+const BOT_MAPS = ['survival-town', 'switchyard'] as const;
+
 export interface MenuCallbacks {
   /** Practice on the range, offline. */
   practiceRange(): void;
-  /** Walk Survival Town, offline. */
-  exploreTown(): void;
-  /** A match against bots on Survival Town, offline: `botsPerTeam` a side (twice that in free-for-all, you included). */
-  botMatch(mode: ModeId, botsPerTeam: number): void;
+  /** Walk a map alone, offline. */
+  explore(map: string): void;
+  /** A match against bots on `map`, offline: `botsPerTeam` a side (twice that in free-for-all, you included), or humans vs bots in a team mode. */
+  botMatch(map: string, mode: ModeId, botsPerTeam: number, hvb: boolean): void;
   /** Join the server with this name and passphrase; `mode` and `bots` (a side) are the choices for an empty server, null for its own. */
   playOnline(name: string, passphrase: string, mode: ModeId | null, bots: number | null): void;
   /** Ask the lobby status endpoint again (Play Online, Retry). */
@@ -170,9 +173,11 @@ export class Menu {
   #mode: ModeId = 'tdm';
   /** An empty server's bots a side, as picked; null keeps the server's own fill. */
   #onlineBots: number | null = null;
-  /** Bot Match: the mode and the players a side. */
+  /** Bot Match: the map, the mode, the players a side and humans vs bots. */
+  #botMap: string = BOT_MAPS[0];
   #botMode: ModeId = 'tdm';
   #botsPerTeam = 3;
+  #botHvb = false;
   /** Loading: what, and how far (0-1, or null when unknown). */
   #loading: { title: string; progress: number | null } = { title: '', progress: null };
   /** Connecting: which step is under way. */
@@ -572,9 +577,10 @@ export class Menu {
         `<span class="ds-dot${t.online ? ' up' : ''}">${t.online ? (t.full ? 'Full' : 'Online') : 'Offline'}</span><div class="facts"><div><span class="ds-label">Players</span><span>${t.players}${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div></div>`,
       );
     }
-    tile('bots', 'Bot Match', 'Survival Town against bots. Offline.', () => this.show('bots'));
+    tile('bots', 'Bot Match', 'Either map, any mode, against bots. Offline.', () => this.show('bots'));
     tile('range', 'Practice Range', 'Lanes, dummies and the movement course. Offline.', () => this.#callbacks.practiceRange(), lobby?.kind !== 'server');
-    tile('town', 'Explore Survival Town', 'Walk the map alone. Offline.', () => this.#callbacks.exploreTown());
+    tile('town', 'Explore Survival Town', 'Walk the map alone. Offline.', () => this.#callbacks.explore('survival-town'));
+    tile('yard', 'Explore Switchyard', 'Walk the freight yard alone. Offline.', () => this.#callbacks.explore('switchyard'));
     tile('settings', 'Settings', 'Controls, keys, video and interface.', () => {
       this.#back = 'main';
       this.show('settings');
@@ -690,7 +696,7 @@ export class Menu {
     return row;
   }
 
-  /** Bot Match: the mode and the match size, then Start. */
+  /** Bot Match: the map, the mode, then the sides or the match size, then Start. */
   #renderBots(
     p: HTMLElement,
     h: (tag: string, text?: string, cls?: string) => HTMLElement,
@@ -698,11 +704,26 @@ export class Menu {
     button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | '') => HTMLButtonElement,
   ): void {
     heading(p, 'Bot Match', 'bots');
-    p.append(h('p', 'Survival Town against bots that play like moderate players. Offline: the match pauses with the game.'));
+    p.append(h('p', 'Against bots that play like moderate players. Offline: the match pauses with the game.'));
+    p.append(h('h3', 'Map'), this.#choices(h, BOT_MAPS, this.#botMap, (m) => MAP_NAMES[m] ?? m, (m) => (this.#botMap = m)));
     p.append(h('h3', 'Mode'));
     const modes = h('div', '', 'ds-modes');
-    const sizes = () => this.#choices(h, [1, 2, 3, 4], this.#botsPerTeam, (n) => matchSize(this.#botMode, n), (n) => (this.#botsPerTeam = n));
-    let size = sizes();
+    // Team modes offer humans vs bots, which sizes the bot team itself; otherwise the match size.
+    const size = h('div');
+    const sizes = () => {
+      const sides = teamMode(this.#botMode);
+      size.replaceChildren();
+      if (sides) {
+        const pick = (v: boolean) => {
+          this.#botHvb = v;
+          sizes();
+        };
+        size.append(h('h3', 'Sides'), this.#choices(h, [false, true], this.#botHvb, (v) => (v ? 'Humans vs bots' : 'Mixed teams'), pick));
+      }
+      if (sides && this.#botHvb) size.append(h('p', `You on Blue against ${hvbBots(1, MAX_BOTS_PER_TEAM, DEFAULT_MAX_PLAYERS)} bots on Orange.`));
+      else size.append(h('h3', 'Match size'), this.#choices(h, [1, 2, 3, 4, 5, 6], this.#botsPerTeam, (n) => matchSize(this.#botMode, n), (n) => (this.#botsPerTeam = n)));
+    };
+    sizes();
     for (const [mode, desc] of [
       ['tdm', 'Your team against theirs.'],
       ['ffa', 'Everyone for themselves.'],
@@ -715,17 +736,15 @@ export class Menu {
       b.addEventListener('click', () => {
         this.#botMode = mode;
         for (const m of modes.children) m.classList.toggle('on', m === b);
-        // The size labels count players the mode's way.
-        const next = sizes();
-        size.replaceWith(next);
-        size = next;
+        // The size labels count players the mode's way, and only team modes have sides.
+        sizes();
       });
       modes.append(b);
     }
-    p.append(modes, h('h3', 'Match size'), size);
+    p.append(modes, size);
     const row = h('div', '', 'ds-btns');
     p.append(row);
-    const start = button(row, 'Start', () => this.#callbacks.botMatch(this.#botMode, this.#botsPerTeam), 'primary');
+    const start = button(row, 'Start', () => this.#callbacks.botMatch(this.#botMap, this.#botMode, this.#botsPerTeam, this.#botHvb && teamMode(this.#botMode)), 'primary');
     button(row, 'Back', () => this.show('main'), 'back');
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => start.focus());
   }
