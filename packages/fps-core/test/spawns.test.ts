@@ -108,7 +108,7 @@ describe('spawn rules', () => {
     const tdm = new TeamDeathmatch();
     tdm.start([{ id: 'p1', name: 'enemy', team: 2 }]);
     tdm.chooseSpawn('p1', ctx);
-    tdm.join('p9', 'me', ctx);
+    tdm.join('p9', 'me');
     const spawn = tdm.chooseSpawn('p9', ctx);
     expect(spawn).not.toBe(home);
     expect(Math.hypot(spawn.position[0], spawn.position[2] - 26)).toBeGreaterThan(8);
