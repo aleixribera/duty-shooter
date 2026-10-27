@@ -45,6 +45,13 @@ _Avoid_: level
 **Survival Town**:
 The recreation of the original 2010 Nuketown, and the public lobby's map. Never call it "Nuketown" in the product.
 
+**Switchyard**:
+The second lobby map, original to Duty Shooter: a freight rail yard at dusk with three lanes. The long lane (open running track) is in the north, the middle lane (two rows of freight cars, with an alley between) runs through the centre, and the close lane (workshop, engine shed, fuel depot) is in the south. The signal box stands between the long lane and the cars. Team 1 starts at the west end and team 2 at the east end.
+_Avoid_: rail yard, train map
+
+**Open boxcar**:
+A freight car on Switchyard with a door in each side and pallet steps up to it, so players run through it between the lanes. A closed boxcar has no doors; crates beside some of them climb to the roof.
+
 **Practice Range**:
 The offline range map: firing lanes, dummies, the sniping lane, the loadout station and the movement course.
 _Avoid_: the range app (that's the `apps/range` package, which hosts both maps)
@@ -103,7 +110,7 @@ The round-based team mode. The attackers carry a charge to one of the map's two 
 _Avoid_: bomb, search and destroy, demolition
 
 **Charge site**:
-One of the two places on a map where the attackers can plant the charge: a box volume from the map definition. On Survival Town both are at the south house, the defenders' end.
+One of the two places on a map where the attackers can plant the charge: a box volume from the map definition. Both are at the defenders' end. On Survival Town they are at the south house; on Switchyard they are the signal box's lever room and the fuel depot.
 _Avoid_: bomb site, objective (on its own)
 
 **Round**:

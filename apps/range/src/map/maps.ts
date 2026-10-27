@@ -2,6 +2,7 @@ import { buildMap, FACING_NEG_Z } from './map';
 import type { Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
+import { buildSwitchyard } from './switchyard';
 
 /** The range keeps its measuring grid: every material in a grid finish (base tint, line colour). */
 const GRID_FINISHES: Readonly<Record<string, Finish>> = Object.fromEntries(
@@ -73,9 +74,9 @@ export function buildRange(): MapDefinition {
   };
 }
 
-export const MAP_IDS: readonly MapId[] = ['survival-town', 'range'];
+export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range'];
 
-const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, range: buildRange };
+const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange };
 
 /** Builds a map by id. Each call builds afresh. */
 export function buildMapById(id: MapId): MapDefinition {

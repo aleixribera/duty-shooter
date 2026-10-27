@@ -3,7 +3,7 @@ import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
-export type MapId = 'survival-town' | 'range';
+export type MapId = 'survival-town' | 'switchyard' | 'range';
 
 /** A box the audio treats as indoors (reverb). */
 export interface IndoorZone {
