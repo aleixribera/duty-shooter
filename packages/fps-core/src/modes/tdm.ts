@@ -1,6 +1,6 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
 import type { GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, Score, SpawnPoint, TeamScore } from './game-mode';
-import { scoredSpawn } from './spawns';
+import { RecentSpawns, scoredSpawn } from './spawns';
 
 export interface TeamDeathmatchOptions {
   /** Team kills that win the match; null for none. Defaults to 75. */
@@ -44,6 +44,7 @@ export class TeamDeathmatch implements GameMode {
   readonly #spawned = new Set<PlayerId>();
   /** Rotates through each team's first spawns. */
   readonly #nextFirst = new Map<TeamId, number>();
+  readonly #recent = new RecentSpawns();
 
   constructor(options: TeamDeathmatchOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 75 : options.killLimit;
@@ -62,6 +63,7 @@ export class TeamDeathmatch implements GameMode {
   leave(id: PlayerId): void {
     this.#entries.delete(id);
     this.#spawned.delete(id);
+    this.#recent.forget(id);
   }
 
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
@@ -76,21 +78,22 @@ export class TeamDeathmatch implements GameMode {
     if (first && own && own.length > 0) {
       const i = this.#nextFirst.get(team) ?? 0;
       this.#nextFirst.set(team, i + 1);
-      return own[i % own.length] as SpawnPoint;
+      return this.#recent.add(id, own[i % own.length] as SpawnPoint);
     }
     const living = ctx.players.filter((p) => p.id !== id && p.alive);
     const mates = living.filter((p) => p.team === team);
     const enemies = living.filter((p) => p.team !== team);
     const candidates = [...(ctx.teamSpawns ?? []).flat(), ...ctx.spawns];
-    const spawn = scoredSpawn(candidates, mates, enemies, ctx);
+    const spawn = scoredSpawn(candidates, mates, enemies, ctx, this.#recent.of(id));
     if (!spawn) throw new Error('No spawn points');
-    return spawn;
+    return this.#recent.add(id, spawn);
   }
 
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
     this.#entries.clear();
     this.#spawned.clear();
     this.#nextFirst.clear();
+    this.#recent.clear();
     this.#result = null;
     const [a, b] = TEAMS;
     // Players keep their team where they had one; the rest fill the smaller team.

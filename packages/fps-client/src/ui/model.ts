@@ -7,6 +7,11 @@ export interface LobbyInfo {
   readonly players: number;
   readonly capacity: number;
   readonly phase: string;
+  /** Bots playing now, and the fill a side (absent from servers older than bots). */
+  readonly bots?: number;
+  readonly botsPerTeam?: number;
+  /** The most bots a side a first joiner may pick; 0 when the server has bots off. */
+  readonly maxBotsPerTeam?: number;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
@@ -23,6 +28,8 @@ export function ordinal(n: number): string {
 export interface BoardRow {
   readonly id: PlayerId;
   readonly name: string;
+  /** Played by the server, shown with a BOT tag. */
+  readonly bot: boolean;
   readonly kills: number;
   readonly deaths: number;
   /** Round trip in ms, or null when the server has not heard it yet. */
@@ -41,7 +48,7 @@ function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>
   return sorted.map((s, i) => {
     let place = i + 1;
     while (place > 1 && sorted[place - 2]!.kills === s.kills && sorted[place - 2]!.deaths === s.deaths) place--;
-    return { id: s.id, name: s.name, kills: s.kills, deaths: s.deaths, ping: pings[s.id] ?? null, place };
+    return { id: s.id, name: s.name, bot: s.bot === true, kills: s.kills, deaths: s.deaths, ping: pings[s.id] ?? null, place };
   });
 }
 
@@ -125,11 +132,16 @@ export interface LobbyTile {
   /** An empty server lets the first player choose the mode. */
   readonly pickMode: boolean;
   readonly full: boolean;
+  /** Bots playing now (they give their seat to anyone who joins). */
+  readonly bots: number;
+  /** The fill the server starts with, and the most bots a side a first player may pick (0: bots off). */
+  readonly botsPerTeam: number;
+  readonly maxBotsPerTeam: number;
 }
 
 /** The Play Online tile's lines from the lobby status, or the server shown as down. */
 export function lobbyTile(status: LobbyInfo | null): LobbyTile {
-  if (!status) return { online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false };
+  if (!status) return { online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 };
   return {
     online: true,
     players: `${status.players}/${status.capacity}`,
@@ -137,5 +149,13 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
     map: MAP_NAMES[status.map] ?? status.map,
     pickMode: status.players === 0,
     full: status.players >= status.capacity,
+    bots: status.bots ?? 0,
+    botsPerTeam: status.botsPerTeam ?? 0,
+    maxBotsPerTeam: status.maxBotsPerTeam ?? 0,
   };
+}
+
+/** How a match of `perTeam` a side reads in `mode`: "3v3", or "6 players" in free-for-all (you included). */
+export function matchSize(mode: ModeId, perTeam: number): string {
+  return mode === 'tdm' ? `${perTeam}v${perTeam}` : `${perTeam * 2} players`;
 }

@@ -205,7 +205,7 @@ describe('penetration over the network', () => {
       { position: [0, 0, 0], yaw: 0 },
       { position: [0, 0, -20], yaw: Math.PI },
     ];
-    const m = createNetworkedMatch({ solids: [FLOOR, wall(-10, 'wood', 0.15)], spawns: LANE, latency: 0.08, jitter: 0.02, loss: 0.05, seed: 7 });
+    const m = createNetworkedMatch({ solids: [FLOOR, wall(-10, 'wood', 0.15)], spawns: LANE, latency: 0.08, jitter: 0.02, loss: 0.05, seed: 7, spawnProtection: 0 });
     const alice = m.join('alice');
     const bob = m.join('bob');
     for (let i = 0; i < ticks(3) && [alice, bob].some((c) => c.client.status !== 'joined' || !c.latest?.self); i++) m.step();

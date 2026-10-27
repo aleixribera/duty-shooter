@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PROTOCOL_VERSION } from '@duty-shooter/fps-core';
 import { optionsFromEnv, startServer, type RunningServer } from '../src/server';
 
 describe('lobby status endpoint', () => {
@@ -22,7 +23,38 @@ describe('lobby status endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'playing' });
+    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'playing', bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
+  });
+});
+
+describe('server bots setting', () => {
+  it('reads BOTS_PER_TEAM and MAX_BOTS_PER_TEAM from the environment: 3 and 4 by default, at most 4', () => {
+    expect(optionsFromEnv({}, 'dist')).toMatchObject({ botsPerTeam: 3, maxBotsPerTeam: 4 });
+    expect(optionsFromEnv({ BOTS_PER_TEAM: '0' }, 'dist')).toMatchObject({ botsPerTeam: 0, maxBotsPerTeam: 4 });
+    expect(optionsFromEnv({ MAX_BOTS_PER_TEAM: '0' }, 'dist')).toMatchObject({ botsPerTeam: 0, maxBotsPerTeam: 0 });
+    expect(optionsFromEnv({ BOTS_PER_TEAM: '2', MAX_BOTS_PER_TEAM: '2' }, 'dist')).toMatchObject({ botsPerTeam: 2, maxBotsPerTeam: 2 });
+    expect(() => optionsFromEnv({ MAX_BOTS_PER_TEAM: '5' }, 'dist')).toThrow(/MAX_BOTS_PER_TEAM must be/);
+    expect(() => optionsFromEnv({ BOTS_PER_TEAM: '4', MAX_BOTS_PER_TEAM: '2' }, 'dist')).toThrow(/BOTS_PER_TEAM must be/);
+  });
+
+  it('fills the Survival Town lobby with bots once someone plays, and counts only people as players', async () => {
+    const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
+    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', botsPerTeam: 2, maxBotsPerTeam: 4 });
+    try {
+      const status = async () => (await fetch(`http://127.0.0.1:${server.port}/status`)).json();
+      expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 2, maxBotsPerTeam: 4 });
+      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      await new Promise((done) => ws.addEventListener('open', done));
+      ws.send(JSON.stringify({ t: 'join', name: 'alice', passphrase: '', protocol: PROTOCOL_VERSION }));
+      await new Promise((done) => ws.addEventListener('message', done));
+      expect(await status()).toMatchObject({ players: 1, bots: 3 });
+      ws.close();
+      await new Promise((done) => ws.addEventListener('close', done));
+      for (let i = 0; i < 50 && server.game.bots.size > 0; i++) await new Promise((done) => setTimeout(done, 20));
+      expect(await status()).toMatchObject({ players: 0, bots: 0 });
+    } finally {
+      await server.close();
+    }
   });
 });
 

@@ -74,6 +74,22 @@ The intermission vote that picks the next match's mode. The plurality wins, and 
 **Headless match**:
 The real simulation run in-process with no rendering. It's the main seam for automated tests, and the networked variant adds the server, clients and a simulated network.
 
+**Bot**:
+A computer-controlled player: a seat on the game server with no connection, which plays by the same rules as people. Shown with a BOT tag.
+_Avoid_: AI player, NPC
+
+**Bot fill**:
+Topping a match up with bots to a number a side while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person.
+
+**Bot Match**:
+An offline match against bots on Survival Town. The game server runs in the page.
+
+**Nav graph**:
+The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.
+
+**Spawn protection**:
+The 1.5 s after a spawn when a player can't be damaged. It ends early when they fire.
+
 **Usercmd**:
 One tick of a player's input, sent from client to server.
 _Avoid_: input packet

@@ -1,7 +1,7 @@
 import { STATS, type ModeId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
-import { MODE_NAMES, connectionError, lobbyTile, type LobbyInfo } from './model';
+import { MODE_NAMES, connectionError, lobbyTile, matchSize, type LobbyInfo } from './model';
 import { escapeHtml, icon, installTheme } from './theme';
 
 export type { LobbyInfo } from './model';
@@ -24,8 +24,8 @@ const CSS = `
 .ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 18px var(--ds-font); outline: none; }
 .ds-name .ds-icon { color: var(--ds-text-3); flex: none; }
 .ds-version { position: absolute; right: 56px; bottom: 18px; font-size: 12px; color: var(--ds-text-3); letter-spacing: 0.08em; }
-.ds-dock { position: absolute; left: 56px; right: 56px; bottom: 48px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; }
-.ds-dock.three { grid-template-columns: 1fr 1fr 1fr; }
+.ds-dock { position: absolute; left: 56px; right: 56px; bottom: 48px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 12px; }
+.ds-dock.offline { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .ds-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 148px; padding: 18px 20px; text-align: left; background: rgb(18 22 29 / 0.88); color: var(--ds-text); border: 1px solid var(--ds-line); border-radius: 6px; font: inherit; cursor: pointer; transition: transform 160ms ease-out, border-color 160ms, background 160ms; }
 .ds-tile:hover, .ds-tile:focus-visible, .ds-tile[data-pad-focus] { transform: translateY(-4px); border-color: var(--ds-signal); background: rgb(28 34 44 / 0.95); outline: none; }
 .ds-tile .ds-icon { width: 28px; height: 28px; color: var(--ds-signal); }
@@ -45,7 +45,7 @@ const CSS = `
   .ds-menu.home .ds-brand, .ds-menu.home .ds-name, .ds-menu.home .ds-dock, .ds-menu.home .ds-version { position: static; }
   .ds-brand h1 { font-size: 36px; }
   .ds-name { width: min(260px, 100%); }
-  .ds-dock, .ds-dock.three { margin-top: auto; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .ds-dock, .ds-dock.offline { margin-top: auto; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
   .ds-tile { min-height: 0; padding: 14px 16px; }
   .ds-tile b { font-size: 19px; }
   .ds-version { align-self: flex-end; }
@@ -72,6 +72,8 @@ const CSS = `
 .ds-mode b { display: block; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; }
 .ds-mode span { font-size: 13px; color: var(--ds-text-2); }
 .ds-mode.on { border-color: var(--ds-signal); box-shadow: 0 0 0 1px var(--ds-signal); }
+.ds-sizes { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.ds-sizes .ds-mode { text-align: center; }
 .ds-row { display: grid; grid-template-columns: 1fr 230px; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--ds-line); }
 .ds-row label { font-size: 15px; }
 .ds-row input[type=range] { width: 100%; accent-color: var(--ds-signal); }
@@ -107,8 +109,10 @@ export interface MenuCallbacks {
   practiceRange(): void;
   /** Walk Survival Town, offline. */
   exploreTown(): void;
-  /** Join the server with this name and passphrase; `mode` is the choice for an empty server. */
-  playOnline(name: string, passphrase: string, mode: ModeId | null): void;
+  /** A match against bots on Survival Town, offline: `botsPerTeam` a side (twice that in free-for-all, you included). */
+  botMatch(mode: ModeId, botsPerTeam: number): void;
+  /** Join the server with this name and passphrase; `mode` and `bots` (a side) are the choices for an empty server, null for its own. */
+  playOnline(name: string, passphrase: string, mode: ModeId | null, bots: number | null): void;
   /** Ask the lobby status endpoint again (Play Online, Retry). */
   refreshLobby(): Promise<LobbyInfo | null>;
   /** Give up joining. */
@@ -130,7 +134,7 @@ export interface MenuCallbacks {
  */
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
-type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip';
+type Screen = 'main' | 'online' | 'bots' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip';
 
 /**
  * Every screen outside play: the main menu over the map's fly-through,
@@ -151,6 +155,11 @@ export class Menu {
   readonly #lobby: Lobby | null;
   readonly #version: string;
   #mode: ModeId = 'tdm';
+  /** An empty server's bots a side, as picked; null keeps the server's own fill. */
+  #onlineBots: number | null = null;
+  /** Bot Match: the mode and the players a side. */
+  #botMode: ModeId = 'tdm';
+  #botsPerTeam = 3;
   /** Loading: what, and how far (0-1, or null when unknown). */
   #loading: { title: string; progress: number | null } = { title: '', progress: null };
   /** Connecting: which step is under way. */
@@ -382,6 +391,11 @@ export class Menu {
         this.#renderOnline(p, h, heading, button);
         break;
       }
+      case 'bots': {
+        const p = panel();
+        this.#renderBots(p, h, heading, button);
+        break;
+      }
       case 'loading': {
         const p = panel();
         heading(p, this.#loading.title, 'town');
@@ -498,7 +512,7 @@ export class Menu {
     screen.append(nameBox);
 
     const lobby = this.#lobby;
-    const dock = h('div', '', lobby?.kind === 'server' ? 'ds-dock' : 'ds-dock three');
+    const dock = h('div', '', lobby?.kind === 'server' ? 'ds-dock' : 'ds-dock offline');
     const tile = (iconName: string, title: string, desc: string, onClick: () => void, primary = false) => {
       const b = h('button', '', `ds-tile${primary ? ' primary' : ''}`) as HTMLButtonElement;
       b.type = 'button';
@@ -516,6 +530,7 @@ export class Menu {
         `<span class="ds-dot${t.online ? ' up' : ''}">${t.online ? (t.full ? 'Full' : 'Online') : 'Offline'}</span><div class="facts"><div><span class="ds-label">Players</span><span>${t.players}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div></div>`,
       );
     }
+    tile('bots', 'Bot Match', 'Survival Town against bots. Offline.', () => this.show('bots'));
     tile('range', 'Practice Range', 'Lanes, dummies and the movement course. Offline.', () => this.#callbacks.practiceRange(), lobby?.kind !== 'server');
     tile('town', 'Explore Survival Town', 'Walk the map alone. Offline.', () => this.#callbacks.exploreTown());
     tile('settings', 'Settings', 'Controls, keys, video and interface.', () => {
@@ -566,6 +581,12 @@ export class Menu {
         modes.append(b);
       }
       form.append(modes);
+      if (t.maxBotsPerTeam > 0) {
+        form.append(h('h3', 'Fill with bots'));
+        const chosen = this.#onlineBots ?? Math.min(t.botsPerTeam, t.maxBotsPerTeam);
+        const sizes = [0, ...Array.from({ length: t.maxBotsPerTeam }, (_, i) => i + 1)];
+        form.append(this.#choices(h, sizes, chosen, (n) => (n === 0 ? 'No bots' : `Up to ${n}v${n}`), (n) => (this.#onlineBots = n)));
+      }
     }
     const field = (label: string, input: HTMLInputElement) => {
       const wrap = h('label', '', 'ds-field');
@@ -598,10 +619,64 @@ export class Menu {
         return;
       }
       this.#change(open ? { name: n } : { name: n, passphrase: pass.value });
-      this.#callbacks.playOnline(n, open ? '' : pass.value, t.pickMode ? this.#mode : null);
+      this.#callbacks.playOnline(n, open ? '' : pass.value, t.pickMode ? this.#mode : null, t.pickMode && t.maxBotsPerTeam > 0 ? this.#onlineBots : null);
     });
     button(row, 'Back', () => this.show('main'), 'back');
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => (name.value && !open ? pass : name).focus());
+  }
+
+  /** A row of buttons picking one of `values`, `current` lit; `set` hears each pick. */
+  #choices<T>(h: (tag: string, text?: string, cls?: string) => HTMLElement, values: readonly T[], current: T, label: (v: T) => string, set: (v: T) => void): HTMLElement {
+    const row = h('div', '', 'ds-sizes');
+    for (const v of values) {
+      const b = h('button', '', `ds-mode${v === current ? ' on' : ''}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.innerHTML = `<b>${escapeHtml(label(v))}</b>`;
+      b.addEventListener('click', () => {
+        set(v);
+        for (const c of row.children) c.classList.toggle('on', c === b);
+      });
+      row.append(b);
+    }
+    return row;
+  }
+
+  /** Bot Match: the mode and the match size, then Start. */
+  #renderBots(
+    p: HTMLElement,
+    h: (tag: string, text?: string, cls?: string) => HTMLElement,
+    heading: (p: HTMLElement, text: string, iconName: string) => void,
+    button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | '') => HTMLButtonElement,
+  ): void {
+    heading(p, 'Bot Match', 'bots');
+    p.append(h('p', 'Survival Town against bots that play like moderate players. Offline: the match pauses with the game.'));
+    p.append(h('h3', 'Mode'));
+    const modes = h('div', '', 'ds-modes');
+    const sizes = () => this.#choices(h, [1, 2, 3, 4], this.#botsPerTeam, (n) => matchSize(this.#botMode, n), (n) => (this.#botsPerTeam = n));
+    let size = sizes();
+    for (const [mode, desc] of [
+      ['tdm', 'Your team against theirs.'],
+      ['ffa', 'Everyone for themselves.'],
+    ] as const) {
+      const b = h('button', '', `ds-mode${this.#botMode === mode ? ' on' : ''}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.innerHTML = `<b>${MODE_NAMES[mode]}</b><span>${desc}</span>`;
+      b.addEventListener('click', () => {
+        this.#botMode = mode;
+        for (const m of modes.children) m.classList.toggle('on', m === b);
+        // The size labels count players the mode's way.
+        const next = sizes();
+        size.replaceWith(next);
+        size = next;
+      });
+      modes.append(b);
+    }
+    p.append(modes, h('h3', 'Match size'), size);
+    const row = h('div', '', 'ds-btns');
+    p.append(row);
+    const start = button(row, 'Start', () => this.#callbacks.botMatch(this.#botMode, this.#botsPerTeam), 'primary');
+    button(row, 'Back', () => this.show('main'), 'back');
+    if (!this.#root.classList.contains('pad')) queueMicrotask(() => start.focus());
   }
 
   /** Marks the focused control for the controller's focus ring (the page may not have window focus, so :focus is not enough). */

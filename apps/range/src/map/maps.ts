@@ -62,6 +62,7 @@ export function buildRange(): MapDefinition {
     ],
     flyThrough: [],
     playArea: null,
+    nav: null,
     measurements: [],
   };
 }

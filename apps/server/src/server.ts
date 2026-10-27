@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { GameServer, TICK_SECONDS, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
+import { GameServer, MAX_BOTS_PER_TEAM, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerTransport } from '@duty-shooter/fps-core';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { MAP_IDS, buildMapById, mapSolids, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -23,6 +23,10 @@ export interface ServerOptions {
   readonly map: MapId;
   /** Seconds per match in every mode, for short matches; each mode's own limit when absent. */
   readonly timeLimit?: number;
+  /** Bots a side the lobby fills to while anyone plays (0: none unless a first joiner asks); none when absent. */
+  readonly botsPerTeam?: number;
+  /** The most bots a side a first joiner may ask for; 0 or absent turns bots off. Only on maps with a nav graph. */
+  readonly maxBotsPerTeam?: number;
 }
 
 export interface RunningServer {
@@ -199,8 +203,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const map = buildMapById(options.map);
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
+  const world = createWorld(mapSolids(map));
+  const maxBots = options.maxBotsPerTeam ?? 0;
   const game = new GameServer(transport, {
-    world: createWorld(mapSolids(map)),
+    world,
     map: map.id,
     mode: options.mode,
     spawns: map.spawns.ffa,
@@ -209,6 +215,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit } } }),
+    ...(map.nav && maxBots > 0 ? { bots: { nav: buildNavGraph(world, map.nav), perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
   });
 
   const http = createServer((req, res) => {
@@ -294,6 +301,10 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (!(MAP_IDS as readonly string[]).includes(map)) throw new Error(`MAP must be one of ${MAP_IDS.join(', ')}.`);
   const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
   if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
+  const maxBotsPerTeam = Number(env['MAX_BOTS_PER_TEAM'] || MAX_BOTS_PER_TEAM);
+  if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > MAX_BOTS_PER_TEAM) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${MAX_BOTS_PER_TEAM}.`);
+  const botsPerTeam = Number(env['BOTS_PER_TEAM'] || Math.min(3, maxBotsPerTeam));
+  if (!Number.isInteger(botsPerTeam) || botsPerTeam < 0 || botsPerTeam > maxBotsPerTeam) throw new Error(`BOTS_PER_TEAM must be an integer from 0 to MAX_BOTS_PER_TEAM (${maxBotsPerTeam}).`);
   return {
     port: Number(env['PORT'] ?? 3000),
     host: env['HOST'] ?? '0.0.0.0',
@@ -304,5 +315,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     mode: mode as ModeId,
     map: map as MapId,
     ...(timeLimit === undefined ? {} : { timeLimit }),
+    botsPerTeam,
+    maxBotsPerTeam,
   };
 }

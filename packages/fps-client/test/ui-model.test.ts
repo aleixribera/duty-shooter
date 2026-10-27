@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { connectionError, endSummary, lobbyTile, matchBar, ordinal, scoreboard } from '../src/ui/model';
+import { connectionError, endSummary, lobbyTile, matchBar, matchSize, ordinal, scoreboard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -34,6 +34,14 @@ describe('the scoreboard', () => {
     const board = scoreboard([score('a', 1, 5, 1), score('b', 2, 5, 1), score('c', 3, 1, 1)], 'ffa', {});
     if (board.kind !== 'ffa') throw new Error('ffa');
     expect(board.rows.map((r) => r.place)).toEqual([1, 1, 3]);
+  });
+  it('marks bots, so they show with a BOT tag', () => {
+    const board = scoreboard([score('a', 1, 2, 1), { ...score('b', 2, 1, 1), bot: true }], 'ffa', {});
+    if (board.kind !== 'ffa') throw new Error('ffa');
+    expect(board.rows.map((r) => [r.id, r.bot])).toEqual([
+      ['a', false],
+      ['b', true],
+    ]);
   });
 });
 
@@ -82,10 +90,16 @@ describe('connection errors', () => {
 describe('the Play Online tile', () => {
   it('shows the server up with players, mode and map, and offers the mode picker only when empty', () => {
     const up = lobbyTile({ map: 'survival-town', mode: 'tdm', players: 3, capacity: 8, phase: 'playing' });
-    expect(up).toEqual({ online: true, players: '3/8', mode: 'Team deathmatch', map: 'Survival Town', pickMode: false, full: false });
+    expect(up).toEqual({ online: true, players: '3/8', mode: 'Team deathmatch', map: 'Survival Town', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'playing' }).pickMode).toBe(true);
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
-    expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false });
+    expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
+    expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
+  });
+
+  it('names match sizes the way each mode counts them', () => {
+    expect(matchSize('tdm', 3)).toBe('3v3');
+    expect(matchSize('ffa', 3)).toBe('6 players');
   });
 
   it('writes places as ordinals', () => {

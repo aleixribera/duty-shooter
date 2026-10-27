@@ -1,4 +1,4 @@
-import type { PlayerSpawn, Solid, SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
+import type { NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
 import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
@@ -94,6 +94,8 @@ export interface MapDefinition {
   readonly flyThrough: readonly CameraKey[];
   /** The playable area's outline (x, z), counter-clockwise, or null for a map walled in by its own geometry. */
   readonly playArea: readonly (readonly [number, number])[] | null;
+  /** How bots' nav graph is generated from the collision, or null for a map bots don't play. */
+  readonly nav: NavOptions | null;
   /** The map's own value for every entry of its reference file. */
   readonly measurements: readonly Measured[];
 }

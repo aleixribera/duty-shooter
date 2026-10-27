@@ -25,7 +25,7 @@ for (let i = 0; i < clients; i++) {
   let received = 0;
   ws.on('message', () => (received += 1));
   ws.on('open', () => {
-    ws.send(JSON.stringify({ t: 'join', name: `bot${i}`, passphrase, protocol: 3 }));
+    ws.send(JSON.stringify({ t: 'join', name: `bot${i}`, passphrase, protocol: 4 }));
     const timer = setInterval(() => {
       seq += 1;
       yaw += (Math.random() - 0.5) * 0.1;

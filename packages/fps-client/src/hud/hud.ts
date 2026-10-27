@@ -34,6 +34,7 @@ const CSS = `
 .ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .ds-feed div { background: rgb(11 14 19 / 0.62); padding: 5px 10px; border-radius: 3px; text-shadow: none; transition: opacity 400ms linear; animation: ds-slide 200ms ease-out; }
 .ds-feed .you { box-shadow: inset 2px 0 0 var(--ds-signal); background: rgb(11 14 19 / 0.8); }
+.ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
 .ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
 .ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
@@ -261,11 +262,12 @@ export class Hud {
     this.#flash = 1;
   }
 
-  killFeed(killer: string | null, victim: string, headshot: boolean, involvesYou: boolean): void {
+  /** A kill feed line; `bots` marks which side of it is a bot. */
+  killFeed(killer: string | null, victim: string, headshot: boolean, involvesYou: boolean, bots: { readonly killer?: boolean; readonly victim?: boolean } = {}): void {
     const row = document.createElement('div');
     if (involvesYou) row.className = 'you';
-    const k = killer ?? '';
-    row.innerHTML = `${escape(k)}<span class="gun">${killer ? (headshot ? '✛ M4A1' : 'M4A1') : '☠'}</span>${escape(victim)}`;
+    const k = killer === null ? '' : playerName(killer, bots.killer === true);
+    row.innerHTML = `${k}<span class="gun">${killer ? (headshot ? '✛ M4A1' : 'M4A1') : '☠'}</span>${playerName(victim, bots.victim === true)}`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -474,6 +476,11 @@ export class Hud {
   }
 }
 
+/** A player's name as HTML, with a BOT tag on bots. */
+function playerName(name: string, bot: boolean): string {
+  return `${escape(name)}${bot ? '<span class="ds-bot">BOT</span>' : ''}`;
+}
+
 /** The held scoreboard: both teams side by side, or the free-for-all ranking, with kills, deaths and ping. */
 function boardHtml(state: HudState): string {
   const mode: ModeId = state.match?.status.mode ?? 'ffa';
@@ -482,7 +489,7 @@ function boardHtml(state: HudState): string {
     `<table><tr><th>#</th><th>Player</th><th>K</th><th>D</th><th>Ping</th></tr>${rows
       .map(
         (r) =>
-          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${escape(r.name)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
       )
       .join('')}</table>`;
   if (board.kind === 'ffa') return `<h3><span>${MODE_NAMES.ffa}</span></h3><div class="cols one"><div>${table(board.rows)}</div></div>`;

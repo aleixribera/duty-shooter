@@ -37,6 +37,8 @@ export interface Score {
   readonly kills: number;
   readonly deaths: number;
   readonly score: number;
+  /** Set for a bot, so it is shown with a BOT tag. */
+  readonly bot?: boolean;
 }
 
 /** A team's total in a team mode. */

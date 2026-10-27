@@ -13,6 +13,8 @@ export interface GameClientOptions {
   readonly passphrase: string;
   /** The mode to ask for; the server honours it only when nobody else is playing. */
   readonly mode?: ModeId;
+  /** Bots a side to ask for; also honoured only on an empty server. */
+  readonly bots?: number;
   /** How far behind the newest snapshot other players are drawn, in ticks. */
   readonly interpolationDelay?: number;
   /** Half-life (s) of the visual smoothing applied to prediction corrections. */
@@ -178,7 +180,7 @@ export class GameClient {
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }) }),
       );
     }
     this.#advanceClock();

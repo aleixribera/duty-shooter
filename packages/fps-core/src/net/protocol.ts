@@ -3,7 +3,7 @@ import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -27,6 +27,8 @@ export type ClientMessage =
       readonly protocol: number;
       /** The mode the joiner would like; honoured only on an empty server. */
       readonly mode?: ModeId;
+      /** Bots a side the joiner would like (within the server's cap); honoured only on an empty server. */
+      readonly bots?: number;
     }
   /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
   | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
@@ -105,10 +107,11 @@ export function decodeClient(data: string): ClientMessage | null {
   }
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
-    const { name, passphrase, protocol, mode } = value;
+    const { name, passphrase, protocol, mode, bots } = value;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
     if (mode !== undefined && !isMode(mode)) return null;
-    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }) };
+    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
+    return { t: 'join', name, passphrase, protocol, ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }) };
   }
   if (value['t'] === 'vote') {
     const { mode } = value;

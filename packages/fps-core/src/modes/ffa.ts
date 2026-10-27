@@ -1,6 +1,6 @@
-import { distance } from '../math';
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
 import type { GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, Score, SpawnPoint, TeamScore } from './game-mode';
+import { RecentSpawns, scoredSpawn } from './spawns';
 
 export interface FreeForAllOptions {
   /** Kills that win the match; null for none. Defaults to 30. */
@@ -18,8 +18,8 @@ interface Entry {
 }
 
 /**
- * Free-for-all: everyone on their own team, instant respawn at the spawn
- * point furthest from living enemies, a kill feed, kills and deaths. The
+ * Free-for-all: everyone on their own team, instant respawn at the safest
+ * spawn point (see {@link scoredSpawn}), a kill feed, kills and deaths. The
  * first to the kill limit wins; at the time limit the most kills wins, and a
  * tie at the top is a draw.
  */
@@ -34,6 +34,7 @@ export class FreeForAll implements GameMode {
   #result: MatchResult | null = null;
   /** Rotates spawns when no living enemy separates them. */
   #nextSpawn = 0;
+  readonly #recent = new RecentSpawns();
 
   constructor(options: FreeForAllOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 30 : options.killLimit;
@@ -48,6 +49,7 @@ export class FreeForAll implements GameMode {
 
   leave(id: PlayerId): void {
     this.#entries.delete(id);
+    this.#recent.forget(id);
   }
 
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
@@ -59,23 +61,16 @@ export class FreeForAll implements GameMode {
     if (enemies.length === 0) {
       const spawn = ctx.spawns[this.#nextSpawn++ % ctx.spawns.length];
       if (!spawn) throw new Error('No spawn points');
-      return spawn;
+      return this.#recent.add(id, spawn);
     }
-    let best: SpawnPoint | undefined;
-    let bestDistance = -1;
-    for (const spawn of ctx.spawns) {
-      const nearest = Math.min(...enemies.map((e) => distance(e.position, spawn.position)));
-      if (nearest > bestDistance) {
-        best = spawn;
-        bestDistance = nearest;
-      }
-    }
+    const best = scoredSpawn(ctx.spawns, [], enemies, ctx, this.#recent.of(id));
     if (!best) throw new Error('No spawn points');
-    return best;
+    return this.#recent.add(id, best);
   }
 
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
     this.#entries.clear();
+    this.#recent.clear();
     this.#result = null;
     const teams = new Map<PlayerId, TeamId>();
     for (const e of entrants) teams.set(e.id, this.join(e.id, e.name));

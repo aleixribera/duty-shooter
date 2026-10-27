@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildNavGraph, createWorld } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { buildMap, collisionSolids } from '../src/map/map';
 import { mapSolids } from '../src/map/definition';
@@ -20,11 +21,18 @@ describe.skipIf(!process.env['BENCH'])('server CPU', () => {
     const town = buildSurvivalTown();
     measure(createNetworkedMatch({ solids: mapSolids(town), spawns: town.spawns.ffa, teamSpawns: town.spawns.teams!, mode: 'tdm', passphrase: '', latency: 0.03 }));
   });
+
+  it('2 players and 6 bots in team deathmatch on Survival Town', () => {
+    const town = buildSurvivalTown();
+    const solids = mapSolids(town);
+    const nav = buildNavGraph(createWorld(solids), town.nav!);
+    measure(createNetworkedMatch({ solids, spawns: town.spawns.ffa, teamSpawns: town.spawns.teams!, mode: 'tdm', passphrase: '', latency: 0.03, bots: { nav, perTeam: 4 } }), 2);
+  });
 });
 
-/** Joins 8 scripted players who move, turn and fire, and logs the server's share of one core over 20 s. */
-function measure(m: ReturnType<typeof createNetworkedMatch>): void {
-  const names = Array.from({ length: 8 }, (_, i) => `bot${i}`);
+/** Joins `players` scripted players who move, turn and fire (bots fill the rest), and logs the server's share of one core over 20 s. */
+function measure(m: ReturnType<typeof createNetworkedMatch>, players = 8): void {
+  const names = Array.from({ length: players }, (_, i) => `player${i}`);
   for (const n of names) m.join(n);
   const script = (t: number) =>
     Object.fromEntries(
@@ -43,5 +51,5 @@ function measure(m: ReturnType<typeof createNetworkedMatch>): void {
   m.run(seconds * 60, script);
   const percent = (serverMs / (seconds * 1000)) * 100;
   console.log(`server: ${(serverMs / (seconds * 60)).toFixed(3)} ms per tick, ${percent.toFixed(2)} % of one core at 60 Hz`);
-  expect(m.server.playerCount).toBe(8);
+  expect(m.server.playerCount + m.server.bots.size).toBe(8);
 }

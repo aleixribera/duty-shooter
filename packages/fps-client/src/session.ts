@@ -1,8 +1,15 @@
 import {
   GameClient,
+  GameServer,
+  MAX_BOTS_PER_TEAM,
   Simulation,
   TICK_SECONDS,
+  buildNavGraph,
+  createMemoryNetwork,
   createWorld,
+  type Connection,
+  type MemoryNetwork,
+  type NavOptions,
   type Solid,
   type MatchStatus,
   type ModeEvent,
@@ -57,6 +64,8 @@ export interface GameDriver {
   nameOf(id: PlayerId): string;
   /** 'playing', 'connecting', or why the connection ended. */
   readonly status: string;
+  /** True when the whole match runs in the page, so it stops while the game is paused (a bot match). */
+  readonly pausesWithGame?: boolean;
   dispose(): void;
 }
 
@@ -144,10 +153,13 @@ export class OfflineDriver implements GameDriver {
 }
 
 export interface OnlineOptions {
-  readonly url: string;
+  /** The game server: its WebSocket URL, or a connection already open to it. */
+  readonly server: string | Connection;
   readonly solids: readonly Solid[];
   /** The mode to ask for, honoured only on an empty server. */
   readonly mode?: ModeId;
+  /** Bots a side to ask for, honoured only on an empty server. */
+  readonly bots?: number;
   readonly name: string;
   readonly passphrase: string;
 }
@@ -159,11 +171,12 @@ export class OnlineDriver implements GameDriver {
 
   constructor(options: OnlineOptions) {
     this.#client = new GameClient({
-      connection: connectWebSocket(options.url),
+      connection: typeof options.server === 'string' ? connectWebSocket(options.server) : options.server,
       world: createWorld(options.solids),
       name: options.name,
       passphrase: options.passphrase,
       ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.bots === undefined ? {} : { bots: options.bots }),
     });
   }
 
@@ -240,5 +253,58 @@ export class OnlineDriver implements GameDriver {
 
   dispose(): void {
     this.#client.close();
+  }
+}
+
+export interface BotMatchOptions {
+  readonly solids: readonly Solid[];
+  readonly spawns: { readonly ffa: readonly SpawnPoint[]; readonly teams: readonly (readonly SpawnPoint[])[] | null };
+  /** How the map's nav graph is built, for the bots to find their way. */
+  readonly nav: NavOptions;
+  readonly mode: ModeId;
+  /** Bots a side (free-for-all: twice this many in all, counting you). */
+  readonly botsPerTeam: number;
+  readonly name: string;
+}
+
+/**
+ * A match against bots with no server to reach: a game server runs in the
+ * page, over a zero-latency in-memory link, so modes, scores, the clock and
+ * the intermission all work as online. It stops while the game is paused.
+ */
+export class BotMatchDriver extends OnlineDriver {
+  readonly pausesWithGame = true;
+  readonly #network: MemoryNetwork;
+  readonly #server: GameServer;
+
+  constructor(options: BotMatchOptions) {
+    const network = createMemoryNetwork();
+    const world = createWorld(options.solids);
+    const perTeam = Math.max(0, Math.min(MAX_BOTS_PER_TEAM, options.botsPerTeam));
+    const server = new GameServer(network.server, {
+      world,
+      mode: options.mode,
+      spawns: options.spawns.ffa,
+      ...(options.spawns.teams ? { teamSpawns: options.spawns.teams } : {}),
+      passphrase: '',
+      bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
+    });
+    super({ server: network.connect(), solids: options.solids, mode: options.mode, bots: perTeam, name: options.name, passphrase: '' });
+    this.#network = network;
+    this.#server = server;
+  }
+
+  override get ping(): number | null {
+    return null;
+  }
+
+  override get pings(): Readonly<Record<string, number>> {
+    return {};
+  }
+
+  override tick(cmd: UserCmd): DriverTick {
+    this.#network.advance(TICK_SECONDS);
+    this.#server.tick();
+    return super.tick(cmd);
   }
 }

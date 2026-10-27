@@ -291,7 +291,8 @@ describe('other players', () => {
 describe('lag compensation', () => {
   /** Alice taps single shots at strafing Bob's upper torso as her screen shows him; returns hits and shots. */
   function duel(network: { latency: number; jitter: number; loss: number; seed: number }) {
-    const m = match(network);
+    // No spawn protection: every shot at a living Bob should land, respawned or not.
+    const m = match({ ...network, spawnProtection: 0 });
     const [alice, bob] = joinAll(m, 'alice', 'bob');
     let aim = { yaw: 0, pitch: 0 };
     const start = m.history.length;
@@ -334,7 +335,7 @@ describe('free-for-all', () => {
     { position: [-30, 0, -30], yaw: Math.PI },
   ];
 
-  it('scores kills and deaths, announces them in the kill feed and respawns the victim at the spawn furthest from enemies', () => {
+  it('scores kills and deaths, announces them in the kill feed and respawns the victim at the spawn furthest from enemies, other than the one he just used', () => {
     const m = match({ spawns: SPREAD });
     const [alice] = joinAll(m, 'alice');
     const [bob] = joinAll(m, 'bob');
@@ -359,9 +360,9 @@ describe('free-for-all', () => {
     const feed = clientEvents(alice!).filter((e) => e.type === 'killFeed');
     expect(feed).toEqual([expect.objectContaining({ killerName: 'alice', victimName: 'bob', cause: 'bullet' })]);
     expect(clientEvents(bob!).some((e) => e.type === 'killFeed')).toBe(true);
-    // Instant respawn, full health, at the spawn furthest from Alice.
+    // Instant respawn, full health, at the spawn furthest from Alice that he didn't just come from.
     const respawned = serverPlayer(m, bobId);
-    expect(respawned).toMatchObject({ alive: true, health: STATS.health.max.value, position: [-30, 0, -30] });
+    expect(respawned).toMatchObject({ alive: true, health: STATS.health.max.value, position: [0, 0, -20] });
     expect(alice!.client.scores.find((s) => s.name === 'alice')?.kills).toBe(1);
   });
 

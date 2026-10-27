@@ -282,7 +282,9 @@ export class Game {
     this.input.poll(now, dt);
     const driver = this.#driver;
     let alpha = 0;
-    if (driver) alpha = this.#loop.frame(now, (start, end) => this.#tick(driver, start, end));
+    // A match that runs in the page holds still while paused; anything online keeps up with its server.
+    if (driver && this.#paused && driver.pausesWithGame) this.#loop.reset();
+    else if (driver) alpha = this.#loop.frame(now, (start, end) => this.#tick(driver, start, end));
 
     const self = this.#cur;
     const look = this.input.angles;
@@ -617,7 +619,10 @@ export class Game {
         break;
       case 'killFeed':
         if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot);
-        this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : e.killerName, e.victimName, e.headshot, e.killer === selfId || e.victim === selfId);
+        this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : e.killerName, e.victimName, e.headshot, e.killer === selfId || e.victim === selfId, {
+          killer: driver.scores.some((s) => s.id === e.killer && s.bot),
+          victim: driver.scores.some((s) => s.id === e.victim && s.bot),
+        });
         break;
       case 'matchEnd':
         this.hud.toast(e.winnerName ? `${e.winnerName} wins the match.` : 'Match over.');

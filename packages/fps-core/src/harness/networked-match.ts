@@ -3,7 +3,7 @@ import type { ModeEvent, ModeId, SpawnPoint } from '../modes/game-mode';
 import type { TeamDeathmatchOptions } from '../modes/tdm';
 import { GameClient, type ClientFrame } from '../net/client';
 import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } from '../net/memory';
-import { GameServer } from '../net/server';
+import { GameServer, type BotOptions } from '../net/server';
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
 import { createWorld, type Solid } from '../world';
@@ -22,6 +22,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly passphrase?: string;
   readonly maxPlayers?: number;
   readonly idleTimeout?: number;
+  readonly bots?: BotOptions;
+  readonly spawnProtection?: number;
 }
 
 /** A client in the match, with every frame it produced. */
@@ -44,7 +46,7 @@ export interface NetworkedMatch {
   readonly server: GameServer;
   readonly network: MemoryNetwork;
   /** Connects a client that will join with `name` and `passphrase` (the server's by default), optionally asking for a mode. */
-  join(name: string, options?: { passphrase?: string; mode?: ModeId }): NetworkedClient;
+  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number }): NetworkedClient;
   /** One tick: deliver due messages, step the server, then step every client with its usercmd. */
   step(cmds?: Readonly<Record<string, UserCmd>>): TickOutput;
   run(ticks: number, script?: NetworkedScript): TickOutput[];
@@ -69,6 +71,8 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.dummies ? { dummies: options.dummies } : {}),
     ...(options.maxPlayers === undefined ? {} : { maxPlayers: options.maxPlayers }),
     ...(options.idleTimeout === undefined ? {} : { idleTimeout: options.idleTimeout }),
+    ...(options.bots ? { bots: options.bots } : {}),
+    ...(options.spawnProtection === undefined ? {} : { spawnProtection: options.spawnProtection }),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];
@@ -103,6 +107,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
         name,
         passphrase: joinOptions.passphrase ?? passphrase,
         ...(joinOptions.mode ? { mode: joinOptions.mode } : {}),
+        ...(joinOptions.bots === undefined ? {} : { bots: joinOptions.bots }),
       });
       const entry = { name, client, frames: [] as ClientFrame[] };
       clients.set(name, entry);

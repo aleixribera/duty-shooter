@@ -1,4 +1,4 @@
-import { createWorld, raycastWorld, yawBox, type Material, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World } from '@duty-shooter/fps-core';
+import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World } from '@duty-shooter/fps-core';
 import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
@@ -1089,11 +1089,55 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
       [8.5, 18.5], // east side path
       [-19, 6], // front lawn, west
       [16.5, 6.5], // the sidewalk by the street end
+      [-12.5, 16.5], // inside the garage
+      [8.15, 30.5], // east side path, past the raised bed
+      [15, 4.5], // by the street end, beside the bus and the truck
     ] as const) {
       ffa.push({ position: [x, 0, s * d], yaw: faceCentre(x, s * d) });
     }
   }
   return { ffa, teams: [team(-1), team(1)] };
+}
+
+/**
+ * Where the nav grid needs help, per house (x, height, distance): both sides
+ * of every door, the stairs, and each step of the climbs (planter, porch roof
+ * and window; the air conditioner and garage roof; the deck and roofs). The
+ * heights are hints; each node stands on the surface at or below its hint.
+ */
+const HOUSE_NAV_HINTS: readonly (readonly [number, number, number])[] = [
+  // Front door, back door and the deck door upstairs.
+  [0.955, 0, 15.0], [0.955, 0, 12.6], [-3.545, 0, 29.5], [-3.545, 0, 33], [0.455, 3, 30], [0.455, 3, 33.3],
+  // The doors between the garage and the house, and through the garage.
+  [-9.2, 0, 16.455], [-6.5, 0, 16.455], [-9.2, 0, 25.455], [-6.5, 0, 25.455],
+  [-13.545, 0, 18.5], [-13.545, 0, 21.5], [-11.545, 0, 25.5], [-11.545, 0, 29.5], [-12.5, 0, 15], [-12.5, 0, 10],
+  // Upstairs: the partition door, the stairs top and bottom, the front bedroom.
+  [3.455, 3, 25], [3.455, 3, 22.8], [-0.2, 3, 22.3], [-1.35, 3, 22.3], [-1.35, 1.6, 18.8], [-1.35, 0, 15.2], [2.25, 3, 16],
+  // Yard stairs to the deck.
+  [-14, 0, 34.55], [-12.7, 0, 34.55], [-9.9, 1.6, 34.55], [-7.3, 3, 34.55], [-5, 3, 33.5],
+  // The window climb: planter, porch roof, in through the window.
+  [3.8, 0, 9.6], [3.8, 0.8, 11.4], [3.5, 2.7, 13.2], [3.0, 3, 15.5],
+  // The air conditioner up onto the garage roof and along its ridge.
+  [-15, 0, 31], [-15, 1.2, 28.1], [-15, 4, 26.5], [-12, 4.5, 20],
+  // The den roof up to the main ridge, and across to the garage roof.
+  [-5, 4, 30], [-3.2, 4, 25], [-1, 6, 25], [2, 7, 25], [-6, 4, 22], [-10, 4.5, 22],
+];
+
+/** Nav hints along the bus and the van: the ground at the front, up the hood, onto the roof. */
+function vehicleNavHints(): Vec3[] {
+  const along = (c: readonly [number, number], yaw: number, ks: readonly [number, number][]) =>
+    ks.map(([k, y]): Vec3 => [c[0] + Math.cos(yaw) * k, y, c[1] - Math.sin(yaw) * k]);
+  return [
+    ...along([5.4, 2.2], 0.28, [[7.5, 0], [5.2, 1.5], [3.0, 3.2], [-1, 3.2], [-4, 3.2]]),
+    ...along([-6.3, -3.0], 0.05, [[5.6, 0], [4.0, 1.4], [2.7, 2.4], [0, 3.5], [-3, 3.5]]),
+  ];
+}
+
+/** How the nav graph is generated for the town: inside the boundary, on a 2 m grid, with the hints. */
+function navOptions(): NavOptions {
+  const hints: Vec3[] = [...vehicleNavHints()];
+  for (const s of [-1, 1] as const) for (const [x, y, d] of HOUSE_NAV_HINTS) hints.push([x, y, s * d]);
+  return { area: BOUNDARY, spacing: 2, hints, ceiling: 8 };
 }
 
 function indoorZones(): IndoorZone[] {
@@ -1286,6 +1330,7 @@ export function buildSurvivalTown(): MapDefinition {
     benchmarkPath: benchmarkPath(),
     flyThrough: flyThrough(),
     playArea: PLAY_AREA,
+    nav: navOptions(),
     measurements: measure(mapSolids({ solids: b.solids, hiddenSolids: b.hidden })),
   };
 }

@@ -1,4 +1,5 @@
 import {
+  BotMatchDriver,
   Game,
   Menu,
   OfflineDriver,
@@ -157,6 +158,17 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const { map, solids } = load(id);
     play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies }));
   };
+  /** An offline match against bots on Survival Town, once its lighting is in. */
+  const playBots = async (mode: ModeId, botsPerTeam: number) => {
+    menu.loading('Bot Match', null);
+    await whenLoaded('survival-town');
+    useMap('survival-town');
+    const { map, solids } = load('survival-town');
+    if (!map.nav) return;
+    // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
+    await new Promise((done) => setTimeout(done, 50));
+    play(new BotMatchDriver({ solids, spawns: map.spawns, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You' }));
+  };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
   const menu = new Menu(
@@ -164,7 +176,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     {
       practiceRange: () => void playOffline('range'),
       exploreTown: () => void playOffline('survival-town'),
-      playOnline: (name: string, passphrase: string, mode: ModeId | null) => {
+      botMatch: (mode: ModeId, botsPerTeam: number) => void playBots(mode, botsPerTeam),
+      playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
         menu.connecting(0);
         // The lobby status first: a server that is down or full is reported without opening a socket.
@@ -182,7 +195,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
-          const next = new OnlineDriver({ url: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, ...(mode ? { mode } : {}) });
+          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
         });
