@@ -21,6 +21,7 @@ export type { HitKind, HudState } from './hud/hud';
 export { Menu } from './ui/menu';
 export type { Lobby, LobbyInfo, MenuCallbacks } from './ui/menu';
 export { LobbyPage, lobbyMapName } from './ui/lobby';
+export { BOT_MAPS } from './ui/model';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './ui/lobby';
 export { BotMatchDriver, OfflineDriver, OnlineDriver } from './session';
 export type { BotMatchOptions, DriverTick, GameDriver, OfflineOptions, OnlineOptions, PresentedEvent } from './session';

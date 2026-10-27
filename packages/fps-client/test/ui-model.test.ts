@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
+import { chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -198,15 +198,27 @@ describe('the loadout screen', () => {
 describe('the lobby', () => {
   const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town' } as const;
 
-  it('seats people in the order they joined, marks the host and you, then the open seats', () => {
+  it('seats people in the order they joined, marks the host and you, then the bots the match brings and the open seats', () => {
     const seats = lobbySeats(lobby, 'a', { a: 'Ada', b: 'Bo' }, { a: 40, b: 150 });
-    expect(seats.map((s) => [s.number, s.id, s.name, s.ping, s.host, s.you])).toEqual([
-      [1, 'b', 'Bo', 150, true, false],
-      [2, 'a', 'Ada', 40, false, true],
-      [3, 'c', 'c', null, false, false],
-      [4, null, '', null, false, false],
-      [5, null, '', null, false, false],
+    expect(seats.map((s) => [s.number, s.id, s.name, s.ping, s.host, s.you, s.bot])).toEqual([
+      [1, 'b', 'Bo', 150, true, false, false],
+      [2, 'a', 'Ada', 40, false, true, false],
+      [3, 'c', 'c', null, false, false, false],
+      [4, null, 'Bot', null, false, false, true],
+      [5, null, '', null, false, false, false],
     ]);
+  });
+
+  it('counts the bots the match will bring as the server rosters them', () => {
+    expect(lobbyBots(lobby)).toBe(1);
+    expect(lobbyBots({ ...lobby, bots: 0 })).toBe(0);
+    expect(lobbyBots({ ...lobby, maxBots: 0 })).toBe(0);
+    // Never more than the seats left.
+    expect(lobbyBots({ ...lobby, bots: 4 })).toBe(2);
+    // Humans vs bots: two more than the people, at least 4, within the seats.
+    const big = { ...lobby, capacity: 12, maxBots: 6 };
+    expect(lobbyBots({ ...big, hvb: true })).toBe(5);
+    expect(lobbyBots({ ...big, hvb: true, mode: 'ffa', bots: 3 })).toBe(3);
   });
 
   it('says who the people will play with: bots filling the sides, humans vs bots in a team mode, or just the people', () => {

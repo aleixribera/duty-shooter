@@ -24,6 +24,8 @@ export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathma
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
 export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard' };
+/** The maps Bot Match plays on. */
+export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard'];
 /** Teams always appear with their mark and name, never by colour alone. */
 export const TEAMS: Readonly<Record<number, { readonly name: string; readonly mark: string }>> = { 1: { name: 'Blue', mark: '◆' }, 2: { name: 'Orange', mark: '▲' } };
 
@@ -176,7 +178,7 @@ export function pingTone(ms: number): 'good' | 'fair' | 'poor' {
   return ms < 100 ? 'good' : ms < 200 ? 'fair' : 'poor';
 }
 
-/** A seat in the lobby: a person (numbered from 1), or an open seat. */
+/** A seat in the lobby: a person (numbered from 1), a bot that will fill it when the match starts, or an open seat. */
 export interface LobbySeat {
   readonly number: number;
   readonly id: PlayerId | null;
@@ -185,12 +187,24 @@ export interface LobbySeat {
   readonly ping: number | null;
   readonly host: boolean;
   readonly you: boolean;
+  /** Held for a bot when the match starts (no id until then). */
+  readonly bot: boolean;
 }
 
-/** Every seat of the lobby, people first in the order they joined, then the open ones. */
+/** How many bots join the people here when the match starts: the humans vs bots side, or the fill to `bots` a side, within the seats (as the server rosters them). */
+export function lobbyBots(lobby: LobbyState): number {
+  const people = lobby.players.length;
+  if (lobby.maxBots <= 0) return 0;
+  if (lobby.hvb && teamMode(lobby.mode)) return hvbBots(people, lobby.maxBots, lobby.capacity);
+  return Math.max(0, Math.min(lobby.bots * 2 - people, lobby.capacity - people));
+}
+
+/** Every seat of the lobby: people first in the order they joined, then the bots the match will bring, then the open ones. */
 export function lobbySeats(lobby: LobbyState, selfId: PlayerId | null, names: Readonly<Record<string, string>>, pings: Readonly<Record<string, number>>): LobbySeat[] {
-  const seats: LobbySeat[] = lobby.players.map((id, i) => ({ number: i + 1, id, name: names[id] ?? id, ping: pings[id] ?? null, host: id === lobby.host, you: id === selfId }));
-  for (let n = seats.length + 1; n <= lobby.capacity; n++) seats.push({ number: n, id: null, name: '', ping: null, host: false, you: false });
+  const seats: LobbySeat[] = lobby.players.map((id, i) => ({ number: i + 1, id, name: names[id] ?? id, ping: pings[id] ?? null, host: id === lobby.host, you: id === selfId, bot: false }));
+  const bots = lobbyBots(lobby);
+  for (let b = 0; b < bots && seats.length < lobby.capacity; b++) seats.push({ number: seats.length + 1, id: null, name: 'Bot', ping: null, host: false, you: false, bot: true });
+  for (let n = seats.length + 1; n <= lobby.capacity; n++) seats.push({ number: n, id: null, name: '', ping: null, host: false, you: false, bot: false });
   return seats;
 }
 

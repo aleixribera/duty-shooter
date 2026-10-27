@@ -1,4 +1,5 @@
 import {
+  BOT_MAPS,
   BotMatchDriver,
   Game,
   LobbyPage,
@@ -21,7 +22,7 @@ import {
   type Settings,
 } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
-import { createWorld, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchPreset, type BenchReport } from './bench';
 import { MAP_IDS, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
@@ -198,7 +199,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     settings,
     {
       practiceRange: () => void playOffline('range'),
-      botMatch: (id: string, mode: ModeId, botsPerTeam: number, hvb: boolean) => void playBots(asMapId(id) ?? 'survival-town', mode, botsPerTeam, hvb),
+      botMatch: () => openBotLobby(),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
         onlineName = name.trim() || 'You';
@@ -225,6 +226,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         });
       },
       refreshLobby: async () => {
+        // A server that was down when the page opened is looked for again (Play Online, Check again).
+        if (lobby === null) {
+          const found = await findLobby();
+          if (found) {
+            lobby = found;
+            menu.setLobby(found);
+          }
+        }
         const status = await lobbyStatus();
         if (lobby?.kind === 'server') lobby.status = status;
         return status;
@@ -258,8 +267,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const lobbyPage = new LobbyPage(
     document.body,
     {
-      pick: (picks) => game.driver?.setLobby(picks),
+      pick: (picks) => (botLobbyOpen ? pickBots(picks) : game.driver?.setLobby(picks)),
       start: () => {
+        if (botLobbyOpen) {
+          closeBotLobby();
+          void playBots(asMapId(botSetup.map) ?? 'survival-town', botSetup.mode, botSetup.bots, botSetup.hvb && teamMode(botSetup.mode));
+          return;
+        }
         // The click that starts the match also takes the pointer for it.
         lobbyJoin = true;
         game.driver?.startMatch();
@@ -267,10 +281,45 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       join: () => void joinMatch(),
       loadout: () => menu.loadout('lobby'),
       settings: () => menu.lobbySettings(),
-      leave: () => leaveGame(),
+      leave: () => {
+        if (!botLobbyOpen) return leaveGame();
+        closeBotLobby();
+        menu.show('main');
+      },
     },
     { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? lobbyMapName(id), image: MAP_IMAGES.has(id) ? `maps/${id}.jpg` : null }) },
   );
+  /**
+   * Bot Match's setup is the lobby page offline: you alone, the bots the
+   * match brings, and your picks, kept between visits. Opening it starts the
+   * picked map's lighting downloading, so Start rarely waits.
+   */
+  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: 3, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: BOT_MAPS[0]! };
+  let botLobbyOpen = false;
+  const botView = (): LobbyView => ({ lobby: botSetup, phase: 'lobby', selfId: 'you', names: { you: settings.name.trim() || 'You' }, pings: {}, mode: botSetup.mode, result: null, teamScores: null, loading: null, offline: true });
+  const openBotLobby = () => {
+    botLobbyOpen = true;
+    menu.hide();
+    lobbyPage.invite = null;
+    lobbyPage.show(botView());
+    load(asMapId(botSetup.map) ?? 'survival-town');
+  };
+  const pickBots = (picks: LobbyPick) => {
+    botSetup = { ...botSetup, ...picks, bots: Math.max(1, Math.min(MAX_BOTS_PER_TEAM, picks.bots ?? botSetup.bots)) };
+    if (picks.map) load(asMapId(picks.map) ?? 'survival-town');
+    lobbyPage.show(botView());
+  };
+  const closeBotLobby = () => {
+    botLobbyOpen = false;
+    lobbyPage.hide();
+  };
+  // Esc leaves Bot Match's setup (the menu, open over it, handles its own Esc first).
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape' || e.defaultPrevented || !botLobbyOpen || menu.open) return;
+    e.preventDefault();
+    closeBotLobby();
+    menu.show('main');
+  });
   /** Whether the next match's start should take the pointer at once (the host's own Start click). */
   let lobbyJoin = false;
   /** The name this player joined under, for their own seat (the driver calls them "You"). */
@@ -308,6 +357,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Each frame: the lobby page up while the server is in its lobby, and until this player is back in the match after it. */
   const updateLobby = () => {
+    if (botLobbyOpen) {
+      lobbyPage.show(botView());
+      return;
+    }
     const driver = game.driver;
     const match = driver?.online ? driver.match : null;
     // Servers from before map switching name no map in their status.

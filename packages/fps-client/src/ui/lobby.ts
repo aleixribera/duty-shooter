@@ -1,80 +1,59 @@
 import { MODE_IDS, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, pingTone } from './model';
-import { escapeHtml, installTheme } from './theme';
+import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone } from './model';
+import { escapeHtml, hint, icon, installTheme } from './theme';
 
 const CSS = `
-.ds-lobby { --gold: #f2c230; --gold-ink: #17130a; --row: rgb(18 22 29 / 0.78); --good: #7fdc6a; --fair: #f2c230; --poor: #ff5d52;
-  position: fixed; inset: 0; z-index: 18; overflow-y: auto; font: 400 15px/1.35 var(--ds-font); color: var(--ds-text);
-  background: linear-gradient(90deg, rgb(8 10 14 / 0.9) 0%, rgb(8 10 14 / 0.72) 60%, rgb(8 10 14 / 0.86) 100%); backdrop-filter: blur(2px); animation: ds-in 180ms ease-out; }
+.ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 15px/1.35 var(--ds-font); animation: ds-fade 120ms ease-out; }
 .ds-lobby[hidden] { display: none; }
-.ds-lobby header.top { display: flex; align-items: baseline; gap: 24px; padding: 26px 56px 18px; border-bottom: 1px solid var(--ds-line); }
-.ds-lobby header.top h1 { margin: 0; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-.ds-lobby header.top .sub { flex: 1; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby header.top .count { font-size: 13px; letter-spacing: 0.16em; color: var(--ds-text-3); }
-.ds-lobby .body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 560px); gap: 40px; padding: 30px 56px 40px; }
-.ds-lobby h2 { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 2px solid var(--ds-line);
-  font-size: 22px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.ds-lobby h2 small { font-size: 15px; font-weight: 400; letter-spacing: 0.08em; color: var(--ds-text-3); }
-.ds-lobby .seats { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 24px; }
-.ds-lobby .seat { display: flex; align-items: center; gap: 16px; height: 46px; padding: 0 16px; background: var(--row); border: 1px solid transparent; }
-.ds-lobby .seat .n { width: 22px; font-size: 13px; color: var(--ds-text-3); }
-.ds-lobby .seat .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 21px; font-weight: 700; }
-.ds-lobby .seat .ping { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
-.ds-lobby .seat .ping.good { color: var(--good); } .ds-lobby .seat .ping.fair { color: var(--fair); } .ds-lobby .seat .ping.poor { color: var(--poor); }
-.ds-lobby .tag { padding: 3px 7px 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; border: 1px solid var(--ds-line); color: var(--ds-text-2); }
-.ds-lobby .tag.host { background: var(--gold); border-color: var(--gold); color: var(--gold-ink); }
-.ds-lobby .seat.you { background: linear-gradient(90deg, rgb(242 194 48 / 0.32), rgb(242 194 48 / 0.12)); border-color: rgb(242 194 48 / 0.55); }
-.ds-lobby .seat.open { background: rgb(18 22 29 / 0.35); border: 1px dashed var(--ds-line); }
-.ds-lobby .seat.open .name { font-size: 13px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .note { margin: 16px 0 0; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .last { margin-top: 44px; }
-.ds-lobby .last .result { display: flex; align-items: baseline; gap: 18px; padding: 14px 16px; background: var(--row); }
-.ds-lobby .last .result b { font-size: 24px; letter-spacing: 0.04em; text-transform: uppercase; }
-.ds-lobby .last .result span { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .card { position: relative; height: 240px; overflow: hidden; border: 1px solid rgb(243 241 234 / 0.25); background: #2b2a26 center / cover no-repeat; }
-.ds-lobby .card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 25%, rgb(8 10 14 / 0.6) 55%, rgb(8 10 14 / 0.92) 100%); }
-.ds-lobby .card .text { position: absolute; left: 20px; bottom: 16px; z-index: 1; text-shadow: 0 1px 4px rgb(0 0 0 / 0.6); }
-.ds-lobby .card .kicker { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.ds-lobby .card .map { margin: 2px 0 0; font-size: 56px; line-height: 0.95; font-weight: 700; text-transform: uppercase; }
-.ds-lobby .blurb { margin: 14px 0 18px; color: var(--ds-text-2); }
-.ds-lobby .picks { padding: 18px 20px; background: rgb(18 22 29 / 0.7); border: 1px solid var(--ds-line); }
-.ds-lobby .label { display: block; margin: 0 0 8px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .label + .seg, .ds-lobby .label + .maps { margin-bottom: 16px; }
-.ds-lobby .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
-.ds-lobby button { font: inherit; color: inherit; cursor: pointer; }
-.ds-lobby button:disabled { cursor: default; }
-.ds-lobby .seg button { padding: 9px 6px; border: 0; background: rgb(11 14 19 / 0.9); font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); }
-.ds-lobby .seg button.on { background: var(--ds-text); color: var(--ds-ink); }
-.ds-lobby .seg button:not(:disabled):not(.on):hover { background: var(--ds-raised); color: var(--ds-text); }
-.ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
-.ds-lobby .maps button { position: relative; height: 68px; padding: 0; border: 2px solid transparent; background: #2b2a26 center / cover no-repeat; text-align: left; }
-.ds-lobby .maps button span { position: absolute; left: 8px; bottom: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
-.ds-lobby .maps button.on { border-color: var(--gold); }
-.ds-lobby .picks.locked .seg button:not(.on), .ds-lobby .picks.locked .maps button:not(.on) { opacity: 0.55; }
-.ds-lobby .invite { margin-top: 18px; padding: 18px 20px; background: rgb(18 22 29 / 0.7); border: 1px solid var(--ds-line); }
-.ds-lobby .invite .row { display: flex; gap: 8px; }
-.ds-lobby .invite input { flex: 1; min-width: 0; padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ds-text); background: rgb(11 14 19 / 0.9); border: 1px solid var(--ds-line); }
-.ds-lobby .invite button { padding: 0 16px; border: 1px solid var(--ds-line); background: var(--ds-raised); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.ds-lobby .start { display: block; width: 100%; margin-top: 18px; height: 68px; border: 0; background: var(--gold); color: var(--gold-ink); font-size: 30px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.ds-lobby .start:not(:disabled):hover { filter: brightness(1.08); }
-.ds-lobby .start:disabled { background: rgb(242 194 48 / 0.16); color: rgb(242 194 48 / 0.75); border: 1px solid rgb(242 194 48 / 0.35); font-size: 20px; }
-.ds-lobby .more { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-.ds-lobby .more button { padding: 11px 6px; border: 1px solid var(--ds-line); background: rgb(18 22 29 / 0.8); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.ds-lobby .more button:hover { border-color: var(--ds-text-3); }
-.ds-lobby .who { margin: 10px 0 0; text-align: center; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby button:focus-visible, .ds-lobby button[data-pad-focus] { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* Loadout and Settings open over the page: it steps aside meanwhile rather than showing through. */
+.ds-menu:not([hidden]) ~ .ds-lobby { visibility: hidden; }
+.ds-lobby .body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 500px); gap: 40px; align-content: start; }
+.ds-lobby .seats { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 20px; }
+.ds-lobby .seat { display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 14px; background: rgb(18 22 29 / 0.82); border: 1px solid transparent; border-left: 3px solid transparent; }
+.ds-lobby .seat .n { width: 20px; font-size: 12px; color: var(--ds-text-3); }
+.ds-lobby .seat .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; font-weight: 700; letter-spacing: 0.02em; }
+.ds-lobby .seat .ping { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
+.ds-lobby .seat .ping.good { color: var(--ds-good); } .ds-lobby .seat .ping.fair { color: var(--ds-fair); } .ds-lobby .seat .ping.poor { color: var(--ds-poor); }
+.ds-lobby .tag { padding: 3px 7px 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; border: 1px solid var(--ds-line-2); color: var(--ds-text-2); }
+.ds-lobby .tag.host { background: var(--ds-gold); border-color: var(--ds-gold); color: #17130a; }
+.ds-lobby .tag.you { background: var(--ds-signal); border-color: var(--ds-signal); color: var(--ds-signal-ink); }
+.ds-lobby .seat.you { background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.06)); border-color: rgb(143 227 200 / 0.35); border-left-color: var(--ds-signal); }
+.ds-lobby .seat.bot { background: rgb(18 22 29 / 0.55); }
+.ds-lobby .seat.bot .name { font-size: 15px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-lobby .seat.bot .ds-icon { width: 18px; height: 18px; color: var(--ds-text-3); }
+.ds-lobby .seat.open { background: rgb(18 22 29 / 0.3); border: 1px dashed var(--ds-line); }
+.ds-lobby .seat.open .name { font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-lobby .note { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0; padding: 12px 14px; background: rgb(18 22 29 / 0.6); border-left: 2px solid var(--ds-line-2); font-size: 14px; color: var(--ds-text-2); }
+.ds-lobby .last { margin-top: 36px; }
+.ds-lobby .last .result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; padding: 14px 16px; background: rgb(18 22 29 / 0.82); }
+.ds-lobby .last .result b { font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-lobby .last .result span { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-lobby .blurb { margin: 12px 0 16px; font-size: 14px; color: var(--ds-text-2); }
+.ds-lobby .picks { display: grid; gap: 16px; padding: 18px; background: rgb(18 22 29 / 0.72); border: 1px solid var(--ds-line); }
+.ds-lobby .picks .ds-seg { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
+/* The maps as pictures: the picked one framed in signal with the mode over it. Name first in the markup (scripts click by it), shown under the kicker. */
+.ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 136px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: #2b2a26 center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color 100ms, opacity 100ms, box-shadow 100ms; }
+.ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(8 10 14 / 0.05) 20%, rgb(8 10 14 / 0.88) 100%); }
+.ds-lobby .maps button b, .ds-lobby .maps button small { position: relative; z-index: 1; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
+.ds-lobby .maps button b { font-size: 26px; line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.ds-lobby .maps button small { margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-lobby .maps button.on { border-color: var(--ds-signal); box-shadow: inset 0 0 0 1px var(--ds-signal); }
+.ds-lobby .maps button.on small { color: var(--ds-signal); }
+.ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
+.ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
+.ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.5; }
+.ds-lobby .invite { display: flex; gap: 8px; margin-top: 16px; }
+.ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--ds-text); background: rgb(11 14 19 / 0.92); border: 1px solid var(--ds-line); border-radius: 2px; }
+.ds-lobby .who { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); text-align: right; }
+.ds-lobby footer .ds-btn:not(.big) { min-width: 120px; }
 @media (max-width: 960px) {
-  .ds-lobby header.top { flex-wrap: wrap; gap: 4px 16px; padding: 18px 16px 14px; }
-  .ds-lobby header.top h1 { font-size: 32px; }
-  .ds-lobby header.top .count { margin-left: auto; }
-  .ds-lobby header.top .sub { order: 3; flex-basis: 100%; }
-  .ds-lobby .last .result { flex-wrap: wrap; gap: 4px 14px; }
-  .ds-lobby .last .result b { font-size: 20px; }
-  .ds-lobby .body { grid-template-columns: 1fr; gap: 28px; padding: 20px 16px 32px; }
+  .ds-lobby .body { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .ds-lobby .seats { grid-template-columns: 1fr; grid-auto-flow: row; }
-  .ds-lobby .card { height: 180px; }
-  .ds-lobby .card .map { font-size: 40px; }
+  .ds-lobby .maps button { height: 104px; }
+  .ds-lobby .who { display: none; }
+  .ds-lobby footer .ds-btn:not(.big) { flex: 1; min-width: 0; padding: 0 10px; }
 }
 `;
 
@@ -99,6 +78,8 @@ export interface LobbyView {
   readonly teamScores: readonly TeamScore[] | null;
   /** The name of the next match's map while its lighting is still on its way; null once it is in. */
   readonly loading: string | null;
+  /** Bot Match: the same page offline, you alone against bots, with Back instead of Leave and no empty match. */
+  readonly offline?: boolean;
 }
 
 export interface LobbyCallbacks {
@@ -114,10 +95,12 @@ export interface LobbyCallbacks {
 }
 
 /**
- * The lobby between matches: everyone in it with their ping, the host's
- * picks (mode, bots, map) with the map's picture, the invite link and the
- * host's Start button. After every match everyone comes back here. Plain DOM,
- * rebuilt only when what it shows changes, so clicks are never lost.
+ * The lobby between matches, and Bot Match's setup: everyone in it with their
+ * ping and the bots the match will bring, the host's picks (mode, sides,
+ * match size, map) with the map's picture, the invite link, and the actions
+ * along a footer that always shows Start. After every online match everyone
+ * comes back here. Plain DOM, rebuilt only when what it shows changes, so
+ * clicks are never lost.
  */
 export class LobbyPage {
   readonly #root: HTMLDivElement;
@@ -152,6 +135,11 @@ export class LobbyPage {
     return !this.#root.hidden;
   }
 
+  /** Whether the page shows Bot Match's setup. */
+  get offline(): boolean {
+    return this.open && this.#view?.offline === true;
+  }
+
   /** Shows the lobby as `view` has it (cheap to call every frame). */
   show(view: LobbyView): void {
     this.#view = view;
@@ -170,14 +158,16 @@ export class LobbyPage {
     this.#root.hidden = true;
   }
 
-  /** Controller navigation: up and down (and left and right) through the controls, accept presses. */
+  /** Controller navigation: up and down (and left and right) through the controls, accept presses, back leaves Bot Match. */
   navigate(nav: PadNav): void {
     if (!this.open) return;
     this.#root.classList.add('pad');
     const items = [...this.#root.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
     if (nav === 'accept') items[i]?.click();
-    else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
+    else if (nav === 'back') {
+      if (this.#view?.offline) this.#callbacks.leave();
+    } else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
     else if (nav === 'down' || nav === 'right') items[i < 0 ? 0 : (i + 1) % items.length]?.focus();
     this.#markFocus();
   }
@@ -212,73 +202,95 @@ export class LobbyPage {
 
   #render(v: LobbyView): string {
     const l = v.lobby;
+    const offline = v.offline === true;
     const host = l.host !== null && l.host === v.selfId;
     const map = this.#map(l.map);
-    const modeName = (MODE_NAMES[l.mode] ?? l.mode).toUpperCase();
+    const modeName = MODE_NAMES[l.mode] ?? l.mode;
     const people = l.players.length;
     const underway = v.phase !== 'lobby';
     const peopleText = `${people} ${people === 1 ? 'player' : 'players'}`;
 
-    const seats = lobbySeats(l, v.selfId, v.names, v.pings)
+    const seatList = lobbySeats(l, v.selfId, v.names, v.pings);
+    const bots = seatList.filter((s) => s.bot).length;
+    const seats = seatList
       .map((s) => {
+        if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span>${icon('bots')}<span class="name">Bot</span></div>`;
         if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="name">Open seat</span></div>`;
-        const ping = s.ping === null ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} MS</span>`;
-        const tags = `${s.host ? '<span class="tag host">HOST</span>' : ''}${s.you ? '<span class="tag">YOU</span>' : ''}`;
+        const ping = s.ping === null || offline ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} MS</span>`;
+        const tags = `${s.host && !offline ? '<span class="tag host">HOST</span>' : ''}${s.you ? '<span class="tag you">YOU</span>' : ''}`;
         return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="name">${escapeHtml(s.name)}</span>${ping}${tags}</div>`;
       })
       .join('');
     // Rows fill the left column first, then the right.
     const rows = Math.ceil(Math.max(l.capacity, 1) / 2);
-    const fill = lobbyFill(l);
     const last = lastMatch(v.result, v.mode, v.teamScores);
     const lastHtml = last
-      ? `<section class="last"><h2>Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
+      ? `<section class="last"><h2 class="ds-h2">Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
       : '';
 
     const lock = host && !underway ? '' : ' disabled';
-    const modes = MODE_IDS.map((m) => `<button type="button" data-act="mode" data-value="${m}" data-key="mode-${m}" class="${m === l.mode ? 'on' : ''}"${lock}>${escapeHtml(MODE_NAMES[m] ?? m)}</button>`).join('');
+    const seg = (act: string, items: readonly (readonly [string, string, boolean])[]) =>
+      `<div class="ds-seg">${items.map(([value, label, on]) => `<button type="button" data-act="${act}" data-value="${value}" data-key="${act}-${value}" class="${on ? 'on' : ''}"${lock}>${escapeHtml(label)}</button>`).join('')}</div>`;
+    const modes = seg(
+      'mode',
+      MODE_IDS.map((m) => [m, MODE_NAMES[m] ?? m, m === l.mode] as const),
+    );
     // Humans vs bots is a choice in team modes; it sizes the bot team itself.
     const sides = l.maxBots > 0 && teamMode(l.mode);
     const hvb = sides && l.hvb;
     const versus = sides
-      ? `<span class="label">Sides</span><div class="seg">${(['off', 'on'] as const).map((v) => `<button type="button" data-act="hvb" data-value="${v}" data-key="hvb-${v}" class="${(v === 'on') === l.hvb ? 'on' : ''}"${lock}>${v === 'on' ? 'Humans vs bots' : 'Mixed teams'}</button>`).join('')}</div>`
+      ? `<div><span class="ds-field-label">Sides</span>${seg(
+          'hvb',
+          (['off', 'on'] as const).map((s) => [s, s === 'on' ? 'Humans vs bots' : 'Mixed teams', (s === 'on') === l.hvb] as const),
+        )}</div>`
       : '';
-    const bots =
+    // Offline there is always someone to play: the size starts at one a side.
+    const sizes = Array.from({ length: l.maxBots + 1 }, (_, n) => n).filter((n) => !offline || n > 0);
+    const size =
       l.maxBots > 0 && !hvb
-        ? `<span class="label">Bots a side</span><div class="seg">${Array.from({ length: l.maxBots + 1 }, (_, n) => `<button type="button" data-act="bots" data-value="${n}" data-key="bots-${n}" class="${n === l.bots ? 'on' : ''}"${lock}>${n === 0 ? 'None' : n}</button>`).join('')}</div>`
+        ? `<div><span class="ds-field-label">Match size</span>${seg(
+            'bots',
+            sizes.map((n) => [String(n), n === 0 ? 'None' : matchSize(l.mode, n), n === l.bots] as const),
+          )}</div>`
         : '';
     const maps = l.maps
       .map((id) => {
         const m = this.#map(id);
-        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${id === l.map ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}"${lock}><span>${escapeHtml(m.name)}</span></button>`;
+        const on = id === l.map;
+        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${on ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}"${lock}><b>${escapeHtml(m.name)}</b><small>${on ? `✓ ${escapeHtml(modeName)}` : 'Map'}</small></button>`;
       })
       .join('');
     const copied = performance.now() < this.#copiedUntil;
-    const invite = this.invite
-      ? `<div class="invite"><span class="label">Invite link: anyone with it can join</span><div class="row"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" data-act="copy" data-key="copy">${copied ? 'Copied' : 'Copy'}</button></div></div>`
+    const invite = this.invite && !offline
+      ? `<div class="picks" style="margin-top:16px"><div><span class="ds-field-label">Invite link: anyone with it can join</span><div class="invite" style="margin:0"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy">${copied ? 'Copied' : 'Copy'}</button></div></div></div>`
       : '';
     const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
     const start = underway
       ? v.loading
-        ? `<button type="button" class="start" disabled>Loading ${escapeHtml(v.loading)}…</button>`
-        : `<button type="button" class="start" data-act="join" data-key="start">Join the match</button>`
+        ? `<button type="button" class="ds-btn primary big" disabled>Loading ${escapeHtml(v.loading)}…</button>`
+        : `<button type="button" class="ds-btn primary big" data-act="join" data-key="start">Join the match</button>`
       : host
-        ? `<button type="button" class="start" data-act="start" data-key="start">Start</button>`
-        : `<button type="button" class="start" disabled>Waiting for the host</button>`;
-    const who = underway ? 'The match has started' : host ? 'You are the host' : hostName ? `${escapeHtml(hostName)} is the host` : '';
+        ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start</button>`
+        : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
+    const who = offline ? `${bots} ${bots === 1 ? 'bot' : 'bots'} · offline` : underway ? 'The match has started' : host ? 'You are the host' : hostName ? `${escapeHtml(hostName)} is the host` : '';
+    const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}. The match pauses with the game.` : lobbyFill(l);
+    const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${offline ? hint('Esc', '○', 'Back') : ''}</div>`;
 
-    return `<header class="top"><h1>Lobby</h1><span class="sub">${modeName} · ${peopleText} · ${escapeHtml(map.name)}</span><span class="count">${people} / ${l.capacity} PLAYERS</span></header>
+    return `<div class="ds-page">
+<header><div class="heading"><div class="ds-crumb">${offline ? 'Offline · Play' : 'Online · Play'}</div><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
+<div class="aside"><span class="ds-chip">${escapeHtml(modeName)}</span><span class="ds-chip">${escapeHtml(map.name)}</span><span class="ds-chip"><b>${offline ? 'You' : peopleText}</b>${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''}</span></div></header>
 <div class="body">
-<section><h2>Players <small>${people} / ${l.capacity}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${fill}</p>${lastHtml}</section>
+<section><h2 class="ds-h2">Players <small>${offline ? `You + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : `${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} / ${l.capacity}`}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
 <aside>
-<div class="card" style="${map.image ? `background-image:url('${map.image}')` : ''}"><div class="text"><div class="kicker">${modeName} · ${peopleText.toUpperCase()}</div><div class="map">${escapeHtml(map.name)}</div></div></div>
+<h2 class="ds-h2">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
+<div class="maps${host && !underway ? '' : ' locked'}">${maps}</div>
 <p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>
-<div class="picks${host && !underway ? '' : ' locked'}"><span class="label">Mode${host ? '' : ': the host picks'}</span><div class="seg">${modes}</div>${versus}${bots}<span class="label">Map</span><div class="maps">${maps}</div></div>
+<div class="picks${host && !underway ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div>${versus}${size}</div>
 ${invite}
-${start}
-<div class="more"><button type="button" data-act="loadout" data-key="loadout">Loadout</button><button type="button" data-act="settings" data-key="settings">Settings</button><button type="button" data-act="leave" data-key="leave">Leave</button></div>
-<p class="who">${who}</p>
 </aside>
+</div>
+<footer><button type="button" class="ds-btn" data-act="leave" data-key="leave">${icon('back')}${offline ? 'Back' : 'Leave'}</button><button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>
+${hints}<span class="who">${who}</span>${start}</footer>
 </div>`;
   }
 }
