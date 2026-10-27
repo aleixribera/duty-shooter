@@ -4,7 +4,7 @@ After each change commit, tag, push to github. with version number vX.X.X
 
 The owner isn't around to review or click anything, so work runs unattended and straight on main:
 
-- Commit directly on `main` in this checkout. Don't create branches, worktrees or pull requests, and don't give subagents worktree isolation. Tell every subagent the same.
+- Commit and push directly on `main` in this checkout. Every commit gets a version tag and is pushed with its tag right away; never leave commits unpushed. Don't create branches, worktrees or pull requests, and don't give subagents worktree isolation. Tell every subagent the same.
 - If a push is rejected, run `git pull --rebase origin main`, fix any conflicts, run the tests again and push.
 - Don't stop to ask for approval or a choice. Make the call that the spec and the glossary support best, write it in the ticket's `## Comments`, and keep going.
 - When a ticket is done, set its `Status:` to `resolved`, add a `Release:` line, then commit, tag, push and start the next unblocked ticket. Keep going until every ticket in the arc is resolved.
