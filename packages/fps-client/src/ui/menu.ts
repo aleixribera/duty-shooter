@@ -67,7 +67,7 @@ const CSS = `
 .ds-btn:disabled { opacity: 0.45; cursor: default; }
 .ds-btns { display: flex; gap: 10px; }
 .ds-btns .ds-btn { flex: 1; }
-.ds-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ds-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .ds-mode { padding: 12px 14px; text-align: left; background: var(--ds-raised); color: var(--ds-text); border: 1px solid var(--ds-line); border-radius: 4px; font: inherit; cursor: pointer; }
 .ds-mode b { display: block; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; }
 .ds-mode span { font-size: 13px; color: var(--ds-text-2); }
@@ -605,6 +605,7 @@ export class Menu {
       for (const [mode, desc] of [
         ['tdm', 'Two teams, first to 75 kills.'],
         ['ffa', 'Everyone for themselves, first to 30.'],
+        ['outposts', 'Hold the three zones, first to 200 points.'],
       ] as const) {
         const b = h('button', '', `ds-mode${this.#mode === mode ? ' on' : ''}`) as HTMLButtonElement;
         b.type = 'button';
@@ -692,6 +693,7 @@ export class Menu {
     for (const [mode, desc] of [
       ['tdm', 'Your team against theirs.'],
       ['ffa', 'Everyone for themselves.'],
+      ['outposts', 'Take and hold the three zones.'],
     ] as const) {
       const b = h('button', '', `ds-mode${this.#botMode === mode ? ' on' : ''}`) as HTMLButtonElement;
       b.type = 'button';

@@ -25,6 +25,7 @@ import {
   type SpawnPoint,
   type UserCmd,
   type Vec3,
+  type Zone,
 } from '@duty-shooter/fps-core';
 import { connectWebSocket } from './net/websocket';
 
@@ -338,6 +339,8 @@ function writeStorage(key: string, value: string): void {
 export interface BotMatchOptions {
   readonly solids: readonly Solid[];
   readonly spawns: { readonly ffa: readonly SpawnPoint[]; readonly teams: readonly (readonly SpawnPoint[])[] | null };
+  /** The map's Outposts zones. */
+  readonly zones?: readonly Zone[];
   /** How the map's nav graph is built, for the bots to find their way. */
   readonly nav: NavOptions;
   readonly mode: ModeId;
@@ -366,6 +369,7 @@ export class BotMatchDriver extends OnlineDriver {
       mode: options.mode,
       spawns: options.spawns.ffa,
       ...(options.spawns.teams ? { teamSpawns: options.spawns.teams } : {}),
+      ...(options.zones ? { zones: options.zones } : {}),
       passphrase: '',
       bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
     });

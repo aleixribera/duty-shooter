@@ -1,4 +1,4 @@
-import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type Score, type TeamScore } from '../modes/game-mode';
+import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type ObjectiveState, type Score, type TeamScore } from '../modes/game-mode';
 import type { GrenadeOutput } from '../combat/grenade';
 import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import { parseLoadout, type Loadout } from '../weapon/loadout';
@@ -64,6 +64,8 @@ export interface MatchStatus {
   /** Simulation time (s) the phase ends: the time limit while playing (null without one), the next phase in the intermission. */
   readonly phaseEnds: number | null;
   readonly killLimit: number | null;
+  /** Team points that win an objective mode; null for none. */
+  readonly scoreLimit: number | null;
   readonly timeLimit: number | null;
   /** Seconds a dead player waits before respawning. */
   readonly respawnDelay: number;
@@ -74,6 +76,8 @@ export interface MatchStatus {
   readonly next: ModeId;
   /** How the match ended, during the intermission. */
   readonly result: MatchResult | null;
+  /** The mode's objectives (Outposts zones), or null. */
+  readonly objective: ObjectiveState | null;
 }
 
 /** A simulation or game-mode event, stamped with its tick and position in that tick for de-duplication. */

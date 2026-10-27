@@ -51,6 +51,14 @@ describe('the match bar', () => {
     expect(bar).toEqual({ kind: 'tdm', teams: [{ team: 1, score: 40, mine: false }, { team: 2, score: 52, mine: true }], limit: 75 });
   });
 
+  it('shows both team scores in Outposts, against the score limit', () => {
+    const bar = matchBar({ mode: 'outposts', teamScores: [{ team: 1, score: 120 }, { team: 2, score: 64 }], killLimit: null, scoreLimit: 200 }, [], 'me', 1);
+    expect(bar).toEqual({ kind: 'tdm', teams: [{ team: 1, score: 120, mine: true }, { team: 2, score: 64, mine: false }], limit: 200 });
+    expect(scoreboard([score('me', 1, 2, 1)], 'outposts', {}).kind).toBe('tdm');
+    expect(matchSize('outposts', 3)).toBe('3v3');
+    expect(endSummary({ winner: 1, winnerName: 'Blue', draw: false, reason: 'scoreLimit' }, 'outposts', [score('me', 1, 2, 1)], 'me').headline).toEqual({ kind: 'team', team: 1, won: true });
+  });
+
   it('shows the leader and your place in free-for-all', () => {
     const bar = matchBar({ mode: 'ffa', teamScores: null, killLimit: 30 }, [score('a', 1, 4, 0, 'Ana'), score('me', 2, 9, 3, 'Me'), score('b', 3, 12, 1, 'Bo')], 'me', null);
     expect(bar).toEqual({ kind: 'ffa', leader: { name: 'Bo', kills: 12 }, you: { kills: 9, place: 2 }, limit: 30 });

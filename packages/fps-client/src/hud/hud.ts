@@ -1,5 +1,5 @@
 import { STATS, type MatchStatus, type ModeId, type PlayerOutput, type Score } from '@duty-shooter/fps-core';
-import { MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
+import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 
 const CSS = `
@@ -45,6 +45,20 @@ const CSS = `
 .ds-feed div { background: rgb(11 14 19 / 0.62); padding: 5px 10px; border-radius: 3px; text-shadow: none; transition: opacity 400ms linear; animation: ds-slide 200ms ease-out; }
 .ds-feed .you { box-shadow: inset 2px 0 0 var(--ds-signal); background: rgb(11 14 19 / 0.8); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
+.ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
+.ds-zones .zone { position: relative; width: 38px; height: 38px; border: 2px solid currentColor; border-radius: 4px; background: rgb(11 14 19 / 0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: var(--ds-text-3); }
+.ds-zones .zone.ds-t1, .ds-zones .zone.ds-t2 { background: rgb(11 14 19 / 0.7); }
+.ds-zones .zone b { font-size: 17px; line-height: 1; color: var(--ds-text); }
+.ds-zones .zone .mark { font-size: 9px; line-height: 1; margin-top: 2px; }
+.ds-zones .zone i { position: absolute; left: 0; bottom: 0; height: 4px; background: currentColor; }
+.ds-zones .zone.here { box-shadow: 0 0 0 2px rgb(243 241 234 / 0.5); }
+.ds-zones .zone.contested { animation: ds-blink 0.6s steps(2) infinite; }
+@keyframes ds-blink { 50% { border-color: var(--ds-alert); } }
+.ds-marker { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; color: var(--ds-text-3); }
+.ds-marker b { width: 26px; height: 26px; border: 2px solid currentColor; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--ds-text); background: rgb(11 14 19 / 0.5); }
+.ds-marker.ds-t1 b, .ds-marker.ds-t2 b { border-color: currentColor; }
+.ds-marker small { font-size: 11px; margin-top: 2px; color: var(--ds-text-2); }
+.ds-marker.contested b { border-color: var(--ds-alert); }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
 .ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
 .ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
@@ -130,10 +144,29 @@ export interface HudState {
   readonly prompt?: string | null;
   /** A centred message (e.g. "connecting"), or null. */
   readonly message: string | null;
+  /** The Outposts zones, or none. */
+  readonly zones?: readonly ZoneMarker[];
   readonly dt: number;
 }
 
 export type HitKind = 'hit' | 'kill' | 'headshot' | 'headshotKill';
+
+/** An Outposts zone as the HUD shows it: its state, and where its marker goes on screen. */
+export interface ZoneMarker {
+  readonly id: string;
+  /** Teams: the holder (0 while neutral) and the one taking it (0 for none), and how far, 0 to 1. */
+  readonly owner: number;
+  readonly capturing: number;
+  readonly progress: number;
+  readonly contested: boolean;
+  /** Where the marker goes (px), kept on screen when the zone is behind or off to the side. */
+  readonly x: number;
+  readonly y: number;
+  /** Metres away. */
+  readonly distance: number;
+  /** Whether the local player stands in it. */
+  readonly inside: boolean;
+}
 
 /** The match as the HUD shows it. */
 export interface MatchView {
@@ -146,6 +179,9 @@ export interface MatchView {
   readonly myVote: ModeId | null;
 }
 
+
+/** The mode as the match bar names it, short. */
+const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts' };
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.ceil(seconds));
@@ -198,6 +234,8 @@ export class Hud {
   readonly #board: HTMLDivElement;
   readonly #match: HTMLDivElement;
   readonly #end: HTMLDivElement;
+  readonly #zones: HTMLDivElement;
+  readonly #markers = new Map<string, HTMLDivElement>();
   /** Called when a vote button is pressed. */
   onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
@@ -258,6 +296,7 @@ export class Hud {
     this.#trace = this.#overlay.querySelector('canvas') as HTMLCanvasElement;
     this.#board = el('div', 'ds-board', this.root);
     this.#match = el('div', 'ds-match ds-plate', this.root);
+    this.#zones = el('div', 'ds-zones', this.root);
     this.#end = el('div', 'ds-end', this.root);
     this.#end.addEventListener('click', (e) => {
       const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
@@ -297,6 +336,17 @@ export class Hud {
     if (involvesYou) row.className = 'you';
     const k = killer === null ? '' : playerName(killer, bots.killer === true);
     row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}</span>${playerName(victim, bots.victim === true)}`;
+    this.#feed.append(row);
+    while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
+    setTimeout(() => (row.style.opacity = '0'), 5000);
+    setTimeout(() => row.remove(), 5500);
+  }
+
+  /** A line in the kill feed about the objectives (a zone taken), in `team`'s colour. */
+  objectiveFeed(text: string, team: number, involvesYou: boolean): void {
+    const row = document.createElement('div');
+    if (involvesYou) row.className = 'you';
+    row.innerHTML = `<span class="ds-t${team}">${TEAMS[team]?.mark ?? ''} ${escape(text)}</span>`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -448,6 +498,7 @@ export class Hud {
     this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;
 
     this.#updateMatch(state);
+    this.#updateZones(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
     const board = (state.showScoreboard || voting) && state.scores.length > 0;
@@ -461,6 +512,40 @@ export class Hud {
     }
   }
 
+  /** The Outposts strip under the match bar (each zone's holder and capture), and a marker over each zone in the world. */
+  #updateZones(state: HudState): void {
+    const zones = state.match?.status.phase === 'playing' && state.self ? (state.zones ?? []) : [];
+    this.#zones.style.display = zones.length > 0 ? 'flex' : 'none';
+    this.#set(
+      this.#zones,
+      zones
+        .map(
+          (z) =>
+            `<div class="zone ds-t${z.owner}${z.contested ? ' contested' : ''}${z.inside ? ' here' : ''}"><b>${escape(z.id)}</b><span class="mark">${TEAMS[z.owner]?.mark ?? '·'}</span>${z.capturing ? `<i class="ds-t${z.capturing}" style="width:${Math.round(z.progress * 100)}%"></i>` : ''}</div>`,
+        )
+        .join(''),
+    );
+    for (const [id, marker] of this.#markers) {
+      if (!zones.some((z) => z.id === id)) {
+        marker.remove();
+        this.#markers.delete(id);
+      }
+    }
+    for (const z of zones) {
+      let marker = this.#markers.get(z.id);
+      if (!marker) {
+        marker = document.createElement('div');
+        this.root.append(marker);
+        this.#markers.set(z.id, marker);
+      }
+      marker.className = `ds-marker ds-t${z.owner}${z.contested ? ' contested' : ''}`;
+      marker.style.display = z.inside ? 'none' : '';
+      marker.style.left = `${z.x}px`;
+      marker.style.top = `${z.y}px`;
+      this.#set(marker, `<b>${escape(z.id)}</b><small>${Math.round(z.distance)} m</small>`);
+    }
+  }
+
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
   #updateMatch(state: HudState): void {
     const view = state.match;
@@ -471,7 +556,7 @@ export class Hud {
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
     if (s.phase === 'playing') {
       const bar = matchBar(s, state.scores, state.selfId, view.team);
-      const mid = `<div class="mid"><span class="clock">${left || '–'}</span><span class="sub">${s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
+      const mid = `<div class="mid"><span class="clock">${left || '–'}</span><span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
       if (bar.kind === 'tdm') {
         const [a, b] = bar.teams.map(
           (t) => `<div class="team ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span></div>`,
@@ -496,7 +581,7 @@ export class Hud {
               ? 'You win'
               : `${escape(h.name)} wins`
             : 'Match over';
-    const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result?.reason === 'timeLimit' ? 'time limit' : 'kill limit'}`;
+    const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result ? END_REASONS[s.result.reason] : 'over'}`;
     let html = `<div class="result">${sub}</div><h2>${headline}</h2>`;
     if (end.you) {
       const y = end.you;

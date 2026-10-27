@@ -176,7 +176,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (!map.nav) return;
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ solids, spawns: map.spawns, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
+    play(new BotMatchDriver({ solids, spawns: map.spawns, zones: map.zones, nav: map.nav, mode, botsPerTeam, name: settings.name.trim() || 'You', loadout: settings.loadout }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;

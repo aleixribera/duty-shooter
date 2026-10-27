@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Simulation, buildNavGraph, createWorld, type Vec3 } from '@duty-shooter/fps-core';
+import { Simulation, buildNavGraph, createWorld, inZone, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { BOUNDARY, buildSurvivalTown } from '../src/map/survival-town';
@@ -48,6 +48,14 @@ describe('Survival Town: nav graph', () => {
     expect(bad).toEqual([]);
   });
 
+  it('has nav nodes on the floor of every Outposts zone, so bots can stand in each', () => {
+    expect(map.zones.map((z) => z.id)).toEqual(['A', 'B', 'C']);
+    for (const z of map.zones) {
+      const inside = nav.nodes.filter((n) => inZone(z, n.position));
+      expect(inside.length, z.name).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it('has a node near every spawn point', () => {
     for (const s of [...map.spawns.ffa, ...map.spawns.teams!.flat()]) {
       const near = nav.nodes.some((n) => Math.hypot(n.position[0] - s.position[0], n.position[2] - s.position[2]) < 3 && Math.abs(n.position[1] - s.position[1]) < 0.5);
@@ -87,4 +95,20 @@ describe('Survival Town: bots on their own', () => {
     const scores = m.server.mode.teamScores()!;
     expect(scores.map((t) => t.score).every((n) => n > 0), JSON.stringify(scores)).toBe(true);
   }, 120_000);
+
+  it('play 3v3 Outposts to the end: both teams take zones, and zones change hands', () => {
+    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, zones: map.zones, mode: 'outposts', modes: { outposts: { scoreLimit: null, timeLimit: 240 } }, bots: { nav, perTeam: 3, alwaysOn: true } });
+    const captures: { team: number; previous: number }[] = [];
+    let ended = false;
+    for (let i = 0; i < 241 * 60 && !ended; i++) {
+      m.step();
+      for (const e of m.server.modeEvents) {
+        if (e.type === 'capture') captures.push({ team: e.team, previous: e.previous });
+        if (e.type === 'matchEnd') ended = true;
+      }
+    }
+    expect(ended).toBe(true);
+    expect(new Set(captures.map((c) => c.team)), JSON.stringify(captures)).toEqual(new Set([1, 2]));
+    expect(captures.some((c) => c.previous !== 0), JSON.stringify(captures)).toBe(true);
+  }, 180_000);
 });

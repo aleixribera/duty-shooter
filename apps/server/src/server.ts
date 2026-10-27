@@ -218,10 +218,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     mode: options.mode,
     spawns: map.spawns.ffa,
     ...(map.spawns.teams ? { teamSpawns: map.spawns.teams } : {}),
+    zones: map.zones,
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
-    ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit } } }),
+    ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit } } }),
     ...(map.nav && maxBots > 0 ? { bots: { nav: buildNavGraph(world, map.nav), perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
   });

@@ -9,8 +9,46 @@ export interface SpawnPoint {
 }
 
 /** The game modes a lobby can run. */
-export type ModeId = 'tdm' | 'ffa';
-export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa'];
+export type ModeId = 'tdm' | 'ffa' | 'outposts';
+export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa', 'outposts'];
+
+/** Whether a mode plays two teams (everything but free-for-all). */
+export function teamMode(id: ModeId): boolean {
+  return id !== 'ffa';
+}
+
+/** An Outposts zone: a vertical cylinder from the map definition, captured by standing in it. */
+export interface Zone {
+  /** A short letter-like label shown on the HUD (A, B, C). */
+  readonly id: string;
+  readonly name: string;
+  /** The centre of its floor. */
+  readonly center: Vec3;
+  readonly radius: number;
+  /** How far above the floor (m) a player's feet still count as inside. */
+  readonly height: number;
+}
+
+/** Whether a player standing at `position` is inside `zone`. */
+export function inZone(zone: Zone, position: Vec3): boolean {
+  const dy = position[1] - zone.center[1];
+  return dy > -0.5 && dy < zone.height && Math.hypot(position[0] - zone.center[0], position[2] - zone.center[2]) <= zone.radius;
+}
+
+/** A zone as the match has it: who holds it, who is taking it and how far, and whether both teams stand in it. */
+export interface ZoneState {
+  readonly id: string;
+  /** The team holding it; 0 while neutral. */
+  readonly owner: TeamId;
+  /** The team whose capture is under way; 0 for none. */
+  readonly capturing: TeamId;
+  /** How far that capture has got, 0 to 1. */
+  readonly progress: number;
+  readonly contested: boolean;
+}
+
+/** The mode's own state, sent with every snapshot; null for a mode without objectives. */
+export type ObjectiveState = { readonly kind: 'outposts'; readonly zones: readonly ZoneState[] };
 
 /** What a game mode can see of the match. */
 export interface ModeContext {
@@ -27,6 +65,8 @@ export interface ModeContext {
   readonly teamSpawns: readonly (readonly SpawnPoint[])[] | null;
   /** For line-of-sight checks when choosing spawns. */
   readonly world: World;
+  /** The map's Outposts zones (none on a map without them). */
+  readonly zones: readonly Zone[];
 }
 
 /** One row of the scoreboard. */
@@ -52,7 +92,7 @@ export interface MatchResult {
   readonly winner: PlayerId | TeamId | null;
   readonly winnerName: string | null;
   readonly draw: boolean;
-  readonly reason: 'killLimit' | 'timeLimit';
+  readonly reason: 'killLimit' | 'scoreLimit' | 'timeLimit' | 'roundLimit' | 'forfeit';
 }
 
 /** Something the game mode or the match flow wants clients to know about. */
@@ -68,6 +108,8 @@ export type ModeEvent =
       readonly weapon: KillWeapon | null;
       readonly headshot: boolean;
     }
+  /** A team took a zone from `previous` (0: it was neutral). */
+  | { readonly type: 'capture'; readonly zone: string; readonly team: TeamId; readonly previous: TeamId }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 
@@ -92,6 +134,8 @@ export interface GameMode {
   readonly name: string;
   /** Kills that win the match (a player's in free-for-all, a team's in team modes); null for none. */
   readonly killLimit: number | null;
+  /** Team points that win the match in an objective mode; null for none. */
+  readonly scoreLimit: number | null;
   /** Seconds a match lasts before the leader wins; null for no limit. */
   readonly timeLimit: number | null;
   /** Seconds a dead player waits before respawning (0 = instant). */
@@ -103,6 +147,8 @@ export interface GameMode {
   rejoin(score: Score): void;
   /** Friendly-fire rule. Dummies are always fair game. */
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean;
+  /** Whether a dead player may respawn now (after the delay); a round-based mode says no until the next round. */
+  canRespawn(id: PlayerId): boolean;
   /** Where `id` should (re)spawn. */
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint;
   /**
@@ -110,11 +156,13 @@ export interface GameMode {
    * few players as possible from the team they had. Returns everyone's team.
    */
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId>;
-  /** Reacts to a tick's simulation events (kills, ...) and returns what clients should hear about. */
+  /** Runs a tick of the match: reacts to its simulation events (kills, ...) and the objectives, and returns what clients should hear about. */
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[];
   /** How the match ended, once a kill or time limit is reached; null while it is on. */
   result(ctx: ModeContext): MatchResult | null;
   scores(): Score[];
   /** Team totals in a team mode, null otherwise. */
   teamScores(): readonly TeamScore[] | null;
+  /** The objectives' state for the snapshot, or null. */
+  objective(): ObjectiveState | null;
 }

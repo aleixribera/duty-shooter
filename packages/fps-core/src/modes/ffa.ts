@@ -28,6 +28,7 @@ export class FreeForAll implements GameMode {
   readonly name = 'Free-for-all';
   readonly respawnDelay = RESPAWN_DELAY;
   readonly killLimit: number | null;
+  readonly scoreLimit = null;
   readonly timeLimit: number | null;
   readonly #entries = new Map<PlayerId, Entry>();
   #nextTeam = 1;
@@ -62,6 +63,10 @@ export class FreeForAll implements GameMode {
 
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
     return attacker.id !== victim.id;
+  }
+
+  canRespawn(): boolean {
+    return true;
   }
 
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
@@ -134,6 +139,10 @@ export class FreeForAll implements GameMode {
   }
 
   teamScores(): readonly TeamScore[] | null {
+    return null;
+  }
+
+  objective(): null {
     return null;
   }
 }

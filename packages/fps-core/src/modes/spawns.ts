@@ -43,12 +43,20 @@ export function overrun(spawn: SpawnPoint, enemies: readonly PlayerOutput[]): bo
 
 /**
  * The safest spawn, by these rules in order: never within 8 m of a living
- * enemy, out of every living enemy's sight, not one of the player's own last
- * two spawns (`recent`), then the best mix of distance from living enemies and
- * nearness to living teammates. Each rule gives way only when no candidate
- * meets it. Ties go to the earlier spawn, so the choice is deterministic.
+ * enemy, out of every living enemy's sight, one the mode `favoured` (when it
+ * says), not one of the player's own last two spawns (`recent`), then the
+ * best mix of distance from living enemies and nearness to living teammates.
+ * Each rule gives way only when no candidate meets it. Ties go to the earlier
+ * spawn, so the choice is deterministic.
  */
-export function scoredSpawn(candidates: readonly SpawnPoint[], teammates: readonly PlayerOutput[], enemies: readonly PlayerOutput[], ctx: ModeContext, recent: readonly SpawnPoint[] = []): SpawnPoint | null {
+export function scoredSpawn(
+  candidates: readonly SpawnPoint[],
+  teammates: readonly PlayerOutput[],
+  enemies: readonly PlayerOutput[],
+  ctx: ModeContext,
+  recent: readonly SpawnPoint[] = [],
+  favoured?: (spawn: SpawnPoint) => boolean,
+): SpawnPoint | null {
   let best: { spawn: SpawnPoint; rank: readonly number[] } | null = null;
   for (const spawn of candidates) {
     const nearestEnemy = enemies.length ? Math.min(...enemies.map((e) => distance(e.position, spawn.position))) : FAR_ENOUGH;
@@ -56,6 +64,7 @@ export function scoredSpawn(candidates: readonly SpawnPoint[], teammates: readon
     const rank = [
       nearestEnemy >= TOO_CLOSE ? 1 : 0,
       enemies.some((e) => seenBy(e, spawn, ctx)) ? 0 : 1,
+      favoured?.(spawn) ? 1 : 0,
       recent.some((r) => samePlace(r, spawn)) ? 0 : 1,
       Math.min(FAR_ENOUGH, nearestEnemy) - TEAMMATE_WEIGHT * Math.min(FAR_ENOUGH, nearestMate),
     ];

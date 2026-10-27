@@ -3,7 +3,9 @@ import {
   TICK_SECONDS,
   Button,
   angleDelta,
+  inZone,
   isShellReload,
+  teamMode,
   raycastWorld,
   sightBlocked,
   viewDirection,
@@ -16,13 +18,15 @@ import {
   type Vec3,
   type WeaponId,
   type World,
+  type Zone,
 } from '@duty-shooter/fps-core';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera } from './camera';
 import { Effects } from './effects';
-import { Hud, type HitKind } from './hud/hud';
+import { Hud, type HitKind, type ZoneMarker } from './hud/hud';
+import { TEAMS } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
@@ -160,6 +164,8 @@ export class Game {
   #paused = true;
   #message: string | null = null;
   readonly #loadoutStation: GameOptions['loadoutStation'];
+  /** The map's Outposts zones, for their markers. */
+  readonly #zones: readonly Zone[];
   /** Use held on the last tick, so a press opens the loadout screen once. */
   #useHeld = false;
   /**
@@ -194,6 +200,7 @@ export class Game {
     this.#nukeAt = options.content.nuke ?? null;
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#indoorZones = options.content.indoorZones;
+    this.#zones = options.content.zones ?? [];
     this.#ambience = new Ambience(options.content.ambience ?? []);
     options.renderer.toneMapping = ACESFilmicToneMapping;
     options.renderer.toneMappingExposure = 0.7;
@@ -396,7 +403,7 @@ export class Game {
 
     if (driver) {
       this.#others = driver.others(alpha);
-      const teams = driver.match?.mode === 'tdm';
+      const teams = driver.match ? teamMode(driver.match.mode) : false;
       this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null, names: new Map(driver.scores.map((s) => [s.id, s.name])) });
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
@@ -476,14 +483,40 @@ export class Game {
         ? {
             status: match,
             secondsLeft: match.phaseEnds === null ? null : match.phaseEnds - driver.serverTime,
-            team: match.mode === 'tdm' ? (this.#cur?.team ?? null) : null,
+            team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
           }
         : null,
       respawnIn: match && match.phase !== 'playing' ? null : driver.respawnIn,
       prompt: this.#cur && (!this.#cur.alive || this.#atStation(this.#cur)) && (!match || match.phase === 'playing') ? `${this.#useLabel()}  Loadout` : null,
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
+      zones: this.#zoneMarkers(eye),
       dt,
+    });
+  }
+
+  /** The Outposts zones with their state from the match, each projected to where its marker goes on screen. */
+  #zoneMarkers(eye: Vec3): ZoneMarker[] {
+    const states = this.#driver?.match?.objective?.zones;
+    if (!states || this.#zones.length === 0) return [];
+    const cam = this.#camera.camera;
+    const w = this.#canvas.clientWidth;
+    const h = this.#canvas.clientHeight;
+    const margin = 32;
+    return this.#zones.flatMap((zone) => {
+      const s = states.find((x) => x.id === zone.id);
+      if (!s) return [];
+      const top: Vec3 = [zone.center[0], zone.center[1] + Math.min(zone.height, 2.4), zone.center[2]];
+      const p = new Vector3(top[0], top[1], top[2]).project(cam);
+      // Behind the camera the projection mirrors: flip it, and pin the marker to the bottom edge.
+      const behind = p.z > 1;
+      let x = ((behind ? -p.x : p.x) + 1) / 2 * w;
+      let y = behind ? h - margin : ((1 - p.y) / 2) * h;
+      x = Math.min(w - margin, Math.max(margin, x));
+      y = Math.min(h - margin, Math.max(margin + 24, y));
+      const distance = Math.hypot(zone.center[0] - eye[0], zone.center[2] - eye[2]);
+      const inside = this.#cur?.alive === true && inZone(zone, this.#cur.position);
+      return [{ id: zone.id, owner: s.owner, capturing: s.capturing, progress: s.progress, contested: s.contested, x, y, distance, inside }];
     });
   }
 
@@ -773,6 +806,12 @@ export class Game {
           const shake = Math.max(0, 1 - d / 20);
           if (shake > 0) this.#camera.kick(2.5 * shake, (Math.random() - 0.5) * 3 * shake, (Math.random() - 0.5) * 4 * shake);
         }
+        break;
+      }
+      case 'capture': {
+        const team = TEAMS[e.team]?.name ?? 'A team';
+        const lost = e.previous !== 0 ? ` from ${TEAMS[e.previous]?.name ?? 'the other team'}` : '';
+        this.hud.objectiveFeed(`${team} took ${e.zone}${lost}`, e.team, this.#cur?.team === e.team || this.#cur?.team === e.previous);
         break;
       }
       case 'matchEnd':

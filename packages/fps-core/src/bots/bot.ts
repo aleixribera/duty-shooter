@@ -24,7 +24,18 @@ export interface BotView {
   readonly grenades?: readonly GrenadeOutput[];
   /** Whether `other` is on the other side (any other player in free-for-all). */
   isEnemy(other: PlayerOutput): boolean;
+  /** Where its team's planner sends it (a zone to take or hold), or null to roam freely. */
+  readonly objective?: BotObjective | null;
 }
+
+/** A place a bot is sent to and stays in: a circle on the ground. */
+export interface BotObjective {
+  readonly position: Vec3;
+  readonly radius: number;
+}
+
+/** A bot sent to an objective chases a noise no farther than this (m) beyond its edge. */
+const OBJECTIVE_LEASH = 12;
 
 /** Sight is checked this often (ticks), not every tick. */
 const PERCEIVE_TICKS = 6;
@@ -83,6 +94,12 @@ const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
 };
 /** The profiles' fight ranges run from about this close to this far (m): a weapon's band is placed along it. */
 const FIGHT_RANGES: readonly [number, number] = [5, 26];
+/** A followed goal that has moved this far (m) gets a new route. */
+const REPLAN_MOVE = 2;
+
+/** The route key while heading for an objective (a player id never looks like it). */
+const OBJECTIVE_KEY = '#objective';
+
 /** With the primary dry and an enemy this near (m), out comes the pistol. */
 const PISTOL_RANGE = 10;
 /** Inside this range (m) a shotgun's cone covers the body: no need to line the shot up. */
@@ -181,6 +198,8 @@ export class Bot {
   #ordered: number | null = null;
   #chasing: PlayerId | null = null;
   #replanAt = 0;
+  /** Where the route being followed leads. */
+  #followed: Vec3 = [0, 0, 0];
   readonly #memory = new Map<PlayerId, Sighting>();
   #target: Engagement | null = null;
   #lastEnemySeen = -Infinity;
@@ -244,7 +263,7 @@ export class Bot {
     if (this.#flee) return 'flee';
     if (this.#throw) return 'throw';
     if (this.#target) return 'fight';
-    if (this.#chasing) return 'chase';
+    if (this.#chasing && this.#chasing !== OBJECTIVE_KEY) return 'chase';
     return this.#holdUntil > this.#lastTime ? 'hold' : 'roam';
   }
 
@@ -414,13 +433,21 @@ export class Bot {
       }
       if (target.crouch && range > 14 && !move) buttons.push('Crouch');
     } else {
+      const order = view.objective ?? null;
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
-      if (chase && time - chase.time < this.profile.chase) {
+      const leashed = (at: Vec3) => order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH;
+      // Roaming inside the objective only: an older goal elsewhere is dropped.
+      if (order && this.#goal !== null && flat(this.#nav.nodes[this.#goal]!.position, order.position) > order.radius) this.#goal = null;
+      if (chase && time - chase.time < this.profile.chase && leashed(chase.position)) {
         move = this.#follow(view, chase.position, this.#chasing!);
         if (flat(self.position, chase.position) < 2) {
           this.#memory.delete(this.#chasing!);
           this.#chasing = null;
         }
+      } else if (order && flat(self.position, order.position) > order.radius * 0.7) {
+        // Off to the objective, by the quickest way.
+        move = this.#follow(view, order.position, OBJECTIVE_KEY);
+        this.#holdUntil = 0;
       } else if (time >= this.#holdUntil) {
         move = this.#roam(view, r);
       } else if (this.#holdCrouch) buttons.push('Crouch');
@@ -742,8 +769,11 @@ export class Bot {
   /** The next point along the route to `goal` (a moving one is re-planned now and then). */
   #follow(view: BotView, goal: Vec3, key: PlayerId, unseenBy: Vec3 | null = null): Vec3 | null {
     const { self, time } = view;
-    if (this.#chasing !== key || time >= this.#replanAt || this.#step >= this.#path.length) {
+    // Replanned when the goal has moved (each second at most) or the bot got stuck: replanning a route to the same place only turns the bot back to where it started.
+    const moved = flat(goal, this.#followed) > REPLAN_MOVE || this.#replanAt === 0;
+    if (this.#chasing !== key || (time >= this.#replanAt && moved) || this.#step >= this.#path.length) {
       this.#chasing = key;
+      this.#followed = goal;
       this.#replanAt = time + 1;
       this.#plan(self.position, nearestNode(this.#nav, this.#world, goal), view, true, unseenBy);
     }
@@ -756,9 +786,9 @@ export class Bot {
     if (this.#goal !== null && this.#step >= this.#path.length) {
       const reached = this.#nav.nodes[this.#goal]!;
       this.#goal = null;
-      // A sniper always settles in to watch the lane it came for, and for longer.
+      // A sniper always settles in to watch the lane it came for, and for longer; so does a bot holding an objective.
       const scoped = TACTICS[self.weapon.id].scoped;
-      if (scoped || r(21) < this.profile.hold) {
+      if (scoped || view.objective || r(21) < this.profile.hold) {
         this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22)) * (scoped ? 2.5 : 1);
         this.#holdYaw = scoped && reached.sightline >= LONG_SIGHTLINE ? reached.sightYaw : this.#holdFacing(self.position);
         this.#holdCrouch = r(23) < this.profile.crouch;
@@ -788,9 +818,10 @@ export class Bot {
       const off = 8 + r(93) * 12;
       hunch = [e[0] + Math.cos(angle) * off, e[1], e[2] + Math.sin(angle) * off];
     }
-    // A sniper picks among the spots with a long view.
+    // Inside its objective, if it has one; a sniper picks among the spots with a long view.
+    const inside = view.objective ? this.#nodesIn(view.objective) : [];
     const lanes = TACTICS[self.weapon.id].scoped ? this.#longSightlines() : [];
-    const pool = lanes.length > 0 ? lanes : null;
+    const pool = inside.length > 0 ? inside : lanes.length > 0 ? lanes : null;
     const candidates = Array.from({ length: 16 }, (_, k) => (pool ? pool[Math.floor(r(30 + k) * pool.length)]! : Math.floor(r(30 + k) * nodes.length)));
     if (hunch) candidates.push(nearestTo(nodes, hunch));
     let best = 0;
@@ -814,6 +845,16 @@ export class Bot {
   }
 
   #lanes: number[] | null = null;
+  #inside: { objective: BotObjective; nodes: number[] } | null = null;
+
+  /** The nav nodes inside an objective (the nearest one when none is). */
+  #nodesIn(objective: BotObjective): readonly number[] {
+    if (this.#inside?.objective !== objective) {
+      const nodes = this.#nav.nodes.flatMap((n, i) => (flat(n.position, objective.position) <= objective.radius * 0.8 && Math.abs(n.position[1] - objective.position[1]) < 2 ? [i] : []));
+      this.#inside = { objective, nodes: nodes.length > 0 ? nodes : [nearestNode(this.#nav, this.#world, objective.position)] };
+    }
+    return this.#inside.nodes;
+  }
 
   /** The nav nodes with a long view, for holding a lane with a sniper rifle. */
   #longSightlines(): readonly number[] {
@@ -921,7 +962,9 @@ export class Bot {
   /** When the bot has barely moved for a while: back off a step to one side and find the way again; after longer, go somewhere else. */
   #stuck(view: BotView, r: (n: number) => number): void {
     const { self, time } = view;
-    if (flat(self.position, this.#progress.position) > 0.6 || Math.abs(self.position[1] - this.#progress.position[1]) > 0.5) {
+    // Height gained counts only once landed: hopping at a ledge it can't get onto is no progress.
+    const climbed = self.movement !== 'airborne' && Math.abs(self.position[1] - this.#progress.position[1]) > 0.5;
+    if (flat(self.position, this.#progress.position) > 0.6 || climbed) {
       this.#progress = { position: self.position, time };
       return;
     }

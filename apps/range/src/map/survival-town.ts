@@ -1,4 +1,4 @@
-import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World } from '@duty-shooter/fps-core';
+import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone } from '@duty-shooter/fps-core';
 import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
@@ -1077,6 +1077,17 @@ const YARD_SPAWNS: readonly (readonly [number, number])[] = [
   [-12, 44.5],
 ];
 
+/**
+ * Outposts: a zone on the ground floor of each house (each team's near zone,
+ * between its yard and the street) and one in the cul-de-sac between them.
+ * Each stops below the upstairs floor.
+ */
+const ZONES: readonly Zone[] = [
+  { id: 'A', name: 'North house', center: [2.5, 0, -24], radius: 3.5, height: UPPER_FLOOR - 0.4 },
+  { id: 'B', name: 'Cul-de-sac', center: [-3, 0, 0], radius: 5, height: 3 },
+  { id: 'C', name: 'South house', center: [2.5, 0, 24], radius: 3.5, height: UPPER_FLOOR - 0.4 },
+];
+
 function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] } {
   const team = (s: -1 | 1) => YARD_SPAWNS.map(([x, d]): SpawnPoint => ({ position: [x, 0, s * d], yaw: faceCentre(x, s * d) }));
   const ffa: SpawnPoint[] = [];
@@ -1324,6 +1335,7 @@ export function buildSurvivalTown(): MapDefinition {
     nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14] },
     ambience: ambience(populationSign),
     spawns,
+    zones: ZONES,
     offlineSpawn: spawns.teams[0][3]!,
     overview: { name: 'overview', position: [-30, 34, 0], yaw: LOOK.east, pitch: -0.75 },
     dummies,

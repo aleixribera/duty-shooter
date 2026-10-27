@@ -14,7 +14,7 @@ function context(players: { position: Vec3; team: number }[], spawns: readonly S
   const sim = new Simulation(world);
   players.forEach((p, i) => sim.addPlayer({ id: `p${i + 1}`, team: p.team, position: p.position }));
   const out = sim.output();
-  return { tick: 0, time: 0, matchTime: 0, players: out.players, spawns, teamSpawns, world };
+  return { tick: 0, time: 0, matchTime: 0, players: out.players, spawns, teamSpawns, world, zones: [] };
 }
 
 describe('spawn rules', () => {

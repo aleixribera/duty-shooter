@@ -1,4 +1,4 @@
-import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, type GrenadeId, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, teamMode, type GrenadeId, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -16,7 +16,9 @@ export interface LobbyInfo {
   readonly away?: number;
 }
 
-export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all' };
+export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts' };
+/** How each way a match can end reads on the end screen. */
+export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
 export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town' };
 /** Teams always appear with their mark and name, never by colour alone. */
 export const TEAMS: Readonly<Record<number, { readonly name: string; readonly mark: string }>> = { 1: { name: 'Blue', mark: '◆' }, 2: { name: 'Orange', mark: '▲' } };
@@ -56,7 +58,7 @@ function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>
 
 /** The held scoreboard: the free-for-all ranking, or both teams side by side. */
 export function scoreboard(scores: readonly Score[], mode: ModeId, pings: Readonly<Record<string, number>>, teamScores: readonly TeamScore[] | null = null): Board {
-  if (mode !== 'tdm') return { kind: 'ffa', rows: ranked(scores, pings) };
+  if (!teamMode(mode)) return { kind: 'ffa', rows: ranked(scores, pings) };
   return {
     kind: 'tdm',
     teams: [1, 2].map((team) => ({
@@ -75,9 +77,14 @@ export type MatchBar =
   | { readonly kind: 'ffa'; readonly leader: { readonly name: string; readonly kills: number } | null; readonly you: { readonly kills: number; readonly place: number } | null; readonly limit: number | null };
 
 /** The HUD's top bar: both team scores with yours marked, or the leader and your place. */
-export function matchBar(status: { readonly mode: ModeId; readonly teamScores: readonly TeamScore[] | null; readonly killLimit: number | null }, scores: readonly Score[], selfId: PlayerId | null, team: number | null): MatchBar {
-  if (status.mode === 'tdm') {
-    return { kind: 'tdm', teams: [1, 2].map((t) => ({ team: t, score: status.teamScores?.find((s) => s.team === t)?.score ?? 0, mine: t === team })), limit: status.killLimit };
+export function matchBar(
+  status: { readonly mode: ModeId; readonly teamScores: readonly TeamScore[] | null; readonly killLimit: number | null; readonly scoreLimit?: number | null },
+  scores: readonly Score[],
+  selfId: PlayerId | null,
+  team: number | null,
+): MatchBar {
+  if (teamMode(status.mode)) {
+    return { kind: 'tdm', teams: [1, 2].map((t) => ({ team: t, score: status.teamScores?.find((s) => s.team === t)?.score ?? 0, mine: t === team })), limit: status.killLimit ?? status.scoreLimit ?? null };
   }
   const rows = ranked(scores, {});
   const top = rows[0];
@@ -99,7 +106,7 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   let headline: EndSummary['headline'];
   if (!result) headline = { kind: 'unknown' };
   else if (result.draw || result.winner === null) headline = { kind: 'draw' };
-  else if (mode === 'tdm') headline = { kind: 'team', team: Number(result.winner), won: me?.team === result.winner };
+  else if (teamMode(mode)) headline = { kind: 'team', team: Number(result.winner), won: me?.team === result.winner };
   else headline = { kind: 'player', name: result.winnerName ?? 'Someone', you: result.winner === selfId };
   return { headline, you };
 }
@@ -160,7 +167,7 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
 
 /** How a match of `perTeam` a side reads in `mode`: "3v3", or "6 players" in free-for-all (you included). */
 export function matchSize(mode: ModeId, perTeam: number): string {
-  return mode === 'tdm' ? `${perTeam}v${perTeam}` : `${perTeam * 2} players`;
+  return teamMode(mode) ? `${perTeam}v${perTeam}` : `${perTeam * 2} players`;
 }
 
 /** What the loadout screen offers in each slot. Everything is unlocked from the start. */

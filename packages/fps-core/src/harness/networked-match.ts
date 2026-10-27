@@ -1,9 +1,7 @@
-import type { FreeForAllOptions } from '../modes/ffa';
 import type { ModeEvent, ModeId, SpawnPoint } from '../modes/game-mode';
-import type { TeamDeathmatchOptions } from '../modes/tdm';
 import { GameClient, type ClientFrame } from '../net/client';
 import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } from '../net/memory';
-import { GameServer, type BotOptions, type LobbyEvent } from '../net/server';
+import { GameServer, type BotOptions, type GameServerOptions, type LobbyEvent } from '../net/server';
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
@@ -17,7 +15,9 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly dummies?: readonly PlayerSpawn[];
   /** The mode the server starts in. Defaults to free-for-all (the live server defaults to team deathmatch). */
   readonly mode?: ModeId;
-  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions };
+  readonly modes?: GameServerOptions['modes'];
+  /** The map's Outposts zones. */
+  readonly zones?: GameServerOptions['zones'];
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** The server's passphrase; defaults to 'letmein'. */
   readonly passphrase?: string;
@@ -71,6 +71,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     spawns: options.spawns,
     ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
     ...(options.modes ? { modes: options.modes } : {}),
+    ...(options.zones ? { zones: options.zones } : {}),
     ...(options.intermission ? { intermission: options.intermission } : {}),
     passphrase,
     ...(options.dummies ? { dummies: options.dummies } : {}),

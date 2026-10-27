@@ -87,8 +87,16 @@ _Avoid_: nade (fine in player-facing text)
 ## Matches
 
 **Mode**:
-The rules of a match: team deathmatch (TDM) or free-for-all (FFA).
+The rules of a match: team deathmatch (TDM), free-for-all (FFA) or Outposts.
 _Avoid_: playlist, game type
+
+**Outposts**:
+The team mode where standing in the map's zones captures them, and each held zone scores its team a point a second. The first team to 200 points wins.
+_Avoid_: domination, capture points
+
+**Zone**:
+One of the three Outposts objectives on a map: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes.
+_Avoid_: point, flag, objective (on its own)
 
 **Intermission**:
 The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout.

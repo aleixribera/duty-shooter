@@ -1,4 +1,4 @@
-import type { NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
+import type { NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
 import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
@@ -82,6 +82,8 @@ export interface MapDefinition {
     /** One set per team (team 1, team 2), each at its own side of the map; null where the map has no team spawns. */
     readonly teams: readonly [readonly SpawnPoint[], readonly SpawnPoint[]] | null;
   };
+  /** The Outposts zones (none on a map that doesn't play it). */
+  readonly zones: readonly Zone[];
   /** Where an offline session starts. */
   readonly offlineSpawn: SpawnPoint;
   /** Where the camera waits when there is no player to follow. */
