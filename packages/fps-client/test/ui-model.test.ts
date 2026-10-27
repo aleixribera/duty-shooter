@@ -69,7 +69,9 @@ describe('connection errors', () => {
     expect(connectionError('Disconnected: connection lost.').kind).toBe('down');
     expect(connectionError(null).kind).toBe('down');
     expect(connectionError('Wrong passphrase.').kind).toBe('passphrase');
-    for (const s of ['The server is full.', 'The game was updated. Reload the page.', null, 'Pick another name.']) {
+    // Away too long (a background tab): the server let the slot go, which is not the server being down.
+    expect(connectionError('Disconnected: idle.').kind).toBe('idle');
+    for (const s of ['The server is full.', 'The game was updated. Reload the page.', null, 'Pick another name.', 'Disconnected: idle.']) {
       const e = connectionError(s);
       expect(e.title.length).toBeGreaterThan(0);
       expect(e.body.length).toBeGreaterThan(0);

@@ -21,6 +21,7 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   /** The server's passphrase; defaults to 'letmein'. */
   readonly passphrase?: string;
   readonly maxPlayers?: number;
+  readonly idleTimeout?: number;
 }
 
 /** A client in the match, with every frame it produced. */
@@ -67,6 +68,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     passphrase,
     ...(options.dummies ? { dummies: options.dummies } : {}),
     ...(options.maxPlayers === undefined ? {} : { maxPlayers: options.maxPlayers }),
+    ...(options.idleTimeout === undefined ? {} : { idleTimeout: options.idleTimeout }),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];

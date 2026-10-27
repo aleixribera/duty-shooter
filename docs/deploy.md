@@ -68,7 +68,7 @@ sudo tailscale funnel --https=443 off
 
 ## Updating
 
-Updates are automatic. A push to `main` publishes a new image in about 3 minutes. The home server's `game-autoupdate` timer (in the `homelab-stacks` repo, `game-autoupdate/`) checks every 3 minutes. When the image changed **and the lobby is empty**, it recreates the container and waits for the health check. A new image that fails the check is rolled back. While anyone is playing, the update waits for a later check, so an update never ends a match.
+Updates are automatic. A push to `main` publishes a new image in about 3 minutes. The home server's `game-autoupdate` timer (in the `homelab-stacks` repo, `game-autoupdate/`) checks every 3 minutes. When the image changed **and the lobby is empty**, it recreates the container and waits for the health check. A new image that fails the check is rolled back. While anyone is playing, the update waits for a later check, so an update never ends a match. A player whose client goes silent for 60 s (a background tab or a minimised window, where the browser stops the game's frame loop) is let go, so a forgotten tab doesn't hold an update back.
 
 ```bash
 journalctl --user -u game-autoupdate -n 50 --no-pager   # updates, waits and failures

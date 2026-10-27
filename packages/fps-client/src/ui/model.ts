@@ -96,13 +96,16 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
 }
 
 export interface ConnectionError {
-  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'other';
+  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'other';
   readonly title: string;
   readonly body: string;
 }
 
 /** A failed join or a dropped connection, as the error screen explains it. `status` is the driver's status line, or null when the server did not answer. */
 export function connectionError(status: string | null): ConnectionError {
+  if (status === 'Disconnected: idle.') {
+    return { kind: 'idle', title: 'Left the match', body: 'The game was in the background for over a minute, so the server gave your slot up. Join again to keep playing.' };
+  }
   if (status === null || status.startsWith('Disconnected') || status === 'down') {
     const detail = status && status !== 'down' ? ` (${status.replace(/^Disconnected: /, '').replace(/\.$/, '')})` : '';
     return { kind: 'down', title: 'Server unreachable', body: `The game server did not answer${detail}. It may be restarting: try again in a minute, or practise offline meanwhile.` };

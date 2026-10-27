@@ -32,7 +32,7 @@ export { recoilKick } from './weapon/weapon';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { IW_UNIT, STATS } from './stats';
 export type { Estimated, Provenance, Source, Sourced, Stat, Stats, Unit } from './stats';
-export { GameServer, DEFAULT_MAX_PLAYERS } from './net/server';
+export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT } from './net/server';
 export type { GameServerOptions, LobbyStatus } from './net/server';
 export { GameClient } from './net/client';
 export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client';

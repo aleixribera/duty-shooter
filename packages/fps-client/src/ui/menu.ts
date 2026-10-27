@@ -414,6 +414,7 @@ export class Menu {
         p.append(row);
         if (e.kind === 'version') button(row, 'Reload', () => location.reload(), 'primary');
         else if (e.kind === 'down' || e.kind === 'full') button(row, 'Try again', () => this.#openOnline(), 'primary');
+        else if (e.kind === 'idle') button(row, 'Join again', () => this.#openOnline(), 'primary');
         else button(row, 'Play Online', () => this.show('online'), 'primary');
         button(row, 'Main menu', () => this.show('main'), 'back');
         break;

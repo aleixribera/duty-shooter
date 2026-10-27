@@ -42,9 +42,18 @@ export interface GameServerOptions {
   readonly maxMessageSize?: number;
   /** Messages a connection may send per second before it is dropped. */
   readonly maxMessagesPerSecond?: number;
+  /** Seconds of silence before a joined client is let go; IDLE_TIMEOUT by default. */
+  readonly idleTimeout?: number;
 }
 
 export const DEFAULT_MAX_PLAYERS = 8;
+/**
+ * Seconds a joined client may stay silent before its slot is let go. A playing
+ * client sends every frame, pause menu included; only a stopped frame loop (a
+ * background tab, a minimised window) goes quiet. Its player would otherwise
+ * stand frozen in the match and keep the lobby from ever emptying.
+ */
+export const IDLE_TIMEOUT = 60;
 const DEFAULT_MAX_MESSAGE = 8 * 1024;
 const DEFAULT_RATE = 180;
 /** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
@@ -65,6 +74,8 @@ interface Client {
   /** Messages counted in the current one-second window. */
   messages: number;
   windowStart: number;
+  /** Simulation time of the client's last message. */
+  heard: number;
 }
 
 /** What the lobby status endpoint reports. */
@@ -180,7 +191,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose(() => this.#drop(client));
@@ -194,6 +205,7 @@ export class GameServer {
 
   #receive(client: Client, data: string): void {
     const now = this.simulation.time;
+    client.heard = now;
     if (now - client.windowStart >= 1) {
       client.windowStart = now;
       client.messages = 0;
@@ -342,8 +354,12 @@ export class GameServer {
   tick(): TickOutput {
     const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd[]> = {};
-    for (const client of this.#clients) {
+    for (const client of [...this.#clients]) {
       if (client.id === null) continue;
+      if (this.simulation.time - client.heard > (this.#options.idleTimeout ?? IDLE_TIMEOUT)) {
+        client.connection.close('idle');
+        continue;
+      }
       const seqs = [...client.queue.keys()].sort((a, b) => a - b);
       // One usercmd per tick, so a client that ran dry once keeps a spare usercmd
       // queued as a jitter buffer; two per tick only when well behind.

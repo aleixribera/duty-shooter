@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameClient, STATS, anglesOf, createWorld, zoneCentre, type Connection, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
+import { GameClient, IDLE_TIMEOUT, STATS, anglesOf, createWorld, zoneCentre, type Connection, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
 import { PROTOCOL_VERSION } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
@@ -98,6 +98,41 @@ describe('joining', () => {
 
     expect(closed).toBe('join first');
     expect(m.server.playerCount).toBe(0);
+  });
+
+  it('lets go of a player whose client goes silent (a background tab), so the lobby empties; a playing client stays', () => {
+    const m = match({ jitter: 0, loss: 0, idleTimeout: 10 });
+    const [alice] = joinAll(m, 'alice');
+    const raw = m.network.connect();
+    let uplink = true;
+    const connection: Connection = {
+      send: (data) => uplink && raw.send(data),
+      close: (reason) => raw.close(reason),
+      onMessage: (handler) => raw.onMessage(handler),
+      onClose: (handler) => raw.onClose(handler),
+      get open() {
+        return raw.open;
+      },
+    };
+    const bob = new GameClient({ connection, world: createWorld([FLOOR]), name: 'bob', passphrase: 'letmein' });
+    const run = (seconds: number) => {
+      for (let i = 0; i < ticks(seconds); i++) {
+        m.step();
+        bob.tick(usercmd());
+      }
+    };
+    run(2);
+    expect(m.server.playerCount).toBe(2);
+    // The tab goes to the background: its frame loop, and with it every message, stops.
+    uplink = false;
+    run(9);
+    expect(m.server.playerCount).toBe(2);
+    run(2);
+    expect(m.server.playerCount).toBe(1);
+    expect(bob.status).toBe('closed');
+    expect(bob.closeReason).toBe('idle');
+    expect(alice!.client.status).toBe('joined');
+    expect(IDLE_TIMEOUT).toBe(60);
   });
 
   it('enforces the player cap', () => {
