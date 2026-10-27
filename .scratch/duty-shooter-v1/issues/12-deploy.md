@@ -1,6 +1,6 @@
 # 12 Deploy: container, GHCR workflow, hardened compose stack
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 5 (deploy)
 Blocked by: 11
 

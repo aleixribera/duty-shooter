@@ -1,6 +1,6 @@
 # 05 Viewmodel: code-built M4A1, gloved arms, animation and procedural layers
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 2 (weapon simulation, viewmodel and the range, offline)
 Blocked by: 03
 

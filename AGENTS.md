@@ -1,3 +1,5 @@
+After each change commit, tag, push to github. with version number vX.X.X
+
 ## Agent skills
 
 ### Issue tracker

@@ -1,6 +1,6 @@
 # 10 Netcode and game mode in fps-core
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 4 (netcode, other players, hit zones, FFA, arena, passphrase)
 Blocked by: 07, 08, 09
 

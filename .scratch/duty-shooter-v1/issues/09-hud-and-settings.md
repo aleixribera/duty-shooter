@@ -1,6 +1,6 @@
 # 09 HUD, range overlay and settings menu
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 3 (audio, effects, HUD, graphics presets)
 Blocked by: 06
 

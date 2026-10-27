@@ -1,6 +1,6 @@
 # 11 Multiplayer: server app, WebSocket transport, other players
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 4 (netcode, other players, hit zones, FFA, arena, passphrase)
 Blocked by: 10
 

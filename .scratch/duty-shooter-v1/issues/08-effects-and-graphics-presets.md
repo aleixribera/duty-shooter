@@ -1,6 +1,6 @@
 # 08 Effects and graphics presets
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 3 (audio, effects, HUD, graphics presets)
 Blocked by: 06
 

@@ -1,6 +1,6 @@
 # 03 Client shell, input, camera and the graybox map (offline, playable)
 
-Status: ready-for-agent
+Status: resolved
 Milestone: 1 (movement and course, offline)
 Blocked by: 02
 
