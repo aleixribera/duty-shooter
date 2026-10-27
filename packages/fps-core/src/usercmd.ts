@@ -14,7 +14,16 @@ export const Button = {
    * it on a double-tap of the sprint key and holds it while the key is held.
    */
   TacticalSprint: 1 << 8,
+  /** Its press puts the weapon in hand away and raises the other one. */
+  SwitchWeapon: 1 << 9,
+  /** Held to cook a grenade, released to throw it. */
+  Grenade: 1 << 10,
+  /** Held to plant or defuse. */
+  Use: 1 << 11,
 } as const;
+
+/** Every button bit. */
+export const ALL_BUTTONS = 0xfff;
 
 export type ButtonName = keyof typeof Button;
 

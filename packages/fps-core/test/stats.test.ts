@@ -44,13 +44,34 @@ describe('stats file', () => {
     const report = leaves(STATS).flatMap(({ path, value }) =>
       value !== null && typeof value === 'object'
         ? problems(path, value as Stat)
-        : // Flags (a material that stops bullets) are not numbers.
-          typeof value === 'boolean'
+        : // Flags (a material that stops bullets) are not numbers, and a weapon's traits are its words.
+          typeof value === 'boolean' || (typeof value === 'string' && /^STATS\.weapons\.\w+\.traits\.\w+$/.test(path))
           ? []
           : [`${path}: bare ${typeof value} outside a stat`],
     );
 
     expect(report).toEqual([]);
+  });
+
+  it("keeps numbers out of a weapon's traits and words out of everywhere else", () => {
+    const words = leaves(STATS).filter(({ value }) => typeof value === 'string');
+    expect(words.length).toBeGreaterThan(0);
+    for (const { path } of words) expect(path).toMatch(/^STATS\.weapons\.\w+\.traits\./);
+  });
+
+  it("gives every weapon the M4A1's row shape, and the M4A1 its existing stats", () => {
+    const { weapons, weapon, damage } = STATS;
+    expect(Object.keys(weapons)).toEqual(['m4a1', 'smg', 'shotgun', 'sniper', 'pistol']);
+    expect(weapons.m4a1.handling.fireRate).toBe(weapon.fireRate);
+    expect(weapons.m4a1.damage.bands['close']?.damage).toBe(damage.closeDamage);
+    for (const row of Object.values(weapons)) {
+      expect(Object.keys(row)).toEqual(['traits', 'handling', 'reload', 'damage', 'accuracy']);
+      const bands = Object.values(row.damage.bands);
+      // Bands run outward and only the last reaches any distance.
+      expect(bands.at(-1)?.range).toBeUndefined();
+      const ranges = bands.slice(0, -1).map((b) => b.range?.value ?? NaN);
+      expect(ranges).toEqual([...ranges].sort((a, b) => a - b));
+    }
   });
 
   it('keeps the estimated sprint speed under its sourced upper bound', () => {

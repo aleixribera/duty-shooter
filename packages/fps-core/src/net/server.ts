@@ -7,6 +7,7 @@ import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { hashString } from '../random';
 import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TickOutput } from '../simulation';
 import type { UserCmd } from '../usercmd';
+import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import {
   EVENT_RESEND_TICKS,
@@ -133,6 +134,8 @@ interface Client {
   token: string;
   /** Joined by the smoke or load-test script. */
   script: boolean;
+  /** What the player carries from their next spawn; null for the default. */
+  loadout: Loadout | null;
 }
 
 /** A seat held for a player who dropped, until they come back or the grace period runs out. */
@@ -320,7 +323,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '', script: false };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose(() => this.#drop(client));
@@ -360,12 +363,17 @@ export class GameServer {
         return;
       }
       client.script = message.script === true;
+      client.loadout = message.loadout ?? null;
       this.#join(client, message.name, message.passphrase, message.protocol, message.mode ?? null, message.bots ?? null, message.resume ?? null);
       return;
     }
     if (message.t === 'join') {
       // The welcome was lost: say it again.
       this.#welcome(client);
+      return;
+    }
+    if (message.t === 'loadout') {
+      client.loadout = message.loadout;
       return;
     }
     if (message.t === 'vote') {
@@ -410,7 +418,7 @@ export class GameServer {
     if (first && !this.#options.bots?.alwaysOn) {
       // The first player on an empty server starts a fresh match, in the mode and with the bots they asked for.
       if (bots !== null) this.#botsPerTeam = Math.min(bots, this.maxBotsPerTeam);
-      this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0] });
+      this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
       this.#startMatch(preferred ?? this.#mode.id);
     } else {
       // A bot gives up its seat first (the newcomer already counts), so the newcomer joins the side it left.
@@ -499,8 +507,14 @@ export class GameServer {
     const ctx = this.#context();
     const team = this.#mode.join(id, name, ctx);
     const spawn = this.#mode.chooseSpawn(id, ctx);
-    this.simulation.addPlayer({ id, team, position: spawn.position, yaw: spawn.yaw });
+    this.simulation.addPlayer({ id, team, position: spawn.position, yaw: spawn.yaw, ...this.#loadoutOf(id) });
     this.#protectedSince.set(id, this.simulation.time);
+  }
+
+  /** The loadout a player's next spawn carries, as spawn options (empty for the default). */
+  #loadoutOf(id: PlayerId): { loadout?: Loadout } {
+    const loadout = [...this.#clients].find((c) => c.id === id)?.loadout ?? null;
+    return loadout ? { loadout } : {};
   }
 
   #remove(id: PlayerId): void {
@@ -513,7 +527,7 @@ export class GameServer {
 
   /** (Re)spawns a player, protected for a moment. */
   #spawn(id: PlayerId, spawn: SpawnPoint): void {
-    this.simulation.respawn(id, spawn.position, spawn.yaw);
+    this.simulation.respawn(id, spawn.position, spawn.yaw, this.#loadoutOf(id).loadout);
     this.#protectedSince.set(id, this.simulation.time);
   }
 

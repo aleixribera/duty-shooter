@@ -254,12 +254,12 @@ function stanceScale(stance: Stance): number {
   return stance === 'crouch' ? M.crouchMultiplier.value : stance === 'prone' ? M.proneMultiplier.value : 1;
 }
 
-/** Top speed for the current movement mode before directional scaling. */
-function baseSpeed(state: MoveState, cmd: UserCmd): number {
-  if (state.movement === 'tacticalSprint') return M.tacticalSprintSpeed.value;
-  if (state.movement === 'sprint') return M.sprintSpeed.value;
+/** Top speed for the current movement mode before directional scaling; `scale` is the weapon in hand's speed multiplier. */
+function baseSpeed(state: MoveState, cmd: UserCmd, scale: number): number {
+  if (state.movement === 'tacticalSprint') return M.tacticalSprintSpeed.value * scale;
+  if (state.movement === 'sprint') return M.sprintSpeed.value * scale;
   if (inProneTransition(state)) return 0;
-  let speed = M.walkSpeed.value * stanceScale(state.stance);
+  let speed = M.walkSpeed.value * stanceScale(state.stance) * scale;
   if (isPressed(cmd, 'Ads')) speed *= M.adsMoveMultiplier.value;
   return speed;
 }
@@ -314,8 +314,8 @@ function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): 
   return { pos: offset(raised.pos, Y, down.moved), normals: raised.normals };
 }
 
-/** Advances one player by one tick. */
-export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
+/** Advances one player by one tick. `speedScale` scales walk and sprint speeds for the weapon in hand. */
+export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, speedScale = 1): void {
   state.yaw = cmd.yaw;
   state.landedFrom = null;
   if (state.mantle) {
@@ -349,7 +349,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number):
   const startedGrounded = state.grounded;
 
   updateSprint(state, cmd, dt);
-  const w = wish(cmd, state.yaw, baseSpeed(state, cmd));
+  const w = wish(cmd, state.yaw, baseSpeed(state, cmd, speedScale));
   if (state.slide) {
     // Committed to the slide: speed follows the slide curve (midpoint of this tick), direction is locked.
     const s = state.slide;

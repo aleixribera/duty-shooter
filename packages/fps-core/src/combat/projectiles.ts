@@ -1,11 +1,15 @@
 import { add, dot, scale, type Vec3 } from '../math';
-import { STATS } from '../stats';
+import { STATS, type WeaponId } from '../stats';
 import type { Material, Orientation, Solid, World } from '../world';
 import { segmentBox } from './hitboxes';
 
 /** A bullet in flight. Simulated with gravity drop; never interacts with other bullets. */
 export interface Projectile {
   readonly shooter: string;
+  /** The weapon that fired it, for its damage bands. */
+  readonly weapon: WeaponId;
+  /** Pellets of one blast share a group: their hits on one player merge into one. Null for a bullet. */
+  readonly group: number | null;
   /** Where it left the muzzle, for damage-by-distance. */
   readonly origin: Vec3;
   position: Vec3;

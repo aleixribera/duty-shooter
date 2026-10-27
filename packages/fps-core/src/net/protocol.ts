@@ -1,9 +1,10 @@
 import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type Score, type TeamScore } from '../modes/game-mode';
 import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
-import type { UserCmd } from '../usercmd';
+import { parseLoadout, type Loadout } from '../weapon/loadout';
+import { ALL_BUTTONS, type UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -36,7 +37,11 @@ export type ClientMessage =
       readonly resume?: string;
       /** Set by the smoke and load-test scripts, so the event log doesn't count them as people. */
       readonly script?: boolean;
+      /** What the joiner carries; the default loadout when absent. */
+      readonly loadout?: Loadout;
     }
+  /** A new loadout, carried from the player's next spawn. */
+  | { readonly t: 'loadout'; readonly loadout: Loadout }
   /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
   | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
   /** A vote for the next match's mode, changeable until the vote window closes. */
@@ -118,6 +123,8 @@ export function decodeClient(data: string): ClientMessage | null {
   if (!isObject(value)) return null;
   if (value['t'] === 'join') {
     const { name, passphrase, protocol, mode, bots, resume, script } = value;
+    const loadout = value['loadout'] === undefined ? undefined : parseLoadout(value['loadout']);
+    if (loadout === null) return null;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
     if (mode !== undefined && !isMode(mode)) return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
@@ -132,7 +139,12 @@ export function decodeClient(data: string): ClientMessage | null {
       ...(bots === undefined ? {} : { bots }),
       ...(resume === undefined ? {} : { resume }),
       ...(script ? { script } : {}),
+      ...(loadout ? { loadout } : {}),
     };
+  }
+  if (value['t'] === 'loadout') {
+    const loadout = parseLoadout(value['loadout']);
+    return loadout ? { t: 'loadout', loadout } : null;
   }
   if (value['t'] === 'vote') {
     const { mode } = value;
@@ -181,7 +193,7 @@ function validCmd(value: unknown): UserCmd | null {
   if (viewTick !== undefined && !finite(viewTick)) return null;
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   return {
-    buttons: (buttons as number) & 0x1ff,
+    buttons: (buttons as number) & ALL_BUTTONS,
     forward: clamp(forward, -1, 1),
     right: clamp(right, -1, 1),
     yaw,

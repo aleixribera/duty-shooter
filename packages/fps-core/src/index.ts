@@ -2,14 +2,15 @@ export type { Vec3 } from './math';
 export { DEG, angleDelta, anglesOf, viewDirection } from './math';
 export { MATERIALS, box, createWorld, orientedBox, playerClip, yawBox } from './world';
 export type { Blocks, Material, Orientation, Solid, World, WorldOptions } from './world';
-export { Button, isPressed, usercmd } from './usercmd';
+export { ALL_BUTTONS, Button, isPressed, usercmd } from './usercmd';
 export type { ButtonName, UserCmd } from './usercmd';
-export { MAX_PITCH, Simulation, TICK_RATE, TICK_SECONDS } from './simulation';
+export { MAX_PITCH, Simulation, TICK_RATE, TICK_SECONDS, activeWeapon } from './simulation';
 export type { MantleBand } from './movement/mantle';
 export type { MovementState, Stance } from './movement/pmove';
 export type {
   DummyOptions,
   EntityKind,
+  KillWeapon,
   Landing,
   PlayerId,
   PlayerInfo,
@@ -28,12 +29,14 @@ export type { HitPose, HitZone } from './combat/hitboxes';
 export { bulletDamage, rangeDamage, zoneMultiplier } from './combat/damage';
 export { raycastWorld, segmentSolid, sightBlocked, solidNormal } from './combat/projectiles';
 export type { WorldHit } from './combat/projectiles';
-export { recoilKick } from './weapon/weapon';
+export { SWAY_SETTLED, recoilKick, weaponRow } from './weapon/weapon';
+export { DEFAULT_LOADOUT, parseLoadout, slotWeapons } from './weapon/loadout';
+export type { GrenadeId, Loadout } from './weapon/loadout';
 export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildNavGraph, findPath, linkKind, nearestNode } from './bots';
 export type { BotProfile, BotStyle, BotView, NavGraph, NavLink, NavLinkKind, NavNode, NavOptions } from './bots';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';
-export { IW_UNIT, STATS } from './stats';
-export type { Estimated, Provenance, Source, Sourced, Stat, Stats, Unit } from './stats';
+export { IW_UNIT, STATS, WEAPON_IDS, isShellReload } from './stats';
+export type { Estimated, FireMode, Provenance, Source, Sourced, Stat, Stats, Unit, WeaponId, WeaponRow, WeaponTraits } from './stats';
 export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT, MAX_BOTS_PER_TEAM, RECONNECT_GRACE, SPAWN_PROTECTION } from './net/server';
 export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus } from './net/server';
 export { GameClient } from './net/client';

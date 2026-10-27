@@ -34,7 +34,7 @@ docker compose up -d --wait
 curl -fsS -w '\n' http://127.0.0.1:3090/healthz
 ```
 
-The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0","protocol":6}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
+The health response looks like `{"status":"ok","players":0,"maxPlayers":8,"public":true,"version":"v1.2.0","protocol":7}`. The page reads `public` to decide whether the join screen asks for a passphrase. `GET /status` reports `{"map":"survival-town","mode":"tdm","players":0,"capacity":8,"phase":"playing"}` for the main menu's Play Online tile.
 
 The image's build stage bakes each map's lighting on the CPU, so a build takes a few minutes longer than the client alone. It runs on the builder's own platform, not under emulation.
 

@@ -67,7 +67,7 @@ describe('coming back after a drop', () => {
     const id = alice.client.id!;
     const token = alice.client.token!;
     const before = m.server.simulation.playerState(id)!;
-    expect(before.weapon.ammo).toBeLessThan(30);
+    expect(before.weapons[0]!.ammo).toBeLessThan(30);
     expect(score(m, 'alice')).toMatchObject({ kills: 1, deaths: 0 });
 
     drop(m, alice);
@@ -81,7 +81,7 @@ describe('coming back after a drop', () => {
     expect(back.client.token).toBe(token);
     const after = m.server.simulation.playerState(id)!;
     expect(after.move.position).toEqual(before.move.position);
-    expect(after.weapon.ammo).toBe(before.weapon.ammo);
+    expect(after.weapons[0]!.ammo).toBe(before.weapons[0]!.ammo);
     expect(after.team).toBe(before.team);
     expect(after.life).toBe(before.life);
     expect(score(m, 'alice')).toMatchObject({ id, kills: 1, deaths: 0 });

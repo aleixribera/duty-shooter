@@ -6,6 +6,7 @@ import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } fr
 import { GameServer, type BotOptions, type LobbyEvent } from '../net/server';
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
+import type { Loadout } from '../weapon/loadout';
 import { createWorld, type Solid } from '../world';
 
 export interface NetworkedMatchOptions extends MemoryNetworkOptions {
@@ -50,7 +51,7 @@ export interface NetworkedMatch {
   readonly server: GameServer;
   readonly network: MemoryNetwork;
   /** Connects a client that will join with `name` and `passphrase` (the server's by default), optionally asking for a mode. */
-  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number; resume?: string; script?: boolean }): NetworkedClient;
+  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number; resume?: string; script?: boolean; loadout?: Loadout }): NetworkedClient;
   /** One tick: deliver due messages, step the server, then step every client with its usercmd. */
   step(cmds?: Readonly<Record<string, UserCmd>>): TickOutput;
   run(ticks: number, script?: NetworkedScript): TickOutput[];
@@ -118,6 +119,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
         ...(joinOptions.bots === undefined ? {} : { bots: joinOptions.bots }),
         ...(joinOptions.resume ? { resume: joinOptions.resume } : {}),
         ...(joinOptions.script ? { script: true } : {}),
+        ...(joinOptions.loadout ? { loadout: joinOptions.loadout } : {}),
       });
       const entry = { name, client, frames: [] as ClientFrame[] };
       clients.set(name, entry);

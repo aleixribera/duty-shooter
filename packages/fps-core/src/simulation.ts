@@ -6,9 +6,24 @@ import { DEG, distance, dot, length, lerpVec, sub, viewDirection, type Vec3 } fr
 import type { MantleBand } from './movement/mantle';
 import { createMoveState, lunge, pmove, type MoveState, type MovementState, type Stance } from './movement/pmove';
 import { hashString, noise } from './random';
-import { STATS } from './stats';
+import { STATS, type WeaponId } from './stats';
 import { Button, usercmd, type UserCmd } from './usercmd';
-import { createWeaponState, currentSpread, updateWeapon, wantsFire, type ReloadKind, type WeaponAction, type WeaponState } from './weapon/weapon';
+import { DEFAULT_LOADOUT, type Loadout } from './weapon/loadout';
+import {
+  canFire,
+  createWeaponState,
+  currentSpread,
+  drawWeapon,
+  emptyEvents,
+  startHolster,
+  swayOffset,
+  updateWeapon,
+  wantsFire,
+  weaponRow,
+  type ReloadKind,
+  type WeaponAction,
+  type WeaponState,
+} from './weapon/weapon';
 import type { Material, Solid, World } from './world';
 
 /** Simulation rate in ticks per second, identical on client and server. */
@@ -37,12 +52,18 @@ export interface PlayerSpawn {
   readonly pitch?: number;
   /** Makes this a range dummy instead of a player. */
   readonly dummy?: DummyOptions;
+  /** What the player carries; the default loadout when absent. */
+  readonly loadout?: Loadout;
 }
 
 export type EntityKind = 'player' | 'dummy';
 
 /** What the weapon is doing, as reported in the match outputs. */
 export interface WeaponOutput {
+  /** The weapon in hand. */
+  readonly id: WeaponId;
+  /** Which slot it's in: 0 the primary, 1 the secondary. */
+  readonly slot: number;
   readonly action: WeaponAction;
   /** Seconds into the current action (draw, reload, inspect, melee). */
   readonly actionTime: number;
@@ -56,6 +77,8 @@ export interface WeaponOutput {
   readonly canFire: boolean;
   /** Index into the recoil pattern of the next shot. */
   readonly shotIndex: number;
+  /** Scope sway the aim point drifts by (radians, yaw and pitch); zero without a scope. */
+  readonly sway: readonly [number, number];
 }
 
 /** What the simulation reports about one player after a tick. */
@@ -83,6 +106,9 @@ export interface PlayerOutput {
   /** Set only on the tick the player lands: how far they fell (m) and the fall damage taken. */
   readonly landing: Landing | null;
   readonly weapon: WeaponOutput;
+  readonly loadout: Loadout;
+  /** Grenades left this life. */
+  readonly grenades: number;
 }
 
 export interface Landing {
@@ -92,7 +118,17 @@ export interface Landing {
 
 /** Something that happened during a tick. */
 export type SimEvent =
-  | { readonly type: 'shot'; readonly shooter: PlayerId; readonly origin: Vec3; readonly direction: Vec3; readonly index: number; readonly fraction: number }
+  | {
+      readonly type: 'shot';
+      readonly shooter: PlayerId;
+      readonly weapon: WeaponId;
+      readonly origin: Vec3;
+      readonly direction: Vec3;
+      readonly index: number;
+      readonly fraction: number;
+      /** Direction of every pellet of a shotgun blast; absent for a bullet. */
+      readonly pellets?: readonly Vec3[];
+    }
   | {
       readonly type: 'hit';
       readonly shooter: PlayerId;
@@ -103,6 +139,10 @@ export type SimEvent =
       readonly point: Vec3;
       readonly killed: boolean;
       readonly cause: 'bullet' | 'melee';
+      /** The weapon that did it. */
+      readonly weapon: WeaponId;
+      /** Pellets of one shotgun blast that hit, merged into this one hit; 1 for a bullet or melee. */
+      readonly pellets: number;
     }
   | {
       readonly type: 'impact';
@@ -115,9 +155,22 @@ export type SimEvent =
     }
   /** A bullet went through a prop (a mannequin head). Props never slow a bullet. */
   | { readonly type: 'prop'; readonly shooter: PlayerId; readonly prop: string; readonly point: Vec3; readonly direction: Vec3 }
-  | { readonly type: 'kill'; readonly killer: PlayerId | null; readonly victim: PlayerId; readonly cause: 'bullet' | 'melee' | 'fall'; readonly zone: HitZone | null }
+  | {
+      readonly type: 'kill';
+      readonly killer: PlayerId | null;
+      readonly victim: PlayerId;
+      readonly cause: 'bullet' | 'melee' | 'fall';
+      readonly zone: HitZone | null;
+      /** The weapon that did it (null for a fall). */
+      readonly weapon: KillWeapon | null;
+    }
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
-  | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null };
+  | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null }
+  /** A weapon switch: the player started putting `from` away for `to`. */
+  | { readonly type: 'switch'; readonly player: PlayerId; readonly from: WeaponId; readonly to: WeaponId };
+
+/** What a kill is credited to: a weapon, or a grenade. */
+export type KillWeapon = WeaponId | 'frag';
 
 /** Everything observable about the match after a tick. Plain data. */
 export interface TickOutput {
@@ -157,7 +210,12 @@ export interface PlayerState {
   team: TeamId;
   readonly kind: EntityKind;
   move: MoveState;
-  weapon: WeaponState;
+  /** The primary's and the secondary's state; each keeps its own magazine across switches. */
+  weapons: WeaponState[];
+  /** The slot in hand (0 primary, 1 secondary). */
+  slot: number;
+  loadout: Loadout;
+  grenades: number;
   /** Raw usercmd view angles of the last processed usercmd. */
   cmdYaw: number;
   cmdPitch: number;
@@ -198,6 +256,21 @@ function cmdList(sent: UserCmd | readonly UserCmd[] | undefined): readonly (User
   return Array.isArray(sent) ? sent : [sent as UserCmd];
 }
 
+/** A fresh set of weapons for `loadout`: the primary in hand and drawing, the secondary put away, grenades full. */
+function arms(loadout: Loadout): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades'> {
+  return {
+    weapons: [createWeaponState(loadout.primary), createWeaponState(loadout.secondary)],
+    slot: 0,
+    loadout,
+    grenades: loadout.grenade ? STATS.grenade.perLife.value : 0,
+  };
+}
+
+/** The weapon in the player's hand. */
+export function activeWeapon(p: PlayerState): WeaponState {
+  return p.weapons[p.slot] as WeaponState;
+}
+
 /** Turns -0 into 0 so outputs compare cleanly with deep equality. */
 function clean(v: Vec3): Vec3 {
   return [v[0] + 0, v[1] + 0, v[2] + 0];
@@ -220,6 +293,8 @@ export class Simulation {
   #tick = 0;
   readonly #players = new Map<PlayerId, PlayerState>();
   #projectiles: Projectile[] = [];
+  /** Numbers each shotgun blast, so its pellets' hits merge. */
+  #nextGroup = 0;
   #events: SimEvent[] = [];
   /** Hitbox poses after each recent tick, for lag compensation. */
   readonly #history = new Map<number, Map<PlayerId, HistoryPose>>();
@@ -250,7 +325,7 @@ export class Simulation {
       team: spawn.team,
       kind: spawn.dummy ? 'dummy' : 'player',
       move: createMoveState(spawn.position, yaw),
-      weapon: createWeaponState(),
+      ...arms(spawn.loadout ?? DEFAULT_LOADOUT),
       cmdYaw: yaw,
       cmdPitch: pitch,
       viewYaw: 0,
@@ -279,12 +354,15 @@ export class Simulation {
     return this.#players.has(id);
   }
 
-  /** Brings a player back to life at full health and a fresh weapon (drawn), at `position`. */
-  respawn(id: PlayerId, position: Vec3, yaw: number): void {
+  /**
+   * Brings a player back to life at full health with fresh weapons (the
+   * primary drawn), at `position`, carrying `loadout` (or the last one).
+   */
+  respawn(id: PlayerId, position: Vec3, yaw: number, loadout?: Loadout): void {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
     p.move = createMoveState(position, yaw);
-    p.weapon = createWeaponState();
+    Object.assign(p, arms(loadout ?? p.loadout));
     p.viewYaw = 0;
     p.viewPitch = 0;
     p.cmdYaw = yaw;
@@ -359,53 +437,76 @@ export class Simulation {
     let cmd = sent && alive ? sent : usercmd({ yaw: sent?.yaw ?? player.cmdYaw, pitch: sent?.pitch ?? player.cmdPitch });
     player.cmdYaw = cmd.yaw;
     player.cmdPitch = cmd.pitch;
+    let weapon = activeWeapon(player);
     // Firing breaks a sprint (the sprint-to-fire time then applies).
-    if (wantsFire(cmd) && player.weapon.action === 'ready') {
+    if (wantsFire(cmd) && weapon.action === 'ready') {
       cmd = { ...cmd, buttons: cmd.buttons & ~(Button.Sprint | Button.TacticalSprint) };
     }
     const view = this.#viewAngles(player);
-    pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS);
+    pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS, weaponRow(weapon.id).handling.moveSpeed.value);
     const fell = player.move.landedFrom;
     if (fell !== null) {
       const damage = alive ? fallDamage(fell) : 0;
       player.landing = { fallHeight: fell, damage };
-      if (damage > 0) this.#damage(player, damage, null, 'fall', null);
+      if (damage > 0) this.#damage(player, damage, null, 'fall', null, null);
     }
 
+    // The switch press puts the weapon in hand away; the other comes up once it's holstered.
+    const events = emptyEvents();
+    const other = player.weapons[1 - player.slot];
+    const switchPress = (cmd.buttons & Button.SwitchWeapon) !== 0 && (weapon.prevButtons & Button.SwitchWeapon) === 0;
+    if (switchPress && other && player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && player.move.movement !== 'mantle') {
+      startHolster(weapon, events);
+      this.#events.push({ type: 'switch', player: player.id, from: weapon.id, to: other.id });
+    }
     const w = updateWeapon(
-      player.weapon,
+      weapon,
       cmd,
       {
         movement: player.move.movement,
         horizontalSpeed: Math.hypot(player.move.velocity[0], player.move.velocity[2]),
         alive: player.health > 0,
-        seed: hashString(player.id),
+        seed: hashString(player.id) + player.slot,
       },
       TICK_SECONDS,
+      events,
     );
     if (w.reloadStarted) this.#events.push({ type: 'reload', player: player.id, phase: 'start', kind: w.reloadStarted });
-    if (w.ammoAdded) this.#events.push({ type: 'reload', player: player.id, phase: 'addAmmo', kind: player.weapon.reload ?? null });
+    if (w.ammoAdded) this.#events.push({ type: 'reload', player: player.id, phase: 'addAmmo', kind: weapon.reload ?? null });
     if (w.reloadCancelled) this.#events.push({ type: 'reload', player: player.id, phase: 'cancel', kind: null });
+    if (w.holstered && other) {
+      player.slot = 1 - player.slot;
+      drawWeapon(other, weapon.clock, cmd.buttons);
+      weapon = other;
+    }
 
     const rewind = cmd.viewTick === undefined ? 0 : Math.min(LAG_WINDOW_TICKS, Math.max(0, this.#tick - cmd.viewTick));
     if (w.melee) melees.push({ attacker: player, rewind });
     const eye: Vec3 = [player.move.position[0], player.move.position[1] + player.move.eyeHeight, player.move.position[2]];
+    const row = weaponRow(weapon.id);
     for (const shot of w.shots) {
       const aim = this.#viewAngles(player);
       const direction = viewDirection(aim.yaw + shot.spreadYaw, aim.pitch + shot.spreadPitch);
-      const speed = STATS.weapon.muzzleVelocity.value;
-      spawned.push({
-        shooter: player.id,
-        origin: eye,
-        position: eye,
-        velocity: [direction[0] * speed, direction[1] * speed, direction[2] * speed],
-        rewind,
-        pending: (1 - shot.fraction) * TICK_SECONDS,
-        budget: STATS.penetration.budget.value,
-        damageScale: 1,
-        passed: [],
-      });
-      this.#events.push({ type: 'shot', shooter: player.id, origin: eye, direction, index: shot.index, fraction: shot.fraction });
+      const speed = row.handling.muzzleVelocity.value;
+      const group = shot.projectiles.length > 1 ? this.#nextGroup++ : null;
+      for (const [yaw, pitch] of shot.projectiles) {
+        const d = viewDirection(aim.yaw + yaw, aim.pitch + pitch);
+        spawned.push({
+          shooter: player.id,
+          weapon: weapon.id,
+          group,
+          origin: eye,
+          position: eye,
+          velocity: [d[0] * speed, d[1] * speed, d[2] * speed],
+          rewind,
+          pending: (1 - shot.fraction) * TICK_SECONDS,
+          budget: STATS.penetration.budget.value * row.damage.penetration.value,
+          damageScale: 1,
+          passed: [],
+        });
+      }
+      const pellets = group === null ? {} : { pellets: shot.projectiles.map(([yaw, pitch]) => viewDirection(aim.yaw + yaw, aim.pitch + pitch)) };
+      this.#events.push({ type: 'shot', shooter: player.id, weapon: weapon.id, origin: eye, direction, index: shot.index, fraction: shot.fraction, ...pellets });
       // Recoil kicks the view after the shot leaves.
       player.viewYaw += shot.kickYaw;
       player.viewPitch += shot.kickPitch;
@@ -502,6 +603,7 @@ export class Simulation {
   #stepProjectiles(): void {
     const maxRange = STATS.weapon.projectileMaxRange.value;
     const next: Projectile[] = [];
+    const blasts = new Map<string, { p: Projectile; victim: PlayerState; zone: HitZone; best: number; damage: number; distance: number; point: Vec3; pellets: number }>();
     for (const p of this.#projectiles) {
       const seconds = p.pending;
       p.pending = TICK_SECONDS;
@@ -519,9 +621,21 @@ export class Simulation {
       if (body && (stopped === null || body.t <= stopped)) {
         const point = lerpVec(from, to, body.t);
         const dist = distance(p.origin, point);
-        const damage = bulletDamage(dist, body.zone) * p.damageScale;
-        const killed = this.#damage(body.victim, damage, p.shooter, 'bullet', body.zone);
-        this.#events.push({ type: 'hit', shooter: p.shooter, victim: body.victim.id, zone: body.zone, damage, distance: dist, point, killed, cause: 'bullet' });
+        const damage = bulletDamage(dist, body.zone, p.weapon) * p.damageScale;
+        if (p.group !== null) {
+          // A pellet: summed with the blast's other pellets on this player, dealt once the tick's projectiles have moved.
+          const key = `${p.group}:${body.victim.id}`;
+          const merged = blasts.get(key);
+          if (!merged) blasts.set(key, { p, victim: body.victim, zone: body.zone, best: damage, damage, distance: dist, point, pellets: 1 });
+          else {
+            merged.damage += damage;
+            merged.pellets += 1;
+            if (damage > merged.best) Object.assign(merged, { zone: body.zone, best: damage, point });
+          }
+          continue;
+        }
+        const killed = this.#damage(body.victim, damage, p.shooter, 'bullet', body.zone, p.weapon);
+        this.#events.push({ type: 'hit', shooter: p.shooter, victim: body.victim.id, zone: body.zone, damage, distance: dist, point, killed, cause: 'bullet', weapon: p.weapon, pellets: 1 });
         this.#flinch(body.victim);
         continue;
       }
@@ -531,6 +645,11 @@ export class Simulation {
       if (distance(p.origin, to) < maxRange) next.push(p);
     }
     this.#projectiles = next;
+    for (const b of blasts.values()) {
+      const killed = this.#damage(b.victim, b.damage, b.p.shooter, 'bullet', b.zone, b.p.weapon);
+      this.#events.push({ type: 'hit', shooter: b.p.shooter, victim: b.victim.id, zone: b.zone, damage: b.damage, distance: b.distance, point: b.point, killed, cause: 'bullet', weapon: b.p.weapon, pellets: b.pellets });
+      this.#flinch(b.victim);
+    }
   }
 
   /**
@@ -572,13 +691,13 @@ export class Simulation {
   }
 
   /** Applies damage; returns true if it killed. Emits the kill event. */
-  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall', zone: HitZone | null): boolean {
+  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall', zone: HitZone | null, weapon: KillWeapon | null): boolean {
     if (victim.health <= 0) return false;
     victim.health = Math.max(0, victim.health - amount);
     victim.lastDamage = this.time;
     if (victim.health > 0) return false;
     victim.diedAt = this.time;
-    this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone });
+    this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone, weapon });
     return true;
   }
 
@@ -620,9 +739,10 @@ export class Simulation {
     }
     const damage = STATS.melee.damage.value;
     const point = zoneCentre(best.pose, 'upperTorso');
-    const killed = this.#damage(best.victim, damage, attacker.id, 'melee', 'upperTorso');
+    const weapon = activeWeapon(attacker).id;
+    const killed = this.#damage(best.victim, damage, attacker.id, 'melee', 'upperTorso', weapon);
     this.#events.push({ type: 'melee', attacker: attacker.id, victim: best.victim.id });
-    this.#events.push({ type: 'hit', shooter: attacker.id, victim: best.victim.id, zone: 'upperTorso', damage, distance: best.dist, point, killed, cause: 'melee' });
+    this.#events.push({ type: 'hit', shooter: attacker.id, victim: best.victim.id, zone: 'upperTorso', damage, distance: best.dist, point, killed, cause: 'melee', weapon, pellets: 1 });
     this.#flinch(best.victim);
   }
 
@@ -637,9 +757,9 @@ export class Simulation {
 
   #outputOf(p: PlayerState): PlayerOutput {
     const view = this.#viewAngles(p);
-    const w = p.weapon;
+    const w = activeWeapon(p);
     const speed = Math.hypot(p.move.velocity[0], p.move.velocity[2]);
-    const sprinting = p.move.movement === 'sprint' || p.move.movement === 'tacticalSprint';
+    const sway = swayOffset(w);
     return {
       id: p.id,
       team: p.team,
@@ -656,15 +776,20 @@ export class Simulation {
       alive: p.health > 0,
       landing: p.landing,
       weapon: {
+        id: w.id,
+        slot: p.slot,
         action: w.action,
         actionTime: w.actionTime,
         reload: w.reload,
         ammo: w.ammo,
         ads: w.ads,
         spread: currentSpread(w, p.move.movement, speed),
-        canFire: p.health > 0 && w.action === 'ready' && w.ammo > 0 && !sprinting && w.clock >= w.fireReadyAt - 1e-9,
+        canFire: p.health > 0 && canFire(w, p.move.movement),
         shotIndex: w.shotIndex,
+        sway: [sway.yaw, sway.pitch],
       },
+      loadout: p.loadout,
+      grenades: p.grenades,
     };
   }
 }

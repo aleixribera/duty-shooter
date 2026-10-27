@@ -2,6 +2,7 @@ import { angleDelta, lerpVec, type Vec3 } from '../math';
 import type { ModeEvent, ModeId, Score } from '../modes/game-mode';
 import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
+import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
 import type { Connection } from './transport';
@@ -19,6 +20,8 @@ export interface GameClientOptions {
   readonly resume?: string;
   /** Marks a scripted player (smoke and load tests) for the server's event log. */
   readonly script?: boolean;
+  /** What to carry; the default loadout when absent. */
+  readonly loadout?: Loadout;
   /** How far behind the newest snapshot other players are drawn, in ticks. */
   readonly interpolationDelay?: number;
   /** Half-life (s) of the visual smoothing applied to prediction corrections. */
@@ -50,6 +53,7 @@ const JOIN_RETRY_TICKS = 30;
  */
 export class GameClient {
   readonly #options: GameClientOptions;
+  #loadout: Loadout | null = null;
   readonly #connection: Connection;
   readonly #local: Simulation;
   readonly #inbox: string[] = [];
@@ -79,6 +83,7 @@ export class GameClient {
 
   constructor(options: GameClientOptions) {
     this.#options = options;
+    this.#loadout = options.loadout ?? null;
     this.#connection = options.connection;
     this.#local = new Simulation(options.world);
     this.#connection.onMessage((data) => this.#inbox.push(data));
@@ -156,6 +161,12 @@ export class GameClient {
     return this.#serverTick * TICK_SECONDS;
   }
 
+  /** Changes what the player carries from their next spawn (sent with any later join too). */
+  setLoadout(loadout: Loadout): void {
+    this.#loadout = loadout;
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'loadout', loadout }));
+  }
+
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));
@@ -190,7 +201,7 @@ export class GameClient {
     if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}), ...(this.#loadout ? { loadout: this.#loadout } : {}) }),
       );
     }
     this.#advanceClock();
