@@ -26,7 +26,22 @@ export interface BotView {
   isEnemy(other: PlayerOutput): boolean;
   /** Where its team's planner sends it (a zone to take or hold), or null to roam freely. */
   readonly objective?: BotObjective | null;
+  /**
+   * The arcs left this tick for every bot's grenade aiming together, shared so
+   * a tick where several bots aim at once stays short; each bot gets
+   * `THROW_ARCS_PER_TICK` of its own when absent.
+   */
+  readonly budget?: ThinkBudget;
 }
+
+/** Work the bots of one tick share. */
+export interface ThinkBudget {
+  /** Grenade arcs left to simulate this tick. */
+  arcs: number;
+}
+
+/** Grenade arcs a bot may simulate in a tick when no shared budget is given; a whole aim takes 27. */
+export const THROW_ARCS_PER_TICK = 3;
 
 /** A place a bot is sent to and stays in: a circle on the ground. */
 export interface BotObjective {
@@ -241,6 +256,8 @@ export class Bot {
   /** A frag being cooked: where to throw it, and when it leaves the hand. */
   #throw: { yaw: number; pitch: number; release: number; started: number } | null = null;
   #nextThrow = 0;
+  /** A throw being aimed, a few arcs a tick. */
+  #aiming: ThrowSolve | null = null;
   /** Running from a live frag: to which node, until when, and which grenade. */
   #flee: { node: number; until: number; grenade: number } | null = null;
 
@@ -294,6 +311,7 @@ export class Bot {
       this.#alive = false;
       this.#target = null;
       this.#throw = null;
+      this.#aiming = null;
       this.#flee = null;
       return this.#cmd(0, 0, []);
     }
@@ -328,7 +346,9 @@ export class Bot {
       this.#flee = null;
       this.#throw = null;
     } else this.#watchGrenades(view, eye);
-    if (!using && !this.#throw && !fighting && (view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
+    if (using || this.#throw || fighting) this.#aiming = null;
+    else if (this.#aiming) this.#aim(view);
+    else if ((view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
 
     // Where to look.
     // The view is the usercmd plus recoil and flinch; follow that offset, a little late.
@@ -444,8 +464,8 @@ export class Bot {
       buttons.push('Use');
     } else if (this.#flee) {
       move = this.#fleeStep(view);
-    } else if (this.#throw) {
-      // Standing still to throw.
+    } else if (this.#throw || this.#aiming) {
+      // Standing still to aim and throw.
     } else if (fighting && target && tp) {
       // With the target in view, a bot closes in only beyond the distance its weapon holds at: walking straight at a gun is the easiest shot there is.
       const holdAt = tactics.hold ?? want + (tactics.rush !== null && tactics.rush < 12 ? 0.5 : 2);
@@ -564,6 +584,7 @@ export class Bot {
     this.#slideUntil = 0;
     this.#strafe = 0;
     this.#throw = null;
+    this.#aiming = null;
     this.#flee = null;
   }
 
@@ -590,14 +611,30 @@ export class Bot {
       if (!p?.alive) continue;
       const body: Vec3 = [m.position[0], m.position[1] + 1, m.position[2]];
       if (!sightBlocked(this.#world, eye, body)) continue;
-      const arc = solveThrow(this.#world, eye, m.position, STATS.grenade.fuse.value - COOK);
       // Tried either way: no fresh look for a moment.
       this.#nextThrow = time + 2;
-      if (arc.miss > THROW_MISS) continue;
-      this.#throw = { yaw: arc.yaw, pitch: arc.pitch, release: time + COOK, started: time };
-      this.#holdUntil = 0;
+      this.#aiming = new ThrowSolve(this.#world, eye, m.position, STATS.grenade.fuse.value - COOK);
+      this.#aim(view);
       return;
     }
+  }
+
+  /** Aims the throw a few more arcs; once found, one that lands close enough is cooked and thrown. */
+  #aim(view: BotView): void {
+    const solve = this.#aiming!;
+    const { self, time } = view;
+    if (self.grenades <= 0 || self.grenade !== null || self.movement === 'mantle') {
+      this.#aiming = null;
+      return;
+    }
+    const budget = view.budget ?? { arcs: THROW_ARCS_PER_TICK };
+    budget.arcs -= solve.step(budget.arcs);
+    if (!solve.done) return;
+    this.#aiming = null;
+    const arc = solve.best;
+    if (arc.miss > THROW_MISS) return;
+    this.#throw = { yaw: arc.yaw, pitch: arc.pitch, release: time + COOK, started: time };
+    this.#holdUntil = 0;
   }
 
   /** Whether to hold the grenade button this tick: through the cook, until the view is on the arc. */
@@ -1034,29 +1071,53 @@ function blastPoint(world: World, eye: Vec3, yaw: number, pitch: number, fuse: n
 }
 
 /**
- * The throw that sets a frag off nearest `target`: straight at it, at the
+ * Aims the throw that sets a frag off nearest `target`: straight at it, at the
  * pitch (searched coarsely, then finely) whose bounces and roll end closest.
- * `miss` is how far from the target it goes off (m).
+ * Each arc is a whole flight simulated, so it goes a few arcs at a time
+ * (`step`) rather than in one tick. `best.miss` is how far from the target it
+ * goes off (m).
  */
-export function solveThrow(world: World, eye: Vec3, target: Vec3, fuse: number): { yaw: number; pitch: number; miss: number } {
-  const yaw = yawTo(eye, target);
-  const missAt = (pitch: number) => {
-    const p = blastPoint(world, eye, yaw, pitch, fuse);
-    return flat(p, target) + Math.abs(p[1] - target[1]);
-  };
-  let best = { yaw, pitch: 0, miss: Infinity };
-  for (let deg = -20; deg <= 60; deg += 4) {
-    const miss = missAt(deg * DEG);
-    if (miss < best.miss) best = { yaw, pitch: deg * DEG, miss };
+export class ThrowSolve {
+  readonly #world: World;
+  readonly #eye: Vec3;
+  readonly #target: Vec3;
+  readonly #fuse: number;
+  /** Pitches still to try in this pass; the fine pass is queued when the coarse one ends. */
+  #queue: number[] = [];
+  #coarse = true;
+  best: { yaw: number; pitch: number; miss: number };
+
+  constructor(world: World, eye: Vec3, target: Vec3, fuse: number) {
+    this.#world = world;
+    this.#eye = eye;
+    this.#target = target;
+    this.#fuse = fuse;
+    this.best = { yaw: yawTo(eye, target), pitch: 0, miss: Infinity };
+    for (let deg = -20; deg <= 60; deg += 4) this.#queue.push(deg * DEG);
   }
-  const coarse = best.pitch;
-  for (let k = -3; k <= 3; k++) {
-    if (k === 0) continue;
-    const pitch = coarse + k * 0.66 * DEG;
-    const miss = missAt(pitch);
-    if (miss < best.miss) best = { yaw, pitch, miss };
+
+  get done(): boolean {
+    return !this.#coarse && this.#queue.length === 0;
   }
-  return best;
+
+  /** Tries up to `arcs` more pitches; returns how many it tried. */
+  step(arcs: number): number {
+    let tried = 0;
+    while (tried < arcs && !this.done) {
+      const pitch = this.#queue.shift();
+      if (pitch === undefined) {
+        this.#coarse = false;
+        const coarse = this.best.pitch;
+        for (let k = -3; k <= 3; k++) if (k !== 0) this.#queue.push(coarse + k * 0.66 * DEG);
+        continue;
+      }
+      tried += 1;
+      const p = blastPoint(this.#world, this.#eye, this.best.yaw, pitch, this.#fuse);
+      const miss = flat(p, this.#target) + Math.abs(p[1] - this.#target[1]);
+      if (miss < this.best.miss) this.best = { yaw: this.best.yaw, pitch, miss };
+    }
+    return tried;
+  }
 }
 
 /** The node nearest `p` in plan, a little against height differences. */

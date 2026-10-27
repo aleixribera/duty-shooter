@@ -26,6 +26,12 @@ services:
     security_opt:
       - no-new-privileges:true
     mem_limit: 512m
+    # The 60 Hz loop must never wait on the disk or on the box's other work: none
+    # of its memory goes to swap (the server swapped gigabytes while agent sessions
+    # ran there), and it takes CPU first when the services, a transcription or a
+    # test run want all four cores (8192 shares is cgroup weight 313 against 100).
+    memswap_limit: 512m
+    cpu_shares: 8192
     logging:
       driver: json-file
       options:

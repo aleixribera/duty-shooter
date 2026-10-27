@@ -1,5 +1,7 @@
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+import { promisify } from 'node:util';
+import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport } from '@duty-shooter/fps-core';
@@ -56,7 +58,53 @@ const TYPES: Readonly<Record<string, string>> = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.wasm': 'application/wasm',
+  '.glb': 'model/gltf-binary',
 };
+
+/** Types worth compressing: the code and the models. Pictures, fonts and the lighting bake are compressed already. */
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.wasm', '.glb']);
+const brotli = promisify(brotliCompress);
+const gzipped = promisify(gzip);
+
+/**
+ * Compressed copies of the static files, made once on the thread pool (never
+ * on the game loop's thread) and kept: a first visit downloads about a
+ * quarter of the code and half the models, through the home upload and Funnel.
+ * Keyed by path, size and time, so a rebuilt file is compressed afresh.
+ */
+const compressed = new Map<string, Promise<{ br: Buffer; gzip: Buffer }>>();
+
+function compressedCopy(file: string, size: number, mtime: number): Promise<{ br: Buffer; gzip: Buffer }> {
+  const key = `${file}:${size}:${mtime}`;
+  let copy = compressed.get(key);
+  if (!copy) {
+    copy = readFile(file).then(async (data) => {
+      const [br, gz] = await Promise.all([brotli(data, { params: { [zlib.BROTLI_PARAM_QUALITY]: 9, [zlib.BROTLI_PARAM_SIZE_HINT]: data.length } }), gzipped(data, { level: 9 })]);
+      return { br, gzip: gz };
+    });
+    copy.catch(() => compressed.delete(key));
+    compressed.set(key, copy);
+  }
+  return copy;
+}
+
+/** The encoding to answer with, from the request's Accept-Encoding: brotli, then gzip, else none. */
+function encodingFor(req: IncomingMessage): 'br' | 'gzip' | null {
+  const accepted = String(req.headers['accept-encoding'] ?? '')
+    .split(',')
+    .map((part) => part.trim().split(';')[0]);
+  return accepted.includes('br') ? 'br' : accepted.includes('gzip') ? 'gzip' : null;
+}
+
+/**
+ * WebSocket compression (permessage-deflate), which browsers undo on their
+ * own. A snapshot goes out 60 times a second to every player and is mostly
+ * the one before it, so with the window kept across messages it shrinks
+ * about 18 times: a full lobby sent 4 Mbit/s to each player, 48 Mbit/s out
+ * of the home server through Funnel, and that queueing showed as ping.
+ * Messages under the threshold (welcomes, rejections) go as they are.
+ */
+const DEFLATE = { zlibDeflateOptions: { level: 3 }, threshold: 256, concurrencyLimit: 16 } as const;
 
 /** Wrong passphrases allowed per address before it is locked out for a while. */
 const MAX_FAILED_JOINS = 10;
@@ -192,10 +240,19 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
   try {
     const info = await stat(file);
     if (!info.isFile()) throw new Error('not a file');
-    const type = TYPES[extname(file)] ?? 'application/octet-stream';
+    const ext = extname(file);
+    const type = TYPES[ext] ?? 'application/octet-stream';
     // Vite's hashed assets never change; the page itself must always be fresh.
     const cache = file.includes(`${sep}assets${sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache';
-    res.writeHead(200, { 'content-type': type, 'content-length': info.size, 'cache-control': cache, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' });
+    const headers = { 'content-type': type, 'cache-control': cache, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' };
+    const encoding = COMPRESSIBLE.has(ext) && info.size > 1024 ? encodingFor(req) : null;
+    if (encoding) {
+      const body = (await compressedCopy(file, info.size, info.mtimeMs))[encoding];
+      res.writeHead(200, { ...headers, 'content-encoding': encoding, 'content-length': body.length, vary: 'accept-encoding' });
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
+    }
+    res.writeHead(200, { ...headers, 'content-length': info.size, ...(COMPRESSIBLE.has(ext) ? { vary: 'accept-encoding' } : {}) });
     if (req.method === 'HEAD') res.end();
     else createReadStream(file).on('error', () => res.destroy()).pipe(res);
   } catch {
@@ -259,7 +316,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     }
     void serveStatic(root, req, res);
   });
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: false });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: DEFLATE });
   const guard = new AddressGuard();
   http.on('upgrade', (req, socket, head) => {
     if (new URL(req.url ?? '/', 'http://x').pathname !== '/ws' || !sameOrigin(req)) {

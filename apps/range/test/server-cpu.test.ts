@@ -58,16 +58,22 @@ function measure(m: ReturnType<typeof createNetworkedMatch>, players = 8, seats 
   m.run(120, script);
   const seconds = 20;
   let serverMs = 0;
+  const tickTimes: number[] = [];
   const tick = m.server.tick.bind(m.server);
   m.server.tick = () => {
     const start = performance.now();
     const out = tick();
-    serverMs += performance.now() - start;
+    const elapsed = performance.now() - start;
+    tickTimes.push(elapsed);
+    serverMs += elapsed;
     return out;
   };
   m.run(seconds * 60, script);
   const percent = (serverMs / (seconds * 1000)) * 100;
-  console.log(`server: ${(serverMs / (seconds * 60)).toFixed(3)} ms per tick, ${percent.toFixed(2)} % of one core at 60 Hz`);
+  tickTimes.sort((a, b) => a - b);
+  const percentile = (q: number) => tickTimes[Math.min(tickTimes.length - 1, Math.floor(q * tickTimes.length))]!;
+  const missed = tickTimes.filter((ms) => ms > 1000 / 60).length;
+  console.log(`server: ${(serverMs / (seconds * 60)).toFixed(3)} ms mean, ${percentile(0.95).toFixed(3)} ms p95, ${percentile(0.99).toFixed(3)} ms p99, ${tickTimes.at(-1)!.toFixed(3)} ms max; ${missed}/${tickTimes.length} over 16.7 ms; ${percent.toFixed(2)} % of one core at 60 Hz`);
   expect(m.server.playerCount + m.server.bots.size).toBe(seats);
   // 60 Hz needs each tick well inside its 16.7 ms.
   expect(serverMs / (seconds * 60)).toBeLessThan(8);

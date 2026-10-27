@@ -129,7 +129,7 @@ The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls
 
 `npm test` runs every test: headless match tests (the real server and clients from `fps-core` over an in-memory network with latency, jitter and loss), bots playing whole matches on each map, and unit tests. `npm run typecheck` typechecks every package and its tests, and `npm run check` does both. `npm run test:core`, `test:client`, `test:range` and `test:server` run one package's tests.
 
-Tools that drive the dev server in headless Chrome, muted (`npm run dev` first): `npm run bench` (frame times), `npm run spots` (reference screenshots), `npm run bot-runs -- <out dir>` (a Bot Match of every mode on both maps) and `npm run record -- <out dir>` (a gameplay clip). Each script's header says its arguments. On the server side, `npm run smoke -- <url>` checks a running server and `npm run load-test` measures one under 8 simulated players.
+Tools that drive the dev server in headless Chrome, muted (`npm run dev` first): `npm run bench` (frame times), `npm run spots` (reference screenshots), `npm run bot-runs -- <out dir>` (a Bot Match of every mode on both maps) and `npm run record -- <out dir>` (a gameplay clip). Each script's header says its arguments. On the server side, `npm run smoke -- <url>` checks a running server and `npm run load-test` measures one under 8 simulated players: bytes on the wire and the round trip (`docs/deploy.md` has more).
 
 ### Lighting bake
 

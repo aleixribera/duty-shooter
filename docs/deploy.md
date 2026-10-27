@@ -44,6 +44,14 @@ The server limits each visitor's address to 12 open sockets and, with a passphra
 
 Hardening, the same as the existing game: localhost-only binding, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, a 512 MB memory limit, `init`, and log rotation (3 × 10 MB). The only writable path is `/data`, the `duty-data` named volume that holds the event log.
 
+The game also comes first on the box: none of its memory goes to swap (`memswap_limit` equal to the limit) and it has eight times the default CPU shares, so the other services, a transcription or a test run can't hold up its 60 Hz loop. A `compose.yaml` change reaches the server only by copying the file there (the auto-updater pulls images, not the stack), then `docker compose up -d --wait`.
+
+## Bandwidth and ping
+
+The server sends every player a snapshot 60 times a second. They go WebSocket-compressed (permessage-deflate, which browsers handle on their own): a full lobby's snapshot is about 8.5 KB of JSON and about 0.5 KB on the wire, so 12 players take about 4 Mbit/s of the home upload instead of 48. The page, the code and the models go brotli- or gzip-compressed too, compressed once on first request and kept in memory.
+
+`npm run load-test` measures a server under scripted players: snapshots, bytes on the wire and the round trip from a usercmd to its acknowledgement. `TARGET=http://127.0.0.1:3091 node apps/server/scripts/load-test.mjs 12 45` loads the live lobby through an SSH tunnel (`ssh -N -L 3091:127.0.0.1:3090 homelab`) while it is empty; its seats are then held for five minutes, as for anyone who drops.
+
 ## The event log and the play report
 
 The server appends one JSON line to `/data/events.jsonl` for every person or bot joining (`join`) and leaving (`leave`), every match starting (`matchStart`) and ending (`matchEnd`, with its length and result), and each server start (`serverStart`). Every line has the time, and joins and leaves say whether it was a bot (`bot`) or the smoke or load-test script (`script`). The same lines go to `docker compose logs`. The volume outlives the container, so redeploys keep the history.

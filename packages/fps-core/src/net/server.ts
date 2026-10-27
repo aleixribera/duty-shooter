@@ -1,4 +1,4 @@
-import { Bot, type BotObjective, type BotView } from '../bots/bot';
+import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
 import { planCharge, planOutposts } from '../bots/planner';
 import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
@@ -134,6 +134,12 @@ export interface BotOptions {
 
 /** Seconds between the bot teams' plans. */
 const PLAN_EVERY = 1;
+/**
+ * Grenade arcs all the bots together may simulate in a tick (see
+ * `BotView.budget`): a whole aim is 27 arcs, and ten bots aiming in one tick
+ * held it up for tens of milliseconds, a ping spike for everyone.
+ */
+const THROW_ARCS = 2;
 
 /** The most bots a side a lobby offers. */
 export const MAX_BOTS_PER_TEAM = 6;
@@ -915,6 +921,7 @@ export class GameServer {
     const time = this.simulation.time;
     const tick = this.simulation.tick;
     this.#planBots();
+    const budget: ThinkBudget = { arcs: THROW_ARCS };
     for (const [id, seat] of this.#bots) {
       const self = players.find((p) => p.id === id);
       if (!self || frozen) {
@@ -931,6 +938,7 @@ export class GameServer {
         grenades: this.#last.grenades,
         isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other),
         objective: this.#orders.get(id) ?? null,
+        budget,
       };
       cmds[id] = seat.bot.think(view);
     }
@@ -985,9 +993,10 @@ export class GameServer {
     const pings: Record<string, number> = {};
     // A client that has not measured its round trip yet is left out (shown as unknown).
     for (const c of this.#clients) if (c.id !== null && c.ping > 0) pings[c.id] = c.ping;
+    const compact = all.map(compactOutput);
     for (const client of this.#clients) {
       if (client.id === null) continue;
-      const others: PlayerOutput[] = all.filter((p) => p.id !== client.id).map(compactOutput);
+      const others: PlayerOutput[] = compact.filter((p) => p.id !== client.id);
       this.#send(client, {
         t: 'snap',
         tick: this.#last.tick,
