@@ -24,8 +24,8 @@
  *      The bus's length is then recorded as read (12.2 m), not assumed.
  * - **Player scale is the game's own**: eye height 1.524 m (60 units) and
  *   hull height 1.778 m (70 units), as in the stats file. Doors are sized for
- *   that hull: the US standard 80 in (2.03 m) door height (DOORS) clears a
- *   1.778 m hull with 25 cm to spare, as it does in the original's frames.
+ *   that hull: a little over the US standard 80 in (2.03 m) door height
+ *   (DOORS), 2.15 m, clears a 1.778 m hull with room for a jump through.
  *
  * Assumptions, recorded as the spec requires:
  *
@@ -44,9 +44,10 @@
  *   reached by stairs inside, by outdoor stairs from the yard to a back deck,
  *   and through the main front window by climbing a planter and the porch
  *   roof. Room layouts beyond that are the map's own.
- * - Interior doors use the exterior width (0.91 m) instead of the 32 in
- *   (0.81 m) standard: the 0.76 m player hull snags on 0.81 m doors. Where
- *   accuracy and playability conflict, playability wins.
+ * - Doors are 1.15 m wide instead of the 36 in (0.91 m) exterior or 32 in
+ *   (0.81 m) interior standard: the 0.76 m player hull snags on the frames
+ *   of standard doors unless it walks dead centre. Where accuracy and
+ *   playability conflict, playability wins.
  *
  * Coordinates: metres, x east, y up, z south. The origin is the centre of
  * the cul-de-sac, on the street's axis; the north house belongs to team 1.

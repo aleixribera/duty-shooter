@@ -23,9 +23,9 @@ const INNER = 0.12;
 /** Ground and upper floor levels, and wall tops. */
 const UPPER_FLOOR = 3.0;
 const UPPER_TOP = 5.6;
-/** Door openings: the 80 in standard height and a 36 in width. */
-const DOOR_H = 2.03;
-const DOOR_W = 0.91;
+/** Door openings: a little over the 80 in standard height, and wider than standard so the hull passes without snagging the frame. */
+const DOOR_H = 2.15;
+export const DOOR_W = 1.15;
 /** The cul-de-sac's radius, the street's half width and the playable street end. */
 const CIRCLE_R = 8.75;
 const STREET_HALF = 4.5;
@@ -1106,14 +1106,15 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
  * and window; the air conditioner and garage roof; the deck and roofs). The
  * heights are hints; each node stands on the surface at or below its hint.
  */
+const DOOR_MID = DOOR_W / 2;
 const HOUSE_NAV_HINTS: readonly (readonly [number, number, number])[] = [
   // Front door, back door and the deck door upstairs.
-  [0.955, 0, 15.0], [0.955, 0, 12.6], [-3.545, 0, 29.5], [-3.545, 0, 33], [0.455, 3, 30], [0.455, 3, 33.3],
+  [0.5 + DOOR_MID, 0, 15.0], [0.5 + DOOR_MID, 0, 12.6], [-4 + DOOR_MID, 0, 29.5], [-4 + DOOR_MID, 0, 33], [DOOR_MID, 3, 30], [DOOR_MID, 3, 33.3],
   // The doors between the garage and the house, and through the garage.
-  [-9.2, 0, 16.455], [-6.5, 0, 16.455], [-9.2, 0, 25.455], [-6.5, 0, 25.455],
-  [-13.545, 0, 18.5], [-13.545, 0, 21.5], [-11.545, 0, 25.5], [-11.545, 0, 29.5], [-12.5, 0, 15], [-12.5, 0, 10],
+  [-9.2, 0, 16 + DOOR_MID], [-6.5, 0, 16 + DOOR_MID], [-9.2, 0, 25 + DOOR_MID], [-6.5, 0, 25 + DOOR_MID],
+  [-14 + DOOR_MID, 0, 18.5], [-14 + DOOR_MID, 0, 21.5], [-12 + DOOR_MID, 0, 25.5], [-12 + DOOR_MID, 0, 29.5], [-12.5, 0, 15], [-12.5, 0, 10],
   // Upstairs: the partition door, the stairs top and bottom, the front bedroom.
-  [3.455, 3, 25], [3.455, 3, 22.8], [-0.2, 3, 22.3], [-1.35, 3, 22.3], [-1.35, 1.6, 18.8], [-1.35, 0, 15.2], [2.25, 3, 16],
+  [3 + DOOR_MID, 3, 25], [3 + DOOR_MID, 3, 22.8], [-0.2, 3, 22.3], [-1.35, 3, 22.3], [-1.35, 1.6, 18.8], [-1.35, 0, 15.2], [2.25, 3, 16],
   // Yard stairs to the deck.
   [-14, 0, 34.55], [-12.7, 0, 34.55], [-9.9, 1.6, 34.55], [-7.3, 3, 34.55], [-5, 3, 33.5],
   // The window climb: planter, porch roof, in through the window.

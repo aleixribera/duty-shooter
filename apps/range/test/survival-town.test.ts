@@ -4,7 +4,7 @@ import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { environmentAt } from '@duty-shooter/fps-client/map-sound';
 import { insidePolygon, mapSolids } from '../src/map/definition';
-import { BOUNDARY, HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
+import { BOUNDARY, DOOR_W, HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
 import { REFERENCE, TOLERANCE } from '../src/map/survival-town-reference';
 
 const map = buildSurvivalTown();
@@ -550,8 +550,38 @@ describe('Survival Town: scenery', () => {
   });
 });
 
+describe('Survival Town: doors', () => {
+  // Every door: along a wall at distance d (crossed in d) or at x (crossed in x), from `from` along it, on `floor`.
+  const doors = [
+    { name: 'front door', wall: 'x', at: HOUSE.main.d0, from: HOUSE.frontDoor.x0, floor: 0 },
+    { name: 'back door', wall: 'x', at: HOUSE.main.d1, from: -4, floor: 0 },
+    { name: 'deck door', wall: 'x', at: HOUSE.main.d1, from: 0, floor: UPPER_FLOOR },
+    { name: 'upstairs partition door', wall: 'x', at: 24, from: 3, floor: UPPER_FLOOR },
+    { name: 'garage back door', wall: 'x', at: HOUSE.garage.d1, from: -12, floor: 0 },
+    { name: 'garage partition door', wall: 'x', at: HOUSE.garage.partition, from: -14, floor: 0 },
+    { name: 'garage-to-hall door', wall: 'd', at: HOUSE.main.x0, from: 16, floor: 0 },
+    { name: 'utility-room door', wall: 'd', at: HOUSE.main.x0, from: 25, floor: 0 },
+  ] as const;
+  for (const s of [-1, 1]) {
+    for (const door of doors) {
+      it(`a player walking 15 cm off centre goes straight through the ${s < 0 ? 'north' : 'south'} ${door.name}, both ways`, () => {
+        const mid = door.from + DOOR_W / 2;
+        for (const off of [-0.15, 0.15]) {
+          for (const dir of [-1, 1]) {
+            // (along the wall, across it) in map coordinates.
+            const point = (along: number, across: number): Vec3 =>
+              door.wall === 'x' ? [along, door.floor, s * (door.at + across)] : [door.at + across, door.floor, s * along];
+            const start = point(mid + off, -1.4 * dir);
+            const end = point(mid + off, 1.4 * dir);
+            expect(() => walk(start, [{ to: end }], 4), `${off} m off, way ${dir}`).not.toThrow();
+          }
+        }
+      });
+    }
+  }
+});
+
 describe('map audio', () => {
-  const DOOR_W = 0.91;
   const zones = map.indoorZones;
   // Each outside door: its x span, the wall's d, its floor, and which way (in d) is inside.
   const doors = [
