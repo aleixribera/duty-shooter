@@ -26,7 +26,7 @@ function join(pass, headers = {}) {
       ws.terminate();
     };
     const timer = setTimeout(() => done('timeout'), 5000);
-    ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: pass, protocol: 4 })));
+    ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: pass, protocol: 5 })));
     ws.on('message', (data) => {
       first ??= JSON.parse(data.toString());
       if (first.t === 'welcome') {
