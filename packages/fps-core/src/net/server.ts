@@ -1,14 +1,15 @@
 import { Bot, type BotObjective, type BotView } from '../bots/bot';
-import { planOutposts } from '../bots/planner';
+import { planCharge, planOutposts } from '../bots/planner';
 import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
+import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
-import { MODE_IDS, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
+import { MODE_IDS, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { hashString } from '../random';
 import { Simulation, TICK_RATE, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TickOutput } from '../simulation';
-import type { UserCmd } from '../usercmd';
+import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import {
@@ -33,8 +34,8 @@ export interface GameServerOptions {
   readonly map?: string;
   /** The mode the server starts in. Defaults to team deathmatch. */
   readonly mode?: ModeId;
-  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, all 600 s. */
-  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions };
+  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, all 600 s, and Charge first to 4 rounds. */
+  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions };
   /** Intermission phase lengths (s). Defaults: 6 s of nuke, then 14 s of scoreboard and vote. */
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** Free-for-all spawn points, spread over the map. */
@@ -43,6 +44,8 @@ export interface GameServerOptions {
   readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
   /** The map's Outposts zones; none without. */
   readonly zones?: readonly Zone[];
+  /** The map's Charge sites; none without. */
+  readonly sites?: readonly ChargeSite[];
   /** Range dummies, simulated by the server for everyone. */
   readonly dummies?: readonly PlayerSpawn[];
   /** The shared passphrase every join must carry; empty runs a public lobby anyone can join. */
@@ -122,7 +125,7 @@ const DEFAULT_RATE = 180;
 const MAX_QUEUED_CMDS = 12;
 const MAX_NAME = 16;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion']);
+const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge']);
 
 interface Client {
   readonly connection: Connection;
@@ -224,10 +227,17 @@ export class GameServer {
   /** Each bot's objective from its team's planner, and when the plan is next made. */
   #orders = new Map<PlayerId, BotObjective>();
   #planAt = 0;
+  /** Players holding the use button, as of their latest usercmd. */
+  readonly #using = new Set<PlayerId>();
 
   constructor(transport: ServerTransport, options: GameServerOptions) {
     this.#options = options;
-    this.#modes = { tdm: new TeamDeathmatch(options.modes?.tdm), ffa: new FreeForAll(options.modes?.ffa), outposts: new Outposts(options.modes?.outposts) };
+    this.#modes = {
+      tdm: new TeamDeathmatch(options.modes?.tdm),
+      ffa: new FreeForAll(options.modes?.ffa),
+      outposts: new Outposts(options.modes?.outposts),
+      charge: new Charge(options.modes?.charge),
+    };
     this.#mode = this.#modes[options.mode ?? 'tdm'];
     this.simulation = new Simulation(options.world, {
       canDamage: (a, v) => this.#phase === 'playing' && (v.kind === 'dummy' || (this.#mode.canDamage(a, v) && !this.#spawnProtected(v.id))),
@@ -388,6 +398,8 @@ export class GameServer {
     }
     if (message.t === 'loadout') {
       client.loadout = message.loadout;
+      // In a round's freeze the change is made at once, where the player stands.
+      if (this.#phase === 'playing' && this.#mode.frozen() && this.#last.players.find((p) => p.id === client.id)?.alive) this.simulation.equip(client.id, message.loadout);
       return;
     }
     if (message.t === 'vote') {
@@ -517,13 +529,20 @@ export class GameServer {
     return seats.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
   }
 
-  /** A player into the running match: the mode picks the team and spawn. */
+  /**
+   * A player into the running match: the mode picks the team and spawn. In a
+   * round under way, where nobody respawns, they wait dead for the next round.
+   */
   #add(id: PlayerId, name: string): void {
     const ctx = this.#context();
     const team = this.#mode.join(id, name, ctx);
     const spawn = this.#mode.chooseSpawn(id, ctx);
     this.simulation.addPlayer({ id, team, position: spawn.position, yaw: spawn.yaw, ...this.#loadoutOf(id) });
     this.#protectedSince.set(id, this.simulation.time);
+    if (this.#phase === 'playing' && !this.#mode.canRespawn(id) && !this.#mode.frozen()) {
+      const state = this.simulation.playerState(id)!;
+      this.simulation.setPlayerState({ ...state, health: 0, diedAt: this.simulation.time });
+    }
   }
 
   /** The loadout a player's next spawn carries (a bot's from its profile), as spawn options (empty for the default). */
@@ -538,6 +557,7 @@ export class GameServer {
     this.#names.delete(id);
     this.#votes.delete(id);
     this.#protectedSince.delete(id);
+    this.#using.delete(id);
   }
 
   /** (Re)spawns a player, protected for a moment. */
@@ -654,6 +674,8 @@ export class GameServer {
       teamSpawns: this.#options.teamSpawns ?? null,
       world: this.simulation.world,
       zones: this.#options.zones ?? [],
+      sites: this.#options.sites ?? [],
+      using: this.#using,
     };
   }
 
@@ -681,7 +703,16 @@ export class GameServer {
       // The intermission ignores input: acknowledged, never applied.
       if (frozen) cmds[client.id] = [];
     }
-    if (this.#bots.size > 0) this.#thinkBots(cmds, frozen);
+    // A round's freeze holds everyone where they stand, free to look around.
+    const held = !frozen && this.#mode.frozen();
+    if (this.#bots.size > 0) this.#thinkBots(cmds, frozen || held);
+    for (const [id, list] of Object.entries(cmds)) {
+      const applied = Array.isArray(list) ? list : [list];
+      if (held) cmds[id] = applied.map((cmd) => ({ ...cmd, forward: 0, right: 0, buttons: 0, firePresses: [] }));
+      const last = applied.at(-1);
+      if (last && last.buttons & Button.Use && !held && !frozen) this.#using.add(id);
+      else if (last || frozen || held) this.#using.delete(id);
+    }
     const out = this.simulation.step(cmds);
     this.#lastEvents = out.events;
     // Firing ends spawn protection.
@@ -702,20 +733,33 @@ export class GameServer {
 
   /**
    * The bot teams' planners: in Outposts each team's bots are sent to zones
-   * (see {@link planOutposts}), replanned every second.
+   * (see {@link planOutposts}), in Charge to the sites, the charge and the
+   * carrier (see {@link planCharge}); replanned every second, and at once
+   * when the charge changes hands or a round starts.
    */
   #planBots(): void {
     const time = this.simulation.time;
-    if (time < this.#planAt) return;
+    const changed = this.#modeEvents.some((e) => e.type === 'charge' || e.type === 'roundStart' || e.type === 'roundEnd');
+    if (time < this.#planAt && !changed) return;
     this.#planAt = time + PLAN_EVERY;
     this.#orders = new Map();
     const objective = this.#mode.objective();
-    const zones = this.#options.zones ?? [];
-    if (objective?.kind !== 'outposts' || zones.length === 0) return;
-    const players = this.#last.players.filter((p) => this.#bots.has(p.id) && p.alive);
-    for (const team of new Set(players.map((p) => p.team))) {
-      const plan = planOutposts(team, players.filter((p) => p.team === team), zones, objective.zones);
-      for (const [id, zone] of plan) this.#orders.set(id, { position: zone.center, radius: zone.radius });
+    const players = this.#last.players.filter((p) => p.kind === 'player' && p.alive);
+    const bots = players.filter((p) => this.#bots.has(p.id));
+    if (objective?.kind === 'outposts') {
+      const zones = this.#options.zones ?? [];
+      if (zones.length === 0) return;
+      for (const team of new Set(bots.map((p) => p.team))) {
+        const plan = planOutposts(team, bots.filter((p) => p.team === team), zones, objective.zones);
+        for (const [id, zone] of plan) this.#orders.set(id, { position: zone.center, radius: zone.radius });
+      }
+    } else if (objective?.kind === 'charge') {
+      const sites = this.#options.sites ?? [];
+      if (sites.length === 0) return;
+      for (const team of new Set(bots.map((p) => p.team))) {
+        const plan = planCharge(team, bots.filter((p) => p.team === team), players.filter((p) => p.team === team), sites, objective);
+        for (const [id, order] of plan) this.#orders.set(id, order);
+      }
     }
   }
 
@@ -750,6 +794,8 @@ export class GameServer {
   #playing(out: TickOutput): ModeEvent[] {
     const ctx = this.#context();
     const events = this.#mode.onEvents(out.events, ctx);
+    // A new round puts everyone back at their side's spawns, alive and with the loadout they picked.
+    if (events.some((e) => e.type === 'roundStart')) for (const seat of this.#seats()) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));
     const result = this.#mode.result(ctx);
     if (result) {
       this.#phase = 'nuke';

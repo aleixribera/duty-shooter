@@ -1,4 +1,4 @@
-import { STATS, type MatchStatus, type ModeId, type PlayerOutput, type Score } from '@duty-shooter/fps-core';
+import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 
@@ -59,6 +59,20 @@ const CSS = `
 .ds-marker.ds-t1 b, .ds-marker.ds-t2 b { border-color: currentColor; }
 .ds-marker small { font-size: 11px; margin-top: 2px; color: var(--ds-text-2); }
 .ds-marker.contested b { border-color: var(--ds-alert); }
+.ds-marker.site b { border-radius: 4px; }
+.ds-marker.target b { border-color: var(--ds-signal); }
+.ds-marker.charge b { border-color: var(--ds-alert); color: var(--ds-alert); }
+.ds-marker.planted b { border-color: var(--ds-alert); color: var(--ds-alert); animation: ds-blink 0.5s steps(2) infinite; }
+.ds-charge { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); padding: 6px 14px; text-align: center; white-space: nowrap; }
+.ds-charge .side { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-charge .what { font-size: 15px; margin-top: 3px; }
+.ds-charge .what.alert { color: var(--ds-alert); }
+.ds-action { position: absolute; left: 50%; top: calc(50% + 48px); transform: translateX(-50%); width: 220px; padding: 8px 12px; text-align: center; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+.ds-action .bar { height: 5px; margin-top: 6px; background: rgb(243 241 234 / 0.18); border-radius: 2px; overflow: hidden; }
+.ds-action .bar i { display: block; height: 100%; background: var(--ds-signal); }
+.ds-round { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
+.ds-round .sub { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-round h2 { margin: 6px 0 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
 .ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
 .ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
@@ -146,8 +160,41 @@ export interface HudState {
   readonly message: string | null;
   /** The Outposts zones, or none. */
   readonly zones?: readonly ZoneMarker[];
+  /** The Charge round, or null outside Charge. */
+  readonly charge?: ChargeHud | null;
   readonly dt: number;
 }
+
+/** A Charge round as the HUD shows it. */
+export interface ChargeHud {
+  readonly state: ChargeState;
+  /** Whether the local player is on the attacking side. */
+  readonly attacking: boolean;
+  /** Names of the carrier and of whoever is planting or defusing, if anyone. */
+  readonly carrier: string | null;
+  readonly actor: string | null;
+  /** The local player is the carrier, or the one planting or defusing. */
+  readonly carrying: boolean;
+  readonly acting: boolean;
+  /** The teammate a dead player watches, or null. */
+  readonly spectating: string | null;
+  /** The sites and the charge, each projected to where its marker goes on screen. */
+  readonly markers: readonly ObjectiveMarker[];
+}
+
+/** A marker over something in the world: a Charge site, the dropped or planted charge. */
+export interface ObjectiveMarker {
+  readonly key: string;
+  readonly label: string;
+  readonly kind: 'site' | 'target' | 'charge' | 'planted';
+  readonly x: number;
+  readonly y: number;
+  /** Metres away. */
+  readonly distance: number;
+}
+
+/** How a Charge round was won, as the round banner says it. */
+const ROUND_REASONS: Readonly<Record<RoundReason, string>> = { detonated: 'Charge detonated', defused: 'Charge defused', eliminated: 'Team eliminated', time: 'Time ran out' };
 
 export type HitKind = 'hit' | 'kill' | 'headshot' | 'headshotKill';
 
@@ -181,7 +228,7 @@ export interface MatchView {
 
 
 /** The mode as the match bar names it, short. */
-const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts' };
+const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge' };
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.ceil(seconds));
@@ -236,6 +283,10 @@ export class Hud {
   readonly #end: HTMLDivElement;
   readonly #zones: HTMLDivElement;
   readonly #markers = new Map<string, HTMLDivElement>();
+  readonly #charge: HTMLDivElement;
+  readonly #action: HTMLDivElement;
+  readonly #round: HTMLDivElement;
+  readonly #chargeMarkers = new Map<string, HTMLDivElement>();
   /** Called when a vote button is pressed. */
   onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
@@ -297,6 +348,9 @@ export class Hud {
     this.#board = el('div', 'ds-board', this.root);
     this.#match = el('div', 'ds-match ds-plate', this.root);
     this.#zones = el('div', 'ds-zones', this.root);
+    this.#charge = el('div', 'ds-charge ds-plate', this.root);
+    this.#action = el('div', 'ds-action ds-plate', this.root);
+    this.#round = el('div', 'ds-round', this.root);
     this.#end = el('div', 'ds-end', this.root);
     this.#end.addEventListener('click', (e) => {
       const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
@@ -489,7 +543,11 @@ export class Hud {
     if (state.showPing && state.ping !== null) stats.push(`${Math.round(state.ping)} ms`);
     this.#stats.textContent = stats.join('  ·  ');
     const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';
-    this.#center.textContent = state.message ?? (self && !self.alive ? `You died${respawn}` : '');
+    // In Charge the dead wait for the next round, watching a teammate.
+    const charge = state.charge ?? null;
+    const waiting = charge ? `\nBack next round${charge.spectating ? `\nWatching ${charge.spectating}` : ''}` : respawn;
+    const banner = charge && (charge.state.phase === 'over' || charge.state.phase === 'freeze');
+    this.#center.textContent = state.message ?? (self && !self.alive && !banner ? `You died${waiting}` : '');
     const prompt = state.message ? null : (state.prompt ?? null);
     this.#prompt.hidden = prompt === null;
     if (prompt !== null && this.#prompt.textContent !== prompt) this.#prompt.textContent = prompt;
@@ -499,6 +557,7 @@ export class Hud {
 
     this.#updateMatch(state);
     this.#updateZones(state);
+    this.#updateCharge(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
     const board = (state.showScoreboard || voting) && state.scores.length > 0;
@@ -543,6 +602,62 @@ export class Hud {
       marker.style.left = `${z.x}px`;
       marker.style.top = `${z.y}px`;
       this.#set(marker, `<b>${escape(z.id)}</b><small>${Math.round(z.distance)} m</small>`);
+    }
+  }
+
+  /**
+   * Charge: the round and what to do under the match bar, the plant or
+   * defuse under way, the round-start countdown and the round's result, and
+   * markers over the sites and the charge.
+   */
+  #updateCharge(state: HudState): void {
+    const c = state.match?.status.phase === 'playing' ? (state.charge ?? null) : null;
+    this.#charge.style.display = c ? '' : 'none';
+    this.#action.style.display = c?.state.action && c.acting ? '' : 'none';
+    this.#round.style.display = c && (c.state.phase === 'freeze' || c.state.phase === 'over') ? '' : 'none';
+    const markers = c ? c.markers : [];
+    for (const [key, marker] of this.#chargeMarkers) {
+      if (!markers.some((m) => m.key === key)) {
+        marker.remove();
+        this.#chargeMarkers.delete(key);
+      }
+    }
+    if (!c) return;
+    for (const m of markers) {
+      let marker = this.#chargeMarkers.get(m.key);
+      if (!marker) {
+        marker = document.createElement('div');
+        this.root.append(marker);
+        this.#chargeMarkers.set(m.key, marker);
+      }
+      marker.className = `ds-marker ${m.kind === 'target' ? 'site target' : m.kind}`;
+      marker.style.left = `${m.x}px`;
+      marker.style.top = `${m.y}px`;
+      this.#set(marker, `<b>${escape(m.label)}</b><small>${Math.round(m.distance)} m</small>`);
+    }
+    const s = c.state;
+    const sites = c.attacking ? 'A or B' : 'A and B';
+    const planted = s.planted ? `Charge planted at ${s.planted.site}` : null;
+    let what: string;
+    let alert = false;
+    if (s.action && !c.acting && c.actor) what = `${c.actor} is ${s.action.kind === 'plant' ? 'planting' : 'defusing'}`;
+    else if (planted) {
+      what = `${planted} · ${c.attacking ? 'guard it' : 'defuse it'}`;
+      alert = !c.attacking;
+    } else if (c.attacking) what = c.carrying ? `You carry the charge · plant it at ${sites}` : c.carrier ? `Escort ${c.carrier}` : s.dropped ? 'The charge is down · pick it up' : 'Attack';
+    else what = s.dropped ? `The charge is down · defend ${sites}` : `Defend ${sites}`;
+    this.#set(
+      this.#charge,
+      `<div class="side">Round ${s.round} · ${c.attacking ? 'Attacking' : 'Defending'}</div><div class="what${alert ? ' alert' : ''}">${escape(what)}</div>`,
+    );
+    if (s.action && c.acting) {
+      this.#set(this.#action, `${s.action.kind === 'plant' ? 'Planting' : 'Defusing'}<div class="bar"><i style="width:${Math.round(s.action.progress * 100)}%"></i></div>`);
+    }
+    if (s.phase === 'freeze') {
+      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'} · change your loadout now</div><h2>${Math.max(1, Math.ceil(s.remaining))}</h2>`);
+    } else if (s.phase === 'over' && s.outcome) {
+      const won = TEAMS[s.outcome.winner];
+      this.#set(this.#round, `<div class="sub">${ROUND_REASONS[s.outcome.reason]}</div><h2 class="ds-t${s.outcome.winner}">${won?.mark ?? ''} ${won?.name ?? 'Team'} wins the round</h2>`);
     }
   }
 

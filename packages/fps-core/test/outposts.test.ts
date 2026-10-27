@@ -32,7 +32,7 @@ function outposts(options: { scoreLimit?: number | null; timeLimit?: number | nu
   const at = new Map<string, Vec3>(ENTRANTS.map((e, i) => [e.id, [100 + i * 5, 0, 100] as Vec3]));
   let tick = 0;
   const players = (): PlayerOutput[] => ENTRANTS.map((e) => ({ id: e.id, team: e.team, alive: true, kind: 'player', position: at.get(e.id)! }) as unknown as PlayerOutput);
-  const ctx = (): ModeContext => ({ tick, time: tick * TICK_SECONDS, matchTime: tick * TICK_SECONDS, players: players(), spawns: SPAWNS, teamSpawns: null, world: WORLD, zones: ZONES });
+  const ctx = (): ModeContext => ({ tick, time: tick * TICK_SECONDS, matchTime: tick * TICK_SECONDS, players: players(), spawns: SPAWNS, teamSpawns: null, world: WORLD, zones: ZONES, sites: [], using: new Set() });
   const events: ModeEvent[] = [];
   return {
     mode,
@@ -212,7 +212,7 @@ describe('Outposts on the server', () => {
       const far = Math.hypot(dx, dz) > 1;
       m.step({ Ada: { buttons: 0, forward: far ? 1 : 0, right: 0, yaw: Math.atan2(-dx, -dz), pitch: 0, firePresses: [] } });
     }
-    const zone = c.client.match?.objective?.zones.find((z) => z.id === nearest.id);
+    const zone = (c.client.match?.objective?.kind === 'outposts' ? c.client.match.objective.zones : []).find((z) => z.id === nearest.id);
     expect(zone?.owner).toBe(c.client.self!.team);
     expect(c.frames.some((f) => f.server.some((e) => e.type === 'capture' && e.zone === nearest.id))).toBe(true);
   });

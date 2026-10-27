@@ -51,6 +51,10 @@ export class TeamDeathmatch implements GameMode {
     return true;
   }
 
+  frozen(): boolean {
+    return false;
+  }
+
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
     return this.#roster.spawn(id, ctx);
   }

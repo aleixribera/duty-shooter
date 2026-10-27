@@ -219,6 +219,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     spawns: map.spawns.ffa,
     ...(map.spawns.teams ? { teamSpawns: map.spawns.teams } : {}),
     zones: map.zones,
+    sites: map.sites,
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,

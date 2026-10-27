@@ -606,6 +606,7 @@ export class Menu {
         ['tdm', 'Two teams, first to 75 kills.'],
         ['ffa', 'Everyone for themselves, first to 30.'],
         ['outposts', 'Hold the three zones, first to 200 points.'],
+        ['charge', 'Plant or defuse in rounds, first to 4.'],
       ] as const) {
         const b = h('button', '', `ds-mode${this.#mode === mode ? ' on' : ''}`) as HTMLButtonElement;
         b.type = 'button';
@@ -694,6 +695,7 @@ export class Menu {
       ['tdm', 'Your team against theirs.'],
       ['ffa', 'Everyone for themselves.'],
       ['outposts', 'Take and hold the three zones.'],
+      ['charge', 'Plant the charge, or stop them.'],
     ] as const) {
       const b = h('button', '', `ds-mode${this.#botMode === mode ? ' on' : ''}`) as HTMLButtonElement;
       b.type = 'button';

@@ -3,12 +3,16 @@ import {
   TICK_SECONDS,
   Button,
   angleDelta,
+  inSite,
   inZone,
+  siteCentre,
   isShellReload,
   teamMode,
   raycastWorld,
   sightBlocked,
   viewDirection,
+  type ChargeSite,
+  type ChargeState,
   type KillWeapon,
   type Material,
   type ModeId,
@@ -20,12 +24,13 @@ import {
   type World,
   type Zone,
 } from '@duty-shooter/fps-core';
+import { DEFUSE_RANGE } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera } from './camera';
 import { Effects } from './effects';
-import { Hud, type HitKind, type ZoneMarker } from './hud/hud';
+import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
 import { TEAMS } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
@@ -166,6 +171,10 @@ export class Game {
   readonly #loadoutStation: GameOptions['loadoutStation'];
   /** The map's Outposts zones, for their markers. */
   readonly #zones: readonly Zone[];
+  /** The map's Charge sites, for their markers. */
+  readonly #sites: readonly ChargeSite[];
+  /** The teammate a dead player watches in Charge, while they live. */
+  #watching: PlayerId | null = null;
   /** Use held on the last tick, so a press opens the loadout screen once. */
   #useHeld = false;
   /**
@@ -201,6 +210,7 @@ export class Game {
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#indoorZones = options.content.indoorZones;
     this.#zones = options.content.zones ?? [];
+    this.#sites = options.content.sites ?? [];
     this.#ambience = new Ambience(options.content.ambience ?? []);
     options.renderer.toneMapping = ACESFilmicToneMapping;
     options.renderer.toneMappingExposure = 0.7;
@@ -396,6 +406,22 @@ export class Game {
       this.#viewmodel.root.visible = false;
       this.#worldView.follow(o.position);
     }
+    const watched = this.#spectated();
+    if (watched) {
+      // Dead in Charge: the camera rides behind the watched teammate, pulled in short of any wall.
+      const head: Vec3 = [watched.position[0], watched.position[1] + watched.eyeHeight + 0.35, watched.position[2]];
+      const back = viewDirection(watched.yaw, 0);
+      const want: Vec3 = [head[0] - back[0] * 2.6, head[1] + 0.4, head[2] - back[2] * 2.6];
+      const hit = raycastWorld(this.#world, head, want);
+      const t = hit ? Math.max(0, hit.t - 0.1) : 1;
+      eye = [head[0] + (want[0] - head[0]) * t, head[1] + (want[1] - head[1]) * t, head[2] + (want[2] - head[2]) * t];
+      const pitch = Math.max(-0.5, Math.min(0.4, watched.pitch)) - 0.12;
+      const cam = this.#camera.camera;
+      cam.position.set(eye[0], eye[1], eye[2]);
+      cam.rotation.set(pitch, watched.yaw, 0);
+      forward = viewDirection(watched.yaw, pitch);
+      this.#viewmodel.root.visible = false;
+    }
     this.#lastLook = look;
     this.#sound.setListener(eye, forward, [0, 1, 0]);
     this.#listener = eye;
@@ -482,22 +508,106 @@ export class Game {
       match: match
         ? {
             status: match,
-            secondsLeft: match.phaseEnds === null ? null : match.phaseEnds - driver.serverTime,
+            secondsLeft: match.objective?.kind === 'charge' && match.phase === 'playing' ? match.objective.remaining : match.phaseEnds === null ? null : match.phaseEnds - driver.serverTime,
             team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
           }
         : null,
-      respawnIn: match && match.phase !== 'playing' ? null : driver.respawnIn,
-      prompt: this.#cur && (!this.#cur.alive || this.#atStation(this.#cur)) && (!match || match.phase === 'playing') ? `${this.#useLabel()}  Loadout` : null,
+      respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,
+      prompt: this.#prompt(),
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
       zones: this.#zoneMarkers(eye),
+      charge: this.#chargeHud(eye),
       dt,
     });
   }
 
+  /** The Charge round, while one is on. */
+  get #charge(): ChargeState | null {
+    const match = this.#driver?.match;
+    return match?.phase === 'playing' && match.objective?.kind === 'charge' ? match.objective : null;
+  }
+
+  /** The button prompt: the loadout screen (dead, at the range's station, or in a round's freeze), or planting and defusing. */
+  #prompt(): string | null {
+    const self = this.#cur;
+    const match = this.#driver?.match;
+    if (!self || (match && match.phase !== 'playing')) return null;
+    const charge = this.#charge;
+    if (!self.alive || this.#atStation(self) || charge?.phase === 'freeze') return `${this.#useLabel()}  Loadout`;
+    if (charge && !charge.action) {
+      if (charge.phase === 'live' && charge.carrier === self.id && this.#sites.some((s) => inSite(s, self.position))) return `Hold ${this.#useLabel()}  Plant`;
+      const p = charge.planted?.position;
+      if (charge.phase === 'planted' && p && self.team !== charge.attackers && Math.hypot(self.position[0] - p[0], self.position[2] - p[2]) <= DEFUSE_RANGE) return `Hold ${this.#useLabel()}  Defuse`;
+    }
+    return null;
+  }
+
+  /** The living teammate a dead player watches in Charge (the same one while they live), or null. */
+  #spectated(): PlayerOutput | null {
+    const self = this.#cur;
+    if (!self || self.alive || !this.#charge) {
+      this.#watching = null;
+      return null;
+    }
+    const mates = this.#others.filter((p) => p.alive && p.kind === 'player' && p.team === self.team).sort((a, b) => (a.id < b.id ? -1 : 1));
+    const watched = mates.find((p) => p.id === this.#watching) ?? mates[0] ?? null;
+    this.#watching = watched?.id ?? null;
+    return watched;
+  }
+
+  /** The Charge round for the HUD: your side, who carries and acts, and markers over the sites and the charge. */
+  #chargeHud(eye: Vec3): ChargeHud | null {
+    const state = this.#charge;
+    const driver = this.#driver;
+    const self = this.#cur;
+    if (!state || !driver || !self) return null;
+    const attacking = self.team === state.attackers;
+    const markers: ObjectiveMarker[] = [];
+    const add = (key: string, label: string, kind: ObjectiveMarker['kind'], at: Vec3) => {
+      const m = this.#project(at, eye);
+      if (m) markers.push({ key, label, kind, ...m });
+    };
+    if (state.planted) add('planted', state.planted.site, 'planted', [state.planted.position[0], state.planted.position[1] + 0.6, state.planted.position[2]]);
+    else
+      for (const site of this.#sites) {
+        const c = siteCentre(site);
+        add(`site-${site.id}`, site.id, 'site', [c[0], c[1] + 2, c[2]]);
+      }
+    if (state.dropped && attacking) add('charge', '◆', 'charge', [state.dropped[0], state.dropped[1] + 0.6, state.dropped[2]]);
+    const name = (id: PlayerId | null) => (id === null ? null : id === driver.selfId ? 'You' : driver.nameOf(id));
+    const watched = this.#watching;
+    return {
+      state,
+      attacking,
+      carrier: name(state.carrier),
+      actor: name(state.action?.player ?? null),
+      carrying: state.carrier === driver.selfId,
+      acting: state.action?.player === driver.selfId,
+      spectating: watched === null ? null : driver.nameOf(watched),
+      markers,
+    };
+  }
+
+  /** Where a marker over world point `at` goes on screen, kept on screen when it is behind or off to the side, and how far it is. */
+  #project(at: Vec3, eye: Vec3): { x: number; y: number; distance: number } | null {
+    const cam = this.#camera.camera;
+    const w = this.#canvas.clientWidth;
+    const h = this.#canvas.clientHeight;
+    const margin = 32;
+    const p = new Vector3(at[0], at[1], at[2]).project(cam);
+    const behind = p.z > 1;
+    let x = (((behind ? -p.x : p.x) + 1) / 2) * w;
+    let y = behind ? h - margin : ((1 - p.y) / 2) * h;
+    x = Math.min(w - margin, Math.max(margin, x));
+    y = Math.min(h - margin, Math.max(margin + 24, y));
+    return { x, y, distance: Math.hypot(at[0] - eye[0], at[2] - eye[2]) };
+  }
+
   /** The Outposts zones with their state from the match, each projected to where its marker goes on screen. */
   #zoneMarkers(eye: Vec3): ZoneMarker[] {
-    const states = this.#driver?.match?.objective?.zones;
+    const objective = this.#driver?.match?.objective;
+    const states = objective?.kind === 'outposts' ? objective.zones : null;
     if (!states || this.#zones.length === 0) return [];
     const cam = this.#camera.camera;
     const w = this.#canvas.clientWidth;
@@ -581,7 +691,10 @@ export class Game {
     // A (re)spawn turns the view to the spawn's facing before this tick's usercmd is built.
     const facing = driver.takeSpawn();
     if (facing) this.input.setAngles(facing.yaw, facing.pitch);
-    const cmd = this.input.sample(start, end);
+    const sampled = this.input.sample(start, end);
+    // A round's freeze holds you where you stand, free to look around (the server does the same).
+    const frozen = this.#charge?.phase === 'freeze';
+    const cmd: UserCmd = frozen ? { ...sampled, forward: 0, right: 0, buttons: sampled.buttons & Button.Use, firePresses: [] } : sampled;
     const result = driver.tick(cmd);
     this.#simTime += TICK_SECONDS;
     const before = this.#cur;
@@ -592,7 +705,7 @@ export class Game {
     this.#cur = self;
     this.#cmd = cmd;
     const use = (cmd.buttons & Button.Use) !== 0;
-    if (use && !this.#useHeld && self && (!self.alive || this.#atStation(self))) this.onLoadout?.(self.alive ? 'station' : 'death');
+    if (use && !this.#useHeld && self && (!self.alive || this.#atStation(self) || frozen)) this.onLoadout?.(self.alive ? 'station' : 'death');
     this.#useHeld = use;
     if (self && before) this.#selfFoley(before, self, cmd);
     for (const e of result.events) this.#present(e, start);
@@ -812,6 +925,33 @@ export class Game {
         const team = TEAMS[e.team]?.name ?? 'A team';
         const lost = e.previous !== 0 ? ` from ${TEAMS[e.previous]?.name ?? 'the other team'}` : '';
         this.hud.objectiveFeed(`${team} took ${e.zone}${lost}`, e.team, this.#cur?.team === e.team || this.#cur?.team === e.previous);
+        break;
+      }
+      case 'roundStart': {
+        const attack = this.#cur?.team === e.attackers;
+        this.hud.toast(`Round ${e.round}: you ${attack ? 'attack' : 'defend'}.`, 4);
+        break;
+      }
+      case 'charge': {
+        const driver = this.#driver;
+        const who = e.player === null ? null : e.player === driver?.selfId ? 'You' : (driver?.nameOf(e.player) ?? 'Someone');
+        const mine = this.#cur?.team === e.team;
+        const text =
+          e.action === 'pickup'
+            ? `${who} picked up the charge`
+            : e.action === 'drop'
+              ? `${who} dropped the charge`
+              : e.action === 'plant'
+                ? `${who} planted the charge at ${e.site}`
+                : e.action === 'defuse'
+                  ? `${who} defused the charge`
+                  : `The charge detonated at ${e.site}`;
+        // Where the charge lies is the attackers' to know: defenders hear only of the plant and what follows.
+        if (mine || e.action === 'plant' || e.action === 'defuse' || e.action === 'detonate') this.hud.objectiveFeed(text, e.team, e.player === driver?.selfId);
+        if (e.action === 'detonate') {
+          this.#effects.explosion(e.position);
+          this.#play('explosion', { position: e.position });
+        }
         break;
       }
       case 'matchEnd':

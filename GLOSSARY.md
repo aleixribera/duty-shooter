@@ -87,7 +87,7 @@ _Avoid_: nade (fine in player-facing text)
 ## Matches
 
 **Mode**:
-The rules of a match: team deathmatch (TDM), free-for-all (FFA) or Outposts.
+The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts or Charge.
 _Avoid_: playlist, game type
 
 **Outposts**:
@@ -97,6 +97,25 @@ _Avoid_: domination, capture points
 **Zone**:
 One of the three Outposts objectives on a map: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes.
 _Avoid_: point, flag, objective (on its own)
+
+**Charge**:
+The round-based team mode. The attackers carry a charge to one of the map's two charge sites and plant it there; the defenders stop them or defuse it. Nobody respawns within a round. The first team to win 4 rounds wins, and the sides swap after round 3.
+_Avoid_: bomb, search and destroy, demolition
+
+**Charge site**:
+One of the two places on a map where the attackers can plant the charge: a box volume from the map definition. On Survival Town both are at the south house, the defenders' end.
+_Avoid_: bomb site, objective (on its own)
+
+**Round**:
+One plant-or-defend contest in Charge: a 5 s freeze, then 90 s of play, with a 40 s fuse once the charge is planted. Every player starts it alive at their side's spawns. A round is won by the detonation, a defuse, wiping out the other side, or (for the defenders) the clock running out.
+_Avoid_: life, game
+
+**Carrier**:
+The attacker holding the charge. The charge drops where the carrier dies, and any attacker who walks over it picks it up.
+
+**Freeze**:
+The first 5 s of a Charge round, when everyone is held where they stand. Players can look around and change their loadout.
+_Avoid_: buy time, warm-up
 
 **Intermission**:
 The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout.

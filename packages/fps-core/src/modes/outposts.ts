@@ -98,6 +98,10 @@ export class Outposts implements GameMode {
     return true;
   }
 
+  frozen(): boolean {
+    return false;
+  }
+
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
     const team = this.#roster.get(id)?.team ?? TEAMS[0];
     const held = ctx.zones.filter((z) => this.#zones.get(z.id)?.owner === team);
@@ -197,7 +201,7 @@ export class Outposts implements GameMode {
     return TEAMS.map((team) => ({ team, score: this.#teamScore(team) }));
   }
 
-  objective(): ObjectiveState {
+  objective(): Extract<ObjectiveState, { kind: 'outposts' }> {
     const zones: ZoneState[] = this.#layout.map((z) => {
       const run = this.#zones.get(z.id);
       return { id: z.id, owner: run?.owner ?? 0, capturing: run?.capturing ?? 0, progress: run?.progress ?? 0, contested: run?.contested ?? false };

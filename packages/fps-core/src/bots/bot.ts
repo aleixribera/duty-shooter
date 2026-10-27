@@ -32,6 +32,10 @@ export interface BotView {
 export interface BotObjective {
   readonly position: Vec3;
   readonly radius: number;
+  /** Once there, stand still holding use (to plant or defuse), unless an enemy is in view. */
+  readonly use?: boolean;
+  /** Hold use even with an enemy in view (the fuse is nearly out). */
+  readonly urgent?: boolean;
 }
 
 /** A bot sent to an objective chases a noise no farther than this (m) beyond its edge. */
@@ -202,6 +206,8 @@ export class Bot {
   #followed: Vec3 = [0, 0, 0];
   readonly #memory = new Map<PlayerId, Sighting>();
   #target: Engagement | null = null;
+  /** Standing still holding use for its objective (planting or defusing). */
+  #using = false;
   #lastEnemySeen = -Infinity;
   /** Turn toward roughly where a hit came from, until then. */
   #alert: { yaw: number; until: number } | null = null;
@@ -259,7 +265,8 @@ export class Bot {
   }
 
   /** What the bot is up to, for tests and debugging. */
-  get activity(): 'flee' | 'throw' | 'fight' | 'chase' | 'hold' | 'roam' {
+  get activity(): 'use' | 'flee' | 'throw' | 'fight' | 'chase' | 'hold' | 'roam' {
+    if (this.#using) return 'use';
     if (this.#flee) return 'flee';
     if (this.#throw) return 'throw';
     if (this.#target) return 'fight';
@@ -273,6 +280,7 @@ export class Bot {
     this.#lastTime = time;
     const r = (n: number) => noise(this.#seed, view.tick, n);
     if (!self.alive) {
+      this.#using = false;
       this.#alive = false;
       this.#target = null;
       this.#throw = null;
@@ -302,8 +310,15 @@ export class Bot {
     const tactics = TACTICS[self.weapon.id];
     const want = this.#fightRange(tactics);
     const speed = Math.hypot(self.velocity[0], self.velocity[2]);
-    this.#watchGrenades(view, eye);
-    if (!this.#throw && !fighting && (view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
+    // On the job: planting or defusing, which only an enemy in view interrupts (unless it can't wait).
+    const order = view.objective ?? null;
+    const using = (this.#using =
+      order?.use === true && flat(self.position, order.position) <= order.radius && (order.urgent === true || !(fighting && target?.visible === true)));
+    if (using) {
+      this.#flee = null;
+      this.#throw = null;
+    } else this.#watchGrenades(view, eye);
+    if (!using && !this.#throw && !fighting && (view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
 
     // Where to look.
     // The view is the usercmd plus recoil and flinch; follow that offset, a little late.
@@ -316,8 +331,12 @@ export class Bot {
     let ads = false;
     let fire = false;
     const buttons: ButtonName[] = [];
-    const rushing = fighting && target !== null && target.visible && tactics.rush !== null && range > tactics.rush && self.weapon.ammo > 0;
-    if (fighting && target && tp) {
+    const rushing = !using && fighting && target !== null && target.visible && tactics.rush !== null && range > tactics.rush && self.weapon.ammo > 0;
+    if (using) {
+      // Eyes on whoever is coming, if anyone; otherwise level.
+      if (target && tp) lookYaw = yawTo(self.position, tp.position);
+      lookPitch = -0.05;
+    } else if (fighting && target && tp) {
       // Out of sight for a moment: keep aiming where it was last seen.
       const last = this.#memory.get(tp.id)?.position ?? tp.position;
       // Aim where the target was a moment ago, carried on the way it was moving then: a person's eye and hand
@@ -410,7 +429,10 @@ export class Bot {
     // Where to go.
     let move: Vec3 | null = null;
     let backOff = false;
-    if (this.#flee) {
+    if (using) {
+      // Standing still with use held.
+      buttons.push('Use');
+    } else if (this.#flee) {
       move = this.#fleeStep(view);
     } else if (this.#throw) {
       // Standing still to throw.
@@ -433,7 +455,6 @@ export class Bot {
       }
       if (target.crouch && range > 14 && !move) buttons.push('Crouch');
     } else {
-      const order = view.objective ?? null;
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
       const leashed = (at: Vec3) => order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH;
       // Roaming inside the objective only: an older goal elsewhere is dropped.
@@ -455,7 +476,7 @@ export class Bot {
 
     // Steering: the move direction in the bot's own frame.
     let forward = backOff ? -0.8 : 0;
-    let right = fighting && !this.#throw ? this.#strafe * (ads ? 1 : 0.8) : 0;
+    let right = fighting && !this.#throw && !using ? this.#strafe * (ads ? 1 : 0.8) : 0;
     const climbing = move !== null && this.#nextLink() === 'climb';
     if (move) {
       const dir = yawTo(self.position, move);
@@ -502,7 +523,7 @@ export class Bot {
     }
     // Reload in a quiet moment, or when empty.
     if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
-    if (this.#cooking(view)) buttons.push('Grenade');
+    if (!using && this.#cooking(view)) buttons.push('Grenade');
 
     if (ads) buttons.push('Ads');
     if (fire) buttons.push('Fire');

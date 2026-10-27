@@ -1,5 +1,5 @@
 import type { AmbientSource } from './map-sound';
-import type { Material, Solid, Vec3, Zone } from '@duty-shooter/fps-core';
+import type { ChargeSite, Material, Solid, Vec3, Zone } from '@duty-shooter/fps-core';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, positionWorldDirection, select, smoothstep, uniform } from 'three/tsl';
 import { Vector2 } from 'three/webgpu';
 import {
@@ -60,6 +60,8 @@ export interface WorldContent {
   readonly indoorZones: readonly { readonly min: Vec3; readonly max: Vec3 }[];
   /** The Outposts zones, for the HUD's markers (none on a map without them). */
   readonly zones?: readonly Zone[];
+  /** The Charge sites, for the HUD's markers (none on a map without them). */
+  readonly sites?: readonly ChargeSite[];
   readonly ramps?: readonly RampShape[];
   readonly labels?: readonly WorldLabel[];
   /** Where the population sign's live face goes, if the map has one. */

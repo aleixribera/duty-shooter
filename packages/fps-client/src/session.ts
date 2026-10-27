@@ -26,6 +26,7 @@ import {
   type UserCmd,
   type Vec3,
   type Zone,
+  type ChargeSite,
 } from '@duty-shooter/fps-core';
 import { connectWebSocket } from './net/websocket';
 
@@ -341,6 +342,8 @@ export interface BotMatchOptions {
   readonly spawns: { readonly ffa: readonly SpawnPoint[]; readonly teams: readonly (readonly SpawnPoint[])[] | null };
   /** The map's Outposts zones. */
   readonly zones?: readonly Zone[];
+  /** The map's Charge sites. */
+  readonly sites?: readonly ChargeSite[];
   /** How the map's nav graph is built, for the bots to find their way. */
   readonly nav: NavOptions;
   readonly mode: ModeId;
@@ -370,6 +373,7 @@ export class BotMatchDriver extends OnlineDriver {
       spawns: options.spawns.ffa,
       ...(options.spawns.teams ? { teamSpawns: options.spawns.teams } : {}),
       ...(options.zones ? { zones: options.zones } : {}),
+      ...(options.sites ? { sites: options.sites } : {}),
       passphrase: '',
       bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
     });

@@ -388,7 +388,7 @@ describe('mode voting', () => {
       },
       (match) => (tally = match.server.matchStatus().votes),
     );
-    expect(tally).toEqual({ tdm: 2, ffa: 1, outposts: 0 });
+    expect(tally).toEqual({ tdm: 2, ffa: 1, outposts: 0, charge: 0 });
     expect(m.server.mode.id).toBe('tdm');
   });
 
@@ -408,20 +408,20 @@ describe('mode voting', () => {
     a!.client.vote('ffa');
     b!.client.vote('ffa');
     m.run(ticks(0.5));
-    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0 });
+    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0, charge: 0 });
     expect(m.server.mode.id).toBe('tdm');
     // During the nuke: ignored too.
     until(m, () => m.server.phase === 'nuke');
     a!.client.vote('ffa');
     m.run(ticks(0.5));
-    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0 });
+    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0, charge: 0 });
     until(m, () => m.server.phase === 'playing');
     expect(m.server.mode.id).toBe('tdm');
     // After the window: ignored.
     a!.client.vote('ffa');
     b!.client.vote('ffa');
     m.run(ticks(0.5));
-    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0 });
+    expect(m.server.matchStatus().votes).toEqual({ tdm: 0, ffa: 0, outposts: 0, charge: 0 });
     expect(m.server.mode.id).toBe('tdm');
   });
 });

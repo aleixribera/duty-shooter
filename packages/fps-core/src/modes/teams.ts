@@ -94,6 +94,13 @@ export class TeamRoster {
     return new Map(this.entries().map((e) => [e.id, e.team]));
   }
 
+  /** A new round of a round-based mode: everyone's next spawn is a first spawn again, at their side's set. */
+  newRound(): void {
+    this.#spawned.clear();
+    this.#nextFirst.clear();
+    this.#recent.clear();
+  }
+
   /**
    * Where `id` spawns: the next free spot of their team's own set on their
    * first spawn of the match, otherwise the safest spawn anywhere (see

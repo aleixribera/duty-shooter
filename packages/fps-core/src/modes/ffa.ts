@@ -69,6 +69,10 @@ export class FreeForAll implements GameMode {
     return true;
   }
 
+  frozen(): boolean {
+    return false;
+  }
+
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
     // Only players placed this match count: the rest still stand where the last match left them.
     const enemies = ctx.players.filter((p) => p.id !== id && p.alive && this.#spawned.has(p.id));

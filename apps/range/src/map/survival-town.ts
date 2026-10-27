@@ -1,4 +1,4 @@
-import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone } from '@duty-shooter/fps-core';
+import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
 import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
@@ -1088,6 +1088,16 @@ const ZONES: readonly Zone[] = [
   { id: 'C', name: 'South house', center: [2.5, 0, 24], radius: 3.5, height: UPPER_FLOOR - 0.4 },
 ];
 
+/**
+ * Charge: both sites are at the south house, on the second team set's side,
+ * where the defenders start: A in the living room, B in the back half of the
+ * garage. The attackers come from the north yard, across the street.
+ */
+const SITES: readonly ChargeSite[] = [
+  { id: 'A', name: 'Living room', min: [0.5, 0, 21], max: [5.5, UPPER_FLOOR - 0.4, 28] },
+  { id: 'B', name: 'Garage', min: [-16.5, 0, 20.5], max: [-8.5, UPPER_FLOOR - 0.4, 27] },
+];
+
 function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] } {
   const team = (s: -1 | 1) => YARD_SPAWNS.map(([x, d]): SpawnPoint => ({ position: [x, 0, s * d], yaw: faceCentre(x, s * d) }));
   const ffa: SpawnPoint[] = [];
@@ -1336,6 +1346,7 @@ export function buildSurvivalTown(): MapDefinition {
     ambience: ambience(populationSign),
     spawns,
     zones: ZONES,
+    sites: SITES,
     offlineSpawn: spawns.teams[0][3]!,
     overview: { name: 'overview', position: [-30, 34, 0], yaw: LOOK.east, pitch: -0.75 },
     dummies,

@@ -36,7 +36,7 @@ export type { WorldHit } from './combat/projectiles';
 export { SWAY_SETTLED, recoilKick, weaponRow } from './weapon/weapon';
 export { DEFAULT_LOADOUT, parseLoadout, slotWeapons } from './weapon/loadout';
 export type { GrenadeId, Loadout } from './weapon/loadout';
-export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildNavGraph, findPath, linkKind, nearestNode, planOutposts } from './bots';
+export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildNavGraph, findPath, linkKind, nearestNode, planCharge, planOutposts, targetSite } from './bots';
 export type { BotObjective, BotProfile, BotStyle, BotView, NavGraph, NavLink, NavLinkKind, NavNode, NavOptions } from './bots';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { IW_UNIT, STATS, WEAPON_IDS, isShellReload } from './stats';
@@ -50,5 +50,21 @@ export { createMemoryNetwork } from './net/memory';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
 export { INTERMISSION, PROTOCOL_VERSION } from './net/protocol';
 export type { ClientMessage, MatchStatus, Phase, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
-export { MODE_IDS, RESPAWN_DELAY, inZone, teamMode } from './modes/game-mode';
-export type { GameMode, MatchResult, ModeContext, ModeEvent, ModeId, ObjectiveState, Score, SpawnPoint, TeamScore, Zone, ZoneState } from './modes/game-mode';
+export { MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamMode } from './modes/game-mode';
+export type {
+  ChargeSite,
+  ChargeState,
+  GameMode,
+  MatchResult,
+  ModeContext,
+  ModeEvent,
+  ModeId,
+  ObjectiveState,
+  RoundPhase,
+  RoundReason,
+  Score,
+  SpawnPoint,
+  TeamScore,
+  Zone,
+  ZoneState,
+} from './modes/game-mode';

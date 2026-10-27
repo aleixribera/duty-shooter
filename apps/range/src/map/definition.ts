@@ -1,4 +1,4 @@
-import type { NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
+import type { ChargeSite, NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
 import type { Decoration, Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
@@ -84,6 +84,8 @@ export interface MapDefinition {
   };
   /** The Outposts zones (none on a map that doesn't play it). */
   readonly zones: readonly Zone[];
+  /** The two Charge sites, on the second team set's half (the defenders start there); none on a map that doesn't play it. */
+  readonly sites: readonly ChargeSite[];
   /** Where an offline session starts. */
   readonly offlineSpawn: SpawnPoint;
   /** Where the camera waits when there is no player to follow. */

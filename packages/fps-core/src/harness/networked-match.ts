@@ -18,6 +18,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly modes?: GameServerOptions['modes'];
   /** The map's Outposts zones. */
   readonly zones?: GameServerOptions['zones'];
+  /** The map's Charge sites. */
+  readonly sites?: GameServerOptions['sites'];
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** The server's passphrase; defaults to 'letmein'. */
   readonly passphrase?: string;
@@ -72,6 +74,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
     ...(options.modes ? { modes: options.modes } : {}),
     ...(options.zones ? { zones: options.zones } : {}),
+    ...(options.sites ? { sites: options.sites } : {}),
     ...(options.intermission ? { intermission: options.intermission } : {}),
     passphrase,
     ...(options.dummies ? { dummies: options.dummies } : {}),

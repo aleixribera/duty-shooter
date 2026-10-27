@@ -1,6 +1,6 @@
 export { Bot } from './bot';
 export type { BotObjective, BotView } from './bot';
-export { planOutposts } from './planner';
+export { planCharge, planOutposts, targetSite } from './planner';
 export type { PlannedBot } from './planner';
 export { BOT_NAMES, BOT_STYLES, botName, botProfile } from './profile';
 export type { BotProfile, BotStyle } from './profile';

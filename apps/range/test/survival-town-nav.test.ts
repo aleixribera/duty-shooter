@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Simulation, buildNavGraph, createWorld, inZone, type Vec3 } from '@duty-shooter/fps-core';
+import { Simulation, buildNavGraph, createWorld, inSite, inZone, type RoundReason, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { BOUNDARY, buildSurvivalTown } from '../src/map/survival-town';
@@ -53,6 +53,15 @@ describe('Survival Town: nav graph', () => {
     for (const z of map.zones) {
       const inside = nav.nodes.filter((n) => inZone(z, n.position));
       expect(inside.length, z.name).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('has nav nodes on the floor of both Charge sites, on the second team set side', () => {
+    expect(map.sites.map((s) => s.id)).toEqual(['A', 'B']);
+    for (const s of map.sites) {
+      const inside = nav.nodes.filter((n) => inSite(s, n.position));
+      expect(inside.length, s.name).toBeGreaterThanOrEqual(4);
+      expect(s.min[2]).toBeGreaterThan(0);
     }
   });
 
@@ -111,4 +120,27 @@ describe('Survival Town: bots on their own', () => {
     expect(new Set(captures.map((c) => c.team)), JSON.stringify(captures)).toEqual(new Set([1, 2]));
     expect(captures.some((c) => c.previous !== 0), JSON.stringify(captures)).toBe(true);
   }, 180_000);
+
+  it('play 3v3 Charge to the end: the charge gets planted, and rounds go both ways', () => {
+    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, sites: map.sites, mode: 'charge', bots: { nav, perTeam: 3, alwaysOn: true } });
+    const rounds: { winner: number; reason: RoundReason; attackers: number }[] = [];
+    let attackers = 1;
+    let plants = 0;
+    let ended = false;
+    for (let i = 0; i < 15 * 60 * 60 && !ended; i++) {
+      m.step();
+      for (const e of m.server.modeEvents) {
+        if (e.type === 'roundStart') attackers = e.attackers;
+        if (e.type === 'roundEnd') rounds.push({ winner: e.winner, reason: e.reason, attackers });
+        if (e.type === 'charge' && e.action === 'plant') plants += 1;
+        if (e.type === 'matchEnd') ended = true;
+      }
+    }
+    const log = JSON.stringify({ plants, rounds });
+    expect(ended, log).toBe(true);
+    expect(plants, log).toBeGreaterThan(0);
+    // Attackers and defenders each win rounds.
+    expect(rounds.some((r) => r.winner === r.attackers), log).toBe(true);
+    expect(rounds.some((r) => r.winner !== r.attackers), log).toBe(true);
+  }, 300_000);
 });
