@@ -6,10 +6,14 @@ services:
     ports:
       - "127.0.0.1:${DUTY_PORT:-3090}:3000"
     environment:
-      # Both come from the stack's .env (see .env.example); the repo never holds the real values.
+      # All come from the stack's .env (see .env.example); the repo never holds the real values.
       # No passphrase: one public lobby anyone with the link can join.
       PASSPHRASE: "${PASSPHRASE:-}"
       MAX_PLAYERS: "${MAX_PLAYERS:-8}"
+      MAP: "${MAP:-survival-town}"
+      MODE: "${MODE:-tdm}"
+      # Empty: each mode's own time limit.
+      TIME_LIMIT: "${TIME_LIMIT:-}"
     read_only: true
     cap_drop:
       - ALL

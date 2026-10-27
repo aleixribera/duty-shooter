@@ -72,6 +72,8 @@ export interface GameMap {
   readonly labels: readonly Label[];
   /** Where an offline session starts: the range's firing line. */
   readonly rangeSpawn: SpawnPoint;
+  /** Online on the range: one set per team, on the open grass either side of the lanes and the course. */
+  readonly teamSpawns: readonly [readonly SpawnPoint[], readonly SpawnPoint[]];
   readonly dummies: readonly PlayerSpawn[];
   readonly course: {
     readonly ledges: readonly LedgeStation[];
@@ -136,6 +138,10 @@ export function buildMap(): GameMap {
     ramps,
     labels,
     rangeSpawn: { position: [-48, 0, 0], yaw: FACING_NEG_Z },
+    teamSpawns: [
+      [-10, -25, -40, -55].map((z): SpawnPoint => ({ position: [-73, 0, z], yaw: FACING_POS_X })),
+      [-10, -25, -40, -55].map((z): SpawnPoint => ({ position: [54, 0, z], yaw: FACING_NEG_X })),
+    ],
     dummies,
     course,
     penetration,

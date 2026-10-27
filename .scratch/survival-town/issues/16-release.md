@@ -15,9 +15,9 @@ Make it live. See the spec section "Rollout".
 
 ## Acceptance criteria
 
-- [ ] The live lobby shows Survival Town, TDM and the new UI, and `/healthz` reports the new version.
-- [ ] The Pages copy offers Practice Range and Explore Survival Town.
-- [ ] The playtester agent plays one live match through the nuke, the vote and the next match, with no console errors.
+- [x] The live lobby shows Survival Town, TDM and the new UI, and `/healthz` reports the new version.
+- [x] The Pages copy offers Practice Range and Explore Survival Town.
+- [x] The playtester agent plays one live match through the nuke, the vote and the next match, with no console errors.
 
 ## Comments
 
@@ -72,3 +72,11 @@ Checks on the home server afterwards:
 - The served bundle carries the new menu.
 
 The Pages workflow also passed. This commit (v1.2.2) only adds these notes; the timer rolls it out the same way.
+
+**v1.2.3: review fixes.** The overnight release was reviewed on the Windows PC:
+
+- **The live match.** Played through the nuke, the vote and the next match against a local server running this build with `TIME_LIMIT=40`; see ticket 14.
+- **Scoreboard ping.** It no longer climbs while the uplink stalls: each acknowledged usercmd gives one sample.
+- **The range online.** It has team spawns, so `MAP=range` no longer stacks every player on the firing line.
+- **Deploy config.** `compose.yaml` now passes `MAP`, `MODE` and the new `TIME_LIMIT` to the container. The deploy notes always said `.env` set them, but compose dropped them.
+- **The menu.** The fixes are listed in ticket 14.

@@ -42,7 +42,7 @@ export function buildRange(): MapDefinition {
     horizon: { ground: 'grid:grass', inner: { x0: -80, x1: 62, z0: -90, z1: 30 }, light: [-40, -80] },
     nuke: null,
     ambience: [{ kind: 'wind' }],
-    spawns: { ffa: [map.rangeSpawn], teams: null },
+    spawns: { ffa: [map.rangeSpawn, ...map.teamSpawns.flat()], teams: map.teamSpawns },
     offlineSpawn: map.rangeSpawn,
     overview: { name: 'overview', position: [-42, 7, 14], yaw: 0.25, pitch: -0.28 },
     dummies: map.dummies,

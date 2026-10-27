@@ -21,6 +21,8 @@ export interface ServerOptions {
   readonly mode: ModeId;
   /** The map the lobby runs. */
   readonly map: MapId;
+  /** Seconds per match in every mode, for short matches; each mode's own limit when absent. */
+  readonly timeLimit?: number;
 }
 
 export interface RunningServer {
@@ -206,6 +208,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
+    ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit } } }),
   });
 
   const http = createServer((req, res) => {
@@ -289,6 +292,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
   const map = env['MAP'] ?? 'survival-town';
   if (!(MAP_IDS as readonly string[]).includes(map)) throw new Error(`MAP must be one of ${MAP_IDS.join(', ')}.`);
+  const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
+  if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
   return {
     port: Number(env['PORT'] ?? 3000),
     host: env['HOST'] ?? '0.0.0.0',
@@ -298,5 +303,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     version: env['DUTY_VERSION'] || 'dev',
     mode: mode as ModeId,
     map: map as MapId,
+    ...(timeLimit === undefined ? {} : { timeLimit }),
   };
 }

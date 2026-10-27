@@ -43,4 +43,17 @@ describe('server map setting', () => {
     expect(optionsFromEnv({ MAP: 'range' }, 'dist').map).toBe('range');
     expect(() => optionsFromEnv({ MAP: 'arena' }, 'dist')).toThrow(/MAP must be one of/);
   });
+
+  it('reads TIME_LIMIT from the environment, for short matches, and runs every match to it', async () => {
+    expect(optionsFromEnv({}, 'dist').timeLimit).toBeUndefined();
+    expect(optionsFromEnv({ TIME_LIMIT: '45' }, 'dist').timeLimit).toBe(45);
+    expect(() => optionsFromEnv({ TIME_LIMIT: '0' }, 'dist')).toThrow(/TIME_LIMIT must be/);
+    const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
+    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', timeLimit: 45 });
+    try {
+      expect(server.game.matchStatus()).toMatchObject({ mode: 'tdm', timeLimit: 45 });
+    } finally {
+      await server.close();
+    }
+  });
 });

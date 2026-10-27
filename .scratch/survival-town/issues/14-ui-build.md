@@ -25,10 +25,10 @@ The approved mockups from ticket 07, built behind the new-UI client flag. See th
 
 ## Acceptance criteria
 
-- [ ] The playtester agent goes through every screen and both offline entries, and plays a networked TDM match into the vote and the next match. It checks the Pages build and the error states (server stopped, server full, old version), with no console errors.
+- [x] The playtester agent goes through every screen and both offline entries, and plays a networked TDM match into the vote and the next match. It checks the Pages build and the error states (server stopped, server full, old version), with no console errors.
 - [ ] Screenshots match the approved mockups.
 - [ ] Gamepad navigation reaches every control.
-- [ ] Settings carry over from the old UI.
+- [x] Settings carry over from the old UI.
 
 ## Comments
 
@@ -102,3 +102,20 @@ There were no console errors. This caught a real bug that the fake-driver screen
 I couldn't play a full match into the vote here. A SwiftShader page renders a frame in seconds to minutes, so scoring 30 or 75 kills by script isn't practical. The intermission, vote and next match are covered end to end by the networked headless tests from tickets 03 and 04, and their UI is in the screenshots. **The owner should play one match through the nuke and the vote on the PC after syncing.**
 
 **Self-approved** under the owner's instruction, including the screenshot comparison against the mockups.
+
+**Review on the Windows PC (v1.2.3).** The overnight session left every box here unchecked. These checks were made on the RTX PC, in the browser pane with WebGPU:
+
+- **A networked match into the vote and the next match.** The client ran against a local server built from this commit, with `TIME_LIMIT=40` (new in v1.2.3, so a match fits in a test). Team deathmatch ran to its time limit. Then came the 6 s nuke and the 14 s vote. A vote for free-for-all with key 2 counted, and the screen showed "Next match: Free-for-all". The next match started in free-for-all with the player respawned. There were no console errors.
+- **Pages.** The Pages copy loads, with the baked lighting and the rifle. It offers Practice Range and Explore Survival Town, plus the public-lobby link. The error states were checked by the server session's screenshots (down, full, old version).
+- **Settings carry over.** The release never touched `settings.ts`, so the storage key and the schema are unchanged.
+- **Fixed in v1.2.3:**
+  - A lobby change re-rendered Play Online and wiped a name or passphrase being typed. Typing, focus and the caret now survive the re-render.
+  - In windows under about 900 × 560, the title, the name box and the tiles overlapped. They now stack in one scrolling column.
+  - The Play Online tile and the subtitle got a dark backing, so they read over a bright sky.
+
+**Still open:**
+
+- **Gamepad navigation.** There was no controller to test with.
+- **The mockup comparison.** It was only self-approved overnight.
+
+The vote cards can't be clicked while the mouse is locked. The cursor is hidden then, though, and the cards show their keys (1/2, D-pad), so they stay as they are.

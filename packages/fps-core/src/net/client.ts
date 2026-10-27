@@ -230,7 +230,9 @@ export class GameClient {
             this.#spawn = { yaw: message.self.cmdYaw + message.self.viewYaw, pitch: message.self.cmdPitch + message.self.viewPitch };
           }
           this.#serverTick = Math.max(this.#serverTick, message.tick);
+          // One sample per acknowledged usercmd: later snapshots repeating the same ack (the uplink stalled) would only add their wait.
           const rtt = this.#sentAt.get(message.ack);
+          this.#sentAt.delete(message.ack);
           if (rtt !== undefined) this.#ping = this.#ping === 0 ? (this.#ticks - rtt) * TICK_SECONDS : this.#ping * 0.9 + (this.#ticks - rtt) * TICK_SECONDS * 0.1;
         }
         this.#bufferSnapshot(message);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, anglesOf, zoneCentre, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
+import { GameClient, STATS, anglesOf, createWorld, zoneCentre, type Connection, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
 import { PROTOCOL_VERSION } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
@@ -134,6 +134,36 @@ describe('ping', () => {
     // 80 ms each way: a round trip of about 160 ms, measured in whole ticks.
     expect(pings[a!.client.id!]).toBeGreaterThan(140);
     expect(pings[a!.client.id!]).toBeLessThan(220);
+  });
+
+  it('holds steady while the uplink is down: snapshots that repeat an old ack add no samples', () => {
+    const m = match({ jitter: 0, loss: 0 });
+    const raw = m.network.connect();
+    let uplink = true;
+    const connection: Connection = {
+      send: (data) => uplink && raw.send(data),
+      close: (reason) => raw.close(reason),
+      onMessage: (handler) => raw.onMessage(handler),
+      onClose: (handler) => raw.onClose(handler),
+      get open() {
+        return raw.open;
+      },
+    };
+    const client = new GameClient({ connection, world: createWorld([FLOOR]), name: 'carol', passphrase: 'letmein' });
+    const run = (n: number) => {
+      for (let i = 0; i < n; i++) {
+        m.step();
+        client.tick(usercmd());
+      }
+    };
+    run(ticks(2));
+    expect(client.status).toBe('joined');
+    const before = client.ping;
+    expect(before).toBeGreaterThan(0.14);
+    // The client's usercmds stop reaching the server; its snapshots keep coming, all acking the same old usercmd.
+    uplink = false;
+    run(ticks(1));
+    expect(client.ping).toBeCloseTo(before, 6);
   });
 });
 

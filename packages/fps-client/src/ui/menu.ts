@@ -15,7 +15,7 @@ const CSS = `
 .ds-brand { position: absolute; left: 56px; top: 48px; }
 .ds-brand h1 { margin: 0; font-size: 56px; line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .ds-brand h1 span { color: var(--ds-signal); }
-.ds-brand p { margin: 8px 0 0; }
+.ds-brand p { margin: 8px 0 0; color: var(--ds-text-2); text-shadow: 0 1px 6px rgb(0 0 0 / 0.7); }
 .ds-lobby-link { display: inline-block; margin-top: 10px; color: var(--ds-signal); text-decoration: none; letter-spacing: 0.06em; }
 .ds-lobby-link:hover, .ds-lobby-link:focus-visible { text-decoration: underline; outline: none; }
 .ds-name { position: absolute; right: 56px; top: 48px; width: 260px; }
@@ -31,7 +31,7 @@ const CSS = `
 .ds-tile .ds-icon { width: 28px; height: 28px; color: var(--ds-signal); }
 .ds-tile b { font-size: 24px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-tile .desc { color: var(--ds-text-2); font-size: 14px; }
-.ds-tile.primary { background: rgb(143 227 200 / 0.14); border-color: rgb(143 227 200 / 0.55); }
+.ds-tile.primary { background: linear-gradient(rgb(143 227 200 / 0.14), rgb(143 227 200 / 0.14)), rgb(18 22 29 / 0.88); border-color: rgb(143 227 200 / 0.55); }
 .ds-tile .facts { display: flex; gap: 22px; margin-top: auto; }
 .ds-tile .facts div { display: flex; flex-direction: column; }
 .ds-tile .facts span:last-child { font-size: 16px; font-weight: 700; }
@@ -39,6 +39,17 @@ const CSS = `
 .ds-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ds-alert); }
 .ds-dot.up::before { background: var(--ds-signal); box-shadow: 0 0 8px var(--ds-signal); }
 .ds-tile .ds-dot { position: absolute; right: 18px; top: 20px; }
+/* Small windows: the title, name and tiles stack in one scrolling column instead of overlapping. */
+@media (max-width: 900px), (max-height: 560px) {
+  .ds-menu.home .ds-screen { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px; overflow-y: auto; }
+  .ds-menu.home .ds-brand, .ds-menu.home .ds-name, .ds-menu.home .ds-dock, .ds-menu.home .ds-version { position: static; }
+  .ds-brand h1 { font-size: 36px; }
+  .ds-name { width: min(260px, 100%); }
+  .ds-dock, .ds-dock.three { margin-top: auto; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .ds-tile { min-height: 0; padding: 14px 16px; }
+  .ds-tile b { font-size: 19px; }
+  .ds-version { align-self: flex-end; }
+}
 .ds-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; background: var(--ds-panel); border: 1px solid var(--ds-line); border-radius: 8px; padding: 26px 28px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.5); }
 .ds-panel.wide { width: min(760px, calc(100vw - 32px)); }
 .ds-panel h2 { margin: 0 0 4px; font-size: 30px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
@@ -222,8 +233,27 @@ export class Menu {
     if (this.#lobby?.kind !== 'server') return;
     const changed = JSON.stringify(lobbyTile(this.#lobby.status ?? null)) !== JSON.stringify(lobbyTile(status));
     this.#lobby.status = status;
-    // Only when what the screen shows changed, so typing and focus survive the menu's polling.
-    if (changed && this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#render();
+    // Only when what the screen shows changed, and keeping what is being typed.
+    if (changed && this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#rerender();
+  }
+
+  /** Renders the same screen again, keeping the text in its fields and the focused field's caret. */
+  #rerender(): void {
+    const before = [...this.#root.querySelectorAll('input')];
+    const values = before.map((i) => i.value);
+    const focused = before.findIndex((i) => i === document.activeElement);
+    const caret = focused >= 0 ? before[focused]!.selectionStart : null;
+    this.#render();
+    const after = [...this.#root.querySelectorAll('input')];
+    if (after.length !== before.length) return;
+    after.forEach((i, k) => (i.value = values[k]!));
+    if (focused < 0) return;
+    // After the screen's own autofocus, which is queued the same way.
+    queueMicrotask(() => {
+      const input = after[focused]!;
+      input.focus();
+      if (caret !== null) input.setSelectionRange(caret, caret);
+    });
   }
 
   /**
