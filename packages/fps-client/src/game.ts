@@ -31,7 +31,7 @@ import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera } from './camera';
 import { Effects } from './effects';
 import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
-import { TEAMS } from './ui/model';
+import { TEAMS, chargeRoster } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { ChargeSounds } from './charge-sounds';
@@ -625,6 +625,7 @@ export class Game {
       acting: state.action?.player === driver.selfId,
       spectating: watched === null ? null : driver.nameOf(watched),
       markers,
+      roster: chargeRoster(driver.scores, [...this.#others, self], driver.selfId, self.team, state.carrier),
     };
   }
 
@@ -933,6 +934,7 @@ export class Game {
             victim: driver.scores.some((s) => s.id === e.victim && s.bot),
           },
           killedWith(e.cause, e.weapon),
+          teamMode(driver.match?.mode ?? 'ffa') ? { killer: driver.scores.find((s) => s.id === e.killer)?.team, victim: driver.scores.find((s) => s.id === e.victim)?.team } : {},
         );
         break;
       case 'grenade': {

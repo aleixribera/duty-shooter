@@ -96,6 +96,54 @@ export function matchBar(
   return { kind: 'ffa', leader: top ? { name: top.name, kills: top.kills } : null, you: me ? { kills: me.kills, place: me.place } : null, limit: status.killLimit };
 }
 
+/** A player's portrait on the Charge bar: alive or dead, and for your own side their health and who carries the charge. */
+export interface RosterCard {
+  readonly id: PlayerId;
+  readonly name: string;
+  readonly team: number;
+  readonly bot: boolean;
+  readonly alive: boolean;
+  readonly you: boolean;
+  readonly carrier: boolean;
+  /** 0 to 100 for a living teammate (or you); null for the other side and the dead. */
+  readonly health: number | null;
+}
+
+/**
+ * The Charge bar's portraits, team by team in a fixed order so a death greys
+ * a card out where it stands. Someone missing from the snapshot counts as
+ * dead; the other side's health and carrier stay hidden.
+ */
+export function chargeRoster(
+  scores: readonly Score[],
+  players: readonly { readonly id: PlayerId; readonly alive: boolean; readonly health: number }[],
+  selfId: PlayerId | null,
+  team: number | null,
+  carrier: PlayerId | null,
+): { readonly team: number; readonly cards: RosterCard[] }[] {
+  return [1, 2].map((t) => ({
+    team: t,
+    cards: scores
+      .filter((s) => s.team === t)
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map((s) => {
+        const p = players.find((q) => q.id === s.id);
+        const alive = p?.alive ?? false;
+        const mine = team !== null && t === team;
+        return {
+          id: s.id,
+          name: s.name,
+          team: t,
+          bot: s.bot === true,
+          alive,
+          you: s.id === selfId,
+          carrier: mine && alive && s.id === carrier,
+          health: mine && alive && p ? Math.max(0, Math.min(100, Math.round(p.health))) : null,
+        };
+      }),
+  }));
+}
+
 export interface EndSummary {
   readonly headline: { readonly kind: 'draw' } | { readonly kind: 'team'; readonly team: number; readonly won: boolean } | { readonly kind: 'player'; readonly name: string; readonly you: boolean } | { readonly kind: 'unknown' };
   readonly you: { readonly kills: number; readonly deaths: number; readonly ratio: string; readonly place: number; readonly of: number } | null;

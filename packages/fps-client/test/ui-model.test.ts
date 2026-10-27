@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { connectionError, endSummary, lastMatch, loadoutOptions, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
+import { chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -62,6 +62,39 @@ describe('the match bar', () => {
   it('shows the leader and your place in free-for-all', () => {
     const bar = matchBar({ mode: 'ffa', teamScores: null, killLimit: 30 }, [score('a', 1, 4, 0, 'Ana'), score('me', 2, 9, 3, 'Me'), score('b', 3, 12, 1, 'Bo')], 'me', null);
     expect(bar).toEqual({ kind: 'ffa', leader: { name: 'Bo', kills: 12 }, you: { kills: 9, place: 2 }, limit: 30 });
+  });
+});
+
+describe('the Charge roster', () => {
+  const scores = [score('c', 1, 0, 0), { ...score('b2', 2, 0, 0), bot: true }, score('a', 1, 0, 0), score('me', 1, 0, 0), score('b1', 2, 0, 0)];
+  const players = [
+    { id: 'a', alive: true, health: 71.6 },
+    { id: 'me', alive: true, health: 100 },
+    { id: 'c', alive: false, health: 0 },
+    { id: 'b1', alive: true, health: 40 },
+  ];
+
+  it('splits the players into the two sides in a fixed order, alive or dead', () => {
+    const [blue, orange] = chargeRoster(scores, players, 'me', 1, null);
+    expect(blue!.team).toBe(1);
+    expect(blue!.cards.map((c) => [c.id, c.alive, c.you])).toEqual([
+      ['a', true, false],
+      ['c', false, false],
+      ['me', true, true],
+    ]);
+    // b2 is not in the snapshot, so counts as dead.
+    expect(orange!.cards.map((c) => [c.id, c.alive, c.bot])).toEqual([
+      ['b1', true, false],
+      ['b2', false, true],
+    ]);
+  });
+
+  it("shows your side's health and carrier, and hides the other side's", () => {
+    const [blue, orange] = chargeRoster(scores, players, 'me', 1, 'a');
+    expect(blue!.cards.map((c) => c.health)).toEqual([72, null, 100]);
+    expect(blue!.cards.map((c) => c.carrier)).toEqual([true, false, false]);
+    expect(orange!.cards.map((c) => c.health)).toEqual([null, null]);
+    expect(chargeRoster(scores, players, 'me', 2, 'a')[0]!.cards.some((c) => c.carrier)).toBe(false);
   });
 });
 

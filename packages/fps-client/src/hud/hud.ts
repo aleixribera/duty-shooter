@@ -1,5 +1,5 @@
 import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
-import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow } from '../ui/model';
+import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 
 const CSS = `
@@ -43,6 +43,7 @@ const CSS = `
 .ds-health.low .bar i { background: var(--ds-alert); }
 .ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .ds-feed div { background: rgb(11 14 19 / 0.62); padding: 5px 10px; border-radius: 3px; text-shadow: none; transition: opacity 400ms linear; animation: ds-slide 200ms ease-out; }
+.ds-hud.rostered .ds-feed { top: 84px; }
 .ds-feed .you { box-shadow: inset 2px 0 0 var(--ds-signal); background: rgb(11 14 19 / 0.8); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
@@ -75,7 +76,7 @@ const CSS = `
 .ds-round h2 { margin: 6px 0 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
 .ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
-.ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+.ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: max-content; display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
 .ds-match > div { padding: 6px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ds-match .score { font-size: 26px; font-weight: 700; line-height: 1; }
 .ds-match .team { min-width: 92px; }
@@ -83,6 +84,20 @@ const CSS = `
 .ds-match .mid { border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); min-width: 96px; }
 .ds-match .clock { font-size: 20px; font-weight: 700; }
 .ds-match .sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); margin-top: 2px; }
+.ds-match > .roster { flex-direction: row; gap: 4px; padding: 6px 8px; }
+.ds-match > .roster.l { flex-direction: row-reverse; }
+.ds-pc { position: relative; width: 34px; height: 38px; border-radius: 3px; overflow: hidden; box-shadow: inset 0 -2px 0 currentColor; }
+.ds-pc.ds-t1 { background: linear-gradient(#24406a, #14223a); }
+.ds-pc.ds-t2 { background: linear-gradient(#5e3b1c, #2e1d0f); }
+.ds-pc svg { position: absolute; left: 0; bottom: 0; width: 34px; height: 34px; }
+.ds-pc.you { box-shadow: inset 0 -2px 0 currentColor, inset 0 0 0 1px var(--ds-signal); }
+.ds-pc.dead { box-shadow: none; background: #191c22; }
+.ds-pc.dead svg { filter: grayscale(1) brightness(0.45); opacity: 0.8; }
+.ds-pc.dead::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - 1.2px), var(--ds-alert) calc(50% - 1.2px), var(--ds-alert) calc(50% + 1.2px), transparent calc(50% + 1.2px)); opacity: 0.9; }
+.ds-pc .carry { position: absolute; right: 2px; top: 1px; font-size: 10px; line-height: 1; color: var(--ds-alert); text-shadow: 0 0 2px #000; }
+.ds-pc .hp { position: absolute; left: 3px; right: 3px; bottom: 4px; height: 2px; background: rgb(0 0 0 / 0.55); }
+.ds-pc .hp span { display: block; height: 100%; background: var(--ds-text); }
+.ds-pc .hp.low span { background: var(--ds-alert); }
 .ds-match .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .ds-prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 6px 12px; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-prompt[hidden] { display: none; }
@@ -180,6 +195,8 @@ export interface ChargeHud {
   readonly spectating: string | null;
   /** The sites and the charge, each projected to where its marker goes on screen. */
   readonly markers: readonly ObjectiveMarker[];
+  /** Everyone's portrait by side, for the match bar: who is still alive this round. */
+  readonly roster: readonly { readonly team: number; readonly cards: readonly RosterCard[] }[];
 }
 
 /** A marker over something in the world: a Charge site, the dropped or planted charge. */
@@ -384,12 +401,20 @@ export class Hud {
     this.#flash = 1;
   }
 
-  /** A kill feed line; `bots` marks which side of it is a bot, `gun` names what did it. */
-  killFeed(killer: string | null, victim: string, headshot: boolean, involvesYou: boolean, bots: { readonly killer?: boolean; readonly victim?: boolean } = {}, gun = 'M4A1'): void {
+  /** A kill feed line; `bots` marks which side of it is a bot, `gun` names what did it, and `teams` colours each name by its team (team modes). */
+  killFeed(
+    killer: string | null,
+    victim: string,
+    headshot: boolean,
+    involvesYou: boolean,
+    bots: { readonly killer?: boolean; readonly victim?: boolean } = {},
+    gun = 'M4A1',
+    teams: { readonly killer?: number | undefined; readonly victim?: number | undefined } = {},
+  ): void {
     const row = document.createElement('div');
     if (involvesYou) row.className = 'you';
-    const k = killer === null ? '' : playerName(killer, bots.killer === true);
-    row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}</span>${playerName(victim, bots.victim === true)}`;
+    const k = killer === null ? '' : playerName(killer, bots.killer === true, teams.killer);
+    row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}</span>${playerName(victim, bots.victim === true, teams.victim)}`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -666,6 +691,8 @@ export class Hud {
     const view = state.match;
     this.#match.style.display = view && view.status.phase === 'playing' ? 'flex' : 'none';
     this.#end.style.display = view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none';
+    // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
+    this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
     if (!view) return;
     const s = view.status;
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
@@ -676,7 +703,13 @@ export class Hud {
         const [a, b] = bar.teams.map(
           (t) => `<div class="team ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span></div>`,
         );
-        this.#set(this.#match, `${a}${mid}${b}`);
+        // Charge: each side's portraits outside its score, greyed and struck through once dead.
+        const roster = state.charge?.roster;
+        const side = (team: number | undefined, end: 'l' | 'r') => {
+          const cards = roster?.find((r) => r.team === team)?.cards ?? [];
+          return cards.length > 0 ? `<div class="roster ${end}">${cards.map(rosterCard).join('')}</div>` : '';
+        };
+        this.#set(this.#match, `${side(bar.teams[0]?.team, 'l')}${a}${mid}${b}${side(bar.teams[1]?.team, 'r')}`);
       } else {
         const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
         const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
@@ -730,9 +763,71 @@ export class Hud {
   }
 }
 
-/** A player's name as HTML, with a BOT tag on bots. */
-function playerName(name: string, bot: boolean): string {
-  return `${escape(name)}${bot ? '<span class="ds-bot">BOT</span>' : ''}`;
+/** Portrait colours by team, after the soldiers' looks (players-view.ts). */
+const PORTRAIT_LOOKS: Readonly<Record<number, { readonly uniform: string; readonly vest: string; readonly helmet: string; readonly accent: string }>> = {
+  1: { uniform: '#40577a', vest: '#26364d', helmet: '#2f4362', accent: '#3d8bff' },
+  2: { uniform: '#8a6544', vest: '#5b412c', helmet: '#6e4c30', accent: '#ff9a3c' },
+};
+const SKINS = ['#e3b994', '#c99a74', '#b07c58', '#8a5a3c', '#5e3c28'];
+const HAIR = ['#231c17', '#4a3222', '#8c6a3c', '#2e2e33'];
+const portraits = new Map<string, string>();
+
+/** A small hash of a name, so the same player always gets the same face. */
+function nameHash(name: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) h = Math.imul(h ^ name.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/**
+ * A player's profile picture: a soldier's head and shoulders in their team's
+ * kit, with the skin, hair, beard and headgear (helmet, cap, beanie or
+ * headset) picked from their name.
+ */
+function portrait(name: string, team: number): string {
+  const key = `${team}:${name}`;
+  const cached = portraits.get(key);
+  if (cached) return cached;
+  const h = nameHash(name);
+  const look = PORTRAIT_LOOKS[team] ?? PORTRAIT_LOOKS[1]!;
+  const skin = SKINS[h % SKINS.length]!;
+  const hair = HAIR[(h >>> 4) % HAIR.length]!;
+  const gear = (h >>> 8) % 4;
+  const beard = (h >>> 12) % 3 === 0;
+  const goggles = (h >>> 14) % 2 === 0;
+  const dark = '#1d1f24';
+  const headgear = [
+    `<path d="M12.2 17Q11.4 6.8 20 6.8Q28.6 6.8 27.8 17L26.7 14.3Q20 12.4 13.3 14.3Z" fill="${look.helmet}"/><path d="M12.2 17L13.3 14.3Q20 12.4 26.7 14.3L27.8 17" fill="none" stroke="#0006" stroke-width=".7"/>${goggles ? `<rect x="14" y="9.6" width="12" height="3" rx="1.4" fill="${look.accent}" opacity=".85"/>` : ''}`,
+    `<path d="M13.4 17Q12.8 12 14 11L26 11Q27.2 12 26.6 17Z" fill="${hair}"/><path d="M13.2 14Q13 7.8 20 7.8Q27 7.8 26.8 14Z" fill="${look.helmet}"/><path d="M12.4 14.3Q20 12.2 27.6 14.3L27.1 15.5Q20 13.7 12.9 15.5Z" fill="${look.vest}"/>`,
+    `<path d="M13 14.6Q12.6 6.6 20 6.6Q27.4 6.6 27 14.6Z" fill="${look.vest}"/><rect x="12.6" y="12.2" width="14.8" height="3" rx="1.2" fill="${look.uniform}"/>`,
+    `<path d="M13.3 15Q12.6 8.6 20 8.6Q27.4 8.6 26.7 15Q25 11.6 20 11.4Q15 11.6 13.3 15Z" fill="${hair}"/><path d="M12.6 17Q12 6.4 20 6.4Q28 6.4 27.4 17" fill="none" stroke="${dark}" stroke-width="1.3"/><rect x="11" y="15" width="3.2" height="5.4" rx="1.2" fill="${dark}"/><rect x="25.8" y="15" width="3.2" height="5.4" rx="1.2" fill="${dark}"/><path d="M12.6 20Q13.4 23.6 17 23.2" fill="none" stroke="${dark}" stroke-width=".8"/>`,
+  ][gear];
+  const svg =
+    `<svg viewBox="0 0 40 40" aria-hidden="true">` +
+    `<path d="M3 40C4 31 10 27.5 20 27.5S36 31 37 40Z" fill="${look.uniform}"/>` +
+    `<path d="M10.5 40L11.5 30.5Q20 33.5 28.5 30.5L29.5 40Z" fill="${look.vest}"/>` +
+    `<path d="M4.5 34Q6 29 11 28.2L11.6 31Q7 32 5.5 35Z" fill="${look.accent}"/><path d="M35.5 34Q34 29 29 28.2L28.4 31Q33 32 34.5 35Z" fill="${look.accent}"/>` +
+    `<rect x="16.5" y="21" width="7" height="8" rx="2" fill="${skin}"/><rect x="16.5" y="24" width="7" height="5" fill="#000" opacity=".18"/>` +
+    `<circle cx="13.4" cy="18" r="1.5" fill="${skin}"/><circle cx="26.6" cy="18" r="1.5" fill="${skin}"/>` +
+    `<ellipse cx="20" cy="17" rx="6.6" ry="7.8" fill="${skin}"/>` +
+    `<rect x="16.2" y="16.6" width="2.2" height="1.3" rx=".6" fill="#1a1512"/><rect x="21.6" y="16.6" width="2.2" height="1.3" rx=".6" fill="#1a1512"/>` +
+    (beard ? `<path d="M13.6 18.5Q14 25.6 20 25.6Q26 25.6 26.4 18.5Q25 23.2 20 23.2Q15 23.2 13.6 18.5Z" fill="${hair}"/>` : `<path d="M18.3 21.8H21.7" stroke="#0005" stroke-width=".8"/>`) +
+    headgear +
+    `</svg>`;
+  portraits.set(key, svg);
+  return svg;
+}
+
+/** One portrait on the Charge bar: dead struck through, your own outlined, with your side's health and carrier. */
+function rosterCard(c: RosterCard): string {
+  const hp = c.health === null ? '' : `<span class="hp${c.health <= 35 ? ' low' : ''}"><span style="width:${c.health}%"></span></span>`;
+  return `<div class="ds-pc ds-t${c.team}${c.alive ? '' : ' dead'}${c.you ? ' you' : ''}">${portrait(c.name, c.team)}${c.carrier ? '<b class="carry">◆</b>' : ''}${hp}</div>`;
+}
+
+/** A player's name as HTML, with a BOT tag on bots, in their team's colour when given one. */
+function playerName(name: string, bot: boolean, team?: number): string {
+  const html = `${escape(name)}${bot ? '<span class="ds-bot">BOT</span>' : ''}`;
+  return team === undefined || !TEAMS[team] ? html : `<span class="ds-t${team}">${html}</span>`;
 }
 
 /** The held scoreboard: both teams side by side, or the free-for-all ranking, with kills, deaths and ping. */
