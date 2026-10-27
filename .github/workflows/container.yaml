@@ -9,8 +9,10 @@ on:
 permissions:
   contents: read
 
+# One queue per ref. GitHub keeps one pending run per group, so a shared group let a release's
+# tag push cancel its main push (or the reverse), and :latest or :vX.Y.Z never got published.
 concurrency:
-  group: publish-game-container
+  group: publish-game-container-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

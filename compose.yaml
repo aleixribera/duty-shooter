@@ -14,7 +14,7 @@ services:
       MODE: "${MODE:-tdm}"
       # Empty: each mode's own time limit.
       TIME_LIMIT: "${TIME_LIMIT:-}"
-      # Bots a side the lobby fills to while anyone plays, and the most a first joiner may pick.
+      # Bots a side the lobby fills to while anyone plays, and the most a host may pick.
       BOTS_PER_TEAM: "${BOTS_PER_TEAM:-3}"
       MAX_BOTS_PER_TEAM: "${MAX_BOTS_PER_TEAM:-6}"
     # The event log (joins, leaves, matches) on the one writable path, kept across redeploys.
