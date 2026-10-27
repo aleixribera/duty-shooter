@@ -1346,6 +1346,7 @@ export function buildSurvivalTown(): MapDefinition {
     lighting: LIGHTING,
     lamps: [],
     nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14] },
+    train: null,
     ambience: ambience(populationSign),
     spawns,
     zones: ZONES,

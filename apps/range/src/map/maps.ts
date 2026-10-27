@@ -46,6 +46,7 @@ export function buildRange(): MapDefinition {
     lighting: LIGHTING,
     lamps: [],
     nuke: null,
+    train: null,
     ambience: [{ kind: 'wind' }],
     spawns: { ffa: [map.rangeSpawn, ...map.teamSpawns.flat()], teams: map.teamSpawns },
     zones: [],

@@ -34,7 +34,9 @@ import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarke
 import { TEAMS } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
+import { ChargeSounds } from './charge-sounds';
 import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
+import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 import { PlayersView } from './players-view';
@@ -194,6 +196,14 @@ export class Game {
   #nuke: Nuke | null = null;
   /** Which of the nuke's sounds this intermission has already started. */
   #nukeHeard = { siren: false, blast: false };
+  readonly #trainSounds: TrainSounds | null;
+  /**
+   * Shows the map's end-of-match sequence (the nuke, the train) this many
+   * seconds after a match ended while no match is on: for screenshots, and
+   * for checking it from a dev build's console.
+   */
+  previewEnding: number | null = null;
+  readonly #chargeSounds = new ChargeSounds();
   readonly #onVoteKey = (e: KeyboardEvent) => {
     if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
@@ -213,6 +223,7 @@ export class Game {
     this.#zones = options.content.zones ?? [];
     this.#sites = options.content.sites ?? [];
     this.#ambience = new Ambience(options.content.ambience ?? []);
+    this.#trainSounds = options.content.train ? new TrainSounds(options.content.train) : null;
     options.renderer.toneMapping = ACESFilmicToneMapping;
     options.renderer.toneMappingExposure = 0.7;
     options.renderer.shadowMap.enabled = true;
@@ -439,6 +450,10 @@ export class Game {
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }
     this.#updateNuke(driver, eye);
+    this.#updateTrain(driver, eye);
+    // Charge's keypad, beeping and tools; the round's state stands through the intermission, so the last defuse is heard too.
+    const objective = driver?.match?.objective;
+    for (const c of this.#chargeSounds.update(objective?.kind === 'charge' ? objective : null, performance.now() / 1000, (id) => this.#playerById(id)?.position ?? null)) this.#play(c.event, c.params);
     this.#effects.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
@@ -454,7 +469,7 @@ export class Game {
    * hears only what is still to come.
    */
   #updateNuke(driver: GameDriver | null, eye: Vec3): void {
-    const t = driver && this.#nuke ? sinceMatchEnd(driver.match, driver.serverTime) : null;
+    const t = this.#nuke ? this.#sinceMatchEnd(driver) : null;
     this.#nuke?.update(t);
     if (t === null || !this.#nuke || !this.#nukeAt) {
       this.#nukeHeard = { siren: false, blast: false };
@@ -475,6 +490,18 @@ export class Game {
       const s = f.shake * 0.5;
       this.#camera.kick((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, (Math.random() - 0.5) * s * 1.5);
     }
+  }
+
+  /** Seconds since the match ended, through the intermission (or the previewed moment, with no match on); null while one is played. */
+  #sinceMatchEnd(driver: GameDriver | null): number | null {
+    return driver ? sinceMatchEnd(driver.match, driver.serverTime) : this.previewEnding;
+  }
+
+  /** The end-of-match freight train, from the time since the match ended: where it is, and what it sounds like from here. */
+  #updateTrain(driver: GameDriver | null, eye: Vec3): void {
+    const t = this.#sinceMatchEnd(driver);
+    this.#worldView.train?.update(t);
+    for (const c of this.#trainSounds?.update(t, eye) ?? []) this.#play(c.event, c.params);
   }
 
   /** Votes for the next match's mode, while the vote is open. */

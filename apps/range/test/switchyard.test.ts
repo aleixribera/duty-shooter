@@ -431,11 +431,17 @@ describe('Switchyard: cameras and surfaces', () => {
     expect(new Set(layout.faces.map((f) => f.finish)).size).toBeGreaterThan(20);
   });
 
-  it('places every ambient source with a position over the yard or just beyond its barrier', () => {
+  it('places every ambient source over the yard or just beyond its walls, but the horns far out on the plain', () => {
     for (const a of map.ambience) {
       if (a.kind === 'wind') continue;
-      expect(Math.abs(a.position[0])).toBeLessThan(80);
-      expect(Math.abs(a.position[2])).toBeLessThan(40);
+      if (a.kind === 'horn') {
+        expect(Math.hypot(a.position[0], a.position[2]), 'horn').toBeGreaterThan(400);
+        continue;
+      }
+      expect(Math.abs(a.position[0]), a.kind).toBeLessThan(80);
+      expect(Math.abs(a.position[2]), a.kind).toBeLessThan(50);
     }
+    // Shunting is heard and never seen: from outside the walls.
+    for (const a of map.ambience) if (a.kind === 'couplings') expect(insidePolygon(BOUNDARY, a.position[0], a.position[2])).toBe(false);
   });
 });

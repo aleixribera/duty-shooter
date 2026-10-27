@@ -1,11 +1,13 @@
 /**
- * The map's ambience: desert wind, distant birds, a sign creaking on its
- * chains and a faint radio in one house. All of it is quiet on purpose: it
- * sits well under footsteps and gunfire (see the loudness test), so it
- * never hides an enemy.
+ * The maps' ambience: wind, distant birds, a sign creaking on its chains, a
+ * faint radio; and in the rail yard, couplings clanking out of sight,
+ * sodium lamps humming and a train's horn far out on the plain. All of it
+ * is quiet on purpose: it sits well under footsteps and gunfire (see the
+ * loudness test), so it never hides an enemy.
  */
-import { bp, buffer, finish, hp, lp, mix, modes, noiseBurst, samples, shape, white, wobble, type Rng } from './dsp';
+import { bp, buffer, finish, hp, lp, mix, modes, noiseBurst, samples, saturate, shape, thump, white, wobble, type Rng } from './dsp';
 import { upsample } from './nuke';
+import { HORN_SECONDS, farHorn } from './train';
 import { synthVoice, unit } from './synth-voice';
 import type { Voice, VoiceExtras } from './types';
 
@@ -13,6 +15,9 @@ import type { Voice, VoiceExtras } from './types';
 export const WIND_SECONDS = 8;
 export const RADIO_SECONDS = 8;
 export const OVERLAP = 0.25;
+/** How long one segment of a lamp's hum runs (overlapped like the radio's). */
+export const HUM_SECONDS = 4;
+const COUPLINGS_SECONDS = 4;
 
 /** Slow fades at both ends, so overlapping segments join without a seam. */
 function crossfade(data: Float32Array, sr: number, seconds: number): Float32Array {
@@ -146,8 +151,53 @@ export function radio(sr: number, rng: Rng, variant: number): Float32Array {
   return crossfade(out, sr, OVERLAP);
 }
 
+/**
+ * A cut of wagons being shunted somewhere out of sight: the bang of the
+ * buffers meeting, then the slack running in down the cut, coupling after
+ * coupling, each a little softer and further off.
+ */
+export function couplings(sr: number, rng: Rng): Float32Array {
+  const out = buffer(sr, COUPLINGS_SECONDS);
+  const count = 3 + Math.floor(rng.next() * 4);
+  let at = 0.05;
+  for (let k = 0; k < count && at < COUPLINGS_SECONDS - 1; k++) {
+    const g = 0.9 ** k * rng.range(0.75, 1);
+    noiseBurst(out, sr, rng, { at, attack: 0.001, tau: 0.03, gain: 0.6 * g, mode: 'lowpass', freq: 1600 });
+    thump(out, sr, { at, f0: 95, f1: 55, glideTau: 0.05, attack: 0.002, tau: 0.12, gain: 0.8 * g });
+    // The wagons' steel rings on after the knock.
+    modes(out, sr, at, [rng.range(170, 200), rng.range(330, 380), rng.range(610, 680), 1150], [1, 0.7, 0.45, 0.2], [0.35, 0.25, 0.18, 0.1], 0.3 * g);
+    at += k === 0 ? rng.range(0.5, 0.9) : rng.range(0.25, 0.5);
+  }
+  // From across the yard: the highs gone.
+  lp(out, sr, 2200);
+  return finish(out, sr, 0.5, 40);
+}
+
+/**
+ * A sodium lamp's ballast humming: twice the mains frequency and its
+ * harmonics, buzzy, with the arc fizzing now and then.
+ */
+export function hum(sr: number, rng: Rng): Float32Array {
+  const out = buffer(sr, HUM_SECONDS);
+  const f = 100 * rng.range(0.998, 1.002);
+  const level = wobble(rng, HUM_SECONDS, 0.7, 0.15);
+  for (let i = 0; i < out.length; i++) {
+    const t = i / sr;
+    const w = 2 * Math.PI * f * t;
+    out[i] = (Math.sin(w) * 0.5 + Math.sin(2 * w) * 0.35 + Math.sin(3 * w + 0.4) * 0.25 + Math.sin(5 * w) * 0.12) * level(t);
+  }
+  saturate(out, 2.5);
+  const fizz = white(sr, HUM_SECONDS, rng);
+  bp(fizz, sr, 4000, 1);
+  const flicker = wobble(rng, HUM_SECONDS, 0.25, 1);
+  shape(fizz, sr, (t) => Math.max(0, flicker(t) - 0.7) * 2);
+  mix(out, fizz, sr, 0, 0.15);
+  finish(out, sr, 0.5, 60);
+  return crossfade(out, sr, OVERLAP);
+}
+
 /** How loud each ambient voice plays (before distance): the loudness test holds these under footsteps and gunfire. */
-export const AMBIENT_GAIN = { wind: 0.019, birds: 0.011, creak: 0.018, radio: 0.021 } as const;
+export const AMBIENT_GAIN = { wind: 0.019, birds: 0.011, creak: 0.018, radio: 0.021, horn: 0.012, couplings: 0.015, hum: 0.012 } as const;
 
 export const windVoice = (): Voice & VoiceExtras =>
   synthVoice({
@@ -202,4 +252,43 @@ export const radioVoice = (): Voice & VoiceExtras =>
     rateJitter: 0,
     gainJitterDb: 0,
     duration: RADIO_SECONDS,
+  });
+
+export const hornVoice = (): Voice & VoiceExtras =>
+  synthVoice({
+    id: 'ambientHorn',
+    variants: 2,
+    keys: ['horn'],
+    key: () => 'horn',
+    render: (_k, rng, sr) => [upsample(farHorn(sr / 2, rng), samples(sr, HORN_SECONDS + 1.6))],
+    gain: () => AMBIENT_GAIN.horn,
+    rateJitter: 0.03,
+    gainJitterDb: 2,
+    duration: HORN_SECONDS + 1.6,
+  });
+
+export const couplingsVoice = (): Voice & VoiceExtras =>
+  synthVoice({
+    id: 'ambientCouplings',
+    variants: 4,
+    keys: ['couplings'],
+    key: () => 'couplings',
+    render: (_k, rng, sr) => [upsample(couplings(sr / 2, rng), samples(sr, COUPLINGS_SECONDS))],
+    gain: () => AMBIENT_GAIN.couplings,
+    rateJitter: 0.05,
+    gainJitterDb: 2,
+    duration: COUPLINGS_SECONDS,
+  });
+
+export const humVoice = (): Voice & VoiceExtras =>
+  synthVoice({
+    id: 'ambientHum',
+    variants: 2,
+    keys: ['hum'],
+    key: () => 'hum',
+    render: (_k, rng, sr) => [hum(sr, rng)],
+    gain: () => AMBIENT_GAIN.hum,
+    rateJitter: 0,
+    gainJitterDb: 0,
+    duration: HUM_SECONDS,
   });

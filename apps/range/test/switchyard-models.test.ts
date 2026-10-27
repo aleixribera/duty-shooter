@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, type Vec3 } from '@duty-shooter/fps-core';
 import { DECORATION_TOLERANCE, finishTable } from '@duty-shooter/fps-client/surfaces';
-import { buildSwitchyard } from '../src/map/switchyard';
+import { BOUNDARY, MAIN_LINE, buildSwitchyard } from '../src/map/switchyard';
 
 const map = buildSwitchyard();
 
@@ -87,5 +87,39 @@ describe('Switchyard: models', () => {
   it('draws no solid twice: each modelled solid belongs to one model', () => {
     const all = models.placements.flatMap((p) => p.solids);
     expect(new Set(all).size).toBe(all.length);
+  });
+});
+
+describe('Switchyard: the freight train', () => {
+  const train = map.train!;
+  const head = (t: number) => train.start - train.speed * t;
+  const east = Math.max(...BOUNDARY.map(([x]) => x));
+  const west = Math.min(...BOUNDARY.map(([x]) => x));
+
+  it('is made of the models in the file, and touches no solid', () => {
+    for (const p of train.models.placements) {
+      expect(glb.assets.has(p.asset), p.asset).toBe(true);
+      expect(p.solids).toEqual([]);
+    }
+    expect(train.models.url).toBe(map.models!.url);
+  });
+
+  it('runs on the main line, beyond the barrier', () => {
+    expect(MAIN_LINE).toContain(train.z);
+    expect(BOUNDARY.every(([, z]) => z > train.z + 3)).toBe(true);
+  });
+
+  it('comes past the east end as the match ends, runs the length of the yard in the nuke, and clears it before the vote is over', () => {
+    expect(head(0)).toBeGreaterThan(east + 50);
+    expect(head(INTERMISSION.nuke)).toBeLessThan(west + (east - west) / 2);
+    expect(head(INTERMISSION.nuke + INTERMISSION.vote) + train.length).toBeLessThan(west);
+    // Its horn sounds for the yard before the head gets there.
+    expect(head(train.horns.at(-1)!)).toBeGreaterThan(east - 20);
+  });
+
+  it('has a bogie under each end of every loco and wagon, head first', () => {
+    expect(train.bogies).toHaveLength(2 * train.models.placements.filter((p) => p.asset === 'loco' || p.asset === 'frame-12').length);
+    for (let i = 1; i < train.bogies.length; i++) expect(train.bogies[i]!).toBeGreaterThan(train.bogies[i - 1]!);
+    expect(train.bogies.at(-1)!).toBeLessThan(train.length);
   });
 });

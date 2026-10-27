@@ -1,5 +1,5 @@
 import type { ChargeSite, NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Decoration, Finish, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
+import type { Decoration, Finish, FreightTrain, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -83,8 +83,10 @@ export interface MapDefinition {
    * sounds from; null for a map that never ends in one.
    */
   readonly nuke: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
-  /** What the map makes heard: the wind everywhere, and birds, a sign or a radio at a place. */
-  readonly ambience: readonly ({ readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio'; readonly position: Vec3 })[];
+  /** The end-of-match freight train (drawn and heard only), or null for a map that never ends in one. */
+  readonly train: FreightTrain | null;
+  /** What the map makes heard: the wind everywhere, and at a place birds, a sign, a radio, a far horn, shunting or a humming lamp. */
+  readonly ambience: readonly ({ readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio' | 'horn' | 'couplings' | 'hum'; readonly position: Vec3 })[];
   readonly spawns: {
     readonly ffa: readonly SpawnPoint[];
     /** One set per team (team 1, team 2), each at its own side of the map; null where the map has no team spawns. */

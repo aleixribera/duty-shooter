@@ -1,5 +1,7 @@
 """Build Switchyard's models: freight car underframes, the tank car's barrel,
-the depot's tanks, the locomotive and the sodium lamps' heads.
+the depot's tanks, the locomotive and the sodium lamps' heads; and for the
+end-of-match freight train, boxcar and hopper bodies and a deck plate,
+which ride on the same underframes behind the same locomotive.
 
 Run in the Blender session (see the blender skill):
     bkit.reset(); bkit.run(r"tools/map/switchyard.py")
@@ -33,6 +35,7 @@ RAIL_HALF_GAUGE = 0.7175
 FRAME_BOTTOM = 0.3
 DECK_BOTTOM = 1.0
 CAR_HALF = 1.5
+CAR_FLOOR = 1.1
 TANK_STEPS = [(0.4, 0.7, 1.1, 3.7), (0.5, 1.1, 1.3, 3.5), (0.6, 1.4, 1.6, 3.2)]
 LAMP_HEAD = (0.55, 0.32, 0.16)  # along, across, height
 
@@ -53,6 +56,8 @@ GRILLE = _mat("grille", (0x26, 0x29, 0x2b), 0.7, 0.3)
 WINDOW = _mat("window", (0x1c, 0x2a, 0x33), 0.1)
 LAMP_POST = _mat("lamp.post", (0x4a, 0x50, 0x48), 0.55, 0.3)
 LAMP_GLOW = _mat("lamp.glow", (0xff, 0xb2, 0x5e), 0.3, 0.0, emission=(1.0, 0.45, 0.12))
+CAR = {name: _mat(name, rgb, 0.55, 0.3) for name, rgb in (("car.oxide", (0x7e, 0x3a, 0x2a)), ("car.brown", (0x5e, 0x45, 0x35)), ("car.teal", (0x3f, 0x65, 0x63)), ("car.grey", (0x80, 0x86, 0x8a)))}
+ROOF = _mat("roof.flat", (0x4f, 0x4b, 0x47), 0.8)
 
 coll = bpy.data.collections.new("switchyard")
 bpy.context.scene.collection.children.link(coll)
@@ -294,6 +299,69 @@ def loco():
     return asset("loco", parts)
 
 
+def deck(length):
+    """A wagon's deck plate (DECK_BOTTOM up to CAR_FLOOR), with a lip along each side: what a car of the yard has as a plain solid."""
+    h = length / 2
+    parts = [box((-h, DECK_BOTTOM, -CAR_HALF), (h, CAR_FLOOR - 0.02, CAR_HALF), STEEL)]
+    for s in (-1, 1):
+        parts.append(box((-h, CAR_FLOOR - 0.02, s * CAR_HALF - 0.06), (h, CAR_FLOOR, s * CAR_HALF + 0.0), STEEL))
+    parts.append(box((-h + 0.06, CAR_FLOOR - 0.02, -CAR_HALF + 0.06), (h - 0.06, CAR_FLOOR, CAR_HALF - 0.06), STEEL))
+    return parts
+
+
+def boxcar(paint):
+    """A 12 m boxcar's body in `paint`, on its deck: ribbed sides, a sliding door each side, a crowned roof with a walkway, ladders at the corners."""
+    h, top = 5.95, 4.0
+    body = CAR[paint]
+    parts = deck(12)
+    parts.append(box((-h, CAR_FLOOR, -1.42), (h, top, 1.42), body, 0.03))
+    # The roof: a low crown and a running board along its ridge.
+    parts.append(prism([(-h - 0.03, top), (h + 0.03, top), (h + 0.03, top + 0.06), (-h - 0.03, top + 0.06)], -1.47, 1.47, ROOF))
+    parts.append(prism([(-h, top + 0.06), (h, top + 0.06), (h, top + 0.16), (-h, top + 0.16)], -0.9, 0.9, ROOF))
+    parts.append(box((-h + 0.2, top + 0.16, -0.28), (h - 0.2, top + 0.2, 0.28), STEEL))
+    for s in (-1, 1):
+        z = s * 1.42
+        # Side ribs, but not across the door.
+        for x in [-5.4 + 0.9 * k for k in range(13)]:
+            if abs(x) < 1.4:
+                continue
+            parts.append(box((x - 0.04, CAR_FLOOR + 0.05, z - 0.03 if s < 0 else z), (x + 0.04, top - 0.05, z + 0.03 if s > 0 else z), body))
+        # The door, a little proud, on its top and bottom tracks.
+        zo = z + s * 0.06
+        parts.append(box((-1.25, CAR_FLOOR + 0.08, min(z, zo)), (1.25, top - 0.15, max(z, zo)), body, 0.01))
+        parts.append(box((-2.6, top - 0.18, min(z, zo + s * 0.02)), (1.4, top - 0.1, max(z, zo + s * 0.02)), STEEL))
+        parts.append(box((-2.6, CAR_FLOOR, min(z, zo + s * 0.02)), (1.4, CAR_FLOOR + 0.08, max(z, zo + s * 0.02)), STEEL))
+        for x in (-1.0, 1.0):
+            parts.append(box((x - 0.03, 2.0, min(zo, zo + s * 0.05)), (x + 0.03, 2.7, max(zo, zo + s * 0.05)), STEEL))
+        # A ladder at one corner each side.
+        lx = s * (h - 0.35)
+        for k in range(7):
+            y = CAR_FLOOR + 0.35 + k * 0.4
+            parts.append(box((lx - 0.22, y - 0.015, min(z, z + s * 0.12)), (lx + 0.22, y + 0.015, max(z, z + s * 0.12)), STEEL))
+    # End posts.
+    for s in (-1, 1):
+        for z in (-1.0, 0.0, 1.0):
+            parts.append(box((min(s * h, s * (h + 0.04)), CAR_FLOOR, z - 0.06), (max(s * h, s * (h + 0.04)), top, z + 0.06), body))
+    return asset(f"boxcar-{paint.split('.')[1]}", parts)
+
+
+def hopper():
+    """A 12 m covered hopper: a deep body with sloping ends, ribbed sides, loading hatches along its roof."""
+    h, top = 5.95, 3.9
+    body = CAR["car.grey"]
+    parts = deck(12)
+    parts.append(prism([(-h, CAR_FLOOR), (h, CAR_FLOOR), (h, top - 0.5), (h - 0.6, top), (-h + 0.6, top), (-h, top - 0.5)], -1.42, 1.42, body, 0.03))
+    for s in (-1, 1):
+        z = s * 1.42
+        for x in [-4.8 + 1.2 * k for k in range(9)]:
+            parts.append(box((x - 0.05, CAR_FLOOR + 0.1, min(z, z + s * 0.04)), (x + 0.05, top - 0.12, max(z, z + s * 0.04)), body))
+        parts.append(box((-h + 0.1, CAR_FLOOR + 0.1, min(z, z + s * 0.05)), (h - 0.1, CAR_FLOOR + 0.3, max(z, z + s * 0.05)), body))
+    for x in (-3.6, -1.2, 1.2, 3.6):
+        parts.append(cylinder(0.32, top - 0.01, top + 0.12, (x, 0, 0), "y", STEEL, 16))
+    parts.append(box((-h + 0.6, top, -0.25), (h - 0.6, top + 0.04, 0.25), STEEL))
+    return asset("hopper", parts)
+
+
 def lamp_head():
     """A sodium lamp's head: a cobra-head housing over a glowing glass bowl, its mount toward -x (the arm)."""
     along, across, height = LAMP_HEAD
@@ -328,15 +396,19 @@ def strays(obj):
 
 
 built = [underframe(12), underframe(9), tank_car(), depot_tank(), loco(), lamp_head()]
+# The train's: placed only on the train, which collides with nothing.
+train = [boxcar("car.oxide"), boxcar("car.brown"), boxcar("car.teal"), hopper(), asset("deck-12", deck(12))]
 report = {}
+for o in train:
+    report[o.name] = {"tris": sum(len(p.vertices) - 2 for p in o.data.polygons)}
 for o in built:
     worst, where = strays(o)
     report[o.name] = {"tris": sum(len(p.vertices) - 2 for p in o.data.polygons), "outside": worst, **({"at": where} if worst > TOLERANCE else {})}
-result = {"assets": report, "issues": [n for n, r in report.items() if r["outside"] > TOLERANCE]}
+result = {"assets": report, "issues": [n for n, r in report.items() if r.get("outside", 0) > TOLERANCE]}
 if EXPORT:
     import os
     bpy.ops.object.select_all(action="DESELECT")
-    for o in built:
+    for o in built + train:
         o.select_set(True)
     path = os.path.join(os.path.dirname(__file__), "..", "..", OUT)
     os.makedirs(os.path.dirname(path), exist_ok=True)

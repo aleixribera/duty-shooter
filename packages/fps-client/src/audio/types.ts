@@ -39,7 +39,18 @@ export type SoundEventName =
   | 'ambientWind' // the map's wind bed, all round you (intensity: 1 outdoors, lower indoors)
   | 'ambientBirds' // a distant bird, from a perch
   | 'ambientCreak' // a sign creaking on its chains (intensity: how hard the wind is pushing it)
-  | 'ambientRadio'; // one segment of the radio playing in a house
+  | 'ambientRadio' // one segment of the radio playing in a house
+  | 'ambientHorn' // a train's horn far out on the plain
+  | 'ambientCouplings' // wagons being shunted somewhere out of sight
+  | 'ambientHum' // one segment of a sodium lamp's hum
+  | 'trainHorn' // the end-of-match freight train's horn
+  | 'trainRumble' // one segment of the train going by, from its nearest point (intensity: 1 at the locos, 0 down the wagons)
+  | 'trainClack' // one bogie of the train over the rail joint nearest the listener
+  | 'chargeKey' // one key of the charge's keypad, tapped as it is planted (intensity picks the key)
+  | 'chargeArmed' // the charge armed
+  | 'chargeBeep' // one beep of the charge's fuse
+  | 'chargeTool' // the defuser's tools at work (intensity picks snip or screw)
+  | 'chargeDisarmed'; // the charge disarmed
 
 /** Every world material has its own footsteps, impacts and casing bounces. */
 export type SurfaceMaterial = Material;

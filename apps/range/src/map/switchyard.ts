@@ -1,5 +1,5 @@
 import type { ChargeSite, Material, NavOptions, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import { linearRgb, normalize, type Finish, type Lamp, type Lighting, type Look } from '@duty-shooter/fps-client/surfaces';
+import { linearRgb, normalize, type Finish, type FreightTrain, type Lamp, type Lighting, type Look, type ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
 
@@ -255,10 +255,12 @@ function buildBoundary(b: Builder): void {
   b.clip([INNER_X, y0, -INNER_Z - 1], [INNER_X + 1, y1, INNER_Z + 1]);
 }
 
+/** The main line's two tracks, beyond the barrier (z): the nearer one carries the end-of-match train. */
+export const MAIN_LINE = [-32.5, -37] as const;
+
 /** Beyond the barrier: the main line's two tracks running away east and west, and a line of telegraph poles. */
 function buildScenery(b: Builder): void {
-  track(b, -160, 160, -32.5, { sleepers: false });
-  track(b, -160, 160, -37, { sleepers: false });
+  for (const z of MAIN_LINE) track(b, -160, 160, z, { sleepers: false });
   b.paint('pole', () => {
     for (let x = -150; x <= 150; x += 30) b.add([x - 0.13, 0, -29.6], [x + 0.13, 7.5, -29.34], 'wood');
   });
@@ -315,13 +317,15 @@ function hangingLamp(b: Builder, x: number, y: number, z: number, ceiling: numbe
 /**
  * The sodium lamps, just come on: posts along the main line's barrier, the
  * alley between the cars and the service road; lamps on the signal box and
- * the back wall; and lamps hanging in the shed and the workshop.
+ * the back wall; and lamps hanging in the shed and the workshop. Also where
+ * the low ones hang, which a player can stand close enough to hear hum.
  */
-function buildLamps(b: Builder): Lamp[] {
+function buildLamps(b: Builder): { lamps: Lamp[]; humming: Vec3[] } {
+  const humming: Vec3[] = [];
   const post = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 34, range: 22 });
-  const small = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 12, range: 14 });
-  const inside = (p: Vec3): Lamp => ({ position: p, color: SODIUM, intensity: 9, range: 12 });
-  return [
+  const small = (p: Vec3): Lamp => (humming.push(p), { position: p, color: SODIUM, intensity: 12, range: 14 });
+  const inside = (p: Vec3): Lamp => (humming.push(p), { position: p, color: SODIUM, intensity: 9, range: 12 });
+  const lamps = [
     ...[-36, -12, 12, 32].map((x) => post(lampPost(b, x, -26.6, 'south'))),
     post(lampPost(b, -27, -3, 'east')),
     post(lampPost(b, 9, -3, 'west')),
@@ -334,6 +338,7 @@ function buildLamps(b: Builder): Lamp[] {
     inside(hangingLamp(b, -38, 3.2, 18, 4)),
     inside(hangingLamp(b, -30, 3.2, 18, 4)),
   ];
+  return { lamps, humming };
 }
 
 // ---------------------------------------------------------------------------
@@ -800,6 +805,58 @@ function indoorZones(): IndoorZone[] {
 }
 
 // ---------------------------------------------------------------------------
+// The end-of-match freight train.
+
+/** A wagon or loco's length over its couplers, and the gap left between them (m). */
+const TRAIN_CAR = 12;
+const TRAIN_GAP = 0.05;
+/** Where the frame-12 model's bogies sit, and the loco's, from the middle of each (m). */
+const WAGON_BOGIES = 4.1;
+const LOCO_BOGIES = 3.6;
+/** The loco model's headlights at its cab end: how far forward of its middle, how high, how far out to each side. */
+const LOCO_HEADLIGHT = { along: 5.83, height: 2.4, out: 0.7 } as const;
+/** The wagons behind the locos, in order: the bodies on each underframe ('tank' is a deck plate and a tank car's barrel). */
+const WAGONS = ['boxcar-oxide', 'hopper', 'hopper', 'tank', 'boxcar-brown', 'boxcar-teal', 'hopper', 'tank', 'tank', 'boxcar-oxide', 'hopper', 'boxcar-brown', 'hopper', 'hopper', 'tank', 'boxcar-teal', 'boxcar-oxide', 'hopper', 'tank', 'hopper', 'boxcar-brown', 'boxcar-oxide'] as const;
+
+/**
+ * The freight that thunders through at the end of a match, westbound on
+ * the main line's near track: two locos, the first cab first, and 22
+ * wagons. It comes into sight past the east end as the match ends, sounds
+ * its horn for the yard, runs the length of it in the nuke's 6 s, and its
+ * tail clears the west end before the vote is over.
+ */
+function freightTrain(): FreightTrain {
+  const placements: ModelPlacement[] = [];
+  const bogies: number[] = [];
+  const centre = (i: number) => TRAIN_CAR / 2 + i * (TRAIN_CAR + TRAIN_GAP);
+  // Placed relative to the head, which is on the ground at the line, the train trailing toward +x.
+  const at = (i: number): Vec3 => [centre(i), 0, 0];
+  placements.push({ asset: 'loco', position: at(0), yaw: Math.PI, solids: [] }, { asset: 'loco', position: at(1), yaw: 0, solids: [] });
+  bogies.push(...[0, 1].flatMap((i) => [centre(i) - LOCO_BOGIES, centre(i) + LOCO_BOGIES]));
+  WAGONS.forEach((wagon, k) => {
+    const i = k + 2;
+    placements.push({ asset: 'frame-12', position: at(i), yaw: 0, solids: [] });
+    if (wagon === 'tank') placements.push({ asset: 'deck-12', position: at(i), yaw: 0, solids: [] }, { asset: 'tank-car', position: at(i), yaw: 0, solids: [] });
+    else placements.push({ asset: wagon, position: at(i), yaw: 0, solids: [] });
+    bogies.push(centre(i) - WAGON_BOGIES, centre(i) + WAGON_BOGIES);
+  });
+  const head = centre(0) - LOCO_HEADLIGHT.along;
+  return {
+    models: { url: 'models/switchyard.glb', placements },
+    z: MAIN_LINE[0],
+    start: 132,
+    speed: 26,
+    length: centre(WAGONS.length + 1) + TRAIN_CAR / 2,
+    bogies,
+    headlights: [
+      [head, LOCO_HEADLIGHT.height, -LOCO_HEADLIGHT.out],
+      [head, LOCO_HEADLIGHT.height, LOCO_HEADLIGHT.out],
+    ],
+    horns: [0.3, 3.6],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Cameras.
 
 const EYE = 1.6;
@@ -873,7 +930,7 @@ export function buildSwitchyard(): MapDefinition {
   buildWorkshop(b);
   buildDepot(b);
   buildScenery(b);
-  const lamps = buildLamps(b);
+  const { lamps, humming } = buildLamps(b);
   buildBoundary(b);
   const spawns = spawnSets();
   return {
@@ -892,9 +949,21 @@ export function buildSwitchyard(): MapDefinition {
     lamps,
     // Out past the main line, a town on the plain.
     horizon: { ground: 'land', inner: { x0: -160, x1: 160, z0: -120, z1: 120 }, light: [-120, 90], town: { x0: -380, x1: 260, z0: -470, z1: -330, seed: 1961 } },
-    // The freight train comes with ticket 15.
     nuke: null,
-    ambience: [{ kind: 'wind' }, { kind: 'birds', position: [0, 7.5, -29.5] }, { kind: 'birds', position: [-60, 7.5, -29.5] }, { kind: 'radio', position: [23.5, 4, -9] }],
+    train: freightTrain(),
+    ambience: [
+      { kind: 'wind' },
+      { kind: 'birds', position: [0, 7.5, -29.5] },
+      { kind: 'birds', position: [-60, 7.5, -29.5] },
+      { kind: 'radio', position: [23.5, 4, -9] },
+      // Trains out on the plain, east and west; shunting beyond the east and south walls.
+      { kind: 'horn', position: [-650, 5, -260] },
+      { kind: 'horn', position: [700, 5, -320] },
+      { kind: 'couplings', position: [72, 1.5, 8] },
+      { kind: 'couplings', position: [-20, 1.5, 46] },
+      // The low lamps hum.
+      ...humming.map((position) => ({ kind: 'hum' as const, position })),
+    ],
     spawns,
     zones: ZONES,
     sites: SITES,

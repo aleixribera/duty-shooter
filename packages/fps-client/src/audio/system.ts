@@ -81,6 +81,20 @@ const PROFILES: Record<SoundEventName, Profile> = {
   ambientBirds: { cap: 3, ref: 6, rolloff: 1, send: 0.3, indoorSend: 0.3 },
   ambientCreak: { cap: 2, ref: 3, rolloff: 1.2, send: 0.15, indoorSend: 0.2 },
   ambientRadio: { cap: 2, ref: 1.5, rolloff: 1.4, send: 0.1, indoorSend: 0.35 },
+  // The far horn comes from out on the plain; the couplings from beyond the yard's wall; a lamp's hum is heard only close by.
+  ambientHorn: { cap: 1, ref: 300, rolloff: 0.3, send: 0.5, indoorSend: 0.3 },
+  ambientCouplings: { cap: 2, ref: 20, rolloff: 0.6, send: 0.4, indoorSend: 0.3 },
+  ambientHum: { cap: 4, ref: 1.5, rolloff: 1.6, send: 0.05, indoorSend: 0.15 },
+  // The freight train: heard all over the yard, and loud.
+  trainHorn: { cap: 2, ref: 60, rolloff: 0.5, send: 0.5, indoorSend: 0.3 },
+  trainRumble: { cap: 4, ref: 15, rolloff: 0.8, send: 0.4, indoorSend: 0.3 },
+  trainClack: { cap: 8, ref: 8, rolloff: 1, send: 0.3, indoorSend: 0.3 },
+  // Charge: the keypad and tools are heard close by; the beep carries across a site.
+  chargeKey: { cap: 3, ref: 2, rolloff: 1.2, send: 0.05, indoorSend: 0.12 },
+  chargeArmed: { cap: 2, ref: 3, rolloff: 1, send: 0.1, indoorSend: 0.2 },
+  chargeBeep: { cap: 2, ref: 4, rolloff: 0.8, send: 0.2, indoorSend: 0.3 },
+  chargeTool: { cap: 3, ref: 2, rolloff: 1.2, send: 0.05, indoorSend: 0.12 },
+  chargeDisarmed: { cap: 2, ref: 3, rolloff: 1, send: 0.1, indoorSend: 0.2 },
 };
 
 /**

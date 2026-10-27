@@ -1,6 +1,6 @@
 import { sightBlocked, type Vec3, type World } from '@duty-shooter/fps-core';
 import type { SoundEventName, SoundParams } from './audio';
-import { OVERLAP, RADIO_SECONDS, WIND_SECONDS } from './audio/ambience';
+import { HUM_SECONDS, OVERLAP, RADIO_SECONDS, WIND_SECONDS } from './audio/ambience';
 
 /** A box of the map that is indoors (a house, a garage), for the reverb. */
 export interface SoundZone {
@@ -30,8 +30,12 @@ export function muffled(world: World, listener: Vec3, source: Vec3): boolean {
   return sightBlocked(world, listener, [listener[0] + (to[0] - listener[0]) * k, listener[1] + (to[1] - listener[1]) * k, listener[2] + (to[2] - listener[2]) * k]);
 }
 
-/** Something the map makes heard: the wind everywhere, or birds, a sign or a radio at a place. */
-export type AmbientSource = { readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio'; readonly position: Vec3 };
+/**
+ * Something the map makes heard: the wind everywhere, or at a place birds,
+ * a sign, a radio, a train's horn far out on the plain, wagons being shunted
+ * out of sight, or a lamp humming.
+ */
+export type AmbientSource = { readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio' | 'horn' | 'couplings' | 'hum'; readonly position: Vec3 };
 
 /** One ambient sound to play now. */
 export interface AmbientCue {
@@ -44,6 +48,7 @@ const LOOKAHEAD = 0.2;
 /** Wind overlaps by its slow crossfade; the radio by the short one at its ends. */
 const WIND_PERIOD = WIND_SECONDS - 1.2;
 const RADIO_PERIOD = RADIO_SECONDS - OVERLAP;
+const HUM_PERIOD = HUM_SECONDS - OVERLAP;
 
 interface Stream {
   /** A bed runs back to back from the start (wind, radio); the rest come and go. */
@@ -56,7 +61,9 @@ interface Stream {
 /**
  * Schedules the map's ambience: the wind as overlapping segments with no
  * gap, a bird from a random perch every few seconds, a sign creaking as the
- * wind takes it, and the radio playing on without a break. Feed it a clock;
+ * wind takes it, and the radio playing on without a break; in the yard, a
+ * horn on the plain every minute or so, couplings clanking now and then,
+ * and the lamps humming without a break. Feed it a clock;
  * it hands back what to play. After a stall (a hidden tab) it picks up from
  * now instead of playing everything it missed.
  */
@@ -77,18 +84,21 @@ export class Ambience {
         period: () => WIND_PERIOD,
       });
     }
-    const perches = sources.flatMap((s) => (s.kind === 'birds' ? [s.position] : []));
-    if (perches.length > 0) {
-      this.#streams.push({
-        bed: false,
-        due: 0,
-        cue: (r) => ({ event: 'ambientBirds', params: { position: perches[Math.floor(r() * perches.length)] ?? perches[0]! } }),
-        period: range(4, 11),
-      });
+    // Birds, horns and couplings each come from one of their places at a time.
+    const pooled = [
+      { kind: 'birds', event: 'ambientBirds', period: range(4, 11) },
+      { kind: 'horn', event: 'ambientHorn', period: range(35, 80) },
+      { kind: 'couplings', event: 'ambientCouplings', period: range(12, 30) },
+    ] as const;
+    for (const p of pooled) {
+      const places = sources.flatMap((s) => (s.kind === p.kind ? [s.position] : []));
+      if (places.length === 0) continue;
+      this.#streams.push({ bed: false, due: 0, cue: (r) => ({ event: p.event, params: { position: places[Math.floor(r() * places.length)] ?? places[0]! } }), period: p.period });
     }
     for (const s of sources) {
       if (s.kind === 'sign') this.#streams.push({ bed: false, due: 0, cue: (r) => ({ event: 'ambientCreak', params: { position: s.position, intensity: 0.5 + 0.5 * r() } }), period: range(2.5, 6) });
       if (s.kind === 'radio') this.#streams.push({ bed: true, due: 0, cue: () => ({ event: 'ambientRadio', params: { position: s.position } }), period: () => RADIO_PERIOD });
+      if (s.kind === 'hum') this.#streams.push({ bed: true, due: 0, cue: () => ({ event: 'ambientHum', params: { position: s.position } }), period: () => HUM_PERIOD });
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OVERLAP, RADIO_SECONDS, WIND_SECONDS } from '../src/audio/ambience';
+import { HUM_SECONDS, OVERLAP, RADIO_SECONDS, WIND_SECONDS } from '../src/audio/ambience';
 import { Ambience, environmentAt, type AmbientCue, type AmbientSource } from '../src/map-sound';
 
 describe('the reverb switch', () => {
@@ -72,7 +72,41 @@ describe('the ambience', () => {
     expect(after.length).toBeLessThanOrEqual(4);
   });
 
+  it('sounds a train horn far out on the plain now and then, from one of its places', () => {
+    const horns = run(new Ambience(yard), 900).filter((c) => c.event === 'ambientHorn');
+    for (let i = 1; i < horns.length; i++) expect(horns[i]!.at - horns[i - 1]!.at).toBeGreaterThanOrEqual(35 - 1e-9);
+    expect(horns.length).toBeGreaterThanOrEqual(900 / 80 - 1);
+    expect(horns.length).toBeLessThanOrEqual(900 / 35 + 1);
+    expect(new Set(horns.map((c) => c.params.position?.[0])).size).toBe(2);
+  });
+
+  it('clanks couplings somewhere out of sight every so often', () => {
+    const clanks = run(new Ambience(yard), 300).filter((c) => c.event === 'ambientCouplings');
+    for (let i = 1; i < clanks.length; i++) expect(clanks[i]!.at - clanks[i - 1]!.at).toBeGreaterThanOrEqual(12 - 1e-9);
+    expect(clanks.length).toBeGreaterThanOrEqual(300 / 30 - 1);
+    expect(clanks.every((c) => c.params.position?.[0] === 70)).toBe(true);
+  });
+
+  it('keeps each humming lamp going without a gap', () => {
+    const hums = run(new Ambience(yard, () => 0.5), 30).filter((c) => c.event === 'ambientHum');
+    for (const x of [-2, 12]) {
+      const at = hums.filter((c) => c.params.position?.[0] === x).map((c) => c.at);
+      expect(at[0]).toBeCloseTo(0);
+      for (let i = 1; i < at.length; i++) expect(at[i]! - at[i - 1]!).toBeCloseTo(HUM_SECONDS - OVERLAP, 6);
+      expect(at.length).toBeGreaterThan(30 / HUM_SECONDS);
+    }
+  });
+
   it('is silent on a map with no ambience', () => {
     expect(run(new Ambience([]), 30)).toHaveLength(0);
   });
 });
+
+const yard: AmbientSource[] = [
+  { kind: 'wind' },
+  { kind: 'horn', position: [-600, 5, -300] },
+  { kind: 'horn', position: [700, 5, -250] },
+  { kind: 'couplings', position: [70, 1.5, 10] },
+  { kind: 'hum', position: [-2, 5.6, 16] },
+  { kind: 'hum', position: [12, 5.6, 16] },
+];

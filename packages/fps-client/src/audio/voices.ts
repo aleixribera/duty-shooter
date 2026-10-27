@@ -3,7 +3,9 @@ import { crouchVoice, footstepVoice, jumpVoice, landVoice, mantleVoice, proneVoi
 import { gunshotVoice } from './gunshot';
 import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
 import { nukeBlastVoice, nukeSirenVoice } from './nuke';
-import { birdsVoice, creakVoice, radioVoice, windVoice } from './ambience';
+import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice, windVoice } from './ambience';
+import { chargeArmedVoice, chargeBeepVoice, chargeDisarmedVoice, chargeKeyVoice, chargeToolVoice } from './charge';
+import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
 import { damageTakenVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice } from './ui';
@@ -64,6 +66,17 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     ambientBirds: birdsVoice(),
     ambientCreak: creakVoice(),
     ambientRadio: radioVoice(),
+    ambientHorn: hornVoice(),
+    ambientCouplings: couplingsVoice(),
+    ambientHum: humVoice(),
+    trainHorn: trainHornVoice(),
+    trainRumble: trainRumbleVoice(),
+    trainClack: trainClackVoice(),
+    chargeKey: chargeKeyVoice(),
+    chargeArmed: chargeArmedVoice(),
+    chargeBeep: chargeBeepVoice(),
+    chargeTool: chargeToolVoice(),
+    chargeDisarmed: chargeDisarmedVoice(),
   };
 }
 

@@ -129,8 +129,12 @@ The first 5 s of a Charge round, when everyone is held where they stand. Players
 _Avoid_: buy time, warm-up
 
 **Intermission**:
-The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout. Online, the nuke is followed by 10 s of scoreboard and then the lobby, until the host starts the next match.
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (Survival Town's nuke, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online, the ending is followed by 10 s of scoreboard and then the lobby, until the host starts the next match.
 _Avoid_: post-game, between rounds
+
+**Freight train**:
+Switchyard's end-of-match ending: two locos and 22 wagons that thunder west along the main line past the yard, horn sounding, through the intermission. Drawn and heard only: it touches nothing, and everyone sees it in the same place. The server's phase is still called `nuke`.
+_Avoid_: the nuke (on Switchyard)
 
 **Mode vote**:
 The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only Bot Match runs it; the online server has a lobby instead.

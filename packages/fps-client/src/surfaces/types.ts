@@ -83,6 +83,28 @@ export interface MapModels {
   readonly placements: readonly ModelPlacement[];
 }
 
+/**
+ * A freight train that runs past a map at the end of a match, drawn and
+ * heard only. It runs west along its line (z) from `start` (the head's x
+ * as the match ends) at `speed` m/s, the wagons trailing east of the head.
+ * Its models are placed relative to the head, on the ground at its line;
+ * its bogies and headlights are measured back from the head along it.
+ */
+export interface FreightTrain {
+  readonly models: MapModels;
+  readonly z: number;
+  readonly start: number;
+  readonly speed: number;
+  /** Head to tail (m). */
+  readonly length: number;
+  /** Each bogie's distance behind the head (m), head first. */
+  readonly bogies: readonly number[];
+  /** The leading loco's headlights, relative to the head. */
+  readonly headlights: readonly Vec3[];
+  /** Seconds after the match ends that the horn sounds. */
+  readonly horns: readonly number[];
+}
+
 /** How far decoration may stand proud of the solid it decorates (m). */
 export const DECORATION_TOLERANCE = 0.05;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MATERIALS } from '@duty-shooter/fps-core';
-import { birdsVoice, creakVoice, radioVoice, windVoice } from '../src/audio/ambience';
+import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice, windVoice } from '../src/audio/ambience';
 import { footstepVoice } from '../src/audio/foley';
 import { gunshotVoice } from '../src/audio/gunshot';
 import { impactVoice } from '../src/audio/impacts';
@@ -32,6 +32,10 @@ describe('ambient loudness', () => {
     birds: loudest(() => hear(birdsVoice(), 'ambientBirds', { position: [6, 0, 0] }, 6)),
     sign: loudest(() => hear(creakVoice(), 'ambientCreak', { position: [1.5, 0, 0], intensity: 1 }, 1.5)),
     radio: loudest(() => hear(radioVoice(), 'ambientRadio', { position: [1, 0, 0] }, 1)),
+    // Switchyard's: the horn from the nearest of its places on the plain, the couplings from just over the wall, a lamp from on top of a car.
+    horn: loudest(() => hear(hornVoice(), 'ambientHorn', { position: [400, 0, 0] }, 400)),
+    couplings: loudest(() => hear(couplingsVoice(), 'ambientCouplings', { position: [12, 0, 0] }, 12)),
+    hum: loudest(() => hear(humVoice(), 'ambientHum', { position: [1.2, 0, 0] }, 1.2)),
   };
 
   it('is recorded', () => {
