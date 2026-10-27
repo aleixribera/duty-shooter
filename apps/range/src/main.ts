@@ -127,9 +127,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     mapId = id;
     game = createGame(id);
   };
-  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2 (preset capped at Normal)';
+  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2 (preset capped at Medium)';
   setTimeout(() => (status.hidden = true), 4000);
-  const lobby = await findLobby();
+  let lobby: Lobby | null = null;
+  const lobbyDiscovery = findLobby();
   // An invite link (`#join=<passphrase>`): the passphrase into the join form, and out of the address bar.
   const invited = new URLSearchParams(location.hash.slice(1)).get('join');
   if (invited !== null) {
@@ -336,7 +337,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   };
   game = createGame(initial);
-  if (invited !== null && lobby?.kind === 'server') menu.openOnline();
+  void lobbyDiscovery.then((found) => {
+    lobby = found;
+    menu.setLobby(found);
+    if (invited !== null && found?.kind === 'server' && menu.open && menu.screen === 'main') menu.openOnline();
+  });
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
   const explore = asMapId(params.get('explore'));
   if (explore) void playOffline(explore);
@@ -352,11 +357,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   }
   // The Play Online tile keeps up with the server while the main menu is open.
-  if (lobby?.kind === 'server') {
-    setInterval(() => {
-      if (menu.open && menu.screen === 'main' && !game.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
-    }, 10_000);
-  }
+  setInterval(() => {
+    if (lobby?.kind === 'server' && menu.open && menu.screen === 'main' && !game.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
+  }, 10_000);
   addEventListener('gamepadconnected', (e) => game.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
 
   // Dev builds expose the game for debugging and playtesting from the console.
@@ -388,18 +391,27 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const bench = benching ? startBenchmarkOn(game, renderer, load(mapId).map, backend, settings) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
+  let lastMenuFrame = -Infinity;
   await renderer.setAnimationLoop((time) => {
     if (bench) {
       bench(time);
       return;
     }
     updateLobby();
+    // The map is only a backdrop while the main menu is open. Limit its GPU
+    // work, but keep polling controllers and immediately resume on play.
+    const backdrop = (menu.open || lobbyPage.open) && !fixedCamera;
+    const drawBackdrop = !backdrop || time - lastMenuFrame >= 50;
+    if (backdrop && drawBackdrop) lastMenuFrame = time;
+    // No session needs ticking behind the main menu; with an online session,
+    // keep simulation and input running even between backdrop renders.
+    if (backdrop && !game.driver && !drawBackdrop) return;
     // Behind the menus (and the lobby), with no game running, the camera flies the map's menu path.
     if ((!game.driver || game.overviewOnly) && !fixedCamera) {
       const path = flyPath(load(mapId).map);
       if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
-    game.frame(time);
+    game.frame(time, !backdrop, drawBackdrop);
     // An online session that ended (rejected, kicked, server gone) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {

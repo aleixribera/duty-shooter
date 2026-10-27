@@ -88,7 +88,7 @@ exports[`hitboxes > keeps every part's size and position crouching 1`] = `
     ],
     "min": [
       -0.19,
-      0,
+      0.0933,
       -0.1,
     ],
     "zone": "leg",
@@ -101,10 +101,36 @@ exports[`hitboxes > keeps every part's size and position crouching 1`] = `
     ],
     "min": [
       0.01,
-      0,
+      0.0933,
       -0.1,
     ],
     "zone": "leg",
+  },
+  {
+    "max": [
+      -0.01,
+      0.0933,
+      0.1,
+    ],
+    "min": [
+      -0.19,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
+  },
+  {
+    "max": [
+      0.19,
+      0.0933,
+      0.1,
+    ],
+    "min": [
+      0.01,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
   },
 ]
 `;
@@ -197,7 +223,7 @@ exports[`hitboxes > keeps every part's size and position halfway down to a crouc
     ],
     "min": [
       -0.19,
-      0,
+      0.1167,
       -0.1,
     ],
     "zone": "leg",
@@ -210,10 +236,36 @@ exports[`hitboxes > keeps every part's size and position halfway down to a crouc
     ],
     "min": [
       0.01,
-      0,
+      0.1167,
       -0.1,
     ],
     "zone": "leg",
+  },
+  {
+    "max": [
+      -0.01,
+      0.1167,
+      0.1,
+    ],
+    "min": [
+      -0.19,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
+  },
+  {
+    "max": [
+      0.19,
+      0.1167,
+      0.1,
+    ],
+    "min": [
+      0.01,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
   },
 ]
 `;
@@ -307,7 +359,7 @@ exports[`hitboxes > keeps every part's size and position prone 1`] = `
     "min": [
       -0.19,
       0,
-      -0.98,
+      -0.8,
     ],
     "zone": "leg",
   },
@@ -320,9 +372,35 @@ exports[`hitboxes > keeps every part's size and position prone 1`] = `
     "min": [
       0.01,
       0,
-      -0.98,
+      -0.8,
     ],
     "zone": "leg",
+  },
+  {
+    "max": [
+      -0.01,
+      0.2,
+      -0.8,
+    ],
+    "min": [
+      -0.19,
+      0,
+      -0.98,
+    ],
+    "zone": "foot",
+  },
+  {
+    "max": [
+      0.19,
+      0.2,
+      -0.8,
+    ],
+    "min": [
+      0.01,
+      0,
+      -0.98,
+    ],
+    "zone": "foot",
   },
 ]
 `;
@@ -415,7 +493,7 @@ exports[`hitboxes > keeps every part's size and position standing 1`] = `
     ],
     "min": [
       -0.19,
-      0,
+      0.14,
       -0.1,
     ],
     "zone": "leg",
@@ -428,10 +506,36 @@ exports[`hitboxes > keeps every part's size and position standing 1`] = `
     ],
     "min": [
       0.01,
-      0,
+      0.14,
       -0.1,
     ],
     "zone": "leg",
+  },
+  {
+    "max": [
+      -0.01,
+      0.14,
+      0.1,
+    ],
+    "min": [
+      -0.19,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
+  },
+  {
+    "max": [
+      0.19,
+      0.14,
+      0.1,
+    ],
+    "min": [
+      0.01,
+      0,
+      -0.1,
+    ],
+    "zone": "foot",
   },
 ]
 `;

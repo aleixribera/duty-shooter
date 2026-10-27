@@ -21,6 +21,7 @@ const multipliers: Record<HitZone, number> = {
   lowerTorso: D.lowerTorsoMultiplier.value,
   arm: D.armMultiplier.value,
   leg: D.legMultiplier.value,
+  foot: D.legMultiplier.value,
 };
 
 /** Aims down sights at the target, then fires one aimed shot at `zone` and returns the outputs until it lands. */

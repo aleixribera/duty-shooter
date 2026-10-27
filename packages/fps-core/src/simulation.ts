@@ -302,7 +302,7 @@ const H = STATS.health;
 const LAG_WINDOW_TICKS = C.lagCompensationWindow.value * TICK_RATE;
 const MELEE_CONE = Math.cos(35 * DEG);
 /** How much of the body each hitbox stands for when a blast is partly blocked (relative weights, normalised over the pose's boxes). */
-const BLAST_SHARE: Record<HitZone, number> = { head: 0.1, neck: 0.04, upperTorso: 0.26, lowerTorso: 0.2, arm: 0.1, leg: 0.1 };
+const BLAST_SHARE: Record<HitZone, number> = { head: 0.1, neck: 0.04, upperTorso: 0.26, lowerTorso: 0.2, arm: 0.1, leg: 0.1, foot: 0 };
 
 /** How close the lunge brings the attacker to the target's feet (m). */
 const MELEE_STOP = 0.75;

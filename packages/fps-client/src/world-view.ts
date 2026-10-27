@@ -23,6 +23,7 @@ import {
   Shape,
   SRGBColorSpace,
   Vector3,
+  type Object3D,
   type WebGPURenderer,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -300,7 +301,10 @@ export class WorldView {
     }
     if (content.models) {
       void loadMapModels(content.models, layout.finishes).then(
-        (group) => this.#root.add(group),
+        (group) => {
+          this.#lightObject(group);
+          this.#root.add(group);
+        },
         (error: unknown) => console.error(`Map models failed to load: ${String(error)}`),
       );
     }
@@ -358,6 +362,7 @@ export class WorldView {
     const dust = dustMotes(content.indoorZones, this.probes);
     if (dust) this.#root.add(dust);
     scene.add(this.#root);
+    this.#lightObject(this.#root);
     this.lightMoving();
     this.setShadowQuality('normal');
   }
@@ -382,12 +387,19 @@ export class WorldView {
   }
 
   /**
-   * Switches every standard material in the scene not yet switched to probe
-   * lighting. Called before each frame, so soldiers, decals and casings added
-   * since are lit like the rest.
+   * Light dynamic scene objects before rendering. The static map is handled
+   * once at creation (and as its models load), so it need not be walked every frame.
    */
   lightMoving(): void {
-    this.scene.traverse((o) => {
+    for (const child of this.scene.children) {
+      if (child !== this.#root) this.#lightObject(child);
+    }
+    // The train's models load asynchronously under the otherwise static root.
+    if (this.train) this.#lightObject(this.train.root);
+  }
+
+  #lightObject(root: Object3D): void {
+    root.traverse((o) => {
       if (!(o instanceof Mesh)) return;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         if (!(m instanceof MeshStandardNodeMaterial) || this.#lit.has(m)) continue;

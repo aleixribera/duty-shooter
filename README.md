@@ -19,6 +19,8 @@ npm run dev
 
 Open <http://localhost:5173>. The main menu flies over Survival Town; choose **Bot Match** or **Practice Range** to play offline. The first `npm run dev` bakes each map's lighting on the CPU (see below), which takes a little while; later starts reuse the cache.
 
+In Settings, **Medium** is the default graphics preset. **Low** is intended for integrated graphics and can reduce rendering resolution to maintain frame rate; **High** adds more expensive effects and shadows for powerful GPUs. Medium and High do not automatically lower resolution.
+
 To play online locally:
 
 1. Build the client and the server:
@@ -61,7 +63,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`); a production build always does.
 - `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment.
-- `?webgl` forces the WebGL2 fallback, which caps the graphics preset at Normal.
+- `?webgl` forces the WebGL2 fallback, which caps the graphics preset at Medium.
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
 
 In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `sound`, `menu`, `driver`) for the console and for scripts.

@@ -15,7 +15,7 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * | M4A1    | 4 shots               | 5 shots             | 6 shots               |
  * | SMG     | ~170 ms within 12 m   | ~330 ms by 25 m     | worse than the M4A1   |
  * | Shotgun | one shot within 5 m   | two within 12 m     | no reliable kill >18 m |
- * | Sniper  | one shot: head, neck, upper torso, any range | lower torso, limbs: 2 |
+ * | Sniper  | one shot: body and legs, any range | feet: 2 |
  * | Pistol  | ~450 ms within 10 m   |                     |                       |
  *
  * None of them are taken from any other game's weapon tables. Display names
@@ -93,6 +93,7 @@ export interface WeaponDamage {
   readonly lowerTorsoMultiplier: Stat<'multiplier'>;
   readonly armMultiplier: Stat<'multiplier'>;
   readonly legMultiplier: Stat<'multiplier'>;
+  readonly footMultiplier?: Stat<'multiplier'>;
   /** Projectiles per shot (pellets); 1 when absent. */
   readonly pellets?: Stat<'rounds'>;
   /** Scales the penetration budget each bullet starts with. */
@@ -321,9 +322,10 @@ export const SNIPER: WeaponRow = {
     headMultiplier: tuned(2, 'multiplier', 'a head shot always kills.'),
     neckMultiplier: tuned(1, 'multiplier', '105: kills in one hit, as the spec asks.'),
     upperTorsoMultiplier: tuned(1, 'multiplier', '105: kills in one hit, as the spec asks.'),
-    lowerTorsoMultiplier: tuned(0.8, 'multiplier', '84: two hits, as the spec asks.'),
-    armMultiplier: tuned(0.75, 'multiplier', '79: two hits.'),
-    legMultiplier: tuned(0.7, 'multiplier', '74: two hits.'),
+    lowerTorsoMultiplier: tuned(1, 'multiplier', '105: one hit.'),
+    armMultiplier: tuned(1, 'multiplier', '105: one hit.'),
+    legMultiplier: tuned(1, 'multiplier', '105: one hit; feet deal less.'),
+    footMultiplier: tuned(0.7, 'multiplier', '74: two hits to the feet.'),
     penetration: tuned(1.6, 'multiplier', 'a full-power rifle round goes through more than the M4A1\'s, so thin cover doesn\'t save anyone (the spec).'),
   },
   accuracy: {

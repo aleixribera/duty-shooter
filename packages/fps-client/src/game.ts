@@ -379,7 +379,7 @@ export class Game {
   }
 
   /** One rendered frame. Call from the renderer's animation loop. */
-  frame(now: number): void {
+  frame(now: number, adjustResolution = true, render = true): void {
     const dt = this.#lastFrame === null ? 1 / 60 : Math.min(0.1, (now - this.#lastFrame) / 1000);
     this.#frameStart = this.#lastFrame ?? now - TICK_MS;
     this.#lastFrame = now;
@@ -474,8 +474,10 @@ export class Game {
     this.#effects.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
-    this.#worldView.lightMoving();
-    this.#pipeline.render(dt);
+    if (render) {
+      this.#worldView.lightMoving();
+      this.#pipeline.render(dt, adjustResolution);
+    }
   }
 
   /**
@@ -540,6 +542,7 @@ export class Game {
     const cam = this.#camera.camera;
     const pixelsPerDegree = this.#canvas.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360) / (180 / Math.PI);
     const status = driver.status;
+    const showOverlay = this.#settings.showRangeOverlay && this.#inRange();
     this.hud.update({
       self: this.#cur,
       pixelsPerDegree,
@@ -547,8 +550,8 @@ export class Game {
       ping: driver.ping === null ? null : driver.ping * 1000,
       showFps: this.#settings.showFps,
       showPing: this.#settings.showPing,
-      showOverlay: this.#settings.showRangeOverlay && this.#inRange(),
-      targetDistance: this.#targetDistance(eye, forward),
+      showOverlay,
+      targetDistance: showOverlay ? this.#targetDistance(eye, forward) : null,
       scores: driver.scores,
       pings: driver.pings,
       selfId: driver.selfId,

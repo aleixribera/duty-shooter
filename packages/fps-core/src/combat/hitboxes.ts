@@ -3,7 +3,7 @@ import type { Stance } from '../movement/pmove';
 import { STATS } from '../stats';
 
 /** The MW2019 hit zones. */
-export type HitZone = 'head' | 'neck' | 'upperTorso' | 'lowerTorso' | 'arm' | 'leg';
+export type HitZone = 'head' | 'neck' | 'upperTorso' | 'lowerTorso' | 'arm' | 'leg' | 'foot';
 
 /** A hitbox in the player's local frame: x right, y up from the feet, z forward. */
 interface LocalBox {
@@ -25,8 +25,10 @@ const STANDING: readonly LocalBox[] = [
   local('lowerTorso', [-0.19, 0.86, -0.12], [0.19, 1.06, 0.12]),
   local('arm', [-0.31, 1.0, -0.08], [-0.21, 1.36, 0.3]),
   local('arm', [0.21, 1.0, -0.08], [0.31, 1.36, 0.3]),
-  local('leg', [-0.19, 0, -0.1], [-0.01, 0.86, 0.1]),
-  local('leg', [0.01, 0, -0.1], [0.19, 0.86, 0.1]),
+  local('leg', [-0.19, 0.14, -0.1], [-0.01, 0.86, 0.1]),
+  local('leg', [0.01, 0.14, -0.1], [0.19, 0.86, 0.1]),
+  local('foot', [-0.19, 0, -0.1], [-0.01, 0.14, 0.1]),
+  local('foot', [0.01, 0, -0.1], [0.19, 0.14, 0.1]),
 ];
 
 /** Prone hitboxes: the body lies along the facing direction, head forward of the feet position. */
@@ -37,8 +39,10 @@ const PRONE: readonly LocalBox[] = [
   local('lowerTorso', [-0.19, 0, -0.1], [0.19, 0.25, 0.12]),
   local('arm', [-0.36, 0, 0.3], [-0.21, 0.24, 0.9]),
   local('arm', [0.21, 0, 0.3], [0.36, 0.24, 0.9]),
-  local('leg', [-0.19, 0, -0.98], [-0.01, 0.2, -0.1]),
-  local('leg', [0.01, 0, -0.98], [0.19, 0.2, -0.1]),
+  local('leg', [-0.19, 0, -0.8], [-0.01, 0.2, -0.1]),
+  local('leg', [0.01, 0, -0.8], [0.19, 0.2, -0.1]),
+  local('foot', [-0.19, 0, -0.98], [-0.01, 0.2, -0.8]),
+  local('foot', [0.01, 0, -0.98], [0.19, 0.2, -0.8]),
 ];
 
 /** What a hitbox test needs to know about one player at one moment. */
@@ -119,9 +123,19 @@ export function zoneCentre(pose: HitPose, zone: HitZone): Vec3 {
   return boxCentre(pose, box);
 }
 
-/** World-space centre of every hitbox, with its zone (a blast tests each part). */
+/** World-space centre of each body part for blast exposure. Feet and legs
+ * share their original leg volume, so the extra bullet zone does not change
+ * grenade coverage or weighting. */
 export function partCentres(pose: HitPose): { readonly zone: HitZone; readonly centre: Vec3 }[] {
-  return boxesFor(pose).map((box) => ({ zone: box.zone, centre: boxCentre(pose, box) }));
+  const boxes = boxesFor(pose);
+  const feet = boxes.filter((b) => b.zone === 'foot');
+  let leg = 0;
+  return boxes.filter((b) => b.zone !== 'foot').map((box) => {
+    if (box.zone !== 'leg') return { zone: box.zone, centre: boxCentre(pose, box) };
+    const foot = feet[leg++]!;
+    const whole = local('leg', [box.min[0], Math.min(box.min[1], foot.min[1]), Math.min(box.min[2], foot.min[2])], [box.max[0], Math.max(box.max[1], foot.max[1]), Math.max(box.max[2], foot.max[2])]);
+    return { zone: box.zone, centre: boxCentre(pose, whole) };
+  });
 }
 
 function boxCentre(pose: HitPose, box: LocalBox): Vec3 {

@@ -166,7 +166,7 @@ export class Menu {
   #error = '';
   /** The connection failure being shown: the driver's status, or null for a server that did not answer. */
   #failure: string | null = null;
-  readonly #lobby: Lobby | null;
+  #lobby: Lobby | null;
   readonly #version: string;
   #mode: ModeId = 'tdm';
   /** An empty server's bots a side, as picked; null keeps the server's own fill. */
@@ -254,6 +254,12 @@ export class Menu {
   failed(status: string | null): void {
     this.#failure = status;
     this.show('error');
+  }
+
+  /** New lobby status: the Play Online tile and screen follow it. */
+  setLobby(lobby: Lobby | null): void {
+    this.#lobby = lobby;
+    if (this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#rerender();
   }
 
   /** New lobby status: the Play Online tile and screen follow it. */
@@ -906,7 +912,7 @@ export class Menu {
       ], (v) => this.#change({ adsFov: v }));
       select('Graphics preset', s.preset, [
         ['low', 'Low'],
-        ['normal', 'Normal'],
+        ['normal', 'Medium'],
         ['high', 'High'],
       ], (v) => this.#change({ preset: v }));
     } else {

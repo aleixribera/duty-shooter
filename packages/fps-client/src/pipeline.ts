@@ -63,7 +63,7 @@ export const PRESETS: Readonly<Record<GraphicsPreset, PresetFeatures>> = {
  * The frame: the world pass (with ambient occlusion and temporal AA by
  * preset), the viewmodel drawn in its own pass with its own camera and FOV
  * and composited on top (so it never clips into walls), then bloom and the
- * renderer's tone mapping. Normal and High add a heat shimmer far off. Low adjusts the render scale to hold the frame rate.
+ * renderer's tone mapping. Normal and High add a heat shimmer far off. Low adjusts render scale to hold the frame rate.
  */
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
@@ -100,7 +100,7 @@ export class GamePipeline {
     return this.#preset;
   }
 
-  /** Current render scale (Low's dynamic resolution). */
+  /** Current dynamic render scale. */
   get renderScale(): number {
     return this.#scale;
   }
@@ -159,6 +159,8 @@ export class GamePipeline {
     this.#pipeline.outputNode = composite;
     this.#pipeline.needsUpdate = true;
     this.#scale = 1;
+    this.#frameTimes = [];
+    this.#sinceAdjust = 0;
     this.#renderer.setPixelRatio(this.#basePixelRatio);
   }
 
@@ -173,17 +175,18 @@ export class GamePipeline {
     if (this.#bloom) this.#bloom.strength.value = BLOOM + v;
   }
 
-  /** Renders a frame; `dt` (s) drives Low's dynamic resolution. */
-  render(dt: number): void {
+  /** Renders a frame; `dt` (s) drives dynamic resolution. */
+  render(dt: number, adjustResolution = true): void {
     this.#pipeline.render();
-    if (!PRESETS[this.#preset].dynamicResolution) return;
+    if (!adjustResolution || !PRESETS[this.#preset].dynamicResolution) return;
     this.#frameTimes.push(dt);
     if (this.#frameTimes.length > 60) this.#frameTimes.shift();
     this.#sinceAdjust += dt;
-    if (this.#sinceAdjust < 1 || this.#frameTimes.length < 30) return;
+    if (this.#sinceAdjust < 1 || this.#frameTimes.length < 5) return;
     this.#sinceAdjust = 0;
     const avg = this.#frameTimes.reduce((a, b) => a + b, 0) / this.#frameTimes.length;
-    const next = avg > 1 / 55 ? this.#scale - 0.1 : avg < 1 / 80 ? this.#scale + 0.05 : this.#scale;
+    // Allow recovery at a 60 Hz vsync cap, with a gap to avoid oscillation.
+    const next = avg > 1 / 50 ? this.#scale - 0.1 : avg < 1 / 58 ? this.#scale + 0.05 : this.#scale;
     const clamped = Math.min(1, Math.max(0.5, next));
     if (Math.abs(clamped - this.#scale) > 1e-3) {
       this.#scale = clamped;

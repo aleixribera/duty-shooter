@@ -96,6 +96,10 @@ class ParticleLayer {
 
   update(dt: number, camera: Camera): void {
     const list = this.#particles;
+    if (list.length === 0) {
+      this.mesh.count = 0;
+      return;
+    }
     for (let i = list.length - 1; i >= 0; i--) {
       const q = list[i] as Particle;
       q.age += dt;
@@ -522,8 +526,12 @@ export class Effects {
   }
 
   #updateCasings(dt: number): void {
-    const m = new Matrix4();
     const list = this.#casings;
+    if (list.length === 0) {
+      this.#casingMesh.count = 0;
+      return;
+    }
+    const m = new Matrix4();
     for (let i = list.length - 1; i >= 0; i--) {
       const c = list[i]!;
       c.age += dt;

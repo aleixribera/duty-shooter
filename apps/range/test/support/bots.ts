@@ -76,8 +76,8 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
 }
 
 /** A 3v3 Charge match of bots played to its end (15 minutes at most): the plants and every round's winner and attackers. */
-export function chargeToEnd(b: BotMap): { ended: boolean; plants: number; rounds: { winner: number; reason: RoundReason; attackers: number }[]; m: NetworkedMatch } {
-  const m = createNetworkedMatch({ solids: b.solids, spawns: b.map.spawns.ffa, teamSpawns: b.map.spawns.teams!, sites: b.map.sites, mode: 'charge', bots: { nav: b.nav, perTeam: 3, alwaysOn: true } });
+export function chargeToEnd(b: BotMap, perTeam = 3): { ended: boolean; plants: number; rounds: { winner: number; reason: RoundReason; attackers: number }[]; m: NetworkedMatch } {
+  const m = createNetworkedMatch({ solids: b.solids, spawns: b.map.spawns.ffa, teamSpawns: b.map.spawns.teams!, sites: b.map.sites, mode: 'charge', bots: { nav: b.nav, perTeam, alwaysOn: true } });
   const rounds: { winner: number; reason: RoundReason; attackers: number }[] = [];
   let attackers = 1;
   let plants = 0;

@@ -25,6 +25,8 @@ export function zoneMultiplier(zone: HitZone, weapon: WeaponId = 'm4a1'): number
       return D.armMultiplier.value;
     case 'leg':
       return D.legMultiplier.value;
+    case 'foot':
+      return (D.footMultiplier ?? D.legMultiplier).value;
   }
 }
 

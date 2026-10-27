@@ -22,12 +22,18 @@ describe('sniper kills', () => {
     }
   });
 
-  it('needs two hits to the lower torso, an arm or a leg', () => {
+  it('kills with a shot to the lower torso, arm or leg', () => {
     for (const zone of ['lowerTorso', 'arm', 'leg'] as const) {
       const kill = measuredKill('sniper', 40, zone, { settle: SETTLE });
       expect(kill.zone, zone).toBe(zone);
-      expect(kill.hits, zone).toBe(2);
+      expect(kill.hits, zone).toBe(1);
     }
+  });
+
+  it('needs two hits to a foot', () => {
+    const kill = measuredKill('sniper', 6, 'foot', { settle: SETTLE });
+    expect(kill.zone).toBe('foot');
+    expect(kill.hits).toBe(2);
   });
 
   it('works the bolt after every shot, so a miss costs over a second', () => {

@@ -40,10 +40,10 @@ describe('time-to-kill targets', () => {
     for (const d of [19, 25, 40]) expect(shotsToKill('shotgun', d), `${d} m`).toBeGreaterThan(2);
   });
 
-  it('the sniper kills in one shot to the head, neck or upper torso at any range, two to the lower torso and limbs', () => {
+  it('the sniper kills in one shot except to the feet at any range', () => {
     for (const d of [5, 30, 80, 200]) {
-      for (const zone of ['head', 'neck', 'upperTorso'] as const) expect(shotsToKill('sniper', d, zone), `${zone} at ${d} m`).toBe(1);
-      for (const zone of ['lowerTorso', 'arm', 'leg'] as const) expect(shotsToKill('sniper', d, zone), `${zone} at ${d} m`).toBe(2);
+      for (const zone of ['head', 'neck', 'upperTorso', 'lowerTorso', 'arm', 'leg'] as const) expect(shotsToKill('sniper', d, zone), `${zone} at ${d} m`).toBe(1);
+      expect(shotsToKill('sniper', d, 'foot'), `foot at ${d} m`).toBe(2);
     }
   });
 
