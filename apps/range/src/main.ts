@@ -196,7 +196,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     settings,
     {
       practiceRange: () => void playOffline('range'),
-      explore: (id: string) => void playOffline(MAP_IDS.find((m) => m === id) ?? 'survival-town'),
       botMatch: (id: string, mode: ModeId, botsPerTeam: number, hvb: boolean) => void playBots(MAP_IDS.find((m) => m === id) ?? 'survival-town', mode, botsPerTeam, hvb),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
@@ -337,6 +336,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   game = createGame(initial);
   if (invited !== null && lobby?.kind === 'server') menu.openOnline();
+  // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
+  const explore = MAP_IDS.find((m) => m === params.get('explore'));
+  if (explore) void playOffline(explore);
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
   const spotName = params.get('spot');
   let fixedCamera = false;

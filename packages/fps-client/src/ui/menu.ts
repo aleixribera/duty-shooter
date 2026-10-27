@@ -122,8 +122,6 @@ const BOT_MAPS = ['survival-town', 'switchyard'] as const;
 export interface MenuCallbacks {
   /** Practice on the range, offline. */
   practiceRange(): void;
-  /** Walk a map alone, offline. */
-  explore(map: string): void;
   /** A match against bots on `map`, offline: `botsPerTeam` a side (twice that in free-for-all, you included), or humans vs bots in a team mode. */
   botMatch(map: string, mode: ModeId, botsPerTeam: number, hvb: boolean): void;
   /** Join the server with this name and passphrase; `mode` and `bots` (a side) are the choices for an empty server, null for its own. */
@@ -579,8 +577,6 @@ export class Menu {
     }
     tile('bots', 'Bot Match', 'Either map, any mode, against bots. Offline.', () => this.show('bots'));
     tile('range', 'Practice Range', 'Lanes, dummies and the movement course. Offline.', () => this.#callbacks.practiceRange(), lobby?.kind !== 'server');
-    tile('town', 'Explore Survival Town', 'Walk the map alone. Offline.', () => this.#callbacks.explore('survival-town'));
-    tile('yard', 'Explore Switchyard', 'Walk the freight yard alone. Offline.', () => this.#callbacks.explore('switchyard'));
     tile('settings', 'Settings', 'Controls, keys, video and interface.', () => {
       this.#back = 'main';
       this.show('settings');
