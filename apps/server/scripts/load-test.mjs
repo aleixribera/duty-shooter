@@ -14,9 +14,15 @@ const server = spawn(process.execPath, ['dist/main.js'], {
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 server.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
-await new Promise((r) => setTimeout(r, 800));
+// The server builds every lobby map's nav graph before it listens: wait for it to answer.
+let health = null;
+for (let i = 0; i < 120 && !health; i++) {
+  health = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.json(), () => null);
+  if (!health) await new Promise((r) => setTimeout(r, 500));
+}
+if (!health) throw new Error('The server did not start in 60 s');
 // The protocol the server speaks, so this script never goes stale when it changes.
-const { protocol } = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.json());
+const { protocol } = health;
 
 const sockets = [];
 for (let i = 0; i < clients; i++) {
@@ -44,6 +50,7 @@ for (let i = 0; i < clients; i++) {
 setTimeout(() => {
   console.log(`snapshots received per client: ${sockets.map((s) => s.stats()).join(', ')}`);
   for (const s of sockets) s.ws.close();
+  // Its last log lines still need the pipe: exit once it has.
+  server.on('exit', () => process.exit(0));
   server.kill('SIGTERM');
-  setTimeout(() => process.exit(0), 300);
 }, seconds * 1000);
