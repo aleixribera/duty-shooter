@@ -90,6 +90,8 @@ export interface GableRoofSpec {
   readonly looks?: { readonly roof: Look | string; readonly gable: Look | string };
   /** Builds the gable ends alone (used to paint them apart from the slopes). */
   readonly gablesOnly?: boolean;
+  /** False for a roof out of the players' reach: the slopes get no player clip steps. */
+  readonly walkable?: boolean;
 }
 
 /** Player clip steps under a slope rise by this much each (m): fine enough that walking up feels smooth. */
@@ -274,9 +276,10 @@ export class Builder {
   /**
    * A walkable sloped plane from an edge at height `low` up to an edge at
    * `high`: drawn and shot at as a sloped bullet surface whose top is the
-   * plane, walked on as player clip steps filled down to `base`.
+   * plane, walked on as player clip steps filled down to `base` (none when
+   * `walkable` is false).
    */
-  slope(spec: { readonly from: readonly [number, number]; readonly to: readonly [number, number]; readonly across: readonly [number, number]; readonly along: 'x' | 'z'; readonly base: number; readonly low: number; readonly high: number; readonly material: Material }): void {
+  slope(spec: { readonly from: readonly [number, number]; readonly to: readonly [number, number]; readonly across: readonly [number, number]; readonly along: 'x' | 'z'; readonly base: number; readonly low: number; readonly high: number; readonly material: Material; readonly walkable?: boolean }): void {
     const { along, base, low, high } = spec;
     // Horizontal direction from the low edge to the high edge, and the run.
     const a = along === 'x' ? spec.from[0] : spec.from[1];
@@ -284,7 +287,7 @@ export class Builder {
     const run = Math.abs(b - a);
     const sign = Math.sign(b - a);
     const [c0, c1] = spec.across;
-    const steps = Math.ceil((high - low) / SLOPE_STEP - 1e-9);
+    const steps = spec.walkable === false ? 0 : Math.ceil((high - low) / SLOPE_STEP - 1e-9);
     for (let i = 0; i < steps; i++) {
       const p = a + (sign * run * i) / steps;
       const q = a + (sign * run * (i + 1)) / steps;
@@ -314,17 +317,17 @@ export class Builder {
       if (gables) this.paint(looks.gable, () => this.gableRoof({ ...rest, gables, gablesOnly: true }));
       return;
     }
-    const { x0, x1, z0, z1, base, eave, peak } = spec;
+    const { x0, x1, z0, z1, base, eave, peak, walkable = true } = spec;
     if (spec.gablesOnly) {
       // Only the gable ends (see looks).
     } else if (spec.ridge === 'z') {
       const xc = (x0 + x1) / 2;
-      this.slope({ from: [x0, 0], to: [xc, 0], across: [z0, z1], along: 'x', base, low: eave, high: peak, material: spec.material });
-      this.slope({ from: [x1, 0], to: [xc, 0], across: [z0, z1], along: 'x', base, low: eave, high: peak, material: spec.material });
+      this.slope({ from: [x0, 0], to: [xc, 0], across: [z0, z1], along: 'x', base, low: eave, high: peak, material: spec.material, walkable });
+      this.slope({ from: [x1, 0], to: [xc, 0], across: [z0, z1], along: 'x', base, low: eave, high: peak, material: spec.material, walkable });
     } else {
       const zc = (z0 + z1) / 2;
-      this.slope({ from: [0, z0], to: [0, zc], across: [x0, x1], along: 'z', base, low: eave, high: peak, material: spec.material });
-      this.slope({ from: [0, z1], to: [0, zc], across: [x0, x1], along: 'z', base, low: eave, high: peak, material: spec.material });
+      this.slope({ from: [0, z0], to: [0, zc], across: [x0, x1], along: 'z', base, low: eave, high: peak, material: spec.material, walkable });
+      this.slope({ from: [0, z1], to: [0, zc], across: [x0, x1], along: 'z', base, low: eave, high: peak, material: spec.material, walkable });
     }
     const g = spec.gables;
     if (!g) return;

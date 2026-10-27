@@ -2,6 +2,7 @@ import { createWorld, raycastWorld, yawBox, type Material, type PlayerSpawn, typ
 import type { Finish, Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, type Opening, type Rect, type WallTrim } from './builder';
 import { mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
+import type { Label } from './map';
 
 /**
  * Survival Town: a recreation of the original 2010 suburban test-site map
@@ -29,15 +30,22 @@ const DOOR_W = 0.91;
 const CIRCLE_R = 8.75;
 const STREET_HALF = 4.5;
 const STREET_END = 20;
+/** The road barricade across the street end stands this far inside it. */
+const BARRICADE_X = STREET_END - 0.6;
 /** Boundary clip reaches this high: out of reach of any jump or mantle. */
 const SKY = 100;
 
-/** The playable edge's north half, from the street end round to the street's axis on the west (x, z). */
+/**
+ * The playable edge's north half, from the street end round to the street's
+ * axis on the west (x, z). The east side path runs on past the house into the
+ * back yard, wide enough for a player all the way, with the raised bed and
+ * the roof's eave inside the edge.
+ */
 const NORTH_EDGE: readonly (readonly [number, number])[] = [
   [STREET_END, -8.5],
   [9.5, -8.5],
   [10.25, -16],
-  [6.25, -32],
+  [9.25, -32],
   [4.25, -40],
   [2.75, -47.5],
   [1.75, -51.5],
@@ -118,6 +126,12 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   tank: { family: 'sheetMetal', color: 0xb7bcbf },
   bunker: { family: 'concrete', color: 0xb9b2a4, accent: 0x9a9386 },
   pole: { family: 'floor', color: 0x6b5038, accent: 0x5a4330 },
+  'barricade.white': { family: 'paint', color: 0xf2efe8 },
+  'barricade.orange': { family: 'paint', color: 0xe06a2c },
+  rock: { family: 'concrete', color: 0x86745f, accent: 0x6a5b4b },
+  scrub: { family: 'grass', color: 0x8c8a55, accent: 0x6c6c42 },
+  'lot.siding': { family: 'siding', color: 0xc9d3d6 },
+  'lot.siding.warm': { family: 'siding', color: 0xe2c6b0 },
   // The population sign.
   'sign.board': { family: 'paint', color: 0xf2ead6 },
   'sign.post': { family: 'paint', color: 0x3c3f43 },
@@ -633,26 +647,68 @@ function buildYards(b: Builder): void {
   south.paint('table', () => south.box(-11, 0, 44.5, -9, 0.75, 45.5, 'wood'));
 }
 
-/** Picket fences just inside the back-yard edges (far enough in that standing on one never touches the boundary), with posts at the corners. */
+/**
+ * Picket fences just inside the whole playable edge (far enough in that
+ * standing on one never touches the boundary), with posts at the corners and
+ * every few metres: round both houses and yards from the street end's
+ * barricade on one side to the barricade on the other.
+ */
 function buildFences(b: Builder): void {
   const inset = 0.45;
-  for (const s of [-1, 1] as const) {
-    // The back-yard edges, round the back from the east side path to the west side yard.
-    const edge = NORTH_EDGE.slice(3, 12).map(([x, z]) => [x, s === -1 ? z : -z] as const);
-    const inner = edge.map((_, i) => insetVertex(edge, i, inset));
-    // Start clear of the house's back corner, where the first edge begins.
-    const [f0, f1] = [inner[0]!, inner[1]!];
-    const flen = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
-    inner[0] = [f0[0] + ((f1[0] - f0[0]) / flen) * 0.8, f0[1] + ((f1[1] - f0[1]) / flen) * 0.8];
-    for (let i = 0; i < inner.length - 1; i++) {
-      const [ax, az] = inner[i]!;
-      const [bx, bz] = inner[i + 1]!;
-      const len = Math.hypot(bx - ax, bz - az);
-      const yaw = Math.atan2(-(bz - az), bx - ax);
-      b.turned([(ax + bx) / 2, 0.5, (az + bz) / 2], [len - 0.14, 1.0, 0.08], yaw, 'wood', { side: 'fence', top: 'trim' });
+  const inner = PLAY_AREA.map((_, i) => insetVertex(PLAY_AREA, i, inset));
+  // The two ends meet the barricade across the street end.
+  inner[0] = [BARRICADE_X, inner[0]![1]];
+  inner[inner.length - 1] = [BARRICADE_X, inner.at(-1)![1]];
+  const posts: (readonly [number, number])[] = [inner[0]!];
+  for (let i = 0; i < inner.length - 1; i++) {
+    const [ax, az] = inner[i]!;
+    const [bx, bz] = inner[i + 1]!;
+    const len = Math.hypot(bx - ax, bz - az);
+    const yaw = Math.atan2(-(bz - az), bx - ax);
+    // Panels between posts at most 4 m apart.
+    const n = Math.ceil(len / 4);
+    for (let k = 0; k < n; k++) {
+      const p = [ax + ((bx - ax) * k) / n, az + ((bz - az) * k) / n] as const;
+      const q = [ax + ((bx - ax) * (k + 1)) / n, az + ((bz - az) * (k + 1)) / n] as const;
+      b.turned([(p[0] + q[0]) / 2, 0.5, (p[1] + q[1]) / 2], [len / n - 0.14, 1.0, 0.08], yaw, 'wood', { side: 'fence', top: 'trim' });
+      posts.push(q);
     }
-    for (const [x, z] of inner) b.add([x - 0.07, 0, z - 0.07], [x + 0.07, 1.1, z + 0.07], 'wood', { look: 'trim' });
   }
+  for (const [x, z] of posts) b.add([x - 0.07, 0, z - 0.07], [x + 0.07, 1.1, z + 0.07], 'wood', { look: 'trim' });
+}
+
+/**
+ * The barricade closing the street end: striped road barricades on posts
+ * from fence to fence, across the lawns, sidewalks and the road, with a
+ * "road closed" board over the middle.
+ */
+function buildBarricade(b: Builder): Label[] {
+  const x = BARRICADE_X;
+  // Clear of the fences' end posts.
+  const span = 7.95;
+  const sections = 7;
+  const w = (2 * span) / sections;
+  const rails = [0.3, 0.7, 1.1];
+  const rail = { h: 0.22, t: 0.025 };
+  const stripe = 0.3;
+  for (let i = 0; i < sections; i++) {
+    const z0 = -span + i * w;
+    const z1 = z0 + w;
+    const middle = i === (sections - 1) / 2;
+    // A post at each end, inside the fence's end post at the edges, the middle pair carrying the board.
+    for (const z of [z0 + 0.12, z1 - 0.2]) b.add([x - 0.04, 0, z], [x + 0.04, middle ? 2.2 : 1.4, z + 0.08], 'metal', { look: 'site.steel' });
+    for (const y of rails) {
+      const r = b.add([x - 0.04 - rail.t, y, z0 + 0.04], [x - 0.04, y + rail.h, z1 - 0.04], 'wood', { look: 'barricade.white' });
+      // Orange bands across the town-facing side, alternating with the white.
+      // Each band wraps a hair over the rail's top and bottom, so no face shares the rail's plane.
+      const face = x - 0.04 - rail.t;
+      for (let z = z0 + 0.04 + stripe / 2; z + stripe <= z1 - 0.04 + 1e-6; z += 2 * stripe) {
+        b.decorateBox(r, [face - 0.012, y - 0.003, z], [face + SINK, y + rail.h + 0.003, z + stripe], 'barricade.orange');
+      }
+    }
+    if (middle) b.add([x - 0.1, 1.55, z0 + 0.04], [x - 0.04, 2.15, z1 - 0.04], 'wood', { look: 'barricade.white' });
+  }
+  return [{ text: 'ROAD CLOSED', position: [x - 0.106, 1.85, 0], yaw: -Math.PI / 2, size: 0.38 }];
 }
 
 /** Mannequin heads are props named like this, numbered from 0. */
@@ -791,6 +847,118 @@ function buildScenery(b: Builder): void {
   });
 }
 
+/**
+ * The test town carries on past the barricade: a checkpoint on the road
+ * with a guard hut and a boom gate, and two more houses on the south side of
+ * the street. They keep south of the line from the town to the nuke's ground
+ * zero, so the bomb stays in view.
+ */
+function buildOutskirts(b: Builder): void {
+  // The guard hut on the north verge, a window toward the road and one toward the town.
+  const hut = b.add([33, 0, -9.8], [35.4, 2.6, -7.6], 'sheetMetal', { look: { side: 'site.paint', top: 'roof.flat' } });
+  b.decorateBox(hut, [34.6 - 1.2, 1.15, -7.6 - SINK], [34.6 - 0.2, 2.0, -7.6 + 0.012], 'window.tint');
+  b.decorateBox(hut, [33 - 0.012, 1.15, -9.3], [33 + SINK, 2.0, -8.1], 'window.tint');
+  b.add([32.8, 2.6, -10], [35.6, 2.75, -7.4], 'metal', { look: { side: 'site.steel', top: 'roof.flat', bottom: 'site.steel' } });
+  // The boom gate: a post on the north sidewalk, a striped arm down across the road onto a rest on the south side.
+  const gx = 36;
+  b.paint('site.steel', () => {
+    b.add([gx - 0.15, 0, -5.6], [gx + 0.15, 1.15, -5.3], 'metal');
+    b.add([gx - 0.15, 0, 5.0], [gx + 0.15, 0.95, 5.3], 'metal');
+    b.add([gx - 0.12, 0.9, -6.2], [gx + 0.12, 1.2, -5.6], 'metal');
+  });
+  const arm = b.add([gx - 0.08, 0.95, -5.3], [gx + 0.08, 1.1, 5.25], 'wood', { look: 'barricade.white' });
+  for (let z = -5.3 + 0.3; z + 0.3 < 5.0; z += 0.6) {
+    for (const f of [-1, 1]) {
+      const xf = gx + f * 0.08;
+      b.decorateBox(arm, [Math.min(xf - f * SINK, xf + f * 0.012), 0.947, z], [Math.max(xf - f * SINK, xf + f * 0.012), 1.103, z + 0.3], 'barricade.orange');
+    }
+  }
+  // Two houses down the street, closed up: a foundation, the walls, a gable roof out of anyone's reach.
+  for (const [x0, x1, siding] of [
+    [41, 51, 'lot.siding'],
+    [58, 67, 'lot.siding.warm'],
+  ] as const) {
+    const [z0, z1] = [13, 21];
+    b.add([x0 - 0.15, 0, z0 - 0.15], [x1 + 0.15, 0.3, z1 + 0.15], 'concrete', { look: 'walk' });
+    const house = b.add([x0, 0.3, z0], [x1, 3.1, z1], 'wood', { look: { side: siding, top: 'roof.flat' } });
+    // Windows and a door on the front, toward the street.
+    // Each frame stands a little proud of the wall, and its pane a little prouder, so the frame shows as a border.
+    const front = (a0: number, a1: number, y0: number, y1: number, proud: number, finish: string) => b.decorateBox(house, [a0, y0, z0 - proud], [a1, y1, z0 + SINK], finish);
+    for (const a of [x0 + 1.2, x1 - 3.2]) {
+      front(a - 0.08, a + 2.08, 1.12, 2.38, 0.015, 'trim');
+      front(a, a + 2, 1.2, 2.3, 0.025, 'window.tint');
+    }
+    const door = (x0 + x1) / 2 - 0.45;
+    front(door - 0.08, door + 0.99, 0.3, 2.41, 0.015, 'trim');
+    front(door, door + 0.91, 0.31, 2.33, 0.025, 'north.shutter');
+    b.gableRoof({
+      x0: x0 - 0.4,
+      x1: x1 + 0.4,
+      z0: z0 - 0.4,
+      z1: z1 + 0.4,
+      ridge: 'x',
+      base: 3.1,
+      eave: 3.1,
+      peak: 4.9,
+      material: 'wood',
+      walkable: false,
+      gables: { at: [x0 + 0.1, x1 - 0.1], thickness: 0.2, material: 'wood', overhang: 0.4 },
+      looks: { roof: ROOF, gable: { side: siding } },
+    });
+  }
+}
+
+/** Desert rocks and scrub scattered round the town, clear of the lawns, the road and the scenery. */
+function buildDesert(b: Builder): void {
+  // A fixed seed, so the desert is the same every build (mulberry32).
+  let seed = 0x5eed;
+  const random = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  // Keep-out rectangles (x0, z0, x1, z1): the lawns, the road and its verges, and every piece of scenery.
+  const keepOut: readonly (readonly [number, number, number, number])[] = [
+    [-30, -56, 24, 56],
+    [18, -11, 90, 11],
+    [-52, 8, -40, 20],
+    [-35, -73, -25, -63],
+    [29, 39, 39, 49],
+    [-52, -43, -36, -30],
+    [33, -41, 47, -29],
+    [51, -27, 69, -13],
+    [-68, -18, -52, -2],
+    [38, 10, 70, 24],
+    // Open ground round the point the far ground takes its light from.
+    [-84, -84, -76, -76],
+  ];
+  const clear = (x: number, z: number, r: number) => keepOut.every(([x0, z0, x1, z1]) => x < x0 - r || x > x1 + r || z < z0 - r || z > z1 + r);
+  let rocks = 0;
+  let scrub = 0;
+  for (let tries = 0; tries < 2000 && (rocks < 26 || scrub < 40); tries++) {
+    const x = -86 + random() * 172;
+    const z = -86 + random() * 172;
+    const yaw = random() * Math.PI;
+    if (rocks < 26 && clear(x, z, 2.5)) {
+      // A boulder and a smaller stone leaning on it.
+      const w = 1.2 + random() * 1.4;
+      const h = 0.5 + random() * 0.7;
+      b.turned([x, h / 2, z], [w, h, w * (0.6 + random() * 0.3)], yaw, 'concrete', { side: 'rock', top: 'rock' });
+      const s = 0.5 + random() * 0.4;
+      b.turned([x + Math.cos(yaw) * w * 0.55, (h * s) / 2, z - Math.sin(yaw) * w * 0.55], [w * s, h * s, w * s * 0.7], yaw + 0.6, 'concrete', { side: 'rock', top: 'rock' });
+      rocks++;
+    } else if (scrub < 40 && clear(x, z, 1.5)) {
+      // A clump of scrub: a low tuft under a smaller one turned across it.
+      const w = 0.7 + random() * 0.6;
+      const h = 0.35 + random() * 0.3;
+      b.turned([x, h / 2, z], [w, h, w * 0.8], yaw, 'grass', 'scrub');
+      b.turned([x, (h * 1.45) / 2, z], [w * 0.6, h * 1.45, w * 0.55], yaw + Math.PI / 4, 'grass', 'scrub');
+      scrub++;
+    }
+  }
+}
+
 /** The unit normal of edge a-c that points into the playable area. */
 function inwardNormal(a: readonly [number, number], c: readonly [number, number]): [number, number] {
   const l = Math.hypot(c[0] - a[0], c[1] - a[1]);
@@ -812,7 +980,12 @@ function insetVertex(line: readonly (readonly [number, number])[], i: number, in
   return [p[0] + (n1[0] + n2[0]) * k, p[1] + (n1[1] + n2[1]) * k];
 }
 
-/** Player clip along every edge of the playable area, from the ground into the sky, just outside the edge. */
+/**
+ * Player clip along every edge of the playable area, from the ground into the
+ * sky, just outside the edge. Each slab runs on past an outside corner to
+ * close it, but stops at an inside corner, where running on would stand in
+ * the playable area.
+ */
 function buildBoundary(b: Builder): void {
   const n = PLAY_AREA.length;
   const thickness = 1;
@@ -825,18 +998,27 @@ function buildBoundary(b: Builder): void {
     // Outward normal: the side the polygon's inside is not on.
     let nx = -dz;
     let nz = dx;
-    const mx = (ax + bx) / 2;
-    const mz = (az + bz) / 2;
-    if (inside(mx + nx * 0.1, mz + nz * 0.1)) {
+    if (inside((ax + bx) / 2 + nx * 0.1, (az + bz) / 2 + nz * 0.1)) {
       nx = -nx;
       nz = -nz;
     }
-    const yaw = Math.atan2(-dz, dx);
+    // How far the slab runs on past each end: on past an outside corner, and
+    // short of an inside one (where the neighbouring edge heads outward), by
+    // as much as its outer face would cross that edge.
+    const past = (x: number, z: number, along: 1 | -1, [ox, oz]: readonly [number, number]) => {
+      if ((ox - x) * nx + (oz - z) * nz <= 0) return thickness / 2;
+      let s = 0;
+      while (s < len / 2 && inside(x - dx * along * s + nx * thickness, z - dz * along * s + nz * thickness)) s += 0.01;
+      return -s;
+    };
+    const back = past(ax, az, -1, PLAY_AREA[(i + n - 1) % n]!);
+    const on = past(bx, bz, 1, PLAY_AREA[(i + 2) % n]!);
+    const mid = (on - back) / 2;
     b.hidden.push(
       yawBox({
-        center: [mx + (nx * thickness) / 2, SKY / 2 - 1, mz + (nz * thickness) / 2],
-        size: [len + thickness, SKY, thickness],
-        yaw,
+        center: [(ax + bx) / 2 + dx * mid + (nx * thickness) / 2, SKY / 2 - 1, (az + bz) / 2 + dz * mid + (nz * thickness) / 2],
+        size: [len + back + on, SKY, thickness],
+        yaw: Math.atan2(-dz, dx),
         material: 'concrete',
         blocks: 'players',
       }),
@@ -874,7 +1056,7 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
       [-18, 38],
       [-4, 40],
       [-7.5, 45.5],
-      [-20.5, 24], // west side yard
+      [-19.9, 24], // west side yard, clear of the fence
       [8.5, 18.5], // east side path
       [-19, 6], // front lawn, west
       [16.5, 6.5], // the sidewalk by the street end
@@ -1044,7 +1226,10 @@ export function buildSurvivalTown(): MapDefinition {
   buildFences(b);
   buildMannequins(b, sides);
   const populationSign = buildSign(b);
+  const labels = buildBarricade(b);
   buildScenery(b);
+  buildOutskirts(b);
+  buildDesert(b);
   buildBoundary(b);
   const spawns = spawnSets();
   const dummies: PlayerSpawn[] = [];
@@ -1057,7 +1242,7 @@ export function buildSurvivalTown(): MapDefinition {
     looks: b.looks,
     decorations: b.decorations,
     ramps: [],
-    labels: [],
+    labels,
     populationSign,
     horizon: { ground: 'desert', inner: { x0: -90, x1: 90, z0: -90, z1: 90 }, light: [-80, -80] },
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.

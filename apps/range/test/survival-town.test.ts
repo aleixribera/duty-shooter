@@ -299,6 +299,51 @@ describe('Survival Town: containment', () => {
       expect(escaped).toEqual([]);
     });
   }
+
+  /** A solid's footprint corners (x, z). */
+  const footprint = (s: Solid): [number, number][] => {
+    const o = s.orientation;
+    if (!o) return [[s.min[0], s.min[2]], [s.max[0], s.min[2]], [s.max[0], s.max[2]], [s.min[0], s.max[2]]];
+    const [a, , c] = [o.axes[0], o.axes[1], o.axes[2]];
+    return ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([i, j]) => [o.center[0] + a[0] * o.half[0] * i + c[0] * o.half[2] * j, o.center[2] + a[2] * o.half[0] * i + c[2] * o.half[2] * j]);
+  };
+
+  it('the edge cuts through nothing: every drawn solid but the ground lies wholly inside it or wholly outside', () => {
+    const cut = map.solids.filter((s) => !(s.max[1] === 0 && s.min[1] < 0)).filter((s) => new Set(footprint(s).map(([x, z]) => insidePolygon(area, x, z))).size > 1);
+    expect(cut.map((s) => `${s.material} ${s.min.map((v) => v.toFixed(2))}..${s.max.map((v) => v.toFixed(2))}`)).toEqual([]);
+  });
+
+  it('the boundary clip stands wholly outside the edge, even at its inside corners', () => {
+    const clips = map.hiddenSolids.filter((s) => s.max[1] > 50);
+    const inClip = (s: Solid, x: number, z: number) => {
+      const o = s.orientation;
+      if (!o) return x > s.min[0] && x < s.max[0] && z > s.min[2] && z < s.max[2];
+      const along = (x - o.center[0]) * o.axes[0][0] + (z - o.center[2]) * o.axes[0][2];
+      const across = (x - o.center[0]) * o.axes[2][0] + (z - o.center[2]) * o.axes[2][2];
+      return Math.abs(along) < o.half[0] - 1e-6 && Math.abs(across) < o.half[2] - 1e-6;
+    };
+    const eaten: string[] = [];
+    for (let x = -30; x < 25; x += 0.1) {
+      for (let z = -55; z < 55; z += 0.1) {
+        if (insidePolygon(area, x, z) && clips.some((s) => inClip(s, x, z))) eaten.push(`${x.toFixed(1)}, ${z.toFixed(1)}`);
+      }
+    }
+    expect(eaten).toEqual([]);
+  });
+
+  it('a fence or the road barricade shows the edge everywhere, before the invisible boundary', () => {
+    const unmarked: string[] = [];
+    for (const { point, out } of edgeSamples(1, 1.2)) {
+      // Only from where a player can stand (not behind the barricade, or in a wall).
+      const [x, z] = point;
+      if (world.movement.inRect(x - HALF, z - HALF, x + HALF, z + HALF).some((i) => hullTouches(world.solids[i]!, [x, 0.05, z]))) continue;
+      // Knee high, from 1.2 m in, straight out to the edge.
+      const from: Vec3 = [x, 0.45, z];
+      const hit = raycastWorld(world, from, [from[0] + out[0] * 1.2, 0.45, from[2] + out[1] * 1.2]);
+      if (!hit || world.solids[hit.solid]!.blocks === 'players') unmarked.push(`${point[0].toFixed(1)}, ${point[1].toFixed(1)}`);
+    }
+    expect(unmarked).toEqual([]);
+  });
 });
 
 describe('Survival Town: bullets and invisible blockers', () => {
