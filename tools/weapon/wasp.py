@@ -7,10 +7,13 @@ export contains only the asset collection.
 import math
 import os
 import random
+import tempfile
 import bpy
 from mathutils import Matrix, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+tempfile.tempdir = os.path.join(ROOT, 'node_modules', 'weapon-work', 'tmp')
+os.makedirs(tempfile.tempdir, exist_ok=True)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 scene = bpy.context.scene
@@ -27,19 +30,55 @@ def material(name, color, metal, rough):
     bsdf.inputs['Metallic'].default_value = metal
     bsdf.inputs['Roughness'].default_value = rough
     if name in ('Black nitride slide', 'Moulded charcoal polymer', 'Grip texture', 'Barrel steel'):
-        # Fine, restrained surface variation.  The texture is packed into the
-        # blend and exported with the GLB so the game sees the same finish.
+        # Subtle material-specific grain, roughness and tangent-space relief.
+        # All three maps are packed and travel with the exported GLB.
         rng = random.Random(name)
         image = bpy.data.images.new(name + ' microtexture', width=128, height=128)
-        pixels = []
-        for _ in range(128 * 128):
-            grain = rng.uniform(.90, 1.10)
-            pixels.extend((color[0]*grain, color[1]*grain, color[2]*grain, 1))
+        heights = []
+        for y in range(128):
+            for x in range(128):
+                # Steel has fine parallel machining, polymer has irregular
+                # mould texture. Periodic terms make the tile seamless.
+                if metal > .5:
+                    height = .45*math.sin(y*math.tau*19/128) + .18*math.sin(y*math.tau*37/128 + x*math.tau/128) + rng.uniform(-.22,.22)
+                else:
+                    height = rng.uniform(-.65,.65)
+                heights.append(height)
+        pixels, normal_pixels, rough_pixels = [], [], []
+        for y in range(128):
+            for x in range(128):
+                i = y*128+x
+                grain = 1 + heights[i]*.055
+                pixels.extend((color[0]*grain, color[1]*grain, color[2]*grain, 1))
+                dx = heights[y*128+(x+1)%128] - heights[y*128+(x-1)%128]
+                dy = heights[((y+1)%128)*128+x] - heights[((y-1)%128)*128+x]
+                normal = Vector((-dx*.018, -dy*.018, 1)).normalized()
+                normal_pixels.extend((normal.x*.5+.5, normal.y*.5+.5, normal.z*.5+.5, 1))
+                r = min(1, max(0, rough + heights[i]*.025))
+                rough_pixels.extend((r, r, r, 1))
         image.pixels.foreach_set(pixels)
         image.pack()
         image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
         image_node.image = image
         mat.node_tree.links.new(image_node.outputs['Color'], bsdf.inputs['Base Color'])
+        normal_image = bpy.data.images.new(name + ' normal', width=128, height=128)
+        normal_image.colorspace_settings.name = 'Non-Color'
+        normal_image.pixels.foreach_set(normal_pixels)
+        normal_image.pack()
+        normal_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        normal_tex.image = normal_image
+        normal_map = mat.node_tree.nodes.new('ShaderNodeNormalMap')
+        mat.node_tree.links.new(normal_tex.outputs['Color'], normal_map.inputs['Color'])
+        mat.node_tree.links.new(normal_map.outputs['Normal'], bsdf.inputs['Normal'])
+        rough_image = bpy.data.images.new(name + ' roughness', width=128, height=128)
+        rough_image.colorspace_settings.name = 'Non-Color'
+        rough_image.pixels.foreach_set(rough_pixels)
+        rough_image.pack()
+        rough_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        rough_tex.image = rough_image
+        separate = mat.node_tree.nodes.new('ShaderNodeSeparateColor')
+        mat.node_tree.links.new(rough_tex.outputs['Color'], separate.inputs['Color'])
+        mat.node_tree.links.new(separate.outputs['Green'], bsdf.inputs['Roughness'])
     return mat
 
 slide_mat = material('Black nitride slide', (.055, .061, .064), .78, .36)
@@ -207,6 +246,8 @@ mag = join('mag', mag_parts, (0,.004,-.040))
 body_obj = join('body', body, (0,0,0))
 for obj in (body_obj, mag):
     uv = obj.data.uv_layers.new(name='Surface UV')
+    obj.data.uv_layers.active = uv
+    uv.active_render = True
     for poly in obj.data.polygons:
         axis = max(range(3), key=lambda i: abs(poly.normal[i]))
         coords = ((1, 2), (0, 2), (0, 1))[axis]
@@ -221,5 +262,6 @@ for obj in (body_obj, mag):
 scene.render.engine = 'CYCLES'
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, 'tools/weapon/smg.blend'))
 bpy.ops.export_scene.gltf(filepath=os.path.join(ROOT, 'packages/fps-client/src/viewmodel/assets/smg.glb'), export_format='GLB', use_selection=True)
+
 
 
