@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bot, Simulation, TICK_SECONDS, botProfile, viewDirection, buildNavGraph, createWorld, findPath, raycastWorld, zoneCentre, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { BOT_NAMES, BOT_STYLES, Bot, Simulation, TICK_SECONDS, botName, botProfile, viewDirection, buildNavGraph, createWorld, findPath, raycastWorld, zoneCentre, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { box, usercmd } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -154,7 +154,7 @@ describe('a bot', () => {
     }
   });
 
-  it('is a moderate shot: a strafing player at 20 m goes down in 0.7 to 2.5 s', () => {
+  it('is a moderate shot: a strafing player at 20 m goes down in 1 to 3 s', () => {
     const times: number[] = [];
     for (const name of ['Kestrel', 'Moss', 'Vandal', 'Pike', 'Juniper', 'Rook', 'Tango']) {
       // The bot draws and walks about with nobody near; then the target appears in front of it, strafing.
@@ -173,8 +173,43 @@ describe('a bot', () => {
     }
     times.sort((a, b) => a - b);
     const median = times[Math.floor(times.length / 2)]!;
-    expect(median).toBeGreaterThanOrEqual(0.7);
-    expect(median).toBeLessThanOrEqual(2.5);
+    expect(median).toBeGreaterThanOrEqual(1);
+    expect(median).toBeLessThanOrEqual(3);
+  });
+
+  it('hears gunfire through a wall only roughly, and gunfire in the open exactly', () => {
+    const heard = (world: ReturnType<typeof createWorld>, nav: NavGraph) => {
+      // The bot faces away; the target, 10 m behind it (beyond a wall, in the walled arena), fires once into the floor.
+      const d = duel(world, nav, { bot: [8, 0, 0], botYaw: Math.PI, target: [8, 0, -10] });
+      for (let i = 0; i < ticks(1); i++) d.step(usercmd({ yaw: Math.PI }));
+      d.step(usercmd({ yaw: Math.PI, pitch: -1.2, buttons: ['Fire'] }));
+      d.step(usercmd({ yaw: Math.PI }));
+      const at = d.bot.believedPosition('t');
+      expect(at).not.toBeNull();
+      return Math.hypot(at![0] - 8, at![2] + 10);
+    };
+    expect(heard(open, openNav)).toBeLessThan(0.1);
+    expect(heard(walled, walledNav)).toBeGreaterThan(0.5);
+  });
+
+  it('comes in different styles, and no two bots play quite alike', () => {
+    const profiles = BOT_NAMES.map((n) => botProfile(n));
+    for (const style of BOT_STYLES) expect(profiles.filter((p) => p.style === style).length, style).toBeGreaterThanOrEqual(4);
+    // A lobby's bots, named one after another, are a mix: the first five are five different styles.
+    for (let seed = 0; seed < 20; seed++) {
+      const taken = new Set<string>(['alice']);
+      for (let i = 0; i < 5; i++) taken.add(botName(taken, seed * 31 + i));
+      expect(new Set([...taken].filter((n) => n !== 'alice').map((n) => botProfile(n).style)).size, `seed ${seed}`).toBe(5);
+    }
+    const mean = (style: string, key: 'fightRange' | 'hold') => {
+      const of = profiles.filter((p) => p.style === style);
+      return of.reduce((n, p) => n + p[key], 0) / of.length;
+    };
+    expect(mean('rusher', 'fightRange')).toBeLessThan(mean('anchor', 'fightRange') - 8);
+    expect(mean('anchor', 'hold')).toBeGreaterThan(mean('rusher', 'hold') + 0.4);
+    expect(new Set(profiles.map((p) => `${p.reaction.toFixed(3)}:${p.aimError.toFixed(4)}:${p.wobbleRate.toFixed(3)}`)).size).toBe(profiles.length);
+    // Hunches about where enemies are stay rare.
+    for (const p of profiles) expect(p.hunch).toBeLessThanOrEqual(0.25);
   });
 
   it('plays the same way every time', () => {

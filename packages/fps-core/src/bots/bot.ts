@@ -26,13 +26,15 @@ export interface BotView {
 const PERCEIVE_TICKS = 6;
 const SIGHT_RANGE = 70;
 /** Half the field of view a bot notices enemies in; a target already fought is tracked wider. */
-const FOV = 62 * DEG;
-const TRACK_FOV = 100 * DEG;
+const FOV = 50 * DEG;
+const TRACK_FOV = 85 * DEG;
 /** Enemies this close are noticed whichever way the bot faces (footsteps, the rustle of a body). */
 const SENSE = 3.5;
+/** Gunfire is heard this far (m) in the open, and this far through walls, where it only gives a rough idea of where. */
 const HEARING = 40;
-/** Seconds a sighting or a noise is worth chasing. */
-const MEMORY = 6;
+const MUFFLED_HEARING = 22;
+/** Seconds of a target's movement a bot remembers, for aiming a moment behind it. */
+const TRAIL = 0.4;
 /** Seconds a target can be out of sight before the bot stops shooting at where it was. */
 const LOSE_TARGET = 0.6;
 /** How fast aim error settles (s). */
@@ -50,6 +52,8 @@ interface Sighting {
 
 interface Engagement {
   readonly id: PlayerId;
+  /** Where the target has been lately, newest last: the bot aims a moment behind. */
+  readonly trail: { time: number; pose: HitPose }[];
   /** When the bot starts aiming (it has noticed, and reacted). */
   readonly react: number;
   readonly zone: HitZone;
@@ -67,15 +71,19 @@ interface Engagement {
 const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, stance: p.stance, eyeHeight: p.eyeHeight });
 const eyeOf = (p: PlayerOutput): Vec3 => [p.position[0], p.position[1] + p.eyeHeight, p.position[2]];
 const flat = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[2] - a[2]);
+/** `p` moved a random 0..`radius` m sideways (a rough idea of where something is). */
+const blur = (p: Vec3, radius: number, r1: number, r2: number): Vec3 => [p[0] + Math.cos(r1 * Math.PI * 2) * radius * r2, p[1], p[2] + Math.sin(r1 * Math.PI * 2) * radius * r2];
 const yawTo = (a: Vec3, b: Vec3) => Math.atan2(-(b[0] - a[0]), -(b[2] - a[2]));
 
 /**
  * One bot: reads the match the way a player would (what's in its view and
  * in line of sight, what it hears, what hits it) and produces a usercmd per
  * tick, through the same simulation as everyone else. It roams the nav
- * graph, fights what it sees with a human reaction time and imperfect aim,
- * chases what it last saw or heard, sometimes holds an angle, and reloads
- * when things are quiet. Deterministic for a given name and match.
+ * graph, fights what it sees with a human reaction time and imperfect aim
+ * that trails a moment behind the target, chases what it last saw or
+ * roughly heard, sometimes holds an angle, and reloads when things are
+ * quiet, all in its own style (see {@link BotProfile}). Deterministic for a
+ * given name and match.
  */
 export class Bot {
   readonly id: PlayerId;
@@ -107,8 +115,8 @@ export class Bot {
   readonly #memory = new Map<PlayerId, Sighting>();
   #target: Engagement | null = null;
   #lastEnemySeen = -Infinity;
-  /** Turn toward where a hit came from, until then. */
-  #alert: { position: Vec3; until: number } | null = null;
+  /** Turn toward roughly where a hit came from, until then. */
+  #alert: { yaw: number; until: number } | null = null;
   #strafe = 0;
   #strafeUntil = 0;
   #holdUntil = 0;
@@ -150,6 +158,11 @@ export class Bot {
     return this.#target ? { id: this.#target.id, visible: this.#target.visible } : null;
   }
 
+  /** Where the bot believes `id` was when it last saw or heard them, or null (tests and debugging). */
+  believedPosition(id: PlayerId): Vec3 | null {
+    return this.#memory.get(id)?.position ?? null;
+  }
+
   /** What the bot is up to, for tests and debugging. */
   get activity(): 'fight' | 'chase' | 'hold' | 'roam' {
     if (this.#target) return 'fight';
@@ -181,6 +194,10 @@ export class Bot {
     if (target && (!tp || !tp.alive || (!target.visible && time - target.lastSeen > LOSE_TARGET))) {
       this.#target = target = null;
     }
+    if (target && tp) {
+      target.trail.push({ time, pose: pose(tp) });
+      while (target.trail.length > 1 && target.trail[0]!.time < time - TRAIL) target.trail.shift();
+    }
     const fighting = target !== null && tp !== undefined && time >= target.react;
     const range = tp ? flat(self.position, tp.position) : Infinity;
 
@@ -198,16 +215,20 @@ export class Bot {
     if (fighting && target && tp) {
       // Out of sight for a moment: keep aiming where it was last seen.
       const last = this.#memory.get(tp.id)?.position ?? tp.position;
-      const point: Vec3 = target.visible ? zoneCentre(pose(tp), target.zone) : [last[0], last[1] + 1.4, last[2]];
+      // Aim where the target was a moment ago, carried on the way it was moving then: a person's eye and hand
+      // lag behind what moves and follow its motion, so they keep up with a steady strafe and fall behind when it turns.
+      const seen = this.#perceived(target, tp, time);
+      const point: Vec3 = target.visible ? zoneCentre(seen, target.zone) : [last[0], last[1] + 1.4, last[2]];
       const aim = anglesOf([point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]]);
       const settle = Math.exp(-TICK_SECONDS / SETTLE);
-      const wobble = this.profile.aimError * 0.25;
-      target.errYaw = target.errYaw * settle + wobble * Math.sin(time * 1.9 + (this.#seed % 7)) * (1 - settle);
-      target.errPitch = target.errPitch * settle + wobble * 0.6 * Math.sin(time * 2.3 + (this.#seed % 5)) * (1 - settle);
+      const p = this.profile;
+      const wobble = p.aimError * p.wobble;
+      target.errYaw = target.errYaw * settle + wobble * Math.sin(time * p.wobbleRate + (this.#seed % 7)) * (1 - settle);
+      target.errPitch = target.errPitch * settle + (wobble * 0.6 * Math.sin(time * p.wobbleRate * 1.3 + (this.#seed % 5)) + p.aimBias) * (1 - settle);
       lookYaw = aim.yaw + target.errYaw;
       lookPitch = aim.pitch + target.errPitch;
-      rate = this.profile.turnRate;
-      ads = range > 9 && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
+      rate = p.turnRate;
+      ads = range > p.adsRange && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
       if (target.visible) {
         // Fire once the view (with recoil) is where the bot means to aim, to within the body's width.
         const off = Math.hypot(angleDelta(self.yaw, aim.yaw + target.errYaw), self.pitch - (aim.pitch + target.errPitch));
@@ -215,9 +236,9 @@ export class Bot {
         // Sight is checked a few times a second; a shot checks it again, so a target that just stepped behind cover isn't shot through it.
         const clear = () => !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'head')) || !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
         if (off < tolerance && self.weapon.ammo > 0 && clear()) {
-          if (range > 22) {
+          if (range > this.profile.burstRange) {
             if (time >= target.pauseUntil && time >= target.burstUntil) {
-              target.burstUntil = time + 0.22 + 0.25 * r(11);
+              target.burstUntil = time + (0.22 + 0.25 * r(11)) * this.profile.burst;
               target.pauseUntil = target.burstUntil + 0.18 + 0.2 * r(12);
             }
             fire = time < target.burstUntil;
@@ -229,7 +250,7 @@ export class Bot {
         }
       }
     } else if (this.#alert && time < this.#alert.until) {
-      lookYaw = yawTo(eye, this.#alert.position);
+      lookYaw = this.#alert.yaw;
       lookPitch = 0;
     } else if (time < this.#holdUntil) {
       lookYaw = this.#holdYaw + 0.45 * Math.sin(time * 0.9 + (this.#seed % 11));
@@ -250,16 +271,16 @@ export class Bot {
     // Where to go.
     let move: Vec3 | null = null;
     if (fighting && target && tp) {
-      const want = 8 + (1 - this.profile.aggression) * 14;
+      const want = this.profile.fightRange;
       if (!target.visible || range > want + 4) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id);
       if (time >= this.#strafeUntil) {
-        this.#strafe = r(13) < 0.15 ? 0 : r(14) < 0.5 ? -1 : 1;
-        this.#strafeUntil = time + 0.4 + 0.8 * r(15);
+        this.#strafe = r(13) < this.profile.standStill ? 0 : r(14) < 0.5 ? -1 : 1;
+        this.#strafeUntil = time + this.profile.strafeTime * (0.6 + 0.8 * r(15));
       }
       if (target.crouch && range > 14 && !move) buttons.push('Crouch');
     } else {
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
-      if (chase && time - chase.time < MEMORY) {
+      if (chase && time - chase.time < this.profile.chase) {
         move = this.#follow(view, chase.position, this.#chasing!);
         if (flat(self.position, chase.position) < 2) {
           this.#memory.delete(this.#chasing!);
@@ -288,7 +309,7 @@ export class Bot {
       if (!fighting && long && forward > 0.8 && !climbing) {
         buttons.push('Sprint');
         if (this.#tactical) buttons.push('TacticalSprint');
-        if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < 0.004) this.#slideUntil = time + 0.5;
+        if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
       }
       if (time < this.#slideUntil) buttons.push('Crouch');
       if (climbing && this.#blocked >= 2 && !(this.#lastButtons & Button.Jump)) buttons.push('Jump');
@@ -304,7 +325,7 @@ export class Bot {
 
     // Reload in a quiet moment, or when empty.
     const w = self.weapon;
-    if (w.action === 'ready' && ((w.ammo < 12 && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
+    if (w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
 
     if (ads) buttons.push('Ads');
     if (fire) buttons.push('Fire');
@@ -349,6 +370,22 @@ export class Bot {
     this.#pitch = this.#lookPitch - this.#compPitch;
   }
 
+  /** The target as the bot perceives it: where it was `perceptionLag` ago, led on by its motion at the time. */
+  #perceived(target: Engagement, tp: PlayerOutput, time: number): HitPose {
+    const { perceptionLag: lag, tracking } = this.profile;
+    const trail = target.trail;
+    const i = trail.findIndex((t) => t.time >= time - lag);
+    if (i < 0) return pose(tp);
+    const then = trail[i]!.pose;
+    const before = trail[Math.max(0, i - 6)]!;
+    const dt = trail[i]!.time - before.time;
+    if (dt <= 0) return then;
+    const lead = (lag * tracking) / dt;
+    const p = then.position;
+    const q = before.pose.position;
+    return { ...then, position: [p[0] + (p[0] - q[0]) * lead, p[1] + (p[1] - q[1]) * lead, p[2] + (p[2] - q[2]) * lead] };
+  }
+
   /** What the bot can see: living enemies in its view and line of sight. Picks or keeps the one to fight. */
   #perceive(view: BotView, eye: Vec3, r: (n: number) => number): void {
     const { self, time } = view;
@@ -380,16 +417,23 @@ export class Bot {
     if ((!target || (!keep && best)) && best) {
       const d = flat(self.position, best.p.position);
       const off = Math.abs(angleDelta(self.yaw, yawTo(eye, eyeOf(best.p))));
-      const e = this.profile.aimError * (1 + Math.min(d, 40) / 40);
+      const p = this.profile;
+      const e = p.aimError * (1 + Math.min(d, 40) / 40);
+      // Someone at the edge of view or far off takes longer to notice.
+      const notice = 0.22 * Math.min(1, off / FOV) ** 2 + (0.15 * Math.min(d, 50)) / 50;
+      // A big turn onto them sometimes swings past before settling back.
+      const turn = angleDelta(self.yaw, yawTo(eye, eyeOf(best.p)));
+      const swing = Math.abs(turn) > 25 * DEG && r(6) < p.overshoot ? Math.sign(turn) * (2 + 4 * r(7)) * DEG : 0;
       this.#target = {
         id: best.p.id,
-        react: time + this.profile.reaction * (0.85 + 0.35 * r(1)) + (off > 20 * DEG ? 0.12 : 0),
-        zone: r(2) < this.profile.headshots ? 'head' : 'upperTorso',
-        errYaw: (r(3) - 0.5) * 2 * e,
+        trail: [],
+        react: time + p.reaction * (0.85 + 0.35 * r(1)) + notice,
+        zone: r(2) < p.headshots ? 'head' : 'upperTorso',
+        errYaw: (r(3) - 0.5) * 2 * e + swing,
         errPitch: (r(4) - 0.5) * 1.2 * e,
         visible: true,
         lastSeen: time,
-        crouch: r(5) < 0.3,
+        crouch: r(5) < p.crouch,
         burstUntil: 0,
         pauseUntil: 0,
       };
@@ -398,22 +442,32 @@ export class Bot {
     }
   }
 
-  /** Gunfire nearby, and hits taken, give away where enemies are. */
+  /**
+   * Gunfire nearby, and hits taken, give away where enemies are: exactly in
+   * the open, roughly through walls (and only nearer), and a hit gives only
+   * a rough direction to turn to.
+   */
   #hear(view: BotView): void {
     const { self, time } = view;
-    for (const e of view.events) {
+    const eye = eyeOf(self);
+    for (const [k, e] of view.events.entries()) {
+      const r = (n: number) => noise(this.#seed, view.tick, 100 + k * 8 + n);
       if (e.type === 'shot' && e.shooter !== self.id) {
         const shooter = view.players.find((p) => p.id === e.shooter);
-        if (!shooter || !view.isEnemy(shooter) || flat(self.position, e.origin) > HEARING) continue;
+        if (!shooter || !view.isEnemy(shooter)) continue;
+        const d = flat(self.position, e.origin);
+        const muffled = d > SENSE && sightBlocked(this.#world, eye, e.origin);
+        if (d > (muffled ? MUFFLED_HEARING : HEARING)) continue;
         const known = this.#memory.get(e.shooter);
-        if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: shooter.position, time, seen: false });
+        const heard = muffled ? blur(shooter.position, 2 + 4 * r(0), r(1), 1) : shooter.position;
+        if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: heard, time, seen: false });
         if (!this.#target && !this.#chasing) this.#chasing = e.shooter;
       } else if (e.type === 'hit' && e.victim === self.id && e.shooter !== self.id) {
         const shooter = view.players.find((p) => p.id === e.shooter);
         if (!shooter) continue;
-        this.#memory.set(e.shooter, { position: shooter.position, time, seen: false });
+        this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false });
         if (!this.#target) {
-          this.#alert = { position: eyeOf(shooter), until: time + 1.2 };
+          this.#alert = { yaw: yawTo(eye, eyeOf(shooter)) + (r(4) - 0.5) * 50 * DEG, until: time + 1.2 };
           this.#chasing = e.shooter;
           this.#holdUntil = 0;
         }
@@ -441,10 +495,10 @@ export class Bot {
     const { self, time } = view;
     if (this.#goal !== null && this.#step >= this.#path.length) {
       this.#goal = null;
-      if (r(21) < (1 - this.profile.aggression) * 0.6) {
-        this.#holdUntil = time + 1.5 + 2.5 * r(22);
+      if (r(21) < this.profile.hold) {
+        this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22));
         this.#holdYaw = this.#holdFacing(self.position);
-        this.#holdCrouch = r(23) < 0.3;
+        this.#holdCrouch = r(23) < this.profile.crouch;
         return null;
       }
     }
@@ -465,10 +519,10 @@ export class Bot {
     // Now and then a rough idea of where an enemy is (as a player reads footsteps and the kill feed), so nobody can hide for good.
     const enemies = view.players.filter((p) => p.alive && view.isEnemy(p));
     let hunch: Vec3 | null = null;
-    if (enemies.length > 0 && r(90) < 0.35 + 0.4 * this.profile.aggression) {
+    if (enemies.length > 0 && r(90) < this.profile.hunch) {
       const e = enemies[Math.floor(r(91) * enemies.length)]!.position;
       const angle = r(92) * Math.PI * 2;
-      const off = 3 + r(93) * 8;
+      const off = 8 + r(93) * 12;
       hunch = [e[0] + Math.cos(angle) * off, e[1], e[2] + Math.sin(angle) * off];
     }
     const candidates = Array.from({ length: 16 }, (_, k) => Math.floor(r(30 + k) * nodes.length));
@@ -478,10 +532,10 @@ export class Bot {
     for (const [k, i] of candidates.entries()) {
       const p = nodes[i]!.position;
       const d = flat(self.position, p);
-      let score = -Math.abs(d - 24) * 0.6 + r(60 + k) * 12;
+      let score = -Math.abs(d - this.profile.roam) * 0.6 + r(60 + k) * 12;
       if (hunch && flat(hunch, p) < 10) score += 20;
       for (const n of noises) if (flat(n.position, p) < 12) score += 14 * this.profile.aggression + 4;
-      for (const m of mates) if (flat(m.position, p) < 7) score -= 12;
+      for (const m of mates) if (flat(m.position, p) < 7) score += this.profile.teamwork;
       if (this.#recentGoals.some((g) => flat(nodes[g]!.position, p) < 6)) score -= 18;
       if (p[1] > 2.5) score -= 3;
       if (score > bestScore) {
@@ -516,7 +570,7 @@ export class Bot {
     this.#step = 0;
     this.#from = from;
     if (fresh) this.#progress = { position: from, time: view.time };
-    this.#tactical = noise(this.#seed, view.tick, 40) < 0.25;
+    this.#tactical = noise(this.#seed, view.tick, 40) < this.profile.tacticalSprint;
   }
 
   /** Moves along the route past nodes already reached; the point to head for now, or null at the end. */
