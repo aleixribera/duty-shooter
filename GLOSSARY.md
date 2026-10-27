@@ -118,11 +118,19 @@ The first 5 s of a Charge round, when everyone is held where they stand. Players
 _Avoid_: buy time, warm-up
 
 **Intermission**:
-The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout.
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of nuke, then about 14 s of scoreboard and vote. Input is frozen throughout. Online, the nuke is followed by 10 s of scoreboard and then the lobby, until the host starts the next match.
 _Avoid_: post-game, between rounds
 
 **Mode vote**:
-The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode.
+The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only Bot Match runs it; the online server has a lobby instead.
+
+**Lobby**:
+The page every online player sits on between matches: the players with their pings, the map, the host's picks and the Start button. The online server opens it for the first person in, and after every match's nuke and 10 s scoreboard everyone goes back to it. No match runs and no bots play while it is open.
+_Avoid_: menu, waiting room
+
+**Host**:
+The person in the lobby who picks the next match's mode, bots and map and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away.
+_Avoid_: owner, admin, leader
 
 **Headless match**:
 The real simulation run in-process with no rendering. It's the main seam for automated tests, and the networked variant adds the server, clients and a simulated network.

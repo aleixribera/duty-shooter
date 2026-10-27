@@ -46,16 +46,39 @@ export type ClientMessage =
   /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
   | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
   /** A vote for the next match's mode, changeable until the vote window closes. */
-  | { readonly t: 'vote'; readonly mode: ModeId };
+  | { readonly t: 'vote'; readonly mode: ModeId }
+  /** The host's choices for the next match, in the lobby. */
+  | { readonly t: 'lobby'; readonly mode?: ModeId; readonly bots?: number }
+  /** The host starts the next match from the lobby. */
+  | { readonly t: 'start' };
 
 /**
  * Where the match is: playing, or in the intermission after `matchEnd`
- * (the nuke, then the scoreboard and vote, then `matchStart`).
+ * (the nuke, then the scoreboard and vote, then `matchStart`). A server with
+ * a lobby has no vote: after the scoreboard everyone goes back to the
+ * `lobby`, until the host starts the next match.
  */
-export type Phase = 'playing' | 'nuke' | 'vote';
+export type Phase = 'playing' | 'nuke' | 'vote' | 'lobby';
 
-/** The intermission's default phase lengths (s): the nuke, then the scoreboard and vote. */
-export const INTERMISSION = { nuke: 6, vote: 14 } as const;
+/** The intermission's default phase lengths (s): the nuke, then the scoreboard and vote (just the scoreboard on a server with a lobby). */
+export const INTERMISSION = { nuke: 6, vote: 14, scoreboard: 10 } as const;
+
+/** The lobby between matches, as every client needs it. */
+export interface LobbyState {
+  /** The person who picks and starts the next match: the first one in, until they leave. */
+  readonly host: string | null;
+  /** The people in the lobby (bots aside), in the order they joined, and how many it holds. */
+  readonly players: readonly string[];
+  readonly capacity: number;
+  /** The host's picks for the next match. */
+  readonly mode: ModeId;
+  readonly bots: number;
+  /** The most bots a side the host may pick; 0 when the server has none. */
+  readonly maxBots: number;
+  /** The maps the lobby can play, and the one picked. */
+  readonly maps: readonly string[];
+  readonly map: string;
+}
 
 /** The match as every client needs it: mode, phase and its deadline, limits, team scores and the vote. */
 export interface MatchStatus {
@@ -78,6 +101,8 @@ export interface MatchStatus {
   readonly result: MatchResult | null;
   /** The mode's objectives (Outposts zones), or null. */
   readonly objective: ObjectiveState | null;
+  /** The lobby, on a server that has one (null on one that runs matches back to back). */
+  readonly lobby: LobbyState | null;
 }
 
 /** A simulation or game-mode event, stamped with its tick and position in that tick for de-duplication. */
@@ -157,6 +182,13 @@ export function decodeClient(data: string): ClientMessage | null {
     const { mode } = value;
     return isMode(mode) ? { t: 'vote', mode } : null;
   }
+  if (value['t'] === 'lobby') {
+    const { mode, bots } = value;
+    if (mode !== undefined && !isMode(mode)) return null;
+    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
+    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }) };
+  }
+  if (value['t'] === 'start') return { t: 'start' };
   if (value['t'] === 'cmds') {
     const cmds = value['cmds'];
     if (!Array.isArray(cmds) || cmds.length > REDUNDANT_CMDS * 2) return null;

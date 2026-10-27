@@ -159,7 +159,8 @@ export class Menu {
   readonly #callbacks: MenuCallbacks;
   #settings: Settings;
   #screen: Screen = 'main';
-  #back: Screen = 'main';
+  /** Where the settings screen's Back goes; `close` hides the menu (over the lobby). */
+  #back: Screen | 'close' = 'main';
   #tab: 'controls' | 'bindings' | 'video' | 'interface' = 'controls';
   #error = '';
   /** The connection failure being shown: the driver's status, or null for a server that did not answer. */
@@ -178,7 +179,7 @@ export class Menu {
   #step = 0;
   #afterTip: (() => void) | null = null;
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
-  #loadoutBack: 'pause' | 'game' = 'pause';
+  #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
   #loadoutNote = '';
   readonly #padName: () => string | null;
 
@@ -358,9 +359,15 @@ export class Menu {
    * The loadout screen, from the pause menu (Done goes back to it) or from
    * the death screen or the range's station (Done goes back into the game).
    */
-  loadout(back: 'pause' | 'game'): void {
+  loadout(back: 'pause' | 'game' | 'lobby'): void {
     this.#loadoutBack = back;
     this.show('loadout');
+  }
+
+  /** The settings screen over the lobby: Back closes the menu again. */
+  lobbySettings(): void {
+    this.#back = 'close';
+    this.show('settings');
   }
 
   /** When a loadout change applies in the game being played, as the loadout screen says it. */
@@ -576,6 +583,11 @@ export class Menu {
     screen.append(h('div', this.#version, 'ds-version'));
   }
 
+  /** Play Online, opened from outside the menu (an invite link). */
+  openOnline(): void {
+    this.#openOnline();
+  }
+
   /** Play Online: asks for a fresh status first, so the screen shows the server as it is now. */
   #openOnline(): void {
     this.show('online');
@@ -768,7 +780,7 @@ export class Menu {
     row('Grenade', 'grenade', options.grenade, (g) => (g ? ['Frag', `${STATS.grenade.perLife.value} a life`] : ['None', 'hands free']));
     showCard(this.#settings.loadout.primary);
     p.append(card);
-    const done = button(p, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#callbacks.resume()), 'primary');
+    const done = button(p, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'primary');
     done.dataset['back'] = '';
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus());
   }
@@ -888,7 +900,7 @@ export class Menu {
       toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
       slider('Volume', s.volume, 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`, (v) => this.#change({ volume: v }));
     }
-    button('Back', () => this.show(this.#back), true).dataset['back'] = '';
+    button('Back', () => (this.#back === 'close' ? this.hide() : this.show(this.#back)), true).dataset['back'] = '';
   }
 
   #bindButton(action: Action, h: (tag: string, text?: string, cls?: string) => HTMLElement): HTMLElement {

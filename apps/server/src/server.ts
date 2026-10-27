@@ -52,6 +52,7 @@ const TYPES: Readonly<Record<string, string>> = {
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.wasm': 'application/wasm',
@@ -226,6 +227,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit } } }),
     ...(map.nav && maxBots > 0 ? { bots: { nav: buildNavGraph(world, map.nav), perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
+    // Between matches everyone waits in the lobby for the host to start the next.
+    lobby: true,
   });
 
   const http = createServer((req, res) => {

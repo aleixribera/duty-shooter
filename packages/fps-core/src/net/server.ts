@@ -20,6 +20,7 @@ import {
   compactOutput,
   decodeClient,
   encode,
+  type LobbyState,
   type MatchStatus,
   type Phase,
   type RejectReason,
@@ -65,6 +66,13 @@ export interface GameServerOptions {
   readonly reconnectGrace?: number;
   /** Hears every join, leave, match start and match end, for the lobby's event log. */
   readonly onLog?: (event: LobbyEvent) => void;
+  /**
+   * Run a lobby between matches: the first person in is the host, who picks
+   * the mode and bots and starts each match; after a match's nuke and
+   * scoreboard everyone goes back to the lobby. Without it, matches follow
+   * one another with a mode vote in between (bot matches in the page).
+   */
+  readonly lobby?: boolean;
 }
 
 /** Something the lobby's event log records. Script players are the smoke and load tests'. */
@@ -179,6 +187,8 @@ export interface LobbyStatus {
   readonly botsPerTeam: number;
   /** The most bots a side a first joiner may ask for; 0 when the server has no bots. */
   readonly maxBotsPerTeam: number;
+  /** Whether the host picks and starts each match in a lobby (the join form then asks only for a name). */
+  readonly lobby: boolean;
 }
 
 interface BotSeat {
@@ -200,7 +210,11 @@ export class GameServer {
   readonly #options: GameServerOptions;
   readonly #modes: Readonly<Record<ModeId, GameMode>>;
   #mode: GameMode;
-  #phase: Phase = 'playing';
+  #phase: Phase;
+  /** The host's pick for the next match, on a server with a lobby. */
+  #lobbyMode: ModeId;
+  /** The host pressed start; the match starts on the next tick. */
+  #startRequested = false;
   /** Simulation time the current match started, and the time it ended (null while it is on). */
   #matchStart = 0;
   #endedAt: number | null = null;
@@ -239,6 +253,8 @@ export class GameServer {
       charge: new Charge(options.modes?.charge),
     };
     this.#mode = this.#modes[options.mode ?? 'tdm'];
+    this.#lobbyMode = this.#mode.id;
+    this.#phase = options.lobby ? 'lobby' : 'playing';
     this.simulation = new Simulation(options.world, {
       canDamage: (a, v) => this.#phase === 'playing' && (v.kind === 'dummy' || (this.#mode.canDamage(a, v) && !this.#spawnProtected(v.id))),
       selfDamage: () => this.#phase === 'playing',
@@ -287,6 +303,28 @@ export class GameServer {
       bots: this.#bots.size,
       botsPerTeam: this.#botsPerTeam,
       maxBotsPerTeam: this.maxBotsPerTeam,
+      lobby: this.#options.lobby === true,
+    };
+  }
+
+  /** Who picks and starts the next match: the first person still here, a script player only when nobody else is. */
+  get host(): PlayerId | null {
+    const joined = this.#joined();
+    return (joined.find((c) => !c.script) ?? joined[0])?.id ?? null;
+  }
+
+  #lobbyState(): LobbyState | null {
+    if (!this.#options.lobby) return null;
+    const map = this.#mapId;
+    return {
+      host: this.host,
+      players: this.#joined().map((c) => c.id as PlayerId),
+      capacity: this.maxPlayers,
+      mode: this.#lobbyMode,
+      bots: this.#botsPerTeam,
+      maxBots: this.maxBotsPerTeam,
+      maps: [map],
+      map,
     };
   }
 
@@ -297,10 +335,11 @@ export class GameServer {
     const votes = Object.fromEntries(MODE_IDS.map((m) => [m, 0])) as Record<ModeId, number>;
     for (const m of this.#votes.values()) votes[m] += 1;
     const limit = this.#mode.timeLimit;
+    const phaseEnds = this.#phase === 'playing' ? (limit === null ? null : this.#matchStart + limit) : this.#phase === 'nuke' ? ended + nuke : this.#phase === 'vote' ? ended + nuke + vote : null;
     return {
       mode: this.#mode.id,
       phase: this.#phase,
-      phaseEnds: this.#phase === 'playing' ? (limit === null ? null : this.#matchStart + limit) : this.#phase === 'nuke' ? ended + nuke : ended + nuke + vote,
+      phaseEnds,
       killLimit: this.#mode.killLimit,
       scoreLimit: this.#mode.scoreLimit,
       timeLimit: limit,
@@ -310,6 +349,7 @@ export class GameServer {
       next: this.#nextMode(),
       result: this.#result,
       objective: this.#mode.objective(),
+      lobby: this.#lobbyState(),
     };
   }
 
@@ -403,7 +443,17 @@ export class GameServer {
       return;
     }
     if (message.t === 'vote') {
-      if (this.#phase === 'vote') this.#votes.set(client.id, message.mode);
+      if (this.#phase === 'vote' && !this.#options.lobby) this.#votes.set(client.id, message.mode);
+      return;
+    }
+    if (message.t === 'lobby' || message.t === 'start') {
+      // Only the host, and only in the lobby.
+      if (this.#phase !== 'lobby' || client.id !== this.host) return;
+      if (message.t === 'start') this.#startRequested = true;
+      else {
+        if (message.mode !== undefined) this.#lobbyMode = message.mode;
+        if (message.bots !== undefined) this.#botsPerTeam = Math.min(message.bots, this.maxBotsPerTeam);
+      }
       return;
     }
     if (message.t === 'cmds') {
@@ -442,10 +492,17 @@ export class GameServer {
     this.#names.set(id, name);
     this.#log({ event: 'join', id, name, bot: false, script: client.script });
     if (first && !this.#options.bots?.alwaysOn) {
-      // The first player on an empty server starts a fresh match, in the mode and with the bots they asked for.
+      // The first player on an empty server starts afresh, in the mode and with the bots they asked for:
+      // in the lobby as its host, or straight into a match (a script player always, to load the server).
       if (bots !== null) this.#botsPerTeam = Math.min(bots, this.maxBotsPerTeam);
       this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
-      this.#startMatch(preferred ?? this.#mode.id);
+      if (this.#options.lobby && !client.script) {
+        this.#lobbyMode = preferred ?? this.#lobbyMode;
+        this.#openLobby();
+      } else this.#startMatch(preferred ?? this.#mode.id);
+    } else if (this.#phase === 'lobby') {
+      // Into the lobby: they play from the next match.
+      this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
     } else {
       // A bot gives up its seat first (the newcomer already counts), so the newcomer joins the side it left.
       this.#fillBots();
@@ -472,12 +529,23 @@ export class GameServer {
       this.simulation.setPlayerState(away.state);
       // A moment's protection while the returning page finds its feet.
       this.#protectedSince.set(away.id, this.simulation.time);
-    } else this.#add(away.id, away.name);
+    } else if (this.#phase === 'lobby') this.simulation.addPlayer({ id: away.id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(away.id) });
+    else this.#add(away.id, away.name);
     this.#welcome(client);
   }
 
   #intermissionLengths(): { nuke: number; vote: number } {
-    return { nuke: this.#options.intermission?.nuke ?? INTERMISSION.nuke, vote: this.#options.intermission?.vote ?? INTERMISSION.vote };
+    const vote = this.#options.lobby ? INTERMISSION.scoreboard : INTERMISSION.vote;
+    return { nuke: this.#options.intermission?.nuke ?? INTERMISSION.nuke, vote: this.#options.intermission?.vote ?? vote };
+  }
+
+  /** Everyone back to the lobby: no match, no bots, the last result kept for the lobby to show. */
+  #openLobby(): void {
+    this.#phase = 'lobby';
+    this.#startRequested = false;
+    this.#votes.clear();
+    this.#protectedSince.clear();
+    this.#fillBots();
   }
 
   /** The vote's plurality; a tie or no votes keeps the current mode. */
@@ -495,6 +563,7 @@ export class GameServer {
     this.#mode = this.#modes[mode];
     this.#matchNumber += 1;
     this.#phase = 'playing';
+    this.#startRequested = false;
     this.#matchStart = this.simulation.time;
     this.#endedAt = null;
     this.#result = null;
@@ -574,7 +643,7 @@ export class GameServer {
   /** How many bots should be playing: a held seat stays empty for its player, and keeps the bots on with nobody connected. */
   #botTarget(): number {
     const people = this.#seated;
-    if (!this.#options.bots || (people === 0 && !this.#options.bots.alwaysOn)) return 0;
+    if (!this.#options.bots || (people === 0 && !this.#options.bots.alwaysOn) || this.#phase === 'lobby') return 0;
     const wanted = this.#botsPerTeam * 2 - people;
     return Math.max(0, Math.min(wanted, this.maxPlayers - people));
   }
@@ -815,11 +884,16 @@ export class GameServer {
     return events;
   }
 
-  /** A tick of the intermission: the nuke, then the vote, then the next match. */
+  /** A tick of the intermission: the nuke, then the vote (or the scoreboard), then the next match (or the lobby, until the host starts one). */
   #intermission(): ModeEvent[] {
+    if (this.#phase === 'lobby') return this.#startRequested ? [this.#startMatch(this.#lobbyMode)] : [];
     const since = this.simulation.time - (this.#endedAt ?? 0);
     const { nuke, vote } = this.#intermissionLengths();
-    if (since >= nuke + vote - 1e-9) return [this.#startMatch(this.#nextMode())];
+    if (since >= nuke + vote - 1e-9) {
+      if (!this.#options.lobby) return [this.#startMatch(this.#nextMode())];
+      this.#openLobby();
+      return [];
+    }
     if (since >= nuke - 1e-9) this.#phase = 'vote';
     return [];
   }

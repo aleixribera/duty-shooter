@@ -244,6 +244,9 @@ export class Game {
     this.#resize();
   }
 
+  /** Show the overview instead of the player's view (behind the lobby), even with a player to follow. */
+  overviewOnly = false;
+
   /** Where the camera sits with no player to follow: the map's overview, a reference spot, or a benchmark path. */
   set overview(view: GameOptions['overview']) {
     this.#overview = view;
@@ -363,7 +366,7 @@ export class Game {
     const look = this.input.angles;
     let eye: Vec3;
     let forward: Vec3;
-    if (driver && self && this.#prev && this.#cmd) {
+    if (driver && self && this.#prev && this.#cmd && !this.overviewOnly) {
       const pose = this.#camera.update(
         { prev: this.#prev, cur: self, alpha, look, cmd: { yaw: this.#cmd.yaw, pitch: this.#cmd.pitch }, correction: driver.correction, dt },
         this.#settings,

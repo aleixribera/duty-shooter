@@ -23,7 +23,7 @@ describe('lobby status endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'playing', away: 0, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
+    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'lobby', away: 0, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, lobby: true });
   });
 });
 
@@ -37,7 +37,7 @@ describe('server bots setting', () => {
     expect(() => optionsFromEnv({ BOTS_PER_TEAM: '4', MAX_BOTS_PER_TEAM: '2' }, 'dist')).toThrow(/BOTS_PER_TEAM must be/);
   });
 
-  it('fills the Survival Town lobby with bots once someone plays, and counts only people as players; the seat of someone who leaves is held, the match running on', async () => {
+  it('fills the Survival Town match with bots once the host starts it, and counts only people as players; the seat of someone who leaves is held, the match running on', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', botsPerTeam: 2, maxBotsPerTeam: 4 });
     try {
@@ -47,7 +47,11 @@ describe('server bots setting', () => {
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t: 'join', name: 'alice', passphrase: '', protocol: PROTOCOL_VERSION }));
       await new Promise((done) => ws.addEventListener('message', done));
-      expect(await status()).toMatchObject({ players: 1, bots: 3 });
+      // In the lobby, as its host: no bots until the match starts.
+      expect(await status()).toMatchObject({ players: 1, bots: 0, phase: 'lobby' });
+      ws.send(JSON.stringify({ t: 'start' }));
+      for (let i = 0; i < 50 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done, 20));
+      expect(await status()).toMatchObject({ players: 1, bots: 3, phase: 'playing' });
       ws.close();
       await new Promise((done) => ws.addEventListener('close', done));
       for (let i = 0; i < 50 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));

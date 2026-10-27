@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { connectionError, endSummary, loadoutOptions, lobbyTile, matchBar, matchSize, ordinal, scoreboard, weaponCard } from '../src/ui/model';
+import { connectionError, endSummary, lastMatch, loadoutOptions, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -103,6 +103,8 @@ describe('the Play Online tile', () => {
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
     expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0 });
     expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
+    // With a lobby the host picks the mode there, not the join form.
+    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }).pickMode).toBe(false);
   });
 
   it('names match sizes the way each mode counts them', () => {
@@ -156,5 +158,32 @@ describe('the loadout screen', () => {
     expect(bar('m4a1', 'range').text).toBe('50 m');
     expect(bar('sniper', 'range').text).toBe('100 m+');
     expect(bar('m4a1', 'handling').text).toBe('ADS 0.24 s');
+  });
+});
+
+describe('the lobby', () => {
+  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, maxBots: 4, maps: ['survival-town'], map: 'survival-town' } as const;
+
+  it('seats people in the order they joined, marks the host and you, then the open seats', () => {
+    const seats = lobbySeats(lobby, 'a', { a: 'Ada', b: 'Bo' }, { a: 40, b: 150 });
+    expect(seats.map((s) => [s.number, s.id, s.name, s.ping, s.host, s.you])).toEqual([
+      [1, 'b', 'Bo', 150, true, false],
+      [2, 'a', 'Ada', 40, false, true],
+      [3, 'c', 'c', null, false, false],
+      [4, null, '', null, false, false],
+      [5, null, '', null, false, false],
+    ]);
+  });
+
+  it('colours pings good under 100 ms, fair under 200, poor above', () => {
+    expect([pingTone(38), pingTone(99), pingTone(100), pingTone(199), pingTone(247)]).toEqual(['good', 'good', 'fair', 'fair', 'poor']);
+  });
+
+  it('recalls the last match: winner and totals in team modes, the winner alone in free-for-all, or a draw', () => {
+    expect(lastMatch(null, 'tdm', null)).toBeNull();
+    const teams = [{ team: 1, score: 60 }, { team: 2, score: 75 }];
+    expect(lastMatch({ winner: 2, winnerName: 'Orange', draw: false, reason: 'killLimit' }, 'tdm', teams)).toEqual({ headline: 'Orange won 75 to 60', detail: 'Team deathmatch · kill limit' });
+    expect(lastMatch({ winner: 'p1', winnerName: 'Ada', draw: false, reason: 'timeLimit' }, 'ffa', null)).toEqual({ headline: 'Ada won', detail: 'Free-for-all · time limit' });
+    expect(lastMatch({ winner: null, winnerName: null, draw: true, reason: 'timeLimit' }, 'outposts', [{ team: 1, score: 0 }, { team: 2, score: 0 }])).toEqual({ headline: 'Draw 0 to 0', detail: 'Outposts · time limit' });
   });
 });

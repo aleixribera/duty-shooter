@@ -665,7 +665,7 @@ export class Hud {
   #updateMatch(state: HudState): void {
     const view = state.match;
     this.#match.style.display = view && view.status.phase === 'playing' ? 'flex' : 'none';
-    this.#end.style.display = view && view.status.phase !== 'playing' ? 'block' : 'none';
+    this.#end.style.display = view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none';
     if (!view) return;
     const s = view.status;
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
@@ -703,7 +703,8 @@ export class Hud {
       html += `<div class="mystats ds-plate"><div><span class="ds-label">Kills</span><b>${y.kills}</b></div><div><span class="ds-label">Deaths</span><b>${y.deaths}</b></div><div><span class="ds-label">K/D</span><b>${y.ratio}</b></div><div><span class="ds-label">Place</span><b>${ordinal(y.place)}<small> / ${y.of}</small></b></div></div>`;
     }
     if (s.phase === 'nuke') html += `<div class="next">Scoreboard in ${left}</div>`;
-    else {
+    else if (s.lobby) html += `<div class="next">Back to the lobby in ${left}</div>`;
+    else if (s.phase === 'vote') {
       const total = Math.max(1, s.votes.tdm + s.votes.ffa);
       html += `<div class="vote ds-plate"><header><span class="ds-label">Vote for the next mode</span><span class="clock">${left}</span></header><div class="ds-votes">`;
       for (const [i, mode] of (['tdm', 'ffa'] as const).entries()) {

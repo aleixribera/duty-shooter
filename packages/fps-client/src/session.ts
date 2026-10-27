@@ -70,6 +70,10 @@ export interface GameDriver {
   readonly respawnIn: number | null;
   /** Votes for the next match's mode (online only). */
   vote(mode: ModeId): void;
+  /** The host's picks for the next match, in the lobby (online only; ignored from anyone else). */
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void;
+  /** The host starts the next match from the lobby (online only; ignored from anyone else). */
+  startMatch(): void;
   /** What to carry from the next spawn (offline: at once while alive). */
   setLoadout(loadout: Loadout): void;
   nameOf(id: PlayerId): string;
@@ -133,6 +137,10 @@ export class OfflineDriver implements GameDriver {
   }
 
   vote(): void {}
+
+  setLobby(): void {}
+
+  startMatch(): void {}
 
   /** Solo play has no one to be fair to: a living player re-arms where they stand. */
   setLoadout(loadout: Loadout): void {
@@ -269,6 +277,14 @@ export class OnlineDriver implements GameDriver {
 
   vote(mode: ModeId): void {
     this.#client.vote(mode);
+  }
+
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void {
+    this.#client.setLobby(settings);
+  }
+
+  startMatch(): void {
+    this.#client.startMatch();
   }
 
   setLoadout(loadout: Loadout): void {

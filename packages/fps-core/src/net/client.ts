@@ -168,6 +168,16 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'loadout', loadout }));
   }
 
+  /** The host's picks for the next match, in the lobby (ignored from anyone else). */
+  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number }): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'lobby', ...settings }));
+  }
+
+  /** The host starts the next match from the lobby (ignored from anyone else). */
+  startMatch(): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'start' }));
+  }
+
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));

@@ -1,6 +1,7 @@
 import {
   BotMatchDriver,
   Game,
+  LobbyPage,
   Menu,
   OfflineDriver,
   OnlineDriver,
@@ -9,12 +10,14 @@ import {
   createSoundSystem,
   isFirefox,
   loadBake,
+  lobbyMapName,
   loadSettings,
   padName,
   saveSettings,
   type GameDriver,
   type Lobby,
   type LobbyInfo,
+  type LobbyView,
   type Settings,
 } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
@@ -92,7 +95,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
-    g.input.onPadMenu = (nav) => menu.navigate(nav);
+    g.input.onPadMenu = (nav) => (lobbyPage.open && !menu.open ? lobbyPage.navigate(nav) : menu.navigate(nav));
     // Use while dead, or at the range's station: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;
@@ -126,6 +129,15 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2 (preset capped at Normal)';
   setTimeout(() => (status.hidden = true), 4000);
   const lobby = await findLobby();
+  // An invite link (`#join=<passphrase>`): the passphrase into the join form, and out of the address bar.
+  const invited = new URLSearchParams(location.hash.slice(1)).get('join');
+  if (invited !== null) {
+    settings = { ...settings, passphrase: invited };
+    saveSettings(settings);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  /** The link that brings a friend to this server: the page, carrying the passphrase where there is one. */
+  const inviteLink = (passphrase: string) => `${location.origin}${location.pathname}${passphrase ? `#join=${encodeURIComponent(passphrase)}` : ''}`;
 
   /**
    * Takes the pointer and starts input; shows the pause menu if the browser
@@ -188,6 +200,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       botMatch: (mode: ModeId, botsPerTeam: number) => void playBots(mode, botsPerTeam),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
+        onlineName = name.trim() || 'You';
         menu.connecting(0);
         // The lobby status first: a server that is down or full is reported without opening a socket.
         void lobbyStatus().then(async (status) => {
@@ -204,6 +217,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
+          lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
           const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, seatKey: 'duty-shooter.seat', loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
@@ -219,12 +233,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu.show('main');
       },
       resume: () => void enter(),
-      leave: () => {
-        game.setDriver(null);
-        game.paused = true;
-        game.input.unlock();
-        menu.show('main');
-      },
+      leave: () => leaveGame(),
       changeSettings: (next) => {
         if (next.loadout !== settings.loadout) game.driver?.setLoadout(next.loadout);
         settings = next;
@@ -236,7 +245,76 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     },
     { lobby, version, padName: () => game.input.padName },
   );
+  /** Back to the main menu from a game (or its lobby). */
+  const leaveGame = () => {
+    game.setDriver(null);
+    game.paused = true;
+    game.input.unlock();
+    leaveLobby();
+    menu.show('main');
+  };
+  // The lobby page, between matches on a server that has one.
+  const lobbyPage = new LobbyPage(
+    document.body,
+    {
+      pick: (picks) => game.driver?.setLobby(picks),
+      start: () => {
+        // The click that starts the match also takes the pointer for it.
+        lobbyJoin = true;
+        game.driver?.startMatch();
+      },
+      join: () => void joinMatch(),
+      loadout: () => menu.loadout('lobby'),
+      settings: () => menu.lobbySettings(),
+      leave: () => leaveGame(),
+    },
+    { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? lobbyMapName(id), image: MAP_IMAGES.has(id) ? `maps/${id}.jpg` : null }) },
+  );
+  /** Whether the next match's start should take the pointer at once (the host's own Start click). */
+  let lobbyJoin = false;
+  /** The name this player joined under, for their own seat (the driver calls them "You"). */
+  let onlineName = 'You';
+  const leaveLobby = () => {
+    lobbyPage.hide();
+    game.overviewOnly = false;
+    game.hud.visible = game.driver !== null;
+  };
+  /** From the lobby into the match under way: takes the pointer (or the controller), then hides the lobby. */
+  const joinMatch = async () => {
+    void sound.unlock();
+    if (!game.input.padMode) await game.input.lock();
+    if (!game.input.locked) return;
+    leaveLobby();
+    menu.hide();
+    game.paused = false;
+  };
+  /** Each frame: the lobby page up while the server is in its lobby, and until this player is back in the match after it. */
+  const updateLobby = () => {
+    const driver = game.driver;
+    const match = driver?.online ? driver.match : null;
+    if (!driver || !match?.lobby || (match.phase !== 'lobby' && !lobbyPage.open)) {
+      if (lobbyPage.open) leaveLobby();
+      return;
+    }
+    if (!lobbyPage.open) {
+      // Back from a match (or just joined): out of play, the map flying by behind the page.
+      game.paused = true;
+      game.input.unlock();
+      if (menu.open && menu.screen === 'pause') menu.hide();
+      game.overviewOnly = true;
+      game.hud.visible = false;
+    }
+    const names: Record<string, string> = {};
+    for (const id of match.lobby.players) names[id] = id === driver.selfId ? onlineName : driver.nameOf(id);
+    const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores };
+    lobbyPage.show(view);
+    if (match.phase !== 'lobby' && lobbyJoin) {
+      lobbyJoin = false;
+      void joinMatch();
+    }
+  };
   game = createGame(initial);
+  if (invited !== null && lobby?.kind === 'server') menu.openOnline();
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
   const spotName = params.get('spot');
   let fixedCamera = false;
@@ -290,8 +368,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       bench(time);
       return;
     }
-    // Behind the menus, with no game running, the camera flies the map's menu path.
-    if (!game.driver && !fixedCamera) {
+    updateLobby();
+    // Behind the menus (and the lobby), with no game running, the camera flies the map's menu path.
+    if ((!game.driver || game.overviewOnly) && !fixedCamera) {
       const path = flyPath(load(mapId).map);
       if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
@@ -305,6 +384,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (driver?.online && driver.status !== lastStatus) {
       lastStatus = driver.status;
       if (driver.status !== 'playing' && driver.status !== 'connecting') {
+        leaveLobby();
         game.setDriver(null);
         game.paused = true;
         game.input.unlock();
@@ -313,6 +393,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   });
 }
+
+/** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
+const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town']);
 
 /** The main menu's camera: metres per second along the map's fly-through. */
 const FLY_SPEED = 4;

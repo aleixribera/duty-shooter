@@ -1,4 +1,4 @@
-import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, teamMode, type GrenadeId, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -14,6 +14,8 @@ export interface LobbyInfo {
   readonly maxBotsPerTeam?: number;
   /** Seats held for people who dropped and may come back (absent from servers older than rejoining). */
   readonly away?: number;
+  /** The host picks and starts each match in a lobby (absent from servers older than the lobby). */
+  readonly lobby?: boolean;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge' };
@@ -111,6 +113,45 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   return { headline, you };
 }
 
+/** What each mode is, in a line or two, for the lobby. */
+export const MODE_BLURBS: Readonly<Record<string, string>> = {
+  tdm: 'Two teams, blue against orange. First team to 75 kills wins, or the team ahead after 10 minutes.',
+  ffa: 'Everyone for themselves. First to 30 kills wins, or whoever leads after 10 minutes.',
+  outposts: 'Two teams fight over three zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
+  charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
+};
+
+/** How a round trip reads: quick, fair or slow. */
+export function pingTone(ms: number): 'good' | 'fair' | 'poor' {
+  return ms < 100 ? 'good' : ms < 200 ? 'fair' : 'poor';
+}
+
+/** A seat in the lobby: a person (numbered from 1), or an open seat. */
+export interface LobbySeat {
+  readonly number: number;
+  readonly id: PlayerId | null;
+  readonly name: string;
+  /** Their round trip (ms), null until measured. */
+  readonly ping: number | null;
+  readonly host: boolean;
+  readonly you: boolean;
+}
+
+/** Every seat of the lobby, people first in the order they joined, then the open ones. */
+export function lobbySeats(lobby: LobbyState, selfId: PlayerId | null, names: Readonly<Record<string, string>>, pings: Readonly<Record<string, number>>): LobbySeat[] {
+  const seats: LobbySeat[] = lobby.players.map((id, i) => ({ number: i + 1, id, name: names[id] ?? id, ping: pings[id] ?? null, host: id === lobby.host, you: id === selfId }));
+  for (let n = seats.length + 1; n <= lobby.capacity; n++) seats.push({ number: n, id: null, name: '', ping: null, host: false, you: false });
+  return seats;
+}
+
+/** The last match, as the lobby recalls it: "Blue won 75 to 60", "Ada won", "Draw", with how it ended. Null before the first. */
+export function lastMatch(result: MatchResult | null, mode: ModeId, teamScores: readonly TeamScore[] | null): { readonly headline: string; readonly detail: string } | null {
+  if (!result) return null;
+  const totals = teamMode(mode) && teamScores && teamScores.length === 2 ? ` ${[...teamScores].sort((x, y) => y.score - x.score).map((t) => t.score).join(' to ')}` : '';
+  const headline = result.draw || result.winner === null ? `Draw${totals}` : `${result.winnerName ?? 'Someone'} won${totals}`;
+  return { headline, detail: `${MODE_NAMES[mode] ?? mode} · ${END_REASONS[result.reason]}` };
+}
+
 export interface ConnectionError {
   readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'other';
   readonly title: string;
@@ -156,8 +197,8 @@ export function lobbyTile(status: LobbyInfo | null): LobbyTile {
     players: `${status.players}/${status.capacity}`,
     mode: MODE_NAMES[status.mode] ?? status.mode,
     map: MAP_NAMES[status.map] ?? status.map,
-    // Seats held for people who dropped keep the match on, so it is not the joiner's to pick.
-    pickMode: status.players === 0 && !(status.away ?? 0),
+    // Seats held for people who dropped keep the match on, so it is not the joiner's to pick; with a lobby, the host picks there.
+    pickMode: !status.lobby && status.players === 0 && !(status.away ?? 0),
     full: status.players >= status.capacity,
     bots: status.bots ?? 0,
     botsPerTeam: status.botsPerTeam ?? 0,
