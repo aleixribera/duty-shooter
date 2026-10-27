@@ -41,6 +41,11 @@ It writes `tools/weapon/pistol.blend` and the matching game GLB, including its
 packed surface textures. The `slide` and `mag` nodes retain the original rig
 pivots; check idle, aim, inspect and both reloads in the viewer after editing.
 
+The Wasp 9's detailed replacement is built in the same way with
+`blender --background --factory-startup --python tools/weapon/wasp.py`.
+It writes `tools/weapon/smg.blend` and the game GLB; its `mag` origin matches
+the existing reload rig. Check the viewer after changing it.
+
 `arsenal.py` builds the SMG, pistol, shotgun, sniper and frag grenade, one per
 run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
 turns into game -Z; the right palm near the origin). Each GLB holds the body
