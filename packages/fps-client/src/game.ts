@@ -21,7 +21,7 @@ import { Hud, type HitKind } from './hud/hud';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
-import { Ambience, environmentAt } from './map-sound';
+import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
 import { PlayersView } from './players-view';
 import type { RenderBackend } from './renderer';
@@ -76,6 +76,8 @@ const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75
 interface Tracked {
   stepDistance: number;
   last: Vec3;
+  /** The player as last seen, for their movement and weapon sounds (other players only). */
+  seen: PlayerOutput | null;
 }
 
 interface Engagement {
@@ -259,7 +261,14 @@ export class Game {
   }
 
   #play(event: SoundEventName, params: SoundParams = {}): void {
-    this.#sound.play(event, params.environment ? params : { ...params, environment: environmentAt(this.#indoorZones, params.position ?? this.#listener) });
+    const at = params.position;
+    // The nuke is heard through anything.
+    const through = at !== undefined && !params.local && !event.startsWith('nuke') && muffled(this.#world, this.#listener, at);
+    this.#sound.play(event, {
+      ...params,
+      environment: params.environment ?? environmentAt(this.#indoorZones, at ?? this.#listener),
+      ...(through ? { muffled: true } : {}),
+    });
   }
 
   #materialUnder(position: Vec3): Material {
@@ -508,15 +517,19 @@ export class Game {
     if (!self.alive) this.#viewmodel.root.visible = false;
   }
 
-  /** Footsteps for everyone, the local player included. */
+  /** Footsteps for everyone, the local player included; other players' movement and weapon sounds. */
   #footsteps(): void {
     const selfId = this.#driver?.selfId ?? null;
     const everyone = this.#cur ? [this.#cur, ...this.#others] : this.#others;
     for (const p of everyone) {
-      const t = this.#tracked.get(p.id) ?? { stepDistance: 0, last: p.position };
+      const t = this.#tracked.get(p.id) ?? { stepDistance: 0, last: p.position, seen: null };
       const d = Math.hypot(p.position[0] - t.last[0], p.position[2] - t.last[2]);
       t.last = p.position;
       this.#tracked.set(p.id, t);
+      if (p.id !== selfId) {
+        if (t.seen && t.seen.alive && p.alive && d <= 1) this.#otherFoley(t.seen, p);
+        t.seen = p;
+      }
       const grounded = p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'slide';
       if (!p.alive || !grounded || d > 1) continue;
       const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? p.movement : 'walk';
@@ -533,6 +546,23 @@ export class Game {
         });
       }
     }
+  }
+
+  /** Another player's jumps, landings, slides, mantles and weapon handling, from how their state changed. */
+  #otherFoley(before: PlayerOutput, p: PlayerOutput): void {
+    const at = { position: p.position };
+    if (before.movement === 'airborne' && p.movement !== 'airborne' && p.movement !== 'mantle') {
+      const fall = p.landing?.fallHeight ?? Math.max(0, -before.velocity[1]) ** 2 / 20;
+      this.#play('land', { ...at, material: this.#materialUnder(p.position), intensity: Math.min(1, fall / 6) });
+    }
+    if (before.movement !== 'airborne' && p.movement === 'airborne' && p.velocity[1] > 1) this.#play('jump', at);
+    if (before.movement !== 'slide' && p.movement === 'slide') this.#play('slide', { ...at, material: this.#materialUnder(p.position) });
+    if (before.movement !== 'mantle' && p.movement === 'mantle') this.#play('mantle', at);
+    const w = p.weapon;
+    const pw = before.weapon;
+    const sameAction = pw.action === w.action && w.actionTime >= pw.actionTime;
+    const from = sameAction ? pw.actionTime : -1;
+    for (const [t, event] of foleyCues(p)) if (t > from && t <= w.actionTime) this.#play(event, at);
   }
 
   /** Seconds from now until a moment inside the tick that started at `start` (ms), keeping sub-tick spacing. */
@@ -622,15 +652,6 @@ export class Game {
         }
         break;
       }
-      case 'melee':
-        if (e.attacker !== selfId) this.#play('meleeSwing', { position: this.#playerById(e.attacker)?.position ?? [0, 0, 0] });
-        break;
-      case 'reload':
-        if (e.player !== selfId && e.phase === 'start') {
-          const p = this.#playerById(e.player);
-          if (p) this.#play('reloadMagOut', { position: p.position });
-        }
-        break;
       case 'kill':
         if (!driver.online && e.killer === selfId && e.victim !== selfId) this.hud.eliminated(driver.nameOf(e.victim), e.zone === 'head');
         if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId);

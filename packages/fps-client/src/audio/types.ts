@@ -43,6 +43,7 @@ export interface SoundParams {
   readonly movement?: 'walk' | 'sprint' | 'tacticalSprint' | 'crouch' | 'prone';
   readonly intensity?: number; // 0..1
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor
+  readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter
   readonly when?: number; // seconds from now (>= 0) for sub-frame scheduling, default 0
 }
 

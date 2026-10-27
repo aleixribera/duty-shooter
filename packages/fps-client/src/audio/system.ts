@@ -23,12 +23,20 @@ interface Profile {
   readonly indoorSend: number;
   /** Always non-positional, never reverberated. */
   readonly ui?: boolean;
+  /** The event's place in the mix, as a gain on the voice (default 1). */
+  readonly level?: number;
 }
 
 const body: Profile = { cap: 4, ref: 2.5, rolloff: 1.2, send: 0.05, indoorSend: 0.12 };
-const handling: Profile = { cap: 4, ref: 2, rolloff: 1.4, send: 0.04, indoorSend: 0.1 };
+const handling: Profile = { cap: 4, ref: 2, rolloff: 1.4, send: 0.04, indoorSend: 0.1, level: 0.7 };
 const ui: Profile = { cap: 4, ref: 1, rolloff: 1, send: 0, indoorSend: 0, ui: true };
 
+/**
+ * Every event's spatial and mix settings. The mix, loudest first (measure it
+ * with apps/range/scripts/sound-levels.mjs): your own gunshot; other guns up
+ * close; the nuke; cracks and impacts; enemy movement (clearly heard within
+ * about 15 m); hit and kill markers; reload and handling; ambience.
+ */
 const PROFILES: Record<SoundEventName, Profile> = {
   gunshot: { cap: 16, ref: 6, rolloff: 1, send: 1, indoorSend: 0.85 },
   dryFire: { ...handling, cap: 3 },
@@ -50,17 +58,17 @@ const PROFILES: Record<SoundEventName, Profile> = {
   meleeSwing: { ...body, send: 0.06, indoorSend: 0.15 },
   meleeHit: { ...body, send: 0.06, indoorSend: 0.15 },
   impact: { cap: 16, ref: 4, rolloff: 1, send: 0.25, indoorSend: 0.3 },
-  casing: { cap: 12, ref: 1.5, rolloff: 1.4, send: 0.03, indoorSend: 0.08 },
+  casing: { cap: 12, ref: 1.5, rolloff: 1.4, send: 0.03, indoorSend: 0.08, level: 0.6 },
   bulletCrack: { cap: 8, ref: 5, rolloff: 1, send: 0.35, indoorSend: 0.3 },
-  hitMarker: ui,
-  killMarker: ui,
-  headshotMarker: { ...ui, cap: 3 },
-  damageTaken: { ...ui, cap: 3 },
+  hitMarker: { ...ui, level: 1.75 },
+  killMarker: { ...ui, level: 1.15 },
+  headshotMarker: { ...ui, cap: 3, level: 0.72 },
+  damageTaken: { ...ui, cap: 3, level: 0.5 },
   // Heard across the whole town and far beyond: barely fades with distance, and rings off the desert.
-  nukeSiren: { cap: 1, ref: 40, rolloff: 0.5, send: 0.5, indoorSend: 0.3 },
+  nukeSiren: { cap: 1, ref: 40, rolloff: 0.5, send: 0.5, indoorSend: 0.3, level: 0.5 },
   nukeBlast: { cap: 1, ref: 600, rolloff: 0.2, send: 0.6, indoorSend: 0.4 },
   // Ambience: the wind is a bed all round you; the rest come from where the map puts them, and fade fast.
-  ambientWind: { cap: 2, ref: 1, rolloff: 1, send: 0, indoorSend: 0 },
+  ambientWind: { cap: 2, ref: 1, rolloff: 1, send: 0, indoorSend: 0, level: 0.7 },
   ambientBirds: { cap: 3, ref: 6, rolloff: 1, send: 0.3, indoorSend: 0.3 },
   ambientCreak: { cap: 2, ref: 3, rolloff: 1.2, send: 0.15, indoorSend: 0.2 },
   ambientRadio: { cap: 2, ref: 1.5, rolloff: 1.4, send: 0.1, indoorSend: 0.35 },
@@ -75,6 +83,27 @@ export function distanceGain(event: SoundEventName, distance: number | null): nu
   if (distance === null || p.ui) return 1;
   return p.ref / (p.ref + p.rolloff * (Math.max(distance, p.ref) - p.ref));
 }
+
+/** An event's place in the mix: the gain its voice is played at. */
+export function mixLevel(event: SoundEventName): number {
+  return PROFILES[event].level ?? 1;
+}
+
+/**
+ * How much of an event goes to the reverb: its send level for the
+ * environment, falling off with the square root of the direct sound's
+ * distance law (so distant sounds are quieter but relatively more
+ * reverberant); `distance` null for a sound that isn't placed in the world.
+ */
+export function reverbSend(event: SoundEventName, environment: Environment, distance: number | null): number {
+  const p = PROFILES[event];
+  const level = environment === 'indoor' ? p.indoorSend : p.send;
+  return distance === null ? level : level * Math.sqrt(distanceGain(event, distance));
+}
+
+/** A sound heard through a wall: everything above this (Hz) is cut, and it is this much quieter. */
+const MUFFLE_CUTOFF = 1200;
+const MUFFLE_GAIN = 0.5;
 
 /** Hard cap on simultaneous voices across all events. */
 const GLOBAL_CAP = 64;
@@ -268,12 +297,12 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     makeRoom(c, event);
 
     const input = c.createGain();
+    input.gain.value = (profile.level ?? 1) * (positional && params.muffled ? MUFFLE_GAIN : 1);
     const nodes: AudioNode[] = [input];
     let sendFrom: AudioNode = input;
-    let sendScale = 1;
     if (positional && pos && distance !== undefined) {
       let node: AudioNode = input;
-      const cutoff = airCutoff(distance);
+      const cutoff = Math.min(airCutoff(distance), params.muffled ? MUFFLE_CUTOFF : Infinity);
       if (cutoff < 16000) {
         const air = c.createBiquadFilter();
         air.type = 'lowpass';
@@ -299,14 +328,11 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       node.connect(panner).connect(g.world);
       nodes.push(panner);
       sendFrom = node;
-      // The dry path falls off as ref / (ref + rolloff * (d - ref)); the diffuse tail falls off
-      // only with its square root, so distant shots are quieter but relatively more reverberant.
-      sendScale = Math.sqrt(distanceGain(event, distance));
     } else {
       input.connect(g.local);
     }
 
-    const sendLevel = (env === 'indoor' ? profile.indoorSend : profile.send) * sendScale;
+    const sendLevel = reverbSend(event, env, distance ?? null);
     if (sendLevel > 0.001) {
       const send = c.createGain();
       send.gain.value = sendLevel;

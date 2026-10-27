@@ -1,4 +1,4 @@
-import type { Vec3 } from '@duty-shooter/fps-core';
+import { sightBlocked, type Vec3, type World } from '@duty-shooter/fps-core';
 import type { SoundEventName, SoundParams } from './audio';
 import { OVERLAP, RADIO_SECONDS, WIND_SECONDS } from './audio/ambience';
 
@@ -14,6 +14,20 @@ export function environmentAt(zones: readonly SoundZone[], p: Vec3): 'indoor' | 
     if (p[0] >= z.min[0] && p[0] <= z.max[0] && p[1] >= z.min[1] && p[1] <= z.max[1] && p[2] >= z.min[2] && p[2] <= z.max[2]) return 'indoor';
   }
   return 'outdoor';
+}
+
+/**
+ * Whether walls or floors stand between the listener and a sound at `source`,
+ * so it reaches them muffled. Glass and open doorways don't block. The ray
+ * aims a little above the source and stops short of it, so the floor under a
+ * footstep or the wall a bullet hit doesn't count.
+ */
+export function muffled(world: World, listener: Vec3, source: Vec3): boolean {
+  const to: Vec3 = [source[0], source[1] + 0.3, source[2]];
+  const d = Math.hypot(to[0] - listener[0], to[1] - listener[1], to[2] - listener[2]);
+  if (d < 0.6) return false;
+  const k = (d - 0.3) / d;
+  return sightBlocked(world, listener, [listener[0] + (to[0] - listener[0]) * k, listener[1] + (to[1] - listener[1]) * k, listener[2] + (to[2] - listener[2]) * k]);
 }
 
 /** Something the map makes heard: the wind everywhere, or birds, a sign or a radio at a place. */

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, sightBlocked, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
-import { environmentAt } from '@duty-shooter/fps-client/map-sound';
+import { environmentAt, muffled } from '@duty-shooter/fps-client/map-sound';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { BOUNDARY, DOOR_W, HOUSE, MANNEQUIN_HEAD, UPPER_FLOOR, buildSurvivalTown } from '../src/map/survival-town';
 import { REFERENCE, TOLERANCE } from '../src/map/survival-town-reference';
@@ -600,6 +600,41 @@ describe('map audio', () => {
       });
     }
   }
+
+  for (const s of [-1, 1]) {
+    describe(`sounds through walls, ${s < 0 ? 'north' : 'south'} house`, () => {
+      const x = HOUSE.frontDoor.x0 + DOOR_W / 2;
+      const d0 = HOUSE.main.d0;
+      // The listener's ear, 3 m inside the front door; sources are where a sound is made (feet, a muzzle, a hit).
+      const ear: Vec3 = [x, 1.6, s * (d0 + 3)];
+
+      it('carries through the open front door, and across the room', () => {
+        expect(muffled(world, ear, [x, 0, s * (d0 - 4)])).toBe(false);
+        expect(muffled(world, ear, [x, 0, s * (d0 + 5)])).toBe(false);
+      });
+
+      it('is muffled through the floor above', () => {
+        expect(muffled(world, ear, [x, UPPER_FLOOR, s * (d0 + 3)])).toBe(true);
+      });
+
+      it("isn't muffled by the wall a bullet hit", () => {
+        const outside: Vec3 = [x - 2, 1.6, s * (d0 - 5)];
+        const hit = raycastWorld(world, outside, [x - 2, 1.2, s * (d0 + 2)]);
+        expect(hit).not.toBeNull();
+        expect(muffled(world, outside, hit!.point)).toBe(false);
+      });
+    });
+  }
+
+  it('carries through glass', () => {
+    const pane = solids.find((p) => p.material === 'glass' && p.prop === null)!;
+    const c: Vec3 = [(pane.min[0] + pane.max[0]) / 2, (pane.min[1] + pane.max[1]) / 2, (pane.min[2] + pane.max[2]) / 2];
+    const thinX = pane.max[0] - pane.min[0] < pane.max[2] - pane.min[2];
+    const off = (k: number): Vec3 => (thinX ? [c[0] + k, c[1], c[2]] : [c[0], c[1], c[2] + k]);
+    const source = off(1.5);
+    expect(raycastWorld(world, off(-1.5), source)?.material).toBe('glass');
+    expect(muffled(world, off(-1.5), [source[0], source[1] - 0.3, source[2]])).toBe(false);
+  });
 
   it('places every ambient source inside the map, with the radio indoors', () => {
     const sources = map.ambience.flatMap((a) => (a.kind === 'wind' ? [] : [a]));
