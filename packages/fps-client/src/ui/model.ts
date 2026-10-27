@@ -264,7 +264,7 @@ export function lobbyFill(lobby: LobbyState): string {
   const people = lobby.players.length;
   if (lobby.hvb && teamMode(lobby.mode) && lobby.maxBots > 0) {
     const bots = hvbBots(people, lobby.maxBots, lobby.capacity);
-    return `Humans vs bots: everyone here plays together against ${bots} bots, one more for each player who joins.`;
+    return `Humans vs bots: everyone here plays together against ${bots} bots, two more than you (at least 4, at most ${lobby.maxBots}) while seats allow.`;
   }
   if (lobby.bots > 0) return `Bots fill the match to ${matchSize(lobby.mode, lobby.bots)} when it starts.`;
   return people >= lobby.capacity ? 'Every seat is taken by a player.' : 'No bots: just the people here.';

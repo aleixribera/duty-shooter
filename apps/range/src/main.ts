@@ -24,7 +24,7 @@ import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { createWorld, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchPreset, type BenchReport } from './bench';
-import { MAP_IDS, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { MAP_IDS, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -116,7 +116,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const offlineSpawn = (map: MapDefinition): SpawnPoint =>
     at && at.length >= 2 && at.every(Number.isFinite) ? { position: [at[0]!, 0, at[1]!], yaw: at[2] ?? 0 } : map.offlineSpawn;
   // Survival Town is the main menu's backdrop; `?map=<id>` (`range`, `switchyard`) starts on another map instead.
-  const initial: MapId = MAP_IDS.find((m) => m === params.get('map')) ?? 'survival-town';
+  const initial: MapId = asMapId(params.get('map')) ?? 'survival-town';
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
@@ -196,7 +196,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     settings,
     {
       practiceRange: () => void playOffline('range'),
-      botMatch: (id: string, mode: ModeId, botsPerTeam: number, hvb: boolean) => void playBots(MAP_IDS.find((m) => m === id) ?? 'survival-town', mode, botsPerTeam, hvb),
+      botMatch: (id: string, mode: ModeId, botsPerTeam: number, hvb: boolean) => void playBots(asMapId(id) ?? 'survival-town', mode, botsPerTeam, hvb),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
         onlineName = name.trim() || 'You';
@@ -208,7 +208,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           if (!status) return menu.failed(null);
           if (status.players >= status.capacity) return menu.failed('The server is full.');
           // The server's map, for prediction and drawing.
-          const id = MAP_IDS.find((m) => m === status.map) ?? 'survival-town';
+          const id = asMapId(status.map) ?? 'survival-town';
           // The map's lighting first: joined, the player is in the match (and can be shot) at once.
           menu.connecting(1);
           await load(id).bake;
@@ -309,7 +309,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const driver = game.driver;
     const match = driver?.online ? driver.match : null;
     // Servers from before map switching name no map in their status.
-    const next = match ? MAP_IDS.find((m) => m === (match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map)) : undefined;
+    const next = match ? asMapId(match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map) : undefined;
     if (next && driver instanceof OnlineDriver) followMap(driver, next);
     if (!driver || !match?.lobby || (match.phase !== 'lobby' && !lobbyPage.open)) {
       if (lobbyPage.open) leaveLobby();
@@ -337,7 +337,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   game = createGame(initial);
   if (invited !== null && lobby?.kind === 'server') menu.openOnline();
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
-  const explore = MAP_IDS.find((m) => m === params.get('explore'));
+  const explore = asMapId(params.get('explore'));
   if (explore) void playOffline(explore);
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
   const spotName = params.get('spot');

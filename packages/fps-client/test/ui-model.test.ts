@@ -213,7 +213,7 @@ describe('the lobby', () => {
     expect(lobbyFill(lobby)).toBe('Bots fill the match to 2v2 when it starts.');
     const big = { ...lobby, capacity: 12, maxBots: 6 };
     expect(lobbyFill({ ...big, hvb: true })).toMatch(/everyone here plays together against 5 bots/);
-    expect(lobbyFill({ ...big, hvb: true, players: ['a'] })).toMatch(/against 4 bots/);
+    expect(lobbyFill({ ...big, hvb: true, players: ['a'] })).toMatch(/against 4 bots, two more than you \(at least 4, at most 6\)/);
     // Free-for-all has no sides to take.
     expect(lobbyFill({ ...big, hvb: true, mode: 'ffa' })).toBe('Bots fill the match to 4 players when it starts.');
     expect(lobbyFill({ ...lobby, bots: 0 })).toBe('No bots: just the people here.');

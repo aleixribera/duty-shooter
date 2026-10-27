@@ -15,6 +15,13 @@ describe('the nuke clock', () => {
     expect(sinceMatchEnd(status('vote', 120), 110)).toBeCloseTo(10);
     expect(INTERMISSION.nuke + INTERMISSION.vote).toBe(20);
   });
+
+  it("runs on through a lobby's shorter scoreboard without a jump", () => {
+    const lobby = (phase: MatchStatus['phase'], phaseEnds: number) => ({ phase, phaseEnds, lobby: {} }) as MatchStatus;
+    // The match ended at 100: the nuke ends at 106, the scoreboard at 116.
+    expect(sinceMatchEnd(lobby('nuke', 106), 105.9)).toBeCloseTo(5.9);
+    expect(sinceMatchEnd(lobby('vote', 116), 106.1)).toBeCloseTo(6.1);
+  });
 });
 
 describe('the nuke timeline', () => {

@@ -23,12 +23,13 @@ export const DETONATION = 2.4;
 export const SHOCK_SPEED = 343;
 
 /**
- * Seconds since the match ended, through the nuke and the vote, from the
- * match status and the server's clock; null while a match is being played.
+ * Seconds since the match ended, through the nuke and the vote (a lobby's
+ * shorter scoreboard), from the match status and the server's clock; null
+ * while a match is being played.
  */
 export function sinceMatchEnd(status: MatchStatus | null, serverTime: number): number | null {
   if (!status || status.phase === 'playing' || status.phaseEnds === null) return null;
-  const end = status.phase === 'nuke' ? INTERMISSION.nuke : INTERMISSION.nuke + INTERMISSION.vote;
+  const end = status.phase === 'nuke' ? INTERMISSION.nuke : INTERMISSION.nuke + (status.lobby ? INTERMISSION.scoreboard : INTERMISSION.vote);
   return Math.max(0, end - (status.phaseEnds - serverTime));
 }
 

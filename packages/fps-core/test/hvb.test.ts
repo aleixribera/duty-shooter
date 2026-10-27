@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNavGraph, createWorld, type LobbyEvent, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
+import { buildNavGraph, createWorld, hvbBots, type LobbyEvent, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -35,6 +35,11 @@ const sides = (m: NetworkedMatch) => ({
 });
 
 describe('humans vs bots', () => {
+  it('sizes the bot team for 1 to 12 people in a 12-seat lobby: two more than them, at least four, at most six', () => {
+    const bots = Array.from({ length: 12 }, (_, i) => hvbBots(i + 1, 6, 12));
+    expect(bots).toEqual([4, 4, 5, 6, 6, 6, 5, 4, 3, 2, 1, 0]);
+  });
+
   it.each(['tdm', 'outposts', 'charge'] as const)('puts every person on one team in %s, against at least four bots', (mode) => {
     const m = match(mode);
     join(m, 'alice');
@@ -95,5 +100,19 @@ describe('humans vs bots in the lobby', () => {
     m.run(ticks(1));
     expect(sides(m)).toEqual({ people: [1], bots: [2, 2, 2, 2] });
     expect(m.server.status()).toMatchObject({ mode: 'outposts', hvb: true });
+  });
+
+  it('goes back to mixed teams once the lobby empties', () => {
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns: SPREAD, teamSpawns: [BLUE, ORANGE], mode: 'tdm', latency: 0.03, bots: { nav, perTeam: 3 }, reconnectGrace: 0, lobby: true });
+    const alice = m.join('alice');
+    m.run(ticks(0.5));
+    alice.client.setLobby({ hvb: true });
+    m.run(ticks(0.5));
+    expect(alice.client.match?.lobby?.hvb).toBe(true);
+    alice.client.close();
+    m.run(ticks(0.5));
+    const bob = m.join('bob');
+    m.run(ticks(0.5));
+    expect(bob.client.match?.lobby?.hvb).toBe(false);
   });
 });

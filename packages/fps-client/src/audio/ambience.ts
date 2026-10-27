@@ -1,6 +1,6 @@
 /**
  * The maps' ambience: wind, distant birds, a sign creaking on its chains, a
- * faint radio; and in the rail yard, couplings clanking out of sight,
+ * faint radio; and in the yard, couplings clanking out of sight,
  * sodium lamps humming and a train's horn far out on the plain. All of it
  * is quiet on purpose: it sits well under footsteps and gunfire (see the
  * loudness test), so it never hides an enemy.

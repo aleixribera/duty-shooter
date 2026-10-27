@@ -24,6 +24,9 @@ export interface SequencedCmd {
   readonly cmd: UserCmd;
 }
 
+/** The host's choices for the next match: mode, bots a side, humans vs bots, and map. A pick changes only what it names. */
+export type LobbyPick = { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string };
+
 export type ClientMessage =
   | {
       readonly t: 'join';
@@ -50,7 +53,7 @@ export type ClientMessage =
   /** A vote for the next match's mode, changeable until the vote window closes. */
   | { readonly t: 'vote'; readonly mode: ModeId }
   /** The host's choices for the next match, in the lobby. */
-  | { readonly t: 'lobby'; readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }
+  | ({ readonly t: 'lobby' } & LobbyPick)
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' };
 

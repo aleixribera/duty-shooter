@@ -281,7 +281,6 @@ export class Game {
     return this.#driver;
   }
 
-  /** Starts playing on `driver`, dropping any previous one. */
   /** Lets go of the driver without ending it, for the game on another map to take over. */
   releaseDriver(): GameDriver | null {
     const driver = this.#driver;
@@ -290,6 +289,7 @@ export class Game {
     return driver;
   }
 
+  /** Starts playing on `driver`, dropping any previous one. */
   setDriver(driver: GameDriver | null): void {
     this.#driver?.dispose();
     this.#driver = driver;

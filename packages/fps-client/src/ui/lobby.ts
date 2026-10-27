@@ -1,4 +1,4 @@
-import { MODE_IDS, teamMode, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
+import { MODE_IDS, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, pingTone } from './model';
 import { escapeHtml, installTheme } from './theme';
@@ -103,7 +103,7 @@ export interface LobbyView {
 
 export interface LobbyCallbacks {
   /** The host's picks for the next match. */
-  pick(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void;
+  pick(settings: LobbyPick): void;
   /** The host starts the match. */
   start(): void;
   /** Into the match that has started. */

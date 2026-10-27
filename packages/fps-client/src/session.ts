@@ -10,6 +10,7 @@ import {
   createWorld,
   type Connection,
   type GrenadeOutput,
+  type LobbyPick,
   type Loadout,
   type MemoryNetwork,
   type NavOptions,
@@ -71,7 +72,7 @@ export interface GameDriver {
   /** Votes for the next match's mode (online only). */
   vote(mode: ModeId): void;
   /** The host's picks for the next match, in the lobby (online only; ignored from anyone else). */
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void;
+  setLobby(settings: LobbyPick): void;
   /** The host starts the next match from the lobby (online only; ignored from anyone else). */
   startMatch(): void;
   /** What to carry from the next spawn (offline: at once while alive). */
@@ -287,7 +288,7 @@ export class OnlineDriver implements GameDriver {
     this.#client.vote(mode);
   }
 
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void {
+  setLobby(settings: LobbyPick): void {
     this.#client.setLobby(settings);
   }
 

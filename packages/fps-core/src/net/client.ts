@@ -5,7 +5,7 @@ import type { GrenadeOutput } from '../combat/grenade';
 import type { UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
-import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
+import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type LobbyPick, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
 import type { Connection } from './transport';
 
 export interface GameClientOptions {
@@ -176,7 +176,7 @@ export class GameClient {
   }
 
   /** The host's picks for the next match, in the lobby (ignored from anyone else). */
-  setLobby(settings: { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string }): void {
+  setLobby(settings: LobbyPick): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'lobby', ...settings }));
   }
 

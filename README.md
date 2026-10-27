@@ -31,7 +31,7 @@ To play online locally:
 
 3. Open <http://localhost:3000>.
 
-Dev URL parameters: `?map=range` starts with the range behind the menu, `?spot=<name>` puts the camera at one of the map's reference spots, `?bench` flies the benchmark path on every preset and reports frame times, draw calls and triangles, `?explore=<map>` (`survival-town`, `switchyard`, `range`) walks a map alone offline, `?at=x,z,yaw` moves that offline spawn, `?nolock` (dev only) plays without pointer lock for scripted browsers, and `?online` looks for a local server behind Vite's proxy. `?viewer` opens the viewmodel viewer, which loops every first-person animation. `?webgl` forces the WebGL2 fallback, which caps the graphics preset at Normal.
+Dev URL parameters: `?map=<map>` (`range`, `switchyard`) starts with that map behind the menu, `?spot=<name>` puts the camera at one of the map's reference spots, `?bench` flies the benchmark path on every preset and reports frame times, draw calls and triangles, `?explore=<map>` (`survival-town`, `switchyard`, `range`) walks a map alone offline, `?at=x,z,yaw` moves that offline spawn, `?nolock` (dev only) plays without pointer lock for scripted browsers, and `?online` looks for a local server behind Vite's proxy. `?viewer` opens the viewmodel viewer, which loops every first-person animation. `?webgl` forces the WebGL2 fallback, which caps the graphics preset at Normal.
 
 ## Controls
 
