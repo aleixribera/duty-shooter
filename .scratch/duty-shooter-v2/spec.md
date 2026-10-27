@@ -414,6 +414,7 @@ One long arc, released as **v2.0.0**. Every ticket is tagged and pushed as it la
 ## Further Notes
 
 - **No checkpoints.** The owner asked for this arc to run to the end without stopping. Where the earlier arcs stopped for approval (UI mockups, the look test), this arc relies on the automated checks above, preview renders, and the final report. Decisions that would normally go to the owner are recorded in the ticket that makes them.
+- **Main only, unattended.** The whole arc is built on `main`: no branches, worktrees or pull requests, for the agent and every subagent. Nothing waits for the owner to review or click. See "Working alone on main" in AGENTS.md.
 - **Release rule.** Per AGENTS.md, every ticket is committed on main, tagged and pushed. Pushes publish images, but the pin keeps the live lobby on v1.3.9 until the release ticket.
 - **The live version mismatch** (v1.3.0 live against v1.3.9 tagged) was found while planning this arc and is the first thing ticket zero looks at.
 - **Prior art:** the M4A1's Blender pipeline (`tools/weapon`) is the template for every new model. The Survival Town spec's map, art, lighting and benchmark decisions apply to Switchyard unless this spec says otherwise.
