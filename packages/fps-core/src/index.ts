@@ -43,5 +43,5 @@ export { createMemoryNetwork } from './net/memory';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
 export { INTERMISSION, PROTOCOL_VERSION } from './net/protocol';
 export type { ClientMessage, MatchStatus, Phase, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
-export { MODE_IDS } from './modes/game-mode';
+export { MODE_IDS, RESPAWN_DELAY } from './modes/game-mode';
 export type { GameMode, MatchResult, ModeContext, ModeEvent, ModeId, Score, SpawnPoint, TeamScore } from './modes/game-mode';

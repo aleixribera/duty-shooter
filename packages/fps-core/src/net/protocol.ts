@@ -3,7 +3,7 @@ import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import type { UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -52,6 +52,8 @@ export interface MatchStatus {
   readonly phaseEnds: number | null;
   readonly killLimit: number | null;
   readonly timeLimit: number | null;
+  /** Seconds a dead player waits before respawning. */
+  readonly respawnDelay: number;
   readonly teamScores: readonly TeamScore[] | null;
   /** Votes cast so far for each mode. */
   readonly votes: Readonly<Record<ModeId, number>>;

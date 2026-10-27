@@ -2,6 +2,7 @@ import {
   GameClient,
   GameServer,
   MAX_BOTS_PER_TEAM,
+  RESPAWN_DELAY,
   Simulation,
   TICK_SECONDS,
   buildNavGraph,
@@ -59,6 +60,8 @@ export interface GameDriver {
   readonly match: MatchStatus | null;
   /** The server's simulation time (s) now, to count down to `match.phaseEnds`. */
   readonly serverTime: number;
+  /** Seconds until you respawn while dead, or null while alive. */
+  readonly respawnIn: number | null;
   /** Votes for the next match's mode (online only). */
   vote(mode: ModeId): void;
   nameOf(id: PlayerId): string;
@@ -73,7 +76,7 @@ export interface OfflineOptions {
   readonly solids: readonly Solid[];
   readonly spawn: SpawnPoint;
   readonly dummies?: readonly PlayerSpawn[];
-  /** Seconds after death before the local player respawns. */
+  /** Seconds after death before the local player respawns (default {@link RESPAWN_DELAY}). */
   readonly respawnDelay?: number;
 }
 
@@ -92,6 +95,7 @@ export class OfflineDriver implements GameDriver {
   readonly #spawn: SpawnPoint;
   readonly #respawnDelay: number;
   #deadFor = 0;
+  #dead = false;
   #prev: readonly PlayerOutput[] = [];
   #cur: readonly PlayerOutput[] = [];
   #spawnFacing: { yaw: number; pitch: number } | null;
@@ -99,7 +103,7 @@ export class OfflineDriver implements GameDriver {
   constructor(options: OfflineOptions) {
     this.#sim = new Simulation(createWorld(options.solids));
     this.#spawn = options.spawn;
-    this.#respawnDelay = options.respawnDelay ?? 1.5;
+    this.#respawnDelay = options.respawnDelay ?? RESPAWN_DELAY;
     this.#sim.addPlayer({ id: this.selfId, team: 1, position: options.spawn.position, yaw: options.spawn.yaw });
     for (const d of options.dummies ?? []) this.#sim.addPlayer(d);
     this.#cur = this.#sim.output().players.filter((p) => p.id !== this.selfId);
@@ -109,6 +113,10 @@ export class OfflineDriver implements GameDriver {
 
   get serverTime(): number {
     return this.#sim.time;
+  }
+
+  get respawnIn(): number | null {
+    return this.#dead ? Math.max(0, this.#respawnDelay - this.#deadFor) : null;
   }
 
   vote(): void {}
@@ -131,6 +139,7 @@ export class OfflineDriver implements GameDriver {
         self = this.#sim.output().players.find((p) => p.id === this.selfId) ?? null;
       }
     }
+    this.#dead = !!self && !self.alive;
     this.#prev = this.#cur;
     this.#cur = out.players.filter((p) => p.id !== this.selfId);
     return { self, events: out.events };
@@ -214,6 +223,13 @@ export class OnlineDriver implements GameDriver {
 
   get serverTime(): number {
     return this.#client.serverTime;
+  }
+
+  get respawnIn(): number | null {
+    const self = this.#client.snapshot?.self;
+    const match = this.#client.match;
+    if (!self || self.diedAt === null || !match) return null;
+    return Math.max(0, self.diedAt + match.respawnDelay - this.serverTime);
   }
 
   vote(mode: ModeId): void {

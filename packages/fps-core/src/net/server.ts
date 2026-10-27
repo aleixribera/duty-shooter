@@ -229,6 +229,7 @@ export class GameServer {
       phaseEnds: this.#phase === 'playing' ? (limit === null ? null : this.#matchStart + limit) : this.#phase === 'nuke' ? ended + nuke : ended + nuke + vote,
       killLimit: this.#mode.killLimit,
       timeLimit: limit,
+      respawnDelay: this.#mode.respawnDelay,
       teamScores: this.#mode.teamScores(),
       votes,
       next: this.#nextMode(),

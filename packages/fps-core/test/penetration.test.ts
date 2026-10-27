@@ -212,13 +212,14 @@ describe('penetration over the network', () => {
 
     let aim = { yaw: 0, pitch: 0 };
     const start = m.history.length;
-    m.run(ticks(6), (t) => {
+    m.run(ticks(14), (t) => {
       const me = alice.client.self!;
       const seen = alice.client.others().find((p) => p.id === bob.client.id)!;
       const centre = zoneCentre(seen, 'upperTorso');
       const want = anglesOf([centre[0] - me.position[0], centre[1] - me.position[1] - me.eyeHeight, centre[2] - me.position[2]]);
       aim = { yaw: want.yaw - (me.yaw - aim.yaw), pitch: want.pitch - (me.pitch - aim.pitch) };
-      const tap = t % 20 === 0 && t - start > 60;
+      // Held while Bob is down and waiting to respawn.
+      const tap = t % 20 === 0 && t - start > 60 && seen.alive;
       return {
         alice: usercmd({ ...aim, buttons: tap ? ['Ads', 'Fire'] : ['Ads'] }),
         bob: usercmd({ yaw: Math.PI, right: Math.floor(t / 45) % 2 === 0 ? 1 : -1 }),

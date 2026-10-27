@@ -46,7 +46,7 @@ const CSS = `
 .ds-match .clock { font-size: 20px; font-weight: 700; }
 .ds-match .sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); margin-top: 2px; }
 .ds-match .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; }
+.ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: 22px; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; white-space: pre-line; line-height: 1.6; }
 .ds-overlay { position: absolute; left: 24px; bottom: 112px; padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 6px; background: rgb(0 0 0 / 0.35); }
 .ds-overlay .k { color: var(--ds-text-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.16em; }
@@ -107,6 +107,8 @@ export interface HudState {
   readonly showScoreboard: boolean;
   /** The online match: mode, phase, time left, team scores and the vote. Null offline. */
   readonly match: MatchView | null;
+  /** Seconds until you respawn while dead, or null while alive. */
+  readonly respawnIn: number | null;
   /** A centred message (e.g. "connecting"), or null. */
   readonly message: string | null;
   readonly dt: number;
@@ -389,7 +391,8 @@ export class Hud {
     if (state.showFps) stats.push(`${Math.round(state.fps)} FPS`);
     if (state.showPing && state.ping !== null) stats.push(`${Math.round(state.ping)} ms`);
     this.#stats.textContent = stats.join('  ·  ');
-    this.#center.textContent = state.message ?? (self && !self.alive ? 'You died' : '');
+    const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';
+    this.#center.textContent = state.message ?? (self && !self.alive ? `You died${respawn}` : '');
 
     this.#overlay.style.display = state.showOverlay ? '' : 'none';
     this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;

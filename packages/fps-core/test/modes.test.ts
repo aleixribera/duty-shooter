@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION, anglesOf, box, zoneCentre, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint } from '@duty-shooter/fps-core';
+import { PROTOCOL_VERSION, RESPAWN_DELAY, anglesOf, box, zoneCentre, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -210,7 +210,7 @@ describe('team deathmatch', () => {
     const m = tdm({ solids: [FLOOR, wall], spawns, teamSpawns: [[{ position: [0, 0, 5], yaw: Math.PI }], [{ position: [0, 0, -5], yaw: 0 }]] });
     const [a, b] = joinAll(m, 'a', 'b');
     expect(kill(m, a!, b!)).toBe(true);
-    m.run(ticks(0.2));
+    m.run(ticks(RESPAWN_DELAY + 0.2));
 
     expect(serverPlayer(m, b!.client.id).position).toEqual([20, 0, 5]);
   });

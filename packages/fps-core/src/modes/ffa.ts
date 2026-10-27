@@ -1,5 +1,5 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
-import type { GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, Score, SpawnPoint, TeamScore } from './game-mode';
+import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type Score, type SpawnPoint, type TeamScore } from './game-mode';
 import { RecentSpawns, scoredSpawn } from './spawns';
 
 export interface FreeForAllOptions {
@@ -18,7 +18,7 @@ interface Entry {
 }
 
 /**
- * Free-for-all: everyone on their own team, instant respawn at the safest
+ * Free-for-all: everyone on their own team, respawning after a few seconds at the safest
  * spawn point (see {@link scoredSpawn}), a kill feed, kills and deaths. The
  * first to the kill limit wins; at the time limit the most kills wins, and a
  * tie at the top is a draw.
@@ -26,7 +26,7 @@ interface Entry {
 export class FreeForAll implements GameMode {
   readonly id = 'ffa';
   readonly name = 'Free-for-all';
-  readonly respawnDelay = 0;
+  readonly respawnDelay = RESPAWN_DELAY;
   readonly killLimit: number | null;
   readonly timeLimit: number | null;
   readonly #entries = new Map<PlayerId, Entry>();

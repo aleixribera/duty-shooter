@@ -418,6 +418,7 @@ export class Game {
             myVote: this.#myVote,
           }
         : null,
+      respawnIn: match && match.phase !== 'playing' ? null : driver.respawnIn,
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
       dt,
     });

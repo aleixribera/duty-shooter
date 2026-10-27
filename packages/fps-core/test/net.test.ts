@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GameClient, IDLE_TIMEOUT, STATS, anglesOf, createWorld, zoneCentre, type Connection, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
+import { GameClient, IDLE_TIMEOUT, RESPAWN_DELAY, STATS, anglesOf, createWorld, zoneCentre, type Connection, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint, type UserCmd } from '@duty-shooter/fps-core';
 import { PROTOCOL_VERSION } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
@@ -297,9 +297,10 @@ describe('lag compensation', () => {
     let aim = { yaw: 0, pitch: 0 };
     const start = m.history.length;
     let taps = 0;
-    m.run(ticks(6), (t) => {
+    m.run(ticks(14), (t) => {
       aim = aimAtSeen(alice!, bob!.client.id!, 'upperTorso', aim);
-      const tap = t % 20 === 0 && t - start > 60;
+      // She holds fire while Bob is down and waiting to respawn.
+      const tap = t % 20 === 0 && t - start > 60 && alice!.client.others().some((p) => p.id === bob!.client.id && p.alive);
       if (tap) taps++;
       return {
         alice: usercmd({ ...aim, buttons: tap ? ['Ads', 'Fire'] : ['Ads'] }),
@@ -353,6 +354,10 @@ describe('free-for-all', () => {
     }
     expect(killedAt).toBeGreaterThan(0);
     m.run(ticks(0.5));
+    // Down for the respawn delay, where he fell.
+    expect(serverPlayer(m, bobId)).toMatchObject({ alive: false });
+    expect(bob!.client.match?.respawnDelay).toBe(RESPAWN_DELAY);
+    m.run(ticks(RESPAWN_DELAY - 0.5 + 0.1));
 
     const scores = m.server.mode.scores();
     expect(scores.find((s) => s.name === 'alice')).toMatchObject({ kills: 1, deaths: 0 });
@@ -360,7 +365,7 @@ describe('free-for-all', () => {
     const feed = clientEvents(alice!).filter((e) => e.type === 'killFeed');
     expect(feed).toEqual([expect.objectContaining({ killerName: 'alice', victimName: 'bob', cause: 'bullet' })]);
     expect(clientEvents(bob!).some((e) => e.type === 'killFeed')).toBe(true);
-    // Instant respawn, full health, at the spawn furthest from Alice that he didn't just come from.
+    // Then back, full health, at the spawn furthest from Alice that he didn't just come from.
     const respawned = serverPlayer(m, bobId);
     expect(respawned).toMatchObject({ alive: true, health: STATS.health.max.value, position: [0, 0, -20] });
     expect(alice!.client.scores.find((s) => s.name === 'alice')?.kills).toBe(1);
@@ -385,6 +390,8 @@ describe('free-for-all', () => {
     }
     expect(killed).toBe(true);
     m.run(ticks(0.5), () => ({ bob: usercmd({ yaw: -Math.PI / 2 }) }));
+    expect(bob!.client.takeSpawn()).toBeNull();
+    m.run(ticks(RESPAWN_DELAY), () => ({ bob: usercmd({ yaw: -Math.PI / 2 }) }));
 
     expect(bob!.client.takeSpawn()).toEqual({ yaw: Math.PI, pitch: 0 });
     expect(bob!.client.takeSpawn()).toBeNull();

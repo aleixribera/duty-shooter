@@ -68,6 +68,9 @@ export interface MatchEntrant {
   readonly team: TeamId | null;
 }
 
+/** Seconds a dead player waits before respawning, online and in bot matches. */
+export const RESPAWN_DELAY = 3;
+
 /**
  * Game rules: scoring, team assignment, friendly fire, spawn selection and
  * win conditions. The server owns one of each kind and switches between them

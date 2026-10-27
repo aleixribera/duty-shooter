@@ -1,5 +1,5 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
-import type { GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, Score, SpawnPoint, TeamScore } from './game-mode';
+import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type Score, type SpawnPoint, type TeamScore } from './game-mode';
 import { RecentSpawns, scoredSpawn } from './spawns';
 
 export interface TeamDeathmatchOptions {
@@ -34,7 +34,7 @@ interface Entry {
 export class TeamDeathmatch implements GameMode {
   readonly id = 'tdm';
   readonly name = 'Team deathmatch';
-  readonly respawnDelay = 0;
+  readonly respawnDelay = RESPAWN_DELAY;
   readonly killLimit: number | null;
   readonly timeLimit: number | null;
   readonly #entries = new Map<PlayerId, Entry>();

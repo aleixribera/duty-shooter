@@ -340,6 +340,10 @@ export class Bot {
     this.#holdUntil = 0;
     this.#progress = { position: view.self.position, time: view.time };
     this.#tactical = false;
+    this.#blocked = 0;
+    this.#unstickUntil = 0;
+    this.#slideUntil = 0;
+    this.#strafe = 0;
   }
 
   /** Eases the usercmd angles toward a look direction, no faster than `rate`. */
