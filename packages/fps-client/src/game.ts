@@ -3,6 +3,7 @@ import {
   TICK_SECONDS,
   angleDelta,
   raycastWorld,
+  sightBlocked,
   viewDirection,
   type Material,
   type ModeId,
@@ -28,7 +29,10 @@ import type { GameDriver, PresentedEvent } from './session';
 import { verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
-import type { BakeFile } from './surfaces';
+import { LIGHTING, type BakeFile } from './surfaces';
+
+/** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
+const OPEN_AMBIENT = 0.4;
 
 const TICK_MS = TICK_SECONDS * 1000;
 
@@ -148,7 +152,7 @@ export class Game {
     this.#indoorZones = options.content.indoorZones;
     this.#ambience = new Ambience(options.content.ambience ?? []);
     options.renderer.toneMapping = ACESFilmicToneMapping;
-    options.renderer.toneMappingExposure = 0.95;
+    options.renderer.toneMappingExposure = 0.7;
     options.renderer.shadowMap.enabled = true;
     this.#worldView = new WorldView(options.renderer, options.content, options.bake);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
@@ -319,6 +323,7 @@ export class Game {
         verticalFov(this.#settings.fov),
       );
       this.#worldView.follow(self.position);
+      this.#lightViewmodel(eye, dt);
     } else {
       const o = this.#overview;
       const cam = this.#camera.camera;
@@ -422,6 +427,18 @@ export class Game {
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
       dt,
     });
+  }
+
+  /** Lights the gun like where the player stands: in the sun or not, and how bright the light round them is. */
+  #lightViewmodel(eye: Vec3, dt: number): void {
+    const d = LIGHTING.sunDirection;
+    const sun = sightBlocked(this.#world, eye, [eye[0] + d[0] * 80, eye[1] + d[1] * 80, eye[2] + d[2] * 80]) ? 0 : 1;
+    const probe = this.#worldView.probes.sample(eye);
+    const luma = probe ? 0.2126 * probe.ambient[0] + 0.7152 * probe.ambient[1] + 0.0722 * probe.ambient[2] : OPEN_AMBIENT;
+    // Dark rooms get the same warm fill the walls do (see the surface materials' decode), so the gun matches them.
+    const fill = 0.18 * Math.min(1, Math.max(0, (0.35 - luma) / 0.33));
+    const ambient = Math.min(1.2, (luma + fill) / OPEN_AMBIENT);
+    this.#viewmodel.setLighting(sun, ambient, dt);
   }
 
   /** The range overlay shows on the firing range (west of the course). */

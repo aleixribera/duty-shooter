@@ -237,7 +237,10 @@ function labelMesh(label: WorldLabel): Mesh {
  */
 export class WorldView {
   readonly scene = new Scene();
-  readonly sun: DirectionalLight;
+  #sun: DirectionalLight;
+  /** Where the realtime shadow map reaches: its centre (x, z) and the radius it fully covers (m). */
+  readonly #shadowCentre = uniform(new Vector2(0, 0));
+  readonly #shadowRadius = uniform(36);
   /** The baked light probes, for lighting moving objects. */
   readonly probes = new ProbeField();
   readonly #root = new Group();
@@ -255,21 +258,18 @@ export class WorldView {
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     const pmrem = new PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.3;
+    scene.environmentIntensity = 0.2;
 
-    // Three's lights divide by pi where the bake's light does not.
-    this.sun = new DirectionalLight(new Color(...LIGHTING.sunColor), LIGHTING.sunIntensity * Math.PI);
-    this.sun.castShadow = true;
-    scene.add(this.sun, this.sun.target);
+    this.#sun = this.#makeSun();
     this.follow([0, 0, 0]);
 
     const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones });
     const size = uniform(new Vector2(1, 1));
-    const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0) };
+    const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0), shadowCentre: this.#shadowCentre as never, shadowRadius: this.#shadowRadius as never };
     for (const [key, geometry] of surfaceGeometries(layout, content.solids)) {
       const mesh = new Mesh(geometry, surfaceMaterial(layout.finishes[key]!, baked));
-      // Static surfaces get their sun shadows from the bake; only moving objects cast realtime ones.
-      mesh.castShadow = false;
+      // Everything casts into the realtime shadow map: near the player it lights static surfaces more crisply than the bake, and it keeps the sun off soldiers indoors.
+      mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.#root.add(mesh);
     }
@@ -323,6 +323,7 @@ export class WorldView {
       if (!merged) continue;
       for (const g of geometries) g.dispose();
       const mesh = new Mesh(merged, gridMaterial(material));
+      mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.#root.add(mesh);
     }
@@ -336,6 +337,19 @@ export class WorldView {
     scene.add(this.#root);
     this.lightMoving();
     this.setShadowQuality('normal');
+  }
+
+  /** The sun: the scene's one directional light (rebuilt when the shadow quality changes). */
+  get sun(): DirectionalLight {
+    return this.#sun;
+  }
+
+  /** A fresh sun light in the scene. Three's lights divide by pi where the bake's light does not. */
+  #makeSun(): DirectionalLight {
+    const sun = new DirectionalLight(new Color(...LIGHTING.sunColor), LIGHTING.sunIntensity * Math.PI);
+    sun.castShadow = true;
+    this.scene.add(sun, sun.target);
+    return sun;
   }
 
   /** Shows the lobby's head count and this match's kills on the population sign, if the map has one. */
@@ -353,7 +367,7 @@ export class WorldView {
       if (!(o instanceof Mesh)) return;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         if (!(m instanceof MeshStandardNodeMaterial) || this.#lit.has(m)) continue;
-        probeLit(m, this.probes, this.sun);
+        probeLit(m, this.probes, () => this.#sun, { centre: this.#shadowCentre as never, radius: this.#shadowRadius as never });
         m.needsUpdate = true;
         this.#lit.add(m);
       }
@@ -397,17 +411,26 @@ export class WorldView {
       }
     });
     this.scene.environment?.dispose();
-    this.sun.shadow.map?.dispose();
+    this.#sun.shadow.map?.dispose();
   }
 
   /** Low: one small shadow map near the player. Normal: one larger map. High: three cascades. */
   setShadowQuality(quality: ShadowQuality): void {
+    // Three builds a light's shadow once and keeps it, so a new quality needs a new light.
+    if (quality !== this.#quality) {
+      const old = this.#sun;
+      old.shadow.map?.dispose();
+      this.scene.remove(old, old.target);
+      old.dispose();
+      this.#sun = this.#makeSun();
+    }
     this.#quality = quality;
-    const shadow = this.sun.shadow;
+    const shadow = this.#sun.shadow;
     const size = quality === 'low' ? 1024 : 2048;
     shadow.mapSize.set(size, size);
-    shadow.bias = -0.0004;
-    shadow.normalBias = 0.02;
+    shadow.bias = -0.0005;
+    // About a texel and a half: walls and roofs cast too, so surfaces facing the sun must not shadow themselves.
+    shadow.normalBias = quality === 'low' ? 0.08 : 0.06;
     const extent = quality === 'low' ? 28 : 45;
     const cam = shadow.camera;
     cam.left = -extent;
@@ -416,30 +439,47 @@ export class WorldView {
     cam.bottom = -extent;
     cam.near = 1;
     cam.far = 220;
-    // Only moving objects cast, so the map need not fill the shadow map.
     cam.updateProjectionMatrix();
     shadow.map?.dispose();
     shadow.map = null;
     if (quality === 'high') {
       // The node takes the rendering camera and builds its cascades on its first
       // render; setting its camera here would skip that set-up.
-      this.#csm = new CSMShadowNode(this.sun, { cascades: 3, maxFar: 120, mode: 'practical', lightMargin: 60 });
+      this.#csm = new CSMShadowNode(this.#sun, { cascades: 3, maxFar: 120, mode: 'practical', lightMargin: 60 });
       shadow.shadowNode = this.#csm;
+      this.#shadowRadius.value = 100;
     } else {
       this.#csm = null;
       (shadow as { shadowNode?: unknown }).shadowNode = undefined;
+      // Where the map covers the ground all round (its square reaches farther on the ground than across).
+      this.#shadowRadius.value = extent * 0.9;
     }
+    this.#texel = (2 * extent) / size;
   }
 
-  /** Keeps the sun's shadow frustum around the player (single-map presets). */
+  /** One shadow-map texel (m), for the single-map presets. */
+  #texel = 0.044;
+
+  /**
+   * Keeps the sun's shadow map around the player. Single-map presets move it
+   * in whole texels across the light's view, so the shadows stay put on the
+   * ground instead of crawling and jumping as the player walks.
+   */
   follow(position: Vec3): void {
+    this.#shadowCentre.value.set(position[0], position[2]);
     if (this.#csm) return;
-    const snap = this.#quality === 'low' ? 2 : 4;
-    const x = Math.round(position[0] / snap) * snap;
-    const z = Math.round(position[2] / snap) * snap;
     const d = LIGHTING.sunDirection;
-    this.sun.position.set(x + d[0] * 100, d[1] * 100, z + d[2] * 100);
-    this.sun.target.position.set(x, 0, z);
+    // The light's view: x and y across it, z toward the sun (as lookAt builds it with +y up).
+    const z = new Vector3(d[0], d[1], d[2]);
+    const x = new Vector3(0, 1, 0).cross(z).normalize();
+    const y = z.clone().cross(x);
+    const p = new Vector3(position[0], 0, position[2]);
+    const t = this.#texel;
+    const at = x.multiplyScalar(Math.round(p.dot(x) / t) * t).add(y.multiplyScalar(Math.round(p.dot(y) / t) * t)).add(z.clone().multiplyScalar(p.dot(z)));
+    this.#shadowCentre.value.set(at.x, at.z);
+    this.#sun.target.position.copy(at);
+    this.#sun.position.copy(at).addScaledVector(z, 100);
+    this.#sun.target.updateMatrixWorld();
   }
 
   /** Re-fits the cascades after the camera's projection changes. */

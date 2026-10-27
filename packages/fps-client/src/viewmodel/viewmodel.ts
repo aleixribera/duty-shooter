@@ -154,6 +154,12 @@ const HIP_ROT = new Euler(0.02, 0.035, -0.02, 'YXZ');
 /** Distance from the eye to the rear sight when aimed. */
 const EYE_RELIEF = 0.22;
 
+/** The gun's light levels in open sun: sky fill, key, rim and reflections. */
+const FILL = 0.8;
+const KEY = 2.2;
+const RIM = 0.8;
+const ENVIRONMENT = 0.8;
+
 /**
  * The first-person M4A1 and arms: keyframed actions driven by the weapon
  * state, layered with sway, turn inertia, movement bob, a spring recoil kick
@@ -189,15 +195,20 @@ export class Viewmodel {
   #disposed = false;
   #disposeAuthored: (() => void) | null = null;
 
+  /** The gun's own lights: sky and ground fill, a key from above like the sun, and a cool rim. */
+  readonly #fill = new HemisphereLight(0xe8eef5, 0x4a4640, FILL);
+  readonly #key = new DirectionalLight(0xfff2e0, KEY);
+  readonly #rim = new DirectionalLight(0xbfd4ff, RIM);
+  #sunLight = 1;
+  #ambientLight = 1;
+
   constructor(environment: Texture | null = null) {
     this.scene.environment = environment;
-    this.scene.environmentIntensity = 0.8;
-    this.scene.add(new HemisphereLight(0xe8eef5, 0x4a4640, 0.8));
-    const key = new DirectionalLight(0xfff2e0, 2.2);
-    key.position.set(-0.6, 1, 0.4);
-    const rim = new DirectionalLight(0xbfd4ff, 0.8);
-    rim.position.set(0.8, 0.3, -1);
-    this.scene.add(key, rim, this.camera);
+    this.scene.environmentIntensity = ENVIRONMENT;
+    this.scene.add(this.#fill);
+    this.#key.position.set(-0.6, 1, 0.4);
+    this.#rim.position.set(0.8, 0.3, -1);
+    this.scene.add(this.#key, this.#rim, this.camera);
     this.camera.rotation.order = 'YXZ';
 
     this.gun = buildM4A1({ detail: 'high' });
@@ -259,6 +270,24 @@ export class Viewmodel {
   }
 
   /** Advances the animation. `worldVerticalFov` (radians) only nudges the viewmodel FOV with the player's setting. */
+  /**
+   * Lights the gun like the spot the player stands in: `sun` is how much
+   * direct sun reaches it (0 to 1) and `ambient` how bright the surrounding
+   * light is next to open sky (about 1 outdoors, less in a room). Eased over
+   * a fraction of a second, so stepping through a door doesn't snap.
+   */
+  setLighting(sun: number, ambient: number, dt: number): void {
+    const k = 1 - Math.exp(-dt / 0.2);
+    this.#sunLight += (sun - this.#sunLight) * k;
+    this.#ambientLight += (ambient - this.#ambientLight) * k;
+    // Out of the sun the key is only a faint bounce; every light follows the ambient level, so a room darkens the gun as much as its walls.
+    const amb = Math.min(1, this.#ambientLight);
+    this.#key.intensity = KEY * (0.12 + 0.88 * this.#sunLight) * amb;
+    this.#rim.intensity = RIM * amb;
+    this.#fill.intensity = FILL * this.#ambientLight;
+    this.scene.environmentIntensity = ENVIRONMENT * amb;
+  }
+
   update(state: ViewmodelState, dt: number, worldVerticalFov: number): void {
     this.#time += dt;
     const ads = ease(Math.min(1, Math.max(0, state.ads)));

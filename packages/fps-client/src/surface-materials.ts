@@ -15,6 +15,7 @@ import {
   mix,
   mx_noise_float,
   normalize,
+  normalView,
   normalWorld,
   positionWorld,
   positionWorldDirection,
@@ -51,10 +52,13 @@ import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type
 
 /**
  * How the world is lit in the browser: static surfaces from the baked
- * lightmap (indirect light in RGB, the sun term in A) times a realtime shadow
- * mask that only moving objects cast; moving objects from the baked probe
- * grid (ambient light and how much of the sun they see), plus the realtime
- * sun. Surface detail is drawn by pattern families in world space.
+ * lightmap (indirect light in RGB, the sun term in A); near the player the
+ * sun term comes from the realtime shadow map instead (everything casts into
+ * it), which is crisper than the bake's texels, fading to the bake where the
+ * shadow map ends. Moving objects take ambient light from the baked probe
+ * grid and the realtime sun, shadowed by walls and roofs like everything
+ * else. Muzzle flashes and other point lights light both. Surface detail is
+ * drawn by pattern families in world space.
  */
 
 // TSL's node types are loose; these keep the pattern code readable.
@@ -96,7 +100,7 @@ export function skyNode(d: N3): N3 {
 export function haze(lit: N3): N3 {
   const dist = length(positionWorld.sub(cameraPosition));
   const k = float(1).sub(exp(dist.mul(-0.0035)));
-  return mix(lit, vec3(...LIGHTING.skyHorizon).mul(LIGHTING.skyIntensity), k.mul(0.55)) as N3;
+  return mix(lit, vec3(...LIGHTING.skyHorizon).mul(LIGHTING.skyIntensity), k.mul(0.45)) as N3;
 }
 
 /** 0..1 value noise in world space. */
@@ -258,21 +262,25 @@ function sampleCubic(map: Node, uv: N2, size: N2): N4 {
   return at(t0.x, t0.y).mul(g0.x).add(at(t1.x, t0.y).mul(g1.x)).mul(g0.y).add(at(t0.x, t1.y).mul(g0.x).add(at(t1.x, t1.y).mul(g1.x)).mul(g1.y)) as N4;
 }
 
-/** The lighting a baked surface reads: the lightmap and how much of the sun the realtime shadow leaves. */
+/** The lighting a baked surface reads: the lightmap, and where the realtime shadow map covers. */
 interface Baked {
   readonly lightmap: Node;
   /** The lightmap's size in texels. */
   readonly size: N2;
   /** 1 once a lightmap matching this layout is in; until then, unshadowed sun and flat sky light. */
   readonly ready: Node;
+  /** The realtime shadow map's reach: its centre (x, z) and the radius (m) it fully covers. */
+  readonly shadowCentre: N2;
+  readonly shadowRadius: N;
 }
 
-/** Lights a static surface from the lightmap, keeping only the realtime sun shadow (cast by moving objects) from the scene's lights. */
+/** Lights a static surface from the lightmap and, near the player, the realtime sun shadow; adds point lights (muzzle flashes). */
 class BakedLightingModel extends LightingModel {
   readonly #albedo: N3;
   readonly #baked: Baked;
   readonly #shine: { ks: number; power: number };
   readonly #mask = float(1).toVar('sunMask');
+  readonly #point = vec3(0, 0, 0).toVar('pointLight');
 
   constructor(albedo: N3, baked: Baked, shine: { ks: number; power: number }) {
     super();
@@ -281,9 +289,18 @@ class BakedLightingModel extends LightingModel {
     this.#shine = shine;
   }
 
-  override direct({ lightNode }: { lightNode: Node }): void {
-    const shadow = (lightNode as unknown as { shadowNode: N | null }).shadowNode;
-    if (shadow) this.#mask.mulAssign(shadow);
+  override direct(input: Parameters<LightingModel['direct']>[0]): void {
+    const { lightNode } = input;
+    const lightDirection = input.lightDirection as unknown as N3;
+    const lightColor = input.lightColor as unknown as N3;
+    const light = (lightNode as unknown as { light?: { isDirectionalLight?: boolean } }).light;
+    if (light?.isDirectionalLight) {
+      const shadow = (lightNode as unknown as { shadowNode: N | null }).shadowNode;
+      if (shadow) this.#mask.mulAssign(shadow);
+      return;
+    }
+    // Three's lights divide by pi where the bake's light does not.
+    this.#point.addAssign(lightColor.mul(max(dot(normalView as unknown as N3, lightDirection), float(0))).div(Math.PI));
   }
 
   override finish(builder: NodeBuilder): void {
@@ -291,9 +308,14 @@ class BakedLightingModel extends LightingModel {
     const lm = sampleCubic(this.#baked.lightmap, uv(1) as unknown as N2, this.#baked.size);
     const n = normalWorld as unknown as N3;
     const ready = this.#baked.ready as unknown as N;
-    const sunTerm = mix(max(dot(n, sunDir), float(0)), lm.a, ready).mul(this.#mask);
+    const facing = max(dot(n, sunDir), float(0));
+    // Within the shadow map's reach, the realtime shadow alone decides the sun; beyond it, the bake does.
+    const reach = this.#baked.shadowRadius;
+    const near = float(1).sub(smoothstep(reach.mul(0.8), reach, length(positionWorld.xz.sub(this.#baked.shadowCentre))));
+    const baked = mix(facing, lm.a, ready);
+    const sunTerm = mix(baked, facing, near.mul(ready)).mul(this.#mask);
     const sky = mix(vec3(0.42, 0.44, 0.47), decode(lm.rgb as N3), ready);
-    const diffuse = this.#albedo.mul(sky.add(sunColor.mul(sunTerm)));
+    const diffuse = this.#albedo.mul(sky.add(sunColor.mul(sunTerm)).add(this.#point));
     const v = positionWorldDirection.negate() as unknown as N3;
     const h = normalize(sunDir.add(v));
     const spec = sunColor.mul(sunTerm).mul(pow(max(dot(n, h), float(0)), float(this.#shine.power)).mul(this.#shine.ks));
@@ -455,20 +477,29 @@ export function lightmapNode(): Node {
   return texture(placeholderLightmap()) as unknown as Node;
 }
 
-/** Lights a standard material from the probes: ambient from the grid, the realtime sun scaled by how much of it the grid says reaches here. */
+/**
+ * Lights a standard material from the probes: ambient from the grid, and the
+ * realtime sun, whose shadow map has walls and roofs in it. Beyond the shadow
+ * map's reach the grid says how much of the sun gets through.
+ */
 class ProbeLightingModel extends PhysicalLightingModel {
   readonly #probes: ProbeField;
-  readonly #sun: DirectionalLight;
+  readonly #sun: () => DirectionalLight;
+  readonly #reach: { centre: N2; radius: N };
 
-  constructor(probes: ProbeField, sun: DirectionalLight) {
+  constructor(probes: ProbeField, sun: () => DirectionalLight, reach: { centre: N2; radius: N }) {
     super();
     this.#probes = probes;
     this.#sun = sun;
+    this.#reach = reach;
   }
 
   override direct(input: Parameters<PhysicalLightingModel['direct']>[0], builder: NodeBuilder): void {
     const light = (input.lightNode as unknown as { light?: unknown }).light;
-    if (light === this.#sun) input = { ...input, lightColor: (input.lightColor as unknown as N3).mul(this.#probes.sun()) as never };
+    if (light === this.#sun()) {
+      const near = float(1).sub(smoothstep(this.#reach.radius.mul(0.8), this.#reach.radius, length(positionWorld.xz.sub(this.#reach.centre))));
+      input = { ...input, lightColor: (input.lightColor as unknown as N3).mul(mix(this.#probes.sun(), float(1), near)) as never };
+    }
     super.direct(input, builder);
   }
 
@@ -479,8 +510,8 @@ class ProbeLightingModel extends PhysicalLightingModel {
   }
 }
 
-/** Has a standard material lit by the probe grid (moving objects: soldiers, props, decals, casings). */
-export function probeLit<T extends MeshStandardNodeMaterial>(material: T, probes: ProbeField, sun: DirectionalLight): T {
-  material.setupLightingModel = () => new ProbeLightingModel(probes, sun);
+/** Has a standard material lit by the probe grid (moving objects: soldiers, props, decals, casings). `sun` gives the current sun light. */
+export function probeLit<T extends MeshStandardNodeMaterial>(material: T, probes: ProbeField, sun: () => DirectionalLight, reach: { centre: N2; radius: N }): T {
+  material.setupLightingModel = () => new ProbeLightingModel(probes, sun, reach);
   return material;
 }

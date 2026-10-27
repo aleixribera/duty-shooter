@@ -414,7 +414,7 @@ export class Effects {
       const age = (this.#lightAge[i] ?? 1) + dt;
       this.#lightAge[i] = age;
       const light = this.#lights[i] as PointLight;
-      light.intensity = age < 0.05 ? 22 * (1 - age / 0.05) + 6 : 0;
+      light.intensity = age < 0.05 ? 14 * (1 - age / 0.05) + 4 : 0;
     }
     for (let i = this.#flashes.length - 1; i >= 0; i--) {
       const f = this.#flashes[i]!;

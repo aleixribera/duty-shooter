@@ -11,7 +11,7 @@ export function effectivePreset(preset: GraphicsPreset, backend: RenderBackend):
   return backend === 'webgl2' && preset === 'high' ? 'normal' : preset;
 }
 
-const BLOOM = 0.18;
+const BLOOM = 0.1;
 
 /**
  * Heat shimmer: what lies far off (the desert, the mountains) wavers a
@@ -149,7 +149,8 @@ export class GamePipeline {
     const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
     composite = vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);
     if (f.bloom) {
-      this.#bloom = bloom(composite, BLOOM, 0.35, 0.92);
+      // Only real highlights bloom (flashes, glints), not sunlit ground.
+      this.#bloom = bloom(composite, BLOOM, 0.35, 1.6);
       this.#owned.push(this.#bloom);
       composite = composite.add(this.#bloom);
     } else {
