@@ -20,14 +20,16 @@ const CSS = `
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgb(255 97 89 / 0.85); filter: blur(0.6px); transform-origin: 70px 230px; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgb(140 0 0 / 0.75) 100%); opacity: 0; }
-.ds-plate { background: rgb(11 14 19 / 0.62); border: 1px solid var(--ds-line); border-radius: 4px; text-shadow: none; }
-.ds-ammo { position: absolute; right: 24px; bottom: 24px; min-width: 168px; padding: 10px 14px 12px; text-align: right; }
-.ds-ammo .mag { font-size: 44px; font-weight: 700; line-height: 1; }
+.ds-plate { background: linear-gradient(180deg, rgb(12 15 21 / 0.8), rgb(12 15 21 / 0.64)); border: 1px solid rgb(243 241 234 / 0.08); border-radius: 2px; text-shadow: none; }
+.ds-ammo { position: absolute; right: 0; bottom: 0; min-width: 300px; padding: 0 32px 26px 60px; text-align: right; background: radial-gradient(ellipse at 100% 100%, rgb(7 9 13 / 0.62), rgb(7 9 13 / 0) 70%); }
+.ds-ammo .mag { font-size: 54px; font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
-.ds-ammo .res { font-size: 18px; color: var(--ds-text-2); margin-left: 6px; }
-.ds-ammo .nade { display: inline-block; margin-right: 12px; font-size: 13px; letter-spacing: 0.08em; color: var(--ds-text-2); vertical-align: 6px; }
-.ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.5; }
-.ds-ammo .nade.cook { color: var(--ds-alert); }
+.ds-ammo .res { font-size: 20px; color: var(--ds-text-2); margin-left: 8px; }
+.ds-ammo .gun { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-bottom: 4px; font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.ds-ammo .gun small { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; padding: 2px 5px 1px; border: 1px solid var(--ds-line-2); color: var(--ds-text-2); }
+.ds-ammo .nade { display: inline-flex; align-items: center; gap: 5px; margin-right: 16px; padding: 3px 8px; border: 1px solid var(--ds-line-2); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--ds-text); vertical-align: 10px; }
+.ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.45; }
+.ds-ammo .nade.cook { color: var(--ds-alert); border-color: var(--ds-alert); }
 .ds-scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent 38vmin, rgb(0 0 0 / 0.55) 38.3vmin, #000 39vmin); }
 .ds-scope i { position: absolute; background: #000; }
 .ds-scope i.h { left: calc(50% - 38vmin); right: calc(50% - 38vmin); top: calc(50% - 1px); height: 2px; }
@@ -35,19 +37,26 @@ const CSS = `
 .ds-scope i.h.thick { left: calc(50% - 38vmin); right: calc(50% + 8vmin); height: 5px; top: calc(50% - 2.5px); }
 .ds-scope i.h.thick.r { left: calc(50% + 8vmin); right: calc(50% - 38vmin); }
 .ds-scope i.v.thick { top: calc(50% + 8vmin); bottom: calc(50% - 38vmin); width: 5px; left: calc(50% - 2.5px); }
-.ds-ammo .bar, .ds-health .bar { height: 3px; background: rgb(243 241 234 / 0.18); margin-top: 8px; border-radius: 2px; overflow: hidden; }
-.ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; background: var(--ds-text); }
-.ds-health { position: absolute; left: 24px; bottom: 24px; min-width: 200px; padding: 10px 14px 12px; }
-.ds-health .hp { font-size: 36px; font-weight: 700; line-height: 1; margin-top: 4px; }
+.ds-ammo .bar, .ds-health .bar { position: relative; height: 5px; background: rgb(243 241 234 / 0.16); margin-top: 10px; overflow: hidden; }
+.ds-health .bar::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgb(7 9 13 / 0.85) calc(10% - 2px) 10%); }
+.ds-ammo .bar { width: 220px; margin-left: auto; }
+.ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; width: 100%; background: var(--ds-text); transform-origin: 0 50%; transition: transform 120ms linear; }
+.ds-ammo .mag.low ~ .bar i { background: var(--ds-alert); }
+.ds-health { position: absolute; left: 0; bottom: 0; min-width: 300px; padding: 0 60px 26px 32px; background: radial-gradient(ellipse at 0% 100%, rgb(7 9 13 / 0.62), rgb(7 9 13 / 0) 70%); }
+.ds-health .ds-label { display: flex; align-items: center; gap: 8px; color: var(--ds-text-2); }
+.ds-health .ds-label::before { content: '✚'; font-size: 13px; color: var(--ds-signal); }
+.ds-health.low .ds-label::before { color: var(--ds-alert); }
+.ds-health .bar { width: 236px; }
+.ds-health .hp { font-size: 48px; font-weight: 700; line-height: 0.9; margin-top: 6px; }
 .ds-health.low .hp { color: var(--ds-alert); }
 .ds-health.low .bar i { background: var(--ds-alert); }
 .ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.ds-feed div { background: rgb(11 14 19 / 0.62); padding: 5px 10px; border-radius: 3px; text-shadow: none; transition: opacity 400ms linear; animation: ds-slide 200ms ease-out; }
+.ds-feed div { display: flex; align-items: center; background: linear-gradient(270deg, rgb(12 15 21 / 0.8), rgb(12 15 21 / 0.55)); padding: 5px 12px; border-radius: 2px; text-shadow: none; font-size: 14px; transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
 .ds-hud.rostered .ds-feed { top: 84px; }
-.ds-feed .you { box-shadow: inset 2px 0 0 var(--ds-signal); background: rgb(11 14 19 / 0.8); }
+.ds-feed .you { box-shadow: inset 3px 0 0 var(--ds-signal); background: linear-gradient(270deg, rgb(143 227 200 / 0.22), rgb(12 15 21 / 0.7)); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
-.ds-zones .zone { position: relative; width: 38px; height: 38px; border: 2px solid currentColor; border-radius: 4px; background: rgb(11 14 19 / 0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: var(--ds-text-3); }
+.ds-zones .zone { position: relative; width: 40px; height: 40px; border: 2px solid currentColor; border-radius: 2px; background: rgb(11 14 19 / 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: var(--ds-text-3); }
 .ds-zones .zone.ds-t1, .ds-zones .zone.ds-t2 { background: rgb(11 14 19 / 0.7); }
 .ds-zones .zone b { font-size: 17px; line-height: 1; color: var(--ds-text); }
 .ds-zones .zone .mark { font-size: 9px; line-height: 1; margin-top: 2px; }
@@ -55,7 +64,7 @@ const CSS = `
 .ds-zones .zone.here { box-shadow: 0 0 0 2px rgb(243 241 234 / 0.5); }
 .ds-zones .zone.contested { animation: ds-blink 0.6s steps(2) infinite; }
 @keyframes ds-blink { 50% { border-color: var(--ds-alert); } }
-.ds-marker { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; color: var(--ds-text-3); }
+.ds-marker { position: absolute; left: 0; top: 0; will-change: transform; display: flex; flex-direction: column; align-items: center; color: var(--ds-text-3); }
 .ds-marker b { width: 26px; height: 26px; border: 2px solid currentColor; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--ds-text); background: rgb(11 14 19 / 0.5); }
 .ds-marker.ds-t1 b, .ds-marker.ds-t2 b { border-color: currentColor; }
 .ds-marker small { font-size: 11px; margin-top: 2px; color: var(--ds-text-2); }
@@ -72,17 +81,23 @@ const CSS = `
 .ds-action .bar { height: 5px; margin-top: 6px; background: rgb(243 241 234 / 0.18); border-radius: 2px; overflow: hidden; }
 .ds-action .bar i { display: block; height: 100%; background: var(--ds-signal); }
 .ds-round { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
-.ds-round .sub { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-round .sub { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); text-shadow: 0 1px 8px rgb(0 0 0 / 0.85); }
 .ds-round h2 { margin: 6px 0 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
-.ds-stats { position: absolute; left: 24px; top: 24px; font-size: 12px; color: var(--ds-text-2); letter-spacing: 0.08em; }
+.ds-stats { position: absolute; left: 24px; top: 20px; padding: 3px 8px; background: rgb(7 9 13 / 0.45); font-size: 12px; font-weight: 700; color: var(--ds-text-2); letter-spacing: 0.08em; text-shadow: none; }
+.ds-stats:empty { display: none; }
 .ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: max-content; display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
 .ds-match > div { padding: 6px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.ds-match .score { font-size: 26px; font-weight: 700; line-height: 1; }
+.ds-match .score { font-size: 30px; font-weight: 700; line-height: 1; }
 .ds-match .team { min-width: 92px; }
-.ds-match .team.mine { box-shadow: inset 0 -2px 0 currentColor; background: rgb(243 241 234 / 0.06); }
+.ds-match .team.mine { background: linear-gradient(0deg, rgb(243 241 234 / 0.1), rgb(243 241 234 / 0.02)); }
+.ds-match .team { position: relative; }
+.ds-match .team .prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(243 241 234 / 0.12); }
+.ds-match .team .prog i { display: block; height: 100%; background: currentColor; }
+.ds-match .team.r .prog i { margin-left: auto; }
 .ds-match .mid { border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); min-width: 96px; }
-.ds-match .clock { font-size: 20px; font-weight: 700; }
+.ds-match .clock { font-size: 22px; font-weight: 700; letter-spacing: 0.02em; }
+.ds-match .clock.low { color: var(--ds-alert); }
 .ds-match .sub { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); margin-top: 2px; }
 .ds-match > .roster { flex-direction: row; gap: 4px; padding: 6px 8px; }
 .ds-match > .roster.l { flex-direction: row-reverse; }
@@ -110,19 +125,24 @@ const CSS = `
 .ds-overlay { position: absolute; left: 24px; bottom: 112px; padding: 10px 12px; font-size: 13px; display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 6px; background: rgb(0 0 0 / 0.35); }
 .ds-overlay .k { color: var(--ds-text-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.16em; }
-.ds-board { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); padding: 18px 20px; display: none; background: rgb(18 22 29 / 0.9); border-radius: 6px; animation: ds-in 160ms ease-out; }
+.ds-board { position: absolute; z-index: 2; left: 50%; top: 142px; max-height: calc(100vh - 290px); overflow: hidden; transform: translateX(-50%); width: min(920px, calc(100vw - 64px)); padding: 0; display: none; background: rgb(12 15 21 / 0.92); border: 1px solid var(--ds-line); border-top: 3px solid var(--ds-signal); text-shadow: none; animation: ds-fade 100ms ease-out; }
+.ds-board > header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 20px 12px; border-bottom: 1px solid var(--ds-line); }
+.ds-board > header b { font-size: 20px; letter-spacing: 0.06em; text-transform: uppercase; }
+.ds-board .cols { padding: 14px 20px 18px; }
 .ds-board.end { top: auto; bottom: 56px; }
 .ds-board .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .ds-board .cols.one { grid-template-columns: 1fr; }
-.ds-board h3 { margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.ds-board h3 .total { font-size: 28px; }
+.ds-board h3 { margin: 0 0 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: linear-gradient(90deg, currentColor -400%, transparent 140%); border-left: 3px solid currentColor; }
+.ds-board h3 > span:first-child { color: var(--ds-text); }
+.ds-board h3 .total { font-size: 28px; line-height: 1; }
 .ds-board table { width: 100%; border-collapse: collapse; }
 .ds-board th { text-align: right; font-size: 11px; font-weight: 400; letter-spacing: 0.16em; color: var(--ds-text-3); padding: 4px 8px; text-transform: uppercase; }
 .ds-board th:nth-child(-n+2), .ds-board td:nth-child(-n+2) { text-align: left; }
-.ds-board td { padding: 6px 8px; border-top: 1px solid var(--ds-line); text-align: right; }
+.ds-board td { padding: 7px 8px; border-top: 1px solid var(--ds-line); text-align: right; font-size: 15px; }
+.ds-board td:nth-child(2) { font-weight: 700; }
 .ds-board td.place { color: var(--ds-text-3); width: 36px; }
-.ds-board tr.you td { background: rgb(143 227 200 / 0.12); }
-.ds-board tr.you td:first-child { box-shadow: inset 2px 0 0 var(--ds-signal); }
+.ds-board tr.you td { background: rgb(143 227 200 / 0.14); }
+.ds-board tr.you td:first-child { box-shadow: inset 3px 0 0 var(--ds-signal); }
 .ds-board .ping { color: var(--ds-text-2); }
 .ds-end { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); text-align: center; display: none; animation: ds-in 160ms ease-out; }
 .ds-end .result { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
@@ -145,7 +165,7 @@ const CSS = `
 .ds-votes button .tally i { display: block; height: 100%; background: var(--ds-signal); transition: width 200ms ease-out; }
 .ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: 22px; font-weight: 700; }
 .ds-end .next { margin-top: 8px; font-size: 13px; color: var(--ds-text-2); }
-.ds-toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 560px; background: rgb(18 22 29 / 0.92); border: 1px solid var(--ds-line); border-left: 2px solid var(--ds-signal); border-radius: 4px; padding: 10px 14px; font-size: 14px; line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
+.ds-toast { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); max-width: 560px; background: rgb(12 15 21 / 0.92); border: 1px solid var(--ds-line); border-left: 3px solid var(--ds-signal); padding: 10px 16px; font-size: 14px; line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
 `;
 
 export interface HudState {
@@ -247,6 +267,11 @@ export interface MatchView {
 /** The mode as the match bar names it, short. */
 const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge' };
 
+/** A number for a style, to three places, so values that barely move are not written again. */
+function fixed(n: number): string {
+  return String(Math.round(n * 1000) / 1000);
+}
+
 function clock(seconds: number): string {
   const s = Math.max(0, Math.ceil(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -311,6 +336,9 @@ export class Hud {
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
   readonly #html = new WeakMap<HTMLElement, string>();
+  /** What each element was last given, so a frame writes to the page only what changed. */
+  readonly #texts = new WeakMap<HTMLElement, string>();
+  readonly #styles = new WeakMap<HTMLElement, Map<string, string>>();
 
   constructor(parent: HTMLElement) {
     installTheme();
@@ -339,12 +367,12 @@ export class Hud {
     });
     this.#elim = el('div', 'ds-elim', this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
-    this.#health = el('div', 'ds-health ds-plate', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
+    this.#health = el('div', 'ds-health', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
-    const ammo = el('div', 'ds-ammo ds-plate', this.root, '<div class="ds-label">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">∞</span><div class="bar"><i></i></div>');
+    const ammo = el('div', 'ds-ammo', this.root, '<div class="gun">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">/ ∞</span><div class="bar"><i></i></div>');
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
-    this.#gun = ammo.querySelector('.ds-label') as HTMLElement;
+    this.#gun = ammo.querySelector('.gun') as HTMLElement;
     this.#nade = ammo.querySelector('.nade') as HTMLElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
     this.#feed = el('div', 'ds-feed', this.root);
@@ -512,24 +540,22 @@ export class Hud {
     const w = self?.weapon;
     const sprinting = self?.movement === 'sprint' || self?.movement === 'tacticalSprint';
     const hide = !self || !self.alive || (w?.ads ?? 0) > 0.35 || sprinting || w?.action === 'inspect';
-    this.#cross.style.opacity = hide ? '0' : '1';
-    const gap = Math.max(4, (w?.spread ?? 2) * state.pixelsPerDegree);
+    this.#style(this.#cross, 'opacity', hide ? '0' : '1');
+    const gap = Math.round(Math.max(4, (w?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
     const [left, right, up, down] = this.#arms;
     if (left && right && up && down) {
-      left.style.left = `${-gap - 9}px`;
-      right.style.left = `${gap}px`;
-      up.style.top = `${-gap - 9}px`;
-      down.style.top = `${gap}px`;
+      this.#style(left, 'left', `${-gap - 9}px`);
+      this.#style(right, 'left', `${gap}px`);
+      this.#style(up, 'top', `${-gap - 9}px`);
+      this.#style(down, 'top', `${gap}px`);
     }
 
     this.#hitAge += dt;
-    this.#hit.style.opacity = String(Math.max(0, 1 - this.#hitAge / this.#hitLife));
-    // The marker pops out and settles over its first 80 ms.
-    this.#hit.style.transform = `scale(${1 + 0.4 * Math.max(0, 1 - this.#hitAge / 0.08)})`;
+    this.#style(this.#hit, 'opacity', fixed(Math.max(0, 1 - this.#hitAge / this.#hitLife)));
+    // The marker pops out and settles over its first moments.
+    this.#style(this.#hit, 'transform', `scale(${fixed(1 + Math.max(0, 0.12 - this.#hitAge) * 2.5)})`);
     this.#elimAge += dt;
-    this.#elim.style.opacity = String(Math.max(0, Math.min(1, this.#elimAge / 0.06, (1.6 - this.#elimAge) / 0.4)));
-    const scale = 1 + Math.max(0, 0.12 - this.#hitAge) * 2.5;
-    this.#hit.style.transform = `scale(${scale})`;
+    this.#style(this.#elim, 'opacity', fixed(Math.max(0, Math.min(1, this.#elimAge / 0.06, (1.6 - this.#elimAge) / 0.4))));
 
     // Damage indicators point at the attacker relative to where you are looking now.
     for (const ind of this.#indicators) {
@@ -541,44 +567,45 @@ export class Hud {
     while (this.#indicators[0] && this.#indicators[0].age > 1.6) this.#indicators.shift()?.el.remove();
     this.#flash = Math.max(0, this.#flash - dt * 2.5);
     const hurt = self ? 1 - self.health / 100 : 0;
-    this.#vignette.style.opacity = String(Math.min(1, hurt * 0.9 + this.#flash * 0.35));
+    this.#style(this.#vignette, 'opacity', fixed(Math.min(1, hurt * 0.9 + this.#flash * 0.35)));
 
     const health = self ? Math.max(0, Math.round(self.health)) : 0;
-    this.#health.style.display = self ? '' : 'none';
-    this.#hp.textContent = String(health);
-    this.#hpBar.style.width = `${health}%`;
+    this.#style(this.#health, 'display', self ? '' : 'none');
+    this.#text(this.#hp, String(health));
+    this.#style(this.#hpBar, 'transform', `scaleX(${health / 100})`);
     this.#health.classList.toggle('low', health <= 35);
 
     if (w && self) {
       const row = STATS.weapons[w.id];
       const size = row.handling.magazineSize.value;
-      this.#set(this.#gun, escape(row.traits.name));
-      this.#mag.textContent = String(w.ammo);
+      this.#set(this.#gun, `${escape(row.traits.name)}<small>${row.traits.sight === 'scope' ? 'scoped' : row.traits.fireMode}</small>`);
+      this.#text(this.#mag, String(w.ammo));
       this.#mag.classList.toggle('low', w.ammo <= Math.max(1, Math.floor(size / 5)));
-      this.#bar.style.width = `${(w.ammo / size) * 100}%`;
+      this.#style(this.#bar, 'transform', `scaleX(${fixed(w.ammo / size)})`);
       const cooking = self.grenade?.phase === 'cook';
-      this.#nade.textContent = cooking ? `◆ ${Math.max(0, STATS.grenade.fuse.value - (self.grenade?.time ?? 0)).toFixed(1)}` : `◆ ${self.grenades}`;
-      this.#nade.className = `nade${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
+      this.#text(this.#nade, cooking ? `◆ ${Math.max(0, STATS.grenade.fuse.value - (self.grenade?.time ?? 0)).toFixed(1)}` : `◆ ${self.grenades}`);
+      const nade = `nade${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
+      if (this.#nade.className !== nade) this.#nade.className = nade;
     }
     // The scope: the view through the glass once aimed (the viewmodel steps aside at the same point).
-    this.#scope.style.display = self?.alive && w && STATS.weapons[w.id].traits.sight === 'scope' && w.ads >= 0.9 ? 'block' : 'none';
+    this.#style(this.#scope, 'display', self?.alive && w && STATS.weapons[w.id].traits.sight === 'scope' && w.ads >= 0.9 ? 'block' : 'none');
 
     const stats: string[] = [];
     if (state.showFps) stats.push(`${Math.round(state.fps)} FPS`);
     if (state.showPing && state.ping !== null) stats.push(`${Math.round(state.ping)} ms`);
-    this.#stats.textContent = stats.join('  ·  ');
+    this.#text(this.#stats, stats.join('  ·  '));
     const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';
     // In Charge the dead wait for the next round, watching a teammate.
     const charge = state.charge ?? null;
     const waiting = charge ? `\nBack next round${charge.spectating ? `\nWatching ${charge.spectating}` : ''}` : respawn;
     const banner = charge && (charge.state.phase === 'over' || charge.state.phase === 'freeze');
-    this.#center.textContent = state.message ?? (self && !self.alive && !banner ? `You died${waiting}` : '');
+    this.#text(this.#center, state.message ?? (self && !self.alive && !banner ? `You died${waiting}` : ''));
     const prompt = state.message ? null : (state.prompt ?? null);
     this.#prompt.hidden = prompt === null;
-    if (prompt !== null && this.#prompt.textContent !== prompt) this.#prompt.textContent = prompt;
+    if (prompt !== null) this.#text(this.#prompt, prompt);
 
-    this.#overlay.style.display = state.showOverlay ? '' : 'none';
-    this.#dist.textContent = state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`;
+    this.#style(this.#overlay, 'display', state.showOverlay ? '' : 'none');
+    if (state.showOverlay) this.#text(this.#dist, state.targetDistance === null ? '–' : `${state.targetDistance.toFixed(1)} m`);
 
     this.#updateMatch(state);
     this.#updateZones(state);
@@ -586,7 +613,7 @@ export class Hud {
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
     const board = (state.showScoreboard || voting) && state.scores.length > 0;
-    this.#board.style.display = board ? 'block' : 'none';
+    this.#style(this.#board, 'display', board ? 'block' : 'none');
     this.#board.classList.toggle('end', voting);
     if (board) this.#set(this.#board, boardHtml(state));
 
@@ -596,10 +623,26 @@ export class Hud {
     }
   }
 
+  /** Sets an element's text only when it changed: rewriting it every frame would lay the HUD out again every frame. */
+  #text(el: HTMLElement, text: string): void {
+    if (this.#texts.get(el) === text) return;
+    this.#texts.set(el, text);
+    el.textContent = text;
+  }
+
+  /** Sets one inline style only when it changed, for the same reason. */
+  #style(el: HTMLElement, prop: string, value: string): void {
+    let styles = this.#styles.get(el);
+    if (!styles) this.#styles.set(el, (styles = new Map()));
+    if (styles.get(prop) === value) return;
+    styles.set(prop, value);
+    el.style.setProperty(prop, value);
+  }
+
   /** The Outposts strip under the match bar (each zone's holder and capture), and a marker over each zone in the world. */
   #updateZones(state: HudState): void {
     const zones = state.match?.status.phase === 'playing' && state.self ? (state.zones ?? []) : [];
-    this.#zones.style.display = zones.length > 0 ? 'flex' : 'none';
+    this.#style(this.#zones, 'display', zones.length > 0 ? 'flex' : 'none');
     this.#set(
       this.#zones,
       zones
@@ -622,10 +665,10 @@ export class Hud {
         this.root.append(marker);
         this.#markers.set(z.id, marker);
       }
-      marker.className = `ds-marker ds-t${z.owner}${z.contested ? ' contested' : ''}`;
-      marker.style.display = z.inside ? 'none' : '';
-      marker.style.left = `${z.x}px`;
-      marker.style.top = `${z.y}px`;
+      const cls = `ds-marker ds-t${z.owner}${z.contested ? ' contested' : ''}`;
+      if (marker.className !== cls) marker.className = cls;
+      this.#style(marker, 'display', z.inside ? 'none' : '');
+      this.#style(marker, 'transform', `translate(${Math.round(z.x)}px, ${Math.round(z.y)}px) translate(-50%, -100%)`);
       this.#set(marker, `<b>${escape(z.id)}</b><small>${Math.round(z.distance)} m</small>`);
     }
   }
@@ -637,9 +680,9 @@ export class Hud {
    */
   #updateCharge(state: HudState): void {
     const c = state.match?.status.phase === 'playing' ? (state.charge ?? null) : null;
-    this.#charge.style.display = c ? '' : 'none';
-    this.#action.style.display = c?.state.action && c.acting ? '' : 'none';
-    this.#round.style.display = c && (c.state.phase === 'freeze' || c.state.phase === 'over') ? '' : 'none';
+    this.#style(this.#charge, 'display', c ? '' : 'none');
+    this.#style(this.#action, 'display', c?.state.action && c.acting ? '' : 'none');
+    this.#style(this.#round, 'display', c && (c.state.phase === 'freeze' || c.state.phase === 'over') ? '' : 'none');
     const markers = c ? c.markers : [];
     for (const [key, marker] of this.#chargeMarkers) {
       if (!markers.some((m) => m.key === key)) {
@@ -655,9 +698,9 @@ export class Hud {
         this.root.append(marker);
         this.#chargeMarkers.set(m.key, marker);
       }
-      marker.className = `ds-marker ${m.kind === 'target' ? 'site target' : m.kind}`;
-      marker.style.left = `${m.x}px`;
-      marker.style.top = `${m.y}px`;
+      const cls = `ds-marker ${m.kind === 'target' ? 'site target' : m.kind}`;
+      if (marker.className !== cls) marker.className = cls;
+      this.#style(marker, 'transform', `translate(${Math.round(m.x)}px, ${Math.round(m.y)}px) translate(-50%, -100%)`);
       this.#set(marker, `<b>${escape(m.label)}</b><small>${Math.round(m.distance)} m</small>`);
     }
     const s = c.state;
@@ -689,8 +732,8 @@ export class Hud {
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
   #updateMatch(state: HudState): void {
     const view = state.match;
-    this.#match.style.display = view && view.status.phase === 'playing' ? 'flex' : 'none';
-    this.#end.style.display = view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none';
+    this.#style(this.#match, 'display', view && view.status.phase === 'playing' ? 'flex' : 'none');
+    this.#style(this.#end, 'display', view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
     // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
     this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
     if (!view) return;
@@ -698,10 +741,14 @@ export class Hud {
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
     if (s.phase === 'playing') {
       const bar = matchBar(s, state.scores, state.selfId, view.team);
-      const mid = `<div class="mid"><span class="clock">${left || '–'}</span><span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
+      // The last half minute in red, but not Charge's countdown to a round.
+      const low = view.secondsLeft !== null && view.secondsLeft <= 30 && state.charge?.state.phase !== 'freeze';
+      const mid = `<div class="mid"><span class="clock${low ? ' low' : ''}">${left || '–'}</span><span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
       if (bar.kind === 'tdm') {
+        // Each side's way to the limit, under its score.
         const [a, b] = bar.teams.map(
-          (t) => `<div class="team ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span></div>`,
+          (t, i) =>
+            `<div class="team ${i === 0 ? 'l' : 'r'} ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span>${bar.limit ? `<span class="prog"><i style="width:${Math.min(100, Math.round((t.score / bar.limit) * 100))}%"></i></span>` : ''}</div>`,
         );
         // Charge: each side's portraits outside its score, greyed and struck through once dead.
         const roster = state.charge?.roster;
@@ -841,8 +888,9 @@ function boardHtml(state: HudState): string {
           `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
       )
       .join('')}</table>`;
-  if (board.kind === 'ffa') return `<h3><span>${MODE_NAMES.ffa}</span></h3><div class="cols one"><div>${table(board.rows)}</div></div>`;
-  return `<div class="cols">${board.teams
+  const header = `<header><b>${escape(MODE_NAMES[mode] ?? mode)}</b><span class="ds-label">${state.scores.length} players</span></header>`;
+  if (board.kind === 'ffa') return `${header}<div class="cols one"><div>${table(board.rows)}</div></div>`;
+  return `${header}<div class="cols">${board.teams
     .map((t) => `<div><h3 class="ds-t${t.team}"><span>${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}</span><span class="total">${t.score}</span></h3>${table(t.rows)}</div>`)
     .join('')}</div>`;
 }
