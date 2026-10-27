@@ -13,6 +13,7 @@ import {
   EVENT_RESEND_TICKS,
   INTERMISSION,
   PROTOCOL_VERSION,
+  compactGrenade,
   compactOutput,
   decodeClient,
   encode,
@@ -220,6 +221,7 @@ export class GameServer {
     this.#mode = this.#modes[options.mode ?? 'tdm'];
     this.simulation = new Simulation(options.world, {
       canDamage: (a, v) => this.#phase === 'playing' && (v.kind === 'dummy' || (this.#mode.canDamage(a, v) && !this.#spawnProtected(v.id))),
+      selfDamage: () => this.#phase === 'playing',
     });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);
     this.#botsPerTeam = this.#defaultBots();
@@ -739,6 +741,7 @@ export class GameServer {
     const match = this.matchStatus();
     const names = Object.fromEntries(this.#names);
     const popped = [...this.#popped];
+    const grenades = this.#last.grenades.map(compactGrenade);
     const pings: Record<string, number> = {};
     // A client that has not measured its round trip yet is left out (shown as unknown).
     for (const c of this.#clients) if (c.id !== null && c.ping > 0) pings[c.id] = c.ping;
@@ -757,6 +760,7 @@ export class GameServer {
         pings,
         popped,
         match,
+        grenades,
       });
     }
   }

@@ -49,13 +49,15 @@ describe('determinism', () => {
         const cmds = script(tick);
         const switching = tick % 150 === 75 ? ['SwitchWeapon' as const] : [];
         const reloading = tick % 200 === 199 ? ['Reload' as const] : [];
-        return { ...cmds, a: usercmd({ ...cmds['a'], buttons: [...switching, ...reloading, ...(tick % 120 < 50 ? (['Ads'] as const) : [])] }) };
+        const cooking = tick > 100 && tick < 140 ? ['Grenade' as const] : [];
+        return { ...cmds, a: usercmd({ ...cmds['a'], buttons: [...switching, ...reloading, ...cooking, ...(tick % 120 < 50 ? (['Ads'] as const) : [])] }) };
       };
       const first = createHeadlessMatch({ solids, players: armed }).run(600, busy);
       const second = createHeadlessMatch({ solids, players: armed }).run(600, busy);
 
       expect(second, primary).toEqual(first);
       expect(first.some((o) => o.events.some((e) => e.type === 'shot' && e.weapon === primary)), primary).toBe(true);
+      expect(first.some((o) => o.events.some((e) => e.type === 'explosion')), primary).toBe(true);
     }
   });
 

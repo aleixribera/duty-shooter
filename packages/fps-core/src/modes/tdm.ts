@@ -146,6 +146,7 @@ export class TeamDeathmatch implements GameMode {
         victim: victim.id,
         victimName: victim.name,
         cause: e.cause,
+        weapon: e.weapon,
         headshot: headshots.has(e.victim),
       });
       if (killer && scoring && this.killLimit !== null && this.#teamScore(killer.team) >= this.killLimit) {

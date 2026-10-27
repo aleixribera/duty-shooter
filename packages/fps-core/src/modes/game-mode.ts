@@ -1,5 +1,5 @@
 import type { Vec3 } from '../math';
-import type { PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
+import type { KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
 import type { World } from '../world';
 
 /** A place players can spawn. */
@@ -57,7 +57,17 @@ export interface MatchResult {
 
 /** Something the game mode or the match flow wants clients to know about. */
 export type ModeEvent =
-  | { readonly type: 'killFeed'; readonly killer: PlayerId | null; readonly killerName: string | null; readonly victim: PlayerId; readonly victimName: string; readonly cause: 'bullet' | 'melee' | 'fall'; readonly headshot: boolean }
+  | {
+      readonly type: 'killFeed';
+      readonly killer: PlayerId | null;
+      readonly killerName: string | null;
+      readonly victim: PlayerId;
+      readonly victimName: string;
+      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade';
+      /** The weapon that did it, `frag` for a grenade (null for a fall). */
+      readonly weapon: KillWeapon | null;
+      readonly headshot: boolean;
+    }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 

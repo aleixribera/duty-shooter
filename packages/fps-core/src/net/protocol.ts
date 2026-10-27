@@ -1,4 +1,5 @@
 import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type Score, type TeamScore } from '../modes/game-mode';
+import type { GrenadeOutput } from '../combat/grenade';
 import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
@@ -99,6 +100,8 @@ export interface Snapshot {
   readonly pings: Readonly<Record<string, number>>;
   /** Ids of the props shot this match (mannequin heads knocked off), in the order they went. */
   readonly popped: readonly string[];
+  /** Grenades in flight or on the ground. */
+  readonly grenades: readonly GrenadeOutput[];
   readonly match: MatchStatus;
 }
 
@@ -201,6 +204,12 @@ function validCmd(value: unknown): UserCmd | null {
     firePresses: firePresses.map((f) => clamp(f, 0, 0.999999)),
     ...(viewTick === undefined ? {} : { viewTick }),
   };
+}
+
+/** Rounds a grenade's numbers for the wire; clients only draw it. */
+export function compactGrenade(g: GrenadeOutput): GrenadeOutput {
+  const r = (v: number, k = 1000) => Math.round(v * k) / k;
+  return { ...g, position: [r(g.position[0]), r(g.position[1]), r(g.position[2])], velocity: [r(g.velocity[0], 100), r(g.velocity[1], 100), r(g.velocity[2], 100)] };
 }
 
 /** Rounds the numbers in another player's outputs for the wire; they are only drawn and interpolated. */

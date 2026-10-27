@@ -1,6 +1,7 @@
 import { angleDelta, lerpVec, type Vec3 } from '../math';
 import type { ModeEvent, ModeId, Score } from '../modes/game-mode';
 import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
+import type { GrenadeOutput } from '../combat/grenade';
 import type { UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
@@ -85,7 +86,7 @@ export class GameClient {
     this.#options = options;
     this.#loadout = options.loadout ?? null;
     this.#connection = options.connection;
-    this.#local = new Simulation(options.world);
+    this.#local = new Simulation(options.world, { predictOnly: true });
     this.#connection.onMessage((data) => this.#inbox.push(data));
     this.#connection.onClose((reason) => {
       this.#closeReason = reason;
@@ -170,6 +171,11 @@ export class GameClient {
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));
+  }
+
+  /** Grenades in flight or on the ground, per the newest snapshot. */
+  get grenades(): readonly GrenadeOutput[] {
+    return this.#latest?.grenades ?? [];
   }
 
   /** Ids of the props shot this match, per the newest snapshot. */

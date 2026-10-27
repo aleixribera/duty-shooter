@@ -1,5 +1,6 @@
-import { hitBody, zoneCentre, type HitPose, type HitZone } from './combat/hitboxes';
+import { hitBody, partCentres, zoneCentre, type HitPose, type HitZone } from './combat/hitboxes';
 import { bulletDamage } from './combat/damage';
+import { blastDamage, moveGrenade, type Grenade, type GrenadeOutput } from './combat/grenade';
 import { advance, raycastWorld, solidNormal, solidSpan, type Projectile } from './combat/projectiles';
 import { fallDamage } from './health';
 import { DEG, distance, dot, length, lerpVec, sub, viewDirection, type Vec3 } from './math';
@@ -15,6 +16,8 @@ import {
   currentSpread,
   drawWeapon,
   emptyEvents,
+  lowerForGrenade,
+  raiseAfterGrenade,
   startHolster,
   swayOffset,
   updateWeapon,
@@ -138,9 +141,9 @@ export type SimEvent =
       readonly distance: number;
       readonly point: Vec3;
       readonly killed: boolean;
-      readonly cause: 'bullet' | 'melee';
+      readonly cause: 'bullet' | 'melee' | 'grenade';
       /** The weapon that did it. */
-      readonly weapon: WeaponId;
+      readonly weapon: KillWeapon;
       /** Pellets of one shotgun blast that hit, merged into this one hit; 1 for a bullet or melee. */
       readonly pellets: number;
     }
@@ -159,13 +162,18 @@ export type SimEvent =
       readonly type: 'kill';
       readonly killer: PlayerId | null;
       readonly victim: PlayerId;
-      readonly cause: 'bullet' | 'melee' | 'fall';
+      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade';
       readonly zone: HitZone | null;
       /** The weapon that did it (null for a fall). */
       readonly weapon: KillWeapon | null;
     }
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
   | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null }
+  /** A grenade: the pin pulled (cook), thrown, or dropped by a player who died cooking it. */
+  | { readonly type: 'grenade'; readonly player: PlayerId; readonly phase: 'cook' | 'throw' | 'drop' }
+  /** A grenade hit a surface hard enough to hear. */
+  | { readonly type: 'bounce'; readonly grenade: number; readonly point: Vec3; readonly speed: number }
+  | { readonly type: 'explosion'; readonly grenade: number; readonly thrower: PlayerId; readonly point: Vec3 }
   /** A weapon switch: the player started putting `from` away for `to`. */
   | { readonly type: 'switch'; readonly player: PlayerId; readonly from: WeaponId; readonly to: WeaponId };
 
@@ -180,6 +188,8 @@ export interface TickOutput {
   readonly players: readonly PlayerOutput[];
   /** What happened during the tick, in order. */
   readonly events: readonly SimEvent[];
+  /** Grenades in flight or on the ground, in the order they were thrown. */
+  readonly grenades: readonly GrenadeOutput[];
 }
 
 /**
@@ -193,6 +203,13 @@ export type TickCmds = Readonly<Partial<Record<PlayerId, UserCmd | readonly User
 export interface SimulationOptions {
   /** Whether `attacker` may damage `victim` (friendly fire rules). Defaults to anyone but yourself. */
   readonly canDamage?: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
+  /** Whether a player's own grenade may hurt them now (the server's intermission says no). Defaults to always. */
+  readonly selfDamage?: (victim: PlayerInfo) => boolean;
+  /**
+   * Prediction only (a client's local copy): thrown grenades leave the hand
+   * but aren't simulated, since the server's snapshots carry the real ones.
+   */
+  readonly predictOnly?: boolean;
 }
 
 export interface PlayerInfo {
@@ -232,6 +249,8 @@ export interface PlayerState {
   life: number;
   readonly spawn: { readonly position: Vec3; readonly yaw: number };
   readonly dummy: DummyOptions | null;
+  /** A grenade in hand: cooking since the weapon clock time `since`, or thrown at `since` while the weapon comes back up. */
+  grenade: { phase: 'cook' | 'throw'; since: number } | null;
 }
 
 interface HistoryPose extends HitPose {
@@ -280,6 +299,9 @@ const C = STATS.combat;
 const H = STATS.health;
 const LAG_WINDOW_TICKS = C.lagCompensationWindow.value * TICK_RATE;
 const MELEE_CONE = Math.cos(35 * DEG);
+/** How much of the body each hitbox stands for when a blast is partly blocked (relative weights, normalised over the pose's boxes). */
+const BLAST_SHARE: Record<HitZone, number> = { head: 0.1, neck: 0.04, upperTorso: 0.26, lowerTorso: 0.2, arm: 0.1, leg: 0.1 };
+
 /** How close the lunge brings the attacker to the target's feet (m). */
 const MELEE_STOP = 0.75;
 
@@ -295,6 +317,12 @@ export class Simulation {
   #projectiles: Projectile[] = [];
   /** Numbers each shotgun blast, so its pellets' hits merge. */
   #nextGroup = 0;
+  #grenades: Grenade[] = [];
+  #nextGrenade = 0;
+  /** Set while stepping in replay: a throw leaves the hand but spawns nothing. */
+  #replaying = false;
+  readonly #selfDamage: (victim: PlayerInfo) => boolean;
+  readonly #predictOnly: boolean;
   #events: SimEvent[] = [];
   /** Hitbox poses after each recent tick, for lag compensation. */
   readonly #history = new Map<number, Map<PlayerId, HistoryPose>>();
@@ -303,6 +331,8 @@ export class Simulation {
   constructor(world: World, options: SimulationOptions = {}) {
     this.world = world;
     this.#canDamage = options.canDamage ?? ((a, v) => a.id !== v.id);
+    this.#selfDamage = options.selfDamage ?? (() => true);
+    this.#predictOnly = options.predictOnly ?? false;
   }
 
   get tick(): number {
@@ -337,6 +367,7 @@ export class Simulation {
       life: 0,
       spawn: { position: spawn.position, yaw },
       dummy: spawn.dummy ?? null,
+      grenade: null,
     });
   }
 
@@ -363,6 +394,7 @@ export class Simulation {
     if (!p) throw new Error(`No player ${id}`);
     p.move = createMoveState(position, yaw);
     Object.assign(p, arms(loadout ?? p.loadout));
+    p.grenade = null;
     p.viewYaw = 0;
     p.viewPitch = 0;
     p.cmdYaw = yaw;
@@ -406,10 +438,12 @@ export class Simulation {
     this.#events = [];
     this.#tick += 1;
     if (options.replay) {
+      this.#replaying = true;
       for (const player of this.#players.values()) {
         if (player.dummy) continue;
         for (const cmd of cmdList(cmds[player.id])) this.#stepPlayer(player, cmd, [], []);
       }
+      this.#replaying = false;
       this.#events = [];
       return this.output();
     }
@@ -428,6 +462,7 @@ export class Simulation {
     for (const m of melees) this.#resolveMelee(m.attacker, m.rewind);
     this.#projectiles.push(...spawned);
     this.#stepProjectiles();
+    this.#stepGrenades();
     return this.output();
   }
 
@@ -455,7 +490,13 @@ export class Simulation {
     const events = emptyEvents();
     const other = player.weapons[1 - player.slot];
     const switchPress = (cmd.buttons & Button.SwitchWeapon) !== 0 && (weapon.prevButtons & Button.SwitchWeapon) === 0;
-    if (switchPress && other && player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && player.move.movement !== 'mantle') {
+    const grenadePress = (cmd.buttons & Button.Grenade) !== 0 && (weapon.prevButtons & Button.Grenade) === 0;
+    const free = player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle';
+    if (grenadePress && free && player.grenades > 0 && player.grenade === null) {
+      lowerForGrenade(weapon, events);
+      player.grenade = { phase: 'cook', since: weapon.clock };
+      this.#events.push({ type: 'grenade', player: player.id, phase: 'cook' });
+    } else if (switchPress && other && free) {
       startHolster(weapon, events);
       this.#events.push({ type: 'switch', player: player.id, from: weapon.id, to: other.id });
     }
@@ -474,6 +515,7 @@ export class Simulation {
     if (w.reloadStarted) this.#events.push({ type: 'reload', player: player.id, phase: 'start', kind: w.reloadStarted });
     if (w.ammoAdded) this.#events.push({ type: 'reload', player: player.id, phase: 'addAmmo', kind: weapon.reload ?? null });
     if (w.reloadCancelled) this.#events.push({ type: 'reload', player: player.id, phase: 'cancel', kind: null });
+    this.#handleGrenade(player, weapon, cmd);
     if (w.holstered && other) {
       player.slot = 1 - player.slot;
       drawWeapon(other, weapon.clock, cmd.buttons);
@@ -510,6 +552,94 @@ export class Simulation {
       // Recoil kicks the view after the shot leaves.
       player.viewYaw += shot.kickYaw;
       player.viewPitch += shot.kickPitch;
+    }
+  }
+
+  /** A grenade in hand: thrown on release, or blown up in the hand when the fuse runs out; then the weapon comes back up. */
+  #handleGrenade(player: PlayerState, weapon: WeaponState, cmd: UserCmd): void {
+    const g = player.grenade;
+    if (!g) return;
+    const held = weapon.clock - g.since;
+    if (g.phase === 'cook') {
+      if (held >= STATS.grenade.fuse.value - 1e-9) this.#release(player, 'drop');
+      else if ((cmd.buttons & Button.Grenade) === 0) this.#release(player, 'throw');
+    } else if (held >= STATS.grenade.throwTime.value - 1e-9) {
+      player.grenade = null;
+      raiseAfterGrenade(weapon);
+    }
+  }
+
+  /** The cooked grenade leaves the hand: thrown along the view, or dropped where the player stands, its fuse still running. */
+  #release(player: PlayerState, how: 'throw' | 'drop'): void {
+    const g = player.grenade;
+    if (!g || g.phase !== 'cook') return;
+    const weapon = activeWeapon(player);
+    const cooked = weapon.clock - g.since;
+    player.grenades -= 1;
+    player.grenade = { phase: 'throw', since: weapon.clock };
+    if (how === 'drop' && player.health <= 0) player.grenade = null;
+    this.#events.push({ type: 'grenade', player: player.id, phase: how });
+    if (this.#replaying || this.#predictOnly) return;
+    const eye: Vec3 = [player.move.position[0], player.move.position[1] + player.move.eyeHeight, player.move.position[2]];
+    const view = this.#viewAngles(player);
+    const speed = how === 'throw' ? STATS.grenade.throwSpeed.value : 0;
+    const d = viewDirection(view.yaw, view.pitch + STATS.grenade.throwLift.value * DEG);
+    const v = player.move.velocity;
+    this.#grenades.push({
+      id: this.#nextGrenade++,
+      thrower: player.id,
+      team: player.team,
+      position: how === 'throw' ? eye : [player.move.position[0], player.move.position[1] + 0.1, player.move.position[2]],
+      velocity: [d[0] * speed + v[0], d[1] * speed + Math.max(0, v[1]), d[2] * speed + v[2]],
+      explodeAt: this.time + Math.max(0, STATS.grenade.fuse.value - cooked),
+      resting: false,
+    });
+  }
+
+  #stepGrenades(): void {
+    const live: Grenade[] = [];
+    for (const g of this.#grenades) {
+      if (this.time >= g.explodeAt - 1e-9) {
+        this.#explode(g);
+        continue;
+      }
+      const impact = moveGrenade(g, this.world, TICK_SECONDS);
+      if (impact > 2) this.#events.push({ type: 'bounce', grenade: g.id, point: g.position, speed: impact });
+      live.push(g);
+    }
+    this.#grenades = live;
+  }
+
+  /**
+   * The blast: each player takes the damage for the distance to the
+   * nearest part of their body the blast can reach, less the share of the
+   * body behind anything that blocks bullets (a player shielded entirely
+   * takes nothing). The thrower's own grenade hurts them; teammates are
+   * spared as for bullets.
+   */
+  #explode(g: Grenade): void {
+    const point: Vec3 = [g.position[0], g.position[1] + 0.05, g.position[2]];
+    this.#events.push({ type: 'explosion', grenade: g.id, thrower: g.thrower, point });
+    const thrower: PlayerInfo = { id: g.thrower, team: g.team, kind: 'player' };
+    for (const victim of this.#players.values()) {
+      if (victim.health <= 0) continue;
+      const own = victim.id === g.thrower;
+      if (own ? !this.#selfDamage(victim) : !this.#canDamage(thrower, victim)) continue;
+      let nearest: { zone: HitZone; distance: number; centre: Vec3 } | null = null;
+      let exposed = 0;
+      let whole = 0;
+      for (const { zone, centre } of partCentres(this.#poseOf(victim))) {
+        whole += BLAST_SHARE[zone];
+        const d = distance(point, centre);
+        if (d >= STATS.grenade.radius.value || raycastWorld(this.world, point, centre)) continue;
+        exposed += BLAST_SHARE[zone];
+        if (!nearest || d < nearest.distance) nearest = { zone, distance: d, centre };
+      }
+      if (!nearest) continue;
+      const damage = blastDamage(nearest.distance) * (exposed / whole);
+      const killed = this.#damage(victim, damage, g.thrower, 'grenade', nearest.zone, 'frag');
+      this.#events.push({ type: 'hit', shooter: g.thrower, victim: victim.id, zone: nearest.zone, damage, distance: nearest.distance, point: nearest.centre, killed, cause: 'grenade', weapon: 'frag', pellets: 1 });
+      this.#flinch(victim);
     }
   }
 
@@ -691,12 +821,14 @@ export class Simulation {
   }
 
   /** Applies damage; returns true if it killed. Emits the kill event. */
-  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall', zone: HitZone | null, weapon: KillWeapon | null): boolean {
+  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall' | 'grenade', zone: HitZone | null, weapon: KillWeapon | null): boolean {
     if (victim.health <= 0) return false;
     victim.health = Math.max(0, victim.health - amount);
     victim.lastDamage = this.time;
     if (victim.health > 0) return false;
     victim.diedAt = this.time;
+    // A grenade being cooked falls from the hand, still live.
+    if (victim.grenade?.phase === 'cook') this.#release(victim, 'drop');
     this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone, weapon });
     return true;
   }
@@ -752,6 +884,7 @@ export class Simulation {
       tick: this.#tick,
       players: [...this.#players.values()].map((p) => this.#outputOf(p)),
       events: this.#events,
+      grenades: this.#grenades.map((g) => ({ ...g, position: clean(g.position), velocity: clean(g.velocity) })),
     };
   }
 

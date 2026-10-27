@@ -28,6 +28,8 @@ export { hitboxes, zoneCentre } from './combat/hitboxes';
 export type { HitPose, HitZone } from './combat/hitboxes';
 export { bulletDamage, rangeDamage, zoneMultiplier } from './combat/damage';
 export { shotsToKill, timeToKill, timeToKillTable } from './combat/ttk';
+export { blastDamage } from './combat/grenade';
+export type { GrenadeOutput } from './combat/grenade';
 export type { TimeToKill } from './combat/ttk';
 export { raycastWorld, segmentSolid, sightBlocked, solidNormal } from './combat/projectiles';
 export type { WorldHit } from './combat/projectiles';

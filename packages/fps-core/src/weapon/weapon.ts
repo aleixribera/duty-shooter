@@ -17,7 +17,7 @@ const W = STATS.weapon;
 const ML = STATS.melee;
 
 /** What the weapon is doing. "ready" covers idle and firing. */
-export type WeaponAction = 'draw' | 'ready' | 'cycle' | 'reload' | 'inspect' | 'melee' | 'holster';
+export type WeaponAction = 'draw' | 'ready' | 'cycle' | 'reload' | 'inspect' | 'melee' | 'holster' | 'grenade';
 /** A reload started with rounds left, or empty (one more step to chamber). */
 export type ReloadKind = 'tactical' | 'empty';
 
@@ -206,6 +206,19 @@ function finishAction(state: WeaponState): void {
   state.reload = null;
 }
 
+/** Lowers the weapon to cook a grenade. A reload before its add-ammo point is lost. */
+export function lowerForGrenade(state: WeaponState, events: WeaponEvents): void {
+  if (state.action === 'reload' && !state.ammoAdded) events.reloadCancelled = true;
+  state.action = 'grenade';
+  state.actionTime = 0;
+  state.reload = null;
+}
+
+/** Brings the weapon back up after a grenade: ready at once (the throw time covers the raise). */
+export function raiseAfterGrenade(state: WeaponState): void {
+  if (state.action === 'grenade') finishAction(state);
+}
+
 /** Puts the weapon away; the caller raises the other one when `holstered` is reported. A reload before its add-ammo point is lost. */
 export function startHolster(state: WeaponState, events: WeaponEvents): void {
   if (state.action === 'reload' && !state.ammoAdded) events.reloadCancelled = true;
@@ -252,7 +265,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
   if (ctx.movement === 'mantle') state.fireReadyAt = Math.max(state.fireReadyAt, t1);
 
   // ADS moves toward its target over the ADS time, in and out.
-  const adsAllowed = !sprinting && ctx.movement !== 'mantle' && state.action !== 'melee' && state.action !== 'holster';
+  const adsAllowed = !sprinting && ctx.movement !== 'mantle' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade';
   const adsTarget = isPressed(cmd, 'Ads') && adsAllowed ? 1 : 0;
   const adsStep = dt / h.adsTime.value;
   state.ads = adsTarget === 1 ? Math.min(1, state.ads + adsStep) : Math.max(0, state.ads - adsStep);
@@ -265,7 +278,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
   const meleePress = pressed(state, cmd, Button.Melee);
   const fire = wantsFire(cmd);
 
-  if (meleePress && state.action !== 'draw' && state.action !== 'melee' && state.action !== 'holster' && ctx.movement !== 'mantle') {
+  if (meleePress && state.action !== 'draw' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade' && ctx.movement !== 'mantle') {
     if (state.action === 'reload' && !state.ammoAdded) events.reloadCancelled = true;
     state.action = 'melee';
     state.actionTime = 0;
@@ -296,6 +309,9 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
       break;
     case 'inspect':
       if (state.actionTime >= W.inspectDuration.value - 1e-9 || fire || adsTarget > 0 || reloadPress || sprinting) finishAction(state);
+      break;
+    case 'grenade':
+      // Lowered for a grenade: the simulation raises it again after the throw.
       break;
     case 'ready':
       break;

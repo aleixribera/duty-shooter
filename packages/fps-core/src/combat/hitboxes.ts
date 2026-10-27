@@ -116,6 +116,15 @@ export function hitBody(pose: HitPose, a: Vec3, b: Vec3): BodyHit | null {
 export function zoneCentre(pose: HitPose, zone: HitZone): Vec3 {
   const box = boxesFor(pose).find((b) => b.zone === zone);
   if (!box) throw new Error(`no ${zone} hitbox`);
+  return boxCentre(pose, box);
+}
+
+/** World-space centre of every hitbox, with its zone (a blast tests each part). */
+export function partCentres(pose: HitPose): { readonly zone: HitZone; readonly centre: Vec3 }[] {
+  return boxesFor(pose).map((box) => ({ zone: box.zone, centre: boxCentre(pose, box) }));
+}
+
+function boxCentre(pose: HitPose, box: LocalBox): Vec3 {
   const x = (box.min[0] + box.max[0]) / 2;
   const y = (box.min[1] + box.max[1]) / 2;
   const z = (box.min[2] + box.max[2]) / 2;
