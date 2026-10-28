@@ -27,3 +27,5 @@ The arcade has a covered columned walkway with four broad entries; a player trav
 Replaced the tower’s placeholder exterior ramps with a three-storey interior switchback stairwell and a cut-out roof access. A player now walks from the exterior entrance to the roof in a movement test; precise entrance/stair hints connect the tower floors to the bot graph. The Blender scene was rebuilt. The interior remains sparsely dressed, and the rest of the map still needs its original routes, detailed art and full mode verification.
 
 Added home-server bot soaks for free-for-all, Outposts, Charge and gun game. All passed on the current layout; the Charge match reached its end with plants and both attacking and defending wins. These tests complement the existing TDM soak and must continue to pass as geometry changes.
+
+Added screened back-street, backyard and southern-alley routes with open gates and navigation hints. Player movement checks caught cover obstructing the south gate and a test endpoint inside the blue-building stairs; both were corrected. The routes, all five bot-mode soaks, typecheck and production build pass. Further original layout and visual work remains.

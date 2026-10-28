@@ -142,6 +142,16 @@ function buildArcadeWalkway(b: Builder): void {
   }
 }
 
+/** Walls and openings form the back street, backyard and south alley.
+ * Openings are full height so movement and sightlines follow the same gaps. */
+function buildLanes(b: Builder): void {
+  const gap = (from: number, to: number): Opening => ({from,to,bottom:0,top:3});
+  const wall = {thickness:0.3,bottom:0,height:3,material:'concrete' as const,look:'plaster'};
+  b.wall({...wall,along:'z',at:32,from:-23,to:6,openings:[gap(-14,-10),gap(0,3)]});
+  b.wall({...wall,along:'x',at:25.5,from:-10,to:30,openings:[gap(-8,-4),gap(7,11),gap(24,28)]});
+  b.wall({...wall,along:'z',at:-31,from:-8,to:13,openings:[gap(-2,2),gap(8,11)]});
+}
+
 /** Precise nodes follow the outside flights and lead through each landing door. */
 function stairHints(r: Rect, levels: number): Vec3[] {
   const hints: Vec3[] = [];
@@ -174,6 +184,8 @@ const ffa = [...west, ...east, ...[[-20,-29],[8,-32],[37,-29],[-36,5],[35,-4],[-
 export function buildCrash(): MapDefinition {
   const b = new Builder();
   const layers: { rect: Rect; material: 'sand' | 'asphalt'; look: string }[] = [
+    { rect: { x0: 31, x1: 42, z0: -24, z1: 30 }, material: 'asphalt', look: 'road' },
+    { rect: { x0: -38, x1: 32, z0: 26, z1: 31 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -42, x1: 42, z0: -7, z1: 8 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -10, x1: 9, z0: -38, z1: 38 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -100, x1: 100, z0: -100, z1: 100 }, material: 'sand', look: 'sand' },
@@ -191,6 +203,7 @@ export function buildCrash(): MapDefinition {
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   building(b, {x0:-38,x1:-28,z0:16,z1:24}, 1, 'plaster', 'north');
   building(b, {x0:23,x1:34,z0:-33,z1:-24}, 1, 'plaster', 'south');
+  buildLanes(b);
   // The crashed tandem-rotor aircraft runs roughly north to south, with
   // a broken rear section separated from the main fuselage.
   b.model('helicopter', [-6,0,-2], Math.PI / 2, () => {
@@ -212,7 +225,7 @@ export function buildCrash(): MapDefinition {
     b.add([-15.3,1.08,-9.82],[-12.7,1.8,-8.18],'metal',{look:'car.body'});
   });
   // Low cover interrupts the central crossings and the long market alley.
-  for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[10,27]] as const)
+  for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});
   // Visible wall and full-height player clip on the playable edge.
   for (const [min,max] of [
@@ -246,6 +259,9 @@ export function buildCrash(): MapDefinition {
       ...stairHints(LANDMARKS.main,2),
       ...stairHints(LANDMARKS.shop,3),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
+      ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
+      ...[-6,9,26].flatMap((x): Vec3[] => [[x,0,24.3],[x,0,26.7]]),
+      ...[0,9.5].flatMap((z): Vec3[] => [[-32.2,0,z],[-30.2,0,z]]),
     ]}, measurements:[],
   };
 }

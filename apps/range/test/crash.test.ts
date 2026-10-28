@@ -48,6 +48,21 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('allows players through the three lane openings while the walls screen the gaps between them', () => {
+    const routes: [Vec3,Vec3][] = [[[29,0,-12],[35,0,-12]],[[9,0,23],[9,0,28]],[[-34,0,0],[-30.2,0,0]]];
+    for (const [start,target] of routes) {
+      const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:start,yaw:0}]});
+      let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+      for (let i=0;i<360;i++) {
+        const dx=target[0]-out.position[0], dz=target[2]-out.position[2];
+        if (Math.hypot(dx,dz)<0.45) break;
+        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:1})}).players[0]!;
+      }
+      expect(Math.hypot(target[0]-out.position[0],target[2]-out.position[2]), String(out.position)).toBeLessThan(0.45);
+    }
+    expect(raycastWorld(world,[30,1.6,-5],[34,1.6,-5])).not.toBeNull();
+    expect(raycastWorld(world,[15,1.6,24],[15,1.6,27])).not.toBeNull();
+  });
   it('opens the covered arcade to a walking player and the main upper windows to the plaza', () => {
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-8.5,0,8],yaw:Math.PI}]});
     let out = m.step({p:usercmd({yaw:Math.PI})}).players[0]!;
