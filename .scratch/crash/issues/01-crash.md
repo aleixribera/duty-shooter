@@ -29,3 +29,5 @@ Replaced the tower’s placeholder exterior ramps with a three-storey interior s
 Added home-server bot soaks for free-for-all, Outposts, Charge and gun game. All passed on the current layout; the Charge match reached its end with plants and both attacking and defending wins. These tests complement the existing TDM soak and must continue to pass as geometry changes.
 
 Added screened back-street, backyard and southern-alley routes with open gates and navigation hints. Player movement checks caught cover obstructing the south gate and a test endpoint inside the blue-building stairs; both were corrected. The routes, all five bot-mode soaks, typecheck and production build pass. Further original layout and visual work remains.
+
+At the user’s request to play now, added an opt-in development URL `?botmap=crash` that selects Crash in Bot Match without changing the published map list. A muted browser opened the lobby and started a mixed match on Crash with eight players. The map remains in progress.

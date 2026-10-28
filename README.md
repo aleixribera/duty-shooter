@@ -56,10 +56,11 @@ To play online locally:
 
 Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 
-- `?map=<map>` (`range`, `switchyard`) starts with that map behind the menu.
-- `?explore=<map>` (`survival-town`, `switchyard`, `range`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
+- `?map=<map>` (`range`, `survival-town`, `switchyard`, `crash`) starts with that map behind the menu.
+- `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
 - `?bench` flies the benchmark path on every preset and reports frame times, draw calls and triangles.
+- *dev* `?botmap=crash` makes the unfinished Crash map available and selected in Bot Match. Open Bot Match from the menu, then Start.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`); a production build always does.

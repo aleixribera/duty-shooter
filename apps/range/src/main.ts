@@ -305,7 +305,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
    * + and - keys) until the map or mode changes.
    */
   const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
-  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(BOT_MAPS[0]!, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: BOT_MAPS[0]! };
+  // Opt into the unfinished Crash map for a local Bot Match without adding it
+  // to the published map list. Other values and production builds ignore it.
+  const devBotCrash = import.meta.env.DEV && params.get('botmap') === 'crash';
+  const botMaps = devBotCrash ? [...BOT_MAPS, 'crash'] : BOT_MAPS;
+  const initialBotMap = devBotCrash ? 'crash' : BOT_MAPS[0]!;
+  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: botMaps, map: initialBotMap };
   let botLobbyOpen = false;
   /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
   let botLast: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
