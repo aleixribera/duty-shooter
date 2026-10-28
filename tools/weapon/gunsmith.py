@@ -42,7 +42,7 @@ FINISHES = {
     "phosphate": dict(base=(0.03, 0.032, 0.03), rough=0.62, metal=0.55, wear=(0.26, 0.26, 0.26), wear_rough=0.3,
                       wear_amount=0.45, grain=0.35, bump=0.25),
     # Hot-blued carbon steel: deep blue-black with a gloss.
-    "blued": dict(base=(0.014, 0.017, 0.024), rough=0.24, metal=0.9, wear=(0.3, 0.3, 0.31), wear_rough=0.2,
+    "blued": dict(base=(0.014, 0.017, 0.024), rough=0.32, metal=0.9, wear=(0.3, 0.3, 0.31), wear_rough=0.2,
                   wear_amount=0.5, grain=0.2, bump=0.08),
     # Bare machined steel: bolts, crowns, pins.
     "steel": dict(base=(0.38, 0.38, 0.39), rough=0.3, metal=1.0, wear=(0.55, 0.55, 0.56), wear_rough=0.18,
@@ -687,21 +687,22 @@ def _surface(mat):
     if spec.get("wood"):
         # Walnut: stretched bands along the length with dark pores and figure.
         wave = N("ShaderNodeTexWave")
-        wave.wave_type = "BANDS"
-        wave.bands_direction = "Z"
-        wave.inputs["Scale"].default_value = 30
-        wave.inputs["Distortion"].default_value = 9
+        # Rings round the length: the lines run along the wood on every face.
+        wave.wave_type = "RINGS"
+        wave.rings_direction = "Y"
+        wave.inputs["Scale"].default_value = 110
+        wave.inputs["Distortion"].default_value = 3.5
         wave.inputs["Detail"].default_value = 4
-        wave.inputs["Detail Scale"].default_value = 1.6
+        wave.inputs["Detail Scale"].default_value = 1.2
         tc = N("ShaderNodeTexCoord")
         mp = N("ShaderNodeMapping")
-        mp.inputs["Scale"].default_value = (1, 0.12, 1)
+        mp.inputs["Scale"].default_value = (1, 0.06, 1)
         L(tc.outputs["Object"], mp.inputs["Vector"])
         L(mp.outputs[0], wave.inputs["Vector"])
         grain = remap(wave.outputs["Fac"], 0.1, 0.9)
         pores = remap(noise(900, 2, 0.5, stretch=(1, 0.08, 1)), 0.55, 0.75)
-        dark = tuple(c * 0.45 for c in spec["base"])
-        light = tuple(min(1, c * 1.7) for c in spec["base"])
+        dark = tuple(c * 0.62 for c in spec["base"])
+        light = tuple(min(1, c * 1.35) for c in spec["base"])
         base = mix(grain, dark, light)
         base = mix(math_node("MULTIPLY", pores, 0.6), base, tuple(c * 0.3 for c in spec["base"]))
     if spec.get("web"):

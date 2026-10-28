@@ -6,7 +6,7 @@ import { palmFrame } from './m4a1';
 
 /**
  * The v2 weapons for the first-person view: Blender models
- * (tools/weapon/: pistol.py, smg.py, arsenal.py) in the M4A1's gun space (metres, +Y up, muzzle
+ * (tools/weapon/: pistol.py, smg.py, shotgun.py, arsenal.py) in the M4A1's gun space (metres, +Y up, muzzle
  * along -Z, right palm near the origin), plus the numbers the viewmodel needs
  * to hold, aim and animate each one. Moving parts are separate nodes in the
  * GLB with their pivots as origins.
@@ -78,14 +78,14 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
   },
   shotgun: {
     url: asset('shotgun'),
-    right: { pos: [0.021, -0.022, 0.07], normal: [-1, 0, 0], wrist: [0.1, -0.5, 0.86] },
-    left: { pos: [-0.008, -0.03, -0.36], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
+    right: { pos: [0.021, -0.05, 0.06], normal: [-1, 0, 0], wrist: [0.1, -0.5, 0.86] },
+    left: { pos: [-0.006, -0.031, -0.36], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
     leftOnPump: true,
-    rearSight: [0, 0.056, 0.04],
+    rearSight: [0, 0.049, 0.03],
     eyeRelief: 0.2,
     muzzle: [0, 0.022, -0.67],
-    ejectionPort: [0.019, 0.016, -0.07],
-    loadingPort: [0, -0.03, -0.08],
+    ejectionPort: [0.0175, 0.021, -0.065],
+    loadingPort: [0, -0.028, -0.085],
     hip: [0.13, -0.15, -0.43],
     travel: 0.09,
     kick: 2.2,
