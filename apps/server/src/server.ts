@@ -7,7 +7,7 @@ import { extname, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
-import { LOBBY_MAPS, MAP_IDS, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
+import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 export interface ServerOptions {
@@ -306,6 +306,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       zones: def.zones,
       sites: def.sites,
       ...(def.nav && maxBots > 0 ? { nav: buildNavGraph(world, def.nav) } : {}),
+      teamSize: TEAM_SIZES[def.id],
     };
   };
   const map = buildMapById(options.map);
@@ -325,6 +326,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     ...(first.teamSpawns ? { teamSpawns: first.teamSpawns } : {}),
     ...(first.zones ? { zones: first.zones } : {}),
     ...(first.sites ? { sites: first.sites } : {}),
+    ...(first.teamSize ? { teamSize: first.teamSize } : {}),
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,

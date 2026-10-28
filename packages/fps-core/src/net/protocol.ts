@@ -5,7 +5,7 @@ import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -24,8 +24,13 @@ export interface SequencedCmd {
   readonly cmd: UserCmd;
 }
 
-/** The host's choices for the next match: mode, bots a side, humans vs bots, and map. A pick changes only what it names. */
-export type LobbyPick = { readonly mode?: ModeId; readonly bots?: number; readonly hvb?: boolean; readonly map?: string };
+/**
+ * The host's choices for the next match: mode, bots, humans vs bots, and map.
+ * A pick changes only what it names. `fill` turns bots on (filling to the
+ * map's team size for the mode) or off; `bots` sets a size of the host's own,
+ * a side, kept until the map or mode changes.
+ */
+export type LobbyPick = { readonly mode?: ModeId; readonly fill?: boolean; readonly bots?: number; readonly hvb?: boolean; readonly map?: string };
 
 export type ClientMessage =
   | {
@@ -77,7 +82,10 @@ export interface LobbyState {
   readonly capacity: number;
   /** The host's picks for the next match. */
   readonly mode: ModeId;
+  /** Bots a side the match fills to (0: bots off): the map's team size for the mode, or the host's own size. */
   readonly bots: number;
+  /** Whether `bots` is the host's own size rather than the map's. */
+  readonly custom: boolean;
   /** The most bots a side the host may pick; 0 when the server has none. */
   readonly maxBots: number;
   /** Humans vs bots for the next match (team modes only). */
@@ -194,12 +202,13 @@ export function decodeClient(data: string): ClientMessage | null {
     return isMode(mode) ? { t: 'vote', mode } : null;
   }
   if (value['t'] === 'lobby') {
-    const { mode, bots, hvb, map } = value;
+    const { mode, fill, bots, hvb, map } = value;
     if (mode !== undefined && !isMode(mode)) return null;
+    if (fill !== undefined && typeof fill !== 'boolean') return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
     if (hvb !== undefined && typeof hvb !== 'boolean') return null;
     if (map !== undefined && !(typeof map === 'string' && map.length <= 40)) return null;
-    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }) };
+    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
   if (value['t'] === 'cmds') {

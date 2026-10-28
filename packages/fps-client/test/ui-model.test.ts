@@ -196,7 +196,7 @@ describe('the loadout screen', () => {
 });
 
 describe('the lobby', () => {
-  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town' } as const;
+  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, custom: false, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town' } as const;
 
   it('seats people in the order they joined, marks the host and you, then the bots the match brings and the open seats', () => {
     const seats = lobbySeats(lobby, 'a', { a: 'Ada', b: 'Bo' }, { a: 40, b: 150 });

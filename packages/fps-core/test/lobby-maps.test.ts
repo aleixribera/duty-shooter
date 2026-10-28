@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { box, buildNavGraph, createWorld, type LobbyEvent, type SpawnPoint } from '@duty-shooter/fps-core';
+import { box, buildNavGraph, createWorld, type LobbyEvent, type LobbyPick, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -106,5 +106,64 @@ describe('the lobby’s maps', () => {
     m.run(ticks(1));
     expect(m.server.status().map).toBe('town');
     expect(m.server.latest.players.find((p) => p.id === alice.client.id)!.position[0]).toBeLessThan(100);
+  });
+});
+
+describe('the lobby’s team sizes', () => {
+  /** The town plays 2v2 in TDM, the yard 4v4; the server's own default (perTeam 3) covers the rest. */
+  function sized(): NetworkedMatch {
+    return createNetworkedMatch({
+      solids: [FLOOR],
+      spawns: SPREAD,
+      teamSpawns: [BLUE, ORANGE],
+      mode: 'tdm',
+      map: 'town',
+      teamSize: { tdm: 2 },
+      maps: [{ ...yard, teamSize: { tdm: 4, outposts: 5 } }],
+      lobby: true,
+      modes: { tdm: { timeLimit: 2 } },
+      latency: 0.03,
+      bots: { nav, perTeam: 3 },
+      reconnectGrace: 0,
+    });
+  }
+  const pick = (m: NetworkedMatch, c: NetworkedClient, p: LobbyPick) => {
+    c.client.setLobby(p);
+    m.run(ticks(0.5));
+    return c.client.match!.lobby!;
+  };
+
+  it('fills to the picked map’s size for the mode, the server’s default where it has none', () => {
+    const m = sized();
+    const alice = join(m, 'alice');
+    m.run(ticks(0.5));
+    expect(alice.client.match?.lobby).toMatchObject({ bots: 2, custom: false });
+    expect(pick(m, alice, { map: 'yard' })).toMatchObject({ bots: 4 });
+    expect(pick(m, alice, { mode: 'outposts' })).toMatchObject({ bots: 5 });
+    expect(pick(m, alice, { mode: 'ffa' })).toMatchObject({ bots: 3 });
+  });
+
+  it('keeps the host’s own size until the map or mode changes, and switches bots off and back on', () => {
+    const m = sized();
+    const alice = join(m, 'alice');
+    expect(pick(m, alice, { bots: 1 })).toMatchObject({ bots: 1, custom: true });
+    expect(pick(m, alice, { hvb: false })).toMatchObject({ bots: 1, custom: true });
+    expect(pick(m, alice, { map: 'yard' })).toMatchObject({ bots: 4, custom: false });
+    expect(pick(m, alice, { bots: 6 })).toMatchObject({ bots: 6, custom: true });
+    expect(pick(m, alice, { mode: 'outposts' })).toMatchObject({ bots: 5, custom: false });
+    expect(pick(m, alice, { fill: false })).toMatchObject({ bots: 0, custom: false });
+    // Off stays off across picks; on again is the map's size.
+    expect(pick(m, alice, { map: 'town' })).toMatchObject({ bots: 0 });
+    expect(pick(m, alice, { fill: true, mode: 'tdm' })).toMatchObject({ bots: 2, custom: false });
+  });
+
+  it('starts the match at the map’s size', () => {
+    const m = sized();
+    const alice = join(m, 'alice');
+    pick(m, alice, { map: 'yard' });
+    alice.client.startMatch();
+    m.run(ticks(1));
+    expect(fighters(m)).toHaveLength(8);
+    expect(m.server.status()).toMatchObject({ map: 'yard', botsPerTeam: 4 });
   });
 });

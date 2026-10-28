@@ -42,7 +42,7 @@ export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { IW_UNIT, STATS, WEAPON_IDS, isShellReload } from './stats';
 export type { Estimated, FireMode, MagazineReload, Provenance, ShellReload, Source, Sourced, Stat, Stats, Unit, WeaponId, WeaponRow, WeaponTraits } from './stats';
 export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT, MAX_BOTS_PER_TEAM, RECONNECT_GRACE, SPAWN_PROTECTION, hvbBots } from './net/server';
-export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus, ServerMap } from './net/server';
+export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus, ServerMap, TeamSizes } from './net/server';
 export { GameClient } from './net/client';
 export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client';
 export type { Connection, ServerTransport } from './net/transport';

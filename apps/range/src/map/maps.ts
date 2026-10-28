@@ -1,4 +1,5 @@
 import { buildMap, FACING_NEG_Z } from './map';
+import type { TeamSizes } from '@duty-shooter/fps-core';
 import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
@@ -98,6 +99,17 @@ export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range'
 export const asMapId = (id: string | null | undefined): MapId | undefined => MAP_IDS.find((m) => m === id);
 /** The maps an online lobby plays: those built for matches (not the Practice Range). */
 export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
+
+/**
+ * The team size each map plays at, by mode: with bots on, a lobby fills to
+ * it (free-for-all holds twice it). The switchyard's long open yard takes
+ * 6v6, Survival Town's streets 4v4.
+ */
+export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
+  'survival-town': { tdm: 4, ffa: 4, outposts: 4, charge: 4 },
+  switchyard: { tdm: 6, ffa: 6, outposts: 6, charge: 6 },
+  range: {},
+};
 
 const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange };
 

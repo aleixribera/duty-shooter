@@ -37,12 +37,13 @@ describe('server bots setting', () => {
     expect(() => optionsFromEnv({ BOTS_PER_TEAM: '4', MAX_BOTS_PER_TEAM: '2' }, 'dist')).toThrow(/BOTS_PER_TEAM must be/);
   });
 
-  it('fills the Survival Town match with bots once the host starts it, and counts only people as players; the seat of someone who leaves is held, the match running on', async () => {
+  it('fills the Survival Town match with bots to its team size (4v4) once the host starts it, and counts only people as players; the seat of someone who leaves is held, the match running on', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', botsPerTeam: 2, maxBotsPerTeam: 4 });
     try {
       const status = async () => (await fetch(`http://127.0.0.1:${server.port}/status`)).json();
-      expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 2, maxBotsPerTeam: 4 });
+      // Survival Town's own team size (4 a side) rather than the server's default.
+      expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 4, maxBotsPerTeam: 4 });
       // Every lobby map is held, for the host to pick between matches.
       expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard'], map: 'survival-town' });
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
@@ -53,11 +54,11 @@ describe('server bots setting', () => {
       expect(await status()).toMatchObject({ players: 1, bots: 0, phase: 'lobby' });
       ws.send(JSON.stringify({ t: 'start' }));
       for (let i = 0; i < 250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done, 20));
-      expect(await status()).toMatchObject({ players: 1, bots: 3, phase: 'playing' });
+      expect(await status()).toMatchObject({ players: 1, bots: 7, phase: 'playing' });
       ws.close();
       await new Promise((done) => ws.addEventListener('close', done));
       for (let i = 0; i < 250 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
-      expect(await status()).toMatchObject({ players: 0, away: 1, bots: 3 });
+      expect(await status()).toMatchObject({ players: 0, away: 1, bots: 7 });
     } finally {
       await server.close();
     }

@@ -5,7 +5,7 @@ A browser FPS built to feel like Call of Duty: Modern Warfare (2019), on an auth
 - **Arsenal:** four primaries (the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun and the Ridgeline .308 sniper rifle), the Warden 9 pistol as a secondary, and a frag. Players pick a loadout between lives.
 - **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac, and **Switchyard**, a freight yard at dusk. Survival Town ends each match with a nuke; Switchyard ends it with a freight train.
 - **Modes:** team deathmatch (75 kills or 10 minutes), free-for-all (30 kills or 10 minutes), Outposts (hold three zones; 200 points) and Charge (plant or defuse; first to 4 rounds, no respawns within a round). Any team mode can be played **humans vs bots**: every person on one team against a bot team sized to the group.
-- **Online**, the first person in is the host: in the lobby they pick the map, mode, bots and humans vs bots, and press Start. Up to 12 seats, with bots filling them.
+- **Online**, the first person in is the host: in the lobby they pick the map, mode, bots on or off and humans vs bots, and press Start. Bots fill each side to the map's team size: 6v6 on Switchyard, 4v4 on Survival Town (`TEAM_SIZES` in `apps/range/src/map/maps.ts`). The host can change it with the hidden **+** and **-** keys in the lobby, until the map or mode changes. Up to 12 seats, with bots filling them.
 - **Offline**, **Bot Match** plays either map in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course.
 
 TypeScript, Three.js (WebGPU, with a WebGL2 fallback), Vite, Node 24.
@@ -44,7 +44,7 @@ To play online locally:
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts` or `charge`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
    | `MAX_PLAYERS` | `12` | Seats, bots included. |
-   | `BOTS_PER_TEAM` | `3` | Bots a side the lobby fills to; at most `MAX_BOTS_PER_TEAM`. |
+   | `BOTS_PER_TEAM` | `3` | Bots a side on a map with no team size of its own; `0` starts the lobby with bots off. At most `MAX_BOTS_PER_TEAM`. |
    | `MAX_BOTS_PER_TEAM` | `6` | The most a host may pick. Set both bot variables to `0` for no bots. |
    | `PORT`, `HOST` | `3000`, `0.0.0.0` | Where it listens. |
    | `STATIC_DIR` | the built client | The files it serves. |

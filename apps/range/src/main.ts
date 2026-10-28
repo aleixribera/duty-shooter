@@ -25,7 +25,7 @@ import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchPreset, type BenchReport } from './bench';
-import { MAP_IDS, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { MAP_IDS, TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -299,9 +299,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /**
    * Bot Match's setup is the lobby page offline: you alone, the bots the
    * match brings, and your picks, kept between visits. Opening it starts the
-   * picked map's lighting downloading, so Start rarely waits.
+   * picked map's lighting downloading, so Start rarely waits. The bots fill
+   * to the map's team size for the mode, or a size of your own (the hidden
+   * + and - keys) until the map or mode changes.
    */
-  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: 3, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: BOT_MAPS[0]! };
+  const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
+  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(BOT_MAPS[0]!, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: BOT_MAPS[0]! };
   let botLobbyOpen = false;
   const botView = (): LobbyView => ({ lobby: botSetup, phase: 'lobby', selfId: 'you', names: { you: settings.name.trim() || 'You' }, pings: {}, mode: botSetup.mode, result: null, teamScores: null, loading: null, offline: true });
   const openBotLobby = () => {
@@ -314,7 +317,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     void game.preload();
   };
   const pickBots = (picks: LobbyPick) => {
-    botSetup = { ...botSetup, ...picks, bots: Math.max(1, Math.min(MAX_BOTS_PER_TEAM, picks.bots ?? botSetup.bots)) };
+    const { fill: _fill, bots, ...rest } = picks;
+    const next = { ...botSetup, ...rest };
+    // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
+    const custom = bots !== undefined || (botSetup.custom && picks.fill === undefined && next.map === botSetup.map && next.mode === botSetup.mode);
+    botSetup = { ...next, custom, bots: custom ? Math.max(1, Math.min(MAX_BOTS_PER_TEAM, bots ?? botSetup.bots)) : teamSize(next.map, next.mode) };
     if (picks.map) load(asMapId(picks.map) ?? 'survival-town');
     lobbyPage.show(botView());
   };

@@ -40,7 +40,12 @@ export interface ServerMap {
   readonly sites?: readonly ChargeSite[];
   /** No bots play on a map without one. */
   readonly nav?: NavGraph;
+  /** Bots a side the lobby fills to on this map, by mode; the server's default where a mode has none. */
+  readonly teamSize?: TeamSizes;
 }
+
+/** A map's team size (people and bots a side) for each mode; free-for-all holds twice it. */
+export type TeamSizes = Readonly<Partial<Record<ModeId, number>>>;
 
 export interface GameServerOptions {
   /** The first map: its collision, with the spawns, zones, sites and bots' nav graph below. */
@@ -63,6 +68,8 @@ export interface GameServerOptions {
   readonly zones?: readonly Zone[];
   /** The map's Charge sites; none without. */
   readonly sites?: readonly ChargeSite[];
+  /** The first map's team size by mode, which bots fill to; `bots.perTeam` where a mode has none. */
+  readonly teamSize?: TeamSizes;
   /** Range dummies, simulated by the server for everyone. */
   readonly dummies?: readonly PlayerSpawn[];
   /** The shared passphrase every join must carry; empty runs a public lobby anyone can join. */
@@ -124,7 +131,7 @@ export type LobbyEvent =
 export interface BotOptions {
   /** The first map's nav graph, for the bots to find their way (other maps bring their own). */
   readonly nav: NavGraph;
-  /** Bots a side by default (0 = none). */
+  /** Bots a side on a map without its own team size; 0 also starts the lobby with bots off. */
   readonly perTeam: number;
   /** The most a side the first joiner may ask for; MAX_BOTS_PER_TEAM by default. */
   readonly maxPerTeam?: number;
@@ -265,7 +272,9 @@ export class GameServer {
   /** Props shot this match; cleared when a match starts. */
   readonly #popped = new Set<string>();
   readonly #bots = new Map<PlayerId, BotSeat>();
-  #botsPerTeam: number;
+  /** Bots on: they fill each match to its map's team size, or to the host's own size while one is set. */
+  #fill: boolean;
+  #customBots: number | null = null;
   /** Humans vs bots as picked (on only in team modes: see #hvbOn). */
   #hvb: boolean;
   /** The maps the server holds, the one played now and the one the host picked for the next match. */
@@ -302,6 +311,7 @@ export class GameServer {
       ...(options.zones ? { zones: options.zones } : {}),
       ...(options.sites ? { sites: options.sites } : {}),
       ...(options.bots ? { nav: options.bots.nav } : {}),
+      ...(options.teamSize ? { teamSize: options.teamSize } : {}),
     };
     this.#maps = [first, ...(options.maps ?? []).filter((m) => m.id !== first.id)];
     this.#map = first;
@@ -314,16 +324,23 @@ export class GameServer {
       selfDamage: () => this.#phase === 'playing',
     });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);
-    this.#botsPerTeam = this.#defaultBots();
+    this.#fill = this.#defaultFill();
     this.#hvb = options.hvb === true;
     this.#last = this.simulation.output();
     transport.onConnection((connection) => this.#accept(connection));
     if (options.bots?.alwaysOn) this.#startMatch(this.#mode.id);
   }
 
-  #defaultBots(): number {
+  #defaultFill(): boolean {
+    return (this.#options.bots?.perTeam ?? 0) > 0;
+  }
+
+  /** Bots a side a match on `map` in `mode` fills to: none with bots off, else the host's own size or the map's. */
+  #botsFor(map: ServerMap, mode: ModeId): number {
     const b = this.#options.bots;
-    return b ? Math.max(0, Math.min(b.perTeam, this.maxBotsPerTeam)) : 0;
+    if (!b || !this.#fill) return 0;
+    const size = this.#customBots ?? map.teamSize?.[mode] ?? (b.perTeam || 3);
+    return Math.max(0, Math.min(size, this.maxBotsPerTeam));
   }
 
   /** Whether this match is humans vs bots: picked, in a team mode, with bots to play. */
@@ -361,7 +378,7 @@ export class GameServer {
       capacity: this.maxPlayers,
       phase: this.#phase,
       bots: this.#bots.size,
-      botsPerTeam: this.#botsPerTeam,
+      botsPerTeam: this.#botsFor(this.#map, this.#mode.id),
       maxBotsPerTeam: this.maxBotsPerTeam,
       lobby: this.#options.lobby === true,
       hvb: this.#hvbOn,
@@ -381,7 +398,8 @@ export class GameServer {
       players: this.#joined().map((c) => c.id as PlayerId),
       capacity: this.maxPlayers,
       mode: this.#lobbyMode,
-      bots: this.#botsPerTeam,
+      bots: this.#botsFor(this.#lobbyMap, this.#lobbyMode),
+      custom: this.#customBots !== null,
       maxBots: this.maxBotsPerTeam,
       hvb: this.#hvb,
       maps: this.#maps.map((m) => m.id),
@@ -513,10 +531,18 @@ export class GameServer {
       if (this.#phase !== 'lobby' || client.id !== this.host) return;
       if (message.t === 'start') this.#startRequested = true;
       else {
-        if (message.mode !== undefined) this.#lobbyMode = message.mode;
-        if (message.bots !== undefined) this.#botsPerTeam = Math.min(message.bots, this.maxBotsPerTeam);
+        const mode = message.mode ?? this.#lobbyMode;
+        const map = this.#maps.find((m) => m.id === message.map) ?? this.#lobbyMap;
+        // The host's own size lasts until the map or the mode changes: then the new pick's team size applies.
+        if (mode !== this.#lobbyMode || map !== this.#lobbyMap) this.#customBots = null;
+        this.#lobbyMode = mode;
+        this.#lobbyMap = map;
+        if (message.fill !== undefined) {
+          this.#fill = message.fill;
+          this.#customBots = null;
+        }
+        if (message.bots !== undefined) this.#setCustomBots(message.bots);
         if (message.hvb !== undefined) this.#hvb = message.hvb;
-        this.#lobbyMap = this.#maps.find((m) => m.id === message.map) ?? this.#lobbyMap;
       }
       return;
     }
@@ -558,7 +584,7 @@ export class GameServer {
     if (first && !this.#options.bots?.alwaysOn) {
       // The first player on an empty server starts afresh, in the mode and with the bots they asked for:
       // in the lobby as its host, or straight into a match (a script player always, to load the server).
-      if (bots !== null) this.#botsPerTeam = Math.min(bots, this.maxBotsPerTeam);
+      if (bots !== null) this.#setCustomBots(bots);
       if (hvb !== null) this.#hvb = hvb;
       this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
       if (this.#options.lobby && !client.script) {
@@ -574,6 +600,12 @@ export class GameServer {
       this.#add(id, name);
     }
     this.#welcome(client);
+  }
+
+  /** Bots a side of the host's own (or a first joiner's): 0 turns bots off. */
+  #setCustomBots(bots: number): void {
+    this.#fill = bots > 0;
+    this.#customBots = bots > 0 ? Math.min(bots, this.maxBotsPerTeam) : null;
   }
 
   #welcome(client: Client): void {
@@ -728,7 +760,7 @@ export class GameServer {
     const people = this.#seated;
     if (!this.#options.bots || !this.#map.nav || (people === 0 && !this.#options.bots.alwaysOn) || this.#phase === 'lobby') return 0;
     if (this.#hvbOn) return hvbBots(people, this.maxBotsPerTeam, this.maxPlayers);
-    const wanted = this.#botsPerTeam * 2 - people;
+    const wanted = this.#botsFor(this.#map, this.#mode.id) * 2 - people;
     return Math.max(0, Math.min(wanted, this.maxPlayers - people));
   }
 
@@ -809,7 +841,8 @@ export class GameServer {
   /** A seat emptied: bots fill or leave to match. The last seat out takes the bots along, and the next lobby starts from the default. */
   #seatsChanged(): void {
     if (this.#seated === 0 && !this.#options.bots?.alwaysOn) {
-      this.#botsPerTeam = this.#defaultBots();
+      this.#fill = this.#defaultFill();
+      this.#customBots = null;
       this.#hvb = this.#options.hvb === true;
     }
     this.#fillBots();

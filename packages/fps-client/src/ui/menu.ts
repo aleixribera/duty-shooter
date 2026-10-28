@@ -683,7 +683,19 @@ export class Menu {
     const link = lobby?.kind === 'link' ? lobby.url : null;
     const t = lobbyTile(server ? (lobby.status ?? null) : null);
     const desc = server ? (lobby.public ? 'The public lobby: anyone with the link can join.' : 'Join the server with its passphrase.') : link ? 'The public lobby, on its own page.' : 'No game server answers this page right now.';
-    const online = item('online', 'Play Online', desc, () => (link ? location.assign(link) : this.#openOnline()), server);
+    // The public lobby joins in one click under the name above (typed first if there is none); a private server asks for its passphrase.
+    const playOnline = () => {
+      if (link) return location.assign(link);
+      if (!server || !lobby.public) return this.#openOnline();
+      const n = name.value.trim().slice(0, 16);
+      if (!n) {
+        name.focus();
+        return;
+      }
+      this.#change({ name: n });
+      this.#callbacks.playOnline(n, '', null, null);
+    };
+    const online = item('online', 'Play Online', desc, playOnline, server);
     online.insertAdjacentHTML(
       'beforeend',
       link

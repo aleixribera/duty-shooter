@@ -4,14 +4,42 @@
     {
       "name": "range",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "@duty-shooter/range", "--", "--port", "5173", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@duty-shooter/range",
+        "--",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
       "port": 5173
     },
     {
       "name": "server",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "server"],
-      "env": { "PASSPHRASE": "dev", "PORT": "3000" },
+      "runtimeArgs": [
+        "run",
+        "server"
+      ],
+      "env": {
+        "PASSPHRASE": "dev",
+        "PORT": "3000"
+      },
+      "port": 3000
+    },
+    {
+      "name": "server-public",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "server"
+      ],
+      "env": {
+        "PASSPHRASE": "",
+        "PORT": "3000"
+      },
       "port": 3000
     }
   ]

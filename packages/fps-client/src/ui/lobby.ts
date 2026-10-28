@@ -128,6 +128,7 @@ export class LobbyPage {
     this.#root.hidden = true;
     this.#root.addEventListener('click', (e) => this.#click(e));
     this.#root.addEventListener('pointermove', () => this.#root.classList.remove('pad'));
+    document.addEventListener('keydown', (e) => this.#key(e));
     parent.append(this.#root);
   }
 
@@ -185,7 +186,7 @@ export class LobbyPage {
     const act = el.dataset['act'];
     const value = el.dataset['value'] ?? '';
     if (act === 'mode') this.#callbacks.pick({ mode: value as ModeId });
-    else if (act === 'bots') this.#callbacks.pick({ bots: Number(value) });
+    else if (act === 'fill') this.#callbacks.pick({ fill: value === 'on' });
     else if (act === 'hvb') this.#callbacks.pick({ hvb: value === 'on' });
     else if (act === 'map') this.#callbacks.pick({ map: value });
     else if (act === 'start') this.#callbacks.start();
@@ -199,6 +200,21 @@ export class LobbyPage {
       if (this.#view) this.show(this.#view);
       setTimeout(() => this.#view && this.open && this.show(this.#view), 1600);
     }
+  }
+
+  /**
+   * The host's hidden size control: + and - add or take away a bot a side,
+   * over the map's team size, until the map or mode changes (or Bots is
+   * switched). Nothing on the page mentions it.
+   */
+  #key(e: KeyboardEvent): void {
+    const v = this.#view;
+    if (!v || !this.open || e.repeat || e.ctrlKey || e.metaKey || e.altKey || getComputedStyle(this.#root).visibility === 'hidden') return;
+    const l = v.lobby;
+    const step = e.key === '+' || e.key === '=' ? 1 : e.key === '-' || e.key === '_' ? -1 : 0;
+    if (step === 0 || l.host === null || l.host !== v.selfId || v.phase !== 'lobby' || l.maxBots <= 0 || (l.hvb && teamMode(l.mode))) return;
+    const bots = Math.max(v.offline ? 1 : 0, Math.min(l.maxBots, l.bots + step));
+    if (bots !== l.bots) this.#callbacks.pick({ bots });
   }
 
   #render(v: LobbyView): string {
@@ -245,13 +261,13 @@ export class LobbyPage {
           (['off', 'on'] as const).map((s) => [s, s === 'on' ? 'Humans vs bots' : 'Mixed teams', (s === 'on') === l.hvb] as const),
         )}</div>`
       : '';
-    // Offline there is always someone to play: the size starts at one a side.
-    const sizes = Array.from({ length: l.maxBots + 1 }, (_, n) => n).filter((n) => !offline || n > 0);
+    // Bots fill to the map's team size for the mode. Offline there is always someone to play, so no switch.
+    const fillBots = l.bots > 0;
     const size =
-      l.maxBots > 0 && !hvb
-        ? `<div><span class="ds-field-label">Match size</span>${seg(
-            'bots',
-            sizes.map((n) => [String(n), n === 0 ? 'None' : matchSize(l.mode, n), n === l.bots] as const),
+      l.maxBots > 0 && !hvb && !offline
+        ? `<div><span class="ds-field-label">Bots</span>${seg(
+            'fill',
+            (['off', 'on'] as const).map((s) => [s, s === 'on' ? `On · ${fillBots ? matchSize(l.mode, l.bots) : 'fill'}` : 'Off', (s === 'on') === fillBots] as const),
           )}</div>`
         : '';
     const maps = l.maps

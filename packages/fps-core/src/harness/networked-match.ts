@@ -37,6 +37,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly hvb?: boolean;
   /** More maps the lobby's host may pick. */
   readonly maps?: GameServerOptions['maps'];
+  /** The first map's team size by mode. */
+  readonly teamSize?: GameServerOptions['teamSize'];
 }
 
 /** A client in the match, with every frame it produced. */
@@ -93,6 +95,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.onLog ? { onLog: options.onLog } : {}),
     ...(options.lobby ? { lobby: true } : {}),
     ...(options.hvb ? { hvb: true } : {}),
+    ...(options.teamSize ? { teamSize: options.teamSize } : {}),
     ...(options.maps ? { maps: options.maps } : {}),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();

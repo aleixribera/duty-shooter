@@ -159,14 +159,17 @@ A computer-controlled player: a seat on the game server with no connection, whic
 _Avoid_: AI player, NPC
 
 **Bot fill**:
-Topping a match up with bots to a number a side while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. Humans vs bots sizes the bots its own way instead.
+Topping a match up with bots to the map's team size while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. The lobby's host only switches it on or off. Humans vs bots sizes the bots its own way instead.
+
+**Team size**:
+The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard 6v6 and Survival Town 4v4 in every mode (free-for-all holds twice it). The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
 
 **Humans vs bots**:
 A setting for any team mode, not a mode of its own: every person plays on Blue, against an Orange team of bots two bigger than the group (at least four, at most six, and never more than the free seats). A person joining mid-match brings another bot to Orange. Free-for-all ignores it. The host picks it in the lobby; Bot Match offers it too.
 _Avoid_: co-op, PvE
 
 **Bot Match**:
-An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams up to 6v6 or as humans vs bots. The game server runs in the page.
+An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page.
 
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.
