@@ -22,6 +22,13 @@ for name, finish in layout['finishes'].items():
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.diffuse_color = (*rgb, 1)
     materials[name] = mat
+for placement in layout['models']['placements']:
+    obj = bpy.data.objects.get(placement['asset'])
+    if obj is None:
+        raise ValueError('Missing Blender asset: ' + placement['asset'])
+    x, y, z = placement['position']
+    obj.location = (x, -z, y)
+    obj.rotation_euler[2] = placement['yaw']
 model_solids = {i for p in layout['models']['placements'] for i in p['solids']}
 for i, solid in enumerate(layout['solids']):
     if i in model_solids:
