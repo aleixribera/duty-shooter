@@ -1,7 +1,7 @@
 # Performance and sniper verification
 
 Status: resolved
-Release: v2.17.0, v2.18.0, v2.19.0, v2.20.1
+Release: v2.17.0, v2.18.0, v2.19.0, v2.20.1, v2.21.1
 
 ## Comments
 
@@ -27,4 +27,8 @@ v2.19.0: the multi-second freezes in the first ~20 s of play were the browser st
 v2.20.1, Medium's CPU per frame. With GPU timestamps a Medium 1080p frame takes about 0.6 ms of GPU on the RTX 5060, so Medium is bound by the CPU (and on a high-DPI screen v2.17.0's pixel budget already took GPU time from 3.07 to 0.97 ms and frames from 14.6 to 5.5 ms). A CPU profile of a Medium frame (explore, standing, 10 s) put 5.2 of 6.6 ms in three.js rendering and 0.52 ms in the audio listener: nine AudioParam writes a frame, each a message to the audio thread. The listener now writes only the values that moved (never `up`). Map models are merged into one mesh per material within 160 m squares instead of one instanced mesh per asset part (Survival Town: 148 instanced meshes to 7, 382 draw calls in a shadow frame to 349). Old and new builds alternated: Survival Town 6.60 and 5.92 ms of CPU a frame to 4.44 and 5.21 (154 and 172 fps to 227 and 196), Switchyard 4.99 to 4.23 ms (203 to 239 fps). 48 m squares were tried first and left as many meshes as before.
 
 Paused 2026-10-28 (owner's stop), not released: `../map-models-shared-material.patch` gives every map model finish but the lamps one material that reads colour, roughness, metalness and baked occlusion from vertex attributes, so models merge across finishes. The 160 m merge in v2.20.1 still draws about 109 model meshes a frame on Survival Town because the models wear about 100 finishes, and a whole-map merge left the count unchanged. The patch typechecks and the client tests pass (136); its draw count, CPU A/B against v2.20.1 and screenshots of Survival Town and Switchyard at Medium were not run yet. Apply it with `git apply`, then run those before releasing.
+
+Codex leftovers (2026-10-28). Kept, because they are released and tested: its two commits, 4bf58c7 (frame workload, sniper hit zones) and 7449a1e (train-horn synthesis), plus its notes at the top of this ticket. Deleted from this folder after reading them: its `baseline/` captures, `compare-charge.sh`, `profile.mjs`, the menu, game and Survival Town screenshots, and the horn sample dumps (`horn-22050.f32`, `horn-48000.f32`), together with `.scratch/perf-prof`. Their hints (frame outliers, audio warm-up, measuring against a controlled baseline) are followed up in the entries above.
+
+v2.21.1, the shared map-model material (the patch above, now applied and deleted). Map model meshes in a Survival Town frame: 218 to 8. Old and new builds alternated at Medium, 1080p, explore at the spawn: Survival Town 3.54 and 3.55 ms of CPU a frame to 2.28 and 2.29 (283 to 439 fps), Switchyard 3.02 to 2.19 ms (332 to 461 fps). Screenshots of both maps at Medium show the models' colours, metal and lamps as before.
 
