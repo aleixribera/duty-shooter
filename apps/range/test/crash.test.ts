@@ -32,7 +32,10 @@ describe('Crash', () => {
     }
   });
   it('lets a player climb the tower to the roof', () => {
-    const legs: Vec3[] = [[-15.35,0,-21],[-15.35,3,-31.3],[-17.55,3,-31.3],[-17.55,6,-22.55],[-15.8,6,-23.7],[-13,6,-23.7],[-15.8,6,-21.2],[-19.75,6,-21.2],[-19.75,9,-31.3],[-13,9,-31.3]];
+    const legs: Vec3[] = [[-9,0,-20.5],[-9,0,-23.0]];
+    for (const y of [0,3,6]) {
+      legs.push([-12.9,y,-23.0],[-12.9,y+1.5,-28.8],[-11.1,y+1.5,-28.8],[-11.1,y+3,-23.0],[-9.5,y+3,-23.0]);
+    }
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
     let out = m.step({p:usercmd({yaw:0})}).players[0]!;
     for (const target of legs.slice(1)) {
