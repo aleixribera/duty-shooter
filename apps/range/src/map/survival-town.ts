@@ -95,7 +95,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   bedspread: { family: 'plastic', color: 0x86a9cf },
   cabinet: { family: 'paint', color: 0xf0e9d8 },
   counter: { family: 'tile', color: 0x7fc6c0, accent: 0xf2f0ea },
-  table: { family: 'floor', color: 0x9b6a42, accent: 0x83583a },
+  table: { family: 'floor', color: 0x9b6a42, accent: 0x83583a, roughness: 0.55 },
+  linen: { family: 'plastic', color: 0xf2efe6, roughness: 0.9 },
   'ac.unit': { family: 'sheetMetal', color: 0xc4c9cc },
   soil: { family: 'dirt', color: 0x6f5841, accent: 0x5a4634 },
   // Vehicles and the boat.
@@ -132,9 +133,10 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'outfit.khaki': { family: 'plastic', color: 0x8a7658 },
   // The test site round the town.
   'site.paint': { family: 'paint', color: 0xd8d2c4 },
-  'site.steel': { family: 'paint', color: 0x7b8085 },
+  'site.steel': { family: 'paint', color: 0x7b8085, roughness: 0.5, metalness: 0.6 },
+  insulator: { family: 'glass', color: 0x6e8c7a, roughness: 0.15 },
   'site.red': { family: 'paint', color: 0xb04a33 },
-  tank: { family: 'sheetMetal', color: 0xb7bcbf },
+  tank: { family: 'sheetMetal', color: 0xb7bcbf, roughness: 0.45, metalness: 0.6 },
   bunker: { family: 'concrete', color: 0xb9b2a4, accent: 0x9a9386 },
   pole: { family: 'floor', color: 0x6b5038, accent: 0x5a4330 },
   'barricade.white': { family: 'paint', color: 0xf2efe8 },
@@ -259,6 +261,17 @@ class Side {
     const [sx0, sx1] = sort(xe - ex * SINK, xe + ex * FRAME_PROUD);
     const [sz0, sz1] = sort(zb, zf + fo * FRAME_PROUD);
     this.b.decorateBox(piece, [sx0, y0, sz0], [sx1, y1, sz1], 'trim');
+  }
+
+  /**
+   * A Blender model (an asset of the map's model file) drawn over the box from
+   * (x0, y0, d0) to (x1, y1, d1), its origin at the box's bottom centre. The
+   * assets are made for the north house; `mirror` turns one that is not
+   * symmetric across z (its back toward larger d) about for the south house.
+   */
+  furnish(asset: string, x0: number, y0: number, d0: number, x1: number, y1: number, d1: number, material: Material, mirror = false): void {
+    const yaw = mirror && this.s === 1 ? Math.PI : 0;
+    this.b.model(asset, [(x0 + x1) / 2, y0, this.z((d0 + d1) / 2)], yaw, () => this.b.paint('underbody', () => this.box(x0, y0, d0, x1, y1, d1, material)));
   }
 
   rectD(x0: number, x1: number, d0: number, d1: number): Rect {
@@ -419,24 +432,18 @@ function buildHouse(side: Side): void {
   const [sz0, sz1] = [side.z(D.d1 - 1.4), side.z(D.d1)].sort((p, q) => p - q) as [number, number];
   side.paint({ side: 'trim', top: 'deck' }, () => b.stairs({ along: 'x', from: D.stairsX0, to: D.x0, across: [sz0, sz1], bottom: 0, top: UPPER_FLOOR, material: 'wood' }));
 
-  // Furniture: cover inside, gaps either a body wide or closed.
-  side.paint('sofa', () => side.box(2, 0, 21, 5, 0.85, 22, 'wood'));
-  side.paint({ side: 'cabinet', top: 'counter' }, () => {
-    side.box(5, 0, 25, M.x1 - h, 0.9, 30, 'wood'); // kitchen counter
-    side.box(1, 0, 27, 3.5, 0.9, 28.2, 'wood'); // kitchen island
-  });
-  side.paint('table', () => {
-    side.box(-6, 0, 18, -4, 0.75, 19.5, 'wood'); // den table
-    side.box(G.x0 + h, 0, 14, -16.2, 0.9, 18, 'wood'); // workbench
-  });
-  side.paint({ side: 'table', top: 'bedspread' }, () => {
-    side.box(4, UPPER_FLOOR, 15, M.x1 - h, UPPER_FLOOR + 0.6, 17, 'wood'); // front bedroom bed
-    side.box(3.5, UPPER_FLOOR, 27, M.x1 - h, UPPER_FLOOR + 0.6, 29.5, 'wood'); // back bedroom bed
-  });
-  side.paint('cabinet', () => side.box(-1.5, UPPER_FLOOR, 22.9, 0, UPPER_FLOOR + 1.2, 23.9, 'wood')); // dresser
+  // Furniture (modelled): cover inside, gaps either a body wide or closed.
+  side.furnish('sofa', 2, 0, 21, 5, 0.85, 22, 'wood', true);
+  side.furnish('counter', 5, 0, 25, M.x1 - h, 0.9, 30, 'wood'); // kitchen counter
+  side.furnish('island', 1, 0, 27, 3.5, 0.9, 28.2, 'wood'); // kitchen island
+  side.furnish('den-table', -6, 0, 18, -4, 0.75, 19.5, 'wood');
+  side.furnish('workbench', G.x0 + h, 0, 14, -16.2, 0.9, 18, 'wood');
+  side.furnish('bed', 4, UPPER_FLOOR, 15, M.x1 - h, UPPER_FLOOR + 0.6, 17, 'wood'); // front bedroom
+  side.furnish('bed-large', 3.5, UPPER_FLOOR, 27, M.x1 - h, UPPER_FLOOR + 0.6, 29.5, 'wood'); // back bedroom
+  side.furnish('dresser', -1.5, UPPER_FLOOR, 22.9, 0, UPPER_FLOOR + 1.2, 23.9, 'wood', true);
 
   // The yard: an air-conditioning unit behind the garage (a step up to its roof) and a raised bed along the east side.
-  side.paint('ac.unit', () => side.box(-15.5, 0, G.d1 + h, -14.5, 1.2, G.d1 + h + 1, 'metal'));
+  side.furnish('ac-unit', -15.5, 0, G.d1 + h, -14.5, 1.2, G.d1 + h + 1, 'metal');
   side.paint({ side: 'deck', top: 'soil' }, () => side.box(6.2, 0, 17, 7.6, 0.3, 29, 'dirt'));
 }
 
@@ -504,8 +511,8 @@ interface Part {
 
 /**
  * Something built in its own frame, turned `yaw` about a centre on the
- * ground: positions along it (a), up (y) and across to its left (c). Vehicles
- * and mannequins are boxes laid out this way, with trim on their faces.
+ * ground: positions along it (a), up (y) and across to its left (c). The
+ * vehicles, the boat and the mannequins collide as boxes laid out this way.
  */
 class Frame {
   readonly #c: readonly [number, number];
@@ -530,47 +537,6 @@ class Frame {
   part(p: Part): Solid {
     const bottom = p.bottom ?? 0;
     return this.b.turned(this.at((p.from + p.to) / 2, bottom + p.height / 2, 0), [p.to - p.from, p.height, p.width], this.yaw, p.material, p.look);
-  }
-
-  /** Trim on a solid, as ranges along, up and across. */
-  trim(solid: Solid, a0: number, a1: number, y0: number, y1: number, c0: number, c1: number, finish: string): void {
-    this.b.decorate(solid, this.at((a0 + a1) / 2, (y0 + y1) / 2, (c0 + c1) / 2), [a1 - a0, y1 - y0, c1 - c0], finish, this.yaw);
-  }
-
-  /** A panel standing `proud` off a part's left side (+1), right side (-1) or both (0), from a0 to a1 along and y0 to y1 up. */
-  side(solid: Solid, p: Part, which: 1 | -1 | 0, a0: number, a1: number, y0: number, y1: number, finish: string, proud = 0.015): void {
-    const w = p.width / 2;
-    if (which >= 0) this.trim(solid, a0, a1, y0, y1, w - SINK, w + proud, finish);
-    if (which <= 0) this.trim(solid, a0, a1, y0, y1, -w - proud, -w + SINK, finish);
-  }
-
-  /** A panel standing `proud` off a part's front (+1) or back (-1) end, from c0 to c1 across and y0 to y1 up. */
-  end(solid: Solid, p: Part, which: 1 | -1, c0: number, c1: number, y0: number, y1: number, finish: string, proud = 0.015): void {
-    const [a0, a1] = which > 0 ? [p.to - SINK, p.to + proud] : [p.from - proud, p.from + SINK];
-    this.trim(solid, a0, a1, y0, y1, c0, c1, finish);
-  }
-
-  /** A wheel on both sides of a part at each `a`: a tyre and a hub cap. */
-  wheels(solid: Solid, p: Part, at: readonly number[], r: number): void {
-    for (const a of at) {
-      this.side(solid, p, 0, a - r, a + r, 0, 2 * r, 'tyre', 0.035);
-      this.side(solid, p, 0, a - r * 0.45, a + r * 0.45, r * 0.55, r * 1.45, 'chrome', 0.045);
-    }
-  }
-
-  /** A front end: bumper, grille `grille` either side of the middle, and headlights at `lights` up. */
-  face(solid: Solid, p: Part, grille: number, lights: number): void {
-    const w = p.width / 2;
-    this.end(solid, p, 1, -w + 0.05, w - 0.05, 0.28, 0.46, 'chrome', 0.04);
-    this.end(solid, p, 1, -grille, grille, 0.5, lights + 0.12, 'chrome', 0.02);
-    for (const c of [-1, 1]) this.end(solid, p, 1, c > 0 ? w - 0.32 : -w + 0.1, c > 0 ? w - 0.1 : -w + 0.32, lights, lights + 0.2, 'lamp', 0.025);
-  }
-
-  /** A back end: bumper and tail lamps at `lights` up. */
-  tail(solid: Solid, p: Part, lights: number): void {
-    const w = p.width / 2;
-    this.end(solid, p, -1, -w + 0.05, w - 0.05, 0.28, 0.46, 'bus.trim', 0.04);
-    for (const c of [-1, 1]) this.end(solid, p, -1, c > 0 ? w - 0.25 : -w + 0.08, c > 0 ? w - 0.08 : -w + 0.25, lights, lights + 0.22, 'tail.lamp', 0.02);
   }
 }
 
@@ -617,18 +583,15 @@ function buildYards(b: Builder): void {
   const north = new Side(b, -1);
   const south = new Side(b, 1);
   // North yard: a garden shed by the back fence and a picnic table.
-  north.paint({ side: north.palette.siding, top: 'roof.flat', edge: 'trim' }, () => north.box(-5, 0, 48, -1, 2.4, 50.5, 'wood'));
-  north.paint('table', () => north.box(-11, 0, 44.5, -9, 0.75, 45.5, 'wood'));
+  north.furnish('shed', -5, 0, 48, -1, 2.4, 50.5, 'wood');
+  north.furnish('picnic-table', -11, 0, 44.5, -9, 0.75, 45.5, 'wood');
   // South yard: a boat on its trailer, along the west fence, and its own picnic table.
   const boat = new Frame(b, [-20.4, 36], 1.33);
-  const trailer: Part = { from: -2.5, to: 2.5, width: 2.0, height: 0.5, material: 'metal', look: 'trailer' };
-  const hull: Part = { from: -2.4, to: 2.4, width: 1.9, height: 1.1, bottom: 0.5, material: 'wood', look: { side: 'boat.hull', top: 'boat.deck', edge: 'boat.hull' } };
-  const trailerSolid = boat.part(trailer);
-  const hullSolid = boat.part(hull);
-  boat.side(trailerSolid, trailer, 0, -0.75, 0.15, 0, 0.5, 'tyre', 0.035);
-  boat.side(hullSolid, hull, 0, -2.3, 2.3, 1.22, 1.36, 'boat.stripe', 0.02);
-  boat.end(hullSolid, hull, 1, -0.5, 0.5, 1.22, 1.36, 'boat.stripe', 0.02);
-  south.paint('table', () => south.box(-11, 0, 44.5, -9, 0.75, 45.5, 'wood'));
+  b.model('boat', [-20.4, 0, 36], 1.33, () => {
+    boat.part({ from: -2.5, to: 2.5, width: 2.0, height: 0.5, material: 'metal', look: 'trailer' });
+    boat.part({ from: -2.4, to: 2.4, width: 1.9, height: 1.1, bottom: 0.5, material: 'wood', look: 'boat.hull' });
+  });
+  south.furnish('picnic-table', -11, 0, 44.5, -9, 0.75, 45.5, 'wood');
 }
 
 /**
@@ -697,30 +660,21 @@ function buildBarricade(b: Builder): Label[] {
 /** Mannequin heads are props named like this, numbered from 0. */
 export const MANNEQUIN_HEAD = 'mannequin-head-';
 
-/** Outfits, shirt then trousers. */
-const OUTFITS: readonly (readonly [string, string])[] = [
-  ['outfit.blue', 'outfit.charcoal'],
-  ['outfit.red', 'outfit.khaki'],
-  ['outfit.green', 'outfit.charcoal'],
-  ['outfit.mustard', 'outfit.khaki'],
-];
+/** How many outfits the mannequins' models come in (tools/map/survival-town.py: `mannequin-0`...). */
+const OUTFITS = 4;
 
 /**
  * A shop-window mannequin standing at (x, z) on a floor at `floor`, facing
- * `yaw`: legs and a torso that collide, arms and a neck as trim, and a head
- * that is a prop (bullets pass through it and knock it off).
+ * `yaw`: legs and a torso that collide, modelled with arms and a neck in one
+ * of the outfits, and a head that is a prop (bullets pass through it and
+ * knock it off).
  */
 function mannequin(b: Builder, x: number, z: number, floor: number, yaw: number, outfit: number, id: string): void {
   const f = new Frame(b, [x, z], yaw);
-  const [shirt, trousers] = OUTFITS[outfit % OUTFITS.length]!;
-  const legs: Part = { from: -0.17, to: 0.17, width: 0.22, height: 0.86, bottom: floor, material: 'plastic', look: trousers };
-  const torso: Part = { from: -0.23, to: 0.23, width: 0.26, height: 0.56, bottom: floor + 0.86, material: 'plastic', look: shirt };
-  const legsSolid = f.part(legs);
-  const torsoSolid = f.part(torso);
-  // A seam between the legs, front and back.
-  f.side(legsSolid, legs, 0, -0.012, 0.012, floor, floor + 0.7, 'outfit.charcoal', 0.004);
-  for (const end of [1, -1] as const) f.end(torsoSolid, torso, end, -0.06, 0.06, floor + 0.92, floor + 1.38, 'mannequin', 0.045);
-  f.trim(torsoSolid, -0.05, 0.05, floor + 1.42 - SINK, floor + 1.46, -0.05, 0.05, 'mannequin');
+  b.model(`mannequin-${outfit % OUTFITS}`, [x, floor, z], yaw, () => {
+    f.part({ from: -0.17, to: 0.17, width: 0.22, height: 0.86, bottom: floor, material: 'plastic', look: 'mannequin' });
+    f.part({ from: -0.23, to: 0.23, width: 0.26, height: 0.56, bottom: floor + 0.86, material: 'plastic', look: 'mannequin' });
+  });
   b.add([x - 0.105, floor + 1.45, z - 0.115], [x + 0.105, floor + 1.72, z + 0.115], 'plastic', { prop: id, look: 'mannequin' });
 }
 
@@ -800,35 +754,52 @@ function legs(b: Builder, x: number, z: number, size: number, thick: number, top
  * solid, so shots that leave the town land on them like anything else.
  */
 function buildScenery(b: Builder): void {
-  // The town's water tower, west of the houses.
-  legs(b, -46, 14, 4.4, 0.35, 14, 4.5);
-  b.add([-49, 14, 11], [-43, 19, 17], 'sheetMetal', { look: { side: 'tank', top: 'site.red', bottom: 'site.paint' } });
-  // Instrument towers out in the desert, a cabin on a platform.
+  // The town's water tower, west of the houses: a round tank with a catwalk on a lattice of legs.
+  b.model('water-tower', [-46, 0, 14], 0, () => {
+    legs(b, -46, 14, 4.4, 0.35, 14, 4.5);
+    b.add([-49, 14, 11], [-43, 19, 17], 'sheetMetal', { look: 'tank' });
+  });
+  // Instrument towers out in the desert: a cabin on a railed platform, a mast on its roof.
   for (const [x, z] of [
     [-30, -68],
     [34, 44],
   ] as const) {
-    legs(b, x, z, 3, 0.3, 18, 4.5);
-    b.add([x - 2.2, 18, z - 2.2], [x + 2.2, 18.3, z + 2.2], 'metal', { look: 'site.paint' });
-    b.add([x - 1.8, 18.3, z - 1.8], [x + 1.8, 20.9, z + 1.8], 'sheetMetal', { look: { side: 'site.paint', top: 'site.red' } });
+    b.model('instrument-tower', [x, 0, z], 0, () => {
+      legs(b, x, z, 3, 0.3, 18, 4.5);
+      b.paint('site.paint', () => {
+        b.add([x - 2.2, 18, z - 2.2], [x + 2.2, 18.3, z + 2.2], 'metal');
+        b.add([x - 1.8, 18.3, z - 1.8], [x + 1.8, 20.9, z + 1.8], 'sheetMetal');
+        b.add([x + 0.84, 20.9, z + 0.84], [x + 0.96, 23, z + 0.96], 'metal');
+        for (const s of [-1, 1]) {
+          b.add([x - 2.2, 18.3, z + s * 2.17 - 0.03], [x + 2.2, 19.3, z + s * 2.17 + 0.03], 'metal');
+          b.add([x + s * 2.17 - 0.03, 18.3, z - 2.2], [x + s * 2.17 + 0.03, 19.3, z + 2.2], 'metal');
+        }
+      });
+    });
   }
-  // Concrete bunkers, low and long, and two sheds.
-  b.paint({ side: 'bunker', top: 'bunker' }, () => {
-    b.add([-49, 0, -40], [-39, 3, -33], 'concrete');
-    b.add([36, 0, -38], [44, 2.5, -32], 'concrete');
+  // Concrete bunkers, low and long, and two corrugated sheds, their doors toward the street.
+  b.paint('bunker', () => {
+    b.model('bunker-a', [-44, 0, -36.5], 0, () => b.add([-49, 0, -40], [-39, 3, -33], 'concrete'));
+    b.model('bunker-b', [40, 0, -35], 0, () => b.add([36, 0, -38], [44, 2.5, -32], 'concrete'));
   });
-  b.paint({ side: 'site.paint', top: 'roof.flat' }, () => {
-    b.add([54, 0, -24], [66, 5, -16], 'sheetMetal');
-    b.add([-65, 0, -15], [-55, 4, -5], 'sheetMetal');
+  b.paint('site.paint', () => {
+    b.model('hangar-a', [60, 0, -20], 0, () => b.add([54, 0, -24], [66, 5, -16], 'sheetMetal'));
+    b.model('hangar-b', [-60, 0, -10], 0, () => b.add([-65, 0, -15], [-55, 4, -5], 'sheetMetal'));
   });
-  // The power line along the street's north side, east of the street end.
+  // The power line along the street's north side, east of the street end: poles, crossarms and insulators.
   b.paint('pole', () => {
     for (const x of [26, 40, 54, 68, 82]) {
-      b.add([x - 0.15, 0, -7.65], [x + 0.15, 9, -7.35], 'wood');
-      b.add([x - 0.08, 8.2, -8.7], [x + 0.08, 8.35, -6.3], 'wood');
+      b.model('power-pole', [x, 0, -7.5], 0, () => {
+        b.add([x - 0.15, 0, -7.65], [x + 0.15, 9, -7.35], 'wood');
+        b.add([x - 0.08, 8.2, -8.7], [x + 0.08, 8.35, -6.3], 'wood');
+        for (const z of INSULATORS) b.add([x - 0.07, 8.35, -7.5 + z - 0.07], [x + 0.07, 8.6, -7.5 + z + 0.07], 'glass');
+      });
     }
   });
 }
+
+/** Where a power pole's insulators stand along its crossarm (tools/map/survival-town.py). */
+const INSULATORS = [-1, 0.3, 1] as const;
 
 /**
  * The test town carries on past the barricade: a checkpoint on the road
@@ -838,10 +809,10 @@ function buildScenery(b: Builder): void {
  */
 function buildOutskirts(b: Builder): void {
   // The guard hut on the north verge, a window toward the road and one toward the town.
-  const hut = b.add([33, 0, -9.8], [35.4, 2.6, -7.6], 'sheetMetal', { look: { side: 'site.paint', top: 'roof.flat' } });
-  b.decorateBox(hut, [34.6 - 1.2, 1.15, -7.6 - SINK], [34.6 - 0.2, 2.0, -7.6 + 0.012], 'window.tint');
-  b.decorateBox(hut, [33 - 0.012, 1.15, -9.3], [33 + SINK, 2.0, -8.1], 'window.tint');
-  b.add([32.8, 2.6, -10], [35.6, 2.75, -7.4], 'metal', { look: { side: 'site.steel', top: 'roof.flat', bottom: 'site.steel' } });
+  b.model('guard-hut', [34.2, 0, -8.7], 0, () => {
+    b.add([33, 0, -9.8], [35.4, 2.6, -7.6], 'sheetMetal', { look: 'site.paint' });
+    b.add([32.8, 2.6, -10], [35.6, 2.75, -7.4], 'metal', { look: 'site.steel' });
+  });
   // The boom gate: a post on the north sidewalk, a striped arm down across the road onto a rest on the south side.
   const gx = 36;
   b.paint('site.steel', () => {
@@ -891,6 +862,20 @@ function buildOutskirts(b: Builder): void {
   }
 }
 
+/** The modelled rocks' sizes (tools/map/survival-town.py `ROCKS`): the boulder's width, height and depth, and its stone's scale. */
+const ROCKS: readonly (readonly [number, number, number, number])[] = [
+  [2.4, 1.1, 1.7, 0.6],
+  [1.6, 0.7, 1.2, 0.75],
+  [2.0, 0.9, 1.5, 0.5],
+  [1.3, 0.55, 0.9, 0.8],
+];
+/** The modelled scrub clumps' sizes (`SCRUBS`): width and height of the low tuft. */
+const SCRUBS: readonly (readonly [number, number])[] = [
+  [1.2, 0.55],
+  [0.9, 0.4],
+  [1.1, 0.48],
+];
+
 /** Desert rocks and scrub scattered round the town, clear of the lawns, the road and the scenery. */
 function buildDesert(b: Builder): void {
   // A fixed seed, so the desert is the same every build (mulberry32).
@@ -924,19 +909,22 @@ function buildDesert(b: Builder): void {
     const z = -86 + random() * 172;
     const yaw = random() * Math.PI;
     if (rocks < 26 && clear(x, z, 2.5)) {
-      // A boulder and a smaller stone leaning on it.
-      const w = 1.2 + random() * 1.4;
-      const h = 0.5 + random() * 0.7;
-      b.turned([x, h / 2, z], [w, h, w * (0.6 + random() * 0.3)], yaw, 'concrete', { side: 'rock', top: 'rock' });
-      const s = 0.5 + random() * 0.4;
-      b.turned([x + Math.cos(yaw) * w * 0.55, (h * s) / 2, z - Math.sin(yaw) * w * 0.55], [w * s, h * s, w * s * 0.7], yaw + 0.6, 'concrete', { side: 'rock', top: 'rock' });
+      // A boulder and a smaller stone beside it, in one of the modelled sizes.
+      const k = Math.floor(random() * ROCKS.length);
+      const [w, h, d, s] = ROCKS[k]!;
+      b.model(`rock-${k}`, [x, 0, z], yaw, () => {
+        b.turned([x, h / 2, z], [w, h, d], yaw, 'concrete', 'rock');
+        b.turned([x + Math.cos(yaw) * w * 0.55, (h * s) / 2, z - Math.sin(yaw) * w * 0.55], [w * s, h * s, w * s * 0.7], yaw + 0.6, 'concrete', 'rock');
+      });
       rocks++;
     } else if (scrub < 40 && clear(x, z, 1.5)) {
-      // A clump of scrub: a low tuft under a smaller one turned across it.
-      const w = 0.7 + random() * 0.6;
-      const h = 0.35 + random() * 0.3;
-      b.turned([x, h / 2, z], [w, h, w * 0.8], yaw, 'grass', 'scrub');
-      b.turned([x, (h * 1.45) / 2, z], [w * 0.6, h * 1.45, w * 0.55], yaw + Math.PI / 4, 'grass', 'scrub');
+      // A clump of scrub: a low tuft under a smaller one turned across it, in one of the modelled sizes.
+      const k = Math.floor(random() * SCRUBS.length);
+      const [w, h] = SCRUBS[k]!;
+      b.model(`scrub-${k}`, [x, 0, z], yaw, () => {
+        b.turned([x, h / 2, z], [w, h, w * 0.8], yaw, 'grass', 'scrub');
+        b.turned([x, (h * 1.45) / 2, z], [w * 0.6, h * 1.45, w * 0.55], yaw + Math.PI / 4, 'grass', 'scrub');
+      });
       scrub++;
     }
   }

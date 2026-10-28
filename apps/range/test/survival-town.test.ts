@@ -418,7 +418,9 @@ describe('Survival Town: materials and surfaces', () => {
   });
 
   it('no two drawn surfaces lie in the same plane facing the same way and overlapping (z-fighting)', () => {
-    const boxes = map.solids.filter((s) => !s.orientation);
+    // Solids a model draws have no faces of their own.
+    const modelled = new Set(map.models?.placements.flatMap((p) => p.solids) ?? []);
+    const boxes = map.solids.filter((s, i) => !s.orientation && !modelled.has(i));
     const fights: string[] = [];
     for (const axis of [0, 1, 2] as const) {
       const [u, v] = axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1];
