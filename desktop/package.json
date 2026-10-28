@@ -1,0 +1,21 @@
+{
+  "name": "duty-shooter-desktop",
+  "productName": "Duty Shooter",
+  "version": "0.0.0",
+  "description": "Duty Shooter as a Windows app: a window that opens the live game",
+  "author": "Aleix Ribera",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "node scripts/bake-url.mjs && electron .",
+    "dist": "node scripts/dist.mjs",
+    "test": "node --test",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "playwright-core": "1.64.1"
+  }
+}

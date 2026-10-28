@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>Duty Shooter</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: grid; place-items: center; background: #0b0e13; color: #e6ebf2;
+      font: 16px/1.5 system-ui, "Segoe UI", sans-serif; user-select: none;
+    }
+    main { max-width: 28rem; padding: 2rem; text-align: center; }
+    h1 { margin: 0 0 0.5rem; font-size: 1.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    p { margin: 0 0 1.5rem; color: #9aa6b6; }
+    a {
+      display: inline-block; padding: 0.7rem 2.2rem; border-radius: 6px; background: #8fe3c8; color: #062118;
+      font-weight: 700; letter-spacing: 0.08em; text-decoration: none; text-transform: uppercase;
+    }
+    a:hover, a:focus-visible { background: #b4f0dc; outline: none; }
+    small { display: block; margin-top: 1rem; color: #6b7686; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Can't reach the game</h1>
+    <p>Neither the game server nor the offline copy answered. Check your internet connection and try again.</p>
+    <a href="?retry" autofocus>Retry</a>
+    <small>Or press F5. Trying again by itself every 30 seconds.</small>
+  </main>
+  <script>setTimeout(() => { location.search = '?retry'; }, 30000);</script>
+</body>
+</html>

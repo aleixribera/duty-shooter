@@ -1,0 +1,73 @@
+name: Build the desktop app
+
+# The Windows installer (desktop/), attached to the release of each version tag
+# whose commits changed desktop/ since the tag before it. The app opens the live
+# lobby, so game releases reach it without a new installer. Its address comes
+# from the LOBBY_URL repository variable, as for the Pages copy.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # The tags, to compare with the previous release and to version the installer.
+          fetch-depth: 0
+      - name: Did desktop/ change?
+        id: changed
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then echo build=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          previous="$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)"
+          if [ -z "$previous" ] || ! git diff --quiet "$previous" "$GITHUB_REF_NAME" -- desktop .github/workflows/desktop.yaml; then
+            echo build=true >> "$GITHUB_OUTPUT"
+          else
+            echo "desktop/ unchanged since $previous: no new installer"
+            echo build=false >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up Node
+        if: steps.changed.outputs.build == 'true'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install
+        if: steps.changed.outputs.build == 'true'
+        working-directory: desktop
+        run: npm ci
+      - name: Test
+        if: steps.changed.outputs.build == 'true'
+        working-directory: desktop
+        run: npm test
+      - name: Build the installer
+        if: steps.changed.outputs.build == 'true'
+        working-directory: desktop
+        run: npm run dist
+        env:
+          DUTY_URL: ${{ vars.LOBBY_URL }}
+      - name: Attach it to the release
+        if: steps.changed.outputs.build == 'true' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "Duty Shooter for Windows: run Duty-Shooter-Setup.exe. Windows may warn about an unrecognised app the first time: More info → Run anyway."
+          gh release upload "$GITHUB_REF_NAME" desktop/dist/Duty-Shooter-Setup.exe --clobber
+      - name: Keep it as a build artifact
+        if: steps.changed.outputs.build == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Duty-Shooter-Setup
+          path: desktop/dist/Duty-Shooter-Setup.exe

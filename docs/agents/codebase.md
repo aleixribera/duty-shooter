@@ -40,6 +40,15 @@ Use the scripts in `apps/range/scripts/` (`npm run bot-runs`, `record`, `bench`,
 - Editing the game's source while a scripted run is going makes Vite reload the page and fails that run. Change tests, docs and scripts meanwhile, and source after.
 - A player who stands still is left alone by bots in humans vs bots, and in Charge the attackers escort a carrier who doesn't move: script movement (`MOVE=1` in `bot-runs`) before reading "no kills" as a bug.
 
+## The desktop app
+
+`desktop/` is the Windows app: an Electron window that opens the live game (see "Desktop app" in `README.md`). It has its own `package.json` and lockfile and sits outside the npm workspaces on purpose, so Electron's download stays out of the root install, the Docker build, CI's test job and `remote-test` installs. It imports nothing from the game; the game needs no change for it.
+
+- `config.mjs` holds its decisions (which address, which links stay in the window) and `test/` checks them: `npm test` in `desktop/`, a second.
+- `npm run smoke` in `desktop/` drives the app against a local server, hidden, muted and with pointer lock stubbed: run `npm run build` in the root first, then `remote-test --local npm run smoke --prefix desktop`. Screenshots land in `.scratch/desktop/`.
+- The icon is rendered by `tools/icon/icon.py` in Blender into `desktop/build/icon.png`.
+- `config.json` (the lobby address, from `DUTY_URL` or `gh variable get LOBBY_URL`) is generated and git-ignored.
+
 ## Releases
 
 Every commit gets the next version tag above the highest one (`git tag --sort=-v:refname | head -1`): a patch for fixes and tidying, a minor for features. CI publishes `:vX.Y.Z` for a tag and moves `:latest` from `main`; the live lobby follows `:latest` unless the stack's `.env` pins `DUTY_IMAGE` (`docs/deploy.md`).
