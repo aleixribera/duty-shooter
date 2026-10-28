@@ -21,6 +21,11 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
   'wreck.glass': { family: 'glass', color: 0x202d30 },
+  'rubble.stone': { family: 'concrete', color: 0xa79a82 },
+  'rubble.dark': { family: 'concrete', color: 0x726b5d },
+  'car.body': { family: 'paint', color: 0x70483b, roughness: 0.9, metalness: 0.2 },
+  'car.dark': { family: 'paint', color: 0x282927, roughness: 0.95 },
+  'car.glass': { family: 'glass', color: 0x333c3c },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -113,6 +118,14 @@ export function buildCrash(): MapDefinition {
       const centre: Vec3 = [-6 + (min[2]+max[2])/2, (min[1]+max[1])/2, -2 - (min[0]+max[0])/2];
       b.turned(centre, [max[0]-min[0],max[1]-min[1],max[2]-min[2]], Math.PI / 2, 'metal', 'wreck.hull');
     }
+  });
+  // Scattered masonry around the impact and an abandoned sedan by blue.
+  for (const [x,z,yaw] of [[-10,-5,0],[-10,2,0.5],[-3,-7,-0.4],[-3,6,0.9],[-13,8,0.2],[0,9,-0.7]] as const) {
+    b.model('rubble',[x,0,z],yaw,() => b.turned([x,0.15,z],[2.4,0.3,1.8],yaw,'concrete','rubble.stone'));
+  }
+  b.model('burned-car',[-14,0,-9],0,() => {
+    b.add([-16.4,0,-10],[-11.6,1.08,-8],'metal',{look:'car.body'});
+    b.add([-15.3,1.08,-9.82],[-12.7,1.8,-8.18],'metal',{look:'car.body'});
   });
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[10,27]] as const)
