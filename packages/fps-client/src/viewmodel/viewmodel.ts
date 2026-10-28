@@ -1,4 +1,4 @@
-import { STATS, isShellReload, type WeaponId, type WeaponRow } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, isShellReload, type WeaponId, type WeaponRow } from '@duty-shooter/fps-core';
 import { DirectionalLight, Euler, Group, HemisphereLight, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, type Texture } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attachAuthoredM4, disposeAuthored } from './authored-m4a1';
@@ -358,6 +358,8 @@ export class Viewmodel {
   #time = 0;
   #disposed = false;
   #disposeAuthored: (() => void) | null = null;
+  /** The M4A1's authored detail pass, settled once it is attached (or failed). */
+  readonly #authored: Promise<void>;
 
   /** The gun's own lights: sky and ground fill, a key from above like the sun, and a cool rim. */
   readonly #fill = new HemisphereLight(0xe8eef5, 0x4a4640, FILL);
@@ -378,7 +380,7 @@ export class Viewmodel {
     this.gun = buildM4A1({ detail: 'high' });
     // The animation targets and sockets remain on the procedural model. The
     // authored detail pass is attached in the same metre-scale gun space.
-    void new GLTFLoader().loadAsync(new URL('./assets/m4a1-details.glb', import.meta.url).href).then(({ scene }) => {
+    this.#authored = new GLTFLoader().loadAsync(new URL('./assets/m4a1-details.glb', import.meta.url).href).then(({ scene }) => {
       if (this.#disposed) {
         disposeAuthored(scene);
         return;
@@ -457,6 +459,34 @@ export class Viewmodel {
     this.#rim.intensity = RIM * amb;
     this.#fill.intensity = FILL * this.#ambientLight;
     this.scene.environmentIntensity = ENVIRONMENT * amb;
+  }
+
+  /** Builds every weapon and the frag now, settling once their models are in: a first switch then has nothing to fetch. */
+  prepare(): Promise<void> {
+    for (const id of WEAPON_IDS) if (id !== 'm4a1') this.#kit(id);
+    if (!this.#frag) {
+      this.#frag = buildFrag();
+      this.#frag.root.visible = false;
+      this.root.add(this.#frag.root);
+    }
+    return Promise.all([this.#authored, this.#frag.loaded, ...[...this.#kits.values()].map((k) => k.loaded)]).then(() => undefined);
+  }
+
+  /**
+   * Shows every weapon and the frag at once, for one frame that compiles their
+   * shaders, shrunk out of sight (the loading screen lets the frame show
+   * through); returns what puts them back.
+   */
+  showAll(): () => void {
+    const shown = [this.root, this.gun.root, ...[...this.#kits.values()].map((k) => k.root), ...(this.#frag ? [this.#frag.root] : [])];
+    const was = shown.map((o) => o.visible);
+    const scale = this.root.scale.x;
+    for (const o of shown) o.visible = true;
+    this.root.scale.setScalar(1e-4);
+    return () => {
+      shown.forEach((o, i) => (o.visible = was[i]!));
+      this.root.scale.setScalar(scale);
+    };
   }
 
   #kit(id: KitId): KitGun {

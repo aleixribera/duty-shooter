@@ -246,8 +246,7 @@ export class Game {
     }
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
-    const pixelRatio = Math.min(window.devicePixelRatio, 2);
-    this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera, pixelRatio);
+    this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
     this.input = new InputController(options.canvas, options.settings);
     this.hud = new Hud(document.body);
     this.hud.visible = false;
@@ -342,11 +341,41 @@ export class Game {
 
   #pipelineReady = false;
 
+  /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
+  preload(): Promise<void> {
+    return Promise.all([this.#viewmodel.prepare(), this.#players.prepare()]).then(() => undefined);
+  }
+
+  /** Set by `prepare`: the next frame drawn shows everything a match shows later, then calls this. */
+  #warmUp: (() => void) | null = null;
+
+  /**
+   * Gets the first moments of a match ready behind the loading screen: every
+   * weapon (first-person and third-person) and the frag fetched, then one frame
+   * drawn with all of them, soldiers in every look and the pieces a ragdoll
+   * throws on show, so their shaders compile now rather than in the first
+   * frames of play or at a first weapon switch or kill. Settles within a few
+   * seconds even if no frame is drawn (a hidden tab).
+   */
+  async prepare(): Promise<void> {
+    await this.preload();
+    await new Promise<void>((done) => {
+      const timeout = setTimeout(finish, 3000);
+      function finish(): void {
+        clearTimeout(timeout);
+        done();
+      }
+      this.#warmUp = finish;
+    });
+    this.#warmUp = null;
+  }
+
   #resize(): void {
     const width = this.#canvas.clientWidth;
     const height = this.#canvas.clientHeight;
     if (width === 0 || height === 0) return;
     this.#renderer.setSize(width, height, false);
+    this.#pipeline.setViewport(width, height, window.devicePixelRatio);
     this.#camera.resize(width, height);
     this.#viewmodel.resize(width / height);
     this.#worldView.updateCascades();
@@ -475,8 +504,15 @@ export class Game {
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
     if (render) {
+      const warm = this.#warmUp;
+      const restore = warm ? [this.#viewmodel.showAll(), this.#players.showSamples(this.#camera.camera)] : [];
       this.#worldView.lightMoving();
       this.#pipeline.render(dt, adjustResolution);
+      for (const put of restore) put();
+      if (warm) {
+        this.#warmUp = null;
+        warm();
+      }
     }
   }
 

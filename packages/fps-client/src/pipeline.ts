@@ -1,7 +1,8 @@
-import { dot, float, getViewPosition, mix, mrt, normalView, output, pass, perspectiveDepthToViewZ, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { dot, float, getViewPosition, mix, mrt, normalView, output, pass, perspectiveDepthToViewZ, renderOutput, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
 import { RenderPipeline, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
+import { fxaa } from 'three/examples/jsm/tsl/display/FXAANode.js';
 import { traa } from 'three/examples/jsm/tsl/display/TRAANode.js';
 import type { RenderBackend } from './renderer';
 import type { GraphicsPreset } from './settings';
@@ -41,11 +42,21 @@ function shimmer(image: TextureNode, depth: TextureNode, camera: PerspectiveCame
 
 /** What each preset turns on. */
 export interface PresetFeatures {
-  /** Anti-aliasing: 4x MSAA (only without AO: GTAO cannot read multisampled depth) or temporal reprojection. */
-  readonly aa: 'msaa' | 'taa';
+  /**
+   * Anti-aliasing: FXAA over the finished frame (one cheap pass, for integrated
+   * graphics), or temporal reprojection of the world with 4x MSAA on the viewmodel.
+   */
+  readonly aa: 'fxaa' | 'taa';
   readonly ao: false | 'half' | 'full';
   readonly bloom: boolean;
   readonly dynamicResolution: boolean;
+  /**
+   * The most pixels a frame renders (millions), whatever the screen: past it
+   * the frame renders smaller and the browser scales it up.
+   */
+  readonly megapixels: number;
+  /** Render pixels per screen pixel at most, before the budget: 1 ignores a high-DPI screen's extra density, above it supersamples. */
+  readonly pixelsPerScreenPixel: number;
   readonly shadows: 'low' | 'normal' | 'high';
   /** Soft, depth-faded smoke with more particles. */
   readonly volumetricSmoke: boolean;
@@ -53,17 +64,41 @@ export interface PresetFeatures {
   readonly particles: number;
 }
 
+/**
+ * Medium is the standard look, tuned first; Low takes from it what an
+ * integrated GPU can't pay for (ambient occlusion, bloom, the temporal AA's
+ * extra buffers, high-DPI density) and High adds to it for a fast GPU.
+ */
 export const PRESETS: Readonly<Record<GraphicsPreset, PresetFeatures>> = {
-  low: { aa: 'msaa', ao: false, bloom: false, dynamicResolution: true, shadows: 'low', volumetricSmoke: false, particles: 0.5 },
-  normal: { aa: 'taa', ao: 'half', bloom: true, dynamicResolution: false, shadows: 'normal', volumetricSmoke: false, particles: 1 },
-  high: { aa: 'taa', ao: 'full', bloom: true, dynamicResolution: false, shadows: 'high', volumetricSmoke: true, particles: 1.5 },
+  // 1080p at most, at one pixel per CSS pixel, and lower still to hold the frame rate.
+  low: { aa: 'fxaa', ao: false, bloom: false, dynamicResolution: true, megapixels: 2.1, pixelsPerScreenPixel: 1, shadows: 'low', volumetricSmoke: false, particles: 0.5 },
+  // A high-DPI screen's full density up to 1440p's worth of pixels.
+  normal: { aa: 'taa', ao: 'half', bloom: true, dynamicResolution: false, megapixels: 3.7, pixelsPerScreenPixel: 2, shadows: 'normal', volumetricSmoke: false, particles: 1 },
+  // Supersampled: half again the screen's density, up to 4K's worth.
+  high: { aa: 'taa', ao: 'full', bloom: true, dynamicResolution: false, megapixels: 8.3, pixelsPerScreenPixel: 3, shadows: 'high', volumetricSmoke: true, particles: 1.5 },
 };
+
+/** Supersampling on High: render pixels per device pixel. */
+const HIGH_SUPERSAMPLE = 1.5;
+
+/**
+ * The pixel ratio a preset renders a `width` x `height` (CSS px) canvas at on a
+ * screen of `devicePixelRatio`: the screen's density (times High's
+ * supersampling), capped per preset, then cut to the preset's pixel budget.
+ */
+export function presetPixelRatio(preset: GraphicsPreset, width: number, height: number, devicePixelRatio: number): number {
+  const f = PRESETS[preset];
+  const wanted = Math.min(devicePixelRatio * (preset === 'high' ? HIGH_SUPERSAMPLE : 1), f.pixelsPerScreenPixel);
+  const budget = Math.sqrt((f.megapixels * 1e6) / Math.max(1, width * height));
+  return Math.min(wanted, budget);
+}
 
 /**
  * The frame: the world pass (with ambient occlusion and temporal AA by
  * preset), the viewmodel drawn in its own pass with its own camera and FOV
  * and composited on top (so it never clips into walls), then bloom and the
- * renderer's tone mapping. Normal and High add a heat shimmer far off. Low adjusts render scale to hold the frame rate.
+ * renderer's tone mapping (Low then smooths edges with FXAA). Normal and High
+ * add a heat shimmer far off. Low adjusts render scale to hold the frame rate.
  */
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
@@ -71,7 +106,11 @@ export class GamePipeline {
   readonly #camera: PerspectiveCamera;
   readonly #view: Scene;
   readonly #viewCamera: PerspectiveCamera;
-  readonly #basePixelRatio: number;
+  /** The preset's pixel ratio for the canvas size (see `presetPixelRatio`), before dynamic resolution. */
+  #basePixelRatio = 1;
+  #width = 1;
+  #height = 1;
+  #devicePixelRatio = 1;
   readonly #pipeline: RenderPipeline;
   #preset: GraphicsPreset = 'normal';
   #scale = 1;
@@ -84,15 +123,16 @@ export class GamePipeline {
   /** Nodes owning render targets, released when the preset changes. */
   #owned: { dispose(): void }[] = [];
 
-  constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera, basePixelRatio: number) {
+  constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera) {
     this.#renderer = renderer;
     this.#world = world;
     this.#camera = camera;
     this.#view = view;
     this.#viewCamera = viewCamera;
-    this.#basePixelRatio = basePixelRatio;
-    // The viewmodel pass needs a transparent clear so it can be laid over the world.
+    // The viewmodel pass needs a transparent clear so it can be laid over the world. It is set
+    // again as that pass starts: FXAA's render-to-texture, which draws it, clears to opaque black.
     renderer.setClearColor(0x000000, 0);
+    view.onBeforeRender = () => renderer.setClearColor(0x000000, 0);
     this.#pipeline = new RenderPipeline(renderer);
   }
 
@@ -111,7 +151,7 @@ export class GamePipeline {
     this.#owned = [];
     const f = PRESETS[preset];
     const taa = f.aa === 'taa';
-    const worldPass = pass(this.#world, this.#camera, { samples: f.aa === 'msaa' ? 4 : 0 });
+    const worldPass = pass(this.#world, this.#camera);
     this.#owned.push(worldPass);
     let color: Node<'vec4'> = worldPass.getTextureNode('output').toVec4();
     if (taa && f.ao === 'full') worldPass.setMRT(mrt({ output, normal: normalView, velocity }));
@@ -137,8 +177,8 @@ export class GamePipeline {
       const image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();
       color = shimmer(image, depth, this.#camera);
     }
-    // The viewmodel is small and close: 4x MSAA on its own pass keeps its edges clean under every preset.
-    const viewPass = pass(this.#view, this.#viewCamera, { samples: 4 });
+    // The viewmodel is small and close: under temporal AA, 4x MSAA on its own pass keeps its edges clean (FXAA covers it on Low).
+    const viewPass = pass(this.#view, this.#viewCamera, { samples: taa ? 4 : 0 });
     this.#owned.push(viewPass);
     const vm = viewPass.getTextureNode('output');
     let composite: Node<'vec4'> = vec4(mix(color.rgb, vm.rgb, vm.a), 1);
@@ -156,12 +196,34 @@ export class GamePipeline {
     } else {
       this.#bloom = null;
     }
+    if (f.aa === 'fxaa') {
+      // FXAA reads the tone-mapped, display-encoded image, as it was made for.
+      this.#pipeline.outputColorTransform = false;
+      const fx = fxaa(renderOutput(composite));
+      this.#owned.push(fx);
+      composite = fx as unknown as Node<'vec4'>;
+    } else {
+      this.#pipeline.outputColorTransform = true;
+    }
     this.#pipeline.outputNode = composite;
     this.#pipeline.needsUpdate = true;
     this.#scale = 1;
     this.#frameTimes = [];
     this.#sinceAdjust = 0;
-    this.#renderer.setPixelRatio(this.#basePixelRatio);
+    this.#applyPixelRatio();
+  }
+
+  /** The canvas's size (CSS px) and the screen's density, which set the preset's pixel ratio. */
+  setViewport(width: number, height: number, devicePixelRatio: number): void {
+    this.#width = width;
+    this.#height = height;
+    this.#devicePixelRatio = devicePixelRatio;
+    this.#applyPixelRatio();
+  }
+
+  #applyPixelRatio(): void {
+    this.#basePixelRatio = presetPixelRatio(this.#preset, this.#width, this.#height, this.#devicePixelRatio);
+    this.#renderer.setPixelRatio(this.#basePixelRatio * this.#scale);
   }
 
   /** The nuke's white-out and colour grade this frame (0 to 1 each; both 0 outside the intermission). */

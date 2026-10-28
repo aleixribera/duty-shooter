@@ -26,7 +26,8 @@ export async function createRenderer(
 ): Promise<GameRenderer> {
   const renderer = new WebGPURenderer({
     canvas,
-    antialias: true,
+    // The frame is anti-aliased in the render pipeline (TRAA, MSAA on the viewmodel, or FXAA), so a multisampled canvas would only cost bandwidth.
+    antialias: false,
     forceWebGL: options.forceWebGL ?? false,
     trackTimestamp: options.trackTimestamp ?? false,
   });

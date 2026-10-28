@@ -137,6 +137,8 @@ export interface KitGun {
   readonly supportRest: Vector3;
   /** Moving parts by name (mag, slide, pump, bolt), once the model has loaded. */
   part(name: string): KitPart | null;
+  /** Settles once the model is in (or failed to load). */
+  readonly loaded: Promise<void>;
   dispose(): void;
 }
 
@@ -152,7 +154,7 @@ export function buildKitGun(id: KitId): KitGun {
   palmFrame(support, vec(rig.left.pos), vec(rig.left.normal), vec(rig.left.wrist));
   let model: Object3D | null = null;
   let disposed = false;
-  void new GLTFLoader().loadAsync(rig.url).then(({ scene }) => {
+  const loaded = new GLTFLoader().loadAsync(rig.url).then(({ scene }) => {
     if (disposed) {
       disposeAuthored(scene);
       return;
@@ -182,6 +184,7 @@ export function buildKitGun(id: KitId): KitGun {
     },
     supportRest: support.position.clone(),
     part: (name) => parts.get(name) ?? null,
+    loaded,
     dispose(): void {
       disposed = true;
       if (model) disposeAuthored(model);
@@ -190,11 +193,11 @@ export function buildKitGun(id: KitId): KitGun {
 }
 
 /** The frag in the hand: loaded once, shown while cooking. */
-export function buildFrag(): { readonly root: Group; dispose(): void } {
+export function buildFrag(): { readonly root: Group; readonly loaded: Promise<void>; dispose(): void } {
   const root = new Group();
   let model: Object3D | null = null;
   let disposed = false;
-  void new GLTFLoader().loadAsync(asset('frag')).then(({ scene }) => {
+  const loaded = new GLTFLoader().loadAsync(asset('frag')).then(({ scene }) => {
     if (disposed) return disposeAuthored(scene);
     model = scene;
     scene.traverse((o) => {
@@ -206,6 +209,7 @@ export function buildFrag(): { readonly root: Group; dispose(): void } {
   });
   return {
     root,
+    loaded,
     dispose(): void {
       disposed = true;
       if (model) disposeAuthored(model);

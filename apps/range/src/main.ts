@@ -179,6 +179,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const playOffline = async (id: MapId) => {
     await whenLoaded(id);
     useMap(id);
+    menu.loading(`Loading ${load(id).map.name}`, null);
+    await game.prepare();
     const { map, solids } = load(id);
     play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
@@ -189,6 +191,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     useMap(id);
     const { map, solids } = load(id);
     if (!map.nav) return;
+    await game.prepare();
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
     play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout }));
@@ -215,6 +218,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           // The map's lighting first: joined, the player is in the match (and can be shot) at once.
           menu.connecting(1);
           await load(id).bake;
+          if (attempt !== joinAttempt) return;
+          // The weapons and soldiers ready to draw before the socket opens: once joined, the player is in play.
+          useMap(id);
+          await game.prepare();
           if (attempt !== joinAttempt) return;
           menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -303,6 +310,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     lobbyPage.invite = null;
     lobbyPage.show(botView());
     load(asMapId(botSetup.map) ?? 'survival-town');
+    // The weapons' models too (the browser keeps them for the match's game, on whichever map).
+    void game.preload();
   };
   const pickBots = (picks: LobbyPick) => {
     botSetup = { ...botSetup, ...picks, bots: Math.max(1, Math.min(MAX_BOTS_PER_TEAM, picks.bots ?? botSetup.bots)) };

@@ -1,4 +1,4 @@
-import { raycastWorld, STATS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { raycastWorld, STATS, WEAPON_IDS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import {
   Bone,
   BoxGeometry,
@@ -19,6 +19,7 @@ import {
   SpriteNodeMaterial,
   SRGBColorSpace,
   Vector3,
+  type Camera,
   type Material,
   type Object3D,
   type Scene,
@@ -431,6 +432,7 @@ class Soldier {
 class GunModels {
   readonly #m4a1: () => Object3D;
   readonly #models = new Map<WeaponId, { geometry: BufferGeometry; material: MeshStandardNodeMaterial } | null>();
+  readonly #loading = new Map<WeaponId, Promise<void>>();
   #disposed = false;
 
   constructor(m4a1: () => Object3D) {
@@ -447,17 +449,24 @@ class GunModels {
     return mesh;
   }
 
+  /** Fetches every weapon's model, settling once all are in (or failed). */
+  loadAll(): Promise<void> {
+    for (const id of WEAPON_IDS) if (!this.#models.has(id)) this.#load(id);
+    return Promise.all(this.#loading.values()).then(() => undefined);
+  }
+
   #load(id: WeaponId): void {
     this.#models.set(id, null);
     if (id === 'm4a1') {
       this.#models.set(id, this.#merge(this.#m4a1(), GUNMETAL));
       return;
     }
-    void new GLTFLoader().loadAsync(KIT_RIGS[id].url).then(({ scene }) => {
+    const loading = new GLTFLoader().loadAsync(KIT_RIGS[id].url).then(({ scene }) => {
       if (!this.#disposed) this.#models.set(id, this.#merge(scene, null));
     }).catch((error: unknown) => {
       console.warn(`Unable to load the ${id} model:`, error);
     });
+    this.#loading.set(id, loading);
   }
 
   /** Bakes `root`'s meshes into one geometry in its own space, coloured `tint` or by each material's flat colour. */
@@ -578,11 +587,58 @@ export class PlayersView {
   /** The look each soldier was built in, so a team change rebuilds it. */
   readonly #looks = new Map<PlayerId, Look>();
   readonly #plates = new Map<PlayerId, Nameplate>();
+  /**
+   * The soldiers `showSamples` drew, kept hidden: while they live, their
+   * shaders stay compiled for the real soldiers built later.
+   */
+  readonly #samples: Soldier[] = [];
+  readonly #samplePlate = new Nameplate('sample');
 
   constructor(scene: Scene, world: World, weapon: (() => Object3D) | null) {
     this.#world = world;
     this.#guns = weapon ? new GunModels(weapon) : null;
     scene.add(this.#root);
+  }
+
+  /** Fetches every third-person gun, settling once all are in. */
+  prepare(): Promise<void> {
+    return this.#guns?.loadAll() ?? Promise.resolve();
+  }
+
+  /**
+   * Shows, for one frame, a soldier in every look holding each weapon in
+   * turn, with the pieces a ragdoll throws and a nameplate, a few metres in
+   * front of `camera`: drawing them compiles their shaders before a match
+   * needs them. They are drawn a thousandth of their size, so nothing shows
+   * through the loading screen. Returns what hides them again.
+   */
+  showSamples(camera: Camera): () => void {
+    if (this.#samples.length === 0) {
+      const looks = [SOLDIER, ...Object.values(TEAM_LOOKS), DUMMY];
+      const count = Math.max(looks.length, WEAPON_IDS.length + 1);
+      for (let i = 0; i < count; i++) {
+        const look = looks[i % looks.length]!;
+        const soldier = new Soldier(look);
+        const id = WEAPON_IDS[i % WEAPON_IDS.length]!;
+        const gun = look === DUMMY ? null : (this.#guns?.mesh(id) ?? null);
+        if (gun) soldier.hold(id, gun);
+        this.#samples.push(soldier);
+      }
+      this.#samples[0]!.root.add(this.#samplePlate.sprite);
+      this.#samplePlate.show('Ready', TEAM_LOOKS[1]!.accent);
+      this.#samplePlate.sprite.position.set(0, 2.2, 0);
+    }
+    const ahead = new Vector3(0, 0, -4).applyQuaternion(camera.quaternion).add(camera.position);
+    this.#samples.forEach((soldier, i) => {
+      soldier.root.position.copy(ahead).add(new Vector3((i - this.#samples.length / 2) * 0.001, 0, 0));
+      soldier.root.scale.setScalar(0.001);
+      // The skinned body and the hidden pieces the ragdoll draws.
+      soldier.root.traverse((o) => (o.visible = true));
+      this.#root.add(soldier.root);
+    });
+    return () => {
+      for (const soldier of this.#samples) soldier.root.removeFromParent();
+    };
   }
 
   /** A hit landed on `victim`, travelling along `direction`: flashes it and remembers the push for its ragdoll. */
@@ -678,6 +734,8 @@ export class PlayersView {
 
   dispose(): void {
     for (const s of this.#soldiers.values()) s.dispose();
+    for (const s of this.#samples) s.dispose();
+    this.#samplePlate.dispose();
     this.#guns?.dispose();
     for (const plate of this.#plates.values()) plate.dispose();
     this.#root.removeFromParent();

@@ -85,6 +85,13 @@ export interface WorldContent {
 
 export type ShadowQuality = 'low' | 'normal' | 'high';
 
+/**
+ * Seconds between the sun's shadow-map redraws: at most 60 a second on Normal
+ * and 30 on Low, so a fast display doesn't redraw every caster on every frame
+ * (High's cascades redraw every frame).
+ */
+const SHADOW_REFRESH: Readonly<Record<ShadowQuality, number>> = { low: 1 / 30, normal: 1 / 60, high: 0 };
+
 /** Base tint, roughness and metalness per surface: a polished studio blockout palette. */
 const LOOK: Readonly<Record<Material, { tint: number; line: number; roughness: number; metalness: number }>> = {
   concrete: { tint: 0xb9bcc0, line: 0x6f7378, roughness: 0.82, metalness: 0 },
@@ -491,7 +498,15 @@ export class WorldView {
       this.#shadowRadius.value = extent * 0.9;
     }
     this.#texel = (2 * extent) / size;
+    this.#shadowEvery = SHADOW_REFRESH[quality];
+    shadow.autoUpdate = this.#shadowEvery === 0;
+    shadow.needsUpdate = true;
+    this.#shadowAt = -Infinity;
   }
+
+  /** Seconds between shadow-map redraws (0: every frame), and when the last one was. */
+  #shadowEvery = 0;
+  #shadowAt = -Infinity;
 
   /** One shadow-map texel (m), for the single-map presets. */
   #texel = 0.044;
@@ -502,6 +517,14 @@ export class WorldView {
    * ground instead of crawling and jumping as the player walks.
    */
   follow(position: Vec3): void {
+    if (this.#shadowEvery > 0) {
+      // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
+      // redraws: at the display's rate frames land either side of the interval.
+      const now = performance.now() / 1000;
+      if (now - this.#shadowAt < this.#shadowEvery * 0.8) return;
+      this.#shadowAt = now;
+      this.#sun.shadow.needsUpdate = true;
+    }
     this.#shadowCentre.value.set(position[0], position[2]);
     if (this.#csm) return;
     const d = currentLighting().sunDirection;

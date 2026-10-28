@@ -19,7 +19,7 @@ npm run dev
 
 Open <http://localhost:5173>. The main menu flies over Survival Town; choose **Bot Match** or **Practice Range** to play offline. The first `npm run dev` bakes each map's lighting on the CPU (see below), which takes a little while; later starts reuse the cache.
 
-In Settings, **Medium** is the default graphics preset. **Low** is intended for integrated graphics and can reduce rendering resolution to maintain frame rate; **High** adds more expensive effects and shadows for powerful GPUs. Medium and High do not automatically lower resolution.
+In Settings, **Medium** is the default graphics preset and the standard look: temporal anti-aliasing, ambient occlusion, bloom and one sun shadow map, at the screen's full density up to 1440p's worth of pixels. **Low** is for integrated graphics: FXAA instead of temporal AA, no ambient occlusion or bloom, a smaller shadow map redrawn 30 times a second, at most 1080p's worth of pixels, and it lowers the resolution further to hold the frame rate. **High** is for fast GPUs: full-resolution ambient occlusion, three shadow cascades, denser smoke, and it supersamples (half again the screen's density, up to 4K's worth of pixels). Medium and High never lower the resolution on their own. A match's weapons, soldiers and effects are fetched and compiled behind its loading screen, so play starts without stalls.
 
 To play online locally:
 
