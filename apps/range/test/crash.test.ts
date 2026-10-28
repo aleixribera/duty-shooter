@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, createWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
@@ -44,6 +44,13 @@ describe('Crash', () => {
       }
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
+  });
+  it('opens the covered arcade to a walking player and the main upper windows to the plaza', () => {
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-8.5,0,8],yaw:Math.PI}]});
+    let out = m.step({p:usercmd({yaw:Math.PI})}).players[0]!;
+    for (let i=0;i<360 && out.position[2]<14;i++) out=m.step({p:usercmd({yaw:Math.PI,forward:1})}).players[0]!;
+    expect(out.position[2],String(out.position)).toBeGreaterThan(14);
+    expect(raycastWorld(world,[-0.5,4.6,-14.25],[4,4.6,-14.25])).toBeNull();
   });
   it('has valid surface finishes and the Blender wreck placement', () => {
     expect(map.looks).toHaveLength(map.solids.length);

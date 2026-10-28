@@ -34,18 +34,22 @@ const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from 
 
 /** A room for each storey, with an accessible outside stair and sightlines
  * through open windows. Each floor is 3 m high. */
-function building(b: Builder, r: Rect, levels: number, finish: string, entrance: 'north' | 'south', roofAccess = false): void {
+function building(b: Builder, r: Rect, levels: number, finish: string, entrance: 'north' | 'south', roofAccess = false, style: 'plain' | 'arcade' | 'main' = 'plain'): void {
   const t = 0.25;
   for (let level = 0; level < levels; level++) {
     const y = level * 3;
     const midpoint = (r.x0 + r.x1) / 2;
     const openings: Opening[] = level === 0 ? [door(midpoint - 0.9)] : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)];
+    const arcadeOpenings: Opening[] = [door(r.x0 + 1.0, 3), door(r.x0 + 5.0, 3), door(r.x0 + 9.0, 3), door(r.x0 + 13.0, 2)];
+    const westDoor = level ? door(level % 2 ? r.z0 + 0.8 : r.z1 - 2.6) : door(r.z1 - 3);
+    const sideWindows = style === 'main' ? [windowOpening(r.z0 + 5), windowOpening(r.z0 + 10), windowOpening(r.z0 + 15)] : [];
+    const westOpenings = [...sideWindows, westDoor].sort((a,b) => a.from-b.from);
     const common = { thickness: t, bottom: y, height: 3, material: 'concrete' as const, look: finish };
-    b.wall({ ...common, along: 'x', at: r.z0, from: r.x0, to: r.x1, openings: entrance === 'north' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)], trim: [{face:-1,frames:'trim',shutters:'shutter'}] });
+    b.wall({ ...common, along: 'x', at: r.z0, from: r.x0, to: r.x1, openings: style === 'arcade' && level === 0 ? arcadeOpenings : entrance === 'north' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)], trim: [{face:-1,frames:'trim',shutters:'shutter'}] });
     b.wall({ ...common, along: 'x', at: r.z1, from: r.x0, to: r.x1, openings: entrance === 'south' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)], trim: [{face:1,frames:'trim',shutters:'shutter'}] });
     // The west side gives the stair landing access to each upper floor.
-    b.wall({ ...common, along: 'z', at: r.x0, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: level ? [door(level % 2 ? r.z0 + 0.8 : r.z1 - 2.6)] : [door(r.z1 - 3)], trim: [{face:-1,frames:'trim'}] });
-    b.wall({ ...common, along: 'z', at: r.x1, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: [windowOpening(r.z0 + 1)], trim: [{face:1,frames:'trim',shutters:'shutter'}] });
+    b.wall({ ...common, along: 'z', at: r.x0, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: westOpenings, trim: [{face:-1,frames:'trim'}] });
+    b.wall({ ...common, along: 'z', at: r.x1, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: style === 'main' ? sideWindows : [windowOpening(r.z0 + 1)], trim: [{face:1,frames:'trim',shutters:'shutter'}] });
     if (level) b.add([r.x0, y - 0.18, r.z0], [r.x1, y, r.z1], 'concrete', { look: 'concrete' });
   }
   b.add([r.x0 - 0.12, levels * 3 - 0.18, r.z0 - 0.12], [r.x1 + 0.12, levels * 3, r.z1 + 0.12], 'concrete', { look: 'roof' });
@@ -74,6 +78,16 @@ function building(b: Builder, r: Rect, levels: number, finish: string, entrance:
         b.add([x0, footY - 0.18, r.z0 + 0.45], [r.x0, footY, r.z0 + 2.8], 'concrete', { look: 'concrete' });
       }
     }
+  }
+}
+
+/** A covered, columned arcade facing the helicopter plaza. */
+function buildArcadeWalkway(b: Builder): void {
+  const r = LANDMARKS.arcade;
+  b.add([r.x0,2.55,r.z0-3.0],[r.x1,2.8,r.z0],'concrete',{look:'trim'});
+  for (const x of [r.x0+0.5,r.x0+4.5,r.x0+8.5,r.x0+12.5,r.x1-0.5]) {
+    b.add([x-0.16,0,r.z0-2.8],[x+0.16,2.55,r.z0-2.48],'concrete',{look:'plaster'});
+    b.add([x-0.28,2.28,r.z0-2.92],[x+0.28,2.55,r.z0-2.36],'concrete',{look:'trim'});
   }
 }
 
@@ -119,8 +133,9 @@ export function buildCrash(): MapDefinition {
   // south side and leaves an alley behind it.
   building(b, LANDMARKS.tower, 3, 'plaster', 'south', true);
   building(b, LANDMARKS.blue, 2, 'blue', 'south', true);
-  building(b, LANDMARKS.main, 2, 'plaster', 'south');
-  building(b, LANDMARKS.arcade, 1, 'market', 'north');
+  building(b, LANDMARKS.main, 2, 'plaster', 'south', false, 'main');
+  building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
+  buildArcadeWalkway(b);
   building(b, LANDMARKS.shop, 2, 'market', 'north', true);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   building(b, {x0:-38,x1:-28,z0:16,z1:24}, 1, 'plaster', 'north');
@@ -161,6 +176,7 @@ export function buildCrash(): MapDefinition {
     {name:'three story',position:[-9,7.6,-23.5] as Vec3,yaw:Math.PI,pitch:-0.12},
     {name:'blue building',position:[-19,4.6,4] as Vec3,yaw:-Math.PI/2,pitch:-0.1},
     {name:'market',position:[24,1.6,6] as Vec3,yaw:Math.PI,pitch:0},
+    {name:'arcade',position:[-3,1.6,5] as Vec3,yaw:Math.PI,pitch:0},
   ];
   return {
     id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, finishes:FINISHES, looks:b.looks, decorations:b.decorations,
@@ -177,6 +193,7 @@ export function buildCrash(): MapDefinition {
       ...stairHints(LANDMARKS.blue,3),
       ...stairHints(LANDMARKS.main,2),
       ...stairHints(LANDMARKS.shop,3),
+      ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
     ]}, measurements:[],
   };
 }
