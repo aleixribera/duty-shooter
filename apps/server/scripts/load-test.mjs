@@ -131,6 +131,8 @@ setTimeout(() => {
   console.log(`download per client: ${(sum(kb) / clients).toFixed(1)} KB/s on the wire, ${(sum(decoded) / clients).toFixed(1)} KB/s of JSON (${((sum(kb) * 8) / 1024).toFixed(2)} Mbit/s out of the server for all ${clients})`);
   console.log(`snapshot gap ms: p50 ${at(gaps, 0.5)}, p99 ${at(gaps, 0.99)}, max ${at(gaps, 1)}`);
   console.log(`usercmd to ack ms: p50 ${at(rtts, 0.5)}, p95 ${at(rtts, 0.95)}, p99 ${at(rtts, 0.99)}, max ${at(rtts, 1)}`);
+  const own = (s) => s.stats.rtts.slice().sort((a, b) => a - b);
+  console.log(`each client's ack p50 / max ms: ${sockets.map((s) => `${at(own(s), 0.5)}/${at(own(s), 1)}`).join(', ')}`);
   for (const s of sockets) s.ws.close();
   stop(shots > 0 ? 0 : 1);
 }, seconds * 1000);

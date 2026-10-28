@@ -50,7 +50,13 @@ The game also comes first on the box: none of its memory goes to swap (`memswap_
 
 The server sends every player a snapshot 60 times a second. They go WebSocket-compressed (permessage-deflate, which browsers handle on their own): a full lobby's snapshot is about 8.5 KB of JSON and about 0.5 KB on the wire, so 12 players take about 4 Mbit/s of the home upload instead of 48. The page, the code and the models go brotli- or gzip-compressed too, compressed once on first request and kept in memory.
 
-`npm run load-test` measures a server under scripted players: snapshots, bytes on the wire and the round trip from a usercmd to its acknowledgement. `TARGET=http://127.0.0.1:3091 node apps/server/scripts/load-test.mjs 12 45` loads the live lobby through an SSH tunnel (`ssh -N -L 3091:127.0.0.1:3090 homelab`) while it is empty; its seats are then held for five minutes, as for anyone who drops.
+`npm run load-test` measures a server under scripted players: snapshots, bytes on the wire and the round trip from a usercmd to its acknowledgement, overall and for each player. Load the live lobby while it is empty, and run the players from the home server itself, where nothing else competes with them:
+
+```bash
+remote-test "TARGET=http://127.0.0.1:3090 node apps/server/scripts/load-test.mjs 12 40"
+```
+
+Its seats are then held for five minutes, as for anyone who drops. On 2026-10-28 that gave, for 12 players on Survival Town: 60 snapshots a second to each, 16.6 ms apart (p99 22 ms, max 36 ms), a usercmd round trip of p50 47 ms and p99 59 ms, and 4 Mbit/s out of the server. The same test run from a PC busy with other work (headless browsers from agent sessions) reported seconds of delay, all of it the scripted players falling behind, not the server; a person playing on such a PC sees a high ping for the same reason, since the game counts ping in its own frames. Through Funnel each round trip also crosses Tailscale's relay (Madrid, 50 to 150 ms for a fresh connection).
 
 ## The event log and the play report
 

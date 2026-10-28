@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -86,6 +86,31 @@ function compressedCopy(file: string, size: number, mtime: number): Promise<{ br
     compressed.set(key, copy);
   }
   return copy;
+}
+
+/**
+ * Compresses every compressible file under `root` in the background, one at
+ * a time, so the first player after a restart doesn't wait seconds for the
+ * models' brotli. One file at a time leaves the rest of the thread pool to
+ * the snapshots' compression.
+ */
+async function precompress(root: string): Promise<void> {
+  let names: string[];
+  try {
+    names = await readdir(root, { recursive: true });
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const file = resolve(root, name);
+    if (!COMPRESSIBLE.has(extname(file))) continue;
+    try {
+      const info = await stat(file);
+      if (info.isFile() && info.size > 1024) await compressedCopy(file, info.size, info.mtimeMs);
+    } catch {
+      // Gone or unreadable: served (or refused) as it is when asked for.
+    }
+  }
 }
 
 /** The encoding to answer with, from the request's Accept-Encoding: brotli, then gzip, else none. */
@@ -242,9 +267,15 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
     if (!info.isFile()) throw new Error('not a file');
     const ext = extname(file);
     const type = TYPES[ext] ?? 'application/octet-stream';
-    // Vite's hashed assets never change; the page itself must always be fresh.
+    // Vite's hashed assets never change; everything else (the page, the models, the bake) is checked each visit,
+    // and an unchanged file is answered with a 304, so a returning player downloads none of it again.
     const cache = file.includes(`${sep}assets${sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache';
-    const headers = { 'content-type': type, 'cache-control': cache, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' };
+    const etag = `"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+    const headers = { 'content-type': type, 'cache-control': cache, etag, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' };
+    if (String(req.headers['if-none-match'] ?? '').split(',').some((tag) => tag.trim().replace(/^W\//, '') === etag)) {
+      res.writeHead(304, headers).end();
+      return;
+    }
     const encoding = COMPRESSIBLE.has(ext) && info.size > 1024 ? encodingFor(req) : null;
     if (encoding) {
       const body = (await compressedCopy(file, info.size, info.mtimeMs))[encoding];
@@ -357,6 +388,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   loop();
 
   await new Promise<void>((done) => http.listen(options.port, options.host, done));
+  void precompress(root);
   const address = http.address();
   const port = typeof address === 'object' && address ? address.port : options.port;
   return {

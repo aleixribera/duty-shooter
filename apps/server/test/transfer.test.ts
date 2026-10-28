@@ -59,6 +59,18 @@ describe('what the server sends', () => {
     expect(bake.body.length).toBe(4096);
   });
 
+  it('answers a file the browser already has with a 304', async () => {
+    const first = await get(server.port, '/bake.bin', {});
+    const etag = String(first.headers['etag']);
+    expect(etag).toMatch(/^".+"$/);
+    const again = await get(server.port, '/bake.bin', { 'if-none-match': etag });
+    expect(again.status).toBe(304);
+    expect(again.body.length).toBe(0);
+    const changed = await get(server.port, '/bake.bin', { 'if-none-match': '"other"' });
+    expect(changed.status).toBe(200);
+    expect(changed.body.length).toBe(4096);
+  });
+
   it('offers WebSocket compression for the snapshots', async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
     await new Promise((done) => ws.once('open', done));
