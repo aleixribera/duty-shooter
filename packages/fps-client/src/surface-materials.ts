@@ -144,6 +144,42 @@ const noise = (p: N3, scale: number): N => mx_noise_float(p.mul(scale)).mul(0.5)
 /** A 0..1 hash of a cell. */
 const hash = (cell: N2): N => fract(sin(dot(cell, vec2(127.1, 311.7))).mul(43758.5453)) as N;
 
+/** How much finer than a pixel noise of `scale` (cycles per metre) is here: 0 when clearly resolved, 1 once it would shimmer. */
+const blur = (p: N3, scale: number): N => smoothstep(float(0.25), float(0.8), length(fwidth(p)).mul(scale)) as N;
+
+/** 0..1 where the bright specks of `scale` noise (aggregate, pebbles) are, fading out where they get smaller than a pixel. */
+function specks(p: N3, scale: number, cover: number): N {
+  const s = smoothstep(float(1 - cover), float(1 - cover * 0.5), noise(p, scale));
+  return s.mul(float(1).sub(blur(p, scale))) as N;
+}
+
+/**
+ * 1 along hairline cracks (noise zero-crossings) `width` wide in noise
+ * units, only in the scattered patches where the surface has given (about
+ * `cover` of it), and fading out with distance.
+ */
+function cracks(p: N3, scale: number, width: number, cover: number): N {
+  const n = abs(mx_noise_float(p.mul(scale)));
+  const w = max(fwidth(n), float(1e-4));
+  const line = smoothstep(float(width).add(w), float(0), n).mul(float(1).sub(smoothstep(float(width), float(width * 3), w)));
+  return line.mul(smoothstep(float(1 - cover), float(1 - cover * 0.6), noise(p, scale * 0.13))) as N;
+}
+
+/**
+ * Weathering on an outdoor wall: dirt splashed up the bottom 70 cm from the
+ * ground (y = 0) and faint rain streaks running down it. Floors and roofs
+ * (faces looking up or down) are left alone.
+ */
+function weathered(a: N3, p: N3): N3 {
+  const wall = smoothstep(float(0.6), float(0.2), abs(normalWorld.y));
+  const splash = smoothstep(float(0.7), float(0.02), p.y).mul(noise(p, 1.4).mul(0.6).add(0.4));
+  const streaks = smoothstep(float(0.55), float(0.85), noise(vec3(p.x.mul(2.5), p.y.mul(0.12), p.z.mul(2.5)) as N3, 1));
+  return a.mul(float(1).sub(wall.mul(splash.mul(0.32).add(streaks.mul(0.08))))) as N3;
+}
+
+/** Slow tone drift over tens of metres, so big surfaces don't read as one flat colour. */
+const macro = (p: N3, amount: number): N => float(1 - amount).add(noise(p, 0.035).mul(amount * 2)) as N;
+
 /**
  * 1 between grooves, 0 on one: grooves `width` m wide every `period` m along
  * `x`. Antialiased, and fading to their average once they get thinner than a
@@ -205,7 +241,7 @@ function albedo(finish: Finish): N3 {
       const t = fract(y.div(0.2));
       const lip = mix(float(0.74), float(1), smoothstep(float(0), float(0.18), t));
       const fade = smoothstep(float(0.02), float(0.08), fwidth(y.div(0.2)));
-      return base.mul(mix(lip, float(0.93), fade)).mul(grain(3, 0.03)) as N3;
+      return weathered(base.mul(mix(lip, float(0.93), fade)).mul(grain(3, 0.03)).mul(macro(p, 0.04)) as N3, p);
     }
     case 'shingles': {
       // Courses 22 cm high, tabs 33 cm wide offset every other course, each tab its own shade.
@@ -213,7 +249,9 @@ function albedo(finish: Finish): N3 {
       const xs = x.add(fract(row.mul(0.5)).mul(0.33));
       const tab = hash(vec2(floor(xs.div(0.33)), row) as N2);
       const shadow = mix(float(0.62), float(1), smoothstep(float(0), float(0.16), fract(y.div(0.22))));
-      return mix(base, accent, tab.mul(0.6)).mul(shadow).mul(grooves(xs, 0.33, 0.012).mul(0.3).add(0.7)).mul(grain(6, 0.06)) as N3;
+      // Sun-bleached and grimy in broad patches.
+      const aged = mix(float(0.86), float(1.08), noise(p, 0.12));
+      return mix(base, accent, tab.mul(0.6)).mul(shadow).mul(grooves(xs, 0.33, 0.012).mul(0.3).add(0.7)).mul(grain(6, 0.06)).mul(aged) as N3;
     }
     case 'brick': {
       // Running bond: 21.5 x 6.5 cm bricks in 1 cm mortar.
@@ -221,22 +259,36 @@ function albedo(finish: Finish): N3 {
       const xs = x.add(fract(row.mul(0.5)).mul(0.225));
       const brick = hash(vec2(floor(xs.div(0.225)), row) as N2);
       const mortar = grooves(y, 0.075, 0.01).mul(grooves(xs, 0.225, 0.01));
-      return mix(accent, base.mul(brick.mul(0.3).add(0.82)), mortar).mul(grain(9, 0.05)) as N3;
+      const fired = brick.mul(0.36).add(0.78).mul(hash(vec2(row, floor(xs.div(0.225)).add(31)) as N2).mul(0.12).add(0.94));
+      return weathered(mix(accent, base.mul(fired), mortar).mul(grain(9, 0.05)) as N3, p);
     }
-    case 'asphalt':
-      return base.mul(grain(0.35, 0.08)).mul(grain(14, 0.1)) as N3;
+    case 'asphalt': {
+      // Worn and resealed patches, hairline cracks, and pale aggregate showing through.
+      const patch = smoothstep(float(0.6), float(0.66), noise(p, 0.09));
+      const worn = mix(float(1), float(0.82), patch);
+      const crack = cracks(p, 1.1, 0.012, 0.3);
+      const lit = base.mul(grain(0.35, 0.1)).mul(grain(14, 0.1)).mul(worn).mul(float(1).sub(crack.mul(0.3)));
+      return mix(lit, base.mul(1.9), specks(p, 55, 0.12).mul(0.5)) as N3;
+    }
     case 'grass': {
-      const patches = noise(p, 0.18);
-      return mix(base, accent, patches.mul(0.8)).mul(grain(2.2, 0.12)).mul(grain(11, 0.08)) as N3;
+      // Lush and dry patches, darker clumps, and a slow drift in tone.
+      const patches = smoothstep(float(0.3), float(0.75), noise(p, 0.16));
+      const clumps = smoothstep(float(0.45), float(0.8), noise(p, 1.6));
+      return mix(base, accent, patches.mul(0.9)).mul(float(1).sub(clumps.mul(0.18))).mul(grain(11, 0.1)).mul(macro(p, 0.1)) as N3;
     }
     case 'sand': {
       const ripple = sin(x.mul(1.7).add(noise(p, 0.12).mul(9))).mul(0.025).add(1);
-      return base.mul(grain(0.05, 0.07)).mul(ripple).mul(grain(6, 0.04)) as N3;
+      const pebbles = specks(p, 9, 0.08);
+      return base.mul(grain(0.05, 0.07)).mul(ripple).mul(grain(6, 0.04)).mul(macro(p, 0.06)).mul(float(1).sub(pebbles.mul(0.3))) as N3;
     }
     case 'concrete': {
       // Slabs 1.5 m square with tooled joints.
       const joints = grooves(x, 1.5, 0.014).mul(grooves(y, 1.5, 0.014));
-      return mix(accent, base, joints).mul(grain(0.6, 0.06)).mul(grain(7, 0.04)) as N3;
+      // Water stains and the odd hairline crack.
+      const stain = smoothstep(float(0.62), float(0.85), noise(p, 0.3));
+      const crack = cracks(p, 0.8, 0.008, 0.25);
+      const slab = mix(accent, base, joints).mul(grain(0.6, 0.06)).mul(grain(7, 0.04)).mul(float(1).sub(stain.mul(0.12))).mul(float(1).sub(crack.mul(0.25)));
+      return weathered(slab as N3, p);
     }
     case 'paint':
       return base.mul(grain(1.5, 0.02)) as N3;
@@ -244,11 +296,11 @@ function albedo(finish: Finish): N3 {
       // Corrugations every 7.6 cm, running up the panel.
       const wave = sin(x.mul((2 * Math.PI) / 0.076));
       const fade = smoothstep(float(0.2), float(0.6), fwidth(x.div(0.076)));
-      return base.mul(mix(wave.mul(0.1).add(0.95), float(0.95), fade)).mul(grain(0.8, 0.04)) as N3;
+      return weathered(base.mul(mix(wave.mul(0.1).add(0.95), float(0.95), fade)).mul(grain(0.8, 0.04)) as N3, p);
     }
     case 'fence': {
       const board = hash(vec2(floor(x.div(0.14)), float(3)) as N2);
-      return mix(base, accent, board.mul(0.5)).mul(grooves(x, 0.14, 0.018).mul(0.45).add(0.55)).mul(grain(4, 0.06)) as N3;
+      return weathered(mix(base, accent, board.mul(0.5)).mul(grooves(x, 0.14, 0.018).mul(0.45).add(0.55)).mul(grain(4, 0.06)) as N3, p);
     }
     case 'floor': {
       // Planks 14 cm wide, butt joints every 1.8 m, staggered per plank.
@@ -262,9 +314,9 @@ function albedo(finish: Finish): N3 {
     case 'plaster':
       return base.mul(grain(2.5, 0.03)) as N3;
     case 'dirt':
-      return mix(base, accent, noise(p, 0.5).mul(0.6)).mul(grain(6, 0.1)) as N3;
+      return mix(base, accent, noise(p, 0.5).mul(0.6)).mul(grain(6, 0.1)).mul(macro(p, 0.08)).mul(float(1).sub(specks(p, 12, 0.1).mul(0.25))) as N3;
     case 'gravel':
-      return base.mul(grain(18, 0.18)).mul(grain(1.2, 0.06)) as N3;
+      return base.mul(grain(18, 0.18)).mul(grain(1.2, 0.06)).mul(macro(p, 0.07)).mul(float(1).add(specks(p, 26, 0.15).mul(0.35))) as N3;
     case 'tile': {
       const grout = grooves(x, 0.3, 0.008).mul(grooves(y, 0.3, 0.008));
       return mix(accent, base, grout) as N3;
