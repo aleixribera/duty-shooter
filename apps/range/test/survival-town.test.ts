@@ -566,9 +566,9 @@ describe('Survival Town: doors', () => {
   ] as const;
   for (const s of [-1, 1]) {
     for (const door of doors) {
-      it(`a player walking 15 cm off centre goes straight through the ${s < 0 ? 'north' : 'south'} ${door.name}, both ways`, () => {
+      it(`a player walking 15 cm off centre, or 35 cm off and catching the frame, goes through the ${s < 0 ? 'north' : 'south'} ${door.name}, both ways`, () => {
         const mid = door.from + DOOR_W / 2;
-        for (const off of [-0.15, 0.15]) {
+        for (const off of [-0.35, -0.15, 0.15, 0.35]) {
           for (const dir of [-1, 1]) {
             // (along the wall, across it) in map coordinates.
             const point = (along: number, across: number): Vec3 =>

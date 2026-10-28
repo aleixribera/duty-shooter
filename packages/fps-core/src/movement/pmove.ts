@@ -314,6 +314,45 @@ function stepMove(world: World, pos: Vec3, hull: Hull, dx: number, dz: number): 
   return { pos: offset(raised.pos, Y, down.moved), normals: raised.normals };
 }
 
+/** Sideways steps the door assist tries, out to its reach. */
+const ASSIST_STEPS = 6;
+/** The door assist acts only on a move at most this far off head on into the face (cosine). */
+const ASSIST_HEAD_ON = 0.5;
+
+/**
+ * Door assist: a move that runs head on into the edge of a door frame (or
+ * any corner) slips sideways round it, so a hull that catches the frame does
+ * not stall there. It looks along the face, out to the reach on either side,
+ * for the nearest spot the move could carry on from for a hull width, and
+ * slides toward it at the assist speed. The velocity keeps its part into the
+ * face meanwhile, so the player is not slowed by the frame. Null when no
+ * such spot is in reach (a plain wall).
+ */
+function doorAssist(world: World, hull: Hull, moved: MoveResult, dx: number, dz: number, dt: number): Vec3 | null {
+  const n = moved.normals[0];
+  const length = Math.hypot(dx, dz);
+  if (!n || length < EPSILON) return null;
+  const dir: Flat = [dx / length, dz / length];
+  if (-(dir[0] * n[0] + dir[1] * n[1]) < ASSIST_HEAD_ON) return null;
+  const reach = M.doorAssistReach.value;
+  const probe = hull.halfWidth * 2;
+  const pos = moved.pos;
+  // Prefer the side the move already leans toward.
+  const lean = dir[0] * -n[1] + dir[1] * n[0] < 0 ? -1 : 1;
+  for (let i = 1; i <= ASSIST_STEPS; i++) {
+    const e = (reach * i) / ASSIST_STEPS;
+    for (const side of [lean, -lean]) {
+      const t: Flat = [-n[1] * side, n[0] * side];
+      const aside = slideMove(world, pos, hull, t[0] * e, t[1] * e);
+      if (aside.normals.length > 0) continue;
+      if (slideMove(world, aside.pos, hull, dir[0] * probe, dir[1] * probe).normals.length > 0) continue;
+      const step = Math.min(e, M.doorAssistSpeed.value * dt);
+      return slideMove(world, pos, hull, t[0] * step, t[1] * step).pos;
+    }
+  }
+  return null;
+}
+
 /** Advances one player by one tick. `speedScale` scales walk and sprint speeds for the weapon in hand. */
 export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, speedScale = 1): void {
   state.yaw = cmd.yaw;
@@ -368,9 +407,12 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   const dx = state.velocity[0] * dt;
   const dz = state.velocity[2] * dt;
   const moved = startedGrounded ? stepMove(world, state.position, hull, dx, dz) : slideMove(world, state.position, hull, dx, dz);
-  let pos = moved.pos;
-  const [vx, vz]: Flat = clipVelocity(state.velocity[0], state.velocity[2], moved.normals);
-  state.velocity = [vx, state.velocity[1], vz];
+  const assisted = state.stance === 'prone' ? null : doorAssist(world, hull, moved, dx, dz, dt);
+  let pos = assisted ?? moved.pos;
+  if (!assisted) {
+    const [vx, vz]: Flat = clipVelocity(state.velocity[0], state.velocity[2], moved.normals);
+    state.velocity = [vx, state.velocity[1], vz];
+  }
 
   if (startedGrounded) {
     // Ground snapping: follow the floor down steps; past a step height, start falling.

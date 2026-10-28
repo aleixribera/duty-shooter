@@ -244,6 +244,12 @@ export const STATS = {
     ),
     jumpHeight: estimated(39 * IW_UNIT, 'm', `IW lineage jump_height 39 u (${WAW_DVAR_DUMP}).`, 4 * IW_UNIT),
     stepHeight: estimated(18 * IW_UNIT, 'm', `IW lineage jump_stepSize 18 u (${WAW_DVAR_DUMP}).`, 2 * IW_UNIT),
+    doorAssistReach: estimated(
+      0.3,
+      'm',
+      'Game value for Duty Shooter, not measured from any game: how far sideways a player walking head on into the edge of a door frame (or any corner) is slipped round it, so doors forgive a hull that catches the frame. More than half the 19 cm a map door leaves either side of the hull.',
+    ),
+    doorAssistSpeed: estimated(3, 'm/s', 'Game value for Duty Shooter, not measured from any game: how fast the door assist slides a player sideways, quick enough not to stall at the frame and slow enough not to read as a snap.'),
     groundFriction: estimated(5.5, '1/s', `IW lineage friction 5.5, Quake-style (${WAW_DVAR_DUMP}).`, 1),
     stopSpeed: estimated(100 * IW_UNIT, 'm/s', `IW lineage stopspeed 100 u/s (${WAW_DVAR_DUMP}).`, 20 * IW_UNIT),
     groundAcceleration: estimated(10, '1/s', 'Quake III pm_accelerate 10, which IW pmove descends from; IW dumps do not expose it. Tune so 0 to walk speed takes about 0.2-0.3 s.'),
