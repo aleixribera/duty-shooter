@@ -504,6 +504,11 @@ export class WorldView {
     this.#shadowAt = -Infinity;
   }
 
+  /** Redraws the shadow map on the next frame, whatever the preset's refresh rate. */
+  redrawShadow(): void {
+    this.#sun.shadow.needsUpdate = true;
+  }
+
   /** Seconds between shadow-map redraws (0: every frame), and when the last one was. */
   #shadowEvery = 0;
   #shadowAt = -Infinity;

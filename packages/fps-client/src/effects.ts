@@ -574,6 +574,24 @@ export class Effects {
     this.#casingMesh.instanceMatrix.needsUpdate = true;
   }
 
+  /**
+   * Draws, for one frame, one unseen instance of each particle layer, decal
+   * layer and the casings, so their shaders compile before a match needs
+   * them. Returns what puts them back.
+   */
+  showSamples(): () => void {
+    const meshes = [this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh];
+    const counts = meshes.map((m) => m.count);
+    const unseen = new Matrix4().makeScale(0, 0, 0);
+    for (const m of meshes) {
+      if (m.count > 0) continue;
+      m.setMatrixAt(0, unseen);
+      m.instanceMatrix.needsUpdate = true;
+      m.count = 1;
+    }
+    return () => meshes.forEach((m, i) => (m.count = counts[i]!));
+  }
+
   dispose(): void {
     this.#root.removeFromParent();
   }

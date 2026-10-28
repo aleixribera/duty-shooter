@@ -343,7 +343,27 @@ export class Game {
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
   preload(): Promise<void> {
-    return Promise.all([this.#viewmodel.prepare(), this.#players.prepare()]).then(() => undefined);
+    return Promise.all([this.#viewmodel.prepare(), this.#players.prepare(), this.#arsenal.loaded]).then(() => undefined);
+  }
+
+  /**
+   * Puts on show, for the warm-up frame, everything a match draws later: every
+   * weapon, soldier, effect and the muzzle flashes, with the shadow map
+   * redrawn so their shadow shaders compile too. Returns what puts them back.
+   */
+  #showSamples(): (() => void)[] {
+    const flashes = [this.#viewFlash, this.#worldFlashes[0]!];
+    for (const f of flashes) f.visible = true;
+    this.#worldView.redrawShadow();
+    return [
+      this.#viewmodel.showAll(),
+      this.#players.showSamples(this.#camera.camera),
+      this.#arsenal.showSamples(this.#camera.camera),
+      this.#effects.showSamples(),
+      () => {
+        for (const f of flashes) f.visible = false;
+      },
+    ];
   }
 
   /** Set by `prepare`: the next frame drawn shows everything a match shows later, then calls this. */
@@ -505,7 +525,7 @@ export class Game {
     this.#updateHud(dt, eye, forward);
     if (render) {
       const warm = this.#warmUp;
-      const restore = warm ? [this.#viewmodel.showAll(), this.#players.showSamples(this.#camera.camera)] : [];
+      const restore = warm ? this.#showSamples() : [];
       this.#worldView.lightMoving();
       this.#pipeline.render(dt, adjustResolution);
       for (const put of restore) put();

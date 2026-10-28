@@ -42,11 +42,15 @@ export class ArsenalView {
   readonly #glintMaterial: MeshBasicNodeMaterial;
   #template: Object3D | null = null;
   #disposed = false;
+  /** Settles once the frag model is in (or failed to load). */
+  readonly loaded: Promise<void>;
+  /** The frag and glint `showSamples` drew, kept so their shaders stay compiled. */
+  #samples: Object3D[] = [];
 
   constructor(scene: Scene) {
     scene.add(this.#root);
     this.#glintMaterial = new MeshBasicNodeMaterial({ map: glintTexture(), transparent: true, depthWrite: false, blending: AdditiveBlending });
-    void new GLTFLoader().loadAsync(new URL('./viewmodel/assets/frag.glb', import.meta.url).href).then(({ scene: model }) => {
+    this.loaded = new GLTFLoader().loadAsync(new URL('./viewmodel/assets/frag.glb', import.meta.url).href).then(({ scene: model }) => {
       if (this.#disposed) return disposeAuthored(model);
       this.#template = model;
     }).catch((error: unknown) => {
@@ -114,6 +118,31 @@ export class ArsenalView {
       mesh.removeFromParent();
       this.#glints.delete(id);
     }
+  }
+
+  /**
+   * Shows, for one frame, a frag and a scope glint a thousandth of their size a
+   * few metres in front of `camera`, so their shaders compile before a match
+   * needs them. Returns what hides them again.
+   */
+  showSamples(camera: Camera): () => void {
+    if (this.#samples.length === 0 && this.#template) {
+      const frag = this.#template.clone();
+      frag.traverse((o) => {
+        o.castShadow = true;
+      });
+      const glint = new Mesh(this.#glintGeometry, this.#glintMaterial);
+      glint.renderOrder = 4;
+      this.#samples = [frag, glint];
+    }
+    for (const o of this.#samples) {
+      o.position.set(0, 0, -4).applyQuaternion(camera.quaternion).add(camera.position);
+      o.scale.setScalar(0.001);
+      this.#root.add(o);
+    }
+    return () => {
+      for (const o of this.#samples) o.removeFromParent();
+    };
   }
 
   dispose(): void {

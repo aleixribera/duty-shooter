@@ -1,7 +1,7 @@
 # Performance and sniper verification
 
 Status: resolved
-Release: v2.17.0
+Release: v2.17.0, v2.18.0
 
 ## Comments
 
@@ -19,4 +19,6 @@ Train-horn warm-up was identified in a gameplay profile. A sample-by-sample comp
 Audit (2026-10-28, Claude). Server: a 12-player lobby run from the home server itself holds 60 snapshots/s (gap p99 22 ms) with usercmd acks at p99 59 ms and about 4 Mbit/s out, so the server has headroom; the high "node" CPU seen on it was agent sessions (a handoff service running Vite and a software-WebGL Chrome), not the lobby. High in-game ping is partly a starved client, since ping is counted in client frames, plus the Funnel relay. Released in v2.10.0: precompressed static files, 304s for files the browser already has, and the load-test notes in docs/deploy.md.
 
 Client (v2.17.0): presets retuned around Medium. Each preset now has a pixel budget (Low 1080p at one pixel per CSS pixel with FXAA and 30 Hz shadow redraws, Medium up to 1440p's worth on high-DPI screens with 60 Hz shadows, High supersampled 1.5x up to 4K's worth), and the loading screen compiles every viewmodel weapon, the frag, and every soldier look before the match starts. Pipeline probe: 279 pipelines compile on the menu and loading screen, 16 are left in play (a few shadow variants, the muzzle flash, frag and grenade pieces). A fair A/B of Medium at 1080p (same content, alternating builds) is a wash: p50 8–9 ms both. Both builds still have multi-second frames in queue submit and writeBuffer mid-match on this PC, which was saturated by other sessions' headless Chromes during the runs. Follow-up: warm the last 16 pipelines and re-measure the stalls on an idle PC.
+
+v2.18.0: the warm-up frame also draws a frag, a scope glint, every particle and decal layer, the casings and both muzzle flashes, and redraws the shadow map, so their shaders compile too. Pipeline probe over a 6v6 Bot Match with firing, a weapon switch and a frag: the build before this work compiled 12 pipelines in play, this one 0 (310 before the match starts). Low's FXAA path drew a black world (the render-to-texture FXAA reads through resets the clear colour to opaque, so the viewmodel layer covered everything); the viewmodel scene now resets its transparent clear as its pass starts, and Low, Medium and High screenshots are checked. Frame timing on this PC could not separate the builds: it sat at 63% CPU from other apps during the runs, and the same build measured p50 7 ms in one run and 74 ms in another. Both builds still show 9–14 frames over 500 ms per 30 s run in queue submit and writeBuffer, with no pipeline compiled in play, so those stalls are GPU-process contention on this machine, not shader compiles; measure them on an idle PC before treating them as a game bug.
 
