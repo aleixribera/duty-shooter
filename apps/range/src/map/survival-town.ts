@@ -1,5 +1,5 @@
-import { createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
-import { LIGHTING, type Finish, type Look } from '@duty-shooter/fps-client/surfaces';
+import { INTERMISSION, createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
+import { LIGHTING, type EndingShot, type Finish, type Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
@@ -26,6 +26,20 @@ const UPPER_TOP = 5.6;
 /** Door openings: a little over the 80 in standard height, and wider than standard so the hull passes without snagging the frame. */
 const DOOR_H = 2.15;
 export const DOOR_W = 1.15;
+/**
+ * The ending's shot: from behind the west end of town, over the yards and
+ * the cul-de-sac toward ground zero, pulling up and back while the siren
+ * sounds and tilting up after the cloud as it climbs, then holding behind
+ * the scoreboard.
+ */
+export const NUKE_SHOT: EndingShot = {
+  from: [-30, 6, 12],
+  to: [-42, 12, 20],
+  lookFrom: [420, 20, -160],
+  lookTo: [420, 130, -160],
+  seconds: INTERMISSION.nuke + INTERMISSION.vote,
+  fov: 62,
+};
 /** The cul-de-sac's radius, the street's half width and the playable street end. */
 const CIRCLE_R = 8.75;
 const STREET_HALF = 4.5;
@@ -1302,7 +1316,7 @@ export function buildSurvivalTown(): MapDefinition {
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.
     lighting: LIGHTING,
     lamps: [],
-    nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14] },
+    nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14], shot: NUKE_SHOT },
     train: null,
     ambience: ambience(populationSign),
     spawns,

@@ -1,7 +1,7 @@
 import { usercmd, type PlayerOutput, type Solid } from '@duty-shooter/fps-core';
 import { box, createHeadlessMatch, playerClip } from '@duty-shooter/fps-core/harness';
 import { describe, expect, it } from 'vitest';
-import { FirstPersonCamera } from '../src/camera';
+import { FirstPersonCamera, shotPose } from '../src/camera';
 import { DEFAULT_SETTINGS } from '../src/settings';
 
 const DEG = Math.PI / 180;
@@ -89,5 +89,27 @@ describe('first-person camera on a slope of player clip steps', () => {
     const heights = eyeHeights([0, top, -200 * (0.05 / Math.tan(30 * DEG)) + 0.5], -1, 3);
     expect(heights[0]! - heights.at(-1)!).toBeGreaterThan(3);
     expect(roughness(heights)).toBeLessThan(2);
+  });
+});
+
+describe('ending shot', () => {
+  const shot = { from: [0, 5, 0], to: [-10, 15, 10], lookFrom: [100, 5, 0], lookTo: [100, 60, 0], seconds: 20, fov: 60 } as const;
+
+  it('starts at its start looking at the first target, and ends and holds at its end looking at the second', () => {
+    const start = shotPose(shot, 0);
+    expect(start.position).toEqual([0, 5, 0]);
+    expect(start.pitch).toBeCloseTo(0, 9);
+    expect(start.yaw).toBeCloseTo(-Math.PI / 2, 9);
+    for (const t of [20, 25]) {
+      const end = shotPose(shot, t);
+      expect(end.position).toEqual([-10, 15, 10]);
+      expect(end.pitch).toBeCloseTo(Math.atan2(45, Math.hypot(110, 10)), 9);
+    }
+  });
+
+  it('eases out: quick at first, settling into its end', () => {
+    const along = (t: number) => (shotPose(shot, t).position[1] - 5) / 10;
+    expect(along(5)).toBeGreaterThan(0.25);
+    expect(along(10) - along(5)).toBeGreaterThan(along(19) - along(14));
   });
 });

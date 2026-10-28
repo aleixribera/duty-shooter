@@ -28,7 +28,7 @@ import { DEFUSE_RANGE } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
-import { FirstPersonCamera } from './camera';
+import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
 import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
 import { TEAMS, chargeRoster } from './ui/model';
@@ -53,6 +53,8 @@ import { currentLighting } from './surface-materials';
 const OPEN_AMBIENT = 0.4;
 
 const TICK_MS = TICK_SECONDS * 1000;
+/** How far the nuke's shock shakes the ending's shot at its strongest (radians, peak to peak). */
+const SHOT_SHAKE = 0.012;
 
 export interface GameOptions {
   readonly canvas: HTMLCanvasElement;
@@ -206,6 +208,8 @@ export class Game {
    * for checking it from a dev build's console.
    */
   previewEnding: number | null = null;
+  /** The ending's shot is on screen instead of the player's view (no crosshair or weapon HUD). */
+  #inShot = false;
   readonly #chargeSounds = new ChargeSounds();
   readonly #onVoteKey = (e: KeyboardEvent) => {
     if (e.code === 'Digit1') this.#vote('tdm');
@@ -521,6 +525,25 @@ export class Game {
       forward = viewDirection(watched.yaw, pitch);
       this.#viewmodel.root.visible = false;
     }
+    const shot = this.#nukeAt?.shot;
+    const ending = shot ? this.#sinceMatchEnd(driver) : null;
+    this.#inShot = ending !== null;
+    if (shot && ending !== null) {
+      // The map's ending plays as a shot of its own, like a cut scene: everyone watches the nuke, wherever they stood.
+      const pose = shotPose(shot, ending);
+      const shake = this.#nuke ? nukeFrame(ending, this.#nuke.distanceTo(pose.position)).shake * SHOT_SHAKE : 0;
+      const cam = this.#camera.camera;
+      cam.position.set(pose.position[0], pose.position[1], pose.position[2]);
+      cam.rotation.set(pose.pitch + (Math.random() - 0.5) * shake, pose.yaw + (Math.random() - 0.5) * shake, 0);
+      if (Math.abs(cam.fov - shot.fov) > 1e-4) {
+        cam.fov = shot.fov;
+        cam.updateProjectionMatrix();
+      }
+      eye = pose.position;
+      forward = viewDirection(pose.yaw, pose.pitch);
+      this.#viewmodel.root.visible = false;
+      this.#worldView.follow(eye);
+    }
     this.#lastLook = look;
     this.#sound.setListener(eye, forward, [0, 1, 0]);
     this.#listener = eye;
@@ -618,7 +641,7 @@ export class Game {
     const status = driver.status;
     const showOverlay = this.#settings.showRangeOverlay && this.#inRange();
     this.hud.update({
-      self: this.#cur,
+      self: this.#inShot ? null : this.#cur,
       pixelsPerDegree,
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,

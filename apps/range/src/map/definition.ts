@@ -1,5 +1,5 @@
 import type { ChargeSite, NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Decoration, Finish, FreightTrain, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
+import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -80,9 +80,10 @@ export interface MapDefinition {
   /**
    * The end-of-match nuke (drawn and heard only): where the bomb goes off,
    * on the ground out in the desert, and where the town's air-raid siren
-   * sounds from; null for a map that never ends in one.
+   * sounds from, and the camera's shot of it, which everyone watches through
+   * the intermission (like a cut scene); null for a map that never ends in one.
    */
-  readonly nuke: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
+  readonly nuke: { readonly groundZero: Vec3; readonly siren: Vec3; readonly shot: EndingShot } | null;
   /** The end-of-match freight train (drawn and heard only), or null for a map that never ends in one. */
   readonly train: FreightTrain | null;
   /** What the map makes heard: the wind everywhere, and at a place birds, a sign, a radio, a far horn, shunting or a humming lamp. */

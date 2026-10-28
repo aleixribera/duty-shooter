@@ -463,6 +463,20 @@ describe('Survival Town: camera spots and paths', () => {
     }
   });
 
+  it('the ending shot moves through open air with the cloud in view all the way', () => {
+    const nuke = map.nuke!;
+    const { from, to } = nuke.shot;
+    const drawn = createWorld(map.solids);
+    const cloud: Vec3 = [nuke.groundZero[0], 150, nuke.groundZero[2]];
+    // The camera keeps to the straight line from start to end.
+    expect(raycastWorld(drawn, from, to)).toBeNull();
+    for (let i = 0; i <= 10; i++) {
+      const k = i / 10;
+      const p: Vec3 = [from[0] + (to[0] - from[0]) * k, from[1] + (to[1] - from[1]) * k, from[2] + (to[2] - from[2]) * k];
+      expect(raycastWorld(drawn, p, cloud), `${Math.round(k * 100)}% along`).toBeNull();
+    }
+  });
+
   it('indoor zones cover both houses and garages', () => {
     for (const p of [at(-1, 0, 1, 20), at(1, 0, 1, 20), at(-1, 2, 4, 20), at(1, 2, 4, 20), at(-1, -12, 1, 16), at(1, -12, 1, 16)]) {
       expect(map.indoorZones.some((z) => p.every((v, i) => v >= z.min[i]! && v <= z.max[i]!))).toBe(true);

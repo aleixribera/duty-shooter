@@ -307,6 +307,7 @@ export class Hud {
   readonly #nade: HTMLElement;
   readonly #scope: HTMLDivElement;
   readonly #health: HTMLDivElement;
+  readonly #ammo: HTMLDivElement;
   readonly #hp: HTMLElement;
   readonly #hpBar: HTMLElement;
   readonly #bar: HTMLElement;
@@ -370,8 +371,8 @@ export class Hud {
     this.#health = el('div', 'ds-health', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
-    const ammo = el('div', 'ds-ammo', this.root, '<div class="gun">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">/ ∞</span><div class="bar"><i></i></div>');
-    this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
+    const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, '<div class="gun">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">/ ∞</span><div class="bar"><i></i></div>'));
+    this.#mag =ammo.querySelector('.mag') as HTMLSpanElement;
     this.#gun = ammo.querySelector('.gun') as HTMLElement;
     this.#nade = ammo.querySelector('.nade') as HTMLElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
@@ -575,6 +576,7 @@ export class Hud {
     this.#style(this.#hpBar, 'transform', `scaleX(${health / 100})`);
     this.#health.classList.toggle('low', health <= 35);
 
+    this.#style(this.#ammo, 'display', self ? '' : 'none');
     if (w && self) {
       const row = STATS.weapons[w.id];
       const size = row.handling.magazineSize.value;

@@ -29,7 +29,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
-import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
+import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial, useLighting } from './surface-materials';
@@ -73,8 +73,8 @@ export interface WorldContent {
   readonly populationSign?: SignPlacement | null;
   /** The far ground and mountains round the map, if it has them. */
   readonly horizon?: Horizon | null;
-  /** The end-of-match nuke's ground zero and siren, if the map has one (see Nuke). */
-  readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3 } | null;
+  /** The end-of-match nuke's ground zero, siren and the camera's shot of it, if the map has one (see Nuke). */
+  readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3; readonly shot?: EndingShot } | null;
   /** The end-of-match freight train, if the map has one (see Train). */
   readonly train?: FreightTrain | null;
   /** The map's sun and sky (the afternoon if not given). */

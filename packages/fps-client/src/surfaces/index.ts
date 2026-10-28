@@ -15,7 +15,7 @@ export type { Face, Frame } from './faces';
 export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
 export type { Lamp, Lighting } from './lighting';
 export { DECORATION_TOLERANCE, DEFAULT_FINISHES, defaultFinishKey } from './types';
-export type { Decoration, Family, Finish, FreightTrain, Look, MapModels, ModelPlacement, SurfaceSpec } from './types';
+export type { Decoration, EndingShot, Family, Finish, FreightTrain, Look, MapModels, ModelPlacement, SurfaceSpec } from './types';
 
 /** A map's surfaces, laid out: what both the bake and the renderer start from. */
 export interface SurfaceLayout {

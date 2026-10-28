@@ -136,6 +136,10 @@ _Avoid_: post-game, between rounds
 Switchyard's end-of-match ending: two locos and 22 wagons that thunder west along the main line past the yard, horn sounding, through the intermission. Drawn and heard only: it touches nothing, and everyone sees it in the same place. The server's phase is still called `nuke`.
 _Avoid_: the nuke (on Switchyard)
 
+**Ending shot**:
+Survival Town's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move from behind the west end of town toward ground zero, so everyone watches the siren, the flash and the cloud climbing over the rooftops. The map data holds it (`nuke.shot`).
+_Avoid_: kill cam, video (nothing is recorded; it is drawn live)
+
 **Mode vote**:
 The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only Bot Match runs it; the online server has a lobby instead.
 

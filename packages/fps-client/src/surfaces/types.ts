@@ -87,6 +87,21 @@ export interface MapModels {
 }
 
 /**
+ * The camera's move over a map's ending, shown instead of the player's view
+ * from the match's end through the scoreboard: from `from` to `to`, looking
+ * from `lookFrom` to `lookTo`, easing out over `seconds` and then holding,
+ * with a vertical field of view of `fov` degrees.
+ */
+export interface EndingShot {
+  readonly from: Vec3;
+  readonly to: Vec3;
+  readonly lookFrom: Vec3;
+  readonly lookTo: Vec3;
+  readonly seconds: number;
+  readonly fov: number;
+}
+
+/**
  * A freight train that runs past a map at the end of a match, drawn and
  * heard only. It runs west along its line (z) from `start` (the head's x
  * as the match ends) at `speed` m/s, the wagons trailing east of the head.
