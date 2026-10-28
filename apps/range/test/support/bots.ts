@@ -38,7 +38,7 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
     zones: b.map.zones,
     sites: b.map.sites,
     mode,
-    modes: { tdm: { killLimit: null, timeLimit: null }, ffa: { killLimit: null, timeLimit: null }, outposts: { scoreLimit: null, timeLimit: null } },
+    modes: { tdm: { killLimit: null, timeLimit: null }, ffa: { killLimit: null, timeLimit: null }, outposts: { scoreLimit: null, timeLimit: null }, gungame: { timeLimit: null } },
     maxPlayers: perTeam * 2,
     bots: { nav: b.nav, perTeam, maxPerTeam: perTeam, alwaysOn: true },
   });
@@ -48,11 +48,16 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
   const outside: string[] = [];
   const captures = new Set<number>();
   let rounds = 0;
+  /** Gun game: levels gained, and the weapons bots were seen holding against the level they were on. */
+  let levelUps = 0;
+  const wrongGun: string[] = [];
+  const misarmed = new Set<string>();
   for (let i = 0; i < 180 * 60; i++) {
     const out = m.step();
     for (const e of m.server.modeEvents) {
       if (e.type === 'capture') captures.add(e.team);
       if (e.type === 'roundEnd') rounds += 1;
+      if (e.type === 'level' && !e.demoted) levelUps += 1;
     }
     // Only live play counts: between matches and in a round's freeze everyone is held where they stand.
     const live = m.server.phase === 'playing' && !m.server.mode.frozen();
@@ -62,6 +67,12 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
         still.delete(p.id);
         continue;
       }
+      // A kill re-arms the killer after the tick that reports it, so a gun is wrong only on a second tick running.
+      const forced = m.server.mode.loadoutOf?.(p.id);
+      const wrong = forced !== undefined && forced !== null && p.loadout.primary !== forced.primary;
+      if (wrong && misarmed.has(p.id)) wrongGun.push(`${p.id} held ${p.loadout.primary}, not ${forced.primary}`);
+      if (wrong) misarmed.add(p.id);
+      else misarmed.delete(p.id);
       if (!insidePolygon(b.boundary, p.position[0], p.position[2])) outside.push(`${p.id} at ${p.position}`);
       const s = still.get(p.id);
       // Fighting, holding an angle or planting is standing still on purpose; only roaming in place is stuck.
@@ -72,7 +83,7 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
       }
     }
   }
-  return { m, players: m.history.at(-1)!.players.length, outside, longest, where, captures, rounds };
+  return { m, players: m.history.at(-1)!.players.length, outside, longest, where, captures, rounds, levelUps, wrongGun };
 }
 
 /** A 3v3 Charge match of bots played to its end (15 minutes at most): the plants and every round's winner and attackers. */

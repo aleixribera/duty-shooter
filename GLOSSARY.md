@@ -98,8 +98,16 @@ _Avoid_: nade (fine in player-facing text)
 ## Matches
 
 **Mode**:
-The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts or Charge.
+The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts, Charge or gun game.
 _Avoid_: playlist, game type
+
+**Gun game**:
+The free-for-all mode played on a ladder of weapons: two levels each with the M4A1, the SMG, the shotgun, the sniper rifle and the pistol, ten in all. Everyone starts on the first level with that gun in both slots and no grenade, whatever their loadout; every kill moves the killer up a level and puts the next gun in their hands where they stand. A melee kill also knocks the victim down a level. The first kill made on the last level wins; at the time limit the highest level wins.
+_Avoid_: arms race, ladder (on its own)
+
+**Level**:
+A player's step on the gun game ladder, from 1 to 10, shown as Lv on the match bar and the scoreboard.
+_Avoid_: rank, tier
 
 **Outposts**:
 The team mode where standing in the map's zones captures them, and each held zone scores its team a point a second. The first team to 200 points wins.
@@ -162,10 +170,10 @@ _Avoid_: AI player, NPC
 Topping a match up with bots to the map's team size while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. The lobby's host only switches it on or off. Humans vs bots sizes the bots its own way instead.
 
 **Team size**:
-The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard 6v6 and Survival Town 4v4 in every mode (free-for-all holds twice it). The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
+The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard 6v6 and Survival Town 4v4 in the team modes. The modes without teams (free-for-all, gun game) hold twice a size of their own, kept smaller so the map isn't crowded with enemies on every side: 8 players on Switchyard and 6 on Survival Town. The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
 
 **Humans vs bots**:
-A setting for any team mode, not a mode of its own: every person plays on Blue, against an Orange team of bots two bigger than the group (at least four, at most six, and never more than the free seats). A person joining mid-match brings another bot to Orange. Free-for-all ignores it. The host picks it in the lobby; Bot Match offers it too.
+A setting for any team mode, not a mode of its own: every person plays on Blue, against an Orange team of bots two bigger than the group (at least four, at most six, and never more than the free seats). A person joining mid-match brings another bot to Orange. Free-for-all and gun game ignore it. The host picks it in the lobby; Bot Match offers it too.
 _Avoid_: co-op, PvE
 
 **Bot Match**:

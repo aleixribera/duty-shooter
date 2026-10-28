@@ -102,12 +102,14 @@ export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
 
 /**
  * The team size each map plays at, by mode: with bots on, a lobby fills to
- * it (free-for-all holds twice it). The switchyard's long open yard takes
- * 6v6, Survival Town's streets 4v4.
+ * it (a mode without teams holds twice it). The switchyard's long open yard
+ * takes 6v6, Survival Town's streets 4v4. Modes where everyone is an enemy
+ * (free-for-all, gun game) play emptier: 6 players on Survival Town and 8 on
+ * the switchyard, so a spawn isn't a crossfire from every side. A new mode without teams takes these too.
  */
 export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
-  'survival-town': { tdm: 4, ffa: 4, outposts: 4, charge: 4 },
-  switchyard: { tdm: 6, ffa: 6, outposts: 6, charge: 6 },
+  'survival-town': { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
+  switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
   range: {},
 };
 

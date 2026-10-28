@@ -269,7 +269,7 @@ export interface MatchView {
 
 
 /** The mode as the match bar names it, short. */
-const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge' };
+const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 
 /** A number for a style, to three places, so values that barely move are not written again. */
 function fixed(n: number): string {
@@ -763,6 +763,11 @@ export class Hud {
           return cards.length > 0 ? `<div class="roster ${end}">${cards.map(rosterCard).join('')}</div>` : '';
         };
         this.#set(this.#match, `${side(bar.teams[0]?.team, 'l')}${a}${mid}${b}${side(bar.teams[1]?.team, 'r')}`);
+      } else if (bar.kind === 'gungame') {
+        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · Lv ${bar.leader.level}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
+        const next = bar.you?.next ? ` · next ${escape(STATS.weapons[bar.you.next].traits.name)}` : ' · last gun';
+        const you = bar.you ? `<span class="score">Lv ${bar.you.level}</span><span class="sub">You · ${ordinal(bar.you.place)}${next}</span>` : '<span class="score">–</span><span class="sub">You</span>';
+        this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
       } else {
         const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
         const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
@@ -887,11 +892,12 @@ function playerName(name: string, bot: boolean, team?: number): string {
 function boardHtml(state: HudState): string {
   const mode: ModeId = state.match?.status.mode ?? 'ffa';
   const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
+  const levels = board.kind === 'ffa' && board.levels;
   const table = (rows: readonly BoardRow[]) =>
-    `<table><tr><th>#</th><th>Player</th><th>K</th><th>D</th><th>Ping</th></tr>${rows
+    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Lv</th>' : ''}<th>K</th><th>D</th><th>Ping</th></tr>${rows
       .map(
         (r) =>
-          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td><td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
       )
       .join('')}</table>`;
   const header = `<header><b>${escape(MODE_NAMES[mode] ?? mode)}</b><span class="ds-label">${state.scores.length} players</span></header>`;

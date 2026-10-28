@@ -1,4 +1,4 @@
-import { STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
+import { GUN_GAME_LADDER, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -20,7 +20,7 @@ export interface LobbyInfo {
   readonly hvb?: boolean;
 }
 
-export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge' };
+export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
 export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard' };
@@ -46,25 +46,35 @@ export interface BoardRow {
   readonly ping: number | null;
   /** 1 for the best; players level on kills and deaths share a place. */
   readonly place: number;
+  /** Gun game: the level they are on, from 1; null in other modes. */
+  readonly level: number | null;
 }
 
 export type Board =
-  | { readonly kind: 'ffa'; readonly rows: readonly BoardRow[] }
+  | { readonly kind: 'ffa'; readonly rows: readonly BoardRow[]; readonly levels: boolean }
   | { readonly kind: 'tdm'; readonly teams: readonly { readonly team: number; readonly score: number; readonly rows: readonly BoardRow[] }[] };
 
-/** Most kills first, then fewest deaths. */
-function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>): BoardRow[] {
-  const sorted = [...scores].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+/** Gun game's level as shown, from 1, out of the ladder's {@link GUN_GAME_LADDER} length. */
+function level(s: Score): number {
+  return Math.min(GUN_GAME_LADDER.length, s.score + 1);
+}
+
+/** Most kills first, then fewest deaths; in gun game the highest level first. */
+function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null): BoardRow[] {
+  const levels = mode === 'gungame';
+  const key = (s: Score) => (levels ? s.score : 0);
+  const sorted = [...scores].sort((a, b) => key(b) - key(a) || b.kills - a.kills || a.deaths - b.deaths);
+  const same = (a: Score, b: Score) => key(a) === key(b) && a.kills === b.kills && a.deaths === b.deaths;
   return sorted.map((s, i) => {
     let place = i + 1;
-    while (place > 1 && sorted[place - 2]!.kills === s.kills && sorted[place - 2]!.deaths === s.deaths) place--;
-    return { id: s.id, name: s.name, bot: s.bot === true, kills: s.kills, deaths: s.deaths, ping: pings[s.id] ?? null, place };
+    while (place > 1 && same(sorted[place - 2]!, s)) place--;
+    return { id: s.id, name: s.name, bot: s.bot === true, kills: s.kills, deaths: s.deaths, ping: pings[s.id] ?? null, place, level: levels ? level(s) : null };
   });
 }
 
 /** The held scoreboard: the free-for-all ranking, or both teams side by side. */
 export function scoreboard(scores: readonly Score[], mode: ModeId, pings: Readonly<Record<string, number>>, teamScores: readonly TeamScore[] | null = null): Board {
-  if (!teamMode(mode)) return { kind: 'ffa', rows: ranked(scores, pings) };
+  if (!teamMode(mode)) return { kind: 'ffa', rows: ranked(scores, pings, mode), levels: mode === 'gungame' };
   return {
     kind: 'tdm',
     teams: [1, 2].map((team) => ({
@@ -80,9 +90,16 @@ export function scoreboard(scores: readonly Score[], mode: ModeId, pings: Readon
 
 export type MatchBar =
   | { readonly kind: 'tdm'; readonly teams: readonly { readonly team: number; readonly score: number; readonly mine: boolean }[]; readonly limit: number | null }
-  | { readonly kind: 'ffa'; readonly leader: { readonly name: string; readonly kills: number } | null; readonly you: { readonly kills: number; readonly place: number } | null; readonly limit: number | null };
+  | { readonly kind: 'ffa'; readonly leader: { readonly name: string; readonly kills: number } | null; readonly you: { readonly kills: number; readonly place: number } | null; readonly limit: number | null }
+  /** Gun game: the leader's level and yours (from 1), with your weapon and the next one up. */
+  | {
+      readonly kind: 'gungame';
+      readonly leader: { readonly name: string; readonly level: number } | null;
+      readonly you: { readonly level: number; readonly place: number; readonly weapon: WeaponId; readonly next: WeaponId | null } | null;
+      readonly limit: number;
+    };
 
-/** The HUD's top bar: both team scores with yours marked, or the leader and your place. */
+/** The HUD's top bar: both team scores with yours marked, or the leader and your place (and level, in gun game). */
 export function matchBar(
   status: { readonly mode: ModeId; readonly teamScores: readonly TeamScore[] | null; readonly killLimit: number | null; readonly scoreLimit?: number | null },
   scores: readonly Score[],
@@ -92,9 +109,18 @@ export function matchBar(
   if (teamMode(status.mode)) {
     return { kind: 'tdm', teams: [1, 2].map((t) => ({ team: t, score: status.teamScores?.find((s) => s.team === t)?.score ?? 0, mine: t === team })), limit: status.killLimit ?? status.scoreLimit ?? null };
   }
-  const rows = ranked(scores, {});
+  const rows = ranked(scores, {}, status.mode);
   const top = rows[0];
   const me = rows.find((r) => r.id === selfId);
+  if (status.mode === 'gungame') {
+    const at = (n: number) => GUN_GAME_LADDER[Math.min(n, GUN_GAME_LADDER.length) - 1]!;
+    return {
+      kind: 'gungame',
+      leader: top ? { name: top.name, level: top.level ?? 1 } : null,
+      you: me ? { level: me.level ?? 1, place: me.place, weapon: at(me.level ?? 1), next: (me.level ?? 1) < GUN_GAME_LADDER.length ? at((me.level ?? 1) + 1) : null } : null,
+      limit: GUN_GAME_LADDER.length,
+    };
+  }
   return { kind: 'ffa', leader: top ? { name: top.name, kills: top.kills } : null, you: me ? { kills: me.kills, place: me.place } : null, limit: status.killLimit };
 }
 
@@ -153,7 +179,7 @@ export interface EndSummary {
 
 /** The end-of-match screen: who won (and whether it was you or your team) and your line. */
 export function endSummary(result: MatchResult | null, mode: ModeId, scores: readonly Score[], selfId: PlayerId | null): EndSummary {
-  const rows = ranked(scores, {});
+  const rows = ranked(scores, {}, mode);
   const me = scores.find((s) => s.id === selfId);
   const row = rows.find((r) => r.id === selfId);
   const you = me && row ? { kills: me.kills, deaths: me.deaths, ratio: (me.kills / Math.max(1, me.deaths)).toFixed(2), place: row.place, of: rows.length } : null;
@@ -170,6 +196,7 @@ export const MODE_BLURBS: Readonly<Record<string, string>> = {
   tdm: 'Two teams, blue against orange. First team to 75 kills wins, or the team ahead after 10 minutes.',
   ffa: 'Everyone for themselves. First to 30 kills wins, or whoever leads after 10 minutes.',
   outposts: 'Two teams fight over the zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
+  gungame: 'Everyone for themselves on a ladder of weapons: every kill moves you up to the next gun, from the M4A1 down to the pistol, and a melee kill knocks your victim down one. The first kill with the last pistol wins.',
   charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
 };
 

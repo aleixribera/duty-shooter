@@ -1,5 +1,7 @@
 export { FreeForAll } from './ffa';
 export type { FreeForAllOptions } from './ffa';
+export { GUN_GAME_LADDER, GunGame } from './gungame';
+export type { GunGameOptions } from './gungame';
 export { TEAMS, TeamDeathmatch } from './tdm';
 export type { TeamDeathmatchOptions } from './tdm';
 export { CAPTURE_POINTS, CAPTURE_TIME, FLIP_FACTOR, MAX_CAPTURE_RATE, Outposts, ZONE_POINTS_PER_SECOND, captureRate } from './outposts';

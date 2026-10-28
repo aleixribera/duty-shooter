@@ -4,7 +4,8 @@ import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
 import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
-import { MODE_IDS, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
+import { GunGame, type GunGameOptions } from '../modes/gungame';
+import { MODE_IDS, teamMode, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
@@ -56,8 +57,8 @@ export interface GameServerOptions {
   readonly maps?: readonly ServerMap[];
   /** The mode the server starts in. Defaults to team deathmatch. */
   readonly mode?: ModeId;
-  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, all 600 s, and Charge first to 4 rounds. */
-  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions };
+  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, gun game the ladder's 10 levels, all 600 s, and Charge first to 4 rounds. */
+  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions; readonly gungame?: GunGameOptions };
   /** Intermission phase lengths (s). Defaults: 6 s of nuke, then 14 s of scoreboard and vote. */
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** Free-for-all spawn points, spread over the map. */
@@ -302,6 +303,7 @@ export class GameServer {
       ffa: new FreeForAll(options.modes?.ffa),
       outposts: new Outposts(options.modes?.outposts),
       charge: new Charge(options.modes?.charge),
+      gungame: new GunGame(options.modes?.gungame),
     };
     const first: ServerMap = {
       id: options.map ?? 'range',
@@ -345,7 +347,7 @@ export class GameServer {
 
   /** Whether this match is humans vs bots: picked, in a team mode, with bots to play. */
   get #hvbOn(): boolean {
-    return this.#hvb && this.#mode.id !== 'ffa' && this.#options.bots !== undefined && this.#map.nav !== undefined;
+    return this.#hvb && teamMode(this.#mode.id) && this.#options.bots !== undefined && this.#map.nav !== undefined;
   }
 
   /** The most bots a side a first joiner may ask for (0 without bots). */
@@ -729,9 +731,9 @@ export class GameServer {
     return this.#hvbOn ? { side: this.#bots.has(id) ? TEAMS[1] : TEAMS[0] } : {};
   }
 
-  /** The loadout a player's next spawn carries (a bot's from its profile), as spawn options (empty for the default). */
+  /** The loadout a player's next spawn carries (the mode's, else their pick or a bot's from its profile), as spawn options (empty for the default). */
   #loadoutOf(id: PlayerId): { loadout?: Loadout } {
-    const loadout = [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
+    const loadout = this.#mode.loadoutOf?.(id) ?? [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
     return loadout ? { loadout } : {};
   }
 
@@ -984,6 +986,12 @@ export class GameServer {
     const events = this.#mode.onEvents(out.events, ctx);
     // A new round puts everyone back at their side's spawns, alive and with the loadout they picked.
     if (events.some((e) => e.type === 'roundStart')) for (const seat of this.#seats()) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));
+    // A new level (gun game) re-arms a living player where they stand with its weapon.
+    for (const e of events) {
+      if (e.type !== 'level' || !this.simulation.playerState(e.player)?.health) continue;
+      const loadout = this.#loadoutOf(e.player).loadout;
+      if (loadout) this.simulation.equip(e.player, loadout);
+    }
     const result = this.#mode.result(ctx);
     if (result) {
       this.#phase = 'nuke';

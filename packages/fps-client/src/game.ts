@@ -1,4 +1,5 @@
 import {
+  GUN_GAME_LADDER,
   STATS,
   TICK_SECONDS,
   Button,
@@ -1107,6 +1108,14 @@ export class Game {
           this.#effects.explosion(e.position);
           this.#play('explosion', { position: e.position });
         }
+        break;
+      }
+      case 'level': {
+        const driver = this.#driver;
+        const gun = STATS.weapons[e.weapon].traits.name;
+        const last = e.level === GUN_GAME_LADDER.length - 1;
+        if (e.player === driver?.selfId) this.hud.toast(e.demoted ? `Clubbed: back to level ${e.level + 1}, the ${gun}.` : `Level ${e.level + 1}: the ${gun}${last ? '. One more kill wins.' : '.'}`, 3);
+        else if (last && !e.demoted) this.hud.objectiveFeed(`${driver?.nameOf(e.player) ?? 'Someone'} is on the last gun`, 0, false);
         break;
       }
       case 'matchEnd':

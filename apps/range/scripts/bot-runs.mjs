@@ -26,11 +26,11 @@ if (!out) {
 const SECONDS = Number(process.argv[3] ?? 90);
 const BASE = process.argv[4] ?? 'http://localhost:5173/';
 const MOVE = process.env.MOVE === '1';
-const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge' };
+const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 mkdirSync(out, { recursive: true });
 
 const runs = [];
-for (const map of ['survival-town', 'switchyard']) for (const mode of ['tdm', 'ffa', 'outposts', 'charge']) runs.push({ map, mode, hvb: false });
+for (const map of ['survival-town', 'switchyard']) for (const mode of ['tdm', 'ffa', 'outposts', 'charge', 'gungame']) runs.push({ map, mode, hvb: false });
 for (const map of ['survival-town', 'switchyard']) for (const mode of ['tdm', 'outposts', 'charge']) runs.push({ map, mode, hvb: true });
 const only = process.env.ONLY?.split(',');
 const chosen = only ? runs.filter((r) => only.includes(`${r.map}/${r.mode}${r.hvb ? '/hvb' : ''}`)) : runs;
@@ -47,7 +47,7 @@ for (const run of chosen) {
     await chrome.navigate(`${BASE}?nolock`);
     if (!(await chrome.waitFor('globalThis.duty?.game', 60_000))) throw new Error('page did not start');
     await sleep(1000);
-    const picks = ['Bot Match', NAMES[run.map], NAMES[run.mode], ...(run.mode === 'ffa' ? [] : [run.hvb ? 'Humans vs bots' : 'Mixed teams']), 'Start'];
+    const picks = ['Bot Match', NAMES[run.map], NAMES[run.mode], ...(run.mode === 'ffa' || run.mode === 'gungame' ? [] : [run.hvb ? 'Humans vs bots' : 'Mixed teams']), 'Start'];
     for (const p of picks) {
       if (!(await click(p))) throw new Error(`no "${p}" button`);
       await sleep(300);

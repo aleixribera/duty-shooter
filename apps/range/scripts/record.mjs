@@ -15,7 +15,7 @@ if (!out) {
   console.error('usage: node record.mjs <out dir> [seconds] [map] [mode] [base url]');
   process.exit(2);
 }
-const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge' };
+const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 const frames = `${out}/frames`;
 rmSync(frames, { recursive: true, force: true });
 mkdirSync(frames, { recursive: true });
@@ -29,7 +29,7 @@ const mouse = (type) => chrome.send('Input.dispatchMouseEvent', { type, x: 640, 
 await chrome.navigate(`${base}?nolock`);
 await chrome.waitFor('globalThis.duty?.game', 60_000);
 await sleep(1000);
-for (const p of ['Bot Match', NAMES[map], NAMES[mode], ...(mode === 'ffa' ? [] : ['Mixed teams']), 'Start']) {
+for (const p of ['Bot Match', NAMES[map], NAMES[mode], ...(mode === 'ffa' || mode === 'gungame' ? [] : ['Mixed teams']), 'Start']) {
   if (!(await click(p))) throw new Error(`no "${p}" button`);
   await sleep(300);
 }
@@ -42,7 +42,7 @@ const steer = `(() => {
   const g = duty.game, d = g.driver, me = g.player;
   if (!me || !me.alive) return { walk: false, fire: false };
   const team = d.scores.find((s) => s.id === d.selfId)?.team;
-  const ffa = ${mode === 'ffa'};
+  const ffa = ${mode === 'ffa' || mode === 'gungame'};
   const live = d.others(0).filter((p) => p.kind === 'player' && p.alive);
   const flat = (p) => Math.hypot(p.position[0] - me.position[0], p.position[2] - me.position[2]);
   const nearest = (list) => list.reduce((a, p) => (!a || flat(p) < flat(a) ? p : a), null);

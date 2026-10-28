@@ -1,5 +1,7 @@
 import type { Vec3 } from '../math';
 import type { KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
+import type { WeaponId } from '../stats';
+import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 
 /** A place players can spawn. */
@@ -9,12 +11,12 @@ export interface SpawnPoint {
 }
 
 /** The game modes a lobby can run. */
-export type ModeId = 'tdm' | 'ffa' | 'outposts' | 'charge';
-export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa', 'outposts', 'charge'];
+export type ModeId = 'tdm' | 'ffa' | 'outposts' | 'charge' | 'gungame';
+export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa', 'outposts', 'charge', 'gungame'];
 
-/** Whether a mode plays two teams (everything but free-for-all). */
+/** Whether a mode plays two teams (everything but free-for-all and gun game). */
 export function teamMode(id: ModeId): boolean {
-  return id !== 'ffa';
+  return id !== 'ffa' && id !== 'gungame';
 }
 
 /** An Outposts zone: a vertical cylinder from the map definition, captured by standing in it. */
@@ -173,6 +175,8 @@ export type ModeEvent =
       readonly site: string | null;
       readonly position: Vec3;
     }
+  /** Gun game: `player` moved to `level` (from 0) and now plays with `weapon`; `demoted` when a melee kill knocked them down. */
+  | { readonly type: 'level'; readonly player: PlayerId; readonly level: number; readonly weapon: WeaponId; readonly demoted: boolean }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 
@@ -214,6 +218,8 @@ export interface GameMode {
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean;
   /** Whether a dead player may respawn now (after the delay); a round-based mode says no until the next round. */
   canRespawn(id: PlayerId): boolean;
+  /** The loadout the mode hands `id` whatever they picked (gun game's ladder weapon); absent or null to let them choose. */
+  loadoutOf?(id: PlayerId): Loadout | null;
   /** Whether players are held where they stand (a round's opening freeze): they can look around and change loadout, nothing more. */
   frozen(): boolean;
   /** Where `id` should (re)spawn. */

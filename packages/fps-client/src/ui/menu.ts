@@ -751,6 +751,7 @@ export class Menu {
         ['ffa', 'Everyone for themselves, first to 30.'],
         ['outposts', 'Hold the zones, first to 200 points.'],
         ['charge', 'Plant or defuse in rounds, first to 4.'],
+        ['gungame', 'Every kill a new gun, first up the ladder.'],
       ] as const) {
         const b = h('button', '', `ds-mode${this.#mode === mode ? ' on' : ''}`) as HTMLButtonElement;
         b.type = 'button';
