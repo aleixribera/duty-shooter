@@ -40,8 +40,9 @@ describe('Survival Town: nav graph', () => {
   });
 
   it('has nav nodes on the floor of every Outposts zone, so bots can stand in each', () => {
-    expect(map.zones.map((z) => z.id)).toEqual(['A', 'B', 'C']);
+    expect(map.zones.map((z) => z.id)).toEqual(['A', 'B']);
     for (const z of map.zones) {
+      expect(z.center[2], `${z.name} sits on the street's axis, as far from both yards`).toBe(0);
       const inside = nav.nodes.filter((n) => inZone(z, n.position));
       expect(inside.length, z.name).toBeGreaterThanOrEqual(3);
     }

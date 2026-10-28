@@ -1049,14 +1049,14 @@ const YARD_SPAWNS: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * Outposts: a zone on the ground floor of each house (each team's near zone,
- * between its yard and the street) and one in the cul-de-sac between them.
- * Each stops below the upstairs floor.
+ * Outposts: two zones, both on the street's axis so each is as far from
+ * either team's yard: the west lawn between the garages, and the street end
+ * past the bus's nose, before the wagon: one on each flank, with the
+ * cul-de-sac between them.
  */
 const ZONES: readonly Zone[] = [
-  { id: 'A', name: 'North house', center: [2.5, 0, -24], radius: 3.5, height: UPPER_FLOOR - 0.4 },
-  { id: 'B', name: 'Cul-de-sac', center: [-3, 0, 0], radius: 5, height: 3 },
-  { id: 'C', name: 'South house', center: [2.5, 0, 24], radius: 3.5, height: UPPER_FLOOR - 0.4 },
+  { id: 'A', name: 'West lawn', center: [-16, 0, 0], radius: 4, height: 3 },
+  { id: 'B', name: 'Street end', center: [13, 0, 0], radius: 3.5, height: 3 },
 ];
 
 /**

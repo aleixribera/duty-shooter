@@ -106,7 +106,7 @@ The team mode where standing in the map's zones captures them, and each held zon
 _Avoid_: domination, capture points
 
 **Zone**:
-One of the three Outposts objectives on a map: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes.
+One of a map's Outposts objectives: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes. Switchyard has three, one on each lane. Survival Town has two, both on the street's axis: the west lawn between the garages and the street end past the bus.
 _Avoid_: point, flag, objective (on its own)
 
 **Charge**:

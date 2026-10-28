@@ -737,7 +737,7 @@ export class Menu {
       for (const [mode, desc] of [
         ['tdm', 'Two teams, first to 75 kills.'],
         ['ffa', 'Everyone for themselves, first to 30.'],
-        ['outposts', 'Hold the three zones, first to 200 points.'],
+        ['outposts', 'Hold the zones, first to 200 points.'],
         ['charge', 'Plant or defuse in rounds, first to 4.'],
       ] as const) {
         const b = h('button', '', `ds-mode${this.#mode === mode ? ' on' : ''}`) as HTMLButtonElement;

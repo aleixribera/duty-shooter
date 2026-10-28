@@ -169,7 +169,7 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
 export const MODE_BLURBS: Readonly<Record<string, string>> = {
   tdm: 'Two teams, blue against orange. First team to 75 kills wins, or the team ahead after 10 minutes.',
   ffa: 'Everyone for themselves. First to 30 kills wins, or whoever leads after 10 minutes.',
-  outposts: 'Two teams fight over three zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
+  outposts: 'Two teams fight over the zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
   charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
 };
 
