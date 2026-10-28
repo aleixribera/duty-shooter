@@ -57,7 +57,7 @@ export interface GameServerOptions {
   readonly maps?: readonly ServerMap[];
   /** The mode the server starts in. Defaults to team deathmatch. */
   readonly mode?: ModeId;
-  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, gun game the ladder's 10 levels, all 600 s, and Charge first to 4 rounds. */
+  /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, gun game 20 kills up its ladder, all 600 s, and Charge first to 4 rounds. */
   readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions; readonly gungame?: GunGameOptions };
   /** Intermission phase lengths (s). Defaults: 6 s of nuke, then 14 s of scoreboard and vote. */
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };

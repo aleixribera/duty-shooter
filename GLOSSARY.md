@@ -102,11 +102,11 @@ The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts, Charg
 _Avoid_: playlist, game type
 
 **Gun game**:
-The free-for-all mode played on a ladder of weapons: two levels each with the M4A1, the SMG, the shotgun, the sniper rifle and the pistol, ten in all. Everyone starts on the first level with that gun in both slots and no grenade, whatever their loadout; every kill moves the killer up a level and puts the next gun in their hands where they stand. A melee kill also knocks the victim down a level. The first kill made on the last level wins; at the time limit the highest level wins.
+The free-for-all mode played on a ladder of weapons: the M4A1, the SMG, the shotgun, the sniper rifle and the pistol, one level each. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the pistol wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
 _Avoid_: arms race, ladder (on its own)
 
 **Level**:
-A player's step on the gun game ladder, from 1 to 10, shown as Lv on the match bar and the scoreboard.
+A player's gun on the gun game ladder, from 1 to 5, shown as gun 3/5 on the match bar (with the kills still to make on it) and in the scoreboard's Gun column.
 _Avoid_: rank, tier
 
 **Outposts**:

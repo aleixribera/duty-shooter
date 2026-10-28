@@ -1,4 +1,4 @@
-import { GUN_GAME_LADDER, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId } from '@duty-shooter/fps-core';
+import { GUN_GAME_GUNS, GUN_GAME_KILLS_PER_GUN, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -54,9 +54,9 @@ export type Board =
   | { readonly kind: 'ffa'; readonly rows: readonly BoardRow[]; readonly levels: boolean }
   | { readonly kind: 'tdm'; readonly teams: readonly { readonly team: number; readonly score: number; readonly rows: readonly BoardRow[] }[] };
 
-/** Gun game's level as shown, from 1, out of the ladder's {@link GUN_GAME_LADDER} length. */
+/** Gun game's level as shown: the gun a player is on, from 1 (their score is their kills up the ladder). */
 function level(s: Score): number {
-  return Math.min(GUN_GAME_LADDER.length, s.score + 1);
+  return gunGameLevel(s.score) + 1;
 }
 
 /** Most kills first, then fewest deaths; in gun game the highest level first. */
@@ -95,7 +95,9 @@ export type MatchBar =
   | {
       readonly kind: 'gungame';
       readonly leader: { readonly name: string; readonly level: number } | null;
-      readonly you: { readonly level: number; readonly place: number; readonly weapon: WeaponId; readonly next: WeaponId | null } | null;
+      /** `toNext`: kills still to make on this gun (to win, on the last). */
+      readonly you: { readonly level: number; readonly place: number; readonly weapon: WeaponId; readonly next: WeaponId | null; readonly toNext: number } | null;
+      /** Guns on the ladder. */
       readonly limit: number;
     };
 
@@ -113,13 +115,14 @@ export function matchBar(
   const top = rows[0];
   const me = rows.find((r) => r.id === selfId);
   if (status.mode === 'gungame') {
-    const at = (n: number) => GUN_GAME_LADDER[Math.min(n, GUN_GAME_LADDER.length) - 1]!;
-    return {
-      kind: 'gungame',
-      leader: top ? { name: top.name, level: top.level ?? 1 } : null,
-      you: me ? { level: me.level ?? 1, place: me.place, weapon: at(me.level ?? 1), next: (me.level ?? 1) < GUN_GAME_LADDER.length ? at((me.level ?? 1) + 1) : null } : null,
-      limit: GUN_GAME_LADDER.length,
-    };
+    const mine = scores.find((s) => s.id === selfId);
+    const you = (() => {
+      if (!me || !mine) return null;
+      const at = gunGameLevel(mine.score);
+      const toNext = Math.max(0, (at + 1) * GUN_GAME_KILLS_PER_GUN - mine.score);
+      return { level: at + 1, place: me.place, weapon: GUN_GAME_GUNS[at]!, next: GUN_GAME_GUNS[at + 1] ?? null, toNext };
+    })();
+    return { kind: 'gungame', leader: top ? { name: top.name, level: top.level ?? 1 } : null, you, limit: GUN_GAME_GUNS.length };
   }
   return { kind: 'ffa', leader: top ? { name: top.name, kills: top.kills } : null, you: me ? { kills: me.kills, place: me.place } : null, limit: status.killLimit };
 }
@@ -196,7 +199,7 @@ export const MODE_BLURBS: Readonly<Record<string, string>> = {
   tdm: 'Two teams, blue against orange. First team to 75 kills wins, or the team ahead after 10 minutes.',
   ffa: 'Everyone for themselves. First to 30 kills wins, or whoever leads after 10 minutes.',
   outposts: 'Two teams fight over the zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
-  gungame: 'Everyone for themselves on a ladder of weapons: every kill moves you up to the next gun, from the M4A1 down to the pistol, and a melee kill knocks your victim down one. The first kill with the last pistol wins.',
+  gungame: `Everyone for themselves on a ladder of weapons: every ${GUN_GAME_KILLS_PER_GUN} kills move you on to the next gun, from the M4A1 down to the pistol, and a melee kill knocks your victim back ${GUN_GAME_KILLS_PER_GUN} kills. The first to finish the pistol wins.`,
   charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
 };
 

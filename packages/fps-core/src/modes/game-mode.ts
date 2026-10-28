@@ -175,7 +175,7 @@ export type ModeEvent =
       readonly site: string | null;
       readonly position: Vec3;
     }
-  /** Gun game: `player` moved to `level` (from 0) and now plays with `weapon`; `demoted` when a melee kill knocked them down. */
+  /** Gun game: `player` moved to `level` (from 0, an index into the guns) and now plays with `weapon`; `demoted` when a melee kill knocked them back (perhaps on the same gun). */
   | { readonly type: 'level'; readonly player: PlayerId; readonly level: number; readonly weapon: WeaponId; readonly demoted: boolean }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };

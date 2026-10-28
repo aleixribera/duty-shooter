@@ -1,6 +1,6 @@
 export { FreeForAll } from './ffa';
 export type { FreeForAllOptions } from './ffa';
-export { GUN_GAME_LADDER, GunGame } from './gungame';
+export { GUN_GAME_GUNS, GUN_GAME_KILLS_PER_GUN, GunGame, gunGameLevel } from './gungame';
 export type { GunGameOptions } from './gungame';
 export { TEAMS, TeamDeathmatch } from './tdm';
 export type { TeamDeathmatchOptions } from './tdm';

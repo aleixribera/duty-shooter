@@ -764,9 +764,10 @@ export class Hud {
         };
         this.#set(this.#match, `${side(bar.teams[0]?.team, 'l')}${a}${mid}${b}${side(bar.teams[1]?.team, 'r')}`);
       } else if (bar.kind === 'gungame') {
-        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · Lv ${bar.leader.level}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
-        const next = bar.you?.next ? ` · next ${escape(STATS.weapons[bar.you.next].traits.name)}` : ' · last gun';
-        const you = bar.you ? `<span class="score">Lv ${bar.you.level}</span><span class="sub">You · ${ordinal(bar.you.place)}${next}</span>` : '<span class="score">–</span><span class="sub">You</span>';
+        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · gun ${bar.leader.level}/${bar.limit}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
+        const y = bar.you;
+        const next = y ? ` · ${y.toNext} to ${y.next ? escape(STATS.weapons[y.next].traits.name) : 'win'}` : '';
+        const you = y ? `<span class="score">${y.level}/${bar.limit}</span><span class="sub">You · ${ordinal(y.place)}${next}</span>` : '<span class="score">–</span><span class="sub">You</span>';
         this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
       } else {
         const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
@@ -894,7 +895,7 @@ function boardHtml(state: HudState): string {
   const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
   const levels = board.kind === 'ffa' && board.levels;
   const table = (rows: readonly BoardRow[]) =>
-    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Lv</th>' : ''}<th>K</th><th>D</th><th>Ping</th></tr>${rows
+    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>K</th><th>D</th><th>Ping</th></tr>${rows
       .map(
         (r) =>
           `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
