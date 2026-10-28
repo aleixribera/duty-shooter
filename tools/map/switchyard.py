@@ -19,11 +19,19 @@ solids the map ties it to, so it has to stay within 5 cm of them: each
 asset's solids are written out below (`SOLIDS`), in the same numbers as the
 map's, and `result` reports any vertex that strays.
 """
+import importlib
 import math
+import os
+import sys
 
 import bmesh
 import bpy
 from mathutils import Matrix, Vector
+
+sys.path.insert(0, os.path.dirname(__file__))
+import mapkit  # noqa: E402
+
+importlib.reload(mapkit)
 
 EXPORT = ARGS.get("export", False)  # noqa: F821 (ARGS comes from bkit.run)
 OUT = r"apps/range/public/models/switchyard.glb"
@@ -61,6 +69,7 @@ ROOF = _mat("roof.flat", (0x4f, 0x4b, 0x47), 0.8)
 
 coll = bpy.data.collections.new("switchyard")
 bpy.context.scene.collection.children.link(coll)
+kit = mapkit.Kit(bkit, "switchyard-props")  # noqa: F821
 
 
 # ---------------------------------------------------------------- primitives
@@ -395,22 +404,392 @@ def strays(obj):
     return round(worst, 4), where
 
 
+
+# ---------------------------------------------------------------- the yard's props
+# Made with mapkit: smooth-by-angle shading and ambient occlusion baked into vertex colours.
+
+def K(name, rgb, roughness=0.6, metallic=0.0):
+    return mapkit.material(bkit, name, ((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255), roughness, metallic)  # noqa: F821
+
+
+PAINTS = {"blue": K("container", 0x2F5D86, 0.55, 0.3), "red": K("container.red", 0x8E3326, 0.55, 0.3), "green": K("container.green", 0x3D6B4A, 0.55, 0.3), "white": K("container.white", 0xCFCBC0, 0.55, 0.3)}
+CRATE = K("crate", 0x9C7A50, 0.8)
+CRATE_FRAME = K("crate.frame", 0x6E5537, 0.8)
+SLEEPER = K("sleeper", 0x4C3C2E, 0.9)
+CABINET = K("cabinet", 0x8A918E, 0.5, 0.2)
+SLAB = K("slab", 0xAAA59B, 0.9)
+TRUCK = K("truck", 0x8D2F2A, 0.45, 0.1)
+TRUCK_BOX = K("truck.box", 0xD8D4C8, 0.5, 0.2)
+FORKLIFT = K("forklift", 0xD9A52B, 0.45, 0.1)
+TYRE = K("tyre", 0x1E1F21, 0.9)
+POLE = K("pole", 0x5E4734, 0.9)
+INSULATOR = K("insulator", 0x5F8A7F, 0.2)
+RAIL = K("rail", 0x6E6157, 0.7, 0.6)
+RAIL_HEAD = K("rail.head", 0xA9A6A2, 0.3, 0.9)
+HEADLAMP = K("headlamp", 0xF3EDD0, 0.2)
+TAIL_LAMP = K("tail.lamp", 0xB3362C, 0.3)
+BEACON = K("beacon", 0xE08A2A, 0.3)
+
+# Shipping containers: name (length in cm) -> (length, width, height, paint). Length runs along the model's +x, its doors at +x.
+CONTAINERS = {
+    "container-600-blue": (6, 2.6, 2.4, "blue"),
+    "container-600-red": (6, 2.6, 2.4, "red"),
+    "container-600-green": (6, 2.6, 2.4, "green"),
+    "container-720-white": (7.2, 2.3, 2.6, "white"),
+    "container-490-red": (4.9, 2.3, 2.6, "red"),
+    "container-560-green": (5.6, 2.3, 2.6, "green"),
+    "container-520-blue": (5.2, 2.3, 2.6, "blue"),
+}
+# Crates and crate stacks: footprint (x, z) and height.
+CRATES = [(1.2, 1.2, 1.1), (1.2, 1.2, 2.2), (1.4, 1.8, 1.2), (1.2, 1.2, 1.2), (1.2, 1.2, 1.0), (1.2, 1.2, 2.0), (2.3, 2.7, 2.2), (2.3, 2.6, 2.2), (2.3, 2.1, 2.2)]
+SLEEPER_STACKS = (1.0, 1.2)
+# The tracks' lengths: one model draws both rails of a track.
+TRACK_LENGTHS = (82, 61, 14, 90, 44, 320)
+BALLAST_H = 0.15
+# A telegraph pole's height, and its insulators along the crossarm (z, across the line).
+POLE_TOP = 7.5
+INSULATORS = (-0.85, -0.3, 0.3, 0.85)
+
+
+def fmt(v):
+    """A size in an asset's name, in whole centimetres (three.js turns dots in node names into underscores)."""
+    return str(round(v * 100))
+
+
+def crate_name(w, d, h):
+    return f"crate-{fmt(w)}x{fmt(d)}x{fmt(h)}"
+
+
+def corrugated(a, b, pitch=0.28, depth=0.035):
+    """(position, depth) points from a to b folding in and out: a container wall's trapezoidal corrugations."""
+    n = max(2, round((b - a) / pitch))
+    step = (b - a) / n
+    pts = []
+    for k in range(n):
+        x = a + k * step
+        pts += [(x, 0.0), (x + step * 0.18, depth), (x + step * 0.5, depth), (x + step * 0.68, 0.0)]
+    return pts + [(b, 0.0)]
+
+
+def container(name, length, width, height, paint):
+    """A shipping container: corrugated sides and blind end, corner posts and castings, top and bottom rails, and
+    a pair of doors at +x with their locking bars."""
+    h, w = length / 2, width / 2
+    mat = PAINTS[paint]
+    post, rail, inset = 0.15, 0.14, 0.02
+    parts = []
+    # The shell between the rails: a plan outline whose long sides and blind end fold in and out.
+    side = corrugated(-h + post, h - post)
+    end = corrugated(-w + post, w - post)
+    outline = [(x, -w + inset + d) for x, d in side]
+    outline += [(h - 0.06, -w + post), (h - 0.06, w - post)]
+    outline += [(x, w - inset - d) for x, d in reversed(side)]
+    outline += [(-h + inset + d, z) for z, d in reversed(end)]
+    parts.append(kit.plan(outline, rail, height - rail, mat))
+    # Roof panel and the floor's underside.
+    parts.append(kit.box((-h + post, height - rail, -w + 0.05), (h - post, height - 0.03, w - 0.05), mat))
+    parts.append(kit.box((-h + post, 0.06, -w + 0.05), (h - post, rail, w - 0.05), K_STEEL))
+    # Corner posts with their castings top and bottom.
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            x0, x1 = sorted((sx * h, sx * (h - post)))
+            z0, z1 = sorted((sz * w, sz * (w - post)))
+            parts.append(kit.box((x0, 0.12, z0), (x1, height - 0.12, z1), mat, 0.012, 1))
+            for y0, y1 in ((0, 0.12), (height - 0.12, height)):
+                parts.append(kit.box((x0, y0, z0), (x1, y1, z1), K_STEEL, 0.01, 1))
+    # Top and bottom side rails, and the end rails.
+    for sz in (-1, 1):
+        z0, z1 = sorted((sz * w, sz * (w - 0.07)))
+        for y0, y1 in ((0, rail), (height - rail, height)):
+            parts.append(kit.box((-h + post, y0, z0), (h - post, y1, z1), mat, 0.01, 1))
+    for y0, y1 in ((0, rail), (height - rail, height)):
+        parts.append(kit.box((-h, y0, -w + post), (-h + 0.08, y1, w - post), mat, 0.01, 1))
+        parts.append(kit.box((h - 0.1, y0, -w + post), (h, y1, w - post), mat, 0.01, 1))
+    # The doors: two ribbed leaves, each with two locking bars and their cams, a handle on each bar, and hinges.
+    for s in (-1, 1):
+        z0, z1 = sorted((0.006 * s, s * (w - post)))
+        parts.append(kit.box((h - 0.07, rail, z0), (h - 0.035, height - rail, z1), mat, 0.008, 1))
+        for k in range(3):
+            y = rail + 0.25 + k * (height - 2 * rail - 0.5) / 2
+            parts.append(kit.box((h - 0.04, y - 0.04, z0 + 0.04), (h - 0.025, y + 0.04, z1 - 0.04), mat))
+        for t in (0.3, 0.72):
+            z = s * (w - post) * t
+            parts.append(kit.cylinder(0.018, rail - 0.04, height - rail + 0.04, (h - 0.012, 0, z), "y", K_STEEL, 8))
+            hz0, hz1 = sorted((z - s * 0.012, z + s * 0.15))
+            parts.append(kit.box((h - 0.03, 1.0, hz0), (h, 1.04, hz1), K_STEEL))
+            for y in (rail - 0.03, height - rail - 0.03):
+                parts.append(kit.box((h - 0.035, y, z - 0.035), (h, y + 0.06, z + 0.035), K_STEEL))
+        for k in range(4):
+            y = rail + 0.15 + k * (height - 2 * rail - 0.37) / 3
+            parts.append(kit.box((h - 0.04, y, s * (w - post) - 0.03), (h, y + 0.07, s * (w - post) + 0.03), K_STEEL))
+    # Vents high on each side, near the ends.
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            z0, z1 = sorted((sz * (w - inset), sz * (w - inset + 0.02)))
+            parts.append(kit.box((sx * (h - 0.45) - 0.12, height - rail - 0.16, z0), (sx * (h - 0.45) + 0.12, height - rail - 0.06, z1), K_STEEL))
+    return kit.asset(name, parts, smooth_angle=35)
+
+
+def one_crate(x0, x1, z0, z1, y0, y1, parts, hidden=()):
+    """A plank crate filling (x0..x1, y0..y1, z0..z1): a dark core, planks on its sides and lid, battens round its edges
+    and a brace across each side. Sides in `hidden` ("x0", "x1", "z0", "z1", "top") are against another crate: no planks there."""
+    t, b = 0.025, 0.07
+    parts.append(kit.box((x0 + t, y0 + 0.02, z0 + t), (x1 - t, y1 - t, z1 - t), CRATE_FRAME))
+    # Planks run level on the sides and along x on the lid, with hairline gaps between them.
+    rows = max(3, round((y1 - y0) / 0.2))
+    ph = (y1 - y0 - 0.02) / rows
+    for k in range(rows):
+        ya, yb = y0 + 0.02 + k * ph + 0.004, y0 + 0.02 + (k + 1) * ph - 0.004
+        if "z0" not in hidden:
+            parts.append(kit.box((x0 + b, ya, z0), (x1 - b, yb, z0 + t), CRATE))
+        if "z1" not in hidden:
+            parts.append(kit.box((x0 + b, ya, z1 - t), (x1 - b, yb, z1), CRATE))
+        if "x0" not in hidden:
+            parts.append(kit.box((x0, ya, z0 + b), (x0 + t, yb, z1 - b), CRATE))
+        if "x1" not in hidden:
+            parts.append(kit.box((x1 - t, ya, z0 + b), (x1, yb, z1 - b), CRATE))
+    if "top" not in hidden:
+        cols = max(3, round((z1 - z0) / 0.2))
+        pw = (z1 - z0 - 2 * b) / cols
+        for k in range(cols):
+            za, zb = z0 + b + k * pw + 0.004, z0 + b + (k + 1) * pw - 0.004
+            parts.append(kit.box((x0 + b, y1 - t, za), (x1 - b, y1, zb), CRATE))
+    # Battens along the twelve edges.
+    for ya, yb in ((y0, y0 + b), (y1 - b, y1)):
+        for za, zb in ((z0, z0 + b), (z1 - b, z1)):
+            parts.append(kit.box((x0, ya, za), (x1, yb, zb), CRATE_FRAME))
+        for xa, xb in ((x0, x0 + b), (x1 - b, x1)):
+            parts.append(kit.box((xa, ya, z0 + b), (xb, yb, z1 - b), CRATE_FRAME))
+    for xa, xb in ((x0, x0 + b), (x1 - b, x1)):
+        for za, zb in ((z0, z0 + b), (z1 - b, z1)):
+            parts.append(kit.box((xa, y0 + b, za), (xb, y1 - b, zb), CRATE_FRAME))
+    # A diagonal brace across each open side.
+    dy = b * 0.7
+    for side, z, zo in (("z0", z0 - 0.006, z0 + 0.01), ("z1", z1 - 0.01, z1 + 0.006)):
+        if side not in hidden:
+            parts.append(kit.prism([(x0 + b, y0 + b), (x0 + b + 0.1, y0 + b), (x1 - b, y1 - b - dy), (x1 - b, y1 - b), (x1 - b - 0.1, y1 - b), (x0 + b, y0 + b + dy)], z, zo, CRATE_FRAME))
+    for side, x, xo in (("x0", x0 - 0.006, x0 + 0.01), ("x1", x1 - 0.01, x1 + 0.006)):
+        if side not in hidden:
+            parts.append(kit.section([(y0 + b, z0 + b), (y0 + b, z0 + b + 0.1), (y1 - b - dy, z1 - b), (y1 - b, z1 - b), (y1 - b, z1 - b - 0.1), (y0 + b + dy, z0 + b)], x, xo, CRATE_FRAME))
+
+
+def crate(w, d, h):
+    """A crate (x w, z d, h high), or a stack of them: two high when tall, two by two on a footprint over 1.6 m."""
+    parts = []
+    nx = 2 if w > 1.6 else 1
+    nz = 2 if d > 1.6 and w > 1.6 else 1
+    ny = 2 if h > 1.5 else 1
+    gap = 0.02
+    for i in range(nx):
+        for j in range(nz):
+            for k in range(ny):
+                # The upper crates a touch smaller and set off-centre, so the stack reads as stacked.
+                shrink = 0.05 * k
+                x0 = -w / 2 + i * w / nx + (gap if i else 0) + shrink
+                x1 = -w / 2 + (i + 1) * w / nx - (gap if i < nx - 1 else 0) - shrink * 0.4
+                z0 = -d / 2 + j * d / nz + (gap if j else 0) + shrink * 0.4
+                z1 = -d / 2 + (j + 1) * d / nz - (gap if j < nz - 1 else 0) - shrink
+                hidden = [n for n, inner in (("x0", i > 0), ("x1", i < nx - 1), ("z0", j > 0), ("z1", j < nz - 1), ("top", k < ny - 1)) if inner]
+                one_crate(x0, x1, z0, z1, k * h / ny, (k + 1) * h / ny, parts, hidden)
+    return kit.asset(crate_name(w, d, h), parts, smooth_angle=35)
+
+
+def sleeper_stack(height):
+    """Old sleepers stacked for reuse, 2.6 m long along x and 1.2 m across: four to a layer on crosswise spacers."""
+    parts = []
+    layer = 0.2
+    for k in range(round(height / layer)):
+        y = k * layer
+        for x in (-0.95, 0.95):
+            parts.append(kit.box((x - 0.05, y, -0.58), (x + 0.05, y + 0.05, 0.58), SLEEPER, 0.008, 1))
+        for i in range(4):
+            jitter = math.sin(k * 7.1 + i * 3.3) * 0.03
+            z = -0.45 + i * 0.3
+            parts.append(kit.box((-1.27 + jitter, y + 0.05, z - 0.125), (1.27 + jitter, y + 0.2, z + 0.125), SLEEPER, 0.018, 2))
+    return kit.asset(f"sleeper-stack-{fmt(height)}", parts, smooth_angle=40)
+
+
+def cabinet(name, w, d, h):
+    """A lineside relay cabinet, doors toward +z: a concrete plinth, a steel case under a sloped, overhanging lid, louvres on its ends."""
+    top = h - 0.1
+    parts = [kit.box((-w / 2 + 0.06, 0, -d / 2 + 0.06), (w / 2 - 0.06, 0.15, d / 2 - 0.06), SLAB, 0.01, 1)]
+    parts.append(kit.box((-w / 2 + 0.03, 0.15, -d / 2 + 0.03), (w / 2 - 0.03, top, d / 2 - 0.03), CABINET, 0.012, 1))
+    parts.append(kit.section([(top, -d / 2), (top, d / 2), (top + 0.05, d / 2), (h, -d / 2)], -w / 2, w / 2, CABINET, 0.01, 1))
+    leaves = 2 if w > 1.2 else 1
+    lw = (w - 0.1) / leaves
+    mid = (top + 0.22) / 2
+    for i in range(leaves):
+        x0 = -w / 2 + 0.05 + i * lw + 0.01
+        x1 = x0 + lw - 0.02
+        parts.append(kit.box((x0, 0.22, d / 2 - 0.03), (x1, top - 0.06, d / 2 - 0.012), CABINET, 0.006, 1))
+        hx = x0 + 0.06 if leaves == 2 and i == 1 else x1 - 0.06
+        parts.append(kit.box((hx - 0.015, mid - 0.08, d / 2 - 0.012), (hx + 0.015, mid + 0.08, d / 2 + 0.01), K_STEEL))
+    for s in (-1, 1):
+        x0, x1 = sorted((s * (w / 2 - 0.03), s * (w / 2 - 0.012)))
+        for k in range(4):
+            y = top - 0.25 - k * 0.07
+            parts.append(kit.box((x0, y, -d / 4), (x1, y + 0.035, d / 4), K_GRILLE))
+    return kit.asset(name, parts, smooth_angle=40)
+
+
+def box_truck():
+    """A box truck parked on the service road, nose toward +x: a cab-over cab, a box body with a roll-up door at the back, dual rear wheels."""
+    parts = []
+    # Chassis rails, a fuel tank and a battery box between the wheels.
+    for s in (-1, 1):
+        parts.append(kit.box((-3.95, 0.62, s * 0.42 - 0.05), (3.85, 0.86, s * 0.42 + 0.05), K_STEEL))
+    parts.append(kit.cylinder(0.24, -0.9, 0.5, (0, 0.62, -0.85), "x", K_STEEL, 16))
+    parts.append(kit.box((0.7, 0.45, 0.62), (1.3, 0.85, 1.05), K_STEEL, 0.02, 1))
+    # Wheels: singles at the front, duals at the back.
+    r = 0.47
+    for s in (-1, 1):
+        parts += kit.wheel(2.85, r, s * 1.08, r, 0.3, TYRE, K_STEEL, K_STEEL, 20, 0.62, s)
+        parts += kit.wheel(-2.3, r, s * 1.08, r, 0.3, TYRE, K_STEEL, K_STEEL, 20, 0.62, s)
+        parts += kit.wheel(-2.3, r, s * 0.76, r, 0.3, TYRE, K_STEEL, None, 20, 0.62, -s)
+    # The box: a floor sill, walls with posts, the roof, the frame round the roll-up door, a rear bumper and lights.
+    parts.append(kit.box((-4.0, 1.0, -1.25), (1.8, 1.2, 1.25), K_STEEL, 0.01, 1))
+    parts.append(kit.box((-3.95, 1.2, -1.22), (1.75, 3.35, 1.22), TRUCK_BOX, 0.03, 2))
+    parts.append(kit.box((-4.0, 3.3, -1.25), (1.8, 3.4, 1.25), TRUCK_BOX, 0.02, 1))
+    for x in [-3.6 + 0.6 * k for k in range(9)]:
+        for s in (-1, 1):
+            z0, z1 = sorted((s * 1.22, s * 1.25))
+            parts.append(kit.box((x - 0.03, 1.2, z0), (x + 0.03, 3.3, z1), TRUCK_BOX))
+    for s in (-1, 1):
+        z0, z1 = sorted((s * 1.25, s * 1.13))
+        parts.append(kit.box((-4.0, 1.2, z0), (-3.92, 3.3, z1), TRUCK_BOX))
+    for k in range(14):
+        y = 1.3 + k * 0.14
+        parts.append(kit.box((-3.99, y, -1.12), (-3.96, y + 0.11, 1.12), TRUCK_BOX))
+    parts.append(kit.box((-4.0, 0.55, -1.2), (-3.85, 0.72, 1.2), K_STEEL, 0.01, 1))
+    for s in (-1, 1):
+        parts.append(kit.box((-4.0, 1.05, s * 1.05 - 0.07), (-3.97, 1.17, s * 1.05 + 0.07), TAIL_LAMP))
+        parts.append(kit.box((-2.95, 0.2, s * 0.92 - 0.2), (-2.92, 0.75, s * 0.92 + 0.2), TYRE))
+    # The cab: a flat nose with grille and lamps, a raked windscreen, side windows, steps and mirrors, a bumper below.
+    parts.append(kit.prism([(2.0, 1.05), (3.98, 1.05), (3.98, 2.05), (3.82, 2.15), (3.5, 2.78), (2.0, 2.8)], -1.14, 1.14, TRUCK, 0.05, 2))
+    parts.append(kit.prism([(3.86, 2.16), (3.88, 2.18), (3.56, 2.76), (3.54, 2.74)], -1.0, 1.0, K_WINDOW))
+    parts.append(kit.box((3.98, 1.25, -0.6), (4.0, 1.8, 0.6), K_GRILLE))
+    for s in (-1, 1):
+        parts.append(kit.cylinder(0.1, 3.98, 4.01, (0, 1.55, s * 0.85), "x", HEADLAMP, 14))
+        z0, z1 = sorted((s * 1.14, s * 1.155))
+        parts.append(kit.box((2.4, 1.95, z0), (3.45, 2.6, z1), K_WINDOW))
+        parts.append(kit.box((2.3, 1.15, z0), (2.35, 2.55, z1), K_GRILLE))
+        parts.append(kit.box((2.5, 0.75, s * 1.0 - 0.12), (3.3, 0.8, s * 1.0 + 0.12), K_STEEL))
+        mz0, mz1 = sorted((s * 1.14, s * 1.18))
+        parts.append(kit.box((3.6, 2.2, mz0), (3.64, 2.24, mz1), K_STEEL))
+        parts.append(kit.box((3.58, 1.95, s * 1.18 - 0.02), (3.66, 2.35, s * 1.18 + 0.02), K_STEEL))
+    parts.append(kit.box((3.85, 0.62, -1.18), (4.03, 0.98, 1.18), K_STEEL, 0.02, 1))
+    return kit.asset("box-truck", parts, smooth_angle=40)
+
+
+def forklift():
+    """A counterbalance forklift, forks toward +x and lowered: yellow body, grey counterweight, overhead guard, mast and carriage."""
+    parts = [kit.box((-0.6, 0.18, -0.52), (0.52, 0.95, 0.52), FORKLIFT, 0.05, 2)]
+    parts.append(kit.prism([(-0.8, 0.18), (-0.55, 0.18), (-0.55, 1.2), (-0.72, 1.15), (-0.8, 0.95)], -0.55, 0.55, K_STEEL, 0.06, 2))
+    # Seat, dash and steering wheel.
+    parts.append(kit.box((-0.5, 0.95, -0.25), (-0.15, 1.05, 0.25), K_GRILLE, 0.03, 2))
+    parts.append(kit.box((-0.52, 1.05, -0.25), (-0.44, 1.45, 0.25), K_GRILLE, 0.03, 2))
+    parts.append(kit.box((0.05, 0.95, -0.45), (0.5, 1.1, 0.45), FORKLIFT, 0.04, 2))
+    parts.append(kit.cylinder(0.025, 1.1, 1.35, (0.25, 0, 0), "y", K_STEEL, 8))
+    parts.append(kit.lathe([(-0.02, 0.17), (0.0, 0.18), (0.02, 0.17), (0.0, 0.15), (-0.02, 0.17)], (0.25, 1.37, 0), K_GRILLE, 16, "y"))
+    for s in (-1, 1):
+        parts += kit.wheel(0.3, 0.3, s * 0.45, 0.3, 0.2, TYRE, FORKLIFT, None, 18, 0.55, s)
+        parts += kit.wheel(-0.5, 0.25, s * 0.45, 0.25, 0.18, TYRE, FORKLIFT, None, 18, 0.55, s)
+    # The overhead guard: four posts and a slatted roof.
+    for x in (-0.62, 0.38):
+        for s in (-1, 1):
+            parts.append(kit.box((x - 0.03, 0.95, s * 0.5 - 0.03), (x + 0.03, 2.04, s * 0.5 + 0.03), K_GRILLE, 0.008, 1))
+    for s in (-1, 1):
+        parts.append(kit.box((-0.65, 2.0, s * 0.5 - 0.04), (0.42, 2.08, s * 0.5 + 0.04), K_GRILLE, 0.008, 1))
+    for k in range(6):
+        x = -0.55 + k * 0.18
+        parts.append(kit.box((x - 0.025, 2.02, -0.46), (x + 0.025, 2.06, 0.46), K_GRILLE))
+    # The mast: two channels, cross ties and the lift cylinder; the carriage and the forks.
+    for s in (-1, 1):
+        parts.append(kit.box((0.56, 0.12, s * 0.38 - 0.05), (0.66, 2.1, s * 0.38 + 0.05), K_STEEL, 0.008, 1))
+    for y in (0.5, 1.4, 2.04):
+        parts.append(kit.box((0.58, y, -0.34), (0.64, y + 0.06, 0.34), K_STEEL))
+    parts.append(kit.cylinder(0.045, 0.2, 1.9, (0.6, 0, 0), "y", K_STEEL, 10))
+    parts.append(kit.box((0.68, 0.1, -0.46), (0.74, 0.62, 0.46), K_STEEL, 0.01, 1))
+    for y in (0.14, 0.52):
+        parts.append(kit.box((0.66, y, -0.48), (0.76, y + 0.06, 0.48), K_STEEL))
+    for z in (-0.25, 0.25):
+        parts.append(kit.box((0.74, 0.03, z - 0.05), (0.79, 0.6, z + 0.05), K_STEEL, 0.006, 1))
+        parts.append(kit.prism([(0.74, 0.03), (1.8, 0.03), (1.8, 0.05), (1.7, 0.08), (0.74, 0.08)], z - 0.05, z + 0.05, K_STEEL))
+    parts.append(kit.cylinder(0.05, 2.08, 2.14, (-0.55, 0, 0), "y", BEACON, 12))
+    return kit.asset("forklift", parts, smooth_angle=40)
+
+
+def lamp_post():
+    """A sodium lamp's post, 7.4 m: a cast base, a tapered round shaft and a tube arm reaching 1.2 m toward +x (the head is `lamp-head`)."""
+    parts = [kit.lathe([(0.0, 0.145), (0.3, 0.145), (0.34, 0.11), (0.5, 0.1), (0.54, 0.088), (7.3, 0.062), (7.34, 0.075), (7.4, 0.06), (7.4, 0.0)], (0, 0, 0), K_POST, 20, "y")]
+    parts.append(kit.cylinder(0.04, 0.0, 1.22, (0, 7.29, 0), "x", K_POST, 12))
+    parts.append(kit.cylinder(0.05, 1.12, 1.24, (0, 7.29, 0), "x", K_POST, 12))
+    parts.append(kit.box((0.06, 0.7, -0.06), (0.105, 1.1, 0.06), K_POST, 0.008, 1))
+    return kit.asset("lamp-post", parts, smooth_angle=50)
+
+
+def telegraph_pole():
+    """A creosoted telegraph pole beyond the barrier: a tapered round pole, a crossarm across the line, green glass insulators on it."""
+    parts = [kit.lathe([(0.0, 0.13), (6.0, 0.115), (POLE_TOP - 0.05, 0.1), (POLE_TOP, 0.07), (POLE_TOP, 0.0)], (0, 0, 0), POLE, 14, "y")]
+    parts.append(kit.box((-0.055, 6.9, -1.0), (0.055, 7.05, 1.0), POLE, 0.01, 1))
+    for z in INSULATORS:
+        parts.append(kit.cylinder(0.012, 7.05, 7.1, (0, 0, z), "y", K_STEEL, 6))
+        parts.append(kit.lathe([(7.08, 0.0), (7.08, 0.045), (7.12, 0.048), (7.15, 0.03), (7.2, 0.032), (7.24, 0.022), (7.25, 0.0)], (0, 0, z), INSULATOR, 12, "y"))
+    return kit.asset("telegraph-pole", parts, smooth_angle=50)
+
+
+def track_rails(length):
+    """Both rails of a track `length` m long along x, on the ballast at gauge: flat-bottomed rail with a bright, worn head."""
+    h = length / 2
+    prof = [(0.15, -0.075), (0.15, 0.075), (0.16, 0.075), (0.175, 0.01), (0.245, 0.01), (0.258, 0.035), (0.284, 0.035), (0.284, -0.035), (0.258, -0.035), (0.245, -0.01), (0.175, -0.01), (0.16, -0.075)]
+    parts = []
+    for s in (-1, 1):
+        z = s * RAIL_HALF_GAUGE
+        parts.append(kit.section([(y, z + dz) for y, dz in prof], -h, h, RAIL))
+        parts.append(kit.section([(0.284, z - 0.032), (0.284, z + 0.032), (0.29, z + 0.026), (0.29, z - 0.026)], -h, h, RAIL_HEAD))
+    return kit.asset(f"track-{fmt(length)}", parts, smooth_angle=30)
+
+
+K_STEEL = K("steel", 0x3A3D40, 0.6, 0.3)
+K_GRILLE = K("grille", 0x26292B, 0.7, 0.3)
+K_WINDOW = K("window", 0x1C2A33, 0.1)
+K_POST = K("lamp.post", 0x4A5048, 0.55, 0.3)
+
+props = [container(n, *spec) for n, spec in CONTAINERS.items()]
+props += [crate(*c) for c in CRATES]
+props += [sleeper_stack(hh) for hh in SLEEPER_STACKS]
+props += [cabinet("relay-cabinet", 0.8, 0.6, 1.4), cabinet("location-case", 2.0, 1.0, 1.0), box_truck(), forklift(), lamp_post(), telegraph_pole()]
+tracks = [track_rails(n) for n in TRACK_LENGTHS]
+
+SOLIDS.update({name: [((-l / 2, 0, -w / 2), (l / 2, hh, w / 2))] for name, (l, w, hh, _) in CONTAINERS.items()})
+SOLIDS.update({crate_name(w, d, hh): [((-w / 2, 0, -d / 2), (w / 2, hh, d / 2))] for w, d, hh in CRATES})
+SOLIDS.update({f"sleeper-stack-{fmt(hh)}": [((-1.3, 0, -0.6), (1.3, hh, 0.6))] for hh in SLEEPER_STACKS})
+SOLIDS.update({
+    "relay-cabinet": [((-0.4, 0, -0.3), (0.4, 1.4, 0.3))],
+    "location-case": [((-1.0, 0, -0.5), (1.0, 1.0, 0.5))],
+    "box-truck": [((-4, 0, -1.25), (4, 1.1, 1.25)), ((-4, 1.1, -1.25), (1.8, 3.4, 1.25)), ((2, 1.1, -1.15), (4, 2.8, 1.15))],
+    "forklift": [((-0.8, 0, -0.6), (0.8, 2.1, 0.6)), ((0.8, 0, -0.4), (1.8, 0.1, 0.4))],
+    "lamp-post": [((-0.1, 0, -0.1), (0.1, 7.4, 0.1)), ((-0.05, 7.22, -0.05), (1.25, 7.36, 0.05))],
+    "telegraph-pole": [((-0.13, 0, -0.13), (0.13, POLE_TOP, 0.13)), ((-0.06, 6.9, -1.0), (0.06, 7.05, 1.0))] + [((-0.05, 7.05, z - 0.05), (0.05, 7.25, z + 0.05)) for z in INSULATORS],
+})
+SOLIDS.update({f"track-{fmt(n)}": [((-n / 2, BALLAST_H, s * RAIL_HALF_GAUGE - 0.035), (n / 2, BALLAST_H + 0.14, s * RAIL_HALF_GAUGE + 0.035)) for s in (-1, 1)] for n in TRACK_LENGTHS})
+
 built = [underframe(12), underframe(9), tank_car(), depot_tank(), loco(), lamp_head()]
 # The train's: placed only on the train, which collides with nothing.
 train = [boxcar("car.oxide"), boxcar("car.brown"), boxcar("car.teal"), hopper(), asset("deck-12", deck(12))]
+# The rolling stock gets crease occlusion too, its panels split up so the occlusion can vary across them.
+for o in built + train:
+    kit.densify(o)
+kit.bake_ao(built + train + props, distance=0.6)
 report = {}
 for o in train:
-    report[o.name] = {"tris": sum(len(p.vertices) - 2 for p in o.data.polygons)}
-for o in built:
-    worst, where = strays(o)
-    report[o.name] = {"tris": sum(len(p.vertices) - 2 for p in o.data.polygons), "outside": worst, **({"at": where} if worst > TOLERANCE else {})}
+    report[o.name] = {"tris": kit.tris(o)}
+for o in built + props + tracks:
+    worst, where = kit.strays(o, SOLIDS[o.name])
+    report[o.name] = {"tris": kit.tris(o), "outside": worst, **({"at": where} if worst > TOLERANCE else {})}
 result = {"assets": report, "issues": [n for n, r in report.items() if r.get("outside", 0) > TOLERANCE]}
 if EXPORT:
-    import os
-    bpy.ops.object.select_all(action="DESELECT")
-    for o in built + train:
-        o.select_set(True)
     path = os.path.join(os.path.dirname(__file__), "..", "..", OUT)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True, export_yup=True, export_materials="EXPORT", export_texcoords=False)
-    result["glb"] = {"path": path, "bytes": os.path.getsize(path)}
+    kit.export(built + train + props + tracks, path)
+    result["glb"] = {"path": os.path.abspath(path), "bytes": os.path.getsize(path)}

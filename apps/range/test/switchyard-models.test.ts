@@ -22,6 +22,28 @@ describe('Switchyard: models', () => {
     for (const p of models.placements) expect(glb.assets.has(p.asset), p.asset).toBe(true);
   });
 
+  it('models the yard\'s props: containers, crates, sleeper stacks, cabinets, the truck, the forklift, lamp posts, telegraph poles and the rails', () => {
+    const count = (prefix: string) => models.placements.filter((p) => p.asset.startsWith(prefix)).length;
+    expect(count('container-')).toBe(7);
+    expect(count('crate-')).toBe(16);
+    expect(count('sleeper-stack-')).toBe(4);
+    expect(count('relay-cabinet')).toBe(3);
+    expect(count('location-case')).toBe(1);
+    expect(count('box-truck')).toBe(1);
+    expect(count('forklift')).toBe(1);
+    expect(count('lamp-post')).toBe(10);
+    expect(count('telegraph-pole')).toBe(11);
+    expect(count('track-')).toBe(8);
+  });
+
+  it('places every model in the file, in the yard or on the train, by a name the loader keeps (three.js turns dots into underscores)', () => {
+    const placed = new Set([...models.placements, ...map.train!.models.placements].map((p) => p.asset));
+    for (const name of glb.assets.keys()) {
+      expect(placed.has(name), name).toBe(true);
+      expect(name).toMatch(/^[\w-]+$/);
+    }
+  });
+
   it('colours every part with one of the map\'s finishes', () => {
     const finishes = finishTable({ finishes: map.finishes, looks: [], decorations: [], indoor: [] });
     for (const [name, a] of glb.assets) for (const m of a.materials) expect(finishes[m], `${name}: ${m}`).toBeDefined();

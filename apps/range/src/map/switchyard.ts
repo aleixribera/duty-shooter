@@ -115,10 +115,14 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'tank.black': { family: 'paint', color: 0x2b2c2e },
   'tank.silver': { family: 'sheetMetal', color: 0xb9bec1 },
   container: { family: 'sheetMetal', color: 0x2f5d86 },
+  'container.red': { family: 'sheetMetal', color: 0x8e3326 },
+  'container.green': { family: 'sheetMetal', color: 0x3d6b4a },
+  'container.white': { family: 'sheetMetal', color: 0xcfcbc0 },
   loco: { family: 'paint', color: 0x2e4a3a },
   'loco.cab': { family: 'paint', color: 0xd3a43a },
   buffer: { family: 'paint', color: 0xb23a2a },
   crate: { family: 'floor', color: 0x9c7a50, accent: 0x7e6140 },
+  'crate.frame': { family: 'floor', color: 0x6e5537, accent: 0x5a452c },
   cabinet: { family: 'paint', color: 0x8a918e },
   truck: { family: 'paint', color: 0x8d2f2a },
   'truck.box': { family: 'sheetMetal', color: 0xd8d4c8 },
@@ -131,6 +135,12 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   grille: { family: 'paint', color: 0x26292b },
   window: { family: 'glass', color: 0x1c2a33 },
   'lamp.glow': { family: 'lamp', color: 0xffb25e },
+  tyre: { family: 'paint', color: 0x1e1f21, roughness: 0.9, metalness: 0 },
+  insulator: { family: 'plastic', color: 0x5f8a7f, roughness: 0.15 },
+  'rail.head': { family: 'sheetMetal', color: 0xa9a6a2, roughness: 0.3, metalness: 0.9 },
+  headlamp: { family: 'paint', color: 0xf3edd0, roughness: 0.2, metalness: 0 },
+  'tail.lamp': { family: 'paint', color: 0xb3362c, roughness: 0.3, metalness: 0 },
+  beacon: { family: 'paint', color: 0xe08a2a, roughness: 0.3, metalness: 0 },
 };
 
 /**
@@ -207,6 +217,9 @@ function flight(b: Builder, x0: number, x1: number, from: number, to: number, y0
   });
 }
 
+/** A size in a model's name, in whole centimetres (tools/map/switchyard.py names its models the same way; three.js would mangle a dot). */
+const size = (v: number): string => String(Math.round(v * 100));
+
 /** A box resting on the ground (or on `y`), from its footprint. */
 function block(b: Builder, x0: number, x1: number, z0: number, z1: number, height: number, material: Material, look: string, y = 0): Solid {
   return b.add([x0, y, z0], [x1, y + height, z1], material, { look });
@@ -261,8 +274,18 @@ export const MAIN_LINE = [-32.5, -37] as const;
 /** Beyond the barrier: the main line's two tracks running away east and west, and a line of telegraph poles. */
 function buildScenery(b: Builder): void {
   for (const z of MAIN_LINE) track(b, -160, 160, z, { sleepers: false });
-  b.paint('pole', () => {
-    for (let x = -150; x <= 150; x += 30) b.add([x - 0.13, 0, -29.6], [x + 0.13, 7.5, -29.34], 'wood');
+  for (let x = -150; x <= 150; x += 30) telegraphPole(b, x, -29.47);
+}
+
+/** A telegraph pole's insulators along its crossarm (z, across the line). */
+const INSULATORS = [-0.85, -0.3, 0.3, 0.85] as const;
+
+/** A telegraph pole (the `telegraph-pole` model) at (x, z): the pole, a crossarm across the line, four insulators on it. */
+function telegraphPole(b: Builder, x: number, z: number): void {
+  b.model('telegraph-pole', [x, 0, z], 0, () => {
+    b.add([x - 0.13, 0, z - 0.13], [x + 0.13, 7.5, z + 0.13], 'wood', { look: 'pole' });
+    b.add([x - 0.06, 6.9, z - 1.0], [x + 0.06, 7.05, z + 1.0], 'wood', { look: 'pole' });
+    for (const dz of INSULATORS) b.add([x - 0.05, 7.05, z + dz - 0.05], [x + 0.05, 7.25, z + dz + 0.05], 'glass', { look: 'insulator' });
   });
 }
 
@@ -291,11 +314,12 @@ function lampHead(b: Builder, x: number, y: number, z: number, reach: Reach): Ve
 function lampPost(b: Builder, x: number, z: number, reach: Reach): Vec3 {
   const [dx, dz] = REACH[reach];
   const top = 7.4;
-  b.add([x - 0.1, 0, z - 0.1], [x + 0.1, top, z + 0.1], 'metal', { look: 'lamp.post' });
   const ax = x + dx * 1.2;
   const az = z + dz * 1.2;
-  // Its top a little under the post's, so the two never fight.
-  b.add([Math.min(x, ax) - 0.05, top - 0.18, Math.min(z, az) - 0.05], [Math.max(x, ax) + 0.05, top - 0.04, Math.max(z, az) + 0.05], 'metal', { look: 'lamp.post' });
+  b.model('lamp-post', [x, 0, z], REACH_YAW[reach], () => {
+    b.add([x - 0.1, 0, z - 0.1], [x + 0.1, top, z + 0.1], 'metal', { look: 'lamp.post' });
+    b.add([Math.min(x, ax) - 0.05, top - 0.18, Math.min(z, az) - 0.05], [Math.max(x, ax) + 0.05, top - 0.04, Math.max(z, az) + 0.05], 'metal', { look: 'lamp.post' });
+  });
   return lampHead(b, ax + dx * 0.2, top - 0.3, az + dz * 0.2, reach);
 }
 
@@ -350,8 +374,9 @@ function buildLamps(b: Builder): { lamps: Lamp[]; humming: Vec3[] } {
  */
 function track(b: Builder, x0: number, x1: number, c: number, options: { buffers?: readonly ('west' | 'east')[]; sleepers?: boolean } = {}): void {
   const bed = b.add([x0, 0, c - BALLAST_HALF], [x1, BALLAST_H, c + BALLAST_HALF], 'gravel', { look: 'ballast' });
-  b.paint('rail', () => {
-    for (const s of [-1, 1]) b.add([x0, BALLAST_H, c + s * RAIL_HALF_GAUGE - RAIL_W / 2], [x1, BALLAST_H + RAIL_H, c + s * RAIL_HALF_GAUGE + RAIL_W / 2], 'metal');
+  // Both rails, one model a track.
+  b.model(`track-${size(x1 - x0)}`, [(x0 + x1) / 2, 0, c], 0, () => {
+    for (const s of [-1, 1]) b.add([x0, BALLAST_H, c + s * RAIL_HALF_GAUGE - RAIL_W / 2], [x1, BALLAST_H + RAIL_H, c + s * RAIL_HALF_GAUGE + RAIL_W / 2], 'metal', { look: 'rail' });
   });
   if (options.sleepers !== false) {
     for (let x = x0 + 0.4; x < x1 - 0.2; x += 0.65) b.decorate(bed, [x, BALLAST_H + 0.015, c], [0.24, 0.05, 2.6], 'sleeper');
@@ -411,9 +436,19 @@ export const OPEN_BOXCARS: readonly (readonly [number, number, number])[] = [
   [-10, 2, TRACKS.rowB],
 ];
 
-/** A crate (wood) from its footprint, `height` tall, resting at `y`. */
+/** A crate, or a stack of them (a `crate-<x>x<z>x<height>` model, in cm), from its footprint, `height` tall, resting at `y`. */
 function crate(b: Builder, x0: number, x1: number, z0: number, z1: number, height: number, y = 0): Solid {
-  return block(b, x0, x1, z0, z1, height, 'wood', 'crate', y);
+  let solid!: Solid;
+  b.model(`crate-${size(x1 - x0)}x${size(z1 - z0)}x${size(height)}`, [(x0 + x1) / 2, y, (z0 + z1) / 2], 0, () => (solid = block(b, x0, x1, z0, z1, height, 'wood', 'crate', y)));
+  return solid;
+}
+
+type Paint = 'blue' | 'red' | 'green' | 'white';
+
+/** A shipping container (a `container-<length in cm>-<paint>` model) from its footprint, `height` tall, resting at `y`; it lies along its footprint's longer side. */
+function container(b: Builder, x0: number, x1: number, z0: number, z1: number, height: number, paint: Paint, y = 0): void {
+  const along = x1 - x0 >= z1 - z0;
+  b.model(`container-${size(Math.max(x1 - x0, z1 - z0))}-${paint}`, [(x0 + x1) / 2, y, (z0 + z1) / 2], along ? 0 : Math.PI / 2, () => block(b, x0, x1, z0, z1, height, 'metal', 'container', y));
 }
 
 /** The crates of a roof climb: each a sure mantle up from the last, and the high one out of reach from the ground. */
@@ -462,10 +497,10 @@ function buildTracks(b: Builder): void {
   car(b, 'flatbed', 35, 44, B, 'car.grey');
 
   // Loads on the flatbeds: containers (the end cars' screen their rows from the spawns) and crates.
-  block(b, -43, -37, A - 1.3, A + 1.3, 2.4, 'metal', 'container', CAR_FLOOR);
+  container(b, -43, -37, A - 1.3, A + 1.3, 2.4, 'blue', CAR_FLOOR);
   crate(b, -35.6, -34.2, A - 0.6, A + 1.2, 1.2, CAR_FLOOR);
-  block(b, -23, -17, B - 1.3, B + 1.3, 2.4, 'metal', 'container', CAR_FLOOR);
-  block(b, 37, 43, B - 1.3, B + 1.3, 2.4, 'metal', 'container', CAR_FLOOR);
+  container(b, -23, -17, B - 1.3, B + 1.3, 2.4, 'red', CAR_FLOOR);
+  container(b, 37, 43, B - 1.3, B + 1.3, 2.4, 'green', CAR_FLOOR);
 
   for (const c of ROOF_CLIMBS) roofClimb(b, c.low, c.high, c.z);
 }
@@ -484,20 +519,20 @@ const SCREENS = {
   x: [42.5, 44.8],
   east: [
     { z: [-27.5, -24.2], kind: 'hut' },
-    { z: [-21.8, -14.6], kind: 'container' },
+    { z: [-21.8, -14.6], kind: 'container', paint: 'white' },
     { z: [-12.2, -9.0], kind: 'hut' },
     { z: [-5.3, -2.6], kind: 'crates' },
-    { z: [2.7, 7.6], kind: 'container' },
+    { z: [2.7, 7.6], kind: 'container', paint: 'red' },
     { z: [10.0, 14.2], kind: 'wall' },
     { z: [19.3, 24.2], kind: 'wall' },
     { z: [26.0, 27.6], kind: 'hut' },
   ],
   west: [
     { z: [-27.5, -19.6], kind: 'hut' },
-    { z: [-17.2, -11.6], kind: 'container' },
+    { z: [-17.2, -11.6], kind: 'container', paint: 'green' },
     { z: [-3.3, -0.7], kind: 'crates' },
     { z: [2.7, 4.8], kind: 'crates' },
-    { z: [7.0, 12.2], kind: 'container' },
+    { z: [7.0, 12.2], kind: 'container', paint: 'blue' },
     { z: [23.8, 26.2], kind: 'hut' },
   ],
 } as const;
@@ -505,16 +540,17 @@ const SCREENS = {
 function buildScreens(b: Builder): void {
   for (const side of ['west', 'east'] as const) {
     const s = side === 'east' ? 1 : -1;
-    for (const { z, kind } of SCREENS[side]) {
+    for (const piece of SCREENS[side]) {
+      const { z, kind } = piece;
       // The wall pieces stand clear of the depot's front wall and pump house, a thin pier by the east spawns.
       const [a, c] = kind === 'wall' ? [44.2, 44.8] : SCREENS.x;
       const [x0, x1] = s > 0 ? [a, c] : [-c, -a];
       if (kind === 'hut') {
         block(b, x0, x1, z[0], z[1], 2.6, 'brick', 'brick');
       } else if (kind === 'container') {
-        block(b, x0, x1, z[0], z[1], 2.6, 'metal', 'container');
+        container(b, x0, x1, z[0], z[1], 2.6, 'paint' in piece ? piece.paint : 'blue');
       } else if (kind === 'crates') {
-        block(b, x0, x1, z[0], z[1], 2.2, 'wood', 'crate');
+        crate(b, x0, x1, z[0], z[1], 2.2);
       } else {
         block(b, x0, x1, z[0], z[1], 2.6, 'concrete', 'yard.wall');
       }
@@ -524,8 +560,9 @@ function buildScreens(b: Builder): void {
 
 /** Low cover along the long lane, and loose stacks in the strip south of it, the alley between the cars and on the road. */
 function buildCover(b: Builder): void {
-  const cabinet = (x: number, z: number) => block(b, x - 0.4, x + 0.4, z - 0.3, z + 0.3, 1.4, 'metal', 'cabinet');
-  const sleepers = (x0: number, z0: number, z1: number, height: number) => block(b, x0, x0 + 2.6, z0, z1, height, 'wood', 'sleeper');
+  const cabinet = (x: number, z: number) => b.model('relay-cabinet', [x, 0, z], 0, () => block(b, x - 0.4, x + 0.4, z - 0.3, z + 0.3, 1.4, 'metal', 'cabinet'));
+  const sleepers = (x0: number, z0: number, z1: number, height: number) =>
+    b.model(`sleeper-stack-${size(height)}`, [x0 + 1.3, 0, (z0 + z1) / 2], 0, () => block(b, x0, x0 + 2.6, z0, z1, height, 'wood', 'sleeper'));
   // The long lane: a lamp hut against the barrier, relay cabinets, sleeper stacks and cable troughs.
   room(b, { x0: -8, x1: -5, z0: -27.4, z1: -25.4, bottom: 0, height: 2.6, thickness: 0.2, material: 'brick', look: wallLook('brick'), south: [door(-7.2)] });
   flatRoof(b, { x0: -8, x1: -5, z0: -27.4, z1: -25.4, thickness: 0.2 }, 2.6, 0.15);
@@ -538,7 +575,7 @@ function buildCover(b: Builder): void {
   cabinet(30.4, -20.5);
   // South of the long lane.
   crate(b, -24, -22.8, -15.4, -14.2, 1.2);
-  block(b, -2, 0, -15.5, -14.5, 1.0, 'metal', 'cabinet');
+  b.model('location-case', [-1, 0, -15], 0, () => block(b, -2, 0, -15.5, -14.5, 1.0, 'metal', 'cabinet'));
   sleepers(38, -15.4, -14.2, 1.0);
   // The alley between the rows of cars: stacks on alternate sides.
   crate(b, -35, -33.8, -5.2, -4.0, 1.2);
@@ -546,10 +583,16 @@ function buildCover(b: Builder): void {
   crate(b, 14, 15.2, -5.2, -4.0, 2.0);
   crate(b, 33, 34.2, -2.0, -0.8, 1.0);
   // The service road: a parked box truck, a forklift and pallets.
-  b.add([-18, FRAME_BOTTOM, 6.0], [-10, CAR_FLOOR, 8.5], 'metal', { look: 'steel' });
-  b.add([-18, CAR_FLOOR, 6.0], [-12.2, 3.4, 8.5], 'metal', { look: 'truck.box' });
-  b.add([-12, CAR_FLOOR, 6.1], [-10, 2.8, 8.4], 'metal', { look: 'truck' });
-  block(b, 20, 21.6, 8, 9.2, 2.1, 'metal', 'forklift');
+  b.model('box-truck', [-14, 0, 7.25], 0, () => {
+    b.add([-18, 0, 6.0], [-10, CAR_FLOOR, 8.5], 'metal', { look: 'steel' });
+    b.add([-18, CAR_FLOOR, 6.0], [-12.2, 3.4, 8.5], 'metal', { look: 'truck.box' });
+    b.add([-12, CAR_FLOOR, 6.1], [-10, 2.8, 8.4], 'metal', { look: 'truck' });
+  });
+  // The forklift, its forks lowered toward the east.
+  b.model('forklift', [20.8, 0, 8.6], 0, () => {
+    block(b, 20, 21.6, 8, 9.2, 2.1, 'metal', 'forklift');
+    b.add([21.6, 0, 8.2], [22.6, 0.1, 9.0], 'metal', { look: 'steel' });
+  });
   crate(b, 36, 37.2, 5.5, 6.7, 1.0);
 }
 
