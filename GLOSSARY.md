@@ -174,6 +174,12 @@ An offline match against bots on either map (Survival Town or Switchyard), in an
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.
 
+**Danger spot**:
+Where an enemy killed a bot's teammate (as roughly as a callout would put it) or the bot itself (exactly), kept in that bot's mind for 25 s and through its respawn. Bots route out of its sight, check it on the way past, and trade or watch it by how careful they are.
+
+**Caution**:
+How carefully a bot plays at a moment, from 0 to 1. It starts from the bot's style. It rises in Charge (a death is for the round), when the bot is the last of its side, hurt, or near a danger spot, and falls when its side outnumbers the other or the Charge planner says hurry. A careful bot goes quietly near known enemies, holds the angle where a target vanished, and breaks off to cover to heal.
+
 **Spawn protection**:
 The 1.5 s after a spawn when a player can't be damaged. It ends early when they fire.
 

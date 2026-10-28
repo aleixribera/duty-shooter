@@ -494,4 +494,16 @@ describe('the Charge bot planner', () => {
     const late = planCharge(2, bots, bots, SITES, state({ phase: 'planted', planted, remaining: DEFUSE_TIME + 1 }));
     expect(late.get('a')).toMatchObject({ use: true, urgent: true });
   });
+
+  it('tells the side the clock is against to hurry: the attackers late with no plant, the defenders with the fuse running down', () => {
+    const attackers = [bot('a', 0), bot('b', 2)];
+    expect([...planCharge(1, attackers, attackers, SITES, state({ carrier: 'a' })).values()].some((o) => o.hurry)).toBe(false);
+    expect([...planCharge(1, attackers, attackers, SITES, state({ carrier: 'a', remaining: 20 })).values()].every((o) => o.hurry)).toBe(true);
+    const defenders = [bot('c', -29, 2), bot('d', 0, 20)];
+    const planted = { site: 'A', position: SITE_A };
+    expect([...planCharge(2, defenders, defenders, SITES, state({ phase: 'planted', planted, remaining: 30 })).values()].some((o) => o.hurry)).toBe(false);
+    expect([...planCharge(2, defenders, defenders, SITES, state({ phase: 'planted', planted, remaining: DEFUSE_TIME + 5 })).values()].every((o) => o.hurry)).toBe(true);
+    // Attackers guarding their plant are in no hurry.
+    expect([...planCharge(1, attackers, attackers, SITES, state({ phase: 'planted', planted, remaining: 5 })).values()].some((o) => o.hurry)).toBe(false);
+  });
 });

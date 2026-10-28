@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bot, DEG, Simulation, angleDelta, botProfile, buildNavGraph, createWorld, type BotView, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { Bot, DEG, Simulation, angleDelta, botProfile, buildNavGraph, createWorld, raycastWorld, type BotView, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { box, usercmd } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -83,8 +83,8 @@ describe('a bot listening', () => {
   });
 
   it('chases a target that slipped out of sight to where it vanished, then searches the way it was heading', () => {
-    // A roamer walks about alone; then the target crosses 12 m in front of it, left to right, and is gone (as if round a corner).
-    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 't', team: 2, at: [150, 0, 150] }], 'Pike');
+    // A flanker walks about alone; then the target crosses 12 m in front of it, left to right, and is gone (as if round a corner).
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 't', team: 2, at: [150, 0, 150] }], 'Moss');
     for (let i = 0; i < ticks(1); i++) m.step();
     const b = m.self();
     const forward: Vec3 = [-Math.sin(b.yaw), 0, -Math.cos(b.yaw)];
@@ -112,5 +112,117 @@ describe('a bot listening', () => {
     expect(lookedOn).toBe(true);
     expect(searching * (1 / 60)).toBeGreaterThanOrEqual(1.4);
     expect(m.bot.activity).not.toBe('search');
+  });
+});
+
+/** A kill event: `killer` shot `victim`. */
+const kill = (killer: string, victim: string): SimEvent => ({ type: 'kill', killer, victim, cause: 'bullet', zone: 'upperTorso', weapon: 'm4a1' });
+
+describe('a bot remembering deaths', () => {
+  it('marks roughly where a teammate was killed from, exactly where it was killed from itself, and keeps that through a respawn', () => {
+    // A teammate 20 m off is shot by an enemy farther on.
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 'm', team: 1, at: [0, 0, -20] }, { id: 't', team: 2, at: [10, 0, -30] }], 'Vandal', { objective: STAY([0, 0, 0]) });
+    for (let i = 0; i < ticks(0.5); i++) m.step();
+    m.step({}, [kill('t', 'm')]);
+    expect(m.bot.dangers).toHaveLength(1);
+    const off = Math.hypot(m.bot.dangers[0]![0] - 10, m.bot.dangers[0]![2] + 30);
+    expect(off).toBeGreaterThan(0.5);
+    expect(off).toBeLessThan(4);
+    // Then the same enemy kills the bot: the spot is exact now, and still in mind after the respawn.
+    m.step({}, [kill('t', 'b')]);
+    m.sim.respawn('b', [-15, 0, 15], 0);
+    for (let i = 0; i < ticks(0.5); i++) m.step();
+    expect(m.bot.dangers).toHaveLength(1);
+    expect(Math.hypot(m.bot.dangers[0]![0] - 10, m.bot.dangers[0]![2] + 30)).toBeLessThan(0.01);
+    // And the enemy's own death clears it.
+    m.step({}, [kill('m', 't')]);
+    expect(m.bot.dangers).toEqual([]);
+  });
+
+  it('forgets nothing of a free-for-all death: there are no teammates to mourn', () => {
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 'x', team: 2, at: [0, 0, -10] }, { id: 't', team: 3, at: [10, 0, -20] }], 'Vandal', { objective: STAY([0, 0, 0]) });
+    m.step({}, [kill('t', 'x')]);
+    expect(m.bot.dangers).toEqual([]);
+  });
+
+  it('goes to trade a teammate killed near it if it plays boldly, and watches that way if not', () => {
+    // The killer is out of sight beyond the wall.
+    const run = (name: string) => {
+      const m = match(walled, walledNav, [{ id: 'b', team: 1, at: [8, 0, 2] }, { id: 'm', team: 1, at: [4, 0, -2] }, { id: 't', team: 2, at: [-10, 0, -12] }], name);
+      for (let i = 0; i < ticks(0.5); i++) m.step();
+      m.step({}, [kill('t', 'm')]);
+      m.step();
+      return m.bot.activity;
+    };
+    // A rusher, then an anchor.
+    expect(run('Kestrel')).toBe('chase');
+    expect(run('Vandal')).toBe('hold');
+  });
+});
+
+describe('a bot weighing the mode and its situation', () => {
+  /** A bot that has seen the target cross 12 m in front of it, and then lost it (gone round a corner): what it does next. */
+  const lose = (name: string, lives: 'round' | 'respawn') => {
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 't', team: 2, at: [150, 0, 150] }], name, { lives });
+    for (let i = 0; i < ticks(1); i++) m.step();
+    const b = m.self();
+    const forward: Vec3 = [-Math.sin(b.yaw), 0, -Math.cos(b.yaw)];
+    const right: Vec3 = [Math.cos(b.yaw), 0, -Math.sin(b.yaw)];
+    m.sim.respawn('t', [b.position[0] + forward[0] * 12 - right[0] * 3, 0, b.position[2] + forward[2] * 12 - right[2] * 3], b.yaw - Math.PI / 2);
+    for (let i = 0; i < ticks(0.5); i++) m.step({ t: usercmd({ yaw: b.yaw - Math.PI / 2, forward: 1 }) });
+    m.sim.respawn('t', [150, 0, 150], 0);
+    for (let i = 0; i < ticks(1); i++) m.step();
+    return m.bot.activity;
+  };
+
+  it('losing a target, holds the angle when careful in Charge, and chases as a rusher in team deathmatch', () => {
+    // An anchor and a support, where a death is for the round.
+    expect(lose('Vandal', 'round')).toBe('hold');
+    expect(lose('Juniper', 'round')).toBe('hold');
+    // A rusher, where it's back in seconds.
+    expect(lose('Kestrel', 'respawn')).toBe('chase');
+  });
+
+  it('hurt and losing a fight, breaks off to cover out of the enemy\'s sight and stays there until healed', () => {
+    // The enemy stands 15 m off in the open, south of the wall; the bot, a step from the doorway and facing it, has 30 health left.
+    const m = match(walled, walledNav, [{ id: 'b', team: 1, at: [1.5, 0, -3], yaw: Math.PI }, { id: 't', team: 2, at: [1.5, 0, 12], yaw: 0 }], 'Juniper', { lives: 'round' });
+    const hurt = m.sim.playerState('b')!;
+    m.sim.setPlayerState({ ...hurt, health: 30, lastDamage: 0 });
+    const covered: number[] = [];
+    for (let i = 0; i < ticks(10); i++) {
+      const out = m.step({ t: usercmd({ yaw: 0 }) });
+      const b = m.self();
+      if (m.bot.activity === 'cover') {
+        const t = out.players.find((p) => p.id === 't')!;
+        const chest: Vec3 = [b.position[0], b.position[1] + 1.2, b.position[2]];
+        const eye: Vec3 = [t.position[0], t.position[1] + t.eyeHeight, t.position[2]];
+        covered.push(raycastWorld(walled, eye, chest) !== null ? i : -1);
+      }
+    }
+    expect(covered.length, 'broke off').toBeGreaterThan(0);
+    // Out of sight within 3.5 s of breaking off (turning round, through the doorway), and from then on.
+    const hiddenFrom = covered.findIndex((c) => c >= 0);
+    expect(hiddenFrom).toBeGreaterThanOrEqual(0);
+    expect(hiddenFrom * (1 / 60)).toBeLessThan(3.5);
+    expect(covered.slice(hiddenFrom).every((c) => c >= 0)).toBe(true);
+    // It stayed until healed, then got back to it.
+    expect(m.self().health).toBeGreaterThanOrEqual(95);
+    expect(m.bot.activity).not.toBe('cover');
+  });
+
+  it('goes quietly near an enemy it has heard when careful, and sprints its long legs otherwise', () => {
+    const sprints = (heard: boolean) => {
+      // An anchor in Charge; the enemy beyond the wall fires once into the floor (or doesn't).
+      const m = match(walled, walledNav, [{ id: 'b', team: 1, at: [8, 0, 6] }, { id: 't', team: 2, at: [-4, 0, -10] }], 'Vandal', { lives: 'round' });
+      let n = 0;
+      for (let i = 0; i < ticks(6); i++) {
+        m.step({ t: usercmd(heard && i >= 60 && i < 64 ? { pitch: -1.2, buttons: ['Fire'] } : {}) });
+        const b = m.self();
+        if (i > 64 && (b.movement === 'sprint' || b.movement === 'tacticalSprint')) n += 1;
+      }
+      return n;
+    };
+    expect(sprints(true)).toBe(0);
+    expect(sprints(false)).toBeGreaterThan(0);
   });
 });

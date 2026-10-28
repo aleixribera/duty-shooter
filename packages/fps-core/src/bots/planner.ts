@@ -63,6 +63,9 @@ const ESCORT_RADIUS = 5;
 const GUARD_RADIUS = 8;
 /** A defuse begun with this little more than its own time left on the fuse (s) is made whatever is in view. */
 const DEFUSE_SPARE = 2;
+/** The attackers hurry with this little of the round left (s) and no plant; the defenders once the fuse has this much more than a defuse left. */
+const ATTACK_HURRY = 25;
+const DEFUSE_HURRY = 10;
 
 const flat = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 
@@ -80,7 +83,9 @@ export function targetSite(sites: readonly ChargeSite[], round: number): ChargeS
  * once planted, everyone guards it. Defenders split across the sites, the
  * nearer site first, and once the charge is planted the nearest one defuses
  * while the rest guard, the defuse made under fire only when the fuse is
- * nearly out.
+ * nearly out. Late in the round the side the clock is against is told to
+ * hurry (see {@link BotObjective.hurry}): the attackers with no plant, the
+ * defenders with the fuse running down.
  */
 export function planCharge(team: TeamId, bots: readonly PlannedBot[], mates: readonly PlannedBot[], sites: readonly ChargeSite[], state: ChargeState): Map<PlayerId, BotObjective> {
   const orders = new Map<PlayerId, BotObjective>();
@@ -90,12 +95,13 @@ export function planCharge(team: TeamId, bots: readonly PlannedBot[], mates: rea
   const area = (site: ChargeSite): BotObjective => ({ position: siteCentre(site), radius: Math.max(2, Math.min(site.max[0] - site.min[0], site.max[2] - site.min[2]) / 2) });
   if (state.planted) {
     const at = state.planted.position;
-    const guard: BotObjective = { position: at, radius: GUARD_RADIUS };
+    const hurry = team !== state.attackers && state.remaining < DEFUSE_TIME + DEFUSE_HURRY;
+    const guard: BotObjective = { position: at, radius: GUARD_RADIUS, hurry };
     let rest = bots;
     if (team !== state.attackers) {
       const [defuser] = nearest(at, bots);
       if (defuser) {
-        orders.set(defuser.id, { position: at, radius: DEFUSE_REACH, use: true, urgent: state.remaining < DEFUSE_TIME + DEFUSE_SPARE });
+        orders.set(defuser.id, { position: at, radius: DEFUSE_REACH, use: true, urgent: state.remaining < DEFUSE_TIME + DEFUSE_SPARE, hurry });
         rest = bots.filter((b) => b !== defuser);
       }
     }
@@ -103,27 +109,29 @@ export function planCharge(team: TeamId, bots: readonly PlannedBot[], mates: rea
     return orders;
   }
   if (team === state.attackers) {
+    const hurry = state.phase === 'live' && state.remaining < ATTACK_HURRY;
+    const hurried = (o: BotObjective): BotObjective => (hurry ? { ...o, hurry } : o);
     let rest = [...bots];
     const carrier = mates.find((m) => m.id === state.carrier);
     if (carrier) {
       if (bots.some((b) => b.id === carrier.id)) {
-        orders.set(carrier.id, { position: siteCentre(target), radius: PLANT_REACH, use: true });
+        orders.set(carrier.id, hurried({ position: siteCentre(target), radius: PLANT_REACH, use: true }));
         rest = rest.filter((b) => b.id !== carrier.id);
       }
       for (const escort of nearest(carrier.position, rest).slice(0, ESCORTS)) {
-        orders.set(escort.id, { position: carrier.position, radius: ESCORT_RADIUS });
+        orders.set(escort.id, hurried({ position: carrier.position, radius: ESCORT_RADIUS }));
         rest = rest.filter((b) => b !== escort);
       }
     } else if (state.dropped) {
       const [fetcher] = nearest(state.dropped, rest);
       if (fetcher) {
-        orders.set(fetcher.id, { position: state.dropped, radius: 0.6 });
+        orders.set(fetcher.id, hurried({ position: state.dropped, radius: 0.6 }));
         rest = rest.filter((b) => b !== fetcher);
       }
-      for (const b of rest) orders.set(b.id, { position: state.dropped, radius: GUARD_RADIUS });
+      for (const b of rest) orders.set(b.id, hurried({ position: state.dropped, radius: GUARD_RADIUS }));
       return orders;
     }
-    for (const b of rest) orders.set(b.id, area(target));
+    for (const b of rest) orders.set(b.id, hurried(area(target)));
     return orders;
   }
   // Defenders: one at a time to the cheapest site, counting the bots already sent there.

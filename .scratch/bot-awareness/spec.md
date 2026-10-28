@@ -1,6 +1,6 @@
 # Bot awareness: bots that read the match like people
 
-Status: open
+Status: resolved
 
 ## Problem Statement
 

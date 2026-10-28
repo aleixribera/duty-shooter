@@ -26,6 +26,8 @@ export interface BotView {
   isEnemy(other: PlayerOutput): boolean;
   /** Where its team's planner sends it (a zone to take or hold), or null to roam freely. */
   readonly objective?: BotObjective | null;
+  /** What a death costs: a few seconds ('respawn'), or the rest of the round ('round', as in Charge). 'respawn' when absent. */
+  readonly lives?: 'respawn' | 'round';
   /**
    * The arcs left this tick for every bot's grenade aiming together, shared so
    * a tick where several bots aim at once stays short; each bot gets
@@ -51,6 +53,8 @@ export interface BotObjective {
   readonly use?: boolean;
   /** Hold use even with an enemy in view (the fuse is nearly out). */
   readonly urgent?: boolean;
+  /** The clock is running out: no holding back. */
+  readonly hurry?: boolean;
 }
 
 /** A bot sent to an objective chases a noise no farther than this (m) beyond its edge. */
@@ -77,6 +81,37 @@ const RELOAD_HEARING = 15;
 const MUFFLED = 0.55;
 /** Arriving where a chased enemy should be and finding nobody, a bot searches about this long (s). */
 const SEARCH = 1.5;
+/** A teammate's death (or the bot's own) marks where the killer was, for this long (s), through respawns; this many at most. */
+const DANGER_MEMORY = 25;
+const DANGERS = 3;
+/** A callout of a death is off by about this much (m), and a tenth of how far away it happened more. */
+const CALLOUT_ERROR = 1.5;
+/** A teammate's death this near (m) is close enough to trade. */
+const TRADE_RANGE = 20;
+/** Routes keep out of sight of a danger spot (or an enemy closed in on) this near (m). */
+const DANGER_REACH = 40;
+/** On the move, a danger spot in sight this near (m), within `CHECK_ARC` of the way, gets checked. */
+const CHECK_RANGE = 30;
+const CHECK_ARC = 75 * DEG;
+/** Breaking off a fight to heal: under this much health, and this much more for a careful bot, while the enemy has more left. */
+const HURT = 25;
+const HURT_CAREFUL = 40;
+/** Cover to heal in is out of the enemy's sight and a short dash away (m): a long run under fire is a shot in the back; a bot stays until healed (this long, s, at most), and doesn't break off again for a while (s). */
+const SHELTER_SEARCH = 6;
+const RECOVER_MAX = 12;
+const RECOVER_PAUSE = 8;
+/** Healed enough to fight on. */
+const HEALED = 95;
+/** Damage dealt to an enemy counts for this long (s): after it they've healed. */
+const DEALT_MEMORY = 7;
+/** A careful bot goes quietly (no sprinting) with an enemy known this near (m) this recently (s), and crouch-walks within `SNEAK` (m) of one it is after. */
+const QUIET_RANGE = 25;
+const QUIET_MEMORY = 10;
+const SNEAK = 10;
+/** A gun whose fighting band ends nearer than this (m) plays bolder. */
+const CLOSE_RANGE = 15;
+/** Once in a fight (an enemy seen this recently, s), speed beats silence. */
+const SPOTTED = 4;
 /** Seconds of a target's movement a bot remembers, for aiming a moment behind it. */
 const TRAIL = 0.4;
 /** Seconds a target can be out of sight before the bot stops shooting at where it was. */
@@ -168,6 +203,13 @@ interface Sighting {
 }
 
 const STILL: Vec3 = [0, 0, 0];
+
+/** Where an enemy killed a teammate (or the bot) from. */
+interface Danger {
+  readonly position: Vec3;
+  readonly time: number;
+  readonly killer: PlayerId;
+}
 
 interface Engagement {
   readonly id: PlayerId;
@@ -278,6 +320,17 @@ export class Bot {
   #search: { yaw: number; start: number; until: number } | null = null;
   /** Enemies heard (or seen) starting a reload, and until when they're busy with it. */
   readonly #reloading = new Map<PlayerId, number>();
+  /** Danger spots, newest first: kept through deaths, as a player remembers where they were shot from. */
+  #dangers: Danger[] = [];
+  /** A danger spot to check while on the move (picked a few times a second), or null. */
+  #check: Vec3 | null = null;
+  /** How carefully it plays this tick, 0 to 1 (see {@link #weigh}). */
+  #caution = 0.5;
+  /** Damage it has dealt each enemy lately, and when last: whoever has more left is winning. */
+  readonly #dealt = new Map<PlayerId, { damage: number; time: number }>();
+  /** Breaking off to heal: the cover node, the eye it hides from, until when at most, and whether it got there. */
+  #recover: { node: number; threat: Vec3; until: number; arrived: boolean } | null = null;
+  #recoverAt = 0;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -309,11 +362,17 @@ export class Bot {
     return this.#memory.get(id)?.position ?? null;
   }
 
+  /** The danger spots the bot keeps in mind, newest first (tests and debugging). */
+  get dangers(): readonly Vec3[] {
+    return this.#dangers.filter((d) => this.#lastTime - d.time < DANGER_MEMORY).map((d) => d.position);
+  }
+
   /** What the bot is up to, for tests and debugging. */
-  get activity(): 'use' | 'flee' | 'throw' | 'fight' | 'chase' | 'search' | 'hold' | 'roam' {
+  get activity(): 'use' | 'flee' | 'throw' | 'cover' | 'fight' | 'chase' | 'search' | 'hold' | 'roam' {
     if (this.#using) return 'use';
     if (this.#flee) return 'flee';
     if (this.#throw) return 'throw';
+    if (this.#recover) return 'cover';
     if (this.#target) return 'fight';
     if (this.#chasing && this.#chasing !== OBJECTIVE_KEY) return 'chase';
     if (this.#search && this.#search.until > this.#lastTime) return 'search';
@@ -326,6 +385,8 @@ export class Bot {
     this.#lastTime = time;
     const r = (n: number) => noise(this.#seed, view.tick, n);
     if (!self.alive) {
+      // Killed: it saw who did it, and from where.
+      for (const e of view.events) if (e.type === 'kill' && e.victim === self.id) this.#marked(view, e, r(70), r(71), r(72));
       this.#using = false;
       this.#alive = false;
       this.#target = null;
@@ -333,6 +394,7 @@ export class Bot {
       this.#aiming = null;
       this.#flee = null;
       this.#search = null;
+      this.#recover = null;
       return this.#cmd(0, 0, []);
     }
     if (!this.#alive || flat(self.position, this.#lastPos) > 3) this.#reset(view);
@@ -341,15 +403,28 @@ export class Bot {
     const eye = eyeOf(self);
 
     const perceiving = (view.tick + this.#seed) % PERCEIVE_TICKS === 0;
-    if (perceiving) this.#perceive(view, eye, r);
+    if (perceiving) {
+      this.#perceive(view, eye, r);
+      this.#check = this.#angleToCheck(view, eye);
+    }
     this.#hear(view);
     this.#listen(view, eye, perceiving);
     if (this.#target || (this.#search && time >= this.#search.until)) this.#search = null;
+    const caution = (this.#caution = this.#weigh(view));
+    const hurry = view.objective?.hurry === true;
 
     // The fight: keep it while the target lives and was seen moments ago.
     let target = this.#target;
     const tp = target ? view.players.find((p) => p.id === target!.id) : undefined;
     if (target && (!tp || !tp.alive || (!target.visible && time - target.lastSeen > LOSE_TARGET))) {
+      // Out of sight, not dead: a careful bot holds the angle they went behind, for them to come back round, rather than chase.
+      if (tp?.alive && caution > 0.55 && !this.#recover && !hurry) {
+        const last = this.#memory.get(tp.id)?.position ?? tp.position;
+        this.#holdUntil = time + 2 + 2 * r(25);
+        this.#holdYaw = yawTo(self.position, last);
+        this.#holdCrouch = r(26) < this.profile.crouch + 0.3;
+        this.#chasing = null;
+      }
       this.#target = target = null;
     }
     if (target && tp) {
@@ -369,6 +444,21 @@ export class Bot {
       this.#flee = null;
       this.#throw = null;
     } else this.#watchGrenades(view, eye);
+    // Hurt and losing: off to cover to heal; healed (or tired of waiting), back to it.
+    if (this.#recover) {
+      const at = this.#nav.nodes[this.#recover.node]!.position;
+      if (self.health >= HEALED || time >= this.#recover.until || using || hurry) {
+        this.#recover = null;
+        this.#recoverAt = time + RECOVER_PAUSE;
+        this.#goal = null;
+        this.#path = [];
+      } else if (!this.#recover.arrived && flat(self.position, at) < 1 && Math.abs(self.position[1] - at[1]) < 0.8) this.#recover.arrived = true;
+    } else if (perceiving && fighting && target?.visible && tp && !using && !hurry && time >= this.#recoverAt && range > POINT_BLANK) {
+      const left = this.#dealt.get(tp.id);
+      const theirs = 100 - (left && time - left.time < DEALT_MEMORY ? left.damage : 0);
+      if (self.health < HURT + HURT_CAREFUL * caution && theirs > self.health + 10) this.#breakOff(view, eyeOf(tp));
+    }
+    const retreating = this.#recover !== null && !this.#recover.arrived;
     if (using || this.#throw || fighting) this.#aiming = null;
     else if (this.#aiming) this.#aim(view);
     else if ((view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
@@ -389,6 +479,11 @@ export class Bot {
       // Eyes on whoever is coming, if anyone; otherwise level.
       if (target && tp) lookYaw = yawTo(self.position, tp.position);
       lookPitch = -0.05;
+    } else if (retreating) {
+      // Running for cover: eyes on the way.
+      const ahead = this.#lookAhead(self.position);
+      if (ahead) lookYaw = yawTo(self.position, ahead);
+      lookPitch = 0;
     } else if (fighting && target && tp) {
       // Out of sight for a moment: keep aiming where it was last seen.
       const last = this.#memory.get(tp.id)?.position ?? tp.position;
@@ -461,6 +556,11 @@ export class Bot {
     } else if (this.#alert && time < this.#alert.until) {
       lookYaw = this.#alert.yaw;
       lookPitch = 0;
+    } else if (this.#recover) {
+      // In cover: watching the way the enemy would come.
+      const threat = this.#recover.threat;
+      lookYaw = yawTo(eye, threat) + 0.3 * Math.sin(time * 0.8 + (this.#seed % 7));
+      lookPitch = anglesOf([threat[0] - eye[0], threat[1] - eye[1], threat[2] - eye[2]]).pitch;
     } else if (this.#search && !this.#chasing) {
       // Where did they go: a look about, either side of the way they were heading.
       lookYaw = this.#search.yaw + 0.8 * Math.sin((time - this.#search.start) * 2.4);
@@ -473,9 +573,14 @@ export class Bot {
     } else {
       const ahead = this.#lookAhead(self.position);
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
+      const check = this.#check;
       if (chase && flat(self.position, chase.position) < 18) {
         lookYaw = yawTo(eye, chase.position);
         lookPitch = anglesOf([chase.position[0] - eye[0], chase.position[1] + 1.4 - eye[1], chase.position[2] - eye[2]]).pitch;
+      } else if (check && ahead && Math.abs(angleDelta(yawTo(self.position, ahead), yawTo(self.position, check))) < CHECK_ARC) {
+        // Walking past where a teammate was shot from: eyes on that angle, at head height.
+        lookYaw = yawTo(eye, check);
+        lookPitch = anglesOf([check[0] - eye[0], check[1] + 1.5 - eye[1], check[2] - eye[2]]).pitch;
       } else if (ahead) {
         lookYaw = yawTo(self.position, ahead);
         lookPitch = Math.max(-0.35, Math.min(0.35, Math.atan2(ahead[1] - self.position[1], Math.max(1, flat(self.position, ahead))))) - 0.03;
@@ -493,12 +598,15 @@ export class Bot {
       move = this.#fleeStep(view);
     } else if (this.#throw || this.#aiming) {
       // Standing still to aim and throw.
+    } else if (retreating) {
+      move = this.#advance(self, this.#nav.nodes[this.#recover!.node]!.position);
     } else if (fighting && target && tp) {
       // With the target in view, a bot closes in only beyond the distance its weapon holds at: walking straight at a gun is the easiest shot there is.
       const holdAt = tactics.hold ?? want + (tactics.rush !== null && tactics.rush < 12 ? 0.5 : 2);
       // Someone heard (or seen) reloading is worth rushing, for a bot with the stomach for it.
       const reloading = (this.#reloading.get(tp.id) ?? -Infinity) > time && this.profile.aggression > 0.45 && !tactics.scoped;
-      const closeIn = rushing || reloading || !target.visible || (!tactics.scoped && range > holdAt);
+      // In cover to heal, it fights whoever comes from there, and goes nowhere.
+      const closeIn = !this.#recover && (rushing || reloading || !target.visible || (!tactics.scoped && range > holdAt));
       // Closing in to fight up close: by the way the target can't see.
       if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id, tactics.push ? eyeOf(tp) : null);
       if (time >= this.#strafeUntil) {
@@ -513,6 +621,9 @@ export class Bot {
         backOff = range < want * BACK_OFF;
       }
       if (target.crouch && range > 14 && !move) buttons.push('Crouch');
+    } else if (this.#recover) {
+      // Down behind cover until healed.
+      buttons.push('Crouch');
     } else {
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
       const leashed = (at: Vec3) => order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH;
@@ -557,12 +668,17 @@ export class Bot {
       this.#blocked = speed < 0.5 && self.movement !== 'mantle' && self.movement !== 'airborne' ? this.#blocked + 1 : 0;
       // Sprint the long legs when nothing's in sight, and away from a frag; slide now and then.
       const long = this.#remaining(self.position) > 7;
-      if (this.#flee && forward > 0.5 && !climbing) buttons.push('Sprint');
+      // Near an enemy it knows of but hasn't been fighting, a careful bot keeps its footsteps quiet, and creeps up on one it's after.
+      const quiet = caution > 0.5 && !hurry && !this.#flee && !retreating && time - this.#lastEnemySeen > SPOTTED && this.#threatNear(view);
+      const creeping = quiet && caution > 0.7 && !fighting && this.#chasing !== null && this.#chasing !== OBJECTIVE_KEY && this.#nearest(view) < SNEAK;
+      if ((this.#flee || retreating) && forward > 0.5 && !climbing) buttons.push('Sprint');
       else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing) {
         // Weaving a little on the way in.
         right = 0.35 * Math.sin(time * 2.6 + (this.#seed % 13));
         buttons.push('Sprint', 'TacticalSprint');
-      } else if (!fighting && long && forward > 0.8 && !climbing) {
+      } else if (creeping) {
+        buttons.push('Crouch');
+      } else if (!fighting && long && forward > 0.8 && !climbing && !quiet) {
         buttons.push('Sprint');
         if (this.#tactical) buttons.push('TacticalSprint');
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
@@ -589,8 +705,9 @@ export class Bot {
       buttons.push('SwitchWeapon');
       this.#switchAt = time + 1;
     }
-    // Reload in a quiet moment, or when empty.
-    if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
+    // Reload in a quiet moment, or when empty, or once in cover (whatever is left in the magazine).
+    const covered = this.#recover?.arrived === true && !(fighting && target?.visible) && w.ammo < this.profile.reloadBelow * 2;
+    if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0 || covered) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
     if (!using && this.#cooking(view)) buttons.push('Grenade');
 
     if (ads) buttons.push('Ads');
@@ -626,6 +743,9 @@ export class Bot {
     this.#flee = null;
     this.#search = null;
     this.#reloading.clear();
+    this.#check = null;
+    this.#recover = null;
+    this.#dealt.clear();
   }
 
   /** Where the bot likes to fight with this weapon (m). */
@@ -859,6 +979,10 @@ export class Bot {
         const heard = muffled ? blur(shooter.position, 2 + 4 * r(0), r(1), 1) : shooter.position;
         if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: heard, time, seen: false, velocity: STILL });
         if (!this.#target && !this.#chasing) this.#chasing = e.shooter;
+      } else if (e.type === 'hit' && e.shooter === self.id && e.victim !== self.id) {
+        const before = this.#dealt.get(e.victim);
+        const kept = before && time - before.time < DEALT_MEMORY ? before.damage : 0;
+        this.#dealt.set(e.victim, { damage: kept + e.damage, time });
       } else if (e.type === 'hit' && e.victim === self.id && e.shooter !== self.id) {
         const shooter = view.players.find((p) => p.id === e.shooter);
         if (!shooter) continue;
@@ -875,8 +999,138 @@ export class Bot {
         this.#memory.delete(e.victim);
         if (this.#target?.id === e.victim) this.#target = null;
         if (this.#chasing === e.victim) this.#chasing = null;
+        // Whoever held that spot is down: it's clear, for now.
+        this.#dangers = this.#dangers.filter((d) => d.killer !== e.victim);
+        this.#marked(view, e, r(0), r(1), r(2));
       }
     }
+  }
+
+  /**
+   * A death by an enemy's hand, of a teammate (not in free-for-all, where
+   * there are none) or of the bot itself, makes where the killer was a
+   * danger spot: exactly for its own death, as roughly as a callout for a
+   * teammate's, more so the farther off. A teammate's killer is remembered
+   * there too; near enough, a bot with the stomach for it goes to trade, and
+   * the others watch that way.
+   */
+  #marked(view: BotView, e: Extract<SimEvent, { type: 'kill' }>, r1: number, r2: number, r3: number): void {
+    const { self, time } = view;
+    if (e.killer === null || e.killer === self.id) return;
+    const killer = view.players.find((p) => p.id === e.killer);
+    if (!killer || !view.isEnemy(killer)) return;
+    const own = e.victim === self.id;
+    const victim = view.players.find((p) => p.id === e.victim);
+    if (!own && (!victim || view.isEnemy(victim))) return;
+    const d = own ? 0 : flat(self.position, victim!.position);
+    const at = own ? killer.position : blur(killer.position, CALLOUT_ERROR + d / 10, r1, 0.4 + 0.6 * r2);
+    this.#dangers = [{ position: at, time, killer: killer.id }, ...this.#dangers.filter((x) => x.killer !== killer.id && time - x.time < DANGER_MEMORY)].slice(0, DANGERS);
+    if (own) return;
+    const known = this.#memory.get(killer.id);
+    if (!known || !known.seen || time - known.time > 1) this.#memory.set(killer.id, { position: at, time, seen: false, velocity: STILL });
+    if (this.#target || this.#using || this.#flee || d > TRADE_RANGE) return;
+    this.#search = null;
+    if (this.#bold()) {
+      this.#chasing = killer.id;
+      this.#holdUntil = 0;
+    } else {
+      this.#chasing = null;
+      this.#holdUntil = time + 2 + 2 * r3;
+      this.#holdYaw = yawTo(self.position, at);
+    }
+  }
+
+  /** Whether the bot pushes toward trouble (trades, chases) rather than waiting for it to come. */
+  #bold(): boolean {
+    return this.#caution < 0.5;
+  }
+
+  /**
+   * How carefully to play now, 0 (all in) to 1 (every step counted): the
+   * style's own care (less with a gun made for close range, which has to
+   * push to fight), more when a death is for the round, when it is the
+   * last of its side, when hurt, or just after a teammate went down near it;
+   * less when its side outnumbers the other (as the scoreboard tells in a
+   * round), and much less when the clock says hurry.
+   */
+  #weigh(view: BotView): number {
+    const { self, time } = view;
+    let c = 1 - this.profile.aggression;
+    const band = TACTICS[self.weapon.id].range;
+    if (band && band[1] < CLOSE_RANGE) c -= 0.15;
+    if (view.lives === 'round') {
+      c += 0.25;
+      let mates = 0;
+      let foes = 0;
+      for (const p of view.players) {
+        if (p.id === self.id || !p.alive || p.kind !== 'player') continue;
+        if (view.isEnemy(p)) foes += 1;
+        else mates += 1;
+      }
+      if (mates === 0 && foes > 0) c += 0.15;
+      c -= 0.1 * Math.max(-2, Math.min(3, mates + 1 - foes));
+    }
+    c += (1 - self.health / 100) * 0.4;
+    if (this.#dangers.some((d) => time - d.time < 8 && flat(d.position, self.position) < 20)) c += 0.15;
+    if (view.objective?.hurry) c -= 0.6;
+    return Math.max(0, Math.min(1, c));
+  }
+
+  /** Whether an enemy it knows of (seen or heard lately, or a danger spot) is near enough to hear its footsteps. */
+  #threatNear(view: BotView): boolean {
+    return this.#nearest(view) < QUIET_RANGE || this.#dangers.some((d) => view.time - d.time < DANGER_MEMORY && flat(d.position, view.self.position) < QUIET_RANGE);
+  }
+
+  /** How far (m) the nearest enemy it knows of lately is believed to be. */
+  #nearest(view: BotView): number {
+    let best = Infinity;
+    for (const m of this.#memory.values()) if (view.time - m.time < QUIET_MEMORY) best = Math.min(best, flat(m.position, view.self.position));
+    return best;
+  }
+
+  /** Breaks off to the nearest cover out of `threat`'s sight, if there is any close; otherwise fights on. */
+  #breakOff(view: BotView, threat: Vec3): void {
+    const { self, time } = view;
+    const node = this.#shelter(self.position, threat);
+    if (node === null) {
+      this.#recoverAt = time + 1;
+      return;
+    }
+    this.#recover = { node, threat, until: time + RECOVER_MAX, arrived: false };
+    this.#holdUntil = 0;
+    this.#search = null;
+    this.#chasing = null;
+    this.#plan(self.position, node, view, true, threat);
+  }
+
+  /** The nearest node out of `threat`'s sight, not toward it, within a short run of `from`; null when there's none. */
+  #shelter(from: Vec3, threat: Vec3): number | null {
+    const away = flat(from, threat);
+    let best: number | null = null;
+    let bestRun = Infinity;
+    for (const [i, n] of this.#nav.nodes.entries()) {
+      const run = flat(from, n.position);
+      if (run > SHELTER_SEARCH || run >= bestRun || Math.abs(n.position[1] - from[1]) > 2.5 || flat(n.position, threat) < away - 2) continue;
+      if (!sightBlocked(this.#world, threat, [n.position[0], n.position[1] + 1.2, n.position[2]])) continue;
+      best = i;
+      bestRun = run;
+    }
+    return best;
+  }
+
+  /** The newest danger spot near and in sight, to check on the move; null when there's none. */
+  #angleToCheck(view: BotView, eye: Vec3): Vec3 | null {
+    for (const d of this.#dangers) {
+      if (view.time - d.time >= DANGER_MEMORY || flat(view.self.position, d.position) > CHECK_RANGE) continue;
+      if (!sightBlocked(this.#world, eye, [d.position[0], d.position[1] + 1.5, d.position[2]])) return d.position;
+    }
+    return null;
+  }
+
+  /** The eye of the newest danger spot within reach of `from`, for routes to keep out of its sight; null when there's none. */
+  #watcher(from: Vec3, time: number): Vec3 | null {
+    const d = this.#dangers.find((x) => time - x.time < DANGER_MEMORY && flat(from, x.position) < DANGER_REACH);
+    return d ? [d.position[0], d.position[1] + 1.5, d.position[2]] : null;
   }
 
   /**
@@ -952,7 +1206,8 @@ export class Bot {
       this.#goal = null;
       // A sniper always settles in to watch the lane it came for, and for longer; so does a bot holding an objective.
       const scoped = TACTICS[self.weapon.id].scoped;
-      if (scoped || view.objective || r(21) < this.profile.hold) {
+      // A careful bot stops to watch more often; one in a hurry never does.
+      if (!view.objective?.hurry && (scoped || view.objective || r(21) < this.profile.hold * (0.6 + 0.8 * this.#caution))) {
         this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22)) * (scoped ? 2.5 : 1);
         this.#holdYaw = scoped && reached.sightline >= LONG_SIGHTLINE ? reached.sightYaw : this.#holdFacing(self.position);
         this.#holdCrouch = r(23) < this.profile.crouch;
@@ -996,6 +1251,8 @@ export class Bot {
       let score = -Math.abs(d - this.profile.roam) * 0.6 + r(60 + k) * 12;
       if (hunch && flat(hunch, p) < 10) score += 20;
       for (const n of noises) if (flat(n.position, p) < 12) score += 14 * this.profile.aggression + 4;
+      // Where a teammate went down: the bold go to settle it, the rest give it a wide berth.
+      for (const g of this.#dangers) if (time - g.time < DANGER_MEMORY && flat(g.position, p) < 10) score += this.#bold() ? 8 : -16;
       for (const m of mates) if (flat(m.position, p) < 7) score += this.profile.teamwork;
       if (this.#recentGoals.some((g) => flat(nodes[g]!.position, p) < 6)) score -= 18;
       if (p[1] > 2.5) score -= 3;
@@ -1026,10 +1283,11 @@ export class Bot {
     return this.#lanes;
   }
 
-  /** Which way to watch while holding: toward the last noise, else toward the middle of the map. */
+  /** Which way to watch while holding: toward the newest noise or danger spot, else toward the middle of the map. */
   #holdFacing(at: Vec3): number {
-    let latest: Sighting | null = null;
+    let latest: { position: Vec3; time: number } | null = null;
     for (const m of this.#memory.values()) if (!latest || m.time > latest.time) latest = m;
+    for (const d of this.#dangers) if ((!latest || d.time > latest.time) && this.#lastTime - d.time < DANGER_MEMORY) latest = d;
     if (latest) return yawTo(at, latest.position);
     const nodes = this.#nav.nodes;
     let cx = 0;
@@ -1044,14 +1302,15 @@ export class Bot {
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */
   #plan(from: Vec3, to: number, view: BotView, fresh = true, unseenBy: Vec3 | null = null): void {
     const start = nearestNode(this.#nav, this.#world, from);
-    // Out of sight of `unseenBy` where there's a way: each node it can see costs as much as a detour.
+    // Out of sight of `unseenBy` (or else the newest danger spot near) where there's a way: each node it can see costs as much as a detour.
+    const watcher = unseenBy ?? this.#watcher(from, view.time);
     const seen = new Map<number, number>();
-    const exposure = unseenBy
+    const exposure = watcher
       ? (i: number) => {
           let c = seen.get(i);
           if (c === undefined) {
             const p = this.#nav.nodes[i]!.position;
-            c = sightBlocked(this.#world, unseenBy, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
+            c = flat(p, watcher) > DANGER_REACH || sightBlocked(this.#world, watcher, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
             seen.set(i, c);
           }
           return c;

@@ -971,6 +971,7 @@ export class GameServer {
         grenades: this.#last.grenades,
         isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other),
         objective: this.#orders.get(id) ?? null,
+        lives: this.#mode.canRespawn(id) ? 'respawn' : 'round',
         budget,
       };
       cmds[id] = seat.bot.think(view);

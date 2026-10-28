@@ -25,43 +25,43 @@ Two moderate bots, one primary each plus the pistol and a frag, start in sight o
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 66 % | 70 % | 95 % |
-| smg | 34 % |  | 60 % | 96 % |
-| m4a1 | 30 % | 40 % |  | 92 % |
-| sniper | 5 % | 4 % | 8 % |  |
+| shotgun |  | 65 % | 70 % | 94 % |
+| smg | 35 % |  | 61 % | 96 % |
+| m4a1 | 30 % | 39 % |  | 91 % |
+| sniper | 6 % | 4 % | 9 % |  |
 
 **15 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 22 % | 32 % | 41 % |
-| smg | 78 % |  | 52 % | 64 % |
-| m4a1 | 68 % | 48 % |  | 56 % |
-| sniper | 59 % | 36 % | 44 % |  |
+| shotgun |  | 23 % | 30 % | 42 % |
+| smg | 78 % |  | 48 % | 66 % |
+| m4a1 | 70 % | 53 % |  | 57 % |
+| sniper | 58 % | 34 % | 43 % |  |
 
 **30 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 17 % | 19 % | 34 % |
-| smg | 83 % |  | 46 % | 43 % |
-| m4a1 | 81 % | 54 % |  | 60 % |
-| sniper | 66 % | 57 % | 40 % |  |
+| shotgun |  | 18 % | 21 % | 33 % |
+| smg | 83 % |  | 49 % | 49 % |
+| m4a1 | 79 % | 51 % |  | 62 % |
+| sniper | 68 % | 51 % | 38 % |  |
 
 **60 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 29 % | 28 % | 32 % |
-| smg | 71 % |  | 37 % | 21 % |
-| m4a1 | 72 % | 63 % |  | 28 % |
-| sniper | 68 % | 79 % | 72 % |  |
+| shotgun |  | 30 % | 29 % | 35 % |
+| smg | 70 % |  | 38 % | 26 % |
+| m4a1 | 71 % | 62 % |  | 37 % |
+| sniper | 65 % | 74 % | 63 % |  |
 
 ### Each primary in its own band and overall
 
 | Weapon | Band | Worst win rate in its band | Over all distances, per opponent | Overall |
 | --- | --- | --- | --- | --- |
-| shotgun | 5 m | 66 % | smg 33 %, m4a1 37 %, sniper 50 % | 40 % |
-| smg | 15 m | 52 % | shotgun 67 %, m4a1 49 %, sniper 56 % | 57 % |
-| m4a1 | 30 m | 54 % | shotgun 63 %, smg 51 %, sniper 59 % | 58 % |
-| sniper | 60 m | 68 % | shotgun 50 %, smg 44 %, m4a1 41 % | 45 % |
+| shotgun | 5 m | 65 % | smg 34 %, m4a1 38 %, sniper 51 % | 41 % |
+| smg | 15 m | 48 % | shotgun 66 %, m4a1 49 %, sniper 59 % | 58 % |
+| m4a1 | 30 m | 51 % | shotgun 62 %, smg 51 %, sniper 62 % | 58 % |
+| sniper | 60 m | 63 % | shotgun 49 %, smg 41 %, m4a1 38 % | 43 % |
