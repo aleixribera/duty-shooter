@@ -4,6 +4,7 @@ import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
 import { buildSwitchyard } from './switchyard';
+import { buildCrash } from './crash';
 
 /** The range keeps its measuring grid: every material in a grid finish (base tint, line colour). */
 const GRID_FINISHES: Readonly<Record<string, Finish>> = Object.fromEntries(
@@ -93,7 +94,7 @@ export function buildRange(): MapDefinition {
   };
 }
 
-export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range'];
+export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'crash', 'range'];
 
 /** `id` as a map id, or undefined when it names no map. */
 export const asMapId = (id: string | null | undefined): MapId | undefined => MAP_IDS.find((m) => m === id);
@@ -110,10 +111,11 @@ export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
 export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
   'survival-town': { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
+  crash: { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   range: {},
 };
 
-const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange };
+const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, crash: buildCrash, range: buildRange };
 
 /** Builds a map by id. Each call builds afresh. */
 export function buildMapById(id: MapId): MapDefinition {
