@@ -59,25 +59,8 @@ each generator; check idle, aim, reload and inspect in the viewer after editing.
 - `sniper.py`: the Ridgeline .308 (the bolt rotates up about the bore, then
   pulls back; the client puts the right palm under its knob, so keep
   `BOLT_KNOB` in `viewmodel.ts` on the knob's centre).
+- `frag.py`: the frag grenade (origin at the body's centre; the lever is the
+  `spoon` part and the pin with its pull ring the `ring` part).
 - `arms.py`: the first-person arms (sleeve and tactical glove), skinned to the
   client's arm rig in `packages/fps-client/src/viewmodel/arms.ts`, including
   the three forearm twist bones; the bone numbers at the top must match it.
-
-`arsenal.py` builds the frag grenade until it gets its own generator, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
-turns into game -Z; the right palm near the origin). Each GLB holds the body
-grouped by material plus the moving parts (`mag`, `slide`, `pump`, `bolt`,
-`spoon`, `ring`) with their pivots as origins. The palm, sight, muzzle and
-ejection-port numbers the client needs live in
-`packages/fps-client/src/viewmodel/kit.ts`, measured from the same script.
-
-Run it in the Blender session (the `blender` skill's bkit helpers):
-
-```text
-bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="frag")
-bkit.preview(r"tools/weapon/previews/frag.png", None, ["side", "three_quarter", "top", "front"])
-bkit.export_glb(r"packages/fps-client/src/viewmodel/assets/frag.glb", None)
-bkit.save_blend(r"tools/weapon/frag.blend")
-```
-
-Then check every clip in the viewer: `?viewer&weapon=frag`, one clip with
-`&clip=throw`, held at a moment with `&t=0.9`.

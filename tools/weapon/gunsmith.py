@@ -15,7 +15,7 @@ carries its finish's flat colour as the glTF extra `tint`, which the
 third-person view uses instead of the textures.
 
 Moving parts are separate objects named as the client expects (`mag`, `slide`,
-`pump`, `bolt`), with their pivots as origins.
+`pump`, `bolt`; the frag's `spoon` and `ring`), with their pivots as origins.
 """
 import math
 import os

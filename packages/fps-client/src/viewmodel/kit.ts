@@ -6,7 +6,7 @@ import { palmFrame } from './m4a1';
 
 /**
  * The v2 weapons for the first-person view: Blender models
- * (tools/weapon/: pistol.py, smg.py, shotgun.py, sniper.py, arsenal.py) in the M4A1's gun space (metres, +Y up, muzzle
+ * (tools/weapon/: pistol.py, smg.py, shotgun.py, sniper.py, frag.py) in the M4A1's gun space (metres, +Y up, muzzle
  * along -Z, right palm near the origin), plus the numbers the viewmodel needs
  * to hold, aim and animate each one. Moving parts are separate nodes in the
  * GLB with their pivots as origins.

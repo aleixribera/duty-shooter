@@ -9,9 +9,9 @@ Gun space and the shared tools are described in gunsmith.py. The rig numbers in
 packages/fps-client/src/viewmodel/kit.ts (`sniper`) come from the landmarks
 below: the scope's eyepiece at (0, -0.111, 0.072), the muzzle at y = 0.8, the
 port at (0.016, 0.035, 0.02), the bolt's pivot on the bore (it turns about the
-bore, then pulls back `travel`; the viewmodel reaches for its knob at
-(0.055, -0.035, 0.024)), the magazine's pivot and the palms on the grip and
-under the forend.
+bore, then pulls back `travel`; the viewmodel puts the right palm under its
+knob, centred at (0.052, -0.064, 0.0025): BOLT_KNOB in viewmodel.ts), the
+magazine's pivot and the palms on the grip and under the forend.
 """
 import importlib
 import math
