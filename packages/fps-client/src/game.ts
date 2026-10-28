@@ -375,7 +375,8 @@ export class Game {
    * drawn with all of them, soldiers in every look and the pieces a ragdoll
    * throws on show, so their shaders compile now rather than in the first
    * frames of play or at a first weapon switch or kill. Settles within a few
-   * seconds even if no frame is drawn (a hidden tab).
+   * seconds even if no frame is drawn (a hidden tab), then waits for the GPU to
+   * finish compiling (see `#gpuDone`).
    */
   async prepare(): Promise<void> {
     await this.preload();
@@ -388,6 +389,22 @@ export class Game {
       this.#warmUp = finish;
     });
     this.#warmUp = null;
+    await this.#gpuDone(20_000);
+  }
+
+  /**
+   * Waits (at most `limit` ms) until the GPU has finished the frames drawn so far.
+   * The browser compiles shaders in the background after they are created, and
+   * the first frame that needs one waits for it: without this, the hundreds
+   * compiled behind the menu and the loading screen are still compiling when
+   * play starts, and the first seconds freeze for that long instead.
+   */
+  async #gpuDone(limit: number): Promise<void> {
+    const queue = (this.#renderer.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } }).device?.queue;
+    if (!queue) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([queue.onSubmittedWorkDone(), new Promise<void>((done) => (timer = setTimeout(done, limit)))]);
+    clearTimeout(timer);
   }
 
   #resize(): void {
