@@ -25,6 +25,18 @@ const GRID_FINISHES: Readonly<Record<string, Finish>> = Object.fromEntries(
   ).map(([material, color, accent]) => [`grid:${material}`, { family: material === 'glass' ? 'glass' : 'grid', color, accent }]),
 );
 
+/** The range's props (tools/map/range.py), modelled in real finishes on the grid. */
+const PROP_FINISHES: Readonly<Record<string, Finish>> = {
+  'prop.wood': { family: 'floor', color: 0x8a6644, accent: 0x6e5034 },
+  'prop.plywood': { family: 'floor', color: 0xc4a575, accent: 0xa88a5c },
+  'prop.steel': { family: 'paint', color: 0x3a3f45, roughness: 0.5, metalness: 0.4 },
+  'prop.frame': { family: 'paint', color: 0x2e3a2f },
+  'prop.sandbag': { family: 'dirt', color: 0x8b7d5c, roughness: 0.95 },
+  'prop.rubber': { family: 'paint', color: 0x1f2022, roughness: 0.9, metalness: 0 },
+  'prop.plastic': { family: 'plastic', color: 0xe6e0d4, roughness: 0.45 },
+  'prop.pegboard': { family: 'floor', color: 0xb59c78, accent: 0x9a8262 },
+};
+
 /** The Practice Range as a map definition: lanes, dummies and the movement course. */
 export function buildRange(): MapDefinition {
   const map = buildMap();
@@ -35,10 +47,11 @@ export function buildRange(): MapDefinition {
     name: 'Practice Range',
     solids: map.solids,
     hiddenSolids: map.hiddenSolids,
-    finishes: GRID_FINISHES,
-    looks: map.solids.map((s) => ({ side: `grid:${s.material}` })),
+    finishes: { ...GRID_FINISHES, ...PROP_FINISHES },
+    // The mannequin's head, a prop that a shot knocks off, matches its body.
+    looks: map.solids.map((s) => ({ side: s.prop ? 'prop.plastic' : `grid:${s.material}` })),
     decorations: [],
-    models: null,
+    models: { url: 'models/range.glb', placements: map.models },
     ramps: map.ramps,
     labels: map.labels,
     populationSign: null,

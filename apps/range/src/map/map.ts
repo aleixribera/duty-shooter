@@ -1,4 +1,5 @@
 import { STATS, box, orientedBox, playerClip, type Material, type MantleBand, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
+import type { ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 
 /**
  * The one original map: a firing range (10/25/50 m lanes, static and rail
@@ -80,6 +81,8 @@ export interface LoadoutStation {
 export interface GameMap {
   /** Solids that are drawn and collided against. */
   readonly solids: readonly Solid[];
+  /** The props drawn as models (tools/map/range.py) instead of their solids. */
+  readonly models: readonly ModelPlacement[];
   /** Collision-only solids (the player clip steps and bullet surfaces under ramps). */
   readonly hiddenSolids: readonly Solid[];
   readonly ramps: readonly Ramp[];
@@ -119,7 +122,14 @@ export function buildMap(): GameMap {
   const hidden: Solid[] = [];
   const ramps: Ramp[] = [];
   const labels: Label[] = [];
-  const add = (min: Vec3, max: Vec3, material: Material) => solids.push(b(min, max, material));
+  const models: ModelPlacement[] = [];
+  const add: Add = Object.assign((min: Vec3, max: Vec3, material: Material) => void solids.push(b(min, max, material)), {
+    model(asset: string, position: Vec3, yaw: number, fn: () => void) {
+      const from = solids.length;
+      fn();
+      models.push({ asset, position, yaw, solids: Array.from({ length: solids.length - from }, (_, i) => from + i) });
+    },
+  });
 
   // Ground: separate tiles so each area has its own surface material. Top at y = 0.
   add([-80, -1, 8], [62, 0, 30], 'concrete'); // the strip behind the firing line: the course start and the penetration station
@@ -153,6 +163,7 @@ export function buildMap(): GameMap {
 
   return {
     solids,
+    models,
     hiddenSolids: hidden,
     ramps,
     labels,
@@ -194,19 +205,21 @@ function snipingTarget(distance: number): Vec3 {
 function buildSnipingLane(add: Add, labels: Label[]): SnipingLane {
   const [x, , z] = SNIPE_FROM;
   add([x - 1.5, 0, z - 3], [x + 1, 0.02, z + 3], 'concrete');
-  add([x + 1, 0, z - 2.5], [x + 1.5, 0.95, z + 2.5], 'wood');
+  add.model('bench-500x50', [x + 1.25, 0, z], TOWARD_BENCH, () => add([x + 1, 0, z - 2.5], [x + 1.5, 0.95, z + 2.5], 'wood'));
   labels.push({ text: 'SNIPING LANE', position: [x + 0.98, 0.75, z], yaw: TOWARD_BENCH, size: 0.35 });
   const targets = [25, 50, 75, 100].map((distance) => ({ distance, dummy: `dummy-snipe-${distance}` }));
   for (const { distance } of targets) {
     const [tx, , tz] = snipingTarget(distance);
-    add([tx + 0.8, 0, tz - 0.8], [tx + 1, 2.6, tz + 0.8], 'wood');
+    add.model('target-board', [tx + 0.9, 0, tz], TOWARD_BENCH, () => add([tx + 0.8, 0, tz - 0.8], [tx + 1, 2.6, tz + 0.8], 'wood'));
     // The figures grow with distance, so each reads through the scope from the bench.
     labels.push({ text: `${distance} m`, position: [tx + 0.78, 2.25, tz], yaw: TOWARD_BENCH, size: 0.2 + distance * 0.004 });
   }
   add([30, 0, -88], [33, 4, -67], 'dirt');
   // A sign beside the firing line, pointing the way.
-  add([-72.05, 0, -2.05], [-71.95, 2, -1.95], 'wood');
-  add([-73, 1.4, -2.02], [-71, 2.2, -1.98], 'wood');
+  add.model('signpost', [-72, 0, -2], 0, () => {
+    add([-72.05, 0, -2.05], [-71.95, 2, -1.95], 'wood');
+    add([-73, 1.4, -2.02], [-71, 2.2, -1.98], 'wood');
+  });
   labels.push({ text: 'SNIPING 100 m', position: [-72, 1.8, -1.96], yaw: 0, size: 0.3 });
   return { shooter: { position: SNIPE_FROM, yaw: FACING_POS_X }, targets };
 }
@@ -214,14 +227,18 @@ function buildSnipingLane(add: Add, labels: Label[]): SnipingLane {
 /** The loadout station: a rack table just behind the firing line, where Use opens the loadout screen. */
 function buildLoadoutStation(add: Add, labels: Label[]): LoadoutStation {
   const [x, z] = [-44, 3.5];
-  add([x - 1.2, 0, z - 0.4], [x + 1.2, 0.9, z + 0.4], 'metal');
-  add([x - 1.2, 0.9, z + 0.3], [x + 1.2, 2, z + 0.4], 'wood');
+  // Its front, where the labels are, faces -Z (toward the firing line).
+  add.model('loadout-rack', [x, 0, z], Math.PI, () => {
+    add([x - 1.2, 0, z - 0.4], [x + 1.2, 0.9, z + 0.4], 'metal');
+    add([x - 1.2, 0.9, z + 0.3], [x + 1.2, 2, z + 0.4], 'wood');
+  });
   labels.push({ text: 'LOADOUT', position: [x, 1.7, z + 0.28], yaw: Math.PI, size: 0.35 });
   labels.push({ text: 'USE', position: [x, 1.35, z + 0.28], yaw: Math.PI, size: 0.22 });
   return { position: [x, 0, z], radius: 2.5 };
 }
 
-type Add = (min: Vec3, max: Vec3, material: Material) => void;
+/** Adds a drawn solid; `model` draws the solids added inside `fn` as one placement of a model instead. */
+type Add = ((min: Vec3, max: Vec3, material: Material) => void) & { model(asset: string, position: Vec3, yaw: number, fn: () => void): void };
 
 /**
  * The firing range, x from -64 to -20. The shooter stands on the firing line
@@ -235,7 +252,8 @@ function buildRange(add: Add, labels: Label[]): void {
     [-43, -37],
     [-35, -21],
   ] as const) {
-    add([x0, 0, -HALF - 0.6], [x1, 0.95, -HALF], 'wood');
+    // Their panels face the shooter (+Z).
+    add.model(`bench-${(x1 - x0) * 100}x60`, [(x0 + x1) / 2, 0, -HALF - 0.3], 0, () => add([x0, 0, -HALF - 0.6], [x1, 0.95, -HALF], 'wood'));
   }
   // Lane dividers: low walls you can see over.
   for (const x of [-52, -44, -36]) add([x - 0.15, 0, -55], [x + 0.15, 1.1, -2.5], 'concrete');
@@ -251,7 +269,7 @@ function buildRange(add: Add, labels: Label[]): void {
     [-34.5, -20, 'WALK'],
     [-34.5, -40, 'SPRINT'],
   ] as const) {
-    add([x - 0.6, 0, z - 0.05], [x + 0.6, 1.6, z + 0.05], 'wood');
+    add.model('distance-board', [x, 0, z], 0, () => add([x - 0.6, 0, z - 0.05], [x + 0.6, 1.6, z + 0.05], 'wood'));
     labels.push({ text, position: [x, 1.25, z + 0.06], yaw: 0, size: 0.5 });
   }
   // Rail tracks for the moving dummies (flush, cosmetic).
@@ -364,9 +382,14 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
   }
   labels.push({ text: 'SLIDE LANE', position: [23, 2.6, 7.9], yaw: Math.PI, size: 0.6 });
   labels.push({ text: 'MOVEMENT COURSE', position: [0, 3.2, 7.9], yaw: Math.PI, size: 0.8 });
-  add([-1, 0, 7.9], [1, 3.8, 8], 'wood');
-  add([-43.5, 0, 7.9], [-40.5, 3.8, 8], 'wood');
-  add([21.5, 0, 7.9], [24.5, 3.2, 8], 'wood');
+  // The signs over each area, their faces toward -Z.
+  for (const [x0, x1, top] of [
+    [-1, 1, 3.8],
+    [-43.5, -40.5, 3.8],
+    [21.5, 24.5, 3.2],
+  ] as const) {
+    add.model(`sign-${(x1 - x0) * 100}x${Math.round(top * 100)}`, [(x0 + x1) / 2, 0, 7.95], Math.PI, () => add([x0, 0, 7.9], [x1, top, 8], 'wood'));
+  }
 
   return {
     ledges,
@@ -415,7 +438,7 @@ function buildPenetrationStation(add: Add, solids: Solid[], labels: Label[]): Pe
   // A mannequin on a stand: plastic body, its head a prop that a shot knocks off.
   const mx = PEN_X0 + PEN_LANE * lanes.length + 1;
   const mz = PEN_PANEL_Z - 2;
-  add([mx - 0.25, 0, mz - 0.15], [mx + 0.25, 1.45, mz + 0.15], 'plastic');
+  add.model('mannequin-stand', [mx, 0, mz], 0, () => add([mx - 0.25, 0, mz - 0.15], [mx + 0.25, 1.45, mz + 0.15], 'plastic'));
   const mannequinHead = 'range-mannequin-head';
   solids.push(box({ min: [mx - 0.12, 1.47, mz - 0.12], max: [mx + 0.12, 1.75, mz + 0.12], material: 'plastic', prop: mannequinHead }));
 
