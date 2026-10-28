@@ -52,14 +52,11 @@ renders a quick flat-shaded sheet without baking. The rig numbers in
 each generator; check idle, aim, reload and inspect in the viewer after editing.
 
 - `pistol.py`: the Warden 9 (slide and magazine pivots match the rig).
+- `smg.py`: the Wasp 9 (the bolt in the port is the `slide` part; the magazine
+  runs through the grip).
 - `arms.py`: the first-person arms (sleeve and tactical glove), skinned to the
   client's arm rig in `packages/fps-client/src/viewmodel/arms.ts`, including
   the three forearm twist bones; the bone numbers at the top must match it.
-
-The Wasp 9's detailed replacement is built in the same way with
-`blender --background --factory-startup --python tools/weapon/wasp.py`.
-It writes `tools/weapon/smg.blend` and the game GLB; its `mag` origin matches
-the existing reload rig. Check the viewer after changing it.
 
 The Harrow 12 replacement is built with
 `blender --background --factory-startup --python tools/weapon/harrow.py`.
@@ -73,7 +70,7 @@ It writes `tools/weapon/sniper.blend` and the game GLB; the scope eye position,
 `bolt` pivot and `mag` pivot match the existing rig. Check the viewer's bolt,
 reload and inspect clips after editing.
 
-`arsenal.py` builds the SMG, pistol, shotgun, sniper and frag grenade, one per
+`arsenal.py` builds the shotgun, sniper and frag grenade until they get their own generators, one per
 run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
 turns into game -Z; the right palm near the origin). Each GLB holds the body
 grouped by material plus the moving parts (`mag`, `slide`, `pump`, `bolt`,

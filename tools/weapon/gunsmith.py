@@ -362,7 +362,7 @@ class Gun:
         w, n = width / 2, width / 2 - 0.0028
         section = [(-n, 0), (n, 0), (n, 0.0025), (w, 0.0052), (w, 0.0078), (w - 0.0012, 0.0093),
                    (-w + 0.0012, 0.0093), (-w, 0.0078), (-w, 0.0052), (-n, 0.0025)]
-        objs = [self.sweep(name, [(px + x, pz + z) for px, pz in section], y0, y1, mat, bevel=0.0004)]
+        objs = [self.sweep(name, [(px + x, pz + z) for px, pz in section], y0, y1, mat, bevel=0.0004, segments=1)]
         if slots:
             cuts = []
             pitch = 0.01

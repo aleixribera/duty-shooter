@@ -1,9 +1,9 @@
 """Build the remaining v2 weapons and the frag grenade for the first-person view.
 
-The pistol has its own generator, pistol.py (see gunsmith.py).
+The pistol and the SMG have their own generators, pistol.py and smg.py (see gunsmith.py).
 
 Run in the Blender session (see the blender skill):
-    bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="smg")
+    bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="shotgun")
 
 Gun space matches the M4A1 (tools/weapon/README.md): metres, the right palm
 near the origin on the grip, and the muzzle along game -Z. Blender is Z up
@@ -23,7 +23,7 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-WEAPON = ARGS.get("weapon", "smg")  # noqa: F821 (ARGS comes from bkit.run)
+WEAPON = ARGS.get("weapon", "shotgun")  # noqa: F821 (ARGS comes from bkit.run)
 
 STEEL = bkit.material("Steel", (0.05, 0.052, 0.055), 0.55, 0.6)  # noqa: F821
 DARK = bkit.material("Blued steel", (0.025, 0.026, 0.03), 0.7, 0.45)  # noqa: F821
@@ -150,36 +150,6 @@ def bodies(groups):
 # ---------------------------------------------------------------------------
 
 
-def build_smg():
-    """Wasp 9: a compact 9 mm SMG, magazine through the pistol grip, folding wire stock, short barrel."""
-    s, d, p = [], [], []
-    # Receiver: a long flat box with a ribbed top cover.
-    s.append(box("receiver", (0.042, 0.25, 0.058), (0, 0.06, 0.004), STEEL, 0.003))
-    s.append(box("top_cover", (0.038, 0.2, 0.012), (0, 0.07, 0.038), DARK, 0.002))
-    for i in range(7):
-        d.append(box(f"rib{i}", (0.04, 0.004, 0.004), (0, 0.0 + i * 0.022, 0.046), DARK, 0.0))
-    # Barrel and muzzle nut.
-    d.append(cyl("barrel", 0.0075, 0.07, (0, 0.215, 0.01), DARK, verts=16))
-    d.append(cyl("barrel_nut", 0.014, 0.022, (0, 0.19, 0.01), STEEL, verts=12))
-    # Sights: a post at the front, an aperture at the back.
-    d.append(box("front_post", (0.004, 0.006, 0.02), (0, 0.17, 0.052), DARK, 0.0))
-    d.append(box("front_ears", (0.02, 0.008, 0.014), (0, 0.17, 0.048), DARK, 0.001))
-    d.append(box("rear_sight", (0.022, 0.012, 0.018), (0, -0.045, 0.05), DARK, 0.001))
-    # Grip with the magazine running through it, and the trigger guard.
-    p.append(prism("grip", [(-0.012, -0.022), (0.03, -0.022), (0.028, -0.115), (-0.02, -0.118)], 0.036, POLY, 0.004))
-    s.append(prism("trigger_guard", [(0.03, -0.022), (0.08, -0.022), (0.08, -0.03), (0.07, -0.06), (0.03, -0.06), (0.03, -0.054), (0.066, -0.054), (0.072, -0.03), (0.03, -0.03)], 0.01, STEEL, 0.001))
-    d.append(box("trigger", (0.006, 0.006, 0.024), (0, 0.045, -0.038), DARK, 0.0))
-    d.append(box("cocking_knob", (0.016, 0.016, 0.012), (0, 0.11, 0.05), DARK, 0.002))
-    # Folding stock: two wire struts folded under the receiver, a butt plate at the front.
-    for x in (-0.017, 0.017):
-        d.append(cyl(f"strut{x}", 0.0035, 0.22, (x, 0.04, -0.03), DARK, verts=8))
-    d.append(box("butt", (0.04, 0.008, 0.03), (0, 0.15, -0.03), DARK, 0.002))
-    d.append(box("sling_loop", (0.046, 0.01, 0.01), (0, -0.06, -0.015), STEEL, 0.001))
-    body = bodies({"steel": s, "dark": d, "polymer": p})
-    mag = part("mag", [box("mag_body", (0.026, 0.03, 0.16), (0, 0.004, -0.13), STEEL, 0.002), box("mag_base", (0.03, 0.036, 0.008), (0, 0.004, -0.21), DARK, 0.002)], (0, 0.004, -0.04))
-    return body + [mag]
-
-
 def build_shotgun():
     """Harrow 12: a 12-gauge pump with a walnut stock and forend, steel receiver, tube under the barrel."""
     s, d, w = [], [], []
@@ -267,7 +237,7 @@ def build_frag():
     return body + [spoon, ring_part]
 
 
-BUILDERS = {"smg": build_smg, "shotgun": build_shotgun, "sniper": build_sniper, "frag": build_frag}
+BUILDERS = {"shotgun": build_shotgun, "sniper": build_sniper, "frag": build_frag}
 objs = BUILDERS[WEAPON]()
 result = bkit.check(objs, budget=20000)  # noqa: F821
 result["objects"] = [o.name for o in objs]

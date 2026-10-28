@@ -6,7 +6,7 @@ import { palmFrame } from './m4a1';
 
 /**
  * The v2 weapons for the first-person view: Blender models
- * (tools/weapon/arsenal.py) in the M4A1's gun space (metres, +Y up, muzzle
+ * (tools/weapon/: pistol.py, smg.py, arsenal.py) in the M4A1's gun space (metres, +Y up, muzzle
  * along -Z, right palm near the origin), plus the numbers the viewmodel needs
  * to hold, aim and animate each one. Moving parts are separate nodes in the
  * GLB with their pivots as origins.
@@ -47,7 +47,7 @@ export interface KitRig {
 
 const asset = (name: string) => new URL(`./assets/${name}.glb`, import.meta.url).href;
 
-/** Measured from tools/weapon/arsenal.py (Blender x, y, z is gun x, z, -y). */
+/** Measured from the generators in tools/weapon (Blender x, y, z is gun x, z, -y). */
 export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
   smg: {
     url: asset('smg'),
@@ -55,10 +55,11 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
     left: { pos: [-0.012, -0.03, -0.15], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
     rearSight: [0, 0.06, 0.045],
     eyeRelief: 0.2,
-    muzzle: [0, 0.01, -0.25],
-    ejectionPort: [0.022, 0.02, -0.08],
-    magGrab: [-0.012, -0.15, 0],
+    muzzle: [0, 0.012, -0.252],
+    ejectionPort: [0.016, 0.017, -0.063],
+    magGrab: [-0.014, -0.1, 0.024],
     hip: [0.12, -0.14, -0.4],
+    travel: 0.025,
     kick: 0.7,
   },
   pistol: {
