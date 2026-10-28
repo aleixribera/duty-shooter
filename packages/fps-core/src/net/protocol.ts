@@ -5,7 +5,7 @@ import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -73,6 +73,13 @@ export type Phase = 'playing' | 'nuke' | 'vote' | 'lobby';
 /** The intermission's default phase lengths (s): the nuke, then the scoreboard and vote (just the scoreboard on a server with a lobby). */
 export const INTERMISSION = { nuke: 6, vote: 14, scoreboard: 10 } as const;
 
+/**
+ * Seconds every match opens with, everyone held at their spawn (free to look
+ * around and change loadout) while the HUD counts down. Charge has none: its
+ * first round's freeze is the same countdown.
+ */
+export const MATCH_COUNTDOWN = 5;
+
 /** The lobby between matches, as every client needs it. */
 export interface LobbyState {
   /** The person who picks and starts the next match: the first one in, until they leave. */
@@ -103,6 +110,8 @@ export interface MatchStatus {
   readonly phase: Phase;
   /** Simulation time (s) the phase ends: the time limit while playing (null without one), the next phase in the intermission. */
   readonly phaseEnds: number | null;
+  /** Simulation time (s) the match's opening countdown ends, while it runs (see {@link MATCH_COUNTDOWN}); null otherwise. */
+  readonly countdownEnds: number | null;
   readonly killLimit: number | null;
   /** Team points that win an objective mode; null for none. */
   readonly scoreLimit: number | null;
@@ -116,7 +125,7 @@ export interface MatchStatus {
   readonly next: ModeId;
   /** How the match ended, during the intermission. */
   readonly result: MatchResult | null;
-  /** The mode's objectives (Outposts zones), or null. */
+  /** The mode's own state (Outposts zones, the Charge round, gun game's ladder), or null. */
   readonly objective: ObjectiveState | null;
   /** The lobby, on a server that has one (null on one that runs matches back to back). */
   readonly lobby: LobbyState | null;

@@ -27,6 +27,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly idleTimeout?: number;
   readonly bots?: BotOptions;
   readonly spawnProtection?: number;
+  /** Seconds each match opens with, everyone held. 0 by default here, so a test plays from its first tick; the game's servers use MATCH_COUNTDOWN. */
+  readonly countdown?: number;
   readonly reconnectGrace?: number;
   /** The map id the server reports. */
   readonly map?: string;
@@ -90,6 +92,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.idleTimeout === undefined ? {} : { idleTimeout: options.idleTimeout }),
     ...(options.bots ? { bots: options.bots } : {}),
     ...(options.spawnProtection === undefined ? {} : { spawnProtection: options.spawnProtection }),
+    countdown: options.countdown ?? 0,
     ...(options.reconnectGrace === undefined ? {} : { reconnectGrace: options.reconnectGrace }),
     ...(options.map ? { map: options.map } : {}),
     ...(options.onLog ? { onLog: options.onLog } : {}),

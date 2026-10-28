@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION, RESPAWN_DELAY, anglesOf, box, zoneCentre, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint } from '@duty-shooter/fps-core';
+import { MATCH_COUNTDOWN, PROTOCOL_VERSION, RESPAWN_DELAY, anglesOf, box, zoneCentre, type ModeEvent, type PlayerOutput, type SimEvent, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -456,5 +456,34 @@ describe('joining with a preferred mode', () => {
 
     expect(closed).toBe('rejected: protocol');
     expect(m.server.playerCount).toBe(0);
+  });
+});
+
+describe('the opening countdown', () => {
+  it('holds everyone for 5 s at the start of every match, unable to move or fire, before the clock starts', () => {
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns: SPREAD, countdown: MATCH_COUNTDOWN, modes: { ffa: { timeLimit: 600 } } });
+    const [a] = joinAll(m, 'a');
+    const status = m.server.matchStatus();
+    expect(MATCH_COUNTDOWN).toBe(5);
+    expect(status.countdownEnds).not.toBeNull();
+    expect(status.phaseEnds).toBeCloseTo(status.countdownEnds! + 600, 5);
+    const start = serverPlayer(m, a!.client.id).position;
+    let shots = 0;
+    while (m.server.matchStatus().countdownEnds !== null) {
+      const out = m.step({ a: usercmd({ forward: 1, buttons: ['Fire'] }) });
+      shots += out.events.filter((e) => e.type === 'shot').length;
+    }
+    expect(shots).toBe(0);
+    expect(serverPlayer(m, a!.client.id).position).toEqual(start);
+    // Then play is on: the same input moves and fires.
+    for (let i = 0; i < ticks(1); i++) shots += m.step({ a: usercmd({ forward: 1, buttons: ['Fire'] }) }).events.filter((e) => e.type === 'shot').length;
+    expect(shots).toBeGreaterThan(0);
+    expect(serverPlayer(m, a!.client.id).position).not.toEqual(start);
+  });
+
+  it('gives Charge none: its first round opens with its own freeze', () => {
+    const m = tdm({ mode: 'charge', countdown: MATCH_COUNTDOWN, ...{ latency: 0, jitter: 0, loss: 0 } });
+    joinAll(m, 'a');
+    expect(m.server.matchStatus().countdownEnds).toBeNull();
   });
 });

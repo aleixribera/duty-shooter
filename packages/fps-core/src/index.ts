@@ -48,10 +48,10 @@ export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client'
 export type { Connection, ServerTransport } from './net/transport';
 export { createMemoryNetwork } from './net/memory';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
-export { INTERMISSION, PROTOCOL_VERSION } from './net/protocol';
+export { INTERMISSION, MATCH_COUNTDOWN, PROTOCOL_VERSION } from './net/protocol';
 export type { ClientMessage, LobbyPick, LobbyState, MatchStatus, Phase, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
 export { MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamMode } from './modes/game-mode';
-export { GUN_GAME_GUNS, GUN_GAME_KILLS_PER_GUN, gunGameLevel } from './modes/gungame';
+export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, dealLadder, gunGameLevel } from './modes/gungame';
 export type {
   ChargeSite,
   ChargeState,

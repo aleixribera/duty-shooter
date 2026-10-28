@@ -96,8 +96,12 @@ export interface ChargeState {
   readonly outcome: { readonly winner: TeamId; readonly reason: RoundReason } | null;
 }
 
-/** The mode's own state, sent with every snapshot; null for a mode without objectives. */
-export type ObjectiveState = { readonly kind: 'outposts'; readonly zones: readonly ZoneState[] } | ChargeState;
+/** The mode's own state, sent with every snapshot; null for a mode without any. */
+export type ObjectiveState =
+  | { readonly kind: 'outposts'; readonly zones: readonly ZoneState[] }
+  | ChargeState
+  /** Gun game: this match's ladder, first gun first. */
+  | { readonly kind: 'gungame'; readonly guns: readonly WeaponId[] };
 
 /** What a game mode can see of the match. */
 export interface ModeContext {

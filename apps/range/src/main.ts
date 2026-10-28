@@ -184,6 +184,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const { map, solids } = load(id);
     play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
+  // `?matchtime=<s>` (dev only): Bot Matches that last that long, for testing their end without the 10 minutes.
+  const matchTime = import.meta.env.DEV ? Number(params.get('matchtime')) || undefined : undefined;
   /** An offline match against bots on `id`, once its lighting is in. */
   const playBots = async (id: MapId, mode: ModeId, botsPerTeam: number, hvb: boolean) => {
     menu.loading('Bot Match', null);
@@ -194,7 +196,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     await game.prepare();
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout }));
+    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -264,6 +266,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
+    botLobbyOpen = false;
     game.setDriver(null);
     game.paused = true;
     game.input.unlock();
@@ -277,6 +280,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       pick: (picks) => (botLobbyOpen ? pickBots(picks) : game.driver?.setLobby(picks)),
       start: () => {
         if (botLobbyOpen) {
+          // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
+          if (game.driver) game.setDriver(null);
           closeBotLobby();
           void playBots(asMapId(botSetup.map) ?? 'survival-town', botSetup.mode, botSetup.bots, botSetup.hvb && teamMode(botSetup.mode));
           return;
@@ -288,11 +293,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       join: () => void joinMatch(),
       loadout: () => menu.loadout('lobby'),
       settings: () => menu.lobbySettings(),
-      leave: () => {
-        if (!botLobbyOpen) return leaveGame();
-        closeBotLobby();
-        menu.show('main');
-      },
+      leave: () => leaveGame(),
     },
     { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? lobbyMapName(id), image: MAP_IMAGES.has(id) ? `maps/${id}.jpg` : null }) },
   );
@@ -306,8 +307,22 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
   let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(BOT_MAPS[0]!, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: BOT_MAPS[0]! };
   let botLobbyOpen = false;
-  const botView = (): LobbyView => ({ lobby: botSetup, phase: 'lobby', selfId: 'you', names: { you: settings.name.trim() || 'You' }, pings: {}, mode: botSetup.mode, result: null, teamScores: null, loading: null, offline: true });
+  /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
+  let botLast: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
+  const botView = (): LobbyView => ({
+    lobby: botSetup,
+    phase: 'lobby',
+    selfId: 'you',
+    names: { you: settings.name.trim() || 'You' },
+    pings: {},
+    mode: botLast?.mode ?? botSetup.mode,
+    result: botLast?.result ?? null,
+    teamScores: botLast?.teamScores ?? null,
+    loading: null,
+    offline: true,
+  });
   const openBotLobby = () => {
+    botLast = null;
     botLobbyOpen = true;
     menu.hide();
     lobbyPage.invite = null;
@@ -327,14 +342,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   const closeBotLobby = () => {
     botLobbyOpen = false;
-    lobbyPage.hide();
+    leaveLobby();
   };
   // Esc leaves Bot Match's setup (the menu, open over it, handles its own Esc first).
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'Escape' || e.defaultPrevented || !botLobbyOpen || menu.open) return;
     e.preventDefault();
-    closeBotLobby();
-    menu.show('main');
+    leaveGame();
   });
   /** Whether the next match's start should take the pointer at once (the host's own Start click). */
   let lobbyJoin = false;
@@ -373,11 +387,28 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Each frame: the lobby page up while the server is in its lobby, and until this player is back in the match after it. */
   const updateLobby = () => {
+    const driver = game.driver;
+    // A Bot Match over: back to its setup as the online lobby comes back after a match, the map flying by behind.
+    if (driver instanceof BotMatchDriver && driver.over && !botLobbyOpen) {
+      const match = driver.match!;
+      botLast = { mode: match.mode, result: match.result, teamScores: match.teamScores };
+      botLobbyOpen = true;
+      game.paused = true;
+      game.input.unlock();
+      if (menu.open && menu.screen === 'pause') menu.hide();
+      game.overviewOnly = true;
+      game.hud.visible = false;
+      lobbyPage.invite = null;
+    }
     if (botLobbyOpen) {
       lobbyPage.show(botView());
       return;
     }
-    const driver = game.driver;
+    // A Bot Match's own lobby (before its Start goes through) is never shown.
+    if (driver instanceof BotMatchDriver) {
+      if (lobbyPage.open) leaveLobby();
+      return;
+    }
     const match = driver?.online ? driver.match : null;
     // Servers from before map switching name no map in their status.
     const next = match ? asMapId(match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map) : undefined;

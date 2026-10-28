@@ -380,17 +380,25 @@ export interface BotMatchOptions {
   readonly hvb?: boolean;
   readonly name: string;
   readonly loadout?: Loadout;
+  /** Seconds a match lasts in the modes with a clock (as the server's `TIME_LIMIT`); each mode's own when absent. */
+  readonly timeLimit?: number;
 }
 
 /**
  * A match against bots with no server to reach: a game server runs in the
  * page, over a zero-latency in-memory link, so modes, scores, the clock and
- * the intermission all work as online. It stops while the game is paused.
+ * the intermission all work as online. Like the online server it has a
+ * lobby: you are its host and start the match at once, and after the ending
+ * and the scoreboard it goes back to the lobby, where the page takes over
+ * (see {@link over}). It stops while the game is paused.
  */
 export class BotMatchDriver extends OnlineDriver {
   readonly pausesWithGame = true;
   readonly #network: MemoryNetwork;
   readonly #server: GameServer;
+  /** The match has started; its Start is pressed once, on joining the lobby. */
+  #started = false;
+  #played = false;
 
   constructor(options: BotMatchOptions) {
     const network = createMemoryNetwork();
@@ -407,6 +415,8 @@ export class BotMatchDriver extends OnlineDriver {
       ...(options.sites ? { sites: options.sites } : {}),
       passphrase: '',
       bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
+      lobby: true,
+      ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     });
     super({ server: network.connect(), solids: options.solids, mode: options.mode, bots: perTeam, name: options.name, passphrase: '', ...(options.loadout ? { loadout: options.loadout } : {}) });
     this.#network = network;
@@ -421,9 +431,20 @@ export class BotMatchDriver extends OnlineDriver {
     return {};
   }
 
+  /** Whether the match is over and the server is back in its lobby: the page returns to Bot Match's setup. */
+  get over(): boolean {
+    return this.#played && this.match?.phase === 'lobby';
+  }
+
   override tick(cmd: UserCmd): DriverTick {
     this.#network.advance(TICK_SECONDS);
     this.#server.tick();
-    return super.tick(cmd);
+    const out = super.tick(cmd);
+    const phase = this.match?.phase;
+    if (phase === 'lobby' && !this.#started) {
+      this.#started = true;
+      this.startMatch();
+    } else if (phase !== undefined && phase !== 'lobby') this.#played = true;
+    return out;
   }
 }

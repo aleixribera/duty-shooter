@@ -17,6 +17,7 @@ import type { World } from '../world';
 import {
   EVENT_RESEND_TICKS,
   INTERMISSION,
+  MATCH_COUNTDOWN,
   PROTOCOL_VERSION,
   compactGrenade,
   compactOutput,
@@ -86,6 +87,8 @@ export interface GameServerOptions {
   readonly bots?: BotOptions;
   /** Seconds a fresh spawn can't be hurt (it ends early once the player fires); SPAWN_PROTECTION by default. */
   readonly spawnProtection?: number;
+  /** Seconds each match opens with, everyone held; MATCH_COUNTDOWN by default, 0 for none. */
+  readonly countdown?: number;
   /** Seconds a dropped player's seat is held for them to come back to; RECONNECT_GRACE by default, 0 lets it go at once. */
   readonly reconnectGrace?: number;
   /** Hears every join, leave, match start and match end, for the lobby's event log. */
@@ -422,6 +425,7 @@ export class GameServer {
       mode: this.#mode.id,
       phase: this.#phase,
       phaseEnds,
+      countdownEnds: this.#countingDown ? this.#matchStart : null,
       killLimit: this.#mode.killLimit,
       scoreLimit: this.#mode.scoreLimit,
       timeLimit: limit,
@@ -521,7 +525,9 @@ export class GameServer {
     if (message.t === 'loadout') {
       client.loadout = message.loadout;
       // In a round's freeze the change is made at once, where the player stands.
-      if (this.#phase === 'playing' && this.#mode.frozen() && this.#last.players.find((p) => p.id === client.id)?.alive) this.simulation.equip(client.id, message.loadout);
+      if (this.#phase === 'playing' && (this.#countingDown || this.#mode.frozen()) && this.#last.players.find((p) => p.id === client.id)?.alive) {
+        this.simulation.equip(client.id, this.#loadoutOf(client.id).loadout ?? message.loadout);
+      }
       return;
     }
     if (message.t === 'vote') {
@@ -682,6 +688,8 @@ export class GameServer {
       ...this.#sideOf(seat.id),
     }));
     const teams = this.#mode.start(entrants);
+    // The match (and its clock) starts after the opening countdown; a mode that opens with a freeze of its own (Charge) needs none.
+    if (!this.#mode.frozen()) this.#matchStart = this.simulation.time + (this.#options.countdown ?? MATCH_COUNTDOWN);
     for (const [id, team] of teams) this.simulation.setTeam(id, team);
     for (const seat of seats) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));
     this.#log({ event: 'matchStart', map: this.#map.id, mode: this.#mode.id, hvb: this.#hvbOn });
@@ -750,6 +758,11 @@ export class GameServer {
   #spawn(id: PlayerId, spawn: SpawnPoint): void {
     this.simulation.respawn(id, spawn.position, spawn.yaw, this.#loadoutOf(id).loadout);
     this.#protectedSince.set(id, this.simulation.time);
+  }
+
+  /** Whether the match's opening countdown is running: everyone held, the clock not yet started. */
+  get #countingDown(): boolean {
+    return this.#phase === 'playing' && this.simulation.time < this.#matchStart - 1e-9;
   }
 
   #spawnProtected(id: PlayerId): boolean {
@@ -890,8 +903,8 @@ export class GameServer {
       // The intermission ignores input: acknowledged, never applied.
       if (frozen) cmds[client.id] = [];
     }
-    // A round's freeze holds everyone where they stand, free to look around.
-    const held = !frozen && this.#mode.frozen();
+    // A match's opening countdown and a round's freeze hold everyone where they stand, free to look around.
+    const held = !frozen && (this.#countingDown || this.#mode.frozen());
     if (this.#bots.size > 0) this.#thinkBots(cmds, frozen || held);
     for (const [id, list] of Object.entries(cmds)) {
       const applied = Array.isArray(list) ? list : [list];

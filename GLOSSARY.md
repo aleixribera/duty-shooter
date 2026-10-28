@@ -102,7 +102,7 @@ The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts, Charg
 _Avoid_: playlist, game type
 
 **Gun game**:
-The free-for-all mode played on a ladder of weapons: the M4A1, the SMG, the shotgun, the sniper rifle and the pistol, one level each. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the pistol wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
+The free-for-all mode played on a ladder of weapons: five different guns drawn at random from the whole arsenal, in a random order, dealt afresh at each match's start (`GUN_GAME_LADDER_LENGTH`), one level each. While the arsenal has five guns that is all of them, shuffled. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the last gun wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
 _Avoid_: arms race, ladder (on its own)
 
 **Level**:
@@ -136,8 +136,12 @@ The attacker holding the charge. The charge drops where the carrier dies, and an
 The first 5 s of a Charge round, when everyone is held where they stand. Players can look around and change their loadout.
 _Avoid_: buy time, warm-up
 
+**Countdown**:
+The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: everyone is held at their spawn, free to look around and change their loadout, while the HUD counts down; the match clock starts after it. Charge has none, because its first round's freeze is the same thing.
+_Avoid_: warm-up, pre-game
+
 **Intermission**:
-The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (Survival Town's nuke, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online, the ending is followed by 10 s of scoreboard and then the lobby, until the host starts the next match.
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (Survival Town's nuke, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
 _Avoid_: post-game, between rounds
 
 **Freight train**:
@@ -149,7 +153,7 @@ Survival Town's ending played like a cut scene: from the match's end through the
 _Avoid_: kill cam, video (nothing is recorded; it is drawn live)
 
 **Mode vote**:
-The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only Bot Match runs it; the online server has a lobby instead.
+The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only a server without a lobby runs it (the headless tests); online and Bot Match go back to the lobby instead.
 
 **Lobby**:
 The page every online player sits on between matches: the players with their pings, the map, the host's picks and the Start button. The online server opens it for the first person in, and after every match's nuke and 10 s scoreboard everyone goes back to it. No match runs and no bots play while it is open.
@@ -177,7 +181,7 @@ A setting for any team mode, not a mode of its own: every person plays on Blue, 
 _Avoid_: co-op, PvE
 
 **Bot Match**:
-An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page.
+An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page and plays a match as the online lobby does: you are the host and start it from the lobby page, and after the ending and the scoreboard you are back on that page with the last match's result, to pick again and press Start. What stays its own: it is offline, the match pauses with the game, a size of your own lasts across matches, there are no pings or invite, and Back (or Esc) on the page returns to the main menu.
 
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.

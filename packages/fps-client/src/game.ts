@@ -1,5 +1,5 @@
 import {
-  GUN_GAME_GUNS,
+  GUN_GAME_LADDER_LENGTH,
   GUN_GAME_KILLS_PER_GUN,
   STATS,
   TICK_SECONDS,
@@ -663,7 +663,16 @@ export class Game {
       match: match
         ? {
             status: match,
-            secondsLeft: match.objective?.kind === 'charge' && match.phase === 'playing' ? match.objective.remaining : match.phaseEnds === null ? null : match.phaseEnds - driver.serverTime,
+            // Through the opening countdown the clock stands at the full time limit.
+            secondsLeft:
+              match.objective?.kind === 'charge' && match.phase === 'playing'
+                ? match.objective.remaining
+                : match.phaseEnds === null
+                  ? null
+                  : match.phase === 'playing' && match.timeLimit !== null
+                    ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
+                    : match.phaseEnds - driver.serverTime,
+            countdown: match.countdownEnds === null || match.countdownEnds === undefined ? null : match.countdownEnds - driver.serverTime,
             team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
           }
@@ -1114,7 +1123,7 @@ export class Game {
       case 'level': {
         const driver = this.#driver;
         const gun = STATS.weapons[e.weapon].traits.name;
-        const last = e.level === GUN_GAME_GUNS.length - 1;
+        const last = e.level === GUN_GAME_LADDER_LENGTH - 1;
         if (e.player === driver?.selfId) this.hud.toast(e.demoted ? `Clubbed: knocked back a gun's worth of kills, on gun ${e.level + 1}, the ${gun}.` : `Gun ${e.level + 1}: the ${gun}${last ? `. ${GUN_GAME_KILLS_PER_GUN} kills with it win.` : '.'}`, 3);
         else if (last && !e.demoted) this.hud.objectiveFeed(`${driver?.nameOf(e.player) ?? 'Someone'} is on the last gun`, 0, false);
         break;

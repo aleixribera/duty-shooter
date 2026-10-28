@@ -265,6 +265,8 @@ export interface MatchView {
   readonly team: number | null;
   /** The mode the local player voted for this intermission, if any. */
   readonly myVote: ModeId | null;
+  /** Seconds left in the match's opening countdown, or null once play is on. */
+  readonly countdown?: number | null;
 }
 
 
@@ -616,6 +618,7 @@ export class Hud {
     this.#updateMatch(state);
     this.#updateZones(state);
     this.#updateCharge(state);
+    this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
     const board = (state.showScoreboard || voting) && state.scores.length > 0;
@@ -733,6 +736,18 @@ export class Hud {
       const won = TEAMS[s.outcome.winner];
       this.#set(this.#round, `<div class="sub">${ROUND_REASONS[s.outcome.reason]}</div><h2 class="ds-t${s.outcome.winner}">${won?.mark ?? ''} ${won?.name ?? 'Team'} wins the round</h2>`);
     }
+  }
+
+  /** The match's opening countdown, big in the middle as Charge's freeze is (Charge has no countdown of its own). */
+  #updateCountdown(state: HudState): void {
+    const view = state.match;
+    const left = view?.status.phase === 'playing' ? (view.countdown ?? null) : null;
+    if (left === null || left <= 0) {
+      if (!state.charge) this.#style(this.#round, 'display', 'none');
+      return;
+    }
+    this.#style(this.#round, 'display', '');
+    this.#set(this.#round, `<div class="sub">${escape(MODE_NAMES[view!.status.mode] ?? view!.status.mode)} · change your loadout now</div><h2>${Math.max(1, Math.ceil(left))}</h2>`);
   }
 
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
