@@ -52,6 +52,8 @@ const CSS = `
   transition: background-color 120ms, border-color 120ms, color 120ms, transform 120ms var(--ds-ease); }
 .ds-btn:not(:disabled):hover, .ds-btn:focus-visible, .ds-btn[data-pad-focus] { border-color: var(--ds-signal); background: var(--ds-signal-dim); outline: none; }
 .ds-btn:not(:disabled):active { transform: translateY(1px); }
+/* The pressed button's top edge stays under the pointer, so a press there still clicks. */
+.ds-btn:not(:disabled):active::after { content: ''; position: absolute; inset: -2px 0 0; }
 .ds-btn.primary { background: var(--ds-signal); border-color: var(--ds-signal); color: var(--ds-signal-ink); }
 .ds-btn.primary:not(:disabled):hover, .ds-btn.primary:focus-visible, .ds-btn.primary[data-pad-focus] { background: var(--ds-signal-hi); border-color: var(--ds-signal-hi); box-shadow: 0 0 0 2px var(--ds-ink), 0 0 0 4px var(--ds-signal); }
 .ds-btn.big { min-height: 58px; min-width: 260px; padding: 0 36px; font-size: 24px; letter-spacing: 0.16em; }
@@ -123,6 +125,34 @@ const PATHS: Readonly<Record<string, string>> = {
 
 export function icon(name: keyof typeof PATHS | string): string {
   return `<svg class="ds-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name] ?? ''}</svg>`;
+}
+
+/**
+ * Brings `root`'s contents up to `html` in place: elements that stay keep
+ * their identity, so a press that spans an update still clicks, and hover,
+ * focus and pictures do not flash.
+ */
+export function patchHtml(root: Element, html: string): void {
+  const next = document.createElement('template');
+  next.innerHTML = html;
+  patchChildren(root, next.content);
+}
+
+function patchChildren(from: Node, to: Node): void {
+  const want = [...to.childNodes];
+  for (let i = 0; i < want.length; i++) {
+    const w = want[i]!;
+    const have = from.childNodes[i];
+    if (!have) from.appendChild(w);
+    else if (have.nodeType !== w.nodeType || have.nodeName !== w.nodeName) from.replaceChild(w, have);
+    else if (have instanceof Element) {
+      const target = w as Element;
+      for (const a of [...have.attributes]) if (!target.hasAttribute(a.name)) have.removeAttribute(a.name);
+      for (const a of target.attributes) if (have.getAttribute(a.name) !== a.value) have.setAttribute(a.name, a.value);
+      patchChildren(have, target);
+    } else if (have.nodeValue !== w.nodeValue) have.nodeValue = w.nodeValue;
+  }
+  while (from.childNodes.length > want.length) from.lastChild!.remove();
 }
 
 export function escapeHtml(text: string): string {

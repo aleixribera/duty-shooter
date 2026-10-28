@@ -10,6 +10,8 @@ const CSS = `
 .ds-menu { position: fixed; inset: 0; z-index: 20; font: 400 15px/1.4 var(--ds-font); color: var(--ds-text); }
 .ds-menu[hidden] { display: none; }
 .ds-screen { position: absolute; inset: 0; animation: ds-fade 120ms ease-out; }
+/* The same screen drawn again (a tab, a new key, the server's status) does not fade in again. */
+.ds-screen.still { animation: none; }
 
 /* The main menu: the title, a column of big entries over the map's fly-through, the name, key hints and the version. */
 .ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 44px 56px 22px;
@@ -33,6 +35,8 @@ const CSS = `
 .ds-item .desc { grid-column: 2; margin-top: 4px; font-size: 14px; color: var(--ds-text-2); }
 .ds-item .go { grid-row: 1 / span 3; grid-column: 3; opacity: 0; transform: translateX(-6px); color: var(--ds-signal); transition: opacity 140ms, transform 140ms var(--ds-ease); }
 .ds-item:hover, .ds-item:focus-visible, .ds-item[data-pad-focus] { transform: translateX(8px); background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.04)); border-left-color: var(--ds-signal); outline: none; }
+/* The strip the hovered entry slid off stays part of it, or its left edge would flicker between hovered and not and drop clicks. */
+.ds-item:hover::after { content: ''; position: absolute; top: 0; bottom: 0; left: -11px; width: 11px; }
 .ds-item:hover .ds-icon, .ds-item:focus-visible .ds-icon, .ds-item[data-pad-focus] .ds-icon { color: var(--ds-signal); }
 .ds-item:hover .go, .ds-item:focus-visible .go, .ds-item[data-pad-focus] .go { opacity: 1; transform: none; }
 .ds-item.primary { border-left-color: var(--ds-signal); }
@@ -256,6 +260,11 @@ export class Menu {
   #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
   #loadoutNote = '';
   readonly #padName: () => string | null;
+  /** The screen last drawn while the menu showed: drawing it again does not fade it in. */
+  #drawn: Screen | null = null;
+  /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
+  #pressed = false;
+  #redrawAfterPress = false;
 
   constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null }) {
     this.#settings = settings;
@@ -275,6 +284,15 @@ export class Menu {
     document.body.append(this.#root);
     // The focus ring is for the controller; the mouse hides it again.
     this.#root.addEventListener('mousemove', () => this.#root.classList.remove('pad'));
+    this.#root.addEventListener('pointerdown', () => (this.#pressed = true));
+    const release = () => {
+      if (!this.#pressed) return;
+      this.#pressed = false;
+      // After the click this release makes, which comes in the same task.
+      if (this.#redrawAfterPress) setTimeout(() => this.#statusChanged(), 0);
+    };
+    addEventListener('pointerup', release, true);
+    addEventListener('pointercancel', release, true);
     // Esc goes back, as the footer says; not from pause or the tip (taking the pointer needs a click) nor while a key is being bound.
     document.addEventListener('keydown', (e) => {
       if (e.code !== 'Escape' || e.defaultPrevented || !this.open || this.#screen === 'pause' || this.#screen === 'loading' || this.#screen === 'tip' || this.#root.querySelector('.ds-bind.wait')) return;
@@ -308,6 +326,7 @@ export class Menu {
 
   hide(): void {
     this.#root.hidden = true;
+    this.#drawn = null;
   }
 
   /** The loading screen, or its progress (0-1; null while unknown). */
@@ -338,7 +357,7 @@ export class Menu {
   /** New lobby status: the Play Online tile and screen follow it. */
   setLobby(lobby: Lobby | null): void {
     this.#lobby = lobby;
-    if (this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#rerender();
+    this.#statusChanged();
   }
 
   /** New lobby status: the Play Online tile and screen follow it. */
@@ -347,7 +366,17 @@ export class Menu {
     const changed = JSON.stringify(lobbyTile(this.#lobby.status ?? null)) !== JSON.stringify(lobbyTile(status));
     this.#lobby.status = status;
     // Only when what the screen shows changed, and keeping what is being typed.
-    if (changed && this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#rerender();
+    if (changed) this.#statusChanged();
+  }
+
+  /** The lobby's status changed: the screens that show it are drawn again, once no press is under way. */
+  #statusChanged(): void {
+    if (this.#pressed) {
+      this.#redrawAfterPress = true;
+      return;
+    }
+    this.#redrawAfterPress = false;
+    if (this.open && (this.#screen === 'main' || this.#screen === 'online')) this.#rerender();
   }
 
   /** Renders the same screen again, keeping the text in its fields and the focused field's caret. */
@@ -478,7 +507,8 @@ export class Menu {
     const root = this.#root;
     root.replaceChildren();
     const screen = document.createElement('div');
-    screen.className = 'ds-screen';
+    screen.className = this.#drawn === this.#screen ? 'ds-screen still' : 'ds-screen';
+    if (!root.hidden) this.#drawn = this.#screen;
     root.append(screen);
     const h: El = (tag, text = '', cls = '') => {
       const e = document.createElement(tag);
@@ -864,7 +894,6 @@ export class Menu {
           const show = () => showCard(choice as WeaponId);
           b.addEventListener('focus', show);
           b.addEventListener('mouseenter', show);
-          b.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
         }
         tiles.append(b);
       }
@@ -878,6 +907,8 @@ export class Menu {
     row('Secondary', 'secondary', options.secondary, weapon);
     row('Grenade', 'grenade', options.grenade, (g) => (g ? ['Frag', `${STATS.grenade.perLife.value} a life`] : ['None', 'hands free']));
     showCard(this.#settings.loadout.primary);
+    // Back to the equipped weapon once the pointer leaves the tiles, not on every gap between two of them.
+    left.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
     right.append(h('h2', 'Weapon', 'ds-h2'), card);
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip'), hint('Esc', '○', 'Done')));
     const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');

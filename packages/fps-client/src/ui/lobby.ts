@@ -1,7 +1,7 @@
 import { MODE_IDS, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone } from './model';
-import { escapeHtml, hint, icon, installTheme } from './theme';
+import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
 .ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 15px/1.35 var(--ds-font); animation: ds-fade 120ms ease-out; }
@@ -99,8 +99,8 @@ export interface LobbyCallbacks {
  * ping and the bots the match will bring, the host's picks (mode, sides,
  * match size, map) with the map's picture, the invite link, and the actions
  * along a footer that always shows Start. After every online match everyone
- * comes back here. Plain DOM, rebuilt only when what it shows changes, so
- * clicks are never lost.
+ * comes back here. Plain DOM, patched in place only when what it shows
+ * changes, so its buttons stay put and clicks are never lost.
  */
 export class LobbyPage {
   readonly #root: HTMLDivElement;
@@ -148,9 +148,10 @@ export class LobbyPage {
     if (html === this.#html) return;
     const focused = this.#root.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['key'] : undefined;
     this.#html = html;
-    this.#root.innerHTML = html;
-    // The same control keeps the focus across a rebuild.
-    if (focused) this.#root.querySelector<HTMLElement>(`[data-key="${focused}"]`)?.focus();
+    // Patched in place, not rebuilt: pings change every second online, and a rebuild between press and release lost the click.
+    patchHtml(this.#root, html);
+    // The same control keeps the focus where a control was replaced.
+    if (focused && document.activeElement?.getAttribute('data-key') !== focused) this.#root.querySelector<HTMLElement>(`[data-key="${focused}"]`)?.focus();
     this.#markFocus();
   }
 
