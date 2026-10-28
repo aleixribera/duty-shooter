@@ -67,6 +67,16 @@ const SENSE = 3.5;
 /** Gunfire is heard this far (m) in the open, and this far through walls, where it only gives a rough idea of where. */
 const HEARING = 40;
 const MUFFLED_HEARING = 22;
+/** Footsteps carry this far (m) by gait; slower than `QUIET` (m/s), or in the air, they make none. */
+const FOOTSTEPS = { sprint: 20, walk: 11, crouch: 4 } as const;
+const QUIET = 1;
+/** A landing, a slide or a mantle carries this far (m); a reload this far. */
+const THUD = 14;
+const RELOAD_HEARING = 15;
+/** Through walls a footstep, thud or reload carries this share of the way, and gives only a rough idea of where. */
+const MUFFLED = 0.55;
+/** Arriving where a chased enemy should be and finding nobody, a bot searches about this long (s). */
+const SEARCH = 1.5;
 /** Seconds of a target's movement a bot remembers, for aiming a moment behind it. */
 const TRAIL = 0.4;
 /** Seconds a target can be out of sight before the bot stops shooting at where it was. */
@@ -153,7 +163,11 @@ interface Sighting {
   readonly position: Vec3;
   readonly time: number;
   readonly seen: boolean;
+  /** How it was moving when seen (zero when only heard). */
+  readonly velocity: Vec3;
 }
+
+const STILL: Vec3 = [0, 0, 0];
 
 interface Engagement {
   readonly id: PlayerId;
@@ -260,6 +274,10 @@ export class Bot {
   #aiming: ThrowSolve | null = null;
   /** Running from a live frag: to which node, until when, and which grenade. */
   #flee: { node: number; until: number; grenade: number } | null = null;
+  /** Looking about where a chased enemy should have been, toward `yaw`, from `start` until `until`. */
+  #search: { yaw: number; start: number; until: number } | null = null;
+  /** Enemies heard (or seen) starting a reload, and until when they're busy with it. */
+  readonly #reloading = new Map<PlayerId, number>();
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -292,12 +310,13 @@ export class Bot {
   }
 
   /** What the bot is up to, for tests and debugging. */
-  get activity(): 'use' | 'flee' | 'throw' | 'fight' | 'chase' | 'hold' | 'roam' {
+  get activity(): 'use' | 'flee' | 'throw' | 'fight' | 'chase' | 'search' | 'hold' | 'roam' {
     if (this.#using) return 'use';
     if (this.#flee) return 'flee';
     if (this.#throw) return 'throw';
     if (this.#target) return 'fight';
     if (this.#chasing && this.#chasing !== OBJECTIVE_KEY) return 'chase';
+    if (this.#search && this.#search.until > this.#lastTime) return 'search';
     return this.#holdUntil > this.#lastTime ? 'hold' : 'roam';
   }
 
@@ -313,6 +332,7 @@ export class Bot {
       this.#throw = null;
       this.#aiming = null;
       this.#flee = null;
+      this.#search = null;
       return this.#cmd(0, 0, []);
     }
     if (!this.#alive || flat(self.position, this.#lastPos) > 3) this.#reset(view);
@@ -320,8 +340,11 @@ export class Bot {
     this.#lastPos = self.position;
     const eye = eyeOf(self);
 
-    if ((view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#perceive(view, eye, r);
+    const perceiving = (view.tick + this.#seed) % PERCEIVE_TICKS === 0;
+    if (perceiving) this.#perceive(view, eye, r);
     this.#hear(view);
+    this.#listen(view, eye, perceiving);
+    if (this.#target || (this.#search && time >= this.#search.until)) this.#search = null;
 
     // The fight: keep it while the target lives and was seen moments ago.
     let target = this.#target;
@@ -438,6 +461,10 @@ export class Bot {
     } else if (this.#alert && time < this.#alert.until) {
       lookYaw = this.#alert.yaw;
       lookPitch = 0;
+    } else if (this.#search && !this.#chasing) {
+      // Where did they go: a look about, either side of the way they were heading.
+      lookYaw = this.#search.yaw + 0.8 * Math.sin((time - this.#search.start) * 2.4);
+      lookPitch = -0.03;
     } else if (time < this.#holdUntil) {
       // A sniper watches its lane down the scope, sweeping less.
       lookYaw = this.#holdYaw + (tactics.scoped ? 0.15 : 0.45) * Math.sin(time * 0.9 + (this.#seed % 11));
@@ -469,7 +496,9 @@ export class Bot {
     } else if (fighting && target && tp) {
       // With the target in view, a bot closes in only beyond the distance its weapon holds at: walking straight at a gun is the easiest shot there is.
       const holdAt = tactics.hold ?? want + (tactics.rush !== null && tactics.rush < 12 ? 0.5 : 2);
-      const closeIn = rushing || !target.visible || (!tactics.scoped && range > holdAt);
+      // Someone heard (or seen) reloading is worth rushing, for a bot with the stomach for it.
+      const reloading = (this.#reloading.get(tp.id) ?? -Infinity) > time && this.profile.aggression > 0.45 && !tactics.scoped;
+      const closeIn = rushing || reloading || !target.visible || (!tactics.scoped && range > holdAt);
       // Closing in to fight up close: by the way the target can't see.
       if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id, tactics.push ? eyeOf(tp) : null);
       if (time >= this.#strafeUntil) {
@@ -490,11 +519,20 @@ export class Bot {
       // Roaming inside the objective only: an older goal elsewhere is dropped.
       if (order && this.#goal !== null && flat(this.#nav.nodes[this.#goal]!.position, order.position) > order.radius) this.#goal = null;
       if (chase && time - chase.time < this.profile.chase && leashed(chase.position)) {
+        // To the corner they went round, eyes on it (see the look above): running on to where they might be by now walks past one who stopped.
         move = this.#follow(view, chase.position, this.#chasing!);
-        if (flat(self.position, chase.position) < 2) {
+        const there = flat(self.position, chase.position);
+        if (there < 2 || (this.#step >= this.#path.length && there < 4)) {
+          // Nobody here: look about the way they were going before moving on.
+          const v = chase.velocity;
+          const yaw = Math.hypot(v[0], v[2]) > QUIET ? Math.atan2(-v[0], -v[2]) : self.yaw;
+          this.#search = { yaw, start: time, until: time + SEARCH * (1 + r(24)) };
           this.#memory.delete(this.#chasing!);
           this.#chasing = null;
+          move = null;
         }
+      } else if (this.#search) {
+        // Standing to search.
       } else if (order && flat(self.position, order.position) > order.radius * 0.7) {
         // Off to the objective, by the quickest way.
         move = this.#follow(view, order.position, OBJECTIVE_KEY);
@@ -586,6 +624,8 @@ export class Bot {
     this.#throw = null;
     this.#aiming = null;
     this.#flee = null;
+    this.#search = null;
+    this.#reloading.clear();
   }
 
   /** Where the bot likes to fight with this weapon (m). */
@@ -756,7 +796,9 @@ export class Bot {
       const head = zoneCentre(pose(p), 'head');
       const chest = zoneCentre(pose(p), 'upperTorso');
       if (sightBlocked(this.#world, eye, head) && sightBlocked(this.#world, eye, chest)) continue;
-      this.#memory.set(p.id, { position: p.position, time, seen: true });
+      this.#memory.set(p.id, { position: p.position, time, seen: true, velocity: p.velocity });
+      // A reload in plain view.
+      if (p.weapon.action === 'reload') this.#reloading.set(p.id, time + 1);
       this.#lastEnemySeen = time;
       if (tracked) keep = true;
       const score = d + off * 12;
@@ -815,23 +857,77 @@ export class Bot {
         if (d > (muffled ? MUFFLED_HEARING : HEARING)) continue;
         const known = this.#memory.get(e.shooter);
         const heard = muffled ? blur(shooter.position, 2 + 4 * r(0), r(1), 1) : shooter.position;
-        if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: heard, time, seen: false });
+        if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: heard, time, seen: false, velocity: STILL });
         if (!this.#target && !this.#chasing) this.#chasing = e.shooter;
       } else if (e.type === 'hit' && e.victim === self.id && e.shooter !== self.id) {
         const shooter = view.players.find((p) => p.id === e.shooter);
         if (!shooter) continue;
-        this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false });
+        this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false, velocity: STILL });
         if (!this.#target) {
           this.#alert = { yaw: yawTo(eye, eyeOf(shooter)) + (r(4) - 0.5) * 50 * DEG, until: time + 1.2 };
           this.#chasing = e.shooter;
           this.#holdUntil = 0;
         }
+      } else if (e.type === 'reload' && e.phase === 'start' && e.player !== self.id) {
+        const p = view.players.find((x) => x.id === e.player);
+        if (p && view.isEnemy(p) && this.#heard(view, eye, p, RELOAD_HEARING, r(5), r(6))) this.#reloading.set(p.id, time + 1.5);
       } else if (e.type === 'kill') {
         this.#memory.delete(e.victim);
         if (this.#target?.id === e.victim) this.#target = null;
         if (this.#chasing === e.victim) this.#chasing = null;
       }
     }
+  }
+
+  /**
+   * Footsteps by gait (a few times a second) and thuds (landings, slides,
+   * mantles): an enemy moving nearby gives away roughly where they are. A
+   * fresh noise turns a bot that isn't busy toward it; one with the stomach
+   * for it goes to look, the others wait for whoever it is to show.
+   */
+  #listen(view: BotView, eye: Vec3, steps: boolean): void {
+    const { self, time } = view;
+    for (const [k, p] of view.players.entries()) {
+      if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
+      const thud = p.landing !== null || ((p.movement === 'slide' || p.movement === 'mantle') && steps);
+      if (!thud && !steps) continue;
+      const speed = Math.hypot(p.velocity[0], p.velocity[2]);
+      const grounded = p.movement !== 'airborne' && p.movement !== 'mantle';
+      const gait = p.stance !== 'stand' ? FOOTSTEPS.crouch : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? FOOTSTEPS.sprint : FOOTSTEPS.walk;
+      const reach = thud ? THUD : grounded && speed >= QUIET ? gait : 0;
+      if (reach === 0) continue;
+      const known = this.#memory.get(p.id);
+      // Seen just now: the eyes already said it all.
+      if (known?.seen && time - known.time < 0.3) continue;
+      const r = (n: number) => noise(this.#seed, view.tick, 300 + k * 4 + n);
+      if (!this.#heard(view, eye, p, reach, r(0), r(1))) continue;
+      const fresh = !known || time - known.time > 3;
+      if (!fresh || this.#target || this.#chasing || this.#using || this.#flee || this.#throw) continue;
+      const toward = yawTo(eye, eyeOf(p)) + (r(2) - 0.5) * 30 * DEG;
+      this.#alert = { yaw: toward, until: time + 1 };
+      this.#search = null;
+      if (r(3) < this.profile.aggression) this.#chasing = p.id;
+      else {
+        this.#holdUntil = time + 1.5 + 1.5 * r(3);
+        this.#holdYaw = toward;
+      }
+    }
+  }
+
+  /**
+   * Whether a sound `p` makes, carrying `reach` m in the open, reaches the
+   * bot; if so the bot remembers about where it came from (roughly through
+   * walls), unless it saw them a moment ago.
+   */
+  #heard(view: BotView, eye: Vec3, p: PlayerOutput, reach: number, r1: number, r2: number): boolean {
+    const { self, time } = view;
+    const d = Math.hypot(flat(self.position, p.position), p.position[1] - self.position[1]);
+    if (d > reach) return false;
+    const muffled = d > SENSE && sightBlocked(this.#world, eye, eyeOf(p));
+    if (muffled && d > reach * MUFFLED) return false;
+    const known = this.#memory.get(p.id);
+    if (!known || !known.seen || time - known.time > 1) this.#memory.set(p.id, { position: blur(p.position, muffled ? 2 + 3 * r1 : 0.8 * r1, r2, 1), time, seen: false, velocity: STILL });
+    return true;
   }
 
   /** The next point along the route to `goal` (a moving one is re-planned now and then). */
