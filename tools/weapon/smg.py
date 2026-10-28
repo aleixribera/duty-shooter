@@ -7,7 +7,7 @@ It writes packages/fps-client/src/viewmodel/assets/smg.glb and tools/weapon/smg.
 
 Gun space and the shared tools are described in gunsmith.py. The rig numbers in
 packages/fps-client/src/viewmodel/kit.ts (`smg`) come from the landmarks below:
-the rear aperture's centre at (0, -0.045, 0.06), the muzzle at y = 0.252, the
+the rear sight point between the ears at (0, -0.045, 0.06), the muzzle at y = 0.252, the
 port at (0.016, 0.062, 0.017), the bolt's travel, the magazine's pivot and the
 spots where the hands go (grip, under the handguard, the magazine's base).
 """
@@ -102,18 +102,13 @@ body.append(fh)
 body.append(g.cyl("barrel_nut", 0.0118, 0.006, (0, HG_FRONT - 0.001, BORE_Z), "phosphate", verts=32, bevel=0.0005))
 
 # ---------------------------------------------------------------------------
-# Sights: a flip-up aperture at the back, a hooded post at the front.
+# Sights: two guard ears at the back frame a hooded post at the front (no aperture ring).
 # ---------------------------------------------------------------------------
 rs_y = -0.045
 body.append(g.box("rs_clamp", (0.024, 0.016, 0.006), (0, rs_y + 0.001, RAIL_TOP + 0.002), "phosphate", 0.0008))
 body.append(g.cyl("rs_clamp_knob", 0.004, 0.005, (0.0145, rs_y + 0.001, RAIL_TOP + 0.002), "phosphate", axis="X", verts=18, bevel=0.0004))
 for side in (-1, 1):
     body.append(g.slab(f"rs_ear{side}", soften([(rs_y - 0.007, RAIL_TOP + 0.004), (rs_y + 0.008, RAIL_TOP + 0.004), (rs_y + 0.004, SIGHT_Z + 0.008, True), (rs_y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.0028, "phosphate", 0.0006, x=side * 0.0105))
-aperture = g.cyl("rs_aperture", 0.0068, 0.0035, (0, rs_y, SIGHT_Z), "phosphate", verts=32, bevel=0.0005)
-g.cut(aperture, [g.cyl("rs_hole", 0.0019, 0.01, (0, rs_y, SIGHT_Z), "phosphate", verts=20, bevel=0)])
-body.append(aperture)
-body.append(g.box("rs_stem", (0.006, 0.0035, SIGHT_Z - RAIL_TOP - 0.008), (0, rs_y, (SIGHT_Z - 0.0068 + RAIL_TOP + 0.004) / 2), "phosphate", 0.0005))
-body.append(g.cyl("rs_drum", 0.0042, 0.004, (0.0135, rs_y + 0.001, RAIL_TOP + 0.009), "phosphate", axis="X", verts=20, bevel=0.0004))
 fs_y = 0.19
 body.append(g.box("fs_clamp", (0.024, 0.014, 0.006), (0, fs_y, RAIL_TOP + 0.002), "phosphate", 0.0008))
 hood = g.slab("fs_hood", soften([(fs_y - 0.005, RAIL_TOP + 0.004), (fs_y + 0.005, RAIL_TOP + 0.004), (fs_y + 0.004, SIGHT_Z + 0.008, True), (fs_y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.021, "phosphate", 0.0007)
