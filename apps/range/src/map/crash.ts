@@ -17,9 +17,9 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   market: { family: 'plaster', color: 0xbca589 },
   roof: { family: 'concrete', color: 0x9e9380 },
   wood: { family: 'floor', color: 0x806b50, accent: 0x5c4d3c },
-  'wreck.hull': { family: 'paint', color: 0x454b43, roughness: 0.85, metalness: 0.35 },
-  'wreck.dark': { family: 'paint', color: 0x252a27, roughness: 0.9 },
-  'wreck.metal': { family: 'sheetMetal', color: 0x73746b },
+  'wreck.hull': { family: 'paint', color: 0x777a70, roughness: 0.85, metalness: 0.35 },
+  'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
+  'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
   'wreck.glass': { family: 'glass', color: 0x202d30 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
@@ -107,7 +107,7 @@ export function buildCrash(): MapDefinition {
   b.model('helicopter', [-6,0,-2], Math.PI / 2, () => {
     for (const [min,max] of [
       [[-3.5,0,-1.42],[2.2,2.72,1.42]], [[2.2,0,-1.08],[4.25,2.2,1.08]],
-      [[-5.5,0,-1.05],[-3.9,2.5,1.05]], [[-3.5,2.7,-2.8],[-2.5,3.15,2.8]],
+      [[-6.55,0,-1.05],[-4.55,2.5,1.05]], [[-6.2,2.5,-2.8],[-5.05,3.15,2.8]],
       [[1.1,2.7,-2.7],[1.9,3.15,2.7]],
     ] as [Vec3,Vec3][]) {
       const centre: Vec3 = [-6 + (min[2]+max[2])/2, (min[1]+max[1])/2, -2 - (min[0]+max[0])/2];
