@@ -227,6 +227,9 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     return { master, world, local, reverbIn: { outdoor: makeReverb(irs.outdoor), indoor: makeReverb(irs.indoor) } };
   }
 
+  /** The listener pose last written to `ctx` (position, forward, up), or null before the first. */
+  let applied: number[] | null = null;
+
   function applyListener(): void {
     if (!ctx) return;
     const l = ctx.listener;
@@ -234,15 +237,16 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     const [fx, fy, fz] = listener.forward;
     const [ux, uy, uz] = listener.up;
     if (l.positionX) {
-      l.positionX.value = px;
-      l.positionY.value = py;
-      l.positionZ.value = pz;
-      l.forwardX.value = fx;
-      l.forwardY.value = fy;
-      l.forwardZ.value = fz;
-      l.upX.value = ux;
-      l.upY.value = uy;
-      l.upZ.value = uz;
+      // Each AudioParam write costs the browser a message to the audio thread (half a millisecond a frame for all
+      // nine), so only what moved is written: never `up`, and nothing while the player stands and looks still.
+      const pose = [px, py, pz, fx, fy, fz, ux, uy, uz];
+      const params = [l.positionX, l.positionY, l.positionZ, l.forwardX, l.forwardY, l.forwardZ, l.upX, l.upY, l.upZ];
+      const last = (applied ??= pose.map(() => NaN));
+      for (let i = 0; i < 9; i++) {
+        if (Math.abs(last[i]! - pose[i]!) < 1e-4) continue;
+        params[i]!.value = pose[i]!;
+        last[i] = pose[i]!;
+      }
     } else {
       // Older Firefox / Safari
       l.setPosition(px, py, pz);
@@ -420,6 +424,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
         const resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume().catch(() => undefined);
         try {
           graph = buildGraph(ctx);
+          applied = null;
           applyListener();
           warmAll(ctx);
         } catch (err) {

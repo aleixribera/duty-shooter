@@ -1,6 +1,7 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { color, float, mix, vertexColor } from 'three/tsl';
-import { Color, Group, InstancedMesh, Matrix4, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type BufferGeometry, type Material, type Object3D } from 'three/webgpu';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Color, Group, Matrix4, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type BufferGeometry, type Material, type Object3D } from 'three/webgpu';
 import { lampMaterial } from './surface-materials';
 import type { Family, Finish, MapModels, ModelPlacement } from './surfaces';
 
@@ -32,16 +33,24 @@ function modelMaterial(finish: Finish, occluded: boolean): Material {
   return m;
 }
 
+/**
+ * Models are merged by material within squares of the map this wide (m): a
+ * few draw calls a map, in the frame and the shadow map alike, while a far
+ * corner out of view is still skipped.
+ */
+const CELL = 160;
+
 /** A placement's transform: turned `yaw` about +y, then moved to its position. */
 export function placementMatrix(p: ModelPlacement): Matrix4 {
   return new Matrix4().compose(new Vector3(...p.position), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), p.yaw), new Vector3(1, 1, 1));
 }
 
 /**
- * Loads a map's models and places them: one instanced mesh per part of each
- * asset (a part per material), so a dozen freight cars cost a few draw
- * calls. Each part's material is named after the map finish it wears.
- * Everything casts and takes shadows like the static surfaces.
+ * Loads a map's models and places them, merged into one mesh per material in
+ * each square of the map (see `CELL`): the parts of different assets that
+ * wear the same finish draw together, so a street of cars, crates and poles
+ * costs a few draw calls. Each part's material is named after the map finish
+ * it wears. Everything casts and takes shadows like the static surfaces.
  */
 export async function loadMapModels(models: MapModels, finishes: Readonly<Record<string, Finish>>): Promise<Group> {
   const { scene } = await new GLTFLoader().loadAsync(models.url);
@@ -61,6 +70,7 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
   const byAsset = new Map<string, ModelPlacement[]>();
   for (const p of models.placements) byAsset.set(p.asset, [...(byAsset.get(p.asset) ?? []), p]);
   const out = new Group();
+  const batches = new Map<string, { material: Material; geometries: BufferGeometry[] }>();
   for (const [asset, placements] of byAsset) {
     const root = scene.getObjectByName(asset);
     if (!root) throw new Error(`The map's model file has no "${asset}"`);
@@ -72,15 +82,29 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
       const occluded = geometry.hasAttribute('color');
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) parts.push({ geometry, material: materialFor((m as Material).name, occluded) });
     });
-    const matrices = placements.map(placementMatrix);
-    for (const part of parts) {
-      const mesh = new InstancedMesh(part.geometry, part.material, matrices.length);
-      matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
-      mesh.computeBoundingSphere();
+    for (const placement of placements) {
+      const matrix = placementMatrix(placement);
+      const cell = `${Math.floor(placement.position[0] / CELL)},${Math.floor(placement.position[2] / CELL)}`;
+      for (const part of parts) {
+        const geometry = part.geometry.clone().applyMatrix4(matrix);
+        // Only geometry with the same attributes merges; colours (baked occlusion) make their own material anyway.
+        const key = `${cell} ${part.material.uuid} ${Object.keys(geometry.attributes).sort().join(',')} ${geometry.index ? 'indexed' : ''}`;
+        const batch = batches.get(key) ?? { material: part.material, geometries: [] };
+        batch.geometries.push(geometry);
+        batches.set(key, batch);
+      }
+    }
+  }
+  for (const { material, geometries } of batches.values()) {
+    const merged = geometries.length > 1 ? mergeGeometries(geometries) : geometries[0]!;
+    // mergeGeometries gives null for attributes that differ in kind; those parts draw on their own.
+    for (const geometry of merged ? [merged] : geometries) {
+      const mesh = new Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       out.add(mesh);
     }
+    if (merged && geometries.length > 1) for (const g of geometries) g.dispose();
   }
   return out;
 }
