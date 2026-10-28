@@ -52,6 +52,9 @@ renders a quick flat-shaded sheet without baking. The rig numbers in
 each generator; check idle, aim, reload and inspect in the viewer after editing.
 
 - `pistol.py`: the Warden 9 (slide and magazine pivots match the rig).
+- `arms.py`: the first-person arms (sleeve and tactical glove), skinned to the
+  client's arm rig in `packages/fps-client/src/viewmodel/arms.ts`, including
+  the three forearm twist bones; the bone numbers at the top must match it.
 
 The Wasp 9's detailed replacement is built in the same way with
 `blender --background --factory-startup --python tools/weapon/wasp.py`.

@@ -769,7 +769,11 @@ def _surface(mat):
             "bsdf": bsdf, "image": img, "links": nt.links, "N": N, "math": math_node}
 
 
-def _bake(name, objs, size):
+def _bake(name, objs, size, surface=None):
+    """Bakes colour, roughness/metalness and normals of `objs` into one texture set.
+
+    `surface(mat)` builds a material's bake nodes (default: its finish, see _surface).
+    """
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     try:
@@ -795,7 +799,7 @@ def _bake(name, objs, size):
 
     images = {"color": image("color", False), "rm": image("rm", True), "normal": image("normal", True)}
     mats = {m for o in objs for m in o.data.materials if m}
-    sockets = {m.name: _surface(m) for m in mats}
+    sockets = {m.name: (surface or _surface)(m) for m in mats}
 
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
@@ -853,11 +857,12 @@ def _export_materials(objs, images):
 
 
 def _gltf_material(key, images):
-    spec = FINISHES[key]
     mat = bpy.data.materials.new(f"{key}.export")
     mat["finish"] = key
-    mat["tint"] = [round(c, 4) for c in spec["base"]]
-    mat.diffuse_color = (*spec["base"], 1)
+    spec = FINISHES.get(key)
+    if spec:
+        mat["tint"] = [round(c, 4) for c in spec["base"]]
+        mat.diffuse_color = (*spec["base"], 1)
     mat.use_nodes = True
     nt = mat.node_tree
     nt.nodes.clear()
@@ -890,6 +895,15 @@ def _export(path, objs):
                               export_image_format="JPEG", export_jpeg_quality=90,
                               export_materials="EXPORT", export_cameras=False, export_lights=False)
     return os.path.getsize(path)
+
+
+# Shared with the other generators (arms.py).
+bake = _bake
+export_materials = _export_materials
+export_glb = _export
+unwrap = _unwrap
+triangulate = _triangulate
+reset_scene = _reset_scene
 
 
 # ---------------------------------------------------------------------------
