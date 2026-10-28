@@ -249,7 +249,8 @@ function validCmd(value: unknown): UserCmd | null {
     forward: clamp(forward, -1, 1),
     right: clamp(right, -1, 1),
     yaw,
-    pitch: clamp(pitch, -Math.PI / 2, Math.PI / 2),
+    // Past straight down or up: the client counts recoil into its pitch limits, and the simulation clamps the view.
+    pitch: clamp(pitch, -Math.PI, Math.PI),
     firePresses: firePresses.map((f) => clamp(f, 0, 0.999999)),
     ...(viewTick === undefined ? {} : { viewTick }),
   };

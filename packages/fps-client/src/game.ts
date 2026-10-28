@@ -469,6 +469,7 @@ export class Game {
       eye = pose.position;
       forward = viewDirection(pose.yaw, pose.pitch);
       this.input.aiming = self.weapon.ads > 0.5;
+      this.input.pitchOffset = self.pitch - this.#cmd.pitch;
       this.input.setWeapon(self.weapon.slot, STATS.weapons[self.weapon.id].handling.zoom.value);
       const speed = Math.hypot(self.velocity[0], self.velocity[2]);
       const lookDelta = { yaw: angleDelta(this.#lastLook.yaw, look.yaw), pitch: look.pitch - this.#lastLook.pitch };

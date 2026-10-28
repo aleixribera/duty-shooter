@@ -14,6 +14,21 @@ const MENU_STICK = 0.6;
 /** Stick travel that counts as using the controller, well past any drift. */
 const PAD_ACTIVE_STICK = 0.35;
 const MENU_REPEAT_MS = 220;
+/** The furthest the usercmd pitch may go (the server's bound), however much recoil sits on top of it. */
+const CMD_PITCH_LIMIT = Math.PI;
+
+/**
+ * The mouse pitch after moving it by `delta`, kept so the view (mouse pitch
+ * plus the simulation's recoil and flinch, `offset`) stays inside the pitch
+ * limits. Recoil does not wear off, so clamping the mouse pitch alone would
+ * leave the floor out of reach after a spray: the limit counts the offset
+ * instead. It never pulls the pitch back, only stops it moving further out.
+ */
+export function lookPitch(pitch: number, delta: number, offset: number): number {
+  const low = Math.max(-CMD_PITCH_LIMIT, Math.min(pitch, -MAX_PITCH - offset));
+  const high = Math.min(CMD_PITCH_LIMIT, Math.max(pitch, MAX_PITCH - offset));
+  return Math.max(low, Math.min(high, pitch + delta));
+}
 
 /**
  * Keyboard, mouse and controller input. Mouse look is applied on every mouse
@@ -33,6 +48,8 @@ export class InputController {
   readonly #tapped = new Set<string>();
   #yaw = 0;
   #pitch = 0;
+  /** The simulation's recoil and flinch on top of the mouse pitch, for the pitch limits. */
+  #pitchOffset = 0;
   #firePresses: number[] = [];
   #lastSprintDown = -Infinity;
   #tactical = false;
@@ -169,6 +186,11 @@ export class InputController {
   setAngles(yaw: number, pitch: number): void {
     this.#yaw = yaw;
     this.#pitch = pitch;
+  }
+
+  /** The simulation's view pitch minus the usercmd pitch (recoil and flinch), so looking down still reaches the floor. */
+  set pitchOffset(offset: number) {
+    this.#pitchOffset = offset;
   }
 
   /** Whether the local player is aiming, for the ADS sensitivity scale. Set from the simulation's ADS fraction. */
@@ -350,7 +372,7 @@ export class InputController {
     const scale = curve * dt * (this.#aiming ? adsSensitivityScale(s, s.padAdsMultiplier, this.#zoom) : 1);
     this.#yaw -= lx * stickTurnRate(s.padSensitivityX) * scale;
     const pitch = ly * stickTurnRate(s.padSensitivityY) * scale * (s.padInvertY ? -1 : 1);
-    this.#pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.#pitch - pitch));
+    this.#pitch = lookPitch(this.#pitch, -pitch, this.#pitchOffset);
   }
 
   #padMenu(pad: PadReading, now: number): void {
@@ -381,7 +403,7 @@ export class InputController {
     if (!this.#enabled || !this.locked) return;
     const scale = radiansPerCount(this.#settings) * (this.#aiming ? adsSensitivityScale(this.#settings, this.#settings.adsMultiplier, this.#zoom) : 1);
     this.#yaw -= e.movementX * scale;
-    this.#pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.#pitch - e.movementY * scale));
+    this.#pitch = lookPitch(this.#pitch, -e.movementY * scale, this.#pitchOffset);
   }
 
   /**
