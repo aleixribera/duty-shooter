@@ -273,6 +273,15 @@ function shellReload(row: WeaponRow, t: number, ammo: number, empty: boolean): S
 
 /** Cooking: the gun lowered and the frag held up in the support hand. */
 const GRENADE_LOWERED = pose([0.06, -0.22, 0.08], [-0.7, 0.2, 0.3]);
+/** The right hand on a bolt knob (tools/weapon/sniper.py), in gun space: from below and behind, palm up and in, the knob at the base of the fingers. */
+const BOLT_PALM = (() => {
+  const o = new Object3D();
+  palmFrame(o, new Vector3(), new Vector3(-0.45, 0.85, 0), new Vector3(0.3, -0.15, 0.94));
+  return o.quaternion.clone();
+})();
+const BOLT_KNOB = new Vector3(0.052, -0.0095, 0.034);
+const BOLT_PALM_FROM_KNOB = new Vector3(0.012, -0.022, 0.03);
+
 /** Where the frag hand is while cooking, wound back, and at the release, in view space. */
 const FRAG_HOLD = new Vector3(-0.15, -0.13, -0.42);
 const FRAG_WIND = new Vector3(-0.17, -0.06, -0.24);
@@ -656,14 +665,15 @@ export class Viewmodel {
         target.quaternion.slerp(q, s.hand);
       }
     }
-    this.arms.setGrip(s.right > 0.5 ? 0.6 : 1, s.hand > 0.3 && s.hand < 0.95 ? 0.5 : 1);
+    this.arms.setGrip(s.right > 0.5 ? 0.85 : 1, s.hand > 0.3 && s.hand < 0.95 ? 0.5 : 1);
 
     // On a bolt gun the right hand leaves the grip for the handle.
     const grip = kit.sockets.rightGrip;
     if (s.right <= 0 || !bolt) return grip;
-    const knob = bolt.node.localToWorld(new Vector3(0.055, 0.012, 0.005));
-    this.#rightTarget.position.copy(grip.getWorldPosition(new Vector3())).lerp(knob, s.right);
-    this.#rightTarget.quaternion.copy(grip.getWorldQuaternion(new Quaternion()));
+    const gunQ = kit.root.getWorldQuaternion(new Quaternion());
+    const palm = bolt.node.localToWorld(BOLT_KNOB.clone()).add(BOLT_PALM_FROM_KNOB.clone().applyQuaternion(gunQ));
+    this.#rightTarget.position.copy(grip.getWorldPosition(new Vector3())).lerp(palm, s.right);
+    this.#rightTarget.quaternion.copy(grip.getWorldQuaternion(new Quaternion())).slerp(gunQ.multiply(BOLT_PALM), s.right);
     this.#rightTarget.updateMatrixWorld(true);
     return this.#rightTarget;
   }

@@ -56,18 +56,14 @@ each generator; check idle, aim, reload and inspect in the viewer after editing.
   runs through the grip).
 - `shotgun.py`: the Harrow 12 (the forend, action bars and bolt are the `pump`
   part; keep the forend clear of the receiver over the whole stroke).
+- `sniper.py`: the Ridgeline .308 (the bolt rotates up about the bore, then
+  pulls back; the client puts the right palm under its knob, so keep
+  `BOLT_KNOB` in `viewmodel.ts` on the knob's centre).
 - `arms.py`: the first-person arms (sleeve and tactical glove), skinned to the
   client's arm rig in `packages/fps-client/src/viewmodel/arms.ts`, including
   the three forearm twist bones; the bone numbers at the top must match it.
 
-The Ridgeline replacement is built with
-`blender --background --factory-startup --python tools/weapon/ridgeline.py`.
-It writes `tools/weapon/sniper.blend` and the game GLB; the scope eye position,
-`bolt` pivot and `mag` pivot match the existing rig. Check the viewer's bolt,
-reload and inspect clips after editing.
-
-`arsenal.py` builds the sniper and frag grenade until they get their own generators, one per
-run, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
+`arsenal.py` builds the frag grenade until it gets its own generator, in the M4A1's gun space (Blender: muzzle along +Y, which the glTF export
 turns into game -Z; the right palm near the origin). Each GLB holds the body
 grouped by material plus the moving parts (`mag`, `slide`, `pump`, `bolt`,
 `spoon`, `ring`) with their pivots as origins. The palm, sight, muzzle and
@@ -77,11 +73,11 @@ ejection-port numbers the client needs live in
 Run it in the Blender session (the `blender` skill's bkit helpers):
 
 ```text
-bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="sniper")
-bkit.preview(r"tools/weapon/previews/sniper.png", None, ["side", "three_quarter", "top", "front"])
-bkit.export_glb(r"packages/fps-client/src/viewmodel/assets/sniper.glb", None)
-bkit.save_blend(r"tools/weapon/sniper.blend")
+bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="frag")
+bkit.preview(r"tools/weapon/previews/frag.png", None, ["side", "three_quarter", "top", "front"])
+bkit.export_glb(r"packages/fps-client/src/viewmodel/assets/frag.glb", None)
+bkit.save_blend(r"tools/weapon/frag.blend")
 ```
 
-Then check every clip in the viewer: `?viewer&weapon=sniper`, one clip with
-`&clip=cycle`, held at a moment with `&t=0.9`.
+Then check every clip in the viewer: `?viewer&weapon=frag`, one clip with
+`&clip=throw`, held at a moment with `&t=0.9`.

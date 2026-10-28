@@ -1,10 +1,10 @@
-"""Build the remaining v2 weapons and the frag grenade for the first-person view.
+"""Build the frag grenade for the first-person view.
 
-The pistol, SMG and shotgun have their own generators, pistol.py, smg.py and
-shotgun.py (see gunsmith.py).
+The guns have their own generators, pistol.py, smg.py, shotgun.py and
+sniper.py (see gunsmith.py).
 
 Run in the Blender session (see the blender skill):
-    bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="sniper")
+    bkit.reset(); bkit.run(r"tools/weapon/arsenal.py", weapon="frag")
 
 Gun space matches the M4A1 (tools/weapon/README.md): metres, the right palm
 near the origin on the grip, and the muzzle along game -Z. Blender is Z up
@@ -24,7 +24,7 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 
-WEAPON = ARGS.get("weapon", "sniper")  # noqa: F821 (ARGS comes from bkit.run)
+WEAPON = ARGS.get("weapon", "frag")  # noqa: F821 (ARGS comes from bkit.run)
 
 STEEL = bkit.material("Steel", (0.05, 0.052, 0.055), 0.55, 0.6)  # noqa: F821
 DARK = bkit.material("Blued steel", (0.025, 0.026, 0.03), 0.7, 0.45)  # noqa: F821
@@ -151,37 +151,6 @@ def bodies(groups):
 # ---------------------------------------------------------------------------
 
 
-def build_sniper():
-    """Ridgeline .308: a bolt-action rifle with an olive stock, heavy barrel and a 4x scope."""
-    s, d, o, g = [], [], [], []
-    s.append(cyl("receiver", 0.018, 0.22, (0, 0.06, 0.012), STEEL, verts=20))
-    d.append(cyl("barrel", 0.0135, 0.62, (0, 0.48, 0.012), DARK, verts=18, r2=0.0105))
-    d.append(cyl("crown", 0.0115, 0.012, (0, 0.795, 0.012), STEEL, verts=16))
-    # Stock: a thumbhole-free sporter shape with a raised cheek piece.
-    o.append(prism("stock", [(-0.04, 0.0), (0.4, 0.0), (0.4, -0.03), (0.05, -0.036), (0.01, -0.03), (-0.02, -0.11), (-0.06, -0.11), (-0.06, -0.06), (-0.4, -0.11), (-0.41, -0.11), (-0.41, 0.03), (-0.12, 0.035), (-0.06, 0.004)], 0.045, OLIVE, 0.006))
-    o.append(box("cheek", (0.036, 0.2, 0.024), (0, -0.25, 0.04), OLIVE, 0.006))
-    d.append(box("butt_pad", (0.047, 0.016, 0.15), (0, -0.418, -0.035), POLY, 0.004))
-    s.append(prism("trigger_guard", [(0.0, -0.034), (0.08, -0.034), (0.07, -0.07), (0.0, -0.068), (0.0, -0.062), (0.064, -0.062), (0.072, -0.04), (0.0, -0.04)], 0.012, STEEL, 0.001))
-    d.append(box("trigger", (0.006, 0.006, 0.022), (0, 0.035, -0.048), DARK, 0.0))
-    # Scope: tube, bells, turrets and rings. The eye looks along the tube at z = 0.072.
-    d.append(cyl("scope_tube", 0.015, 0.2, (0, 0.06, 0.072), DARK, verts=24))
-    d.append(cyl("objective", 0.024, 0.07, (0, 0.2, 0.072), DARK, verts=24, r2=0.021))
-    d.append(cyl("objective_cone", 0.021, 0.04, (0, 0.155, 0.072), DARK, verts=24, r2=0.015))
-    d.append(cyl("ocular", 0.02, 0.07, (0, -0.075, 0.072), DARK, verts=24))
-    d.append(cyl("ocular_cone", 0.015, 0.03, (0, -0.03, 0.072), DARK, verts=24, r2=0.02))
-    d.append(cyl("turret_top", 0.011, 0.024, (0, 0.06, 0.094), STEEL, axis="Z", verts=16))
-    d.append(cyl("turret_side", 0.011, 0.024, (0.022, 0.06, 0.072), STEEL, axis="X", verts=16))
-    for y in (0.0, 0.13):
-        s.append(box(f"ring{y}", (0.034, 0.016, 0.06), (0, y, 0.044), STEEL, 0.003))
-    g.append(cyl("lens_front", 0.021, 0.002, (0, 0.236, 0.072), GLASS, verts=24))
-    g.append(cyl("lens_rear", 0.017, 0.002, (0, -0.111, 0.072), GLASS, verts=24))
-    body = bodies({"steel": s, "dark": d, "olive": o, "glass": g})
-    # The bolt rotates up about the bore, then pulls back.
-    bolt = part("bolt", [cyl("bolt_body", 0.009, 0.05, (0, -0.03, 0.012), STEEL, verts=14), cyl("bolt_arm", 0.0035, 0.045, (0.03, -0.035, 0.012), STEEL, axis="X", verts=8), cyl("bolt_knob", 0.008, 0.016, (0.055, -0.035, 0.012), DARK, axis="X", verts=12)], (0, -0.03, 0.012))
-    mag = part("mag", [box("mag_body", (0.03, 0.08, 0.04), (0, 0.07, -0.035), DARK, 0.002)], (0, 0.07, -0.02))
-    return body + [bolt, mag]
-
-
 def build_frag():
     """A fragmentation grenade: a rounded olive body, a steel fuse, the spoon and the pull ring. Origin at its centre."""
     o, s = [], []
@@ -215,7 +184,7 @@ def build_frag():
     return body + [spoon, ring_part]
 
 
-BUILDERS = {"sniper": build_sniper, "frag": build_frag}
+BUILDERS = {"frag": build_frag}
 objs = BUILDERS[WEAPON]()
 result = bkit.check(objs, budget=20000)  # noqa: F821
 result["objects"] = [o.name for o in objs]
