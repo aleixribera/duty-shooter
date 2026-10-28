@@ -16,3 +16,6 @@ tools/weapon/previews/
 
 # Python bytecode from the Blender generators
 __pycache__/
+
+# The soldier generator's preview sheets
+tools/soldier/previews/

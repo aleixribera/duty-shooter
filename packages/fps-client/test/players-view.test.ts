@@ -1,10 +1,13 @@
 import { createWorld, type PlayerOutput } from '@duty-shooter/fps-core';
 import { Box3, Mesh, Scene, Vector3, type Object3D } from 'three/webgpu';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { PlayersView } from '../src/players-view';
+import { loadTestSoldier } from './helpers/soldier';
+
+beforeAll(loadTestSoldier);
 
 function player(kind: 'player' | 'dummy' = 'player', id = 'p1', team = 0): PlayerOutput {
-  return { id, team, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6 } as unknown as PlayerOutput;
+  return { id, team, kind, alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance: 'stand', movement: 'walk', eyeHeight: 1.6, weapon: { id: 'm4a1', action: 'ready', actionTime: 0, ads: 0, reload: null }, grenade: null } as unknown as PlayerOutput;
 }
 
 /** The colours a soldier is drawn in (hex). */
