@@ -25,3 +25,5 @@ Added framed openings, shutters and parapets, plus walkable tower, blue-building
 The arcade has a covered columned walkway with four broad entries; a player traversal test crosses it. The main building now has upper and lower windows toward the wreck, and a ray check confirms the upper sightline. The rendered arcade is structurally readable but still needs period detail and furnishings.
 
 Replaced the tower’s placeholder exterior ramps with a three-storey interior switchback stairwell and a cut-out roof access. A player now walks from the exterior entrance to the roof in a movement test; precise entrance/stair hints connect the tower floors to the bot graph. The Blender scene was rebuilt. The interior remains sparsely dressed, and the rest of the map still needs its original routes, detailed art and full mode verification.
+
+Added home-server bot soaks for free-for-all, Outposts, Charge and gun game. All passed on the current layout; the Charge match reached its end with plants and both attacking and defending wins. These tests complement the existing TDM soak and must continue to pass as geometry changes.
