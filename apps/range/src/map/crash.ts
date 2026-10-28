@@ -17,6 +17,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   market: { family: 'plaster', color: 0xbca589 },
   roof: { family: 'concrete', color: 0x9e9380 },
   wood: { family: 'floor', color: 0x806b50, accent: 0x5c4d3c },
+  trim: { family: 'concrete', color: 0xe1d2b6 },
+  shutter: { family: 'siding', color: 0x655b4c },
   'wreck.hull': { family: 'paint', color: 0x777a70, roughness: 0.85, metalness: 0.35 },
   'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
@@ -32,30 +34,46 @@ const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from 
 
 /** A room for each storey, with an accessible outside stair and sightlines
  * through open windows. Each floor is 3 m high. */
-function building(b: Builder, r: Rect, levels: number, finish: string, entrance: 'north' | 'south'): void {
+function building(b: Builder, r: Rect, levels: number, finish: string, entrance: 'north' | 'south', roofAccess = false): void {
   const t = 0.25;
   for (let level = 0; level < levels; level++) {
     const y = level * 3;
     const midpoint = (r.x0 + r.x1) / 2;
     const openings: Opening[] = level === 0 ? [door(midpoint - 0.9)] : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)];
     const common = { thickness: t, bottom: y, height: 3, material: 'concrete' as const, look: finish };
-    b.wall({ ...common, along: 'x', at: r.z0, from: r.x0, to: r.x1, openings: entrance === 'north' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)] });
-    b.wall({ ...common, along: 'x', at: r.z1, from: r.x0, to: r.x1, openings: entrance === 'south' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)] });
+    b.wall({ ...common, along: 'x', at: r.z0, from: r.x0, to: r.x1, openings: entrance === 'north' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)], trim: [{face:-1,frames:'trim',shutters:'shutter'}] });
+    b.wall({ ...common, along: 'x', at: r.z1, from: r.x0, to: r.x1, openings: entrance === 'south' ? openings : [windowOpening(r.x0 + 1.2), windowOpening(r.x1 - 2.7)], trim: [{face:1,frames:'trim',shutters:'shutter'}] });
     // The west side gives the stair landing access to each upper floor.
-    b.wall({ ...common, along: 'z', at: r.x0, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: level ? [door(level % 2 ? r.z0 + 0.8 : r.z1 - 2.6)] : [door(r.z1 - 3)] });
-    b.wall({ ...common, along: 'z', at: r.x1, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: [windowOpening(r.z0 + 1)] });
+    b.wall({ ...common, along: 'z', at: r.x0, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: level ? [door(level % 2 ? r.z0 + 0.8 : r.z1 - 2.6)] : [door(r.z1 - 3)], trim: [{face:-1,frames:'trim'}] });
+    b.wall({ ...common, along: 'z', at: r.x1, from: r.z0 + t / 2, to: r.z1 - t / 2, openings: [windowOpening(r.z0 + 1)], trim: [{face:1,frames:'trim',shutters:'shutter'}] });
     if (level) b.add([r.x0, y - 0.18, r.z0], [r.x1, y, r.z1], 'concrete', { look: 'concrete' });
   }
   b.add([r.x0 - 0.12, levels * 3 - 0.18, r.z0 - 0.12], [r.x1 + 0.12, levels * 3, r.z1 + 0.12], 'concrete', { look: 'roof' });
-  // Each flight runs north from the street to the upper doorway. Two
-  // flights are separated laterally so the first stays clear underneath.
-  for (let level = 1; level < levels; level++) {
+  // Roof parapets have a gap at the final stair landing.
+  const roofY = levels * 3;
+  const p = { thickness:t, bottom:roofY, height:0.85, material:'concrete' as const, look:finish };
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  const gap = levels % 2 ? r.z0 + 0.8 : r.z1 - 2.6;
+  b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:roofAccess ? [{from:gap,to:gap+1.8,bottom:0,top:0.85}] : []});
+  // Flights alternate direction; landings connect the adjacent flights.
+  for (let level = 1; level < levels + (roofAccess ? 1 : 0); level++) {
     const x0 = r.x0 - 2.2 * level;
     const north = level % 2 === 1;
     b.paint('concrete', () => b.stairs({ along: 'z', from: north ? r.z1 - 0.2 : r.z0 + 1.7, to: north ? r.z0 + 1.7 : r.z1 - 0.2, across: [x0, x0 + 1.7], bottom: (level - 1) * 3, top: level * 3, material: 'concrete' }));
     const landingZ = north ? r.z0 + 0.45 : r.z1 - 2.8;
     b.add([x0 + 1.7, level * 3 - 0.18, landingZ], [r.x0, level * 3, landingZ + 2.35], 'concrete', { look: 'concrete' });
-    if (level > 1) b.add([x0, (level - 1) * 3 - 0.18, r.z0 + 0.45], [r.x0, (level - 1) * 3, r.z0 + 2.4], 'concrete', { look: 'concrete' });
+    if (level > 1) {
+      const footY = (level - 1) * 3;
+      if (north) {
+        // Turn around the preceding stair's end, not above its rising steps.
+        b.add([x0, footY - 0.18, r.z1], [r.x0, footY, r.z1 + 1.8], 'concrete', { look: 'concrete' });
+        b.add([r.x0 - 2.7, footY - 0.18, r.z1 - 2.0], [r.x0, footY, r.z1 + 1.8], 'concrete', { look: 'concrete' });
+      } else {
+        b.add([x0, footY - 0.18, r.z0 + 0.45], [r.x0, footY, r.z0 + 2.8], 'concrete', { look: 'concrete' });
+      }
+    }
   }
 }
 
@@ -99,11 +117,11 @@ export function buildCrash(): MapDefinition {
   // Original neighbourhood arrangement: the main building divides the
   // central crash site from the eastern back street; the arcade closes the
   // south side and leaves an alley behind it.
-  building(b, LANDMARKS.tower, 3, 'plaster', 'south');
-  building(b, LANDMARKS.blue, 2, 'blue', 'south');
+  building(b, LANDMARKS.tower, 3, 'plaster', 'south', true);
+  building(b, LANDMARKS.blue, 2, 'blue', 'south', true);
   building(b, LANDMARKS.main, 2, 'plaster', 'south');
   building(b, LANDMARKS.arcade, 1, 'market', 'north');
-  building(b, LANDMARKS.shop, 2, 'market', 'north');
+  building(b, LANDMARKS.shop, 2, 'market', 'north', true);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   building(b, {x0:-38,x1:-28,z0:16,z1:24}, 1, 'plaster', 'north');
   building(b, {x0:23,x1:34,z0:-33,z1:-24}, 1, 'plaster', 'south');
@@ -154,11 +172,11 @@ export function buildCrash(): MapDefinition {
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
     indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]}],
     referenceSpots:spots, benchmarkPath:spots.map(({position,yaw,pitch})=>({position,yaw,pitch})), flyThrough:[], playArea:BOUNDARY,
-    nav:{area:BOUNDARY,spacing:2,ceiling:10,hints:[
-      ...stairHints(LANDMARKS.tower,3),
-      ...stairHints(LANDMARKS.blue,2),
+    nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
+      ...stairHints(LANDMARKS.tower,4),
+      ...stairHints(LANDMARKS.blue,3),
       ...stairHints(LANDMARKS.main,2),
-      ...stairHints(LANDMARKS.shop,2),
+      ...stairHints(LANDMARKS.shop,3),
     ]}, measurements:[],
   };
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, TICK_SECONDS, createWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
-import { layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
+import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { BOUNDARY, LANDMARKS, buildCrash } from '../src/map/crash';
@@ -31,8 +31,8 @@ describe('Crash', () => {
       expect(world.movement.firstHit(a,c,i => segmentSolid(a,c,solids[i]!)), String(spawn.position)).toBeTruthy();
     }
   });
-  it('lets a player climb both tower flights into the top floor', () => {
-    const legs: Vec3[] = [[-15.35,0,-21],[-15.35,3,-31.3],[-17.55,3,-31.3],[-17.55,6,-22.55],[-15.8,6,-23.7],[-13,6,-23.7]];
+  it('lets a player climb the tower to the roof', () => {
+    const legs: Vec3[] = [[-15.35,0,-21],[-15.35,3,-31.3],[-17.55,3,-31.3],[-17.55,6,-22.55],[-15.8,6,-23.7],[-13,6,-23.7],[-15.8,6,-21.2],[-19.75,6,-21.2],[-19.75,9,-31.3],[-13,9,-31.3]];
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
     let out = m.step({p:usercmd({yaw:0})}).players[0]!;
     for (const target of legs.slice(1)) {
@@ -47,6 +47,8 @@ describe('Crash', () => {
   });
   it('has valid surface finishes and the Blender wreck placement', () => {
     expect(map.looks).toHaveLength(map.solids.length);
+    expect(map.decorations.length).toBeGreaterThan(50);
+    expect(decorationErrors(map.solids,map.decorations)).toEqual([]);
     for (const face of layoutSurfaces(map.solids,surfaceSpec(map)).faces)
       expect(face.finish in map.finishes || face.finish.startsWith('default:'),face.finish).toBe(true);
     expect(map.models?.placements.map(p => p.asset)).toContain('helicopter');
@@ -54,7 +56,7 @@ describe('Crash', () => {
   it('connects the navigation graph in both directions', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);
-    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3]]) {
+    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
     }
     expect(reachable(nav,false).size).toBe(nav.nodes.length);

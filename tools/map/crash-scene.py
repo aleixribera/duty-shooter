@@ -53,4 +53,17 @@ for i, solid in enumerate(layout['solids']):
     look = layout['looks'][i] or {}
     mat = materials.get(look.get('side'))
     if mat: obj.data.materials.append(mat)
+for i, deco in enumerate(layout['decorations']):
+    x, y, z = deco['center']
+    sx, sy, sz = deco['size']
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(x, -z, y))
+    obj = bpy.context.object
+    obj.name = 'trim_%04d' % i
+    obj.dimensions = (sx, sz, sy)
+    obj.rotation_euler[2] = deco['yaw']
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    for c in list(obj.users_collection): c.objects.unlink(obj)
+    coll.objects.link(obj)
+    mat = materials.get(deco['finish'])
+    if mat: obj.data.materials.append(mat)
 bpy.ops.wm.save_as_mainfile(filepath=args[1])
