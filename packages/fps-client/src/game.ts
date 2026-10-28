@@ -46,6 +46,7 @@ import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
 import { bindingLabel, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
+import { ZoneRings } from './zone-rings';
 import type { BakeFile } from './surfaces';
 import { currentLighting } from './surface-materials';
 
@@ -152,6 +153,8 @@ export class Game {
   /** Explosions already shown (the server repeats important events in case a snapshot is lost). */
   readonly #explosions = new Set<number>();
   readonly #effects: Effects;
+  /** The circles on the ground at the Outposts zones. */
+  readonly #zoneRings: ZoneRings;
   readonly #pipeline: GamePipeline;
   readonly #loop = new FixedTickLoop();
   readonly #sound: SoundSystem;
@@ -248,6 +251,7 @@ export class Game {
       this.#worldFlashes.push(flash);
       this.#worldView.scene.add(flash);
     }
+    this.#zoneRings = new ZoneRings(this.#worldView.scene, this.#zones);
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
@@ -561,6 +565,7 @@ export class Game {
     // Charge's keypad, beeping and tools; the round's state stands through the intermission, so the last defuse is heard too.
     const objective = driver?.match?.objective;
     for (const c of this.#chargeSounds.update(objective?.kind === 'charge' ? objective : null, performance.now() / 1000, (id) => this.#playerById(id)?.position ?? null)) this.#play(c.event, c.params);
+    this.#zoneRings.update(driver?.match?.phase === 'playing' && objective?.kind === 'outposts' ? objective.zones : null, performance.now() / 1000);
     this.#effects.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
@@ -1147,6 +1152,7 @@ export class Game {
     this.hud.dispose();
     this.#pipeline.dispose();
     this.#effects.dispose();
+    this.#zoneRings.dispose();
     this.#players.dispose();
     this.#arsenal.dispose();
     this.#worldView.dispose();

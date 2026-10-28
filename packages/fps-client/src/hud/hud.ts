@@ -57,7 +57,8 @@ const CSS = `
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
 .ds-zones .zone { position: relative; width: 40px; height: 40px; border: 2px solid currentColor; border-radius: 2px; background: rgb(11 14 19 / 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: var(--ds-text-3); }
-.ds-zones .zone.ds-t1, .ds-zones .zone.ds-t2 { background: rgb(11 14 19 / 0.7); }
+.ds-zones .zone.ds-t1 { color: var(--ds-blue); background: rgb(61 139 255 / 0.28); }
+.ds-zones .zone.ds-t2 { color: var(--ds-orange); background: rgb(255 154 60 / 0.28); }
 .ds-zones .zone b { font-size: 17px; line-height: 1; color: var(--ds-text); }
 .ds-zones .zone .mark { font-size: 9px; line-height: 1; margin-top: 2px; }
 .ds-zones .zone i { position: absolute; left: 0; bottom: 0; height: 4px; background: currentColor; }
@@ -66,7 +67,10 @@ const CSS = `
 @keyframes ds-blink { 50% { border-color: var(--ds-alert); } }
 .ds-marker { position: absolute; left: 0; top: 0; will-change: transform; display: flex; flex-direction: column; align-items: center; color: var(--ds-text-3); }
 .ds-marker b { width: 26px; height: 26px; border: 2px solid currentColor; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--ds-text); background: rgb(11 14 19 / 0.5); }
-.ds-marker.ds-t1 b, .ds-marker.ds-t2 b { border-color: currentColor; }
+.ds-marker.ds-t1 { color: var(--ds-blue); }
+.ds-marker.ds-t2 { color: var(--ds-orange); }
+.ds-marker.ds-t1 b { background: rgb(61 139 255 / 0.4); }
+.ds-marker.ds-t2 b { background: rgb(255 154 60 / 0.4); }
 .ds-marker small { font-size: 11px; margin-top: 2px; color: var(--ds-text-2); }
 .ds-marker.contested b { border-color: var(--ds-alert); }
 .ds-marker.site b { border-radius: 4px; }
