@@ -25,6 +25,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   wood: { family: 'floor', color: 0x806b50, accent: 0x5c4d3c },
   trim: { family: 'concrete', color: 0xe1d2b6 },
   shutter: { family: 'siding', color: 0x655b4c },
+  'market.goods': { family: 'paint', color: 0xb88959 },
+  'market.goodsDark': { family: 'paint', color: 0x78815e },
   'wreck.hull': { family: 'paint', color: 0x777a70, roughness: 0.85, metalness: 0.35 },
   'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
@@ -202,7 +204,8 @@ function buildMain(b: Builder): void {
     const windows = [windowOpening(-15),windowOpening(-10),windowOpening(-5)];
     b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(4.2),windowOpening(13.3)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
-    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:level === 0 ? [...windows,door(0)] : windows,trim:[{face:-1,frames:'trim'}]});
+    const plaza = level === 0 ? [windowOpening(-17.5),door(-14,4),windowOpening(-5),door(0)] : windows;
+    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:plaza,trim:[{face:-1,frames:'trim'}]});
     b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:windows,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
   }
   // The floors and roof surround a switchback stairwell in the east side.
@@ -225,10 +228,20 @@ function buildMain(b: Builder): void {
   b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
   b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
   b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  // A shaded storefront faces the wreck; the counter and stocked wall
+  // shelves make the ground floor read as a market without blocking its doors.
+  b.add([1.45,2.55,-14.45],[3.12,2.70,-9.55],'wood',{look:'awning'});
+  b.add([2.84,2.30,-14.3],[3.0,2.54,-9.7],'wood',{look:'wood'});
+  b.add([4.1,0,-18.35],[7.5,1.0,-17.55],'wood',{look:'wood'});
+  for (const y of [0.9,1.35,1.8]) {
+    b.add([4.0,y,-19.8],[9.4,y+0.08,-19.25],'wood',{look:'wood'});
+    for (const [i,x] of [4.25,4.85,5.45,6.05,6.65,7.25,7.85,8.45].entries())
+      b.add([x,y+0.08,-19.7],[x+0.35,y+0.35,-19.32],'plastic',{look:i%2 ? 'market.goodsDark' : 'market.goods'});
+  }
 }
 
 function mainHints(): Vec3[] {
-  const hints: Vec3[] = [[9.5,0,4],[9.5,0,2],[9.5,0,-4.5]];
+  const hints: Vec3[] = [[9.5,0,4],[9.5,0,2],[9.5,0,-4.5],[1.6,0,-12],[4.4,0,-12]];
   for (const y of [0,3]) {
     hints.push([11.3,y,-4.5],[11.3,y+1.5,-17.8],[13.3,y+1.5,-17.8],
       [13.3,y+3,-4.5],[9.5,y+3,-4.5]);
