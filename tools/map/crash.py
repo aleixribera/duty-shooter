@@ -23,6 +23,7 @@ glass = mat("wreck.glass", 0x202d30, 0.3, 0.1)
 soot = mat("wreck.soot", 0x45463f, 0.98, 0.1)
 rubble_stone = mat("rubble.stone", 0xa79a82, 0.95)
 rubble_dark = mat("rubble.dark", 0x726b5d, 0.95)
+impact_crack = mat("impact.crack", 0x514d43, 1.0)
 car_body = mat("car.body", 0x70483b, 0.9, 0.2)
 car_dark = mat("car.dark", 0x282927, 0.95)
 car_glass = mat("car.glass", 0x333c3c, 0.5)
@@ -196,6 +197,55 @@ def impact_scatter(seed):
     return kit.asset('impact-scatter-%d' % seed, parts, smooth_angle=25)
 
 
+def impact_cracks():
+    """Fine irregular seams in the damaged pavement around the wreck."""
+    rng = random.Random(741)
+    parts = []
+    def street(x, z):
+        # Game-space street union around the placed centre (-6, -2).
+        return -4 < x < 15 or -5 < z < 10
+    def segment(a, b, width):
+        dx, dz = b[0]-a[0], b[1]-a[1]
+        length = math.hypot(dx,dz)
+        nx, nz = -dz*width/(2*length), dx*width/(2*length)
+        parts.append(kit.plan([(a[0]+nx,a[1]+nz),(b[0]+nx,b[1]+nz),
+                               (b[0]-nx,b[1]-nz),(a[0]-nx,a[1]-nz)],
+                              0.008,0.012,impact_crack))
+    # Clip a random set of cells against their neighbours. Their shared
+    # borders make uneven broken slabs rather than evenly spaced spokes.
+    seeds = [(rng.uniform(-8,8),rng.uniform(-7,7)) for _ in range(165)]
+    seen = set()
+    for sx,sz in seeds:
+        polygon = [(-9,-8),(9,-8),(9,8),(-9,8)]
+        for tx,tz in seeds:
+            if (sx,sz) == (tx,tz): continue
+            nx,nz = tx-sx,tz-sz
+            limit = (tx*tx+tz*tz-sx*sx-sz*sz)/2
+            clipped = []
+            for a,b in zip(polygon,polygon[1:]+polygon[:1]):
+                da,db = a[0]*nx+a[1]*nz-limit, b[0]*nx+b[1]*nz-limit
+                if da <= 0: clipped.append(a)
+                if (da < 0 < db) or (db < 0 < da):
+                    t = da/(da-db)
+                    clipped.append((a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t))
+            polygon = clipped
+            if not polygon: break
+        for a,b in zip(polygon,polygon[1:]+polygon[:1]):
+            key = tuple(sorted(((round(a[0],3),round(a[1],3)),(round(b[0],3),round(b[1],3)))))
+            if key in seen: continue
+            seen.add(key)
+            radius = max(math.hypot(a[0]/8,a[1]/7),math.hypot(b[0]/8,b[1]/7))
+            if radius >= 1 or not street(*a) or not street(*b) or math.dist(a,b) < 0.08: continue
+            dx,dz = b[0]-a[0],b[1]-a[1]
+            length = math.hypot(dx,dz)
+            bend = rng.uniform(-0.13,0.13)*min(length,1)
+            mid = ((a[0]+b[0])/2-dz/length*bend,(a[1]+b[1])/2+dx/length*bend)
+            width = rng.uniform(0.018,0.038)*min(1,(1-radius)*4)
+            segment(a,mid,width)
+            segment(mid,b,width)
+    return kit.asset('impact-cracks',parts,smooth_angle=25)
+
+
 def roof_debris():
     """Broken concrete slabs and exposed reinforcing bars from a collapsed roof."""
     parts = [
@@ -360,7 +410,7 @@ for side in (-1, 1):
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
             front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
 
-built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks()] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -375,7 +425,7 @@ SOLIDS = {
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    if obj.name == 'palm-crown' or obj.name.startswith('impact-scatter-'):
+    if obj.name in ('palm-crown','impact-cracks') or obj.name.startswith('impact-scatter-'):
         report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
     else:
         worst, where = kit.strays(obj, SOLIDS[obj.name])

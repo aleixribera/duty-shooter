@@ -24,5 +24,8 @@ describe('Crash wreck model', () => {
       expect(Math.min(...heights)).toBeGreaterThanOrEqual(0);
       expect(Math.max(...heights)).toBeLessThanOrEqual(0.111);
     }
+    const cracks = map.models!.placements.find(p => p.asset === 'impact-cracks')!;
+    expect(cracks.visualOnly && cracks.solids.length === 0).toBe(true);
+    expect(Math.max(...glb.assets.get(cracks.asset)!.vertices.map(v => v[1]))).toBeLessThan(0.013);
   });
 });

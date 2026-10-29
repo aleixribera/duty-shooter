@@ -34,6 +34,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.soot': { family: 'paint', color: 0x45463f, roughness: 0.98, metalness: 0.1 },
   'rubble.stone': { family: 'concrete', color: 0xa79a82 },
   'rubble.dark': { family: 'concrete', color: 0x726b5d },
+  'impact.crack': { family: 'paint', color: 0x514d43, roughness:0.98 },
   'car.body': { family: 'paint', color: 0x70483b, roughness: 0.9, metalness: 0.2 },
   'car.dark': { family: 'paint', color: 0x282927, roughness: 0.95 },
   'car.glass': { family: 'glass', color: 0x333c3c },
@@ -515,6 +516,8 @@ export function buildCrash(): MapDefinition {
     ['impact-scatter-37',-11,1,0.9], ['impact-scatter-11',-1,1,-0.7],
     ['impact-scatter-23',-6,6,0.5], ['impact-scatter-37',-14,4,-0.4],
   ] as const) b.scenery(asset,[x,0,z],yaw);
+  // Shallow fracture marks sit on the street and do not affect movement.
+  b.scenery('impact-cracks',[-6,0,-2],0);
   // Fallen slabs lie below the blue building's damaged upper roof.
   for (const [x,z,yaw] of [[-20,3.2,0.2],[-19.4,6.2,-0.55]] as const)
     b.model('roof-debris',[x,3,z],yaw,() => b.turned([x,3.1,z],[2.4,0.2,1.8],yaw,'concrete','rubble.stone'));
