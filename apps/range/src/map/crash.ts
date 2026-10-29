@@ -347,6 +347,9 @@ export function buildCrash(): MapDefinition {
   for (const [x,z,yaw] of [[-10,-5,0],[-10,2,0.5],[-3,-7,-0.4],[-3,6,0.9],[-13,8,0.2],[0,9,-0.7]] as const) {
     b.model('rubble',[x,0,z],yaw,() => b.turned([x,0.15,z],[2.4,0.3,1.8],yaw,'concrete','rubble.stone'));
   }
+  // Fallen slabs lie below the blue building's damaged upper roof.
+  for (const [x,z,yaw] of [[-20,3.2,0.2],[-19.4,6.2,-0.55]] as const)
+    b.model('roof-debris',[x,3,z],yaw,() => b.turned([x,3.1,z],[2.4,0.2,1.8],yaw,'concrete','rubble.stone'));
   b.model('burned-car',[-14,0,-9],0,() => {
     b.add([-16.4,0,-10],[-11.6,1.08,-8],'metal',{look:'car.body'});
     b.add([-15.3,1.08,-9.82],[-12.7,1.8,-8.18],'metal',{look:'car.body'});

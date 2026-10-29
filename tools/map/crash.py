@@ -122,6 +122,18 @@ def rubble():
     return kit.asset('rubble', parts, smooth_angle=25)
 
 
+def roof_debris():
+    """Broken concrete slabs and exposed reinforcing bars from a collapsed roof."""
+    parts = [
+        kit.plan([(-1.08,-0.68),(-0.32,-0.73),(-0.02,-0.28),(-0.24,0.22),(-0.91,0.13)],0.02,0.16,rubble_stone),
+        kit.plan([(0.15,-0.60),(0.95,-0.54),(1.09,0.01),(0.55,0.22),(0.07,-0.05)],0.01,0.13,rubble_stone),
+        kit.plan([(-0.74,0.29),(-0.14,0.21),(0.18,0.56),(-0.06,0.79),(-0.65,0.70)],0.01,0.12,rubble_dark),
+        kit.box((-1.12,0.08,-0.10),(1.12,0.10,-0.075),roof_metal),
+        kit.box((-0.55,0.13,-0.81),(-0.52,0.15,0.82),roof_metal),
+    ]
+    return kit.asset('roof-debris',parts,smooth_angle=25)
+
+
 def burned_car():
     """A damaged abandoned sedan: body, roof, scorched glazing and tyres."""
     parts = [
@@ -218,10 +230,11 @@ def rooftop_fence():
     parts.append(kit.obj('wire mesh',bm,fence_metal))
     return kit.asset('rooftop-fence',parts,smooth_angle=30)
 
-built = [helicopter(), rubble(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence()]
+built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence()]
 SOLIDS = {
     'helicopter': [((-3.5, 0, -1.42), (2.2, 2.72, 1.42)), ((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
+    'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
     'utility-pole': [((-0.15,0,-0.15),(0.15,6.4,0.15)), ((-1,5.98,-0.07),(1,6.12,0.07))] + [((x-0.095,6.12,-0.095),(x+0.095,6.28,0.095)) for x in (-0.7,0.7)],
     'water-tank': [((-0.8,0,-0.8),(0.8,1.6,0.8))],
