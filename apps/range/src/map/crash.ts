@@ -157,7 +157,17 @@ function buildBlue(b: Builder): void {
   for (const y of [3,6]) {
     const look = y === 6 ? 'roof' : 'concrete';
     b.add([r.x0,y-0.18,r.z0],[r.x1,y,0.5],'concrete',{look});
-    b.add([-22.9,y-0.18,0.5],[r.x1,y,r.z1],'concrete',{look});
+    if (y === 3) {
+      b.add([-22.9,y-0.18,0.5],[r.x1,y,r.z1],'concrete',{look});
+    } else {
+      // The upper room is open to the sky where its roof collapsed; a broken
+      // perimeter remains connected to the stairs and still supports props.
+      b.add([-22.9,y-0.18,0.5],[-21.6,y,8.2],'concrete',{look});
+      b.add([-18.2,y-0.18,0.5],[r.x1,y,8.2],'concrete',{look});
+      b.add([-21.6,y-0.18,0.5],[-18.2,y,1.2],'concrete',{look});
+      b.add([-20.0,y-0.18,1.2],[-18.2,y,2.3],'concrete',{look});
+      b.add([-22.9,y-0.18,8.2],[r.x1,y,r.z1],'concrete',{look});
+    }
     b.add([r.x0,y-0.18,0.5],[-26.5,y,r.z1],'concrete',{look});
     b.add([r.x0,y-0.18,8.2],[-22.9,y,r.z1],'concrete',{look});
   }
@@ -354,7 +364,7 @@ export function buildCrash(): MapDefinition {
   // Rooftop water storage and dishes add recognizable silhouettes and cover.
   for (const [x,y,z] of [[-20,6,-1],[12,6,-14],[21,6,20]] as const)
     b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
-  for (const [x,y,z] of [[-6,9,-30],[-20,6,7]] as const)
+  for (const [x,y,z] of [[-6,9,-30],[-20,6,9]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)

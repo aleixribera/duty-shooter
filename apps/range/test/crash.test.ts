@@ -91,6 +91,10 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('opens the blue building upper room to the sky through its broken roof', () => {
+    expect(raycastWorld(world,[-20,4.6,4],[-20,8,4])).toBeNull();
+    expect(raycastWorld(world,[-20,4.6,-1],[-20,8,-1])).not.toBeNull();
+  });
   it('connects the shop entrances, interior stairs and rooftop', () => {
     for (const [outside,inside] of [
       [[24,1.6,7],[24,1.6,9]],
