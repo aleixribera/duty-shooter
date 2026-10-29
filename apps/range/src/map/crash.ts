@@ -37,6 +37,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
   'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },
   'pole.wire': { family: 'paint', color: 0x343633 },
+  'roof.tank': { family: 'sheetMetal', color: 0x98958a, roughness:0.85, metalness:0.2 },
+  'roof.metal': { family: 'sheetMetal', color: 0x605c50, roughness:0.8, metalness:0.35 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -243,6 +245,11 @@ export function buildCrash(): MapDefinition {
   }
   for (const [x,z0,z1] of [[-37,-7,10],[35,-18,14]] as const) for (const dx of [-0.7,0.7])
     b.add([x+dx-0.015,6.22,z0],[x+dx+0.015,6.25,z1],'metal',{look:'pole.wire',blocks:'bullets'});
+  // Rooftop water storage and dishes add recognizable silhouettes and cover.
+  for (const [x,y,z] of [[-23,6,1],[12,6,-14],[27,6,19]] as const)
+    b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
+  for (const [x,y,z] of [[-6,9,-30],[-20,6,7]] as const)
+    b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});

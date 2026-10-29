@@ -33,3 +33,5 @@ Added screened back-street, backyard and southern-alley routes with open gates a
 At the user’s request to play now, added an opt-in development URL `?botmap=crash` that selects Crash in Bot Match without changing the published map list. A muted browser opened the lobby and started a mixed match on Crash with eight players. The map remains in progress.
 
 Replaced box-shaped rubble with irregular masonry and added utility poles and overhead lines to the streets, with matching collision and a cooler, hazier daylight. Rebuilt the editable Blender scene and verified all four poles are present. Typecheck, production build, model and layout checks, and bot soaks for all five modes pass. Architectural detail, furnishings, weathering and finer original routes remain before release.
+
+Added Blender water tanks and satellite dishes to the rooftops as landmarks and cover, with matching game collision. The rebuilt Blender scene contains three tanks and two dishes. The model/layout tests, all five bot-mode soaks, typecheck and production build pass; the map still needs more faithful architecture and interiors before release.

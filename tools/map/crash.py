@@ -28,6 +28,8 @@ car_glass = mat("car.glass", 0x333c3c, 0.5)
 pole_wood = mat("pole.wood", 0x6c5b46, 0.9)
 pole_metal = mat("pole.metal", 0x454741, 0.8, 0.3)
 pole_insulator = mat("pole.insulator", 0x82908a, 0.3)
+roof_tank = mat("roof.tank", 0x98958a, 0.85, 0.2)
+roof_metal = mat("roof.metal", 0x605c50, 0.8, 0.35)
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -148,12 +150,50 @@ def utility_pole():
         parts.append(kit.cylinder(0.095,6.20,6.25,(x,0,0),'y',pole_insulator,12))
     return kit.asset('utility-pole',parts,smooth_angle=45)
 
-built = [helicopter(), rubble(), burned_car(), utility_pole()]
+def water_tank():
+    """A cylindrical rooftop water tank with raised bands and a low lid."""
+    parts = [
+        kit.cylinder(0.74, 0.12, 1.5, (0,0,0), 'y', roof_tank, 24),
+        kit.cylinder(0.78, 0.10, 0.18, (0,0,0), 'y', roof_metal, 24),
+        kit.cylinder(0.78, 1.40, 1.48, (0,0,0), 'y', roof_metal, 24),
+        kit.cylinder(0.65, 1.50, 1.57, (0,0,0), 'y', roof_tank, 24),
+    ]
+    for x in (-0.48, 0.48):
+        parts.append(kit.box((x-0.09,0,-0.52),(x+0.09,0.13,0.52),roof_metal))
+    return kit.asset('water-tank', parts, smooth_angle=45)
+
+
+def satellite_dish():
+    """A shallow parabolic dish mounted on a short rooftop pedestal."""
+    bm = bmesh.new()
+    rings = []
+    segments = 24
+    for radius in (0.05, 0.18, 0.36, 0.54):
+        ring = []
+        for i in range(segments):
+            a = 2 * math.pi * i / segments
+            ring.append(bm.verts.new(kit.b((0.20*(radius/0.54)**2, 1.22+radius*math.sin(a), radius*math.cos(a)))))
+        rings.append(ring)
+    for inner, outer in zip(rings, rings[1:]):
+        for i in range(segments):
+            j = (i+1) % segments
+            bm.faces.new((inner[i], inner[j], outer[j], outer[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    parts = [kit.obj('dish', bm, roof_tank),
+             kit.cylinder(0.07,0.08,1.25,(0,0,0),'y',roof_metal,12),
+             kit.box((-0.32,0,-0.32),(0.32,0.08,0.32),roof_metal),
+             kit.box((0.03,1.19,-0.025),(0.48,1.25,0.025),roof_metal),
+             kit.cylinder(0.06,0.43,0.50,(0,1.22,0),'x',roof_metal,12)]
+    return kit.asset('satellite-dish', parts, smooth_angle=35)
+
+built = [helicopter(), rubble(), burned_car(), utility_pole(), water_tank(), satellite_dish()]
 SOLIDS = {
     'helicopter': [((-3.5, 0, -1.42), (2.2, 2.72, 1.42)), ((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
     'utility-pole': [((-0.15,0,-0.15),(0.15,6.4,0.15)), ((-1,5.98,-0.07),(1,6.12,0.07))] + [((x-0.095,6.12,-0.095),(x+0.095,6.28,0.095)) for x in (-0.7,0.7)],
+    'water-tank': [((-0.8,0,-0.8),(0.8,1.6,0.8))],
+    'satellite-dish': [((-0.32,0,-0.54),(0.50,1.76,0.54))],
 }
 kit.bake_ao(built, distance=0.8)
 report = {}
