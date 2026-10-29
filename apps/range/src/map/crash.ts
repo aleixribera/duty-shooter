@@ -508,6 +508,13 @@ export function buildCrash(): MapDefinition {
   for (const [x,z,yaw] of [[-10,-5,0],[-10,2,0.5],[-3,-7,-0.4],[-3,6,0.9],[-13,8,0.2],[0,9,-0.7]] as const) {
     b.model('rubble',[x,0,z],yaw,() => b.turned([x,0.15,z],[2.4,0.3,1.8],yaw,'concrete','rubble.stone'));
   }
+  // Small, low chips dress the impact area without forming invisible slabs
+  // of collision between the individually visible fragments.
+  for (const [asset,x,z,yaw] of [
+    ['impact-scatter-11',-11,-5,0.2], ['impact-scatter-23',-2,-6,-0.3],
+    ['impact-scatter-37',-11,1,0.9], ['impact-scatter-11',-1,1,-0.7],
+    ['impact-scatter-23',-6,6,0.5], ['impact-scatter-37',-14,4,-0.4],
+  ] as const) b.scenery(asset,[x,0,z],yaw);
   // Fallen slabs lie below the blue building's damaged upper roof.
   for (const [x,z,yaw] of [[-20,3.2,0.2],[-19.4,6.2,-0.55]] as const)
     b.model('roof-debris',[x,3,z],yaw,() => b.turned([x,3.1,z],[2.4,0.2,1.8],yaw,'concrete','rubble.stone'));

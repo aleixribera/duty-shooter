@@ -176,6 +176,26 @@ def rubble():
     return kit.asset('rubble', parts, smooth_angle=25)
 
 
+def impact_scatter(seed):
+    """Small, low fragments scattered loosely over a patch of street."""
+    rng = random.Random(seed)
+    parts = []
+    for i in range(30):
+        x, z = rng.uniform(-2.45,2.45), rng.uniform(-1.9,1.9)
+        rx, rz = rng.uniform(0.10,0.34), rng.uniform(0.09,0.27)
+        angle = rng.uniform(0,math.tau)
+        shape = [(-0.9,-0.65),(0.05,-1),(0.92,-0.48),(0.76,0.58),(-0.22,1),(-1,0.25)]
+        outline = []
+        for u,v in shape:
+            jitter = rng.uniform(0.78,1.0)
+            dx, dz = rx*u*jitter, rz*v*jitter
+            outline.append((x+dx*math.cos(angle)-dz*math.sin(angle),
+                            z+dx*math.sin(angle)+dz*math.cos(angle)))
+        parts.append(kit.plan(outline,0.006,rng.uniform(0.045,0.11),
+                              rubble_dark if i%5 == 0 else rubble_stone))
+    return kit.asset('impact-scatter-%d' % seed, parts, smooth_angle=25)
+
+
 def roof_debris():
     """Broken concrete slabs and exposed reinforcing bars from a collapsed roof."""
     parts = [
@@ -340,7 +360,7 @@ for side in (-1, 1):
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
             front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
 
-built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown]
+built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -355,7 +375,7 @@ SOLIDS = {
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    if obj.name == 'palm-crown':
+    if obj.name == 'palm-crown' or obj.name.startswith('impact-scatter-'):
         report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
     else:
         worst, where = kit.strays(obj, SOLIDS[obj.name])

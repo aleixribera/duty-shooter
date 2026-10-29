@@ -15,4 +15,14 @@ describe('Crash wreck model', () => {
   it('matches the placed collision within five centimetres', () => {
     expect(strayModels(map, glb.assets)).toEqual([]);
   });
+  it('keeps non-colliding impact fragments low to the street', () => {
+    const fragments = map.models!.placements.filter(p => p.asset.startsWith('impact-scatter-'));
+    expect(fragments).toHaveLength(6);
+    for (const p of fragments) {
+      expect(p.visualOnly && p.solids.length === 0).toBe(true);
+      const heights = glb.assets.get(p.asset)!.vertices.map(v => v[1]);
+      expect(Math.min(...heights)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...heights)).toBeLessThanOrEqual(0.111);
+    }
+  });
 });
