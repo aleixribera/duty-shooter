@@ -68,6 +68,27 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('connects the shop entrances, interior stairs and rooftop', () => {
+    for (const [outside,inside] of [
+      [[24,1.6,7],[24,1.6,9]],
+      [[21.3,1.6,24],[21.3,1.6,22]],
+      [[32,1.6,21.8],[30,1.6,21.8]],
+    ] as [Vec3,Vec3][]) expect(raycastWorld(world,outside,inside), String(outside)).toBeNull();
+    const legs: Vec3[] = [[24,0,7],[24,0,9],[25.5,0,21.3]];
+    for (const y of [0,3]) legs.push([27.7,y,21.3],[27.7,y+1.5,10.5],[29.5,y+1.5,10.5],
+      [29.5,y+3,21.3],[25.8,y+3,21.3]);
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (const target of legs.slice(1)) {
+      let reached = false;
+      for (let i=0;i<12/TICK_SECONDS;i++) {
+        const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+        if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+      }
+      expect(reached, 'toward '+target+' at '+out.position).toBe(true);
+    }
+  });
   it('allows players through the three lane openings while the walls screen the gaps between them', () => {
     const routes: [Vec3,Vec3][] = [[[29,0,-12],[35,0,-12]],[[9,0,23],[9,0,28]],[[-34,0,0],[-30.2,0,0]]];
     for (const [start,target] of routes) {

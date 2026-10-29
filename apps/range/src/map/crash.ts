@@ -20,6 +20,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   plaster: { family: 'plaster', color: 0xcdbb9d },
   blue: { family: 'plaster', color: 0x809b9a },
   market: { family: 'plaster', color: 0xbca589 },
+  awning: { family: 'paint', color: 0x895f4f },
   roof: { family: 'concrete', color: 0x9e9380 },
   wood: { family: 'floor', color: 0x806b50, accent: 0x5c4d3c },
   trim: { family: 'concrete', color: 0xe1d2b6 },
@@ -174,6 +175,56 @@ function blueHints(): Vec3[] {
   return hints;
 }
 
+/** A shop at ground level with an upstairs room and a back-street entrance. */
+function buildShop(b: Builder): void {
+  const r = LANDMARKS.shop, t = 0.25;
+  for (let level = 0; level < 2; level++) {
+    const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'market'};
+    const north = level === 0 ? [door(22,4)] : [windowOpening(19.4,2),windowOpening(25.5,2)];
+    const south = level === 0 ? [door(20.3,2)] : [windowOpening(20),windowOpening(25.5)];
+    const east = level === 0 ? [door(20.8,2)] : [windowOpening(10),windowOpening(15),windowOpening(20)];
+    const west = [windowOpening(10),windowOpening(15),windowOpening(20)];
+    b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:north,trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:south,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:west,trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:east,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+  }
+  // A clear stairwell connects the retail floor, upper room and roof.
+  for (const y of [3,6]) {
+    const look = y === 6 ? 'roof' : 'concrete';
+    b.add([r.x0,y-0.18,r.z0],[r.x1,y,9.8],'concrete',{look});
+    b.add([r.x0,y-0.18,9.8],[26.8,y,r.z1],'concrete',{look});
+    b.add([30.4,y-0.18,9.8],[r.x1,y,r.z1],'concrete',{look});
+    b.add([26.8,y-0.18,20.8],[30.4,y,r.z1],'concrete',{look});
+  }
+  for (const y of [0,3]) {
+    towerFlight(b,27,28.4,20.5,11.5,y);
+    towerFlight(b,28.8,30.2,11.5,20.5,y+1.5);
+    b.add([27,y+1.32,9.8],[30.2,y+1.5,11.5],'concrete',{look:'concrete'});
+  }
+  const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'market'};
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  // A shallow canopy and counter establish the shop without closing its entrances.
+  b.add([20.3,2.5,6.5],[27.7,2.65,8],'wood',{look:'awning'});
+  b.add([19,0,12],[21.6,1.05,12.7],'wood',{look:'wood'});
+  b.add([18.3,0,16],[19,1.4,19.2],'wood',{look:'wood'});
+}
+
+function shopHints(): Vec3[] {
+  const hints: Vec3[] = [[24,0,6.8],[24,0,9.2],[21.3,0,22],[21.3,0,24],
+    [30,0,21.8],[32,0,21.8],[27.7,0,21.3]];
+  for (const y of [0,3]) {
+    hints.push([27.7,y,21.3],[27.7,y+1.5,10.5],[29.5,y+1.5,10.5],[29.5,y+3,21.3],[25.8,y+3,21.3]);
+    for (let i=0; i<=6; i++) {
+      hints.push([27.7,y+1.5*i/6,20.5-9*i/6],[29.5,y+1.5+1.5*i/6,11.5+9*i/6]);
+    }
+  }
+  return hints;
+}
+
 function towerHints(): Vec3[] {
   const hints: Vec3[] = [[-9,0,-20.8],[-9,0,-22.8],[-9,0,-24],[-5,0,-26.8],[-3,0,-26.8]];
   for (const y of [0,3,6]) {
@@ -250,7 +301,7 @@ export function buildCrash(): MapDefinition {
   building(b, LANDMARKS.main, 2, 'plaster', 'south', false, 'main');
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
   buildArcadeWalkway(b);
-  building(b, LANDMARKS.shop, 2, 'market', 'north', true);
+  buildShop(b);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   building(b, {x0:-38,x1:-28,z0:16,z1:24}, 1, 'plaster', 'north');
   building(b, {x0:23,x1:34,z0:-33,z1:-24}, 1, 'plaster', 'south');
@@ -286,7 +337,7 @@ export function buildCrash(): MapDefinition {
   for (const [x,z0,z1] of [[-37,-7,10],[35,-18,14]] as const) for (const dx of [-0.7,0.7])
     b.add([x+dx-0.015,6.22,z0],[x+dx+0.015,6.25,z1],'metal',{look:'pole.wire',blocks:'bullets'});
   // Rooftop water storage and dishes add recognizable silhouettes and cover.
-  for (const [x,y,z] of [[-20,6,-1],[12,6,-14],[27,6,19]] as const)
+  for (const [x,y,z] of [[-20,6,-1],[12,6,-14],[21,6,20]] as const)
     b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
   for (const [x,y,z] of [[-6,9,-30],[-20,6,7]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
@@ -323,7 +374,7 @@ export function buildCrash(): MapDefinition {
       ...towerHints(),
       ...blueHints(),
       ...stairHints(LANDMARKS.main,2),
-      ...stairHints(LANDMARKS.shop,3),
+      ...shopHints(),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
       ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
       ...[-6,9,26].flatMap((x): Vec3[] => [[x,0,24.3],[x,0,26.7]]),
