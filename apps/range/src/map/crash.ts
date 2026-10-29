@@ -1,5 +1,5 @@
 import type { SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
-import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
+import { normalize, type Finish, type Lighting } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { MapDefinition } from './definition';
 
@@ -8,6 +8,11 @@ import type { MapDefinition } from './definition';
  * blue building west, main building east, arcade south and shop southeast
  * of the wreck, following the original CoD4 overhead. */
 export const BOUNDARY: readonly (readonly [number, number])[] = [[-42, -38], [42, -38], [42, 38], [-42, 38]];
+/** Hazy, desaturated afternoon light for the original urban setting. */
+const CRASH_LIGHT: Lighting = {
+  sunDirection: normalize([-0.45,0.68,0.57]), sunColor:[1,0.95,0.88], sunIntensity:1.9, sunSpread:0.06,
+  skyZenith:[0.42,0.51,0.54], skyHorizon:[0.77,0.79,0.71], skyIntensity:0.9, ground:[0.32,0.30,0.25],
+};
 const FINISHES: Readonly<Record<string, Finish>> = {
   sand: { family: 'sand', color: 0xc6ad82 },
   road: { family: 'asphalt', color: 0x746e61 },
@@ -28,6 +33,10 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'car.body': { family: 'paint', color: 0x70483b, roughness: 0.9, metalness: 0.2 },
   'car.dark': { family: 'paint', color: 0x282927, roughness: 0.95 },
   'car.glass': { family: 'glass', color: 0x333c3c },
+  'pole.wood': { family: 'floor', color: 0x6c5b46 },
+  'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
+  'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },
+  'pole.wire': { family: 'paint', color: 0x343633 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -224,6 +233,16 @@ export function buildCrash(): MapDefinition {
     b.add([-16.4,0,-10],[-11.6,1.08,-8],'metal',{look:'car.body'});
     b.add([-15.3,1.08,-9.82],[-12.7,1.8,-8.18],'metal',{look:'car.body'});
   });
+  // Utility poles and the overhead lines frame the two outside streets.
+  for (const [x,z] of [[-37,-7],[-37,10],[35,-18],[35,14]] as const) {
+    b.model('utility-pole',[x,0,z],0,() => {
+      b.add([x-0.15,0,z-0.15],[x+0.15,6.4,z+0.15],'wood',{look:'pole.wood'});
+      b.add([x-1,5.98,z-0.07],[x+1,6.12,z+0.07],'wood',{look:'pole.wood'});
+      for (const dx of [-0.7,0.7]) b.add([x+dx-0.095,6.12,z-0.095],[x+dx+0.095,6.28,z+0.095],'plastic',{look:'pole.insulator'});
+    });
+  }
+  for (const [x,z0,z1] of [[-37,-7,10],[35,-18,14]] as const) for (const dx of [-0.7,0.7])
+    b.add([x+dx-0.015,6.22,z0],[x+dx+0.015,6.25,z1],'metal',{look:'pole.wire',blocks:'bullets'});
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});
@@ -246,7 +265,7 @@ export function buildCrash(): MapDefinition {
   return {
     id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
-    horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:LIGHTING, lamps:[], nuke:null, train:null,
+    horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},
     zones:[{id:'A',name:'Tower',center:[-9,0,-20],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,5],radius:3,height:3},{id:'C',name:'Shop',center:[24,0,5],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],

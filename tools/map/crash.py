@@ -25,6 +25,9 @@ rubble_dark = mat("rubble.dark", 0x726b5d, 0.95)
 car_body = mat("car.body", 0x70483b, 0.9, 0.2)
 car_dark = mat("car.dark", 0x282927, 0.95)
 car_glass = mat("car.glass", 0x333c3c, 0.5)
+pole_wood = mat("pole.wood", 0x6c5b46, 0.9)
+pole_metal = mat("pole.metal", 0x454741, 0.8, 0.3)
+pole_insulator = mat("pole.insulator", 0x82908a, 0.3)
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -99,18 +102,21 @@ def helicopter():
     return kit.asset("helicopter", parts, smooth_angle=50)
 
 def rubble():
-    """Scattered broken masonry in a low, walkable pile, origin at its centre."""
+    """Angular chunks of masonry scattered in a low pile."""
     rng = random.Random(420)
     parts = []
-    for i in range(16):
-        x = rng.uniform(-0.94, 0.94)
-        z = rng.uniform(-0.66, 0.66)
-        w = rng.uniform(0.15, 0.25)
-        d = rng.uniform(0.12, 0.22)
-        h = rng.uniform(0.07, 0.25)
-        shape = [(x-w,z-d*0.7),(x-w*0.65,z+d),(x+w*0.75,z+d*0.8),(x+w,z-d*0.65),(x+w*0.2,z-d)]
-        parts.append(kit.plan(shape, 0.0, h, rubble_stone if i % 4 else rubble_dark, 0.01))
-    return kit.asset('rubble', parts, smooth_angle=35)
+    for i in range(22):
+        x, z = rng.uniform(-0.9, 0.9), rng.uniform(-0.62, 0.62)
+        w, d, h = rng.uniform(0.10, 0.22), rng.uniform(0.09, 0.20), rng.uniform(0.08, 0.25)
+        bm = bmesh.new()
+        bmesh.ops.create_icosphere(bm, subdivisions=1, radius=1.0)
+        for v in bm.verts:
+            jag = rng.uniform(0.75, 1.0)
+            v.co.x = x + v.co.x * w * jag
+            v.co.y = -z + v.co.y * d * jag
+            v.co.z = h / 2 + v.co.z * h / 2 * jag
+        parts.append(kit.obj('fragment', bm, rubble_stone if i % 4 else rubble_dark))
+    return kit.asset('rubble', parts, smooth_angle=25)
 
 
 def burned_car():
@@ -130,11 +136,24 @@ def burned_car():
         parts.append(kit.box((-2.1,0.55,z0),(2.0,0.59,z1),car_dark))
     return kit.asset('burned-car', parts, smooth_angle=45)
 
-built = [helicopter(), rubble(), burned_car()]
+def utility_pole():
+    """Weathered wooden pole with a crossarm and two ceramic insulators."""
+    parts = [
+        kit.cylinder(0.12, 0, 6.4, (0,0,0), 'y', pole_wood, 12, r2=0.095),
+        kit.box((-1.0,5.98,-0.07),(1.0,6.12,0.07),pole_wood,0.01),
+        kit.cylinder(0.15,0,0.3,(0,0,0),'y',pole_metal,12),
+    ]
+    for x in (-0.7,0.7):
+        parts.append(kit.cylinder(0.07,6.12,6.28,(x,0,0),'y',pole_insulator,12))
+        parts.append(kit.cylinder(0.095,6.20,6.25,(x,0,0),'y',pole_insulator,12))
+    return kit.asset('utility-pole',parts,smooth_angle=45)
+
+built = [helicopter(), rubble(), burned_car(), utility_pole()]
 SOLIDS = {
     'helicopter': [((-3.5, 0, -1.42), (2.2, 2.72, 1.42)), ((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
+    'utility-pole': [((-0.15,0,-0.15),(0.15,6.4,0.15)), ((-1,5.98,-0.07),(1,6.12,0.07))] + [((x-0.095,6.12,-0.095),(x+0.095,6.28,0.095)) for x in (-0.7,0.7)],
 }
 kit.bake_ao(built, distance=0.8)
 report = {}
