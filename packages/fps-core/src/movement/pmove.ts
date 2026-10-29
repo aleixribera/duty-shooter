@@ -1,7 +1,7 @@
 import type { Vec3 } from '../math';
 import { STATS } from '../stats';
 import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
-import type { World } from '../world';
+import type { Ladder, World } from '../world';
 import { EPSILON, Y, clipVelocity, hullBlocked, offset, slideMove, sweepY, type Flat, type Hull, type MoveResult } from './collision';
 import { findLedge, mantleDuration, type MantleBand } from './mantle';
 
@@ -18,7 +18,7 @@ const S = STATS.stance;
 const GROUND_PROBE = 1e-3;
 
 /** What the player is doing, as reported in the match outputs. */
-export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle' | 'slide';
+export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle' | 'slide' | 'ladder';
 
 export type Stance = 'stand' | 'crouch' | 'prone';
 
@@ -29,6 +29,13 @@ interface MantleProgress {
   readonly to: Vec3;
   readonly duration: number;
   ticks: number;
+}
+
+interface LadderProgress {
+  readonly route: Ladder;
+  /** Forward input climbs up when entered at the bottom, down when entered at the top. */
+  readonly direction: 1 | -1;
+  phase: 'topEntry' | 'climb' | 'topExit';
 }
 
 /** The movement-relevant state of one player. Mutated in place by {@link pmove}. */
@@ -57,6 +64,7 @@ export interface MoveState {
   /** Band of the mantle reported this tick, or null when not mantling. */
   mantleBand: MantleBand | null;
   slide: SlideProgress | null;
+  ladder: LadderProgress | null;
 }
 
 /** A slide in progress: direction locked at entry, speed falling from the entry speed. */
@@ -84,7 +92,79 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     mantle: null,
     mantleBand: null,
     slide: null,
+    ladder: null,
   };
+}
+
+/** Ladder movement is deliberately slow; collision still stops the player's
+ * hull at a ceiling or obstructed landing. */
+const LADDER_SPEED = 1.8;
+function advanceLadder(state: MoveState, cmd: UserCmd, world: World, dt: number): void {
+  const l = state.ladder!;
+  const {bottom, landing} = l.route;
+  const hull = hullFor('stand');
+  const dx = bottom[0]-landing[0], dz = bottom[2]-landing[2];
+  const length = Math.hypot(dx,dz);
+  const nx = dx/length, nz = dz/length;
+  if (pressedNow(state, cmd, 'Jump')) {
+    state.ladder = null;
+    state.movement = 'airborne';
+    state.grounded = false;
+    state.velocity = [nx*3,2,nz*3];
+    state.airPeak = state.position[1];
+    return;
+  }
+  const input = Math.max(-1,Math.min(1,cmd.forward));
+  let pos = state.position;
+  if (l.phase === 'topEntry' || l.phase === 'topExit') {
+    const towardBottom = (l.phase === 'topEntry') === (input >= 0);
+    const target = towardBottom ? bottom : landing;
+    const x = target[0]-pos[0], z = target[2]-pos[2], distance = Math.hypot(x,z);
+    const step = Math.min(distance,LADDER_SPEED*dt*Math.abs(input));
+    if (distance > EPSILON && step > 0) pos = slideMove(world,pos,hull,x/distance*step,z/distance*step).pos;
+    if (Math.hypot(target[0]-pos[0],target[2]-pos[2]) < 0.01) {
+      if (towardBottom) l.phase = 'climb';
+      else { state.ladder = null; state.grounded = true; }
+    }
+  } else {
+    const delta = LADDER_SPEED*dt*input*l.direction;
+    const target = Math.max(bottom[1],Math.min(landing[1],pos[1]+delta));
+    const moved = sweepY(world,pos,hull,target-pos[1]).moved;
+    pos = offset(pos,Y,moved);
+    if (delta > 0 && pos[1] >= landing[1]-EPSILON) l.phase = 'topExit';
+    if (delta < 0 && pos[1] <= bottom[1]+EPSILON) { state.ladder = null; state.grounded = true; }
+  }
+  state.velocity = [(pos[0]-state.position[0])/dt,(pos[1]-state.position[1])/dt,(pos[2]-state.position[2])/dt];
+  state.position = pos;
+  state.movement = 'ladder';
+  state.airPeak = null;
+}
+
+/** Attach only while walking toward a ladder from a supported end. */
+function enterLadder(state: MoveState, cmd: UserCmd, world: World): void {
+  if (!state.grounded || state.stance !== 'stand' || cmd.forward <= 0.2 || isPressed(cmd,'Jump')) return;
+  const hull = hullFor('stand');
+  const forward = basis(cmd.yaw).forward;
+  for (const route of world.ladders) {
+    const {bottom,landing} = route;
+    const x = bottom[0]-landing[0], z = bottom[2]-landing[2], length = Math.hypot(x,z);
+    if (length < EPSILON || landing[1] <= bottom[1]) continue;
+    const facing = (forward[0]*x+forward[1]*z)/length;
+    const near = (p: Vec3) => Math.hypot(state.position[0]-p[0],state.position[2]-p[2]) < 0.55 && Math.abs(state.position[1]-p[1]) < 0.12;
+    if (near(bottom) && facing < -0.5) {
+      const moved = slideMove(world,state.position,hull,bottom[0]-state.position[0],bottom[2]-state.position[2]);
+      if (Math.hypot(moved.pos[0]-bottom[0],moved.pos[2]-bottom[2]) > 0.01) continue;
+      state.position = moved.pos;
+      state.ladder = {route,direction:1,phase:'climb'};
+    } else if (near(landing) && facing > 0.5) {
+      state.ladder = {route,direction:-1,phase:'topEntry'};
+    } else continue;
+    state.slide = null;
+    state.velocity = [0,0,0];
+    state.grounded = false;
+    state.airPeak = null;
+    return;
+  }
 }
 
 /** Moves the mantle on by one tick along a straight line; on arrival the player stands on the ledge. */
@@ -363,9 +443,21 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
     return;
   }
   state.mantleBand = null;
+  if (state.ladder) {
+    advanceLadder(state,cmd,world,dt);
+    state.prevButtons = cmd.buttons;
+    return;
+  }
   state.grounded = onGround(world, state.position, hullFor(state.stance));
   updateStance(state, cmd, world, dt, updateSlide(state, cmd, dt));
   const hull = hullFor(state.stance);
+
+  enterLadder(state,cmd,world);
+  if (state.ladder) {
+    advanceLadder(state,cmd,world,dt);
+    state.prevButtons = cmd.buttons;
+    return;
+  }
 
   // Mantle: press jump facing a ledge in a height band (on the ground or in the air).
   if (pressedNow(state, cmd, 'Jump') && state.stance === 'stand') {

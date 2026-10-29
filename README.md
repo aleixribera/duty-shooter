@@ -108,6 +108,8 @@ These are MW2019's defaults, and every one can be rebound in Settings.
 | Scoreboard | Tab |
 | Menu | Esc |
 
+To use a ladder, walk toward it from either end. Keep moving forward to climb, move backward to reverse, or jump to let go. You cannot fire while climbing.
+
 ### Controller
 
 A PS4 controller (or any pad the browser reports with the standard mapping) works for menus and play, with no aim assist. The layout follows MW2019's Default preset:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
-import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
+import { createHeadlessMatch, createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
 import { insidePolygon, mapSolids } from '../src/map/definition';
@@ -73,6 +73,61 @@ describe('Crash', () => {
     const inside: Vec3 = [-9,10.6,-23], outside: Vec3 = [-9,10.6,-21];
     expect(raycastWorld(world,inside,outside)).toBeNull();
     expect(world.movement.firstHit(inside,outside,i => segmentSolid(inside,outside,solids[i]!))).toBeTruthy();
+  });
+  it('climbs and descends the tower ladder without firing', () => {
+    const m = createHeadlessMatch({solids,ladders:map.ladders!,players:[{id:'p',team:1,position:[-1.8,0,-31],yaw:Math.PI/2}]});
+    let out = m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    for (let i=0; i<120 && out.players[0]!.movement !== 'ladder'; i++)
+      out=m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    expect(out.players[0]!.movement).toBe('ladder');
+    for (let i=0; i<30; i++) out=m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    const paused = out.players[0]!.position[1];
+    for (let i=0; i<30; i++) out=m.step({p:usercmd({yaw:Math.PI/2})});
+    expect(out.players[0]!.position[1]).toBeCloseTo(paused,4);
+    for (let i=0; i<10; i++) out=m.step({p:usercmd({yaw:Math.PI/2,forward:-1})});
+    expect(out.players[0]!.position[1]).toBeLessThan(paused);
+    for (let i=0; i<600 && out.players[0]!.position[0]>-4.75; i++) {
+      out=m.step({p:usercmd({yaw:Math.PI/2,forward:1,buttons:['Fire']})});
+      expect(out.events.some(e => e.type === 'shot')).toBe(false);
+    }
+    expect(out.players[0]!.position[1]).toBeCloseTo(9,1);
+    expect(out.players[0]!.position[0]).toBeLessThan(-4.75);
+    for (let i=0; i<600 && out.players[0]!.position[1]>0.1; i++)
+      out=m.step({p:usercmd({yaw:-Math.PI/2,forward:1})});
+    expect(out.players[0]!.position[1]).toBeLessThan(0.1);
+    expect(out.players[0]!.position[0]).toBeGreaterThan(-3.5);
+  });
+  it('predicts the ladder route over a delayed network', () => {
+    const m = createNetworkedMatch({solids,ladders:map.ladders!,spawns:[{position:[-3.45,0,-31],yaw:Math.PI/2}],latency:0.08,jitter:0.02,loss:0.05,seed:7});
+    const client = m.join('climber');
+    for (let i=0; i<180 && !client.latest?.self; i++) m.step();
+    expect(client.latest?.self).toBeTruthy();
+    let reached = false;
+    for (let i=0; i<600; i++) {
+      const out = m.step({climber:usercmd({yaw:Math.PI/2,forward:1})});
+      const p = out.players.find(p => p.id === client.client.id);
+      if (p && p.position[1] > 8.99 && p.position[0] < -4.75) { reached=true; break; }
+    }
+    expect(reached).toBe(true);
+    for (let i=0; i<90; i++) m.step({climber:usercmd({yaw:Math.PI/2})});
+    const server = m.server.latest.players.find(p => p.id === client.client.id)!;
+    const predicted = client.latest!.self!;
+    expect(Math.hypot(...server.position.map((v,i) => v-predicted.position[i]!))).toBeLessThan(0.1);
+    expect(predicted.position[1]).toBeCloseTo(9,1);
+  });
+  it('allows a player to reverse at the top or jump off the ladder', () => {
+    const roof = createHeadlessMatch({solids,ladders:map.ladders!,players:[{id:'p',team:1,position:[-4.8,9,-31],yaw:-Math.PI/2}]});
+    let out = roof.step({p:usercmd({yaw:-Math.PI/2,forward:1})});
+    for (let i=0;i<10;i++) out=roof.step({p:usercmd({yaw:-Math.PI/2,forward:1})});
+    expect(out.players[0]!.position[0]).toBeGreaterThan(-4.8);
+    for (let i=0;i<30 && out.players[0]!.movement === 'ladder';i++) out=roof.step({p:usercmd({yaw:-Math.PI/2,forward:-1})});
+    expect(out.players[0]!.position[0]).toBeLessThan(-4.75);
+    expect(out.players[0]!.position[1]).toBeCloseTo(9,1);
+    const climb = createHeadlessMatch({solids,ladders:map.ladders!,players:[{id:'p',team:1,position:[-3.45,0,-31],yaw:Math.PI/2}]});
+    for (let i=0;i<90;i++) climb.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    const jumped = climb.step({p:usercmd({yaw:Math.PI/2,buttons:['Jump']})}).players[0]!;
+    expect(jumped.movement).toBe('airborne');
+    expect(jumped.velocity[0]).toBeGreaterThan(0);
   });
   it('lets a player enter the tower from its outside stair and ground-floor door', () => {
     for (const legs of [

@@ -143,8 +143,17 @@ function rotationAxes(yaw: number, pitch: number, roll: number): [Vec3, Vec3, Ve
 }
 
 /** The static level geometry the simulation collides against, with a spatial index for movement and for bullets. */
+/** A vertical ladder's feet position and a supported landing just inside its top.
+ * Both positions are player-hull centres; the horizontal distance between
+ * them crosses the roof edge. */
+export interface Ladder {
+  readonly bottom: Vec3;
+  readonly landing: Vec3;
+}
+
 export interface World {
   readonly solids: readonly Solid[];
+  readonly ladders: readonly Ladder[];
   /** The solids that block players. */
   readonly movement: SolidIndex;
   /** The solids that block bullets. */
@@ -152,6 +161,7 @@ export interface World {
 }
 
 export interface WorldOptions {
+  readonly ladders?: readonly Ladder[];
   /**
    * Index solids in a uniform grid (the default). Off, every query scans
    * every solid: the results are identical, only slower. Tests compare the two.
@@ -168,6 +178,7 @@ export function createWorld(solids: readonly Solid[], options: WorldOptions = {}
   const members = (keep: (s: Solid) => boolean) => list.flatMap((s, i) => (keep(s) ? [i] : []));
   return {
     solids: list,
+    ladders: [...(options.ladders ?? [])],
     movement: new SolidIndex(list, members((s) => s.blocks !== 'bullets'), indexed ? CELL_SIZE : null),
     bullets: new SolidIndex(list, members((s) => s.blocks !== 'players'), indexed ? CELL_SIZE : null),
   };

@@ -78,7 +78,7 @@ export class FirstPersonCamera {
     const eyeY = feet[1] + lerp(prev.eyeHeight, cur.eyeHeight);
 
     // Step-ups: on the ground, ease the eye up instead of snapping.
-    const grounded = cur.movement !== 'airborne' && cur.movement !== 'mantle';
+    const grounded = cur.movement !== 'airborne' && cur.movement !== 'mantle' && cur.movement !== 'ladder';
     if (this.#smoothY === null || !grounded || eyeY < this.#smoothY || eyeY - this.#smoothY > STATS.movement.stepHeight.value * 1.5) {
       this.#smoothY = eyeY;
     } else {

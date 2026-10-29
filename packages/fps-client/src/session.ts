@@ -12,6 +12,7 @@ import {
   type GrenadeOutput,
   type LobbyPick,
   type Loadout,
+  type Ladder,
   type MemoryNetwork,
   type NavOptions,
   type Solid,
@@ -87,6 +88,7 @@ export interface GameDriver {
 
 export interface OfflineOptions {
   readonly solids: readonly Solid[];
+  readonly ladders?: readonly Ladder[];
   readonly spawn: SpawnPoint;
   readonly dummies?: readonly PlayerSpawn[];
   /** Seconds after death before the local player respawns (default {@link RESPAWN_DELAY}). */
@@ -119,7 +121,7 @@ export class OfflineDriver implements GameDriver {
   #nextLoadout: Loadout | undefined;
 
   constructor(options: OfflineOptions) {
-    this.#sim = new Simulation(createWorld(options.solids));
+    this.#sim = new Simulation(createWorld(options.solids, { ladders: options.ladders ?? [] }));
     this.#spawn = options.spawn;
     this.#respawnDelay = options.respawnDelay ?? RESPAWN_DELAY;
     this.#sim.addPlayer({ id: this.selfId, team: 1, position: options.spawn.position, yaw: options.spawn.yaw, ...(options.loadout ? { loadout: options.loadout } : {}) });
@@ -199,6 +201,7 @@ export interface OnlineOptions {
   /** The game server: its WebSocket URL, or a connection already open to it. */
   readonly server: string | Connection;
   readonly solids: readonly Solid[];
+  readonly ladders?: readonly Ladder[];
   /** The mode to ask for, honoured only on an empty server. */
   readonly mode?: ModeId;
   /** Bots a side to ask for, honoured only on an empty server. */
@@ -225,7 +228,7 @@ export class OnlineDriver implements GameDriver {
     this.#savedToken = this.#seatKey === null ? null : readStorage(this.#seatKey);
     this.#client = new GameClient({
       connection: typeof options.server === 'string' ? connectWebSocket(options.server) : options.server,
-      world: createWorld(options.solids),
+      world: createWorld(options.solids, { ladders: options.ladders ?? [] }),
       name: options.name,
       passphrase: options.passphrase,
       ...(options.mode ? { mode: options.mode } : {}),
@@ -237,8 +240,8 @@ export class OnlineDriver implements GameDriver {
   }
 
   /** Predicts on another map's collision from now on: the one the next match is on. */
-  setMap(solids: readonly Solid[]): void {
-    this.#client.setWorld(createWorld(solids));
+  setMap(solids: readonly Solid[], ladders: readonly Ladder[] = []): void {
+    this.#client.setWorld(createWorld(solids, { ladders }));
   }
 
   get client(): GameClient {
@@ -366,6 +369,7 @@ export interface BotMatchOptions {
   /** The map's id, as the match reports it. */
   readonly map: string;
   readonly solids: readonly Solid[];
+  readonly ladders?: readonly Ladder[];
   readonly spawns: { readonly ffa: readonly SpawnPoint[]; readonly teams: readonly (readonly SpawnPoint[])[] | null };
   /** The map's Outposts zones. */
   readonly zones?: readonly Zone[];
@@ -402,7 +406,7 @@ export class BotMatchDriver extends OnlineDriver {
 
   constructor(options: BotMatchOptions) {
     const network = createMemoryNetwork();
-    const world = createWorld(options.solids);
+    const world = createWorld(options.solids, { ladders: options.ladders ?? [] });
     const perTeam = Math.max(0, Math.min(MAX_BOTS_PER_TEAM, options.botsPerTeam));
     const server = new GameServer(network.server, {
       world,
@@ -418,7 +422,7 @@ export class BotMatchDriver extends OnlineDriver {
       lobby: true,
       ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     });
-    super({ server: network.connect(), solids: options.solids, mode: options.mode, bots: perTeam, name: options.name, passphrase: '', ...(options.loadout ? { loadout: options.loadout } : {}) });
+    super({ server: network.connect(), solids: options.solids, ladders: options.ladders ?? [], mode: options.mode, bots: perTeam, name: options.name, passphrase: '', ...(options.loadout ? { loadout: options.loadout } : {}) });
     this.#network = network;
     this.#server = server;
   }

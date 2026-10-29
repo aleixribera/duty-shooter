@@ -12,7 +12,7 @@ export interface BotMap {
 
 export function botMap(map: MapDefinition, boundary: BotMap['boundary']): BotMap {
   const solids = mapSolids(map);
-  return { map, solids, nav: buildNavGraph(createWorld(solids), map.nav!), boundary };
+  return { map, solids, nav: buildNavGraph(createWorld(solids, { ladders: map.ladders ?? [] }), map.nav!), boundary };
 }
 
 /** Every node reachable from node 0 along the links (or against them, with `reverse`). */
@@ -33,6 +33,7 @@ export function reachable(nav: NavGraph, reverse: boolean): Set<number> {
 export function soak(b: BotMap, mode: ModeId, perTeam: number) {
   const m = createNetworkedMatch({
     solids: b.solids,
+    ladders: b.map.ladders ?? [],
     spawns: b.map.spawns.ffa,
     teamSpawns: b.map.spawns.teams!,
     zones: b.map.zones,
@@ -88,7 +89,7 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
 
 /** A 3v3 Charge match of bots played to its end (15 minutes at most): the plants and every round's winner and attackers. */
 export function chargeToEnd(b: BotMap, perTeam = 3): { ended: boolean; plants: number; rounds: { winner: number; reason: RoundReason; attackers: number }[]; m: NetworkedMatch } {
-  const m = createNetworkedMatch({ solids: b.solids, spawns: b.map.spawns.ffa, teamSpawns: b.map.spawns.teams!, sites: b.map.sites, mode: 'charge', bots: { nav: b.nav, perTeam, alwaysOn: true } });
+  const m = createNetworkedMatch({ solids: b.solids, ladders: b.map.ladders ?? [], spawns: b.map.spawns.ffa, teamSpawns: b.map.spawns.teams!, sites: b.map.sites, mode: 'charge', bots: { nav: b.nav, perTeam, alwaysOn: true } });
   const rounds: { winner: number; reason: RoundReason; attackers: number }[] = [];
   let attackers = 1;
   let plants = 0;

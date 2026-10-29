@@ -87,7 +87,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       backend,
       content: map,
       bake,
-      world: createWorld(solids),
+      world: createWorld(solids, { ladders: map.ladders ?? [] }),
       settings,
       sound,
       overview: map.overview,
@@ -182,7 +182,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     menu.loading(`Loading ${load(id).map.name}`, null);
     await game.prepare();
     const { map, solids } = load(id);
-    play(new OfflineDriver({ solids, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
+    play(new OfflineDriver({ solids, ladders: map.ladders ?? [], spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
   // `?matchtime=<s>` (dev only): Bot Matches that last that long, for testing their end without the 10 minutes.
   const matchTime = import.meta.env.DEV ? Number(params.get('matchtime')) || undefined : undefined;
@@ -196,7 +196,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     await game.prepare();
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ map: map.id, solids, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
+    play(new BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -229,7 +229,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
           lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, name, passphrase, seatKey: 'duty-shooter.seat', loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], name, passphrase, seatKey: 'duty-shooter.seat', loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
         });
@@ -384,7 +384,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const hud = game.hud.visible;
     game.releaseDriver();
     useMap(id);
-    driver.setMap(load(id).solids);
+    driver.setMap(load(id).solids, load(id).map.ladders ?? []);
     game.setDriver(driver);
     game.paused = paused;
     game.overviewOnly = overviewOnly;

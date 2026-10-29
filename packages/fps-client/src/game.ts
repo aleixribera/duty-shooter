@@ -496,7 +496,7 @@ export class Game {
           movement: self.movement,
           stance: self.stance,
           speed,
-          grounded: self.movement !== 'airborne' && self.movement !== 'mantle',
+          grounded: self.movement !== 'airborne' && self.movement !== 'mantle' && self.movement !== 'ladder',
           lookDelta,
           alive: self.alive,
         },
@@ -915,7 +915,7 @@ export class Game {
         if (t.seen && t.seen.alive && p.alive && d <= 1) this.#otherFoley(t.seen, p);
         t.seen = p;
       }
-      const grounded = p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'slide';
+      const grounded = p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'slide' && p.movement !== 'ladder';
       if (!p.alive || !grounded || d > 1) continue;
       const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? p.movement : 'walk';
       t.stepDistance += d;

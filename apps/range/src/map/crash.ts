@@ -140,7 +140,8 @@ function buildTower(b: Builder): void {
   b.wall({...parapet,along:'x',at:r.z0,from:r.x0,to:r.x1});
   b.wall({...parapet,along:'x',at:r.z1,from:r.x0,to:r.x1});
   b.wall({...parapet,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
-  b.wall({...parapet,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  // A ladder on the east wall reaches this opening in the roof edge.
+  b.wall({...parapet,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:[{from:-32.1,to:-30,bottom:0,top:0.85}]});
 }
 
 /** The blue building has entrances on three sides and stairs inside, rather
@@ -399,8 +400,12 @@ export function buildCrash(): MapDefinition {
   // The panel blocks players while shots can pass through the wire.
   for (const x of [-14,-12,-10,-8,-6])
     b.model('rooftop-fence',[x,9.85,-22],0,() => b.add([x,9.85,-22.05],[x+2,11.35,-21.95],'metal',{look:'fence.metal',blocks:'players'}));
-  for (const z of [-22,-24,-26,-28,-30])
+  for (const z of [-22,-24,-26,-28])
     b.model('rooftop-fence',[-4,9.85,z],Math.PI/2,() => b.add([-4.05,9.85,z-2],[-3.95,11.35,z],'metal',{look:'fence.metal',blocks:'players'}));
+  // The visible ladder's rails and rungs stop bullets but do not obstruct the
+  // player's climb; its movement route is supplied separately below.
+  for (const z of [-31.45,-30.55]) b.add([-3.91,0,z-0.04],[-3.83,10.05,z+0.04],'metal',{look:'roof.metal',blocks:'bullets'});
+  for (let y=0.3; y<9.9; y+=0.3) b.add([-3.91,y,-31.45],[-3.83,y+0.06,-30.55],'metal',{look:'roof.metal',blocks:'bullets'});
   buildBlue(b);
   buildMain(b);
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
@@ -471,7 +476,7 @@ export function buildCrash(): MapDefinition {
     {name:'arcade',position:[-3,1.6,5] as Vec3,yaw:Math.PI,pitch:0},
   ];
   return {
-    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, finishes:FINISHES, looks:b.looks, decorations:b.decorations,
+    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},

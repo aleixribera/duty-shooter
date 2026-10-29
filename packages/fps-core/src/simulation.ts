@@ -513,7 +513,7 @@ export class Simulation {
     const other = player.weapons[1 - player.slot];
     const switchPress = (cmd.buttons & Button.SwitchWeapon) !== 0 && (weapon.prevButtons & Button.SwitchWeapon) === 0;
     const grenadePress = (cmd.buttons & Button.Grenade) !== 0 && (weapon.prevButtons & Button.Grenade) === 0;
-    const free = player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle';
+    const free = player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle' && player.move.movement !== 'ladder';
     if (grenadePress && free && player.grenades > 0 && player.grenade === null) {
       lowerForGrenade(weapon, events);
       player.grenade = { phase: 'cook', since: weapon.clock };
@@ -849,6 +849,12 @@ export class Simulation {
     victim.lastDamage = this.time;
     if (victim.health > 0) return false;
     victim.diedAt = this.time;
+    if (victim.move.ladder) {
+      victim.move.ladder = null;
+      victim.move.grounded = false;
+      victim.move.velocity = [0,0,0];
+      victim.move.airPeak = victim.move.position[1];
+    }
     // A grenade being cooked falls from the hand, still live.
     if (victim.grenade?.phase === 'cook') this.#release(victim, 'drop');
     this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone, weapon });

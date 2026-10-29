@@ -236,7 +236,7 @@ export function wantsFire(cmd: UserCmd): boolean {
 /** True when a shot could leave the barrel right now (ready, loaded, not locked by a draw or sprint). */
 export function canFire(state: WeaponState, movement: MovementState): boolean {
   const sprinting = movement === 'sprint' || movement === 'tacticalSprint';
-  return state.action === 'ready' && state.ammo > 0 && !sprinting && state.clock >= state.fireReadyAt - 1e-9;
+  return state.action === 'ready' && state.ammo > 0 && !sprinting && movement !== 'ladder' && state.clock >= state.fireReadyAt - 1e-9;
 }
 
 export function emptyEvents(): WeaponEvents {
@@ -262,10 +262,10 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     // A reload carries on through a sprint (MW2019 cancelled it); an inspect stops.
     if (state.action === 'inspect') finishAction(state);
   }
-  if (ctx.movement === 'mantle') state.fireReadyAt = Math.max(state.fireReadyAt, t1);
+  if (ctx.movement === 'mantle' || ctx.movement === 'ladder') state.fireReadyAt = Math.max(state.fireReadyAt, t1);
 
   // ADS moves toward its target over the ADS time, in and out.
-  const adsAllowed = !sprinting && ctx.movement !== 'mantle' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade';
+  const adsAllowed = !sprinting && ctx.movement !== 'mantle' && ctx.movement !== 'ladder' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade';
   const adsTarget = isPressed(cmd, 'Ads') && adsAllowed ? 1 : 0;
   const adsStep = dt / h.adsTime.value;
   state.ads = adsTarget === 1 ? Math.min(1, state.ads + adsStep) : Math.max(0, state.ads - adsStep);
@@ -278,7 +278,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
   const meleePress = pressed(state, cmd, Button.Melee);
   const fire = wantsFire(cmd);
 
-  if (meleePress && state.action !== 'draw' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade' && ctx.movement !== 'mantle') {
+  if (meleePress && state.action !== 'draw' && state.action !== 'melee' && state.action !== 'holster' && state.action !== 'grenade' && ctx.movement !== 'mantle' && ctx.movement !== 'ladder') {
     if (state.action === 'reload' && !state.ammoAdded) events.reloadCancelled = true;
     state.action = 'melee';
     state.actionTime = 0;
@@ -325,7 +325,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     state.actionTime = 0;
   }
 
-  if (state.action === 'ready' && fire && !sprinting) fireShots(state, row, cmd, ctx, t0, t1, events);
+  if (state.action === 'ready' && fire && !sprinting && ctx.movement !== 'ladder') fireShots(state, row, cmd, ctx, t0, t1, events);
   state.prevButtons = cmd.buttons;
   return events;
 }

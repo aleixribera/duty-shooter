@@ -1,7 +1,7 @@
 export type { Vec3 } from './math';
 export { DEG, angleDelta, anglesOf, viewDirection } from './math';
 export { MATERIALS, box, createWorld, orientedBox, playerClip, yawBox } from './world';
-export type { Blocks, Material, Orientation, Solid, World, WorldOptions } from './world';
+export type { Blocks, Ladder, Material, Orientation, Solid, World, WorldOptions } from './world';
 export { ALL_BUTTONS, Button, isPressed, usercmd } from './usercmd';
 export type { ButtonName, UserCmd } from './usercmd';
 export { MAX_PITCH, Simulation, TICK_RATE, TICK_SECONDS, activeWeapon } from './simulation';
