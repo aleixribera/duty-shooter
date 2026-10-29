@@ -44,6 +44,9 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'roof.tank': { family: 'sheetMetal', color: 0x98958a, roughness:0.85, metalness:0.2 },
   'roof.metal': { family: 'sheetMetal', color: 0x605c50, roughness:0.8, metalness:0.35 },
   'fence.metal': { family: 'sheetMetal', color: 0x777970, roughness:0.85, metalness:0.45 },
+  'palm.trunk': { family: 'floor', color: 0x796348, accent: 0x5c4c38 },
+  'palm.frond': { family: 'paint', color: 0x657950, roughness:0.95 },
+  'palm.frondDark': { family: 'paint', color: 0x455b3e, roughness:0.95 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -456,6 +459,12 @@ export function buildCrash(): MapDefinition {
     b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
   for (const [x,y,z] of [[-6,9,-30],[-20,6,9]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
+  // Palms frame the southeast edge in the original overhead. Only their
+  // trunks collide; the thin fronds do not act as invisible bullet shields.
+  for (const [x,z,yaw] of [[21,33,0.2],[30,34,1.1],[38,32,-0.5]] as const) {
+    b.model('palm-trunk',[x,0,z],yaw,() => b.add([x-0.36,0,z-0.36],[x+0.36,6.6,z+0.36],'wood',{look:'palm.trunk'}));
+    b.scenery('palm-crown',[x,0,z],yaw);
+  }
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});

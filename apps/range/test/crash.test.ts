@@ -74,6 +74,10 @@ describe('Crash', () => {
     expect(raycastWorld(world,inside,outside)).toBeNull();
     expect(world.movement.firstHit(inside,outside,i => segmentSolid(inside,outside,solids[i]!))).toBeTruthy();
   });
+  it('lets shots pass through the palm fronds while the trunk provides cover', () => {
+    expect(raycastWorld(world,[18,6.9,33],[24,6.9,33])).toBeNull();
+    expect(raycastWorld(world,[18,1.6,33],[24,1.6,33])).not.toBeNull();
+  });
   it('climbs and descends the tower ladder without firing', () => {
     const m = createHeadlessMatch({solids,ladders:map.ladders!,players:[{id:'p',team:1,position:[-1.8,0,-31],yaw:Math.PI/2}]});
     let out = m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
@@ -268,6 +272,9 @@ describe('Crash', () => {
     for (const face of layoutSurfaces(map.solids,surfaceSpec(map)).faces)
       expect(face.finish in map.finishes || face.finish.startsWith('default:'),face.finish).toBe(true);
     expect(map.models?.placements.map(p => p.asset)).toContain('helicopter');
+    const palms = map.models!.placements.filter(p => p.asset.startsWith('palm-'));
+    expect(palms.filter(p => p.asset === 'palm-trunk' && p.solids.length === 1)).toHaveLength(3);
+    expect(palms.filter(p => p.asset === 'palm-crown' && p.visualOnly && p.solids.length === 0)).toHaveLength(3);
   });
   it('places rooftop equipment on a supporting roof, clear of stair openings', () => {
     const equipment = map.models!.placements.filter(p => p.asset === 'water-tank' || p.asset === 'satellite-dish');

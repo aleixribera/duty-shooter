@@ -72,13 +72,15 @@ export interface Decoration {
  * It draws `solids` (indices into the map's drawn solids) in their place:
  * they keep colliding and casting shadows in the bake but get no faces of
  * their own, and every vertex of the model lies within the decoration
- * tolerance of one of them.
+ * tolerance of one of them. Visual-only scenery has no collision solids and
+ * is marked explicitly (for example thin tree foliage).
  */
 export interface ModelPlacement {
   readonly asset: string;
   readonly position: Vec3;
   readonly yaw: number;
   readonly solids: readonly number[];
+  readonly visualOnly?: true;
 }
 
 /** A map's models: the GLB file (a URL the page loads) and where each goes. */

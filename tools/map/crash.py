@@ -32,6 +32,9 @@ pole_insulator = mat("pole.insulator", 0x82908a, 0.3)
 roof_tank = mat("roof.tank", 0x98958a, 0.85, 0.2)
 roof_metal = mat("roof.metal", 0x605c50, 0.8, 0.35)
 fence_metal = mat("fence.metal", 0x777970, 0.85, 0.45)
+palm_trunk = mat("palm.trunk", 0x796348, 0.95)
+palm_frond = mat("palm.frond", 0x657950, 0.95)
+palm_dark = mat("palm.frondDark", 0x455b3e, 0.95)
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -246,7 +249,53 @@ def rooftop_fence():
     parts.append(kit.obj('wire mesh',bm,fence_metal))
     return kit.asset('rooftop-fence',parts,smooth_angle=30)
 
-built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence()]
+def palm():
+    """A ridged date-palm trunk and a separate, non-colliding crown."""
+    profile = [(0,0.34)]
+    for i in range(1,19):
+        y = i * 0.34
+        radius = 0.33 - y * 0.014
+        profile.extend([(y-0.04,radius),(y,radius+0.025)])
+    profile.append((6.5,0.23))
+    trunk = kit.asset('palm-trunk',[kit.lathe(profile,(0,0,0),palm_trunk,16)],smooth_angle=45)
+    parts = []
+    for material, parity in [(palm_frond,0),(palm_dark,1)]:
+        bm = bmesh.new()
+        for frond in range(11):
+            if frond % 2 != parity:
+                continue
+            angle = 2*math.pi*frond/11
+            rx,rz = math.cos(angle),math.sin(angle)
+            tx,tz = -rz,rx
+            def point(rad, side, y):
+                return (rad*rx+side*tx,y,rad*rz+side*tz)
+            def strip(points):
+                # Thin closed prisms keep the leaves visible from either side.
+                rings = [[bm.verts.new(kit.b((x,y+dy,z))) for x,y,z in points] for dy in (0,0.025)]
+                bm.faces.new(tuple(reversed(rings[0])))
+                bm.faces.new(tuple(rings[1]))
+                for k in range(len(points)):
+                    j=(k+1)%len(points)
+                    bm.faces.new((rings[0][k],rings[0][j],rings[1][j],rings[1][k]))
+            def height(rad):
+                u=rad/3.0
+                return 6.55+0.9*u-1.55*u*u
+            # The central rib and paired narrow, pointed leaflets arch and droop.
+            for i in range(8):
+                a,b=i*3/8,(i+1)*3/8
+                strip([point(a,-0.035,height(a)),point(b,-0.025,height(b)),point(b,0.025,height(b)),point(a,0.035,height(a))])
+            for i in range(1,9):
+                rad=0.25+i*0.27
+                width=0.8*(1-rad/3.15)+0.12
+                for side in (-1,1):
+                    tip=point(min(3,rad+0.48),side*width,height(rad)-0.27)
+                    strip([point(rad-0.10,0,height(rad-0.10)),point(rad+0.13,0,height(rad+0.13)),tip])
+        bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
+        parts.append(kit.obj('fronds',bm,material))
+    return trunk,kit.asset('palm-crown',parts,smooth_angle=25)
+
+trunk, crown = palm()
+built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -256,13 +305,17 @@ SOLIDS = {
     'water-tank': [((-0.8,0,-0.8),(0.8,1.6,0.8))],
     'satellite-dish': [((-0.32,0,-0.54),(0.50,1.76,0.54))],
     'rooftop-fence': [((0,0,-0.05),(2,1.5,0.05))],
+    'palm-trunk': [((-0.36,0,-0.36),(0.36,6.6,0.36))],
 }
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    worst, where = kit.strays(obj, SOLIDS[obj.name])
-    report[obj.name] = {'tris': kit.tris(obj), 'outside': worst, 'at': where}
-result = {'assets': report, 'issues': [name for name, data in report.items() if data['outside'] > mapkit.TOLERANCE]}
+    if obj.name == 'palm-crown':
+        report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
+    else:
+        worst, where = kit.strays(obj, SOLIDS[obj.name])
+        report[obj.name] = {'tris': kit.tris(obj), 'outside': worst, 'at': where}
+result = {'assets': report, 'issues': [name for name, data in report.items() if data.get('outside',0) > mapkit.TOLERANCE]}
 if ARGS.get("export", False):  # noqa: F821
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     kit.export(built, OUT)

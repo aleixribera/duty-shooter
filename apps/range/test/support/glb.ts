@@ -49,6 +49,14 @@ export function readGlb(path: string): { json: Gltf; assets: Map<string, { verti
 export function strayModels(map: MapDefinition, assets: ReadonlyMap<string, { vertices: Vec3[] }>): string[] {
   const bad: string[] = [];
   for (const p of map.models!.placements) {
+    if (p.visualOnly) {
+      if (p.solids.length !== 0) bad.push(`${p.asset}: visual-only scenery has collision solids`);
+      continue;
+    }
+    if (p.solids.length === 0) {
+      bad.push(`${p.asset}: no collision solids and not marked visual-only`);
+      continue;
+    }
     const solids = p.solids.map((i) => map.solids[i]!);
     const c = Math.cos(p.yaw);
     const s = Math.sin(p.yaw);

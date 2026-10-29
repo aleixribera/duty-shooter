@@ -124,6 +124,11 @@ export class Builder {
     this.models.push({ asset, position, yaw, solids: Array.from({ length: this.solids.length - from }, (_, i) => from + i) });
   }
 
+  /** Places non-colliding scenery, such as foliage above a solid tree trunk. */
+  scenery(asset: string, position: Vec3, yaw: number): void {
+    this.models.push({ asset, position, yaw, solids: [], visualOnly: true });
+  }
+
   /** Draws every solid added inside `fn` in `look` (a finish key for every face, or a look by face). */
   paint(look: Look | string, fn: () => void): void {
     const outer = this.#look;
