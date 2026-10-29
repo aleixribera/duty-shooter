@@ -524,7 +524,7 @@ export function buildCrash(): MapDefinition {
     {name:'arcade',position:[-3,1.6,5] as Vec3,yaw:Math.PI,pitch:0},
   ];
   return {
-    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
+    id:'crash', name:'Crash (preview)', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},

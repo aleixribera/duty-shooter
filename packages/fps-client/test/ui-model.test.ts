@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
+import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 
@@ -136,6 +136,8 @@ describe('the Play Online tile', () => {
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
     expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
     expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true })).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
+    expect(BOT_MAPS).toContain('crash');
+    expect(lobbyTile({ map:'crash', mode:'tdm', players:1, capacity:8, phase:'playing' }).map).toBe('Crash (preview)');
     expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
     // With a lobby the host picks the mode there, not the join form.
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }).pickMode).toBe(false);

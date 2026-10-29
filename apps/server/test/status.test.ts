@@ -45,7 +45,7 @@ describe('server bots setting', () => {
       // Survival Town's own team size (4 a side) rather than the server's default.
       expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 4, maxBotsPerTeam: 4 });
       // Every lobby map is held, for the host to pick between matches.
-      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard'], map: 'survival-town' });
+      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard', 'crash'], map: 'survival-town' });
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t: 'join', name: 'alice', passphrase: '', protocol: PROTOCOL_VERSION }));
@@ -62,10 +62,31 @@ describe('server bots setting', () => {
     } finally {
       await server.close();
     }
-  });
+  }, 30_000);
 });
 
 describe('server map setting', () => {
+  it('lets the host select and start the Crash preview with its ladder', async () => {
+    const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
+    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town' });
+    try {
+      const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      await new Promise((done) => ws.addEventListener('open', done));
+      ws.send(JSON.stringify({ t:'join', name:'host', passphrase:'', protocol:PROTOCOL_VERSION }));
+      await new Promise((done) => ws.addEventListener('message', done));
+      ws.send(JSON.stringify({ t:'lobby', map:'crash' }));
+      for (let i=0; i<250 && server.game.matchStatus().lobby?.map !== 'crash'; i++) await new Promise((done) => setTimeout(done,20));
+      expect(server.game.matchStatus().lobby?.map).toBe('crash');
+      ws.send(JSON.stringify({ t:'start' }));
+      for (let i=0; i<250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done,20));
+      expect(server.game.matchStatus()).toMatchObject({ map:'crash', phase:'playing' });
+      expect(server.game.simulation.world.ladders).toHaveLength(1);
+      ws.close();
+    } finally {
+      await server.close();
+    }
+  }, 30_000);
+
   it('runs the map it is configured with', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town' });
