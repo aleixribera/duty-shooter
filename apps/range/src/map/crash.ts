@@ -286,7 +286,7 @@ export function buildCrash(): MapDefinition {
   for (const [x,z0,z1] of [[-37,-7,10],[35,-18,14]] as const) for (const dx of [-0.7,0.7])
     b.add([x+dx-0.015,6.22,z0],[x+dx+0.015,6.25,z1],'metal',{look:'pole.wire',blocks:'bullets'});
   // Rooftop water storage and dishes add recognizable silhouettes and cover.
-  for (const [x,y,z] of [[-23,6,1],[12,6,-14],[27,6,19]] as const)
+  for (const [x,y,z] of [[-20,6,-1],[12,6,-14],[27,6,19]] as const)
     b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
   for (const [x,y,z] of [[-6,9,-30],[-20,6,7]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));

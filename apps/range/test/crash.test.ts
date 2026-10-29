@@ -98,6 +98,18 @@ describe('Crash', () => {
       expect(face.finish in map.finishes || face.finish.startsWith('default:'),face.finish).toBe(true);
     expect(map.models?.placements.map(p => p.asset)).toContain('helicopter');
   });
+  it('places rooftop equipment on a supporting roof, clear of stair openings', () => {
+    const equipment = map.models!.placements.filter(p => p.asset === 'water-tank' || p.asset === 'satellite-dish');
+    const modelSolids = new Set(map.models!.placements.flatMap(p => p.solids));
+    const buildingWorld = createWorld(map.solids.filter((_,i) => !modelSolids.has(i)));
+    expect(equipment).toHaveLength(5);
+    for (const {asset,position:[x,y,z]} of equipment) {
+      const radius = asset === 'water-tank' ? 0.6 : 0.2;
+      for (const [dx,dz] of [[-radius,-radius],[-radius,radius],[radius,-radius],[radius,radius]]) {
+        expect(raycastWorld(buildingWorld,[x+dx!,y+0.01,z+dz!],[x+dx!,y-0.3,z+dz!]), `${asset} at ${x},${y},${z}`).not.toBeNull();
+      }
+    }
+  });
   it('connects the navigation graph in both directions', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);

@@ -37,3 +37,5 @@ Replaced box-shaped rubble with irregular masonry and added utility poles and ov
 Added Blender water tanks and satellite dishes to the rooftops as landmarks and cover, with matching game collision. The rebuilt Blender scene contains three tanks and two dishes. The model/layout tests, all five bot-mode soaks, typecheck and production build pass; the map still needs more faithful architecture and interiors before release.
 
 Rebuilt the blue building with three ground-floor entrances and an interior switchback stairwell, following the CoD4 guide (https://strategywiki.org/wiki/Call_of_Duty_4%3A_Modern_Warfare/Crash). A simulated player reaches both upper levels and the roof; its navigation graph, all five bot-mode soaks, typecheck and production build pass. The Blender level was rebuilt. An in-game view shows the room is dark and bare, so roof damage and interior detail remain.
+
+Moved the blue-building tank clear of the new stair opening. A roof-support test now checks the footprint of every tank and dish; the layout, model, team-deathmatch bot and type checks pass. Rebuilt the Blender scene to match.
