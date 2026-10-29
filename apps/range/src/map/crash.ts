@@ -40,6 +40,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'pole.wire': { family: 'paint', color: 0x343633 },
   'roof.tank': { family: 'sheetMetal', color: 0x98958a, roughness:0.85, metalness:0.2 },
   'roof.metal': { family: 'sheetMetal', color: 0x605c50, roughness:0.8, metalness:0.35 },
+  'fence.metal': { family: 'sheetMetal', color: 0x777970, roughness:0.85, metalness:0.45 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -297,6 +298,12 @@ export function buildCrash(): MapDefinition {
   // central crash site from the eastern back street; the arcade closes the
   // south side and leaves an alley behind it.
   buildTower(b);
+  // The tower's crash-facing roof edge has an open steel mesh enclosure.
+  // The panel blocks players while shots can pass through the wire.
+  for (const x of [-14,-12,-10,-8,-6])
+    b.model('rooftop-fence',[x,9.85,-22],0,() => b.add([x,9.85,-22.05],[x+2,11.35,-21.95],'metal',{look:'fence.metal',blocks:'players'}));
+  for (const z of [-22,-24,-26,-28,-30])
+    b.model('rooftop-fence',[-4,9.85,z],Math.PI/2,() => b.add([-4.05,9.85,z-2],[-3.95,11.35,z],'metal',{look:'fence.metal',blocks:'players'}));
   buildBlue(b);
   building(b, LANDMARKS.main, 2, 'plaster', 'south', false, 'main');
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');

@@ -48,6 +48,11 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('keeps the tower roof fence solid to movement but open to shots', () => {
+    const inside: Vec3 = [-9,10.6,-23], outside: Vec3 = [-9,10.6,-21];
+    expect(raycastWorld(world,inside,outside)).toBeNull();
+    expect(world.movement.firstHit(inside,outside,i => segmentSolid(inside,outside,solids[i]!))).toBeTruthy();
+  });
   it('opens the blue building on three sides and lets a player climb its interior stairs', () => {
     for (const [outside,inside] of [
       [[-22,1.6,-4],[-22,1.6,-2]],

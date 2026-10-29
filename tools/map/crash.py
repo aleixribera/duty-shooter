@@ -30,6 +30,7 @@ pole_metal = mat("pole.metal", 0x454741, 0.8, 0.3)
 pole_insulator = mat("pole.insulator", 0x82908a, 0.3)
 roof_tank = mat("roof.tank", 0x98958a, 0.85, 0.2)
 roof_metal = mat("roof.metal", 0x605c50, 0.8, 0.35)
+fence_metal = mat("fence.metal", 0x777970, 0.85, 0.45)
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -186,7 +187,38 @@ def satellite_dish():
              kit.cylinder(0.06,0.43,0.50,(0,1.22,0),'x',roof_metal,12)]
     return kit.asset('satellite-dish', parts, smooth_angle=35)
 
-built = [helicopter(), rubble(), burned_car(), utility_pole(), water_tank(), satellite_dish()]
+def rooftop_fence():
+    """A two-metre steel frame filled with open diamond wire mesh."""
+    parts = [kit.box((0,0,-0.05),(0.07,1.5,0.05),fence_metal),
+             kit.box((1.93,0,-0.05),(2,1.5,0.05),fence_metal),
+             kit.box((0,1.43,-0.05),(2,1.5,0.05),fence_metal),
+             kit.box((0,0,-0.05),(2,0.07,0.05),fence_metal)]
+    bm = bmesh.new()
+    # Clip each diagonal strand at the rectangular frame. Separate thin prisms
+    # stay visible from both sides while the spaces between them remain open.
+    for slope in (-1, 1):
+        for n in range(-10, 18):
+            c = n * 0.2
+            if slope == 1:
+                lo, hi = max(0, -c), min(2, 1.5-c)
+            else:
+                lo, hi = max(0, c-1.5), min(2, c)
+            if hi - lo < 0.02:
+                continue
+            ya, yb = slope*lo+c, slope*hi+c
+            outline = [(lo,max(0,ya-0.006)),(hi,max(0,yb-0.006)),
+                       (hi,min(1.5,yb+0.006)),(lo,min(1.5,ya+0.006))]
+            vs = [[bm.verts.new(kit.b((x,y,z))) for x,y in outline] for z in (-0.008,0.008)]
+            bm.faces.new(tuple(reversed(vs[0])))
+            bm.faces.new(tuple(vs[1]))
+            for i in range(4):
+                j = (i+1) % 4
+                bm.faces.new((vs[0][i],vs[0][j],vs[1][j],vs[1][i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    parts.append(kit.obj('wire mesh',bm,fence_metal))
+    return kit.asset('rooftop-fence',parts,smooth_angle=30)
+
+built = [helicopter(), rubble(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence()]
 SOLIDS = {
     'helicopter': [((-3.5, 0, -1.42), (2.2, 2.72, 1.42)), ((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -194,6 +226,7 @@ SOLIDS = {
     'utility-pole': [((-0.15,0,-0.15),(0.15,6.4,0.15)), ((-1,5.98,-0.07),(1,6.12,0.07))] + [((x-0.095,6.12,-0.095),(x+0.095,6.28,0.095)) for x in (-0.7,0.7)],
     'water-tank': [((-0.8,0,-0.8),(0.8,1.6,0.8))],
     'satellite-dish': [((-0.32,0,-0.54),(0.50,1.76,0.54))],
+    'rooftop-fence': [((0,0,-0.05),(2,1.5,0.05))],
 }
 kit.bake_ao(built, distance=0.8)
 report = {}
