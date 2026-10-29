@@ -357,7 +357,9 @@ export function buildCrash(): MapDefinition {
   for (const z of [-22,-24,-26,-28,-30])
     b.model('rooftop-fence',[-4,9.85,z],Math.PI/2,() => b.add([-4.05,9.85,z-2],[-3.95,11.35,z],'metal',{look:'fence.metal',blocks:'players'}));
   buildBlue(b);
-  building(b, LANDMARKS.main, 2, 'plaster', 'south', false, 'main');
+  // The building across from blue has an accessible roof overlooking the
+  // crash site. A stair provides access until ladder movement is supported.
+  building(b, LANDMARKS.main, 2, 'plaster', 'south', true, 'main');
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
   buildArcadeWalkway(b);
   buildShop(b);
@@ -438,7 +440,7 @@ export function buildCrash(): MapDefinition {
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
-      ...stairHints(LANDMARKS.main,2),
+      ...stairHints(LANDMARKS.main,3),
       ...shopHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),

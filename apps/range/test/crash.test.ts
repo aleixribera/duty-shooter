@@ -177,6 +177,20 @@ describe('Crash', () => {
     expect(out.position[2],String(out.position)).toBeGreaterThan(14);
     expect(raycastWorld(world,[-0.5,4.6,-14.25],[4,4.6,-14.25])).toBeNull();
   });
+  it('lets a player climb to the main building roof from the plaza', () => {
+    const legs: Vec3[] = [[1.65,0,2.8],[1.65,3,-18.3],[-0.55,3,-18.3],[-0.55,6,2.8],[1,6,1.3],[4,6,1.3]];
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (const target of legs.slice(1)) {
+      let reached = false;
+      for (let i=0;i<12/TICK_SECONDS;i++) {
+        const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+        if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+      }
+      expect(reached, 'toward '+target+' at '+out.position).toBe(true);
+    }
+  });
   it('has valid surface finishes and the Blender wreck placement', () => {
     expect(map.looks).toHaveLength(map.solids.length);
     expect(map.decorations.length).toBeGreaterThan(50);
@@ -201,7 +215,7 @@ describe('Crash', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);
     expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -1.9 && n.position[2] < -1.1 && Math.abs(n.position[1]-0.25) < 0.1), 'wreck cabin').toBe(true);
-    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[18,31,8,23,6]]) {
+    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[3,16,-20,3,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
     }
     expect(reachable(nav,false).size).toBe(nav.nodes.length);
