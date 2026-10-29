@@ -114,7 +114,7 @@ function buildTower(b: Builder): void {
     b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:south,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(-12.5),windowOpening(-7.2)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-31.0),windowOpening(-26.5)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
-    const east = level === 0 ? [door(-27.8,2)] : [windowOpening(-30.5),windowOpening(-25.5)];
+    const east = level === 0 ? [door(-27.8,2)] : level === 1 ? [door(-30.5,1.8),windowOpening(-25.5)] : [windowOpening(-30.5),windowOpening(-25.5)];
     b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:east,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
   }
   // The stairwell occupies the west side; its top landing opens east onto each floor.
@@ -129,6 +129,10 @@ function buildTower(b: Builder): void {
     towerFlight(b,-11.8,-10.4,-28.2,-23.5,y+1.5);
     b.add([-13.6,y+1.32,-29.9],[-10.4,y+1.5,-28.2],'concrete',{look:'concrete'});
   }
+  // An exterior staircase enters the second floor while leaving room beside
+  // its lower flight to reach the existing ground-floor door.
+  b.paint('concrete', () => b.stairs({along:'z',from:-21.2,to:-29.4,across:[-2.4,-0.7],bottom:0,top:3,material:'concrete'}));
+  b.add([-4.125,2.82,-30.6],[-0.7,3,-28.5],'concrete',{look:'concrete'});
   const parapet = {thickness:t,bottom:9,height:0.85,material:'concrete' as const,look:'plaster'};
   b.wall({...parapet,along:'x',at:r.z0,from:r.x0,to:r.x1});
   b.wall({...parapet,along:'x',at:r.z1,from:r.x0,to:r.x1});
@@ -203,6 +207,8 @@ function buildShop(b: Builder): void {
     towerFlight(b,28.8,30.2,11.5,20.5,y+1.5);
     b.add([27,y+1.32,9.8],[30.2,y+1.5,11.5],'concrete',{look:'concrete'});
   }
+  // Separate the flights so navigation cannot cut across the open stairwell.
+  b.add([28.55,0,11.7],[28.65,6,20.3],'concrete',{look:'market'});
   const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'market'};
   b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
   b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
@@ -228,6 +234,8 @@ function shopHints(): Vec3[] {
 
 function towerHints(): Vec3[] {
   const hints: Vec3[] = [[-9,0,-20.8],[-9,0,-22.8],[-9,0,-24],[-5,0,-26.8],[-3,0,-26.8]];
+  hints.push([-1.55,0,-20.6],[-1.55,3,-29.6],[-3.2,3,-29.6],[-4.8,3,-29.6],[-6.4,3,-29.6]);
+  for (let i=0; i<=8; i++) hints.push([-1.55,3*i/8,-21.2-8.2*i/8]);
   for (const y of [0,3,6]) {
     hints.push([-12.9,y,-23.5],[-12.9,y+0.75,-25.8],[-12.9,y+1.5,-28.8],
       [-11.1,y+1.5,-28.8],[-11.1,y+2.25,-25.8],[-11.1,y+3,-23.5],[-9.5,y+3,-23.5]);
@@ -349,7 +357,7 @@ export function buildCrash(): MapDefinition {
   for (const [x,y,z] of [[-6,9,-30],[-20,6,7]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
   // Low cover interrupts the central crossings and the long market alley.
-  for (const [x,z] of [[-12,4],[-2,6],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
+  for (const [x,z] of [[-12,4],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});
   // Visible wall and full-height player clip on the playable edge.
   for (const [min,max] of [

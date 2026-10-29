@@ -53,6 +53,24 @@ describe('Crash', () => {
     expect(raycastWorld(world,inside,outside)).toBeNull();
     expect(world.movement.firstHit(inside,outside,i => segmentSolid(inside,outside,solids[i]!))).toBeTruthy();
   });
+  it('lets a player enter the tower from its outside stair and ground-floor door', () => {
+    for (const legs of [
+      [[-1.55,0,-20.5],[-1.55,3,-29.6],[-3,3,-29.6],[-5,3,-29.6]],
+      [[-3,0,-24],[-3,0,-26.8],[-5,0,-26.8]],
+    ] as Vec3[][]) {
+      const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+      let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+      for (const target of legs.slice(1)) {
+        let reached = false;
+        for (let i=0;i<12/TICK_SECONDS;i++) {
+          const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+          if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+          out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+        }
+        expect(reached, 'toward '+target+' at '+out.position).toBe(true);
+      }
+    }
+  });
   it('opens the blue building on three sides and lets a player climb its interior stairs', () => {
     for (const [outside,inside] of [
       [[-22,1.6,-4],[-22,1.6,-2]],
