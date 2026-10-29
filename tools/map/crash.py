@@ -60,17 +60,16 @@ def rear_shell():
 # A broken fuselage, nose at +x. Pieces are kept inside the collision boxes.
 def helicopter():
     parts = [
-        kit.section([(0.04, -0.85), (0.12, -1.12), (0.52, -1.36), (1.95, -1.36), (2.36, -1.15), (2.62, -0.7), (2.62, 0.7), (2.36, 1.15), (1.95, 1.36), (0.52, 1.36), (0.12, 1.12), (0.04, 0.85)], -3.5, 2.2, hull, 0.06),
+        # The cargo compartment is a hollow shell, with the side doors torn
+        # open. Separate floor, roof and side panels leave a walkable cabin.
+        kit.section([(0.04,-0.85),(0.12,-1.12),(0.25,-1.3),(0.25,1.3),(0.12,1.12),(0.04,0.85)],-3.5,2.2,hull),
+        kit.section([(2.27,-1.2),(2.36,-1.15),(2.62,-0.7),(2.62,0.7),(2.36,1.15),(2.27,1.2),(2.27,1.05),(2.32,1.0),(2.43,0.65),(2.43,-0.65),(2.32,-1.0),(2.27,-1.05)],-3.5,2.2,hull),
         kit.prism([(2.2, 0.2), (4.25, 0.2), (4.1, 1.15), (3.2, 2.05), (2.2, 2.2)], -1.05, 1.05, hull, 0.04),
         
         kit.box((1.1, 2.66, -0.7), (1.9, 3.1, 0.7), dark, 0.04),
         # dark cockpit panes and framed side hatch
         kit.box((2.75, 1.25, -1.06), (3.4, 1.8, -1.045), glass),
         kit.box((2.75, 1.25, 1.045), (3.4, 1.8, 1.06), glass),
-        kit.box((-1.4, 0.45, -1.405), (0.35, 1.95, -1.39), dark),
-        kit.box((-1.4, 0.45, 1.39), (0.35, 1.95, 1.405), dark),
-        kit.box((-1.28, 0.55, -1.41), (0.23, 1.83, -1.4), dark),
-        kit.box((-1.28, 0.55, 1.4), (0.23, 1.83, 1.41), dark),
         # Crumpled, separated rear section and snapped rotor blades.
         rear_shell(),
         kit.prism([(-6.2, 1.9), (-5.95, 2.95), (-5.15, 2.95), (-5.05, 1.9)], -0.5, 0.5, hull, 0.025),
@@ -81,6 +80,11 @@ def helicopter():
         kit.plan([(1.20, -2.7), (1.43, -2.5), (1.63, 0), (1.36, 0)], 3.07, 3.13, dark),
         kit.plan([(1.39, 0), (1.65, 0), (1.83, 2.45), (1.65, 2.7)], 3.07, 3.13, dark),
     ]
+    for side in (-1,1):
+        profile = [(0.25,side*1.2),(0.52,side*1.36),(1.95,side*1.36),
+                   (2.27,side*1.2),(2.27,side*1.1),(0.52,side*1.2)]
+        for x0,x1 in [(-3.5,-1.4),(0.35,2.2)]:
+            parts.append(kit.section(profile,x0,x1,hull))
     # The sloped windscreen, divided into left and right panes.
     for z0, z1 in [(-0.9, -0.06), (0.06, 0.9)]:
         parts.append(kit._slab([(3.25, 2.08, z0), (3.25, 2.08, z1), (3.85, 1.48, z1), (3.85, 1.48, z0)], (0.0, 0.025, 0.0), glass, 0, 1, False))
@@ -90,13 +94,14 @@ def helicopter():
         for x in (-2.65, 0.9):
             parts.append(kit.cylinder(0.26, lo, hi, (x, 1.75, 0), "z", metal, 20))
             parts.append(kit.cylinder(0.19, lo - 0.006, hi + 0.006, (x, 1.75, 0), "z", glass, 20))
-        parts.append(kit.box((-3.35, 0.72, lo), (2.05, 0.76, hi), dark))
+        for x0,x1 in [(-3.35,-1.4),(0.35,2.05)]:
+            parts.append(kit.box((x0, 0.72, lo), (x1, 0.76, hi), dark))
         for x, y, radius in [(-3.0, 1.2, 0.075), (-2.0, 1.32, 0.055), (0.65, 1.27, 0.06), (1.65, 1.5, 0.08)]:
             parts.append(kit.cylinder(radius, lo, hi, (x, y, 0), "z", dark, 10))
-        for a, c in [(-1.38, -1.3), (0.14, 0.22)]:
-            parts.append(kit.box((a, 0.55, lo), (c, 1.94, hi), metal))
-        parts.append(kit.box((-1.38, 1.86, lo), (0.22, 1.94, hi), metal))
-        parts.append(kit.box((-1.38, 0.55, lo), (0.22, 0.63, hi), metal))
+        for a, c in [(-1.4, -1.3), (0.25, 0.35)]:
+            parts.append(kit.box((a, 0.25, lo), (c, 2.27, hi), metal))
+        parts.append(kit.box((-1.4, 2.27, lo), (0.35, 2.35, hi), metal))
+        parts.append(kit.box((-1.4, 0.18, lo), (0.35, 0.25, hi), metal))
         z0, z1 = sorted((side * 1.04, side * 1.055))
         parts.append(kit.prism([(2.38, 1.28), (2.38, 1.93), (3.0, 1.96), (3.39, 1.65), (3.47, 1.28)], z0, z1, glass))
         parts.append(kit.box((2.78, 1.28, z0), (2.83, 1.96, z1), metal))
@@ -232,7 +237,7 @@ def rooftop_fence():
 
 built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence()]
 SOLIDS = {
-    'helicopter': [((-3.5, 0, -1.42), (2.2, 2.72, 1.42)), ((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
+    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],

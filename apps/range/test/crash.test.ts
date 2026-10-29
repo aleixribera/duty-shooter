@@ -20,6 +20,22 @@ describe('Crash', () => {
     expect(LANDMARKS.arcade.z0).toBeGreaterThan(wreck.position[2]);
     expect(LANDMARKS.shop.x0).toBeGreaterThan(LANDMARKS.main.x0);
   });
+  it('lets a player cross through the wreck cabin while its side panels provide cover', () => {
+    expect(raycastWorld(world,[-9,1.6,-1.5],[-3,1.6,-1.5])).toBeNull();
+    expect(raycastWorld(world,[-9,1.6,-3],[-3,1.6,-3])).not.toBeNull();
+    const legs: Vec3[] = [[-9,0,-1.5],[-6,0.25,-1.5],[-3,0,-1.5]];
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (const target of legs.slice(1)) {
+      let reached = false;
+      for (let i=0;i<12/TICK_SECONDS;i++) {
+        const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+        if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+      }
+      expect(reached, 'toward '+target+' at '+out.position).toBe(true);
+    }
+  });
   it('keeps all spawns in bounds, on the ground and clear of collision', () => {
     for (const spawn of [...map.spawns.ffa, ...map.spawns.teams!.flat()]) {
       const [x,y,z] = spawn.position;
@@ -161,6 +177,7 @@ describe('Crash', () => {
   it('connects the navigation graph in both directions', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);
+    expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -1.9 && n.position[2] < -1.1 && Math.abs(n.position[1]-0.25) < 0.1), 'wreck cabin').toBe(true);
     for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
     }
