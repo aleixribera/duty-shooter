@@ -20,6 +20,7 @@ hull = mat("wreck.hull", 0x777a70, 0.85, 0.35)
 dark = mat("wreck.dark", 0x30332f, 0.9, 0.3)
 metal = mat("wreck.metal", 0x999a90, 0.7, 0.5)
 glass = mat("wreck.glass", 0x202d30, 0.3, 0.1)
+soot = mat("wreck.soot", 0x45463f, 0.98, 0.1)
 rubble_stone = mat("rubble.stone", 0xa79a82, 0.95)
 rubble_dark = mat("rubble.dark", 0x726b5d, 0.95)
 car_body = mat("car.body", 0x70483b, 0.9, 0.2)
@@ -81,10 +82,16 @@ def helicopter():
         kit.plan([(1.39, 0), (1.65, 0), (1.83, 2.45), (1.65, 2.7)], 3.07, 3.13, dark),
     ]
     for side in (-1,1):
-        profile = [(0.25,side*1.2),(0.52,side*1.36),(1.95,side*1.36),
-                   (2.27,side*1.2),(2.27,side*1.1),(0.52,side*1.2)]
-        for x0,x1 in [(-3.5,-1.4),(0.35,2.2)]:
-            parts.append(kit.section(profile,x0,x1,hull))
+        z0,z1 = sorted((side*1.12,side*1.36))
+        # Uneven torn edges around the doorway remain inside the matching
+        # side-panel collision, leaving the opening clear for a player.
+        rear = [(-3.5,0.25),(-1.4,0.25),(-1.68,0.38),(-1.50,0.62),(-1.80,0.90),
+                (-1.48,1.03),(-1.61,1.29),(-1.41,1.39),(-1.74,1.74),(-1.44,1.92),
+                (-1.55,2.14),(-1.4,2.27),(-3.5,2.27)]
+        front = [(0.35,0.25),(2.2,0.25),(2.2,2.27),(0.35,2.27),(0.63,2.14),
+                 (0.42,1.97),(0.56,1.73),(0.38,1.53),(0.70,1.39),(0.44,1.04),
+                 (0.59,0.88),(0.37,0.65),(0.55,0.43)]
+        parts.extend([kit.prism(rear,z0,z1,hull),kit.prism(front,z0,z1,hull)])
     # The sloped windscreen, divided into left and right panes.
     for z0, z1 in [(-0.9, -0.06), (0.06, 0.9)]:
         parts.append(kit._slab([(3.25, 2.08, z0), (3.25, 2.08, z1), (3.85, 1.48, z1), (3.85, 1.48, z0)], (0.0, 0.025, 0.0), glass, 0, 1, False))
@@ -98,10 +105,14 @@ def helicopter():
             parts.append(kit.box((x0, 0.72, lo), (x1, 0.76, hi), dark))
         for x, y, radius in [(-3.0, 1.2, 0.075), (-2.0, 1.32, 0.055), (0.65, 1.27, 0.06), (1.65, 1.5, 0.08)]:
             parts.append(kit.cylinder(radius, lo, hi, (x, y, 0), "z", dark, 10))
-        for a, c in [(-1.4, -1.3), (0.25, 0.35)]:
-            parts.append(kit.box((a, 0.25, lo), (c, 2.27, hi), metal))
-        parts.append(kit.box((-1.4, 2.27, lo), (0.35, 2.35, hi), metal))
-        parts.append(kit.box((-1.4, 0.18, lo), (0.35, 0.25, hi), metal))
+        # Soot and crumpled metal cluster around the torn edges, with small
+        # unpainted scars farther back on the skin.
+        parts.append(kit.prism([(-2.5,0.36),(-1.58,0.32),(-1.7,0.72),(-2.05,0.86),(-2.31,0.65)],lo,hi,soot))
+        parts.append(kit.prism([(0.43,0.35),(1.55,0.31),(1.42,0.64),(0.92,0.87),(0.54,0.73)],lo,hi,soot))
+        parts.append(kit.prism([(-1.80,0.90),(-1.74,0.83),(-1.48,1.03),(-1.57,1.09)],lo,hi,metal))
+        parts.append(kit.prism([(0.44,1.04),(0.53,1.07),(0.70,1.39),(0.61,1.42)],lo,hi,metal))
+        parts.append(kit.box((-1.4, 2.27, lo), (0.35, 2.35, hi), dark))
+        parts.append(kit.box((-1.4, 0.18, lo), (0.35, 0.25, hi), dark))
         z0, z1 = sorted((side * 1.04, side * 1.055))
         parts.append(kit.prism([(2.38, 1.28), (2.38, 1.93), (3.0, 1.96), (3.39, 1.65), (3.47, 1.28)], z0, z1, glass))
         parts.append(kit.box((2.78, 1.28, z0), (2.83, 1.96, z1), metal))

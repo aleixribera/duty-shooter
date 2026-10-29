@@ -29,6 +29,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
   'wreck.glass': { family: 'glass', color: 0x202d30 },
+  'wreck.soot': { family: 'paint', color: 0x45463f, roughness: 0.98, metalness: 0.1 },
   'rubble.stone': { family: 'concrete', color: 0xa79a82 },
   'rubble.dark': { family: 'concrete', color: 0x726b5d },
   'car.body': { family: 'paint', color: 0x70483b, roughness: 0.9, metalness: 0.2 },
