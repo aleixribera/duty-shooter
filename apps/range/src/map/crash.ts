@@ -243,6 +243,29 @@ function shopHints(): Vec3[] {
   return hints;
 }
 
+/** An open vehicle bay connects the garage spawn to the blue-building lane. */
+function buildGarage(b: Builder): void {
+  const r = LANDMARKS.garage, t = 0.25;
+  const wall = {thickness:t,bottom:0,height:3,material:'concrete' as const,look:'plaster'};
+  b.wall({...wall,along:'x',at:r.z0,from:r.x0,to:r.x1,
+    openings:[{from:-36,to:-30,bottom:0,top:2.55}],trim:[{face:-1,frames:'trim'}]});
+  b.wall({...wall,along:'x',at:r.z1,from:r.x0,to:r.x1,
+    openings:[door(-34,2)],trim:[{face:1,frames:'trim'}]});
+  b.wall({...wall,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,
+    openings:[windowOpening(18.5,2)],trim:[{face:-1,frames:'trim'}]});
+  b.wall({...wall,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,
+    openings:[door(20,2)],trim:[{face:1,frames:'trim'}]});
+  b.add([r.x0-0.12,2.82,r.z0-0.12],[r.x1+0.12,3,r.z1+0.12],'concrete',{look:'roof'});
+  const parapet = {...wall,bottom:3,height:0.65};
+  b.wall({...parapet,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...parapet,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...parapet,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...parapet,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  // A lintel and bench give the open bay the character of a workshop.
+  b.add([-36.2,2.55,15.86],[-29.8,2.72,16.14],'metal',{look:'roof.metal'});
+  b.add([-37.6,0,18],[-36.3,1.05,21],'wood',{look:'wood'});
+}
+
 function towerHints(): Vec3[] {
   const hints: Vec3[] = [[-9,0,-20.8],[-9,0,-22.8],[-9,0,-24],[-5,0,-26.8],[-3,0,-26.8]];
   hints.push([-1.55,0,-20.6],[-1.55,3,-29.6],[-3.2,3,-29.6],[-4.8,3,-29.6],[-6.4,3,-29.6]);
@@ -296,6 +319,7 @@ export const LANDMARKS = {
   main: {x0:3,x1:16,z0:-20,z1:3},
   arcade: {x0:-11,x1:5,z0:13,z1:23},
   shop: {x0:18,x1:31,z0:8,z1:23},
+  garage: {x0:-38,x1:-28,z0:16,z1:24},
 } as const;
 
 const point = (x: number, z: number, yaw: number): SpawnPoint => ({ position: [x, 0, z], yaw });
@@ -331,7 +355,7 @@ export function buildCrash(): MapDefinition {
   buildArcadeWalkway(b);
   buildShop(b);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
-  building(b, {x0:-38,x1:-28,z0:16,z1:24}, 1, 'plaster', 'north');
+  buildGarage(b);
   building(b, {x0:23,x1:34,z0:-33,z1:-24}, 1, 'plaster', 'south');
   buildLanes(b);
   // The crashed tandem-rotor aircraft runs roughly north to south, with
@@ -402,13 +426,14 @@ export function buildCrash(): MapDefinition {
     zones:[{id:'A',name:'Garage',center:[-34,0,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
-    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]}],
+    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]},{name:'garage',min:[-38,0,16],max:[-28,3,24]}],
     referenceSpots:spots, benchmarkPath:spots.map(({position,yaw,pitch})=>({position,yaw,pitch})), flyThrough:[], playArea:BOUNDARY,
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
       ...stairHints(LANDMARKS.main,2),
       ...shopHints(),
+      ...([[-33,0,25],[-33,0,22],[-33,0,17],[-33,0,14],[-27,0,21]] as Vec3[]),
       ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
       ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
