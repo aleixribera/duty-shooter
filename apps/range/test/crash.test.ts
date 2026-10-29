@@ -19,6 +19,8 @@ describe('Crash', () => {
     expect(LANDMARKS.tower.z1).toBeLessThan(wreck.position[2]);
     expect(LANDMARKS.arcade.z0).toBeGreaterThan(wreck.position[2]);
     expect(LANDMARKS.shop.x0).toBeGreaterThan(LANDMARKS.main.x0);
+    const middle = map.zones.find(zone => zone.id === 'B')!;
+    expect(Math.hypot(middle.center[0]-wreck.position[0],middle.center[2]-wreck.position[2])).toBeLessThan(1);
   });
   it('lets a player cross through the wreck cabin while its side panels provide cover', () => {
     expect(raycastWorld(world,[-9,1.6,-1.5],[-3,1.6,-1.5])).toBeNull();
@@ -37,6 +39,9 @@ describe('Crash', () => {
     }
   });
   it('keeps all spawns in bounds, on the ground and clear of collision', () => {
+    // The two team starting areas straddle the map on the original diagonal.
+    for (const spawn of map.spawns.teams![0]) expect(spawn.position[0] < 0 && spawn.position[2] > 0).toBe(true);
+    for (const spawn of map.spawns.teams![1]) expect(spawn.position[0] > 0 && spawn.position[2] < 0).toBe(true);
     for (const spawn of [...map.spawns.ffa, ...map.spawns.teams!.flat()]) {
       const [x,y,z] = spawn.position;
       expect(insidePolygon(BOUNDARY,x,z), String(spawn.position)).toBe(true);

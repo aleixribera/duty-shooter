@@ -66,4 +66,34 @@ for i, deco in enumerate(layout['decorations']):
     coll.objects.link(obj)
     mat = materials.get(deco['finish'])
     if mat: obj.data.materials.append(mat)
+
+# Non-rendering markers make the game-authored starts and objectives visible
+# and inspectable in Blender without adding geometry to the playable map.
+markers = bpy.data.collections.new('Gameplay markers')
+scene.collection.children.link(markers)
+def marker(name, position, display, size):
+    x, y, z = position
+    obj = bpy.data.objects.new(name, None)
+    markers.objects.link(obj)
+    obj.location = (x, -z, y)
+    obj.empty_display_type = display
+    obj.empty_display_size = size
+    return obj
+
+for team, spawns in enumerate(layout['spawns']['teams'] or [], 1):
+    for i, spawn in enumerate(spawns, 1):
+        obj = marker('team %d spawn %02d' % (team,i), spawn['position'], 'ARROWS', 0.7)
+        obj.rotation_euler[2] = spawn['yaw']
+        obj['team'] = team
+for i, spawn in enumerate(layout['spawns']['ffa'], 1):
+    obj = marker('free-for-all spawn %02d' % i, spawn['position'], 'ARROWS', 0.4)
+    obj.rotation_euler[2] = spawn['yaw']
+for zone in layout['zones']:
+    obj = marker('outpost ' + zone['id'] + ' ' + zone['name'], zone['center'], 'CIRCLE', zone['radius'])
+    obj['height'] = zone['height']
+for site in layout['sites']:
+    lo, hi = site['min'], site['max']
+    center = [(a+b)/2 for a,b in zip(lo,hi)]
+    obj = marker('charge ' + site['id'] + ' ' + site['name'], center, 'CUBE', 1)
+    obj.scale = ((hi[0]-lo[0])/2, (hi[2]-lo[2])/2, (hi[1]-lo[1])/2)
 bpy.ops.wm.save_as_mainfile(filepath=args[1])

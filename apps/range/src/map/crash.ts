@@ -299,8 +299,10 @@ export const LANDMARKS = {
 } as const;
 
 const point = (x: number, z: number, yaw: number): SpawnPoint => ({ position: [x, 0, z], yaw });
-const west = [[-38,-34],[-32,-34],[-24,-34],[-38,-25],[-37,-19],[-38,-12]].map(([x,z]) => point(x!,z!,-Math.PI / 2));
-const east = [[37,31],[32,34],[26,33],[35,26],[36,18],[38,12]].map(([x,z]) => point(x!,z!,Math.PI / 2));
+// CoD4 starts the teams at the garage in the southwest and apartments in
+// the northeast, with the wreck and its buildings between them.
+const west = [[-38,34],[-32,34],[-25,34],[-38,29],[-34,29],[-27,29]].map(([x,z]) => point(x!,z!,-Math.PI / 2));
+const east = [[37,-34],[30,-35],[20,-35],[38,-27],[38,-20],[37,-12]].map(([x,z]) => point(x!,z!,Math.PI / 2));
 const ffa = [...west, ...east, ...[[-20,-29],[8,-32],[37,-29],[-36,5],[35,-4],[-31,30],[4,32],[19,28]].map(([x,z]) => point(x!,z!,Math.atan2(x!,z!)))];
 
 export function buildCrash(): MapDefinition {
@@ -397,7 +399,7 @@ export function buildCrash(): MapDefinition {
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},
-    zones:[{id:'A',name:'Tower',center:[-9,0,-20],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,5],radius:3,height:3},{id:'C',name:'Shop',center:[24,0,5],radius:3,height:3}],
+    zones:[{id:'A',name:'Garage',center:[-34,0,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
     indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]}],
