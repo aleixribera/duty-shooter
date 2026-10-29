@@ -20,6 +20,7 @@ export type Family =
   | 'plastic'
   | 'floor'
   | 'plaster'
+  | 'wornPlaster'
   | 'dirt'
   | 'gravel'
   | 'tile'

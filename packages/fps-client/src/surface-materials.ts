@@ -211,6 +211,7 @@ const SHINE: Readonly<Record<Family, { ks: number; power: number }>> = {
   plastic: { ks: 0.15, power: 36 },
   floor: { ks: 0.1, power: 30 },
   plaster: { ks: 0.02, power: 8 },
+  wornPlaster: { ks: 0.02, power: 8 },
   dirt: { ks: 0.01, power: 4 },
   gravel: { ks: 0.02, power: 6 },
   tile: { ks: 0.2, power: 60 },
@@ -313,6 +314,18 @@ function albedo(finish: Finish): N3 {
     }
     case 'plaster':
       return base.mul(grain(2.5, 0.03)) as N3;
+    case 'wornPlaster': {
+      // Irregular missing render reveals brickwork beneath faded plaster.
+      const broken = noise(p, 0.7).add(noise(p, 3).sub(0.5).mul(0.2));
+      const exposed = smoothstep(float(0.64), float(0.76), broken);
+      const row = floor(y.div(0.09));
+      const xs = x.add(fract(row.mul(0.5)).mul(0.27));
+      const mortar = grooves(y, 0.09, 0.012).mul(grooves(xs, 0.27, 0.012));
+      const masonry = mix(accent.mul(0.66), accent, mortar).mul(grain(8, 0.06));
+      const plaster = base.mul(grain(2.5, 0.05)).mul(macro(p, 0.1));
+      const crack = cracks(p, 0.8, 0.008, 0.35);
+      return weathered(mix(plaster, masonry, exposed).mul(float(1).sub(crack.mul(0.3))) as N3, p);
+    }
     case 'dirt':
       return mix(base, accent, noise(p, 0.5).mul(0.6)).mul(grain(6, 0.1)).mul(macro(p, 0.08)).mul(float(1).sub(specks(p, 12, 0.1).mul(0.25))) as N3;
     case 'gravel':

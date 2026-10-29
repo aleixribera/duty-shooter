@@ -21,6 +21,28 @@ for name, finish in layout['finishes'].items():
     rgb = tuple(((color >> shift) & 255) / 255 for shift in (16, 8, 0))
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.diffuse_color = (*rgb, 1)
+    if finish.get('family') == 'wornPlaster':
+        # Approximate the game's procedural chips in Blender's material view.
+        accent = finish.get('accent', color)
+        exposed = tuple(((accent >> shift) & 255) / 255 for shift in (16, 8, 0))
+        mat.use_nodes = True
+        nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        shader = nodes.get('Principled BSDF')
+        shader.inputs['Roughness'].default_value = 0.9
+        geometry = nodes.new('ShaderNodeNewGeometry')
+        noise = nodes.new('ShaderNodeTexNoise')
+        noise.inputs['Scale'].default_value = 0.7
+        noise.inputs['Detail'].default_value = 3
+        ramp = nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.elements[0].position = 0.64
+        ramp.color_ramp.elements[1].position = 0.76
+        mix = nodes.new('ShaderNodeMixRGB')
+        mix.inputs[1].default_value = (*rgb, 1)
+        mix.inputs[2].default_value = (*exposed, 1)
+        links.new(geometry.outputs['Position'], noise.inputs['Vector'])
+        links.new(noise.outputs['Fac'], ramp.inputs['Fac'])
+        links.new(ramp.outputs['Color'], mix.inputs[0])
+        links.new(mix.outputs['Color'], shader.inputs['Base Color'])
     materials[name] = mat
 sources = {}
 for placement in layout['models']['placements']:
