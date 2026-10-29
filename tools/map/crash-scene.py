@@ -8,6 +8,7 @@ reused from crash.blend. The generated scene is an editable layout reference.
 import json
 import sys
 import bpy
+from mathutils import Matrix
 
 args = sys.argv[sys.argv.index('--') + 1:]
 with open(args[0], encoding='utf-8') as f:
@@ -65,10 +66,22 @@ for i, solid in enumerate(layout['solids']):
     if i in model_solids:
         continue
     lo, hi = solid['min'], solid['max']
-    bpy.ops.mesh.primitive_cube_add(size=1, location=((lo[0]+hi[0])/2, -(lo[2]+hi[2])/2, (lo[1]+hi[1])/2))
+    orientation = solid.get('orientation')
+    if orientation:
+        x, y, z = orientation['center']
+        half = orientation['half']
+        ax, ay, az = orientation['axes']
+        rotation = Matrix(((ax[0],-az[0],ay[0]),(-ax[2],az[2],-ay[2]),(ax[1],-az[1],ay[1])))
+        location, dimensions = (x,-z,y), (2*half[0],2*half[2],2*half[1])
+    else:
+        rotation = None
+        location = ((lo[0]+hi[0])/2, -(lo[2]+hi[2])/2, (lo[1]+hi[1])/2)
+        dimensions = (hi[0]-lo[0], hi[2]-lo[2], hi[1]-lo[1])
+    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
     obj = bpy.context.object
     obj.name = 'solid_%04d' % i
-    obj.dimensions = (hi[0]-lo[0], hi[2]-lo[2], hi[1]-lo[1])
+    obj.dimensions = dimensions
+    if rotation: obj.rotation_euler = rotation.to_euler()
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     for c in list(obj.users_collection): c.objects.unlink(obj)
     coll.objects.link(obj)

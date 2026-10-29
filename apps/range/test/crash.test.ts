@@ -153,17 +153,21 @@ describe('Crash', () => {
     expect(raycastWorld(world,[15,1.6,24],[15,1.6,27])).not.toBeNull();
   });
   it('connects the garage spawn through its vehicle bay toward the blue building', () => {
-    const legs: Vec3[] = [[-33,0,26],[-33,0,22],[-33,0,14],[-22,0,13],[-22,0,11]];
-    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
-    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
-    for (const target of legs.slice(1)) {
-      let reached = false;
-      for (let i=0;i<12/TICK_SECONDS;i++) {
-        const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
-        if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
-        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+    for (const legs of [
+      [[-33,0.6,26],[-33,0.6,22],[-33,0.45,14],[-22,0,13],[-22,0,11]],
+      [[-23.5,0,21],[-26,0.3,21],[-29,0.6,21]],
+    ] as Vec3[][]) {
+      const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+      let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+      for (const target of legs.slice(1)) {
+        let reached = false;
+        for (let i=0;i<12/TICK_SECONDS;i++) {
+          const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+          if (distance<0.4 && Math.abs(target[1]-p[1])<0.35 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+          out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+        }
+        expect(reached, 'toward '+target+' at '+out.position).toBe(true);
       }
-      expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
   it('opens the covered arcade to a walking player and the main upper windows to the plaza', () => {

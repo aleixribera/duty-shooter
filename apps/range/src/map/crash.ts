@@ -245,8 +245,8 @@ function shopHints(): Vec3[] {
 
 /** An open vehicle bay connects the garage spawn to the blue-building lane. */
 function buildGarage(b: Builder): void {
-  const r = LANDMARKS.garage, t = 0.25;
-  const wall = {thickness:t,bottom:0,height:3,material:'concrete' as const,look:'plaster'};
+  const r = LANDMARKS.garage, t = 0.25, ground = 0.6;
+  const wall = {thickness:t,bottom:ground,height:3,material:'concrete' as const,look:'plaster'};
   b.wall({...wall,along:'x',at:r.z0,from:r.x0,to:r.x1,
     openings:[{from:-36,to:-30,bottom:0,top:2.55}],trim:[{face:-1,frames:'trim'}]});
   b.wall({...wall,along:'x',at:r.z1,from:r.x0,to:r.x1,
@@ -255,15 +255,15 @@ function buildGarage(b: Builder): void {
     openings:[windowOpening(18.5,2)],trim:[{face:-1,frames:'trim'}]});
   b.wall({...wall,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,
     openings:[door(20,2)],trim:[{face:1,frames:'trim'}]});
-  b.add([r.x0-0.12,2.82,r.z0-0.12],[r.x1+0.12,3,r.z1+0.12],'concrete',{look:'roof'});
-  const parapet = {...wall,bottom:3,height:0.65};
+  b.add([r.x0-0.12,ground+2.82,r.z0-0.12],[r.x1+0.12,ground+3,r.z1+0.12],'concrete',{look:'roof'});
+  const parapet = {...wall,bottom:ground+3,height:0.65};
   b.wall({...parapet,along:'x',at:r.z0,from:r.x0,to:r.x1});
   b.wall({...parapet,along:'x',at:r.z1,from:r.x0,to:r.x1});
   b.wall({...parapet,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
   b.wall({...parapet,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
   // A lintel and bench give the open bay the character of a workshop.
-  b.add([-36.2,2.55,15.86],[-29.8,2.72,16.14],'metal',{look:'roof.metal'});
-  b.add([-37.6,0,18],[-36.3,1.05,21],'wood',{look:'wood'});
+  b.add([-36.2,ground+2.55,15.86],[-29.8,ground+2.72,16.14],'metal',{look:'roof.metal'});
+  b.add([-37.6,ground,18],[-36.3,ground+1.05,21],'wood',{look:'wood'});
 }
 
 function towerHints(): Vec3[] {
@@ -322,12 +322,12 @@ export const LANDMARKS = {
   garage: {x0:-38,x1:-28,z0:16,z1:24},
 } as const;
 
-const point = (x: number, z: number, yaw: number): SpawnPoint => ({ position: [x, 0, z], yaw });
+const point = (x: number, z: number, yaw: number, y = 0): SpawnPoint => ({ position: [x, y, z], yaw });
 // CoD4 starts the teams at the garage in the southwest and apartments in
 // the northeast, with the wreck and its buildings between them.
-const west = [[-38,34],[-32,34],[-25,34],[-38,29],[-34,29],[-27,29]].map(([x,z]) => point(x!,z!,-Math.PI / 2));
+const west = [[-38,34],[-34,34],[-30,34],[-38,29],[-34,29],[-30,29]].map(([x,z]) => point(x!,z!,-Math.PI / 2,0.6));
 const east = [[37,-34],[30,-35],[20,-35],[38,-27],[38,-20],[37,-12]].map(([x,z]) => point(x!,z!,Math.PI / 2));
-const ffa = [...west, ...east, ...[[-20,-29],[8,-32],[37,-29],[-36,5],[35,-4],[-31,30],[4,32],[19,28]].map(([x,z]) => point(x!,z!,Math.atan2(x!,z!)))];
+const ffa = [...west, ...east, ...[[-20,-29],[8,-32],[37,-29],[-36,5],[35,-4],[-31,30],[4,32],[19,28]].map(([x,z]) => point(x!,z!,Math.atan2(x!,z!),x! < -28 && z! >= 16 ? 0.6 : 0))];
 
 export function buildCrash(): MapDefinition {
   const b = new Builder();
@@ -339,6 +339,13 @@ export function buildCrash(): MapDefinition {
     { rect: { x0: -100, x1: 100, z0: -100, z1: 100 }, material: 'sand', look: 'sand' },
   ];
   for (const {rect, material, look} of groundTiles(layers)) b.add([rect.x0,-0.5,rect.z0],[rect.x1,0,rect.z1],material,{look});
+  // The garage sits on a raised southwest approach. Shallow slopes
+  // connect it to the blue-building lane and the southern street.
+  b.add([-42,0,16],[-28,0.6,38],'sand',{look:'sand'});
+  b.paint('sand', () => {
+    b.slope({along:'z',from:[0,10],to:[0,16],across:[-42,-28],base:0,low:0,high:0.6,material:'sand'});
+    b.slope({along:'x',from:[-25,0],to:[-28,0],across:[16,38],base:0,low:0,high:0.6,material:'sand'});
+  });
   // Original neighbourhood arrangement: the main building divides the
   // central crash site from the eastern back street; the arcade closes the
   // south side and leaves an alley behind it.
@@ -423,17 +430,17 @@ export function buildCrash(): MapDefinition {
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},
-    zones:[{id:'A',name:'Garage',center:[-34,0,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
+    zones:[{id:'A',name:'Garage',center:[-34,0.6,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
-    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]},{name:'garage',min:[-38,0,16],max:[-28,3,24]}],
+    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]},{name:'garage',min:[-38,0.6,16],max:[-28,3.6,24]}],
     referenceSpots:spots, benchmarkPath:spots.map(({position,yaw,pitch})=>({position,yaw,pitch})), flyThrough:[], playArea:BOUNDARY,
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
       ...stairHints(LANDMARKS.main,2),
       ...shopHints(),
-      ...([[-33,0,25],[-33,0,22],[-33,0,17],[-33,0,14],[-27,0,21]] as Vec3[]),
+      ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
       ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
