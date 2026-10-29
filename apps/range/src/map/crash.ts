@@ -466,10 +466,24 @@ export function buildCrash(): MapDefinition {
       [[0.25,0.25,-1.42],[2.2,2.27,-1.1]], [[0.25,0.25,1.1],[2.2,2.27,1.42]],
       [[2.2,0,-1.08],[4.25,2.2,1.08]],
       [[-6.55,0,-1.05],[-4.55,2.5,1.05]], [[-6.2,2.5,-2.8],[-5.05,3.15,2.8]],
-      [[1.1,2.7,-2.7],[1.9,3.15,2.7]],
+      [[0.4,2.55,-0.6],[2.0,3.5,0.6]], [[0.52,3.5,-0.6],[1.76,4.16,0.6]],
+      [[0.99,4.16,-0.26],[1.51,4.32,0.26]],
     ] as [Vec3,Vec3][]) {
       const centre: Vec3 = [-6 + (min[2]+max[2])/2, (min[1]+max[1])/2, -2 - (min[0]+max[0])/2];
       b.turned(centre, [max[0]-min[0],max[1]-min[1],max[2]-min[2]], Math.PI / 2, 'metal', 'wreck.hull');
+    }
+    // Match the Blender blade's bent profile with short collision sections.
+    // The tips reach the street, while the higher spans leave room to pass.
+    const rotor: [number,number][] = [[0,4.20],[1.4,4.08],[2.8,3.50],[4.0,2.45],[5.0,0.32]];
+    for (const side of [-1,1]) for (let span=0; span<rotor.length-1; span++) {
+      const [z0,y0]=rotor[span]!, [z1,y1]=rotor[span+1]!;
+      for (let i=0; i<4; i++) {
+        const a=i/4, c=(i+1)/4;
+        const za=side*(z0+(z1-z0)*a), zb=side*(z0+(z1-z0)*c);
+        const ya=y0+(y1-y0)*a, yb=y0+(y1-y0)*c;
+        b.turned([-6+(za+zb)/2,(ya+yb+0.08)/2,-3.25],
+          [0.36,Math.abs(ya-yb)+0.08,Math.abs(za-zb)],Math.PI/2,'metal','wreck.metal');
+      }
     }
   });
   // Scattered masonry around the impact and an abandoned sedan by blue.

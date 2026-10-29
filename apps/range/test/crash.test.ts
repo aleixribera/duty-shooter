@@ -38,6 +38,10 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('keeps the bent rotor solid near its tip and clear beneath its raised span', () => {
+    expect(raycastWorld(world,[-10.8,0.65,-4.0],[-10.8,0.65,-2.5])).not.toBeNull();
+    expect(raycastWorld(world,[-9.5,1.6,-4.0],[-9.5,1.6,-2.5])).toBeNull();
+  });
   it('keeps all spawns in bounds, on the ground and clear of collision', () => {
     // The two team starting areas straddle the map on the original diagonal.
     for (const spawn of map.spawns.teams![0]) expect(spawn.position[0] < 0 && spawn.position[2] > 0).toBe(true);

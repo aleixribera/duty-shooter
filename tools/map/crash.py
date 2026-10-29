@@ -74,7 +74,10 @@ def helicopter():
         kit.section([(2.27,-1.2),(2.36,-1.15),(2.62,-0.7),(2.62,0.7),(2.36,1.15),(2.27,1.2),(2.27,1.05),(2.32,1.0),(2.43,0.65),(2.43,-0.65),(2.32,-1.0),(2.27,-1.05)],-3.5,2.2,hull),
         kit.prism([(2.2, 0.2), (4.25, 0.2), (4.1, 1.15), (3.2, 2.05), (2.2, 2.2)], -1.05, 1.05, hull, 0.04),
         
-        kit.box((1.1, 2.66, -0.7), (1.9, 3.1, 0.7), dark, 0.04),
+        # The forward transmission housing rises prominently above the
+        # fuselage in the original wreck, behind the cockpit.
+        kit.prism([(0.4,2.55),(2.0,2.55),(1.76,3.50),(1.65,4.16),
+                   (0.70,4.16),(0.52,3.50)], -0.60, 0.60, hull, 0.025),
         # dark cockpit panes and framed side hatch
         kit.box((2.75, 1.25, -1.06), (3.4, 1.8, -1.045), glass),
         kit.box((2.75, 1.25, 1.045), (3.4, 1.8, 1.06), glass),
@@ -82,14 +85,22 @@ def helicopter():
         rear_shell(),
         kit.prism([(-6.2, 1.9), (-5.95, 2.95), (-5.15, 2.95), (-5.05, 1.9)], -0.5, 0.5, hull, 0.025),
         kit.cylinder(0.26, 3.0, 3.13, (-5.55, 0, 0), "y", metal, 16),
-        kit.cylinder(0.26, 3.0, 3.13, (1.5, 0, 0), "y", metal, 16),
+        kit.cylinder(0.26, 4.16, 4.32, (1.25, 0, 0), "y", metal, 16),
         # The surviving blades droop toward their snapped tips rather than
         # forming the flat, intact rotor of an undamaged helicopter.
         kit._slab([(-5.87,2.58,-2.8),(-5.64,2.61,-2.65),(-5.52,3.07,0),(-5.80,3.07,0)],(0,0.06,0),dark,0,1,False),
         kit._slab([(-5.72,3.07,0),(-5.48,3.07,0),(-5.32,2.68,2.45),(-5.55,2.62,2.8)],(0,0.06,0),dark,0,1,False),
-        kit._slab([(1.20,2.76,-2.7),(1.43,2.78,-2.5),(1.63,3.07,0),(1.36,3.07,0)],(0,0.06,0),dark,0,1,False),
-        kit._slab([(1.39,3.07,0),(1.65,3.07,0),(1.83,2.80,2.45),(1.65,2.76,2.7)],(0,0.06,0),dark,0,1,False),
     ]
+    # The broken forward rotor bends down in stages, ending near the street.
+    # Each span is subdivided to keep its collision close to the angled mesh.
+    for side in (-1, 1):
+        for (z0,y0),(z1,y1) in zip(FRONT_ROTOR, FRONT_ROTOR[1:]):
+            for i in range(4):
+                a, b = i/4, (i+1)/4
+                za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
+                ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
+                parts.append(kit._slab([(1.07,ya,za),(1.43,ya,za),
+                                        (1.43,yb,zb),(1.07,yb,zb)],(0,0.08,0),metal,0,1,False))
     for side in (-1,1):
         z0,z1 = sorted((side*1.12,side*1.36))
         # Uneven torn edges around the doorway remain inside the matching
@@ -319,9 +330,19 @@ def palm():
     return trunk,kit.asset('palm-crown',parts,smooth_angle=25)
 
 trunk, crown = palm()
+FRONT_ROTOR = [(0,4.20),(1.4,4.08),(2.8,3.50),(4.0,2.45),(5.0,0.32)]
+front_rotor_solids = []
+for side in (-1, 1):
+    for (z0,y0),(z1,y1) in zip(FRONT_ROTOR, FRONT_ROTOR[1:]):
+        for i in range(4):
+            a, b = i/4, (i+1)/4
+            za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
+            ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
+            front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
+
 built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown]
 SOLIDS = {
-    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((1.1, 2.7, -2.7), (1.9, 3.15, 2.7))],
+    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2, 0, -1.08), (4.25, 2.2, 1.08)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
