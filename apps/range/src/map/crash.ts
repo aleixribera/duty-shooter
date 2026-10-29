@@ -191,6 +191,53 @@ function blueHints(): Vec3[] {
   return hints;
 }
 
+/** The building opposite blue has a market floor, an upper room, and an
+ * accessible roof. Its stairs fit inside the building instead of crossing
+ * the crash site on long exterior flights. */
+function buildMain(b: Builder): void {
+  const r = LANDMARKS.main, t = 0.25;
+  for (let level = 0; level < 2; level++) {
+    const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'plaster'};
+    const ends = level === 0 ? [door(8.6)] : [windowOpening(4.2),windowOpening(13.3)];
+    const windows = [windowOpening(-15),windowOpening(-10),windowOpening(-5)];
+    b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(4.2),windowOpening(13.3)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:level === 0 ? [...windows,door(0)] : windows,trim:[{face:-1,frames:'trim'}]});
+    b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:windows,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+  }
+  // The floors and roof surround a switchback stairwell in the east side.
+  for (const y of [3,6]) {
+    const look = y === 6 ? 'roof' : 'concrete';
+    b.add([r.x0,y-0.18,r.z0],[10.4,y,r.z1],'concrete',{look});
+    b.add([14.4,y-0.18,r.z0],[r.x1,y,r.z1],'concrete',{look});
+    b.add([10.4,y-0.18,r.z0],[14.4,y,-18.7],'concrete',{look});
+    b.add([10.4,y-0.18,-5.2],[14.4,y,r.z1],'concrete',{look});
+  }
+  for (const y of [0,3]) {
+    towerFlight(b,10.6,12,-5.4,-17,y);
+    towerFlight(b,12.6,14,-17,-5.4,y+1.5);
+    b.add([10.6,y+1.32,-18.7],[14,y+1.5,-17],'concrete',{look:'concrete'});
+  }
+  // Stop navigation from cutting sideways between the two flights.
+  b.add([12.25,0,-16.8],[12.35,6,-5.6],'concrete',{look:'plaster'});
+  const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'plaster'};
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+}
+
+function mainHints(): Vec3[] {
+  const hints: Vec3[] = [[9.5,0,4],[9.5,0,2],[9.5,0,-4.5]];
+  for (const y of [0,3]) {
+    hints.push([11.3,y,-4.5],[11.3,y+1.5,-17.8],[13.3,y+1.5,-17.8],
+      [13.3,y+3,-4.5],[9.5,y+3,-4.5]);
+    for (let i=0; i<=6; i++)
+      hints.push([11.3,y+1.5*i/6,-5.4-11.6*i/6],[13.3,y+1.5+1.5*i/6,-17+11.6*i/6]);
+  }
+  return hints;
+}
+
 /** A shop at ground level with an upstairs room and a back-street entrance. */
 function buildShop(b: Builder): void {
   const r = LANDMARKS.shop, t = 0.25;
@@ -297,21 +344,6 @@ function buildLanes(b: Builder): void {
   b.wall({...wall,along:'z',at:-31,from:-8,to:13,openings:[gap(-2,2),gap(8,11)]});
 }
 
-/** Precise nodes follow the outside flights and lead through each landing door. */
-function stairHints(r: Rect, levels: number): Vec3[] {
-  const hints: Vec3[] = [];
-  for (let level = 1; level < levels; level++) {
-    const north = level % 2 === 1;
-    const from = north ? r.z1 - 0.2 : r.z0 + 1.7;
-    const to = north ? r.z0 + 1.7 : r.z1 - 0.2;
-    const x = r.x0 - 2.2 * level + 0.85;
-    for (let k = 0; k <= 5; k++) hints.push([x, (level - 1) * 3 + 3 * k / 5, from + (to - from) * k / 5]);
-    const doorway = north ? r.z0 + 1.7 : r.z1 - 1.7;
-    hints.push([x, level * 3, doorway], [r.x0 - 0.8, level * 3, doorway], [r.x0 + 0.8, level * 3, doorway], [r.x0 + 2.5, level * 3, doorway]);
-  }
-  return hints;
-}
-
 /** Landmark footprints, in metres, laid out against the original overhead. */
 export const LANDMARKS = {
   tower: {x0:-14,x1:-4,z0:-33,z1:-22},
@@ -357,9 +389,7 @@ export function buildCrash(): MapDefinition {
   for (const z of [-22,-24,-26,-28,-30])
     b.model('rooftop-fence',[-4,9.85,z],Math.PI/2,() => b.add([-4.05,9.85,z-2],[-3.95,11.35,z],'metal',{look:'fence.metal',blocks:'players'}));
   buildBlue(b);
-  // The building across from blue has an accessible roof overlooking the
-  // crash site. A stair provides access until ladder movement is supported.
-  building(b, LANDMARKS.main, 2, 'plaster', 'south', true, 'main');
+  buildMain(b);
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
   buildArcadeWalkway(b);
   buildShop(b);
@@ -404,7 +434,7 @@ export function buildCrash(): MapDefinition {
   for (const [x,z0,z1] of [[-37,-7,10],[35,-18,14]] as const) for (const dx of [-0.7,0.7])
     b.add([x+dx-0.015,6.22,z0],[x+dx+0.015,6.25,z1],'metal',{look:'pole.wire',blocks:'bullets'});
   // Rooftop water storage and dishes add recognizable silhouettes and cover.
-  for (const [x,y,z] of [[-20,6,-1],[12,6,-14],[21,6,20]] as const)
+  for (const [x,y,z] of [[-20,6,-1],[8,6,-14],[21,6,20]] as const)
     b.model('water-tank',[x,y,z],0,() => b.add([x-0.8,y,z-0.8],[x+0.8,y+1.6,z+0.8],'metal',{look:'roof.tank'}));
   for (const [x,y,z] of [[-6,9,-30],[-20,6,9]] as const)
     b.model('satellite-dish',[x,y,z],0,() => b.add([x-0.32,y,z-0.54],[x+0.50,y+1.76,z+0.54],'metal',{look:'roof.metal'}));
@@ -440,7 +470,7 @@ export function buildCrash(): MapDefinition {
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
-      ...stairHints(LANDMARKS.main,3),
+      ...mainHints(),
       ...shopHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),

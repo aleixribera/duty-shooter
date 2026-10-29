@@ -178,7 +178,8 @@ describe('Crash', () => {
     expect(raycastWorld(world,[-0.5,4.6,-14.25],[4,4.6,-14.25])).toBeNull();
   });
   it('lets a player climb to the main building roof from the plaza', () => {
-    const legs: Vec3[] = [[1.65,0,2.8],[1.65,3,-18.3],[-0.55,3,-18.3],[-0.55,6,2.8],[1,6,1.3],[4,6,1.3]];
+    const legs: Vec3[] = [[9.5,0,4],[9.5,0,2],[11.3,0,-4.5]];
+    for (const y of [0,3]) legs.push([11.3,y,-4.5],[11.3,y+1.5,-17.8],[13.3,y+1.5,-17.8],[13.3,y+3,-4.5],[9.5,y+3,-4.5]);
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
     let out = m.step({p:usercmd({yaw:0})}).players[0]!;
     for (const target of legs.slice(1)) {
