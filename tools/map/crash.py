@@ -46,9 +46,13 @@ def rear_shell():
         for i in range(count):
             a = 2 * math.pi * i / count
             # Jagged lip at the break and a flattened bottom against the rubble.
-            lip = (0.12 * math.sin(i * 4.7)) if x == -4.7 else 0
-            y = max(0.08, 1.1 + (1.02 - inset) * math.sin(a))
-            z = (1.03 - inset) * math.cos(a)
+            lip = (0.14 * math.sin(i * 4.7)) if x == -4.7 else 0
+            # Irregular inward folds keep the inner and outer skins parallel,
+            # while breaking up the otherwise perfectly cylindrical tail.
+            dent = (0.18 if i in (2, 3, 9, 13) else 0.06 if i in (1, 4, 8, 10, 12, 14) else 0)
+            dent *= 1.0 if x == -4.7 else 0.45
+            y = max(0.08, 1.1 + (1.02 - inset - dent) * math.sin(a))
+            z = (1.03 - inset - dent) * math.cos(a)
             ring.append(bm.verts.new(kit.b((x + lip, y, z))))
         rings.append(ring)
     for i in range(count):
@@ -79,10 +83,12 @@ def helicopter():
         kit.prism([(-6.2, 1.9), (-5.95, 2.95), (-5.15, 2.95), (-5.05, 1.9)], -0.5, 0.5, hull, 0.025),
         kit.cylinder(0.26, 3.0, 3.13, (-5.55, 0, 0), "y", metal, 16),
         kit.cylinder(0.26, 3.0, 3.13, (1.5, 0, 0), "y", metal, 16),
-        kit.plan([(-5.87, -2.8), (-5.64, -2.65), (-5.52, 0), (-5.80, 0)], 3.07, 3.13, dark),
-        kit.plan([(-5.72, 0), (-5.48, 0), (-5.32, 2.45), (-5.55, 2.8)], 3.07, 3.13, dark),
-        kit.plan([(1.20, -2.7), (1.43, -2.5), (1.63, 0), (1.36, 0)], 3.07, 3.13, dark),
-        kit.plan([(1.39, 0), (1.65, 0), (1.83, 2.45), (1.65, 2.7)], 3.07, 3.13, dark),
+        # The surviving blades droop toward their snapped tips rather than
+        # forming the flat, intact rotor of an undamaged helicopter.
+        kit._slab([(-5.87,2.58,-2.8),(-5.64,2.61,-2.65),(-5.52,3.07,0),(-5.80,3.07,0)],(0,0.06,0),dark,0,1,False),
+        kit._slab([(-5.72,3.07,0),(-5.48,3.07,0),(-5.32,2.68,2.45),(-5.55,2.62,2.8)],(0,0.06,0),dark,0,1,False),
+        kit._slab([(1.20,2.76,-2.7),(1.43,2.78,-2.5),(1.63,3.07,0),(1.36,3.07,0)],(0,0.06,0),dark,0,1,False),
+        kit._slab([(1.39,3.07,0),(1.65,3.07,0),(1.83,2.80,2.45),(1.65,2.76,2.7)],(0,0.06,0),dark,0,1,False),
     ]
     for side in (-1,1):
         z0,z1 = sorted((side*1.12,side*1.36))
@@ -96,8 +102,26 @@ def helicopter():
                  (0.59,0.88),(0.37,0.65),(0.55,0.43)]
         parts.extend([kit.prism(rear,z0,z1,hull),kit.prism(front,z0,z1,hull)])
     # The sloped windscreen, divided into left and right panes.
-    for z0, z1 in [(-0.9, -0.06), (0.06, 0.9)]:
+    for pane_index, (z0, z1) in enumerate([(-0.9, -0.06), (0.06, 0.9)]):
         parts.append(kit._slab([(3.25, 2.08, z0), (3.25, 2.08, z1), (3.85, 1.48, z1), (3.85, 1.48, z0)], (0.0, 0.025, 0.0), glass, 0, 1, False))
+        # Pale fragments and narrow cracks on the windscreen, laid on its
+        # sloped plane. The nose remains solid cover behind the glazing.
+        def pane(points, material):
+            return kit._slab([(3.25 + 0.6*u, 2.112 - 0.6*u, z0 + (z1-z0)*v) for u,v in points], (0,0.004,0), material, 0, 1, False)
+        def crack(a, b):
+            du, dv = b[0]-a[0], b[1]-a[1]
+            length = math.hypot(du, dv)
+            ou, ov = -dv * 0.007 / length, du * 0.007 / length
+            return pane([(a[0]+ou,a[1]+ov),(b[0]+ou,b[1]+ov),
+                         (b[0]-ou,b[1]-ov),(a[0]-ou,a[1]-ov)], metal)
+        impacts = [((0.38,0.36), [(0.12,0.18),(0.18,0.60),(0.42,0.82),(0.68,0.65),(0.70,0.19)]),
+                   ((0.64,0.63), [(0.24,0.48),(0.46,0.90),(0.82,0.88),(0.90,0.47),(0.53,0.18)])]
+        centre, ends = impacts[pane_index]
+        for end in ends:
+            mid = ((centre[0]+end[0])*0.5 + 0.035, (centre[1]+end[1])*0.5 - 0.025)
+            parts.extend([crack(centre, mid), crack(mid, end)])
+        parts.append(pane([(0.12,0.12),(0.24,0.10),(0.29,0.19),(0.16,0.24)], metal))
+        parts.append(pane([(0.71,0.69),(0.80,0.64),(0.88,0.78),(0.79,0.86)], soot))
     # Portholes, fractured cockpit glazing, panel seams and dark impact marks.
     for side in (-1, 1):
         lo, hi = sorted((side * 1.36, side * 1.375))
