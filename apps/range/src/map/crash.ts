@@ -307,6 +307,44 @@ function shopHints(): Vec3[] {
   return hints;
 }
 
+/** The Marines-side apartment has an upper room reached from an internal
+ * stairwell. Both street-facing doors remain open at ground level. */
+function buildApartments(b: Builder): void {
+  const r = LANDMARKS.apartments, t = 0.25;
+  for (let level=0; level<2; level++) {
+    const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'plaster'};
+    const ends = [windowOpening(24.2),windowOpening(31.3)];
+    b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:ends,trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:level === 0 ? [door(27.6,2)] : ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:level === 0 ? [door(-27.3,2)] : [windowOpening(-31.5),windowOpening(-26.5)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:level === 0 ? [door(-29,2)] : [windowOpening(-31.5),windowOpening(-26.5)],trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+  }
+  // Leave a rectangular opening through the upper floor around the flights.
+  b.add([r.x0,2.82,r.z0],[28.2,3,r.z1],'concrete',{look:'concrete'});
+  b.add([32.4,2.82,r.z0],[r.x1,3,r.z1],'concrete',{look:'concrete'});
+  b.add([28.2,2.82,r.z0],[32.4,3,-31.6],'concrete',{look:'concrete'});
+  b.add([28.2,2.82,-25],[32.4,3,r.z1],'concrete',{look:'concrete'});
+  towerFlight(b,28.4,29.8,-25.2,-29.8,0);
+  towerFlight(b,30.2,31.6,-29.8,-25.2,1.5);
+  b.add([28.4,1.32,-31.6],[31.6,1.5,-29.8],'concrete',{look:'concrete'});
+  b.add([29.95,0,-29.65],[30.05,3,-25.35],'concrete',{look:'plaster'});
+  b.add([r.x0-0.12,5.82,r.z0-0.12],[r.x1+0.12,6,r.z1+0.12],'concrete',{look:'roof'});
+  const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'plaster'};
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+}
+
+function apartmentHints(): Vec3[] {
+  const hints: Vec3[] = [[36,0,-28],[33,0,-28],[33,0,-24.6],[29.1,0,-24.6],
+    [22,0,-26.3],[24,0,-26.3],[29.1,0,-25],[29.1,1.5,-30.7],
+    [30.9,1.5,-30.7],[30.9,3,-24.5],[27.2,3,-24.5],[26,3,-27]];
+  for (let i=0; i<=6; i++)
+    hints.push([29.1,1.5*i/6,-25.2-4.6*i/6],[30.9,1.5+1.5*i/6,-29.8+4.6*i/6]);
+  return hints;
+}
+
 /** An open vehicle bay connects the garage spawn to the blue-building lane. */
 function buildGarage(b: Builder): void {
   const r = LANDMARKS.garage, t = 0.25, ground = 0.6;
@@ -369,6 +407,7 @@ export const LANDMARKS = {
   arcade: {x0:-11,x1:5,z0:13,z1:23},
   shop: {x0:18,x1:31,z0:8,z1:23},
   garage: {x0:-38,x1:-28,z0:16,z1:24},
+  apartments: {x0:23,x1:34,z0:-33,z1:-24},
 } as const;
 
 const point = (x: number, z: number, yaw: number, y = 0): SpawnPoint => ({ position: [x, y, z], yaw });
@@ -416,7 +455,7 @@ export function buildCrash(): MapDefinition {
   buildShop(b);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   buildGarage(b);
-  building(b, {x0:23,x1:34,z0:-33,z1:-24}, 1, 'plaster', 'south');
+  buildApartments(b);
   buildLanes(b);
   // The crashed tandem-rotor aircraft runs roughly north to south, with
   // a broken rear section separated from the main fuselage.
@@ -492,13 +531,14 @@ export function buildCrash(): MapDefinition {
     zones:[{id:'A',name:'Garage',center:[-34,0.6,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
-    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]},{name:'garage',min:[-38,0.6,16],max:[-28,3.6,24]}],
+    indoorZones:[{name:'tower',min:[-14,0,-33],max:[-4,9,-22]},{name:'blue building',min:[-27,0,-3],max:[-17,6,10]},{name:'main building',min:[3,0,-20],max:[16,6,3]},{name:'shop',min:[18,0,8],max:[31,6,23]},{name:'garage',min:[-38,0.6,16],max:[-28,3.6,24]},{name:'apartments',min:[23,0,-33],max:[34,6,-24]}],
     referenceSpots:spots, benchmarkPath:spots.map(({position,yaw,pitch})=>({position,yaw,pitch})), flyThrough:[], playArea:BOUNDARY,
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
       ...mainHints(),
       ...shopHints(),
+      ...apartmentHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),

@@ -196,6 +196,22 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('connects the northeast spawn street to the apartment upper floor', () => {
+    const legs: Vec3[] = [[36,0,-28],[33,0,-28],[33,0,-24.55],[29.1,0,-24.55],
+      [29.1,1.5,-30.7],[30.9,1.5,-30.7],[30.9,3,-24.55],[27.2,3,-24.55],[26,3,-27]];
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (const target of legs.slice(1)) {
+      let reached = false;
+      for (let i=0;i<12/TICK_SECONDS;i++) {
+        const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+        if (distance<0.35 && Math.abs(target[1]-p[1])<0.3 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+        out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+      }
+      expect(reached, 'toward '+target+' at '+out.position).toBe(true);
+    }
+    expect(raycastWorld(world,[21,4.6,-30.75],[25,4.6,-30.75])).toBeNull();
+  });
   it('allows players through the three lane openings while the walls screen the gaps between them', () => {
     const routes: [Vec3,Vec3][] = [[[29,0,-12],[35,0,-12]],[[9,0,23],[9,0,28]],[[-34,0,0],[-30.2,0,0]]];
     for (const [start,target] of routes) {
@@ -292,7 +308,7 @@ describe('Crash', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);
     expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -1.9 && n.position[2] < -1.1 && Math.abs(n.position[1]-0.25) < 0.1), 'wreck cabin').toBe(true);
-    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[3,16,-20,3,6],[18,31,8,23,6]]) {
+    for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[23,34,-33,-24,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[3,16,-20,3,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
     }
     expect(reachable(nav,false).size).toBe(nav.nodes.length);
