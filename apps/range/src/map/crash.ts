@@ -134,6 +134,46 @@ function buildTower(b: Builder): void {
   b.wall({...parapet,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
 }
 
+/** The blue building has entrances on three sides and stairs inside, rather
+ * than the generic exterior flights used for the less prominent buildings. */
+function buildBlue(b: Builder): void {
+  const r = LANDMARKS.blue, t = 0.25;
+  for (let level = 0; level < 2; level++) {
+    const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'blue'};
+    const ends = level === 0 ? [door(-22.9,1.8)] : [windowOpening(-25.5),windowOpening(-20.2)];
+    const east = level === 0 ? [door(3,2)] : [windowOpening(-1.5,2),windowOpening(4,2)];
+    b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:ends,trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-1.5),windowOpening(5)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
+    b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:east,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+  }
+  // Two floors surround the stairwell; each has a landing at its south end.
+  for (const y of [3,6]) {
+    const look = y === 6 ? 'roof' : 'concrete';
+    b.add([r.x0,y-0.18,r.z0],[r.x1,y,0.5],'concrete',{look});
+    b.add([-22.9,y-0.18,0.5],[r.x1,y,r.z1],'concrete',{look});
+    b.add([r.x0,y-0.18,0.5],[-26.5,y,r.z1],'concrete',{look});
+    b.add([r.x0,y-0.18,8.2],[-22.9,y,r.z1],'concrete',{look});
+  }
+  for (const y of [0,3]) {
+    towerFlight(b,-26.3,-24.9,8,2,y);
+    towerFlight(b,-24.5,-23.1,2,8,y+1.5);
+    b.add([-26.3,y+1.32,0.5],[-23.1,y+1.5,2],'concrete',{look:'concrete'});
+  }
+  const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'blue'};
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+}
+
+function blueHints(): Vec3[] {
+  const hints: Vec3[] = [[-22,0,11],[-22,0,9],[-22,0,8.5],[-16,0,4],[-18,0,4],[-22,0,-4],[-22,0,-2]];
+  for (const y of [0,3]) hints.push([-25.6,y,8.5],[-25.6,y+0.75,5],[-25.6,y+1.5,1.2],
+    [-23.8,y+1.5,1.2],[-23.8,y+2.25,5],[-23.8,y+3,8.5],[-22,y+3,8.5]);
+  return hints;
+}
+
 function towerHints(): Vec3[] {
   const hints: Vec3[] = [[-9,0,-20.8],[-9,0,-22.8],[-9,0,-24],[-5,0,-26.8],[-3,0,-26.8]];
   for (const y of [0,3,6]) {
@@ -206,7 +246,7 @@ export function buildCrash(): MapDefinition {
   // central crash site from the eastern back street; the arcade closes the
   // south side and leaves an alley behind it.
   buildTower(b);
-  building(b, LANDMARKS.blue, 2, 'blue', 'south', true);
+  buildBlue(b);
   building(b, LANDMARKS.main, 2, 'plaster', 'south', false, 'main');
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
   buildArcadeWalkway(b);
@@ -281,7 +321,7 @@ export function buildCrash(): MapDefinition {
     referenceSpots:spots, benchmarkPath:spots.map(({position,yaw,pitch})=>({position,yaw,pitch})), flyThrough:[], playArea:BOUNDARY,
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
-      ...stairHints(LANDMARKS.blue,3),
+      ...blueHints(),
       ...stairHints(LANDMARKS.main,2),
       ...stairHints(LANDMARKS.shop,3),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
