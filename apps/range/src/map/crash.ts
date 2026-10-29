@@ -114,14 +114,32 @@ function towerFlight(b: Builder, x0: number, x1: number, z0: number, z1: number,
  * Floor slabs leave the stairwell open, including the opening onto the roof. */
 function buildTower(b: Builder): void {
   const r = LANDMARKS.tower, t = 0.25;
+  const frontWindows = [-13,-10.6,-8.2,-5.8];
   for (let level = 0; level < 3; level++) {
     const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'plaster'};
-    const south = level === 0 ? [door(-10.1,2.2)] : [windowOpening(-12.5),windowOpening(-7.2)];
-    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:south,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    const south = level === 0 ? [door(-10.1,2.2)] : level === 1
+      ? frontWindows.map(from => ({from,to:from+1.3,bottom:0.45,top:2.65}))
+      : frontWindows.map(from => windowOpening(from,1.3));
+    b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:south,trim:[{face:1,frames:'trim',...(level===1 ? {} : {shutters:'shutter'})}]});
     b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(-12.5),windowOpening(-7.2)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-31.0),windowOpening(-26.5)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     const east = level === 0 ? [door(-27.8,2)] : level === 1 ? [door(-30.5,1.8),windowOpening(-25.5)] : [windowOpening(-30.5),windowOpening(-25.5)];
     b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:east,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+  }
+  // Fill the upper corners of the four plaza-facing windows to form arched
+  // heads. Short steps follow the curve and remain solid to shots and players.
+  for (const x of frontWindows) for (let i=0; i<8; i++) {
+    const a=1.3*i/8, c=1.3*(i+1)/8;
+    const edge=Math.max(Math.abs(a-0.65),Math.abs(c-0.65));
+    const head=5+Math.sqrt(Math.max(0,0.65**2-edge**2));
+    b.add([x+a,head,r.z1-t/2],[x+c,5.65,r.z1+t/2],'concrete',{look:'plaster'});
+    b.add([x+a,head-0.07,r.z1+t/2],[x+c,head,r.z1+t/2+0.04],'concrete',{look:'trim'});
+  }
+  // A striped metal awning separates the arched level from the top storey.
+  for (let i=0; i<16; i++) {
+    const x=r.x0+(r.x1-r.x0)*i/16;
+    b.add([x,5.78,r.z1+t/2],[x+(r.x1-r.x0)/16,5.94,r.z1+0.9],
+      'metal',{look:i%2 ? 'roof.tank' : 'trim'});
   }
   // The stairwell occupies the west side; its top landing opens east onto each floor.
   for (const y of [3,6,9]) {
