@@ -241,6 +241,11 @@ describe('Crash', () => {
     expect(raycastWorld(world,[-20,4.6,4],[-20,8,4])).toBeNull();
     expect(raycastWorld(world,[-20,4.6,-1],[-20,8,-1])).not.toBeNull();
   });
+  it('exposes the blue upper room through its fractured wall while keeping low cover', () => {
+    expect(raycastWorld(world,[-16,4.8,2.4],[-18,4.8,2.4])).toBeNull();
+    expect(raycastWorld(world,[-16,3.45,2.4],[-18,3.45,2.4])).not.toBeNull();
+    expect(raycastWorld(world,[-16,5.5,8],[-18,5.5,8])).not.toBeNull();
+  });
   it('leaves gaps in the broken blue roof edge while its remaining parapet blocks shots', () => {
     expect(raycastWorld(world,[-16,6.5,0.85],[-18,6.5,0.85])).toBeNull();
     expect(raycastWorld(world,[-16,6.5,-2],[-18,6.5,-2])).not.toBeNull();

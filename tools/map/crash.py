@@ -54,9 +54,10 @@ grass_straw = mat("grass.straw", 0xb1a36c, 0.96)
 
 BLUE_EAST = [
     [(0.125,0.85),(1.4,0.85),(1.85,0.61),(2.35,0.52),(2.85,0.25),(3.4,0.08)],
-    [(4.2,0.08),(4.55,0.24),(5.0,0.6),(5.5,0.82),(7.1,0.85),(7.7,0.62),(8.3,0.36),(9.4,0.08)],
     [(9.9,0.1),(10.35,0.42),(11.0,0.72),(12.875,0.85)],
 ]
+BLUE_WALL = [(0.8,1.2),(1.2,1.05),(1.7,0.85),(2.4,0.7),(3.1,0.9),
+             (3.9,0.78),(4.5,1.0),(5.1,1.25),(5.8,1.6),(6.7,1.75)]
 BLUE_SOUTH = [
     [(0,0.85),(3.4,0.85),(4,0.65),(4.6,0.28),(5.3,0.07)],
     [(6.2,0.1),(6.9,0.35),(7.6,0.65),(8,0.85),(10,0.85)],
@@ -632,13 +633,15 @@ for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
 
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'blue-edge-east': blue_east_solids,
     'blue-edge-south': blue_south_solids,
+    'blue-wall-broken': blue_wall_solids,
     'cafe-sign': [((-1.2,0,-0.09),(1.2,0.72,0.07))],
     'abandoned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
     'burned-car': [((-2.4,0,-1.0),(2.4,1.08,1.0)),

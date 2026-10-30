@@ -186,11 +186,17 @@ function buildBlue(b: Builder): void {
   for (let level = 0; level < 2; level++) {
     const common = {thickness:t,bottom:level*3,height:3,material:'concrete' as const,look:'blue'};
     const ends = level === 0 ? [door(-22.9,1.8)] : [windowOpening(-25.5),windowOpening(-20.2)];
-    const east = level === 0 ? [door(3,2)] : [windowOpening(-1.5,2),windowOpening(4,2)];
     b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:ends,trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-1.5),windowOpening(5)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
-    b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:east,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    if (level === 0) {
+      b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:[door(3,2)],trim:[{face:1,frames:'trim'}]});
+    } else {
+      // The crash tore out the middle of the upper facade; keep a window on
+      // each surviving end and a low, irregular wall between them.
+      b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:0.8,openings:[windowOpening(-1.5,2)],trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+      b.wall({...common,along:'z',at:r.x1,from:6.7,to:r.z1-t/2,openings:[windowOpening(7.4,1.6)],trim:[{face:1,frames:'trim',shutters:'shutter'}]});
+    }
   }
   // Two floors surround the stairwell; each has a landing at its south end.
   for (const y of [3,6]) {
@@ -202,7 +208,8 @@ function buildBlue(b: Builder): void {
       // The upper room is open to the sky where its roof collapsed; a broken
       // perimeter remains connected to the stairs and still supports props.
       b.add([-22.9,y-0.18,0.5],[-21.6,y,8.2],'concrete',{look});
-      b.add([-18.2,y-0.18,0.5],[r.x1,y,8.2],'concrete',{look});
+      b.add([-18.2,y-0.18,0.5],[r.x1,y,0.8],'concrete',{look});
+      b.add([-18.2,y-0.18,6.7],[r.x1,y,8.2],'concrete',{look});
       b.add([-21.6,y-0.18,0.5],[-18.2,y,1.2],'concrete',{look});
       b.add([-20.0,y-0.18,1.2],[-18.2,y,2.3],'concrete',{look});
       b.add([-22.9,y-0.18,8.2],[r.x1,y,r.z1],'concrete',{look});
@@ -228,15 +235,18 @@ function buildBlue(b: Builder): void {
         for (let i=0; i<count; i++) {
           const u0=a+(c-a)*i/count, u1=a+(c-a)*(i+1)/count;
           const top=Math.max(h0+(h1-h0)*i/count,h0+(h1-h0)*(i+1)/count);
-          if (axis==='z') b.add([origin[0]-t/2,6,origin[2]+u0],[origin[0]+t/2,6+top,origin[2]+u1],'concrete',{look:'blue'});
-          else b.add([origin[0]+u0,6,origin[2]-t/2],[origin[0]+u1,6+top,origin[2]+t/2],'concrete',{look:'blue'});
+          if (axis==='z') b.add([origin[0]-t/2,origin[1],origin[2]+u0],[origin[0]+t/2,origin[1]+top,origin[2]+u1],'concrete',{look:'blue'});
+          else b.add([origin[0]+u0,origin[1],origin[2]-t/2],[origin[0]+u1,origin[1]+top,origin[2]+t/2],'concrete',{look:'blue'});
         }
       }
     });
   };
+  edge('blue-wall-broken','z',[r.x1,3,0],[[
+    [0.8,1.2],[1.2,1.05],[1.7,0.85],[2.4,0.7],[3.1,0.9],
+    [3.9,0.78],[4.5,1.0],[5.1,1.25],[5.8,1.6],[6.7,1.75],
+  ]]);
   edge('blue-edge-east','z',[r.x1,6,r.z0],[
     [[0.125,0.85],[1.4,0.85],[1.85,0.61],[2.35,0.52],[2.85,0.25],[3.4,0.08]],
-    [[4.2,0.08],[4.55,0.24],[5,0.6],[5.5,0.82],[7.1,0.85],[7.7,0.62],[8.3,0.36],[9.4,0.08]],
     [[9.9,0.1],[10.35,0.42],[11,0.72],[12.875,0.85]],
   ]);
   edge('blue-edge-south','x',[r.x0,6,r.z1],[
@@ -245,7 +255,7 @@ function buildBlue(b: Builder): void {
   ]);
   // Thin exposed reinforcement marks the fractured ends without acting as
   // a full-width invisible player barrier across the openings.
-  for (const z of [0.52,1.16,6.43,6.88])
+  for (const z of [0.52,6.88])
     b.add([r.x1-0.025,6,z-0.025],[r.x1+0.025,6.52,z+0.025],'metal',{look:'roof.metal',blocks:'bullets'});
   for (const x of [-21.67,-20.83])
     b.add([x-0.025,6,r.z1-0.025],[x+0.025,6.52,r.z1+0.025],'metal',{look:'roof.metal',blocks:'bullets'});
