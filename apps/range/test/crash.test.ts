@@ -38,6 +38,15 @@ describe('Crash', () => {
       expect(reached, 'toward '+target+' at '+out.position).toBe(true);
     }
   });
+  it('lets a crouched player pass through the detached rear shell while its sides provide cover', () => {
+    expect(raycastWorld(world,[-6,1.1,5.5],[-6,1.1,2.25])).toBeNull();
+    expect(raycastWorld(world,[-8,1.1,3.5],[-6,1.1,3.5])).not.toBeNull();
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-6,0,5.6],yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0,buttons:['Crouch']})}).players[0]!;
+    for (let i=0; i<8/TICK_SECONDS && out.position[2]>2.2; i++)
+      out=m.step({p:usercmd({yaw:0,forward:1,buttons:['Crouch']})}).players[0]!;
+    expect(out.position[2]).toBeLessThan(2.4);
+  });
   it('keeps the bent rotor solid near its tip and clear beneath its raised span', () => {
     expect(raycastWorld(world,[-10.8,0.65,-4.0],[-10.8,0.65,-2.5])).not.toBeNull();
     expect(raycastWorld(world,[-9.5,1.6,-4.0],[-9.5,1.6,-2.5])).toBeNull();

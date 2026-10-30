@@ -41,19 +41,20 @@ def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
     bm = bmesh.new()
     rings = []
-    count = 16
-    for x, inset in [(-6.4, 0), (-4.7, 0), (-6.4, 0.15), (-4.7, 0.15)]:
+    outer = [(0.08,-0.75),(0.32,-1.02),(1.8,-1.02),(2.1,-0.75),(2.22,-0.45),
+             (2.22,0.45),(2.1,0.75),(1.8,1.02),(0.32,1.02),(0.08,0.75)]
+    inner = [(0.20,-0.70),(0.32,-0.82),(1.8,-0.82),(1.98,-0.65),(2.05,-0.38),
+             (2.05,0.38),(1.98,0.65),(1.8,0.82),(0.32,0.82),(0.20,0.70)]
+    count = len(outer)
+    for x, profile in [(-6.4,outer),(-4.7,outer),(-6.4,inner),(-4.7,inner)]:
         ring = []
-        for i in range(count):
-            a = 2 * math.pi * i / count
-            # Jagged lip at the break and a flattened bottom against the rubble.
+        for i,(y,z) in enumerate(profile):
+            # Matching inner and outer lips keep the shell open even where it
+            # has folded. Its flattened base leaves a clear crouched route.
             lip = (0.14 * math.sin(i * 4.7)) if x == -4.7 else 0
-            # Irregular inward folds keep the inner and outer skins parallel,
-            # while breaking up the otherwise perfectly cylindrical tail.
-            dent = (0.18 if i in (2, 3, 9, 13) else 0.06 if i in (1, 4, 8, 10, 12, 14) else 0)
-            dent *= 1.0 if x == -4.7 else 0.45
-            y = max(0.08, 1.1 + (1.02 - inset - dent) * math.sin(a))
-            z = (1.03 - inset - dent) * math.cos(a)
+            if x == -4.7 and i in (2,3,6,7):
+                z *= 0.96
+                if y > 1.9: y -= 0.05
             ring.append(bm.verts.new(kit.b((x + lip, y, z))))
         rings.append(ring)
     for i in range(count):
@@ -435,7 +436,7 @@ for side in (-1, 1):
 
 built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks()] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
-    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55, 0, -1.05), (-4.55, 2.5, 1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
+    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
