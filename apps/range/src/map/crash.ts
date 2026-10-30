@@ -279,7 +279,7 @@ function buildMain(b: Builder): void {
     const windows = [windowOpening(-15),windowOpening(-10),windowOpening(-5)];
     b.wall({...common,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(4.2),windowOpening(13.3)],trim:[{face:-1,frames:'trim',shutters:'shutter'}]});
     b.wall({...common,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:ends,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
-    const plaza = level === 0 ? [windowOpening(-17.5),door(-14,4),windowOpening(-5),door(0)] : windows;
+    const plaza = level === 0 ? [windowOpening(-17.5),door(-14,4),windowOpening(-5),door(0)] : [door(-16,2),windowOpening(-10),door(-5,2)];
     b.wall({...common,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:plaza,trim:[{face:-1,frames:'trim'}]});
     b.wall({...common,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:windows,trim:[{face:1,frames:'trim',shutters:'shutter'}]});
   }
@@ -303,12 +303,23 @@ function buildMain(b: Builder): void {
   b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
   b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
   b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
-  // A shaded storefront faces the wreck; the counter and stocked wall
-  // shelves make the ground floor read as a market without blocking its doors.
-  b.add([1.45,2.55,-14.45],[3.12,2.70,-9.55],'wood',{look:'awning'});
-  b.add([2.84,2.30,-14.3],[3.0,2.54,-9.7],'wood',{look:'wood'});
-  b.model('cafe-sign',[2.8,3.05,-12],Math.PI/2,() =>
-    b.turned([2.79,3.41,-12],[2.4,0.72,0.16],Math.PI/2,'metal','sign.frame'));
+  // A covered colonnade and accessible upper gallery face the crash site.
+  b.add([0.65,2.78,r.z0],[r.x0+0.125,3,r.z1],'concrete',{look:'trim'});
+  for (const z of [-19.2,-15.2,-9.3,-6.0,-2.2,2.5]) {
+    b.add([0.55,0,z-0.35],[1.25,0.75,z+0.35],'concrete',{look:'concrete'});
+    b.add([0.68,0.75,z-0.22],[1.12,2.55,z+0.22],'concrete',{look:'plaster'});
+    b.add([0.55,2.55,z-0.35],[1.25,2.78,z+0.35],'concrete',{look:'trim'});
+  }
+  for (let z=-20; z<2; z+=2) {
+    b.scenery('gallery-screen',[0.72,3,z+2],Math.PI/2);
+    // The lattice has openings for shots but guards the edge against falls.
+    b.clip([0.64,3,z],[0.8,4,z+2]);
+  }
+  b.clip([0.64,3,-20.12],[3,4,-19.96]);
+  b.clip([0.64,3,1.96],[3,4,2.12]);
+  // The counter and stocked shelves make the ground floor read as a market.
+  b.model('cafe-sign',[1.05,2.05,-12],Math.PI/2,() =>
+    b.turned([1.04,2.41,-12],[2.4,0.72,0.16],Math.PI/2,'metal','sign.frame'));
   b.add([4.1,0,-18.35],[7.5,1.0,-17.55],'wood',{look:'wood'});
   for (const y of [0.9,1.35,1.8]) {
     b.add([4.0,y,-19.8],[9.4,y+0.08,-19.25],'wood',{look:'wood'});
@@ -318,7 +329,8 @@ function buildMain(b: Builder): void {
 }
 
 function mainHints(): Vec3[] {
-  const hints: Vec3[] = [[9.5,0,4],[9.5,0,2],[9.5,0,-4.5],[1.6,0,-12],[4.4,0,-12]];
+  const hints: Vec3[] = [[9.5,0,4],[9.5,0,2],[9.5,0,-4.5],[1.6,0,-12],[4.4,0,-12],
+    [1.8,3,-15],[3.8,3,-15],[1.8,3,-4],[3.8,3,-4]];
   for (const y of [0,3]) {
     hints.push([11.3,y,-4.5],[11.3,y+1.5,-17.8],[13.3,y+1.5,-17.8],
       [13.3,y+3,-4.5],[9.5,y+3,-4.5]);

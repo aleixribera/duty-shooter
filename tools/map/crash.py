@@ -527,6 +527,32 @@ def rooftop_fence():
     parts.append(kit.obj('wire mesh',bm,fence_metal))
     return kit.asset('rooftop-fence',parts,smooth_angle=30)
 
+
+def gallery_screen():
+    """A two-metre balcony rail with an open diamond lattice."""
+    parts = [kit.box((0,0,-0.04),(0.06,1,-0.0),fence_metal),
+             kit.box((1.94,0,-0.04),(2,1,0.0),fence_metal),
+             kit.box((0,0,-0.04),(2,0.07,0.0),fence_metal),
+             kit.box((0,0.93,-0.04),(2,1,0.0),fence_metal)]
+    bm = bmesh.new()
+    for slope in (-1,1):
+        for n in range(-5,14):
+            c=n*0.25
+            lo,hi=(max(0,-c),min(2,1-c)) if slope == 1 else (max(0,c-1),min(2,c))
+            if hi-lo < 0.03:
+                continue
+            ya,yb=slope*lo+c,slope*hi+c
+            outline=[(lo,max(0,ya-0.009)),(hi,max(0,yb-0.009)),
+                     (hi,min(1,yb+0.009)),(lo,min(1,ya+0.009))]
+            vs=[[bm.verts.new(kit.b((x,y,z))) for x,y in outline] for z in (-0.025,-0.015)]
+            bm.faces.new(tuple(reversed(vs[0])))
+            bm.faces.new(tuple(vs[1]))
+            for i in range(4):
+                bm.faces.new((vs[0][i],vs[0][(i+1)%4],vs[1][(i+1)%4],vs[1][i]))
+    bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
+    parts.append(kit.obj('gallery lattice',bm,fence_metal))
+    return kit.asset('gallery-screen',parts,smooth_angle=30)
+
 def grass_tuft():
     """A sparse clump of dry and green blades, with no collision."""
     rng = random.Random(714)
@@ -634,7 +660,7 @@ for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
 blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -656,7 +682,7 @@ SOLIDS = {
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    if obj.name in ('palm-crown','impact-cracks','grass-tuft') or obj.name.startswith(('impact-scatter-', 'city-')):
+    if obj.name in ('palm-crown','impact-cracks','grass-tuft','gallery-screen') or obj.name.startswith(('impact-scatter-', 'city-')):
         report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
     else:
         worst, where = kit.strays(obj, SOLIDS[obj.name])
