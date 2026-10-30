@@ -33,7 +33,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.hull': { family: 'paint', color: 0x777a70, roughness: 0.85, metalness: 0.35 },
   'wreck.dark': { family: 'paint', color: 0x30332f, roughness: 0.9 },
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
-  'wreck.glass': { family: 'glass', color: 0x202d30 },
+  'wreck.glass': { family: 'glass', color: 0x161c1b },
   'wreck.soot': { family: 'paint', color: 0x45463f, roughness: 0.98, metalness: 0.1 },
   'wreck.rotor': { family: 'paint', color: 0x444a43, roughness: 0.9, metalness: 0.25 },
   'rubble.stone': { family: 'concrete', color: 0xa79a82 },

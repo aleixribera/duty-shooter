@@ -21,7 +21,7 @@ def mat(name, color, roughness=0.8, metallic=0.0):
 hull = mat("wreck.hull", 0x777a70, 0.85, 0.35)
 dark = mat("wreck.dark", 0x30332f, 0.9, 0.3)
 metal = mat("wreck.metal", 0x999a90, 0.7, 0.5)
-glass = mat("wreck.glass", 0x202d30, 0.3, 0.1)
+glass = mat("wreck.glass", 0x161c1b, 0.45, 0.1)
 soot = mat("wreck.soot", 0x45463f, 0.98, 0.1)
 rotor_dark = mat("wreck.rotor", 0x444a43, 0.9, 0.25)
 rubble_stone = mat("rubble.stone", 0xa79a82, 0.95)
@@ -249,27 +249,34 @@ def helicopter():
                  (0.42,1.97),(0.56,1.73),(0.38,1.53),(0.70,1.39),(0.44,1.04),
                  (0.59,0.88),(0.37,0.65),(0.55,0.43)]
         parts.extend([kit.prism(rear,z0,z1,hull),kit.prism(front,z0,z1,hull)])
-    # The sloped windscreen, divided into left and right panes.
-    for pane_index, (z0, z1) in enumerate([(-0.9, -0.06), (0.06, 0.9)]):
-        parts.append(kit._slab([(3.25, 2.015, z0), (3.25, 2.015, z1), (3.85, 1.415, z1), (3.85, 1.415, z0)], (0.0, 0.012, 0.0), glass, 0, 1, False))
-        # Pale fragments and narrow cracks on the windscreen, laid on its
-        # sloped plane. The nose remains solid cover behind the glazing.
-        def pane(points, material):
-            return kit._slab([(3.25 + 0.6*u, 2.032 - 0.6*u, z0 + (z1-z0)*v) for u,v in points], (0,0.004,0), material, 0, 1, False)
+    # Four wide, dark panes separated by the surviving cockpit frames. They
+    # taper toward the nose and cover more of the sloping canopy, like the
+    # mostly empty-looking windshield in the original wreck. The underlying
+    # nose remains solid cover.
+    for pane_index, (z0, z1) in enumerate([(-0.91,-0.63),(-0.58,-0.035),(0.035,0.58),(0.63,0.91)]):
+        def pane(points, material, layer=0):
+            return kit._slab([(3.21 + 0.74*u, 2.055 - 0.74*u + layer,
+                               (z0 + (z1-z0)*v)*(1-0.12*u)) for u,v in points],
+                             (0,0.004,0), material, 0, 1, False)
+        outlines = [
+            [(0.16,0),(0.08,1),(0.96,1),(0.84,0)],
+            [(0.08,0),(0.02,1),(1,1),(0.96,0)],
+            [(0.02,0),(0.08,1),(0.96,1),(1,0)],
+            [(0.08,0),(0.16,1),(0.84,1),(0.96,0)],
+        ]
+        parts.append(pane(outlines[pane_index], glass))
+        # A few remaining slivers of shattered glass, rather than a complete
+        # undamaged sheet, sit on the dark pane.
         def crack(a, b):
             du, dv = b[0]-a[0], b[1]-a[1]
             length = math.hypot(du, dv)
-            ou, ov = -dv * 0.007 / length, du * 0.007 / length
+            ou, ov = -dv * 0.004 / length, du * 0.004 / length
             return pane([(a[0]+ou,a[1]+ov),(b[0]+ou,b[1]+ov),
-                         (b[0]-ou,b[1]-ov),(a[0]-ou,a[1]-ov)], metal)
-        impacts = [((0.38,0.36), [(0.12,0.18),(0.18,0.60),(0.42,0.82),(0.68,0.65),(0.70,0.19)]),
-                   ((0.64,0.63), [(0.24,0.48),(0.46,0.90),(0.82,0.88),(0.90,0.47),(0.53,0.18)])]
-        centre, ends = impacts[pane_index]
-        for end in ends:
-            mid = ((centre[0]+end[0])*0.5 + 0.035, (centre[1]+end[1])*0.5 - 0.025)
-            parts.extend([crack(centre, mid), crack(mid, end)])
-        parts.append(pane([(0.12,0.12),(0.24,0.10),(0.29,0.19),(0.16,0.24)], metal))
-        parts.append(pane([(0.71,0.69),(0.80,0.64),(0.88,0.78),(0.79,0.86)], soot))
+                         (b[0]-ou,b[1]-ov),(a[0]-ou,a[1]-ov)], metal,0.008)
+        if pane_index in (0,3):
+            parts.append(pane([(0.18,0.06),(0.29,0.04),(0.21,0.24)], metal,0.008))
+            parts.append(crack((0.21,0.24),(0.45,0.45)))
+            parts.append(crack((0.21,0.24),(0.35,0.09)))
     # Portholes, fractured cockpit glazing, panel seams and dark impact marks.
     for side in (-1, 1):
         lo, hi = sorted((side * 1.36, side * 1.375))
