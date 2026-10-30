@@ -49,6 +49,14 @@ describe('Crash', () => {
     const middle = map.zones.find(zone => zone.id === 'B')!;
     expect(Math.hypot(middle.center[0]-wreck.position[0],middle.center[2]-wreck.position[2])).toBeLessThan(1);
   });
+  it('makes the tree trunk solid without giving its leaves invisible collision', () => {
+    const trunk = map.models!.placements.find(p => p.asset === 'tree-trunk')!;
+    const crown = map.models!.placements.find(p => p.asset === 'tree-crown')!;
+    expect(trunk.solids).toHaveLength(1);
+    expect(crown.visualOnly && crown.solids.length === 0).toBe(true);
+    expect(raycastWorld(world,[-3.5,1,-14],[-1.5,1,-14])?.material).toBe('wood');
+    expect(raycastWorld(world,[-4,8,-15],[-4,8,-13])).toBeNull();
+  });
   it('lets a player walk over the broken pavement in front of the wreck', () => {
     const mound = map.models!.placements.find(p => p.asset === 'impact-mound')!;
     expect(mound.solids.length).toBeGreaterThan(10);

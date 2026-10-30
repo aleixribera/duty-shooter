@@ -61,6 +61,10 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'palm.trunk': { family: 'floor', color: 0x796348, accent: 0x5c4c38 },
   'palm.frond': { family: 'paint', color: 0x657950, roughness:0.95 },
   'palm.frondDark': { family: 'paint', color: 0x455b3e, roughness:0.95 },
+  'tree.wood': { family: 'floor', color: 0x6d6653, accent: 0x595240 },
+  'tree.leaf': { family: 'paint', color: 0x6a7a59, roughness:0.95 },
+  'tree.leafDark': { family: 'paint', color: 0x4c6045, roughness:0.95 },
+  'tree.leafLight': { family: 'paint', color: 0x899679, roughness:0.95 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -712,6 +716,10 @@ export function buildCrash(): MapDefinition {
     b.model('palm-trunk',[x,y,z],yaw,() => b.add([x-0.36,y,z-0.36],[x+0.36,y+6.6,z+0.36],'wood',{look:'palm.trunk'}));
     b.scenery('palm-crown',[x,y,z],yaw);
   }
+  // A tall narrow tree rises behind the wreck; its trunk is cover, while
+  // the individual leaves are scenery rather than invisible bullet shields.
+  b.model('tree-trunk',[-2.5,0,-14],0,() => b.add([-2.8,0,-14.3],[-2.2,11,-13.7],'wood',{look:'tree.wood'}));
+  b.scenery('tree-crown',[-2.5,0,-14],0);
   // Tufts are cosmetic, so the open yard remains traversable and shootable.
   for (const [x,z,yaw] of [[17,36,0.4],[20,35.7,1.2],[23,33.7,2.3],[25,36.8,0.1],
     [27,31.6,1.7],[28,34.8,0.8],[31,37,2.4],[33,32.7,1.3],[35,35.5,0.2],

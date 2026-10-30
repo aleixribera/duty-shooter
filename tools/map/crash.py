@@ -41,6 +41,10 @@ fence_metal = mat("fence.metal", 0x777970, 0.85, 0.45)
 palm_trunk = mat("palm.trunk", 0x796348, 0.95)
 palm_frond = mat("palm.frond", 0x657950, 0.95)
 palm_dark = mat("palm.frondDark", 0x455b3e, 0.95)
+tree_wood = mat("tree.wood", 0x6d6653, 0.96)
+tree_leaf = mat("tree.leaf", 0x6a7a59, 0.95)
+tree_leaf_dark = mat("tree.leafDark", 0x4c6045, 0.95)
+tree_leaf_light = mat("tree.leafLight", 0x899679, 0.95)
 blue_wall = mat("blue", 0x809b9a, 0.9)
 sign_frame = mat("sign.frame", 0x5b5141, 0.85, 0.2)
 sign_green = mat("sign.green", 0x354f40, 0.9)
@@ -690,7 +694,52 @@ def palm():
         parts.append(kit.obj('fronds',bm,material))
     return trunk,kit.asset('palm-crown',parts,smooth_angle=25)
 
+def poplar():
+    """A tall street tree with a narrow, irregular crown of small leaves."""
+    trunk = kit.asset('tree-trunk', [kit.lathe([(0,0.30),(1.5,0.27),(5,0.20),(8,0.14),(11,0.06)],
+                                              (0,0,0),tree_wood,12)], smooth_angle=45)
+    rng = random.Random(417)
+    parts = []
+    branches = bmesh.new()
+    for i in range(12):
+        angle = i*2.4
+        start = kit.b((0,4.6+0.30*i,0))
+        end = kit.b((1.15*math.cos(angle),8.4+0.27*i,1.15*math.sin(angle)))
+        axis = end-start
+        geom = bmesh.ops.create_cone(branches,cap_ends=True,segments=6,radius1=0.09,radius2=0.025,depth=axis.length)
+        bmesh.ops.transform(branches,matrix=Matrix.Translation((start+end)/2) @ axis.to_track_quat('Z','Y').to_matrix().to_4x4(),verts=geom['verts'])
+    parts.append(kit.obj('tree branches',branches,tree_wood))
+    lobes = [(-0.55,-0.3,4.8,12.3,1.0),(0.85,0.15,5.5,11.4,0.95),
+             (-1.1,0.45,5.0,10.6,0.85),(0.35,-0.5,6.5,12.9,0.85)]
+    # Small closed leaf diamonds have two visible faces, unlike a single
+    # plane that disappears from one side in the game renderer.
+    for material in (tree_leaf,tree_leaf_dark,tree_leaf_light):
+        bm = bmesh.new()
+        for i in range(240):
+            centre_x,centre_z,low,high,width = lobes[i%len(lobes)]
+            y = rng.uniform(low,high)
+            spread = width * max(0.12,1-abs(y-(low+high)/2)/((high-low)/2+0.3))**0.55
+            angle, radius = rng.uniform(0,math.tau),spread*math.sqrt(rng.random())
+            x,z = centre_x+radius*math.cos(angle),centre_z+radius*math.sin(angle)
+            direction = rng.uniform(0,math.tau)
+            dx,dz = math.cos(direction),math.sin(direction)
+            width,length = rng.uniform(0.12,0.25),rng.uniform(0.30,0.55)
+            points = [(x,y-length,z),(x+dx*width,y,z+dz*width),
+                      (x,y+length,z),(x-dx*width,y,z-dz*width)]
+            offset = (-dz*0.012,0,dx*0.012)
+            rings = [[bm.verts.new(kit.b((px+offset[0]*s,py,pz+offset[2]*s))) for px,py,pz in points] for s in (-1,1)]
+            bm.faces.new(tuple(reversed(rings[0])))
+            bm.faces.new(tuple(rings[1]))
+            for k in range(4):
+                n=(k+1)%4
+                bm.faces.new((rings[0][k],rings[0][n],rings[1][n],rings[1][k]))
+        bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
+        parts.append(kit.obj('tree leaves',bm,material))
+    return trunk,kit.asset('tree-crown',parts,smooth_angle=25)
+
+
 trunk, crown = palm()
+tree_trunk, tree_crown = poplar()
 FRONT_ROTOR = [(0,4.20),(1.4,4.08),(2.8,3.50),(4.0,2.45),(5.0,0.32)]
 ROTOR_STUB = [(1.25,4.20),(0.65,4.05),(0.05,3.80),(-0.50,3.55)]
 def rotor_profile(side):
@@ -719,7 +768,7 @@ for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
 blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
-built = [helicopter(), rubble(), impact_mound(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), impact_mound(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, tree_trunk, tree_crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.47,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.47,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.35),(-4.55,0.20,1.35)), ((-6.55,2.0,-1.35),(-4.55,2.5,1.35)), ((-6.55,0.20,-1.35),(-4.55,2.0,-0.95)), ((-6.55,0.20,0.95),(-4.55,2.0,1.35)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -738,11 +787,12 @@ SOLIDS = {
     'satellite-dish': [((-0.32,0,-0.54),(0.50,1.76,0.54))],
     'rooftop-fence': [((0,0,-0.05),(2,1.5,0.05))],
     'palm-trunk': [((-0.36,0,-0.36),(0.36,6.6,0.36))],
+    'tree-trunk': [((-0.30,0,-0.30),(0.30,11,0.30))],
 }
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    if obj.name in ('palm-crown','impact-cracks','grass-tuft','gallery-screen') or obj.name.startswith(('impact-scatter-', 'city-')):
+    if obj.name in ('palm-crown','tree-crown','impact-cracks','grass-tuft','gallery-screen') or obj.name.startswith(('impact-scatter-', 'city-')):
         report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
     else:
         worst, where = kit.strays(obj, SOLIDS[obj.name])
