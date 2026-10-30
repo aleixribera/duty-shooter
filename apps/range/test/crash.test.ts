@@ -14,11 +14,30 @@ const world = createWorld(solids);
 describe('Crash', () => {
   it('has a grassy southeast yard while keeping the adjacent alley paved', () => {
     for (const [x,z] of [[24,36],[33,34],[40,31]] as const)
-      expect(raycastWorld(world,[x,0.5,z],[x,-0.5,z])?.material).toBe('grass');
+      expect(raycastWorld(world,[x,2,z],[x,-0.5,z])?.material).toBe('grass');
     expect(raycastWorld(world,[33,0.5,28],[33,-0.5,28])?.material).toBe('asphalt');
     const tufts = map.models!.placements.filter(p => p.asset === 'grass-tuft');
     expect(tufts.length).toBeGreaterThan(0);
     expect(tufts.every(p => p.visualOnly && p.solids.length === 0)).toBe(true);
+  });
+  it('lets players walk up and down the southeast grassy hill', () => {
+    for (const legs of [
+      [[34,0,30],[34,0.6,36],[34,0,30]],
+      [[14,0,36],[21,0.6,36],[14,0,36]],
+    ] as Vec3[][]) {
+      const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
+      let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+      for (const target of legs.slice(1)) {
+        let reached = false;
+        for (let i=0;i<10/TICK_SECONDS;i++) {
+          const p=out.position, dx=target[0]-p[0], dz=target[2]-p[2], distance=Math.hypot(dx,dz);
+          if (distance<0.4 && Math.abs(target[1]-p[1])<0.15 && out.movement !== 'airborne' && out.movement !== 'mantle') { reached=true; break; }
+          out=m.step({p:usercmd({yaw:Math.atan2(-dx,-dz),forward:distance<0.7 ? 0.4 : 1})}).players[0]!;
+        }
+        expect(reached,'toward '+target+' at '+out.position).toBe(true);
+      }
+    }
+    expect(raycastWorld(world,[34,2,34],[34,-0.5,34])!.point[1]).toBeCloseTo(0.45,1);
   });
   it('places the landmarks around the wreck as in the original overhead', () => {
     const wreck = map.models!.placements.find(p => p.asset === 'helicopter')!;
@@ -118,7 +137,7 @@ describe('Crash', () => {
     expect(world.movement.firstHit(inside,outside,i => segmentSolid(inside,outside,solids[i]!))).toBeTruthy();
   });
   it('lets shots pass through the palm fronds while the trunk provides cover', () => {
-    expect(raycastWorld(world,[18,6.9,33],[24,6.9,33])).toBeNull();
+    expect(raycastWorld(world,[18,7.2,33],[24,7.2,33])).toBeNull();
     expect(raycastWorld(world,[18,1.6,33],[24,1.6,33])).not.toBeNull();
   });
   it('climbs and descends the tower ladder without firing', () => {

@@ -473,6 +473,9 @@ export const LANDMARKS = {
 } as const;
 
 const point = (x: number, z: number, yaw: number, y = 0): SpawnPoint => ({ position: [x, y, z], yaw });
+/** Height of the small grassy rise at the southeast edge. */
+const grassyHill = (x: number, z: number): number =>
+  z >= 35 && x >= 15 && x < 20 ? (x-15)*0.12 : x >= 20 && z >= 31 ? Math.min((z-31)*0.15,0.6) : 0;
 // CoD4 starts the teams at the garage in the southwest and apartments in
 // the northeast, with the wreck and its buildings between them.
 const west = [[-38,34],[-34,34],[-30,34],[-38,29],[-34,29],[-30,29]].map(([x,z]) => point(x!,z!,-Math.PI / 2,0.6));
@@ -493,6 +496,19 @@ export function buildCrash(): MapDefinition {
     { rect: { x0: -100, x1: 100, z0: -100, z1: 100 }, material: 'sand', look: 'sand' },
   ];
   for (const {rect, material, look} of groundTiles(layers)) b.add([rect.x0,-0.5,rect.z0],[rect.x1,0,rect.z1],material,{look});
+  // The original southeast grove rises gently above the alley. The two
+  // slopes make the high ground accessible from the street and the west.
+  b.add([20,0,35],[42,0.6,38],'grass',{look:'dry-grass'});
+  b.paint('dry-grass', () => {
+    b.slope({along:'z',from:[0,31],to:[0,35],across:[20,42],base:0,low:0,high:0.6,material:'grass'});
+    b.slope({along:'x',from:[15,0],to:[20,0],across:[35,38],base:0,low:0,high:0.6,material:'grass'});
+  });
+  // Close the exposed triangular sides below the two sloped surfaces.
+  for (let i=0; i<12; i++) {
+    const z=31+4*i/12, x=15+5*i/12, h=0.6*(i+1)/12;
+    b.add([19.95,0,z],[20,h,z+4/12],'grass',{look:'dry-grass'});
+    b.add([x,0,34.95],[x+5/12,h,35],'grass',{look:'dry-grass'});
+  }
   // The garage sits on a raised southwest approach. Shallow slopes
   // connect it to the blue-building lane and the southern street.
   b.add([-42,0,16],[-28,0.6,38],'sand',{look:'sand'});
@@ -634,14 +650,17 @@ export function buildCrash(): MapDefinition {
   // Palms frame the southeast edge in the original overhead. Only their
   // trunks collide; the thin fronds do not act as invisible bullet shields.
   for (const [x,z,yaw] of [[21,33,0.2],[30,34,1.1],[38,32,-0.5]] as const) {
-    b.model('palm-trunk',[x,0,z],yaw,() => b.add([x-0.36,0,z-0.36],[x+0.36,6.6,z+0.36],'wood',{look:'palm.trunk'}));
-    b.scenery('palm-crown',[x,0,z],yaw);
+    const y=grassyHill(x,z);
+    b.model('palm-trunk',[x,y,z],yaw,() => b.add([x-0.36,y,z-0.36],[x+0.36,y+6.6,z+0.36],'wood',{look:'palm.trunk'}));
+    b.scenery('palm-crown',[x,y,z],yaw);
   }
   // Tufts are cosmetic, so the open yard remains traversable and shootable.
   for (const [x,z,yaw] of [[17,36,0.4],[20,35.7,1.2],[23,33.7,2.3],[25,36.8,0.1],
     [27,31.6,1.7],[28,34.8,0.8],[31,37,2.4],[33,32.7,1.3],[35,35.5,0.2],
     [38,36.8,2.1],[40,33.5,0.5],[22,37.4,2.7],[36,31.4,0.9]] as const)
-    b.scenery('grass-tuft',[x,0,z],yaw);
+    b.scenery('grass-tuft',[x,grassyHill(x,z),z],yaw);
+  // A low broken barrier gives the grassy hill the cover of the original.
+  b.add([25.5,0.6,36],[27.8,1.25,36.6],'concrete',{look:'concrete'});
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});
