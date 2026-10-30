@@ -198,6 +198,3 @@ The 1.5 s after a spawn when a player can't be damaged. It ends early when they 
 **Usercmd**:
 One tick of a player's input, sent from client to server.
 _Avoid_: input packet
-
-**Preset**:
-A graphics quality level (Low, Normal, High) with its own performance budget.

@@ -1,5 +1,5 @@
 import { raycastWorld, type Material, type Vec3, type World } from '@duty-shooter/fps-core';
-import { attribute, cameraFar, cameraNear, clamp, float, perspectiveDepthToViewZ, positionView, smoothstep, uv, vec3, viewportDepthTexture } from 'three/tsl';
+import { attribute, clamp, float, uv, vec3 } from 'three/tsl';
 import {
   AdditiveBlending,
   NormalBlending,
@@ -24,7 +24,6 @@ import {
   type Camera,
   type Scene,
 } from 'three/webgpu';
-import type { PresetFeatures } from './pipeline';
 
 interface Particle {
   p: Vector3;
@@ -53,7 +52,7 @@ class ParticleLayer {
   readonly #particles: Particle[] = [];
   readonly #max: number;
 
-  constructor(max: number, additive: boolean, soft: boolean) {
+  constructor(max: number, additive: boolean) {
     this.#max = max;
     const geometry = new PlaneGeometry(1, 1);
     this.#alpha = new InstancedBufferAttribute(new Float32Array(max), 1);
@@ -62,12 +61,7 @@ class ParticleLayer {
     const material = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: additive ? AdditiveBlending : NormalBlending });
     // A round, soft-edged sprite.
     const r = uv().sub(0.5).length().mul(2);
-    let shape = clamp(float(1).sub(r), 0, 1).pow(additive ? 2.5 : 1.4);
-    if (soft) {
-      // Soft particles: fade where the quad meets scene geometry, so smoke reads as a volume, not a card.
-      const sceneZ = perspectiveDepthToViewZ(viewportDepthTexture(), cameraNear, cameraFar);
-      shape = shape.mul(smoothstep(float(0), float(0.6), positionView.z.sub(sceneZ)));
-    }
+    const shape = clamp(float(1).sub(r), 0, 1).pow(additive ? 2.5 : 1.4);
     material.opacityNode = shape.mul(attribute<'float'>('pAlpha', 'float'));
     this.mesh = new InstancedMesh(geometry, material, max);
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
@@ -259,13 +253,13 @@ export class Effects {
   readonly #lights: PointLight[] = [];
   readonly #lightAge: number[] = [];
   #nextLight = 0;
-  readonly #sparks = new ParticleLayer(240, true, false);
-  readonly #dust = new ParticleLayer(260, false, false);
-  #smoke: ParticleLayer;
-  readonly #blood = new ParticleLayer(160, false, false);
+  readonly #sparks = new ParticleLayer(240, true);
+  readonly #dust = new ParticleLayer(260, false);
+  readonly #smoke = new ParticleLayer(90, false);
+  readonly #blood = new ParticleLayer(160, false);
   readonly #fires: readonly Vec3[];
   readonly #fire: ParticleLayer | null;
-  #fireSmoke: ParticleLayer | null;
+  readonly #fireSmoke: ParticleLayer | null;
   #fireClock = 0;
   #fireSmokeClock = 0;
   readonly #holes: DecalLayer;
@@ -275,7 +269,6 @@ export class Effects {
   readonly #flashes: { mesh: Mesh; age: number }[] = [];
   readonly #falling: { mesh: Mesh; v: Vector3; spin: Vector3; age: number; resting: boolean }[] = [];
   readonly #flashMaterial: MeshBasicNodeMaterial;
-  #features: PresetFeatures;
   readonly #recentShots: number[] = [];
   /** A frag's flash: brighter and longer than a muzzle's. */
   readonly #blastLight = new PointLight(0xffa860, 0, 22, 1.4);
@@ -284,17 +277,15 @@ export class Effects {
   /** Called when a casing hits a surface hard enough to be heard. */
   onCasingBounce: ((position: Vec3, material: Material, intensity: number) => void) | null = null;
 
-  constructor(scene: Scene, world: World, features: PresetFeatures, fires: readonly Vec3[] = []) {
+  constructor(scene: Scene, world: World, fires: readonly Vec3[] = []) {
     this.#world = world;
-    this.#features = features;
     this.#fires = fires;
-    this.#fire = fires.length ? new ParticleLayer(96, true, false) : null;
-    this.#fireSmoke = fires.length ? new ParticleLayer(64, false, features.volumetricSmoke) : null;
+    this.#fire = fires.length ? new ParticleLayer(96, true) : null;
+    this.#fireSmoke = fires.length ? new ParticleLayer(64, false) : null;
     if (this.#fire && this.#fireSmoke) {
       this.#fire.mesh.name = 'ambient-fire';
       this.#fireSmoke.mesh.name = 'ambient-fire-smoke';
     }
-    this.#smoke = new ParticleLayer(features.volumetricSmoke ? 160 : 90, false, features.volumetricSmoke);
     for (let i = 0; i < 2; i++) {
       const light = new PointLight(0xffb468, 0, 9, 1.6);
       this.#lights.push(light);
@@ -314,23 +305,6 @@ export class Effects {
     this.#root.add(this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh);
     if (this.#fire && this.#fireSmoke) this.#root.add(this.#fire.mesh, this.#fireSmoke.mesh);
     scene.add(this.#root);
-  }
-
-  setFeatures(features: PresetFeatures): void {
-    if (features.volumetricSmoke !== this.#features.volumetricSmoke) {
-      this.#root.remove(this.#smoke.mesh);
-      this.#smoke.dispose();
-      this.#smoke = new ParticleLayer(features.volumetricSmoke ? 160 : 90, false, features.volumetricSmoke);
-      this.#root.add(this.#smoke.mesh);
-      if (this.#fireSmoke) {
-        this.#root.remove(this.#fireSmoke.mesh);
-        this.#fireSmoke.dispose();
-        this.#fireSmoke = new ParticleLayer(64, false, features.volumetricSmoke);
-        this.#fireSmoke.mesh.name = 'ambient-fire-smoke';
-        this.#root.add(this.#fireSmoke.mesh);
-      }
-    }
-    this.#features = features;
   }
 
   /** A muzzle-flash star mesh, for attaching to a weapon's muzzle socket. */
@@ -363,7 +337,7 @@ export class Effects {
     while ((this.#recentShots[0] ?? Infinity) < this.#time - 1.2) this.#recentShots.shift();
     const heat = this.#recentShots.length;
     if (heat >= 5) {
-      const n = Math.round((heat >= 12 ? 2 : 1) * this.#features.particles);
+      const n = heat >= 12 ? 2 : 1;
       for (let k = 0; k < n; k++) {
         this.#smoke.emit({
           p: new Vector3(origin[0] + direction[0] * 0.75, origin[1] + direction[1] * 0.75 - 0.05, origin[2] + direction[2] * 0.75),
@@ -401,20 +375,19 @@ export class Effects {
     this.#holes.add(point, normal, 0.06 + Math.random() * 0.03, new Color(HOLE_TINT[m]));
     const n = new Vector3(normal[0], normal[1], normal[2]);
     const p = new Vector3(point[0], point[1], point[2]).addScaledVector(n, 0.02);
-    const k = this.#features.particles;
     const spread = () => new Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2);
     if (m === 'metal' || m === 'glass' || m === 'sheetMetal') {
-      for (let i = 0; i < Math.round(9 * k); i++) {
+      for (let i = 0; i < 9; i++) {
         this.#sparks.emit({ p: p.clone(), v: n.clone().multiplyScalar(3 + Math.random() * 4).add(spread().multiplyScalar(3)), life: 0.18 + Math.random() * 0.2, size: 0.025, gravity: 9, drag: 2, color: new Color(1, 0.75 + Math.random() * 0.2, 0.4) });
       }
       this.#dust.emit({ p: p.clone(), v: n.clone().multiplyScalar(0.5), life: 0.4, size: 0.06, grow: 0.3, alpha: 0.35, drag: 3, color: new Color(0x9a9a9a) });
     } else {
       const color = DUST[m] ?? 0xb2b0ac;
-      for (let i = 0; i < Math.round(5 * k); i++) {
+      for (let i = 0; i < 5; i++) {
         this.#dust.emit({ p: p.clone(), v: n.clone().multiplyScalar(1 + Math.random() * 1.6).add(spread().multiplyScalar(0.6)), life: 0.5 + Math.random() * 0.5, size: 0.05, grow: 0.35, alpha: 0.55, gravity: 0.6, drag: 3.5, color: new Color(color) });
       }
       // Debris chips: small, fast, falling.
-      for (let i = 0; i < Math.round(4 * k); i++) {
+      for (let i = 0; i < 4; i++) {
         this.#dust.emit({ p: p.clone(), v: n.clone().multiplyScalar(2 + Math.random() * 2).add(spread().multiplyScalar(1.5)), life: 0.45, size: 0.018, alpha: 1, gravity: 9.8, drag: 0.5, color: new Color(color).multiplyScalar(0.7) });
       }
     }
@@ -425,21 +398,20 @@ export class Effects {
     const p = new Vector3(point[0], point[1] + 0.1, point[2]);
     this.#blastLight.position.copy(p).add(new Vector3(0, 0.6, 0));
     this.#blastAge = 0;
-    const k = this.#features.particles;
     const dir = () => {
       const u = Math.random() * Math.PI * 2;
       const up = Math.random();
       const r = Math.sqrt(1 - up * up);
       return new Vector3(Math.cos(u) * r, up, Math.sin(u) * r);
     };
-    for (let i = 0; i < Math.round(36 * k); i++) {
+    for (let i = 0; i < 36; i++) {
       this.#sparks.emit({ p: p.clone(), v: dir().multiplyScalar(8 + Math.random() * 14), life: 0.2 + Math.random() * 0.35, size: 0.035, gravity: 9, drag: 1.5, color: new Color(1, 0.7 + Math.random() * 0.25, 0.35) });
     }
     // The fireball: a few big additive puffs that die fast.
-    for (let i = 0; i < Math.round(6 * k); i++) {
+    for (let i = 0; i < 6; i++) {
       this.#sparks.emit({ p: p.clone().add(dir().multiplyScalar(0.3)), v: dir().multiplyScalar(2), life: 0.16 + Math.random() * 0.1, size: 1.2, grow: 3, alpha: 0.8, drag: 4, color: new Color(1, 0.6, 0.25) });
     }
-    for (let i = 0; i < Math.round(18 * k); i++) {
+    for (let i = 0; i < 18; i++) {
       this.#smoke.emit({
         p: p.clone().add(dir().multiplyScalar(0.4)),
         v: dir().multiplyScalar(2.5 + Math.random() * 2).add(new Vector3(0, 0.8, 0)),
@@ -453,7 +425,7 @@ export class Effects {
       });
     }
     // Dirt and grit thrown up and falling back.
-    for (let i = 0; i < Math.round(28 * k); i++) {
+    for (let i = 0; i < 28; i++) {
       this.#dust.emit({ p: p.clone(), v: dir().multiplyScalar(3 + Math.random() * 5).add(new Vector3(0, 2, 0)), life: 0.9 + Math.random() * 0.6, size: 0.03, alpha: 1, gravity: 9.8, drag: 0.4, color: new Color(0x4a4238) });
     }
     const ground = raycastWorld(this.#world, [point[0], point[1] + 0.3, point[2]], [point[0], point[1] - 1, point[2]]);
@@ -464,7 +436,7 @@ export class Effects {
   blood(point: Vec3, direction: Vec3, heavy: boolean): void {
     const p = new Vector3(point[0], point[1], point[2]);
     const d = new Vector3(direction[0], direction[1], direction[2]).normalize();
-    const k = this.#features.particles * (heavy ? 1.6 : 1);
+    const k = heavy ? 1.6 : 1;
     for (let i = 0; i < Math.round(7 * k); i++) {
       this.#blood.emit({
         p: p.clone(),

@@ -25,33 +25,27 @@ describe('benchmark camera path', () => {
 });
 
 describe('benchmark run', () => {
-  it('flies the path once per preset after a warm-up, then reports each', () => {
+  it('flies the path once after a warm-up, then reports it', () => {
     const bench = new Benchmark(
       [
         { position: [0, 0, 0], yaw: 0, pitch: 0 },
         { position: [6, 0, 0], yaw: 0, pitch: 0 },
       ],
-      { presets: ['low', 'high'], speed: 6, warmup: 1 },
+      { speed: 6, warmup: 1 },
     );
-    const seen: string[] = [];
     let now = 0;
-    for (;;) {
-      const f = bench.frame(now);
-      if (!f) break;
-      if (f.presetStarted) seen.push(bench.preset!);
+    while (bench.frame(now)) {
+      expect(bench.result).toBeNull();
       bench.rendered(now, { drawCalls: 10, triangles: 1000 });
       now += 1000 / 60;
     }
-    expect(seen).toEqual(['low', 'high']);
-    expect(bench.reports.map((r) => r.preset)).toEqual(['low', 'high']);
-    // 1 s of path at 60 fps per preset.
-    for (const r of bench.reports) {
-      expect(r.frames).toBeGreaterThan(55);
-      expect(r.frames).toBeLessThan(65);
-      expect(r.frameMs.p50).toBeCloseTo(16.667, 2);
-      expect(r.drawCalls).toEqual({ mean: 10, max: 10 });
-      expect(r.gpuMs).toBeNull();
-    }
+    // 1 s of path at 60 fps.
+    const r = bench.result!;
+    expect(r.frames).toBeGreaterThan(55);
+    expect(r.frames).toBeLessThan(65);
+    expect(r.frameMs.p50).toBeCloseTo(16.667, 2);
+    expect(r.drawCalls).toEqual({ mean: 10, max: 10 });
+    expect(r.gpuMs).toBeNull();
   });
 
   it('percentiles pick the sample at each rank', () => {

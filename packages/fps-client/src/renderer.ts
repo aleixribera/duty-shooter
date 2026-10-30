@@ -18,7 +18,7 @@ export interface GameRenderer {
 /**
  * Creates Three.js's WebGPU renderer on `canvas`. When the browser has no
  * usable WebGPU adapter, Three.js falls back to its WebGL2 backend on its
- * own; `backend` reports which one was picked so callers can cap presets.
+ * own; `backend` reports which one was picked.
  */
 export async function createRenderer(
   canvas: HTMLCanvasElement,

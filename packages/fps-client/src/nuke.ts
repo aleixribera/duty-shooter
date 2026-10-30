@@ -14,7 +14,6 @@ import {
   type Node,
   type Scene,
 } from 'three/webgpu';
-import type { GraphicsPreset } from './settings';
 import { sunDir } from './surface-materials';
 
 /** Seconds after the match ends that the bomb goes off; the siren fills the time before. */
@@ -98,9 +97,9 @@ export class Nuke {
   readonly #shock: Mesh;
   readonly #shockRadius = uniform(1);
   readonly #shockFade = uniform(1);
-  readonly #dust: Sprite | null = null;
+  readonly #dust: Sprite;
 
-  constructor(scene: Scene, groundZero: Vec3, preset: GraphicsPreset) {
+  constructor(scene: Scene, groundZero: Vec3) {
     this.#groundZero = groundZero;
     this.root.name = 'nuke';
     this.root.position.set(groundZero[0], groundZero[1], groundZero[2]);
@@ -128,28 +127,25 @@ export class Nuke {
     this.#shock.renderOrder = 5;
     this.root.add(cloud, this.#shock);
 
-    // Dust kicked up along the front (Normal and High only): soft puffs riding the shock's radius.
-    if (preset !== 'low') {
-      const count = preset === 'high' ? 1400 : 700;
-      const data = new Float32Array(count * 4);
-      let s = 1955;
-      const rand = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
-      for (let i = 0; i < count; i++) data.set([rand() * Math.PI * 2, rand() * rand() * 22, rand() * 18 - 9, 6 + rand() * 10], i * 4);
-      // Per puff: angle round the front, height, how far ahead or behind it, size.
-      const puff = instancedBufferAttribute(new InstancedBufferAttribute(data, 4)) as unknown as Node<'vec4'>;
-      const dust = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
-      const r = this.#shockRadius.add(puff.z);
-      dust.positionNode = vec3(puff.x.cos().mul(r), puff.y, puff.x.sin().mul(r));
-      dust.scaleNode = puff.w;
-      const uvc = positionLocal.xy.length();
-      dust.colorNode = vec4(color(0xb39776), smoothstep(float(0.5), float(0.1), uvc).mul(this.#shockFade).mul(0.4));
-      const sprite = new Sprite(dust);
-      sprite.count = count;
-      sprite.name = 'dust';
-      sprite.frustumCulled = false;
-      this.#dust = sprite;
-      this.root.add(sprite);
-    }
+    // Dust kicked up along the front: soft puffs riding the shock's radius.
+    const count = 700;
+    const data = new Float32Array(count * 4);
+    let s = 1955;
+    const rand = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < count; i++) data.set([rand() * Math.PI * 2, rand() * rand() * 22, rand() * 18 - 9, 6 + rand() * 10], i * 4);
+    // Per puff: angle round the front, height, how far ahead or behind it, size.
+    const puff = instancedBufferAttribute(new InstancedBufferAttribute(data, 4)) as unknown as Node<'vec4'>;
+    const dust = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
+    const r = this.#shockRadius.add(puff.z);
+    dust.positionNode = vec3(puff.x.cos().mul(r), puff.y, puff.x.sin().mul(r));
+    dust.scaleNode = puff.w;
+    const uvc = positionLocal.xy.length();
+    dust.colorNode = vec4(color(0xb39776), smoothstep(float(0.5), float(0.1), uvc).mul(this.#shockFade).mul(0.4));
+    this.#dust = new Sprite(dust);
+    this.#dust.count = count;
+    this.#dust.name = 'dust';
+    this.#dust.frustumCulled = false;
+    this.root.add(this.#dust);
     this.root.traverse((o) => {
       o.castShadow = false;
       o.receiveShadow = false;
@@ -193,7 +189,7 @@ export class Nuke {
     this.#shockFade.value = 1 - smoothUnit((front - 900) / 500);
     this.#shock.visible = this.#shockFade.value > 0.01;
     this.#shock.scale.set(front, 30 + 25 * Math.exp(-since / 2), front);
-    if (this.#dust) this.#dust.visible = this.#shock.visible;
+    this.#dust.visible = this.#shock.visible;
   }
 
   dispose(): void {

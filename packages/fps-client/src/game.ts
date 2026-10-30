@@ -40,9 +40,8 @@ import { ChargeSounds } from './charge-sounds';
 import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
 import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
-import { GamePipeline, PRESETS, effectivePreset } from './pipeline';
+import { GamePipeline } from './pipeline';
 import { PlayersView } from './players-view';
-import type { RenderBackend } from './renderer';
 import type { GameDriver, PresentedEvent } from './session';
 import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
 import { bindingLabel, verticalFov, type Settings } from './settings';
@@ -62,7 +61,6 @@ const SHOT_SHAKE = 0.012;
 export interface GameOptions {
   readonly canvas: HTMLCanvasElement;
   readonly renderer: WebGPURenderer;
-  readonly backend: RenderBackend;
   readonly content: WorldContent;
   /** The map's baked lighting (see loadBake); the world draws unbaked until it arrives, or for good if it is null. */
   readonly bake?: Promise<BakeFile | null>;
@@ -144,7 +142,6 @@ export class Game {
   readonly input: InputController;
   readonly hud: Hud;
   readonly #renderer: WebGPURenderer;
-  readonly #backend: RenderBackend;
   readonly #canvas: HTMLCanvasElement;
   readonly #worldView: WorldView;
   readonly #world: World;
@@ -203,7 +200,7 @@ export class Game {
   readonly #ambience: Ambience;
   /** Where the listener last was, for placing sounds made with no position. */
   #listener: Vec3 = [0, 0, 0];
-  #nuke: Nuke | null = null;
+  readonly #nuke: Nuke | null;
   /** Which of the nuke's sounds this intermission has already started. */
   #nukeHeard = { siren: false, blast: false };
   readonly #trainSounds: TrainSounds | null;
@@ -223,7 +220,6 @@ export class Game {
 
   constructor(options: GameOptions) {
     this.#renderer = options.renderer;
-    this.#backend = options.backend;
     this.#canvas = options.canvas;
     this.#settings = options.settings;
     this.#world = options.world;
@@ -242,8 +238,7 @@ export class Game {
     options.renderer.shadowMap.enabled = true;
     this.#worldView = new WorldView(options.renderer, options.content, options.bake);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
-    const preset = effectivePreset(options.settings.preset, options.backend);
-    this.#effects = new Effects(this.#worldView.scene, options.world, PRESETS[preset], options.content.fires);
+    this.#effects = new Effects(this.#worldView.scene, options.world, options.content.fires);
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
     this.#viewFlash = this.#effects.createFlash();
     this.#viewmodel.muzzle.add(this.#viewFlash);
@@ -257,6 +252,7 @@ export class Game {
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
+    this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero) : null;
     this.input = new InputController(options.canvas, options.settings);
     this.hud = new Hud(document.body);
     this.hud.visible = false;
@@ -279,11 +275,6 @@ export class Game {
 
   get overview(): GameOptions['overview'] {
     return this.#overview;
-  }
-
-  /** The preset actually in use (the WebGL2 fallback caps High at Normal). */
-  get preset() {
-    return this.#pipeline.preset;
   }
 
   get fps(): number {
@@ -338,18 +329,7 @@ export class Game {
     this.#settings = settings;
     this.input.settings = settings;
     this.#sound.setVolume(settings.volume);
-    const preset = effectivePreset(settings.preset, this.#backend);
-    if (preset !== this.#pipeline.preset || !this.#pipelineReady) {
-      this.#pipeline.setPreset(preset);
-      this.#pipelineReady = true;
-      this.#worldView.setShadowQuality(PRESETS[preset].shadows);
-      this.#effects.setFeatures(PRESETS[preset]);
-      this.#nuke?.dispose();
-      this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero, preset) : null;
-    }
   }
-
-  #pipelineReady = false;
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
   preload(): Promise<void> {
@@ -425,7 +405,6 @@ export class Game {
     this.#pipeline.setViewport(width, height, window.devicePixelRatio);
     this.#camera.resize(width, height);
     this.#viewmodel.resize(width / height);
-    this.#worldView.updateCascades();
   }
 
   #play(event: SoundEventName, params: SoundParams = {}): void {
@@ -455,7 +434,7 @@ export class Game {
   }
 
   /** One rendered frame. Call from the renderer's animation loop. */
-  frame(now: number, adjustResolution = true, render = true): void {
+  frame(now: number, render = true): void {
     const dt = this.#lastFrame === null ? 1 / 60 : Math.min(0.1, (now - this.#lastFrame) / 1000);
     this.#frameStart = this.#lastFrame ?? now - TICK_MS;
     this.#lastFrame = now;
@@ -575,7 +554,7 @@ export class Game {
       const warm = this.#warmUp;
       const restore = warm ? this.#showSamples() : [];
       this.#worldView.lightMoving();
-      this.#pipeline.render(dt, adjustResolution);
+      this.#pipeline.render();
       for (const put of restore) put();
       if (warm) {
         this.#warmUp = null;

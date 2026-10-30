@@ -1045,13 +1045,6 @@ export class Menu {
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
-      section('Quality');
-      select('Graphics preset', s.preset, [
-        ['low', 'Low'],
-        ['normal', 'Medium'],
-        ['high', 'High'],
-      ], (v) => this.#change({ preset: v }));
-      rows.append(h('p', 'Low suits integrated graphics and older laptops; High wants a dedicated graphics card.', 'ds-sub'));
     } else {
       section('HUD');
       toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));

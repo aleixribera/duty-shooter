@@ -64,10 +64,7 @@ export function percentiles(values: readonly number[]): Percentiles {
   return { p50: round(at(0.5)), p95: round(at(0.95)), p99: round(at(0.99)), max: round(sorted[sorted.length - 1]!) };
 }
 
-export type BenchPreset = 'low' | 'normal' | 'high';
-
-export interface PresetReport {
-  readonly preset: BenchPreset;
+export interface BenchResult {
   readonly frames: number;
   /** Frame-to-frame time (ms). */
   readonly frameMs: Percentiles;
@@ -77,13 +74,12 @@ export interface PresetReport {
   readonly triangles: { readonly mean: number; readonly max: number };
 }
 
-export interface BenchReport {
+export interface BenchReport extends BenchResult {
   readonly map: string;
   readonly backend: string;
   readonly resolution: readonly [number, number];
   /** Page start to the map's first rendered frame (ms). */
   readonly loadMs: number;
-  readonly presets: readonly PresetReport[];
 }
 
 /** What the benchmark needs from the renderer each frame. */
@@ -93,55 +89,44 @@ export interface FrameStats {
 }
 
 /**
- * Flies a camera path once per preset, measuring each frame. Call `frame`
- * before rendering (it says where the camera goes, or that a preset just
- * started or the run is over) and `rendered` after.
+ * Flies a camera path once, measuring each frame. Call `frame` before
+ * rendering (it says where the camera goes, or that the run is over) and
+ * `rendered` after.
  */
 export class Benchmark {
   readonly #path: CameraPath;
-  readonly #presets: readonly BenchPreset[];
-  /** Camera speed (m/s), and a still warm-up before each preset's run (s) so shader compiles stay out of it. */
+  /** Camera speed (m/s), and a still warm-up before the run (s) so shader compiles stay out of it. */
   readonly #speed: number;
   readonly #warmup: number;
-  #index = 0;
   #start: number | null = null;
   #last: number | null = null;
-  #frameMs: number[] = [];
-  #gpuMs: number[] = [];
-  #draws: number[] = [];
-  #tris: number[] = [];
-  readonly #done: PresetReport[] = [];
+  readonly #frameMs: number[] = [];
+  readonly #gpuMs: number[] = [];
+  readonly #draws: number[] = [];
+  readonly #tris: number[] = [];
+  #result: BenchResult | null = null;
 
-  constructor(keys: readonly CameraKey[], options: { presets?: readonly BenchPreset[]; speed?: number; warmup?: number } = {}) {
+  constructor(keys: readonly CameraKey[], options: { speed?: number; warmup?: number } = {}) {
     this.#path = new CameraPath(keys);
-    this.#presets = options.presets ?? ['low', 'normal', 'high'];
     this.#speed = options.speed ?? 6;
     this.#warmup = options.warmup ?? 2;
   }
 
-  get preset(): BenchPreset | null {
-    return this.#presets[this.#index] ?? null;
+  /** What the run measured, once it is over. */
+  get result(): BenchResult | null {
+    return this.#result;
   }
 
-  get reports(): readonly PresetReport[] {
-    return this.#done;
-  }
-
-  /** Where the camera goes this frame, or null when every preset has run. `presetStarted` is true on a preset's first frame. */
-  frame(now: number): { pose: CameraPose; presetStarted: boolean } | null {
-    if (this.preset === null) return null;
-    let presetStarted = false;
-    if (this.#start === null) {
-      this.#start = now;
-      this.#last = null;
-      presetStarted = true;
-    }
+  /** Where the camera goes this frame, or null when the run is over. */
+  frame(now: number): CameraPose | null {
+    if (this.#result) return null;
+    this.#start ??= now;
     const t = (now - this.#start) / 1000 - this.#warmup;
     if (t * this.#speed > this.#path.length) {
       this.#finish();
-      return this.frame(now);
+      return null;
     }
-    return { pose: this.#path.pose(Math.max(0, t) * this.#speed), presetStarted };
+    return this.#path.pose(Math.max(0, t) * this.#speed);
   }
 
   /** Records the frame just drawn (outside the warm-up). */
@@ -157,26 +142,19 @@ export class Benchmark {
     this.#last = now;
   }
 
-  /** GPU time (ms) per frame, as resolved from timestamp queries, for the running preset. */
+  /** GPU time (ms) per frame, as resolved from timestamp queries. */
   gpu(ms: number): void {
     if (this.#start !== null && Number.isFinite(ms) && ms > 0) this.#gpuMs.push(ms);
   }
 
   #finish(): void {
     const mean = (v: readonly number[]) => (v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0);
-    this.#done.push({
-      preset: this.preset!,
+    this.#result = {
       frames: this.#frameMs.length,
       frameMs: percentiles(this.#frameMs),
       gpuMs: this.#gpuMs.length ? percentiles(this.#gpuMs) : null,
       drawCalls: { mean: mean(this.#draws), max: Math.max(0, ...this.#draws) },
       triangles: { mean: mean(this.#tris), max: Math.max(0, ...this.#tris) },
-    });
-    this.#index += 1;
-    this.#start = null;
-    this.#frameMs = [];
-    this.#gpuMs = [];
-    this.#draws = [];
-    this.#tris = [];
+    };
   }
 }

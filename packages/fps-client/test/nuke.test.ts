@@ -57,7 +57,7 @@ describe('the nuke in the world', () => {
 
   it('draws nothing outside the intermission, so the next match starts on the untouched map', () => {
     const scene = new Scene();
-    const nuke = new Nuke(scene, groundZero, 'high');
+    const nuke = new Nuke(scene, groundZero);
     nuke.update(DETONATION + 2);
     expect(nuke.root.visible).toBe(true);
     nuke.update(null);
@@ -65,31 +65,26 @@ describe('the nuke in the world', () => {
     nuke.dispose();
   });
 
-  it('keeps the flash, the cloud and the shock on Low but drops the dust particles', () => {
-    for (const [preset, dust] of [
-      ['low', false],
-      ['normal', true],
-    ] as const) {
-      const scene = new Scene();
-      const nuke = new Nuke(scene, groundZero, preset);
-      nuke.update(DETONATION + 3);
-      const visible = (name: string) => {
-        let found = false;
-        nuke.root.traverseVisible((o) => {
-          if (o.name === name) found = true;
-        });
-        return found;
-      };
-      expect(visible('cloud')).toBe(true);
-      expect(visible('shock')).toBe(true);
-      expect(visible('dust')).toBe(dust);
-      nuke.dispose();
-    }
+  it('shows the cloud, the shock and the dust after the blast', () => {
+    const scene = new Scene();
+    const nuke = new Nuke(scene, groundZero);
+    nuke.update(DETONATION + 3);
+    const visible = (name: string) => {
+      let found = false;
+      nuke.root.traverseVisible((o) => {
+        if (o.name === name) found = true;
+      });
+      return found;
+    };
+    expect(visible('cloud')).toBe(true);
+    expect(visible('shock')).toBe(true);
+    expect(visible('dust')).toBe(true);
+    nuke.dispose();
   });
 
   it('never casts shadows or adds anything to collision', () => {
     const scene = new Scene();
-    const nuke = new Nuke(scene, groundZero, 'high');
+    const nuke = new Nuke(scene, groundZero);
     nuke.update(DETONATION + 3);
     nuke.root.traverse((o) => expect(o.castShadow).toBe(false));
     nuke.dispose();
@@ -97,12 +92,12 @@ describe('the nuke in the world', () => {
 });
 
 describe('the nuke, disposed', () => {
-  it("leaves three's shared sprite quad alone, so other sprites keep drawing after a preset change", () => {
+  it("leaves three's shared sprite quad alone, so other sprites keep drawing", () => {
     const scene = new Scene();
     const other = new Sprite();
     let disposed = false;
     other.geometry.addEventListener('dispose', () => (disposed = true));
-    new Nuke(scene, [420, 0, -160], 'high').dispose();
+    new Nuke(scene, [420, 0, -160]).dispose();
     expect(disposed).toBe(false);
   });
 });

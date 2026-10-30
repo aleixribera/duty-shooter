@@ -19,7 +19,7 @@ npm run dev
 
 Open <http://localhost:5173>. The main menu flies over Survival Town; choose **Bot Match** or **Practice Range** to play offline. The first `npm run dev` bakes each map's lighting on the CPU (see below), which takes a little while; later starts reuse the cache.
 
-In Settings, **Medium** is the default graphics preset and the standard look: temporal anti-aliasing, ambient occlusion, bloom and one sun shadow map, at the screen's full density up to 1440p's worth of pixels. **Low** is for integrated graphics: FXAA instead of temporal AA, no ambient occlusion or bloom, a smaller shadow map redrawn 30 times a second, at most 1080p's worth of pixels, and it lowers the resolution further to hold the frame rate. **High** is for fast GPUs: full-resolution ambient occlusion, three shadow cascades, denser smoke, and it supersamples (half again the screen's density, up to 4K's worth of pixels). Medium and High never lower the resolution on their own. A match's weapons, soldiers and effects are fetched and compiled behind its loading screen, so play starts without stalls.
+The game has one graphics look: temporal anti-aliasing, ambient occlusion, bloom and one sun shadow map, at the screen's full density up to 1440p's worth of pixels. A match's weapons, soldiers and effects are fetched and compiled behind its loading screen, so play starts without stalls.
 
 To play online locally:
 
@@ -59,13 +59,13 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?map=<map>` (`range`, `survival-town`, `switchyard`, `crash`) starts with that map behind the menu.
 - `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
-- `?bench` flies the benchmark path on every preset and reports frame times, draw calls and triangles.
+- `?bench` flies the benchmark path and reports frame times, draw calls and triangles.
 - *dev* `?botmap=crash` selects Crash in Bot Match when it opens.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`); a production build always does.
 - `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment.
-- `?webgl` forces the WebGL2 fallback, which caps the graphics preset at Medium.
+- `?webgl` forces the WebGL2 fallback.
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
 
 In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `sound`, `menu`, `driver`) for the console and for scripts.
@@ -143,7 +143,7 @@ The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls
 ## Layout
 
 - `packages/fps-core`: the headless, deterministic simulation shared by the client and the server. It covers movement (pmove), weapons and grenades, hit zones, lag compensation, netcode, the game modes, bots and the sourced stats file. It has no DOM, rendering or audio code.
-- `packages/fps-client`: presentation and input. It covers rendering and presets, the viewmodel, effects, synthesized audio, the HUD, menus and the client side of networking.
+- `packages/fps-client`: presentation and input. It covers rendering, the viewmodel, effects, synthesized audio, the HUD, menus and the client side of networking.
 - `apps/range`: the maps (Survival Town, Switchyard and the Practice Range, as data the core never imports), the lighting bake and the page that runs the game. Switchyard's models are `public/models/switchyard.glb`, built by `tools/map/switchyard.py` in Blender.
 - `apps/server`: the authoritative server. It speaks WebSocket and also serves the built client.
 

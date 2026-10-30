@@ -28,7 +28,6 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { CSMShadowNode } from 'three/examples/jsm/csm/CSMShadowNode.js';
 import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
@@ -85,14 +84,15 @@ export interface WorldContent {
   readonly fires?: readonly Vec3[];
 }
 
-export type ShadowQuality = 'low' | 'normal' | 'high';
+/** Seconds between the sun's shadow-map redraws: at most 60 a second, so a fast display doesn't redraw every caster on every frame. */
+const SHADOW_REFRESH = 1 / 60;
 
-/**
- * Seconds between the sun's shadow-map redraws: at most 60 a second on Normal
- * and 30 on Low, so a fast display doesn't redraw every caster on every frame
- * (High's cascades redraw every frame).
- */
-const SHADOW_REFRESH: Readonly<Record<ShadowQuality, number>> = { low: 1 / 30, normal: 1 / 60, high: 0 };
+/** The sun's shadow map: its size (texels) and how far it reaches either side of the player (m). */
+const SHADOW_MAP_SIZE = 2048;
+const SHADOW_EXTENT = 45;
+
+/** One shadow-map texel (m). */
+const SHADOW_TEXEL = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;
 
 /** Base tint, roughness and metalness per surface: a polished studio blockout palette. */
 const LOOK: Readonly<Record<Material, { tint: number; line: number; roughness: number; metalness: number }>> = {
@@ -259,17 +259,16 @@ function labelMesh(label: WorldLabel): Mesh {
  */
 export class WorldView {
   readonly scene = new Scene();
-  #sun: DirectionalLight;
+  readonly #sun: DirectionalLight;
   /** Where the realtime shadow map reaches: its centre (x, z) and the radius it fully covers (m). */
   readonly #shadowCentre = uniform(new Vector2(0, 0));
-  readonly #shadowRadius = uniform(36);
+  // The map covers the ground all round that far (its square reaches farther on the ground than across).
+  readonly #shadowRadius = uniform(SHADOW_EXTENT * 0.9);
   /** The baked light probes, for lighting moving objects. */
   readonly probes = new ProbeField();
   readonly #root = new Group();
   /** The end-of-match freight train, for a map that has one. */
   readonly train: Train | null = null;
-  #csm: CSMShadowNode | null = null;
-  #quality: ShadowQuality = 'normal';
   /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
   readonly #props = new Map<string, Mesh>();
   /** Standard materials already switched to probe lighting. */
@@ -373,19 +372,28 @@ export class WorldView {
     scene.add(this.#root);
     this.#lightObject(this.#root);
     this.lightMoving();
-    this.setShadowQuality('normal');
   }
 
-  /** The sun: the scene's one directional light (rebuilt when the shadow quality changes). */
-  get sun(): DirectionalLight {
-    return this.#sun;
-  }
-
-  /** A fresh sun light in the scene. Three's lights divide by pi where the bake's light does not. */
+  /** The scene's one directional light. Three's lights divide by pi where the bake's light does not. */
   #makeSun(): DirectionalLight {
     const l = currentLighting();
     const sun = new DirectionalLight(new Color(...l.sunColor), l.sunIntensity * Math.PI);
     sun.castShadow = true;
+    const shadow = sun.shadow;
+    shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    shadow.bias = -0.0005;
+    // About a texel and a half: walls and roofs cast too, so surfaces facing the sun must not shadow themselves.
+    shadow.normalBias = 0.06;
+    const cam = shadow.camera;
+    cam.left = -SHADOW_EXTENT;
+    cam.right = SHADOW_EXTENT;
+    cam.top = SHADOW_EXTENT;
+    cam.bottom = -SHADOW_EXTENT;
+    cam.near = 1;
+    cam.far = 220;
+    cam.updateProjectionMatrix();
+    shadow.autoUpdate = false;
+    shadow.needsUpdate = true;
     this.scene.add(sun, sun.target);
     return sun;
   }
@@ -459,98 +467,37 @@ export class WorldView {
     this.#sun.shadow.map?.dispose();
   }
 
-  /** Low: one small shadow map near the player. Normal: one larger map. High: three cascades. */
-  setShadowQuality(quality: ShadowQuality): void {
-    // Three builds a light's shadow once and keeps it, so a new quality needs a new light.
-    if (quality !== this.#quality) {
-      const old = this.#sun;
-      old.shadow.map?.dispose();
-      this.scene.remove(old, old.target);
-      old.dispose();
-      this.#sun = this.#makeSun();
-    }
-    this.#quality = quality;
-    const shadow = this.#sun.shadow;
-    const size = quality === 'low' ? 1024 : 2048;
-    shadow.mapSize.set(size, size);
-    shadow.bias = -0.0005;
-    // About a texel and a half: walls and roofs cast too, so surfaces facing the sun must not shadow themselves.
-    shadow.normalBias = quality === 'low' ? 0.08 : 0.06;
-    const extent = quality === 'low' ? 28 : 45;
-    const cam = shadow.camera;
-    cam.left = -extent;
-    cam.right = extent;
-    cam.top = extent;
-    cam.bottom = -extent;
-    cam.near = 1;
-    cam.far = 220;
-    cam.updateProjectionMatrix();
-    shadow.map?.dispose();
-    shadow.map = null;
-    if (quality === 'high') {
-      // The node takes the rendering camera and builds its cascades on its first
-      // render; setting its camera here would skip that set-up.
-      this.#csm = new CSMShadowNode(this.#sun, { cascades: 3, maxFar: 120, mode: 'practical', lightMargin: 60 });
-      shadow.shadowNode = this.#csm;
-      this.#shadowRadius.value = 100;
-    } else {
-      this.#csm = null;
-      (shadow as { shadowNode?: unknown }).shadowNode = undefined;
-      // Where the map covers the ground all round (its square reaches farther on the ground than across).
-      this.#shadowRadius.value = extent * 0.9;
-    }
-    this.#texel = (2 * extent) / size;
-    this.#shadowEvery = SHADOW_REFRESH[quality];
-    shadow.autoUpdate = this.#shadowEvery === 0;
-    shadow.needsUpdate = true;
-    this.#shadowAt = -Infinity;
-  }
-
-  /** Redraws the shadow map on the next frame, whatever the preset's refresh rate. */
+  /** Redraws the shadow map on the next frame, whatever its refresh rate. */
   redrawShadow(): void {
     this.#sun.shadow.needsUpdate = true;
   }
 
-  /** Seconds between shadow-map redraws (0: every frame), and when the last one was. */
-  #shadowEvery = 0;
+  /** When the shadow map was last redrawn. */
   #shadowAt = -Infinity;
 
-  /** One shadow-map texel (m), for the single-map presets. */
-  #texel = 0.044;
-
   /**
-   * Keeps the sun's shadow map around the player. Single-map presets move it
-   * in whole texels across the light's view, so the shadows stay put on the
-   * ground instead of crawling and jumping as the player walks.
+   * Keeps the sun's shadow map around the player. It moves in whole texels
+   * across the light's view, so the shadows stay put on the ground instead of
+   * crawling and jumping as the player walks.
    */
   follow(position: Vec3): void {
-    if (this.#shadowEvery > 0) {
-      // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
-      // redraws: at the display's rate frames land either side of the interval.
-      const now = performance.now() / 1000;
-      if (now - this.#shadowAt < this.#shadowEvery * 0.8) return;
-      this.#shadowAt = now;
-      this.#sun.shadow.needsUpdate = true;
-    }
-    this.#shadowCentre.value.set(position[0], position[2]);
-    if (this.#csm) return;
+    // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
+    // redraws: at the display's rate frames land either side of the interval.
+    const now = performance.now() / 1000;
+    if (now - this.#shadowAt < SHADOW_REFRESH * 0.8) return;
+    this.#shadowAt = now;
+    this.#sun.shadow.needsUpdate = true;
     const d = currentLighting().sunDirection;
     // The light's view: x and y across it, z toward the sun (as lookAt builds it with +y up).
     const z = new Vector3(d[0], d[1], d[2]);
     const x = new Vector3(0, 1, 0).cross(z).normalize();
     const y = z.clone().cross(x);
     const p = new Vector3(position[0], 0, position[2]);
-    const t = this.#texel;
+    const t = SHADOW_TEXEL;
     const at = x.multiplyScalar(Math.round(p.dot(x) / t) * t).add(y.multiplyScalar(Math.round(p.dot(y) / t) * t)).add(z.clone().multiplyScalar(p.dot(z)));
     this.#shadowCentre.value.set(at.x, at.z);
     this.#sun.target.position.copy(at);
     this.#sun.position.copy(at).addScaledVector(z, 100);
     this.#sun.target.updateMatrixWorld();
-  }
-
-  /** Re-fits the cascades after the camera's projection changes. */
-  updateCascades(): void {
-    // Before its first render the node has no camera or frustums yet.
-    if (this.#csm?.camera) this.#csm.updateFrustums();
   }
 }

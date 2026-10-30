@@ -24,7 +24,7 @@ import {
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
-import { Benchmark, CameraPath, type BenchPreset, type BenchReport } from './bench';
+import { Benchmark, CameraPath, type BenchReport } from './bench';
 import { MAP_IDS, TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
@@ -42,7 +42,7 @@ if (params.has('viewer')) {
 
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
-  // `?bench`: fly the map's benchmark path once per preset and report frame times, GPU time, draw calls and triangles.
+  // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
   const { renderer, backend } = await createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
   document.body.dataset['backend'] = backend;
@@ -84,7 +84,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const g = new Game({
       canvas,
       renderer,
-      backend,
       content: map,
       bake,
       world: createWorld(solids, { ladders: map.ladders ?? [] }),
@@ -128,7 +127,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     mapId = id;
     game = createGame(id);
   };
-  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2 (preset capped at Medium)';
+  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
   setTimeout(() => (status.hidden = true), 4000);
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby();
@@ -491,7 +490,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Measure the finished look: wait for the baked lighting.
     await load(mapId).bake;
   }
-  const bench = benching ? startBenchmarkOn(game, renderer, load(mapId).map, backend, settings) : null;
+  const bench = benching ? startBenchmarkOn(game, renderer, load(mapId).map, backend) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
@@ -514,7 +513,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       const path = flyPath(load(mapId).map);
       if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
-    game.frame(time, !backdrop, drawBackdrop);
+    game.frame(time, drawBackdrop);
     // An online session that ended (rejected, kicked, server gone) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {
@@ -547,10 +546,10 @@ function flyPath(map: MapDefinition): CameraPath | null {
 
 /**
  * Runs the benchmark on the game's map: the menu hidden, the camera on the
- * benchmark path, each preset in turn. The report goes to an on-screen panel,
- * to the console as JSON and to `window.duty.benchmark`.
+ * benchmark path. The report goes to an on-screen panel, to the console as
+ * JSON and to `window.duty.benchmark`.
  */
-function startBenchmarkOn(game: Game, renderer: WebGPURenderer, map: MapDefinition, backend: string, settings: Settings): (time: number) => void {
+function startBenchmarkOn(game: Game, renderer: WebGPURenderer, map: MapDefinition, backend: string): (time: number) => void {
   const bench = new Benchmark(map.benchmarkPath);
   const loadMs = Math.round(performance.now());
   const panel = document.createElement('pre');
@@ -573,7 +572,7 @@ function startBenchmarkOn(game: Game, renderer: WebGPURenderer, map: MapDefiniti
         backend,
         resolution: [renderer.domElement.width, renderer.domElement.height],
         loadMs,
-        presets: bench.reports,
+        ...bench.result!,
       };
       panel.textContent = `BENCHMARK ${map.name}
 ${JSON.stringify(report, null, 1)}`;
@@ -582,12 +581,11 @@ ${JSON.stringify(report, null, 1)}`;
       document.body.dataset['benchmark'] = 'done';
       return;
     }
-    if (f.presetStarted) game.applySettings({ ...settings, preset: bench.preset as BenchPreset });
-    game.overview = f.pose;
+    game.overview = f;
     renderer.info.reset();
     game.frame(time);
     bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles });
-    panel.textContent = `BENCHMARK ${map.name} · ${bench.preset} · ${game.fps.toFixed(0)} fps`;
+    panel.textContent = `BENCHMARK ${map.name} · ${game.fps.toFixed(0)} fps`;
     // GPU time: Three.js keeps the latest frame's queries per pass, so each resolve reads one frame.
     if (!pendingGpu) {
       pendingGpu = true;

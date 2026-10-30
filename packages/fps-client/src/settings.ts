@@ -41,8 +41,6 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   scoreboard: 'Scoreboard',
 };
 
-export type GraphicsPreset = 'low' | 'normal' | 'high';
-
 export interface Settings {
   /** Key codes (KeyboardEvent.code) or Mouse0/Mouse1/Mouse2 per action. */
   readonly bindings: Readonly<Record<Action, string>>;
@@ -66,7 +64,6 @@ export interface Settings {
   readonly adsFov: 'affected' | 'independent';
   /** Horizontal field of view at 16:9, in degrees. */
   readonly fov: number;
-  readonly preset: GraphicsPreset;
   readonly showFps: boolean;
   readonly showPing: boolean;
   readonly showRangeOverlay: boolean;
@@ -113,7 +110,6 @@ export const DEFAULT_SETTINGS: Settings = {
   padDeadzone: STATS.input.stickDeadzone.value,
   adsFov: 'affected',
   fov: 90,
-  preset: 'normal',
   showFps: false,
   showPing: true,
   showRangeOverlay: true,
@@ -182,7 +178,6 @@ export function parseSettings(raw: unknown): Settings {
     padDeadzone: clamp(r['padDeadzone'], 0, 0.5, d.padDeadzone),
     adsFov: oneOf(r['adsFov'], ['affected', 'independent'], d.adsFov),
     fov: clamp(r['fov'], STATS.input.minFov.value, STATS.input.maxFov.value, d.fov),
-    preset: oneOf(r['preset'], ['low', 'normal', 'high'], d.preset),
     showFps: bool(r['showFps'], d.showFps),
     showPing: bool(r['showPing'], d.showPing),
     showRangeOverlay: bool(r['showRangeOverlay'], d.showRangeOverlay),
