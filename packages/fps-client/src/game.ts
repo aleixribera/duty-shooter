@@ -243,7 +243,7 @@ export class Game {
     this.#worldView = new WorldView(options.renderer, options.content, options.bake);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
     const preset = effectivePreset(options.settings.preset, options.backend);
-    this.#effects = new Effects(this.#worldView.scene, options.world, PRESETS[preset]);
+    this.#effects = new Effects(this.#worldView.scene, options.world, PRESETS[preset], options.content.fires);
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
     this.#viewFlash = this.#effects.createFlash();
     this.#viewmodel.muzzle.add(this.#viewFlash);

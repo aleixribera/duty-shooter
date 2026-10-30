@@ -81,6 +81,8 @@ export interface WorldContent {
   readonly lighting?: Lighting;
   /** The map's ambient sound sources (see Ambience). */
   readonly ambience?: readonly AmbientSource[];
+  /** Small visual-only fires emitted by the game's effects. */
+  readonly fires?: readonly Vec3[];
 }
 
 export type ShadowQuality = 'low' | 'normal' | 'high';

@@ -131,4 +131,6 @@ for site in layout['sites']:
     center = [(a+b)/2 for a,b in zip(lo,hi)]
     obj = marker('charge ' + site['id'] + ' ' + site['name'], center, 'CUBE', 1)
     obj.scale = ((hi[0]-lo[0])/2, (hi[2]-lo[2])/2, (hi[1]-lo[1])/2)
+for i, position in enumerate(layout.get('fires', []), 1):
+    marker('fire source %02d' % i, position, 'SPHERE', 0.25)
 bpy.ops.wm.save_as_mainfile(filepath=args[1])

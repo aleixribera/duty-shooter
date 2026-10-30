@@ -32,6 +32,7 @@ interface Particle {
   age: number;
   life: number;
   size: number;
+  stretch: number;
   grow: number;
   spin: number;
   rot: number;
@@ -83,6 +84,7 @@ class ParticleLayer {
       age: 0,
       life: 1,
       size: 0.1,
+      stretch: 1,
       grow: 0,
       spin: 0,
       rot: Math.random() * Math.PI * 2,
@@ -117,7 +119,8 @@ class ParticleLayer {
       const t = q.age / q.life;
       tmp.position.copy(q.p);
       tmp.quaternion.copy(camera.quaternion).multiply(tmpQ.setFromAxisAngle(Z, q.rot));
-      tmp.scale.setScalar(q.size + q.grow * q.age);
+      const size = q.size + q.grow * q.age;
+      tmp.scale.set(size, size * q.stretch, size);
       tmp.updateMatrix();
       this.mesh.setMatrixAt(i, tmp.matrix);
       this.mesh.setColorAt(i, q.color);
@@ -128,6 +131,11 @@ class ParticleLayer {
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
     this.#alpha.needsUpdate = true;
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    (this.mesh.material as MeshBasicNodeMaterial).dispose();
   }
 }
 
@@ -255,6 +263,11 @@ export class Effects {
   readonly #dust = new ParticleLayer(260, false, false);
   #smoke: ParticleLayer;
   readonly #blood = new ParticleLayer(160, false, false);
+  readonly #fires: readonly Vec3[];
+  readonly #fire: ParticleLayer | null;
+  #fireSmoke: ParticleLayer | null;
+  #fireClock = 0;
+  #fireSmokeClock = 0;
   readonly #holes: DecalLayer;
   readonly #splats: DecalLayer;
   readonly #casingMesh: InstancedMesh;
@@ -271,9 +284,16 @@ export class Effects {
   /** Called when a casing hits a surface hard enough to be heard. */
   onCasingBounce: ((position: Vec3, material: Material, intensity: number) => void) | null = null;
 
-  constructor(scene: Scene, world: World, features: PresetFeatures) {
+  constructor(scene: Scene, world: World, features: PresetFeatures, fires: readonly Vec3[] = []) {
     this.#world = world;
     this.#features = features;
+    this.#fires = fires;
+    this.#fire = fires.length ? new ParticleLayer(96, true, false) : null;
+    this.#fireSmoke = fires.length ? new ParticleLayer(64, false, features.volumetricSmoke) : null;
+    if (this.#fire && this.#fireSmoke) {
+      this.#fire.mesh.name = 'ambient-fire';
+      this.#fireSmoke.mesh.name = 'ambient-fire-smoke';
+    }
     this.#smoke = new ParticleLayer(features.volumetricSmoke ? 160 : 90, false, features.volumetricSmoke);
     for (let i = 0; i < 2; i++) {
       const light = new PointLight(0xffb468, 0, 9, 1.6);
@@ -292,14 +312,23 @@ export class Effects {
     this.#flashMaterial = flashMaterial();
     this.#root.add(this.#blastLight);
     this.#root.add(this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh);
+    if (this.#fire && this.#fireSmoke) this.#root.add(this.#fire.mesh, this.#fireSmoke.mesh);
     scene.add(this.#root);
   }
 
   setFeatures(features: PresetFeatures): void {
     if (features.volumetricSmoke !== this.#features.volumetricSmoke) {
       this.#root.remove(this.#smoke.mesh);
+      this.#smoke.dispose();
       this.#smoke = new ParticleLayer(features.volumetricSmoke ? 160 : 90, false, features.volumetricSmoke);
       this.#root.add(this.#smoke.mesh);
+      if (this.#fireSmoke) {
+        this.#root.remove(this.#fireSmoke.mesh);
+        this.#fireSmoke.dispose();
+        this.#fireSmoke = new ParticleLayer(64, false, features.volumetricSmoke);
+        this.#fireSmoke.mesh.name = 'ambient-fire-smoke';
+        this.#root.add(this.#fireSmoke.mesh);
+      }
     }
     this.#features = features;
   }
@@ -458,6 +487,31 @@ export class Effects {
 
   update(dt: number, camera: Camera): void {
     this.#time += dt;
+    if (this.#fire && this.#fireSmoke) {
+      // Ambient fire has its own bounded pools so it cannot evict combat smoke
+      // or sparks. Cap catch-up after a background tab resumes.
+      this.#fireClock += Math.min(dt,0.1);
+      this.#fireSmokeClock += Math.min(dt,0.1);
+      while (this.#fireClock >= 0.05) {
+        this.#fireClock -= 0.05;
+        for (const [x,y,z] of this.#fires) {
+          this.#fire.emit({p:new Vector3(x+(Math.random()-0.5)*0.32,y+0.08,z+(Math.random()-0.5)*0.32),
+            v:new Vector3((Math.random()-0.5)*0.12,0.7+Math.random()*0.4,(Math.random()-0.5)*0.12),
+            life:0.55+Math.random()*0.2,size:0.35+Math.random()*0.12,stretch:2.1,grow:-0.12,alpha:1,rot:0,
+            color:new Color(1,0.27+Math.random()*0.22,0.025)});
+        }
+      }
+      while (this.#fireSmokeClock >= 0.32) {
+        this.#fireSmokeClock -= 0.32;
+        for (const [x,y,z] of this.#fires) {
+          this.#fireSmoke.emit({p:new Vector3(x,y+0.48,z),v:new Vector3(0.12,0.55+Math.random()*0.2,0.04),
+            life:1.8+Math.random()*0.6,size:0.32,grow:0.23,alpha:0.22,
+            spin:(Math.random()-0.5)*0.4,color:new Color(0x55534d)});
+        }
+      }
+      this.#fire.update(dt,camera);
+      this.#fireSmoke.update(dt,camera);
+    }
     for (let i = 0; i < this.#lights.length; i++) {
       const age = (this.#lightAge[i] ?? 1) + dt;
       this.#lightAge[i] = age;
@@ -580,7 +634,8 @@ export class Effects {
    * them. Returns what puts them back.
    */
   showSamples(): () => void {
-    const meshes = [this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh];
+    const meshes = [this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh,
+      ...(this.#fire && this.#fireSmoke ? [this.#fire.mesh, this.#fireSmoke.mesh] : [])];
     const counts = meshes.map((m) => m.count);
     const unseen = new Matrix4().makeScale(0, 0, 0);
     for (const m of meshes) {
@@ -594,6 +649,8 @@ export class Effects {
 
   dispose(): void {
     this.#root.removeFromParent();
+    this.#fire?.dispose();
+    this.#fireSmoke?.dispose();
   }
 }
 

@@ -9,5 +9,5 @@ const server = await createServer({ root: resolve('apps/range'), configFile: fal
 try {
   const { buildCrash } = await server.ssrLoadModule('/src/map/crash.ts');
   const map = buildCrash();
-  await writeFile(output, JSON.stringify({solids:map.solids, looks:map.looks, finishes:map.finishes, decorations:map.decorations, models:map.models, spawns:map.spawns, zones:map.zones, sites:map.sites}));
+  await writeFile(output, JSON.stringify({solids:map.solids, looks:map.looks, finishes:map.finishes, decorations:map.decorations, models:map.models, spawns:map.spawns, zones:map.zones, sites:map.sites, fires:map.fires ?? []}));
 } finally { await server.close(); }

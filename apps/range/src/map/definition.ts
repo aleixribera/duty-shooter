@@ -90,6 +90,8 @@ export interface MapDefinition {
   readonly train: FreightTrain | null;
   /** What the map makes heard: the wind everywhere, and at a place birds, a sign, a radio, a far horn, shunting or a humming lamp. */
   readonly ambience: readonly ({ readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio' | 'horn' | 'couplings' | 'hum'; readonly position: Vec3 })[];
+  /** Small visual-only fires, with no effect on collision or damage. */
+  readonly fires?: readonly Vec3[];
   readonly spawns: {
     readonly ffa: readonly SpawnPoint[];
     /** One set per team (team 1, team 2), each at its own side of the map; null where the map has no team spawns. */

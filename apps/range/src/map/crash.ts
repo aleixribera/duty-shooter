@@ -684,7 +684,7 @@ export function buildCrash(): MapDefinition {
     id:'crash', name:'Crash (preview)', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
-    ambience:[{kind:'wind'}], spawns:{ffa,teams:[west,east]},
+    ambience:[{kind:'wind'}], fires:[[-7.9,0.06,-3.0],[-4.5,0.06,3.7]], spawns:{ffa,teams:[west,east]},
     zones:[{id:'A',name:'Garage',center:[-34,0.6,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,
