@@ -1,4 +1,4 @@
-import type { SpawnPoint, Vec3 } from '@duty-shooter/fps-core';
+import { playerClip, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
 import { normalize, type Finish, type Lighting } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { MapDefinition } from './definition';
@@ -515,6 +515,23 @@ export function buildCrash(): MapDefinition {
   // The crashed tandem-rotor aircraft runs roughly north to south, with
   // a broken rear section separated from the main fuselage.
   b.model('helicopter', [-6,0,-2], Math.PI / 2, () => {
+    // The Blender mesh is rolled about its length. Bullets use the matching
+    // angled boxes; small player clips approximate the tilted surfaces so
+    // movement can climb the floor and still pass through the openings.
+    const tilt=0.12, cos=Math.cos(tilt), sin=Math.sin(tilt);
+    const wreckBox = (min: Vec3, max: Vec3) => {
+      const y=(min[1]+max[1])/2, z=(min[2]+max[2])/2;
+      const center: Vec3 = [-6+cos*z+sin*y,cos*y-sin*z,-2-(min[0]+max[0])/2];
+      b.angledBullet(center,[max[0]-min[0],max[1]-min[1],max[2]-min[2]],Math.PI/2,tilt,0,'metal','wreck.hull');
+      const ny=Math.ceil((max[1]-min[1])/0.25), nz=Math.ceil((max[2]-min[2])/0.25);
+      for (let iy=0; iy<ny; iy++) for (let iz=0; iz<nz; iz++) {
+        const y0=min[1]+(max[1]-min[1])*iy/ny, y1=min[1]+(max[1]-min[1])*(iy+1)/ny;
+        const z0=min[2]+(max[2]-min[2])*iz/nz, z1=min[2]+(max[2]-min[2])*(iz+1)/nz;
+        const low=Math.max(0,cos*y0-sin*z1), high=cos*y1-sin*z0;
+        if (high>low+1e-6) b.hidden.push(playerClip({min:[-6+cos*z0+sin*y0,low,-2-max[0]],
+          max:[-6+cos*z1+sin*y1,high,-2-min[0]],material:'metal'}));
+      }
+    };
     for (const [min,max] of [
       [[-3.5,0,-1.42],[2.2,0.25,1.42]], [[-3.5,2.27,-1.42],[2.2,2.72,1.42]],
       [[-3.5,0.25,-1.42],[-1.3,2.27,-1.1]], [[-3.5,0.25,1.1],[-1.3,2.27,1.42]],
@@ -528,8 +545,7 @@ export function buildCrash(): MapDefinition {
       [[0.4,2.55,-0.6],[2.0,3.5,0.6]], [[0.52,3.5,-0.6],[1.76,4.16,0.6]],
       [[0.99,4.16,-0.26],[1.51,4.32,0.26]],
     ] as [Vec3,Vec3][]) {
-      const centre: Vec3 = [-6 + (min[2]+max[2])/2, (min[1]+max[1])/2, -2 - (min[0]+max[0])/2];
-      b.turned(centre, [max[0]-min[0],max[1]-min[1],max[2]-min[2]], Math.PI / 2, 'metal', 'wreck.hull');
+      wreckBox(min,max);
     }
     // Match the Blender blade's bent profile with short collision sections.
     // The tips reach the street, while the higher spans leave room to pass.
@@ -540,8 +556,8 @@ export function buildCrash(): MapDefinition {
         const a=i/4, c=(i+1)/4;
         const za=side*(z0+(z1-z0)*a), zb=side*(z0+(z1-z0)*c);
         const ya=y0+(y1-y0)*a, yb=y0+(y1-y0)*c;
-        b.turned([-6+(za+zb)/2,(ya+yb+0.08)/2,-3.25],
-          [0.36,Math.abs(ya-yb)+0.08,Math.abs(za-zb)],Math.PI/2,'metal','wreck.metal');
+        wreckBox([1.07,Math.min(ya,yb),Math.min(za,zb)],
+          [1.43,Math.max(ya,yb)+0.08,Math.max(za,zb)]);
       }
     }
   });

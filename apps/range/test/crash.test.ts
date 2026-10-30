@@ -48,8 +48,14 @@ describe('Crash', () => {
     expect(out.position[2]).toBeLessThan(2.4);
   });
   it('keeps the bent rotor solid near its tip and clear beneath its raised span', () => {
-    expect(raycastWorld(world,[-10.8,0.65,-4.0],[-10.8,0.65,-2.5])).not.toBeNull();
-    expect(raycastWorld(world,[-9.5,1.6,-4.0],[-9.5,1.6,-2.5])).toBeNull();
+    expect(raycastWorld(world,[-10.68,1.32,-4.0],[-10.68,1.32,-2.5])).not.toBeNull();
+    expect(raycastWorld(world,[-9.1,1.6,-4.0],[-9.1,1.6,-2.5])).toBeNull();
+  });
+  it('blocks a walking player at the tilted cabin side', () => {
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-9,0,-3.2],yaw:-Math.PI/2}]});
+    let out=m.step({p:usercmd({yaw:-Math.PI/2})}).players[0]!;
+    for (let i=0; i<3/TICK_SECONDS; i++) out=m.step({p:usercmd({yaw:-Math.PI/2,forward:1})}).players[0]!;
+    expect(out.position[0]).toBeLessThan(-7);
   });
   it('lets shots pass beside the tapered cockpit nose while its centre remains cover', () => {
     expect(raycastWorld(world,[-5.1,0.5,-6.25],[-5.1,0.5,-6.13])).toBeNull();

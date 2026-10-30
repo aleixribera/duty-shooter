@@ -157,6 +157,11 @@ export class Builder {
     return this.#draw(yawBox({ center, size, yaw, material }), look);
   }
 
+  /** An angled shot surface; player collision must be supplied separately. */
+  angledBullet(center: Vec3, size: Vec3, yaw: number, pitch: number, roll: number, material: Material, look?: Look | string): Solid {
+    return this.#draw(orientedBox({ center, size, yaw, pitch, roll, material, blocks: 'bullets' }), look);
+  }
+
   /**
    * Visual-only trim on a solid: a box (yawed about its centre) in `finish`
    * that must stay within 5 cm of the solid's surface.

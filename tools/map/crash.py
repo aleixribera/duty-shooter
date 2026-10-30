@@ -8,6 +8,7 @@ import math
 import random
 import bmesh
 import bpy
+from mathutils import Matrix
 sys.path.insert(0, os.path.dirname(__file__))
 import mapkit
 
@@ -564,6 +565,9 @@ for obj in built:
         worst, where = kit.strays(obj, SOLIDS[obj.name])
         report[obj.name] = {'tris': kit.tris(obj), 'outside': worst, 'at': where}
 result = {'assets': report, 'issues': [name for name, data in report.items() if data.get('outside',0) > mapkit.TOLERANCE]}
+# Validate in the asset's untwisted frame, then roll the entire wreck about
+# its long axis; the game applies the same rotation to its collision.
+next(obj for obj in built if obj.name == 'helicopter').data.transform(Matrix.Rotation(0.12,4,'X'))
 if ARGS.get("export", False):  # noqa: F821
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     kit.export(built, OUT)
