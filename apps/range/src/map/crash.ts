@@ -500,6 +500,31 @@ function buildArcadeWalkway(b: Builder): void {
   }
 }
 
+/** The arcade sits diagonally across the south side of the original plaza. */
+export const ARCADE_YAW = -0.26;
+export function arcadePoint([x,y,z]: Vec3): Vec3 {
+  const c=Math.cos(ARCADE_YAW), s=Math.sin(ARCADE_YAW);
+  return [-3+c*(x+3)+s*(z-18),y,18-s*(x+3)+c*(z-18)];
+}
+
+function buildAngledArcade(b: Builder): void {
+  // Build the openings and trim in the building's own axes, then turn the
+  // complete assembly, including its collision and decorative window frames.
+  const local = new Builder();
+  building(local,LANDMARKS.arcade,1,'market','north',false,'arcade');
+  buildArcadeWalkway(local);
+  if (local.hidden.length || local.models.length) throw new Error('Arcade assembly must contain only drawn solids');
+  const placed = local.solids.map((solid,i) => {
+    if (solid.orientation || solid.blocks !== 'both' || solid.prop) throw new Error('Unexpected arcade solid');
+    const {min,max} = solid;
+    const center: Vec3 = [(min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2];
+    const size: Vec3 = [max[0]-min[0],max[1]-min[1],max[2]-min[2]];
+    return b.turned(arcadePoint(center),size,ARCADE_YAW,solid.material,local.looks[i] ?? undefined);
+  });
+  for (const d of local.decorations)
+    b.decorate(placed[d.solid]!,arcadePoint(d.center),d.size,d.finish,d.yaw+ARCADE_YAW);
+}
+
 /** Walls and openings form the back street, backyard and south alley.
  * Openings are full height so movement and sightlines follow the same gaps. */
 function buildLanes(b: Builder): void {
@@ -582,8 +607,7 @@ export function buildCrash(): MapDefinition {
   for (let y=0.3; y<9.9; y+=0.3) b.add([-3.91,y,-31.45],[-3.83,y+0.06,-30.55],'metal',{look:'roof.metal',blocks:'bullets'});
   buildBlue(b);
   buildMain(b);
-  building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
-  buildArcadeWalkway(b);
+  buildAngledArcade(b);
   buildShop(b);
   buildSandbagRoof(b);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
@@ -789,7 +813,7 @@ export function buildCrash(): MapDefinition {
       ...apartmentHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-2.5],[-6,0.45,-2.5],[-4,0,-2.5]] as Vec3[]),
-      ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
+      ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [9.5,11.3,14].map(z => arcadePoint([x,0,z]))),
       ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
       ...[-6,9,26].flatMap((x): Vec3[] => [[x,0,24.3],[x,0,26.7]]),
       ...[0,9.5].flatMap((z): Vec3[] => [[-32.2,0,z],[-30.2,0,z]]),

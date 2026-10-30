@@ -4,7 +4,7 @@ import { createHeadlessMatch, createNetworkedMatch, usercmd } from '@duty-shoote
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
 import { insidePolygon, mapSolids } from '../src/map/definition';
-import { BOUNDARY, LANDMARKS, buildCrash } from '../src/map/crash';
+import { ARCADE_YAW, BOUNDARY, LANDMARKS, arcadePoint, buildCrash } from '../src/map/crash';
 import { botMap, reachable } from './support/bots';
 
 const map = buildCrash();
@@ -355,11 +355,26 @@ describe('Crash', () => {
     }
   });
   it('opens the covered arcade to a walking player and the main upper windows to the plaza', () => {
-    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-8.5,0,8],yaw:Math.PI}]});
-    let out = m.step({p:usercmd({yaw:Math.PI})}).players[0]!;
-    for (let i=0;i<360 && out.position[2]<14;i++) out=m.step({p:usercmd({yaw:Math.PI,forward:1})}).players[0]!;
-    expect(out.position[2],String(out.position)).toBeGreaterThan(14);
+    const start = arcadePoint([-8.5,0,8]), end = arcadePoint([-8.5,0,14]);
+    const yaw = Math.PI+ARCADE_YAW;
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:start,yaw}]});
+    let out = m.step({p:usercmd({yaw})}).players[0]!;
+    for (let i=0;i<360 && Math.hypot(out.position[0]-end[0],out.position[2]-end[2])>0.4;i++) out=m.step({p:usercmd({yaw,forward:1})}).players[0]!;
+    expect(Math.hypot(out.position[0]-end[0],out.position[2]-end[2]),String(out.position)).toBeLessThan(0.4);
     expect(raycastWorld(world,[-0.5,4.6,-14.25],[4,4.6,-14.25])).toBeNull();
+  });
+  it('keeps the angled arcade side entrance usable in both directions', () => {
+    for (const [a,b,yaw] of [
+      [[-9,0,20.9],[-13,0,20.9],Math.PI/2+ARCADE_YAW],
+      [[-13,0,20.9],[-9,0,20.9],-Math.PI/2+ARCADE_YAW],
+    ] as [Vec3,Vec3,number][]) {
+      const start=arcadePoint(a), end=arcadePoint(b);
+      const m=createHeadlessMatch({solids,players:[{id:'p',team:1,position:start,yaw}]});
+      let out=m.step({p:usercmd({yaw})}).players[0]!;
+      for (let i=0;i<300 && Math.hypot(out.position[0]-end[0],out.position[2]-end[2])>0.5;i++)
+        out=m.step({p:usercmd({yaw,forward:1})}).players[0]!;
+      expect(Math.hypot(out.position[0]-end[0],out.position[2]-end[2]),String(out.position)).toBeLessThan(0.5);
+    }
   });
   it('connects the main upper room and gallery, whose lattice stops falls but not shots', () => {
     const inside: Vec3 = [1.8,3.5,-15], outside: Vec3 = [-0.5,3.5,-15];
