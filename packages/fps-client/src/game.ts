@@ -41,6 +41,7 @@ import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
 import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline } from './pipeline';
+import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
 import type { GameDriver, PresentedEvent } from './session';
 import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
@@ -365,10 +366,17 @@ export class Game {
    * drawn with all of them, soldiers in every look and the pieces a ragdoll
    * throws on show, so their shaders compile now rather than in the first
    * frames of play or at a first weapon switch or kill. Settles within a few
-   * seconds even if no frame is drawn (a hidden tab), then waits for the GPU to
-   * finish compiling (see `#gpuDone`).
+   * seconds even if no frame is drawn (a hidden tab), then waits for those
+   * shaders (see `#gpuDone`). Done once: later calls wait for the same work.
    */
-  async prepare(): Promise<void> {
+  prepare(): Promise<void> {
+    this.#prepared ??= this.#prepare();
+    return this.#prepared;
+  }
+
+  #prepared: Promise<void> | null = null;
+
+  async #prepare(): Promise<void> {
     await this.preload();
     await new Promise<void>((done) => {
       const timeout = setTimeout(finish, 3000);
@@ -383,17 +391,15 @@ export class Game {
   }
 
   /**
-   * Waits (at most `limit` ms) until the GPU has finished the frames drawn so far.
-   * The browser compiles shaders in the background after they are created, and
-   * the first frame that needs one waits for it: without this, the hundreds
-   * compiled behind the menu and the loading screen are still compiling when
-   * play starts, and the first seconds freeze for that long instead.
+   * Waits (at most `limit` ms) until the shaders asked for so far have compiled
+   * and the GPU has finished the frames drawn so far. Nothing freezes without
+   * this, but what lacks a shader is left out of the picture until it has one.
    */
   async #gpuDone(limit: number): Promise<void> {
     const queue = (this.#renderer.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } }).device?.queue;
     if (!queue) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([queue.onSubmittedWorkDone(), new Promise<void>((done) => (timer = setTimeout(done, limit)))]);
+    await Promise.race([pipelinesReady(this.#renderer).then(() => queue.onSubmittedWorkDone()), new Promise<void>((done) => (timer = setTimeout(done, limit)))]);
     clearTimeout(timer);
   }
 

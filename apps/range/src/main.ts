@@ -1,52 +1,32 @@
-import {
-  BOT_MAPS,
-  BotMatchDriver,
-  Game,
-  LobbyPage,
-  Menu,
-  OfflineDriver,
-  OnlineDriver,
-  buildM4A1,
-  createRenderer,
-  createSoundSystem,
-  isFirefox,
-  loadBake,
-  lobbyMapName,
-  loadSettings,
-  padName,
-  saveSettings,
-  type GameDriver,
-  type Lobby,
-  type LobbyInfo,
-  type LobbyView,
-  type Settings,
-} from '@duty-shooter/fps-client';
+import { BOT_MAPS, LobbyPage, Menu, loadSettings, lobbyMapName, padName, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type Settings } from '@duty-shooter/fps-client/ui';
+import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
-import { MAP_IDS, TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
 if (!canvas || !status) throw new Error('index.html is missing #view or #status');
 
 const params = new URLSearchParams(location.search);
-if (params.has('viewer')) {
-  // The dev viewmodel viewer: every animation on a loop.
-  const { startViewer } = await import('./viewer');
-  await startViewer(canvas, status, params.has('webgl'));
-} else {
-  await startGame(canvas, status, params.has('webgl'));
-}
-
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
-  const { renderer, backend } = await createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
-  document.body.dataset['backend'] = backend;
-  const sound = createSoundSystem();
+  // The menus go up first, and take clicks while three.js and the map arrive behind them.
+  const engineLoading = import('./engine');
+  let engine: Awaited<typeof engineLoading> | null = null;
+  let renderer!: WebGPURenderer;
+  let sound!: SoundSystem;
+  let engineUp!: () => void;
+  const engineReady = new Promise<void>((done) => (engineUp = done));
+  /** Runs `act` once the engine is up: now, if it is. */
+  const whenUp = (act: (e: Awaited<typeof engineLoading>) => void) => {
+    if (engine) act(engine);
+    else void engineReady.then(() => act(engine!));
+  };
   // The release this page belongs to (`git describe`, set by the build), shown on the main menu.
   const version = import.meta.env.VITE_VERSION ?? 'dev';
 
@@ -57,7 +37,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (!entry) {
       const map = buildMapById(id);
       const e: { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean } = { map, solids: mapSolids(map), bake: Promise.resolve(null), progress: null, ready: false };
-      e.bake = loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
+      e.bake = engine!.loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
       // For the screenshot scripts: whether this map's lighting is in.
       void e.bake.then((file) => {
         e.ready = true;
@@ -81,7 +61,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** A game on one map; switching maps builds a new one. */
   const createGame = (id: MapId) => {
     const { map, solids, bake } = load(id);
-    const g = new Game({
+    const g = new engine!.Game({
       canvas,
       renderer,
       content: map,
@@ -90,7 +70,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       settings,
       sound,
       overview: map.overview,
-      thirdPersonWeapon: () => buildM4A1({ detail: 'low' }).root,
+      thirdPersonWeapon: () => engine!.buildM4A1({ detail: 'low' }).root,
       loadoutStation: map.loadoutStation,
       rangeLanesWestOf: map.rangeLanesWestOf,
     });
@@ -123,12 +103,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let game!: Game;
   const useMap = (id: MapId) => {
     if (id === mapId) return;
-    game.dispose();
+    const old = game;
+    old.input.onUnlock = null;
+    old.input.onPadMenu = null;
+    old.paused = true;
+    old.hud.visible = false;
     mapId = id;
     game = createGame(id);
+    // The old game goes once the new one is ready: its shaders, most of them the new one's too, stay compiled meanwhile.
+    void game.prepare().finally(() => old.dispose());
   };
-  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
-  setTimeout(() => (status.hidden = true), 4000);
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby();
   // An invite link (`#join=<passphrase>`): the passphrase into the join form, and out of the address bar.
@@ -170,7 +154,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     driver = next;
     game.setDriver(next);
     menu.loadoutNote = next.online ? 'Applies from your next spawn.' : 'Applies at once.';
-    if (isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
+    if (engine!.isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
     else void enter();
   };
 
@@ -181,7 +165,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     menu.loading(`Loading ${load(id).map.name}`, null);
     await game.prepare();
     const { map, solids } = load(id);
-    play(new OfflineDriver({ solids, ladders: map.ladders ?? [], spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
+    play(new engine!.OfflineDriver({ solids, ladders: map.ladders ?? [], spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
   // `?matchtime=<s>` (dev only): Bot Matches that last that long, for testing their end without the 10 minutes.
   const matchTime = import.meta.env.DEV ? Number(params.get('matchtime')) || undefined : undefined;
@@ -195,14 +179,17 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     await game.prepare();
     // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
     await new Promise((done) => setTimeout(done, 50));
-    play(new BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
+    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
   const menu = new Menu(
     settings,
     {
-      practiceRange: () => void playOffline('range'),
+      practiceRange: () => {
+        menu.loading('Practice Range', null);
+        whenUp(() => void playOffline('range'));
+      },
       botMatch: () => openBotLobby(),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
@@ -215,6 +202,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           if (!status) return menu.failed(null);
           // A seat held for this page counts among the players, and is still its to take back.
           if (status.players >= status.capacity && !hasSeat()) return menu.failed('The server is full.');
+          await engineReady;
+          if (attempt !== joinAttempt) return;
           // The server's map, for prediction and drawing.
           const id = asMapId(status.map) ?? 'survival-town';
           // The map's lighting first: joined, the player is in the match (and can be shot) at once.
@@ -229,7 +218,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
           lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+          const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
         });
@@ -254,22 +243,22 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       resume: () => void enter(),
       leave: () => leaveGame(),
       changeSettings: (next) => {
-        if (next.loadout !== settings.loadout) game.driver?.setLoadout(next.loadout);
+        if (next.loadout !== settings.loadout) game?.driver?.setLoadout(next.loadout);
         settings = next;
         saveSettings(next);
-        game.applySettings(next);
+        game?.applySettings(next);
         menu.settings = next;
       },
-      captureKey: () => game.input.captureNext(),
+      captureKey: () => engineReady.then(() => game.input.captureNext()),
     },
-    { lobby, version, padName: () => game.input.padName },
+    { lobby, version, padName: () => game?.input.padName ?? null },
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
     botLobbyOpen = false;
-    game.setDriver(null);
-    game.paused = true;
-    game.input.unlock();
+    game?.setDriver(null);
+    if (game) game.paused = true;
+    game?.input.unlock();
     leaveLobby();
     menu.show('main');
   };
@@ -280,10 +269,15 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       pick: (picks) => (botLobbyOpen ? pickBots(picks) : game.driver?.setLobby(picks)),
       start: () => {
         if (botLobbyOpen) {
-          // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
-          if (game.driver) game.setDriver(null);
-          closeBotLobby();
-          void playBots(asMapId(botSetup.map) ?? 'survival-town', botSetup.mode, botSetup.bots, botSetup.hvb && teamMode(botSetup.mode));
+          menu.loading('Bot Match', null);
+          lobbyPage.hide();
+          botLobbyOpen = false;
+          whenUp(() => {
+            // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
+            if (game.driver) game.setDriver(null);
+            leaveLobby();
+            void playBots(asMapId(botSetup.map) ?? 'survival-town', botSetup.mode, botSetup.bots, botSetup.hvb && teamMode(botSetup.mode));
+          });
           return;
         }
         // The click that starts the match also takes the pointer for it.
@@ -330,9 +324,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     menu.hide();
     lobbyPage.invite = null;
     lobbyPage.show(botView());
-    load(asMapId(botSetup.map) ?? 'survival-town');
-    // The weapons' models too (the browser keeps them for the match's game, on whichever map).
-    void game.preload();
+    // The weapons and shaders are on their way already (see below); the map's lighting starts now.
+    whenUp(() => void load(asMapId(botSetup.map) ?? 'survival-town'));
   };
   const pickBots = (picks: LobbyPick) => {
     const { fill: _fill, bots, ...rest } = picks;
@@ -340,12 +333,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
     const custom = bots !== undefined || (botSetup.custom && picks.fill === undefined && next.map === botSetup.map && next.mode === botSetup.mode);
     botSetup = { ...next, custom, bots: custom ? Math.max(1, Math.min(MAX_BOTS_PER_TEAM, bots ?? botSetup.bots)) : teamSize(next.map, next.mode) };
-    if (picks.map) load(asMapId(picks.map) ?? 'survival-town');
+    if (picks.map) whenUp(() => void load(asMapId(picks.map) ?? 'survival-town'));
     lobbyPage.show(botView());
-  };
-  const closeBotLobby = () => {
-    botLobbyOpen = false;
-    leaveLobby();
   };
   // Esc leaves Bot Match's setup (the menu, open over it, handles its own Esc first).
   document.addEventListener('keydown', (e) => {
@@ -359,6 +348,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let onlineName = 'You';
   const leaveLobby = () => {
     lobbyPage.hide();
+    if (!game) return;
     game.overviewOnly = false;
     game.hud.visible = game.driver !== null;
   };
@@ -392,6 +382,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const updateLobby = () => {
     const driver = game.driver;
     // A Bot Match over: back to its setup as the online lobby comes back after a match, the map flying by behind.
+    const { BotMatchDriver, OnlineDriver } = engine!;
     if (driver instanceof BotMatchDriver && driver.over && !botLobbyOpen) {
       const match = driver.match!;
       botLast = { mode: match.mode, result: match.result, teamScores: match.teamScores };
@@ -439,7 +430,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       void joinMatch();
     }
   };
-  game = createGame(initial);
   void lobbyDiscovery.then((found) => {
     lobby = found;
     menu.setLobby(found);
@@ -447,23 +437,38 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   });
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
   const explore = asMapId(params.get('explore'));
+  const spotName = params.get('spot');
+  if (explore || spotName !== null || benching) menu.hide();
+  // The Play Online tile keeps up with the server while the main menu is open.
+  setInterval(() => {
+    if (lobby?.kind === 'server' && menu.open && menu.screen === 'main' && !game?.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
+  }, 10_000);
+  addEventListener('gamepadconnected', (e) => game?.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
+
+  // The engine, a piece at a time: the menus stay live between the pieces.
+  await nextPaint();
+  engine = await engineLoading;
+  await nextPaint();
+  const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
+  renderer = created.renderer;
+  const { backend } = created;
+  document.body.dataset['backend'] = backend;
+  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
+  setTimeout(() => (status.hidden = true), 4000);
+  sound = engine.createSoundSystem();
+  await nextPaint();
+  game = createGame(initial);
+  engineUp();
   if (explore) void playOffline(explore);
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
-  const spotName = params.get('spot');
   let fixedCamera = false;
   if (spotName !== null) {
     const spot = load(mapId).map.referenceSpots.find((s) => s.name === spotName);
     if (spot) {
       game.overview = spot;
       fixedCamera = true;
-      menu.hide();
-    }
+    } else if (menu.screen === 'main') menu.show('main');
   }
-  // The Play Online tile keeps up with the server while the main menu is open.
-  setInterval(() => {
-    if (lobby?.kind === 'server' && menu.open && menu.screen === 'main' && !game.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
-  }, 10_000);
-  addEventListener('gamepadconnected', (e) => game.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
 
   // Dev builds expose the game for debugging and playtesting from the console.
   if (import.meta.env.DEV) {
@@ -495,6 +500,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
+  // The first moments of a match get ready behind the menu, soon after it is up, so that Play has little left to do.
+  if (!bench) {
+    const prepare = () => void game.prepare();
+    if ('requestIdleCallback' in globalThis) requestIdleCallback(prepare, { timeout: 1000 });
+    else setTimeout(prepare, 200);
+  }
   await renderer.setAnimationLoop((time) => {
     if (bench) {
       bench(time);
@@ -531,6 +542,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu.failed(driver.status);
       }
     }
+  });
+}
+
+/** After the next paint, or in a moment on a hidden tab, which paints nothing. */
+function nextPaint(): Promise<void> {
+  return new Promise((done) => {
+    requestAnimationFrame(() => setTimeout(done));
+    setTimeout(done, 100);
   });
 }
 
@@ -646,4 +665,13 @@ async function findLobby(): Promise<Lobby | null> {
   }
   const url = import.meta.env.VITE_LOBBY_URL;
   return url ? { kind: 'link', url } : null;
+}
+
+// Last, so the constants above are set before the menus can take a click.
+if (params.has('viewer')) {
+  // The dev viewmodel viewer: every animation on a loop.
+  const { startViewer } = await import('./viewer');
+  await startViewer(canvas, status, params.has('webgl'));
+} else {
+  await startGame(canvas, status, params.has('webgl'));
 }

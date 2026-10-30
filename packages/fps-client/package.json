@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./surfaces": "./src/surfaces/index.ts",
     "./map-sound": "./src/map-sound.ts",
-    "./session": "./src/session.ts"
+    "./session": "./src/session.ts",
+    "./ui": "./src/ui/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p . && tsc -p test"
