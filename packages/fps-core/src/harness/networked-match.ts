@@ -1,6 +1,7 @@
 import type { ModeEvent, ModeId, SpawnPoint } from '../modes/game-mode';
 import { GameClient, type ClientFrame } from '../net/client';
 import { createMemoryNetwork, type MemoryNetwork, type MemoryNetworkOptions } from '../net/memory';
+import type { Connection } from '../net/transport';
 import { GameServer, type BotOptions, type GameServerOptions, type LobbyEvent } from '../net/server';
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
@@ -64,7 +65,7 @@ export interface NetworkedMatch {
   readonly server: GameServer;
   readonly network: MemoryNetwork;
   /** Connects a client that will join with `name` and `passphrase` (the server's by default), optionally asking for a mode. */
-  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number; resume?: string; script?: boolean; loadout?: Loadout }): NetworkedClient;
+  join(name: string, options?: { passphrase?: string; mode?: ModeId; bots?: number; resume?: string; script?: boolean; loadout?: Loadout; connection?: Connection; reconnect?: () => Connection }): NetworkedClient;
   /** One tick: deliver due messages, step the server, then step every client with its usercmd. */
   step(cmds?: Readonly<Record<string, UserCmd>>): TickOutput;
   run(ticks: number, script?: NetworkedScript): TickOutput[];
@@ -131,7 +132,8 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
       // A name whose client has closed may join again (coming back after a drop).
       if (clients.get(name)?.client.status === 'joined') throw new Error(`Client ${name} already joined`);
       const client = new GameClient({
-        connection: network.connect(),
+        connection: joinOptions.connection ?? network.connect(),
+        ...(joinOptions.reconnect ? { reconnect: joinOptions.reconnect } : {}),
         world: createWorld(options.solids, { ladders: options.ladders ?? [] }),
         name,
         passphrase: joinOptions.passphrase ?? passphrase,

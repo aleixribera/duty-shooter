@@ -658,7 +658,7 @@ export class Game {
         : null,
       respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,
       prompt: this.#prompt(),
-      message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status),
+      message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status === 'reconnecting' ? 'Reconnecting…' : status),
       zones: this.#zoneMarkers(eye),
       charge: this.#chargeHud(eye),
       dt,

@@ -79,7 +79,7 @@ export interface GameDriver {
   /** What to carry from the next spawn (offline: at once while alive). */
   setLoadout(loadout: Loadout): void;
   nameOf(id: PlayerId): string;
-  /** 'playing', 'connecting', or why the connection ended. */
+  /** 'playing', 'connecting', 'reconnecting' (the seat held while the connection comes back), or why it ended. */
   readonly status: string;
   /** True when the whole match runs in the page, so it stops while the game is paused (a bot match). */
   readonly pausesWithGame?: boolean;
@@ -226,8 +226,10 @@ export class OnlineDriver implements GameDriver {
   constructor(options: OnlineOptions) {
     this.#seatKey = options.seatKey ?? null;
     this.#savedToken = this.#seatKey === null ? null : readStorage(this.#seatKey);
+    const { server } = options;
     this.#client = new GameClient({
-      connection: typeof options.server === 'string' ? connectWebSocket(options.server) : options.server,
+      connection: typeof server === 'string' ? connectWebSocket(server) : server,
+      ...(typeof server === 'string' ? { reconnect: () => connectWebSocket(server) } : {}),
       world: createWorld(options.solids, { ladders: options.ladders ?? [] }),
       name: options.name,
       passphrase: options.passphrase,
@@ -313,7 +315,7 @@ export class OnlineDriver implements GameDriver {
       return 'Pick another name.';
     }
     if (c.status === 'closed') return `Disconnected: ${c.closeReason ?? 'connection lost'}.`;
-    return 'connecting';
+    return c.status === 'reconnecting' && c.id !== null ? 'reconnecting' : 'connecting';
   }
 
   takeSpawn(): { yaw: number; pitch: number } | null {

@@ -213,7 +213,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           if (attempt !== joinAttempt) return;
           menu.updateLobby(status);
           if (!status) return menu.failed(null);
-          if (status.players >= status.capacity) return menu.failed('The server is full.');
+          // A seat held for this page counts among the players, and is still its to take back.
+          if (status.players >= status.capacity && !hasSeat()) return menu.failed('The server is full.');
           // The server's map, for prediction and drawing.
           const id = asMapId(status.map) ?? 'survival-town';
           // The map's lighting first: joined, the player is in the match (and can be shot) at once.
@@ -228,7 +229,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
           // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
           lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], name, passphrase, seatKey: 'duty-shooter.seat', loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+          const next = new OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
           useMap(id);
           play(next);
         });
@@ -514,7 +515,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
     game.frame(time, drawBackdrop);
-    // An online session that ended (rejected, kicked, server gone) returns to the join screen.
+    // An online session that ended (rejected, kicked, a server gone for good) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {
       watched = driver;
@@ -522,7 +523,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
     if (driver?.online && driver.status !== lastStatus) {
       lastStatus = driver.status;
-      if (driver.status !== 'playing' && driver.status !== 'connecting') {
+      if (driver.status !== 'playing' && driver.status !== 'connecting' && driver.status !== 'reconnecting') {
         leaveLobby();
         game.setDriver(null);
         game.paused = true;
@@ -532,6 +533,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   });
 }
+
+/** Where the page keeps its seat token. */
+const SEAT_KEY = 'duty-shooter.seat';
 
 /** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
 const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'crash']);
@@ -599,8 +603,22 @@ ${JSON.stringify(report, null, 1)}`;
   };
 }
 
-/** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
+/** Whether this page remembers a seat from an earlier connection. */
+function hasSeat(): boolean {
+  try {
+    return localStorage.getItem(SEAT_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** The lobby status, a second time if the first try fails: one lost request is not a server that is down. */
 async function lobbyStatus(): Promise<LobbyInfo | null> {
+  return (await askLobbyStatus()) ?? (await askLobbyStatus());
+}
+
+/** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
+async function askLobbyStatus(): Promise<LobbyInfo | null> {
   try {
     // A slow page (a busy main thread) still gets its answer; a server that is down fails fast anyway.
     const res = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(8000) });

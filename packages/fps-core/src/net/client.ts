@@ -10,6 +10,8 @@ import type { Connection } from './transport';
 
 export interface GameClientOptions {
   readonly connection: Connection;
+  /** Opens another connection to the same server: with it a dropped or silent connection comes back to its seat on its own; without, a drop ends the session. */
+  readonly reconnect?: () => Connection;
   readonly world: World;
   readonly name: string;
   readonly passphrase: string;
@@ -31,7 +33,7 @@ export interface GameClientOptions {
   readonly correctionHalfLife?: number;
 }
 
-export type ClientStatus = 'connecting' | 'joined' | 'rejected' | 'closed';
+export type ClientStatus = 'connecting' | 'joined' | 'reconnecting' | 'rejected' | 'closed';
 
 /** What one client tick produced. */
 export interface ClientFrame {
@@ -46,6 +48,19 @@ export interface ClientFrame {
 /** Corrections bigger than this (m) are a teleport (respawn) and snap instead of smoothing. */
 const SNAP_DISTANCE = 2;
 const JOIN_RETRY_TICKS = 30;
+/** Silence this long (ticks, 3 s) is a dead connection: a half-open socket never reports its own close, and the server sends 60 times a second. */
+const SILENT_TICKS = 180;
+/** How long one attempt to connect may take (ticks, 5 s) before the next. */
+const ATTEMPT_TICKS = 300;
+/** How long to keep trying (ticks): 10 s for a first join, so a server that is down is reported; 2 min to come back to a seat. */
+const JOIN_WINDOW_TICKS = 600;
+const RESUME_WINDOW_TICKS = 7200;
+/** Waits between attempts (ticks), the last repeating: the first retry is all but instant, for a socket that just blinked. */
+const BACKOFF_TICKS = [6, 30, 60, 120] as const;
+/** Close reasons to take at face value: this page left, or another page took the seat. */
+const FINAL_CLOSES: ReadonlySet<string> = new Set(['client left', 'replaced']);
+/** Unread messages kept (a hidden tab draws no frames, so nothing reads them): the oldest go, and the server's close and the seat token bring it back. */
+const MAX_INBOX = 600;
 
 /**
  * A client's view of a networked match. Predicts the local player by running
@@ -57,7 +72,19 @@ const JOIN_RETRY_TICKS = 30;
 export class GameClient {
   readonly #options: GameClientOptions;
   #loadout: Loadout | null = null;
-  readonly #connection: Connection;
+  #connection: Connection;
+  /** Which connection is current: a replaced one's late messages and close are ignored. */
+  #generation = 0;
+  /** A connection is out, waiting to be welcomed; otherwise waiting for {@link #retryAt}. */
+  #attempting = true;
+  #attemptAt = 0;
+  #attempts = 0;
+  #retryAt = 0;
+  #lostAt = 0;
+  /** When the server was last heard from. */
+  #heard = 0;
+  /** The next welcome comes after a drop: what the old connection left behind goes. */
+  #rejoining = false;
   readonly #local: Simulation;
   readonly #inbox: string[] = [];
   #status: ClientStatus = 'connecting';
@@ -71,6 +98,8 @@ export class GameClient {
   #pending: SequencedCmd[] = [];
   readonly #sentAt = new Map<number, number>();
   #latest: Snapshot | null = null;
+  /** The next snapshot replaces {@link #latest} whatever its tick. */
+  #resync = false;
   #reconciled = -1;
   readonly #buffer: Snapshot[] = [];
   readonly #seen = new Set<string>();
@@ -89,16 +118,83 @@ export class GameClient {
     this.#loadout = options.loadout ?? null;
     this.#connection = options.connection;
     this.#local = new Simulation(options.world, { predictOnly: true });
-    this.#connection.onMessage((data) => this.#inbox.push(data));
-    this.#connection.onClose((reason) => {
-      this.#closeReason = reason;
-      // A rejection's close reason names it, in case the reject message itself was lost.
-      const rejected = /^rejected: (\w+)$/.exec(reason);
-      if (rejected) {
-        this.#status = 'rejected';
-        this.#rejectReason = rejected[1] as RejectReason;
-      } else if (this.#status !== 'rejected') this.#status = 'closed';
+    this.#attach(options.connection);
+  }
+
+  #attach(connection: Connection): void {
+    this.#connection = connection;
+    const generation = ++this.#generation;
+    connection.onMessage((data) => {
+      if (generation !== this.#generation) return;
+      if (this.#inbox.length >= MAX_INBOX) this.#inbox.shift();
+      this.#inbox.push(data);
     });
+    connection.onClose((reason) => {
+      if (generation === this.#generation) this.#closed(reason);
+    });
+  }
+
+  #closed(reason: string): void {
+    this.#closeReason = reason;
+    // A rejection's close reason names it, in case the reject message itself was lost.
+    const rejected = /^rejected: (\w+)$/.exec(reason);
+    if (rejected) {
+      this.#status = 'rejected';
+      this.#rejectReason = rejected[1] as RejectReason;
+    } else if (this.#status === 'rejected') return;
+    else if (this.#options.reconnect && !FINAL_CLOSES.has(reason)) this.#lost();
+    else this.#status = 'closed';
+  }
+
+  /** The connection is gone: the next attempt is scheduled, the seat kept until the window runs out. */
+  #lost(): void {
+    if (this.#status !== 'reconnecting') {
+      this.#status = 'reconnecting';
+      this.#lostAt = this.#ticks;
+      this.#attempts = 0;
+    }
+    this.#rejoining = true;
+    this.#attempting = false;
+    const wait = BACKOFF_TICKS[Math.min(this.#attempts, BACKOFF_TICKS.length - 1)]!;
+    this.#attempts += 1;
+    // Spread out, so everyone dropped by one server restart doesn't arrive in the same tick.
+    this.#retryAt = this.#ticks + Math.round(wait * (0.75 + Math.random() * 0.5));
+  }
+
+  /** Lets go of a connection that has stopped answering, without waiting for it to say so. */
+  #abandon(reason: string): void {
+    const dead = this.#connection;
+    this.#generation += 1;
+    this.#closeReason = reason;
+    dead.close(reason);
+    this.#lost();
+  }
+
+  /** Each tick: notices a silent connection, opens the next attempt, gives up when the window runs out. */
+  #keepConnected(): void {
+    if (!this.#options.reconnect) return;
+    const status = this.#status;
+    if (status === 'joined') {
+      if (this.#ticks - this.#heard > SILENT_TICKS) this.#abandon('connection lost');
+      return;
+    }
+    if (status === 'connecting') {
+      if (this.#ticks - this.#attemptAt > ATTEMPT_TICKS) this.#abandon('no answer from the server');
+      return;
+    }
+    if (status !== 'reconnecting') return;
+    if (this.#ticks - this.#lostAt > (this.#id === null ? JOIN_WINDOW_TICKS : RESUME_WINDOW_TICKS)) {
+      this.#generation += 1;
+      this.#connection.close('gave up');
+      this.#status = 'closed';
+    } else if (this.#attempting) {
+      if (this.#ticks - this.#attemptAt > ATTEMPT_TICKS) this.#abandon('no answer from the server');
+    } else if (this.#ticks >= this.#retryAt) {
+      this.#attempting = true;
+      this.#attemptAt = this.#ticks;
+      this.#lastJoin = -Infinity;
+      this.#attach(this.#options.reconnect());
+    }
   }
 
   get status(): ClientStatus {
@@ -221,14 +317,17 @@ export class GameClient {
   tick(cmd: UserCmd): ClientFrame {
     this.#ticks += 1;
     const server = [...this.#fresh.splice(0), ...this.#readInbox()];
-    if (this.#status === 'connecting' && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
+    this.#keepConnected();
+    if ((this.#status === 'connecting' || (this.#status === 'reconnecting' && this.#attempting)) && this.#ticks - this.#lastJoin >= JOIN_RETRY_TICKS) {
       this.#lastJoin = this.#ticks;
       this.#connection.send(
-        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.hvb === undefined ? {} : { hvb: this.#options.hvb }), ...(this.#options.resume ? { resume: this.#options.resume } : {}), ...(this.#options.script ? { script: true } : {}), ...(this.#loadout ? { loadout: this.#loadout } : {}) }),
+        encode({ t: 'join', name: this.#options.name, passphrase: this.#options.passphrase, protocol: PROTOCOL_VERSION, ...(this.#options.mode ? { mode: this.#options.mode } : {}), ...(this.#options.bots === undefined ? {} : { bots: this.#options.bots }), ...(this.#options.hvb === undefined ? {} : { hvb: this.#options.hvb }), ...(this.#resume ? { resume: this.#resume } : {}), ...(this.#options.script ? { script: true } : {}), ...(this.#loadout ? { loadout: this.#loadout } : {}) }),
       );
     }
     this.#advanceClock();
     this.#decayCorrection();
+    // Waiting to come back, the player holds still where they were last seen rather than leaving the view.
+    if (this.#status === 'reconnecting') return { self: this.#self, predicted: [], server };
     if (this.#status !== 'joined' || this.#id === null) return { self: null, predicted: [], server };
 
     this.#reconcile();
@@ -245,6 +344,11 @@ export class GameClient {
     return { self: this.#self, predicted: out.events, server };
   }
 
+  /** The seat to ask for: this session's, or the one the page remembered. */
+  get #resume(): string | null {
+    return this.#token ?? this.#options.resume ?? null;
+  }
+
   get #frozen(): boolean {
     const phase = this.#latest?.match.phase;
     return phase !== undefined && phase !== 'playing';
@@ -252,11 +356,14 @@ export class GameClient {
 
   #readInbox(): (SimEvent | ModeEvent)[] {
     const fresh: (SimEvent | ModeEvent)[] = [];
+    if (this.#inbox.length > 0) this.#heard = this.#ticks;
     for (const data of this.#inbox.splice(0)) {
       const message = decodeServer(data);
       if (!message) continue;
       if (message.t === 'welcome') {
+        if (this.#rejoining) this.#rejoined(message.id);
         this.#status = 'joined';
+        this.#attempting = false;
         this.#id = message.id;
         this.#token = message.token;
         this.#serverTick = message.tick;
@@ -270,8 +377,9 @@ export class GameClient {
           this.#seen.add(key);
           if (!isOwnCosmetic(stamped.event, this.#id)) fresh.push(stamped.event);
         }
-        if (!this.#latest || message.tick > this.#latest.tick) {
+        if (!this.#latest || message.tick > this.#latest.tick || this.#resync) {
           this.#latest = message;
+          this.#resync = false;
           if (message.self && message.self.life !== this.#life) {
             this.#life = message.self.life;
             this.#spawn = { yaw: message.self.cmdYaw + message.self.viewYaw, pitch: message.self.cmdPitch + message.self.viewPitch };
@@ -290,6 +398,26 @@ export class GameClient {
       for (const key of this.#seen) if (Number(key.split(':')[0]) < cutoff) this.#seen.delete(key);
     }
     return fresh;
+  }
+
+  /**
+   * Welcomed back after a drop: usercmds the old connection carried are gone
+   * with it, and the server starts counting them afresh. The newest snapshot
+   * stays up (the page keeps its match) until the next one replaces it,
+   * whatever its tick: a restarted server counts from zero.
+   */
+  #rejoined(id: PlayerId): void {
+    this.#rejoining = false;
+    this.#resync = true;
+    this.#pending = [];
+    this.#sentAt.clear();
+    this.#buffer.length = 0;
+    this.#reconciled = -1;
+    if (this.#id !== null && this.#id !== id) {
+      this.#local.removePlayer(this.#id);
+      this.#self = null;
+      this.#life = -1;
+    }
   }
 
   #bufferSnapshot(snap: Snapshot): void {

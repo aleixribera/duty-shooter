@@ -9,10 +9,11 @@ import { join } from 'node:path';
 
 export const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-export async function launchChrome() {
+/** `profile`: a user data directory to keep (a return visit's caches); a throwaway one when absent. */
+export async function launchChrome({ profile: keep } = {}) {
   const chrome = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
   const port = 9300 + Math.floor(Math.random() * 500);
-  const profile = mkdtempSync(join(tmpdir(), 'duty-chrome-'));
+  const profile = keep ?? mkdtempSync(join(tmpdir(), 'duty-chrome-'));
   const args = [
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
@@ -91,6 +92,7 @@ export async function launchChrome() {
       ws.close();
       browser.kill();
       await sleep(500);
+      if (keep) return;
       try {
         rmSync(profile, { recursive: true, force: true });
       } catch {

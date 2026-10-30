@@ -137,6 +137,11 @@ const LOCKOUT_MS = 10 * 60 * 1000;
 /** Open sockets allowed per address, joined or not (a household behind one NAT, the 8-bot load test). */
 const MAX_SOCKETS_PER_ADDRESS = 12;
 
+/** Bytes waiting on a socket before snapshots are skipped, and before the client is dropped. */
+const CONGESTED = 64 * 1024;
+const MAX_BUFFERED = 1024 * 1024;
+const SNAPSHOT_PREFIX = '{"t":"snap"';
+
 const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 
 /**
@@ -208,10 +213,12 @@ function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void)
     send(data) {
       if (socket.readyState !== socket.OPEN) return;
       // A client that stops reading is dropped rather than buffered without bound.
-      if (socket.bufferedAmount > 1024 * 1024) {
+      if (socket.bufferedAmount > MAX_BUFFERED) {
         socket.terminate();
         return;
       }
+      // A slow link skips snapshots to catch up instead of watching the past; the next one replaces them, and events that matter are repeated.
+      if (socket.bufferedAmount > CONGESTED && data.startsWith(SNAPSHOT_PREFIX)) return;
       socket.send(data);
     },
     close(reason = 'closed') {
