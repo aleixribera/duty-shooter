@@ -68,11 +68,11 @@ describe('server bots setting', () => {
 describe('server map setting', () => {
   it('lets a host and friend play Crash together with its ladder', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
-    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town' });
+    const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', maxBotsPerTeam: 4 });
     try {
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       const friend = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
-      const snapshots: { match?: { map?: string; phase?: string }; names?: Record<string,string> }[] = [];
+      const snapshots: { match?: { map?: string; phase?: string; lobby?: { map?: string; mode?: string; hvb?: boolean } }; names?: Record<string,string> }[] = [];
       friend.addEventListener('message', event => {
         const message=JSON.parse(String(event.data));
         if (message.t === 'snap') snapshots.push(message);
@@ -84,12 +84,16 @@ describe('server map setting', () => {
       friend.send(JSON.stringify({ t:'join', name:'friend', passphrase:'', protocol:PROTOCOL_VERSION }));
       for (let i=0; i<250 && server.game.playerCount !== 2; i++) await new Promise((done) => setTimeout(done,20));
       expect(server.game.playerCount).toBe(2);
-      ws.send(JSON.stringify({ t:'lobby', map:'crash' }));
-      for (let i=0; i<250 && server.game.matchStatus().lobby?.map !== 'crash'; i++) await new Promise((done) => setTimeout(done,20));
-      expect(server.game.matchStatus().lobby?.map).toBe('crash');
+      ws.send(JSON.stringify({ t:'lobby', hvb:true }));
+      for (let i=0; i<250 && !server.game.matchStatus().lobby?.hvb; i++) await new Promise((done) => setTimeout(done,20));
+      // The random button sends both concrete picks together and leaves the side setting untouched.
+      ws.send(JSON.stringify({ t:'lobby', map:'crash', mode:'outposts' }));
+      for (let i=0; i<250 && !snapshots.some(s => s.match?.lobby?.map === 'crash' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb); i++) await new Promise((done) => setTimeout(done,20));
+      expect(server.game.matchStatus().lobby).toMatchObject({ map:'crash', mode:'outposts', hvb:true });
+      expect(snapshots.some(s => s.match?.lobby?.map === 'crash' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb)).toBe(true);
       ws.send(JSON.stringify({ t:'start' }));
       for (let i=0; i<250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done,20));
-      expect(server.game.matchStatus()).toMatchObject({ map:'crash', phase:'playing' });
+      expect(server.game.matchStatus()).toMatchObject({ map:'crash', mode:'outposts', phase:'playing' });
       expect(server.game.simulation.world.ladders).toHaveLength(1);
       for (let i=0; i<250 && !snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend')); i++)
         await new Promise((done) => setTimeout(done,20));

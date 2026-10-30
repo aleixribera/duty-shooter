@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, MODE_IDS, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -194,6 +194,13 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   else if (teamMode(mode)) headline = { kind: 'team', team: Number(result.winner), won: me?.team === result.winner };
   else headline = { kind: 'player', name: result.winnerName ?? 'Someone', you: result.winner === selfId };
   return { headline, you };
+}
+
+/** Pick a concrete map and mode without changing the lobby's sides or bot settings. */
+export function randomLobbyPick(lobby: Pick<LobbyState, 'maps' | 'hvb'>, random: () => number = Math.random): { map: string; mode: ModeId } | null {
+  if (lobby.maps.length === 0) return null;
+  const modes = lobby.hvb ? MODE_IDS.filter(teamMode) : MODE_IDS;
+  return { map: lobby.maps[Math.floor(random() * lobby.maps.length)]!, mode: modes[Math.floor(random() * modes.length)]! };
 }
 
 /** What each mode is, in a line or two, for the lobby. */

@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, scoreboard, weaponCard } from '../src/ui/model';
+import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+
+describe('random lobby picks', () => {
+  it('can pick every available map and mode for mixed teams', () => {
+    const picks = Array.from({ length: 15 }, (_, i) => {
+      const values = [(Math.floor(i / 5) + 0.5) / 3, ((i % 5) + 0.5) / 5];
+      return randomLobbyPick({ maps: BOT_MAPS, hvb: false }, () => values.shift()!);
+    });
+    expect(new Set(picks.map((pick) => pick?.map))).toEqual(new Set(BOT_MAPS));
+    expect(new Set(picks.map((pick) => pick?.mode))).toEqual(new Set(['tdm', 'ffa', 'outposts', 'charge', 'gungame']));
+    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(15);
+  });
+
+  it('only picks team modes for humans vs bots and leaves the setting out of the change', () => {
+    const picks = Array.from({ length: 3 }, (_, i) => {
+      const values = [0.99, (i + 0.5) / 3];
+      return randomLobbyPick({ maps: BOT_MAPS, hvb: true }, () => values.shift()!);
+    });
+    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: 'crash', mode })));
+    expect(randomLobbyPick({ maps: [], hvb: true })).toBeNull();
+  });
+});
 
 const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
 

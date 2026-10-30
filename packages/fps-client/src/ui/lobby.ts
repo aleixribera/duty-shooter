@@ -1,6 +1,6 @@
 import { MODE_IDS, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone } from './model';
+import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
@@ -30,6 +30,7 @@ const CSS = `
 .ds-lobby .last .result b { font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-lobby .last .result span { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
 .ds-lobby .blurb { margin: 12px 0 16px; font-size: 14px; color: var(--ds-text-2); }
+.ds-lobby .random { margin-top: 10px; width: 100%; }
 .ds-lobby .picks { display: grid; gap: 16px; padding: 18px; background: rgb(18 22 29 / 0.72); border: 1px solid var(--ds-line); }
 .ds-lobby .picks .ds-seg { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
 /* The maps as pictures: the picked one framed in signal with the mode over it. Name first in the markup (scripts click by it), shown under the kicker. */
@@ -189,6 +190,10 @@ export class LobbyPage {
     else if (act === 'fill') this.#callbacks.pick({ fill: value === 'on' });
     else if (act === 'hvb') this.#callbacks.pick({ hvb: value === 'on' });
     else if (act === 'map') this.#callbacks.pick({ map: value });
+    else if (act === 'random' && this.#view) {
+      const pick = randomLobbyPick(this.#view.lobby);
+      if (pick) this.#callbacks.pick(pick);
+    }
     else if (act === 'start') this.#callbacks.start();
     else if (act === 'join') this.#callbacks.join();
     else if (act === 'loadout') this.#callbacks.loadout();
@@ -301,6 +306,7 @@ export class LobbyPage {
 <aside>
 <h2 class="ds-h2">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
 <div class="maps${host && !underway ? '' : ' locked'}">${maps}</div>
+<button type="button" class="ds-btn random" data-act="random" data-key="random"${host && !underway && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
 <p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>
 <div class="picks${host && !underway ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div>${versus}${size}</div>
 ${invite}
