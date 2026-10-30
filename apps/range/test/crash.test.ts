@@ -59,6 +59,10 @@ describe('Crash', () => {
     expect(raycastWorld(world,[-12.35,5.55,-20.5],[-12.35,5.55,-22.5])).toBeNull();
     expect(raycastWorld(world,[-12.97,5.55,-20.5],[-12.97,5.55,-22.5])).not.toBeNull();
   });
+  it('lets shots through the burned car windows while the body provides cover', () => {
+    expect(raycastWorld(world,[-36,1.3,-6],[-36,1.3,-2])).toBeNull();
+    expect(raycastWorld(world,[-36,0.6,-6],[-36,0.6,-2])).not.toBeNull();
+  });
   it('keeps all spawns in bounds, on the ground and clear of collision', () => {
     // The two team starting areas straddle the map on the original diagonal.
     for (const spawn of map.spawns.teams![0]) expect(spawn.position[0] < 0 && spawn.position[2] > 0).toBe(true);

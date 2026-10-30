@@ -38,6 +38,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'car.body': { family: 'paint', color: 0x70483b, roughness: 0.9, metalness: 0.2 },
   'car.dark': { family: 'paint', color: 0x282927, roughness: 0.95 },
   'car.glass': { family: 'glass', color: 0x333c3c },
+  'burned.body': { family: 'paint', color: 0x514a40, roughness: 0.96, metalness: 0.15 },
+  'burned.metal': { family: 'paint', color: 0x34342f, roughness: 0.98, metalness: 0.15 },
   'pole.wood': { family: 'floor', color: 0x6c5b46 },
   'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
   'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },
@@ -525,9 +527,22 @@ export function buildCrash(): MapDefinition {
   // Fallen slabs lie below the blue building's damaged upper roof.
   for (const [x,z,yaw] of [[-20,3.2,0.2],[-19.4,6.2,-0.55]] as const)
     b.model('roof-debris',[x,3,z],yaw,() => b.turned([x,3.1,z],[2.4,0.2,1.8],yaw,'concrete','rubble.stone'));
-  b.model('burned-car',[-14,0,-9],0,() => {
+  b.model('abandoned-car',[-14,0,-9],0,() => {
     b.add([-16.4,0,-10],[-11.6,1.08,-8],'metal',{look:'car.body'});
     b.add([-15.3,1.08,-9.82],[-12.7,1.8,-8.18],'metal',{look:'car.body'});
+  });
+  // A gutted car marks the west lane; its missing windows remain shootable.
+  const burnedX=-36, burnedZ=-4;
+  b.model('burned-car',[burnedX,0,burnedZ],0,() => {
+    b.add([burnedX-2.4,0,burnedZ-1],[burnedX+2.4,1.08,burnedZ+1],'metal',{look:'burned.body'});
+    for (const [z0,z1] of [[-0.82,-0.3],[0.3,0.82]] as const)
+      b.add([burnedX-0.95,1.52,burnedZ+z0],[burnedX+0.85,1.65,burnedZ+z1],'metal',{look:'burned.metal'});
+    for (const [x0,x1] of [[-1.25,-0.8],[0.7,1.15]] as const)
+      for (const [z0,z1] of [[-0.82,-0.7],[0.7,0.82]] as const)
+        b.add([burnedX+x0,1,burnedZ+z0],[burnedX+x1,1.65,burnedZ+z1],'metal',{look:'burned.metal'});
+    for (const [x0,x1] of [[-0.95,-0.8],[0.7,0.85]] as const) {
+      b.add([burnedX+x0,1.52,burnedZ-0.7],[burnedX+x1,1.65,burnedZ+0.7],'metal',{look:'burned.metal'});
+    }
   });
   // Utility poles and the overhead lines frame the two outside streets.
   for (const [x,z] of [[-37,-7],[-37,10],[35,-18],[35,14]] as const) {

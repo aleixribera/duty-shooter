@@ -27,6 +27,8 @@ impact_crack = mat("impact.crack", 0x514d43, 1.0)
 car_body = mat("car.body", 0x70483b, 0.9, 0.2)
 car_dark = mat("car.dark", 0x282927, 0.95)
 car_glass = mat("car.glass", 0x333c3c, 0.5)
+burned_body = mat("burned.body", 0x514a40, 0.96, 0.15)
+burned_metal = mat("burned.metal", 0x34342f, 0.98, 0.15)
 pole_wood = mat("pole.wood", 0x6c5b46, 0.9)
 pole_metal = mat("pole.metal", 0x454741, 0.8, 0.3)
 pole_insulator = mat("pole.insulator", 0x82908a, 0.3)
@@ -282,8 +284,8 @@ def roof_debris():
     return kit.asset('roof-debris',parts,smooth_angle=25)
 
 
-def burned_car():
-    """A damaged abandoned sedan: body, roof, scorched glazing and tyres."""
+def abandoned_car():
+    """A rust-coloured abandoned sedan by the crash site."""
     parts = [
         kit.prism([(-2.4,0.22),(-2.4,0.83),(-1.9,1.03),(1.65,1.03),(2.35,0.76),(2.4,0.26)], -0.92, 0.92, car_body, 0.04),
         kit.prism([(-1.22,1.0),(-0.78,1.75),(0.78,1.75),(1.28,1.0)], -0.79, 0.79, car_body, 0.035),
@@ -297,7 +299,37 @@ def burned_car():
             parts.append(kit.cylinder(0.32,lo,hi,(x,0.32,0),'z',car_dark,16))
         z0,z1 = sorted((side*0.92,side*0.935))
         parts.append(kit.box((-2.1,0.55,z0),(2.0,0.59,z1),car_dark))
-    return kit.asset('burned-car', parts, smooth_angle=45)
+    return kit.asset('abandoned-car', parts, smooth_angle=45)
+
+
+def burned_car():
+    """A gutted car with open windows and a torn, blackened roof."""
+    parts = [
+        kit.prism([(-2.4,0.22),(-2.4,0.75),(-1.85,0.93),(-0.95,1.02),
+                   (0.95,0.96),(1.55,0.97),(2.35,0.70),(2.4,0.26)],
+                  -0.92,0.92,burned_body,0.025),
+        kit.plan([(-0.85,-0.78),(0.75,-0.78),(0.75,-0.45),(0.2,-0.34),
+                  (-0.18,-0.52),(-0.85,-0.4)],1.52,1.62,burned_metal),
+        kit.plan([(-0.85,0.39),(-0.24,0.54),(0.1,0.35),(0.75,0.45),
+                  (0.75,0.78),(-0.85,0.78)],1.52,1.62,burned_metal),
+        kit.box((-0.95,1.52,-0.70),(-0.8,1.62,0.70),burned_metal),
+        kit.box((0.7,1.52,-0.70),(0.85,1.62,0.70),burned_metal),
+    ]
+    for side in (-1,1):
+        z0,z1 = sorted((side*0.70,side*0.82))
+        for profile in [[(-1.25,1.0),(-1.08,1.0),(-0.8,1.58),(-0.95,1.58)],
+                        [(1.0,1.0),(1.15,1.0),(0.85,1.58),(0.7,1.58)]]:
+            parts.append(kit.prism(profile,z0,z1,burned_metal))
+        for x in (-1.55,1.5):
+            lo,hi = sorted((side*0.82,side*1.0))
+            parts.append(kit.cylinder(0.32,lo,hi,(x,0.32,0),'z',car_dark,16))
+            lo,hi = sorted((side*0.995,side*1.005))
+            parts.append(kit.cylinder(0.16,lo,hi,(x,0.32,0),'z',burned_metal,16))
+        lo,hi = sorted((side*0.92,side*0.935))
+        parts.append(kit.prism([(-1.85,0.35),(-0.7,0.4),(-0.4,0.7),(-1.2,0.8),(-1.9,0.62)],lo,hi,burned_metal))
+        for x in (-0.18,0.64):
+            parts.append(kit.box((x,0.3,lo),(x+0.025,0.89,hi),car_dark))
+    return kit.asset('burned-car',parts,smooth_angle=40)
 
 def utility_pole():
     """Weathered wooden pole with a crossarm and two ceramic insulators."""
@@ -434,12 +466,15 @@ for side in (-1, 1):
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
             front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
 
-built = [helicopter(), rubble(), roof_debris(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks()] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks()] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
-    'burned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
+    'abandoned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
+    'burned-car': [((-2.4,0,-1.0),(2.4,1.08,1.0)),
+                   ((-0.95,1.52,-0.82),(0.85,1.65,-0.3)),
+                   ((-0.95,1.52,0.3),(0.85,1.65,0.82))] + [((x0,1.0,z0),(x1,1.65,z1)) for x0,x1 in [(-1.25,-0.8),(0.7,1.15)] for z0,z1 in [(-0.82,-0.7),(0.7,0.82)]] + [((x0,1.52,-0.7),(x1,1.65,0.7)) for x0,x1 in [(-0.95,-0.8),(0.7,0.85)]],
     'utility-pole': [((-0.15,0,-0.15),(0.15,6.4,0.15)), ((-1,5.98,-0.07),(1,6.12,0.07))] + [((x-0.095,6.12,-0.095),(x+0.095,6.28,0.095)) for x in (-0.7,0.7)],
     'water-tank': [((-0.8,0,-0.8),(0.8,1.6,0.8))],
     'satellite-dish': [((-0.32,0,-0.54),(0.50,1.76,0.54))],
