@@ -23,7 +23,7 @@ dark = mat("wreck.dark", 0x30332f, 0.9, 0.3)
 metal = mat("wreck.metal", 0x999a90, 0.7, 0.5)
 glass = mat("wreck.glass", 0x161c1b, 0.45, 0.1)
 soot = mat("wreck.soot", 0x45463f, 0.98, 0.1)
-rotor_dark = mat("wreck.rotor", 0x444a43, 0.9, 0.25)
+rotor_dark = mat("wreck.rotor", 0x888c80, 0.9, 0.25)
 rubble_stone = mat("rubble.stone", 0xa79a82, 0.95)
 rubble_dark = mat("rubble.dark", 0x726b5d, 0.95)
 impact_crack = mat("impact.crack", 0x514d43, 1.0)
@@ -228,8 +228,10 @@ def helicopter():
                 a, b = i/4, (i+1)/4
                 za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
                 ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
-                parts.append(kit._slab([(1.07,ya,za),(1.43,ya,za),
-                                        (1.43,yb,zb),(1.07,yb,zb)],(0,0.08,0),rotor_dark,0,1,False))
+                # The bent blade has a visible broad face, twisted about its
+                # length instead of presenting only its thin edge to the street.
+                parts.append(kit._slab([(0.96,ya-0.08,za),(1.54,ya+0.08,za),
+                                        (1.54,yb+0.08,zb),(0.96,yb-0.08,zb)],(0,0.06,0),rotor_dark,0,1,False))
     # The third blade has snapped short, leaving an uneven stub over the cabin.
     for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
         for i in range(4):
@@ -703,7 +705,10 @@ for side in (-1, 1):
             a, b = i/4, (i+1)/4
             za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
-            front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
+            for j in range(4):
+                xa,xb = 0.96+0.58*j/4,0.96+0.58*(j+1)/4
+                da,db = -0.08+0.16*j/4,-0.08+0.16*(j+1)/4
+                front_rotor_solids.append(((xa,min(ya,yb)+da,min(za,zb)),(xb,max(ya,yb)+db+0.06,max(za,zb))))
 for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
     for i in range(4):
         a,b = i/4,(i+1)/4

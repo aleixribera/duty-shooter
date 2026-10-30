@@ -35,7 +35,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
   'wreck.glass': { family: 'glass', color: 0x161c1b },
   'wreck.soot': { family: 'paint', color: 0x45463f, roughness: 0.98, metalness: 0.1 },
-  'wreck.rotor': { family: 'paint', color: 0x444a43, roughness: 0.9, metalness: 0.25 },
+  'wreck.rotor': { family: 'paint', color: 0x888c80, roughness: 0.9, metalness: 0.25 },
   'rubble.stone': { family: 'concrete', color: 0xa79a82 },
   'rubble.dark': { family: 'concrete', color: 0x726b5d },
   'impact.crack': { family: 'paint', color: 0x514d43, roughness:0.98 },
@@ -609,8 +609,14 @@ export function buildCrash(): MapDefinition {
         const za=side*(z0+(z1-z0)*a), zb=side*(z0+(z1-z0)*c);
         const rise=(z: number) => side === 1 ? 1.5*Math.max(0,z-2.8)/2.2 : 0;
         const ya=y0+(y1-y0)*a+rise(Math.abs(za)), yb=y0+(y1-y0)*c+rise(Math.abs(zb));
-        wreckBox([1.07,Math.min(ya,yb),Math.min(za,zb)],
-          [1.43,Math.max(ya,yb)+0.08,Math.max(za,zb)]);
+        // Narrow crosswise sections follow the blade's twisted face rather
+        // than making the empty space above it solid.
+        for (let j=0; j<4; j++) {
+          const xa=0.96+0.58*j/4, xb=0.96+0.58*(j+1)/4;
+          const da=-0.08+0.16*j/4, db=-0.08+0.16*(j+1)/4;
+          wreckBox([xa,Math.min(ya,yb)+da,Math.min(za,zb)],
+            [xb,Math.max(ya,yb)+db+0.06,Math.max(za,zb)]);
+        }
       }
     }
     // A third, snapped blade crosses above the cabin and ends short of its tail.

@@ -86,6 +86,10 @@ describe('Crash', () => {
   it('keeps the bent rotor solid near its tip and clear beneath its raised span', () => {
     expect(raycastWorld(world,[-11.15,0.78,-1.5],[-11.15,0.78,0])).not.toBeNull();
     expect(raycastWorld(world,[-9.7,1.6,-1.5],[-9.7,1.6,0])).toBeNull();
+    // A shot also hits the newly widened part of the blade, while clear air
+    // above it remains open.
+    expect(raycastWorld(world,[-2.11,3.5,-0.5],[-2.11,2.0,-0.5])).not.toBeNull();
+    expect(raycastWorld(world,[-2.11,4.5,-0.5],[-2.11,3.5,-0.5])).toBeNull();
   });
   it('keeps the snapped third rotor blade solid without extending it to the tail', () => {
     expect(raycastWorld(world,[-7.08,4.3,-2.25],[-7.08,3.3,-2.25])).not.toBeNull();
