@@ -6,6 +6,7 @@
  * same treatment as the procedural voice it replaces.
  */
 import { kitFor } from './kit';
+import { rememberSampleRate, startPrerender } from './prerender';
 import type { SoundEventName, SoundLogEntry, SoundParams, SoundSystem, Voice, VoiceExtras, VoiceParams } from './types';
 import { createDefaultVoices } from './voices';
 
@@ -174,6 +175,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
   const defaults = createDefaultVoices();
   const overrides = new Map<SoundEventName, Voice>();
   const active: ActiveVoice[] = [];
+  const prerendering = startPrerender();
 
   const voiceFor = (event: SoundEventName): Voice => overrides.get(event) ?? defaults[event];
 
@@ -377,8 +379,9 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
   }
 
   function warmAll(c: AudioContext): void {
-    // Your own gunshot is rendered now (it must never hitch); everything else is rendered one
-    // bank at a time between frames so the first footstep or remote shot doesn't stall a frame.
+    // Your own gunshot is ready now (it must never hitch). Everything else comes from the worker:
+    // its banks become buffers between frames, so the first footstep or remote shot costs nothing.
+    // Without a worker they are rendered here, one bank at a time.
     const queue: Array<() => void> = [];
     for (const event of Object.keys(PROFILES) as SoundEventName[]) {
       const voice = voiceFor(event) as VoiceExtras;
@@ -396,16 +399,17 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       else setTimeout(fn, 0);
     };
     const step = (): void => {
-      const task = queue.shift();
-      if (!task) return;
-      try {
-        task();
-      } catch {
-        // a broken custom voice must not stop the others warming
+      const until = performance.now() + 2;
+      while (queue.length > 0 && performance.now() < until) {
+        try {
+          queue.shift()?.();
+        } catch {
+          // a broken custom voice must not stop the others warming
+        }
       }
-      schedule(step);
+      if (queue.length > 0) schedule(step);
     };
-    schedule(step);
+    void prerendering.then(() => schedule(step));
   }
 
   const system: SoundSystem = {
@@ -421,6 +425,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
           ctx = null;
           return;
         }
+        rememberSampleRate(ctx.sampleRate);
         const resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume().catch(() => undefined);
         try {
           graph = buildGraph(ctx);

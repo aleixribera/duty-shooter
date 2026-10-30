@@ -1,4 +1,5 @@
 import { createRng, hashString, hp, lp, mix, scatter, shape, white, wobble, type Rng } from './dsp';
+import type { PrerenderedBank } from './prerender';
 
 /** Renders one variant of a sound: returns one Float32Array per channel (all the same length). */
 export type Render = (rng: Rng, sr: number, variant: number) => Float32Array[];
@@ -19,14 +20,22 @@ export class Kit {
     let bank = this.banks.get(id);
     if (!bank) {
       bank = [];
+      const ready = takePrerendered(id);
       const sr = this.ctx.sampleRate;
-      for (let v = 0; v < count; v++) {
-        const rng = createRng(hashString(id) ^ Math.imul(v + 1, 0x85ebca6b));
-        bank.push(this.toBuffer(render(rng, sr, v)));
-      }
+      if (ready) for (const channels of ready.variants) bank.push(this.toBuffer(channels, true, ready.sampleRate));
+      else
+        for (let v = 0; v < count; v++) {
+          const rng = createRng(hashString(id) ^ Math.imul(v + 1, 0x85ebca6b));
+          bank.push(this.toBuffer(render(rng, sr, v)));
+        }
       this.banks.set(id, bank);
     }
     return bank;
+  }
+
+  /** Every bank rendered so far, by id. */
+  rendered(): ReadonlyMap<string, readonly AudioBuffer[]> {
+    return this.banks;
   }
 
   has(id: string): boolean {
@@ -46,15 +55,20 @@ export class Kit {
   impulseResponses(): { outdoor: AudioBuffer; indoor: AudioBuffer } {
     if (!this.irs) {
       const sr = this.ctx.sampleRate;
+      // A convolver takes only its context's rate: prerendered at another, the responses are rendered here.
+      const ready = (id: string) => {
+        const bank = takePrerendered(id);
+        return bank?.sampleRate === sr ? bank.variants[0] : undefined;
+      };
       this.irs = {
-        outdoor: this.toBuffer(outdoorIR(sr, createRng(0x0d00)), true),
-        indoor: this.toBuffer(indoorIR(sr, createRng(0x1d00)), true),
+        outdoor: this.toBuffer(ready('ir/outdoor') ?? outdoorIR(sr, createRng(0x0d00)), true),
+        indoor: this.toBuffer(ready('ir/indoor') ?? indoorIR(sr, createRng(0x1d00)), true),
       };
     }
     return this.irs;
   }
 
-  private toBuffer(channels: Float32Array[], keepLength = false): AudioBuffer {
+  private toBuffer(channels: Float32Array[], keepLength = false, sampleRate = this.ctx.sampleRate): AudioBuffer {
     const first = channels[0] ?? new Float32Array(1);
     let length = first.length;
     if (!keepLength) {
@@ -67,13 +81,25 @@ export class Kit {
       }
       length = Math.max(1, end);
     }
-    const buf = this.ctx.createBuffer(channels.length, length, this.ctx.sampleRate);
+    const buf = this.ctx.createBuffer(channels.length, length, sampleRate);
     channels.forEach((ch, c) => buf.getChannelData(c).set(ch.subarray(0, length)));
     return buf;
   }
 }
 
 const kits = new WeakMap<BaseAudioContext, Kit>();
+const prerendered = new Map<string, PrerenderedBank>();
+
+/** A bank rendered ahead of time, for the kit to use instead of rendering it. */
+export function offerPrerendered(bank: PrerenderedBank): void {
+  prerendered.set(bank.id, bank);
+}
+
+function takePrerendered(id: string): PrerenderedBank | undefined {
+  const bank = prerendered.get(id);
+  prerendered.delete(id);
+  return bank;
+}
 
 export function kitFor(ctx: BaseAudioContext): Kit {
   let kit = kits.get(ctx);
