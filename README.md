@@ -3,7 +3,7 @@
 A browser FPS built to feel like Call of Duty: Modern Warfare (2019), on an authoritative 60 Hz server.
 
 - **Arsenal:** four primaries (the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun and the Ridgeline .308 sniper rifle), the Warden 9 pistol as a secondary, and a frag. Players pick a loadout between lives.
-- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; **Switchyard**, a freight yard at dusk; and **Crash (preview)**, an unfinished recreation of the desert-town map from Call of Duty 4. Survival Town ends each match with a nuke; Switchyard ends it with a freight train.
+- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; **Switchyard**, a freight yard at dusk; and **Crash**, a recreation of the desert-town map from Call of Duty 4 that is still being refined. Survival Town ends each match with a nuke; Switchyard ends it with a freight train.
 - **Modes:** team deathmatch (75 kills or 10 minutes), free-for-all (30 kills or 10 minutes), Outposts (hold three zones; 200 points), Charge (plant or defuse; first to 4 rounds, no respawns within a round) and gun game (free-for-all up a ladder of five guns dealt at random each match, 4 kills each before the next; the first to finish the last gun wins, or whoever is furthest up after 10 minutes). Any team mode can be played **humans vs bots**: every person on one team against a bot team sized to the group.
 - **Online**, the first person in is the host: in the lobby they pick the map, mode, bots on or off and humans vs bots, and press Start. Bots fill each side to the map's team size: 6v6 on Switchyard, 4v4 on Survival Town and Crash (`TEAM_SIZES` in `apps/range/src/map/maps.ts`). The host can change it with the hidden **+** and **-** keys in the lobby, until the map or mode changes. Up to 12 seats, with bots filling them.
 - **Offline**, **Bot Match** plays the match maps in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course.
@@ -40,7 +40,7 @@ To play online locally:
    | Variable | Default | |
    | --- | --- | --- |
    | `PASSPHRASE` | empty | Required to join; empty is a public lobby. |
-   | `MAP` | `survival-town` | `survival-town`, `switchyard` or `range`. |
+   | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash` or `range`. |
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge` or `gungame`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
    | `MAX_PLAYERS` | `12` | Seats, bots included. |

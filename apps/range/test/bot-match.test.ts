@@ -4,7 +4,7 @@ import { BotMatchDriver } from '@duty-shooter/fps-client/session';
 import { buildMapById, mapSolids } from '../src/map/maps';
 
 describe('Bot Match', () => {
-  it('starts a Crash preview bot match with the ladder-enabled map', () => {
+  it('starts a Crash bot match with the ladder-enabled map', () => {
     const map = buildMapById('crash');
     const driver = new BotMatchDriver({ map:map.id, solids:mapSolids(map), ladders:map.ladders!, spawns:map.spawns, zones:map.zones, sites:map.sites, nav:map.nav!, mode:'tdm', botsPerTeam:2, name:'You' });
     try {

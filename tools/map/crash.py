@@ -121,10 +121,10 @@ def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
     bm = bmesh.new()
     rings = []
-    outer = [(0.08,-0.75),(0.32,-1.02),(1.8,-1.02),(2.1,-0.75),(2.22,-0.45),
-             (2.22,0.45),(2.1,0.75),(1.8,1.02),(0.32,1.02),(0.08,0.75)]
-    inner = [(0.20,-0.70),(0.32,-0.82),(1.8,-0.82),(1.98,-0.65),(2.05,-0.38),
-             (2.05,0.38),(1.98,0.65),(1.8,0.82),(0.32,0.82),(0.20,0.70)]
+    outer = [(0.04,-0.95),(0.20,-1.32),(2.0,-1.32),(2.3,-0.95),(2.42,-0.55),
+             (2.42,0.55),(2.3,0.95),(2.0,1.32),(0.20,1.32),(0.04,0.95)]
+    inner = [(0.12,-0.90),(0.20,-1.12),(2.0,-1.12),(2.18,-0.85),(2.25,-0.48),
+             (2.25,0.48),(2.18,0.85),(2.0,1.12),(0.20,1.12),(0.12,0.90)]
     count = len(outer)
     for x, profile in [(-6.4,outer),(-4.7,outer),(-6.4,inner),(-4.7,inner)]:
         ring = []
@@ -134,7 +134,7 @@ def rear_shell():
             lip = (0.14 * math.sin(i * 4.7)) if x == -4.7 else 0
             if x == -4.7 and i in (2,3,6,7):
                 z *= 0.96
-                if y > 1.9: y -= 0.05
+                if y > 2.1: y -= 0.05
             ring.append(bm.verts.new(kit.b((x + lip, y, z))))
         rings.append(ring)
     for i in range(count):
@@ -202,7 +202,7 @@ def helicopter():
         # The cargo compartment is a hollow shell, with the side doors torn
         # open. Separate floor, roof and side panels leave a walkable cabin.
         kit.section([(0.04,-0.85),(0.12,-1.12),(0.25,-1.3),(0.25,1.3),(0.12,1.12),(0.04,0.85)],-3.5,2.2,hull),
-        kit.section([(2.27,-1.2),(2.36,-1.15),(2.62,-0.7),(2.62,0.7),(2.36,1.15),(2.27,1.2),(2.27,1.05),(2.32,1.0),(2.43,0.65),(2.43,-0.65),(2.32,-1.0),(2.27,-1.05)],-3.5,2.2,hull),
+        kit.section([(2.47,-1.2),(2.51,-1.15),(2.62,-0.7),(2.62,0.7),(2.51,1.15),(2.47,1.2),(2.47,1.05),(2.49,1.0),(2.54,0.65),(2.54,-0.65),(2.49,-1.0),(2.47,-1.05)],-3.5,2.2,hull),
         cockpit_shell(),
         
         # The forward transmission housing rises prominently above the
@@ -211,7 +211,7 @@ def helicopter():
                    (0.70,4.16),(0.52,3.50)], -0.60, 0.60, hull, 0.025),
         # Crumpled, separated rear section and snapped rotor blades.
         rear_shell(),
-        kit.prism([(-6.2, 1.9), (-5.95, 2.95), (-5.15, 2.95), (-5.05, 1.9)], -0.5, 0.5, hull, 0.025),
+        kit.prism([(-6.2, 2.0), (-5.95, 2.95), (-5.15, 2.95), (-5.05, 2.0)], -0.5, 0.5, hull, 0.025),
         kit.cylinder(0.26, 3.0, 3.13, (-5.55, 0, 0), "y", metal, 16),
         kit.cylinder(0.26, 4.16, 4.32, (1.25, 0, 0), "y", metal, 16),
         # The surviving blades droop toward their snapped tips rather than
@@ -222,7 +222,8 @@ def helicopter():
     # The broken forward rotor bends down in stages, ending near the street.
     # Each span is subdivided to keep its collision close to the angled mesh.
     for side in (-1, 1):
-        for (z0,y0),(z1,y1) in zip(FRONT_ROTOR, FRONT_ROTOR[1:]):
+        profile = rotor_profile(side)
+        for (z0,y0),(z1,y1) in zip(profile, profile[1:]):
             for i in range(4):
                 a, b = i/4, (i+1)/4
                 za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
@@ -243,8 +244,8 @@ def helicopter():
         # side-panel collision, leaving the opening clear for a player.
         rear = [(-3.5,0.25),(-1.4,0.25),(-1.68,0.38),(-1.50,0.62),(-1.80,0.90),
                 (-1.48,1.03),(-1.61,1.29),(-1.41,1.39),(-1.74,1.74),(-1.44,1.92),
-                (-1.55,2.14),(-1.4,2.27),(-3.5,2.27)]
-        front = [(0.35,0.25),(2.2,0.25),(2.2,2.27),(0.35,2.27),(0.63,2.14),
+                (-1.55,2.14),(-1.4,2.47),(-3.5,2.47)]
+        front = [(0.35,0.25),(2.2,0.25),(2.2,2.47),(0.35,2.47),(0.63,2.14),
                  (0.42,1.97),(0.56,1.73),(0.38,1.53),(0.70,1.39),(0.44,1.04),
                  (0.59,0.88),(0.37,0.65),(0.55,0.43)]
         parts.extend([kit.prism(rear,z0,z1,hull),kit.prism(front,z0,z1,hull)])
@@ -285,14 +286,14 @@ def helicopter():
         parts.append(kit.prism([(0.43,0.35),(1.55,0.31),(1.42,0.64),(0.92,0.87),(0.54,0.73)],lo,hi,soot))
         parts.append(kit.prism([(-1.80,0.90),(-1.74,0.83),(-1.48,1.03),(-1.57,1.09)],lo,hi,metal))
         parts.append(kit.prism([(0.44,1.04),(0.53,1.07),(0.70,1.39),(0.61,1.42)],lo,hi,metal))
-        parts.append(kit.box((-1.4, 2.27, lo), (0.35, 2.35, hi), dark))
+        parts.append(kit.box((-1.4, 2.47, lo), (0.35, 2.55, hi), dark))
         parts.append(kit.box((-1.4, 0.18, lo), (0.35, 0.25, hi), dark))
         def side_pane(profile, material):
             return kit._slab([(x,y,side*(1.06-max(0,x-3.2)*0.12)) for x,y in profile],
                              (0,0,side*0.008),material,0,1,False)
         parts.append(side_pane([(2.38,1.28),(2.38,1.93),(3.0,1.96),(3.39,1.65),(3.47,1.28)],glass))
         parts.append(side_pane([(2.78,1.28),(2.78,1.96),(2.83,1.96),(2.83,1.28)],metal))
-        z0, z1 = sorted((side * 1.05, side * 1.065))
+        z0, z1 = sorted((side * 1.32, side * 1.335))
         parts.append(kit.prism([(-6.2, 0.5), (-5.6, 0.4), (-5.35, 0.75), (-5.55, 1.0), (-5.9, 0.92), (-6.2, 1.15)], z0, z1, dark))
         # The original's military markings sit below the portholes. Each
         # side faces outward so the lettering reads correctly from the street.
@@ -642,9 +643,14 @@ def palm():
 trunk, crown = palm()
 FRONT_ROTOR = [(0,4.20),(1.4,4.08),(2.8,3.50),(4.0,2.45),(5.0,0.32)]
 ROTOR_STUB = [(1.25,4.20),(0.65,4.05),(0.05,3.80),(-0.50,3.55)]
+def rotor_profile(side):
+    # The lower blade stays near the street after the wreck is rolled.
+    return [(z,y+(1.5*max(0,z-2.8)/2.2 if side == 1 else 0)) for z,y in FRONT_ROTOR]
+
 front_rotor_solids = []
 for side in (-1, 1):
-    for (z0,y0),(z1,y1) in zip(FRONT_ROTOR, FRONT_ROTOR[1:]):
+    profile = rotor_profile(side)
+    for (z0,y0),(z1,y1) in zip(profile, profile[1:]):
         for i in range(4):
             a, b = i/4, (i+1)/4
             za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
@@ -662,7 +668,7 @@ blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUT
 blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
 built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
-    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
+    'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.47,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.47,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.35),(-4.55,0.20,1.35)), ((-6.55,2.0,-1.35),(-4.55,2.5,1.35)), ((-6.55,0.20,-1.35),(-4.55,2.0,-0.95)), ((-6.55,0.20,0.95),(-4.55,2.0,1.35)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'blue-edge-east': blue_east_solids,
@@ -690,7 +696,7 @@ for obj in built:
 result = {'assets': report, 'issues': [name for name, data in report.items() if data.get('outside',0) > mapkit.TOLERANCE]}
 # Validate in the asset's untwisted frame, then roll the entire wreck about
 # its long axis; the game applies the same rotation to its collision.
-next(obj for obj in built if obj.name == 'helicopter').data.transform(Matrix.Rotation(0.12,4,'X'))
+next(obj for obj in built if obj.name == 'helicopter').data.transform(Matrix.Rotation(0.30,4,'X'))
 if ARGS.get("export", False):  # noqa: F821
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     kit.export(built, OUT)

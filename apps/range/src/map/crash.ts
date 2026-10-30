@@ -564,33 +564,35 @@ export function buildCrash(): MapDefinition {
   buildLanes(b);
   // The crashed tandem-rotor aircraft runs roughly north to south, with
   // a broken rear section separated from the main fuselage.
-  b.model('helicopter', [-6,0,-2], Math.PI / 2, () => {
+  b.model('helicopter', [-6,0,-2], -Math.PI / 2, () => {
     // The Blender mesh is rolled about its length. Bullets use the matching
     // angled boxes; small player clips approximate the tilted surfaces so
     // movement can climb the floor and still pass through the openings.
-    const tilt=0.12, cos=Math.cos(tilt), sin=Math.sin(tilt);
+    const tilt=0.30, cos=Math.cos(tilt), sin=Math.sin(tilt);
     const wreckBox = (min: Vec3, max: Vec3) => {
       const y=(min[1]+max[1])/2, z=(min[2]+max[2])/2;
-      const center: Vec3 = [-6+cos*z+sin*y,cos*y-sin*z,-2-(min[0]+max[0])/2];
-      b.angledBullet(center,[max[0]-min[0],max[1]-min[1],max[2]-min[2]],Math.PI/2,tilt,0,'metal','wreck.hull');
+      const center: Vec3 = [-6-cos*z-sin*y,cos*y-sin*z,-2+(min[0]+max[0])/2];
+      b.angledBullet(center,[max[0]-min[0],max[1]-min[1],max[2]-min[2]],-Math.PI/2,tilt,0,'metal','wreck.hull');
       const ny=Math.ceil((max[1]-min[1])/0.25), nz=Math.ceil((max[2]-min[2])/0.25);
       for (let iy=0; iy<ny; iy++) for (let iz=0; iz<nz; iz++) {
         const y0=min[1]+(max[1]-min[1])*iy/ny, y1=min[1]+(max[1]-min[1])*(iy+1)/ny;
         const z0=min[2]+(max[2]-min[2])*iz/nz, z1=min[2]+(max[2]-min[2])*(iz+1)/nz;
-        const low=Math.max(0,cos*y0-sin*z1), high=cos*y1-sin*z0;
-        if (high>low+1e-6) b.hidden.push(playerClip({min:[-6+cos*z0+sin*y0,low,-2-max[0]],
-          max:[-6+cos*z1+sin*y1,high,-2-min[0]],material:'metal'}));
+        const corners=[[y0,z0],[y0,z1],[y1,z0],[y1,z1]] as const;
+        const xs=corners.map(([y,z])=>cos*z+sin*y), ys=corners.map(([y,z])=>cos*y-sin*z);
+        const low=Math.max(0,Math.min(...ys)), high=Math.max(...ys);
+        if (high>low+1e-6) b.hidden.push(playerClip({min:[-6-Math.max(...xs),low,-2+min[0]],
+          max:[-6-Math.min(...xs),high,-2+max[0]],material:'metal'}));
       }
     };
     for (const [min,max] of [
-      [[-3.5,0,-1.42],[2.2,0.25,1.42]], [[-3.5,2.27,-1.42],[2.2,2.72,1.42]],
-      [[-3.5,0.25,-1.42],[-1.3,2.27,-1.1]], [[-3.5,0.25,1.1],[-1.3,2.27,1.42]],
-      [[0.25,0.25,-1.42],[2.2,2.27,-1.1]], [[0.25,0.25,1.1],[2.2,2.27,1.42]],
+      [[-3.5,0,-1.42],[2.2,0.25,1.42]], [[-3.5,2.47,-1.42],[2.2,2.72,1.42]],
+      [[-3.5,0.25,-1.42],[-1.3,2.47,-1.1]], [[-3.5,0.25,1.1],[-1.3,2.47,1.42]],
+      [[0.25,0.25,-1.42],[2.2,2.47,-1.1]], [[0.25,0.25,1.1],[2.2,2.47,1.42]],
       [[2.2,0,-1.08],[3.2,2.2,1.08]], [[3.2,0,-1.08],[3.85,2.05,1.08]],
       [[3.85,0,-0.97],[4.1,1.4,0.97]], [[4.1,0,-0.8],[4.25,1.15,0.8]],
       // The detached rear tube has a low open interior, not a solid plug.
-      [[-6.55,0,-1.05],[-4.55,0.32,1.05]], [[-6.55,1.8,-1.05],[-4.55,2.5,1.05]],
-      [[-6.55,0.32,-1.05],[-4.55,1.8,-0.65]], [[-6.55,0.32,0.65],[-4.55,1.8,1.05]],
+      [[-6.55,0,-1.35],[-4.55,0.20,1.35]], [[-6.55,2.0,-1.35],[-4.55,2.5,1.35]],
+      [[-6.55,0.20,-1.35],[-4.55,2.0,-0.95]], [[-6.55,0.20,0.95],[-4.55,2.0,1.35]],
       [[-6.2,2.5,-2.8],[-5.05,3.15,2.8]],
       [[0.4,2.55,-0.6],[2.0,3.5,0.6]], [[0.52,3.5,-0.6],[1.76,4.16,0.6]],
       [[0.99,4.16,-0.26],[1.51,4.32,0.26]],
@@ -605,7 +607,8 @@ export function buildCrash(): MapDefinition {
       for (let i=0; i<4; i++) {
         const a=i/4, c=(i+1)/4;
         const za=side*(z0+(z1-z0)*a), zb=side*(z0+(z1-z0)*c);
-        const ya=y0+(y1-y0)*a, yb=y0+(y1-y0)*c;
+        const rise=(z: number) => side === 1 ? 1.5*Math.max(0,z-2.8)/2.2 : 0;
+        const ya=y0+(y1-y0)*a+rise(Math.abs(za)), yb=y0+(y1-y0)*c+rise(Math.abs(zb));
         wreckBox([1.07,Math.min(ya,yb),Math.min(za,zb)],
           [1.43,Math.max(ya,yb)+0.08,Math.max(za,zb)]);
       }
@@ -716,7 +719,7 @@ export function buildCrash(): MapDefinition {
     {name:'arcade',position:[-3,1.6,5] as Vec3,yaw:Math.PI,pitch:0},
   ];
   return {
-    id:'crash', name:'Crash (preview)', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
+    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], fires:[[-7.9,0.06,-3.0],[-4.5,0.06,3.7]], spawns:{ffa,teams:[west,east]},
@@ -732,7 +735,7 @@ export function buildCrash(): MapDefinition {
       ...shopHints(),
       ...apartmentHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
-      ...([[-8,0,-1.5],[-6,0.25,-1.5],[-4,0,-1.5]] as Vec3[]),
+      ...([[-8,0,-2.5],[-6,0.45,-2.5],[-4,0,-2.5]] as Vec3[]),
       ...[-8.5,-4.5,-0.5,2.5].flatMap((x): Vec3[] => [[x,0,9.5],[x,0,11.3],[x,0,14.0]]),
       ...[-12,1.5].flatMap((z): Vec3[] => [[30.8,0,z],[33.2,0,z]]),
       ...[-6,9,26].flatMap((x): Vec3[] => [[x,0,24.3],[x,0,26.7]]),

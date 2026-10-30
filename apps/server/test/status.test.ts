@@ -66,14 +66,24 @@ describe('server bots setting', () => {
 });
 
 describe('server map setting', () => {
-  it('lets the host select and start the Crash preview with its ladder', async () => {
+  it('lets a host and friend play Crash together with its ladder', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town' });
     try {
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      const friend = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      const snapshots: { match?: { map?: string; phase?: string }; names?: Record<string,string> }[] = [];
+      friend.addEventListener('message', event => {
+        const message=JSON.parse(String(event.data));
+        if (message.t === 'snap') snapshots.push(message);
+      });
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t:'join', name:'host', passphrase:'', protocol:PROTOCOL_VERSION }));
       await new Promise((done) => ws.addEventListener('message', done));
+      if (friend.readyState !== WebSocket.OPEN) await new Promise((done) => friend.addEventListener('open', done));
+      friend.send(JSON.stringify({ t:'join', name:'friend', passphrase:'', protocol:PROTOCOL_VERSION }));
+      for (let i=0; i<250 && server.game.playerCount !== 2; i++) await new Promise((done) => setTimeout(done,20));
+      expect(server.game.playerCount).toBe(2);
       ws.send(JSON.stringify({ t:'lobby', map:'crash' }));
       for (let i=0; i<250 && server.game.matchStatus().lobby?.map !== 'crash'; i++) await new Promise((done) => setTimeout(done,20));
       expect(server.game.matchStatus().lobby?.map).toBe('crash');
@@ -81,7 +91,11 @@ describe('server map setting', () => {
       for (let i=0; i<250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done,20));
       expect(server.game.matchStatus()).toMatchObject({ map:'crash', phase:'playing' });
       expect(server.game.simulation.world.ladders).toHaveLength(1);
+      for (let i=0; i<250 && !snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend')); i++)
+        await new Promise((done) => setTimeout(done,20));
+      expect(snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend'))).toBe(true);
       ws.close();
+      friend.close();
     } finally {
       await server.close();
     }

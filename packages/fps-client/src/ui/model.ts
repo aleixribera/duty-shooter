@@ -23,7 +23,7 @@ export interface LobbyInfo {
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
-export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash (preview)' };
+export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash' };
 /** The maps Bot Match plays on. */
 export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard', 'crash'];
 /** Teams always appear with their mark and name, never by colour alone. */

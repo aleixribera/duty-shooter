@@ -50,9 +50,9 @@ describe('Crash', () => {
     expect(Math.hypot(middle.center[0]-wreck.position[0],middle.center[2]-wreck.position[2])).toBeLessThan(1);
   });
   it('lets a player cross through the wreck cabin while its side panels provide cover', () => {
-    expect(raycastWorld(world,[-9,1.6,-1.5],[-3,1.6,-1.5])).toBeNull();
-    expect(raycastWorld(world,[-9,1.6,-3],[-3,1.6,-3])).not.toBeNull();
-    const legs: Vec3[] = [[-9,0,-1.5],[-6,0.25,-1.5],[-3,0,-1.5]];
+    expect(raycastWorld(world,[-9,1.6,-2.5],[-3,1.6,-2.5])).toBeNull();
+    expect(raycastWorld(world,[-9,1.6,-1],[-3,1.6,-1])).not.toBeNull();
+    const legs: Vec3[] = [[-9,0,-2.5],[-6,0.25,-2.5],[-3,0,-2.5]];
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:legs[0]!,yaw:0}]});
     let out = m.step({p:usercmd({yaw:0})}).players[0]!;
     for (const target of legs.slice(1)) {
@@ -66,31 +66,31 @@ describe('Crash', () => {
     }
   });
   it('lets a crouched player pass through the detached rear shell while its sides provide cover', () => {
-    expect(raycastWorld(world,[-6,1.1,5.5],[-6,1.1,2.25])).toBeNull();
-    expect(raycastWorld(world,[-8,1.1,3.5],[-6,1.1,3.5])).not.toBeNull();
-    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-6,0,5.6],yaw:0}]});
-    let out = m.step({p:usercmd({yaw:0,buttons:['Crouch']})}).players[0]!;
-    for (let i=0; i<8/TICK_SECONDS && out.position[2]>2.2; i++)
-      out=m.step({p:usercmd({yaw:0,forward:1,buttons:['Crouch']})}).players[0]!;
-    expect(out.position[2]).toBeLessThan(2.4);
+    expect(raycastWorld(world,[-6,1.1,-9.5],[-6,1.1,-6.25])).toBeNull();
+    expect(raycastWorld(world,[-8,1.1,-7.5],[-6,1.1,-7.5])).not.toBeNull();
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-6,0,-9.6],yaw:Math.PI}]});
+    let out = m.step({p:usercmd({yaw:Math.PI,buttons:['Crouch']})}).players[0]!;
+    for (let i=0; i<8/TICK_SECONDS && out.position[2]<-6.2; i++)
+      out=m.step({p:usercmd({yaw:Math.PI,forward:1,buttons:['Crouch']})}).players[0]!;
+    expect(out.position[2]).toBeGreaterThan(-6.4);
   });
   it('keeps the bent rotor solid near its tip and clear beneath its raised span', () => {
-    expect(raycastWorld(world,[-10.68,1.32,-4.0],[-10.68,1.32,-2.5])).not.toBeNull();
-    expect(raycastWorld(world,[-9.1,1.6,-4.0],[-9.1,1.6,-2.5])).toBeNull();
+    expect(raycastWorld(world,[-11.15,0.78,-1.5],[-11.15,0.78,0])).not.toBeNull();
+    expect(raycastWorld(world,[-9.7,1.6,-1.5],[-9.7,1.6,0])).toBeNull();
   });
   it('keeps the snapped third rotor blade solid without extending it to the tail', () => {
-    expect(raycastWorld(world,[-5.55,4.3,-1.75],[-5.55,3.5,-1.75])).not.toBeNull();
-    expect(raycastWorld(world,[-5.55,4.3,-1.0],[-5.55,3.5,-1.0])).toBeNull();
+    expect(raycastWorld(world,[-7.08,4.3,-2.25],[-7.08,3.3,-2.25])).not.toBeNull();
+    expect(raycastWorld(world,[-7.08,4.3,-3.0],[-7.08,3.3,-3.0])).toBeNull();
   });
   it('blocks a walking player at the tilted cabin side', () => {
-    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-9,0,-3.2],yaw:-Math.PI/2}]});
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-9,0,-0.8],yaw:-Math.PI/2}]});
     let out=m.step({p:usercmd({yaw:-Math.PI/2})}).players[0]!;
     for (let i=0; i<3/TICK_SECONDS; i++) out=m.step({p:usercmd({yaw:-Math.PI/2,forward:1})}).players[0]!;
     expect(out.position[0]).toBeLessThan(-7);
   });
   it('lets shots pass beside the tapered cockpit nose while its centre remains cover', () => {
-    expect(raycastWorld(world,[-5.1,0.5,-6.25],[-5.1,0.5,-6.13])).toBeNull();
-    expect(raycastWorld(world,[-6,0.5,-6.25],[-6,0.5,-6.13])).not.toBeNull();
+    expect(raycastWorld(world,[-7.1,0.5,2.25],[-7.1,0.5,2.13])).toBeNull();
+    expect(raycastWorld(world,[-6.15,0.5,2.25],[-6.15,0.5,2.13])).not.toBeNull();
   });
   it('keeps the tower arched windows open through the centre and solid at the upper corners', () => {
     expect(raycastWorld(world,[-12.35,5.55,-20.5],[-12.35,5.55,-22.5])).toBeNull();
@@ -399,7 +399,7 @@ describe('Crash', () => {
   it('connects the navigation graph in both directions', () => {
     const nav = botMap(map,BOUNDARY).nav;
     expect(nav.nodes.length).toBeGreaterThan(100);
-    expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -1.9 && n.position[2] < -1.1 && Math.abs(n.position[1]-0.25) < 0.1), 'wreck cabin').toBe(true);
+    expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -2.9 && n.position[2] < -2.1 && Math.abs(n.position[1]-0.45) < 0.1), 'wreck cabin').toBe(true);
     expect(nav.nodes.some(n => n.position[0] > 1.2 && n.position[0] < 2.6 && n.position[2] > -19 && n.position[2] < 1 && Math.abs(n.position[1]-3) < 0.1), 'main gallery').toBe(true);
     for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[23,34,-33,-24,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[3,16,-20,3,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
