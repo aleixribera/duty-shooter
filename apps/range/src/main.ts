@@ -543,6 +543,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   setTimeout(() => (status.hidden = true), 4000);
   sound = engine.createSoundSystem();
   await nextPaint();
+  engine.reflections(renderer);
+  await nextPaint();
   game = createGame(initial);
   wire(game);
   up = true;

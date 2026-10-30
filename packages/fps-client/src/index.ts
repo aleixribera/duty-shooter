@@ -8,7 +8,7 @@ export { FixedTickLoop } from './loop';
 export { Spring } from './spring';
 export { FirstPersonCamera } from './camera';
 export type { CameraFrame } from './camera';
-export { WorldView } from './world-view';
+export { WorldView, reflections } from './world-view';
 export { loadBake } from './bake-loader';
 export type { RampShape, WorldContent, WorldLabel } from './world-view';
 export type { DistantTown } from './world-details';

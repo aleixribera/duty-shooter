@@ -7,6 +7,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  type Texture,
   Color,
   DirectionalLight,
   DoubleSide,
@@ -257,6 +258,18 @@ function labelMesh(label: WorldLabel): Mesh {
  * moving objects take theirs from its probe grid and the realtime sun, whose
  * shadows only they cast.
  */
+const reflectionMaps = new WeakMap<WebGPURenderer, Texture>();
+
+/** The room every map reflects, the same for all of them, so made once. Slow enough that a page starting up does it on its own. */
+export function reflections(renderer: WebGPURenderer): Texture {
+  let map = reflectionMaps.get(renderer);
+  if (!map) {
+    map = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+    reflectionMaps.set(renderer, map);
+  }
+  return map;
+}
+
 export class WorldView {
   readonly scene = new Scene();
   readonly #sun: DirectionalLight;
@@ -280,8 +293,7 @@ export class WorldView {
     useLighting(content.lighting ?? LIGHTING);
     scene.backgroundNode = skyNode(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
-    const pmrem = new PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = reflections(renderer);
     scene.environmentIntensity = 0.2;
 
     this.#sun = this.#makeSun();
@@ -463,7 +475,6 @@ export class WorldView {
         m.dispose();
       }
     });
-    this.scene.environment?.dispose();
     this.#sun.shadow.map?.dispose();
   }
 
