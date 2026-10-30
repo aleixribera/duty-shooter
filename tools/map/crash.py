@@ -23,6 +23,7 @@ dark = mat("wreck.dark", 0x30332f, 0.9, 0.3)
 metal = mat("wreck.metal", 0x999a90, 0.7, 0.5)
 glass = mat("wreck.glass", 0x202d30, 0.3, 0.1)
 soot = mat("wreck.soot", 0x45463f, 0.98, 0.1)
+rotor_dark = mat("wreck.rotor", 0x444a43, 0.9, 0.25)
 rubble_stone = mat("rubble.stone", 0xa79a82, 0.95)
 rubble_dark = mat("rubble.dark", 0x726b5d, 0.95)
 impact_crack = mat("impact.crack", 0x514d43, 1.0)
@@ -226,7 +227,15 @@ def helicopter():
                 za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
                 ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
                 parts.append(kit._slab([(1.07,ya,za),(1.43,ya,za),
-                                        (1.43,yb,zb),(1.07,yb,zb)],(0,0.08,0),metal,0,1,False))
+                                        (1.43,yb,zb),(1.07,yb,zb)],(0,0.08,0),rotor_dark,0,1,False))
+    # The third blade has snapped short, leaving an uneven stub over the cabin.
+    for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
+        for i in range(4):
+            a,b = i/4,(i+1)/4
+            xa,xb = x0+(x1-x0)*a,x0+(x1-x0)*b
+            ya,yb = y0+(y1-y0)*a,y0+(y1-y0)*b
+            parts.append(kit._slab([(xa,ya,-0.18),(xb,yb,-0.18),
+                                    (xb,yb,0.18),(xa,ya,0.18)],(0,0.08,0),rotor_dark,0,1,False))
     for side in (-1,1):
         z0,z1 = sorted((side*1.12,side*1.36))
         # Uneven torn edges around the doorway remain inside the matching
@@ -605,6 +614,7 @@ def palm():
 
 trunk, crown = palm()
 FRONT_ROTOR = [(0,4.20),(1.4,4.08),(2.8,3.50),(4.0,2.45),(5.0,0.32)]
+ROTOR_STUB = [(1.25,4.20),(0.65,4.05),(0.05,3.80),(-0.50,3.55)]
 front_rotor_solids = []
 for side in (-1, 1):
     for (z0,y0),(z1,y1) in zip(FRONT_ROTOR, FRONT_ROTOR[1:]):
@@ -613,6 +623,12 @@ for side in (-1, 1):
             za, zb = side*(z0+(z1-z0)*a), side*(z0+(z1-z0)*b)
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
             front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
+for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
+    for i in range(4):
+        a,b = i/4,(i+1)/4
+        xa,xb = x0+(x1-x0)*a,x0+(x1-x0)*b
+        ya,yb = y0+(y1-y0)*a,y0+(y1-y0)*b
+        front_rotor_solids.append(((min(xa,xb),min(ya,yb),-0.18),(max(xa,xb),max(ya,yb)+0.08,0.18)))
 
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)

@@ -78,6 +78,10 @@ describe('Crash', () => {
     expect(raycastWorld(world,[-10.68,1.32,-4.0],[-10.68,1.32,-2.5])).not.toBeNull();
     expect(raycastWorld(world,[-9.1,1.6,-4.0],[-9.1,1.6,-2.5])).toBeNull();
   });
+  it('keeps the snapped third rotor blade solid without extending it to the tail', () => {
+    expect(raycastWorld(world,[-5.55,4.3,-1.75],[-5.55,3.5,-1.75])).not.toBeNull();
+    expect(raycastWorld(world,[-5.55,4.3,-1.0],[-5.55,3.5,-1.0])).toBeNull();
+  });
   it('blocks a walking player at the tilted cabin side', () => {
     const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-9,0,-3.2],yaw:-Math.PI/2}]});
     let out=m.step({p:usercmd({yaw:-Math.PI/2})}).players[0]!;

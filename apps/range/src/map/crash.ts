@@ -35,6 +35,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wreck.metal': { family: 'sheetMetal', color: 0x999a90 },
   'wreck.glass': { family: 'glass', color: 0x202d30 },
   'wreck.soot': { family: 'paint', color: 0x45463f, roughness: 0.98, metalness: 0.1 },
+  'wreck.rotor': { family: 'paint', color: 0x444a43, roughness: 0.9, metalness: 0.25 },
   'rubble.stone': { family: 'concrete', color: 0xa79a82 },
   'rubble.dark': { family: 'concrete', color: 0x726b5d },
   'impact.crack': { family: 'paint', color: 0x514d43, roughness:0.98 },
@@ -585,6 +586,18 @@ export function buildCrash(): MapDefinition {
         const ya=y0+(y1-y0)*a, yb=y0+(y1-y0)*c;
         wreckBox([1.07,Math.min(ya,yb),Math.min(za,zb)],
           [1.43,Math.max(ya,yb)+0.08,Math.max(za,zb)]);
+      }
+    }
+    // A third, snapped blade crosses above the cabin and ends short of its tail.
+    const stub: [number,number][] = [[1.25,4.20],[0.65,4.05],[0.05,3.80],[-0.50,3.55]];
+    for (let span=0; span<stub.length-1; span++) {
+      const [x0,y0]=stub[span]!, [x1,y1]=stub[span+1]!;
+      for (let i=0; i<4; i++) {
+        const a=i/4, c=(i+1)/4;
+        const xa=x0+(x1-x0)*a, xb=x0+(x1-x0)*c;
+        const ya=y0+(y1-y0)*a, yb=y0+(y1-y0)*c;
+        wreckBox([Math.min(xa,xb),Math.min(ya,yb),-0.18],
+          [Math.max(xa,xb),Math.max(ya,yb)+0.08,0.18]);
       }
     }
   });
