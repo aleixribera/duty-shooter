@@ -206,9 +206,38 @@ function buildBlue(b: Builder): void {
   }
   const p = {thickness:t,bottom:6,height:0.85,material:'concrete' as const,look:'blue'};
   b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
-  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
   b.wall({...p,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
-  b.wall({...p,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2});
+  // Blender's broken parapet meshes have matching short collision sections,
+  // preserving the irregular silhouette and the gaps in the roof edge.
+  const edge = (asset: string, axis: 'x' | 'z', origin: Vec3, groups: readonly (readonly (readonly [number,number])[])[]) => {
+    b.model(asset,origin,0,() => {
+      for (const nodes of groups) for (let j=0; j<nodes.length-1; j++) {
+        const [a,h0]=nodes[j]!, [c,h1]=nodes[j+1]!;
+        const count=Math.ceil((c-a)/0.25);
+        for (let i=0; i<count; i++) {
+          const u0=a+(c-a)*i/count, u1=a+(c-a)*(i+1)/count;
+          const top=Math.max(h0+(h1-h0)*i/count,h0+(h1-h0)*(i+1)/count);
+          if (axis==='z') b.add([origin[0]-t/2,6,origin[2]+u0],[origin[0]+t/2,6+top,origin[2]+u1],'concrete',{look:'blue'});
+          else b.add([origin[0]+u0,6,origin[2]-t/2],[origin[0]+u1,6+top,origin[2]+t/2],'concrete',{look:'blue'});
+        }
+      }
+    });
+  };
+  edge('blue-edge-east','z',[r.x1,6,r.z0],[
+    [[0.125,0.85],[1.4,0.85],[1.85,0.61],[2.35,0.52],[2.85,0.25],[3.4,0.08]],
+    [[4.2,0.08],[4.55,0.24],[5,0.6],[5.5,0.82],[7.1,0.85],[7.7,0.62],[8.3,0.36],[9.4,0.08]],
+    [[9.9,0.1],[10.35,0.42],[11,0.72],[12.875,0.85]],
+  ]);
+  edge('blue-edge-south','x',[r.x0,6,r.z1],[
+    [[0,0.85],[3.4,0.85],[4,0.65],[4.6,0.28],[5.3,0.07]],
+    [[6.2,0.1],[6.9,0.35],[7.6,0.65],[8,0.85],[10,0.85]],
+  ]);
+  // Thin exposed reinforcement marks the fractured ends without acting as
+  // a full-width invisible player barrier across the openings.
+  for (const z of [0.52,1.16,6.43,6.88])
+    b.add([r.x1-0.025,6,z-0.025],[r.x1+0.025,6.52,z+0.025],'metal',{look:'roof.metal',blocks:'bullets'});
+  for (const x of [-21.67,-20.83])
+    b.add([x-0.025,6,r.z1-0.025],[x+0.025,6.52,r.z1+0.025],'metal',{look:'roof.metal',blocks:'bullets'});
 }
 
 function blueHints(): Vec3[] {

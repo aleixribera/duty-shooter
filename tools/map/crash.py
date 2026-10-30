@@ -38,6 +38,36 @@ fence_metal = mat("fence.metal", 0x777970, 0.85, 0.45)
 palm_trunk = mat("palm.trunk", 0x796348, 0.95)
 palm_frond = mat("palm.frond", 0x657950, 0.95)
 palm_dark = mat("palm.frondDark", 0x455b3e, 0.95)
+blue_wall = mat("blue", 0x809b9a, 0.9)
+
+BLUE_EAST = [
+    [(0.125,0.85),(1.4,0.85),(1.85,0.61),(2.35,0.52),(2.85,0.25),(3.4,0.08)],
+    [(4.2,0.08),(4.55,0.24),(5.0,0.6),(5.5,0.82),(7.1,0.85),(7.7,0.62),(8.3,0.36),(9.4,0.08)],
+    [(9.9,0.1),(10.35,0.42),(11.0,0.72),(12.875,0.85)],
+]
+BLUE_SOUTH = [
+    [(0,0.85),(3.4,0.85),(4,0.65),(4.6,0.28),(5.3,0.07)],
+    [(6.2,0.1),(6.9,0.35),(7.6,0.65),(8,0.85),(10,0.85)],
+]
+
+
+def broken_blue_edge(name, axis, groups):
+    """Jagged wall pieces and short matching collision boxes, in local space."""
+    parts, solids = [], []
+    for nodes in groups:
+        profile = [(0,nodes[0][0]),(0,nodes[-1][0])] + [(h,u) for u,h in reversed(nodes)]
+        if axis == 'z':
+            parts.append(kit.section(profile,-0.125,0.125,blue_wall))
+        else:
+            parts.append(kit.prism([(u,y) for y,u in profile],-0.125,0.125,blue_wall))
+        for (a,h0),(b,h1) in zip(nodes,nodes[1:]):
+            count = math.ceil((b-a)/0.25)
+            for i in range(count):
+                u0,u1 = a+(b-a)*i/count,a+(b-a)*(i+1)/count
+                top = max(h0+(h1-h0)*i/count,h0+(h1-h0)*(i+1)/count)
+                solids.append(((-0.125,0,u0),(0.125,top,u1)) if axis == 'z'
+                              else ((u0,0,-0.125),(u1,top,0.125)))
+    return kit.asset(name,parts,smooth_angle=25), solids
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -466,11 +496,15 @@ for side in (-1, 1):
             ya, yb = y0+(y1-y0)*a, y0+(y1-y0)*b
             front_rotor_solids.append(((1.07,min(ya,yb),min(za,zb)),(1.43,max(ya,yb)+0.08,max(za,zb))))
 
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks()] + [impact_scatter(seed) for seed in (11,23,37)]
+blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
+blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
+    'blue-edge-east': blue_east_solids,
+    'blue-edge-south': blue_south_solids,
     'abandoned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
     'burned-car': [((-2.4,0,-1.0),(2.4,1.08,1.0)),
                    ((-0.95,1.52,-0.82),(0.85,1.65,-0.3)),
