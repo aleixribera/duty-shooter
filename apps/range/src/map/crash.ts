@@ -43,6 +43,10 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'sign.frame': { family: 'paint', color: 0x5b5141, roughness:0.85, metalness:0.2 },
   'sign.green': { family: 'paint', color: 0x354f40, roughness:0.9 },
   'sign.cream': { family: 'paint', color: 0xd8c69b, roughness:0.9 },
+  'city.plaster': { family: 'wornPlaster', color: 0xb5a58c, accent: 0x998b76 },
+  'city.sand': { family: 'wornPlaster', color: 0xc1ae90, accent: 0xa4957c },
+  'city.trim': { family: 'concrete', color: 0x978b77 },
+  'city.window': { family: 'paint', color: 0x4b514c, roughness:0.95 },
   'pole.wood': { family: 'floor', color: 0x6c5b46 },
   'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
   'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },
@@ -574,6 +578,17 @@ export function buildCrash(): MapDefinition {
   ] as const) b.scenery(asset,[x,0,z],yaw);
   // Shallow fracture marks sit on the street and do not affect movement.
   b.scenery('impact-cracks',[-6,0,-2],0);
+  // Closed backdrop blocks sit entirely beyond the map walls, outside play.
+  for (const [asset,x,z,yaw] of [
+    ['city-low',-32,-48,0], ['city-mid',-18,-48,0], ['city-tall',-3,-48,0],
+    ['city-low',12,-48,0], ['city-mid',27,-48,0],
+    ['city-mid',-30,48,0], ['city-low',-15,48,0], ['city-tall',0,48,0],
+    ['city-mid',15,48,0], ['city-low',30,48,0],
+    ['city-low',-52,-29,Math.PI/2], ['city-mid',-52,-14,Math.PI/2],
+    ['city-tall',-52,1,Math.PI/2], ['city-low',-52,16,Math.PI/2], ['city-mid',-52,30,Math.PI/2],
+    ['city-mid',52,-29,Math.PI/2], ['city-low',52,-14,Math.PI/2],
+    ['city-tall',52,1,Math.PI/2], ['city-mid',52,16,Math.PI/2], ['city-low',52,30,Math.PI/2],
+  ] as const) b.scenery(asset,[x,0,z],yaw);
   // Fallen slabs lie below the blue building's damaged upper roof.
   for (const [x,z,yaw] of [[-20,3.2,0.2],[-19.4,6.2,-0.55]] as const)
     b.model('roof-debris',[x,3,z],yaw,() => b.turned([x,3.1,z],[2.4,0.2,1.8],yaw,'concrete','rubble.stone'));

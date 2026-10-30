@@ -28,4 +28,16 @@ describe('Crash wreck model', () => {
     expect(cracks.visualOnly && cracks.solids.length === 0).toBe(true);
     expect(Math.max(...glb.assets.get(cracks.asset)!.vertices.map(v => v[1]))).toBeLessThan(0.013);
   });
+  it('keeps the non-colliding city backdrop outside the playable boundary', () => {
+    const buildings = map.models!.placements.filter(p => p.asset.startsWith('city-'));
+    expect(buildings).toHaveLength(20);
+    for (const p of buildings) {
+      expect(p.visualOnly && p.solids.length === 0).toBe(true);
+      const vertices = glb.assets.get(p.asset)!.vertices;
+      const c = Math.cos(p.yaw), s = Math.sin(p.yaw);
+      const xs = vertices.map(([x,,z]) => p.position[0] + x * c + z * s);
+      const zs = vertices.map(([x,,z]) => p.position[2] - x * s + z * c);
+      expect(Math.max(...xs) < -42 || Math.min(...xs) > 42 || Math.max(...zs) < -38 || Math.min(...zs) > 38, p.asset).toBe(true);
+    }
+  });
 });
