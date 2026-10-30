@@ -627,6 +627,20 @@ export function buildCrash(): MapDefinition {
     }
   });
   // Scattered masonry around the impact and an abandoned sedan by blue.
+  // Larger individual slabs collect in front of the wreck, each with its own
+  // low collision rather than one invisible box covering the whole pile.
+  b.model('impact-mound',[-6,0,3.3],0,() => {
+    for (const [x,z,rx,rz,h] of [
+      [-2.35,-0.65,0.48,0.38,0.23], [-1.45,-0.88,0.58,0.42,0.31],
+      [-0.35,-0.95,0.51,0.38,0.25], [0.68,-0.85,0.59,0.42,0.30],
+      [1.85,-0.62,0.46,0.38,0.22], [-2.70,0.30,0.38,0.41,0.19],
+      [-1.85,0.18,0.48,0.39,0.27], [-0.85,0.18,0.52,0.42,0.35],
+      [0.22,0.19,0.48,0.40,0.29], [1.23,0.22,0.55,0.43,0.33],
+      [2.30,0.28,0.45,0.38,0.23], [-1.55,1.18,0.46,0.34,0.20],
+      [-0.51,1.22,0.52,0.36,0.24], [0.60,1.20,0.47,0.36,0.20],
+      [1.55,1.10,0.42,0.33,0.18],
+    ] as const) b.add([-6+x-rx,0,3.3+z-rz],[-6+x+rx,h,3.3+z+rz],'concrete',{look:'rubble.stone'});
+  });
   for (const [x,z,yaw] of [[-10,-5,0],[-10,2,0.5],[-3,-7,-0.4],[-3,6,0.9],[-13,8,0.2],[0,9,-0.7]] as const) {
     b.model('rubble',[x,0,z],yaw,() => b.turned([x,0.15,z],[2.4,0.3,1.8],yaw,'concrete','rubble.stone'));
   }

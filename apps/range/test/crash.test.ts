@@ -49,6 +49,15 @@ describe('Crash', () => {
     const middle = map.zones.find(zone => zone.id === 'B')!;
     expect(Math.hypot(middle.center[0]-wreck.position[0],middle.center[2]-wreck.position[2])).toBeLessThan(1);
   });
+  it('lets a player walk over the broken pavement in front of the wreck', () => {
+    const mound = map.models!.placements.find(p => p.asset === 'impact-mound')!;
+    expect(mound.solids.length).toBeGreaterThan(10);
+    const m = createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-6,0,7],yaw:0}]});
+    let out = m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (let i=0; i<8/TICK_SECONDS && out.position[2]>2.8; i++)
+      out=m.step({p:usercmd({yaw:0,forward:1})}).players[0]!;
+    expect(out.position[2]).toBeLessThan(2.8);
+  });
   it('lets a player cross through the wreck cabin while its side panels provide cover', () => {
     expect(raycastWorld(world,[-9,1.6,-2.5],[-3,1.6,-2.5])).toBeNull();
     expect(raycastWorld(world,[-9,1.6,-1],[-3,1.6,-1])).not.toBeNull();

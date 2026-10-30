@@ -321,6 +321,47 @@ def rubble():
     return kit.asset('rubble', parts, smooth_angle=25)
 
 
+IMPACT_BLOCKS = [
+    (-2.35,-0.65,0.48,0.38,0.23), (-1.45,-0.88,0.58,0.42,0.31),
+    (-0.35,-0.95,0.51,0.38,0.25), (0.68,-0.85,0.59,0.42,0.30),
+    (1.85,-0.62,0.46,0.38,0.22), (-2.70,0.30,0.38,0.41,0.19),
+    (-1.85,0.18,0.48,0.39,0.27), (-0.85,0.18,0.52,0.42,0.35),
+    (0.22,0.19,0.48,0.40,0.29), (1.23,0.22,0.55,0.43,0.33),
+    (2.30,0.28,0.45,0.38,0.23), (-1.55,1.18,0.46,0.34,0.20),
+    (-0.51,1.22,0.52,0.36,0.24), (0.60,1.20,0.47,0.36,0.20),
+    (1.55,1.10,0.42,0.33,0.18),
+]
+
+
+def impact_mound():
+    """Larger broken concrete slabs around the nose of the crashed aircraft."""
+    parts = []
+    rng = random.Random(864)
+    for i, (x,z,rx,rz,height) in enumerate(IMPACT_BLOCKS):
+        # Triangulated, irregular tops avoid a row of flat paving stones.
+        # Each fragment stays inside its matching low collision box.
+        bm = bmesh.new()
+        count = rng.choice((4,5,5,6))
+        offset = rng.uniform(0,math.tau)
+        coords = []
+        for j in range(count):
+            angle = offset + math.tau*j/count + rng.uniform(-0.20,0.20)
+            radius = rng.uniform(0.65,1.0)
+            coords.append((x+rx*radius*math.cos(angle),z+rz*radius*math.sin(angle)))
+        bottom = [bm.verts.new(kit.b((px,0,pz))) for px,pz in coords]
+        top = [bm.verts.new(kit.b((px,height*rng.uniform(0.45,1),pz))) for px,pz in coords]
+        centre = bm.verts.new(kit.b((sum(p[0] for p in coords)/count,
+                                     height*rng.uniform(0.65,1),sum(p[1] for p in coords)/count)))
+        bm.faces.new(tuple(reversed(bottom)))
+        for j in range(count):
+            k = (j+1)%count
+            bm.faces.new((bottom[j],bottom[k],top[k],top[j]))
+            bm.faces.new((top[j],top[k],centre))
+        bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
+        parts.append(kit.obj('broken pavement',bm,rubble_dark if i%5 == 0 else rubble_stone))
+    return kit.asset('impact-mound',parts,smooth_angle=25)
+
+
 def impact_scatter(seed):
     """Small, low fragments scattered loosely over a patch of street."""
     rng = random.Random(seed)
@@ -666,10 +707,11 @@ for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
 blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), impact_mound(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.47,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.47,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.35),(-4.55,0.20,1.35)), ((-6.55,2.0,-1.35),(-4.55,2.5,1.35)), ((-6.55,0.20,-1.35),(-4.55,2.0,-0.95)), ((-6.55,0.20,0.95),(-4.55,2.0,1.35)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
+    'impact-mound': [((x-rx,0,z-rz),(x+rx,height,z+rz)) for x,z,rx,rz,height in IMPACT_BLOCKS],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'blue-edge-east': blue_east_solids,
     'blue-edge-south': blue_south_solids,
