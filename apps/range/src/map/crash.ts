@@ -40,6 +40,9 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'car.glass': { family: 'glass', color: 0x333c3c },
   'burned.body': { family: 'paint', color: 0x514a40, roughness: 0.96, metalness: 0.15 },
   'burned.metal': { family: 'paint', color: 0x34342f, roughness: 0.98, metalness: 0.15 },
+  'sign.frame': { family: 'paint', color: 0x5b5141, roughness:0.85, metalness:0.2 },
+  'sign.green': { family: 'paint', color: 0x354f40, roughness:0.9 },
+  'sign.cream': { family: 'paint', color: 0xd8c69b, roughness:0.9 },
   'pole.wood': { family: 'floor', color: 0x6c5b46 },
   'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
   'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },
@@ -286,6 +289,8 @@ function buildMain(b: Builder): void {
   // shelves make the ground floor read as a market without blocking its doors.
   b.add([1.45,2.55,-14.45],[3.12,2.70,-9.55],'wood',{look:'awning'});
   b.add([2.84,2.30,-14.3],[3.0,2.54,-9.7],'wood',{look:'wood'});
+  b.model('cafe-sign',[2.8,3.05,-12],Math.PI/2,() =>
+    b.turned([2.79,3.41,-12],[2.4,0.72,0.16],Math.PI/2,'metal','sign.frame'));
   b.add([4.1,0,-18.35],[7.5,1.0,-17.55],'wood',{look:'wood'});
   for (const y of [0.9,1.35,1.8]) {
     b.add([4.0,y,-19.8],[9.4,y+0.08,-19.25],'wood',{look:'wood'});

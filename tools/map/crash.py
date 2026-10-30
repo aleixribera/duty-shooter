@@ -7,6 +7,7 @@ import sys
 import math
 import random
 import bmesh
+import bpy
 sys.path.insert(0, os.path.dirname(__file__))
 import mapkit
 
@@ -39,6 +40,9 @@ palm_trunk = mat("palm.trunk", 0x796348, 0.95)
 palm_frond = mat("palm.frond", 0x657950, 0.95)
 palm_dark = mat("palm.frondDark", 0x455b3e, 0.95)
 blue_wall = mat("blue", 0x809b9a, 0.9)
+sign_frame = mat("sign.frame", 0x5b5141, 0.85, 0.2)
+sign_green = mat("sign.green", 0x354f40, 0.9)
+sign_cream = mat("sign.cream", 0xd8c69b, 0.9)
 
 BLUE_EAST = [
     [(0.125,0.85),(1.4,0.85),(1.85,0.61),(2.35,0.52),(2.85,0.25),(3.4,0.08)],
@@ -68,6 +72,41 @@ def broken_blue_edge(name, axis, groups):
                 solids.append(((-0.125,0,u0),(0.125,top,u1)) if axis == 'z'
                               else ((u0,0,-0.125),(u1,top,0.125)))
     return kit.asset(name,parts,smooth_angle=25), solids
+
+
+def cafe_sign():
+    """An Arabic café sign, converted to editable mesh geometry."""
+    font_paths = [os.path.join(os.environ.get('WINDIR','C:/Windows'),'Fonts','arial.ttf'),
+                  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                  '/Library/Fonts/Arial Unicode.ttf']
+    font_path = next((path for path in font_paths if os.path.isfile(path)),None)
+    if font_path is None:
+        raise RuntimeError('An Arabic-capable Arial or DejaVu Sans font is needed to rebuild the café sign')
+    curve = bpy.data.curves.new('cafe lettering','FONT')
+    curve.font = bpy.data.fonts.load(font_path,check_existing=True)
+    # Presentation forms for مقهى (café), in visual order because Blender's
+    # text object does not perform Arabic joining or bidirectional shaping.
+    curve.body = '\ufef0\ufeec\ufed8\ufee3'
+    curve.align_x = 'CENTER'
+    curve.align_y = 'CENTER'
+    curve.size = 0.65
+    curve.extrude = 0.002
+    text_obj = bpy.data.objects.new('cafe lettering',curve)
+    bpy.context.scene.collection.objects.link(text_obj)
+    # Face the lettering toward the front of the board (local -z), so its
+    # right-to-left visual order is not mirrored when viewed from the street.
+    text_obj.rotation_euler = (math.pi/2,0,math.pi)
+    text_obj.scale.x = 1.6
+    text_obj.location = kit.b((0,0.36,-0.073))
+    text_obj.data.materials.append(sign_cream)
+    bpy.ops.object.select_all(action='DESELECT')
+    text_obj.select_set(True)
+    bpy.context.view_layer.objects.active = text_obj
+    bpy.ops.object.convert(target='MESH')
+    bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
+    parts = [kit.box((-1.2,0,-0.06),(1.2,0.72,0.06),sign_frame,0.015),
+             kit.box((-1.14,0.06,-0.067),(1.14,0.66,-0.06),sign_green),text_obj]
+    return kit.asset('cafe-sign',parts,smooth_angle=25)
 
 def rear_shell():
     """Open, buckled tail section: two faceted skins joined at both torn ends."""
@@ -498,13 +537,14 @@ for side in (-1, 1):
 
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, cafe_sign()] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
     'blue-edge-east': blue_east_solids,
     'blue-edge-south': blue_south_solids,
+    'cafe-sign': [((-1.2,0,-0.09),(1.2,0.72,0.07))],
     'abandoned-car': [((-2.4, 0, -1.0), (2.4, 1.08, 1.0)), ((-1.3, 1.08, -0.82), (1.3, 1.8, 0.82))],
     'burned-car': [((-2.4,0,-1.0),(2.4,1.08,1.0)),
                    ((-0.95,1.52,-0.82),(0.85,1.65,-0.3)),
