@@ -1,7 +1,7 @@
 import { BOT_MAPS, LobbyPage, Menu, loadSettings, lobbyMapName, padName, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
-import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
 import { TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
@@ -22,10 +22,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let sound!: SoundSystem;
   let engineUp!: () => void;
   const engineReady = new Promise<void>((done) => (engineUp = done));
-  /** Runs `act` once the engine is up: now, if it is. */
-  const whenUp = (act: (e: Awaited<typeof engineLoading>) => void) => {
-    if (engine) act(engine);
-    else void engineReady.then(() => act(engine!));
+  let up = false;
+  /** Runs `act` once the engine and the first game are up: now, if they are. */
+  const whenUp = (act: () => void) => {
+    if (up) act();
+    else void engineReady.then(act);
   };
   // The release this page belongs to (`git describe`, set by the build), shown on the main menu.
   const version = import.meta.env.VITE_VERSION ?? 'dev';
@@ -47,6 +48,29 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       loaded.set(id, entry);
     }
     return entry;
+  };
+  /** Each map's bot routes, from a worker; null if it could not, and the match builds them. */
+  const routes = new Map<MapId, Promise<NavGraph | null>>();
+  const routesOf = (id: MapId) => {
+    let found = routes.get(id);
+    if (!found) {
+      found = new Promise((done) => {
+        try {
+          const worker = new Worker(new URL('./map/routes-worker.ts', import.meta.url), { type: 'module' });
+          const finish = (graph: NavGraph | null) => {
+            worker.terminate();
+            done(graph);
+          };
+          worker.onmessage = (e: MessageEvent<NavGraph | null>) => finish(e.data);
+          worker.onerror = () => finish(null);
+          worker.postMessage(id);
+        } catch {
+          done(null);
+        }
+      });
+      routes.set(id, found);
+    }
+    return found;
   };
   /** Shows the loading screen until the map's lighting is in (at once if it already is). */
   const whenLoaded = async (id: MapId) => {
@@ -176,10 +200,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     useMap(id);
     const { map, solids } = load(id);
     if (!map.nav) return;
-    await game.prepare();
-    // Let the loading screen paint before the bots' nav graph is built (a moment of work on the main thread).
-    await new Promise((done) => setTimeout(done, 50));
-    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
+    const [navGraph] = await Promise.all([routesOf(id), game.prepare()]);
+    // Let the loading screen paint before the match builds its own routes (most of a second on the main thread).
+    if (!navGraph) await new Promise((done) => setTimeout(done, 50));
+    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -318,14 +342,27 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     loading: null,
     offline: true,
   });
+  let settling: ReturnType<typeof setTimeout> | undefined;
+  /** The picked map gets ready behind the page once the picks settle, so that Start has nothing left to wait for. */
+  const followPick = () => {
+    clearTimeout(settling);
+    settling = setTimeout(() => {
+      whenUp(() => {
+        const id = asMapId(botSetup.map) ?? 'survival-town';
+        void load(id).bake.then(() => {
+          if (botLobbyOpen && !game.driver && id === asMapId(botSetup.map)) useMap(id);
+        });
+      });
+    }, 350);
+  };
   const openBotLobby = () => {
     botLast = null;
     botLobbyOpen = true;
     menu.hide();
     lobbyPage.invite = null;
     lobbyPage.show(botView());
-    // The weapons and shaders are on their way already (see below); the map's lighting starts now.
-    whenUp(() => void load(asMapId(botSetup.map) ?? 'survival-town'));
+    followPick();
+    void routesOf(asMapId(botSetup.map) ?? 'survival-town');
   };
   const pickBots = (picks: LobbyPick) => {
     const { fill: _fill, bots, ...rest } = picks;
@@ -333,7 +370,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
     const custom = bots !== undefined || (botSetup.custom && picks.fill === undefined && next.map === botSetup.map && next.mode === botSetup.mode);
     botSetup = { ...next, custom, bots: custom ? Math.max(1, Math.min(MAX_BOTS_PER_TEAM, bots ?? botSetup.bots)) : teamSize(next.map, next.mode) };
-    if (picks.map) whenUp(() => void load(asMapId(picks.map) ?? 'survival-town'));
+    if (picks.map) {
+      followPick();
+      void routesOf(asMapId(picks.map) ?? 'survival-town');
+    }
     lobbyPage.show(botView());
   };
   // Esc leaves Bot Match's setup (the menu, open over it, handles its own Esc first).
@@ -458,6 +498,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   sound = engine.createSoundSystem();
   await nextPaint();
   game = createGame(initial);
+  up = true;
   engineUp();
   if (explore) void playOffline(explore);
   // `?spot=<name>`: the camera at one of the map's reference spots, menu and HUD hidden, for repeatable screenshots.
@@ -502,7 +543,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let lastMenuFrame = -Infinity;
   // The first moments of a match get ready behind the menu, soon after it is up, so that Play has little left to do.
   if (!bench) {
-    const prepare = () => void game.prepare();
+    const prepare = () => {
+      void game.prepare();
+      void routesOf(asMapId(botSetup.map) ?? 'survival-town');
+    };
     if ('requestIdleCallback' in globalThis) requestIdleCallback(prepare, { timeout: 1000 });
     else setTimeout(prepare, 200);
   }

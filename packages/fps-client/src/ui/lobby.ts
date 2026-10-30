@@ -4,7 +4,7 @@ import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, m
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
-.ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 15px/1.35 var(--ds-font); animation: ds-fade 120ms ease-out; }
+.ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 15px/1.35 var(--ds-font); }
 .ds-lobby[hidden] { display: none; }
 /* Loadout and Settings open over the page: it steps aside meanwhile rather than showing through. */
 .ds-menu:not([hidden]) ~ .ds-lobby { visibility: hidden; }

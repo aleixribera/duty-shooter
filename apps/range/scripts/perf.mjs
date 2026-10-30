@@ -6,9 +6,9 @@
 //
 // Build first: it serves apps/range/dist with the real server, on PERF_PORT
 // (default 3190). PERF_PLAY sets the seconds of play (default 45), PERF_MAP the
-// Bot Match's map as its tile reads, CPU_PROFILE=<file> saves a CPU profile of
-// the play, LOAD_PROFILE=<prefix> CPU profiles of the return visit (<prefix>-menu
-// and <prefix>-enter .cpuprofile), PERF_NET=off skips the throttled first visit.
+// Bot Match's map as its tile reads, PERF_SETTLE the ms before Start, CPU_PROFILE=<file> saves a CPU profile of
+// the play, LOAD_PROFILE=<prefix> CPU profiles of the return visit (<prefix>-menu,
+// -enter and -start .cpuprofile), PERF_NET=off skips the throttled first visit.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -144,7 +144,7 @@ async function menus(chrome) {
   await go('Play Online');
   await go('Back', 'Online back');
   await go('Bot Match');
-  await go('Leave', 'Bot Match back');
+  await go('Back', 'Bot Match back');
   return steps;
 }
 
@@ -155,10 +155,13 @@ async function playMatch(chrome) {
   entry.openLobby = tile;
   await sleep(300);
   if (process.env.PERF_MAP) await click(chrome, process.env.PERF_MAP);
+  await sleep(Number(process.env.PERF_SETTLE ?? 0));
   const start = Date.now();
-  await click(chrome, 'Start');
-  await chrome.waitFor('__perf.playing()', 180_000, 25);
-  entry.startToPlayMs = Date.now() - start;
+  await profiled(chrome, 'start', async () => {
+    await click(chrome, 'Start');
+    await chrome.waitFor('__perf.playing()', 180_000, 25);
+    entry.startToPlayMs = Date.now() - start;
+  });
   await sleep(6000);
 
   // Moves, turns and fires for the rest: everything a match asks of a frame.

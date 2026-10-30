@@ -9,9 +9,8 @@ export type { LobbyInfo } from './model';
 const CSS = `
 .ds-menu { position: fixed; inset: 0; z-index: 20; font: 400 15px/1.4 var(--ds-font); color: var(--ds-text); }
 .ds-menu[hidden] { display: none; }
-.ds-screen { position: absolute; inset: 0; animation: ds-fade 120ms ease-out; }
+.ds-screen { position: absolute; inset: 0; }
 /* The same screen drawn again (a tab, a new key, the server's status) does not fade in again. */
-.ds-screen.still { animation: none; }
 
 /* The main menu: the title, a column of big entries over the map's fly-through, the name, key hints and the version. */
 .ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 44px 56px 22px;
@@ -260,8 +259,6 @@ export class Menu {
   #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
   #loadoutNote = '';
   readonly #padName: () => string | null;
-  /** The screen last drawn while the menu showed: drawing it again does not fade it in. */
-  #drawn: Screen | null = null;
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
   #redrawAfterPress = false;
@@ -326,7 +323,6 @@ export class Menu {
 
   hide(): void {
     this.#root.hidden = true;
-    this.#drawn = null;
   }
 
   /** The loading screen, or its progress (0-1; null while unknown). */
@@ -507,8 +503,7 @@ export class Menu {
     const root = this.#root;
     root.replaceChildren();
     const screen = document.createElement('div');
-    screen.className = this.#drawn === this.#screen ? 'ds-screen still' : 'ds-screen';
-    if (!root.hidden) this.#drawn = this.#screen;
+    screen.className = 'ds-screen';
     root.append(screen);
     const h: El = (tag, text = '', cls = '') => {
       const e = document.createElement(tag);

@@ -14,6 +14,7 @@ import {
   type Loadout,
   type Ladder,
   type MemoryNetwork,
+  type NavGraph,
   type NavOptions,
   type Solid,
   type MatchStatus,
@@ -379,6 +380,8 @@ export interface BotMatchOptions {
   readonly sites?: readonly ChargeSite[];
   /** How the map's nav graph is built, for the bots to find their way. */
   readonly nav: NavOptions;
+  /** That graph, if it is built already. */
+  readonly navGraph?: NavGraph | null;
   readonly mode: ModeId;
   /** Bots a side (free-for-all: twice this many in all, counting you). */
   readonly botsPerTeam: number;
@@ -420,7 +423,7 @@ export class BotMatchDriver extends OnlineDriver {
       ...(options.zones ? { zones: options.zones } : {}),
       ...(options.sites ? { sites: options.sites } : {}),
       passphrase: '',
-      bots: { nav: buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
+      bots: { nav: options.navGraph ?? buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
       lobby: true,
       ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     });

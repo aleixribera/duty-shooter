@@ -13,7 +13,7 @@ What the code doesn't say on its own. The README covers running, the server's en
 
 Two tests hold the lines: `packages/fps-core/test/purity.test.ts` keeps the core headless, and `apps/server/test/headless.test.ts` follows the server's runtime imports through the maps into `fps-client/surfaces` and fails on anything that loads three.js, the DOM or audio. So a map file may import from `@duty-shooter/fps-client/surfaces`, but not from `map-sound` or anything else that reaches the audio or the renderer; take types with `import type`, which the build erases.
 
-Each package's entry points are its `package.json` `exports`; import through those, not deep paths.
+Each package's entry points are its `package.json` `exports`; import through those, not deep paths. The page's first load is `@duty-shooter/fps-client/ui` and `apps/range/src/main.ts`, which reach no three.js so the menu appears before the engine: anything drawn with three.js goes through `apps/range/src/engine.ts`, and a menu action that needs it runs inside `whenUp`.
 
 ## Adding things
 

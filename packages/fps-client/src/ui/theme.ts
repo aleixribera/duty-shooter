@@ -78,7 +78,6 @@ const CSS = `
 .pad .ds-kbd.key { display: none; } .pad .ds-kbd.pad { display: inline-flex; }
 
 @keyframes ds-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes ds-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ds-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   @keyframes ds-in { from { opacity: 0; } to { opacity: 1; } }
