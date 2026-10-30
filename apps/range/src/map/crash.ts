@@ -16,6 +16,9 @@ const CRASH_LIGHT: Lighting = {
 const FINISHES: Readonly<Record<string, Finish>> = {
   sand: { family: 'sand', color: 0xc6ad82 },
   road: { family: 'asphalt', color: 0x746e61 },
+  'dry-grass': { family: 'grass', color: 0x8e9260, accent: 0xb0a878 },
+  'grass.blade': { family: 'paint', color: 0x828b58, roughness:0.96 },
+  'grass.straw': { family: 'paint', color: 0xb1a36c, roughness:0.96 },
   concrete: { family: 'concrete', color: 0xb5a58d, accent: 0x96866f },
   plaster: { family: 'wornPlaster', color: 0xcdbb9d, accent: 0xa5957c },
   blue: { family: 'wornPlaster', color: 0x809b9a, accent: 0x8b8576 },
@@ -478,11 +481,15 @@ const ffa = [...west, ...east, ...[[-20,-29],[8,-32],[37,-29],[-36,5],[35,-4],[-
 
 export function buildCrash(): MapDefinition {
   const b = new Builder();
-  const layers: { rect: Rect; material: 'sand' | 'asphalt'; look: string }[] = [
+  const layers: { rect: Rect; material: 'sand' | 'asphalt' | 'grass'; look: string }[] = [
     { rect: { x0: 31, x1: 42, z0: -24, z1: 30 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -38, x1: 32, z0: 26, z1: 31 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -42, x1: 42, z0: -7, z1: 8 }, material: 'asphalt', look: 'road' },
     { rect: { x0: -10, x1: 9, z0: -38, z1: 38 }, material: 'asphalt', look: 'road' },
+    // A dry grassy yard sits behind the southeast alley and palm grove.
+    { rect: { x0: 26, x1: 42, z0: 30, z1: 32 }, material: 'grass', look: 'dry-grass' },
+    { rect: { x0: 20, x1: 42, z0: 32, z1: 35 }, material: 'grass', look: 'dry-grass' },
+    { rect: { x0: 15, x1: 42, z0: 35, z1: 38 }, material: 'grass', look: 'dry-grass' },
     { rect: { x0: -100, x1: 100, z0: -100, z1: 100 }, material: 'sand', look: 'sand' },
   ];
   for (const {rect, material, look} of groundTiles(layers)) b.add([rect.x0,-0.5,rect.z0],[rect.x1,0,rect.z1],material,{look});
@@ -630,6 +637,11 @@ export function buildCrash(): MapDefinition {
     b.model('palm-trunk',[x,0,z],yaw,() => b.add([x-0.36,0,z-0.36],[x+0.36,6.6,z+0.36],'wood',{look:'palm.trunk'}));
     b.scenery('palm-crown',[x,0,z],yaw);
   }
+  // Tufts are cosmetic, so the open yard remains traversable and shootable.
+  for (const [x,z,yaw] of [[17,36,0.4],[20,35.7,1.2],[23,33.7,2.3],[25,36.8,0.1],
+    [27,31.6,1.7],[28,34.8,0.8],[31,37,2.4],[33,32.7,1.3],[35,35.5,0.2],
+    [38,36.8,2.1],[40,33.5,0.5],[22,37.4,2.7],[36,31.4,0.9]] as const)
+    b.scenery('grass-tuft',[x,0,z],yaw);
   // Low cover interrupts the central crossings and the long market alley.
   for (const [x,z] of [[-12,4],[7,8],[-12,-12],[35,2],[-34,8],[14,29]] as const)
     b.add([x-1.3,0,z-0.4],[x+1.3,1,z+0.4],'concrete',{look:'concrete'});

@@ -12,6 +12,14 @@ const solids = mapSolids(map);
 const world = createWorld(solids);
 
 describe('Crash', () => {
+  it('has a grassy southeast yard while keeping the adjacent alley paved', () => {
+    for (const [x,z] of [[24,36],[33,34],[40,31]] as const)
+      expect(raycastWorld(world,[x,0.5,z],[x,-0.5,z])?.material).toBe('grass');
+    expect(raycastWorld(world,[33,0.5,28],[33,-0.5,28])?.material).toBe('asphalt');
+    const tufts = map.models!.placements.filter(p => p.asset === 'grass-tuft');
+    expect(tufts.length).toBeGreaterThan(0);
+    expect(tufts.every(p => p.visualOnly && p.solids.length === 0)).toBe(true);
+  });
   it('places the landmarks around the wreck as in the original overhead', () => {
     const wreck = map.models!.placements.find(p => p.asset === 'helicopter')!;
     expect(LANDMARKS.blue.x1).toBeLessThan(wreck.position[0]);

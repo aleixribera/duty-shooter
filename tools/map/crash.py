@@ -48,6 +48,8 @@ city_plaster = mat("city.plaster", 0xb5a58c, 0.95)
 city_sand = mat("city.sand", 0xc1ae90, 0.95)
 city_trim = mat("city.trim", 0x978b77, 0.95)
 city_window = mat("city.window", 0x4b514c, 0.95)
+grass_blade = mat("grass.blade", 0x828b58, 0.96)
+grass_straw = mat("grass.straw", 0xb1a36c, 0.96)
 
 BLUE_EAST = [
     [(0.125,0.85),(1.4,0.85),(1.85,0.61),(2.35,0.52),(2.85,0.25),(3.4,0.08)],
@@ -515,6 +517,25 @@ def rooftop_fence():
     parts.append(kit.obj('wire mesh',bm,fence_metal))
     return kit.asset('rooftop-fence',parts,smooth_angle=30)
 
+def grass_tuft():
+    """A sparse clump of dry and green blades, with no collision."""
+    rng = random.Random(714)
+    parts = []
+    for i in range(16):
+        angle = rng.uniform(0, 2 * math.pi)
+        radius = rng.uniform(0, 0.18)
+        if i == 0:
+            angle, radius = 0, 0  # Keep the combined asset's origin at the tuft's base.
+        height = rng.uniform(0.22, 0.46)
+        lean = rng.uniform(0.07, 0.2)
+        blade = kit.prism([(-0.035,0),(0.035,0),(lean,height)],-0.012,0.012,
+                          grass_blade if i % 3 else grass_straw)
+        blade.rotation_euler[2] = angle
+        blade.location = kit.b((radius * math.cos(angle),0,radius * math.sin(angle)))
+        parts.append(blade)
+    return kit.asset('grass-tuft',parts,smooth_angle=25)
+
+
 def city_block(name, width, depth, floors, plaster):
     """A distant, closed urban block beyond the playable map boundary."""
     h = floors * 3
@@ -595,7 +616,7 @@ for side in (-1, 1):
 
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
-built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, cafe_sign(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), trunk, crown, impact_cracks(), blue_east, blue_south, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.27,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.27,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.05),(-4.55,0.32,1.05)), ((-6.55,1.8,-1.05),(-4.55,2.5,1.05)), ((-6.55,0.32,-1.05),(-4.55,1.8,-0.65)), ((-6.55,0.32,0.65),(-4.55,1.8,1.05)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
@@ -616,7 +637,7 @@ SOLIDS = {
 kit.bake_ao(built, distance=0.8)
 report = {}
 for obj in built:
-    if obj.name in ('palm-crown','impact-cracks') or obj.name.startswith(('impact-scatter-', 'city-')):
+    if obj.name in ('palm-crown','impact-cracks','grass-tuft') or obj.name.startswith(('impact-scatter-', 'city-')):
         report[obj.name] = {'tris': kit.tris(obj), 'visualOnly': True}
     else:
         worst, where = kit.strays(obj, SOLIDS[obj.name])
