@@ -586,6 +586,12 @@ export class Bot {
         lookPitch = Math.max(-0.35, Math.min(0.35, Math.atan2(ahead[1] - self.position[1], Math.max(1, flat(self.position, ahead))))) - 0.03;
       }
     }
+    if (this.#nextLink() === 'ladder' && this.#step > 0) {
+      const from = this.#nav.nodes[this.#path[this.#step-1]!]!.position;
+      const to = this.#nav.nodes[this.#path[this.#step]!]!.position;
+      lookYaw = yawTo(from,to);
+      lookPitch = 0;
+    }
     this.#turn(lookYaw, lookPitch, rate);
 
     // Where to go.
@@ -657,6 +663,7 @@ export class Bot {
     let forward = backOff ? -0.8 : 0;
     let right = fighting && !this.#throw && !using ? this.#strafe * (ads ? 1 : 0.8) : 0;
     const climbing = move !== null && this.#nextLink() === 'climb';
+    const laddering = move !== null && this.#nextLink() === 'ladder';
     if (move) {
       const dir = yawTo(self.position, move);
       const d = angleDelta(self.yaw, dir);
@@ -665,25 +672,25 @@ export class Bot {
       forward = Math.cos(d) * k;
       right = fighting ? Math.max(-1, Math.min(1, right * 0.6 - Math.sin(d) * k)) : -Math.sin(d) * k;
       const speed = Math.hypot(self.velocity[0], self.velocity[2]);
-      this.#blocked = speed < 0.5 && self.movement !== 'mantle' && self.movement !== 'airborne' ? this.#blocked + 1 : 0;
+      this.#blocked = speed < 0.5 && self.movement !== 'mantle' && self.movement !== 'airborne' && self.movement !== 'ladder' ? this.#blocked + 1 : 0;
       // Sprint the long legs when nothing's in sight, and away from a frag; slide now and then.
       const long = this.#remaining(self.position) > 7;
       // Near an enemy it knows of but hasn't been fighting, a careful bot keeps its footsteps quiet, and creeps up on one it's after.
       const quiet = caution > 0.5 && !hurry && !this.#flee && !retreating && time - this.#lastEnemySeen > SPOTTED && this.#threatNear(view);
       const creeping = quiet && caution > 0.7 && !fighting && this.#chasing !== null && this.#chasing !== OBJECTIVE_KEY && this.#nearest(view) < SNEAK;
-      if ((this.#flee || retreating) && forward > 0.5 && !climbing) buttons.push('Sprint');
-      else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing) {
+      if ((this.#flee || retreating) && forward > 0.5 && !climbing && !laddering) buttons.push('Sprint');
+      else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing && !laddering) {
         // Weaving a little on the way in.
         right = 0.35 * Math.sin(time * 2.6 + (this.#seed % 13));
         buttons.push('Sprint', 'TacticalSprint');
-      } else if (creeping) {
+      } else if (creeping && !laddering) {
         buttons.push('Crouch');
-      } else if (!fighting && long && forward > 0.8 && !climbing && !quiet) {
+      } else if (!fighting && long && forward > 0.8 && !climbing && !laddering && !quiet) {
         buttons.push('Sprint');
         if (this.#tactical) buttons.push('TacticalSprint');
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
       }
-      if (time < this.#slideUntil) buttons.push('Crouch');
+      if (time < this.#slideUntil && !laddering) buttons.push('Crouch');
       if (climbing && this.#blocked >= 2 && !(this.#lastButtons & Button.Jump)) buttons.push('Jump');
       this.#stuck(view, r);
       if (time < this.#unstickUntil) {
@@ -710,6 +717,9 @@ export class Bot {
     if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0 || covered) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
     if (!using && this.#cooking(view)) buttons.push('Grenade');
 
+    // Finish the current ladder even if combat or a new objective changes
+    // the route mid-climb; jumping or stopping here would strand the bot.
+    if (self.movement === 'ladder') return this.#cmd(1,0,[]);
     if (ads) buttons.push('Ads');
     if (fire) buttons.push('Fire');
     return this.#cmd(forward, right, buttons);
@@ -1320,7 +1330,7 @@ export class Bot {
     this.#path = path;
     // Replanned partway along the first leg (the nearest node is the one just left behind): carry on along it rather than turn back to its start.
     // Out of a fight only: a fighting bot strafes off its route, so where it stands says nothing about which way it was going.
-    this.#step = this.#target === null && path.length > 1 && linkKind(this.#nav, path[0]!, path[1]!) !== 'climb' && onLeg(from, this.#nav.nodes[path[0]!]!.position, this.#nav.nodes[path[1]!]!.position) ? 1 : 0;
+    this.#step = this.#target === null && path.length > 1 && !['climb','ladder'].includes(linkKind(this.#nav, path[0]!, path[1]!) ?? '') && onLeg(from, this.#nav.nodes[path[0]!]!.position, this.#nav.nodes[path[1]!]!.position) ? 1 : 0;
     this.#from = from;
     if (fresh) this.#progress = { position: from, time: view.time };
     this.#tactical = noise(this.#seed, view.tick, 40) < this.profile.tacticalSprint;
@@ -1332,8 +1342,8 @@ export class Bot {
     while (this.#step < this.#path.length) {
       const n = nodes[this.#path[this.#step]!]!;
       const next = this.#step + 1 < this.#path.length ? linkKind(this.#nav, this.#path[this.#step]!, this.#path[this.#step + 1]!) : null;
-      const radius = n.precise || next === 'climb' ? 0.3 : 0.9;
-      const reached = flat(self.position, n.position) < radius && Math.abs(self.position[1] - n.position[1]) < 0.8 && self.movement !== 'mantle';
+      const radius = n.precise || next === 'climb' || next === 'ladder' ? 0.3 : 0.9;
+      const reached = flat(self.position, n.position) < radius && Math.abs(self.position[1] - n.position[1]) < 0.8 && self.movement !== 'mantle' && self.movement !== 'ladder';
       if (!reached) break;
       this.#step += 1;
     }
@@ -1342,7 +1352,7 @@ export class Bot {
       const b = nodes[this.#path[this.#step]!]!;
       const a = this.#step > 0 ? nodes[this.#path[this.#step - 1]!]! : null;
       const from = a?.position ?? this.#from;
-      if (this.#nextLink() === 'climb') return b.position;
+      if (this.#nextLink() === 'climb' || this.#nextLink() === 'ladder') return b.position;
       const dx = b.position[0] - from[0];
       const dz = b.position[2] - from[2];
       const len = Math.hypot(dx, dz);
@@ -1368,7 +1378,7 @@ export class Bot {
    */
   #lookAhead(from: Vec3): Vec3 | null {
     const nodes = this.#nav.nodes;
-    if (this.#nextLink() === 'climb') {
+    if (this.#nextLink() === 'climb' || this.#nextLink() === 'ladder') {
       const p = nodes[this.#path[this.#step]!]!.position;
       return [p[0], p[1] + 1.5, p[2]];
     }

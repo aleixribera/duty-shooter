@@ -94,7 +94,7 @@ describe('server map setting', () => {
       ws.send(JSON.stringify({ t:'start' }));
       for (let i=0; i<250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done,20));
       expect(server.game.matchStatus()).toMatchObject({ map:'crash', mode:'outposts', phase:'playing' });
-      expect(server.game.simulation.world.ladders).toHaveLength(1);
+      expect(server.game.simulation.world.ladders).toHaveLength(2);
       for (let i=0; i<250 && !snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend')); i++)
         await new Promise((done) => setTimeout(done,20));
       expect(snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend'))).toBe(true);

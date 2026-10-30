@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, TICK_SECONDS, Bot, Simulation, botProfile, createWorld, raycastWorld, segmentSolid, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
@@ -187,6 +187,19 @@ describe('Crash', () => {
       out=m.step({p:usercmd({yaw:-Math.PI/2,forward:1})});
     expect(out.players[0]!.position[1]).toBeLessThan(0.1);
     expect(out.players[0]!.position[0]).toBeGreaterThan(-3.5);
+  });
+  it('climbs and descends the sandbag rooftop ladder', () => {
+    const m = createHeadlessMatch({solids,ladders:map.ladders!,players:[{id:'p',team:1,position:[29,0,-9],yaw:Math.PI/2}]});
+    let out = m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    for (let i=0; i<500 && out.players[0]!.position[0]>26.3; i++)
+      out=m.step({p:usercmd({yaw:Math.PI/2,forward:1})});
+    expect(out.players[0]!.position[1]).toBeCloseTo(3,1);
+    expect(out.players[0]!.position[0]).toBeLessThan(26.3);
+    for (let i=0; i<500 && out.players[0]!.position[1]>0.1; i++)
+      out=m.step({p:usercmd({yaw:-Math.PI/2,forward:1})});
+    expect(out.players[0]!.position[1]).toBeLessThan(0.1);
+    expect(out.players[0]!.position[0]).toBeGreaterThan(27.5);
+    expect(raycastWorld(world,[19.5,3.4,-11.5],[22,3.4,-11.5])?.material).toBe('dirt');
   });
   it('predicts the ladder route over a delayed network', () => {
     const m = createNetworkedMatch({solids,ladders:map.ladders!,spawns:[{position:[-3.45,0,-31],yaw:Math.PI/2}],latency:0.08,jitter:0.02,loss:0.05,seed:7});
@@ -422,10 +435,42 @@ describe('Crash', () => {
     expect(nav.nodes.length).toBeGreaterThan(100);
     expect(nav.nodes.some(n => n.position[0] > -6.8 && n.position[0] < -5.2 && n.position[2] > -2.9 && n.position[2] < -2.1 && Math.abs(n.position[1]-0.45) < 0.1), 'wreck cabin').toBe(true);
     expect(nav.nodes.some(n => n.position[0] > 1.2 && n.position[0] < 2.6 && n.position[2] > -19 && n.position[2] < 1 && Math.abs(n.position[1]-3) < 0.1), 'main gallery').toBe(true);
+    const bottom = nav.nodes.findIndex((n,i) => Math.hypot(n.position[0]-27.55,n.position[2]+9)<0.01 && Math.abs(n.position[1])<0.1 && nav.links[i]!.some(l => l.kind === 'ladder'));
+    const top = nav.nodes.findIndex((n,i) => Math.hypot(n.position[0]-26.2,n.position[2]+9)<0.01 && Math.abs(n.position[1]-3)<0.1 && nav.links[i]!.some(l => l.kind === 'ladder'));
+    expect(bottom).toBeGreaterThanOrEqual(0);
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(nav.links[bottom]!.some(l => l.to === top && l.kind === 'ladder')).toBe(true);
+    expect(nav.links[top]!.some(l => l.to === bottom && l.kind === 'ladder')).toBe(true);
     for (const [x0,x1,z0,z1,y] of [[-14,-4,-33,-22,6],[-27,-17,-3,10,3],[3,16,-20,3,3],[18,31,8,23,3],[23,34,-33,-24,3],[-14,-4,-33,-22,9],[-27,-17,-3,10,6],[3,16,-20,3,6],[18,31,8,23,6]]) {
       expect(nav.nodes.some(n => n.position[0] > x0! && n.position[0] < x1! && n.position[2] > z0! && n.position[2] < z1! && Math.abs(n.position[1] - y!) < 0.1), 'upper floor ' + [x0,z0,y]).toBe(true);
     }
     expect(reachable(nav,false).size).toBe(nav.nodes.length);
     expect(reachable(nav,true).size).toBe(nav.nodes.length);
   }, 30_000);
+  it('lets a bot climb the rooftop ladder and return to the street', () => {
+    const {nav} = botMap(map,BOUNDARY);
+    const ladderWorld = createWorld(solids,{ladders:map.ladders!});
+    const sim = new Simulation(ladderWorld);
+    sim.addPlayer({id:'b',team:1,position:[29,0,-9],yaw:Math.PI/2});
+    const bot = new Bot('b',botProfile('Kestrel'),nav,ladderWorld);
+    let out=sim.output();
+    bot.goTo([24,3,-9]);
+    let climbed=false, climbedByLadder=false;
+    for (let i=0; i<30/TICK_SECONDS; i++) {
+      const self=out.players[0]!;
+      out=sim.step({b:bot.think({tick:out.tick,time:sim.time,self,players:out.players,events:out.events,isEnemy:()=>false})});
+      climbedByLadder ||= out.players[0]!.movement === 'ladder';
+      if (out.players[0]!.position[1]>2.95 && out.players[0]!.position[0]<26.5) { climbed=true; break; }
+    }
+    expect(climbedByLadder).toBe(true);
+    expect(climbed,`climb: ${out.players[0]!.position}`).toBe(true);
+    bot.goTo([29,0,-9]);
+    let descended=false;
+    for (let i=0; i<30/TICK_SECONDS; i++) {
+      const self=out.players[0]!;
+      out=sim.step({b:bot.think({tick:out.tick,time:sim.time,self,players:out.players,events:out.events,isEnemy:()=>false})});
+      if (out.players[0]!.position[1]<0.1 && out.players[0]!.position[0]>27.5) { descended=true; break; }
+    }
+    expect(descended,`descent: ${out.players[0]!.position}`).toBe(true);
+  },30_000);
 });

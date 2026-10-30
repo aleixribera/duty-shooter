@@ -5,17 +5,17 @@ import { createMoveState, pmove } from '../movement/pmove';
 import { TICK_SECONDS } from '../simulation';
 import { STATS } from '../stats';
 import { usercmd } from '../usercmd';
-import type { World } from '../world';
+import type { Ladder, World } from '../world';
 
 /**
  * The nav graph: where bots can stand and how they get from one place to the
  * next. It is generated from the world's collision, so it always matches the
  * map: nodes on every surface a player fits on (floors, upper storeys, roofs,
- * vehicle tops), linked where a player can walk, drop or mantle between them.
+ * vehicle tops), linked where a player can walk, drop, mantle or use a ladder.
  */
 
-/** How a bot crosses a link: walk it, walk off a ledge (one way), or walk at a ledge and mantle up. */
-export type NavLinkKind = 'walk' | 'drop' | 'climb';
+/** How a bot crosses a link: walking, dropping, mantling, or using a ladder. */
+export type NavLinkKind = 'walk' | 'drop' | 'climb' | 'ladder';
 
 export interface NavLink {
   readonly to: number;
@@ -196,6 +196,23 @@ function climbs(world: World, a: Vec3, b: Vec3): boolean {
   return false;
 }
 
+/** Check a ladder in both directions with the same movement used in play. */
+function traversesLadder(world: World, ladder: Ladder, up: boolean): boolean {
+  const start = up ? ladder.bottom : ladder.landing;
+  const end = up ? ladder.landing : ladder.bottom;
+  const yaw = Math.atan2(-(end[0]-start[0]),-(end[2]-start[2]));
+  const state = createMoveState(start,yaw);
+  pmove(state,usercmd({yaw}),world,TICK_SECONDS);
+  let attached = false;
+  const limit = Math.ceil((Math.abs(end[1]-start[1])/1.8+4)/TICK_SECONDS);
+  for (let i=0; i<limit; i++) {
+    pmove(state,usercmd({yaw,forward:1}),world,TICK_SECONDS);
+    attached ||= state.movement === 'ladder';
+    if (attached && state.grounded && state.ladder === null && flat(state.position,end)<0.15 && Math.abs(state.position[1]-end[1])<0.15) return true;
+  }
+  return false;
+}
+
 /** Whether a node has a roof over it (anything that stops bullets up to 6 m above head height). */
 function covered(world: World, p: Vec3): boolean {
   return raycastWorld(world, [p[0], p[1] + 1.8, p[2]], [p[0], p[1] + 8, p[2]]) !== null;
@@ -204,7 +221,7 @@ function covered(world: World, p: Vec3): boolean {
 /**
  * Generates the nav graph for a world: a grid of nodes on every standable
  * surface inside the area, plus the hints, linked where the movement code
- * can walk, drop or mantle between them. Only the biggest part a player can
+ * can walk, drop, mantle or use a ladder between them. Only the biggest part a player can
  * get round in both directions is kept, so no bot is ever sent somewhere it
  * can't come back from (a drop into it is kept only if the part it lands in is).
  */
@@ -231,6 +248,18 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
   for (const h of options.hints ?? []) {
     const p = insidePolygon(options.area, h[0], h[2]) ? snapHint(world, h, ceiling) : null;
     if (p && !points.some((q) => flat(q.p, p) < 0.2 && Math.abs(q.p[1] - p[1]) < 0.3)) points.push({ p, hint: true });
+  }
+  // Keep exact endpoints: a ladder is entered only close to its feet or its
+  // landing. Invalid or blocked routes must not connect the graph.
+  const ladderLinks: { bottom: number; top: number; cost: number }[] = [];
+  for (const route of world.ladders) {
+    if (!insidePolygon(options.area,route.bottom[0],route.bottom[2]) || !insidePolygon(options.area,route.landing[0],route.landing[2])) continue;
+    const bottom = snapHint(world,route.bottom,ceiling), top = snapHint(world,route.landing,ceiling);
+    if (!bottom || !top || Math.abs(bottom[1]-route.bottom[1])>0.1 || Math.abs(top[1]-route.landing[1])>0.1) continue;
+    if (!traversesLadder(world,route,true) || !traversesLadder(world,route,false)) continue;
+    const bottomIndex = points.length;
+    points.push({p:bottom,hint:true},{p:top,hint:true});
+    ladderLinks.push({bottom:bottomIndex,top:bottomIndex+1,cost:flat(bottom,top)+Math.abs(top[1]-bottom[1])*2.5});
   }
 
   // Neighbours by a coarse bucket on the ground plane.
@@ -268,6 +297,10 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
         links[i]!.push({ to: j, kind: 'climb', cost: d + CLIMB_COST });
       }
     }
+  }
+  for (const {bottom,top,cost} of ladderLinks) {
+    links[bottom]!.push({to:top,kind:'ladder',cost});
+    links[top]!.push({to:bottom,kind:'ladder',cost});
   }
 
   const keep = options.keepAll ? points.map((_, i) => i) : mainComponent(points.length, links);

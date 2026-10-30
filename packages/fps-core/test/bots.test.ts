@@ -107,6 +107,18 @@ describe('nav graph', () => {
     expect(onCrate).toBeGreaterThanOrEqual(0);
     expect(walledNav.links.some((ls) => ls.some((l) => l.to === onCrate && l.kind === 'climb'))).toBe(true);
   });
+
+  it('links a usable ladder in both directions but rejects one blocked by a ceiling', () => {
+    const roof = box({min:[-4,0,-3],max:[0,3,3],material:'concrete'});
+    const ladder = {bottom:[0.55,0,0],landing:[-0.8,3,0]} as const;
+    const area: [number,number][] = [[-5,-5],[5,-5],[5,5],[-5,5]];
+    const valid = buildNavGraph(createWorld([FLOOR,roof],{ladders:[ladder]}),{area,keepAll:true});
+    const links = valid.links.flat().filter(l => l.kind === 'ladder');
+    expect(links).toHaveLength(2);
+    const ceiling = box({min:[0.15,2,-0.5],max:[1.1,2.2,0.5],material:'concrete'});
+    const blocked = buildNavGraph(createWorld([FLOOR,roof,ceiling],{ladders:[ladder]}),{area,keepAll:true});
+    expect(blocked.links.flat().some(l => l.kind === 'ladder')).toBe(false);
+  });
 });
 
 describe('a bot', () => {

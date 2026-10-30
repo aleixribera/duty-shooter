@@ -45,6 +45,7 @@ tree_wood = mat("tree.wood", 0x6d6653, 0.96)
 tree_leaf = mat("tree.leaf", 0x6a7a59, 0.95)
 tree_leaf_dark = mat("tree.leafDark", 0x4c6045, 0.95)
 tree_leaf_light = mat("tree.leafLight", 0x899679, 0.95)
+sandbag_material = mat("roof.sandbag", 0x8b7d5c, 0.95)
 blue_wall = mat("blue", 0x809b9a, 0.9)
 sign_frame = mat("sign.frame", 0x5b5141, 0.85, 0.2)
 sign_green = mat("sign.green", 0x354f40, 0.9)
@@ -694,6 +695,17 @@ def palm():
         parts.append(kit.obj('fronds',bm,material))
     return trunk,kit.asset('palm-crown',parts,smooth_angle=25)
 
+def sandbag_line():
+    """A low wall of fabric sandbags in three courses."""
+    parts = []
+    for row in range(3):
+        for i in range(3):
+            x = -1.2+i*0.8
+            parts.append(kit.box((x+0.015,row*0.2,-0.27),
+                                 (x+0.785,(row+1)*0.2,0.27),sandbag_material,0.07,2))
+    return kit.asset('sandbag-line',parts,smooth_angle=50)
+
+
 def poplar():
     """A tall street tree with a narrow, irregular crown of small leaves."""
     trunk = kit.asset('tree-trunk', [kit.lathe([(0,0.30),(1.5,0.27),(5,0.20),(8,0.14),(11,0.06)],
@@ -768,12 +780,13 @@ for (x0,y0),(x1,y1) in zip(ROTOR_STUB, ROTOR_STUB[1:]):
 blue_east, blue_east_solids = broken_blue_edge('blue-edge-east','z',BLUE_EAST)
 blue_south, blue_south_solids = broken_blue_edge('blue-edge-south','x',BLUE_SOUTH)
 blue_wall_broken, blue_wall_solids = broken_blue_edge('blue-wall-broken','z',[BLUE_WALL])
-built = [helicopter(), rubble(), impact_mound(), roof_debris(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, tree_trunk, tree_crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
+built = [helicopter(), rubble(), impact_mound(), roof_debris(), sandbag_line(), abandoned_car(), burned_car(), utility_pole(), water_tank(), satellite_dish(), rooftop_fence(), gallery_screen(), trunk, crown, tree_trunk, tree_crown, impact_cracks(), blue_east, blue_south, blue_wall_broken, cafe_sign(), grass_tuft(), city_block('city-low',10,7,2,city_sand), city_block('city-mid',11,7,3,city_plaster), city_block('city-tall',12,8,4,city_sand)] + [impact_scatter(seed) for seed in (11,23,37)]
 SOLIDS = {
     'helicopter': [((-3.5,0,-1.42),(2.2,0.25,1.42)), ((-3.5,2.47,-1.42),(2.2,2.72,1.42))] + [((x0,0.25,z0),(x1,2.47,z1)) for x0,x1 in [(-3.5,-1.3),(0.25,2.2)] for z0,z1 in [(-1.42,-1.1),(1.1,1.42)]] + [((2.2,0,-1.08),(3.2,2.2,1.08)), ((3.2,0,-1.08),(3.85,2.05,1.08)), ((3.85,0,-0.97),(4.1,1.4,0.97)), ((4.1,0,-0.8),(4.25,1.15,0.8)), ((-6.55,0,-1.35),(-4.55,0.20,1.35)), ((-6.55,2.0,-1.35),(-4.55,2.5,1.35)), ((-6.55,0.20,-1.35),(-4.55,2.0,-0.95)), ((-6.55,0.20,0.95),(-4.55,2.0,1.35)), ((-6.2, 2.5, -2.8), (-5.05, 3.15, 2.8)), ((0.4,2.55,-0.6),(2.0,3.5,0.6)), ((0.52,3.5,-0.6),(1.76,4.16,0.6)), ((0.99,4.16,-0.26),(1.51,4.32,0.26))] + front_rotor_solids,
     'rubble': [((-1.2, 0, -0.9), (1.2, 0.3, 0.9))],
     'impact-mound': [((x-rx,0,z-rz),(x+rx,height,z+rz)) for x,z,rx,rz,height in IMPACT_BLOCKS],
     'roof-debris': [((-1.2,0,-0.9),(1.2,0.2,0.9))],
+    'sandbag-line': [((-1.2,0,-0.28),(1.2,0.6,0.28))],
     'blue-edge-east': blue_east_solids,
     'blue-edge-south': blue_south_solids,
     'blue-wall-broken': blue_wall_solids,

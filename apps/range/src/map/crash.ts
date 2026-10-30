@@ -65,6 +65,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'tree.leaf': { family: 'paint', color: 0x6a7a59, roughness:0.95 },
   'tree.leafDark': { family: 'paint', color: 0x4c6045, roughness:0.95 },
   'tree.leafLight': { family: 'paint', color: 0x899679, roughness:0.95 },
+  'roof.sandbag': { family: 'dirt', color: 0x8b7d5c, roughness:0.95 },
 };
 const door = (from: number, width = 1.8): Opening => ({ from, to: from + width, bottom: 0, top: 2.2 });
 const windowOpening = (from: number, width = 1.5): Opening => ({ from, to: from + width, bottom: 0.9, top: 2.25 });
@@ -396,6 +397,27 @@ function shopHints(): Vec3[] {
   return hints;
 }
 
+/** The low building by the back street has a ladder to sandbagged roof cover. */
+function buildSandbagRoof(b: Builder): void {
+  const r = LANDMARKS.sandbagRoof, t = 0.25;
+  const wall = {thickness:t,bottom:0,height:3,material:'concrete' as const,look:'market'};
+  b.wall({...wall,along:'x',at:r.z0,from:r.x0,to:r.x1,openings:[windowOpening(21.5,1.6)]});
+  b.wall({...wall,along:'x',at:r.z1,from:r.x0,to:r.x1,openings:[door(22,2)]});
+  b.wall({...wall,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-11,1.6)]});
+  b.wall({...wall,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:[windowOpening(-7.1,1.4)]});
+  b.add([r.x0,2.82,r.z0],[r.x1,3,r.z1],'concrete',{look:'roof'});
+  const edge = {thickness:t,bottom:3,height:0.3,material:'concrete' as const,look:'market'};
+  b.wall({...edge,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...edge,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...edge,along:'z',at:r.x0,from:r.z0+t/2,to:r.z1-t/2});
+  b.wall({...edge,along:'z',at:r.x1,from:r.z0+t/2,to:r.z1-t/2,openings:[{from:-10.1,to:-7.9,bottom:0,top:0.3}]});
+  for (const z of [-11.5,-8.8])
+    b.model('sandbag-line',[20.6,3,z],Math.PI/2,() => b.turned([20.6,3.3,z],[2.4,0.6,0.56],Math.PI/2,'dirt','roof.sandbag'));
+  // The rails stop bullets but leave movement to the ladder route itself.
+  for (const z of [-9.45,-8.55]) b.add([27.08,0,z-0.04],[27.16,4.05,z+0.04],'metal',{look:'roof.metal',blocks:'bullets'});
+  for (let y=0.3; y<3.9; y+=0.3) b.add([27.08,y,-9.45],[27.16,y+0.06,-8.55],'metal',{look:'roof.metal',blocks:'bullets'});
+}
+
 /** The Marines-side apartment has an upper room reached from an internal
  * stairwell. Both street-facing doors remain open at ground level. */
 function buildApartments(b: Builder): void {
@@ -495,6 +517,7 @@ export const LANDMARKS = {
   main: {x0:3,x1:16,z0:-20,z1:3},
   arcade: {x0:-11,x1:5,z0:13,z1:23},
   shop: {x0:18,x1:31,z0:8,z1:23},
+  sandbagRoof: {x0:20,x1:27,z0:-14,z1:-5},
   garage: {x0:-38,x1:-28,z0:16,z1:24},
   apartments: {x0:23,x1:34,z0:-33,z1:-24},
 } as const;
@@ -562,6 +585,7 @@ export function buildCrash(): MapDefinition {
   building(b, LANDMARKS.arcade, 1, 'market', 'north', false, 'arcade');
   buildArcadeWalkway(b);
   buildShop(b);
+  buildSandbagRoof(b);
   building(b, {x0:-38,x1:-29,z0:-21,z1:-10}, 1, 'plaster', 'south');
   buildGarage(b);
   buildApartments(b);
@@ -747,7 +771,7 @@ export function buildCrash(): MapDefinition {
     {name:'arcade',position:[-3,1.6,5] as Vec3,yaw:Math.PI,pitch:0},
   ];
   return {
-    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
+    id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]},{bottom:[27.55,0,-9],landing:[26.2,3,-9]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
     ambience:[{kind:'wind'}], fires:[[-7.9,0.06,-3.0],[-4.5,0.06,3.7]], spawns:{ffa,teams:[west,east]},
@@ -761,6 +785,7 @@ export function buildCrash(): MapDefinition {
       ...blueHints(),
       ...mainHints(),
       ...shopHints(),
+      ...([[27.55,0,-9],[26.2,3,-9],[24,3,-9]] as Vec3[]),
       ...apartmentHints(),
       ...([[-33,0.6,25],[-33,0.6,22],[-33,0.6,17],[-33,0.45,14],[-26,0.3,21]] as Vec3[]),
       ...([[-8,0,-2.5],[-6,0.45,-2.5],[-4,0,-2.5]] as Vec3[]),
