@@ -163,6 +163,31 @@ def cockpit_shell():
     bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
     return kit.obj('cockpit shell',bm,hull)
 
+
+def wreck_stencil(text, position, rotation, size, max_width):
+    """Make raised, dark stencil lettering in the helicopter's local frame."""
+    curve = bpy.data.curves.new('wreck stencil','FONT')
+    curve.body = text
+    curve.align_x = 'CENTER'
+    curve.align_y = 'CENTER'
+    curve.size = size
+    curve.extrude = 0.001
+    obj = bpy.data.objects.new('wreck stencil',curve)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.location = kit.b(position)
+    obj.rotation_euler = rotation
+    obj.data.materials.append(dark)
+    bpy.context.view_layer.update()
+    # Font dimensions are along the text's horizontal axis in local space.
+    width = max((v[0] for v in obj.bound_box),default=0)-min((v[0] for v in obj.bound_box),default=0)
+    if width > max_width: obj.scale.x = max_width/width
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.convert(target='MESH')
+    bpy.ops.object.transform_apply(location=True,rotation=True,scale=True)
+    return obj
+
 # A broken fuselage, nose at +x. Pieces are kept inside the collision boxes.
 def helicopter():
     parts = [
@@ -253,6 +278,12 @@ def helicopter():
         parts.append(side_pane([(2.78,1.28),(2.78,1.96),(2.83,1.96),(2.83,1.28)],metal))
         z0, z1 = sorted((side * 1.05, side * 1.065))
         parts.append(kit.prism([(-6.2, 0.5), (-5.6, 0.4), (-5.35, 0.75), (-5.55, 1.0), (-5.9, 0.92), (-6.2, 1.15)], z0, z1, dark))
+        # The original's military markings sit below the portholes. Each
+        # side faces outward so the lettering reads correctly from the street.
+        parts.append(wreck_stencil('MARINES',(-2.5,1.34,side*1.38),
+                                   (math.pi/2,0,0 if side==1 else math.pi),0.42,1.65))
+    nose_rotation = Matrix(((0,0,1),(1,0,0),(0,1,0))).to_euler()
+    parts.append(wreck_stencil('05',(4.26,0.52,0),nose_rotation,0.38,0.55))
     return kit.asset("helicopter", parts, smooth_angle=50)
 
 def rubble():
