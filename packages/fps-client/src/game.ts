@@ -367,16 +367,29 @@ export class Game {
    * throws on show, so their shaders compile now rather than in the first
    * frames of play or at a first weapon switch or kill. Settles within a few
    * seconds even if no frame is drawn (a hidden tab), then waits for those
-   * shaders (see `#gpuDone`). Done once: later calls wait for the same work.
+   * shaders (see `#gpuDone`). The map's shaders go first, in small pieces with
+   * nothing drawn until they are in, so that menus stay live throughout. Done
+   * once: later calls wait for the same work.
    */
   prepare(): Promise<void> {
     this.#prepared ??= this.#prepare();
     return this.#prepared;
   }
 
+  /** `prepare` is waiting for a frame to draw; a game kept ready off screen gets one from `frame` then. */
+  get warming(): boolean {
+    return this.#warmUp !== null;
+  }
+
   #prepared: Promise<void> | null = null;
 
+  /** Shaders are building: nothing is drawn, or the frame would build them all at once itself. */
+  #holding = false;
+
   async #prepare(): Promise<void> {
+    this.#holding = true;
+    await this.#pipeline.compile().catch(() => undefined);
+    this.#holding = false;
     await this.preload();
     await new Promise<void>((done) => {
       const timeout = setTimeout(finish, 3000);
@@ -556,7 +569,7 @@ export class Game {
     this.#effects.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
-    if (render) {
+    if (render && !this.#holding) {
       const warm = this.#warmUp;
       const restore = warm ? this.#showSamples() : [];
       this.#worldView.lightMoving();

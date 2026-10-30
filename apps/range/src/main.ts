@@ -83,6 +83,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     clearInterval(timer);
   };
   /** A game on one map; switching maps builds a new one. */
+  /** Wires a game to the page's menus, which only the game on show may answer to. */
+  const wire = (g: Game) => {
+    g.input.onPadMenu = (nav) => (lobbyPage.open && !menu.open ? lobbyPage.navigate(nav) : menu.navigate(nav));
+    g.input.onUnlock = () => {
+      if (!game.paused && game.driver) {
+        game.paused = true;
+        menu.show('pause');
+      }
+    };
+  };
   const createGame = (id: MapId) => {
     const { map, solids, bake } = load(id);
     const g = new engine!.Game({
@@ -100,19 +110,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
-    g.input.onPadMenu = (nav) => (lobbyPage.open && !menu.open ? lobbyPage.navigate(nav) : menu.navigate(nav));
     // Use while dead, or at the range's station: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;
       game.paused = true;
       game.input.unlock();
       menu.loadout('game');
-    };
-    g.input.onUnlock = () => {
-      if (!game.paused && game.driver) {
-        game.paused = true;
-        menu.show('pause');
-      }
     };
     return g;
   };
@@ -125,6 +128,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
+  /** Practice Range, kept ready behind the menus (see `keepRangeReady`). */
+  let spare: Game | null = null;
   const useMap = (id: MapId) => {
     if (id === mapId) return;
     const old = game;
@@ -133,9 +138,25 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     old.paused = true;
     old.hud.visible = false;
     mapId = id;
-    game = createGame(id);
+    game = id === 'range' && spare ? spare : createGame(id);
+    if (game === spare) {
+      spare = null;
+      game.applySettings(settings);
+    }
+    wire(game);
     // The old game goes once the new one is ready: its shaders, most of them the new one's too, stay compiled meanwhile.
     void game.prepare().finally(() => old.dispose());
+  };
+  /**
+   * Practice Range has no lobby to get ready behind, so its game is built once
+   * the menu's own is ready and waits off screen for the click. Skipped on
+   * machines short of memory, which only pay for it on the way in.
+   */
+  const keepRangeReady = () => {
+    const memory = (navigator as { deviceMemory?: number }).deviceMemory ?? 8;
+    if (spare || mapId === 'range' || game.driver || !menu.open || memory < 4) return;
+    spare = createGame('range');
+    void spare.prepare();
   };
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby();
@@ -498,6 +519,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   sound = engine.createSoundSystem();
   await nextPaint();
   game = createGame(initial);
+  wire(game);
   up = true;
   engineUp();
   if (explore) void playOffline(explore);
@@ -541,14 +563,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
-  // The first moments of a match get ready behind the menu, soon after it is up, so that Play has little left to do.
+  // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
-    const prepare = () => {
-      void game.prepare();
-      void routesOf(asMapId(botSetup.map) ?? 'survival-town');
-    };
-    if ('requestIdleCallback' in globalThis) requestIdleCallback(prepare, { timeout: 1000 });
-    else setTimeout(prepare, 200);
+    void routesOf(asMapId(botSetup.map) ?? 'survival-town');
+    void game.prepare().then(() => {
+      if ('requestIdleCallback' in globalThis) requestIdleCallback(keepRangeReady, { timeout: 2000 });
+      else setTimeout(keepRangeReady, 500);
+    });
   }
   await renderer.setAnimationLoop((time) => {
     if (bench) {
@@ -569,6 +590,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       const path = flyPath(load(mapId).map);
       if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
     }
+    // Drawn first, so the frame on show covers it.
+    if (spare?.warming && drawBackdrop && !game.driver) spare.frame(time);
     game.frame(time, drawBackdrop);
     // An online session that ended (rejected, kicked, a server gone for good) returns to the join screen.
     const driver = game.driver;

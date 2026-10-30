@@ -229,6 +229,7 @@ try {
     report.warm = await profiled(chrome, 'menu', () => visit(chrome, 'warm'));
     await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     await sleep(500);
+    await sleep(Number(process.env.PERF_SETTLE ?? 0));
     await profiled(chrome, 'enter', async () => {
       const start = Date.now();
       await click(chrome, 'Practice Range');

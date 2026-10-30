@@ -1,5 +1,5 @@
-import { dot, float, getViewPosition, mix, mrt, output, pass, perspectiveDepthToViewZ, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
-import { RenderPipeline, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
+import { dot, float, getViewPosition, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { RenderPipeline, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 import { traa } from 'three/examples/jsm/tsl/display/TRAANode.js';
@@ -54,6 +54,24 @@ export function renderPixelRatio(width: number, height: number, devicePixelRatio
  * its own camera and FOV and composited on top (so it never clips into walls),
  * then bloom and the renderer's tone mapping.
  */
+/** How deep the passes' renders sit: the viewmodel's inside the screen's quad, the world's inside the temporal AA's as well. */
+const VIEW_DEPTH = 1;
+const WORLD_DEPTH = 2;
+
+/** The parts of three.js's renderer that compile ahead of drawing. */
+interface CompilingRenderer extends WebGPURenderer {
+  _mrt: unknown;
+  _renderTarget: unknown;
+  _renderContexts: { get(target: unknown, mrt: unknown, depth?: number): object };
+  _nodes: {
+    getForRender(object: { context: object & { mrt?: unknown } }): unknown;
+    getForRenderAsync(object: { context: object & { mrt?: unknown } }): unknown;
+  };
+}
+
+/** What each render context's shaders are built with: its render target, and the unjittered projection under temporal AA. */
+const builds = new WeakMap<object, { target: unknown; projection: Matrix4 | null }>();
+
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
   readonly #pipeline: RenderPipeline;
@@ -63,6 +81,8 @@ export class GamePipeline {
   readonly #grade = uniform(0);
   /** Nodes owning render targets. */
   readonly #owned: { dispose(): void }[] = [];
+  /** What to build shaders for ahead of drawing: the scenes and the passes that draw them. */
+  readonly #passes: { scene: Scene; camera: PerspectiveCamera; pass: ReturnType<typeof pass>; depth: number; samples: number; unjittered: Matrix4 | null }[];
 
   constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera) {
     this.#renderer = renderer;
@@ -91,6 +111,10 @@ export class GamePipeline {
     // The viewmodel is small and close: under temporal AA, 4x MSAA on its own pass keeps its edges clean.
     const viewPass = pass(view, viewCamera, { samples: 4 });
     this.#owned.push(viewPass);
+    this.#passes = [
+      { scene: world, camera, pass: worldPass, depth: WORLD_DEPTH, samples: renderer.samples, unjittered: (t as unknown as { _originalProjectionMatrix: Matrix4 })._originalProjectionMatrix },
+      { scene: view, camera: viewCamera, pass: viewPass, depth: VIEW_DEPTH, samples: 4, unjittered: null },
+    ];
     const vm = viewPass.getTextureNode('output');
     const over = vec4(mix(color.rgb, vm.rgb, vm.a), 1);
     // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
@@ -104,6 +128,63 @@ export class GamePipeline {
     this.#owned.push(this.#bloom);
     this.#pipeline.outputNode = composite.add(this.#bloom);
     this.#pipeline.needsUpdate = true;
+  }
+
+  /**
+   * Builds the shaders of everything visible now, in small pieces between the
+   * page's other work, with nothing drawn. Takes its list of objects at once,
+   * so what is put on show for it can go straight back.
+   */
+  compile(): Promise<void> {
+    const renderer = this.#renderer as unknown as CompilingRenderer;
+    const contexts = renderer._renderContexts;
+    const context = contexts.get.bind(contexts);
+    // Three.js compiles for a render at depth 0, where no pass renders: its shaders would be built for nothing.
+    let depth = 0;
+    let projection: Matrix4 | null = null;
+    contexts.get = (target, mrt) => {
+      const found = context(target, mrt, depth);
+      builds.set(found, { target, projection });
+      return found;
+    };
+    const nodes = renderer._nodes;
+    // Three.js builds a shader here over several turns, reading the renderer's current state, by then another pass's.
+    // Built whole, with the state of its own pass, the pieces are one object each.
+    const build = Object.getPrototypeOf(nodes).getForRender as CompilingRenderer['_nodes']['getForRender'];
+    nodes.getForRenderAsync = (object) => {
+      const { _mrt: mrt, _renderTarget: target } = renderer;
+      const own = builds.get(object.context);
+      renderer._mrt = object.context.mrt;
+      renderer._renderTarget = own ? own.target : target;
+      velocityNode.setProjectionMatrix(own?.projection ?? null);
+      try {
+        return build.call(nodes, object);
+      } finally {
+        renderer._mrt = mrt;
+        renderer._renderTarget = target;
+        velocityNode.setProjectionMatrix(null);
+      }
+    };
+    const target = renderer.getRenderTarget();
+    const outer = renderer.getMRT();
+    try {
+      return Promise.all(
+        this.#passes.map(({ scene, camera, pass: p, depth: at, samples, unjittered }) => {
+          depth = at;
+          projection = unjittered;
+          // A pass sets these on its first frame, which may not have come.
+          p.renderTarget.samples = samples;
+          p.renderTarget.texture.type = renderer.getOutputBufferType();
+          renderer.setRenderTarget(p.renderTarget);
+          renderer.setMRT(p.getMRT());
+          return renderer.compileAsync(scene, camera);
+        }),
+      ).then(() => undefined);
+    } finally {
+      contexts.get = context;
+      renderer.setRenderTarget(target);
+      renderer.setMRT(outer);
+    }
   }
 
   /** The canvas's size (CSS px) and the screen's density, which set the pixel ratio. */

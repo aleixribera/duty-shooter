@@ -65,8 +65,8 @@ function compileInBackground(renderer: WebGPURenderer): void {
   backend.createRenderPipeline = (renderObject, promises) => {
     const started: Promise<void>[] = [];
     create(renderObject, started);
+    // Not handed to three.js, which would wait for them one at a time: see pipelinesReady.
     for (const compile of started) {
-      promises?.push(compile);
       pending.add(compile);
       void compile.finally(() => pending.delete(compile));
     }
