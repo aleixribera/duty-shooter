@@ -42,6 +42,10 @@ describe('Crash', () => {
     expect(raycastWorld(world,[-10.8,0.65,-4.0],[-10.8,0.65,-2.5])).not.toBeNull();
     expect(raycastWorld(world,[-9.5,1.6,-4.0],[-9.5,1.6,-2.5])).toBeNull();
   });
+  it('lets shots pass beside the tapered cockpit nose while its centre remains cover', () => {
+    expect(raycastWorld(world,[-5.1,0.5,-6.25],[-5.1,0.5,-6.13])).toBeNull();
+    expect(raycastWorld(world,[-6,0.5,-6.25],[-6,0.5,-6.13])).not.toBeNull();
+  });
   it('keeps the tower arched windows open through the centre and solid at the upper corners', () => {
     expect(raycastWorld(world,[-12.35,5.55,-20.5],[-12.35,5.55,-22.5])).toBeNull();
     expect(raycastWorld(world,[-12.97,5.55,-20.5],[-12.97,5.55,-22.5])).not.toBeNull();
