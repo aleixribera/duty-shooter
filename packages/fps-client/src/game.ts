@@ -369,10 +369,11 @@ export class Game {
    * seconds even if no frame is drawn (a hidden tab), then waits for those
    * shaders (see `#gpuDone`). The map's shaders go first, in small pieces with
    * nothing drawn until they are in, so that menus stay live throughout. Done
-   * once: later calls wait for the same work.
+   * once: later calls wait for the same work. The frame with everything on show
+   * can't be split up, so it waits for `moment`, when that is given.
    */
-  prepare(): Promise<void> {
-    this.#prepared ??= this.#prepare();
+  prepare(moment?: () => Promise<void>): Promise<void> {
+    this.#prepared ??= this.#prepare(moment);
     return this.#prepared;
   }
 
@@ -386,11 +387,12 @@ export class Game {
   /** Shaders are building: nothing is drawn, or the frame would build them all at once itself. */
   #holding = false;
 
-  async #prepare(): Promise<void> {
+  async #prepare(moment?: () => Promise<void>): Promise<void> {
     this.#holding = true;
     await this.#pipeline.compile().catch(() => undefined);
     this.#holding = false;
     await this.preload();
+    await moment?.();
     await new Promise<void>((done) => {
       const timeout = setTimeout(finish, 3000);
       function finish(): void {

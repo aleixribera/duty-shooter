@@ -128,10 +128,33 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
+  let lastInput = 0;
+  for (const type of ['pointerdown', 'pointermove', 'keydown', 'click']) addEventListener(type, () => (lastInput = performance.now()), { capture: true, passive: true });
+  /** Ends the wait of `restMoment` now. */
+  let hurry: (() => void) | null = null;
+  /** Settles once the player has rested a moment, or wants to play: when a stall nobody can feel may happen. */
+  const restMoment = () =>
+    new Promise<void>((done) => {
+      const finish = () => {
+        clearInterval(watch);
+        hurry = null;
+        done();
+      };
+      const watch = setInterval(() => {
+        if (performance.now() - lastInput > REST_MS) finish();
+      }, 100);
+      hurry = finish;
+    });
+  /** The game on show ready to play, with nothing held back for a quieter moment. */
+  const ready = () => {
+    hurry?.();
+    return game.prepare();
+  };
   /** Practice Range, kept ready behind the menus (see `keepRangeReady`). */
   let spare: Game | null = null;
   const useMap = (id: MapId) => {
     if (id === mapId) return;
+    hurry?.();
     const old = game;
     old.input.onUnlock = null;
     old.input.onPadMenu = null;
@@ -152,11 +175,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
    * the menu's own is ready and waits off screen for the click. Skipped on
    * machines short of memory, which only pay for it on the way in.
    */
-  const keepRangeReady = () => {
+  const keepRangeReady = async () => {
     const memory = (navigator as { deviceMemory?: number }).deviceMemory ?? 8;
-    if (spare || mapId === 'range' || game.driver || !menu.open || memory < 4) return;
+    if (memory < 4) return;
+    await restMoment();
+    if (spare || mapId === 'range' || game.driver || !menu.open) return;
     spare = createGame('range');
-    void spare.prepare();
+    void spare.prepare(restMoment);
   };
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby();
@@ -208,7 +233,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     await whenLoaded(id);
     useMap(id);
     menu.loading(`Loading ${load(id).map.name}`, null);
-    await game.prepare();
+    await ready();
     const { map, solids } = load(id);
     play(new engine!.OfflineDriver({ solids, ladders: map.ladders ?? [], spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
   };
@@ -221,7 +246,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     useMap(id);
     const { map, solids } = load(id);
     if (!map.nav) return;
-    const [navGraph] = await Promise.all([routesOf(id), game.prepare()]);
+    const [navGraph] = await Promise.all([routesOf(id), ready()]);
     // Let the loading screen paint before the match builds its own routes (most of a second on the main thread).
     if (!navGraph) await new Promise((done) => setTimeout(done, 50));
     play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
@@ -257,7 +282,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           if (attempt !== joinAttempt) return;
           // The weapons and soldiers ready to draw before the socket opens: once joined, the player is in play.
           useMap(id);
-          await game.prepare();
+          await ready();
           if (attempt !== joinAttempt) return;
           menu.connecting(2);
           const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -566,10 +591,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
-    void game.prepare().then(() => {
-      if ('requestIdleCallback' in globalThis) requestIdleCallback(keepRangeReady, { timeout: 2000 });
-      else setTimeout(keepRangeReady, 500);
-    });
+    void game.prepare(restMoment).then(keepRangeReady);
   }
   await renderer.setAnimationLoop((time) => {
     if (bench) {
@@ -611,6 +633,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   });
 }
+
+/** How long (ms) without input counts as the player resting. */
+const REST_MS = 1200;
 
 /** After the next paint, or in a moment on a hidden tab, which paints nothing. */
 function nextPaint(): Promise<void> {
