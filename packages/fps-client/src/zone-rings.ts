@@ -65,6 +65,11 @@ export class ZoneRings {
     });
   }
 
+  /** Every ring's mesh, shown or not. */
+  get meshes(): readonly Mesh[] {
+    return this.#rings.map((ring) => ring.mesh);
+  }
+
   /** Shows each ring with its zone's state, or hides them all (`null`: not an Outposts match, or not while playing). */
   update(states: readonly ZoneState[] | null, time: number): void {
     for (const ring of this.#rings) {

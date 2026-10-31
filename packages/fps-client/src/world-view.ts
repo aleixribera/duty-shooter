@@ -330,7 +330,10 @@ export class WorldView {
         (error: unknown) => console.error(`Map models failed to load: ${String(error)}`),
       );
     }
-    if (content.train) this.train = new Train(this.#root, content.train, layout.finishes);
+    if (content.train) {
+      this.train = new Train(this.#root, content.train, layout.finishes);
+      this.modelsIn = Promise.all([this.modelsIn, this.train.modelsIn]).then(() => undefined);
+    }
     void bake.then((file) => {
       if (!file) return;
       if (file.key !== layout.key) {

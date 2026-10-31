@@ -105,6 +105,8 @@ function pool(hex: number, strength: number): MeshBasicNodeMaterial {
  */
 export class Train {
   readonly root = new Group();
+  /** Settles once the models are on the train, or have failed to load. */
+  readonly modelsIn: Promise<void>;
   readonly #train: FreightTrain;
 
   constructor(parent: Object3D, train: FreightTrain, finishes: Readonly<Record<string, Finish>>) {
@@ -112,7 +114,10 @@ export class Train {
     this.root.name = 'train';
     this.root.visible = false;
     this.root.position.set(train.start, 0, train.z);
-    void loadMapModels(train.models, finishes).then((models) => this.root.add(models));
+    this.modelsIn = loadMapModels(train.models, finishes).then(
+      (models) => void this.root.add(models),
+      (error: unknown) => console.error(`Train models failed to load: ${String(error)}`),
+    );
 
     const lamps = new Group();
     for (const [x, y, z] of train.headlights) {

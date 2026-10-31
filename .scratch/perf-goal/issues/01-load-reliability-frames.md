@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3, v2.91.4
 
 ## What was asked
 
@@ -136,3 +136,9 @@ clean twice, so it is put down to the PC; it was not traced.
   stays noisy: return 453 to 347, first 294 to 385.
 - Checked: a press 113 ms into the document starts sound. An earlier "no sound at 900 ms"
   was the script pressing on `about:blank`: `Page.navigate` returns before the commit.
+- Fixed: the train, the nuke and the Outposts rings are hidden when compiling runs, so the
+  first ending built them in a frame. `Game.prepare` now puts them on show, unculled, for
+  the list. First ending, dev build on the menu backdrop: worst frame 66 to 38 ms on
+  Switchyard, 52 to 39 on Survival Town (36 on a repeat), shader work 21 to 1-5 ms.
+- Checked: compiling culls to the camera, but three turns after load built no shader on
+  Switchyard or Survival Town, so the rest of the map needs nothing more.

@@ -357,6 +357,34 @@ export class Game {
     ];
   }
 
+  /**
+   * Puts on show, for compiling, what only appears later and far from the
+   * camera: the map's ending and the Outposts rings. Compiling culls to the
+   * camera, so culling goes off with them. Returns what puts them back.
+   */
+  #showEnding(): () => void {
+    // Lighting a material changes its shader, so it goes first.
+    this.#worldView.lightMoving();
+    const pieces: Object3D[] = [...this.#zoneRings.meshes];
+    if (this.#nuke) pieces.push(this.#nuke.root);
+    if (this.#worldView.train) pieces.push(this.#worldView.train.root);
+    const restore: (() => void)[] = [];
+    for (const piece of pieces) {
+      piece.traverse((o) => {
+        const { visible, frustumCulled } = o;
+        restore.push(() => {
+          o.visible = visible;
+          o.frustumCulled = frustumCulled;
+        });
+        o.visible = true;
+        o.frustumCulled = false;
+      });
+    }
+    return () => {
+      for (const put of restore) put();
+    };
+  }
+
   /** Set by `prepare`: the next frame drawn shows everything a match shows later, then calls this. */
   #warmUp: (() => void) | null = null;
 
@@ -392,7 +420,10 @@ export class Game {
     this.#holding = true;
     // Compiling takes its list of objects at once, so the models have to be in it.
     await this.#worldView.modelsIn;
-    await this.#pipeline.compile(breath).catch(() => undefined);
+    const restore = this.#showEnding();
+    const compiled = this.#pipeline.compile(breath).catch(() => undefined);
+    restore();
+    await compiled;
     this.#holding = false;
     await this.preload();
     await moment?.();
