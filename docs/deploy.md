@@ -48,7 +48,7 @@ The game also comes first on the box: none of its memory goes to swap (`memswap_
 
 ## Bandwidth and ping
 
-The server sends every player a snapshot 60 times a second. They go WebSocket-compressed (permessage-deflate, which browsers handle on their own): a full lobby's snapshot is about 8.5 KB of JSON and about 0.5 KB on the wire, so 12 players take about 4 Mbit/s of the home upload instead of 48. The page, the code and the models go brotli- or gzip-compressed too, compressed once on first request and kept in memory.
+The server sends every player a snapshot 60 times a second, fewer on a link that can't take them (down to 10 a second, judged by how old the client's newest snapshot is). Scores, names, pings and the match state go only when they change. Snapshots are WebSocket-compressed (permessage-deflate, which browsers handle on their own): a full lobby's snapshot is about 7 KB of JSON and about 0.5 KB on the wire, so 12 players take about 3.2 Mbit/s of the home upload instead of 40. The page, the code and the models go brotli- or gzip-compressed too, compressed once on first request and kept in memory.
 
 `npm run load-test` measures a server under scripted players: snapshots, bytes on the wire and the round trip from a usercmd to its acknowledgement, overall and for each player. Load the live lobby while it is empty, and run the players from the home server itself, where nothing else competes with them:
 
@@ -56,7 +56,14 @@ The server sends every player a snapshot 60 times a second. They go WebSocket-co
 remote-test "TARGET=http://127.0.0.1:3090 node apps/server/scripts/load-test.mjs 12 40"
 ```
 
-Its seats are then held for five minutes, as for anyone who drops. On 2026-10-28 that gave, for 12 players on Survival Town: 60 snapshots a second to each, 16.6 ms apart (p99 22 ms, max 36 ms), a usercmd round trip of p50 47 ms and p99 59 ms, and 4 Mbit/s out of the server. The same test run from a PC busy with other work (headless browsers from agent sessions) reported seconds of delay, all of it the scripted players falling behind, not the server; a person playing on such a PC sees a high ping for the same reason, since the game counts ping in its own frames. Through Funnel each round trip also crosses Tailscale's relay (Madrid, 50 to 150 ms for a fresh connection).
+Its seats are then held for five minutes, as for anyone who drops. On 2026-10-31 a local server on the same machine gave, for 12 players on Survival Town: 60 snapshots a second to each, 16.6 ms apart (p99 22 ms, max 33 ms), a usercmd round trip of p50 14 ms and p99 47 ms, 3.2 Mbit/s out of the server, 45% of a core and 158 MB. The same test run from a PC busy with other work (headless browsers from agent sessions) reported seconds of delay, all of it the scripted players falling behind, not the server; a person playing on such a PC sees a high ping for the same reason, since the game counts ping in its own frames. Through Funnel each round trip also crosses Tailscale's relay (Madrid, 50 to 150 ms for a fresh connection).
+
+Two more scripts start their own server, so never point them at the live lobby. Build the server first.
+
+- `apps/server/scripts/bad-link.mjs [clients] [seconds] [scenario,...]` plays one client through a proxy with real latency, jitter, a narrow pipe or stalls, and reports snapshot age and input round trip.
+- `apps/server/scripts/hostile.mjs` sends what a broken or hostile client might and reports whether the server survives each.
+
+Run them with `remote-test`, and keep `STATIC_DIR` away from the repo root: precompressing all of it takes over the server for a minute and spoils the numbers. `LOG_STATS=1` adds tick cost and late ticks to the CPU and memory lines.
 
 ## The event log and the play report
 
@@ -152,17 +159,18 @@ For load numbers in the logs, add `LOG_STATS: "1"` under `environment` in `compo
 
 ## Measured load
 
-`apps/server/scripts/load-test.mjs` starts the built server and connects 8 simulated players. Each one moves, turns and fires at 60 Hz. Results on the development PC (Windows 11, Node 24):
+`apps/server/scripts/load-test.mjs` starts the built server and connects simulated players. Each one moves, turns and fires at 60 Hz. Results on the home server (2026-10-31, Node 24, 12 players):
 
-- CPU: 5 to 9 % of one core.
-- Memory: about 72 MB RSS (14 to 17 MB of heap).
+- CPU: 41 to 47 % of one core, compression included.
+- Memory: about 158 MB RSS (22 to 36 MB of heap).
+- Tick: about 3 ms of the 16.7 ms budget, 7.6 ms at worst, none late.
 - Snapshots: a steady 60 per second to every client.
 
 Re-run it with:
 
 ```bash
 npm run build -w @duty-shooter/server
-cd apps/server && node scripts/load-test.mjs 8 40
+remote-test "node apps/server/scripts/load-test.mjs 12 40"
 ```
 
 ## Running locally

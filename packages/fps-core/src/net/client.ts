@@ -1,11 +1,11 @@
 import { angleDelta, lerpVec, type Vec3 } from '../math';
 import type { ModeEvent, ModeId, Score } from '../modes/game-mode';
-import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
+import { LAG_WINDOW_TICKS, Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
 import type { GrenadeOutput } from '../combat/grenade';
 import type { UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
-import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type LobbyPick, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot } from './protocol';
+import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type LobbyPick, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot, type WireSnapshot } from './protocol';
 import type { Connection } from './transport';
 
 export interface GameClientOptions {
@@ -61,6 +61,16 @@ const BACKOFF_TICKS = [6, 30, 60, 120] as const;
 const FINAL_CLOSES: ReadonlySet<string> = new Set(['client left', 'replaced']);
 /** Unread messages kept (a hidden tab draws no frames, so nothing reads them): the oldest go, and the server's close and the seat token bring it back. */
 const MAX_INBOX = 600;
+/** Ticks other players are shown in the past, at least, and at most on a link that needs more. */
+const DEFAULT_DELAY = 4;
+const MAX_DELAY = 24;
+/** The longest gap between snapshots taken for their pace: longer is a stall. */
+const MAX_PACED_GAP = 20;
+/** The fade of the widest gap, per tick: halves in about three seconds. */
+const GAP_FADE = 0.996;
+/** Ticks of delay added or taken off per tick: a slow fall, since it shows as others slowing down. */
+const DELAY_RISE = 0.5;
+const DELAY_FALL = 0.01;
 
 /**
  * A client's view of a networked match. Predicts the local player by running
@@ -96,6 +106,14 @@ export class GameClient {
   #lastJoin = -Infinity;
   #seq = 0;
   #pending: SequencedCmd[] = [];
+  /** The last snapshot with every field in place. */
+  #filled: Snapshot | null = null;
+  /** The newest snapshot's tick, and this client's tick when it landed. */
+  #arrivedTick = -1;
+  #arrivedAt = 0;
+  #widestGap = 0;
+  /** Ticks others are shown in the past. */
+  #delay: number;
   /** Highest sequence number put on a reliable connection. */
   #sentSeq = 0;
   readonly #sentAt = new Map<number, number>();
@@ -117,6 +135,7 @@ export class GameClient {
 
   constructor(options: GameClientOptions) {
     this.#options = options;
+    this.#delay = options.interpolationDelay ?? DEFAULT_DELAY;
     this.#loadout = options.loadout ?? null;
     this.#connection = options.connection;
     this.#local = new Simulation(options.world, { predictOnly: true });
@@ -128,7 +147,7 @@ export class GameClient {
     const generation = ++this.#generation;
     connection.onMessage((data) => {
       if (generation !== this.#generation) return;
-      if (this.#inbox.length >= MAX_INBOX) this.#inbox.shift();
+      if (this.#inbox.length >= MAX_INBOX) this.#skip(this.#inbox.shift() as string);
       this.#inbox.push(data);
     });
     connection.onClose((reason) => {
@@ -227,7 +246,7 @@ export class GameClient {
 
   /** The server tick other players are being drawn at (fractional). */
   get renderTick(): number {
-    return this.#serverTick - (this.#options.interpolationDelay ?? 4);
+    return this.#serverTick - this.#delay;
   }
 
   /** Visual offset to add to the predicted position while a correction is being smoothed out. */
@@ -357,7 +376,7 @@ export class GameClient {
     if (connection.congested) return;
     const cmds = connection.reliable ? this.#pending.filter((p) => p.seq > this.#sentSeq).slice(-REDUNDANT_CMDS) : this.#pending.slice(-REDUNDANT_CMDS);
     this.#sentSeq = this.#seq;
-    connection.send(encode({ t: 'cmds', cmds, ping: Math.round(this.#ping * 1000) }));
+    connection.send(encode({ t: 'cmds', cmds, ping: Math.round(this.#ping * 1000), ...(this.#latest ? { seen: this.#latest.tick } : {}) }));
   }
 
   /** The seat to ask for: this session's, or the one the page remembered. */
@@ -387,26 +406,28 @@ export class GameClient {
         this.#status = 'rejected';
         this.#rejectReason = message.reason;
       } else if (message.t === 'snap') {
-        for (const stamped of message.events) {
+        const snap = this.#fill(message);
+        this.#notePace(snap.tick);
+        for (const stamped of snap.events) {
           const key = `${stamped.tick}:${stamped.index}`;
           if (this.#seen.has(key)) continue;
           this.#seen.add(key);
           if (!isOwnCosmetic(stamped.event, this.#id)) fresh.push(stamped.event);
         }
-        if (!this.#latest || message.tick > this.#latest.tick || this.#resync) {
-          this.#latest = message;
+        if (!this.#latest || snap.tick > this.#latest.tick || this.#resync) {
+          this.#latest = snap;
           this.#resync = false;
-          if (message.self && message.self.life !== this.#life) {
-            this.#life = message.self.life;
-            this.#spawn = { yaw: message.self.cmdYaw + message.self.viewYaw, pitch: message.self.cmdPitch + message.self.viewPitch };
+          if (snap.self && snap.self.life !== this.#life) {
+            this.#life = snap.self.life;
+            this.#spawn = { yaw: snap.self.cmdYaw + snap.self.viewYaw, pitch: snap.self.cmdPitch + snap.self.viewPitch };
           }
-          this.#serverTick = Math.max(this.#serverTick, message.tick);
+          this.#serverTick = Math.max(this.#serverTick, snap.tick);
           // One sample per acknowledged usercmd: later snapshots repeating the same ack (the uplink stalled) would only add their wait.
-          const rtt = this.#sentAt.get(message.ack);
-          this.#sentAt.delete(message.ack);
+          const rtt = this.#sentAt.get(snap.ack);
+          this.#sentAt.delete(snap.ack);
           if (rtt !== undefined) this.#ping = this.#ping === 0 ? (this.#ticks - rtt) * TICK_SECONDS : this.#ping * 0.9 + (this.#ticks - rtt) * TICK_SECONDS * 0.1;
         }
-        this.#bufferSnapshot(message);
+        this.#bufferSnapshot(snap);
       }
     }
     if (this.#seen.size > 4000) {
@@ -414,6 +435,42 @@ export class GameClient {
       for (const key of this.#seen) if (Number(key.split(':')[0]) < cutoff) this.#seen.delete(key);
     }
     return fresh;
+  }
+
+  /** A sticky field the server left out is what it was in the snapshot before. */
+  #fill(wire: WireSnapshot): Snapshot {
+    this.#filled = { ...this.#filled, ...wire } as Snapshot;
+    return this.#filled;
+  }
+
+  /** A snapshot dropped unread: what it changed still counts. */
+  #skip(data: string): void {
+    const message = decodeServer(data);
+    if (message?.t === 'snap') this.#fill(message);
+  }
+
+  /**
+   * Watches how far apart snapshots land, to hold other players that much
+   * further in the past: a slow link is sent fewer, and a jittery one delivers
+   * them in clumps. The widest gap fades slowly and the delay eases after it;
+   * a stall isn't a pace, and only makes others jump, so it's left out.
+   */
+  #notePace(tick: number): void {
+    if (tick <= this.#arrivedTick) return;
+    const gap = this.#ticks - this.#arrivedAt;
+    if (this.#arrivedTick >= 0 && gap <= MAX_PACED_GAP) this.#widestGap = Math.max(this.#widestGap, gap);
+    this.#arrivedTick = tick;
+    this.#arrivedAt = this.#ticks;
+  }
+
+  /** Eases the interpolation delay toward what the snapshots' spacing needs. */
+  #easeDelay(): void {
+    this.#widestGap *= GAP_FADE;
+    const least = this.#options.interpolationDelay ?? DEFAULT_DELAY;
+    // Further back than the server rewinds, a shot would miss what was on screen.
+    const allowed = Math.min(MAX_DELAY, LAG_WINDOW_TICKS - this.#ping / TICK_SECONDS - 1);
+    const wanted = Math.max(least, Math.min(allowed, this.#widestGap + 1));
+    this.#delay += Math.max(-DELAY_FALL, Math.min(DELAY_RISE, wanted - this.#delay));
   }
 
   /**
@@ -446,6 +503,7 @@ export class GameClient {
 
   /** Keeps the estimate of the server's current tick moving one tick per tick, never behind the newest snapshot. */
   #advanceClock(): void {
+    this.#easeDelay();
     this.#serverTick += 1;
     const newest = this.#latest?.tick ?? this.#serverTick;
     const behind = newest - this.#serverTick;

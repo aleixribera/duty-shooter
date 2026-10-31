@@ -41,6 +41,8 @@ export interface RunningServer {
   readonly game: GameServer;
   /** The port actually bound (useful with port 0). */
   readonly port: number;
+  /** The game loop since the last call: milliseconds per tick, and ticks that started a whole tick late. */
+  takeLoopStats(): { ticks: number; average: number; slowest: number; late: number };
   close(): Promise<void>;
 }
 
@@ -139,10 +141,14 @@ const MAX_TRACKED = 1000;
 /** Open sockets allowed per address, joined or not (a household behind one NAT, the 8-bot load test). */
 const MAX_SOCKETS_PER_ADDRESS = 12;
 
-/** Bytes waiting on a socket before snapshots are skipped, and before the client is dropped. */
-const CONGESTED = 64 * 1024;
+/**
+ * Bytes waiting on a socket before snapshots are skipped, and before the client
+ * is dropped. Skipped snapshots lose nothing: the next carries what they would
+ * have. Compressed, this is about a fifth of a second of them; much more is a
+ * player watching the past.
+ */
+const CONGESTED = 8 * 1024;
 const MAX_BUFFERED = 1024 * 1024;
-const SNAPSHOT_PREFIX = '{"t":"snap"';
 /** Ticks in a row that may fail before the server restarts (Compose brings it back). */
 const MAX_TICK_FAILURES = 60;
 
@@ -221,6 +227,10 @@ function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void)
   });
   socket.on('error', () => socket.terminate());
   return {
+    reliable: true,
+    get congested() {
+      return socket.bufferedAmount > CONGESTED;
+    },
     get open() {
       return socket.readyState === socket.OPEN;
     },
@@ -231,8 +241,6 @@ function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void)
         socket.terminate();
         return;
       }
-      // A slow link skips snapshots to catch up instead of watching the past; the next one replaces them, and events that matter are repeated.
-      if (socket.bufferedAmount > CONGESTED && data.startsWith(SNAPSHOT_PREFIX)) return;
       socket.send(data);
     },
     close(reason = 'closed') {
@@ -400,12 +408,19 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   let next = performance.now();
   let timer: NodeJS.Timeout | null = null;
   let failures = 0;
+  const costs = { ticks: 0, total: 0, slowest: 0, late: 0 };
   const loop = () => {
     const now = performance.now();
     let ran = 0;
     while (now >= next && ran < 5) {
       try {
+        if (now - next >= tickMs) costs.late += 1;
+        const started = performance.now();
         game.tick();
+        const cost = performance.now() - started;
+        costs.ticks += 1;
+        costs.total += cost;
+        costs.slowest = Math.max(costs.slowest, cost);
         failures = 0;
       } catch (error) {
         // A tick that fails is lost; the match goes on. One that keeps failing won't mend: a fresh start beats a frozen lobby.
@@ -429,6 +444,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     http,
     game,
     port,
+    takeLoopStats: () => {
+      const taken = { ticks: costs.ticks, average: costs.ticks ? costs.total / costs.ticks : 0, slowest: costs.slowest, late: costs.late };
+      Object.assign(costs, { ticks: 0, total: 0, slowest: 0, late: 0 });
+      return taken;
+    },
     close: async () => {
       if (timer) clearTimeout(timer);
       for (const client of wss.clients) client.terminate();

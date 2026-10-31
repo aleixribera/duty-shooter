@@ -42,6 +42,8 @@ Use the scripts in `apps/range/scripts/` (`npm run bot-runs`, `record`, `bench`,
 - Editing the game's source while a scripted run is going makes Vite reload the page and fails that run. Change tests, docs and scripts meanwhile, and source after.
 Two more measure the production build rather than the dev server, so build first: `perf.mjs` (first and return visit, every menu click, the way into a match, a played match's frame times; `CPU_PROFILE` and `LOAD_PROFILE` save profiles) and `chaos.mjs` (plays online through a proxy that cuts and stalls the connection, and reports the seats kept). Both start the real server themselves; run them with `remote-test --local`.
 
+A scripted client that keeps time with `setInterval(…, 1000 / 60)` runs at 62.5 Hz: Node rounds it down to 16 ms, and the surplus sits in the server's queue as input delay that real players don't have. Use a deadline, as `load-test.mjs` does. Snapshots leave out scores, names, pings, popped and match when unchanged, so read those with `?.` and keep the last one seen.
+
 - A player who stands still is left alone by bots in humans vs bots, and in Charge the attackers escort a carrier who doesn't move: script movement (`MOVE=1` in `bot-runs`) before reading "no kills" as a bug.
 
 ## The desktop app

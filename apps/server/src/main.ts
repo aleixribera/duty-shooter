@@ -32,6 +32,7 @@ if (process.env['LOG_STATS'] === '1') {
     lastTime = now;
     const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
     const m = process.memoryUsage();
-    console.log(`stats cpu=${percent.toFixed(1)}% rss=${mb(m.rss)}MB heap=${mb(m.heapUsed)}MB players=${server.game.playerCount}`);
+    const loop = server.takeLoopStats();
+    console.log(`stats cpu=${percent.toFixed(1)}% rss=${mb(m.rss)}MB heap=${mb(m.heapUsed)}MB players=${server.game.playerCount} tick=${loop.average.toFixed(2)}ms slowest=${loop.slowest.toFixed(1)}ms late=${loop.late}`);
   }, 10_000).unref();
 }

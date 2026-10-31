@@ -87,6 +87,19 @@ function badLink(listen, target, link) {
   return new Promise((done) => proxy.listen(listen, '127.0.0.1', () => done({ close: () => (proxy.close(), open.forEach((s) => s.destroy())) })));
 }
 
+/** Runs `step` at exactly the game's rate. setInterval rounds 16.67 ms down to 16, faster than any player, and the surplus would queue as input delay. */
+function every60Hz(step) {
+  let next = performance.now();
+  let timer = null;
+  const run = () => {
+    next += 1000 / 60;
+    step();
+    timer = setTimeout(run, Math.max(0, next - performance.now()));
+  };
+  run();
+  return { stop: () => clearTimeout(timer) };
+}
+
 const quantile = (list, q) => (list.length ? list[Math.min(list.length - 1, Math.floor(q * list.length))] : null);
 
 async function run(name, link, index) {
@@ -121,10 +134,11 @@ async function run(name, link, index) {
         seat.id = message.id;
         seat.tick = message.tick;
       } else if (message.t === 'snap') {
-        if (i === 0 && !started && message.match.phase === 'lobby') {
+        if (i === 0 && !started && message.match?.phase === 'lobby') {
           started = true;
           ws.send(JSON.stringify({ t: 'start' }));
         }
+        seat.seen = message.tick;
         if (!measuring) return;
         seat.snaps += 1;
         seat.bytes += data.length;
@@ -145,15 +159,15 @@ async function run(name, link, index) {
     ws.on('error', () => undefined);
     ws.on('open', () => {
       ws.send(JSON.stringify({ t: 'join', name: `link${i}`, passphrase: '', protocol: health.protocol, script: true }));
-      const timer = setInterval(() => {
+      const timer = every60Hz(() => {
         seq += 1;
         yaw += 0.01;
         pending.push({ seq, cmd: { buttons: 0, forward: 1, right: Math.sin(seq / 40), yaw, pitch: 0, firePresses: [] } });
         if (pending.length > resend) pending.shift();
         seat.sent.set(seq, performance.now());
-        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: 'cmds', cmds: pending }));
-      }, 1000 / 60);
-      ws.on('close', () => clearInterval(timer));
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: 'cmds', cmds: pending, ...(seat.seen ? { seen: seat.seen } : {}) }));
+      });
+      ws.on('close', () => timer.stop());
     });
     seats.push(seat);
   }

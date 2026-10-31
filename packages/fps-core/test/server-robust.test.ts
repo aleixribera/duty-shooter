@@ -52,6 +52,87 @@ describe('input delay', () => {
   });
 });
 
+interface RawSnap {
+  t: string;
+  tick: number;
+  events: { tick: number; index: number; event: { type: string } }[];
+  names?: Record<string, string>;
+  scores?: unknown[];
+  match?: unknown;
+}
+
+/** A connection that keeps every snapshot it gets, joined and sending `cmds` by hand. */
+function raw(m: NetworkedMatch, name: string) {
+  const c = m.network.connect();
+  const snaps: RawSnap[] = [];
+  c.onMessage((data) => {
+    const message = JSON.parse(data) as RawSnap;
+    if (message.t === 'snap') snaps.push(message);
+  });
+  c.send(join(name));
+  return { c, snaps };
+}
+
+describe('snapshots on a reliable connection', () => {
+  it('carries what rarely changes only when it changes, and a client still sees all of it', () => {
+    const m = match();
+    const { snaps } = raw(m, 'watcher');
+    run(m, 0.3);
+    const first = snaps[0] as RawSnap;
+    expect(first.names).toBeDefined();
+    expect(first.match).toBeDefined();
+    const rest = snaps.slice(1);
+    expect(rest.length).toBeGreaterThan(5);
+    expect(rest.every((snap) => snap.names === undefined && snap.scores === undefined)).toBe(true);
+
+    const seat = m.join('second');
+    run(m, 0.3);
+    expect(snaps.at(-1)?.names).toBeUndefined();
+    expect(snaps.some((snap) => Object.values(snap.names ?? {}).includes('second'))).toBe(true);
+    expect(Object.values(seat.client.names).sort()).toEqual(['second', 'watcher']);
+    expect(seat.client.scores).toHaveLength(2);
+  });
+
+  it('repeats everything on a connection that can lose a snapshot', () => {
+    const m = match({ loss: 0.001 });
+    const { snaps } = raw(m, 'watcher');
+    run(m, 0.3);
+    expect(snaps.length).toBeGreaterThan(5);
+    expect(snaps.every((snap) => snap.names !== undefined && snap.scores !== undefined)).toBe(true);
+  });
+});
+
+describe('a link that falls behind', () => {
+  const report = (c: Connection, seq: number, seen: number) => c.send(encode({ t: 'cmds', cmds: [{ seq, cmd: { buttons: 0, forward: 0, right: 0, yaw: 0, pitch: 0, firePresses: [] } }], seen }));
+
+  /** Steps the match with the client reporting the snapshot from `behind` ticks ago, returning how many it was sent. */
+  function play(m: NetworkedMatch, link: { c: Connection; snaps: RawSnap[] }, seconds: number, behind: number, from: { seq: number }): number {
+    const before = link.snaps.length;
+    for (let i = 0; i < ticks(seconds); i++) {
+      from.seq += 1;
+      const newest = link.snaps.at(-1)?.tick ?? 0;
+      report(link.c, from.seq, Math.max(0, newest - behind));
+      m.step();
+    }
+    return link.snaps.length - before;
+  }
+
+  it('is sent fewer snapshots while its queue is full, every event among them, then more once it clears', () => {
+    const m = match();
+    const link = raw(m, 'slow');
+    const other = m.join('shooter');
+    const from = { seq: 0 };
+    expect(play(m, link, 2, 0, from)).toBeGreaterThan(110);
+    expect(play(m, link, 5, 30, from)).toBeLessThan(5 * 25);
+    const all = link.snaps.flatMap((snap) => snap.events.map((e) => `${e.tick}:${e.index}`));
+    expect(new Set(all).size).toBe(all.length);
+    let last = 0;
+    for (let i = 0; i < 30 && last < 40; i++) last = play(m, link, 1, 0, from);
+    expect(last).toBeGreaterThan(40);
+    expect(other.client.status).toBe('joined');
+  });
+});
+
 describe('a server that keeps going', () => {
   it('takes nothing more from a connection it rejected, so no ghost joins the match', () => {
     const m = match();

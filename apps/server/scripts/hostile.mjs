@@ -90,6 +90,8 @@ for (const [name, attack] of Object.entries(cases)) {
 }
 
 // A join sent again straight after a rejection, before the socket has closed, must not leave a ghost in the match.
+// Earlier attacks dropped without leaving, and their seats are rightly held: count from here.
+const held = died === null ? (await status()).away : 0;
 if (died === null) {
   const ws = await socket();
   ws.on('error', () => undefined);
@@ -99,7 +101,7 @@ if (died === null) {
   ws.terminate();
   await sleep(300);
   const s = await status();
-  results['join after a rejection leaves nobody seated'] = s.players === 0 && s.away === 0 ? 'ok' : `GHOST: ${JSON.stringify(s)}`;
+  results['join after a rejection leaves nobody seated'] = s.players === 0 && s.away === held ? 'ok' : `GHOST: ${JSON.stringify(s)}`;
 }
 // Leaving on purpose gives the seat up: nobody should be held for five minutes.
 if (died === null) {
@@ -109,7 +111,7 @@ if (died === null) {
   ws.close(1000, 'client left');
   await sleep(300);
   const s = await status();
-  results['leaving gives the seat up'] = s.away === 0 ? 'ok' : `HELD: away ${s.away}`;
+  results['leaving gives the seat up'] = s.away === held ? 'ok' : `HELD: away ${s.away}`;
 }
 // A socket that never joins must not sit open forever.
 if (died === null) {

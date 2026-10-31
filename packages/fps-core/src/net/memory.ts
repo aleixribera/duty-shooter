@@ -47,6 +47,10 @@ class End implements Connection {
     return this.#open;
   }
 
+  get reliable(): boolean {
+    return this.net.reliable;
+  }
+
   send(data: string): void {
     if (!this.#open) return;
     this.net.post(this.peer, data);
@@ -90,6 +94,11 @@ class Network implements MemoryNetwork {
   readonly server: ServerTransport = { onConnection: (h) => (this.#onConnection = h) };
 
   constructor(private readonly options: MemoryNetworkOptions) {}
+
+  /** Nothing lost or reordered, as over TCP. */
+  get reliable(): boolean {
+    return !this.options.loss && !this.options.jitter;
+  }
 
   #delay(): number {
     const jitter = this.options.jitter ?? 0;

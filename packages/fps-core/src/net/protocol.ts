@@ -5,7 +5,7 @@ import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -53,8 +53,12 @@ export type ClientMessage =
     }
   /** A new loadout, carried from the player's next spawn. */
   | { readonly t: 'loadout'; readonly loadout: Loadout }
-  /** Usercmds, with the round trip (ms) the client last measured, for everyone's scoreboard. */
-  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number }
+  /**
+   * Usercmds, with the round trip (ms) the client last measured, for everyone's
+   * scoreboard, and the newest snapshot tick it has, which tells the server how
+   * much is still on its way to it.
+   */
+  | { readonly t: 'cmds'; readonly cmds: readonly SequencedCmd[]; readonly ping?: number; readonly seen?: number }
   /** A vote for the next match's mode, changeable until the vote window closes. */
   | { readonly t: 'vote'; readonly mode: ModeId }
   /** The host's choices for the next match, in the lobby. */
@@ -160,11 +164,18 @@ export interface Snapshot {
   readonly match: MatchStatus;
 }
 
+/** What rarely changes: on a reliable connection these travel only when they do. */
+export const STICKY_FIELDS = ['scores', 'names', 'pings', 'popped', 'match'] as const;
+export type StickyField = (typeof STICKY_FIELDS)[number];
+
+/** A snapshot as sent: a sticky field left out is the same as in the one before. */
+export type WireSnapshot = Omit<Snapshot, StickyField> & Partial<Pick<Snapshot, StickyField>>;
+
 export type ServerMessage =
   /** `token` is this seat's secret: joining again with it as `resume` takes the seat back after a drop. */
   | { readonly t: 'welcome'; readonly id: string; readonly tick: number; readonly mode: ModeId; readonly map: string; readonly maxPlayers: number; readonly token: string }
   | { readonly t: 'reject'; readonly reason: RejectReason }
-  | Snapshot;
+  | WireSnapshot;
 
 export function encode(message: ClientMessage | ServerMessage): string {
   return JSON.stringify(message);
@@ -230,7 +241,13 @@ export function decodeClient(data: string): ClientMessage | null {
       out.push({ seq: c['seq'] as number, cmd });
     }
     const ping = value['ping'];
-    return finite(ping) ? { t: 'cmds', cmds: out, ping: Math.round(Math.min(9999, Math.max(0, ping))) } : { t: 'cmds', cmds: out };
+    const seen = value['seen'];
+    return {
+      t: 'cmds',
+      cmds: out,
+      ...(finite(ping) ? { ping: Math.round(Math.min(9999, Math.max(0, ping))) } : {}),
+      ...(Number.isInteger(seen) && (seen as number) >= 0 ? { seen: seen as number } : {}),
+    };
   }
   return null;
 }

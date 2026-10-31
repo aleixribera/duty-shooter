@@ -25,6 +25,19 @@ const port = 3999;
 const base = target ?? `http://127.0.0.1:${port}`;
 const passphrase = target ? (process.env.PASSPHRASE ?? '') : 'load-test';
 
+/** Runs `step` at exactly the game's rate. setInterval rounds 16.67 ms down to 16, faster than any player, and the surplus would queue as input delay. */
+function every60Hz(step) {
+  let next = performance.now();
+  let timer = null;
+  const run = () => {
+    next += 1000 / 60;
+    step();
+    timer = setTimeout(run, Math.max(0, next - performance.now()));
+  };
+  run();
+  return { stop: () => clearTimeout(timer) };
+}
+
 const server = target
   ? null
   : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
@@ -61,6 +74,7 @@ for (let i = 0; i < clients; i++) {
   let yaw = Math.random() * 6;
   const pending = [];
   const sent = new Map();
+  let newest = 0;
   const stats = { snaps: 0, bytes: 0, gaps: [], rtts: [], last: null };
   ws.on('message', (data) => {
     const now = performance.now();
@@ -69,8 +83,9 @@ for (let i = 0; i < clients; i++) {
       joined += 1;
       host ??= ws;
     } else if (message.t === 'snap') {
+      newest = message.tick;
       if (ws === host) {
-        phase = message.match.phase;
+        phase = message.match?.phase ?? phase;
         shots += message.events.filter(({ event }) => event.type === 'shot').length;
       }
       if (!measuring) return;
@@ -90,16 +105,16 @@ for (let i = 0; i < clients; i++) {
   ws.on('open', () => {
     const lobby = i === 0 && bots !== undefined ? { bots } : {};
     ws.send(JSON.stringify({ t: 'join', name: `load${i}`, passphrase, protocol, script: true, ...lobby }));
-    const timer = setInterval(() => {
+    const timer = every60Hz(() => {
       seq += 1;
       yaw += (Math.random() - 0.5) * 0.1;
       const fire = Math.random() < 0.5;
       pending.push({ seq, cmd: { buttons: fire ? 1 : 0, forward: 1, right: Math.sin(seq / 40), yaw, pitch: 0, firePresses: fire && seq % 8 === 0 ? [0.3] : [] } });
       if (pending.length > resend) pending.shift();
       sent.set(seq, performance.now());
-      ws.send(JSON.stringify({ t: 'cmds', cmds: pending }));
-    }, 1000 / 60);
-    ws.on('close', () => clearInterval(timer));
+      ws.send(JSON.stringify({ t: 'cmds', cmds: pending, seen: newest }));
+    });
+    ws.on('close', () => timer.stop());
   });
   sockets.push({ ws, stats });
 }

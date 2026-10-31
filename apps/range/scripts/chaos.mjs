@@ -77,9 +77,10 @@ try {
     await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: PROBES });
     await chrome.navigate(base);
     await chrome.waitFor(`!!globalThis.__find?.('Play Online')`, 60_000, 50);
-    await chrome.evaluate(`__find('Play Online').click()`);
-    await chrome.waitFor(`!!__find('Join')`, 20_000, 50);
-    await chrome.evaluate(`document.querySelector('.ds-field input').value = 'Chaos'; __find('Join').click()`);
+    // A public lobby joins from the tile, under the name above it; with no name the tile only focuses the field.
+    await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; __find('Play Online').click()`);
+    await chrome.waitFor(`!!__find('Join') || !!__find('Start')`, 20_000, 50);
+    await chrome.evaluate(`if (__find('Join')) { document.querySelector('.ds-field input').value = 'Chaos'; __find('Join').click(); }`);
     await chrome.waitFor(`__state() === 'lobby' && !!__find('Start')`, 90_000, 50);
     await chrome.evaluate(`__find('Start').click()`);
     if (!(await chrome.waitFor(`__state() === 'playing'`, 30_000, 50))) throw new Error(`Not in the match: ${await chrome.evaluate('__state()')}`);
