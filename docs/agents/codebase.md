@@ -39,6 +39,7 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
 Use the scripts in `apps/range/scripts/` (`npm run bot-runs`, `record`, `bench`, `spots`, and `node apps/range/scripts/soldier-sheet.mjs`, which screenshots `soldiers.html`: every look holding each weapon through the poses and actions the game uses): they launch Chrome through `chrome.mjs`, headless and muted (`HEADED=1` shows it, `SOUND=1` unmutes it, `CHROME` names another browser). They expect the dev server (`npm run dev`, port 5173) and use the dev hooks: `?nolock`, and `globalThis.duty` (`game`, `driver`, `menu`, ...; `duty.game.player` is the local player).
 
 - Open one page per Chrome; a second navigation in the same browser can hang at "Starting renderer".
+- `chrome.navigate` returns before the page commits, sometimes by seconds: a press timed from it can land on `about:blank`. Wait for `location.protocol` and `performance.now()` in the page.
 - Editing the game's source while a scripted run is going makes Vite reload the page and fails that run. Change tests, docs and scripts meanwhile, and source after.
 Two more measure the production build rather than the dev server, so build first: `perf.mjs` (first and return visit, every menu click, the way into a match, a played match's frame times; `CPU_PROFILE` and `LOAD_PROFILE` save profiles) and `chaos.mjs` (plays online through a proxy that cuts and stalls the connection, and reports the seats kept). Both start the real server themselves; run them with `remote-test --local`.
 

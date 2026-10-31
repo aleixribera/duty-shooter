@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3, v2.91.4, v2.91.5
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3, v2.91.4, v2.91.5, v2.91.6
 
 ## What was asked
 
@@ -145,3 +145,10 @@ clean twice, so it is put down to the PC; it was not traced.
 - Checked in a full Bot Match (Survival Town, TDM, 16 kills, dev build, busy PC): no shader
   built after play began, GC 226 ms over 70 s, 8 frames over 20 ms, mostly GPU `submit`.
 - Fixed: each ragdoll re-measured its pieces from their vertices, about 4 ms a kill.
+- Closing numbers, v2.91.5 against v2.91.2 on the same PC: settled Start 96 against 87 ms,
+  settled Practice Range 170 against 171 ms, unsettled Start 1.6 against 1.9-3.0 s,
+  unsettled Practice Range 2.2 against 2.0-2.3 s. Play at 368 fps, p99 6.6 ms, p99.9 11.3 ms,
+  worst 35.7 ms in one 45 s run.
+- Left as it is, owner agreed on 2026-10-31: a press in the first seconds waits for shaders.
+  190 builds take about 2.2 s on a dev build, all different materials. Three's build state
+  holds live nodes, so it cannot be stored between visits without forking three.
