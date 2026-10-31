@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3, v2.91.4
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3, v2.91.4, v2.91.5
 
 ## What was asked
 
@@ -142,3 +142,6 @@ clean twice, so it is put down to the PC; it was not traced.
   Switchyard, 52 to 39 on Survival Town (36 on a repeat), shader work 21 to 1-5 ms.
 - Checked: compiling culls to the camera, but three turns after load built no shader on
   Switchyard or Survival Town, so the rest of the map needs nothing more.
+- Checked in a full Bot Match (Survival Town, TDM, 16 kills, dev build, busy PC): no shader
+  built after play began, GC 226 ms over 70 s, 8 frames over 20 ms, mostly GPU `submit`.
+- Fixed: each ragdoll re-measured its pieces from their vertices, about 4 ms a kill.

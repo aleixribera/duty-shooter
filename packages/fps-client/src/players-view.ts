@@ -217,7 +217,7 @@ class Ragdoll {
       const height = m.position.y - centre.y;
       const v = new Vector3(velocity[0] + push[0] * (0.6 + height), velocity[1] + 0.6 + push[1], velocity[2] + push[2] * (0.6 + height));
       v.add(new Vector3((Math.random() - 0.5) * 0.6, Math.random() * 0.4, (Math.random() - 0.5) * 0.6));
-      mesh.geometry.computeBoundingBox();
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
       const size = mesh.geometry.boundingBox?.getSize(new Vector3());
       this.#parts.push({
         mesh: m,
