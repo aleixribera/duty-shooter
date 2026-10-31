@@ -13,6 +13,10 @@ The owner isn't around to review or click anything, so work runs unattended and 
 
 Before adding a map, mode or weapon, writing a test, or crossing a package boundary, read `docs/agents/codebase.md`: import rules and the tests that hold them, what each addition touches, where tests are slow, and releases.
 
+## UI
+
+UI follows `DESIGN.md`; read it before any UI change.
+
 ## Trying the game in a browser
 
 Walking a map alone, scripting a browser, screenshots and benchmarks run on the page's URL parameters, listed under "Dev URL parameters" in `README.md`. Walking a map alone lives only there: `?explore=<map>` (`survival-town`, `switchyard`, `range`), with `?nolock` for a scripted browser. The main menu keeps to Play Online, Bot Match, Practice Range and Settings.
