@@ -133,9 +133,10 @@ export class GamePipeline {
   /**
    * Builds the shaders of everything visible now, in small pieces between the
    * page's other work, with nothing drawn. Takes its list of objects at once,
-   * so what is put on show for it can go straight back.
+   * so what is put on show for it can go straight back. `breath` runs before
+   * each piece, which waits for it.
    */
-  compile(): Promise<void> {
+  compile(breath?: () => Promise<void>): Promise<void> {
     const renderer = this.#renderer as unknown as CompilingRenderer;
     const contexts = renderer._renderContexts;
     const context = contexts.get.bind(contexts);
@@ -151,7 +152,8 @@ export class GamePipeline {
     // Three.js builds a shader here over several turns, reading the renderer's current state, by then another pass's.
     // Built whole, with the state of its own pass, the pieces are one object each.
     const build = Object.getPrototypeOf(nodes).getForRender as CompilingRenderer['_nodes']['getForRender'];
-    nodes.getForRenderAsync = (object) => {
+    nodes.getForRenderAsync = async (object) => {
+      await breath?.();
       const { _mrt: mrt, _renderTarget: target } = renderer;
       const own = builds.get(object.context);
       renderer._mrt = object.context.mrt;

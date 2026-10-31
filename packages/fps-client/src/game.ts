@@ -370,10 +370,11 @@ export class Game {
    * shaders (see `#gpuDone`). The map's shaders go first, in small pieces with
    * nothing drawn until they are in, so that menus stay live throughout. Done
    * once: later calls wait for the same work. The frame with everything on show
-   * can't be split up, so it waits for `moment`, when that is given.
+   * can't be split up, so it waits for `moment`, when that is given, and
+   * each piece before it for `breath`.
    */
-  prepare(moment?: () => Promise<void>): Promise<void> {
-    this.#prepared ??= this.#prepare(moment);
+  prepare(moment?: () => Promise<void>, breath?: () => Promise<void>): Promise<void> {
+    this.#prepared ??= this.#prepare(moment, breath);
     return this.#prepared;
   }
 
@@ -387,9 +388,9 @@ export class Game {
   /** Shaders are building: nothing is drawn, or the frame would build them all at once itself. */
   #holding = false;
 
-  async #prepare(moment?: () => Promise<void>): Promise<void> {
+  async #prepare(moment?: () => Promise<void>, breath?: () => Promise<void>): Promise<void> {
     this.#holding = true;
-    await this.#pipeline.compile().catch(() => undefined);
+    await this.#pipeline.compile(breath).catch(() => undefined);
     this.#holding = false;
     await this.preload();
     await moment?.();

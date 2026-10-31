@@ -15,6 +15,8 @@ Two tests hold the lines: `packages/fps-core/test/purity.test.ts` keeps the core
 
 Each package's entry points are its `package.json` `exports`; import through those, not deep paths. The page's first load is `@duty-shooter/fps-client/ui` and `apps/range/src/main.ts`, which reach no three.js so the menu appears before the engine: anything drawn with three.js goes through `apps/range/src/engine.ts`, and a menu action that needs it runs inside `whenUp`.
 
+Work behind the menus has to stay out of a click's way. `Game.prepare` builds a map's shaders one object at a time (`GamePipeline.compile`) and gives way after each press (`breath` in `main.ts`). What can't be split, the first full frame and the Practice Range game kept ready off screen (`keepRangeReady`, skipped under 4 GB), waits for `restMoment`. Anything that plays calls `ready()` or `useMap`, which end those waits. A menu step in `perf.mjs` over about 60 ms means something new landed outside them.
+
 ## Adding things
 
 - **A map:** `MapId` in `apps/range/src/map/definition.ts`; `MAP_IDS`, `LOBBY_MAPS` (online) and `BUILDERS` in `maps.ts`; the lighting bake list in `apps/range/vite.config.ts`; `MAP_IMAGES` in `main.ts` and its lobby picture (`node apps/range/scripts/map-picture.mjs <map> <spot>`); `BOT_MAPS` in `packages/fps-client/src/ui/model.ts` (Bot Match, which is the lobby page offline); `MAP_NAMES` in `ui/model.ts`. Give it a nav graph for bots, and copy one of the `*-bots-*.test.ts` soaks.

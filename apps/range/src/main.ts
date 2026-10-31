@@ -129,32 +129,34 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
   let lastInput = 0;
-  for (const type of ['pointerdown', 'pointermove', 'keydown', 'click']) addEventListener(type, () => (lastInput = performance.now()), { capture: true, passive: true });
-  /** Ends the wait of `restMoment` now. */
-  let hurry: (() => void) | null = null;
-  /** Settles once the player has rested a moment, or wants to play: when a stall nobody can feel may happen. */
-  const restMoment = () =>
+  let lastPress = 0;
+  addEventListener('pointermove', () => (lastInput = performance.now()), { capture: true, passive: true });
+  for (const type of ['pointerdown', 'keydown', 'click'])
+    addEventListener(type, () => (lastInput = lastPress = performance.now()), { capture: true, passive: true });
+  /** The player wants to play: background work stops waiting for quiet. */
+  let hurried = false;
+  const quietFor = (ms: number, last: () => number) =>
     new Promise<void>((done) => {
-      const finish = () => {
-        clearInterval(watch);
-        hurry = null;
-        done();
+      const look = () => {
+        if (hurried || performance.now() - last() > ms) done();
+        else setTimeout(look, 50);
       };
-      const watch = setInterval(() => {
-        if (performance.now() - lastInput > REST_MS) finish();
-      }, 100);
-      hurry = finish;
+      look();
     });
+  /** Settles once the player has rested a moment, or wants to play: when a stall nobody can feel may happen. */
+  const restMoment = () => quietFor(REST_MS, () => lastInput);
+  /** Lets the screen a press opened paint before the next piece of background work. Moving the mouse counts for nothing: it would hold back the world behind the menu. */
+  const breath = () => quietFor(BREATH_MS, () => lastPress);
   /** The game on show ready to play, with nothing held back for a quieter moment. */
   const ready = () => {
-    hurry?.();
+    hurried = true;
     return game.prepare();
   };
   /** Practice Range, kept ready behind the menus (see `keepRangeReady`). */
   let spare: Game | null = null;
   const useMap = (id: MapId) => {
     if (id === mapId) return;
-    hurry?.();
+    hurried = true;
     const old = game;
     old.input.onUnlock = null;
     old.input.onPadMenu = null;
@@ -180,8 +182,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (memory < 4) return;
     await restMoment();
     if (spare || mapId === 'range' || game.driver || !menu.open) return;
+    hurried = false;
     spare = createGame('range');
-    void spare.prepare(restMoment);
+    void spare.prepare(restMoment, breath);
   };
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby();
@@ -593,7 +596,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
-    void game.prepare(restMoment).then(keepRangeReady);
+    void game.prepare(restMoment, breath).then(keepRangeReady);
   }
   await renderer.setAnimationLoop((time) => {
     if (bench) {
@@ -638,6 +641,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
 
 /** How long (ms) without input counts as the player resting. */
 const REST_MS = 1200;
+/** How long (ms) after a press background work holds off. */
+const BREATH_MS = 300;
 
 /** After the next paint, or in a moment on a hidden tab, which paints nothing. */
 function nextPaint(): Promise<void> {
