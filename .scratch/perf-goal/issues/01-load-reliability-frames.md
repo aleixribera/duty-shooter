@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1
 
 ## What was asked
 
@@ -93,3 +93,22 @@ clean twice, so it is put down to the PC; it was not traced.
 - Design audit, 2026-10-31 (`docs/design-audit/2026-10-31.md`): 41 findings, none
   from this work, and left for their own ticket. The first paint's plain menu was
   looked at by hand on desktop and phone.
+- Remaining stutter, v2.91.0, 2026-10-31. Same build, 45 s of play. With the GPU
+  idle and no transcription running: 323 fps, p99 7.7 ms, p99.9 13 ms, worst
+  23.2 ms, none over 33 ms, no long tasks. A second idle run with tracing on gave
+  p99 6.9 and p99.9 9.9 (it also counted the trace's flush). With WhisperX running
+  or the PC otherwise busy: 210 to 295 fps, p99 8.7 to 12.3, worst 45 to 248 ms.
+  So p99 8.2 was noise, and the big spikes follow load on the PC. WhisperX start
+  times line up with the bad runs. The CPU wasn't logged during the last two runs,
+  which were idle by GPU only (252 and 210 fps), so that part is inferred.
+- Not proven: the wall against thread time split that would show pre-emption
+  directly. Chrome's trace holds about 9 s of play, loses the file with a bigger
+  buffer, and costs 15 to 25% of the frame rate. In those 9 s three frames passed
+  8 ms: 3.7 ms of GC in one, plain work in another, none over 11 ms. Frames over
+  8 ms are now in `play.spikes`, and `.scratch/perf-goal/spikes.mjs` and
+  `spike-tree.mjs` line them up with a CPU profile.
+- `updateMatrixWorld` looked like the one target left, at 3.9 s of 36 s of frame
+  work, but that is 0.29 ms a frame. Nothing is redundant: the two pipeline walks
+  are different scenes, the map is merged into a few meshes, a soldier's arms move
+  after its last walk, and the 42 viewmodel bones move every frame. Freezing the
+  gun's 15 static meshes would save about 0.02 ms, so no change.

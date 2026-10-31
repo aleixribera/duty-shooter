@@ -6,9 +6,10 @@
 //
 // Build first: it serves apps/range/dist with the real server, on PERF_PORT
 // (default 3190). PERF_PLAY sets the seconds of play (default 45), PERF_MAP the
-// Bot Match's map as its tile reads, PERF_SETTLE the ms before Start, CPU_PROFILE=<file> saves a CPU profile of
-// the play, LOAD_PROFILE=<prefix> CPU profiles of the return visit (<prefix>-menu,
-// -enter and -start .cpuprofile), PERF_NET=off skips the throttled first visit.
+// Bot Match's map as its tile reads, PERF_SETTLE the ms before Start. Frames over
+// 8 ms land in play.spikes. CPU_PROFILE=<file> saves a CPU profile of the play,
+// LOAD_PROFILE=<prefix> CPU profiles of the return visit (<prefix>-menu, -enter
+// and -start .cpuprofile), PERF_NET=off skips the throttled first visit.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -42,10 +43,12 @@ const PROBES = `(() => {
   perf.startFrames = () => {
     const times = [];
     perf.frames = times;
+    perf.spikes = [];
     let last = performance.now();
     const tick = (now) => {
       if (perf.frames !== times) return;
       times.push(now - last);
+      if (now - last > 8) perf.spikes.push({ at: Math.round(now * 10) / 10, ms: Math.round((now - last) * 10) / 10 });
       last = now;
       requestAnimationFrame(tick);
     };
@@ -167,10 +170,12 @@ async function playMatch(chrome) {
   // Moves, turns and fires for the rest: everything a match asks of a frame.
   const key = (type, code, text) => chrome.send('Input.dispatchKeyEvent', { type, code, key: text, windowsVirtualKeyCode: text.toUpperCase().charCodeAt(0) });
   await chrome.evaluate('__perf.longTasks.length = 0; __perf.startFrames()');
+  let profiledFrom = 0;
   if (process.env.CPU_PROFILE) {
     await chrome.send('Profiler.enable');
     await chrome.send('Profiler.setSamplingInterval', { interval: 500 });
     await chrome.send('Profiler.start');
+    profiledFrom = await chrome.evaluate('performance.now()');
   }
   await key('keyDown', 'KeyW', 'w');
   const end = Date.now() + playSeconds * 1000;
@@ -193,9 +198,9 @@ async function playMatch(chrome) {
     const { result } = await chrome.send('Profiler.stop');
     writeFileSync(process.env.CPU_PROFILE, JSON.stringify(result.profile));
   }
-  const raw = await chrome.evaluate('JSON.stringify({ frames: __perf.stopFrames(), longTasks: __perf.longTasks, heapMb: Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1048576) })');
-  const { frames, longTasks, heapMb } = JSON.parse(raw ?? '{"frames":[],"longTasks":[]}');
-  return { entry, play: { seconds: playSeconds, ...frameStats(frames), longTasks: longTasks.length, worstLongTask: Math.max(0, ...longTasks.map((t) => t.ms)), heapMb } };
+  const raw = await chrome.evaluate('JSON.stringify({ frames: __perf.stopFrames(), spikes: __perf.spikes, longTasks: __perf.longTasks, heapMb: Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1048576) })');
+  const { frames, spikes, longTasks, heapMb } = JSON.parse(raw ?? '{"frames":[],"spikes":[],"longTasks":[]}');
+  return { entry, play: { seconds: playSeconds, ...frameStats(frames), longTasks: longTasks.length, worstLongTask: Math.max(0, ...longTasks.map((t) => t.ms)), heapMb, profiledFrom, spikes } };
 }
 
 const server = spawn(process.execPath, ['apps/server/dist/main.js'], { env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', NODE_ENV: 'development' }, stdio: 'ignore' });
