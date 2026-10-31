@@ -69,6 +69,12 @@ const PROBES = `(() => {
   };
   perf.find = (text) => [...document.querySelectorAll('button')].find((b) => b.getClientRects().length > 0 && !b.disabled && b.textContent.trim().toLowerCase().startsWith(text.toLowerCase()));
   perf.menuUp = () => !!perf.find('Practice Range');
+  // The frame that first draws the menu: the DOM being ready is not what a player sees.
+  const watchMenu = () => {
+    if (document.body && perf.menuUp()) perf.marks.menuFrame = performance.now();
+    else requestAnimationFrame(watchMenu);
+  };
+  requestAnimationFrame(watchMenu);
   perf.playing = () => { const m = document.querySelector('.ds-menu'), l = document.querySelector('.ds-lobby'); return !!m && m.hidden && (!l || l.hidden); };
 })()`;
 
@@ -111,7 +117,7 @@ async function visit(chrome, name) {
   await sleep(1500);
   const nav = await chrome.evaluate(`(() => {
     const entries = performance.getEntriesByType('resource');
-    return JSON.stringify({ requests: entries.length, kb: Math.round(entries.reduce((n, e) => n + e.transferSize, 0) / 1024), fcp: Math.round(performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0), longTasks: __perf.longTasks });
+    return JSON.stringify({ menuFrame: Math.round(__perf.marks.menuFrame ?? 0), requests: entries.length, kb: Math.round(entries.reduce((n, e) => n + e.transferSize, 0) / 1024), fcp: Math.round(performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0), longTasks: __perf.longTasks });
   })()`);
   return { name, ok: !!ok, toMenuMs: ms, ...JSON.parse(nav ?? '{}') };
 }
@@ -219,7 +225,11 @@ try {
   let chrome = await open(profile);
   try {
     if (process.env.PERF_NET !== 'off') await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 40, downloadThroughput: (50 * 1e6) / 8, uploadThroughput: (10 * 1e6) / 8 });
-    report.cold = await visit(chrome, 'cold');
+    report.cold = await profiled(chrome, 'cold', async () => {
+      const seen = await visit(chrome, 'cold');
+      if (process.env.LOAD_PROFILE) await sleep(3000);
+      return seen;
+    });
     await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     report.menus = await menus(chrome);
     Object.assign(report, await playMatch(chrome));
@@ -231,7 +241,11 @@ try {
   chrome = await open(profile);
   try {
     if (process.env.PERF_NET !== 'off') await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 40, downloadThroughput: (50 * 1e6) / 8, uploadThroughput: (10 * 1e6) / 8 });
-    report.warm = await profiled(chrome, 'menu', () => visit(chrome, 'warm'));
+    report.warm = await profiled(chrome, 'menu', async () => {
+      const seen = await visit(chrome, 'warm');
+      if (process.env.LOAD_PROFILE) await sleep(3000);
+      return seen;
+    });
     await chrome.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     await sleep(500);
     await sleep(Number(process.env.PERF_SETTLE ?? 0));

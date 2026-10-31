@@ -216,9 +216,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
   };
   // Sound the browser held back starts on the first click or key press.
-  const retrySound = () => {
-    if (!sound.unlocked) void sound.unlock();
-  };
+  const retrySound = () =>
+    whenUp(() => {
+      if (!sound.unlocked) void sound.unlock();
+    });
   document.addEventListener('pointerdown', retrySound, true);
   document.addEventListener('keydown', retrySound, true);
   /** First entry shows the one-time Firefox tip about raw mouse input. */

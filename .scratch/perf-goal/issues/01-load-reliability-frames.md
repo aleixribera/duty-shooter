@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2
 
 ## What was asked
 
@@ -112,3 +112,18 @@ clean twice, so it is put down to the PC; it was not traced.
   are different scenes, the map is merged into a few meshes, a soldier's arms move
   after its last walk, and the 42 viewmodel bones move every frame. Freezing the
   gun's 15 static meshes would save about 0.02 ms, so no change.
+- Clicks during load, corrected. `perf.mjs` calls `el.click()` from an evaluate
+  that queues behind a long task, so it never counted the wait, and its DOM-ready
+  menu time isn't what a player sees. Real clicks through the browser's input path
+  every 400 ms for 7 s, 4 rounds on a quiet PC: a return visit waits 182 ms at worst
+  (median of runs, 252 at most), a first visit 66 ms by the median and 1017 ms at
+  most. Long tasks reach about 300 ms on a return visit and 1.4 s on a first. The
+  83 ms this ticket reported missed these. The first visit's long task runs with
+  clicks arriving, so it is not the rest-gated full frame.
+- Tried and reverted, A/B on the same PC: starting the engine after the first paint
+  moved no paint (FCP 544 against 548 ms, and each visit launches a fresh Chrome,
+  so that figure may be browser start-up), and compiling the samples in pieces
+  before the full frame blocked for longer (3242 against 2767 ms on a first visit,
+  worst click 891 against 66 ms) because the frame still builds them.
+- Fixed: a press before the engine was up threw on `sound.unlocked`, and did not
+  count toward starting sound.
