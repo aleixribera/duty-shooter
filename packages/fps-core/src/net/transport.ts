@@ -13,6 +13,10 @@ export interface Connection {
   onMessage(handler: (data: string) => void): void;
   onClose(handler: (reason: string) => void): void;
   readonly open: boolean;
+  /** Everything sent arrives, in order (TCP): nothing needs saying twice. */
+  readonly reliable?: boolean;
+  /** What was sent is still queueing here: better to hold back than add to it. */
+  readonly congested?: boolean;
 }
 
 /** The server side: accepts connections. */

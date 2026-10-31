@@ -1,5 +1,8 @@
 import type { Connection } from '@duty-shooter/fps-core';
 
+/** Bytes waiting to leave before usercmds are held back: about a quarter of a second of them, uncompressed. */
+const CONGESTED = 4 * 1024;
+
 /**
  * The v1 transport: one WebSocket per client, implementing fps-core's
  * Connection. Sends made before the socket opens are queued.
@@ -28,6 +31,10 @@ export function connectWebSocket(url: string): Connection {
     onClose?.(e.reason || `connection closed (${e.code})`);
   });
   return {
+    reliable: true,
+    get congested() {
+      return socket.bufferedAmount > CONGESTED;
+    },
     get open() {
       return open;
     },

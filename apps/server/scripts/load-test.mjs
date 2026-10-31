@@ -19,14 +19,16 @@ const clients = Number(process.argv[2] ?? 8);
 const seconds = Number(process.argv[3] ?? 40);
 const bots = process.env.BOTS === undefined ? undefined : Number(process.env.BOTS);
 const target = process.env.TARGET ?? null;
+/** Usercmds in each message: one, as the game sends over TCP. */
+const resend = Number(process.env.RESEND ?? 1);
 const port = 3999;
 const base = target ?? `http://127.0.0.1:${port}`;
 const passphrase = target ? (process.env.PASSPHRASE ?? '') : 'load-test';
 
 const server = target
   ? null
-  : spawn(process.execPath, [fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 12)), LOG_STATS: '1', STATIC_DIR: '.' },
+  : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 12)), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
 server?.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
@@ -93,7 +95,7 @@ for (let i = 0; i < clients; i++) {
       yaw += (Math.random() - 0.5) * 0.1;
       const fire = Math.random() < 0.5;
       pending.push({ seq, cmd: { buttons: fire ? 1 : 0, forward: 1, right: Math.sin(seq / 40), yaw, pitch: 0, firePresses: fire && seq % 8 === 0 ? [0.3] : [] } });
-      if (pending.length > 8) pending.shift();
+      if (pending.length > resend) pending.shift();
       sent.set(seq, performance.now());
       ws.send(JSON.stringify({ t: 'cmds', cmds: pending }));
     }, 1000 / 60);

@@ -96,6 +96,8 @@ export class GameClient {
   #lastJoin = -Infinity;
   #seq = 0;
   #pending: SequencedCmd[] = [];
+  /** Highest sequence number put on a reliable connection. */
+  #sentSeq = 0;
   readonly #sentAt = new Map<number, number>();
   #latest: Snapshot | null = null;
   /** The next snapshot replaces {@link #latest} whatever its tick. */
@@ -340,8 +342,22 @@ export class GameClient {
     // The server ignores input during the intermission, so prediction does too.
     const out = this.#local.step({ [this.#id]: this.#frozen ? [] : sent });
     this.#self = out.players.find((p) => p.id === this.#id) ?? null;
-    this.#connection.send(encode({ t: 'cmds', cmds: this.#pending.slice(-REDUNDANT_CMDS), ping: Math.round(this.#ping * 1000) }));
+    this.#sendCmds();
     return { self: this.#self, predicted: out.events, server };
+  }
+
+  /**
+   * Puts the usercmds on the wire: on a lossy connection the latest few each
+   * time, so a lost packet's arrive with the next; on a reliable one only those
+   * not yet sent, and none while the uplink is backing up, when they go
+   * together with the next.
+   */
+  #sendCmds(): void {
+    const connection = this.#connection;
+    if (connection.congested) return;
+    const cmds = connection.reliable ? this.#pending.filter((p) => p.seq > this.#sentSeq).slice(-REDUNDANT_CMDS) : this.#pending.slice(-REDUNDANT_CMDS);
+    this.#sentSeq = this.#seq;
+    connection.send(encode({ t: 'cmds', cmds, ping: Math.round(this.#ping * 1000) }));
   }
 
   /** The seat to ask for: this session's, or the one the page remembered. */

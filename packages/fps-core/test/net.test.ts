@@ -132,7 +132,7 @@ describe('joining', () => {
     expect(bob.status).toBe('closed');
     expect(bob.closeReason).toBe('idle');
     expect(alice!.client.status).toBe('joined');
-    expect(IDLE_TIMEOUT).toBe(60);
+    expect(IDLE_TIMEOUT).toBe(20);
   });
 
   it('enforces the player cap', () => {

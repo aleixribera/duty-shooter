@@ -161,11 +161,14 @@ export const SPAWN_PROTECTION = 1.5;
 export const DEFAULT_MAX_PLAYERS = 12;
 /**
  * Seconds a joined client may stay silent before its slot is let go. A playing
- * client sends every frame, pause menu included; only a stopped frame loop (a
- * background tab, a minimised window) goes quiet. Its player would otherwise
- * stand frozen in the match and keep the lobby from ever emptying.
+ * client sends every frame, pause menu included; only a dead link or a stopped
+ * frame loop (a background tab, a minimised window) goes quiet. Its player
+ * would otherwise stand frozen in the match, an easy kill, and keep the lobby
+ * from ever emptying. Their seat is held as for any drop.
  */
-export const IDLE_TIMEOUT = 60;
+export const IDLE_TIMEOUT = 20;
+/** Seconds a connection may stay open without joining. */
+const JOIN_TIMEOUT = 10;
 /**
  * Seconds a dropped player's seat is held. The match keeps running meanwhile,
  * bots and all, even with everyone gone; a player back in time picks up where
@@ -174,8 +177,17 @@ export const IDLE_TIMEOUT = 60;
 export const RECONNECT_GRACE = 300;
 const DEFAULT_MAX_MESSAGE = 8 * 1024;
 const DEFAULT_RATE = 180;
+/**
+ * Seconds of the message rate a connection may spend at once: a stalled link
+ * hands over everything it held in one go, and that is no flood.
+ */
+const RATE_BURST = 10;
+/** The reason a client gives when its player leaves on purpose: the seat isn't held for them. */
+const LEFT = 'client left';
 /** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
 const MAX_QUEUED_CMDS = 12;
+/** Ticks a spare usercmd must go unused before it is run off: every one queued is a tick of input delay. */
+const SPARE_TICKS = 60;
 const MAX_NAME = 16;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
 const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge']);
@@ -187,11 +199,14 @@ interface Client {
   /** Highest sequence number processed. */
   ack: number;
   readonly queue: Map<number, UserCmd>;
+  /** The fewest usercmds found waiting at a tick, over the last {@link SPARE_TICKS}: those are spares it never needed. */
+  spare: number;
+  spareTicks: number;
   /** The round trip (ms) the client last reported. */
   ping: number;
-  /** Messages counted in the current one-second window. */
-  messages: number;
-  windowStart: number;
+  /** Messages it may send now, refilled at the message rate. */
+  allowance: number;
+  refilled: number;
   /** Simulation time of the client's last message. */
   heard: number;
   /** The seat's secret, sent in the welcome; joining again with it takes the seat back after a drop. */
@@ -473,10 +488,14 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), ping: 0, messages: 0, windowStart: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), spare: Infinity, spareTicks: 0, ping: 0, allowance: this.#rate * RATE_BURST, refilled: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
-    connection.onClose(() => this.#drop(client));
+    connection.onClose((reason) => this.#drop(client, reason !== LEFT));
+  }
+
+  get #rate(): number {
+    return this.#options.maxMessagesPerSecond ?? DEFAULT_RATE;
   }
 
   #reject(client: Client, reason: RejectReason): void {
@@ -486,14 +505,13 @@ export class GameServer {
   }
 
   #receive(client: Client, data: string): void {
+    // What was already on its way when the connection was closed.
+    if (!this.#clients.has(client)) return;
     const now = this.simulation.time;
     client.heard = now;
-    if (now - client.windowStart >= 1) {
-      client.windowStart = now;
-      client.messages = 0;
-    }
-    client.messages += 1;
-    if (client.messages > (this.#options.maxMessagesPerSecond ?? DEFAULT_RATE)) {
+    client.allowance = Math.min(this.#rate * RATE_BURST, client.allowance + (now - client.refilled) * this.#rate) - 1;
+    client.refilled = now;
+    if (client.allowance < 0) {
       client.connection.close('rate limit');
       return;
     }
@@ -828,10 +846,10 @@ export class GameServer {
     this.#options.onLog?.(event);
   }
 
-  #drop(client: Client): void {
+  #drop(client: Client, hold = true): void {
     if (!this.#clients.delete(client) || client.id === null) return;
     this.#log({ event: 'leave', id: client.id, name: client.name, bot: false, script: client.script });
-    this.#hold(client);
+    if (hold) this.#hold(client);
     this.#remove(client.id);
     this.#seatsChanged();
   }
@@ -885,15 +903,25 @@ export class GameServer {
     const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd | UserCmd[]> = {};
     for (const client of [...this.#clients]) {
-      if (client.id === null) continue;
+      if (client.id === null) {
+        if (this.simulation.time - client.heard > JOIN_TIMEOUT) client.connection.close('join timeout');
+        continue;
+      }
       if (this.simulation.time - client.heard > (this.#options.idleTimeout ?? IDLE_TIMEOUT)) {
         client.connection.close('idle');
         continue;
       }
       const seqs = [...client.queue.keys()].sort((a, b) => a - b);
       // One usercmd per tick, so a client that ran dry once keeps a spare usercmd
-      // queued as a jitter buffer; two per tick only when well behind.
-      const take = seqs.slice(0, seqs.length > 3 ? 2 : 1);
+      // queued as a jitter buffer; two per tick when well behind, or to run off
+      // a spare it hasn't needed for a while.
+      client.spare = Math.min(client.spare, seqs.length);
+      const idle = ++client.spareTicks >= SPARE_TICKS && client.spare > 1;
+      if (client.spareTicks >= SPARE_TICKS) {
+        client.spare = Infinity;
+        client.spareTicks = 0;
+      }
+      const take = seqs.slice(0, seqs.length > 3 || idle ? 2 : 1);
       cmds[client.id] = take.map((seq) => {
         const cmd = client.queue.get(seq) as UserCmd;
         client.queue.delete(seq);

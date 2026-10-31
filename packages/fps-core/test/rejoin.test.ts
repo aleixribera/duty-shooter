@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RECONNECT_GRACE, anglesOf, buildNavGraph, createWorld, zoneCentre, type SpawnPoint } from '@duty-shooter/fps-core';
+import type { Connection } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -21,8 +22,13 @@ function match(options: Partial<NetworkedMatchOptions> = {}): NetworkedMatch {
 }
 
 /** Joins `name` (taking a held seat back with `resume`) and steps until it is in the game (fails after 3 s). */
+/** Each client's line, for cutting: a player who leaves on purpose gives their seat up. */
+const lines = new WeakMap<NetworkedClient, Connection>();
+
 function join(m: NetworkedMatch, name: string, options: { resume?: string; mode?: 'tdm' | 'ffa'; bots?: number } = {}): NetworkedClient {
-  const c = m.join(name, options);
+  const line = m.network.connect();
+  const c = m.join(name, { ...options, connection: line });
+  lines.set(c, line);
   for (let i = 0; i < ticks(3) && (c.client.status !== 'joined' || !c.latest?.self); i++) m.step();
   expect(c.client.status, `${name} joined`).toBe('joined');
   return c;
@@ -31,7 +37,7 @@ function join(m: NetworkedMatch, name: string, options: { resume?: string; mode?
 /** Closes the client's connection and steps until the server has let it go. */
 function drop(m: NetworkedMatch, c: NetworkedClient): void {
   const before = m.server.playerCount;
-  c.client.close();
+  lines.get(c)?.close('network went away');
   while (m.server.playerCount === before) m.step();
 }
 

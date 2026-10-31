@@ -134,6 +134,8 @@ const DEFLATE = { zlibDeflateOptions: { level: 3 }, threshold: 256, concurrencyL
 /** Wrong passphrases allowed per address before it is locked out for a while. */
 const MAX_FAILED_JOINS = 10;
 const LOCKOUT_MS = 10 * 60 * 1000;
+/** Addresses with wrong passphrases on record before the expired ones are cleared out. */
+const MAX_TRACKED = 1000;
 /** Open sockets allowed per address, joined or not (a household behind one NAT, the 8-bot load test). */
 const MAX_SOCKETS_PER_ADDRESS = 12;
 
@@ -141,6 +143,8 @@ const MAX_SOCKETS_PER_ADDRESS = 12;
 const CONGESTED = 64 * 1024;
 const MAX_BUFFERED = 1024 * 1024;
 const SNAPSHOT_PREFIX = '{"t":"snap"';
+/** Ticks in a row that may fail before the server restarts (Compose brings it back). */
+const MAX_TICK_FAILURES = 60;
 
 const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 
@@ -179,6 +183,7 @@ class AddressGuard {
   }
 
   failedJoin(address: string, now: number): void {
+    if (this.#failures.size > MAX_TRACKED) for (const [known, entry] of this.#failures) if (now - entry.since > LOCKOUT_MS) this.#failures.delete(known);
     const failures = this.#failures.get(address);
     if (failures) failures.count += 1;
     else this.#failures.set(address, { count: 1, since: now });
@@ -197,8 +202,17 @@ function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void)
       return;
     }
     const text = data.toString();
-    if (onMessage) onMessage(text);
-    else inbox.push(text);
+    if (!onMessage) {
+      inbox.push(text);
+      return;
+    }
+    try {
+      onMessage(text);
+    } catch (error) {
+      // One client's bad message ends that client, not everyone's match.
+      console.error('A message failed:', error);
+      socket.terminate();
+    }
   });
   socket.on('close', (_code, reason) => {
     if (closed) return;
@@ -354,12 +368,14 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(game.status()));
       return;
     }
-    void serveStatic(root, req, res);
+    serveStatic(root, req, res).catch(() => res.destroy());
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: DEFLATE });
   const guard = new AddressGuard();
   http.on('upgrade', (req, socket, head) => {
-    if (new URL(req.url ?? '/', 'http://x').pathname !== '/ws' || !sameOrigin(req)) {
+    // Http stops watching the socket here: a reset before ws takes it over would otherwise end the process.
+    socket.on('error', () => socket.destroy());
+    if ((req.url ?? '/').split('?')[0] !== '/ws' || !sameOrigin(req)) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
@@ -383,11 +399,20 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const tickMs = TICK_SECONDS * 1000;
   let next = performance.now();
   let timer: NodeJS.Timeout | null = null;
+  let failures = 0;
   const loop = () => {
     const now = performance.now();
     let ran = 0;
     while (now >= next && ran < 5) {
-      game.tick();
+      try {
+        game.tick();
+        failures = 0;
+      } catch (error) {
+        // A tick that fails is lost; the match goes on. One that keeps failing won't mend: a fresh start beats a frozen lobby.
+        console.error('A tick failed:', error);
+        failures += 1;
+        if (failures >= MAX_TICK_FAILURES) process.exit(1);
+      }
       next += tickMs;
       ran += 1;
     }
