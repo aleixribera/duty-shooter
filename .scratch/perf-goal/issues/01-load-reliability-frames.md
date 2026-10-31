@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3
 
 ## What was asked
 
@@ -11,44 +11,48 @@ Every screen and button loading at least 10x faster, online 10x more reliable,
 ## Results
 
 Measured with `apps/range/scripts/perf.mjs` and `chaos.mjs` on the production
-build, this PC (RTX 5060), headless Chrome, while other sessions ran. v2.84 is
-`baseline.json`.
+build of v2.89.3, this PC (RTX 5060), headless Chrome, while other sessions ran.
+v2.84 is `baseline.json`. Ranges are across the final runs.
 
 | Measure | v2.84 | Now | Factor |
 | --- | --- | --- | --- |
-| Return visit to menu | 1431 ms | 122 ms | 11.7x |
-| First visit to menu (50 Mbit, 40 ms) | 1163 ms | 313 ms | 3.7x |
-| Bot Match, Start to play, default map | 5035 ms | 88-101 ms | 50x |
-| Bot Match on Crash, 8 s in the lobby | not measured | 157 ms | |
-| Bot Match on Crash, Start straight after picking | not measured | 5168 ms | |
-| Practice Range | 6937 ms | 1502 ms | 4.6x |
-| Frames: fps | 361 | 385 | 1.07x |
-| Frames: p99 | 7.2 ms | 6.4 ms | 1.1x |
-| Frames: p99.9 | 18.5 ms | 9.7 ms | 1.9x |
-| Frames: worst | 94.5 ms | 26.1 ms | 3.6x |
+| Return visit to menu | 1431 ms | 82-156 ms | 9-17x |
+| First visit to menu (50 Mbit, 40 ms) | 1163 ms | 215-412 ms | 2.8-5.4x |
+| Bot Match, Start to play | 5035 ms | 90-118 ms | 43-56x |
+| Bot Match on Crash, Start straight after picking | not measured | 5168 ms (before these shaders moved; not re-measured) | |
+| Practice Range, page settled | 6937 ms | 162-215 ms | 32-43x |
+| Practice Range, page not settled | 6937 ms | about 1.8 s | about 4x |
+| Play Online, click to joined | not measured | 88 ms, about 10 ms rejoining | |
+| Menu click to paint, worst, page settled or not | 36 ms (no menu until loaded) | 83 ms (under 40 ms past the first two clicks) | worse, on a menu that used to not exist yet |
+| Frames: fps | 361 | 360-387 | 1.0-1.07x |
+| Frames: p99 | 7.2 ms | 5.9-6.5 ms | 1.2x |
+| Frames: p99.9 | 18.5 ms | 10-11.1 ms | 1.7-1.9x |
+| Frames: worst | 94.5 ms | 17-25 ms | 3.8-5.5x |
 | Frames: over 33 ms, 45 s | 7 | 0 | |
 | Long tasks in play, 45 s | 3 (worst 106 ms) | 0 | |
 | Link cuts and stalls survived | 0 of 12 (each ended the session) | 12 of 12 | |
 
+One of the six final play samples was bad: worst frame 405 ms, 10 long tasks. It
+was the run with most else going on, and the same build straight after was
+clean twice, so it is put down to the PC; it was not traced.
+
 ## Targets not reached
 
-- First visit is 3.7x, not 10x. 304 ms of it is first paint on a 40 ms link, the
-  same as before; 116 ms is below what the round trips allow.
-- Practice Range is 4.6x. It is a map change with no lobby to prepare behind: new
-  materials rebuild their shaders on the main thread and every model is parsed
-  again for the new Game.
-- Frame rate is 1.07x. A frame was already 2.5 ms; the gain is in the worst
-  frames, not the average.
-- For about the first 1.3 s of a page (2 s on a first visit) the menu is up while
-  the engine's first frame builds shaders: a click then can wait 350 ms on a
-  return visit, about 1.1 s on a first one. Those are the only long tasks left.
-- A map's first frame on Crash takes 2 s of main thread, so a Start pressed
-  before the lobby's preparation ends waits for it (5.2 s at worst).
-- Crash showed one isolated stall per run (136 ms, 231 ms), with no long task and
-  no slow JavaScript frame in the profile, so outside the page's own thread;
-  survival-town showed none in 45 s. Cause not found.
-- WebGL2 was only checked to work: a Practice Range entry took about 36 s
-  headless, unmeasured against v2.84.
+- First visit is 2.8-5.4x, not 10x. Its first paint is the round trips on a 40 ms
+  link, 300 ms or more, the same as before.
+- Frame rate is 1.0-1.07x, and p99 1.2x: a frame was already 2.5 ms. The gain is in
+  the worst frames, and not to 10x either.
+- "Every micro-stutter": no frame over 33 ms in the clean runs, but 1-2 over 16 ms
+  in 45 s remain.
+- In the first 1.3 s of a page, stalls of about 80, 220 and 190 ms remain: the
+  first game's constructor and one shader graph too big to split. Menus work
+  between them, and a click landing in one waits for it.
+- A Start pressed before a map's preparation ends waits for it.
+- Practice Range before the page has settled takes about 1.8 s.
+- WebGL2 was only checked to work: about 36 s headless for Practice Range.
+- Crash's isolated stall did not show in the last three 25-45 s runs; its cause
+  was never found, so it may be gone or just rare.
+- Keeping Practice Range ready costs 60-160 MB of heap, skipped under 4 GB.
 
 ## Comments
 
@@ -74,7 +78,18 @@ build, this PC (RTX 5060), headless Chrome, while other sessions ran. v2.84 is
   are not freed and rebuilt.
 - Sharing parsed models between Games was rejected: six consumers mutate and
   dispose what they load, so it risks hitches and broken models for an estimated
-  500 ms on Practice Range. Slicing the first frame was rejected too: the warm-up relies
-  on drawing everything in one frame, and it would show behind the menu.
+  500 ms on Practice Range. Slicing the first frame was first rejected, then done: the
+  shaders now build a piece at a time with nothing drawn (`GamePipeline.compile`), and
+  only the one full frame that remains waits for a rest.
 - Screen fades (120 ms) are gone: content had painted and then faded in. Hover
   and press feedback stay.
+- Practice Range's game is built ahead and kept off screen, because it has no
+  lobby to prepare behind. It is what makes the click 170 ms.
+- Background work gives way to the player: the spare game and the full frame wait
+  for 1.2 s without input, and shader pieces for 300 ms after a press. Mouse
+  movement doesn't hold the pieces back, or wiggling it would hold back the world
+  behind the menu. Anything that plays ends both waits.
+- The reflection map is kept per renderer: it never differs between maps.
+- Design audit, 2026-10-31 (`docs/design-audit/2026-10-31.md`): 41 findings, none
+  from this work, and left for their own ticket. The first paint's plain menu was
+  looked at by hand on desktop and phone.
