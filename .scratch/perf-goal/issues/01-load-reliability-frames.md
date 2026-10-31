@@ -1,7 +1,7 @@
 # Load times, online reliability and frame pacing
 
 Status: resolved
-Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2
+Release: v2.85.0, v2.86.0, v2.87.0, v2.88.0, v2.89.0, v2.89.1, v2.89.2, v2.89.3, v2.91.1, v2.91.2, v2.91.3
 
 ## What was asked
 
@@ -127,3 +127,12 @@ clean twice, so it is put down to the PC; it was not traced.
   worst click 891 against 66 ms) because the frame still builds them.
 - Fixed: a press before the engine was up threw on `sound.unlocked`, and did not
   count toward starting sound.
+- Fixed: a first press built the gunshot bank and the reverb inside the press (about 150 ms);
+  it now waits for the worker's samples, up to 2 s, and only starts the context there. The
+  map's models arrived after `compile` had taken its list, so the first ordinary frame built
+  their shaders (614 ms of a 1.2 s frame); `Game.prepare` now waits for `modelsIn`. A/B
+  interleaved, CPU 83-86%, 4 rounds: first visit blocked 3334 to 2374 ms, worst long task
+  1402 to 722; return visit blocked 2086 to 1019, worst long task 896 to 378. Worst click
+  stays noisy: return 453 to 347, first 294 to 385.
+- Checked: a press 113 ms into the document starts sound. An earlier "no sound at 900 ms"
+  was the script pressing on `about:blank`: `Page.navigate` returns before the commit.

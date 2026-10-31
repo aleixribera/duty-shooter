@@ -390,6 +390,8 @@ export class Game {
 
   async #prepare(moment?: () => Promise<void>, breath?: () => Promise<void>): Promise<void> {
     this.#holding = true;
+    // Compiling takes its list of objects at once, so the models have to be in it.
+    await this.#worldView.modelsIn;
     await this.#pipeline.compile(breath).catch(() => undefined);
     this.#holding = false;
     await this.preload();

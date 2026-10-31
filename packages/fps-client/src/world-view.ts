@@ -287,6 +287,8 @@ export class WorldView {
   /** Standard materials already switched to probe lighting. */
   readonly #lit = new WeakSet<object>();
   readonly #sign: PopulationSign | null = null;
+  /** Settles once the map's models are in the scene, or have failed to load. */
+  readonly modelsIn: Promise<void> = Promise.resolve();
 
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
@@ -320,7 +322,7 @@ export class WorldView {
       if (content.horizon.town) this.#root.add(distantTown(content.horizon.town));
     }
     if (content.models) {
-      void loadMapModels(content.models, layout.finishes).then(
+      this.modelsIn = loadMapModels(content.models, layout.finishes).then(
         (group) => {
           this.#lightObject(group);
           this.#root.add(group);

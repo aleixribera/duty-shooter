@@ -165,6 +165,9 @@ function finiteOr(v: number | undefined, fallback: number): number {
   return v !== undefined && Number.isFinite(v) ? v : fallback;
 }
 
+/** How long (ms) a first press's sound waits for the worker before rendering on the page instead. */
+const WORKER_WAIT_MS = 2000;
+
 export function createSoundSystem(options?: { volume?: number }): SoundSystem {
   let ctx: AudioContext | null = null;
   let graph: Graph | null = null;
@@ -427,16 +430,22 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
         }
         rememberSampleRate(ctx.sampleRate);
         const resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume().catch(() => undefined);
-        try {
-          graph = buildGraph(ctx);
-          applied = null;
-          applyListener();
-          warmAll(ctx);
-        } catch (err) {
-          graph = null;
-          console.warn('[audio] failed to build the audio graph', err);
-        }
-        await resumed;
+        // The context has to start inside the press, but rendering here would hold that press up: with the worker's samples in, the rest is copies.
+        const c = ctx;
+        await Promise.all([
+          resumed,
+          Promise.race([prerendering, new Promise((done) => setTimeout(done, WORKER_WAIT_MS))]).then(() => {
+            try {
+              graph = buildGraph(c);
+              applied = null;
+              applyListener();
+              warmAll(c);
+            } catch (err) {
+              graph = null;
+              console.warn('[audio] failed to build the audio graph', err);
+            }
+          }),
+        ]);
         return;
       }
       if (ctx.state !== 'running') {

@@ -15,7 +15,7 @@ Two tests hold the lines: `packages/fps-core/test/purity.test.ts` keeps the core
 
 Each package's entry points are its `package.json` `exports`; import through those, not deep paths. The page's first load is `@duty-shooter/fps-client/ui` and `apps/range/src/main.ts`, which reach no three.js so the menu appears before the engine: anything drawn with three.js goes through `apps/range/src/engine.ts`, and a menu action that needs it runs inside `whenUp`.
 
-Work behind the menus has to stay out of a click's way. `Game.prepare` builds a map's shaders one object at a time (`GamePipeline.compile`) and gives way after each press (`breath` in `main.ts`). What can't be split, the first full frame and the Practice Range game kept ready off screen (`keepRangeReady`, skipped under 4 GB), waits for `restMoment`. Anything that plays calls `ready()` or `useMap`, which end those waits. A menu step in `perf.mjs` over about 60 ms means something new landed outside them.
+Work behind the menus has to stay out of a click's way. `Game.prepare` waits for the map's models (`WorldView.modelsIn`), since compiling takes its list of objects at once, then builds their shaders one object at a time (`GamePipeline.compile`) and gives way after each press (`breath` in `main.ts`). What can't be split, the first full frame and the Practice Range game kept ready off screen (`keepRangeReady`, skipped under 4 GB), waits for `restMoment`. Anything that plays calls `ready()` or `useMap`, which end those waits. A menu step in `perf.mjs` over about 60 ms means something new landed outside them.
 
 ## Adding things
 
