@@ -40,7 +40,7 @@ To play online locally:
    | Variable | Default | |
    | --- | --- | --- |
    | `PASSPHRASE` | empty | Required to join; empty is a public lobby. |
-   | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash` or `range`. |
+   | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash`, `range` or `zero-island` (with bots it reads its nav from the built app in `STATIC_DIR`). |
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge` or `gungame`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
    | `MAX_PLAYERS` | `12` | Seats, bots included. At most `32`, `60` with `NET=wide`. |

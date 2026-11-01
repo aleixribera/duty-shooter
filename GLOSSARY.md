@@ -205,7 +205,7 @@ _Avoid_: co-op, PvE
 An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page and plays a match as the online lobby does: you are the host and start it from the lobby page, and after the ending and the scoreboard you are back on that page with the last match's result, to pick again and press Start. What stays its own: it is offline, the match pauses with the game, a size of your own lasts across matches, there are no pings or invite, and Back (or Esc) on the page returns to the main menu.
 
 **Nav graph**:
-The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots.
+The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots. A small map's is generated when a server starts; a large map's is built ahead of time, shipped as data and searched in levels: Regions, then clusters, then nodes (ADR 0008).
 
 **Danger spot**:
 Where an enemy killed a bot's teammate (as roughly as a callout would put it) or the bot itself (exactly), kept in that bot's mind for 25 s and through its respawn. Bots route out of its sight, check it on the way past, and trade or watch it by how careful they are.

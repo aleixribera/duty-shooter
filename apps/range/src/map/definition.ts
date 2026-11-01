@@ -123,6 +123,8 @@ export interface MapDefinition {
   readonly playArea: readonly (readonly [number, number])[] | null;
   /** How bots' nav graph is generated from the collision, or null for a map bots don't play. */
   readonly nav: NavOptions | null;
+  /** Where the build leaves a large map's nav, relative to the app; such a map has `nav` null, as nothing generates it at run time. */
+  readonly navFile?: string;
   /** The map's own value for every entry of its reference file. */
   readonly measurements: readonly Measured[];
 }

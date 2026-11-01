@@ -1,10 +1,10 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { extname, normalize, resolve, sep } from 'node:path';
-import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, type Connection, type GameServerOptions, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
+import { extname, join, normalize, resolve, sep } from 'node:path';
+import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, decodeLargeNav, type Connection, type GameServerOptions, type NavGraph, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
@@ -73,8 +73,8 @@ const TYPES: Readonly<Record<string, string>> = {
   '.glb': 'model/gltf-binary',
 };
 
-/** Types worth compressing: the code and the models. Pictures, fonts and the lighting bake are compressed already. */
-const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.wasm', '.glb']);
+/** Types worth compressing: the code, the models and a large map's nav. Pictures, fonts and the lighting bake are compressed already. */
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.wasm', '.glb', '.nav']);
 const brotli = promisify(brotliCompress);
 const gzipped = promisify(gzip);
 
@@ -341,9 +341,19 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const root = resolve(options.staticDir);
   const maxBots = options.maxBotsPerTeam ?? 0;
-  /** A map as the game server runs it, its nav graph built when bots are on. */
+  /** A map's nav: a large map's from the build, a small map's generated now. */
+  const navOf = (def: MapDefinition, world: ServerMap['world']): NavGraph | null => {
+    if (def.navFile) {
+      const file = join(root, def.navFile);
+      if (!existsSync(file)) throw new Error(`${file} is missing: build the range app first.`);
+      return decodeLargeNav(readFileSync(file));
+    }
+    return def.nav ? buildNavGraph(world, def.nav) : null;
+  };
+  /** A map as the game server runs it, its nav graph ready when bots are on. */
   const serverMap = (def: MapDefinition): ServerMap => {
     const world = createWorld(mapSolids(def), { ladders: def.ladders ?? [], terrain: def.terrain });
+    const nav = maxBots > 0 ? navOf(def, world) : null;
     return {
       id: def.id,
       world,
@@ -351,7 +361,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       ...(def.spawns.teams ? { teamSpawns: def.spawns.teams } : {}),
       zones: def.zones,
       sites: def.sites,
-      ...(def.nav && maxBots > 0 ? { nav: buildNavGraph(world, def.nav) } : {}),
+      ...(nav ? { nav } : {}),
       teamSize: TEAM_SIZES[def.id],
     };
   };

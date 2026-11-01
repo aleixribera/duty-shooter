@@ -9,6 +9,7 @@ import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
 import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, type NavGraph } from './nav';
+import { longSightlines, navMiddle, nodesNear } from './nav-queries';
 import type { BotProfile } from './profile';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
@@ -894,7 +895,8 @@ export class Bot {
     const nodes = this.#nav.nodes;
     let best = nearestNode(this.#nav, this.#world, from);
     let bestScore = -Infinity;
-    for (const [i, n] of nodes.entries()) {
+    for (const i of nodesNear(this.#nav, from, FLEE_SEARCH)) {
+      const n = nodes[i]!;
       const run = flat(from, n.position);
       if (run > FLEE_SEARCH || Math.abs(n.position[1] - from[1]) > 2.5) continue;
       const away = flat(blast, n.position);
@@ -1158,7 +1160,8 @@ export class Bot {
     const away = flat(from, threat);
     let best: number | null = null;
     let bestRun = Infinity;
-    for (const [i, n] of this.#nav.nodes.entries()) {
+    for (const i of nodesNear(this.#nav, from, SHELTER_SEARCH)) {
+      const n = this.#nav.nodes[i]!;
       const run = flat(from, n.position);
       if (run > SHELTER_SEARCH || run >= bestRun || Math.abs(n.position[1] - from[1]) > 2.5 || flat(n.position, threat) < away - 2) continue;
       if (!sightBlocked(this.#world, threat, [n.position[0], n.position[1] + 1.2, n.position[2]])) continue;
@@ -1291,10 +1294,10 @@ export class Bot {
     }
     // Inside its objective, if it has one; a sniper picks among the spots with a long view.
     const inside = view.objective ? this.#nodesIn(view.objective) : [];
-    const lanes = TACTICS[self.weapon.id].scoped ? this.#longSightlines() : [];
+    const lanes = TACTICS[self.weapon.id].scoped ? longSightlines(this.#nav) : [];
     const pool = inside.length > 0 ? inside : lanes.length > 0 ? lanes : null;
     const candidates = Array.from({ length: 16 }, (_, k) => (pool ? pool[Math.floor(r(30 + k) * pool.length)]! : Math.floor(r(30 + k) * nodes.length)));
-    if (hunch) candidates.push(nearestTo(nodes, hunch));
+    if (hunch) candidates.push(this.#nav.index ? this.#nav.index.closest(hunch, 1)[0]! : nearestTo(nodes, hunch));
     let best = 0;
     let bestScore = -Infinity;
     for (const [k, i] of candidates.entries()) {
@@ -1317,22 +1320,18 @@ export class Bot {
     return best;
   }
 
-  #lanes: number[] | null = null;
   #inside: { objective: BotObjective; nodes: number[] } | null = null;
 
   /** The nav nodes inside an objective (the nearest one when none is). */
   #nodesIn(objective: BotObjective): readonly number[] {
     if (this.#inside?.objective !== objective) {
-      const nodes = this.#nav.nodes.flatMap((n, i) => (flat(n.position, objective.position) <= objective.radius * 0.8 && Math.abs(n.position[1] - objective.position[1]) < 2 ? [i] : []));
+      const nodes = nodesNear(this.#nav, objective.position, objective.radius).filter((i) => {
+        const n = this.#nav.nodes[i]!;
+        return flat(n.position, objective.position) <= objective.radius * 0.8 && Math.abs(n.position[1] - objective.position[1]) < 2;
+      });
       this.#inside = { objective, nodes: nodes.length > 0 ? nodes : [nearestNode(this.#nav, this.#world, objective.position)] };
     }
     return this.#inside.nodes;
-  }
-
-  /** The nav nodes with a long view, for holding a lane with a sniper rifle. */
-  #longSightlines(): readonly number[] {
-    this.#lanes ??= this.#nav.nodes.flatMap((n, i) => (n.sightline >= LONG_SIGHTLINE ? [i] : []));
-    return this.#lanes;
   }
 
   /** Which way to watch while holding: toward the newest noise or danger spot, else toward the middle of the map. */
@@ -1341,14 +1340,7 @@ export class Bot {
     for (const m of this.#memory.values()) if (!latest || m.time > latest.time) latest = m;
     for (const d of this.#dangers) if ((!latest || d.time > latest.time) && this.#lastTime - d.time < DANGER_MEMORY) latest = d;
     if (latest) return yawTo(at, latest.position);
-    const nodes = this.#nav.nodes;
-    let cx = 0;
-    let cz = 0;
-    for (const n of nodes) {
-      cx += n.position[0];
-      cz += n.position[2];
-    }
-    return yawTo(at, [cx / nodes.length, 0, cz / nodes.length]);
+    return yawTo(at, navMiddle(this.#nav));
   }
 
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */

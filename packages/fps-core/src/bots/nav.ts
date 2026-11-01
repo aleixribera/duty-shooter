@@ -45,6 +45,21 @@ export interface NavGraph {
   readonly nodes: readonly NavNode[];
   /** Outgoing links per node. */
   readonly links: readonly (readonly NavLink[])[];
+  /** A large map's way of answering without walking every node (see large-nav.ts); a small map has none. */
+  readonly index?: NavIndex;
+}
+
+/** What a large map answers for itself. */
+export interface NavIndex {
+  /** The nodes within `radius` (m) of `p` on the ground plane, ascending. */
+  near(p: Vec3, radius: number): readonly number[];
+  /** The `count` nodes nearest `p`, nearest first, by distance with height counted threefold. */
+  closest(p: Vec3, count: number): readonly number[];
+  route(from: number, to: number, extra?: (node: number) => number): number[] | null;
+  linkKind(a: number, b: number): NavLinkKind | null;
+  regionOf(node: number): number;
+  /** The Regions on the best way from one to another, ascending. */
+  regionsBetween(a: number, b: number): readonly number[];
 }
 
 /** What a map supplies to generate its graph. */
@@ -80,7 +95,7 @@ const HINT_CLIMB_REACH = 3.6;
 /** A climb takes about this many metres' worth of walking. */
 const CLIMB_COST = 4;
 
-function insidePolygon(poly: readonly (readonly [number, number])[], x: number, z: number): boolean {
+export function insidePolygon(poly: readonly (readonly [number, number])[], x: number, z: number): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [xi, zi] = poly[i]!;
@@ -106,7 +121,7 @@ function floorUnder(world: World, x: number, y: number, z: number, reach: number
  * hull fits there with floor under its centre and all four quarters, so
  * nodes sit on real floor, not a fence top or an edge.
  */
-function restingHeight(world: World, x: number, y: number, z: number): number | null {
+export function restingHeight(world: World, x: number, y: number, z: number): number | null {
   const h = standingHeight(world, [x, y, z], STAND, y + 0.35);
   if (h === null) return null;
   if (floorUnder(world, x, h + 0.02, z, h - y + 0.06) === null) return null;
@@ -167,7 +182,7 @@ function traverse(world: World, a: Vec3, b: Vec3): 'walk' | 'drop' | null {
 }
 
 /** True when nothing between `a` and `b` stands taller than a mantle reaches (a cheap test before trying the climb). */
-function climbable(world: World, a: Vec3, b: Vec3): boolean {
+export function climbable(world: World, a: Vec3, b: Vec3): boolean {
   const y = a[1] + MAX_CLIMB + 0.3;
   const from: Vec3 = [a[0], y, a[2]];
   const to: Vec3 = [b[0], y, b[2]];
@@ -179,7 +194,7 @@ function climbable(world: World, a: Vec3, b: Vec3): boolean {
  * jump when blocked (a mantle), and see whether the player ends up standing
  * on `b`.
  */
-function climbs(world: World, a: Vec3, b: Vec3): boolean {
+export function climbs(world: World, a: Vec3, b: Vec3): boolean {
   const yaw = Math.atan2(-(b[0] - a[0]), -(b[2] - a[2]));
   const state = createMoveState(a, yaw);
   const limit = Math.ceil(3 / TICK_SECONDS);
@@ -385,6 +400,19 @@ const NEAREST_TRIED = 8;
  * to the nearest in sight, then the nearest at all.
  */
 export function nearestNode(graph: NavGraph, world: World, p: Vec3): number {
+  const close = graph.index ? graph.index.closest(p, NEAREST_TRIED) : closestNodes(graph, p);
+  for (const i of close) {
+    const n = graph.nodes[i]!.position;
+    if (n[1] - p[1] <= STEP + 0.01 && traverse(world, p, n) !== null) return i;
+  }
+  for (const i of close) {
+    const n = graph.nodes[i]!.position;
+    if (raycastWorld(world, [p[0], p[1] + 0.5, p[2]], [n[0], n[1] + 0.5, n[2]]) === null) return i;
+  }
+  return close[0] ?? 0;
+}
+
+function closestNodes(graph: NavGraph, p: Vec3): number[] {
   // The closest few in order, ties to the lower node: bots ask this on every plan, and a sort of every node is most of its cost.
   const close: number[] = [];
   const far: number[] = [];
@@ -401,19 +429,12 @@ export function nearestNode(graph: NavGraph, world: World, p: Vec3): number {
     close[at] = i;
     far[at] = d;
   }
-  for (const i of close) {
-    const n = graph.nodes[i]!.position;
-    if (n[1] - p[1] <= STEP + 0.01 && traverse(world, p, n) !== null) return i;
-  }
-  for (const i of close) {
-    const n = graph.nodes[i]!.position;
-    if (raycastWorld(world, [p[0], p[1] + 0.5, p[2]], [n[0], n[1] + 0.5, n[2]]) === null) return i;
-  }
-  return close[0] ?? 0;
+  return close;
 }
 
 /** A* from node `from` to node `to`; the nodes along the way (both ends included), or null when there is no way. `extra` adds cost per node (to steer round danger). */
 export function findPath(graph: NavGraph, from: number, to: number, extra?: (node: number) => number): number[] | null {
+  if (graph.index) return graph.index.route(from, to, extra);
   const goal = graph.nodes[to]!.position;
   const h = (i: number) => {
     const p = graph.nodes[i]!.position;
@@ -451,10 +472,10 @@ export function findPath(graph: NavGraph, from: number, to: number, extra?: (nod
 
 /** The kind of the link from `a` to `b`, if there is one. */
 export function linkKind(graph: NavGraph, a: number, b: number): NavLinkKind | null {
-  return graph.links[a]!.find((l) => l.to === b)?.kind ?? null;
+  return graph.index ? graph.index.linkKind(a, b) : (graph.links[a]!.find((l) => l.to === b)?.kind ?? null);
 }
 
-class MinHeap {
+export class MinHeap {
   readonly #items: number[] = [];
   readonly #keys: number[] = [];
 

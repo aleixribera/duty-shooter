@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite';
 import { bakeLighting } from './bake/plugin.ts';
+import { largeMapNav } from './nav/plugin.ts';
 
 /** In dev, the game server (apps/server, port 3000, or DUTY_SERVER) is reached through Vite's proxy, as it is same-origin in production. */
 const SERVER = process.env['DUTY_SERVER'] ?? 'http://localhost:3000';
 
 export default defineConfig({
   // Each map's lighting, baked on the CPU at build time (served as bake/<map>.bin).
-  plugins: [bakeLighting(['survival-town', 'switchyard', 'crash', 'range'])],
+  plugins: [bakeLighting(['survival-town', 'switchyard', 'crash', 'range']), largeMapNav()],
   server: {
     proxy: {
       '/ws': { target: SERVER, ws: true },

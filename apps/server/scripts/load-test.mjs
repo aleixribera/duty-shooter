@@ -15,6 +15,7 @@
 // (LOAD_TEST_SOCKETS), which only the machine itself gets. WARMUP=s plays that
 // long before measuring; the tick costs are reported whole windows at a time,
 // so measure in tens of seconds.
+// STATIC_DIR serves a built app, for a map whose nav comes from the build (MAP=zero-island).
 // Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -77,7 +78,7 @@ let measuring = false;
 const server = target
   ? null
   : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(clients > 12 ? { LOAD_TEST_SOCKETS: String(clients) } : {}), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(clients > 12 ? { LOAD_TEST_SOCKETS: String(clients) } : {}), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: process.env.STATIC_DIR ?? fileURLToPath(new URL('.', import.meta.url)) },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
 /** The server's LOG_STATS lines since measuring started. */

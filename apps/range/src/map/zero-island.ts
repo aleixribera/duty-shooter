@@ -217,6 +217,14 @@ export function buildZeroIsland(): MapDefinition {
     lookAt('rogue-harbor', 0, -90, south),
   ];
   const spawn: SpawnPoint = { position: [CORES['ground-zero'].x, at(8, 150, 0), 150], yaw: 0 };
+  // Round each Core, outside what stands in it: ticket 07's random spawns replace these.
+  const roundCores = REGION_IDS.flatMap((id) => {
+    const { x, z, radius } = CORES[id];
+    return [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([dx, dz]): SpawnPoint => {
+      const [sx, sz] = [x + dx! * (radius + 8), z + dz! * (radius + 8)];
+      return { position: [sx, at(sx, sz, 0), sz], yaw: 0 };
+    });
+  });
   const flight = (x: number, z: number, yaw: number): CameraKey => ({ position: [x, at(x, z, 3), z], yaw, pitch: -0.05 });
   // The widest views there are: over the crater to the peaks, the city in front of the island, and back along the south coast.
   const benchmarkPath: CameraKey[] = [
@@ -244,7 +252,7 @@ export function buildZeroIsland(): MapDefinition {
     nuke: null,
     train: null,
     ambience: [{ kind: 'wind' }],
-    spawns: { ffa: [spawn], teams: null },
+    spawns: { ffa: [spawn, ...roundCores], teams: null },
     zones: [],
     sites: [],
     offlineSpawn: spawn,
@@ -258,6 +266,7 @@ export function buildZeroIsland(): MapDefinition {
     flyThrough: [],
     playArea: outline,
     nav: null,
+    navFile: 'nav/zero-island.nav',
     measurements: [],
   };
 }
