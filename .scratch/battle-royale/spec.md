@@ -136,6 +136,8 @@ The whole thing costs €0 a month and runs on the existing server.
 83. As a sniper, I want a few long lanes and open risky ground, so that my weapon still has a role.
 84. As a player, I want every Region to feel dense in its own way, so that the island feels like a real place.
 85. As a player hiding in foliage, I want bots to be unable to see me through it, so that concealment works against them too.
+86. As a player, I want every area to offer places to hide and ways to work around an enemy, so that even open ground has a game in it.
+87. As a player, I want bots to use cover, hide and flank too, so that they're as hard to pin down as a person.
 
 ### The redesigned UI
 
@@ -215,7 +217,8 @@ Update stale entries as they're touched, including the Charge-only spectator and
   - **Hard cover:** rocks, walls, wrecks, trunks and terrain stop bullets, and sit within a short sprint of anywhere a player can stand.
   - **Soft cover:** bushes, tall grass and foliage hide a player but don't stop bullets. Bots' sight has to respect them, so a bot never aims through a bush it couldn't see through.
   - **Region character:** dense forest in the Jungle, pines and rock outcrops on the Peaks, canyons and boulders in the Dustlands, scrub and pylons around Ground Zero, trees and walls on the approaches to the city and harbour.
-  - **Measured, not judged by eye:** a sightline test samples standing points across the island. Targets to tune from: median clear line of sight about 60 m or less, and every standing point within about 25 m of hard cover. The crater floor, airstrip and a few long lanes stay deliberately open and risky, so the sniper keeps a place.
+  - **No bare area anywhere:** a Region can be fairly open, but every area gives players and bots plenty to hide in and play around, including the crater floor, the airstrip, the snowfields and the desert. That means ditches, culverts, sheds, rock clusters, wreckage, crates, low walls and foliage, with more than one way through each area.
+  - **Measured, not judged by eye:** a sightline test samples standing points across the island. Targets to tune from, with no exceptions for any area: every standing point within about 15 m of hard cover, median clear line of sight about 50 m or less. Snipers keep a role through a few narrow long lanes and high spots, which have to be earned by moving to them, never through open ground.
   - **Frame budget:** vegetation is instanced with distance LOD and has to hold the 60 fps target.
 - **Boundary:** the sea's edge is a Boundary. Wadeable water slows movement slightly and sounds different. There's no swimming, and no deep water a player can reach.
 - **Art:** every model comes from a Blender generator script, is checked in preview renders and then in the game, as the repo's rule for map art says.
@@ -233,6 +236,7 @@ Update stale entries as they're touched, including the Charge-only spectator and
 - **Brains:** far-from-humans bots think less often and may use simplified movement and fights, as long as outcomes stay believable. Bots near humans run at full rate.
 - **Behaviour:** routes to the next circle, fights other Squads, moves as a Squad and Revives. Existing bot styles and moderate skill stay, with no difficulty setting, and tuning targets a good player's win rate of about 1 in 4.
 - **Fair target choice:** bots pick targets without any preference for humans.
+- **Using the ground:** bots move between cover, hide in foliage and hard cover when hurt or outgunned, and flank instead of standing in the open. Cover spots come from the same build output as nav.
 
 ### Netcode
 
