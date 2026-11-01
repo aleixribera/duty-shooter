@@ -6,11 +6,13 @@ import { GameServer, type BotOptions, type GameServerOptions, type LobbyEvent } 
 import { TICK_SECONDS, type PlayerSpawn, type TickOutput } from '../simulation';
 import { usercmd, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
+import type { TerrainData } from '../terrain';
 import { createWorld, type Ladder, type Solid } from '../world';
 
 export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly solids: readonly Solid[];
   readonly ladders?: readonly Ladder[];
+  readonly terrain?: TerrainData;
   readonly spawns: readonly SpawnPoint[];
   /** One spawn set per team, for team deathmatch. */
   readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
@@ -84,7 +86,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
   const network = createMemoryNetwork(options);
   const passphrase = options.passphrase ?? 'letmein';
   const server = new GameServer(network.server, {
-    world: createWorld(options.solids, { ladders: options.ladders ?? [] }),
+    world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain }),
     mode: options.mode ?? 'ffa',
     spawns: options.spawns,
     ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
@@ -140,7 +142,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
       const client = new GameClient({
         connection: joinOptions.connection ?? network.connect(),
         ...(joinOptions.reconnect ? { reconnect: joinOptions.reconnect } : {}),
-        world: createWorld(options.solids, { ladders: options.ladders ?? [] }),
+        world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain }),
         name,
         passphrase: joinOptions.passphrase ?? passphrase,
         ...(joinOptions.mode ? { mode: joinOptions.mode } : {}),

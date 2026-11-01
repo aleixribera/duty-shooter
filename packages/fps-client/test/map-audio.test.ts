@@ -12,6 +12,10 @@ describe('every material', () => {
   const sound = (voice: typeof step, event: 'footstep' | 'impact', material: (typeof MATERIALS)[number]) =>
     hear(voice, event, { position: [4, 0, 0], material, movement: 'walk' }, 4);
 
+  it('has a footstep bank for wading', () => {
+    expect(loudness(hear(step, 'footstep', { position: [4, 0, 0], material: 'dirt', wading: true, movement: 'walk' }, 4))).toBeGreaterThan(0.005);
+  });
+
   it.each(MATERIALS)('%s has a footstep bank and a bullet impact', (material) => {
     expect(loudness(sound(step, 'footstep', material))).toBeGreaterThan(0.005);
     expect(loudness(sound(impact, 'impact', material))).toBeGreaterThan(0.005);

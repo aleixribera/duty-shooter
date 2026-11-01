@@ -22,6 +22,9 @@ export function mantleDuration(band: MantleBand): number {
   return (band === 'lowVault' ? MT.lowVaultDuration : band === 'waist' ? MT.waistMantleDuration : MT.highClimbDuration).value;
 }
 
+/** Metres between looks at the ground ahead for a bank's foot and crest. */
+const BANK_STEP = 0.1;
+
 export interface Ledge {
   readonly band: MantleBand;
   /** Where the feet end up: standing on the ledge, one hull width past its face. */
@@ -29,11 +32,40 @@ export interface Ledge {
 }
 
 /**
+ * The terrain's version of a ledge: a bank past the slope limit that starts
+ * within reach and tops out at ground a player can stand on, in a height
+ * band, with the hull fitting there. A slope a player can walk has no bank,
+ * so jumping on it is a jump, and a steep face with no top within the
+ * highest band has none either, so a mantle never climbs one.
+ */
+function bankAhead(world: World, feet: Vec3, dir: readonly [number, number], hull: Hull): { band: MantleBand; destination: Vec3; distance: number; height: number } | null {
+  const t = world.terrain;
+  if (!t) return null;
+  const at = (d: number) => [feet[0] + dir[0] * d, feet[2] + dir[1] * d] as const;
+  const rising = (d: number) => {
+    const [x, z] = at(d);
+    return t.steepAt(x, z) && t.heightAt(x, z) > feet[1] + EPSILON;
+  };
+  let foot = 0;
+  while (foot <= MT.reach.value + hull.halfWidth && !rising(foot)) foot += BANK_STEP;
+  if (foot > MT.reach.value + hull.halfWidth) return null;
+  let crest = foot;
+  const furthest = foot + MT.highClimbMaxHeight.value;
+  while (crest <= furthest && rising(crest)) crest += BANK_STEP;
+  if (crest > furthest) return null;
+  const [x, z] = at(crest + 2 * hull.halfWidth);
+  const top = t.heightAt(x, z);
+  const band = bandFor(top - feet[1]);
+  if (!band || t.steepAt(x, z) || hullBlocked(world, [x, top, z], hull) || hullBlocked(world, [feet[0], top, feet[2]], hull)) return null;
+  return { band, destination: [x, top, z], distance: Math.max(0, foot - hull.halfWidth), height: top - feet[1] };
+}
+
+/**
  * Looks for a ledge to mantle in the view direction: a solid's top within
  * one of the height bands, whose face is within reach of the hull, with room
  * to rise above the player and to stand on top. Standing on top may mean a
  * step up onto what lies beyond the edge (a sloped roof's fine player clip
- * steps). The nearest such ledge wins.
+ * steps). The nearest such ledge wins, a bank of terrain among them.
  */
 export function findLedge(world: World, feet: Vec3, yaw: number, hull: Hull): Ledge | null {
   const dir = [-Math.sin(yaw), -Math.cos(yaw)] as const;
@@ -55,5 +87,7 @@ export function findLedge(world: World, feet: Vec3, yaw: number, hull: Hull): Le
       best = { ledge: { band, destination }, distance, height };
     }
   }
+  const bank = bankAhead(world, feet, dir, hull);
+  if (bank && (!best || bank.distance < best.distance)) return { band: bank.band, destination: bank.destination };
   return best?.ledge ?? null;
 }

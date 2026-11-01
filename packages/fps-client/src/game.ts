@@ -12,6 +12,7 @@ import {
   teamMode,
   raycastWorld,
   sightBlocked,
+  wading,
   viewDirection,
   type ChargeSite,
   type ChargeState,
@@ -962,6 +963,7 @@ export class Game {
           material: this.#materialUnder(p.position),
           movement: mode,
           intensity: Math.min(1, Math.hypot(p.velocity[0], p.velocity[2]) / 6),
+          ...(wading(this.#world, p.position) ? { wading: true } : {}),
         });
       }
     }

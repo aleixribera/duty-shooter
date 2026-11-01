@@ -1,4 +1,4 @@
-import type { ChargeSite, Ladder, NavOptions, PlayerSpawn, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
+import type { ChargeSite, Ladder, NavOptions, PlayerSpawn, Solid, SpawnPoint, TerrainData, Vec3, Zone } from '@duty-shooter/fps-core';
 import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
@@ -47,6 +47,8 @@ export interface MapDefinition {
   readonly hiddenSolids: readonly Solid[];
   /** Optional climbable routes; their visible geometry belongs to the map. */
   readonly ladders?: readonly Ladder[];
+  /** The ground as a heightfield, collided with beside the solids, for a map that has one. */
+  readonly terrain?: TerrainData;
   /** The map's named finishes (colour and pattern), beside the per-material defaults. */
   readonly finishes: Readonly<Record<string, Finish>>;
   /** Per drawn solid, how its faces look; null where its material's default finish will do. */

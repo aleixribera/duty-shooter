@@ -1,10 +1,12 @@
 import { Simulation, type PlayerSpawn, type TickCmds, type TickOutput } from '../simulation';
+import type { TerrainData } from '../terrain';
 import { createWorld, type Ladder, type Solid } from '../world';
 
 export interface HeadlessMatchOptions {
   /** The world's solids. */
   readonly solids: readonly Solid[];
   readonly ladders?: readonly Ladder[];
+  readonly terrain?: TerrainData;
   /** Index the solids in a spatial grid (the default); off, every query scans them all. */
   readonly spatialIndex?: boolean;
   /** Players present from tick 0. */
@@ -30,7 +32,7 @@ export interface HeadlessMatch {
 }
 
 export function createHeadlessMatch(options: HeadlessMatchOptions): HeadlessMatch {
-  const sim = new Simulation(createWorld(options.solids, { spatialIndex: options.spatialIndex ?? true, ...(options.ladders ? { ladders: options.ladders } : {}) }));
+  const sim = new Simulation(createWorld(options.solids, { spatialIndex: options.spatialIndex ?? true, terrain: options.terrain, ...(options.ladders ? { ladders: options.ladders } : {}) }));
   for (const spawn of options.players ?? []) sim.addPlayer(spawn);
 
   const history: TickOutput[] = [];

@@ -5,7 +5,7 @@ import { buildMapById, mapSolids, type MapId } from './maps';
 /** The nav graph of a map that has one. */
 export function mapRoutes(id: MapId): NavGraph | null {
   const map = buildMapById(id);
-  return map.nav ? buildNavGraph(createWorld(mapSolids(map), { ladders: map.ladders ?? [] }), map.nav) : null;
+  return map.nav ? buildNavGraph(createWorld(mapSolids(map), { ladders: map.ladders ?? [], terrain: map.terrain }), map.nav) : null;
 }
 
 // Vitest imports this file for mapRoutes, with no worker scope to talk to.

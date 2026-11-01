@@ -1,4 +1,5 @@
 import type { Vec3 } from '../math';
+import { STATS } from '../stats';
 import type { Solid, World } from '../world';
 
 /**
@@ -72,8 +73,9 @@ function nearby(world: World, x0: number, z0: number, x1: number, z1: number): r
   return world.movement.inRect(x0, z0, x1, z1);
 }
 
-/** True when the hull at `pos` overlaps any solid that blocks players. */
+/** True when the hull at `pos` overlaps any solid that blocks players, or its feet are in the ground. */
 export function hullBlocked(world: World, pos: Vec3, hull: Hull): boolean {
+  if (world.terrain && pos[1] < world.terrain.heightAt(pos[0], pos[2]) - EPSILON) return true;
   const w = hull.halfWidth;
   for (const i of nearby(world, pos[0] - w, pos[2] - w, pos[0] + w, pos[2] + w)) {
     const s = world.solids[i] as Solid;
@@ -90,7 +92,7 @@ export function hullBlocked(world: World, pos: Vec3, hull: Hull): boolean {
 export function standingHeight(world: World, pos: Vec3, hull: Hull, limit: number): number | null {
   if (!hullBlocked(world, pos, hull)) return pos[1];
   const w = hull.halfWidth;
-  let top = pos[1];
+  let top = world.terrain ? Math.max(pos[1], world.terrain.heightAt(pos[0], pos[2])) : pos[1];
   for (const i of nearby(world, pos[0] - w, pos[2] - w, pos[0] + w, pos[2] + w)) {
     const s = world.solids[i] as Solid;
     if (overlapsY(pos, hull, s) && overlapsFlat(pos, hull, s)) top = Math.max(top, s.max[1]);
@@ -108,9 +110,29 @@ export interface SweepResult {
 
 /**
  * Sweeps the hull vertically by `delta`. Solids the hull already penetrates
- * are ignored, so a hull that starts inside geometry can move out.
+ * are ignored, so a hull that starts inside geometry can move out. Terrain
+ * stops a fall at the point under the hull's centre, and never a rise.
  */
 export function sweepY(world: World, pos: Vec3, hull: Hull, delta: number): SweepResult {
+  const solids = sweepSolidsY(world, pos, hull, delta);
+  if (!world.terrain || delta >= 0) return solids;
+  const gap = Math.max(0, pos[1] - world.terrain.heightAt(pos[0], pos[2]));
+  return gap <= Math.abs(solids.moved) ? { moved: -gap, hit: true } : solids;
+}
+
+/** True when the hull at `pos` rests on terrain past the slope limit, with no solid under it to stand on instead. */
+export function onSteepTerrain(world: World, pos: Vec3, hull: Hull, probe: number): boolean {
+  const t = world.terrain;
+  if (!t || pos[1] - t.heightAt(pos[0], pos[2]) > probe || !t.steepAt(pos[0], pos[2])) return false;
+  return !sweepSolidsY(world, pos, hull, -probe).hit;
+}
+
+/** True when the feet at `pos` are in water deep enough to wade. */
+export function wading(world: World, pos: Vec3): boolean {
+  return world.terrain !== null && world.terrain.waterAbove(pos[0], pos[1], pos[2]) >= STATS.terrain.wadeDepth.value;
+}
+
+function sweepSolidsY(world: World, pos: Vec3, hull: Hull, delta: number): SweepResult {
   if (delta === 0) return { moved: 0, hit: false };
   const w = hull.halfWidth;
   let allowed = Math.abs(delta);

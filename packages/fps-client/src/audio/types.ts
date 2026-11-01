@@ -2,7 +2,7 @@ import type { Material, WeaponId } from '@duty-shooter/fps-core';
 export type SoundEventName =
   | 'gunshot' // a gun firing (params.weapon, the M4A1 when absent). params.local=true for your own gun (non-positional, full detail)
   | 'dryFire'
-  | 'footstep' // params.material, params.movement
+  | 'footstep' // params.material, params.movement, params.wading
   | 'jump'
   | 'land' // land: params.intensity 0..1 (fall height scaled)
   | 'slide'
@@ -60,6 +60,7 @@ export interface SoundParams {
   readonly local?: boolean; // the sound is made by the listener's own body/gun
   readonly material?: SurfaceMaterial;
   readonly movement?: 'walk' | 'sprint' | 'tacticalSprint' | 'crouch' | 'prone';
+  readonly wading?: boolean; // a footstep in water, whatever the ground under it
   readonly intensity?: number; // 0..1
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor
   readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter

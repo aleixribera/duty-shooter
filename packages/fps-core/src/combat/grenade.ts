@@ -41,7 +41,7 @@ interface Contact {
   readonly normal: Vec3;
 }
 
-/** The first solid the segment a→b enters that blocks bullets or players (props aside). */
+/** The first thing the segment a→b enters: a solid that blocks bullets or players (props aside), or the ground. */
 function contact(world: World, a: Vec3, b: Vec3): Contact | null {
   const test = (i: number) => {
     const s = world.solids[i] as Solid;
@@ -50,6 +50,11 @@ function contact(world: World, a: Vec3, b: Vec3): Contact | null {
   const bullet = world.bullets.firstHit(a, b, test);
   const body = world.movement.firstHit(a, b, test);
   const best = bullet && body ? (body.t < bullet.t ? body : bullet) : (bullet ?? body);
+  const ground = world.terrain ? world.terrain.raycast(a, b, best?.t ?? 1) : null;
+  if (ground !== null) {
+    const point: Vec3 = [a[0] + (b[0] - a[0]) * ground, a[1] + (b[1] - a[1]) * ground, a[2] + (b[2] - a[2]) * ground];
+    return { t: ground, point, normal: world.terrain!.normalAt(point[0], point[2]) };
+  }
   if (!best) return null;
   const point: Vec3 = [a[0] + (b[0] - a[0]) * best.t, a[1] + (b[1] - a[1]) * best.t, a[2] + (b[2] - a[2]) * best.t];
   return { t: best.t, point, normal: solidNormal(world.solids[best.index] as Solid, point) };

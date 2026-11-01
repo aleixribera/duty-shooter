@@ -301,6 +301,14 @@ export const STATS = {
     lethalHeight: estimated(350 * IW_UNIT, 'm', `IW lineage bg_fallDamageMaxHeight 350 u (${WAW_DVAR_DUMP}). CoD4 MP believed 300 u, unverified.`, 25 * IW_UNIT),
   },
 
+  /** Walking on terrain (game values: the reference game's limits aren't published). */
+  terrain: {
+    slopeLimit: estimated(45, 'deg', "Game value for Duty Shooter, the Quake lineage's 45.6 degree walkable floor rounded: steeper ground cannot be walked up, and a player on it slides."),
+    slopeSlideSpeed: estimated(8, 'm/s', 'Game value for Duty Shooter, not measured from any game: the fastest a player slides down ground past the slope limit, a little over a sprint, so a long slope stays a slide and not a fall.'),
+    wadeDepth: estimated(0.1, 'm', 'Game value for Duty Shooter, not measured from any game: water at least this far above the feet slows them and changes their sound, so a wet bank plays as dry ground.'),
+    wadeMultiplier: estimated(0.85, 'multiplier', 'Game value for Duty Shooter: the spec asks that wading slows movement slightly, so a river is felt without being a trap.'),
+  },
+
   /** Player health and regeneration. */
   health: {
     max: sourced(

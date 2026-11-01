@@ -1,8 +1,9 @@
 import type { Vec3 } from '../math';
 import { STATS } from '../stats';
 import { Button, isPressed, type ButtonName, type UserCmd } from '../usercmd';
+import type { Terrain } from '../terrain';
 import type { Ladder, World } from '../world';
-import { EPSILON, Y, clipVelocity, hullBlocked, offset, slideMove, sweepY, type Flat, type Hull, type MoveResult } from './collision';
+import { EPSILON, Y, clipVelocity, hullBlocked, offset, onSteepTerrain, slideMove, sweepY, wading, type Flat, type Hull, type MoveResult } from './collision';
 import { findLedge, mantleDuration, type MantleBand } from './mantle';
 
 /**
@@ -13,6 +14,7 @@ import { findLedge, mantleDuration, type MantleBand } from './mantle';
 
 const M = STATS.movement;
 const S = STATS.stance;
+const T = STATS.terrain;
 
 /** How far below the feet the ground check looks. Numerical, not a gameplay value. */
 const GROUND_PROBE = 1e-3;
@@ -372,8 +374,47 @@ function accelerate(state: MoveState, dir: readonly [number, number], wishSpeed:
   state.velocity = [vx + dir[0] * step, vy, vz + dir[1] * step];
 }
 
+/** On something to stand on: ground past the slope limit doesn't count. */
 function onGround(world: World, pos: Vec3, hull: Hull): boolean {
-  return sweepY(world, pos, hull, -GROUND_PROBE).hit;
+  return sweepY(world, pos, hull, -GROUND_PROBE).hit && !onSteepTerrain(world, pos, hull, GROUND_PROBE);
+}
+
+/**
+ * Carries a ground-plane move over the terrain. The feet climb to the ground
+ * where the move ends, unless that ground is past the slope limit or more
+ * than a step above them, or the hull doesn't fit there: then the ground
+ * stops the move like a wall, and it carries on along the face if it can.
+ * Moving down or across a steep slope is free, so a player on one can leave it.
+ */
+function overTerrain(world: World, terrain: Terrain, from: Vec3, hull: Hull, moved: MoveResult): MoveResult {
+  const climb = (p: Vec3): Vec3 | null => {
+    const ground = terrain.heightAt(p[0], p[2]);
+    const rise = ground - p[1];
+    if (rise <= EPSILON) return p;
+    if (rise > M.stepHeight.value || terrain.steepAt(p[0], p[2])) return null;
+    const up: Vec3 = [p[0], ground, p[2]];
+    return hullBlocked(world, up, hull) ? null : up;
+  };
+  const end = climb(moved.pos);
+  if (end) return end === moved.pos ? moved : { pos: end, normals: moved.normals };
+  const dx = moved.pos[0] - from[0];
+  const dz = moved.pos[2] - from[2];
+  const length = Math.hypot(dx, dz);
+  const n: Flat = terrain.downhillAt(moved.pos[0], moved.pos[2]) ?? [-dx / length, -dz / length];
+  const into = dx * n[0] + dz * n[1];
+  const along = climb(slideMove(world, from, hull, dx - n[0] * into, dz - n[1] * into).pos);
+  return { pos: along ?? from, normals: [...moved.normals, n] };
+}
+
+/** What sliding on a steep slope leaves of a velocity: none of it into the ground, and no more than the slide speed. */
+function alongSlope(terrain: Terrain, pos: Vec3, v: Vec3): Vec3 {
+  const n = terrain.normalAt(pos[0], pos[2]);
+  const into = Math.min(0, v[0] * n[0] + v[1] * n[1] + v[2] * n[2]);
+  const x = v[0] - n[0] * into;
+  const y = v[1] - n[1] * into;
+  const z = v[2] - n[2] * into;
+  const k = Math.min(1, T.slopeSlideSpeed.value / Math.max(EPSILON, Math.hypot(x, y, z)));
+  return [x * k, y * k, z * k];
 }
 
 /**
@@ -448,6 +489,11 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
     state.prevButtons = cmd.buttons;
     return;
   }
+  // Nothing but a spawn or a lunge puts feet under the ground, and they come straight up.
+  if (world.terrain) {
+    const ground = world.terrain.heightAt(state.position[0], state.position[2]);
+    if (ground > state.position[1]) state.position = [state.position[0], ground, state.position[2]];
+  }
   state.grounded = onGround(world, state.position, hullFor(state.stance));
   updateStance(state, cmd, world, dt, updateSlide(state, cmd, dt));
   const hull = hullFor(state.stance);
@@ -480,7 +526,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   const startedGrounded = state.grounded;
 
   updateSprint(state, cmd, dt);
-  const w = wish(cmd, state.yaw, baseSpeed(state, cmd, speedScale));
+  const w = wish(cmd, state.yaw, baseSpeed(state, cmd, wading(world, state.position) ? speedScale * T.wadeMultiplier.value : speedScale));
   if (state.slide) {
     // Committed to the slide: speed follows the slide curve (midpoint of this tick), direction is locked.
     const s = state.slide;
@@ -500,12 +546,13 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   const dz = state.velocity[2] * dt;
   const moved = startedGrounded ? stepMove(world, state.position, hull, dx, dz) : slideMove(world, state.position, hull, dx, dz);
   const assisted = state.stance === 'prone' ? null : doorAssist(world, hull, moved, dx, dz, dt);
-  let pos = assisted ?? moved.pos;
-  if (!assisted) {
-    const [vx, vz]: Flat = clipVelocity(state.velocity[0], state.velocity[2], moved.normals);
-    state.velocity = [vx, state.velocity[1], vz];
-  }
+  const horizontal: MoveResult = assisted ? { pos: assisted, normals: [] } : moved;
+  const landed = world.terrain ? overTerrain(world, world.terrain, state.position, hull, horizontal) : horizontal;
+  let pos = landed.pos;
+  const [vx, vz]: Flat = clipVelocity(state.velocity[0], state.velocity[2], landed.normals);
+  state.velocity = [vx, state.velocity[1], vz];
 
+  let onSlope = false;
   if (startedGrounded) {
     // Ground snapping: follow the floor down steps; past a step height, start falling.
     if (!onGround(world, pos, hull)) {
@@ -519,8 +566,13 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
     const vy1 = vy0 - M.gravity.value * dt;
     const r = sweepY(world, pos, hull, ((vy0 + vy1) / 2) * dt);
     pos = offset(pos, Y, r.moved);
-    state.velocity = [state.velocity[0], r.hit ? 0 : vy1, state.velocity[2]];
-    if (r.hit && vy1 < 0 && !jumped) state.grounded = true;
+    onSlope = r.hit && vy1 < 0 && onSteepTerrain(world, pos, hull, GROUND_PROBE);
+    if (onSlope) {
+      state.velocity = alongSlope(world.terrain!, pos, [state.velocity[0], vy1, state.velocity[2]]);
+    } else {
+      state.velocity = [state.velocity[0], r.hit ? 0 : vy1, state.velocity[2]];
+      if (r.hit && vy1 < 0 && !jumped) state.grounded = true;
+    }
   }
 
   if (state.grounded) {
@@ -529,6 +581,11 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   } else {
     state.movement = 'airborne';
     state.airPeak = Math.max(state.airPeak ?? state.position[1], state.position[1], pos[1]);
+    if (onSlope) {
+      // A slope ends a fall, and a long slide isn't one.
+      if (state.airPeak - pos[1] > M.stepHeight.value) state.landedFrom = state.airPeak - pos[1];
+      state.airPeak = pos[1];
+    }
   }
   state.position = pos;
   state.prevButtons = cmd.buttons;

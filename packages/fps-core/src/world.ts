@@ -1,5 +1,6 @@
 import type { Vec3 } from './math';
 import { SolidIndex } from './grid';
+import { Terrain, type TerrainData } from './terrain';
 
 /**
  * Surface material carried by every solid. Drives impact effects, footstep
@@ -158,10 +159,14 @@ export interface World {
   readonly movement: SolidIndex;
   /** The solids that block bullets. */
   readonly bullets: SolidIndex;
+  /** The ground as a heightfield, for a map that has one. */
+  readonly terrain: Terrain | null;
 }
 
 export interface WorldOptions {
   readonly ladders?: readonly Ladder[];
+  /** The map's terrain, or nothing for a map whose ground is solids. */
+  readonly terrain?: TerrainData | null | undefined;
   /**
    * Index solids in a uniform grid (the default). Off, every query scans
    * every solid: the results are identical, only slower. Tests compare the two.
@@ -181,5 +186,6 @@ export function createWorld(solids: readonly Solid[], options: WorldOptions = {}
     ladders: [...(options.ladders ?? [])],
     movement: new SolidIndex(list, members((s) => s.blocks !== 'bullets'), indexed ? CELL_SIZE : null),
     bullets: new SolidIndex(list, members((s) => s.blocks !== 'players'), indexed ? CELL_SIZE : null),
+    terrain: options.terrain ? new Terrain(options.terrain) : null,
   };
 }

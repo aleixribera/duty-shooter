@@ -144,6 +144,19 @@ function renderStep(material: SurfaceMaterial, hard: boolean, rng: Rng, sr: numb
   return [finish(dst, sr)];
 }
 
+/** A foot through shallow water: the plunge, a low gulp under it and the spray falling back. */
+function renderWadeStep(hard: boolean, rng: Rng, sr: number): Float32Array[] {
+  const dst = buffer(sr, 0.5);
+  const body = hard ? 1 : 0.7;
+  noiseBurst(dst, sr, rng, { at: 0, attack: 0.006, tau: hard ? 0.05 : 0.07, gain: body, mode: 'bandpass', freq: rng.range(650, 950), q: 0.7 });
+  thump(dst, sr, { at: 0.004, f0: rng.range(170, 230), f1: 95, glideTau: 0.03, attack: 0.004, tau: 0.05, gain: 0.5 * body });
+  const spray = crackle(sr, 0.4, rng, hard ? 2600 : 1600, (t) => (t < 0.03 ? t / 0.03 : Math.exp(-(t - 0.03) / 0.09)));
+  bp(spray, sr, rng.range(2800, 4200), 0.5);
+  normalize(spray, 1);
+  mix(dst, spray, sr, 0.015, 0.5 * body);
+  return [finish(dst, sr)];
+}
+
 /** Prone crawl: a slow fabric drag with a little ground grit and gear clinks. */
 function renderProneStep(rng: Rng, sr: number): Float32Array[] {
   const dur = 0.5;
@@ -169,7 +182,7 @@ const FOOTSTEP_GAIN = {
 } as const;
 
 export function footstepVoice(): Voice & VoiceExtras {
-  const keys: string[] = ['prone'];
+  const keys: string[] = ['prone', 'water/hard', 'water/soft'];
   for (const m of MATERIALS) keys.push(`${m}/hard`, `${m}/soft`);
   return synthVoice({
     id: 'footstep',
@@ -179,11 +192,12 @@ export function footstepVoice(): Voice & VoiceExtras {
       const mv = p.movement ?? 'walk';
       if (mv === 'prone') return 'prone';
       const hard = mv === 'sprint' || mv === 'tacticalSprint';
-      return `${p.material ?? 'concrete'}/${hard ? 'hard' : 'soft'}`;
+      return `${p.wading ? 'water' : (p.material ?? 'concrete')}/${hard ? 'hard' : 'soft'}`;
     },
     render(key, rng, sr) {
       if (key === 'prone') return renderProneStep(rng, sr);
       const [material, hardness] = key.split('/');
+      if (material === 'water') return renderWadeStep(hardness === 'hard', rng, sr);
       return renderStep((material ?? 'concrete') as SurfaceMaterial, hardness === 'hard', rng, sr);
     },
     gain(p) {

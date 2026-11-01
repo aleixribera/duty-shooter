@@ -33,7 +33,7 @@ export interface WorldHit {
   /** Outward face normal of the solid that was hit. */
   readonly normal: Vec3;
   readonly material: Material;
-  /** Index of the solid in the world's solids. */
+  /** Index of the solid in the world's solids, or {@link TERRAIN_HIT}. */
   readonly solid: number;
 }
 
@@ -49,25 +49,34 @@ export function advance(p: Projectile, seconds: number): { from: Vec3; to: Vec3;
   return { from, to, velocity: [p.velocity[0], p.velocity[1] - g * seconds, p.velocity[2]] };
 }
 
-/** The first solid that blocks bullets the segment a→b enters, or null. Player clip and props never take part. */
+/** Stands for the terrain where a hit names a solid. */
+export const TERRAIN_HIT = -1;
+
+/** The first solid that blocks bullets the segment a→b enters, or the ground if that comes first, or null. Player clip and props never take part. */
 export function raycastWorld(world: World, a: Vec3, b: Vec3): WorldHit | null {
   const best = world.bullets.firstHit(a, b, (i) => {
     const s = world.solids[i] as Solid;
     return s.prop === null ? segmentSolid(a, b, s) : null;
   });
+  const ground = world.terrain ? world.terrain.raycast(a, b, best?.t ?? 1) : null;
+  if (ground !== null) {
+    const point = add(a, scale([b[0] - a[0], b[1] - a[1], b[2] - a[2]], ground));
+    return { t: ground, point, normal: world.terrain!.normalAt(point[0], point[2]), material: world.terrain!.materialAt(point[0], point[2]), solid: TERRAIN_HIT };
+  }
   if (!best) return null;
   const solid = world.solids[best.index] as Solid;
   const point = add(a, scale([b[0] - a[0], b[1] - a[1], b[2] - a[2]], best.t));
   return { t: best.t, point, normal: solidNormal(solid, point), material: solid.material, solid: best.index };
 }
 
-/** True when a person's sight from `a` to `b` is blocked: walls, roofs and cars hide, windows and props don't. */
+/** True when a person's sight from `a` to `b` is blocked: walls, roofs, cars and the ground hide, windows and props don't. */
 export function sightBlocked(world: World, a: Vec3, b: Vec3): boolean {
   return (
     world.bullets.firstHit(a, b, (i) => {
       const s = world.solids[i] as Solid;
       return s.prop === null && s.material !== 'glass' ? segmentSolid(a, b, s) : null;
-    }) !== null
+    }) !== null ||
+    (world.terrain !== null && world.terrain.raycast(a, b) !== null)
   );
 }
 

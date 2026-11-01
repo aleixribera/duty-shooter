@@ -862,16 +862,20 @@ export class Simulation {
    * Walks a bullet's segment through the solids it meets before `limit`
    * (where it would hit a body), in order: props report a hit and are passed
    * freely, penetrable solids it can afford are passed at a cost in budget
-   * and damage, with an impact on each side. Returns where a solid stopped
-   * it (after its entry impact), or null if it got through.
+   * and damage, with an impact on each side. Nothing goes through the ground.
+   * Returns where a solid or the ground stopped it (after its entry impact),
+   * or null if it got through.
    */
   #traceWorld(p: Projectile, from: Vec3, to: Vec3, limit: number): number | null {
     const met: { index: number; solid: Solid; enter: number; exit: number }[] = [];
+    const terrain = this.world.terrain;
+    const ground = terrain ? terrain.raycast(from, to, Math.min(limit, 1)) : null;
+    const reach = ground ?? limit;
     for (const index of this.world.bullets.alongSegment(from, to)) {
       if (p.passed.includes(index)) continue;
       const solid = this.world.solids[index] as Solid;
       const span = solidSpan(from, to, solid);
-      if (span && span.enter < limit) met.push({ index, solid, ...span });
+      if (span && span.enter < reach) met.push({ index, solid, ...span });
     }
     met.sort((a, b) => a.enter - b.enter || a.index - b.index);
     const length = distance(from, to);
@@ -893,7 +897,10 @@ export class Simulation {
       const out = lerpVec(from, to, exit);
       this.#events.push({ type: 'impact', shooter: p.shooter, point: out, normal: solidNormal(solid, out), material: solid.material, side: 'exit' });
     }
-    return null;
+    if (ground === null) return null;
+    const point = lerpVec(from, to, ground);
+    this.#events.push({ type: 'impact', shooter: p.shooter, point, normal: terrain!.normalAt(point[0], point[2]), material: terrain!.materialAt(point[0], point[2]), side: 'entry' });
+    return ground;
   }
 
   /** Applies damage; returns true if it killed. Emits the kill event. */

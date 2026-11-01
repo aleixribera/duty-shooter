@@ -24,6 +24,18 @@ _Avoid_: hitscan collider
 The player clip around a map's playable area, reaching into the sky.
 _Avoid_: out-of-bounds, kill zone (there is none)
 
+**Terrain**:
+A map's ground as a heightfield, colliding beside its solids: a grid of corner heights, two triangles a cell. Nothing goes through it, and past its rectangle there is no ground, so a Boundary closes it.
+_Avoid_: floor, landscape, mesh collision
+
+**Slope limit**:
+The steepest terrain a player can walk up, 45 degrees. Past it the ground stops them like a wall, and a player on it slides down and can't jump.
+_Avoid_: max incline
+
+**Wading**:
+Moving with the feet in water at least a set depth: slower, with its own footstep. There is no swimming.
+_Avoid_: swimming, shallow water
+
 **Penetration**:
 A bullet carrying on through a penetrable solid with reduced damage, as set by the material's row in the stats file.
 _Avoid_: wallbang (fine in player-facing text, not in code)
