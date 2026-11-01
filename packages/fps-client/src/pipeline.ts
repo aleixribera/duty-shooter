@@ -1,8 +1,9 @@
-import { dot, float, getViewPosition, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
-import { RenderPipeline, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
+import { Fn, Loop, clamp, dot, float, getViewPosition, length, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 import { traa } from 'three/examples/jsm/tsl/display/TRAANode.js';
+import { currentLighting, sunColor } from './surface-materials';
 
 const BLOOM = 0.1;
 
@@ -36,6 +37,48 @@ function shimmer(image: TextureNode, depth: TextureNode, camera: PerspectiveCame
   const wave = vec2(sin(screenUV.y.mul(700).add(t.mul(6))).mul(0.0009), sin(screenUV.x.mul(300).sub(t.mul(4))).mul(0.0004));
   const shifted = screenUV.add(wave.mul(heat(screenUV)));
   return image.sample(mix(screenUV, shifted, step(float(0.5), heat(shifted)))) as unknown as Node<'vec4'>;
+}
+
+/** The sun shafts' picture (pixels: small, whatever the screen, since they have no edges), and how many reads each of its pixels takes toward the sun. */
+const SHAFT_SIZE = [384, 216] as const;
+const SHAFT_STEPS = 10;
+/** How far toward the sun a shaft reaches (of the way there), and how strong it lands. */
+const SHAFT_REACH = 0.85;
+const SHAFT_STRENGTH = 0.55;
+
+/**
+ * Sun shafts: each pixel of a small picture looks back along the line to the
+ * sun on screen, adding up how much of the blazing sky it crosses, so that cloud,
+ * roofs and wrecks cut the light into beams. `sun` is the sun's place on screen.
+ * Only the sun and what's round it are bright enough to count, so the picture
+ * alone says what is sky.
+ */
+function shafts(image: TextureNode, sun: Node<'vec2'>): Node<'float'> {
+  return Fn(() => {
+    const total = float(0).toVar();
+    const step_ = sun.sub(screenUV).mul(SHAFT_REACH / SHAFT_STEPS);
+    const at = screenUV.toVar();
+    const weight = float(1).toVar();
+    Loop(SHAFT_STEPS, () => {
+      const bright = smoothstep(float(2.5), float(7), dot(image.sample(at).level(float(0)).rgb, vec3(0.3, 0.5, 0.2)));
+      total.addAssign(bright.mul(weight));
+      weight.mulAssign(0.9);
+      at.addAssign(step_);
+    });
+    return total.div(SHAFT_STEPS * 0.65);
+  })() as unknown as Node<'float'>;
+}
+
+/**
+ * The film look, on the frame before tone mapping: sun-warmed lights over cool
+ * shadows, a little more colour, and the corners falling away.
+ */
+function filmLook(c: Node<'vec3'>): Node<'vec3'> {
+  const luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  const tinted = mix(c.mul(vec3(0.97, 0.97, 1.03)), c.mul(vec3(1.1, 1.0, 0.85)), smoothstep(float(0.03), float(0.6), luma));
+  const rich = mix(vec3(luma), tinted, float(1.16));
+  const edge = length(screenUV.sub(0.5).mul(vec2(1, 0.7)));
+  return rich.mul(float(1).sub(smoothstep(float(0.38), float(0.78), edge).mul(0.3))) as unknown as Node<'vec3'>;
 }
 
 /**
@@ -72,6 +115,9 @@ interface CompilingRenderer extends WebGPURenderer {
 /** What each render context's shaders are built with: its render target, and the unjittered projection under temporal AA. */
 const builds = new WeakMap<object, { target: unknown; projection: Matrix4 | null }>();
 
+const sunOnScreen = new Vector3();
+const cameraForward = new Vector3();
+
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
   readonly #pipeline: RenderPipeline;
@@ -79,6 +125,10 @@ export class GamePipeline {
   /** The nuke's white-out and colour grade, 0..1 (see `setNuke`). */
   readonly #flash = uniform(0);
   readonly #grade = uniform(0);
+  /** The sun on screen (0..1) and how much it is in front of the camera. */
+  readonly #sun = uniform(new Vector2(0.5, 0.5));
+  readonly #sunAhead = uniform(0);
+  readonly #camera: PerspectiveCamera;
   /** Nodes owning render targets. */
   readonly #owned: { dispose(): void }[] = [];
   /** What to build shaders for ahead of drawing: the scenes and the passes that draw them. */
@@ -86,6 +136,7 @@ export class GamePipeline {
 
   constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera) {
     this.#renderer = renderer;
+    this.#camera = camera;
     // The viewmodel pass needs a transparent clear so it can be laid over the world.
     renderer.setClearColor(0x000000, 0);
     this.#pipeline = new RenderPipeline(renderer);
@@ -116,9 +167,12 @@ export class GamePipeline {
       { scene: view, camera: viewCamera, pass: viewPass, depth: VIEW_DEPTH, samples: 4, unjittered: null },
     ];
     const vm = viewPass.getTextureNode('output');
-    const over = vec4(mix(color.rgb, vm.rgb, vm.a), 1);
+    const beams = rtt(clamp(shafts(image, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
+    this.#owned.push(beams);
+    const beamed = color.rgb.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH));
+    const over = vec4(mix(beamed, vm.rgb, vm.a), 1);
     // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
-    const c = over.rgb;
+    const c = filmLook(over.rgb as never);
     const luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
     const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
     const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
@@ -206,6 +260,15 @@ export class GamePipeline {
   }
 
   render(): void {
+    const d = currentLighting().sunDirection;
+    const camera = this.#camera;
+    camera.updateMatrixWorld();
+    const sun = sunOnScreen.set(d[0], d[1], d[2]);
+    const ahead = cameraForward.set(0, 0, -1).applyQuaternion(camera.quaternion).dot(sun) / sun.length();
+    sun.multiplyScalar(1000).add(camera.position).project(camera);
+    // screenUV runs from the top of the screen.
+    this.#sun.value.set(sun.x * 0.5 + 0.5, 0.5 - sun.y * 0.5);
+    this.#sunAhead.value = Math.max(0, Math.min(1, (ahead - 0.15) / 0.45));
     this.#pipeline.render();
   }
 

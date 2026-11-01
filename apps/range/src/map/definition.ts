@@ -1,5 +1,5 @@
 import type { ChargeSite, Ladder, NavOptions, PlayerSpawn, Solid, SpawnPoint, TerrainData, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels } from '@duty-shooter/fps-client/surfaces';
+import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Scatter } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -96,6 +96,8 @@ export interface MapDefinition {
   readonly ambience: readonly ({ readonly kind: 'wind' } | { readonly kind: 'birds' | 'sign' | 'radio' | 'horn' | 'couplings' | 'hum'; readonly position: Vec3 })[];
   /** Small visual-only fires, with no effect on collision or damage. */
   readonly fires?: readonly Vec3[];
+  /** The rocks and dry shrubs strewn over its ground. */
+  readonly scatter?: Scatter;
   readonly spawns: {
     readonly ffa: readonly SpawnPoint[];
     /** One set per team (team 1, team 2), each at its own side of the map; null where the map has no team spawns. */

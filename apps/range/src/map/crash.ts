@@ -8,20 +8,20 @@ import type { MapDefinition } from './definition';
  * blue building west, main building east, arcade south and shop southeast
  * of the wreck, following the original CoD4 overhead. */
 export const BOUNDARY: readonly (readonly [number, number])[] = [[-42, -38], [42, -38], [42, 38], [-42, 38]];
-/** Hazy, desaturated afternoon light for the original urban setting. */
+/** Low gold sun behind the wreck, long shadows and dust in the air. */
 const CRASH_LIGHT: Lighting = {
-  sunDirection: normalize([-0.45,0.68,0.57]), sunColor:[1,0.95,0.88], sunIntensity:1.9, sunSpread:0.06,
-  skyZenith:[0.42,0.51,0.54], skyHorizon:[0.77,0.79,0.71], skyIntensity:0.9, ground:[0.32,0.30,0.25],
+  sunDirection: normalize([0.84,0.42,-0.33]), sunColor:[1,0.76,0.5], sunIntensity:3.2, sunSpread:0.03,
+  skyZenith:[0.17,0.32,0.54], skyHorizon:[0.98,0.72,0.44], skyIntensity:0.82, ground:[0.42,0.31,0.2],
 };
 const FINISHES: Readonly<Record<string, Finish>> = {
-  sand: { family: 'sand', color: 0xc6ad82 },
-  road: { family: 'asphalt', color: 0x746e61 },
+  sand: { family: 'sand', color: 0xcdb595 },
+  road: { family: 'dirt', color: 0xc4a985, accent: 0xa99071 },
   'dry-grass': { family: 'grass', color: 0x8e9260, accent: 0xb0a878 },
   'grass.blade': { family: 'paint', color: 0x828b58, roughness:0.96 },
   'grass.straw': { family: 'paint', color: 0xb1a36c, roughness:0.96 },
   concrete: { family: 'concrete', color: 0xb5a58d, accent: 0x96866f },
-  plaster: { family: 'wornPlaster', color: 0xcdbb9d, accent: 0xa5957c },
-  blue: { family: 'wornPlaster', color: 0x809b9a, accent: 0x8b8576 },
+  plaster: { family: 'wornPlaster', color: 0xd9bf94, accent: 0xa98a63 },
+  blue: { family: 'wornPlaster', color: 0x74b3a8, accent: 0xa58a66 },
   market: { family: 'wornPlaster', color: 0xbca589, accent: 0x9b8972 },
   awning: { family: 'paint', color: 0x895f4f },
   roof: { family: 'concrete', color: 0x9e9380 },
@@ -798,7 +798,7 @@ export function buildCrash(): MapDefinition {
     id:'crash', name:'Crash', solids:b.solids, hiddenSolids:b.hidden, ladders:[{bottom:[-3.45,0,-31],landing:[-4.8,9,-31]},{bottom:[27.55,0,-9],landing:[26.2,3,-9]}], finishes:FINISHES, looks:b.looks, decorations:b.decorations,
     models:{url:'models/crash.glb',placements:b.models}, ramps:[], labels:[], populationSign:null,
     horizon:{ground:'sand',inner:{x0:-100,x1:100,z0:-100,z1:100},light:[-80,-80]}, lighting:CRASH_LIGHT, lamps:[], nuke:null, train:null,
-    ambience:[{kind:'wind'}], fires:[[-7.9,0.06,-3.0],[-4.5,0.06,3.7]], spawns:{ffa,teams:[west,east]},
+    ambience:[{kind:'wind'}], fires:[[-7.9,0.06,-3.0],[-4.5,0.06,3.7]], scatter:{on:['sand','road'],within:{x0:-42,x1:42,z0:-38,z1:38},open:340,walls:460,seed:4111}, spawns:{ffa,teams:[west,east]},
     zones:[{id:'A',name:'Garage',center:[-34,0.6,29],radius:3,height:3},{id:'B',name:'Crash site',center:[-6,0,-1.5],radius:3,height:3},{id:'C',name:'Apartments',center:[37,0,-28],radius:3,height:3}],
     sites:[{id:'A',name:'Main building',min:[3,0,-20],max:[16,3,3]},{id:'B',name:'Shop',min:[18,0,8],max:[31,3,23]}],
     offlineSpawn:west[0]!, overview:spots[1]!, dummies:[], loadoutStation:null, rangeLanesWestOf:null,

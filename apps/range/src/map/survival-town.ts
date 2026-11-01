@@ -1,5 +1,5 @@
 import { INTERMISSION, createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
-import { LIGHTING, type EndingShot, type Finish, type Look } from '@duty-shooter/fps-client/surfaces';
+import { LIGHTING, type EndingShot, type Finish, type Lighting, type Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
@@ -85,6 +85,16 @@ export const PLAY_AREA: readonly (readonly [number, number])[] = [...NORTH_EDGE,
  * The town's finishes: a 1950s palette of pastel siding with white trim,
  * shingle roofs, oak floors and cream plaster inside.
  */
+/** Late sun down the main street: warm, low enough for long shadows. */
+const TOWN_LIGHT: Lighting = {
+  ...LIGHTING,
+  sunDirection: [-0.6, 0.45, 0.66],
+  sunColor: [1, 0.78, 0.54],
+  sunIntensity: 3,
+  skyZenith: [0.2, 0.37, 0.66],
+  skyHorizon: [0.96, 0.78, 0.58],
+};
+
 const FINISHES: Readonly<Record<string, Finish>> = {
   'north.siding': { family: 'siding', color: 0x9dcdb3 },
   'north.shutter': { family: 'paint', color: 0x3d6b58 },
@@ -1314,7 +1324,8 @@ export function buildSurvivalTown(): MapDefinition {
     populationSign,
     horizon: { ground: 'desert', inner: { x0: -90, x1: 90, z0: -90, z1: 90 }, light: [-80, -80] },
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.
-    lighting: LIGHTING,
+    lighting: TOWN_LIGHT,
+    scatter: { on: ['desert', 'soil'], within: { x0: -90, x1: 90, z0: -90, z1: 90 }, open: 160, walls: 40, seed: 7321 },
     lamps: [],
     nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14], shot: NUKE_SHOT },
     train: null,

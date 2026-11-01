@@ -29,11 +29,14 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
+import { atlasUv, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type Scatter, type SurfaceLayout } from './surfaces';
+import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
-import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial, useLighting } from './surface-materials';
+import { cloudySky } from './surface-sky';
+import { tilesLoaded } from './surface-tiles';
+import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
@@ -87,6 +90,8 @@ export interface WorldContent {
   readonly ambience?: readonly AmbientSource[];
   /** Small visual-only fires emitted by the game's effects. */
   readonly fires?: readonly Vec3[];
+  /** The rocks and dry shrubs strewn over its ground (see Scatter). */
+  readonly scatter?: Scatter;
 }
 
 /** Seconds between the sun's shadow-map redraws: at most 60 a second, so a fast display doesn't redraw every caster on every frame. */
@@ -177,10 +182,12 @@ function rampGeometry(r: RampShape): BufferGeometry {
 /**
  * The static surfaces as one geometry per finish: each face a quad with its
  * normal, its own coordinates in metres (uv: along it horizontally and up it,
- * for the finish patterns) and its lightmap coordinates (uv1).
+ * for the finish patterns), its lightmap coordinates (uv1) and how far each
+ * corner is from the wall's open edges (faceEdges, for the weathering).
  */
 function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map<string, BufferGeometry> {
   const byFinish = new Map<string, number[]>();
+  const open = openEdges(layout.faces);
   layout.faces.forEach((f, i) => {
     if (f.solid >= 0 && solids[f.solid]!.prop !== null) return;
     const list = byFinish.get(f.finish) ?? [];
@@ -193,6 +200,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map
     const normal = new Float32Array(faces.length * 12);
     const uv = new Float32Array(faces.length * 8);
     const uv1 = new Float32Array(faces.length * 8);
+    const edges = new Float32Array(faces.length * 16);
     const index = new Uint32Array(faces.length * 6);
     faces.forEach((fi, k) => {
       const f = layout.faces[fi]!;
@@ -216,6 +224,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map
         normal.set(f.normal, v * 3);
         uv.set([p[0] * h[0] + p[1] * h[1] + p[2] * h[2], p[0] * w[0] + p[1] * w[1] + p[2] * w[2]], v * 2);
         uv1.set(rect ? atlasUv(layout.atlas, rect, a, b) : [0, 0], v * 2);
+        edges.set(cornerEdges(f, open[fi]!, a, b), v * 4);
       });
       index.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
     });
@@ -224,6 +233,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map
     g.setAttribute('normal', new BufferAttribute(normal, 3));
     g.setAttribute('uv', new BufferAttribute(uv, 2));
     g.setAttribute('uv1', new BufferAttribute(uv1, 2));
+    g.setAttribute('faceEdges', new BufferAttribute(edges, 4));
     g.setIndex(new BufferAttribute(index, 1));
     g.computeBoundingSphere();
     out.set(finish, g);
@@ -299,7 +309,7 @@ export class WorldView {
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
     useLighting(content.lighting ?? LIGHTING);
-    scene.backgroundNode = skyNode(positionWorldDirection as never);
+    scene.backgroundNode = cloudySky(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     scene.environment = reflections(renderer);
     scene.environmentIntensity = 0.2;
@@ -340,10 +350,22 @@ export class WorldView {
         (error: unknown) => console.error(`Map models failed to load: ${String(error)}`),
       );
     }
+    if (content.scatter) {
+      const models = scatterModels(layout.faces, content.solids, content.scatter);
+      const scatterIn = loadMapModels(models, SCATTER_FINISHES).then(
+        (group) => {
+          this.#lightObject(group);
+          this.#root.add(group);
+        },
+        (error: unknown) => console.error(`Scatter failed to load: ${String(error)}`),
+      );
+      this.modelsIn = Promise.all([this.modelsIn, scatterIn]).then(() => undefined);
+    }
     if (content.train) {
       this.train = new Train(this.#root, content.train, layout.finishes);
       this.modelsIn = Promise.all([this.modelsIn, this.train.modelsIn]).then(() => undefined);
     }
+    this.modelsIn = Promise.all([this.modelsIn, tilesLoaded()]).then(() => undefined);
     void bake.then((file) => {
       if (!file) return;
       if (file.key !== layout.key) {

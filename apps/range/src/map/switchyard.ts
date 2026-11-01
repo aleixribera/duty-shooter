@@ -992,6 +992,7 @@ export function buildSwitchyard(): MapDefinition {
     lamps,
     // Out past the main line, a town on the plain.
     horizon: { ground: 'land', inner: { x0: -160, x1: 160, z0: -120, z1: 120 }, light: [-120, 90], town: { x0: -380, x1: 260, z0: -470, z1: -330, seed: 1961 } },
+    scatter: { on: ['land'], within: { x0: -160, x1: 160, z0: -120, z1: 120 }, open: 120, walls: 80, seed: 9013 },
     nuke: null,
     train: freightTrain(),
     ambience: [
