@@ -129,6 +129,14 @@ The whole thing costs €0 a month and runs on the existing server.
 70. As a server owner, I want one match to fit on the home server alongside its other services, so that this stays free.
 71. As a player, I want the island to appear without long hitches, so that the game doesn't feel like it's straining.
 
+### Density and balance
+
+81. As a player, I want the land between Cores to be full of trees, rocks and terrain, so that crossing it is a choice of routes rather than a walk across a bare plain.
+82. As a player with a close-range weapon, I want cover within a short sprint, so that I'm not simply sniped in the open.
+83. As a sniper, I want a few long lanes and open risky ground, so that my weapon still has a role.
+84. As a player, I want every Region to feel dense in its own way, so that the island feels like a real place.
+85. As a player hiding in foliage, I want bots to be unable to see me through it, so that concealment works against them too.
+
 ### The redesigned UI
 
 72. As a player, I want every screen to look polished and modern, so that the game feels finished the moment it opens.
@@ -191,7 +199,7 @@ Update stale entries as they're touched, including the Charge-only spectator and
 - **Layout:** as in `reference/island-map.png`: Frostbite Peaks north-west, Mutant Jungle north-east, Neon City east, Rogue Harbor south, The Dustlands south-west, Ground Zero in the centre. A railway links the regions and rings the crater. About 1 km² of land, in the sea. The sprint across takes about 2 min 40 s.
 - **Look:** realistic, matching the game's existing soldiers and guns, keeping the reference's layout and colour identity. Permanent dusk with one low sun over the sea to the south-west, so Rogue Harbor and the Dustlands catch the sunset and the Jungle and Neon City sit in shadow where their own lights carry them.
 - **New work only:** no map layout is reused. Assets such as props and building pieces may be.
-- **Cores:** each Region has one Core of about Crash's size, 6,000 to 10,000 m², with lighter ground around it, so Crash-level density is only spent where fights concentrate.
+- **Cores:** each Region has one Core of about Crash's size, 6,000 to 10,000 m², where building detail is spent. The ground between Cores is not empty: see "Density and sightlines".
 
 | Region | Core and landmarks (from `reference/regions.png`) |
 | --- | --- |
@@ -202,6 +210,13 @@ Update stale entries as they're touched, including the Charge-only spectator and
 | **Neon City** | Streets, an elevated highway, about 4 enterable buildings and some reachable roofs. Skyscrapers are outer shells |
 | **Rogue Harbor** | Moored cargo ship, cranes, warehouses, container stacks, airstrip, piers |
 
+- **Density and sightlines:** the owner played the blockout and found it far too open and too easy for snipers. All of the island gets filled, in every Region, so a sniper is one option and not the answer.
+  - **Shape first:** ridges, gullies, berms and embankments break long sightlines at no drawing cost.
+  - **Hard cover:** rocks, walls, wrecks, trunks and terrain stop bullets, and sit within a short sprint of anywhere a player can stand.
+  - **Soft cover:** bushes, tall grass and foliage hide a player but don't stop bullets. Bots' sight has to respect them, so a bot never aims through a bush it couldn't see through.
+  - **Region character:** dense forest in the Jungle, pines and rock outcrops on the Peaks, canyons and boulders in the Dustlands, scrub and pylons around Ground Zero, trees and walls on the approaches to the city and harbour.
+  - **Measured, not judged by eye:** a sightline test samples standing points across the island. Targets to tune from: median clear line of sight about 60 m or less, and every standing point within about 25 m of hard cover. The crater floor, airstrip and a few long lanes stay deliberately open and risky, so the sniper keeps a place.
+  - **Frame budget:** vegetation is instanced with distance LOD and has to hold the 60 fps target.
 - **Boundary:** the sea's edge is a Boundary. Wadeable water slows movement slightly and sounds different. There's no swimming, and no deep water a player can reach.
 - **Art:** every model comes from a Blender generator script, is checked in preview renders and then in the game, as the repo's rule for map art says.
 
@@ -288,6 +303,8 @@ Work goes straight to `main` with a version tag per commit, as `AGENTS.md` says.
 4. **UI foundation:** new `DESIGN.md`, the main menu and Battle Royale screen, then Preparation.
 5. **Local bots** in a worker.
 6. **First playable release:** the whole island, nearly empty, with complete rules, on server and locally, pushed to `main`.
+6a. **Island cover pass:** terrain shaping and real cover across the whole island, before the first playable release, so bots and players learn the real island.
+6b. **Vegetation kit:** trees, shrubs, grass and rocks for every Region, built in Blender and placed with the rendering work, before the Regions.
 7. **Regions, one release each:** Ground Zero, The Dustlands, Rogue Harbor, Neon City, Frostbite Peaks, Mutant Jungle (the heaviest to render, so it goes last).
 8. **UI redesign of the remaining screens:** can run alongside the regions, and is its own ticket per group of screens.
 9. **Final tuning** of the Ring, bots and performance on the finished island.
@@ -318,6 +335,8 @@ A good test checks what a player or the server can observe through a public inte
 - **Local bots:** the worker runs a full match to the end with 59 bots and identical rules.
 - **UI model:** Battle Royale screen state, Squad slots, Preparation flow and ready logic. Prior art: the UI model tests.
 - **Purity:** the existing purity and headless tests still pass, with terrain in the core and map data reaching the server.
+
+- **Sightlines:** a headless sampler over the island's terrain and solids reports the density targets and fails when they regress. Prior art: nav reachability in the bot soak support.
 
 **Bugs and shipping:** as with the rest of the repo, UI isn't finished until screenshots at desktop and phone width have been looked at, and each Region isn't finished until its model has been seen in preview renders and in the game.
 
