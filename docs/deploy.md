@@ -40,7 +40,7 @@ The image's build stage bakes each map's lighting on the CPU, so a build takes a
 
 The container listens on 3000 inside and is published on **127.0.0.1:3090** only. Pick another host port with `DUTY_PORT` in `.env` if 3090 is taken. The existing game uses 3080.
 
-The server limits each visitor's address to 12 open sockets and, with a passphrase set, 10 wrong passphrases. After the tenth wrong passphrase, that address is refused for 10 minutes. Funnel connects from loopback and names the visitor in `X-Forwarded-For`, which the server trusts from loopback only.
+The server limits each visitor's address to 12 open sockets and, with a passphrase set, 10 wrong passphrases. `LOAD_TEST_SOCKETS` lifts the socket limit for the machine itself and nobody else, for a load test on a server of its own; the stack's `.env` never sets it. After the tenth wrong passphrase, that address is refused for 10 minutes. Funnel connects from loopback and names the visitor in `X-Forwarded-For`, which the server trusts from loopback only.
 
 Hardening, the same as the existing game: localhost-only binding, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, a 512 MB memory limit, `init`, and log rotation (3 × 10 MB). The only writable path is `/data`, the `duty-data` named volume that holds the event log.
 
@@ -64,6 +64,17 @@ Two more scripts start their own server, so never point them at the live lobby. 
 - `apps/server/scripts/hostile.mjs` sends what a broken or hostile client might and reports whether the server survives each.
 
 Run them with `remote-test`, and keep `STATIC_DIR` away from the repo root: precompressing all of it takes over the server for a minute and spoils the numbers. `LOG_STATS=1` adds tick cost and late ticks to the CPU and memory lines.
+
+### The 60-seat gate
+
+Pass bar: 99th-percentile tick under 12 ms, worst under 16.7 ms, 60 seats, measured from the server, with Play Online unaffected. `NET=wide` gives the server a wide map's snapshot rate and limits, no kill limit (the load test exits 1 if the match ends while measuring), and a warm-up: a private 10 s bot match before it listens, since a cold tick runs to 60 ms.
+
+```bash
+npm run build -w @duty-shooter/server
+remote-test "NET=wide MODE=ffa BOTS=29 PORT=3991 node apps/server/scripts/load-test.mjs 2 92"
+```
+
+`BOTS` is per side, so 29 and 2 clients is 60 seats. The tick line counts whole 10 s windows after the first; the first window, which holds the match's start, is printed apart. Every run from `remote-test` shares its cap of 1.5 CPUs with the server under test, and a server stalled by the cap reports 30 to 60 ms ticks that are the cap's. Watch `throttled_usec` in `remote-tests.slice/cpu.stat`: 60 clients with compression need more than the cap has. `DEFLATE=0` fits under it, and compression runs off the game thread.
 
 ## The event log and the play report
 
@@ -158,6 +169,14 @@ docker compose down
 For load numbers in the logs, add `LOG_STATS: "1"` under `environment` in `compose.yaml`. The server then prints CPU and memory every 10 s.
 
 ## Measured load
+
+60 seats on the home server (2026-11-01, Node 24, Survival Town unless noted, 20 snapshots a second). The full table and the caveats are in `.scratch/battle-royale/issues/03-sixty-seat-load-gate.md`.
+
+| Seats | Tick p50 / p99 / worst | CPU | Memory | Out of the server |
+| --- | --- | --- | --- | --- |
+| 2 people, 58 bots | 5.0 / 9.5 / 15.9 ms | 42% of a core | 186 MB | 0.36 Mbit/s |
+| 12 people, 48 bots | 5.25 / 8.75 / 14.4 ms | 54% | 190 MB | 2.03 Mbit/s |
+| 30 people, 30 bots | 4.5 / 6.75 / 8.2 ms | 63% | 176 MB | 4.53 Mbit/s |
 
 `apps/server/scripts/load-test.mjs` starts the built server and connects simulated players. Each one moves, turns and fires at 60 Hz. Results on the home server (2026-10-31, Node 24, 12 players):
 

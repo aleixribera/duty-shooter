@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEG, STATS, createWorld, orientedBox, playerClip, raycastWorld, yawBox, type PlayerOutput, type Solid, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { box, createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
+import { segmentSolid } from '../src/combat/projectiles';
 import { FLOOR, hold, me, measuredSpeed, soloMatch, ticks } from './support/movement';
 
 const HALF = STATS.stance.hullHalfWidth.value;
@@ -270,6 +271,32 @@ describe('the spatial grid', () => {
         const b: Vec3 = [a[0] + dir[0] * k, a[1] + dir[1] * k, a[2] + dir[2] * k];
         expect(raycastWorld(gridded, a, b)).toEqual(raycastWorld(linear, a, b));
       }
+    }
+  });
+});
+
+describe('a ray against solids it barely reaches', () => {
+  const solids = [
+    box({ min: [0, 0, 0], max: [2, 2, 2], material: 'concrete' }),
+    yawBox({ center: [6, 1, 1], size: [3, 2, 1], yaw: 35 * DEG, material: 'concrete' }),
+    orientedBox({ center: [-5, 2, 3], size: [4, 0.2, 3], yaw: 20 * DEG, pitch: 25 * DEG, roll: 10 * DEG, material: 'concrete', blocks: 'bullets' }),
+  ];
+  const world = createWorld(solids);
+  const scan = (a: Vec3, b: Vec3) => {
+    const ts = solids.map((s) => segmentSolid(a, b, s)).filter((t) => t !== null);
+    return ts.length ? Math.min(...ts) : null;
+  };
+
+  it('finds what a scan of every solid finds, along their very faces too', () => {
+    let seed = 7;
+    const r = (span: number) => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32 - 0.5) * span;
+    for (let i = 0; i < 4000; i++) {
+      const reach = i % 2 ? 0.4 : 20;
+      // Every fifth stays level with the box's top face.
+      const level = i % 5 === 0;
+      const from: Vec3 = [r(24), level ? 2 : r(8) + 2, r(16)];
+      const to: Vec3 = [from[0] + r(reach), level ? 2 : from[1] + r(reach), from[2] + r(reach)];
+      expect(raycastWorld(world, from, to)?.t ?? null).toBe(scan(from, to));
     }
   });
 });

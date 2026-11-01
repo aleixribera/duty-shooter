@@ -3,6 +3,8 @@ import type { Solid } from './world';
 
 /** Solids are registered a little beyond their bounds, so rounding at a cell edge never loses one. */
 const MARGIN = 0.01;
+/** Metres a segment's bounds are widened by before ruling a solid out, so rounding never hides a graze. */
+const BOUNDS_SLACK = 1e-6;
 /** Above this many cells the grid coarsens, so a map with far scenery stays small in memory. */
 const MAX_CELLS = 1 << 20;
 
@@ -26,6 +28,8 @@ export class SolidIndex {
   readonly #items: Int32Array;
   readonly #stamp: Uint32Array;
   #visit = 0;
+  /** What a cell gave `firstHit`: kept, since the bots' sight and frag arcs ask thousands of times a tick. */
+  readonly #found: number[] = [];
 
   constructor(solids: readonly Solid[], members: readonly number[], cellSize: number | null) {
     this.#solids = solids;
@@ -105,27 +109,52 @@ export class SolidIndex {
    * The first member solid the segment a→b enters, by `test` (the entry
    * fraction along the segment, or null on a miss). Ties go to the lower
    * solid index, as in a linear scan. Cells are visited in order along the
-   * segment, stopping once no later cell can hold a nearer hit.
+   * segment, stopping once no later cell can hold a nearer hit. A solid whose
+   * bounds the segment's own bounds miss is passed over without asking `test`,
+   * so `test` must be a miss for those, as every world query's is.
    */
   firstHit(a: Vec3, b: Vec3, test: (index: number) => number | null): { t: number; index: number } | null {
-    let best: { t: number; index: number } | null = null;
-    const consider = (index: number) => {
-      const t = test(index);
-      if (t !== null && (!best || t < best.t || (t === best.t && index < best.index))) best = { t, index };
+    let bestT = Infinity;
+    let bestIndex = -1;
+    const lx = Math.min(a[0], b[0]) - BOUNDS_SLACK;
+    const ly = Math.min(a[1], b[1]) - BOUNDS_SLACK;
+    const lz = Math.min(a[2], b[2]) - BOUNDS_SLACK;
+    const hx = Math.max(a[0], b[0]) + BOUNDS_SLACK;
+    const hy = Math.max(a[1], b[1]) + BOUNDS_SLACK;
+    const hz = Math.max(a[2], b[2]) + BOUNDS_SLACK;
+    const solids = this.#solids;
+    const apart = (index: number) => {
+      const { min, max } = solids[index] as Solid;
+      return min[1] > hy || max[1] < ly || min[0] > hx || max[0] < lx || min[2] > hz || max[2] < lz;
     };
     if (this.#cell === 0) {
-      for (const i of this.#members) consider(i);
-      return best;
+      for (const index of this.#members) {
+        if (apart(index)) continue;
+        const t = test(index);
+        if (t !== null && (t < bestT || (t === bestT && index < bestIndex))) {
+          bestT = t;
+          bestIndex = index;
+        }
+      }
+      return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
     }
     const visit = this.#nextVisit();
-    const found: number[] = [];
+    const found = this.#found;
     this.#walk(a, b, (cell, exit) => {
       found.length = 0;
       this.#collect(cell, visit, found);
-      for (const i of found) consider(i);
-      return best !== null && (best as { t: number }).t < exit - 1e-9;
+      for (let k = 0; k < found.length; k++) {
+        const index = found[k]!;
+        if (apart(index)) continue;
+        const t = test(index);
+        if (t !== null && (t < bestT || (t === bestT && index < bestIndex))) {
+          bestT = t;
+          bestIndex = index;
+        }
+      }
+      return bestT < exit - 1e-9;
     });
-    return best;
+    return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
   }
 
   /** Every member solid that may touch the segment a→b, in solid order. */
@@ -167,18 +196,23 @@ export class SolidIndex {
     const dx = b[0] - a[0];
     const dz = b[2] - a[2];
     // Clip the segment to the grid's rectangle.
+    const hx = this.#ox + this.#nx * this.#cell;
+    const hz = this.#oz + this.#nz * this.#cell;
     let t0 = 0;
     let t1 = 1;
-    for (const [o, d, lo, hi] of [
-      [a[0], dx, this.#ox, this.#ox + this.#nx * this.#cell],
-      [a[2], dz, this.#oz, this.#oz + this.#nz * this.#cell],
-    ] as const) {
-      if (d === 0) {
-        if (o < lo || o > hi) return;
-        continue;
-      }
-      const e = (lo - o) / d;
-      const f = (hi - o) / d;
+    if (dx === 0) {
+      if (a[0] < this.#ox || a[0] > hx) return;
+    } else {
+      const e = (this.#ox - a[0]) / dx;
+      const f = (hx - a[0]) / dx;
+      t0 = Math.max(t0, Math.min(e, f));
+      t1 = Math.min(t1, Math.max(e, f));
+    }
+    if (dz === 0) {
+      if (a[2] < this.#oz || a[2] > hz) return;
+    } else {
+      const e = (this.#oz - a[2]) / dz;
+      const f = (hz - a[2]) / dz;
       t0 = Math.max(t0, Math.min(e, f));
       t1 = Math.min(t1, Math.max(e, f));
     }
@@ -187,10 +221,8 @@ export class SolidIndex {
     let z = this.#cz(a[2] + dz * t0);
     const stepX = dx > 0 ? 1 : -1;
     const stepZ = dz > 0 ? 1 : -1;
-    const boundary = (index: number, step: number, origin: number, o: number, d: number) =>
-      d === 0 ? Infinity : (origin + (index + (step > 0 ? 1 : 0)) * this.#cell - o) / d;
-    let nextX = boundary(x, stepX, this.#ox, a[0], dx);
-    let nextZ = boundary(z, stepZ, this.#oz, a[2], dz);
+    let nextX = dx === 0 ? Infinity : (this.#ox + (x + (stepX > 0 ? 1 : 0)) * this.#cell - a[0]) / dx;
+    let nextZ = dz === 0 ? Infinity : (this.#oz + (z + (stepZ > 0 ? 1 : 0)) * this.#cell - a[2]) / dz;
     const deltaX = dx === 0 ? Infinity : this.#cell / Math.abs(dx);
     const deltaZ = dz === 0 ? Infinity : this.#cell / Math.abs(dz);
     for (;;) {

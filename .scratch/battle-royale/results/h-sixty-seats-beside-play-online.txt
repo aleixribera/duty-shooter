@@ -1,0 +1,17 @@
+[server] Duty Shooter dev on http://127.0.0.1:3991 (passphrase, survival-town, ffa, max 58 players, serving /home/aleix/remote-tests/duty-shooter-61b75cd9/apps/server/scripts/)
+match started: 2 clients, 29 bots a side asked for; compression: permessage-deflate
+[server] stats cpu=29.4% rss=182.3MB heap=37.1MB players=2 tick=2.34ms p50=1.00ms p99=9.25ms slowest=13.6ms late=1
+[server] stats cpu=50.6% rss=182.4MB heap=33.3MB players=2 tick=6.59ms p50=5.50ms p99=33.75ms slowest=61.6ms late=20
+[server] stats cpu=44.4% rss=182.0MB heap=39.0MB players=2 tick=5.72ms p50=5.25ms p99=27.00ms slowest=51.0ms late=8
+[server] stats cpu=37.3% rss=181.9MB heap=39.8MB players=2 tick=4.62ms p50=4.50ms p99=9.50ms slowest=50.2ms late=2
+[server] stats cpu=36.6% rss=181.9MB heap=36.8MB players=2 tick=4.80ms p50=4.75ms p99=9.50ms slowest=13.0ms late=0
+[server] stats cpu=39.4% rss=182.3MB heap=33.5MB players=2 tick=4.74ms p50=4.75ms p99=10.00ms slowest=12.0ms late=0
+[server] stats cpu=36.9% rss=182.4MB heap=28.0MB players=2 tick=4.62ms p50=4.50ms p99=10.00ms slowest=14.8ms late=0
+snapshots per client per second: 20.0, 20.0; shots observed: 5779
+download per client: 22.2 KB/s on the wire, 74.8 KB/s before compression, 1134 B a snapshot on the wire, 3830 B raw (0.35 Mbit/s out of the server for all 2)
+snapshot gap ms: p50 50.0, p99 83.2, max 115.1
+usercmd to ack ms: p50 15.8, p95 49.4, p99 78.7, max 116.2
+each client's ack p50 / max ms: 16.3/116.2, 15.1/105.2
+first window, not counted below: p99 9.25, worst 13.6; 1 late
+tick ms over 3600 ticks: mean 5.18, p50 4.75, p99 14.75, worst 61.6; 30 late
+server: cpu 41% of a core on average, 51% at most; rss 182 MB at most

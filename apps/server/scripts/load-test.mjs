@@ -10,15 +10,43 @@
 // BOTS=n asks for n bots a side on top of the clients. The clients take
 // WebSocket compression when the server offers it, as browsers do
 // (DEFLATE=0 refuses it, to compare). NET=wide plays with the kilometre-wide
-// map's snapshot rate and relevance, on a local server.
+// map's snapshot rate and relevance, on a local server. PORT moves that local
+// server off 3999, and it holds the sockets under its load test allowance
+// (LOAD_TEST_SOCKETS), which only the machine itself gets. WARMUP=s plays that
+// long before measuring; the tick costs are reported whole windows at a time,
+// so measure in tens of seconds.
 // Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 import { decodeSnapshot } from '../../../packages/fps-core/src/net/codec.ts';
+import { TickCosts } from '../src/tick-costs.ts';
 
 /** The server's next message: a snapshot comes as a binary frame. */
 const read = (data, isBinary) => (isBinary ? decodeSnapshot(new Uint8Array(data.buffer, data.byteOffset, data.length)) : JSON.parse(String(data)));
+
+/**
+ * A snapshot's tick and ack alone, from its header (see `decodeSnapshot`). Only
+ * the host decodes every frame: under remote-test the players and the server
+ * share one CPU cap, and 60 clients decoding everything run into it, which
+ * stalls the server's tick for tens of milliseconds that are no fault of its own.
+ */
+function peek(bytes) {
+  let at = 1;
+  const varuint = () => {
+    let value = 0;
+    let scale = 1;
+    let byte;
+    do {
+      byte = bytes[at++];
+      value += (byte & 0x7f) * scale;
+      scale *= 128;
+    } while (byte & 0x80);
+    return value;
+  };
+  const tick = varuint();
+  return { t: 'snap', tick, ack: varuint() };
+}
 
 const clients = Number(process.argv[2] ?? 8);
 const seconds = Number(process.argv[3] ?? 40);
@@ -26,7 +54,9 @@ const bots = process.env.BOTS === undefined ? undefined : Number(process.env.BOT
 const target = process.env.TARGET ?? null;
 /** Usercmds in each message: one, as the game sends over TCP. */
 const resend = Number(process.env.RESEND ?? 1);
-const port = 3999;
+const port = Number(process.env.PORT ?? 3999);
+/** Seconds of match played before measuring starts. */
+const warmup = Number(process.env.WARMUP ?? 0);
 const base = target ?? `http://127.0.0.1:${port}`;
 const passphrase = target ? (process.env.PASSPHRASE ?? '') : 'load-test';
 
@@ -43,13 +73,26 @@ function every60Hz(step) {
   return { stop: () => clearTimeout(timer) };
 }
 
+let measuring = false;
 const server = target
   ? null
   : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(clients > 12 ? { LOAD_TEST_SOCKETS: String(clients) } : {}), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
-server?.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));
+/** The server's LOG_STATS lines since measuring started. */
+const windows = [];
+server?.stdout.on('data', (d) => {
+  for (const line of String(d).split('\n').filter(Boolean)) {
+    const stats = /^stats cpu=([\d.]+)% rss=([\d.]+)MB.* window=(.+)$/.exec(line);
+    if (!stats) {
+      console.log(`[server] ${line}`);
+      continue;
+    }
+    console.log(`[server] ${line.replace(/ window=.*/, '')}`);
+    if (measuring) windows.push({ cpu: Number(stats[1]), rss: Number(stats[2]), loop: JSON.parse(stats[3]) });
+  }
+});
 const stop = (code) => {
   if (!server) process.exit(code);
   // Its last log lines still need the pipe: exit once it has.
@@ -71,7 +114,8 @@ let host = null;
 let joined = 0;
 let phase = null;
 let shots = 0;
-let measuring = false;
+/** The match left play while measuring, so the numbers are partly of a lobby. */
+let ended = false;
 let wireStart = [];
 for (let i = 0; i < clients; i++) {
   const ws = new WebSocket(`${base.replace(/^http/, 'ws')}/ws`, { perMessageDeflate: process.env.DEFLATE !== '0' });
@@ -83,7 +127,7 @@ for (let i = 0; i < clients; i++) {
   const stats = { snaps: 0, bytes: 0, gaps: [], rtts: [], last: null };
   ws.on('message', (data, isBinary) => {
     const now = performance.now();
-    const message = read(data, isBinary);
+    const message = isBinary && ws !== host && host !== null ? peek(data) : read(data, isBinary);
     if (message.t === 'welcome') {
       joined += 1;
       host ??= ws;
@@ -91,6 +135,7 @@ for (let i = 0; i < clients; i++) {
       newest = message.tick;
       if (ws === host) {
         phase = message.match?.phase ?? phase;
+        if (measuring && phase !== 'playing') ended = true;
         shots += message.events.filter(({ event }) => event.type === 'shot').length;
       }
       if (!measuring) return;
@@ -139,6 +184,7 @@ if (!(await waitFor(() => phase === 'playing', 30_000))) {
   stop(1);
 }
 console.log(`match started: ${joined} clients${bots === undefined ? '' : `, ${bots} bots a side asked for`}; compression: ${host.extensions || 'none'}`);
+await new Promise((resolve) => setTimeout(resolve, warmup * 1000));
 wireStart = sockets.map((s) => s.ws._socket.bytesRead);
 measuring = true;
 setTimeout(() => {
@@ -155,6 +201,16 @@ setTimeout(() => {
   console.log(`usercmd to ack ms: p50 ${at(rtts, 0.5)}, p95 ${at(rtts, 0.95)}, p99 ${at(rtts, 0.99)}, max ${at(rtts, 1)}`);
   const own = (s) => s.stats.rtts.slice().sort((a, b) => a - b);
   console.log(`each client's ack p50 / max ms: ${sockets.map((s) => `${at(own(s), 0.5)}/${at(own(s), 1)}`).join(', ')}`);
+  // The window that was running when measuring began holds the match's start with WARMUP=0, and idle lobby ticks before it.
+  const whole = windows.slice(1);
+  if (windows[0]) console.log(`first window, not counted below: p99 ${windows[0].loop.p99.toFixed(2)}, worst ${windows[0].loop.slowest.toFixed(1)}; ${windows[0].loop.late} late`);
+  if (whole.length > 0) {
+    const tick = TickCosts.merge(whole.map((w) => w.loop));
+    const cpus = whole.map((w) => w.cpu);
+    console.log(`tick ms over ${tick.ticks} ticks: mean ${tick.average.toFixed(2)}, p50 ${tick.p50.toFixed(2)}, p99 ${tick.p99.toFixed(2)}, worst ${tick.slowest.toFixed(1)}; ${tick.late} late`);
+    console.log(`server: cpu ${(sum(cpus) / cpus.length).toFixed(0)}% of a core on average, ${Math.max(...cpus).toFixed(0)}% at most; rss ${Math.max(...whole.map((w) => w.rss)).toFixed(0)} MB at most`);
+  }
   for (const s of sockets) s.ws.close();
-  stop(shots > 0 ? 0 : 1);
+  if (ended) console.error('The match ended while measuring: these numbers are not of play');
+  stop(shots > 0 && !ended ? 0 : 1);
 }, seconds * 1000);

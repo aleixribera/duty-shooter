@@ -1,0 +1,17 @@
+[server] Duty Shooter dev on http://127.0.0.1:3993 (passphrase, survival-town, ffa, max 30 players, serving /home/aleix/remote-tests/duty-shooter-61b75cd9/apps/server/scripts/)
+match started: 30 clients, 15 bots a side asked for; compression: permessage-deflate
+[server] stats cpu=56.5% rss=167.8MB heap=21.8MB players=30 tick=2.20ms p50=2.00ms p99=4.50ms slowest=5.9ms late=6
+[server] stats cpu=62.4% rss=172.3MB heap=45.0MB players=30 tick=4.05ms p50=4.25ms p99=6.00ms slowest=6.6ms late=0
+[server] stats cpu=63.6% rss=176.1MB heap=27.9MB players=30 tick=4.27ms p50=4.25ms p99=7.00ms slowest=7.4ms late=0
+[server] stats cpu=61.8% rss=176.4MB heap=19.9MB players=30 tick=4.35ms p50=4.50ms p99=6.75ms slowest=8.2ms late=0
+[server] stats cpu=64.0% rss=175.9MB heap=39.5MB players=30 tick=4.50ms p50=4.75ms p99=6.75ms slowest=7.0ms late=0
+[server] stats cpu=63.2% rss=175.9MB heap=31.4MB players=30 tick=4.44ms p50=4.75ms p99=6.75ms slowest=7.9ms late=0
+snapshots per client per second: 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0; shots observed: 11149
+download per client: 19.3 KB/s on the wire, 46.7 KB/s before compression, 989 B a snapshot on the wire, 2387 B raw (4.53 Mbit/s out of the server for all 30)
+snapshot gap ms: p50 50.0, p99 54.1, max 82.8
+usercmd to ack ms: p50 16.7, p95 29.7, p99 47.2, max 183.4
+each client's ack p50 / max ms: 21.3/183.4, 20.6/164.5, 20.4/166.7, 20.1/166.8, 18.7/165.3, 18.2/182.1, 17.3/181.3, 17.1/180.3, 16.4/180.3, 16.1/179.7, 14.6/179.6, 14.3/178.5, 13.5/174.4, 13.3/174.2, 13.1/173.9, 12.2/173.1, 12.0/172.8, 11.5/175.2, 11.3/175.0, 11.2/174.8, 10.7/174.2, 10.8/174.3, 10.8/174.0, 11.1/174.0, 10.9/174.0, 10.9/173.1, 12.6/173.0, 24.1/172.4, 24.2/173.0, 23.7/170.8
+first window, not counted below: p99 4.50, worst 5.9; 6 late
+tick ms over 3000 ticks: mean 4.32, p50 4.50, p99 6.75, worst 8.2; 0 late
+server: cpu 63% of a core on average, 64% at most; rss 176 MB at most
+cpu cap stalls during the run: 1298 ms

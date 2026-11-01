@@ -456,6 +456,11 @@ export class Simulation {
     return p ? clone(p) : null;
   }
 
+  /** {@link playerState} without the copy, for a reader that keeps nothing and changes nothing: a client's snapshot, packed at once. */
+  playerStateView(id: PlayerId): Readonly<PlayerState> | null {
+    return this.#players.get(id) ?? null;
+  }
+
   /** When a player died, or null while alive (or unknown): what {@link playerState} says, without the copy. */
   diedAt(id: PlayerId): number | null {
     return this.#players.get(id)?.diedAt ?? null;

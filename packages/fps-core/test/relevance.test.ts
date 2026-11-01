@@ -182,6 +182,25 @@ describe('seats that matter past the mid range', () => {
   });
 });
 
+describe('snapshots below a tick apiece', () => {
+  it('go out spread over the ticks between them, each client at its rate', () => {
+    const m = match({ net: { snapshotEvery: 3, relevance: null }, spawns: [at(0), at(5), at(10), at(15), at(20), at(25)] });
+    const frames: WireSnapshot[][] = [[], [], [], [], [], []];
+    frames.forEach((own, i) => m.join(`p${i}`, { connection: tap(m, own) }));
+    m.run(ticks(1));
+    const from = Math.max(...frames.flat().map((f) => f.tick));
+    m.run(ticks(1));
+    const sent = frames.flatMap((own) => own.map((f) => f.tick)).filter((tick) => tick > from);
+    const perTick = new Map<number, number>();
+    for (const tick of sent) perTick.set(tick, (perTick.get(tick) ?? 0) + 1);
+    expect(Math.max(...perTick.values())).toBe(2);
+    for (const own of frames) {
+      const mine = own.map((f) => f.tick).filter((tick) => tick > from);
+      expect(mine.slice(1).map((tick, i) => tick - mine[i]!).every((gap) => gap === 3)).toBe(true);
+    }
+  });
+});
+
 describe('drawing a seat that comes at a lower rate', () => {
   const walking = (options: Partial<NetworkedMatchOptions> = {}) => {
     const m = match({ spawns: [at(0), at(60)], spawnProtection: 0, ...options });

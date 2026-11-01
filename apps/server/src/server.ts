@@ -4,11 +4,13 @@ import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, type Connection, type GameServerOptions, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { TickCosts, type TickWindow } from './tick-costs';
+import { warmUp } from './warm-up';
 
 export interface ServerOptions {
   readonly port: number;
@@ -36,15 +38,21 @@ export interface ServerOptions {
   readonly printLog?: (line: string) => void;
   /** Plays every mode on the kilometre-wide map's network profile: for the load test. */
   readonly wideNet?: boolean;
+  /** Open sockets this machine itself may hold, for the load test; every other address keeps the limit. */
+  readonly loadTestSockets?: number;
+  /** Ticks of a private bot match played before listening, so the first real ticks run compiled. */
+  readonly warmTicks?: number;
 }
 
 export interface RunningServer {
   readonly http: Server;
   readonly game: GameServer;
+  /** Seats the warm-up match filled; 0 when there was none. */
+  readonly warmedSeats: number;
   /** The port actually bound (useful with port 0). */
   readonly port: number;
   /** The game loop since the last call: milliseconds per tick, and ticks that started a whole tick late. */
-  takeLoopStats(): { ticks: number; average: number; slowest: number; late: number };
+  takeLoopStats(): TickWindow;
   close(): Promise<void>;
 }
 
@@ -140,7 +148,7 @@ const MAX_FAILED_JOINS = 10;
 const LOCKOUT_MS = 10 * 60 * 1000;
 /** Addresses with wrong passphrases on record before the expired ones are cleared out. */
 const MAX_TRACKED = 1000;
-/** Open sockets allowed per address, joined or not (a household behind one NAT, the 8-bot load test). */
+/** Open sockets allowed per address, joined or not (a household behind one NAT). */
 const MAX_SOCKETS_PER_ADDRESS = 12;
 
 /**
@@ -153,6 +161,8 @@ const CONGESTED = 8 * 1024;
 const MAX_BUFFERED = 1024 * 1024;
 /** Ticks in a row that may fail before the server restarts (Compose brings it back). */
 const MAX_TICK_FAILURES = 60;
+/** A wide server's warm-up: ten seconds of match. */
+const WIDE_WARM_TICKS = 600;
 
 const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 
@@ -171,13 +181,18 @@ function clientAddress(req: IncomingMessage): string {
 class AddressGuard {
   readonly #open = new Map<string, number>();
   readonly #failures = new Map<string, { count: number; since: number }>();
+  readonly #loopbackSockets: number;
+
+  constructor(loopbackSockets: number) {
+    this.#loopbackSockets = loopbackSockets;
+  }
 
   /** Whether a new socket from this address is allowed now. */
   admits(address: string, now: number): boolean {
     const failures = this.#failures.get(address);
     if (failures && now - failures.since > LOCKOUT_MS) this.#failures.delete(address);
     else if (failures && failures.count >= MAX_FAILED_JOINS) return false;
-    return (this.#open.get(address) ?? 0) < MAX_SOCKETS_PER_ADDRESS;
+    return (this.#open.get(address) ?? 0) < (isLoopback(address) ? this.#loopbackSockets : MAX_SOCKETS_PER_ADDRESS);
   }
 
   opened(address: string): void {
@@ -348,7 +363,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});
   log.write({ event: 'serverStart', version: options.version });
-  const game = new GameServer(transport, {
+  const config: GameServerOptions = {
     world: first.world,
     map: first.id,
     maps: others,
@@ -361,13 +376,19 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     dummies: map.dummies,
     passphrase: options.passphrase,
     maxPlayers: options.maxPlayers,
-    ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
+    modes: {
+      ...(options.timeLimit === undefined ? {} : { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } }),
+      // A load test measures play: a kill limit would end it partway and measure the lobby.
+      ...(options.wideNet ? { ffa: { killLimit: null, ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) } } : {}),
+    },
     ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
     ...(options.wideNet ? { net: WIDE_MAP, scale: WIDE_SCALE } : {}),
     // Between matches everyone waits in the lobby for the host to start the next.
     lobby: true,
-  });
+  };
+  const warmedSeats = options.warmTicks && first.nav ? warmUp(config, maxBots, options.warmTicks) : 0;
+  const game = new GameServer(transport, config);
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
@@ -382,7 +403,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     serveStatic(root, req, res).catch(() => res.destroy());
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: DEFLATE });
-  const guard = new AddressGuard();
+  const guard = new AddressGuard(options.loadTestSockets ?? MAX_SOCKETS_PER_ADDRESS);
   http.on('upgrade', (req, socket, head) => {
     // Http stops watching the socket here: a reset before ws takes it over would otherwise end the process.
     socket.on('error', () => socket.destroy());
@@ -411,19 +432,16 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   let next = performance.now();
   let timer: NodeJS.Timeout | null = null;
   let failures = 0;
-  const costs = { ticks: 0, total: 0, slowest: 0, late: 0 };
+  const costs = new TickCosts();
   const loop = () => {
     const now = performance.now();
     let ran = 0;
     while (now >= next && ran < 5) {
       try {
-        if (now - next >= tickMs) costs.late += 1;
+        const late = now - next >= tickMs;
         const started = performance.now();
         game.tick();
-        const cost = performance.now() - started;
-        costs.ticks += 1;
-        costs.total += cost;
-        costs.slowest = Math.max(costs.slowest, cost);
+        costs.record(performance.now() - started, late);
         failures = 0;
       } catch (error) {
         // A tick that fails is lost; the match goes on. One that keeps failing won't mend: a fresh start beats a frozen lobby.
@@ -446,12 +464,9 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   return {
     http,
     game,
+    warmedSeats,
     port,
-    takeLoopStats: () => {
-      const taken = { ticks: costs.ticks, average: costs.ticks ? costs.total / costs.ticks : 0, slowest: costs.slowest, late: costs.late };
-      Object.assign(costs, { ticks: 0, total: 0, slowest: 0, late: 0 });
-      return taken;
-    },
+    takeLoopStats: () => costs.take(),
     close: async () => {
       if (timer) clearTimeout(timer);
       for (const client of wss.clients) client.terminate();
@@ -482,6 +497,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
   const maxBotsPerTeam = Number(env['MAX_BOTS_PER_TEAM'] || MAX_BOTS_PER_TEAM);
   if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > mostBots) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${mostBots}.`);
+  const loadTestSockets = env['LOAD_TEST_SOCKETS'] ? Number(env['LOAD_TEST_SOCKETS']) : undefined;
+  if (loadTestSockets !== undefined && !(Number.isInteger(loadTestSockets) && loadTestSockets >= MAX_SOCKETS_PER_ADDRESS)) throw new Error(`LOAD_TEST_SOCKETS must be an integer of at least ${MAX_SOCKETS_PER_ADDRESS}.`);
   const botsPerTeam = Number(env['BOTS_PER_TEAM'] || Math.min(3, maxBotsPerTeam));
   if (!Number.isInteger(botsPerTeam) || botsPerTeam < 0 || botsPerTeam > maxBotsPerTeam) throw new Error(`BOTS_PER_TEAM must be an integer from 0 to MAX_BOTS_PER_TEAM (${maxBotsPerTeam}).`);
   return {
@@ -497,6 +514,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     botsPerTeam,
     maxBotsPerTeam,
     ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),
-    ...(wide ? { wideNet: true } : {}),
+    ...(wide ? { wideNet: true, warmTicks: env['WARM_TICKS'] ? Number(env['WARM_TICKS']) : WIDE_WARM_TICKS } : {}),
+    ...(loadTestSockets === undefined ? {} : { loadTestSockets }),
   };
 }

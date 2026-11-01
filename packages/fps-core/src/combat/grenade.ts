@@ -47,8 +47,9 @@ function contact(world: World, a: Vec3, b: Vec3): Contact | null {
     const s = world.solids[i] as Solid;
     return s.prop === null ? segmentSolid(a, b, s) : null;
   };
-  const hits = [world.bullets.firstHit(a, b, test), world.movement.firstHit(a, b, test)].filter((h) => h !== null);
-  const best = hits.reduce<(typeof hits)[number] | null>((x, h) => (x === null || h.t < x.t ? h : x), null);
+  const bullet = world.bullets.firstHit(a, b, test);
+  const body = world.movement.firstHit(a, b, test);
+  const best = bullet && body ? (body.t < bullet.t ? body : bullet) : (bullet ?? body);
   if (!best) return null;
   const point: Vec3 = [a[0] + (b[0] - a[0]) * best.t, a[1] + (b[1] - a[1]) * best.t, a[2] + (b[2] - a[2]) * best.t];
   return { t: best.t, point, normal: solidNormal(world.solids[best.index] as Solid, point) };
@@ -87,8 +88,8 @@ export function moveGrenade(g: Grenade, world: World, dt: number): number {
     }
   }
   // On the ground, rolling friction slows it to rest.
-  const ground = contact(world, pos, [pos[0], pos[1] - 0.01, pos[2]]);
-  if (ground && ground.normal[1] > 0.7 && v[1] <= SETTLE_SPEED) {
+  const ground = v[1] <= SETTLE_SPEED ? contact(world, pos, [pos[0], pos[1] - 0.01, pos[2]]) : null;
+  if (ground && ground.normal[1] > 0.7) {
     const k = Math.max(0, 1 - G.rollFriction.value * dt);
     v = [v[0] * k, Math.max(0, v[1]), v[2] * k];
     if (Math.hypot(v[0], v[2]) < REST_SPEED && v[1] < 1e-6) {

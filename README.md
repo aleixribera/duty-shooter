@@ -51,6 +51,7 @@ To play online locally:
    | `STATIC_DIR` | the built client | The files it serves. |
    | `EVENT_LOG` | none | A JSON-lines file of joins, leaves and matches. |
    | `LOG_STATS` | off | `1` prints CPU and memory every 10 s. |
+   | `LOAD_TEST_SOCKETS` | off | Open sockets the machine itself may hold, for a load test on a server of its own. Everyone else stays at 12. |
    | `DUTY_VERSION` | `dev` | The version `/healthz` reports. |
 
 3. Open <http://localhost:3000>.

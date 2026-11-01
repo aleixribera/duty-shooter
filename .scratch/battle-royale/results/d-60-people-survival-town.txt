@@ -1,0 +1,17 @@
+[server] Duty Shooter dev on http://127.0.0.1:3994 (passphrase, survival-town, ffa, max 60 players, serving /home/aleix/remote-tests/duty-shooter-61b75cd9/apps/server/scripts/)
+match started: 60 clients, 0 bots a side asked for; compression: permessage-deflate
+[server] stats cpu=78.1% rss=180.4MB heap=46.0MB players=60 tick=2.82ms p50=2.75ms p99=7.50ms slowest=54.3ms late=12
+[server] stats cpu=96.4% rss=191.0MB heap=38.2MB players=60 tick=5.26ms p50=5.00ms p99=11.25ms slowest=42.2ms late=8
+[server] stats cpu=96.7% rss=191.8MB heap=33.9MB players=60 tick=5.69ms p50=5.25ms p99=23.75ms slowest=42.7ms late=3
+[server] stats cpu=95.8% rss=191.0MB heap=33.6MB players=60 tick=5.41ms p50=5.25ms p99=11.75ms slowest=23.4ms late=3
+[server] stats cpu=97.5% rss=191.2MB heap=40.4MB players=60 tick=5.78ms p50=5.50ms p99=25.75ms slowest=42.9ms late=14
+[server] stats cpu=96.8% rss=196.2MB heap=35.1MB players=60 tick=5.75ms p50=5.50ms p99=21.75ms slowest=43.8ms late=5
+snapshots per client per second: 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.8, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.8, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9, 19.9; shots observed: 21465
+download per client: 38.4 KB/s on the wire, 92.9 KB/s before compression, 1980 B a snapshot on the wire, 4789 B raw (18.01 Mbit/s out of the server for all 60)
+snapshot gap ms: p50 50.1, p99 83.0, max 115.3
+usercmd to ack ms: p50 47.9, p95 68.9, p99 95.7, max 474.9
+each client's ack p50 / max ms: 44.9/439.4, 43.8/439.9, 43.4/440.1, 43.4/423.7, 43.0/423.9, 42.4/424.9, 42.3/425.0, 41.6/423.8, 41.4/455.0, 40.8/440.2, 52.8/437.8, 52.6/436.8, 52.5/436.9, 52.6/437.4, 52.6/437.4, 52.5/437.6, 52.3/437.9, 52.2/438.5, 52.3/451.2, 52.3/451.1, 52.2/472.4, 52.0/472.3, 50.9/472.5, 51.0/472.4, 51.1/474.0, 50.9/473.9, 50.7/474.5, 50.6/474.6, 50.0/474.0, 49.8/474.6, 49.8/474.9, 49.7/474.8, 49.9/444.8, 49.9/444.9, 49.3/445.9, 49.3/446.9, 49.4/446.9, 49.4/464.7, 49.4/437.7, 49.4/438.1, 48.2/436.0, 48.0/465.3, 46.1/463.8, 44.3/464.3, 42.3/459.2, 46.6/431.2, 42.1/415.5, 55.0/412.3, 51.8/408.4, 49.2/405.2, 44.9/420.7, 54.1/401.5, 49.5/401.5, 44.1/400.7, 53.2/400.6, 50.0/352.4, 50.0/352.4, 54.4/338.9, 44.5/329.5, 43.0/329.3
+first window, not counted below: p99 7.50, worst 54.3; 12 late
+tick ms over 3000 ticks: mean 5.58, p50 5.25, p99 22.25, worst 43.8; 33 late
+server: cpu 97% of a core on average, 98% at most; rss 196 MB at most
+cpu cap stalls during the run: 7921 ms

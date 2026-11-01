@@ -376,28 +376,40 @@ function mainComponent(count: number, links: readonly (readonly NavLink[])[]): n
   return best.sort((a, b) => a - b);
 }
 
+/** Nodes `nearestNode` tries, nearest first. */
+const NEAREST_TRIED = 8;
+
 /**
  * The node nearest `p` that a player standing at `p` can walk straight to
  * (the movement code's way: steps, slopes, no walls in between). Falls back
  * to the nearest in sight, then the nearest at all.
  */
 export function nearestNode(graph: NavGraph, world: World, p: Vec3): number {
-  const order: { i: number; d: number }[] = [];
+  // The closest few in order, ties to the lower node: bots ask this on every plan, and a sort of every node is most of its cost.
+  const close: number[] = [];
+  const far: number[] = [];
   for (let i = 0; i < graph.nodes.length; i++) {
     const n = graph.nodes[i]!.position;
-    order.push({ i, d: flat(p, n) + Math.abs(n[1] - p[1]) * 3 });
+    const d = flat(p, n) + Math.abs(n[1] - p[1]) * 3;
+    if (close.length === NEAREST_TRIED && d >= far[NEAREST_TRIED - 1]!) continue;
+    let at = Math.min(close.length, NEAREST_TRIED - 1);
+    while (at > 0 && far[at - 1]! > d) {
+      close[at] = close[at - 1]!;
+      far[at] = far[at - 1]!;
+      at -= 1;
+    }
+    close[at] = i;
+    far[at] = d;
   }
-  order.sort((x, y) => x.d - y.d);
-  const close = order.slice(0, 8);
-  for (const { i } of close) {
+  for (const i of close) {
     const n = graph.nodes[i]!.position;
     if (n[1] - p[1] <= STEP + 0.01 && traverse(world, p, n) !== null) return i;
   }
-  for (const { i } of close) {
+  for (const i of close) {
     const n = graph.nodes[i]!.position;
     if (raycastWorld(world, [p[0], p[1] + 0.5, p[2]], [n[0], n[1] + 0.5, n[2]]) === null) return i;
   }
-  return order[0]?.i ?? 0;
+  return close[0] ?? 0;
 }
 
 /** A* from node `from` to node `to`; the nodes along the way (both ends included), or null when there is no way. `extra` adds cost per node (to steer round danger). */

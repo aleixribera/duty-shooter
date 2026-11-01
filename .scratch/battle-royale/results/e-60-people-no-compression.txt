@@ -1,0 +1,17 @@
+[server] Duty Shooter dev on http://127.0.0.1:3995 (passphrase, survival-town, ffa, max 60 players, serving /home/aleix/remote-tests/duty-shooter-61b75cd9/apps/server/scripts/)
+match started: 60 clients, 0 bots a side asked for; compression: none
+[server] stats cpu=55.2% rss=161.7MB heap=30.5MB players=60 tick=4.50ms p50=4.00ms p99=8.75ms slowest=12.9ms late=5
+[server] stats cpu=57.9% rss=169.0MB heap=34.3MB players=60 tick=6.49ms p50=6.50ms p99=10.50ms slowest=12.3ms late=0
+[server] stats cpu=54.4% rss=168.4MB heap=42.7MB players=60 tick=6.42ms p50=6.00ms p99=10.25ms slowest=11.0ms late=0
+[server] stats cpu=56.2% rss=169.1MB heap=40.2MB players=60 tick=6.72ms p50=6.00ms p99=11.25ms slowest=12.5ms late=0
+[server] stats cpu=53.6% rss=170.1MB heap=32.3MB players=60 tick=6.59ms p50=6.25ms p99=11.25ms slowest=12.0ms late=0
+[server] stats cpu=54.6% rss=170.3MB heap=37.5MB players=60 tick=6.62ms p50=6.00ms p99=11.25ms slowest=12.6ms late=0
+snapshots per client per second: 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0; shots observed: 20840
+download per client: 89.9 KB/s on the wire, 89.8 KB/s before compression, 4599 B a snapshot on the wire, 4595 B raw (42.13 Mbit/s out of the server for all 60)
+snapshot gap ms: p50 50.0, p99 55.3, max 77.4
+usercmd to ack ms: p50 16.3, p95 27.5, p99 43.5, max 92.7
+each client's ack p50 / max ms: 9.0/40.2, 8.9/88.9, 8.5/88.9, 8.1/88.4, 7.8/88.3, 7.6/87.8, 23.1/88.4, 22.9/87.7, 21.9/86.9, 21.3/84.8, 20.9/85.0, 20.6/84.7, 20.6/84.7, 20.3/84.1, 20.1/84.0, 18.7/68.6, 18.5/68.6, 18.2/67.8, 17.9/67.8, 17.7/84.8, 17.3/83.9, 17.2/82.5, 17.1/82.5, 16.4/82.5, 16.4/82.3, 16.3/82.4, 15.8/81.8, 15.5/81.9, 15.3/81.9, 15.0/75.3, 13.9/76.6, 13.5/76.5, 13.1/76.4, 12.9/76.3, 12.5/76.4, 12.2/76.4, 12.0/76.2, 11.8/76.1, 11.4/76.0, 11.2/76.0, 11.0/76.0, 10.7/76.4, 8.6/73.4, 14.4/73.1, 9.0/71.6, 8.4/71.5, 23.7/71.4, 22.3/71.7, 16.8/84.3, 16.0/83.8, 14.5/76.9, 13.3/76.7, 12.0/92.7, 23.1/69.5, 12.7/76.6, 23.1/69.8, 18.1/82.9, 17.3/82.2, 23.9/74.4, 23.8/39.5
+first window, not counted below: p99 8.75, worst 12.9; 5 late
+tick ms over 3000 ticks: mean 6.57, p50 6.00, p99 11.00, worst 12.6; 0 late
+server: cpu 55% of a core on average, 58% at most; rss 170 MB at most
+cpu cap stalls during the run: 838 ms

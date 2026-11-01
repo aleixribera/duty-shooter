@@ -151,13 +151,6 @@ export interface BotOptions {
 
 /** Seconds between the bot teams' plans. */
 const PLAN_EVERY = 1;
-/**
- * Grenade arcs all the bots together may simulate in a tick (see
- * `BotView.budget`): a whole aim is 27 arcs, and ten bots aiming in one tick
- * held it up for tens of milliseconds, a ping spike for everyone.
- */
-const THROW_ARCS = 2;
-
 /** The most bots a side a lobby offers in a team mode. */
 export const MAX_BOTS_PER_TEAM = MATCH_SCALES.tdm.botsPerTeam;
 /** Seconds a fresh spawn can't be hurt, unless it fires first. */
@@ -1110,7 +1103,7 @@ export class GameServer {
     const time = this.simulation.time;
     const tick = this.simulation.tick;
     this.#planBots();
-    const budget: ThinkBudget = { arcs: THROW_ARCS };
+    const budget: ThinkBudget = { arcs: this.#scale.throwArcs };
     const far = this.#scale.farBots;
     const people = far ? this.#joined().flatMap((c) => seats.get(c.id as PlayerId) ?? []) : [];
     for (const [id, seat] of this.#bots) {
@@ -1200,10 +1193,12 @@ export class GameServer {
       this.#stale.add('pings');
     }
     const due: Client[] = [];
+    // Below a snapshot a tick, a share each tick: 60 clients sent together cost one tick in three 5 ms more. The rest go on the next, and stay there.
+    const share = Math.ceil(this.#clients.size / this.#net.snapshotEvery);
     for (const client of this.#clients) {
       if (client.id === null) continue;
       if (tick % PACE_TICKS === 0) this.#setPace(client, tick);
-      if (tick - client.sentTick >= Math.max(client.pace, this.#net.snapshotEvery) && !client.connection.congested) due.push(client);
+      if (due.length < share && tick - client.sentTick >= Math.max(client.pace, this.#net.snapshotEvery) && !client.connection.congested) due.push(client);
     }
     if (due.length === 0) return;
     this.#packSticky();
@@ -1217,7 +1212,7 @@ export class GameServer {
     const grenades = packGrenades(this.#last.grenades);
     for (const client of due) {
       const reliable = client.connection.reliable === true;
-      const self = this.simulation.playerState(client.id as PlayerId);
+      const self = this.simulation.playerStateView(client.id as PlayerId);
       const viewer = this.#net.relevance ? this.#seatIndex.get(client.id as PlayerId) : undefined;
       const view = this.#viewOf(client, viewer, tick);
       const frame = joinSnapshot({
