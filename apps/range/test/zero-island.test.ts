@@ -1,0 +1,382 @@
+import { describe, expect, it } from 'vitest';
+import { STATS, TICK_SECONDS, Terrain, usercmd, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
+import { insidePolygon, LOBBY_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
+import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt, zeroIslandGround, type RegionId } from '../src/map/zero-island-terrain';
+
+const map = buildMapById('zero-island');
+const data = map.terrain!;
+const terrain = new Terrain(data);
+const boundary = map.playArea!;
+
+/** Calls `visit` for a sample of the grid's points every `step` metres. */
+function everyPoint(step: number, visit: (x: number, z: number) => void): void {
+  const [ox, oz] = data.origin;
+  for (let z = oz + 0.5; z < oz + data.rows; z += step) for (let x = ox + 0.5; x < ox + data.columns; x += step) visit(x, z);
+}
+
+/** Dry ground (above the sea) in square metres. */
+function landArea(): number {
+  let cells = 0;
+  everyPoint(4, (x, z) => {
+    if (terrain.heightAt(x, z) > 0) cells++;
+  });
+  return cells * 16;
+}
+
+describe('Zero Island: the map', () => {
+  it('is a map the app knows, offered in no lobby', () => {
+    expect(MAP_IDS).toContain('zero-island');
+    expect(asMapId('zero-island')).toBe('zero-island');
+    expect(LOBBY_MAPS).not.toContain('zero-island');
+  });
+
+  it('is about a square kilometre of land', () => {
+    const area = landArea();
+    expect(area).toBeGreaterThan(0.9e6);
+    expect(area).toBeLessThan(1.15e6);
+  });
+
+  it('is about 2 min 40 s of sprinting across (6.22 m/s)', () => {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    everyPoint(4, (x, z) => {
+      if (terrain.heightAt(x, z) > 0) {
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+      }
+    });
+    const seconds = (x1 - x0) / 6.22;
+    expect(seconds).toBeGreaterThan(150);
+    expect(seconds).toBeLessThan(215);
+  });
+});
+
+describe('Zero Island: the Regions', () => {
+  // The reference's layout: north is -Z, east is +X.
+  const compass: Readonly<Record<RegionId, (x: number, z: number) => boolean>> = {
+    'ground-zero': (x, z) => Math.abs(x) < 120 && Math.abs(z) < 120,
+    'the-dustlands': (x, z) => x < -100 && z > 0,
+    'frostbite-peaks': (x, z) => x < 0 && z < -100,
+    'mutant-jungle': (x, z) => x > 50 && z < -100,
+    'neon-city': (x, z) => x > 200 && Math.abs(z) < 200,
+    'rogue-harbor': (x, z) => Math.abs(x) < 300 && z > 200,
+  };
+
+  it('has six, each with one Core where the reference puts it', () => {
+    expect(REGION_IDS).toHaveLength(6);
+    for (const id of REGION_IDS) {
+      const core = CORES[id];
+      expect(compass[id](core.x, core.z), id).toBe(true);
+      expect(regionAt(core.x, core.z), id).toBe(id);
+    }
+  });
+
+  it('gives each Core the size of Crash, on land', () => {
+    for (const id of REGION_IDS) {
+      const { x, z, radius } = CORES[id];
+      const area = Math.PI * radius * radius;
+      expect(area, id).toBeGreaterThanOrEqual(6000);
+      expect(area, id).toBeLessThanOrEqual(10000);
+      expect(terrain.heightAt(x, z), id).toBeGreaterThan(0);
+      expect(insidePolygon(boundary, x, z), id).toBe(true);
+    }
+  });
+
+  it('shares the land out, none of the six a sliver', () => {
+    const area = new Map<RegionId, number>();
+    everyPoint(8, (x, z) => {
+      if (terrain.heightAt(x, z) <= 0) return;
+      const id = regionAt(x, z);
+      area.set(id, (area.get(id) ?? 0) + 64);
+    });
+    for (const id of REGION_IDS) expect(area.get(id) ?? 0, id).toBeGreaterThan(60_000);
+  });
+});
+
+/**
+ * The ground as a player can walk it: cell to cell, down anything, up only
+ * onto ground under the slope limit and no higher than a step, and nowhere
+ * past the Boundary. Solids are left out. Mantling is asked for: a bank a mantle
+ * clears counts as a way out of a hollow, and as a way toward the summit.
+ */
+class Walk {
+  readonly width = data.columns;
+  readonly height = data.rows;
+  readonly y = new Float32Array(this.width * this.height);
+  readonly steep = new Uint8Array(this.width * this.height);
+  readonly inside = new Uint8Array(this.width * this.height);
+
+  constructor() {
+    const [ox, oz] = data.origin;
+    for (let j = 0; j < this.height; j++) {
+      const z = oz + j + 0.5;
+      // Where this row crosses the Boundary, so 1.8 million cells needn't each walk its edges.
+      const crossings: number[] = [];
+      for (let a = 0, b = boundary.length - 1; a < boundary.length; b = a++) {
+        const [xa, za] = boundary[a]!;
+        const [xb, zb] = boundary[b]!;
+        if (za > z !== zb > z) crossings.push(((xb - xa) * (z - za)) / (zb - za) + xa);
+      }
+      crossings.sort((p, q) => p - q);
+      for (let k = 0; k + 1 < crossings.length; k += 2) {
+        const from = Math.max(0, Math.ceil(crossings[k]! - ox));
+        const to = Math.min(this.width, Math.floor(crossings[k + 1]! - ox));
+        this.inside.fill(1, j * this.width + from, j * this.width + to);
+      }
+      for (let i = 0; i < this.width; i++) {
+        const c = j * this.width + i;
+        const x = ox + i + 0.5;
+        this.y[c] = terrain.heightAt(x, z);
+        this.steep[c] = terrain.steepAt(x - 0.25, z - 0.25) || terrain.steepAt(x + 0.25, z + 0.25) ? 1 : 0;
+      }
+    }
+  }
+
+  cellAt(x: number, z: number): number {
+    return Math.floor(z - data.origin[1]) * this.width + Math.floor(x - data.origin[0]);
+  }
+
+  canStep(a: number, b: number): boolean {
+    const rise = this.y[b]! - this.y[a]!;
+    // Ten centimetres between cell middles is level at this resolution: a player crosses it on whichever of the two triangles is flat.
+    if (rise <= 0.1) return true;
+    // The slope limit is about the ground moved onto (ADR 0007): off a face onto flat ground is a step like any other.
+    return !this.steep[b] && rise <= STATS.movement.stepHeight.value;
+  }
+
+  /** Whether a mantle takes a player from `a` up the bank to `b`, a few cells on. */
+  canMantle(a: number, b: number): boolean {
+    const rise = this.y[b]! - this.y[a]!;
+    return rise > 0 && rise <= STATS.mantle.highClimbMaxHeight.value && !this.steep[a] && !this.steep[b];
+  }
+
+  /** Every cell reachable from `start`, or, `backward`, every cell that can get to it; `mantles` adds the banks. */
+  spread(start: number, backward: boolean, mantles = false): Uint8Array {
+    const seen = new Uint8Array(this.y.length);
+    const queue = new Int32Array(this.y.length);
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    seen[start] = 1;
+    const w = this.width;
+    while (head < tail) {
+      const c = queue[head++]!;
+      for (const n of [c - 1, c + 1, c - w, c + w]) {
+        if (n < 0 || n >= seen.length || seen[n] || !this.inside[n]) continue;
+        if (backward ? this.canStep(n, c) : this.canStep(c, n)) {
+          seen[n] = 1;
+          queue[tail++] = n;
+        }
+      }
+      if (!mantles) continue;
+      for (const n of [c - 3, c - 2, c + 2, c + 3, c - 3 * w, c - 2 * w, c + 2 * w, c + 3 * w]) {
+        if (n < 0 || n >= seen.length || seen[n] || !this.inside[n]) continue;
+        if (backward ? this.canMantle(n, c) : this.canMantle(c, n)) {
+          seen[n] = 1;
+          queue[tail++] = n;
+        }
+      }
+    }
+    return seen;
+  }
+}
+
+const walk = new Walk();
+const home = walk.cellAt(map.offlineSpawn.position[0], map.offlineSpawn.position[2]);
+const reached = walk.spread(home, false);
+const climbed = walk.spread(home, false, true);
+
+describe('Zero Island: where a player can go', () => {
+  const canReturn = walk.spread(home, true, true);
+
+  it('reaches every Core on foot, the plateau among them', () => {
+    for (const id of REGION_IDS) expect(reached[walk.cellAt(CORES[id].x, CORES[id].z)], id).toBe(1);
+    expect(terrain.heightAt(CORES['frostbite-peaks'].x, CORES['frostbite-peaks'].z)).toBeGreaterThan(40);
+  });
+
+  it('reaches nearly all the land', () => {
+    let land = 0;
+    let got = 0;
+    for (let c = 0; c < reached.length; c += 7) {
+      if (!walk.inside[c] || walk.y[c]! <= 0) continue;
+      land++;
+      got += reached[c]!;
+    }
+    expect(got / land).toBeGreaterThan(0.85);
+  });
+
+  it('never reaches the summit', () => {
+    const found: number[] = [];
+    const r = Math.ceil(SUMMIT_RADIUS);
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dz * dz > r * r) continue;
+        const c = walk.cellAt(SUMMIT.x + dx, SUMMIT.z + dz);
+        if (climbed[c]) found.push(c);
+      }
+    }
+    expect(found).toEqual([]);
+  });
+
+  it('has no pit: every place a player can get to, they can walk out of', () => {
+    const trapped: [number, number][] = [];
+    for (let c = 0; c < climbed.length; c++) {
+      if (climbed[c] && !canReturn[c]) trapped.push([(c % walk.width) + data.origin[0], Math.floor(c / walk.width) + data.origin[1]]);
+    }
+    expect(trapped.length, JSON.stringify(trapped.slice(0, 8))).toBe(0);
+  });
+
+  it('keeps every wet place inside the Boundary shallow enough to wade', () => {
+    let deepest = 0;
+    for (let c = 0; c < walk.y.length; c += 3) if (walk.inside[c]) deepest = Math.min(deepest, walk.y[c]!);
+    expect(deepest).toBeGreaterThan(-1);
+  });
+
+  it('closes the grid: the Boundary stands clear of its edge', () => {
+    const [ox, oz] = data.origin;
+    for (const [x, z] of boundary) {
+      expect(x).toBeGreaterThan(ox + 20);
+      expect(x).toBeLessThan(ox + data.columns - 20);
+      expect(z).toBeGreaterThan(oz + 20);
+      expect(z).toBeLessThan(oz + data.rows - 20);
+    }
+  });
+});
+
+describe('Zero Island: moving on it', () => {
+  const solids = mapSolids(map);
+  const at = (x: number, z: number): Vec3 => [x, terrain.heightAt(x, z), z];
+  const start = (position: Vec3): HeadlessMatch => createHeadlessMatch({ solids, terrain: data, players: [{ id: 'p', team: 1, position }] });
+  const faceTo = (from: readonly number[], x: number, z: number) => Math.atan2(-(x - from[0]!), -(z - from[2]!));
+  /** Sprints at (x, z) until within 1.5 m or `seconds` run out; every tick's output. */
+  function run(match: HeadlessMatch, x: number, z: number, seconds: number, buttons: ('Sprint' | 'Jump')[] = ['Sprint']): PlayerOutput[] {
+    const out: PlayerOutput[] = [];
+    for (let t = 0; t < seconds / TICK_SECONDS; t++) {
+      const me = match.latest.players[0]!;
+      if (Math.hypot(me.position[0] - x, me.position[2] - z) < 1.5) break;
+      const output = match.step({ p: usercmd({ forward: 1, yaw: faceTo(me.position, x, z), buttons }) });
+      out.push(output.players[0]!);
+    }
+    return out;
+  }
+  const last = (out: readonly PlayerOutput[]) => out.at(-1)!;
+
+  it('walks up to the plateau from the plain', () => {
+    const { x, z } = CORES['frostbite-peaks'];
+    // To the foot of the block at its middle.
+    const out = run(start(at(x, z + 240)), x, z + 10, 60);
+    expect(Math.hypot(last(out).position[0] - x, last(out).position[2] - z - 10)).toBeLessThan(2);
+    expect(last(out).position[1]).toBeGreaterThan(40);
+  });
+
+  it('fails to climb to the summit from any side, sprinting and jumping', () => {
+    for (let k = 0; k < 24; k++) {
+      const bearing = (k / 24) * 2 * Math.PI;
+      const r = SUMMIT.cliffFoot + 12;
+      const x = SUMMIT.x + Math.cos(bearing) * r;
+      const z = SUMMIT.z + Math.sin(bearing) * r;
+      if (!insidePolygon(boundary, x, z)) continue;
+      const out = run(start(at(x, z)), SUMMIT.x, SUMMIT.z, 14, ['Sprint', 'Jump']);
+      const closest = Math.min(...out.map((p) => Math.hypot(p.position[0] - SUMMIT.x, p.position[2] - SUMMIT.z)));
+      expect(closest, `from bearing ${k * 15}`).toBeGreaterThan(SUMMIT_RADIUS);
+    }
+  });
+
+  it('crosses every bridge dry, its ends level with the ground either side', () => {
+    for (const bridge of BRIDGES) {
+      for (const [x, z] of [bridge.from, bridge.to]) expect(terrain.heightAt(x, z), bridge.name).toBeCloseTo(bridge.deck, 0);
+      const out = run(start([bridge.from[0], bridge.deck + 0.1, bridge.from[1]]), bridge.to[0], bridge.to[1], 40);
+      expect(Math.hypot(last(out).position[0] - bridge.to[0], last(out).position[2] - bridge.to[1]), bridge.name).toBeLessThan(2);
+      expect(Math.min(...out.map((p) => p.position[1])), bridge.name).toBeGreaterThan(bridge.deck - 0.2);
+    }
+  });
+
+  it('wades the channel beside a bridge, slower than on land', () => {
+    const [a, b] = [BRIDGES[1]!.from, BRIDGES[1]!.to];
+    const [x, z] = [(a[0] + b[0]) / 2 + 14, (a[1] + b[1]) / 2];
+    const out = run(start(at(x, z - 12)), x, z + 12, 8);
+    const speed = Math.hypot(out[60]!.velocity[0], out[60]!.velocity[2]);
+    expect(speed).toBeCloseTo(STATS.movement.sprintSpeed.value * STATS.terrain.wadeMultiplier.value, 0);
+  });
+
+  it('wades the jungle stream', () => {
+    const { stream } = zeroIslandGround();
+    const here = stream[Math.floor(stream.length / 2)]!;
+    const depth = terrain.waterAbove(here.x, terrain.heightAt(here.x, here.z), here.z);
+    expect(depth).toBeGreaterThan(STATS.terrain.wadeDepth.value);
+    expect(depth).toBeLessThan(1);
+  });
+
+  it('stops at the Boundary, in the shallows, on every side', () => {
+    let tried = 0;
+    for (let k = 0; k < 16; k++) {
+      const [ex, ez] = boundary[Math.floor((k / 16) * boundary.length)]!;
+      const length = Math.hypot(ex, ez);
+      const [x, z] = [ex * (1 - 16 / length), ez * (1 - 16 / length)];
+      if (terrain.heightAt(x, z) > 0.5) continue;
+      tried++;
+      const end = last(run(start(at(x, z)), ex * 1.1, ez * 1.1, 8)).position;
+      expect(insidePolygon(boundary, end[0], end[2]), `edge ${k}`).toBe(true);
+    }
+    expect(tried).toBeGreaterThan(8);
+  });
+
+  it("mantles a mesa's foot, a bank too steep to walk", () => {
+    // In from the plain toward a mesa on some bearing, to the first ground too steep to walk that has a shelf on it.
+    const mesa = zeroIslandGround().trails[0]!.at(-1)!;
+    const bank = Array.from({ length: 72 }, (_, k) => {
+      const [ux, uz] = [Math.cos(k * 0.0872), Math.sin(k * 0.0872)];
+      let d = 200;
+      while (d > 0 && !terrain.steepAt(mesa.x + ux * d, mesa.z + uz * d)) d -= 0.25;
+      const [bx, bz] = [mesa.x + ux * d, mesa.z + uz * d];
+      const y0 = terrain.heightAt(bx + ux, bz + uz);
+      const rise = terrain.heightAt(bx - 3 * ux, bz - 3 * uz) - y0;
+      return { ux, uz, bx, bz, y0, rise, flat: !terrain.steepAt(bx + 1.2 * ux, bz + 1.2 * uz) && !terrain.steepAt(bx - 3 * ux, bz - 3 * uz) };
+    }).find((b) => b.flat && b.rise > 1.2 && b.rise < STATS.mantle.highClimbMaxHeight.value)!;
+    expect(bank).toBeDefined();
+    const { ux, uz, bx, bz, y0 } = bank;
+    const match = start([bx + 0.9 * ux, y0, bz + 0.9 * uz]);
+    const yaw = faceTo([bx, 0, bz], mesa.x, mesa.z);
+    const out = match.run(90, () => ({ p: usercmd({ forward: 1, yaw, buttons: ['Jump'] }) })).map((o) => o.players[0]!);
+    expect(out.some((p) => p.movement === 'mantle')).toBe(true);
+    expect(last(out).position[1]).toBeGreaterThan(y0 + 1);
+  });
+});
+
+describe('Zero Island: the railway', () => {
+  const { railway, trails } = zeroIslandGround();
+
+  it('rings the crater', () => {
+    const ring = railway[0]!;
+    const c = CORES['ground-zero'];
+    const distances = ring.map((p) => Math.hypot(p.x - c.x, p.z - c.z));
+    expect(Math.min(...distances)).toBeGreaterThan(130);
+    expect(Math.max(...distances)).toBeLessThan(200);
+    expect(Math.hypot(ring[0]!.x - ring.at(-1)!.x, ring[0]!.z - ring.at(-1)!.z)).toBeLessThan(1);
+  });
+
+  it('links every Region', () => {
+    const served = new Set(railway.flatMap((line) => line.map((p) => regionAt(p.x, p.z))));
+    for (const id of REGION_IDS) expect(served.has(id), id).toBe(true);
+  });
+
+  it('runs at a grade a train could take, with the ground cut to it', () => {
+    for (const line of railway) {
+      for (let i = 1; i < line.length; i++) {
+        const [a, b] = [line[i - 1]!, line[i]!];
+        const length = Math.hypot(b.x - a.x, b.z - a.z);
+        if (length > 0.5) expect(Math.abs(b.y - a.y) / length).toBeLessThan(0.08);
+      }
+      for (const p of line) expect(Math.abs(terrain.heightAt(p.x, p.z) - p.y)).toBeLessThan(1);
+    }
+  });
+
+  it('leaves the climbable mesas their trails', () => {
+    for (const trail of trails) {
+      const top = trail.at(-1)!;
+      expect(reached[walk.cellAt(top.x, top.z)]).toBe(1);
+      expect(top.y).toBeGreaterThan(trail[0]!.y + 12);
+    }
+  });
+});

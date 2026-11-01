@@ -3,17 +3,19 @@ import { createWorld, raycastWorld, type Vec3 } from '@duty-shooter/fps-core';
 import { LIGHTING, finishTable } from '@duty-shooter/fps-client/surfaces';
 import { MAP_IDS, buildMapById, mapSolids } from '../src/map/maps';
 
-for (const id of MAP_IDS) {
+// Zero Island is an island: the sea is its far world.
+for (const id of MAP_IDS.filter((m) => m !== 'zero-island')) {
   const map = buildMapById(id);
+  const horizon = map.horizon!;
   const solids = mapSolids(map);
-  const { inner, light } = map.horizon;
+  const { inner, light } = horizon;
   // The map's own ground: drawn, shootable boxes whose tops are at y 0.
   const ground = solids.filter((s) => !s.orientation && s.blocks === 'both' && s.max[1] === 0 && s.min[1] < 0);
   const groundAt = (x: number, z: number) => ground.some((s) => s.min[0] <= x && x <= s.max[0] && s.min[2] <= z && z <= s.max[2]);
 
   describe(`${id}: the far ground`, () => {
     it("wears one of the map's finishes", () => {
-      expect(finishTable({ finishes: map.finishes, looks: [], decorations: [], indoor: [] })[map.horizon.ground]).toBeDefined();
+      expect(finishTable({ finishes: map.finishes, looks: [], decorations: [], indoor: [] })[horizon.ground]).toBeDefined();
     });
 
     it('meets the map ground all the way round its edge, with no gap', () => {

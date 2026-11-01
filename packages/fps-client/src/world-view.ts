@@ -1,5 +1,5 @@
 import type { AmbientSource } from './map-sound';
-import type { ChargeSite, Material, Solid, Vec3, Zone } from '@duty-shooter/fps-core';
+import type { ChargeSite, Material, Solid, TerrainData, Vec3, Zone } from '@duty-shooter/fps-core';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, positionWorldDirection, select, smoothstep, uniform } from 'three/tsl';
 import { Vector2 } from 'three/webgpu';
 import {
@@ -30,6 +30,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { atlasUv, layoutSurfaces, LIGHTING, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type SurfaceLayout } from './surfaces';
+import { TerrainView } from './terrain-view';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, skyNode, surfaceMaterial, useLighting } from './surface-materials';
@@ -73,6 +74,9 @@ export interface WorldContent {
   readonly populationSign?: SignPlacement | null;
   /** The far ground and mountains round the map, if it has them. */
   readonly horizon?: Horizon | null;
+  /** The ground, for a map on terrain (see Terrain), and the sRGB colour of each palette entry. */
+  readonly terrain?: TerrainData | null;
+  readonly terrainColors?: readonly number[];
   /** The end-of-match nuke's ground zero, siren and the camera's shot of it, if the map has one (see Nuke). */
   readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3; readonly shot?: EndingShot } | null;
   /** The end-of-match freight train, if the map has one (see Train). */
@@ -282,6 +286,8 @@ export class WorldView {
   readonly #root = new Group();
   /** The end-of-match freight train, for a map that has one. */
   readonly train: Train | null = null;
+  /** The ground, for a map on terrain. */
+  readonly terrain: TerrainView | null = null;
   /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
   readonly #props = new Map<string, Mesh>();
   /** Standard materials already switched to probe lighting. */
@@ -320,6 +326,10 @@ export class WorldView {
       const { x0, x1, z0, z1 } = content.horizon.inner;
       this.#root.add(ground, mountains((x0 + x1) / 2, (z0 + z1) / 2, finish.color));
       if (content.horizon.town) this.#root.add(distantTown(content.horizon.town));
+    }
+    if (content.terrain) {
+      this.terrain = new TerrainView(content.terrain, content.terrainColors ?? [0x808080], surfaceMaterial({ family: 'glass', color: 0x2a5d6e, accent: 0x2a5d6e }, baked));
+      this.#root.add(this.terrain.root);
     }
     if (content.models) {
       this.modelsIn = loadMapModels(content.models, layout.finishes).then(
@@ -481,6 +491,7 @@ export class WorldView {
       }
     });
     this.#sun.shadow.map?.dispose();
+    this.terrain?.dispose();
   }
 
   /** Redraws the shadow map on the next frame, whatever its refresh rate. */
@@ -497,6 +508,7 @@ export class WorldView {
    * crawling and jumping as the player walks.
    */
   follow(position: Vec3): void {
+    this.terrain?.update(position);
     // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
     // redraws: at the display's rate frames land either side of the interval.
     const now = performance.now() / 1000;

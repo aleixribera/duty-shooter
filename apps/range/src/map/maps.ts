@@ -5,6 +5,7 @@ import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
 import { buildSwitchyard } from './switchyard';
 import { buildCrash } from './crash';
+import { buildZeroIsland } from './zero-island';
 
 /** The range keeps its measuring grid: every material in a grid finish (base tint, line colour). */
 const GRID_FINISHES: Readonly<Record<string, Finish>> = Object.fromEntries(
@@ -94,7 +95,7 @@ export function buildRange(): MapDefinition {
   };
 }
 
-export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'crash', 'range'];
+export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'crash', 'range', 'zero-island'];
 
 /** `id` as a map id, or undefined when it names no map. */
 export const asMapId = (id: string | null | undefined): MapId | undefined => MAP_IDS.find((m) => m === id);
@@ -113,9 +114,10 @@ export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
   switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
   crash: { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   range: {},
+  'zero-island': {},
 };
 
-const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, crash: buildCrash, range: buildRange };
+const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, crash: buildCrash, range: buildRange, 'zero-island': buildZeroIsland };
 
 /** Builds a map by id. Each call builds afresh. */
 export function buildMapById(id: MapId): MapDefinition {

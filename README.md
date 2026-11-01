@@ -58,8 +58,8 @@ To play online locally:
 
 Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 
-- `?map=<map>` (`range`, `survival-town`, `switchyard`, `crash`) starts with that map behind the menu.
-- `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
+- `?map=<map>` (`range`, `survival-town`, `switchyard`, `crash`, `zero-island`) starts with that map behind the menu.
+- `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
 - `?bench` flies the benchmark path and reports frame times, draw calls and triangles.
 - *dev* `?botmap=crash` selects Crash in Bot Match when it opens.

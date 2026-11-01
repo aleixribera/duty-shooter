@@ -38,7 +38,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (!entry) {
       const map = buildMapById(id);
       const e: { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean } = { map, solids: mapSolids(map), bake: Promise.resolve(null), progress: null, ready: false };
-      e.bake = engine!.loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
+      // Ground isn't baked yet (ticket 10), so a map on terrain has no file to ask for.
+      e.bake = map.terrain ? Promise.resolve(null) : engine!.loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
       // For the screenshot scripts: whether this map's lighting is in.
       void e.bake.then((file) => {
         e.ready = true;
@@ -263,6 +264,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       practiceRange: () => {
         menu.loading('Practice Range', null);
         whenUp(() => void playOffline('range'));
+      },
+      zeroIsland: () => {
+        menu.loading('Zero Island', null);
+        whenUp(() => void playOffline('zero-island'));
       },
       botMatch: () => openBotLobby(),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {

@@ -657,8 +657,8 @@ describe('map audio', () => {
     expect(map.ambience.some((a) => a.kind === 'wind')).toBe(true);
     expect(new Set(sources.map((a) => a.kind))).toEqual(new Set(['birds', 'sign', 'radio']));
     for (const a of sources) {
-      expect(Math.abs(a.position[0]), a.kind).toBeLessThanOrEqual(map.horizon.inner.x1);
-      expect(Math.abs(a.position[2]), a.kind).toBeLessThanOrEqual(map.horizon.inner.z1);
+      expect(Math.abs(a.position[0]), a.kind).toBeLessThanOrEqual(map.horizon!.inner.x1);
+      expect(Math.abs(a.position[2]), a.kind).toBeLessThanOrEqual(map.horizon!.inner.z1);
       expect(a.position[1]).toBeGreaterThanOrEqual(0);
     }
     const radio = sources.find((a) => a.kind === 'radio')!;

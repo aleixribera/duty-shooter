@@ -197,6 +197,8 @@ const PAD_KEYS: readonly (readonly [string, string])[] = [
 export interface MenuCallbacks {
   /** Practice on the range, offline. */
   practiceRange(): void;
+  /** Walk Zero Island alone, offline. A stand-in until the Battle Royale button replaces it (ticket 12). */
+  zeroIsland(): void;
   /** Bot Match's setup: the lobby page, offline. */
   botMatch(): void;
   /** Join the server with this name and passphrase; `mode` and `bots` (a side) are the choices for an empty server, null for its own. */
@@ -699,6 +701,7 @@ export class Menu {
     );
     item('bots', 'Bot Match', 'Your own lobby against bots: any map, any mode. Offline.', () => this.#callbacks.botMatch(), !server);
     item('range', 'Practice Range', 'Lanes, dummies and the movement course. Offline.', () => this.#callbacks.practiceRange());
+    item('island', 'Zero Island', 'Walk the island alone. Offline. Early build.', () => this.#callbacks.zeroIsland());
     item('settings', 'Settings', 'Controls, keys, video and interface.', () => {
       this.#back = 'main';
       this.show('settings');

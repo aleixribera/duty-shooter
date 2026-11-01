@@ -47,6 +47,7 @@ import {
   UnsignedByteType,
   Vector3,
   type NodeBuilder,
+  type Texture,
 } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
@@ -446,6 +447,76 @@ export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   if (finish.family === 'lamp') return lampMaterial(finish);
   const a = albedo(finish);
   const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family]));
+  m.colorNode = vec4(a, 1);
+  return m;
+}
+
+/** The ground's colour map: world (x, z) from `origin`, over `size` metres. */
+export interface TerrainColors {
+  readonly texture: Texture;
+  readonly origin: readonly [x: number, z: number];
+  readonly size: readonly [x: number, z: number];
+}
+
+/** Rock showing through wherever ground is too steep to hold anything. */
+const BARE_ROCK = 0x6e645a;
+
+/**
+ * Lights open ground with no bake yet (ticket 10 bakes it): a hemisphere of sky,
+ * the sun by its angle, and the realtime shadow near the player.
+ */
+class OpenGroundModel extends LightingModel {
+  readonly #albedo: N3;
+  readonly #mask = float(1).toVar('sunMask');
+  readonly #point = vec3(0, 0, 0).toVar('pointLight');
+
+  constructor(albedo: N3) {
+    super();
+    this.#albedo = albedo;
+  }
+
+  override direct(input: Parameters<LightingModel['direct']>[0]): void {
+    const { lightNode } = input;
+    const lightDirection = input.lightDirection as unknown as N3;
+    const lightColor = input.lightColor as unknown as N3;
+    const light = (lightNode as unknown as { light?: { isDirectionalLight?: boolean } }).light;
+    if (light?.isDirectionalLight) {
+      const shadow = (lightNode as unknown as { shadowNode: N | null }).shadowNode;
+      if (shadow) this.#mask.mulAssign(shadow);
+      return;
+    }
+    this.#point.addAssign(lightColor.mul(max(dot(normalView as unknown as N3, lightDirection), float(0))).div(Math.PI));
+  }
+
+  override finish(builder: NodeBuilder): void {
+    const context = builder.context as unknown as { outgoingLight: N3 };
+    const n = normalWorld as unknown as N3;
+    const up = n.y.mul(0.5).add(0.5);
+    const sky = mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up);
+    const sun = sunColor.mul(max(dot(n, sunDir), float(0)).mul(this.#mask));
+    context.outgoingLight.assign(haze(this.#albedo.mul(sky.add(sun).add(this.#point)) as N3));
+  }
+}
+
+/** The ground: its colour map, with bare rock on the steep and a little noise so a flat colour doesn't read as paint. */
+export function terrainMaterial(colors: TerrainColors): NodeMaterial {
+  const [ox, oz] = colors.origin;
+  const [sx, sz] = colors.size;
+  const at = vec2(positionWorld.x.sub(ox).div(sx), positionWorld.z.sub(oz).div(sz));
+  const paint = texture(colors.texture, at as never).rgb as unknown as N3;
+  const steep = smoothstep(float(0.66), float(0.8), (normalWorld as unknown as N3).y);
+  const coarse = mx_noise_float(positionWorld.xz.mul(0.09) as never) as unknown as N;
+  const fine = mx_noise_float(positionWorld.xz.mul(0.7) as never) as unknown as N;
+  const a = mix(color(BARE_ROCK) as unknown as N3, paint, steep).mul(coarse.mul(0.14).add(fine.mul(0.08)).add(1)) as N3;
+  const m = new SurfaceMaterial(() => new OpenGroundModel(a));
+  m.colorNode = vec4(a, 1);
+  return m;
+}
+
+/** The sea floor out past the ground: one flat colour under the water. */
+export function seabedMaterial(tint: number): NodeMaterial {
+  const a = color(tint) as unknown as N3;
+  const m = new SurfaceMaterial(() => new OpenGroundModel(a));
   m.colorNode = vec4(a, 1);
   return m;
 }

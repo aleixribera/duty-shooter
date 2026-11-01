@@ -3,7 +3,7 @@ import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
-export type MapId = 'survival-town' | 'switchyard' | 'crash' | 'range';
+export type MapId = 'survival-town' | 'switchyard' | 'crash' | 'range' | 'zero-island';
 
 /** A box the audio treats as indoors (reverb). */
 export interface IndoorZone {
@@ -49,6 +49,8 @@ export interface MapDefinition {
   readonly ladders?: readonly Ladder[];
   /** The ground as a heightfield, collided with beside the solids, for a map that has one. */
   readonly terrain?: TerrainData;
+  /** What each entry of the terrain's palette looks like (sRGB), for a map with terrain. */
+  readonly terrainColors?: readonly number[];
   /** The map's named finishes (colour and pattern), beside the per-material defaults. */
   readonly finishes: Readonly<Record<string, Finish>>;
   /** Per drawn solid, how its faces look; null where its material's default finish will do. */
@@ -68,7 +70,7 @@ export interface MapDefinition {
    * The far world, drawn but never collided with: ground in the finish
    * `ground` from the edge of the map's own ground (`inner`, x0..x1 by
    * z0..z1) out to mountains on the horizon. It is lit like the open
-   * ground at `light` (x, z), which must see the sun.
+   * ground at `light` (x, z), which must see the sun. Null on an island: the sea is its far world.
    */
   readonly horizon: {
     readonly ground: string;
@@ -76,7 +78,7 @@ export interface MapDefinition {
     readonly light: readonly [number, number];
     /** A town out on the plain, beyond the boundary: where its blocks stand and a seed for their layout. */
     readonly town?: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number; readonly seed: number };
-  };
+  } | null;
   /** The map's sun and sky, for its bake and its drawing. */
   readonly lighting: Lighting;
   /** Lamps baked into its lighting (their glowing heads are the map's own geometry). */

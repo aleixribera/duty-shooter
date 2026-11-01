@@ -111,6 +111,7 @@ const PATHS: Readonly<Record<string, string>> = {
   online: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 3.6 5.4 3.6 8.5s-1 5.9-3.6 8.5M12 3.5C9.4 6.1 8.4 8.9 8.4 12s1 5.9 3.6 8.5"/>',
   range: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
   town: '<path d="M3 20h18M5 20v-8l5-4 5 4v8M15 20v-6h4v6M9 20v-4h2v4"/>',
+  island: '<path d="M3 18c3-1.6 6-1.6 9 0s6 1.6 9 0M5.5 15.5 11 7l3.5 5 1.5-2 3 5.5"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
   back: '<path d="M14.5 6 8.5 12l6 6"/>',
   next: '<path d="M9.5 6l6 6-6 6"/>',
