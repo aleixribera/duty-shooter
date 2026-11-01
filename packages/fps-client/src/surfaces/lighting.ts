@@ -24,6 +24,8 @@ export interface Lighting {
   readonly skyIntensity: number;
   /** Light coming up from the ground past the edge of the world. */
   readonly ground: Vec3;
+  /** How much the ambient of everything lit by the probes is raised (1 if unset): models, soldiers, props. A probe averages the dark ground in, so under a deep sky they read darker than the baked walls beside them. */
+  readonly modelFill?: number;
 }
 
 /**

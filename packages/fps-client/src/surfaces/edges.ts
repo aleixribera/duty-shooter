@@ -2,7 +2,7 @@ import type { Vec3 } from '@duty-shooter/fps-core';
 import type { Face } from './faces';
 
 /** A corner of a face with no open edge near: past anything the weathering reads, and the same at every corner so nothing varies across the face. */
-const FAR = 30;
+export const FAR = 30;
 
 /** How far past an edge to look for more wall (m), how many points along it, and how many must find some. */
 const STEP = 0.03;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { box } from '@duty-shooter/fps-core';
-import { SCATTER_FINISHES, layoutSurfaces, scatterPlacements, type Scatter, type SurfaceSpec } from '@duty-shooter/fps-client/surfaces';
+import { GRIME_MARKS, MOST_GRIME, SCATTER_FINISHES, grimeQuads, layoutSurfaces, scatterPlacements, type Scatter, type SurfaceSpec } from '@duty-shooter/fps-client/surfaces';
 import { cornerEdges, openEdges } from '../src/surfaces/edges';
 
 const finishes = { dirt: { family: 'dirt', color: 0xb9925f }, road: { family: 'asphalt', color: 0x746e61 }, wall: { family: 'plaster', color: 0xcccccc } } as const;
@@ -71,5 +71,61 @@ describe('scatter', () => {
 
   it('wears only finishes it declares', () => {
     expect(Object.keys(SCATTER_FINISHES).every((k) => k.startsWith('scatter.'))).toBe(true);
+  });
+});
+
+describe('grime', () => {
+  const solids = [
+    // A house with a roof over its yard side, on a 40 m square of dirt.
+    box({ min: [-20, -1, -20], max: [20, 0, 20], material: 'concrete' }),
+    box({ min: [-4, 0, -3], max: [4, 4, 3], material: 'concrete' }),
+    box({ min: [4, 3.8, -3], max: [8, 4, 3], material: 'concrete' }),
+  ];
+  const { faces, finishes: worn } = layoutSurfaces(solids, spec([{ side: 'dirt', top: 'dirt' }, { side: 'wall' }, { side: 'wall' }]));
+  const scatter: Scatter = { on: ['dirt'], within: { x0: -20, x1: 20, z0: -20, z1: 20 }, open: 0, walls: 0, seed: 5 };
+  const quads = grimeQuads(faces, solids, worn, scatter);
+  const lowest = (q: (typeof quads)[number]) => q.origin[1];
+
+  it('leaves every kind of mark, and no more than one draw is worth', () => {
+    expect(new Set(quads.map((q) => q.mark))).toEqual(new Set(GRIME_MARKS));
+    expect(quads.length).toBeLessThanOrEqual(MOST_GRIME);
+  });
+
+  it('is the same every time', () => {
+    expect(grimeQuads(faces, solids, worn, scatter)).toEqual(quads);
+  });
+
+  it('stays on the wall it marks: not past its ends, its head or its foot', () => {
+    for (const q of quads.filter((m) => m.mark !== 'stain')) {
+      expect(lowest(q)).toBeGreaterThanOrEqual(-0.001);
+      expect(lowest(q) + q.v[1]).toBeLessThanOrEqual(4.001);
+      for (const a of [0, 1]) {
+        expect(Math.abs(q.origin[0] + q.u[0] * a)).toBeLessThanOrEqual(4.01);
+        expect(Math.abs(q.origin[2] + q.u[2] * a)).toBeLessThanOrEqual(3.01);
+      }
+    }
+  });
+
+  it('keeps out from under the roof, where no weather gets', () => {
+    const covered = quads.filter((q) => q.mark !== 'stain' && q.origin[0] > 3.99 && Math.abs(q.origin[2]) < 2.9);
+    expect(covered).toEqual([]);
+  });
+
+  it('faces out, so the far side of a thin wall never shows it', () => {
+    // The house is a convex box round the origin: out is away from it.
+    for (const q of quads.filter((m) => m.mark !== 'stain')) {
+      const [ux, , uz] = q.u;
+      expect((q.origin[0] + ux / 2) * -uz + (q.origin[2] + uz / 2) * ux).toBeGreaterThan(0);
+    }
+  });
+
+  it('runs a streak down from the head of the wall', () => {
+    const streaks = quads.filter((q) => q.mark === 'streak');
+    expect(streaks.length).toBeGreaterThan(0);
+    for (const q of streaks) expect(lowest(q) + q.v[1]).toBeCloseTo(4);
+  });
+
+  it('lays damp from the foot of the wall', () => {
+    for (const q of quads.filter((m) => m.mark === 'damp')) expect(lowest(q)).toBeCloseTo(0);
   });
 });

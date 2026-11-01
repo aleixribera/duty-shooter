@@ -11,7 +11,7 @@ export const BOUNDARY: readonly (readonly [number, number])[] = [[-42, -38], [42
 /** Low gold sun behind the wreck, long shadows and dust in the air. */
 const CRASH_LIGHT: Lighting = {
   sunDirection: normalize([0.84,0.42,-0.33]), sunColor:[1,0.76,0.5], sunIntensity:3.2, sunSpread:0.03,
-  skyZenith:[0.17,0.32,0.54], skyHorizon:[0.98,0.72,0.44], skyIntensity:0.82, ground:[0.42,0.31,0.2],
+  skyZenith:[0.17,0.32,0.54], skyHorizon:[0.98,0.72,0.44], skyIntensity:0.82, ground:[0.42,0.31,0.2], modelFill:2,
 };
 const FINISHES: Readonly<Record<string, Finish>> = {
   sand: { family: 'sand', color: 0xcdb595 },
@@ -50,7 +50,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'city.plaster': { family: 'wornPlaster', color: 0xb5a58c, accent: 0x998b76 },
   'city.sand': { family: 'wornPlaster', color: 0xc1ae90, accent: 0xa4957c },
   'city.trim': { family: 'concrete', color: 0x978b77 },
-  'city.window': { family: 'paint', color: 0x4b514c, roughness:0.95 },
+  'city.window': { family: 'room', color: 0x4b514c },
   'pole.wood': { family: 'floor', color: 0x6c5b46 },
   'pole.metal': { family: 'paint', color: 0x454741, roughness:0.8, metalness:0.3 },
   'pole.insulator': { family: 'plastic', color: 0x82908a, roughness:0.3 },

@@ -88,9 +88,14 @@ function picture(name: string): Texture {
   return t;
 }
 
+/** A read of one of the pictures that don't tile, at a mip level of the caller's: they are cut into cells, which the derivatives at a cell's edge would blur right across. */
+export function atlasAt(name: 'rooms' | 'grime', at: Node<'vec2'>, level: Node<'float'>): Node<'vec4'> {
+  return texture(picture(name), at as never).level(level) as unknown as Node<'vec4'>;
+}
+
 /** Settles when every tile has loaded, or failed to. Materials ask for theirs as their shaders build, too late to wait for, so this asks for all of them. */
 export function tilesLoaded(): Promise<void> {
-  for (const name of [...Object.keys(TILES), 'noise', 'clouds']) picture(name);
+  for (const name of [...Object.keys(TILES), 'noise', 'clouds', 'rooms', 'grime']) picture(name);
   return Promise.all(loading).then(() => undefined);
 }
 

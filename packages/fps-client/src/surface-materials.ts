@@ -2,6 +2,7 @@ import type { Vec3 } from '@duty-shooter/fps-core';
 import {
   abs,
   attribute,
+  distance,
   cameraPosition,
   clamp,
   color,
@@ -9,6 +10,7 @@ import {
   exp,
   float,
   floor,
+  log2,
   Fn,
   fract,
   fwidth,
@@ -55,7 +57,8 @@ import {
 } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
 import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
-import { detailNormal, FAMILY_DEPTH, FAMILY_TILE, gradients, HEX_FAMILIES, hexRelief, noiseAt, parallax, reliefAt } from './surface-tiles';
+import { roomColor } from './surface-room';
+import { atlasAt, detailNormal, FAMILY_DEPTH, FAMILY_TILE, gradients, HEX_FAMILIES, hexRelief, noiseAt, parallax, reliefAt } from './surface-tiles';
 
 /**
  * How the world is lit in the browser: static surfaces from the baked
@@ -234,6 +237,7 @@ const SHINE: Readonly<Record<Family, { ks: number; power: number }>> = {
   sheetMetal: { ks: 0.35, power: 40 },
   fence: { ks: 0.03, power: 10 },
   glass: { ks: 1.2, power: 400 },
+  room: { ks: 0, power: 1 },
   plastic: { ks: 0.15, power: 36 },
   floor: { ks: 0.1, power: 30 },
   plaster: { ks: 0.02, power: 8 },
@@ -370,6 +374,7 @@ function albedo(finish: Finish, st: N2, wear: (mask: N) => void): N3 {
     case 'glass':
     case 'plastic':
     case 'lamp':
+    case 'room':
       return base;
   }
 }
@@ -494,6 +499,7 @@ class SurfaceMaterial extends NodeMaterial {
 export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   if (finish.family === 'glass') return glassMaterial(finish);
   if (finish.family === 'lamp') return lampMaterial(finish);
+  if (finish.family === 'room') return roomMaterial();
   const tile = FAMILY_TILE[finish.family];
   // What the colour works out for the lighting, which runs after it in the same shader: so the march and the reads happen once.
   const a = property('vec3', 'surfaceAlbedo') as unknown as N3 & { assign(v: Node): void };
@@ -593,6 +599,25 @@ const LAMP_GLOW = 6;
 export function lampMaterial(finish: Finish): NodeMaterial {
   const m = new MeshBasicNodeMaterial();
   m.colorNode = vec4((color(finish.color) as unknown as N3).mul(LAMP_GLOW), 1);
+  return m;
+}
+
+/** A pane with a room behind it (see roomColor): lit from inside, and the sky in the glass when seen at a slant. */
+export function roomMaterial(): NodeMaterial {
+  const view = normalize(positionWorld.sub(cameraPosition)) as unknown as N3;
+  const n = normalWorld as unknown as N3;
+  const slant = float(1).sub(clamp(dot(n, view.negate()), float(0), float(1)));
+  const m = new MeshBasicNodeMaterial();
+  m.colorNode = vec4(haze(mix(roomColor(), skyNode(reflect(view, n) as N3).mul(0.75), float(0.06).add(pow(slant, float(4)).mul(0.8))) as N3), 1);
+  return m;
+}
+
+/** A weathering mark (see grimeQuads): near black, so laying it over a wall darkens it the way dirt does, in sun and shade alike. */
+export function grimeMaterial(): NodeMaterial {
+  const tint = attribute<'vec4'>('grimeTint', 'vec4');
+  const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+  m.colorNode = vec4(haze(tint.xyz as unknown as N3), 1);
+  m.opacityNode = atlasAt('grime', uv() as never, clamp(log2(distance(positionWorld, cameraPosition).mul(0.15)), float(1), float(3))).r.mul(tint.w);
   return m;
 }
 
@@ -755,7 +780,7 @@ class ProbeLightingModel extends PhysicalLightingModel {
 
   override indirect(builder: NodeBuilder): void {
     const context = builder.context as unknown as { irradiance: N3 };
-    context.irradiance.addAssign(this.#probes.ambient().mul(Math.PI));
+    context.irradiance.addAssign(this.#probes.ambient().mul(Math.PI * (currentLighting().modelFill ?? 1)));
     super.indirect(builder);
   }
 }

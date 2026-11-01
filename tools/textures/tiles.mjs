@@ -299,6 +299,137 @@ export function png(bytes, width, height, channels = 3) {
  * `bits` is how many low bits to drop first, which the eye can't see through
  * filtering and halves the file.
  */
+/** One room's cell in the rooms picture (px): 3.6 m across, 3 m high. */
+const ROOM = 256;
+
+/** The pictures behind the windows: four rooms' back walls along the top, their furniture along the bottom on black, which reads as nothing there. */
+export function rooms() {
+  const width = ROOM * 4;
+  const out = new Uint8Array(width * ROOM * 2 * 3);
+  const box = (room, row, x, y, w, h, colour, grainy = 0.05) => {
+    for (let py = Math.max(0, y); py < Math.min(ROOM, y + h); py++) {
+      for (let px = Math.max(0, x); px < Math.min(ROOM, x + w); px++) {
+        const at = ((row * ROOM + py) * width + room * ROOM + px) * 3;
+        const shade = 1 + (hash(px + room * ROOM, py + row * ROOM, 3) - 0.5) * grainy * 2;
+        for (let c = 0; c < 3; c++) out[at + c] = clamp(colour[c] * shade, 0, 255);
+      }
+    }
+  };
+  const wall = (room, colour) => {
+    box(room, 0, 0, 0, ROOM, ROOM, colour, 0.04);
+    box(room, 0, 0, 240, ROOM, 16, [colour[0] * 0.55, colour[1] * 0.5, colour[2] * 0.45]);
+  };
+  // A sitting room: a picture, a door, a sofa and a standard lamp.
+  wall(0, [150, 165, 148]);
+  box(0, 0, 62, 70, 66, 44, [62, 48, 36]);
+  box(0, 0, 67, 75, 56, 34, [196, 170, 118]);
+  box(0, 0, 176, 66, 50, 174, [104, 72, 46]);
+  box(0, 0, 184, 76, 34, 66, [118, 84, 54]);
+  box(0, 1, 40, 186, 136, 44, [126, 66, 42]);
+  box(0, 1, 40, 164, 136, 36, [142, 76, 48]);
+  box(0, 1, 28, 176, 22, 66, [112, 58, 38]);
+  box(0, 1, 166, 176, 22, 66, [112, 58, 38]);
+  box(0, 1, 208, 112, 5, 134, [52, 40, 30]);
+  box(0, 1, 192, 84, 38, 34, [250, 226, 170], 0.02);
+  // A kitchen: tiles, wall cupboards, a counter, a table and two chairs.
+  wall(1, [206, 194, 160]);
+  box(1, 0, 16, 112, 226, 128, [172, 190, 182], 0.03);
+  for (let x = 16; x < 242; x += 22) box(1, 0, x, 112, 1, 128, [120, 130, 124]);
+  for (let y = 112; y < 240; y += 22) box(1, 0, 16, y, 226, 1, [120, 130, 124]);
+  for (let x = 20; x < 220; x += 56) box(1, 0, x, 40, 52, 66, [112, 80, 54]);
+  box(1, 0, 16, 176, 226, 64, [126, 94, 62]);
+  box(1, 0, 16, 170, 226, 8, [196, 190, 176]);
+  box(1, 1, 66, 170, 124, 10, [96, 66, 42]);
+  for (const x of [72, 176]) box(1, 1, x, 180, 8, 66, [78, 54, 34]);
+  for (const x of [34, 202]) {
+    box(1, 1, x, 140, 8, 106, [66, 46, 30]);
+    box(1, 1, x + 16, 192, 6, 54, [66, 46, 30]);
+    box(1, 1, x, 188, 24, 7, [84, 58, 38]);
+  }
+  // A study: a wall of books, a desk and a chair.
+  wall(2, [176, 140, 92]);
+  box(2, 0, 28, 30, 200, 210, [74, 52, 34]);
+  for (let shelf = 0; shelf < 5; shelf++) {
+    const y = 38 + shelf * 40;
+    let x = 34;
+    while (x < 220) {
+      const w = 4 + Math.floor(hash(x, shelf, 5) * 8);
+      const tall = 22 + Math.floor(hash(x, shelf, 6) * 11);
+      if (hash(x, shelf, 7) > 0.14) box(2, 0, x, y + 33 - tall, Math.min(w, 222 - x), tall, [70 + hash(x, shelf, 8) * 130, 50 + hash(x, shelf, 9) * 90, 44 + hash(x, shelf, 10) * 70]);
+      x += w + 1;
+    }
+  }
+  box(2, 1, 50, 158, 140, 10, [116, 84, 54]);
+  box(2, 1, 56, 168, 8, 78, [84, 60, 38]);
+  box(2, 1, 176, 168, 8, 78, [84, 60, 38]);
+  box(2, 1, 88, 114, 56, 40, [36, 38, 42]);
+  box(2, 1, 112, 154, 8, 5, [36, 38, 42]);
+  box(2, 1, 192, 132, 36, 70, [52, 58, 66]);
+  box(2, 1, 206, 200, 8, 46, [40, 42, 46]);
+  // A stripped room: bare walls, stacked crates, a mattress against the wall.
+  wall(3, [146, 130, 108]);
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(hash(i, 1, 11) * 220) + 8;
+    const y = Math.floor(hash(i, 2, 11) * 190) + 8;
+    box(3, 0, x, y, 12 + Math.floor(hash(i, 3, 11) * 44), 8 + Math.floor(hash(i, 4, 11) * 30), [120, 88, 66], 0.1);
+  }
+  box(3, 0, 30, 84, 62, 156, [168, 158, 138], 0.08);
+  for (const [x, y, s] of [[20, 186, 60], [84, 198, 48], [30, 130, 56]]) {
+    box(3, 1, x, y, s, s, [122, 96, 62], 0.1);
+    box(3, 1, x + 4, y + 4, s - 8, s - 8, [142, 112, 74], 0.1);
+    box(3, 1, x, y + (s >> 1), s, 3, [96, 74, 46]);
+  }
+  box(3, 1, 176, 170, 56, 76, [98, 92, 80], 0.1);
+  return out;
+}
+
+/** One mark's cell in the grime picture (px). */
+const GRIME = 256;
+
+/** The weathering marks, white where each lands: streaks, rising damp, a crack and a stain (`GRIME_MARKS` keeps the order). */
+export function grime() {
+  const width = GRIME * 4;
+  const out = new Uint8Array(width * GRIME * 3);
+  const put = (cell, x, y, value) => {
+    if (x < 0 || y < 0 || x >= GRIME || y >= GRIME) return;
+    const at = (y * width + cell * GRIME + x) * 3;
+    const v = Math.max(out[at], clamp(value) * 255);
+    out[at] = out[at + 1] = out[at + 2] = v;
+  };
+  const sides = (u) => smooth(0, 0.12, u) * smooth(1, 0.88, u);
+  for (let y = 0; y < GRIME; y++) {
+    for (let x = 0; x < GRIME; x++) {
+      const u = x / GRIME;
+      const v = y / GRIME;
+      // Runs start at the top of the wall and thin out on the way down, each its own length.
+      const reach = 0.35 + 0.75 * fbm(u, 0.5, 14, 3, 21);
+      const runs = smooth(0.42, 0.68, fbm(u + (fbm(u, v, 4, 2, 22) - 0.5) * 0.03, 0.5, 26, 3, 23));
+      put(0, x, y, sides(u) * smooth(reach, 0, v) * (0.28 + 0.72 * runs) * (0.8 + 0.4 * fbm(u, v, 12, 3, 24)));
+      // Damp stands highest in the middle, with a darker tide line at its edge.
+      const top = 0.15 + 0.75 * Math.sin(u * Math.PI) ** 0.7 * (0.55 + 0.55 * fbm(u, 0.3, 9, 3, 25));
+      const fromTop = v - (1 - top);
+      put(1, x, y, sides(u) * smooth(0, 0.14, fromTop) * (0.38 + 0.5 * fbm(u, v, 10, 4, 26) + 0.45 * smooth(0.14, 0.02, Math.abs(fromTop - 0.05))));
+      // A stain: a blot with a torn edge.
+      const r = Math.hypot(u - 0.5, v - 0.5) * 2;
+      put(3, x, y, smooth(0.96, 0.25, r + (fbm(u, v, 7, 4, 27) - 0.5) * 0.85) * (0.5 + 0.7 * fbm(u, v, 18, 3, 28)));
+    }
+  }
+  // The crack wanders from the top down, throwing off a few branches of its own.
+  const crack = (seed, x0, y0, heading0, steps, wide) => {
+    let [x, y, heading] = [x0, y0, heading0];
+    for (let i = 0; i < steps; i++) {
+      heading += (hash(i, seed, 29) - 0.5) * (i % 9 === 0 ? 1.5 : 0.4);
+      x += Math.sin(heading) * 2.2;
+      y += Math.cos(heading) * 2.2;
+      const r = wide * (1 - i / steps) + 0.6;
+      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) put(2, Math.round(x + dx), Math.round(y + dy), smooth(r + 0.8, r - 0.2, Math.hypot(dx, dy)));
+      if (i % 22 === 11 && wide > 1) crack(seed + i + 1, x, y, heading + (hash(i, seed, 30) > 0.5 ? 0.9 : -0.9), steps * 0.4, wide * 0.5);
+    }
+  };
+  crack(1, GRIME * 0.5, 10, 0.1, 100, 2.2);
+  return out;
+}
+
 export function writeWebp(name, bytes, width, height, { channels = 3, bits = 2 } = {}) {
   const dir = join(tmpdir(), `duty-tiles-${process.pid}`);
   mkdirSync(dir, { recursive: true });
@@ -315,4 +446,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeWebp('trim', relief({ metres: [1, 1], depth: 0.03, height: trimHeight }), SIZE, SIZE);
   writeWebp('noise', noise(256), 256, 256, { bits: 1 });
   writeWebp('clouds', clouds(1024), 1024, 1024, { bits: 2 });
+  writeWebp('rooms', rooms(), ROOM * 4, ROOM * 2, { bits: 3 });
+  writeWebp('grime', grime(), GRIME * 4, GRIME, { bits: 3 });
 }

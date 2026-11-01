@@ -2,7 +2,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attribute, float, mix } from 'three/tsl';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BufferAttribute, BufferGeometry, Color, Group, Matrix4, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type Material, type Object3D } from 'three/webgpu';
-import { lampMaterial } from './surface-materials';
+import { lampMaterial, roomMaterial } from './surface-materials';
 import type { Family, Finish, MapModels, ModelPlacement } from './surfaces';
 
 /** How each family shines on a model (the finishes' patterns are for the baked surfaces; models take their colour). */
@@ -17,7 +17,7 @@ const SHEEN: Partial<Record<Family, { roughness: number; metalness: number }>> =
 const CREASE_SUN = 0.45;
 
 /**
- * The one material every model finish but the lamps wears, lit like the moving
+ * The one material every model finish but the lamps and rooms wears, lit like the moving
  * things (see WorldView.lightMoving): each vertex carries its finish's colour,
  * roughness and metalness, and the ambient occlusion baked into the model's
  * vertex colours (1 where it has none), which darkens its creases. So models of
@@ -92,7 +92,7 @@ export function placementMatrix(p: ModelPlacement): Matrix4 {
 /**
  * Loads a map's models and places them, merged into one mesh in each square
  * of the map (see `CELL`) for every finish together (see `finishMaterial`),
- * and one per lamp finish: a street of cars, crates and poles costs a draw
+ * and one per lamp or room finish: a street of cars, crates and poles costs a draw
  * call or two. Each part's material is named after the map finish it wears.
  * Everything casts and takes shadows like the static surfaces.
  */
@@ -100,18 +100,18 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
   const { scene } = await new GLTFLoader().loadAsync(models.url);
   scene.updateMatrixWorld(true);
   const shared = finishMaterial();
-  const lamps = new Map<string, Material>();
+  const own = new Map<string, Material>();
   const finishOf = (name: string): Finish => {
     const finish = finishes[name];
     if (!finish) throw new Error(`Map model material "${name}" names no finish`);
     return finish;
   };
   const materialFor = (name: string, finish: Finish): Material => {
-    if (finish.family !== 'lamp') return shared;
-    let m = lamps.get(name);
+    if (finish.family !== 'lamp' && finish.family !== 'room') return shared;
+    let m = own.get(name);
     if (!m) {
-      m = lampMaterial(finish);
-      lamps.set(name, m);
+      m = finish.family === 'lamp' ? lampMaterial(finish) : roomMaterial();
+      own.set(name, m);
     }
     return m;
   };

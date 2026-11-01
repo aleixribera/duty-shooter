@@ -57,7 +57,7 @@ const WALL_HEIGHT = 0.8;
 const TRIES = 40;
 
 /** A seeded 0..1 stream (mulberry32). */
-function stream(seed: number): () => number {
+export function stream(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
     s = (s + 0x6d2b79f5) >>> 0;
@@ -75,17 +75,15 @@ const span = (f: Face) => {
 };
 
 /**
- * Where a map's scatter goes, from what it's built of. A piece lies where the
- * topmost level face under it wears one of `on`, and no solid stands on it or
- * hangs over it (a roof makes an indoors, whatever its floor wears).
+ * Finds open ground: the height at (x, z) if something `clear` wide can lie
+ * there, where the topmost level face wears one of `on` and no solid stands on
+ * it or hangs over it (a roof makes an indoors, whatever its floor wears).
  */
-export function scatterPlacements(faces: readonly Face[], solids: readonly Solid[], scatter: Scatter): ModelPlacement[] {
-  const random = stream(scatter.seed);
+export function openGround(faces: readonly Face[], solids: readonly Solid[], scatter: Scatter): (x: number, z: number, clear: number) => number | null {
   const on = new Set(scatter.on);
   const level = faces.filter((f) => f.normal[1] > 0.99).map((f) => ({ ...span(f), y: f.origin[1], on: on.has(f.finish) }));
   const { x0, x1, z0, z1 } = scatter.within;
-  /** The height of the ground at (x, z) if a piece can lie there. */
-  const groundAt = (x: number, z: number, clear: number): number | null => {
+  return (x, z, clear) => {
     if (x < x0 || x > x1 || z < z0 || z > z1) return null;
     let top: (typeof level)[number] | null = null;
     for (const f of level) if (x >= f.x0 && x <= f.x1 && z >= f.z0 && z <= f.z1 && f.y < 1 && (!top || f.y > top.y)) top = f;
@@ -94,6 +92,16 @@ export function scatterPlacements(faces: readonly Face[], solids: readonly Solid
     const blocked = solids.some((s) => s.max[1] > y + 0.02 && x > s.min[0] - clear && x < s.max[0] + clear && z > s.min[2] - clear && z < s.max[2] + clear);
     return blocked ? null : y;
   };
+}
+
+/** The level way along a wall. */
+export const along = (f: Face): Vec3 => (Math.abs(f.u[1]) < Math.abs(f.v[1]) ? f.u : f.v);
+
+/** Where a map's scatter goes, from what it's built of: on open ground, and along the foot of the walls. */
+export function scatterPlacements(faces: readonly Face[], solids: readonly Solid[], scatter: Scatter): ModelPlacement[] {
+  const random = stream(scatter.seed);
+  const groundAt = openGround(faces, solids, scatter);
+  const { x0, x1, z0, z1 } = scatter.within;
   const out: ModelPlacement[] = [];
   const put = (asset: Asset, x: number, z: number): boolean => {
     const y = groundAt(x, z, REACH[asset]);
@@ -111,7 +119,6 @@ export function scatterPlacements(faces: readonly Face[], solids: readonly Solid
     const ys = [f.origin[1], f.origin[1] + f.u[1], f.origin[1] + f.v[1], f.origin[1] + f.u[1] + f.v[1]];
     return Math.abs(f.normal[1]) < 0.2 && f.decoration < 0 && Math.min(...ys) < FOOT && Math.max(...ys) - Math.min(...ys) > WALL_HEIGHT;
   });
-  const along = (f: Face): Vec3 => (Math.abs(f.u[1]) < Math.abs(f.v[1]) ? f.u : f.v);
   const lengths = feet.map((f) => Math.hypot(...along(f)));
   const total = lengths.reduce((a, b) => a + b, 0);
   if (total > 0) {

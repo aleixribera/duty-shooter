@@ -6,6 +6,7 @@ import type { Material, Vec3 } from '@duty-shooter/fps-core';
  */
 export type Family =
   | 'grid'
+  | 'room'
   | 'siding'
   | 'shingles'
   | 'brick'

@@ -133,7 +133,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wagon.paint': { family: 'paint', color: 0x88aabd, roughness: 0.35 },
   'wagon.wood': { family: 'floor', color: 0x9a6a3f, accent: 0x7b5230 },
   'wagon.frame': { family: 'floor', color: 0xc9a36b, accent: 0xa8844f, roughness: 0.55 },
-  'window.tint': { family: 'paint', color: 0x2a3843 },
+  'window.tint': { family: 'room', color: 0x2a3843 },
   'auto.glass': { family: 'glass', color: 0x1c262d, roughness: 0.05, metalness: 0.1 },
   tyre: { family: 'plastic', color: 0x1e1f21, roughness: 0.9 },
   whitewall: { family: 'plastic', color: 0xe8e4da, roughness: 0.75 },

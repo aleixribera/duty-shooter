@@ -29,14 +29,14 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { atlasUv, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type Lighting, type Look, type MapModels, type Scatter, type SurfaceLayout } from './surfaces';
+import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Scatter, type SurfaceLayout } from './surfaces';
 import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
-import { currentLighting, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
+import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
@@ -177,6 +177,39 @@ function rampGeometry(r: RampShape): BufferGeometry {
   g.rotateY(Math.PI / 2);
   g.translate(r.x0, 0, r.z0);
   return g; // ExtrudeGeometry is already non-indexed
+}
+
+/** The picture's margin round each mark (of a cell), so a mipmap's blur doesn't pick up the next. */
+const GRIME_INSET = 0.03;
+
+/** A map's weathering marks as one geometry: one draw, however many. */
+function grimeGeometry(marks: readonly GrimeQuad[]): BufferGeometry {
+  const position = new Float32Array(marks.length * 12);
+  const uv = new Float32Array(marks.length * 8);
+  const tint = new Float32Array(marks.length * 16);
+  const index = new Uint32Array(marks.length * 6);
+  marks.forEach((m, k) => {
+    const cell = GRIME_MARKS.indexOf(m.mark);
+    const left = (cell + GRIME_INSET) / GRIME_MARKS.length;
+    const right = (cell + 1 - GRIME_INSET) / GRIME_MARKS.length;
+    ([[0, 0], [1, 0], [1, 1], [0, 1]] as const).forEach(([a, b], corner) => {
+      const v = k * 4 + corner;
+      position.set([0, 1, 2].map((i) => m.origin[i]! + m.u[i]! * a + m.v[i]! * b), v * 3);
+      // The picture's top is v = 0: it runs down from the head of a wall.
+      uv.set([a ? right : left, b ? GRIME_INSET : 1 - GRIME_INSET], v * 2);
+      tint.set(m.tint, v * 4);
+    });
+    index.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
+  });
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(position, 3));
+  // Nothing lights the marks; the renderer asks every mesh for a normal all the same.
+  g.setAttribute('normal', new BufferAttribute(new Float32Array(marks.length * 12), 3));
+  g.setAttribute('uv', new BufferAttribute(uv, 2));
+  g.setAttribute('grimeTint', new BufferAttribute(tint, 4));
+  g.setIndex(new BufferAttribute(index, 1));
+  g.computeBoundingSphere();
+  return g;
 }
 
 /**
@@ -351,6 +384,8 @@ export class WorldView {
       );
     }
     if (content.scatter) {
+      const marks = grimeQuads(layout.faces, content.solids, layout.finishes, content.scatter);
+      if (marks.length > 0) this.#root.add(new Mesh(grimeGeometry(marks), grimeMaterial()));
       const models = scatterModels(layout.faces, content.solids, content.scatter);
       const scatterIn = loadMapModels(models, SCATTER_FINISHES).then(
         (group) => {

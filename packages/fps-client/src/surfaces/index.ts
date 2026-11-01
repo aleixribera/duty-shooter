@@ -14,6 +14,8 @@ export { decorationErrors, decorationFrame, frameFaces, insideFrame, isClear, so
 export type { Face, Frame } from './faces';
 export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
 export type { Lamp, Lighting } from './lighting';
+export { GRIME_MARKS, MOST_GRIME, grimeQuads } from './grime';
+export type { GrimeMark, GrimeQuad } from './grime';
 export { SCATTER_FILE, SCATTER_FINISHES, scatterModels, scatterPlacements } from './scatter';
 export type { Scatter } from './scatter';
 export { TERRAIN_CHUNK, chunkStep, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh } from './terrain-mesh';
