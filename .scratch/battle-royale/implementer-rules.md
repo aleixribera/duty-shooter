@@ -13,6 +13,7 @@ Read `AGENTS.md`, `docs/agents/codebase.md`, `GLOSSARY.md`, `../spec.md`-level c
 - At the start, run `git status -s` and note every file already dirty. Prefer new modules.
 - For a file that was already dirty, stage only your own hunks (`git apply --cached` of your own patch).
 - Before every commit, read `git diff --cached`: every line must be yours and every import must resolve to a committed file.
+- Another session may have its own changes staged, and a plain `git commit` sweeps those in. Run `git diff --cached --name-status` before committing, and if anything there isn't yours, commit through a temporary index (`GIT_INDEX_FILE`) or `git commit --only -- <your paths>`. Stopping to look at the commit's stat afterwards is too late.
 - Never stage `tools/map/crash-level.blend`, `apps/range/src/map/crash.ts` or `apps/range/test/crash.test.ts`.
 - Each commit ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and gets the next tag above `git tag --sort=-v:refname | head -1` (minor for features, patch for fixes). Push with the tag at once.
 - If a push is rejected: `git pull --rebase --autostash origin main`, re-test, push.
