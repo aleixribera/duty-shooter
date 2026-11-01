@@ -148,6 +148,47 @@ export function terrainColorBytes(data: TerrainData, colors: readonly number[]):
   return bytes;
 }
 
+/** Metres a side of a quad of sea. */
+const SEA_QUAD = 16;
+/** Ground this far above the sea leaves it out. Far off, one depth step is over a metre, so a sea drawn under low land would flicker through it. */
+const SEA_CLEARANCE = 0.4;
+
+/**
+ * The sea at y 0: flat quads wherever the ground can dip under it, and four
+ * more reaching `reach` metres past the grid on every side.
+ */
+export function terrainSeaMesh(data: TerrainData, reach: number): TerrainMesh {
+  const { columns, rows, cell, heights, origin } = data;
+  const stride = columns + 1;
+  const [ox, oz] = origin;
+  const x1 = ox + columns * cell;
+  const z1 = oz + rows * cell;
+  const positions: number[] = [];
+  const index: number[] = [];
+  const quad = (x0: number, z0: number, x2: number, z2: number) => {
+    const v = positions.length / 3;
+    positions.push(x0, 0, z0, x2, 0, z0, x0, 0, z2, x2, 0, z2);
+    index.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
+  };
+  const across = Math.max(1, Math.round(SEA_QUAD / cell));
+  for (let j = 0; j < rows; j += across) {
+    for (let i = 0; i < columns; i += across) {
+      const endJ = Math.min(rows, j + across);
+      const endI = Math.min(columns, i + across);
+      let lowest = Infinity;
+      for (let b = j; b <= endJ; b++) for (let a = i; a <= endI; a++) lowest = Math.min(lowest, heights[b * stride + a]!);
+      if (lowest < SEA_CLEARANCE) quad(ox + i * cell, oz + j * cell, ox + endI * cell, oz + endJ * cell);
+    }
+  }
+  quad(ox - reach, oz - reach, x1 + reach, oz);
+  quad(ox - reach, z1, x1 + reach, z1 + reach);
+  quad(ox - reach, oz, ox, z1);
+  quad(x1, oz, x1 + reach, z1);
+  const normals = new Float32Array(positions.length);
+  for (let n = 1; n < normals.length; n += 3) normals[n] = 1;
+  return { positions: Float32Array.from(positions), normals, index: Uint32Array.from(index) };
+}
+
 /** The water that stands above the ground: every cell wet at all four corners, at the height of its surface. */
 export function terrainWaterMesh(data: TerrainData): TerrainMesh {
   const { columns, rows, cell, water, origin } = data;

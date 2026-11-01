@@ -13,7 +13,8 @@ export const ZERO_ISLAND_LIGHT: Lighting = {
   skyZenith: [0.12, 0.17, 0.38],
   skyHorizon: [1.0, 0.58, 0.36],
   skyIntensity: 0.8,
-  ground: [0.1, 0.13, 0.17],
+  // Past the far plane the sky shows below the horizon: the colour the far sea has faded to, so no line shows.
+  ground: [0.72, 0.5, 0.42],
 };
 
 /** The blockout's one finish: scale, not art. Each Region's ticket replaces it. */
@@ -24,6 +25,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
 /** Boundary clip reaches this high: past any jump, and past the summit. */
 const SKY = 320;
 const CLIP_THICKNESS = 2;
+const LIP = 0.04;
 
 /** One grey box of a Core: offset from its middle (x, z), footprint, height above the ground, and a turn. */
 type Block = readonly [dx: number, dz: number, width: number, depth: number, height: number, yaw?: number];
@@ -136,7 +138,8 @@ function bridges(b: Builder, terrain: Terrain): void {
     const thick = 0.6;
     const x = (ax + bx) / 2;
     const z = (az + bz) / 2;
-    b.turned([x, bridge.deck - thick / 2, z], [length, thick, bridge.width], yaw, 'concrete', 'block');
+    // A finger above the road it lands on, so the two don't flicker where they overlap.
+    b.turned([x, bridge.deck + LIP - thick / 2, z], [length, thick, bridge.width], yaw, 'concrete', 'block');
     const piers = Math.max(1, Math.round(length / 28));
     for (let i = 1; i <= piers; i++) {
       const k = i / (piers + 1);
@@ -215,19 +218,11 @@ export function buildZeroIsland(): MapDefinition {
   ];
   const spawn: SpawnPoint = { position: [CORES['ground-zero'].x, at(8, 150, 0), 150], yaw: 0 };
   const flight = (x: number, z: number, yaw: number): CameraKey => ({ position: [x, at(x, z, 3), z], yaw, pitch: -0.05 });
+  // The widest views there are: over the crater to the peaks, the city in front of the island, and back along the south coast.
   const benchmarkPath: CameraKey[] = [
-    flight(8, 175, 0),
-    flight(-120, 47, west),
-    flight(-260, 186, south),
-    flight(-40, 268, east),
-    flight(90, 349, east),
-    flight(330, 233, 0),
-    flight(410, 128, 0),
-    flight(300, -116, 0.6),
-    flight(170, -314, 0),
-    flight(-40, -268, west),
-    flight(-120, -151, south),
-    flight(8, 105, south),
+    flight(-60, 170, 0.3),
+    flight(120, 190, -0.6),
+    flight(300, 90, east),
   ];
   return {
     id: 'zero-island',

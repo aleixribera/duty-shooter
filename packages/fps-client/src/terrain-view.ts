@@ -13,7 +13,7 @@ import {
   UnsignedByteType,
   type Material,
 } from 'three/webgpu';
-import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainWaterMesh, type TerrainMesh } from './surfaces';
+import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh, type TerrainMesh } from './surfaces';
 import { seabedMaterial, terrainMaterial } from './surface-materials';
 
 /** The coarsest step: every chunk has it from the start, so nothing is ever a hole. */
@@ -26,7 +26,7 @@ const RECHECK = 6;
 const TELEPORT = 64;
 /** Ground wholly deeper than this can't be seen through the sea, and the seabed stands in for it (m). */
 const SEABED = -5.5;
-/** How far the sea and seabed reach from the middle of the ground (m). */
+/** How far the sea and seabed reach past the ground (m). */
 const SEA_REACH = 3000;
 
 interface Chunk {
@@ -91,12 +91,12 @@ export class TerrainView {
     const middleX = data.origin[0] + width / 2;
     const middleZ = data.origin[1] + depth / 2;
     const plane = (y: number, m: Material) => {
-      const g = new PlaneGeometry(SEA_REACH * 2, SEA_REACH * 2).rotateX(-Math.PI / 2);
+      const g = new PlaneGeometry(SEA_REACH * 2 + width, SEA_REACH * 2 + depth).rotateX(-Math.PI / 2);
       const mesh = new Mesh(g, m);
       mesh.position.set(middleX, y, middleZ);
       return mesh;
     };
-    this.root.add(plane(SEABED - 0.5, seabedMaterial(0x24454f)), plane(0, water));
+    this.root.add(plane(SEABED - 0.5, seabedMaterial(0x1b6476)), new Mesh(geometry(terrainSeaMesh(data, SEA_REACH)), water));
     const river = terrainWaterMesh(data);
     if (river.index.length > 0) this.root.add(new Mesh(geometry(river), water));
   }

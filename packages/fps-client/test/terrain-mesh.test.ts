@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Terrain, type TerrainData } from '@duty-shooter/fps-core';
-import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainWaterMesh } from '../src/surfaces';
+import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh } from '../src/surfaces';
 
 /** A bumpy little ground, 100 cells by 70: not a whole number of chunks either way. */
 function ground(): TerrainData {
@@ -125,6 +125,26 @@ describe('the colours of the ground', () => {
     const bytes = terrainColorBytes(ground(), [0x112233, 0xc0ffee]);
     expect(bytes.length).toBe(100 * 70 * 4);
     expect([...bytes.subarray(0, 4)]).toEqual([0xc0, 0xff, 0xee, 255]);
+  });
+});
+
+describe('the sea', () => {
+  const heights = new Float32Array(65 * 65).fill(5);
+  // Under water at one end only.
+  for (let j = 0; j <= 64; j++) for (let i = 0; i <= 15; i++) heights[j * 65 + i] = -1;
+  const data: TerrainData = { origin: [0, 0], cell: 1, columns: 64, rows: 64, heights, palette: ['sand'] };
+  const mesh = terrainSeaMesh(data, 100);
+  const covered = (x: number, z: number) => meshHeightAt(mesh, x, z);
+
+  it('lies over the ground that dips under it, and out past the grid', () => {
+    expect(covered(4, 30)).toBe(0);
+    expect(covered(-50, 30)).toBe(0);
+    expect(covered(30, 150)).toBe(0);
+    expect(covered(150, 30)).toBe(0);
+  });
+
+  it('leaves out the ground that stands clear, so it cannot flicker through it from far off', () => {
+    expect(covered(50, 30)).toBeNull();
   });
 });
 

@@ -28,6 +28,15 @@ _Avoid_: out-of-bounds, kill zone (there is none)
 A map's ground as a heightfield, colliding beside its solids: a grid of corner heights, two triangles a cell. Nothing goes through it, and past its rectangle there is no ground, so a Boundary closes it.
 _Avoid_: floor, landscape, mesh collision
 
+**Zero Island**:
+The Battle Royale's map: about a square kilometre of land on Terrain, with a Boundary out in the shallows. Its ground is generated in code when the map is built. Reached for now by `?explore=zero-island` and a temporary main menu button.
+
+**Region**:
+One of Zero Island's six areas: Ground Zero, The Dustlands, Frostbite Peaks, Mutant Jungle, Neon City and Rogue Harbor. Never "Zone", which stays with Outposts.
+
+**Core**:
+A Region's dense, fully detailed place, about the size of Crash. Grey blocks stand in for them until each gets its own ticket.
+
 **Slope limit**:
 The steepest terrain a player can walk up, 45 degrees. Past it the ground stops them like a wall, and a player on it slides down and can't jump.
 _Avoid_: max incline

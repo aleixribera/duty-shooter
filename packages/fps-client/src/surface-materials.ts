@@ -513,11 +513,10 @@ export function terrainMaterial(colors: TerrainColors): NodeMaterial {
   return m;
 }
 
-/** The sea floor out past the ground: one flat colour under the water. */
+/** The deep water out past the ground, seen through the sea: a flat colour, since a sunset on it would turn it the colour of the sand. */
 export function seabedMaterial(tint: number): NodeMaterial {
-  const a = color(tint) as unknown as N3;
-  const m = new SurfaceMaterial(() => new OpenGroundModel(a));
-  m.colorNode = vec4(a, 1);
+  const m = new MeshBasicNodeMaterial();
+  m.colorNode = vec4(haze(color(tint) as unknown as N3), 1);
   return m;
 }
 
