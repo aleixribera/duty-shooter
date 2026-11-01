@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION, type Connection, type SpawnPoint } from '@duty-shooter/fps-core';
+import { PROTOCOL_VERSION, decodeServer, type Connection, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -30,7 +30,7 @@ describe('input delay', () => {
     let ack = 0;
     let newest = 0;
     c.onMessage((data) => {
-      const message = JSON.parse(data) as { t: string; ack?: number };
+      const message = decodeServer(data) as unknown as { t: string; ack?: number };
       if (message.t === 'snap') ack = message.ack ?? 0;
     });
     c.send(join('burst'));
@@ -66,7 +66,7 @@ function raw(m: NetworkedMatch, name: string) {
   const c = m.network.connect();
   const snaps: RawSnap[] = [];
   c.onMessage((data) => {
-    const message = JSON.parse(data) as RawSnap;
+    const message = decodeServer(data) as unknown as RawSnap;
     if (message.t === 'snap') snaps.push(message);
   });
   c.send(join(name));

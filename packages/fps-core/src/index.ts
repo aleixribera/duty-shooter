@@ -45,10 +45,12 @@ export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT, MAX_BOTS_PER_TEAM, RECON
 export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus, ServerMap, TeamSizes } from './net/server';
 export { GameClient } from './net/client';
 export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client';
-export type { Connection, ServerTransport } from './net/transport';
+export type { Connection, ServerTransport, WireData } from './net/transport';
+export { FULL_RATE, NET_PROFILES, WIDE_MAP } from './net/relevance';
+export type { NetProfile, Relevance } from './net/relevance';
 export { createMemoryNetwork } from './net/memory';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
-export { INTERMISSION, MATCH_COUNTDOWN, PROTOCOL_VERSION } from './net/protocol';
+export { INTERMISSION, MATCH_COUNTDOWN, PROTOCOL_VERSION, decodeServer } from './net/protocol';
 export type { ClientMessage, LobbyPick, LobbyState, MatchStatus, Phase, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
 export { MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamMode } from './modes/game-mode';
 export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, dealLadder, gunGameLevel } from './modes/gungame';

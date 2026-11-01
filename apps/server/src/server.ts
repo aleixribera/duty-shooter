@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
@@ -34,6 +34,8 @@ export interface ServerOptions {
   readonly eventLog?: string;
   /** Replaces stdout for the event log's lines (tests). */
   readonly printLog?: (line: string) => void;
+  /** Plays every mode on the kilometre-wide map's network profile: for the load test. */
+  readonly wideNet?: boolean;
 }
 
 export interface RunningServer {
@@ -198,9 +200,9 @@ class AddressGuard {
 
 /** fps-core's Connection over one WebSocket. `onLocalClose` sees the reason whenever the game server closes it. */
 function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void): Connection {
-  let onMessage: ((data: string) => void) | null = null;
+  let onMessage: ((data: WireData) => void) | null = null;
   let onClose: ((reason: string) => void) | null = null;
-  const inbox: string[] = [];
+  const inbox: WireData[] = [];
   let closed = false;
   socket.on('message', (data, isBinary) => {
     if (isBinary) {
@@ -362,6 +364,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
+    ...(options.wideNet ? { net: WIDE_MAP } : {}),
     // Between matches everyone waits in the lobby for the host to start the next.
     lobby: true,
   });
@@ -490,5 +493,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     botsPerTeam,
     maxBotsPerTeam,
     ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),
+    ...(env['NET'] === 'wide' ? { wideNet: true } : {}),
   };
 }

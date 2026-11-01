@@ -14,15 +14,12 @@ import { Simulation, type PlayerId, type PlayerOutput, type PlayerSpawn, type Pl
 import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
-import type { StickyField } from './protocol';
+import { STICKY_FIELDS, joinSnapshot, packEvent, packGrenades, packPlayer, packValue, type StickyField } from './codec';
 import {
   EVENT_RESEND_TICKS,
   INTERMISSION,
   MATCH_COUNTDOWN,
   PROTOCOL_VERSION,
-  STICKY_FIELDS,
-  compactGrenade,
-  compactOutput,
   decodeClient,
   encode,
   type LobbyState,
@@ -30,9 +27,10 @@ import {
   type Phase,
   type RejectReason,
   type ServerMessage,
-  type StampedEvent,
+  type WireSnapshot,
 } from './protocol';
-import type { Connection, ServerTransport } from './transport';
+import { NET_PROFILES, eventReach, reaches, seatTier, within, type EventReach, type NetProfile, type Relevance } from './relevance';
+import type { Connection, ServerTransport, WireData } from './transport';
 
 /** A map the server can run a match on: its collision, spawns, objectives and the bots' nav graph. */
 export interface ServerMap {
@@ -108,6 +106,8 @@ export interface GameServerOptions {
    * them (see {@link hvbBots}); free-for-all ignores it.
    */
   readonly hvb?: boolean;
+  /** Replaces every mode's own network profile (see {@link NET_PROFILES}): for load tests. */
+  readonly net?: NetProfile;
 }
 
 /** The bot team humans vs bots puts up against `people`: two more than them, at least four, within the cap a side and the seats left. */
@@ -224,9 +224,11 @@ interface Client {
   spare: number;
   spareTicks: number;
   /** What each sticky field last went out as: left out until it differs. */
-  sticky: Partial<Record<StickyField, string>>;
+  sticky: Partial<Record<StickyField, Uint8Array>>;
   /** The tick of the last snapshot sent. */
   sentTick: number;
+  /** The tick each seat in its view last went out: a seat not in here isn't in its view. */
+  readonly seats: Map<PlayerId, number>;
   /** Ticks between its snapshots: more when its link can't take them all. */
   pace: number;
   /** Ticks between the newest snapshot it reports and now, at the last report. */
@@ -291,6 +293,15 @@ export interface LobbyStatus {
   readonly hvb: boolean;
 }
 
+/** An event ready for the wire. */
+interface LoggedEvent {
+  readonly tick: number;
+  readonly type: (SimEvent | ModeEvent)['type'];
+  readonly bytes: Uint8Array;
+  /** Who it's for; null where every seat goes to everyone. */
+  readonly reach: EventReach | null;
+}
+
 interface BotSeat {
   readonly bot: Bot;
   readonly name: string;
@@ -324,10 +335,15 @@ export class GameServer {
   readonly #clients = new Set<Client>();
   readonly #names = new Map<PlayerId, string>();
   #nextId = 1;
-  #recentEvents: StampedEvent[] = [];
-  /** Each tick's events, encoded, for clients that get exactly those they haven't had. */
-  #eventLog: { readonly tick: number; readonly json: string }[] = [];
-  #pingsJson = '{}';
+  /** The events still repeated for lossy connections. */
+  #recentEvents: LoggedEvent[] = [];
+  /** Events for a while back, for reliable connections, which get exactly those they haven't had. */
+  #eventLog: LoggedEvent[] = [];
+  /** Each sticky field as it last changed, one array per version: a client's copy is the same array until then. */
+  readonly #sticky: Partial<Record<StickyField, Uint8Array>> = {};
+  #pings: Readonly<Record<string, number>> = {};
+  /** The tick each seat last fired: gunfire brings a seat into view for those who hear it. */
+  readonly #firedAt = new Map<PlayerId, number>();
   #last: TickOutput;
   /** Props shot this match; cleared when a match starts. */
   readonly #popped = new Set<string>();
@@ -529,7 +545,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), spare: Infinity, spareTicks: 0, sticky: {}, sentTick: this.#last.tick, pace: 1, behind: 0, floor: Infinity, floorBefore: Infinity, floorSince: this.#last.tick, clear: 0, patience: PATIENCE, spedUp: -Infinity, ping: 0, allowance: this.#rate * RATE_BURST, refilled: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), spare: Infinity, spareTicks: 0, sticky: {}, sentTick: this.#last.tick, seats: new Map(), pace: 1, behind: 0, floor: Infinity, floorBefore: Infinity, floorSince: this.#last.tick, clear: 0, patience: PATIENCE, spedUp: -Infinity, ping: 0, allowance: this.#rate * RATE_BURST, refilled: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose((reason) => this.#drop(client, reason !== LEFT));
@@ -545,7 +561,7 @@ export class GameServer {
     this.#clients.delete(client);
   }
 
-  #receive(client: Client, data: string): void {
+  #receive(client: Client, data: WireData): void {
     // What was already on its way when the connection was closed.
     if (!this.#clients.has(client)) return;
     const now = this.simulation.time;
@@ -560,7 +576,8 @@ export class GameServer {
       client.connection.close('message too large');
       return;
     }
-    const message = decodeClient(data);
+    // Clients only ever send text.
+    const message = typeof data === 'string' ? decodeClient(data) : null;
     if (!message) {
       client.connection.close('malformed message');
       return;
@@ -986,19 +1003,26 @@ export class GameServer {
     const out = this.simulation.step(cmds);
     this.#lastEvents = out.events;
     // Firing ends spawn protection.
-    for (const e of out.events) if (e.type === 'shot') this.#protectedSince.delete(e.shooter);
+    for (const e of out.events) {
+      if (e.type !== 'shot') continue;
+      this.#protectedSince.delete(e.shooter);
+      this.#firedAt.set(e.shooter, out.tick);
+    }
     for (const e of out.events) if (e.type === 'prop') this.#popped.add(e.prop);
     const modeEvents = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
     this.#modeEvents = modeEvents;
 
     const tick = out.tick;
-    const stamped = [...out.events, ...modeEvents].map((event, index) => ({ tick, index, event }));
-    // Cosmetic events go out once; the ones that matter are repeated for a while in case a snapshot is lost.
-    const kept = this.#recentEvents.filter((e) => e.tick > tick - EVENT_RESEND_TICKS && IMPORTANT.has(e.event.type));
-    this.#recentEvents = [...kept, ...stamped];
-    if (stamped.length > 0) this.#eventLog.push({ tick, json: stamped.map((e) => JSON.stringify(e)).join(',') });
-    while (this.#eventLog.length > 0 && (this.#eventLog[0] as { tick: number }).tick <= tick - EVENT_LOG_TICKS) this.#eventLog.shift();
     this.#last = this.simulation.output();
+    const positions = this.#net.relevance ? new Map(this.#last.players.map((p) => [p.id, p.position])) : null;
+    const logged = [...out.events, ...modeEvents].map(
+      (event, index): LoggedEvent => ({ tick, type: event.type, bytes: packEvent({ tick, index, event }), reach: positions ? eventReach(event, (id) => positions.get(id)) : null }),
+    );
+    // Cosmetic events go out once; the ones that matter are repeated for a while in case a snapshot is lost.
+    const kept = this.#recentEvents.filter((e) => e.tick > tick - EVENT_RESEND_TICKS && IMPORTANT.has(e.type));
+    this.#recentEvents = [...kept, ...logged];
+    this.#eventLog.push(...logged);
+    while (this.#eventLog.length > 0 && (this.#eventLog[0] as LoggedEvent).tick <= tick - EVENT_LOG_TICKS) this.#eventLog.shift();
     this.#broadcast();
     return this.#last;
   }
@@ -1111,11 +1135,11 @@ export class GameServer {
   }
 
   /**
-   * Sends each client its snapshot. What's the same for everyone is encoded
-   * once a tick and the strings joined per client; on a reliable connection,
-   * a sticky field goes only when it differs from what that client last got,
-   * and events are exactly those since its last snapshot, so a skipped one
-   * loses nothing.
+   * Sends each client its snapshot. What's the same for everyone is packed
+   * once a tick and the bytes joined per client; on a reliable connection, a
+   * sticky field goes only when it differs from what that client last got, and
+   * events are exactly those since its last snapshot, so a skipped one loses
+   * nothing.
    */
   #broadcast(): void {
     const tick = this.#last.tick;
@@ -1123,34 +1147,105 @@ export class GameServer {
       const pings: Record<string, number> = {};
       // A client that has not measured its round trip yet is left out (shown as unknown).
       for (const c of this.#clients) if (c.id !== null && c.ping > 0) pings[c.id] = c.ping;
-      this.#pingsJson = JSON.stringify(pings);
+      this.#pings = pings;
     }
-    const sticky: Record<StickyField, string> = {
-      scores: JSON.stringify(this.#mode.scores().map((s) => (this.#bots.has(s.id) ? { ...s, bot: true } : s))),
-      names: JSON.stringify(Object.fromEntries(this.#names)),
-      pings: this.#pingsJson,
-      popped: JSON.stringify([...this.#popped]),
-      match: JSON.stringify(this.matchStatus()),
-    };
-    const players = this.#last.players.map((p) => ({ id: p.id, json: JSON.stringify(compactOutput(p)) }));
-    const grenades = JSON.stringify(this.#last.grenades.map(compactGrenade));
-    const recent = JSON.stringify(this.#recentEvents);
+    const due: Client[] = [];
     for (const client of this.#clients) {
       if (client.id === null) continue;
       if (tick % PACE_TICKS === 0) this.#setPace(client, tick);
-      if (tick - client.sentTick < client.pace || client.connection.congested) continue;
-      const reliable = client.connection.reliable === true;
-      const others = players.filter((p) => p.id !== client.id).map((p) => p.json);
-      const events = reliable ? `[${this.#eventLog.filter((e) => e.tick > client.sentTick).map((e) => e.json).join(',')}]` : recent;
-      let text = `{"t":"snap","tick":${tick},"ack":${client.ack},"self":${JSON.stringify(this.simulation.playerState(client.id) ?? null)},"players":[${others.join(',')}],"events":${events},"grenades":${grenades}`;
-      for (const field of STICKY_FIELDS) {
-        if (reliable && client.sticky[field] === sticky[field]) continue;
-        client.sticky[field] = sticky[field];
-        text += `,"${field}":${sticky[field]}`;
-      }
-      client.sentTick = tick;
-      client.connection.send(`${text}}`);
+      if (tick - client.sentTick >= Math.max(client.pace, this.#net.snapshotEvery) && !client.connection.congested) due.push(client);
     }
+    if (due.length === 0) return;
+    this.#packSticky();
+    const players = new Map(this.#last.players.map((p) => [p.id, packPlayer(p)]));
+    const grenades = packGrenades(this.#last.grenades);
+    for (const client of due) {
+      const reliable = client.connection.reliable === true;
+      const self = this.simulation.playerState(client.id as PlayerId);
+      const viewer = this.#net.relevance ? this.#last.players.find((p) => p.id === client.id) : undefined;
+      const view = this.#viewOf(client, viewer, tick);
+      const frame = joinSnapshot({
+        tick,
+        ack: client.ack,
+        self: self ? packValue(self) : null,
+        players: view.sent.map((id) => players.get(id) as Uint8Array),
+        held: view.held,
+        events: this.#eventsFor(client, viewer, reliable).map((e) => e.bytes),
+        grenades,
+        sticky: STICKY_FIELDS.map((field) => {
+          const bytes = this.#sticky[field] as Uint8Array;
+          if (reliable && client.sticky[field] === bytes) return null;
+          client.sticky[field] = bytes;
+          return bytes;
+        }),
+      });
+      client.sentTick = tick;
+      client.connection.send(frame);
+    }
+  }
+
+  /** This match's network profile. */
+  get #net(): NetProfile {
+    return this.#options.net ?? NET_PROFILES[this.#mode.id];
+  }
+
+  /** The seats going to a client in this snapshot, and those it keeps from an earlier one. With no `viewer` to measure from, it sees everything. */
+  #viewOf(client: Client, viewer: PlayerOutput | undefined, tick: number): { sent: PlayerId[]; held: PlayerId[] } {
+    const sent: PlayerId[] = [];
+    const held: PlayerId[] = [];
+    const relevance = this.#net.relevance;
+    for (const seat of this.#last.players) {
+      if (seat.id === client.id) continue;
+      if (!relevance || !viewer) {
+        sent.push(seat.id);
+        continue;
+      }
+      const last = client.seats.get(seat.id);
+      const tier = seatTier(viewer.position, seat.position, relevance, last !== undefined, this.#keptInView(viewer, seat, tick, relevance));
+      if (tier === 'out') {
+        client.seats.delete(seat.id);
+      } else if (tier === 'near' || last === undefined || tick - last >= relevance.midEvery) {
+        client.seats.set(seat.id, tick);
+        sent.push(seat.id);
+      } else {
+        held.push(seat.id);
+      }
+    }
+    return { sent, held };
+  }
+
+  /** A teammate is on the map wherever they are, and a seat firing within earshot has to be somewhere to fire from. */
+  #keptInView(viewer: PlayerOutput, seat: PlayerOutput, tick: number, relevance: Relevance): boolean {
+    if (seat.kind === 'player' && !this.#mode.canDamage(viewer, seat)) return true;
+    const fired = this.#firedAt.get(seat.id);
+    return fired !== undefined && tick - fired <= relevance.heardTicks && within(viewer.position, seat.position, relevance.hearing);
+  }
+
+  /** Brings each sticky field up to date, keeping the same array while its bytes stay the same. */
+  #packSticky(): void {
+    const values: Required<Pick<WireSnapshot, StickyField>> = {
+      scores: this.#mode.scores().map((s) => (this.#bots.has(s.id) ? { ...s, bot: true } : s)),
+      names: Object.fromEntries(this.#names),
+      pings: this.#pings,
+      popped: [...this.#popped],
+      match: this.matchStatus(),
+    };
+    for (const field of STICKY_FIELDS) {
+      const bytes = packValue(values[field]);
+      const was = this.#sticky[field];
+      if (!was || was.length !== bytes.length || was.some((byte, i) => byte !== bytes[i])) this.#sticky[field] = bytes;
+    }
+  }
+
+  /** The events a client is due: everything since its last snapshot on a reliable link, the ones still repeated otherwise; only what reaches it. */
+  #eventsFor(client: Client, viewer: PlayerOutput | undefined, reliable: boolean): readonly LoggedEvent[] {
+    const log = reliable ? this.#eventLog : this.#recentEvents;
+    let from = reliable ? log.length : 0;
+    while (reliable && from > 0 && (log[from - 1] as LoggedEvent).tick > client.sentTick) from -= 1;
+    const events = log.slice(from);
+    const relevance = this.#net.relevance;
+    if (!relevance || !viewer) return events;
+    return events.filter((e) => !e.reach || reaches(e.reach, viewer.id, viewer.position, relevance));
   }
 
   /** How far behind the client says it is. Its smallest lately is the link's own delay; anything above that is queueing. */
@@ -1172,16 +1267,18 @@ export class GameServer {
    * snapshot is: send fewer the moment that grows, more once it has stayed low.
    */
   #setPace(client: Client, tick: number): void {
+    const fastest = this.#net.snapshotEvery;
+    client.pace = Math.max(client.pace, fastest);
     const floor = Math.min(client.floor, client.floorBefore);
     if (floor === Infinity) return;
     const queued = client.behind - floor - client.pace;
-    if ((queued > QUEUE_FULL || client.connection.congested) && client.pace < SLOWEST_PACE) {
+    if ((queued > QUEUE_FULL || client.connection.congested) && client.pace < Math.max(SLOWEST_PACE, fastest)) {
       client.pace += 1;
       client.clear = 0;
       if (tick - client.spedUp < FAILED_TICKS) client.patience = Math.min(client.patience * 2, MOST_PATIENCE);
     } else if (queued <= QUEUE_CLEAR) {
       client.clear += 1;
-      if (client.clear >= client.patience && client.pace > 1) {
+      if (client.clear >= client.patience && client.pace > fastest) {
         client.pace -= 1;
         client.clear = 0;
         client.spedUp = tick;
@@ -1191,7 +1288,7 @@ export class GameServer {
     }
   }
 
-  #send(client: Client, message: ServerMessage): void {
+  #send(client: Client, message: Exclude<ServerMessage, WireSnapshot>): void {
     client.connection.send(encode(message));
   }
 

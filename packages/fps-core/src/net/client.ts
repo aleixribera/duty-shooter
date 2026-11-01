@@ -6,7 +6,7 @@ import type { UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type LobbyPick, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot, type WireSnapshot } from './protocol';
-import type { Connection } from './transport';
+import type { Connection, WireData } from './transport';
 
 export interface GameClientOptions {
   readonly connection: Connection;
@@ -96,7 +96,7 @@ export class GameClient {
   /** The next welcome comes after a drop: what the old connection left behind goes. */
   #rejoining = false;
   readonly #local: Simulation;
-  readonly #inbox: string[] = [];
+  readonly #inbox: WireData[] = [];
   #status: ClientStatus = 'connecting';
   #rejectReason: RejectReason | null = null;
   #closeReason: string | null = null;
@@ -122,6 +122,8 @@ export class GameClient {
   #resync = false;
   #reconciled = -1;
   readonly #buffer: Snapshot[] = [];
+  /** Each seat's own updates, oldest first: a seat may come less often than the snapshots do. */
+  readonly #tracks = new Map<PlayerId, { readonly tick: number; readonly player: PlayerOutput }[]>();
   readonly #seen = new Set<string>();
   #serverTick = 0;
   #ping = 0;
@@ -147,7 +149,7 @@ export class GameClient {
     const generation = ++this.#generation;
     connection.onMessage((data) => {
       if (generation !== this.#generation) return;
-      if (this.#inbox.length >= MAX_INBOX) this.#skip(this.#inbox.shift() as string);
+      if (this.#inbox.length >= MAX_INBOX) this.#skip(this.#inbox.shift() as WireData);
       this.#inbox.push(data);
     });
     connection.onClose((reason) => {
@@ -408,6 +410,7 @@ export class GameClient {
       } else if (message.t === 'snap') {
         const snap = this.#fill(message);
         this.#notePace(snap.tick);
+        this.#track(snap, message.players);
         for (const stamped of snap.events) {
           const key = `${stamped.tick}:${stamped.index}`;
           if (this.#seen.has(key)) continue;
@@ -437,14 +440,17 @@ export class GameClient {
     return fresh;
   }
 
-  /** A sticky field the server left out is what it was in the snapshot before. */
+  /** A sticky field the server left out is what it was in the snapshot before, and so is a seat it held back. */
   #fill(wire: WireSnapshot): Snapshot {
-    this.#filled = { ...this.#filled, ...wire } as Snapshot;
+    const { held, ...sent } = wire;
+    const before = held ? new Map(this.#filled?.players.map((p) => [p.id, p])) : null;
+    const kept = before ? (held ?? []).flatMap((id) => before.get(id) ?? []) : [];
+    this.#filled = { ...this.#filled, ...sent, players: kept.length > 0 ? [...sent.players, ...kept] : sent.players } as Snapshot;
     return this.#filled;
   }
 
   /** A snapshot dropped unread: what it changed still counts. */
-  #skip(data: string): void {
+  #skip(data: WireData): void {
     const message = decodeServer(data);
     if (message?.t === 'snap') this.#fill(message);
   }
@@ -461,6 +467,32 @@ export class GameClient {
     if (this.#arrivedTick >= 0 && gap <= MAX_PACED_GAP) this.#widestGap = Math.max(this.#widestGap, gap);
     this.#arrivedTick = tick;
     this.#arrivedAt = this.#ticks;
+  }
+
+  /**
+   * Files the seats a snapshot brought under their own tracks. The widest gap
+   * between a seat's updates counts like a gap between snapshots: drawing
+   * everyone that far back keeps every seat between two real samples and at
+   * one moment, and that moment is what the server rewinds a shot to.
+   */
+  #track(snap: Snapshot, sent: readonly PlayerOutput[]): void {
+    if (this.#buffer.some((s) => s.tick === snap.tick)) return;
+    for (const player of sent) {
+      const track = this.#tracks.get(player.id);
+      if (!track) {
+        this.#tracks.set(player.id, [{ tick: snap.tick, player }]);
+        continue;
+      }
+      const gap = snap.tick - (track.at(-1) as { tick: number }).tick;
+      if (gap > 0 && gap <= MAX_PACED_GAP) this.#widestGap = Math.max(this.#widestGap, gap);
+      track.push({ tick: snap.tick, player });
+      if (gap < 0) track.sort((a, b) => a.tick - b.tick);
+      while (track.length > 2 && (track[1] as { tick: number }).tick < this.renderTick - 1) track.shift();
+    }
+    if (this.#tracks.size > snap.players.length) {
+      const inView = new Set(snap.players.map((p) => p.id));
+      for (const id of this.#tracks.keys()) if (!inView.has(id)) this.#tracks.delete(id);
+    }
   }
 
   /** Eases the interpolation delay toward what the snapshots' spacing needs. */
@@ -485,6 +517,7 @@ export class GameClient {
     this.#pending = [];
     this.#sentAt.clear();
     this.#buffer.length = 0;
+    this.#tracks.clear();
     this.#reconciled = -1;
     if (this.#id !== null && this.#id !== id) {
       this.#local.removePlayer(this.#id);
@@ -555,21 +588,16 @@ export class GameClient {
     const at = this.renderTick + offset;
     const buffer = this.#buffer;
     if (buffer.length === 0) return [];
-    let a = buffer[0] as Snapshot;
-    let b = a;
-    for (const s of buffer) {
-      if (s.tick <= at) a = s;
-      if (s.tick >= at) {
-        b = s;
-        break;
-      }
-      b = s;
-    }
-    if (b.tick < a.tick) b = a;
-    const f = b.tick === a.tick ? 0 : Math.min(1, Math.max(0, (at - a.tick) / (b.tick - a.tick)));
-    return a.players.map((pa) => {
-      const pb = b.players.find((p) => p.id === pa.id);
-      if (!pb || f === 0) return pa;
+    const shown = bracket(buffer, at)[0] as Snapshot;
+    return shown.players.map((seat) => {
+      const track = this.#tracks.get(seat.id);
+      if (!track) return seat;
+      const [a, b] = bracket(track, at);
+      if (!a || !b) return seat;
+      const pa = a.player;
+      const pb = b.player;
+      const f = b.tick === a.tick ? 0 : Math.min(1, Math.max(0, (at - a.tick) / (b.tick - a.tick)));
+      if (f === 0) return pa;
       // Respawns teleport: no sliding across the map.
       if (Math.hypot(pb.position[0] - pa.position[0], pb.position[2] - pa.position[2]) > SNAP_DISTANCE) return f < 0.5 ? pa : pb;
       const near = f < 0.5 ? pa : pb;
@@ -588,6 +616,18 @@ export class GameClient {
     this.#connection.close('client left');
     this.#status = 'closed';
   }
+}
+
+/** The items either side of tick `at`, in a list sorted by tick: the first twice before it starts, the last twice after it ends. */
+function bracket<T extends { readonly tick: number }>(items: readonly T[], at: number): readonly [T | undefined, T | undefined] {
+  let a = items[0];
+  let b = a;
+  for (const item of items) {
+    if (item.tick <= at) a = item;
+    b = item;
+    if (item.tick >= at) break;
+  }
+  return [a, a && b && b.tick < a.tick ? a : b];
 }
 
 /** Your own shots, impacts, reloads, switches and grenade handling are already predicted locally, so the server's copies are skipped. */

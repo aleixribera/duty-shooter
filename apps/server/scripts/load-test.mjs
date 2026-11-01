@@ -9,11 +9,16 @@
 // through an SSH tunnel, say), where the host's own tools watch its CPU.
 // BOTS=n asks for n bots a side on top of the clients. The clients take
 // WebSocket compression when the server offers it, as browsers do
-// (DEFLATE=0 refuses it, to compare).
+// (DEFLATE=0 refuses it, to compare). NET=wide plays with the kilometre-wide
+// map's snapshot rate and relevance, on a local server.
 // Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
+import { decodeSnapshot } from '../../../packages/fps-core/src/net/codec.ts';
+
+/** The server's next message: a snapshot comes as a binary frame. */
+const read = (data, isBinary) => (isBinary ? decodeSnapshot(new Uint8Array(data.buffer, data.byteOffset, data.length)) : JSON.parse(String(data)));
 
 const clients = Number(process.argv[2] ?? 8);
 const seconds = Number(process.argv[3] ?? 40);
@@ -76,9 +81,9 @@ for (let i = 0; i < clients; i++) {
   const sent = new Map();
   let newest = 0;
   const stats = { snaps: 0, bytes: 0, gaps: [], rtts: [], last: null };
-  ws.on('message', (data) => {
+  ws.on('message', (data, isBinary) => {
     const now = performance.now();
-    const message = JSON.parse(String(data));
+    const message = read(data, isBinary);
     if (message.t === 'welcome') {
       joined += 1;
       host ??= ws;
@@ -145,7 +150,7 @@ setTimeout(() => {
   const decoded = sockets.map((s) => s.stats.bytes / 1024 / seconds);
   console.log(`snapshots per client per second: ${sockets.map((s) => (s.stats.snaps / seconds).toFixed(1)).join(', ')}; shots observed: ${shots}`);
   const sum = (list) => list.reduce((a, b) => a + b, 0);
-  console.log(`download per client: ${(sum(kb) / clients).toFixed(1)} KB/s on the wire, ${(sum(decoded) / clients).toFixed(1)} KB/s of JSON (${((sum(kb) * 8) / 1024).toFixed(2)} Mbit/s out of the server for all ${clients})`);
+  console.log(`download per client: ${(sum(kb) / clients).toFixed(1)} KB/s on the wire, ${(sum(decoded) / clients).toFixed(1)} KB/s before compression, ${((sum(kb) / clients / Math.max(1, sum(sockets.map((s) => s.stats.snaps)) / clients / seconds)) * 1024).toFixed(0)} B a snapshot on the wire, ${((sum(decoded) / clients / Math.max(1, sum(sockets.map((s) => s.stats.snaps)) / clients / seconds)) * 1024).toFixed(0)} B raw (${((sum(kb) * 8) / 1024).toFixed(2)} Mbit/s out of the server for all ${clients})`);
   console.log(`snapshot gap ms: p50 ${at(gaps, 0.5)}, p99 ${at(gaps, 0.99)}, max ${at(gaps, 1)}`);
   console.log(`usercmd to ack ms: p50 ${at(rtts, 0.5)}, p95 ${at(rtts, 0.95)}, p99 ${at(rtts, 0.99)}, max ${at(rtts, 1)}`);
   const own = (s) => s.stats.rtts.slice().sort((a, b) => a - b);

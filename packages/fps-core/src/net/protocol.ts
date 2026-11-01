@@ -1,11 +1,15 @@
 import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type ObjectiveState, type Score, type TeamScore } from '../modes/game-mode';
 import type { GrenadeOutput } from '../combat/grenade';
-import type { PlayerOutput, PlayerState, SimEvent } from '../simulation';
+import type { PlayerId, PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
+import { decodeSnapshot, type StickyField } from './codec';
+import type { WireData } from './transport';
+
+export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -164,12 +168,13 @@ export interface Snapshot {
   readonly match: MatchStatus;
 }
 
-/** What rarely changes: on a reliable connection these travel only when they do. */
-export const STICKY_FIELDS = ['scores', 'names', 'pings', 'popped', 'match'] as const;
-export type StickyField = (typeof STICKY_FIELDS)[number];
-
-/** A snapshot as sent: a sticky field left out is the same as in the one before. */
-export type WireSnapshot = Omit<Snapshot, StickyField> & Partial<Pick<Snapshot, StickyField>>;
+/**
+ * A snapshot as sent: a sticky field left out is the same as in the one before.
+ * `players` holds only the seats sent this time; `held` names those not due
+ * yet, which stay as they were, and a seat in neither has gone from this
+ * client's view.
+ */
+export type WireSnapshot = Omit<Snapshot, StickyField> & Partial<Pick<Snapshot, StickyField>> & { readonly held?: readonly PlayerId[] };
 
 export type ServerMessage =
   /** `token` is this seat's secret: joining again with it as `resume` takes the seat back after a drop. */
@@ -177,7 +182,8 @@ export type ServerMessage =
   | { readonly t: 'reject'; readonly reason: RejectReason }
   | WireSnapshot;
 
-export function encode(message: ClientMessage | ServerMessage): string {
+/** Everything but a snapshot, as text (see `codec.ts` for why). */
+export function encode(message: ClientMessage | Exclude<ServerMessage, WireSnapshot>): string {
   return JSON.stringify(message);
 }
 
@@ -252,8 +258,10 @@ export function decodeClient(data: string): ClientMessage | null {
   return null;
 }
 
-export function decodeServer(data: string): ServerMessage | null {
+/** Parses a message from the server, or returns null if it is malformed. Never throws. */
+export function decodeServer(data: WireData): ServerMessage | null {
   try {
+    if (typeof data !== 'string') return decodeSnapshot(data);
     const value: unknown = JSON.parse(data);
     return isObject(value) && typeof value['t'] === 'string' ? (value as unknown as ServerMessage) : null;
   } catch {
@@ -288,26 +296,5 @@ function validCmd(value: unknown): UserCmd | null {
     pitch: clamp(pitch, -Math.PI, Math.PI),
     firePresses: firePresses.map((f) => clamp(f, 0, 0.999999)),
     ...(viewTick === undefined ? {} : { viewTick }),
-  };
-}
-
-/** Rounds a grenade's numbers for the wire; clients only draw it. */
-export function compactGrenade(g: GrenadeOutput): GrenadeOutput {
-  const r = (v: number, k = 1000) => Math.round(v * k) / k;
-  return { ...g, position: [r(g.position[0]), r(g.position[1]), r(g.position[2])], velocity: [r(g.velocity[0], 100), r(g.velocity[1], 100), r(g.velocity[2], 100)] };
-}
-
-/** Rounds the numbers in another player's outputs for the wire; they are only drawn and interpolated. */
-export function compactOutput(p: PlayerOutput): PlayerOutput {
-  const r = (v: number, k = 1000) => Math.round(v * k) / k;
-  return {
-    ...p,
-    position: [r(p.position[0]), r(p.position[1]), r(p.position[2])],
-    velocity: [r(p.velocity[0], 100), r(p.velocity[1], 100), r(p.velocity[2], 100)],
-    yaw: r(p.yaw, 10000),
-    pitch: r(p.pitch, 10000),
-    eyeHeight: r(p.eyeHeight),
-    health: r(p.health, 10),
-    weapon: { ...p.weapon, actionTime: r(p.weapon.actionTime), ads: r(p.weapon.ads, 100), spread: r(p.weapon.spread, 100) },
   };
 }

@@ -16,6 +16,10 @@ import { spawn } from 'node:child_process';
 import { createServer, connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
+import { decodeSnapshot } from '../../../packages/fps-core/src/net/codec.ts';
+
+/** The server's next message: a snapshot comes as a binary frame. */
+const read = (data, isBinary) => (isBinary ? decodeSnapshot(new Uint8Array(data.buffer, data.byteOffset, data.length)) : JSON.parse(String(data)));
 
 const SCENARIOS = {
   clean: { delay: 0, jitter: 0, kbit: 0 },
@@ -126,9 +130,9 @@ async function run(name, link, index) {
     let seq = 0;
     let yaw = i;
     const pending = [];
-    ws.on('message', (data) => {
+    ws.on('message', (data, isBinary) => {
       const now = performance.now();
-      const message = JSON.parse(String(data));
+      const message = read(data, isBinary);
       if (message.t === 'welcome') {
         seat.joined = true;
         seat.id = message.id;

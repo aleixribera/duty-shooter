@@ -1,5 +1,5 @@
 import { noise } from '../random';
-import type { Connection, ServerTransport } from './transport';
+import type { Connection, ServerTransport, WireData } from './transport';
 
 /**
  * An in-memory transport for tests, with configurable one-way latency,
@@ -35,9 +35,9 @@ interface Pending {
 }
 
 class End implements Connection {
-  #handler: ((data: string) => void) | null = null;
+  #handler: ((data: WireData) => void) | null = null;
   #closeHandler: ((reason: string) => void) | null = null;
-  readonly #queue: string[] = [];
+  readonly #queue: WireData[] = [];
   #open = true;
   peer!: End;
 
@@ -51,7 +51,7 @@ class End implements Connection {
     return this.net.reliable;
   }
 
-  send(data: string): void {
+  send(data: WireData): void {
     if (!this.#open) return;
     this.net.post(this.peer, data);
   }
@@ -63,7 +63,7 @@ class End implements Connection {
     this.#closeHandler?.(reason);
   }
 
-  onMessage(handler: (data: string) => void): void {
+  onMessage(handler: (data: WireData) => void): void {
     this.#handler = handler;
     for (const data of this.#queue.splice(0)) handler(data);
   }
@@ -72,7 +72,7 @@ class End implements Connection {
     this.#closeHandler = handler;
   }
 
-  receive(data: string): void {
+  receive(data: WireData): void {
     if (!this.#open) return;
     if (this.#handler) this.#handler(data);
     else this.#queue.push(data);
@@ -105,7 +105,7 @@ class Network implements MemoryNetwork {
     return (this.options.latency ?? 0) + jitter * noise(this.options.seed ?? 0, this.#order, 7);
   }
 
-  post(to: End, data: string): void {
+  post(to: End, data: WireData): void {
     this.stats.messages += 1;
     this.stats.bytes += data.length;
     const order = this.#order++;

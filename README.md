@@ -46,6 +46,7 @@ To play online locally:
    | `MAX_PLAYERS` | `12` | Seats, bots included. |
    | `BOTS_PER_TEAM` | `3` | Bots a side on a map with no team size of its own; `0` starts the lobby with bots off. At most `MAX_BOTS_PER_TEAM`. |
    | `MAX_BOTS_PER_TEAM` | `6` | The most a host may pick. Set both bot variables to `0` for no bots. |
+   | `NET` | the mode's own | `wide` puts every mode on the provisional wide-map network profile (lower rate, relevance tiers), for load tests. |
    | `PORT`, `HOST` | `3000`, `0.0.0.0` | Where it listens. |
    | `STATIC_DIR` | the built client | The files it serves. |
    | `EVENT_LOG` | none | A JSON-lines file of joins, leaves and matches. |

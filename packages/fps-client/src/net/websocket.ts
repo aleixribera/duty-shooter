@@ -1,4 +1,4 @@
-import type { Connection } from '@duty-shooter/fps-core';
+import type { Connection, WireData } from '@duty-shooter/fps-core';
 
 /** Bytes waiting to leave before usercmds are held back: about a quarter of a second of them, uncompressed. */
 const CONGESTED = 4 * 1024;
@@ -9,20 +9,21 @@ const CONGESTED = 4 * 1024;
  */
 export function connectWebSocket(url: string): Connection {
   const socket = new WebSocket(url);
-  const outbox: string[] = [];
-  const inbox: string[] = [];
-  let onMessage: ((data: string) => void) | null = null;
+  socket.binaryType = 'arraybuffer';
+  const outbox: WireData[] = [];
+  const inbox: WireData[] = [];
+  let onMessage: ((data: WireData) => void) | null = null;
   let onClose: ((reason: string) => void) | null = null;
   let open = false;
   let closed = false;
   socket.addEventListener('open', () => {
     open = true;
-    for (const data of outbox.splice(0)) socket.send(data);
+    for (const data of outbox.splice(0)) socket.send(data as string);
   });
   socket.addEventListener('message', (e: MessageEvent) => {
-    if (typeof e.data !== 'string') return;
-    if (onMessage) onMessage(e.data);
-    else inbox.push(e.data);
+    const data: WireData = typeof e.data === 'string' ? e.data : new Uint8Array(e.data as ArrayBuffer);
+    if (onMessage) onMessage(data);
+    else inbox.push(data);
   });
   socket.addEventListener('close', (e: CloseEvent) => {
     open = false;
@@ -40,7 +41,7 @@ export function connectWebSocket(url: string): Connection {
     },
     send(data) {
       if (closed) return;
-      if (open) socket.send(data);
+      if (open) socket.send(data as string);
       else outbox.push(data);
     },
     close(reason = 'client left') {

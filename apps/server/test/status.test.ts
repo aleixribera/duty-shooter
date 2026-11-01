@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION } from '@duty-shooter/fps-core';
+import { PROTOCOL_VERSION, decodeServer } from '@duty-shooter/fps-core';
 import { optionsFromEnv, startServer, type RunningServer } from '../src/server';
 
 describe('lobby status endpoint', () => {
@@ -72,9 +72,11 @@ describe('server map setting', () => {
     try {
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       const friend = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+      friend.binaryType = 'arraybuffer';
       const snapshots: { match?: { map?: string; phase?: string; lobby?: { map?: string; mode?: string; hvb?: boolean } }; names?: Record<string,string> }[] = [];
       friend.addEventListener('message', event => {
-        const message=JSON.parse(String(event.data));
+        const message=decodeServer(event.data instanceof ArrayBuffer ? new Uint8Array(event.data) : String(event.data)) as { t: string } & (typeof snapshots)[number] | null;
+        if (!message) return;
         if (message.t === 'snap') snapshots.push(message);
       });
       await new Promise((done) => ws.addEventListener('open', done));
