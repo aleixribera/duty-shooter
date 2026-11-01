@@ -3,6 +3,7 @@ import { zoneCentre, type HitPose, type HitZone } from '../combat/hitboxes';
 import { sightBlocked } from '../combat/projectiles';
 import { angleDelta, anglesOf, DEG, viewDirection, type Vec3 } from '../math';
 import { hashString, noise } from '../random';
+import { SeatIndex } from '../seats';
 import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '../simulation';
 import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
@@ -18,6 +19,10 @@ export interface BotView {
   readonly self: PlayerOutput;
   /** Everyone in the match, the bot included. */
   readonly players: readonly PlayerOutput[];
+  /** The same players indexed, shared by every bot of a tick; made from `players` when absent. */
+  readonly seats?: SeatIndex;
+  /** Ticks between this bot's thoughts: more than 1 for one far from anybody, who keeps doing what it last chose in between. 1 when absent. */
+  readonly thinkEvery?: number;
   /** The latest tick's events. */
   readonly events: readonly SimEvent[];
   /** Live grenades, as anyone could see them land; none when absent. */
@@ -77,6 +82,8 @@ const QUIET = 1;
 /** A landing, a slide or a mantle carries this far (m); a reload this far. */
 const THUD = 14;
 const RELOAD_HEARING = 15;
+/** The farthest any of these carries (m). */
+const HEARD_MOST = Math.max(FOOTSTEPS.sprint, THUD);
 /** Through walls a footstep, thud or reload carries this share of the way, and gives only a rough idea of where. */
 const MUFFLED = 0.55;
 /** Arriving where a chased enemy should be and finding nobody, a bot searches about this long (s). */
@@ -305,6 +312,13 @@ export class Bot {
   #unstickUntil = 0;
   #unstickSide = 1;
   #lastButtons = 0;
+  /** The usercmd it last chose, held while it isn't thinking. */
+  #held: UserCmd | null = null;
+  /** The events of the ticks since it last thought, and how many ticks that is. */
+  #unheard: (readonly SimEvent[])[] = [];
+  #sinceThought = 0;
+  /** The tick's seats, for everything below. */
+  #seats = new SeatIndex([]);
   #meleeAt = 0;
   #lastTime = 0;
   /** No weapon switch before then (one press at a time). */
@@ -380,7 +394,20 @@ export class Bot {
   }
 
   /** The bot's usercmd for this tick. */
-  think(view: BotView): UserCmd {
+  think(sees: BotView): UserCmd {
+    this.#sinceThought += 1;
+    const every = sees.thinkEvery ?? 1;
+    if (every > 1 && this.#held && sees.self.alive && this.#alive && (sees.tick + this.#seed) % every !== 0 && !this.#delicate(sees.self)) {
+      if (sees.events.length > 0) this.#unheard.push(sees.events);
+      return this.#held;
+    }
+    const ticks = this.#sinceThought;
+    this.#sinceThought = 0;
+    // What it missed meanwhile, it hears now.
+    const view = this.#unheard.length > 0 ? { ...sees, events: [...this.#unheard.flat(), ...sees.events] } : sees;
+    this.#unheard = [];
+    this.#seats = view.seats ?? new SeatIndex(view.players);
+    const seconds = ticks * TICK_SECONDS;
     const { self, time } = view;
     this.#lastTime = time;
     const r = (n: number) => noise(this.#seed, view.tick, n);
@@ -402,7 +429,9 @@ export class Bot {
     this.#lastPos = self.position;
     const eye = eyeOf(self);
 
-    const perceiving = (view.tick + this.#seed) % PERCEIVE_TICKS === 0;
+    // The sum passed a multiple of the interval: a bot thinking every tick looks on exactly that tick, one that isn't on the next it thinks.
+    const beat = view.tick + this.#seed;
+    const perceiving = Math.floor(beat / PERCEIVE_TICKS) !== Math.floor((beat - ticks) / PERCEIVE_TICKS);
     if (perceiving) {
       this.#perceive(view, eye, r);
       this.#check = this.#angleToCheck(view, eye);
@@ -415,7 +444,7 @@ export class Bot {
 
     // The fight: keep it while the target lives and was seen moments ago.
     let target = this.#target;
-    const tp = target ? view.players.find((p) => p.id === target!.id) : undefined;
+    const tp = target ? this.#seats.get(target.id) : undefined;
     if (target && (!tp || !tp.alive || (!target.visible && time - target.lastSeen > LOSE_TARGET))) {
       // Out of sight, not dead: a careful bot holds the angle they went behind, for them to come back round, rather than chase.
       if (tp?.alive && caution > 0.55 && !this.#recover && !hurry) {
@@ -461,11 +490,11 @@ export class Bot {
     const retreating = this.#recover !== null && !this.#recover.arrived;
     if (using || this.#throw || fighting) this.#aiming = null;
     else if (this.#aiming) this.#aim(view);
-    else if ((view.tick + this.#seed) % PERCEIVE_TICKS === 0) this.#considerThrow(view, eye);
+    else if (perceiving) this.#considerThrow(view, eye);
 
     // Where to look.
     // The view is the usercmd plus recoil and flinch; follow that offset, a little late.
-    const follow = 1 - Math.exp(-TICK_SECONDS / (0.03 + 0.25 * (1 - this.profile.recoilControl)));
+    const follow = 1 - Math.exp(-seconds / (0.03 + 0.25 * (1 - this.profile.recoilControl)));
     this.#compYaw += (angleDelta(this.#yaw, self.yaw) - this.#compYaw) * follow;
     this.#compPitch += (self.pitch - this.#pitch - this.#compPitch) * follow;
     let lookYaw = this.#lookYaw;
@@ -493,7 +522,7 @@ export class Bot {
       const seen = this.#perceived(target, tp, time, flight);
       const point: Vec3 = target.visible ? zoneCentre(seen, target.zone) : [last[0], last[1] + 1.4, last[2]];
       const aim = anglesOf([point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]]);
-      const settle = Math.exp(-TICK_SECONDS / SETTLE);
+      const settle = Math.exp(-seconds / SETTLE);
       const p = this.profile;
       // A scope magnifies the picture, so the same unsteady hand is off by less of an angle.
       const magnified = 1 + (STATS.weapons[self.weapon.id].handling.zoom.value - 1) * self.weapon.ads;
@@ -592,7 +621,7 @@ export class Bot {
       lookYaw = yawTo(from,to);
       lookPitch = 0;
     }
-    this.#turn(lookYaw, lookPitch, rate);
+    this.#turn(lookYaw, lookPitch, rate, seconds);
 
     // Where to go.
     let move: Vec3 | null = null;
@@ -728,7 +757,19 @@ export class Bot {
   #cmd(forward: number, right: number, buttons: ButtonName[]): UserCmd {
     const cmd = usercmd({ forward, right, yaw: this.#yaw, pitch: this.#pitch, buttons });
     this.#lastButtons = cmd.buttons;
+    this.#held = cmd;
     return cmd;
+  }
+
+  /** On a ladder or a ledge, or about to be, where a step too far misses the way: these take every tick, however far off anybody is. */
+  #delicate(self: PlayerOutput): boolean {
+    if (self.movement === 'ladder' || self.movement === 'mantle') return true;
+    const at = this.#path[this.#step];
+    if (at === undefined) return false;
+    const after = this.#path[this.#step + 1];
+    const next = after === undefined ? null : linkKind(this.#nav, at, after);
+    const leg = this.#nextLink();
+    return this.#nav.nodes[at]!.precise || next === 'climb' || next === 'ladder' || leg === 'climb' || leg === 'ladder';
   }
 
   /** Fresh life (or a teleport, at match start): forget the route and the fight, face where the spawn faces. */
@@ -777,7 +818,7 @@ export class Bot {
     for (const [id, m] of this.#memory) {
       const d = flat(self.position, m.position);
       if (!m.seen || time - m.time > THROW_MEMORY || d > THROW_RANGE || d < THROW_MIN) continue;
-      const p = view.players.find((x) => x.id === id);
+      const p = this.#seats.get(id);
       if (!p?.alive) continue;
       const body: Vec3 = [m.position[0], m.position[1] + 1, m.position[2]];
       if (!sightBlocked(this.#world, eye, body)) continue;
@@ -873,12 +914,12 @@ export class Bot {
   }
 
   /** Eases the usercmd angles toward a look direction, no faster than `rate`. */
-  #turn(yaw: number, pitch: number, rate: number): void {
-    const max = rate * TICK_SECONDS;
-    const ease = 1 - Math.exp(-EASE * TICK_SECONDS);
+  #turn(yaw: number, pitch: number, rate: number, seconds: number): void {
+    const max = rate * seconds;
+    const ease = 1 - Math.exp(-EASE * seconds);
     const dy = angleDelta(this.#lookYaw, yaw);
     const dp = pitch - this.#lookPitch;
-    const step = (d: number) => Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * ease, 0.4 * DEG), max);
+    const step = (d: number) => Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * ease, 0.4 * DEG * (seconds / TICK_SECONDS)), max);
     this.#lookYaw += step(dy);
     this.#lookPitch = Math.max(-1.4, Math.min(1.4, this.#lookPitch + step(dp)));
     this.#yaw = this.#lookYaw - this.#compYaw;
@@ -916,7 +957,8 @@ export class Bot {
     const { self, time } = view;
     let best: { p: PlayerOutput; score: number } | null = null;
     let keep = false;
-    for (const p of view.players) {
+    for (const i of this.#seats.near(self.position, SIGHT_RANGE)) {
+      const p = view.players[i]!;
       if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
       const d = flat(self.position, p.position);
       if (d > SIGHT_RANGE) continue;
@@ -978,11 +1020,13 @@ export class Bot {
     const { self, time } = view;
     const eye = eyeOf(self);
     for (const [k, e] of view.events.entries()) {
+      if (e.type !== 'shot' && e.type !== 'hit' && e.type !== 'reload' && e.type !== 'kill') continue;
       const r = (n: number) => noise(this.#seed, view.tick, 100 + k * 8 + n);
       if (e.type === 'shot' && e.shooter !== self.id) {
-        const shooter = view.players.find((p) => p.id === e.shooter);
-        if (!shooter || !view.isEnemy(shooter)) continue;
         const d = flat(self.position, e.origin);
+        if (d > HEARING) continue;
+        const shooter = this.#seats.get(e.shooter);
+        if (!shooter || !view.isEnemy(shooter)) continue;
         const muffled = d > SENSE && sightBlocked(this.#world, eye, e.origin);
         if (d > (muffled ? MUFFLED_HEARING : HEARING)) continue;
         const known = this.#memory.get(e.shooter);
@@ -994,7 +1038,7 @@ export class Bot {
         const kept = before && time - before.time < DEALT_MEMORY ? before.damage : 0;
         this.#dealt.set(e.victim, { damage: kept + e.damage, time });
       } else if (e.type === 'hit' && e.victim === self.id && e.shooter !== self.id) {
-        const shooter = view.players.find((p) => p.id === e.shooter);
+        const shooter = this.#seats.get(e.shooter);
         if (!shooter) continue;
         this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false, velocity: STILL });
         if (!this.#target) {
@@ -1003,7 +1047,7 @@ export class Bot {
           this.#holdUntil = 0;
         }
       } else if (e.type === 'reload' && e.phase === 'start' && e.player !== self.id) {
-        const p = view.players.find((x) => x.id === e.player);
+        const p = this.#seats.get(e.player);
         if (p && view.isEnemy(p) && this.#heard(view, eye, p, RELOAD_HEARING, r(5), r(6))) this.#reloading.set(p.id, time + 1.5);
       } else if (e.type === 'kill') {
         this.#memory.delete(e.victim);
@@ -1027,10 +1071,10 @@ export class Bot {
   #marked(view: BotView, e: Extract<SimEvent, { type: 'kill' }>, r1: number, r2: number, r3: number): void {
     const { self, time } = view;
     if (e.killer === null || e.killer === self.id) return;
-    const killer = view.players.find((p) => p.id === e.killer);
+    const killer = this.#seats.get(e.killer);
     if (!killer || !view.isEnemy(killer)) return;
     const own = e.victim === self.id;
-    const victim = view.players.find((p) => p.id === e.victim);
+    const victim = this.#seats.get(e.victim);
     if (!own && (!victim || view.isEnemy(victim))) return;
     const d = own ? 0 : flat(self.position, victim!.position);
     const at = own ? killer.position : blur(killer.position, CALLOUT_ERROR + d / 10, r1, 0.4 + 0.6 * r2);
@@ -1070,13 +1114,9 @@ export class Bot {
     if (band && band[1] < CLOSE_RANGE) c -= 0.15;
     if (view.lives === 'round') {
       c += 0.25;
-      let mates = 0;
-      let foes = 0;
-      for (const p of view.players) {
-        if (p.id === self.id || !p.alive || p.kind !== 'player') continue;
-        if (view.isEnemy(p)) foes += 1;
-        else mates += 1;
-      }
+      const sides = this.#seats.sides(self.team);
+      const mates = sides.own - 1;
+      const foes = sides.others;
       if (mates === 0 && foes > 0) c += 0.15;
       c -= 0.1 * Math.max(-2, Math.min(3, mates + 1 - foes));
     }
@@ -1151,10 +1191,11 @@ export class Bot {
    */
   #listen(view: BotView, eye: Vec3, steps: boolean): void {
     const { self, time } = view;
-    for (const [k, p] of view.players.entries()) {
-      if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
+    for (const k of this.#seats.near(self.position, HEARD_MOST)) {
+      const p = view.players[k]!;
       const thud = p.landing !== null || ((p.movement === 'slide' || p.movement === 'mantle') && steps);
       if (!thud && !steps) continue;
+      if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
       const speed = Math.hypot(p.velocity[0], p.velocity[2]);
       const grounded = p.movement !== 'airborne' && p.movement !== 'mantle';
       const gait = p.stance !== 'stand' ? FOOTSTEPS.crouch : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? FOOTSTEPS.sprint : FOOTSTEPS.walk;
@@ -1236,6 +1277,7 @@ export class Bot {
   #pickGoal(view: BotView, r: (n: number) => number): number {
     const { self, time } = view;
     const nodes = this.#nav.nodes;
+    // A walk over everyone, but only as often as a bot needs somewhere new to go.
     const mates = view.players.filter((p) => p.id !== self.id && p.alive && !view.isEnemy(p));
     const noises = [...this.#memory.values()].filter((m) => time - m.time < 15);
     // Now and then a rough idea of where an enemy is (as a player reads footsteps and the kill feed), so nobody can hide for good.

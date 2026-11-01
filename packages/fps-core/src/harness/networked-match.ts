@@ -45,6 +45,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly teamSize?: GameServerOptions['teamSize'];
   /** Replaces the modes' own network profiles. */
   readonly net?: GameServerOptions['net'];
+  /** Replaces the modes' own seat and bot limits. */
+  readonly scale?: GameServerOptions['scale'];
 }
 
 /** A client in the match, with every frame it produced. */
@@ -105,6 +107,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.teamSize ? { teamSize: options.teamSize } : {}),
     ...(options.maps ? { maps: options.maps } : {}),
     ...(options.net ? { net: options.net } : {}),
+    ...(options.scale ? { scale: options.scale } : {}),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];

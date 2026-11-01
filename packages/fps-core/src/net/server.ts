@@ -7,9 +7,11 @@ import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
 import { MODE_IDS, teamMode, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
+import { MATCH_SCALES, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
 import { hashString } from '../random';
+import { SeatIndex } from '../seats';
 import { Simulation, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TeamId, type TickOutput } from '../simulation';
 import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
@@ -108,6 +110,8 @@ export interface GameServerOptions {
   readonly hvb?: boolean;
   /** Replaces every mode's own network profile (see {@link NET_PROFILES}): for load tests. */
   readonly net?: NetProfile;
+  /** Replaces every mode's own seat and bot limits (see {@link MATCH_SCALES}): for load tests. */
+  readonly scale?: MatchScale;
 }
 
 /** The bot team humans vs bots puts up against `people`: two more than them, at least four, within the cap a side and the seats left. */
@@ -139,7 +143,7 @@ export interface BotOptions {
   readonly nav: NavGraph;
   /** Bots a side on a map without its own team size; 0 also starts the lobby with bots off. */
   readonly perTeam: number;
-  /** The most a side the first joiner may ask for; MAX_BOTS_PER_TEAM by default. */
+  /** The most a side the first joiner may ask for, within the mode's own limit; that limit by default. */
   readonly maxPerTeam?: number;
   /** Keep bots playing with nobody connected (tests and benchmarks). */
   readonly alwaysOn?: boolean;
@@ -154,8 +158,8 @@ const PLAN_EVERY = 1;
  */
 const THROW_ARCS = 2;
 
-/** The most bots a side a lobby offers. */
-export const MAX_BOTS_PER_TEAM = 6;
+/** The most bots a side a lobby offers in a team mode. */
+export const MAX_BOTS_PER_TEAM = MATCH_SCALES.tdm.botsPerTeam;
 /** Seconds a fresh spawn can't be hurt, unless it fires first. */
 export const SPAWN_PROTECTION = 1.5;
 
@@ -341,10 +345,16 @@ export class GameServer {
   #eventLog: LoggedEvent[] = [];
   /** Each sticky field as it last changed, one array per version: a client's copy is the same array until then. */
   readonly #sticky: Partial<Record<StickyField, Uint8Array>> = {};
+  /** The sticky fields that may have changed since they were last packed. */
+  readonly #stale = new Set<StickyField>(STICKY_FIELDS);
+  /** Nothing in the match status moved last tick: a tick of plain play leaves it as it was. */
+  #settled = false;
   #pings: Readonly<Record<string, number>> = {};
   /** The tick each seat last fired: gunfire brings a seat into view for those who hear it. */
   readonly #firedAt = new Map<PlayerId, number>();
   #last: TickOutput;
+  /** The players of `#last`, indexed. */
+  #seatIndex: SeatIndex;
   /** Props shot this match; cleared when a match starts. */
   readonly #popped = new Set<string>();
   readonly #bots = new Map<PlayerId, BotSeat>();
@@ -404,6 +414,7 @@ export class GameServer {
     this.#fill = this.#defaultFill();
     this.#hvb = options.hvb === true;
     this.#last = this.simulation.output();
+    this.#seatIndex = new SeatIndex(this.#last.players);
     transport.onConnection((connection) => this.#accept(connection));
     if (options.bots?.alwaysOn) this.#startMatch(this.#mode.id);
   }
@@ -425,10 +436,16 @@ export class GameServer {
     return this.#hvb && teamMode(this.#mode.id) && this.#options.bots !== undefined && this.#map.nav !== undefined;
   }
 
+  /** The limits of the match being played, or in the lobby of the one picked. */
+  get #scale(): MatchScale {
+    return this.#options.scale ?? MATCH_SCALES[this.#phase === 'lobby' ? this.#lobbyMode : this.#mode.id];
+  }
+
   /** The most bots a side a first joiner may ask for (0 without bots). */
   get maxBotsPerTeam(): number {
     const b = this.#options.bots;
-    return b ? (b.maxPerTeam ?? MAX_BOTS_PER_TEAM) : 0;
+    const most = this.#scale.botsPerTeam;
+    return b ? Math.min(b.maxPerTeam ?? most, most) : 0;
   }
 
   /** Bots playing now, by id. */
@@ -512,7 +529,7 @@ export class GameServer {
   }
 
   get maxPlayers(): number {
-    return this.#options.maxPlayers ?? DEFAULT_MAX_PLAYERS;
+    return Math.min(this.#options.maxPlayers ?? DEFAULT_MAX_PLAYERS, this.#scale.seats);
   }
 
   /** Players currently joined. */
@@ -601,7 +618,7 @@ export class GameServer {
     if (message.t === 'loadout') {
       client.loadout = message.loadout;
       // In a round's freeze the change is made at once, where the player stands.
-      if (this.#phase === 'playing' && (this.#countingDown || this.#mode.frozen()) && this.#last.players.find((p) => p.id === client.id)?.alive) {
+      if (this.#phase === 'playing' && (this.#countingDown || this.#mode.frozen()) && this.#seatIndex.get(client.id)?.alive) {
         this.simulation.equip(client.id, this.#loadoutOf(client.id).loadout ?? message.loadout);
       }
       return;
@@ -664,6 +681,7 @@ export class GameServer {
     client.id = id;
     client.name = name;
     client.token = seatToken();
+    this.#renamed();
     this.#names.set(id, name);
     this.#log({ event: 'join', id, name, bot: false, script: client.script });
     if (first && !this.#options.bots?.alwaysOn) {
@@ -704,6 +722,7 @@ export class GameServer {
     client.id = away.id;
     client.name = away.name;
     client.token = away.token;
+    this.#renamed();
     this.#names.set(away.id, away.name);
     this.#log({ event: 'join', id: away.id, name: away.name, bot: false, script: client.script });
     if (away.match === this.#matchNumber) {
@@ -751,6 +770,7 @@ export class GameServer {
     this.#result = null;
     this.#votes.clear();
     this.#popped.clear();
+    this.#stale.add('popped').add('scores').add('match');
     this.#planAt = 0;
     this.#protectedSince.clear();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
@@ -825,6 +845,7 @@ export class GameServer {
   #remove(id: PlayerId): void {
     this.simulation.removePlayer(id);
     this.#mode.leave(id);
+    this.#renamed();
     this.#names.delete(id);
     this.#votes.delete(id);
     this.#protectedSince.delete(id);
@@ -888,6 +909,7 @@ export class GameServer {
   #newBot(): PlayerId {
     const id = `p${this.#nextId++}`;
     const name = botName(new Set(this.#names.values()), hashString(id));
+    this.#renamed();
     this.#names.set(id, name);
     this.#bots.set(id, { name, bot: new Bot(id, botProfile(name), this.#map.nav!, this.#map.world) });
     this.#log({ event: 'join', id, name, bot: true, script: false });
@@ -899,6 +921,11 @@ export class GameServer {
     this.#log({ event: 'leave', id, name: this.#names.get(id) ?? id, bot: true, script: false });
     this.#bots.delete(id);
     this.#remove(id);
+  }
+
+  /** Someone took or left a seat: the names, the scoreboard and the lobby in the match status all follow. */
+  #renamed(): void {
+    this.#stale.add('names').add('scores').add('match');
   }
 
   #log(event: LobbyEvent): void {
@@ -1011,12 +1038,14 @@ export class GameServer {
     for (const e of out.events) if (e.type === 'prop') this.#popped.add(e.prop);
     const modeEvents = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
     this.#modeEvents = modeEvents;
+    this.#noteChanges(out, modeEvents);
 
     const tick = out.tick;
     this.#last = this.simulation.output();
-    const positions = this.#net.relevance ? new Map(this.#last.players.map((p) => [p.id, p.position])) : null;
+    const seats = (this.#seatIndex = new SeatIndex(this.#last.players));
+    const relevant = this.#net.relevance !== null;
     const logged = [...out.events, ...modeEvents].map(
-      (event, index): LoggedEvent => ({ tick, type: event.type, bytes: packEvent({ tick, index, event }), reach: positions ? eventReach(event, (id) => positions.get(id)) : null }),
+      (event, index): LoggedEvent => ({ tick, type: event.type, bytes: packEvent({ tick, index, event }), reach: relevant ? eventReach(event, (id) => seats.get(id)?.position) : null }),
     );
     // Cosmetic events go out once; the ones that matter are repeated for a while in case a snapshot is lost.
     const kept = this.#recentEvents.filter((e) => e.tick > tick - EVENT_RESEND_TICKS && IMPORTANT.has(e.type));
@@ -1025,6 +1054,21 @@ export class GameServer {
     while (this.#eventLog.length > 0 && (this.#eventLog[0] as LoggedEvent).tick <= tick - EVENT_LOG_TICKS) this.#eventLog.shift();
     this.#broadcast();
     return this.#last;
+  }
+
+  /** What this tick means for the sticky fields: nothing but a kill or a mode's event moves the scoreboard, and a tick of plain play leaves the match status alone. */
+  #noteChanges(out: TickOutput, modeEvents: readonly ModeEvent[]): void {
+    let eventful = modeEvents.length > 0;
+    for (const e of out.events) {
+      if (e.type === 'kill') eventful = true;
+      else if (e.type === 'prop') this.#stale.add('popped');
+    }
+    // An objective pays out as it's held, with no event to say so.
+    const objective = this.#mode.objective() !== null;
+    if (eventful || objective) this.#stale.add('scores');
+    const settled = !eventful && !objective && this.#phase === 'playing' && !this.#countingDown;
+    if (!settled || !this.#settled) this.#stale.add('match');
+    this.#settled = settled;
   }
 
   /**
@@ -1062,12 +1106,15 @@ export class GameServer {
   /** Each bot's usercmd for this tick, from what the last tick showed. */
   #thinkBots(cmds: Record<PlayerId, UserCmd | UserCmd[]>, frozen: boolean): void {
     const players = this.#last.players;
+    const seats = this.#seatIndex;
     const time = this.simulation.time;
     const tick = this.simulation.tick;
     this.#planBots();
     const budget: ThinkBudget = { arcs: THROW_ARCS };
+    const far = this.#scale.farBots;
+    const people = far ? this.#joined().flatMap((c) => seats.get(c.id as PlayerId) ?? []) : [];
     for (const [id, seat] of this.#bots) {
-      const self = players.find((p) => p.id === id);
+      const self = seats.get(id);
       if (!self || frozen) {
         cmds[id] = [];
         continue;
@@ -1078,6 +1125,8 @@ export class GameServer {
         time,
         self,
         players,
+        seats,
+        ...(far && !people.some((p) => Math.hypot(p.position[0] - self.position[0], p.position[2] - self.position[2]) <= far.range) ? { thinkEvery: far.thinkEvery } : {}),
         events: this.#lastEvents,
         grenades: this.#last.grenades,
         isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other),
@@ -1112,7 +1161,7 @@ export class GameServer {
     }
     // Respawns: after the mode's delay, at the spot it picks.
     for (const p of ctx.players) {
-      const diedAt = p.alive ? null : (this.simulation.playerState(p.id)?.diedAt ?? null);
+      const diedAt = p.alive ? null : this.simulation.diedAt(p.id);
       if (diedAt !== null && ctx.time - diedAt >= this.#mode.respawnDelay - 1e-9 && this.#mode.canRespawn(p.id)) {
         this.#spawn(p.id, this.#mode.chooseSpawn(p.id, this.#context()));
       }
@@ -1148,6 +1197,7 @@ export class GameServer {
       // A client that has not measured its round trip yet is left out (shown as unknown).
       for (const c of this.#clients) if (c.id !== null && c.ping > 0) pings[c.id] = c.ping;
       this.#pings = pings;
+      this.#stale.add('pings');
     }
     const due: Client[] = [];
     for (const client of this.#clients) {
@@ -1157,18 +1207,24 @@ export class GameServer {
     }
     if (due.length === 0) return;
     this.#packSticky();
-    const players = new Map(this.#last.players.map((p) => [p.id, packPlayer(p)]));
+    /** Each seat packed the first time a client needs it this tick: one nobody is near costs nothing. */
+    const packed = new Map<PlayerId, Uint8Array>();
+    const packedSeat = (id: PlayerId): Uint8Array => {
+      let bytes = packed.get(id);
+      if (!bytes) packed.set(id, (bytes = packPlayer(this.#seatIndex.get(id) as PlayerOutput)));
+      return bytes;
+    };
     const grenades = packGrenades(this.#last.grenades);
     for (const client of due) {
       const reliable = client.connection.reliable === true;
       const self = this.simulation.playerState(client.id as PlayerId);
-      const viewer = this.#net.relevance ? this.#last.players.find((p) => p.id === client.id) : undefined;
+      const viewer = this.#net.relevance ? this.#seatIndex.get(client.id as PlayerId) : undefined;
       const view = this.#viewOf(client, viewer, tick);
       const frame = joinSnapshot({
         tick,
         ack: client.ack,
         self: self ? packValue(self) : null,
-        players: view.sent.map((id) => players.get(id) as Uint8Array),
+        players: view.sent.map(packedSeat),
         held: view.held,
         events: this.#eventsFor(client, viewer, reliable).map((e) => e.bytes),
         grenades,
@@ -1221,19 +1277,28 @@ export class GameServer {
     return fired !== undefined && tick - fired <= relevance.heardTicks && within(viewer.position, seat.position, relevance.hearing);
   }
 
-  /** Brings each sticky field up to date, keeping the same array while its bytes stay the same. */
+  /** Brings the sticky fields that may have changed up to date, keeping the same array while the bytes stay the same. */
   #packSticky(): void {
-    const values: Required<Pick<WireSnapshot, StickyField>> = {
-      scores: this.#mode.scores().map((s) => (this.#bots.has(s.id) ? { ...s, bot: true } : s)),
-      names: Object.fromEntries(this.#names),
-      pings: this.#pings,
-      popped: [...this.#popped],
-      match: this.matchStatus(),
-    };
-    for (const field of STICKY_FIELDS) {
-      const bytes = packValue(values[field]);
+    for (const field of this.#stale) {
+      const bytes = packValue(this.#stickyValue(field));
       const was = this.#sticky[field];
       if (!was || was.length !== bytes.length || was.some((byte, i) => byte !== bytes[i])) this.#sticky[field] = bytes;
+    }
+    this.#stale.clear();
+  }
+
+  #stickyValue(field: StickyField): WireSnapshot[StickyField] {
+    switch (field) {
+      case 'scores':
+        return this.#mode.scores().map((s) => (this.#bots.has(s.id) ? { ...s, bot: true } : s));
+      case 'names':
+        return Object.fromEntries(this.#names);
+      case 'pings':
+        return this.#pings;
+      case 'popped':
+        return [...this.#popped];
+      case 'match':
+        return this.matchStatus();
     }
   }
 

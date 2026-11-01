@@ -46,7 +46,7 @@ function every60Hz(step) {
 const server = target
   ? null
   : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 12)), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
+      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)) },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
 server?.stdout.on('data', (d) => process.stdout.write(`[server] ${d}`));

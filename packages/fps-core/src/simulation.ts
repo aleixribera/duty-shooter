@@ -2,6 +2,7 @@ import { hitBody, partCentres, zoneCentre, type HitPose, type HitZone } from './
 import { bulletDamage } from './combat/damage';
 import { blastDamage, moveGrenade, type Grenade, type GrenadeOutput } from './combat/grenade';
 import { advance, raycastWorld, solidNormal, solidSpan, type Projectile } from './combat/projectiles';
+import { PointGrid } from './grid';
 import { fallDamage } from './health';
 import { DEG, distance, dot, length, lerpVec, sub, viewDirection, type Vec3 } from './math';
 import type { MantleBand } from './movement/mantle';
@@ -260,6 +261,12 @@ interface HistoryPose extends HitPose {
   readonly life: number;
 }
 
+/** Everyone's hitboxes at one moment, in player order, and the grid that finds them. */
+interface Bodies {
+  readonly seats: readonly (readonly [PlayerId, HistoryPose])[];
+  readonly grid: PointGrid;
+}
+
 /** Deep copy of plain data (objects, arrays, primitives). */
 function clone<T>(value: T): T {
   if (Array.isArray(value)) return value.map(clone) as T;
@@ -306,6 +313,10 @@ const BLAST_SHARE: Record<HitZone, number> = { head: 0.1, neck: 0.04, upperTorso
 
 /** How close the lunge brings the attacker to the target's feet (m). */
 const MELEE_STOP = 0.75;
+/** No hitbox reaches farther than this from its player's feet on the ground plane (m): a prone soldier's boots are about 1.05 m off. */
+const BODY_REACH = 1.5;
+/** How far a melee looks for bodies around the attacker's eye (m). */
+const MELEE_REACH = STATS.melee.lungeRange.value + STATS.stance.hullHalfWidth.value + BODY_REACH;
 
 /**
  * The fixed-tick, deterministic simulation. Steps one tick at a time from a
@@ -328,6 +339,10 @@ export class Simulation {
   #events: SimEvent[] = [];
   /** Hitbox poses after each recent tick, for lag compensation. */
   readonly #history = new Map<number, Map<PlayerId, HistoryPose>>();
+  /** This tick's bodies by how many ticks back they stand: a shooter's rewind is the same for each of its shots. */
+  readonly #bodies = new Map<number, Bodies>();
+  /** The outputs as of the last change; null once something has changed. */
+  #output: TickOutput | null = null;
   readonly #canDamage: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
 
   constructor(world: World, options: SimulationOptions = {}) {
@@ -347,6 +362,8 @@ export class Simulation {
     this.#projectiles = [];
     this.#grenades = [];
     this.#history.clear();
+    this.#bodies.clear();
+    this.#output = null;
   }
 
   get tick(): number {
@@ -362,6 +379,7 @@ export class Simulation {
     if (this.#players.has(spawn.id)) {
       throw new Error(`Player ${spawn.id} is already in the simulation`);
     }
+    this.#output = null;
     const yaw = spawn.yaw ?? 0;
     const pitch = spawn.pitch ?? 0;
     this.#players.set(spawn.id, {
@@ -389,10 +407,12 @@ export class Simulation {
   setTeam(id: PlayerId, team: TeamId): void {
     const p = this.#players.get(id);
     if (p) p.team = team;
+    this.#output = null;
   }
 
   removePlayer(id: PlayerId): void {
     this.#players.delete(id);
+    this.#output = null;
   }
 
   has(id: PlayerId): boolean {
@@ -418,6 +438,7 @@ export class Simulation {
     p.diedAt = null;
     p.landing = null;
     p.life += 1;
+    this.#output = null;
   }
 
   /** Re-arms a player where they stand (the range's loadout station): fresh weapons, the primary drawing. */
@@ -426,6 +447,7 @@ export class Simulation {
     if (!p) throw new Error(`No player ${id}`);
     Object.assign(p, arms(loadout));
     p.grenade = null;
+    this.#output = null;
   }
 
   /** The full state of a player, deep-copied, for client prediction. */
@@ -434,9 +456,15 @@ export class Simulation {
     return p ? clone(p) : null;
   }
 
+  /** When a player died, or null while alive (or unknown): what {@link playerState} says, without the copy. */
+  diedAt(id: PlayerId): number | null {
+    return this.#players.get(id)?.diedAt ?? null;
+  }
+
   /** Replaces a player's full state (adding the player if needed), e.g. from a server snapshot. */
   setPlayerState(state: PlayerState): void {
     this.#players.set(state.id, clone(state));
+    this.#output = null;
   }
 
   /** Hitbox pose of a player, as of the last step. */
@@ -448,6 +476,7 @@ export class Simulation {
   /** Moves the tick counter, e.g. to line client prediction up with the server's tick. */
   setTick(tick: number): void {
     this.#tick = tick;
+    this.#output = null;
   }
 
   /**
@@ -467,6 +496,7 @@ export class Simulation {
       }
       this.#replaying = false;
       this.#events = [];
+      this.#output = null;
       return this.output();
     }
     const spawned: Projectile[] = [];
@@ -485,6 +515,7 @@ export class Simulation {
     this.#projectiles.push(...spawned);
     this.#stepProjectiles();
     this.#stepGrenades();
+    this.#output = null;
     return this.output();
   }
 
@@ -643,8 +674,11 @@ export class Simulation {
     const point: Vec3 = [g.position[0], g.position[1] + 0.05, g.position[2]];
     this.#events.push({ type: 'explosion', grenade: g.id, thrower: g.thrower, point });
     const thrower: PlayerInfo = { id: g.thrower, team: g.team, kind: 'player' };
-    for (const victim of this.#players.values()) {
-      if (victim.health <= 0) continue;
+    const bodies = this.#bodiesAt(0);
+    // Bodies stand as the tick's moves left them; a melee's lunge may have carried one on a little since.
+    for (const i of bodies.grid.around(point[0], point[2], STATS.grenade.radius.value + BODY_REACH + STATS.melee.lungeRange.value)) {
+      const victim = this.#players.get((bodies.seats[i] as readonly [PlayerId, HistoryPose])[0]);
+      if (!victim || victim.health <= 0) continue;
       const own = victim.id === g.thrower;
       if (own ? !this.#selfDamage(victim) : !this.#canDamage(thrower, victim)) continue;
       let nearest: { zone: HitZone; distance: number; centre: Vec3 } | null = null;
@@ -722,6 +756,18 @@ export class Simulation {
     for (const p of this.#players.values()) poses.set(p.id, this.#poseOf(p));
     this.#history.set(this.#tick, poses);
     this.#history.delete(this.#tick - Math.ceil(LAG_WINDOW_TICKS) - 2);
+    this.#bodies.clear();
+  }
+
+  /** Everyone's hitboxes `rewind` ticks ago, built once a tick however many shots ask. */
+  #bodiesAt(rewind: number): Bodies {
+    let bodies = this.#bodies.get(rewind);
+    if (!bodies) {
+      const seats = [...this.#posesAt(rewind)];
+      bodies = { seats, grid: new PointGrid(seats.map(([, pose]) => pose.position)) };
+      this.#bodies.set(rewind, bodies);
+    }
+    return bodies;
   }
 
   /** The hitbox pose of every player `rewind` ticks ago (fractional ticks interpolate). */
@@ -762,7 +808,10 @@ export class Simulation {
       const { from, to, velocity } = advance(p, seconds);
       let body: { victim: PlayerState; zone: HitZone; t: number } | null = null;
       const shooter = this.#players.get(p.shooter);
-      for (const [id, pose] of this.#posesAt(p.rewind)) {
+      const bodies = this.#bodiesAt(p.rewind);
+      const near = bodies.grid.within(Math.min(from[0], to[0]) - BODY_REACH, Math.min(from[2], to[2]) - BODY_REACH, Math.max(from[0], to[0]) + BODY_REACH, Math.max(from[2], to[2]) + BODY_REACH);
+      for (const i of near) {
+        const [id, pose] = bodies.seats[i] as readonly [PlayerId, HistoryPose];
         const victim = this.#players.get(id);
         if (!victim || id === p.shooter || !pose.alive || pose.life !== victim.life || victim.health <= 0) continue;
         if (shooter && !this.#canDamage(shooter, victim)) continue;
@@ -875,7 +924,9 @@ export class Simulation {
     const forward = viewDirection(view.yaw, 0);
     const eye: Vec3 = [attacker.move.position[0], attacker.move.position[1] + attacker.move.eyeHeight, attacker.move.position[2]];
     let best: { victim: PlayerState; pose: HistoryPose; dist: number } | null = null;
-    for (const [id, pose] of this.#posesAt(rewind)) {
+    const bodies = this.#bodiesAt(rewind);
+    for (const i of bodies.grid.around(eye[0], eye[2], MELEE_REACH)) {
+      const [id, pose] = bodies.seats[i] as readonly [PlayerId, HistoryPose];
       const victim = this.#players.get(id);
       if (!victim || id === attacker.id || !pose.alive || pose.life !== victim.life || victim.health <= 0 || !this.#canDamage(attacker, victim)) continue;
       const chest = zoneCentre(pose, 'upperTorso');
@@ -908,12 +959,12 @@ export class Simulation {
 
   /** The outputs as of the last step. */
   output(): TickOutput {
-    return {
+    return (this.#output ??= {
       tick: this.#tick,
       players: [...this.#players.values()].map((p) => this.#outputOf(p)),
       events: this.#events,
       grenades: this.#grenades.map((g) => ({ ...g, position: clean(g.position), velocity: clean(g.velocity) })),
-    };
+    });
   }
 
   #outputOf(p: PlayerState): PlayerOutput {

@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, normalize, resolve, sep } from 'node:path';
-import { DEFAULT_MAX_PLAYERS, GameServer, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, type Connection, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
@@ -364,7 +364,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
-    ...(options.wideNet ? { net: WIDE_MAP } : {}),
+    ...(options.wideNet ? { net: WIDE_MAP, scale: WIDE_SCALE } : {}),
     // Between matches everyone waits in the lobby for the host to start the next.
     lobby: true,
   });
@@ -469,7 +469,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string): ServerOptions {
   const passphrase = env['PASSPHRASE'] ?? '';
   const maxPlayers = Number(env['MAX_PLAYERS'] ?? DEFAULT_MAX_PLAYERS);
-  if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > 32) throw new Error('MAX_PLAYERS must be an integer from 1 to 32.');
+  // NET=wide stands for a match on the wide map, with that match's own limits.
+  const wide = env['NET'] === 'wide';
+  const mostPlayers = wide ? WIDE_SCALE.seats : MATCH_SCALES.tdm.seats;
+  const mostBots = wide ? WIDE_SCALE.botsPerTeam : MAX_BOTS_PER_TEAM;
+  if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > mostPlayers) throw new Error(`MAX_PLAYERS must be an integer from 1 to ${mostPlayers}.`);
   const mode = env['MODE'] ?? 'tdm';
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
   const map = env['MAP'] ?? 'survival-town';
@@ -477,7 +481,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
   if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
   const maxBotsPerTeam = Number(env['MAX_BOTS_PER_TEAM'] || MAX_BOTS_PER_TEAM);
-  if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > MAX_BOTS_PER_TEAM) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${MAX_BOTS_PER_TEAM}.`);
+  if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > mostBots) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${mostBots}.`);
   const botsPerTeam = Number(env['BOTS_PER_TEAM'] || Math.min(3, maxBotsPerTeam));
   if (!Number.isInteger(botsPerTeam) || botsPerTeam < 0 || botsPerTeam > maxBotsPerTeam) throw new Error(`BOTS_PER_TEAM must be an integer from 0 to MAX_BOTS_PER_TEAM (${maxBotsPerTeam}).`);
   return {
@@ -493,6 +497,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     botsPerTeam,
     maxBotsPerTeam,
     ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),
-    ...(env['NET'] === 'wide' ? { wideNet: true } : {}),
+    ...(wide ? { wideNet: true } : {}),
   };
 }

@@ -3,6 +3,7 @@ import type { GrenadeOutput } from '../combat/grenade';
 import type { PlayerId, PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
+import { WIDE_SCALE } from '../modes/scale';
 import { decodeSnapshot, type StickyField } from './codec';
 import type { WireData } from './transport';
 
@@ -202,7 +203,7 @@ export function decodeClient(data: string): ClientMessage | null {
     if (loadout === null) return null;
     if (typeof name !== 'string' || typeof passphrase !== 'string' || typeof protocol !== 'number') return null;
     if (mode !== undefined && !isMode(mode)) return null;
-    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
+    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= WIDE_SCALE.botsPerTeam)) return null;
     if (resume !== undefined && !(typeof resume === 'string' && resume.length <= MAX_TOKEN)) return null;
     if (script !== undefined && typeof script !== 'boolean') return null;
     if (hvb !== undefined && typeof hvb !== 'boolean') return null;
@@ -231,7 +232,7 @@ export function decodeClient(data: string): ClientMessage | null {
     const { mode, fill, bots, hvb, map } = value;
     if (mode !== undefined && !isMode(mode)) return null;
     if (fill !== undefined && typeof fill !== 'boolean') return null;
-    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= 16)) return null;
+    if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= WIDE_SCALE.botsPerTeam)) return null;
     if (hvb !== undefined && typeof hvb !== 'boolean') return null;
     if (map !== undefined && !(typeof map === 'string' && map.length <= 40)) return null;
     return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }) };

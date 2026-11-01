@@ -43,10 +43,10 @@ To play online locally:
    | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash` or `range`. |
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge` or `gungame`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
-   | `MAX_PLAYERS` | `12` | Seats, bots included. |
+   | `MAX_PLAYERS` | `12` | Seats, bots included. At most `32`, `60` with `NET=wide`. |
    | `BOTS_PER_TEAM` | `3` | Bots a side on a map with no team size of its own; `0` starts the lobby with bots off. At most `MAX_BOTS_PER_TEAM`. |
-   | `MAX_BOTS_PER_TEAM` | `6` | The most a host may pick. Set both bot variables to `0` for no bots. |
-   | `NET` | the mode's own | `wide` puts every mode on the provisional wide-map network profile (lower rate, relevance tiers), for load tests. |
+   | `MAX_BOTS_PER_TEAM` | `6` | The most a host may pick, at most `6` (`30` with `NET=wide`). Set both bot variables to `0` for no bots. |
+   | `NET` | the mode's own | `wide` puts every mode on the provisional wide-map network profile (lower rate, relevance tiers) and its seat limits, for load tests. |
    | `PORT`, `HOST` | `3000`, `0.0.0.0` | Where it listens. |
    | `STATIC_DIR` | the built client | The files it serves. |
    | `EVENT_LOG` | none | A JSON-lines file of joins, leaves and matches. |

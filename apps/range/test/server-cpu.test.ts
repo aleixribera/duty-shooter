@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNavGraph, createWorld } from '@duty-shooter/fps-core';
+import { WIDE_MAP, WIDE_SCALE, box, buildNavGraph, createWorld, type Solid } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
 import { buildMap, collisionSolids } from '../src/map/map';
 import { mapSolids } from '../src/map/definition';
@@ -45,7 +45,35 @@ describe.skipIf(!process.env['BENCH'])('server CPU', { timeout: 180_000 }, () =>
     const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, teamSpawns: map.spawns.teams!, zones: map.zones, sites: map.sites, mode, passphrase: '', latency: 0.03, maxPlayers: 12, bots: { nav, perTeam: 6 } });
     measure(m, players, 12);
   });
+
+  // The worst a tick can be asked for: everyone on one small map, always in a fight.
+  it.each([['Survival Town', buildSurvivalTown], ['Switchyard', buildSwitchyard]] as const)('60 seats crowded onto %s: 2 players, bots in the rest', (_name, build) => {
+    const map = build();
+    const solids = mapSolids(map);
+    const nav = buildNavGraph(createWorld(solids), map.nav!);
+    const m = createNetworkedMatch({ solids, spawns: map.spawns.ffa, mode: 'ffa', modes: { ffa: { killLimit: null, timeLimit: null } }, passphrase: '', latency: 0.03, maxPlayers: 60, scale: WIDE_SCALE, net: WIDE_MAP, bots: { nav, perTeam: 30, maxPerTeam: 30 } });
+    measure(m, 2, 60);
+  });
+
+  // How 60 seats really stand: spread over open ground, the fights far apart and most bots far from a person.
+  it('60 seats spread over 600 m: 2 players, bots in the rest', () => {
+    const solids = openGround(600);
+    const nav = buildNavGraph(createWorld(solids), { area: [[-300, -300], [300, -300], [300, 300], [-300, 300]], spacing: 12, ceiling: 3 });
+    const spawns = Array.from({ length: 60 }, (_, i) => ({ position: nav.nodes[Math.floor((i + 0.5) * (nav.nodes.length / 60))]!.position, yaw: i }));
+    const m = createNetworkedMatch({ solids, spawns, mode: 'ffa', modes: { ffa: { killLimit: null, timeLimit: null } }, passphrase: '', latency: 0.03, maxPlayers: 60, scale: WIDE_SCALE, net: WIDE_MAP, bots: { nav, perTeam: 30, maxPerTeam: 30 } });
+    measure(m, 2, 60);
+  });
 });
+
+/** A square of ground `size` m across with a wall every 30 m or so to hide behind. */
+function openGround(size: number): Solid[] {
+  const half = size / 2;
+  const solids: Solid[] = [box({ min: [-half, -1, -half], max: [half, 0, half], material: 'concrete' })];
+  for (let x = -half + 15; x < half; x += 30) {
+    for (let z = -half + 15; z < half; z += 30) solids.push(box({ min: [x, 0, z], max: [x + 6, 2.5, z + 1], material: 'concrete' }));
+  }
+  return solids;
+}
 
 /** Joins `players` scripted players who move, turn and fire (bots fill the rest, to `seats` in all), and logs the server's share of one core over 20 s. */
 function measure(m: ReturnType<typeof createNetworkedMatch>, players = 8, seats = 8): void {

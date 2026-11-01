@@ -207,3 +207,68 @@ export class SolidIndex {
     }
   }
 }
+
+/** Metres a side of a {@link PointGrid} cell. */
+const POINT_CELL = 16;
+/** So few points that walking them all beats a grid. */
+const FEW_POINTS = 16;
+
+/**
+ * The points of one moment (players, as a tick left them) on a grid over the
+ * ground plane, built when first asked and thrown away with that moment.
+ * Queries return what a walk over every point would find, in the same order,
+ * so a caller behaves exactly as it would without one.
+ */
+export class PointGrid {
+  readonly #points: readonly Vec3[];
+  #cells: Map<number, number[]> | null = null;
+
+  constructor(points: readonly Vec3[]) {
+    this.#points = points;
+  }
+
+  /** Indices, ascending, of the points in the box from (x0, z0) to (x1, z1) on the ground plane. */
+  within(x0: number, z0: number, x1: number, z1: number): number[] {
+    const points = this.#points;
+    const inside = (i: number) => {
+      const p = points[i] as Vec3;
+      return p[0] >= x0 && p[0] <= x1 && p[2] >= z0 && p[2] <= z1;
+    };
+    const ax = cellOf(x0);
+    const az = cellOf(z0);
+    const bx = cellOf(x1);
+    const bz = cellOf(z1);
+    const out: number[] = [];
+    if (points.length <= FEW_POINTS || (bx - ax + 1) * (bz - az + 1) >= points.length) {
+      for (let i = 0; i < points.length; i++) if (inside(i)) out.push(i);
+      return out;
+    }
+    const cells = (this.#cells ??= this.#fill());
+    for (let x = ax; x <= bx; x++) {
+      for (let z = az; z <= bz; z++) {
+        const cell = cells.get(cellKey(x, z));
+        if (cell) for (const i of cell) if (inside(i)) out.push(i);
+      }
+    }
+    return out.sort((a, b) => a - b);
+  }
+
+  /** Indices, ascending, of the points within `reach` m of (x, z) along each axis: the caller measures the distance it cares about. */
+  around(x: number, z: number, reach: number): number[] {
+    return this.within(x - reach, z - reach, x + reach, z + reach);
+  }
+
+  #fill(): Map<number, number[]> {
+    const cells = new Map<number, number[]>();
+    for (const [i, p] of this.#points.entries()) {
+      const key = cellKey(cellOf(p[0]), cellOf(p[2]));
+      const cell = cells.get(key);
+      if (cell) cell.push(i);
+      else cells.set(key, [i]);
+    }
+    return cells;
+  }
+}
+
+const cellOf = (v: number) => Math.floor(v / POINT_CELL);
+const cellKey = (x: number, z: number) => (x + 0x8000) * 0x10000 + (z + 0x8000);
