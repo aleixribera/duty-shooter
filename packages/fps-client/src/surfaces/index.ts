@@ -14,8 +14,6 @@ export { decorationErrors, decorationFrame, frameFaces, insideFrame, isClear, so
 export type { Face, Frame } from './faces';
 export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
 export type { Lamp, Lighting } from './lighting';
-export { SCATTER_FILE, SCATTER_FINISHES, scatterModels, scatterPlacements } from './scatter';
-export type { Scatter } from './scatter';
 export { TERRAIN_CHUNK, chunkStep, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh } from './terrain-mesh';
 export type { TerrainMesh } from './terrain-mesh';
 export { DECORATION_TOLERANCE, DEFAULT_FINISHES, defaultFinishKey } from './types';
