@@ -222,6 +222,8 @@ Update stale entries as they're touched, including the Charge-only spectator and
   - **Frame budget:** vegetation is instanced with distance LOD and has to hold the 60 fps target.
 - **Boundary:** the sea's edge is a Boundary. Wadeable water slows movement slightly and sounds different. There's no swimming, and no deep water a player can reach.
 - **Art:** every model comes from a Blender generator script, is checked in preview renders and then in the game, as the repo's rule for map art says.
+- **Textures:** every texture and material on the island comes through the `game-textures` skill, Claude-only sources included: painted recipes, CC0 libraries, Blender bakes or the shader tricks. Metre-based UVs. This game's renderer is WebGPU, so use the TSL tricks (`hexSample`, macro variation, triplanar), and they must also hold up on the WebGL2 fallback and inside the frame budget on integrated graphics. Each surface is judged in the game from near, far and grazing, where repeat shows.
+- **Ground materials:** the terrain itself needs real materials per Region: snow and ice, desert sand and rock, jungle soil and moss, crater ash and scorched concrete, asphalt, dockside concrete, with blends between them and triplanar on steep faces, so no slope looks stretched and no plain looks repeated.
 
 ### World engine
 

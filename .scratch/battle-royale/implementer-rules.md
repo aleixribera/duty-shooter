@@ -5,7 +5,7 @@ Read `AGENTS.md`, `docs/agents/codebase.md`, `GLOSSARY.md`, `../spec.md`-level c
 - Work directly on `main` in this checkout. No branches, worktrees or PRs. Never spawn subagents.
 - Set the ticket `Status: claimed` first. Use the tdd skill (`mattpocock-skills:tdd`) for code.
 - UI work: read `DESIGN.md`, use the design skills named in the global instructions, and check real screenshots at desktop and phone width. Finish with `design-audit`.
-- Any 3D model is built in Blender with the `blender` skill from a generator script. Look at the preview renders, then check it in the game. Any texture uses the `game-textures` skill.
+- Any 3D model is built in Blender with the `blender` skill from a generator script. Look at the preview renders, then check it in the game. Every texture or material uses the `game-textures` skill (owner's explicit instruction, Claude-only sources): call it before making or shading one, and check the result in the game from near, far and grazing.
 
 ## Commits
 
