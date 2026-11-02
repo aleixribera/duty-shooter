@@ -50,7 +50,7 @@ import { bindingLabel, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
 import { ZoneRings } from './zone-rings';
-import type { BakeFile } from './surfaces';
+import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting } from './surface-materials';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
@@ -201,6 +201,8 @@ export class Game {
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
   readonly #nukeAt: WorldContent['nuke'];
+  /** The map's ending as a shot of its own (the nuke's, or the train's), or null to stay on the player's view. */
+  readonly #endingShot: EndingShot | null;
   readonly #indoorZones: WorldContent['indoorZones'];
   readonly #ambience: Ambience;
   /** Where the listener last was, for placing sounds made with no position. */
@@ -231,6 +233,7 @@ export class Game {
     this.#sound = options.sound;
     this.#overview = options.overview;
     this.#nukeAt = options.content.nuke ?? null;
+    this.#endingShot = this.#nukeAt?.shot ?? options.content.train?.shot ?? null;
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#rangeLanesWestOf = options.rangeLanesWestOf ?? null;
     this.#indoorZones = options.content.indoorZones;
@@ -570,11 +573,11 @@ export class Game {
       forward = viewDirection(watched.yaw, pitch);
       this.#viewmodel.root.visible = false;
     }
-    const shot = this.#nukeAt?.shot;
+    const shot = this.#endingShot;
     const ending = shot ? this.#sinceMatchEnd(driver) : null;
     this.#inShot = ending !== null;
     if (shot && ending !== null) {
-      // The map's ending plays as a shot of its own, like a cut scene: everyone watches the nuke, wherever they stood.
+      // The map's ending plays as a shot of its own, like a cut scene: everyone watches the nuke or the train, wherever they stood.
       const pose = shotPose(shot, ending);
       const shake = this.#nuke ? nukeFrame(ending, this.#nuke.distanceTo(pose.position)).shake * SHOT_SHAKE : 0;
       const cam = this.#camera.camera;

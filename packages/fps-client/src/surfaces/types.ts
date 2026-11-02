@@ -125,6 +125,8 @@ export interface FreightTrain {
   readonly headlights: readonly Vec3[];
   /** Seconds after the match ends that the horn sounds. */
   readonly horns: readonly number[];
+  /** The ending's shot of it running past, which everyone watches instead of their own view. */
+  readonly shot: EndingShot;
 }
 
 /** How far decoration may stand proud of the solid it decorates (m). */

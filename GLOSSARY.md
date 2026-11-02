@@ -210,7 +210,7 @@ Switchyard's end-of-match ending: two locos and 22 wagons that thunder west alon
 _Avoid_: the nuke (on Switchyard)
 
 **Ending shot**:
-Survival Town's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move from behind the west end of town toward ground zero, so everyone watches the siren, the flash and the cloud climbing over the rooftops. The map data holds it (`nuke.shot`).
+A map's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move, so everyone watches it however they stood (input is frozen, so nobody could turn to it). On Survival Town it moves from behind the west end of town toward ground zero, for the siren, the flash and the cloud climbing over the rooftops; on Switchyard it looks from the long lane over the barrier up the main line and swings west with the Freight train as it roars past. The map data holds it (`nuke.shot`, `train.shot`).
 _Avoid_: kill cam, video (nothing is recorded; it is drawn live)
 
 **Mode vote**:

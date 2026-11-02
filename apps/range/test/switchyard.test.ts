@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, sightBlocked, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, MATERIALS, STATS, TICK_SECONDS, createWorld, raycastWorld, segmentSolid, sightBlocked, viewDirection, type PlayerOutput, type Solid, type SpawnPoint, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd } from '@duty-shooter/fps-core/harness';
-import { decorationErrors, layoutSurfaces } from '@duty-shooter/fps-client/surfaces';
+import { decorationErrors, layoutSurfaces, shotPose } from '@duty-shooter/fps-client/surfaces';
 import { surfaceSpec } from '../src/bake/spec';
 import { insidePolygon, mapSolids } from '../src/map/definition';
 import { buildSurvivalTown } from '../src/map/survival-town';
@@ -411,6 +411,41 @@ describe('Switchyard: cameras and surfaces', () => {
   it('the fly-through stays above the yard, in open air', () => {
     expect(map.flyThrough.length).toBeGreaterThan(8);
     for (const k of map.flyThrough) expect(insideSolid(k.position)).toBe(false);
+  });
+
+  it('the ending shot keeps the freight train in frame and in sight from the match\'s end through the intermission', () => {
+    // Without a shot the ending stays on the player's own view, which almost never takes in the main line (ticket 33).
+    const train = map.train!;
+    const shot = train.shot;
+    expect(shot).toBeDefined();
+    const drawn = createWorld(map.solids);
+    expect(insideSolid(shot.from) || insideSolid(shot.to)).toBe(false);
+    expect(raycastWorld(drawn, shot.from, shot.to)).toBeNull();
+    // In frame on a 4:3 screen (the narrowest the game is played on), with a margin.
+    const tanV = Math.tan(((shot.fov / 2) * Math.PI) / 180) * 0.9;
+    const tanH = tanV * (4 / 3);
+    const seen = (t: number) => {
+      const pose = shotPose(shot, t);
+      const f = viewDirection(pose.yaw, pose.pitch);
+      const r: Vec3 = [Math.cos(pose.yaw), 0, -Math.sin(pose.yaw)];
+      const u: Vec3 = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      const head = train.start - train.speed * t;
+      let n = 0;
+      // A point on each car's side, 2.5 m up.
+      for (let along = 6; along < train.length; along += 12) {
+        const p: Vec3 = [head + along, 2.5, train.z + 1.4];
+        const d: Vec3 = [p[0] - pose.position[0], p[1] - pose.position[1], p[2] - pose.position[2]];
+        const z = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+        if (z <= 0) continue;
+        const x = (d[0] * r[0] + d[1] * r[1] + d[2] * r[2]) / z;
+        const y = (d[0] * u[0] + d[1] * u[1] + d[2] * u[2]) / z;
+        if (Math.abs(x) < tanH && Math.abs(y) < tanV && raycastWorld(drawn, pose.position, p) === null) n++;
+      }
+      return n;
+    };
+    // From the horn through the scoreboard (a lobby's) or the vote (the longer): at least one car whole in frame and in sight.
+    const end = INTERMISSION.nuke + INTERMISSION.vote;
+    for (let t = 0.3; t <= end; t += 0.25) expect(seen(t), `${t.toFixed(2)} s after the match ended`).toBeGreaterThanOrEqual(1);
   });
 
   it('indoor zones cover the workshop, the shed, both floors of the signal box and the pump house', () => {

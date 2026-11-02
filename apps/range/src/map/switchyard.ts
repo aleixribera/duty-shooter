@@ -1,5 +1,5 @@
-import type { ChargeSite, Material, NavOptions, Solid, SpawnPoint, Vec3, Zone } from '@duty-shooter/fps-core';
-import { linearRgb, normalize, type Finish, type FreightTrain, type Lamp, type Lighting, type Look, type ModelPlacement } from '@duty-shooter/fps-client/surfaces';
+import { INTERMISSION, type ChargeSite, type Material, type NavOptions, type Solid, type SpawnPoint, type Vec3, type Zone } from '@duty-shooter/fps-core';
+import { linearRgb, normalize, type EndingShot, type Finish, type FreightTrain, type Lamp, type Lighting, type Look, type ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
 
@@ -896,8 +896,24 @@ function freightTrain(): FreightTrain {
       [head, LOCO_HEADLIGHT.height, LOCO_HEADLIGHT.out],
     ],
     horns: [0.3, 3.6],
+    shot: TRAIN_SHOT,
   };
 }
+
+/**
+ * The ending's shot: from the long lane, over the barrier, looking up the
+ * main line at the train coming in from the east with its lamps lit, then
+ * swinging west with it as the locos and wagons roar past, drifting back and
+ * up, and holding on the wagons through the scoreboard.
+ */
+const TRAIN_SHOT: EndingShot = {
+  from: [10, 5, -19],
+  to: [-8, 6.5, -17],
+  lookFrom: [70, 2.5, -33],
+  lookTo: [-40, 3, -33],
+  seconds: INTERMISSION.nuke + INTERMISSION.scoreboard,
+  fov: 62,
+};
 
 // ---------------------------------------------------------------------------
 // Cameras.

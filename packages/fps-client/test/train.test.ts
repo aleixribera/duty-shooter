@@ -14,6 +14,7 @@ const train: FreightTrain = {
   bogies: [2.4, 9.6, 14.4, 21.6, 26.4, 33.6, 38.4, 45.6, 50.4, 57.6],
   headlights: [[0.2, 2.4, 0.7], [0.2, 2.4, -0.7]],
   horns: [0.3, 3.5],
+  shot: { from: [0, 4, -20], to: [-10, 5, -18], lookFrom: [60, 2, -32.5], lookTo: [-40, 2, -32.5], seconds: 16, fov: 62 },
 };
 
 /** Runs `sounds` at 60 fps from `from` to `to` s after the match ended, for a listener at `at`, returning each cue with the time it plays at. */
