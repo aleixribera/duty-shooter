@@ -15,3 +15,6 @@ Hunt systematically and file every finding as its own ticket here (`36-...` onwa
 Report a table of everything found, its severity and its state.
 
 ## Comments
+
+- From ticket 13 (high priority, affects playing with friends): players arriving through Tailscale Funnel may all look like one address inside Docker, so they would share the 12-sockets-per-address limit and the failed-join lockout. Check what address the server really sees for two outside clients, and fix it (trusted forwarded header from the proxy only, or a limit that suits a shared address).
+- `docs/deploy.md` Funnel section still says port 443; the game is on 10000.
