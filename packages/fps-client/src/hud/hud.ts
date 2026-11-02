@@ -58,6 +58,15 @@ const CSS = `
 /* A phone's Battle Royale: the feed starts under the compass and keeps its newest three, clear of the ammo. */
 @media (max-width: 1000px) { .ds-hud.royale .ds-feed { top: 160px; } .ds-hud.royale .ds-feed div:nth-last-child(n+4) { display: none; } }
 @media (max-width: 1000px) { .ds-feed { top: 96px; } }
+/* A phone: health and ammo each keep to their half of the screen, so the bars never cross (ticket 41). */
+@media (max-width: 640px) {
+  .ds-health, .ds-ammo { min-width: 0; max-width: 50vw; box-sizing: border-box; }
+  .ds-health { padding: 0 12px 22px 16px; }
+  .ds-ammo { padding: 0 16px 22px 12px; }
+  .ds-health .bar, .ds-ammo .bar { width: calc(50vw - 28px); }
+}
+/* Narrow screens put the ping and frame rate over the health, out from under the top bars (ticket 45). */
+@media (max-width: 960px) { .ds-hud .ds-stats { top: auto; bottom: 118px; left: 16px; } }
 .ds-feed .you { box-shadow: inset 3px 0 0 var(--ds-signal); background: linear-gradient(270deg, rgb(143 227 200 / 0.22), rgb(12 15 21 / 0.7)); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
@@ -285,6 +294,11 @@ export interface MatchView {
 const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 
 /** A number for a style, to three places, so values that barely move are not written again. */
+/** Health and ammo show only while you are in play: alive, or Downed; out, or waiting to respawn, they go (ticket 46). */
+export function barsShown(self: Pick<PlayerOutput, 'alive'> | null): boolean {
+  return self !== null && self.alive;
+}
+
 function fixed(n: number): string {
   return String(Math.round(n * 1000) / 1000);
 }
@@ -601,14 +615,15 @@ export class Hud {
     this.#style(this.#vignette, 'opacity', fixed(Math.min(1, hurt * 0.9 + this.#flash * 0.35)));
 
     const health = self ? Math.max(0, Math.round(self.health)) : 0;
-    this.#style(this.#health, 'display', self ? '' : 'none');
+    const bars = barsShown(self);
+    this.#style(this.#health, 'display', bars ? '' : 'none');
     this.#text(this.#hp, String(health));
     // Downed, the number is the Downed pool, and the bar fills against that.
     this.#style(this.#hpBar, 'transform', `scaleX(${fixed(health / (self?.downed ? STATS.royale.downedHealth.value : 100))})`);
     this.#health.classList.toggle('low', health <= 35 || Boolean(self?.downed));
     this.#text(this.#healthLabel, self?.downed ? 'Downed' : 'Health');
 
-    this.#style(this.#ammo, 'display', self ? '' : 'none');
+    this.#style(this.#ammo, 'display', bars ? '' : 'none');
     if (w && self) {
       const row = STATS.weapons[w.id];
       const size = row.handling.magazineSize.value;

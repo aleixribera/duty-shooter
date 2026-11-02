@@ -151,6 +151,9 @@ Zero Island drawn from above, opened and closed with the map key (M, the pad's S
 **Spectating**:
 Watching another player's view from behind them once you're out: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Esc opens the menu, where you can leave.
 
+**Bottom bars**:
+Health in the HUD's bottom-left corner and ammo in its bottom-right, each kept to its own half of a phone's screen. They show only while you're in play (alive or Downed), and nothing is drawn over them: a marker for something off-screen sits just above.
+
 **Stage**:
 One step of the Ring: it holds, then shrinks to the next circle, known throughout. Six to a match, each hurting more than the last. Their table is in the stats file.
 

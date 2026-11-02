@@ -55,6 +55,7 @@ import { RingWall } from './ring-wall';
 import { RingSounds } from './ring-sounds';
 import { Spectator } from './spectate';
 import type { RoyaleHudState } from './hud/royale-hud';
+import { pinMarker } from './hud/markers';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting } from './surface-materials';
@@ -847,9 +848,10 @@ export class Game {
       mates: mates.map((p) => ({ name: driver.nameOf(p.id), x: p.position[0], z: p.position[2], downed: Boolean(p.downed) })),
       placement: placement(driver.scores, driver.selfId),
       out: !self?.alive,
+      seated: driver.scores.some((s) => s.id === driver.selfId),
       watching: watched ? driver.nameOf(watched.id) : null,
       mapKey: bindingLabel(this.#settings.bindings.map),
-      leaveKey: 'Esc',
+      menuKey: 'Esc',
       mapOpen: this.input.mapOpen,
     };
   }
@@ -893,13 +895,9 @@ export class Game {
     const cam = this.#camera.camera;
     const w = this.#canvas.clientWidth;
     const h = this.#canvas.clientHeight;
-    const margin = 32;
     const p = new Vector3(at[0], at[1], at[2]).project(cam);
     const behind = p.z > 1;
-    let x = (((behind ? -p.x : p.x) + 1) / 2) * w;
-    let y = behind ? h - margin : ((1 - p.y) / 2) * h;
-    x = Math.min(w - margin, Math.max(margin, x));
-    y = Math.min(h - margin, Math.max(margin + 24, y));
+    const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h);
     return { x, y, distance: Math.hypot(at[0] - eye[0], at[2] - eye[2]) };
   }
 
@@ -911,7 +909,6 @@ export class Game {
     const cam = this.#camera.camera;
     const w = this.#canvas.clientWidth;
     const h = this.#canvas.clientHeight;
-    const margin = 32;
     return this.#zones.flatMap((zone) => {
       const s = states.find((x) => x.id === zone.id);
       if (!s) return [];
@@ -919,10 +916,7 @@ export class Game {
       const p = new Vector3(top[0], top[1], top[2]).project(cam);
       // Behind the camera the projection mirrors: flip it, and pin the marker to the bottom edge.
       const behind = p.z > 1;
-      let x = ((behind ? -p.x : p.x) + 1) / 2 * w;
-      let y = behind ? h - margin : ((1 - p.y) / 2) * h;
-      x = Math.min(w - margin, Math.max(margin, x));
-      y = Math.min(h - margin, Math.max(margin + 24, y));
+      const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h);
       const distance = Math.hypot(zone.center[0] - eye[0], zone.center[2] - eye[2]);
       const inside = this.#cur?.alive === true && inZone(zone, this.#cur.position);
       return [{ id: zone.id, owner: s.owner, capturing: s.capturing, progress: s.progress, contested: s.contested, x, y, distance, inside }];

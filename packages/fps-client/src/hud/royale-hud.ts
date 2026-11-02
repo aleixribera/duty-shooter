@@ -107,11 +107,13 @@ export interface RoyaleHudState {
   readonly placement: { readonly place: number; readonly of: number } | null;
   /** You are out of this match (dead, or arrived late). */
   readonly out: boolean;
+  /** You have a seat in this match; a late arrival never had one, and only watches. */
+  readonly seated: boolean;
   /** Who you watch, if anyone. */
   readonly watching: string | null;
   /** The keys to show: the map's and the pause menu's (where Leave is). */
   readonly mapKey: string;
-  readonly leaveKey: string;
+  readonly menuKey: string;
   readonly mapOpen: boolean;
 }
 
@@ -151,7 +153,8 @@ export class RoyaleHud {
   #island: HTMLCanvasElement | null = null;
   #bounds: MapBounds | null = null;
   readonly #html = new WeakMap<HTMLElement, string>();
-  #shown = false;
+  /** Starts true, so the constructor's first #show(false) hides every box until a Battle Royale is in play (ticket 37). */
+  #shown = true;
   #lastDraw = 0;
 
   constructor(root: HTMLElement, source: IslandMapSource | null) {
@@ -234,9 +237,10 @@ export class RoyaleHud {
         `<span class="arrow" style="transform:rotate(${Math.round(turn)}deg)">▲</span><span><b>Outside the Ring</b><small>${st.damage} HP a second · ${Math.ceil(st.toSafety)} m to safety</small></span>`,
       );
     }
-    // Out: a few seconds of your placement big (or that your Squad fights on), then out of the spectator's way; who you watch stays, with the way to leave.
-    const place = s.out ? s.placement : null;
-    const said = !s.out ? null : place ? `<div class="what">${place.place === 1 ? 'Victory' : 'Eliminated'}</div><div class="place">${ordinal(place.place)}</div><div class="of">of ${place.of} Squads</div>` : `<div class="what">You're out</div><div class="of">Your Squad fights on</div>`;
+    // Out: a few seconds of your placement big (or that your Squad fights on), then out of the spectator's way; who you watch stays, with the way to the menu.
+    // A late arrival was never in, so it gets no out card: only who it watches (ticket 43).
+    const place = s.out && s.seated ? s.placement : null;
+    const said = !s.out || !s.seated ? null : place ? `<div class="what">${place.place === 1 ? 'Victory' : 'Eliminated'}</div><div class="place">${ordinal(place.place)}</div><div class="of">of ${place.of} Squads</div>` : `<div class="what">You're out</div><div class="of">Your Squad fights on</div>`;
     const now = performance.now();
     if (said !== this.#outSaid) {
       this.#outSaid = said;
@@ -249,7 +253,7 @@ export class RoyaleHud {
     if (s.out) {
       this.#set(
         this.#watch,
-        `${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? `<span class="k">Watching</span><span class="who">${escape(s.watching)}</span>` : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.leaveKey)}</kbd>Leave</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
+        `${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? `<span class="k">Watching</span><span class="who">${escape(s.watching)}</span>` : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
       );
     }
     this.#map.classList.toggle('open', s.mapOpen);
