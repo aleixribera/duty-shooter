@@ -115,6 +115,10 @@ export interface PlayerOutput {
   readonly grenades: number;
   /** A grenade in hand: cooking, or just thrown, and for how long (s); null otherwise. */
   readonly grenade: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;
+  /** Downed: seconds to Bleed-out, and how far a Revive is, 0 to 1. Null while standing or dead. */
+  readonly downed: { readonly bleedOut: number; readonly revive: number } | null;
+  /** How far this seat has Revived a squadmate, 0 to 1; null while it isn't. */
+  readonly reviving: number | null;
 }
 
 export interface Landing {
@@ -165,11 +169,15 @@ export type SimEvent =
       readonly type: 'kill';
       readonly killer: PlayerId | null;
       readonly victim: PlayerId;
-      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring';
+      readonly cause: DamageCause | 'bleedOut' | 'wipe';
       readonly zone: HitZone | null;
       /** The weapon that did it (null for a fall). */
       readonly weapon: KillWeapon | null;
     }
+  /** A seat reached 0 health and went Downed rather than dying. */
+  | { readonly type: 'down'; readonly attacker: PlayerId | null; readonly victim: PlayerId; readonly cause: DamageCause; readonly zone: HitZone | null; readonly weapon: KillWeapon | null }
+  /** A Revive finished: `target` is back on its feet. */
+  | { readonly type: 'revive'; readonly reviver: PlayerId; readonly target: PlayerId }
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
   | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null }
   /** A grenade: the pin pulled (cook), thrown, or dropped by a player who died cooking it. */
@@ -179,6 +187,9 @@ export type SimEvent =
   | { readonly type: 'explosion'; readonly grenade: number; readonly thrower: PlayerId; readonly point: Vec3 }
   /** A weapon switch: the player started putting `from` away for `to`. */
   | { readonly type: 'switch'; readonly player: PlayerId; readonly from: WeaponId; readonly to: WeaponId };
+
+/** What can take a seat to 0 health. */
+export type DamageCause = 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring';
 
 /** What a kill is credited to: a weapon, or a grenade. */
 export type KillWeapon = WeaponId | 'frag';
@@ -212,6 +223,8 @@ export interface SimulationOptions {
   readonly hazard?: (position: Vec3) => number;
   /** Frags a fresh set of weapons comes with; the usual allowance by default. */
   readonly frags?: () => number;
+  /** Whether `victim` may go Downed at 0 health (Battle Royale with Squads). Defaults to never. */
+  readonly downs?: (victim: PlayerInfo) => boolean;
   /**
    * Prediction only (a client's local copy): thrown grenades leave the hand
    * but aren't simulated, since the server's snapshots carry the real ones.
@@ -258,6 +271,10 @@ export interface PlayerState {
   readonly dummy: DummyOptions | null;
   /** A grenade in hand: cooking since the weapon clock time `since`, or thrown at `since` while the weapon comes back up. */
   grenade: { phase: 'cook' | 'throw'; since: number } | null;
+  /** Downed since `since` by `by`, who is credited if it never gets up; `revive` is the squadmate at it, and since when. Health is the Downed pool meanwhile. */
+  downed: { since: number; by: PlayerId | null; revive: { by: PlayerId; since: number } | null } | null;
+  /** The Downed squadmate this seat is Reviving, and since when. */
+  reviving: { target: PlayerId; since: number } | null;
 }
 
 interface HistoryPose extends HitPose {
@@ -310,6 +327,7 @@ function clean(v: Vec3): Vec3 {
 
 const C = STATS.combat;
 const H = STATS.health;
+const R = STATS.royale;
 export const LAG_WINDOW_TICKS = C.lagCompensationWindow.value * TICK_RATE;
 const MELEE_CONE = Math.cos(35 * DEG);
 /** How much of the body each hitbox stands for when a blast is partly blocked (relative weights, normalised over the pose's boxes). */
@@ -350,6 +368,7 @@ export class Simulation {
   readonly #canDamage: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
   readonly #hazard: ((position: Vec3) => number) | null;
   readonly #fragsOption: (() => number) | null;
+  readonly #downs: (victim: PlayerInfo) => boolean;
 
   constructor(world: World, options: SimulationOptions = {}) {
     this.#world = world;
@@ -357,6 +376,7 @@ export class Simulation {
     this.#selfDamage = options.selfDamage ?? (() => true);
     this.#hazard = options.hazard ?? null;
     this.#fragsOption = options.frags ?? null;
+    this.#downs = options.downs ?? (() => false);
     this.#predictOnly = options.predictOnly ?? false;
   }
 
@@ -408,6 +428,8 @@ export class Simulation {
       spawn: { position: spawn.position, yaw },
       dummy: spawn.dummy ?? null,
       grenade: null,
+      downed: null,
+      reviving: null,
     });
   }
 
@@ -419,6 +441,8 @@ export class Simulation {
   }
 
   removePlayer(id: PlayerId): void {
+    const p = this.#players.get(id);
+    if (p) this.#stopRevive(p);
     this.#players.delete(id);
     this.#output = null;
   }
@@ -437,6 +461,8 @@ export class Simulation {
     p.move = createMoveState(position, yaw);
     Object.assign(p, arms(loadout ?? p.loadout, this.#frags()));
     p.grenade = null;
+    this.#stopRevive(p);
+    p.downed = null;
     p.viewYaw = 0;
     p.viewPitch = 0;
     p.cmdYaw = yaw;
@@ -529,6 +555,10 @@ export class Simulation {
     this.#projectiles.push(...spawned);
     this.#stepProjectiles();
     this.#stepGrenades();
+    if (!this.#predictOnly) {
+      this.#stepDowned();
+      this.#stepRevives();
+    }
     this.#output = null;
     return this.output();
   }
@@ -537,6 +567,9 @@ export class Simulation {
     const alive = player.health > 0;
     // No usercmd means no input; the view keeps its last angles. A dead player's input is ignored apart from the view.
     let cmd = sent && alive ? sent : usercmd({ yaw: sent?.yaw ?? player.cmdYaw, pitch: sent?.pitch ?? player.cmdPitch });
+    // Downed: on the ground, crawling and looking, and nothing else. Reviving: knelt beside them, hands busy.
+    if (player.downed) cmd = { ...cmd, buttons: Button.Prone, firePresses: [] };
+    else if (player.reviving) cmd = { ...cmd, buttons: (cmd.buttons & Button.Use) | Button.Crouch, firePresses: [] };
     player.cmdYaw = cmd.yaw;
     player.cmdPitch = cmd.pitch;
     let weapon = activeWeapon(player);
@@ -548,7 +581,7 @@ export class Simulation {
     pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS, weaponRow(weapon.id).handling.moveSpeed.value);
     const fell = player.move.landedFrom;
     if (fell !== null) {
-      const damage = alive ? fallDamage(fell) : 0;
+      const damage = alive && !player.downed ? fallDamage(fell) : 0;
       player.landing = { fallHeight: fell, damage };
       if (damage > 0) this.#damage(player, damage, null, 'fall', null, null);
     }
@@ -558,7 +591,7 @@ export class Simulation {
     const other = player.weapons[1 - player.slot];
     const switchPress = (cmd.buttons & Button.SwitchWeapon) !== 0 && (weapon.prevButtons & Button.SwitchWeapon) === 0;
     const grenadePress = (cmd.buttons & Button.Grenade) !== 0 && (weapon.prevButtons & Button.Grenade) === 0;
-    const free = player.health > 0 && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle' && player.move.movement !== 'ladder';
+    const free = player.health > 0 && !player.downed && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle' && player.move.movement !== 'ladder';
     if (grenadePress && free && player.grenades > 0 && player.grenade === null) {
       lowerForGrenade(weapon, events);
       player.grenade = { phase: 'cook', since: weapon.clock };
@@ -573,7 +606,8 @@ export class Simulation {
       {
         movement: player.move.movement,
         horizontalSpeed: Math.hypot(player.move.velocity[0], player.move.velocity[2]),
-        alive: player.health > 0,
+        // A weapon in the hand of a Downed seat stops where it is, as a dead one's does.
+        alive: player.health > 0 && !player.downed,
         seed: hashString(player.id) + player.slot,
       },
       TICK_SECONDS,
@@ -644,7 +678,7 @@ export class Simulation {
     const cooked = weapon.clock - g.since;
     player.grenades -= 1;
     player.grenade = { phase: 'throw', since: weapon.clock };
-    if (how === 'drop' && player.health <= 0) player.grenade = null;
+    if (how === 'drop' && (player.health <= 0 || player.downed)) player.grenade = null;
     this.#events.push({ type: 'grenade', player: player.id, phase: how });
     if (this.#replaying || this.#predictOnly) return;
     const eye: Vec3 = [player.move.position[0], player.move.position[1] + player.move.eyeHeight, player.move.position[2]];
@@ -746,7 +780,7 @@ export class Simulation {
   #hurtByHazard(): void {
     if (!this.#hazard) return;
     for (const p of this.#players.values()) {
-      if (p.dummy || p.health <= 0) continue;
+      if (p.dummy || p.health <= 0 || p.downed) continue;
       const rate = this.#hazard(p.move.position);
       if (rate > 0) this.#damage(p, rate * TICK_SECONDS, null, 'ring', null, null);
     }
@@ -762,7 +796,7 @@ export class Simulation {
     const time = this.time;
     const max = H.max.value;
     for (const p of this.#players.values()) {
-      if (p.health <= 0 || p.health >= max) continue;
+      if (p.health <= 0 || p.health >= max || p.downed) continue;
       if (time - p.lastDamage >= H.regenDelay.value - 1e-9) {
         p.health = Math.min(max, p.health + (max / H.regenDuration.value) * TICK_SECONDS);
       }
@@ -927,23 +961,143 @@ export class Simulation {
     return ground;
   }
 
-  /** Applies damage; returns true if it killed. Emits the kill event. */
-  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring', zone: HitZone | null, weapon: KillWeapon | null): boolean {
+  /** Applies damage; returns true if it killed. Emits the kill event, or the down event for a seat that goes Downed instead. */
+  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: DamageCause, zone: HitZone | null, weapon: KillWeapon | null): boolean {
     if (victim.health <= 0) return false;
+    // Only an enemy takes a Downed seat's pool: the Ring, a fall and its own frag don't.
+    if (victim.downed && (attacker === null || attacker === victim.id)) return false;
     victim.health = Math.max(0, victim.health - amount);
     victim.lastDamage = this.time;
+    this.#stopRevive(victim);
     if (victim.health > 0) return false;
-    victim.diedAt = this.time;
-    if (victim.move.ladder) {
-      victim.move.ladder = null;
-      victim.move.grounded = false;
-      victim.move.velocity = [0,0,0];
-      victim.move.airPeak = victim.move.position[1];
+    if (!victim.downed && this.#goesDown(victim)) {
+      this.#goDown(victim, attacker, cause, zone, weapon);
+      return false;
     }
-    // A grenade being cooked falls from the hand, still live.
-    if (victim.grenade?.phase === 'cook') this.#release(victim, 'drop');
-    this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone, weapon });
+    this.#die(victim, attacker, cause, zone, weapon);
     return true;
+  }
+
+  #die(victim: PlayerState, attacker: PlayerId | null, cause: DamageCause | 'bleedOut' | 'wipe', zone: HitZone | null, weapon: KillWeapon | null): void {
+    victim.health = 0;
+    victim.diedAt = this.time;
+    victim.downed = null;
+    this.#letGo(victim);
+    this.#events.push({ type: 'kill', killer: attacker, victim: victim.id, cause, zone, weapon });
+  }
+
+  /** Off the ladder, and a grenade being cooked falls from the hand, still live. */
+  #letGo(p: PlayerState): void {
+    if (p.move.ladder) {
+      p.move.ladder = null;
+      p.move.grounded = false;
+      p.move.velocity = [0,0,0];
+      p.move.airPeak = p.move.position[1];
+    }
+    if (p.grenade?.phase === 'cook') this.#release(p, 'drop');
+  }
+
+  /** Whether a seat's Squad has someone on their feet besides `seat`. */
+  #standingMate(seat: PlayerState): boolean {
+    for (const p of this.#players.values()) if (p !== seat && p.team === seat.team && !p.dummy && p.health > 0 && !p.downed) return true;
+    return false;
+  }
+
+  /** A seat at 0 goes Downed if its mode says so, unless the rest of its Squad is out. */
+  #goesDown(victim: PlayerState): boolean {
+    return this.#downs(victim) && this.#standingMate(victim);
+  }
+
+  #goDown(victim: PlayerState, attacker: PlayerId | null, cause: DamageCause, zone: HitZone | null, weapon: KillWeapon | null): void {
+    victim.health = R.downedHealth.value;
+    victim.downed = { since: this.time, by: attacker, revive: null };
+    victim.move.mantle = null;
+    victim.move.slide = null;
+    this.#letGo(victim);
+    if (victim.grenade) {
+      victim.grenade = null;
+      raiseAfterGrenade(activeWeapon(victim));
+    }
+    this.#events.push({ type: 'down', attacker, victim: victim.id, cause, zone, weapon });
+  }
+
+  /** Ends any Revive `p` is in, on either side of it. */
+  #stopRevive(p: PlayerState): void {
+    if (p.reviving) {
+      const target = this.#players.get(p.reviving.target);
+      if (target?.downed) target.downed.revive = null;
+      p.reviving = null;
+    }
+    const by = p.downed?.revive?.by;
+    if (by === undefined) return;
+    const reviver = this.#players.get(by);
+    if (reviver) reviver.reviving = null;
+    p.downed!.revive = null;
+  }
+
+  /**
+   * The Downed clocks: a Squad with nobody standing is out, its Downed seats
+   * dying with it, and anyone else Downed for the full Bleed-out dies. The
+   * clock is the match's: the Ring doesn't touch it, and nothing runs out
+   * through an intermission.
+   */
+  #stepDowned(): void {
+    for (const p of this.#players.values()) {
+      if (!p.downed) continue;
+      const by = p.downed.by;
+      const wiped = !this.#standingMate(p);
+      if (!wiped && (this.time - p.downed.since < R.bleedOut.value - 1e-9 || !this.#selfDamage(p))) continue;
+      this.#stopRevive(p);
+      this.#die(p, by, wiped ? 'wipe' : 'bleedOut', null, null);
+    }
+  }
+
+  /** Revives: use held near a Downed squadmate starts one, and holding it there for the full time finishes it. */
+  #stepRevives(): void {
+    for (const p of this.#players.values()) {
+      const holding = (p.move.prevButtons & Button.Use) !== 0 && p.health > 0 && !p.downed;
+      if (p.reviving) {
+        const target = this.#players.get(p.reviving.target);
+        if (!holding || !target?.downed || !this.#inReach(p, target)) this.#stopRevive(p);
+        else if (this.time - p.reviving.since >= R.reviveTime.value - 1e-9) this.#revive(p, target);
+      } else if (holding) {
+        const target = this.#downedNear(p);
+        if (target?.downed) {
+          target.downed.revive = { by: p.id, since: this.time };
+          p.reviving = { target: target.id, since: this.time };
+        }
+      }
+    }
+  }
+
+  #inReach(a: PlayerState, b: PlayerState): boolean {
+    return Math.hypot(a.move.position[0] - b.move.position[0], a.move.position[2] - b.move.position[2]) <= R.reviveReach.value && Math.abs(a.move.position[1] - b.move.position[1]) <= R.reviveReach.value;
+  }
+
+  /** The nearest Downed squadmate in reach that nobody is at yet. */
+  #downedNear(seat: PlayerState): PlayerState | null {
+    let best: PlayerState | null = null;
+    let nearest = Infinity;
+    for (const p of this.#players.values()) {
+      if (!p.downed || p.downed.revive || p.team !== seat.team || !this.#inReach(seat, p)) continue;
+      const d = distance(seat.move.position, p.move.position);
+      if (d < nearest) {
+        best = p;
+        nearest = d;
+      }
+    }
+    return best;
+  }
+
+  /** Back on its feet at half health, with what it went down with, weapon coming up. */
+  #revive(reviver: PlayerState, target: PlayerState): void {
+    this.#stopRevive(reviver);
+    target.downed = null;
+    target.health = H.max.value / 2;
+    target.lastDamage = this.time;
+    const weapon = activeWeapon(target);
+    drawWeapon(weapon, weapon.clock, 0);
+    this.#events.push({ type: 'revive', reviver: reviver.id, target: target.id });
   }
 
   /** Flinch: the victim's view kicks up, with a small fixed-pattern sideways component. */
@@ -1003,6 +1157,11 @@ export class Simulation {
     });
   }
 
+  /** How far a Revive begun at `since` is, 0 to 1. */
+  #reviveShare(since: number): number {
+    return Math.max(0, Math.min(1, (this.time - since) / R.reviveTime.value));
+  }
+
   #outputOf(p: PlayerState): PlayerOutput {
     const view = this.#viewAngles(p);
     const w = activeWeapon(p);
@@ -1032,13 +1191,15 @@ export class Simulation {
         ammo: w.ammo,
         ads: w.ads,
         spread: currentSpread(w, p.move.movement, speed),
-        canFire: p.health > 0 && canFire(w, p.move.movement),
+        canFire: p.health > 0 && !p.downed && !p.reviving && canFire(w, p.move.movement),
         shotIndex: w.shotIndex,
         sway: [sway.yaw, sway.pitch],
       },
       loadout: p.loadout,
       grenades: p.grenades,
       grenade: p.grenade ? { phase: p.grenade.phase, time: w.clock - p.grenade.since } : null,
+      downed: p.downed ? { bleedOut: Math.max(0, p.downed.since + R.bleedOut.value - this.time), revive: p.downed.revive ? this.#reviveShare(p.downed.revive.since) : 0 } : null,
+      reviving: p.reviving ? this.#reviveShare(p.reviving.since) : null,
     };
   }
 }

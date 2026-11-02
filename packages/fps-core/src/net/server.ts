@@ -1,5 +1,5 @@
 import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
-import { planCharge, planOutposts } from '../bots/planner';
+import { planCharge, planOutposts, planRevives } from '../bots/planner';
 import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
 import { BattleRoyale, type BattleRoyaleOptions } from '../modes/battle-royale';
@@ -214,7 +214,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage']);
+const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage']);
 
 interface Client {
   readonly connection: Connection;
@@ -413,6 +413,7 @@ export class GameServer {
       selfDamage: () => this.#phase === 'playing',
       hazard: (position) => this.#hazardAt(position),
       frags: () => this.#mode.frags ?? STATS.grenade.perLife.value,
+      downs: () => this.#mode.downs?.() ?? false,
     });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);
     this.#fill = this.#defaultFill();
@@ -1130,7 +1131,7 @@ export class GameServer {
   #noteChanges(out: TickOutput, modeEvents: readonly ModeEvent[]): void {
     let eventful = modeEvents.length > 0;
     for (const e of out.events) {
-      if (e.type === 'kill') eventful = true;
+      if (e.type === 'kill' || e.type === 'revive') eventful = true;
       else if (e.type === 'prop') this.#stale.add('popped');
     }
     // An objective pays out as it's held, with no event to say so. A Battle Royale's moves only with an event.
@@ -1171,6 +1172,9 @@ export class GameServer {
         const plan = planCharge(team, bots.filter((p) => p.team === team), players.filter((p) => p.team === team), sites, objective);
         for (const [id, order] of plan) this.#orders.set(id, order);
       }
+    } else if (objective?.kind === 'battle-royale') {
+      const orders = planRevives(players.filter((p) => p.downed), bots.filter((p) => !p.downed));
+      for (const [id, order] of orders) this.#orders.set(id, order);
     }
   }
 

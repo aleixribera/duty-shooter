@@ -31,6 +31,8 @@ const player = (over: Partial<PlayerOutput> = {}): PlayerOutput => ({
   loadout: { primary: 'smg', secondary: 'pistol', grenade: 'frag' },
   grenades: 1,
   grenade: { phase: 'cook', time: 0.5 },
+  downed: null,
+  reviving: null,
   ...over,
 });
 

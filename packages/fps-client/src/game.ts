@@ -114,6 +114,8 @@ function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventNa
 function killedWith(cause: string, weapon: KillWeapon | null): string {
   if (cause === 'melee') return 'Melee';
   if (cause === 'ring') return 'The Ring';
+  if (cause === 'bleedOut') return 'Bled out';
+  if (cause === 'wipe') return 'Squad out';
   if (weapon === 'frag') return 'Frag';
   return weapon ? STATS.weapons[weapon].traits.name : '';
 }
@@ -534,7 +536,8 @@ export class Game {
           speed,
           grounded: self.movement !== 'airborne' && self.movement !== 'mantle' && self.movement !== 'ladder',
           lookDelta,
-          alive: self.alive,
+          // Downed or Reviving, the hands are on neither gun nor frag.
+          alive: self.alive && !self.downed && self.reviving === null,
         },
         dt,
         verticalFov(this.#settings.fov),
@@ -728,7 +731,7 @@ export class Game {
     return match?.phase === 'playing' && match.objective?.kind === 'charge' ? match.objective : null;
   }
 
-  /** The button prompt: the loadout screen (dead, at the range's station, or in a round's freeze), or planting and defusing. */
+  /** The button prompt: the loadout screen (dead, at the range's station, or in a round's freeze), planting and defusing, or a Revive. */
   #prompt(): string | null {
     const self = this.#cur;
     const match = this.#driver?.match;
@@ -740,7 +743,24 @@ export class Game {
       const p = charge.planted?.position;
       if (charge.phase === 'planted' && p && self.team !== charge.attackers && Math.hypot(self.position[0] - p[0], self.position[2] - p[2]) <= DEFUSE_RANGE) return `Hold ${this.#useLabel()}  Defuse`;
     }
-    return null;
+    const mate = this.#revivable(self);
+    return mate ? `Hold ${this.#useLabel()}  Revive ${this.#driver?.nameOf(mate.id) ?? ''}` : null;
+  }
+
+  /** The Downed squadmate a Revive would start on (the nearest in reach nobody is at yet), as the simulation picks it. */
+  #revivable(self: PlayerOutput): PlayerOutput | null {
+    if (self.downed || self.reviving !== null) return null;
+    const reach = STATS.royale.reviveReach.value;
+    let best: PlayerOutput | null = null;
+    let nearest = Infinity;
+    for (const p of this.#others) {
+      if (!p.downed || p.downed.revive > 0 || p.team !== self.team) continue;
+      const flat = Math.hypot(p.position[0] - self.position[0], p.position[2] - self.position[2]);
+      if (flat > reach || Math.abs(p.position[1] - self.position[1]) > reach || flat >= nearest) continue;
+      best = p;
+      nearest = flat;
+    }
+    return best;
   }
 
   /** The living teammate a dead player watches in Charge (the same one while they live), or null. */
@@ -1085,7 +1105,7 @@ export class Game {
         if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId, {}, killedWith(e.cause, e.weapon));
         break;
       case 'killFeed':
-        if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot);
+        if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot, e.down);
         this.hud.killFeed(
           e.killer === null || e.killer === e.victim ? null : e.killerName,
           e.victimName,
@@ -1097,8 +1117,16 @@ export class Game {
           },
           killedWith(e.cause, e.weapon),
           teamMode(driver.match?.mode ?? 'ffa') ? { killer: driver.scores.find((s) => s.id === e.killer)?.team, victim: driver.scores.find((s) => s.id === e.victim)?.team } : {},
+          e.down,
         );
         break;
+      case 'revive': {
+        const team = driver.scores.find((s) => s.id === e.target)?.team;
+        if (team !== undefined && team === driver.scores.find((s) => s.id === selfId)?.team) {
+          this.hud.objectiveFeed(`${driver.nameOf(e.reviver)} Revived ${driver.nameOf(e.target)}`, team, e.reviver === selfId || e.target === selfId);
+        }
+        break;
+      }
       case 'grenade': {
         const own = e.player === selfId;
         const at = own ? { local: true } : { position: this.#eyeOf(e.player) ?? [0, 0, 0] as Vec3 };

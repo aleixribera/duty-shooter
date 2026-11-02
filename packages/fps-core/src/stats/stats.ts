@@ -353,6 +353,10 @@ export const STATS = {
     matchLength: estimate(600, 's', 'The longest a match lasts (the Battle Royale spec).'),
     spawnSpacing: estimate(100, 'm', 'The least between a seat and any other Squad at the start (the Battle Royale spec).'),
     squadmateGap: estimate(5, 'm', 'Squadmates start this close to their first seat: a few metres apart (the Battle Royale spec).'),
+    downedHealth: estimate(40, 'HP', 'The health a Downed seat lies with: a Finish takes a few body shots, not one, so a teammate has a moment to answer.'),
+    bleedOut: estimate(30, 's', 'How long a seat stays Downed before it dies (the Battle Royale spec).'),
+    reviveTime: estimate(5, 's', 'Holding use this long stands a Downed seat back up (the Battle Royale spec).'),
+    reviveReach: estimate(2, 'm', 'How near a Downed seat its reviver must stay: an arm, plus the length of a prone body.'),
     /** One row a Stage, first to last: seconds held, seconds shrinking, the circle it shrinks to as a share of the first, and what standing outside costs. */
     ring: {
       1: { hold: estimate(60, 's', RING), shrink: estimate(70, 's', RING), radius: estimate(0.62, 'multiplier', RING), damage: estimate(1, 'HP/s', RING) },

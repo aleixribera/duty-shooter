@@ -15,6 +15,14 @@ Limbs hang straight down (-Y) from their joints. The client recolours each
 piece by its material's name (the look's slot) and merges the soldier into one
 rigidly skinned mesh; the pieces themselves are what a ragdoll throws.
 
+Most of the soldier's poses are worked out by the client. The two that have no
+gun in them, the Downed crawl and the Revive, are authored here (`CLIPS`) and
+exported as glTF animations on the joints: `crawl`, which the client plays by
+distance crawled, and `revive`, which it loops. Each key is a whole body, in
+the Euler angles soldier.ts uses (game space, XYZ order unless a key names
+another). The dev soldier sheet shows them (apps/range/scripts/soldier-sheet.mjs,
+the Crawl, Downed and Revive columns).
+
 The hands are modelled in the palm frame the weapons' grip points use
 (`palmFrame` in viewmodel/m4a1.ts): palm facing -Y, fingers along -Z, the wrist
 toward +Z, the thumb at -X on the right hand and +X on the left. A hand's
@@ -28,7 +36,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.path.abspath("tools/soldier")
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -56,6 +64,68 @@ JOINTS = {
     "ankleR": ("kneeR", (0, -0.34, 0)),
 }
 PALM = (0, -0.018, -0.055)
+
+
+# --- The clips the client doesn't pose itself ---------------------------------
+def fingers_down(side):
+    """A wrist with the fingers down, palms in, as soldier.ts rests it. `side`: -1 left, 1 right."""
+    return ((-math.pi / 2, -side * math.pi / 2, 0), "YXZ")
+
+
+def crawl_key(lead):
+    """A wounded crawl, flat on the chest: the `lead` arm (-1 left, 1 right) stretched out, the other drawn in, the opposite knee dragged up."""
+    back = -lead
+    arm = "L" if lead < 0 else "R"
+    other = "R" if lead < 0 else "L"
+    return {
+        "hips": ((-1.5, lead * 0.06, lead * 0.1), (0, 0.22, 0)),
+        "spine": ((0.22, back * 0.14, back * 0.08), None),
+        "neck": ((0.95, lead * 0.18, 0), None),
+        "shoulder" + arm: ((2.55, 0, lead * 0.28), None),
+        "elbow" + arm: ((0.32, 0, 0), None),
+        "wrist" + arm: ((-0.5, 0, 0), None),
+        "shoulder" + other: ((1.0, 0, back * 0.62), None),
+        "elbow" + other: ((1.95, 0, 0), None),
+        "wrist" + other: ((-0.9, 0, 0), None),
+        # The leg on the reaching side trails straight; the other knee comes up beside the body, its boot pushing off.
+        "hip" + arm: ((0.02, 0, lead * 0.12), None),
+        "knee" + arm: ((-0.1, 0, 0), None),
+        "ankle" + arm: ((0.1, 0, 0), None),
+        # Turned out along the ground, thigh first: the knee hinge lies flat, so the shin folds in beside the other leg.
+        "hip" + other: (((0.05, lead * math.pi / 2, back * 0.95), "XZY"), None),
+        "knee" + other: ((-1.3, 0, 0), None),
+        "ankle" + other: ((0.2, 0, 0), None),
+    }
+
+
+def revive_key(press):
+    """Down on the right knee over a squadmate, both hands on them; `press` 0 to 1 leans the weight in."""
+    lean = 0.62 + press * 0.06
+    bow = 0.62 + press * 0.2
+    return {
+        "hips": ((-lean, 0, 0), (0, 0.58 - press * 0.03, 0)),
+        "spine": ((-bow, 0, 0), None),
+        "neck": ((0.72, 0, 0), None),
+        "shoulderL": ((1.42 + press * 0.1, 0, 0.1), None),
+        "shoulderR": ((1.42 + press * 0.1, 0, -0.1), None),
+        "elbowL": ((0.34 - press * 0.26, 0, 0), None),
+        "elbowR": ((0.34 - press * 0.26, 0, 0), None),
+        "wristL": (fingers_down(-1), None),
+        "wristR": (fingers_down(1), None),
+        "hipL": ((1.42 + lean, 0, -0.08), None),
+        "kneeL": ((-1.42, 0, 0), None),
+        "ankleL": ((0, 0, 0), None),
+        "hipR": ((0.05 + lean, 0, 0.06), None),
+        "kneeR": ((-1.6, 0, 0), None),
+        "ankleR": ((1.4, 0, 0), None),
+    }
+
+
+# Clip: (seconds a loop, its keys evenly through it; the last repeats the first).
+CLIPS = {
+    "crawl": (1.0, (crawl_key(-1), crawl_key(1), crawl_key(-1))),
+    "revive": (0.8, (revive_key(0), revive_key(1), revive_key(0))),
+}
 
 # Slot colours (sRGB) as the free-for-all look wears them; the client recolours by slot.
 SLOTS = {
@@ -330,16 +400,70 @@ for o in meshes:  # bake the parent inverse into the mesh, so each piece sits at
     o.matrix_parent_inverse = Matrix()
     o.data.update()
 
+
+def game_turn(euler):
+    """A joint's turn from soldier.ts Euler angles, in Blender's frame."""
+    if len(euler) == 2:  # (angles, order), for the one the client gives in another order
+        (x, y, z), order = euler
+    else:
+        (x, y, z), order = euler, "XYZ"
+    turns = {"X": Quaternion((1, 0, 0), x), "Y": Quaternion((0, 1, 0), y), "Z": Quaternion((0, 0, 1), z)}
+    q = Quaternion()
+    for axis in order:
+        q = q @ turns[axis]
+    return Quaternion((q.w, q.x, -q.z, q.y))
+
+
+def put_pose(key):
+    for name, e in empties.items():
+        e.rotation_mode = "QUATERNION"
+        angles, at = key.get(name, ((0, 0, 0), None))
+        e.rotation_quaternion = game_turn(angles)
+        e.location = B(at if at else JOINTS[name][1])
+
+
+def rest_pose():
+    put_pose({})
+
+
+def author_clips():
+    """One NLA track per clip on every joint, which the export joins by name into one animation."""
+    fps = bpy.context.scene.render.fps
+    for clip, (seconds, keys) in CLIPS.items():
+        frames = [1 + round(seconds * fps * i / (len(keys) - 1)) for i in range(len(keys))]
+        for name, e in empties.items():
+            action = bpy.data.actions.new(clip + "_" + name)
+            data = e.animation_data_create()
+            data.action = action
+            for key, frame in zip(keys, frames):
+                put_pose(key)
+                e.keyframe_insert("rotation_quaternion", frame=frame)
+                if name == "hips":
+                    e.keyframe_insert("location", frame=frame)
+            data.action = None
+            track = data.nla_tracks.new()
+            track.name = clip
+            strip = track.strips.new(clip, frames[0], action)
+            strip.extrapolation = "NOTHING"
+            # Left evaluating, a track puts every joint it drives at zero outside its strip, the rest pose included.
+            data.use_nla = False
+    rest_pose()
+    bpy.context.scene.frame_set(0)
+
+
 tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
 result = {"meshes": len(meshes), "tris": tris, "joints": len(empties)}
 
 if not globals().get("ARGS", {}).get("no_export"):
     os.makedirs(os.path.dirname(GLB), exist_ok=True)
+    author_clips()
     bpy.ops.object.select_all(action="DESELECT")
     for o in COL.objects:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=GLB, export_format="GLB", use_selection=True, export_apply=True,
-                              export_yup=True, export_normals=True, export_texcoords=False, export_materials="EXPORT")
+                              export_yup=True, export_normals=True, export_texcoords=False, export_materials="EXPORT",
+                              export_animations=True, export_animation_mode="NLA_TRACKS", export_force_sampling=False,
+                              export_optimize_animation_size=False, export_optimize_animation_keep_anim_object=True)
     result["glb_bytes"] = os.path.getsize(GLB)
 
     # The editable source, then a preview sheet with the arms down (the hands turned fingers-down, palms in).
@@ -351,10 +475,7 @@ if not globals().get("ARGS", {}).get("no_export"):
     sys.path.insert(0, os.path.join(os.path.expanduser("~"), ".claude", "skills", "blender", "scripts"))
     try:
         import bkit
-        result["preview"] = bkit.preview(PREVIEW, meshes, views=("back", "side", "three_quarter", "front"), size=640,
-                                         engine=globals().get("ARGS", {}).get("engine", "WORKBENCH"))["sheet"]
+        engine = globals().get("ARGS", {}).get("engine", "WORKBENCH")
+        result["preview"] = bkit.preview(PREVIEW, meshes, views=("back", "side", "three_quarter", "front"), size=640, engine=engine)["sheet"]
     except ImportError:
         pass
-    for s in ("L", "R"):
-        empties["wrist" + s].rotation_euler = (0, 0, 0)
-        empties["shoulder" + s].rotation_euler = (0, 0, 0)

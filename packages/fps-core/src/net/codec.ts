@@ -38,6 +38,8 @@ export const WORDS = [
   // The match.
   'name', 'kills', 'deaths', 'score', 'bot', 'map', 'mode', 'phaseEnds', 'countdownEnds', 'killLimit', 'scoreLimit', 'timeLimit', 'respawnDelay', 'teamScores', 'votes', 'next', 'result', 'objective', 'lobby', 'host', 'players', 'capacity', 'bots', 'custom', 'maxBots', 'hvb', 'maps',
   'playing', 'nuke', 'vote', 'tdm', 'ffa', 'outposts', 'gungame', 'winnerName', 'zones', 'guns', 'progress', 'owner', 'contested', 'capturing', 'remaining', 'carrier', 'dropped', 'planted', 'outcome', 'freeze', 'live', 'over', 'plant', 'defuse',
+  // Downed and Revive.
+  'downed', 'reviving', 'revive', 'by', 'target', 'down', 'reviver',
 ] as const satisfies readonly string[];
 
 const WORD_INDEX: ReadonlyMap<string, number> = new Map(WORDS.map((word, i) => [word, i]));
@@ -78,6 +80,13 @@ const HAS_MANTLE = 8;
 const HAS_RELOAD = 16;
 const HAS_LANDING = 32;
 const HAS_GRENADE = 64;
+const HAS_REVIVE_STATE = 128;
+// What follows that flag.
+const IS_DOWNED = 1;
+const IS_REVIVING = 2;
+/** A Revive's share, and Bleed-out's seconds, in a byte each: the HUD shows no finer. */
+const SHARE_UNITS = 255;
+const BLEED_UNITS = 4;
 
 const HAS_SELF = 1;
 const FIRST_STICKY_FLAG = 2;
@@ -314,7 +323,7 @@ const positive = (value: number, per: number): number => Math.max(0, units(value
 /** Another player, once a tick, for every client that gets them: everything a client needs to draw them, and no more. */
 export function packPlayer(p: PlayerOutput): Uint8Array {
   const w = p.weapon;
-  out.byte((p.alive ? ALIVE : 0) | (w.canFire ? CAN_FIRE : 0) | (p.kind === 'dummy' ? IS_DUMMY : 0) | (p.mantle ? HAS_MANTLE : 0) | (w.reload ? HAS_RELOAD : 0) | (p.landing ? HAS_LANDING : 0) | (p.grenade ? HAS_GRENADE : 0));
+  out.byte((p.alive ? ALIVE : 0) | (w.canFire ? CAN_FIRE : 0) | (p.kind === 'dummy' ? IS_DUMMY : 0) | (p.mantle ? HAS_MANTLE : 0) | (w.reload ? HAS_RELOAD : 0) | (p.landing ? HAS_LANDING : 0) | (p.grenade ? HAS_GRENADE : 0) | (p.downed || p.reviving !== null ? HAS_REVIVE_STATE : 0));
   writeString(p.id);
   out.varuint(p.team);
   for (const v of p.position) out.varint(units(v, MM));
@@ -348,6 +357,14 @@ export function packPlayer(p: PlayerOutput): Uint8Array {
     writeString(p.grenade.phase);
     out.float(p.grenade.time);
   }
+  if (p.downed || p.reviving !== null) {
+    out.byte((p.downed ? IS_DOWNED : 0) | (p.reviving !== null ? IS_REVIVING : 0));
+    if (p.downed) {
+      out.byte(positive(p.downed.bleedOut, BLEED_UNITS));
+      out.byte(units(p.downed.revive, SHARE_UNITS));
+    }
+    if (p.reviving !== null) out.byte(units(p.reviving, SHARE_UNITS));
+  }
   return out.take();
 }
 
@@ -377,6 +394,9 @@ function readPlayer(r: Reader): PlayerOutput {
   const reload = flags & HAS_RELOAD ? (readValue(r) as PlayerOutput['weapon']['reload']) : null;
   const landing = flags & HAS_LANDING ? { fallHeight: r.float(), damage: r.float() } : null;
   const grenade = flags & HAS_GRENADE ? { phase: readValue(r) as 'cook' | 'throw', time: r.float() } : null;
+  const reviveState = flags & HAS_REVIVE_STATE ? r.byte() : 0;
+  const downed = reviveState & IS_DOWNED ? { bleedOut: r.byte() / BLEED_UNITS, revive: r.byte() / SHARE_UNITS } : null;
+  const reviving = reviveState & IS_REVIVING ? r.byte() / SHARE_UNITS : null;
   return {
     id,
     team,
@@ -397,6 +417,8 @@ function readPlayer(r: Reader): PlayerOutput {
     loadout,
     grenades,
     grenade,
+    downed,
+    reviving,
   };
 }
 

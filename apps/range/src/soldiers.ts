@@ -21,6 +21,8 @@ type State = {
   readonly action?: PlayerOutput['weapon']['action'];
   readonly reload?: 'tactical' | 'empty';
   readonly grenade?: PlayerOutput['grenade'];
+  readonly downed?: PlayerOutput['downed'];
+  readonly reviving?: number;
 };
 
 interface Column {
@@ -44,6 +46,9 @@ function columns(id: WeaponId): Column[] {
     { name: 'Prone', duration: 2, state: () => ({ stance: 'prone', eyeHeight: 0.4, ads: 1 }) },
     { name: 'Reload', duration: reload, state: () => ({ action: 'reload', reload: 'tactical' }) },
     { name: 'Grenade', duration: 1.4, state: (t) => ({ action: 'grenade', grenade: t < 0.9 ? { phase: 'cook', time: t } : { phase: 'throw', time: t - 0.9 } }) },
+    { name: 'Crawl', duration: 2, state: () => ({ stance: 'prone', eyeHeight: 0.4, speed: 0.7, downed: { bleedOut: 20, revive: 0 } }) },
+    { name: 'Downed', duration: 2, state: () => ({ stance: 'prone', eyeHeight: 0.4, downed: { bleedOut: 20, revive: 0 } }) },
+    { name: 'Revive', duration: 2, state: (t) => ({ stance: 'crouch', eyeHeight: crouch, reviving: t / 2 }) },
   ];
 }
 
@@ -60,6 +65,8 @@ function output(id: string, team: number, position: [number, number, number], ya
     loadout: { primary: weapon, secondary: 'pistol' },
     grenades: 2,
     grenade: s.grenade ?? null,
+    downed: s.downed ?? null,
+    reviving: s.reviving ?? null,
   } as unknown as PlayerOutput;
 }
 

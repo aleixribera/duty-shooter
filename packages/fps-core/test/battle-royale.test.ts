@@ -483,6 +483,34 @@ describe('late joiners', () => {
   });
 });
 
+describe('Downed on the server', () => {
+  it('a bot squadmate walks over and Revives a person, by the same rules', () => {
+    const m = match({ squadSize: 2 });
+    const id = joined(m, 'alice').client.id!;
+    m.run(ticks(1));
+    const sim = m.server.simulation;
+    sim.setPlayerState({ ...sim.playerState(id)!, health: STATS.royale.downedHealth.value, downed: { since: sim.time, by: null, revive: null } });
+    let revived: SimEvent | undefined;
+    for (let i = 0; i < ticks(25) && !revived; i++) revived = m.step().events.find((e) => e.type === 'revive');
+    expect(revived).toMatchObject({ target: id });
+    expect(seat(m, id)).toMatchObject({ downed: null });
+    expect(seat(m, id)!.health).toBeGreaterThanOrEqual(50);
+  });
+
+  it('a bot goes Downed by the same rules, and takes no action there', () => {
+    const m = match({ squadSize: 2 });
+    joined(m, 'alice');
+    m.run(ticks(1));
+    const sim = m.server.simulation;
+    const bot = [...m.server.bots.keys()].at(-1)!;
+    sim.setPlayerState({ ...sim.playerState(bot)!, health: STATS.royale.downedHealth.value, downed: { since: sim.time, by: null, revive: null } });
+    m.run(ticks(2));
+    const lying = seat(m, bot)!;
+    expect(lying).toMatchObject({ stance: 'prone', grenade: null });
+    expect(lying.downed).not.toBeNull();
+  });
+});
+
 describe('where the mode is offered', () => {
   it('stays out of a lobby on a map that does not play it', () => {
     const m = createNetworkedMatch({ solids: [GROUND], spawns: SPAWNS, mode: 'tdm', lobby: true, bots: { nav: NAV, perTeam: 1, maxPerTeam: 1 }, latency: 0.03 });

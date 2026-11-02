@@ -53,6 +53,7 @@ const CSS = `
 .ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .ds-feed div { display: flex; align-items: center; background: linear-gradient(270deg, rgb(12 15 21 / 0.8), rgb(12 15 21 / 0.55)); padding: 5px 12px; border-radius: 2px; text-shadow: none; font-size: 14px; transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
 .ds-hud.rostered .ds-feed { top: 84px; }
+@media (max-width: 1000px) { .ds-feed { top: 96px; } }
 .ds-feed .you { box-shadow: inset 3px 0 0 var(--ds-signal); background: linear-gradient(270deg, rgb(143 227 200 / 0.22), rgb(12 15 21 / 0.7)); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
 .ds-zones { position: absolute; left: 50%; top: 86px; transform: translateX(-50%); display: flex; gap: 6px; }
@@ -84,10 +85,14 @@ const CSS = `
 .ds-action { position: absolute; left: 50%; top: calc(50% + 48px); transform: translateX(-50%); width: 220px; padding: 8px 12px; text-align: center; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-action .bar { height: 5px; margin-top: 6px; background: rgb(243 241 234 / 0.18); border-radius: 2px; overflow: hidden; }
 .ds-action .bar i { display: block; height: 100%; background: var(--ds-signal); }
+.ds-action .bar i.bleed { background: var(--ds-alert); }
+.ds-action div { font-variant-numeric: tabular-nums; }
+.ds-action .bar + div { margin-top: 8px; }
 .ds-round { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
 .ds-round .sub { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); text-shadow: 0 1px 8px rgb(0 0 0 / 0.85); }
 .ds-round h2 { margin: 6px 0 0; font-size: 46px; line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
 .ds-feed .gun { color: var(--ds-text-3); margin: 0 8px; font-size: 12px; letter-spacing: 0.08em; }
+.ds-feed .gun b { color: var(--ds-alert); background: rgb(12 15 21 / 0.7); margin-left: 6px; padding: 1px 4px; border-radius: 2px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-stats { position: absolute; left: 24px; top: 20px; padding: 3px 8px; background: rgb(7 9 13 / 0.45); font-size: 12px; font-weight: 700; color: var(--ds-text-2); letter-spacing: 0.08em; text-shadow: none; }
 .ds-stats:empty { display: none; }
 .ds-match { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: max-content; display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
@@ -313,6 +318,7 @@ export class Hud {
   readonly #nade: HTMLElement;
   readonly #scope: HTMLDivElement;
   readonly #health: HTMLDivElement;
+  readonly #healthLabel: HTMLElement;
   readonly #ammo: HTMLDivElement;
   readonly #hp: HTMLElement;
   readonly #hpBar: HTMLElement;
@@ -334,6 +340,7 @@ export class Hud {
   readonly #markers = new Map<string, HTMLDivElement>();
   readonly #charge: HTMLDivElement;
   readonly #action: HTMLDivElement;
+  readonly #revive: HTMLDivElement;
   readonly #round: HTMLDivElement;
   readonly #chargeMarkers = new Map<string, HTMLDivElement>();
   /** Called when a vote button is pressed. */
@@ -375,6 +382,7 @@ export class Hud {
     this.#elim = el('div', 'ds-elim', this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
     this.#health = el('div', 'ds-health', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
+    this.#healthLabel = this.#health.querySelector('.ds-label') as HTMLElement;
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
     const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, '<div class="gun">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">/ ∞</span><div class="bar"><i></i></div>'));
@@ -402,6 +410,7 @@ export class Hud {
     this.#zones = el('div', 'ds-zones', this.root);
     this.#charge = el('div', 'ds-charge ds-plate', this.root);
     this.#action = el('div', 'ds-action ds-plate', this.root);
+    this.#revive = el('div', 'ds-action ds-plate', this.root);
     this.#round = el('div', 'ds-round', this.root);
     this.#end = el('div', 'ds-end', this.root);
     this.#end.addEventListener('click', (e) => {
@@ -422,9 +431,10 @@ export class Hud {
     this.#hitLife = kill ? 0.5 : 0.28;
   }
 
-  /** The callout under the crosshair for a kill you made. */
-  eliminated(victim: string, headshot: boolean): void {
-    this.#elim.innerHTML = `<div class="what${headshot ? ' head' : ''}">${headshot ? 'Headshot' : 'Eliminated'}</div><div class="who">${escape(victim)}</div>`;
+  /** The callout under the crosshair for a kill you made, or a seat you put Downed. */
+  eliminated(victim: string, headshot: boolean, down = false): void {
+    const what = down ? 'Downed' : headshot ? 'Headshot' : 'Eliminated';
+    this.#elim.innerHTML = `<div class="what${headshot && !down ? ' head' : ''}">${what}</div><div class="who">${escape(victim)}</div>`;
     this.#elimAge = 0;
   }
 
@@ -436,7 +446,7 @@ export class Hud {
     this.#flash = 1;
   }
 
-  /** A kill feed line; `bots` marks which side of it is a bot, `gun` names what did it, and `teams` colours each name by its team (team modes). */
+  /** A kill feed line; `bots` marks which side of it is a bot, `gun` names what did it, `teams` colours each name by its team (team modes), and `down` says the victim went Downed rather than out. */
   killFeed(
     killer: string | null,
     victim: string,
@@ -445,11 +455,12 @@ export class Hud {
     bots: { readonly killer?: boolean; readonly victim?: boolean } = {},
     gun = 'M4A1',
     teams: { readonly killer?: number | undefined; readonly victim?: number | undefined } = {},
+    down = false,
   ): void {
     const row = document.createElement('div');
     if (involvesYou) row.className = 'you';
     const k = killer === null ? '' : playerName(killer, bots.killer === true, teams.killer);
-    row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}</span>${playerName(victim, bots.victim === true, teams.victim)}`;
+    row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}${down ? '<b>Downed</b>' : ''}</span>${playerName(victim, bots.victim === true, teams.victim)}`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -546,7 +557,7 @@ export class Hud {
     // Crosshair: spread-sized, hidden on ADS and while sprinting, as in MW2019.
     const w = self?.weapon;
     const sprinting = self?.movement === 'sprint' || self?.movement === 'tacticalSprint';
-    const hide = !self || !self.alive || (w?.ads ?? 0) > 0.35 || sprinting || w?.action === 'inspect';
+    const hide = !self || !self.alive || self.downed !== null || self.reviving !== null || (w?.ads ?? 0) > 0.35 || sprinting || w?.action === 'inspect';
     this.#style(this.#cross, 'opacity', hide ? '0' : '1');
     const gap = Math.round(Math.max(4, (w?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
     const [left, right, up, down] = this.#arms;
@@ -579,8 +590,10 @@ export class Hud {
     const health = self ? Math.max(0, Math.round(self.health)) : 0;
     this.#style(this.#health, 'display', self ? '' : 'none');
     this.#text(this.#hp, String(health));
-    this.#style(this.#hpBar, 'transform', `scaleX(${health / 100})`);
-    this.#health.classList.toggle('low', health <= 35);
+    // Downed, the number is the Downed pool, and the bar fills against that.
+    this.#style(this.#hpBar, 'transform', `scaleX(${fixed(health / (self?.downed ? STATS.royale.downedHealth.value : 100))})`);
+    this.#health.classList.toggle('low', health <= 35 || Boolean(self?.downed));
+    this.#text(this.#healthLabel, self?.downed ? 'Downed' : 'Health');
 
     this.#style(this.#ammo, 'display', self ? '' : 'none');
     if (w && self) {
@@ -618,6 +631,7 @@ export class Hud {
     this.#updateMatch(state);
     this.#updateZones(state);
     this.#updateCharge(state);
+    this.#updateRevive(self);
     this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
@@ -680,6 +694,18 @@ export class Hud {
       this.#style(marker, 'transform', `translate(${Math.round(z.x)}px, ${Math.round(z.y)}px) translate(-50%, -100%)`);
       this.#set(marker, `<b>${escape(z.id)}</b><small>${Math.round(z.distance)} m</small>`);
     }
+  }
+
+  /** Under the crosshair: Downed, the Bleed-out running out and any Revive coming; Reviving, how far along it is. */
+  #updateRevive(self: PlayerOutput | null): void {
+    const downed = self?.alive ? self.downed : null;
+    const reviving = self?.alive ? self.reviving : null;
+    this.#style(this.#revive, 'display', downed || (reviving !== null && reviving !== undefined) ? '' : 'none');
+    const bar = (share: number, cls = '') => `<div class="bar"><i class="${cls}" style="width:${Math.round(share * 100)}%"></i></div>`;
+    if (downed) {
+      const left = bar(downed.bleedOut / STATS.royale.bleedOut.value, 'bleed');
+      this.#set(this.#revive, `<div>Bleed-out ${Math.ceil(downed.bleedOut)}</div>${left}${downed.revive > 0 ? `<div>Being Revived</div>${bar(downed.revive)}` : ''}`);
+    } else if (reviving !== null && reviving !== undefined) this.#set(this.#revive, `<div>Reviving</div>${bar(reviving)}`);
   }
 
   /**

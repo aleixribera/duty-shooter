@@ -23,6 +23,8 @@ type State = {
   readonly action?: PlayerOutput['weapon']['action'];
   readonly reload?: 'tactical' | 'empty';
   readonly grenade?: PlayerOutput['grenade'];
+  readonly downed?: PlayerOutput['downed'];
+  readonly reviving?: number;
 };
 
 function output(id: WeaponId, s: State, t: number): PlayerOutput {
@@ -30,7 +32,7 @@ function output(id: WeaponId, s: State, t: number): PlayerOutput {
     id: 'p1', team: 0, kind: 'player', alive: true, position: [0, 0, 0], velocity: [0, 0, -(s.speed ?? 0)], yaw: 0.7, pitch: s.pitch ?? 0,
     movement: s.movement ?? 'walk', mantle: null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
     weapon: { id, slot: 0, action: s.action ?? 'ready', actionTime: t, reload: s.reload ?? null, ammo: 10, ads: s.ads ?? 0, spread: 0, canFire: true, shotIndex: 0, sway: [0, 0] },
-    grenade: s.grenade ?? null,
+    grenade: s.grenade ?? null, downed: s.downed ?? null, reviving: s.reviving ?? null,
   } as unknown as PlayerOutput;
 }
 
@@ -157,5 +159,78 @@ describe('the third-person soldier holding each weapon', () => {
         soldier.dispose();
       }
     }
+  });
+
+  describe('Downed and Reviving', () => {
+    const jointAt = (soldier: Soldier, name: string) => {
+      soldier.root.updateMatrixWorld(true);
+      return soldier.root.getObjectByName(name)!.getWorldPosition(new Vector3());
+    };
+    const standing = (id: WeaponId) => {
+      const soldier = new Soldier(soldierModel()!, LOOKS[0]!);
+      soldier.hold(id, new Mesh());
+      return soldier;
+    };
+    const settle = (soldier: Soldier, state: State, seconds = 1.5) => {
+      for (let i = 0; i < seconds * 60; i++) soldier.update(output('m4a1', state, i / 60), 1 / 60);
+    };
+    const crawling: State = { stance: 'prone', eyeHeight: 0.4, downed: { bleedOut: 20, revive: 0 } };
+
+    it('lies flat on the chest with the gun put away', () => {
+      const soldier = standing('m4a1');
+      settle(soldier, crawling);
+      expect(jointAt(soldier, 'hips').y).toBeLessThan(0.25);
+      expect(jointAt(soldier, 'neck').y).toBeLessThan(0.45);
+      expect(soldier.gunMount.visible).toBe(false);
+    });
+
+    it('crawls with its arms by the distance it covers, and holds still when it stops', () => {
+      const soldier = standing('m4a1');
+      settle(soldier, crawling);
+      const still = jointAt(soldier, 'wristL').clone();
+      settle(soldier, crawling, 0.5);
+      expect(jointAt(soldier, 'wristL').distanceTo(still)).toBeLessThan(0.001);
+      settle(soldier, { ...crawling, speed: 0.7 }, 0.45);
+      expect(jointAt(soldier, 'wristL').distanceTo(still)).toBeGreaterThan(0.1);
+    });
+
+    it('kneels over a squadmate with both hands down while it Revives', () => {
+      const soldier = standing('m4a1');
+      settle(soldier, { stance: 'crouch', eyeHeight: 1, reviving: 0.5 });
+      expect(jointAt(soldier, 'hips').y).toBeLessThan(0.65);
+      for (const wrist of ['wristL', 'wristR']) {
+        expect(jointAt(soldier, wrist).y, wrist).toBeLessThan(0.4);
+      }
+      expect(soldier.gunMount.visible).toBe(false);
+    });
+
+    it('stays out of the ground, whatever its arms and legs are doing', () => {
+      for (const [name, state] of [['crawl', { ...crawling, speed: 0.7 }], ['revive', { stance: 'crouch', eyeHeight: 1, reviving: 0.5 } as State]] as const) {
+        const soldier = standing('m4a1');
+        settle(soldier, state);
+        for (let i = 0; i < 90; i++) {
+          soldier.update(output('m4a1', state, 0), 1 / 60);
+          soldier.root.updateMatrixWorld(true);
+          for (const piece of soldier.parts.values()) {
+            const lowest = new Box3().setFromObject(piece, true).min.y;
+            expect(lowest, `${name}: ${piece.name}`).toBeGreaterThan(-0.04);
+          }
+        }
+      }
+    });
+
+    it('gets back up as it was: gun out, hands on it, no turn left over from the clip', () => {
+      const fresh = standing('m4a1');
+      const soldier = standing('m4a1');
+      settle(fresh, {}, 3);
+      settle(soldier, crawling);
+      settle(soldier, {}, 3);
+      expect(soldier.gunMount.visible).toBe(true);
+      expect(soldier.handError[0]).toBeLessThan(0.01);
+      expect(soldier.handError[1]).toBeLessThan(0.01);
+      for (const joint of ['hips', 'spine', 'hipL', 'hipR', 'kneeL', 'ankleR', 'neck']) {
+        expect(jointAt(soldier, joint).distanceTo(jointAt(fresh, joint)), joint).toBeLessThan(0.01);
+      }
+    });
   });
 });

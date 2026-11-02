@@ -101,6 +101,11 @@ export class BattleRoyale implements GameMode {
     return false;
   }
 
+  /** Solos have nobody to Revive them. */
+  downs(): boolean {
+    return this.squadSize > 1;
+  }
+
   frozen(): boolean {
     return false;
   }
@@ -148,6 +153,11 @@ export class BattleRoyale implements GameMode {
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
+      if (e.type === 'down') {
+        const victim = this.#entries.get(e.victim);
+        const by = e.attacker === null || e.attacker === e.victim ? undefined : this.#entries.get(e.attacker);
+        if (victim) out.push({ type: 'killFeed', killer: by?.id ?? null, killerName: by?.name ?? null, victim: victim.id, victimName: victim.name, cause: e.cause, weapon: e.weapon, headshot: e.zone === 'head', down: true });
+      }
       if (e.type !== 'kill') continue;
       const victim = this.#entries.get(e.victim);
       if (!victim) continue;
@@ -178,7 +188,9 @@ export class BattleRoyale implements GameMode {
 
   result(ctx: ModeContext): MatchResult | null {
     if (this.#result || this.#squads === 0) return this.#result;
-    const alive = ctx.players.filter((p) => p.alive && this.#entries.has(p.id));
+    // Being Downed isn't being alive here; a Squad going out takes its Downed seats with it the same tick.
+    const seats = ctx.players.filter((p) => p.alive && this.#entries.has(p.id));
+    const alive = seats.filter((p) => !p.downed);
     const squads = new Set(alive.map((p) => p.team));
     this.#squadsAlive = squads.size;
     const lastSeats = this.#living;
@@ -195,7 +207,7 @@ export class BattleRoyale implements GameMode {
       this.#result = best ? this.#won(best.team, 'lastSquad') : { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
     } else if (squads.size === 1 && this.#squads > 1) {
       this.#result = this.#won(squads.values().next().value as TeamId, 'lastSquad');
-    } else if (this.#peopled && !alive.some((p) => people.has(p.id))) {
+    } else if (this.#peopled && !seats.some((p) => people.has(p.id))) {
       this.#result = { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
     } else if (ctx.matchTime >= this.timeLimit - 1e-9) {
       this.#result = this.#won(this.#first(this.#living)!.team, 'timeLimit');

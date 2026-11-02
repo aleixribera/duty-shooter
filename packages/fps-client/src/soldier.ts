@@ -1,11 +1,14 @@
 import { STATS, isShellReload, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
 import {
+  type AnimationClip,
   Bone,
   BufferAttribute,
   BufferGeometry,
   Color,
   Euler,
   Group,
+  type Interpolant,
+  type KeyframeTrack,
   Matrix4,
   Mesh,
   MeshStandardNodeMaterial,
@@ -26,7 +29,9 @@ import { LEFT_PALM, RIGHT_PALM, palmFrame } from './viewmodel/m4a1';
  * (rigid pieces hanging from named joints), dressed in a look and posed every
  * frame. The gun is placed first, its stock in the right shoulder pocket and
  * its barrel along the aim, then both arms reach its grip points with
- * two-bone IK, so every weapon sits in the hands in every pose.
+ * two-bone IK, so every weapon sits in the hands in every pose. The two poses
+ * with no gun in them, the Downed crawl and the Revive, are clips authored in
+ * the same generator and laid over all of that.
  */
 
 export interface Look {
@@ -132,15 +137,46 @@ const PISTOL_ADS = new Vector3(0.03, 0.43, -0.45);
 const VEST_POUCH = new Vector3(-0.085, 0.14, -0.2);
 const BELT_SHELLS = new Vector3(-0.16, 0.07, -0.1);
 
+/** The clips the model carries, by name: `crawl` and `revive`. */
+type Clips = ReadonlyMap<string, Clip>;
+/** A clip's joints, each with where it turns and sits at any moment. */
+interface Clip {
+  readonly duration: number;
+  readonly joints: readonly { readonly joint: Joint; readonly turn: Interpolant; readonly at: Interpolant | null }[];
+}
+
+/** A track as three builds it; its typings leave the sampler out. */
+type SampledTrack = KeyframeTrack & { createInterpolant(): Interpolant };
+
+function readClips(animations: readonly AnimationClip[]): Clips {
+  const clips = new Map<string, Clip>();
+  for (const a of animations) {
+    const track = (name: string) => (a.tracks.find((t) => t.name === name) as SampledTrack | undefined)?.createInterpolant() ?? null;
+    const joints = JOINTS.flatMap((joint) => {
+      const turn = track(`${joint}.quaternion`);
+      return turn ? [{ joint, turn, at: track(`${joint}.position`) }] : [];
+    });
+    clips.set(a.name, { duration: a.duration, joints });
+  }
+  return clips;
+}
+
+/** Metres a whole crawl cycle (a reach with each arm) covers. */
+const CRAWL_STRIDE = 0.8;
+/** The clip is up over the gun pose from about here: the gun goes away out of sight of the pose it left. */
+const GUN_AWAY = 0.5;
+
 let model: Object3D | null = null;
+let clips: Clips = new Map();
 let loading: Promise<void> | null = null;
 
 /** Fetches the soldier model once; soldiers are built from it once it is in. */
 export function loadSoldierModel(): Promise<void> {
   loading ??= new GLTFLoader()
     .loadAsync(new URL('./assets/soldier.glb', import.meta.url).href)
-    .then(({ scene }) => {
+    .then(({ scene, animations }) => {
       model = scene;
+      clips = readClips(animations);
     })
     .catch((error: unknown) => {
       console.warn('Unable to load the soldier model:', error);
@@ -149,8 +185,9 @@ export function loadSoldierModel(): Promise<void> {
 }
 
 /** Uses an already parsed soldier model (tests read the GLB from disk). */
-export function useSoldierModel(scene: Object3D): void {
+export function useSoldierModel(scene: Object3D, animations: readonly AnimationClip[] = []): void {
   model = scene;
+  clips = readClips(animations);
   loading = Promise.resolve();
 }
 
@@ -236,6 +273,12 @@ export class Soldier {
   #lower = 1;
   #reload = 0;
   #inspect = 0;
+  /** How far the soldier is into each clip's pose, eased, 0 to 1. */
+  #crawl = 0;
+  #revive = 0;
+  /** Each clip's own time, in loops. */
+  #crawled = 0;
+  #revived = 0;
   #dt = 0;
   /** The support palm, eased, in gun space. */
   readonly #left = { pos: new Vector3(), q: new Quaternion(), set: false };
@@ -363,6 +406,13 @@ export class Soldier {
 
   update(p: PlayerOutput, dt: number): void {
     const b = this.#bones;
+    // Below, joints only set what their own pose moves: a clip's turns have to be gone first.
+    if (this.#crawl + this.#revive > 0) {
+      for (const joint of JOINTS) {
+        b[joint].position.copy(this.#rest[joint]);
+        b[joint].rotation.set(0, 0, 0);
+      }
+    }
     this.root.position.set(p.position[0], p.position[1], p.position[2]);
     this.root.rotation.y = p.yaw;
     this.#dt = dt;
@@ -445,10 +495,35 @@ export class Soldier {
     this.root.updateMatrixWorld(true);
     if (hold) this.#holdGun(hold, p, aim, action, t);
     else this.#restArms();
+    this.#playClips(p, speed, ease);
 
     this.#flash = Math.max(0, this.#flash - dt * 6);
     const glow = new Color(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
     for (const m of this.#materials) m.emissive.copy(glow);
+  }
+
+  /** Lays the crawl or the Revive over the pose worked out so far, and puts the gun away under them. */
+  #playClips(p: PlayerOutput, speed: number, ease: (cur: number, target: number, tau: number) => number): void {
+    this.#crawl = ease(this.#crawl, p.downed ? 1 : 0, 0.14);
+    this.#revive = ease(this.#revive, p.reviving != null ? 1 : 0, 0.14);
+    // Tiny weights left by the easing are done with.
+    if (this.#crawl < 0.001) this.#crawl = 0;
+    if (this.#revive < 0.001) this.#revive = 0;
+    this.#crawled += (speed * this.#dt) / CRAWL_STRIDE;
+    this.#revived += this.#dt / (clips.get('revive')?.duration ?? 1);
+    this.#wear(clips.get('crawl'), this.#crawled, this.#crawl);
+    this.#wear(clips.get('revive'), this.#revived, this.#revive);
+    this.#gunMount.visible = Math.max(this.#crawl, this.#revive) < GUN_AWAY;
+  }
+
+  #wear(clip: Clip | undefined, loops: number, weight: number): void {
+    if (!clip || weight === 0) return;
+    const t = (loops % 1) * clip.duration;
+    for (const { joint, turn, at } of clip.joints) {
+      const bone = this.#bones[joint];
+      bone.quaternion.slerp(_q.fromArray(turn.evaluate(t)), weight);
+      if (at) bone.position.lerp(_a.fromArray(at.evaluate(t)), weight);
+    }
   }
 
   /** No gun (a range dummy, or the model still loading): arms at the sides. */

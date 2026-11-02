@@ -31,6 +31,19 @@ describe('first-person camera FOV', () => {
   });
 });
 
+describe('first-person camera while Downed', () => {
+  const settledRoll = (p: PlayerOutput) => {
+    const cam = new FirstPersonCamera();
+    for (let i = 0; i < 60; i++) cam.update({ prev: p, cur: p, alpha: 0, look: { yaw: 0, pitch: 0 }, cmd: { yaw: 0, pitch: 0 }, dt: 1 / 60 }, DEFAULT_SETTINGS);
+    return cam.camera.rotation.z;
+  };
+
+  it('lies on its side, and comes level again once Revived', () => {
+    expect(settledRoll(player('walk'))).toBeCloseTo(0, 5);
+    expect(Math.abs(settledRoll({ ...player('walk'), downed: { bleedOut: 20, revive: 0 } }))).toBeGreaterThan(8 * DEG);
+  });
+});
+
 describe('first-person camera through a scope', () => {
   it('drifts with the scope sway, so the reticle sits where the round goes', () => {
     const cam = new FirstPersonCamera();

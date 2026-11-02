@@ -18,6 +18,8 @@ export function shotPose(shot: EndingShot, t: number): { position: Vec3; yaw: nu
 
 /** Movement FOV, as a multiplier: a touch wider at speed, eased in and out, and never while aiming. */
 const MOVE_FOV: Partial<Record<PlayerOutput['movement'], number>> = { sprint: 1.04, tacticalSprint: 1.08, slide: 1.06 };
+/** Downed, the view lies this far over (degrees), head on the ground. */
+const DOWNED_ROLL = 12;
 
 export interface CameraFrame {
   /** The local player's outputs at the previous and latest tick. */
@@ -38,8 +40,8 @@ export interface CameraFrame {
 /**
  * The first-person camera: eye position interpolated between ticks, mouse
  * look applied every frame on top of the simulation's recoil and flinch,
- * smooth step-ups, a landing dip, slide tilt, ADS zoom, a slightly wider
- * view at speed and shot shake.
+ * smooth step-ups, a landing dip, slide and Downed tilt, ADS zoom, a slightly
+ * wider view at speed and shot shake.
  */
 export class FirstPersonCamera {
   readonly camera: PerspectiveCamera;
@@ -97,7 +99,7 @@ export class FirstPersonCamera {
     this.#offsetYaw += (targetYaw - this.#offsetYaw) * k;
     this.#offsetPitch += (targetPitch - this.#offsetPitch) * k;
 
-    const rollTarget = cur.movement === 'slide' ? STATS.slide.cameraRoll.value * DEG : 0;
+    const rollTarget = cur.downed ? DOWNED_ROLL * DEG : cur.movement === 'slide' ? STATS.slide.cameraRoll.value * DEG : 0;
     this.#roll += (rollTarget - this.#roll) * (1 - Math.exp(-dt / 0.08));
 
     // A scope's sway moves the round off the aim: the view drifts with it, so the reticle shows where it goes.

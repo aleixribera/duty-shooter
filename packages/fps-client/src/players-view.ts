@@ -414,7 +414,8 @@ export class PlayersView {
     }
     // On the soldier, so it hides with them when they die.
     if (plate.sprite.parent !== soldier.root) soldier.root.add(plate.sprite);
-    plate.show(allegiance.names.get(p.id) ?? '', TEAM_LOOKS[p.team]?.accent ?? 0xf3f1ea);
+    const name = allegiance.names.get(p.id) ?? '';
+    plate.show(p.downed ? `${name} · Downed` : name, TEAM_LOOKS[p.team]?.accent ?? 0xf3f1ea);
     plate.sprite.visible = true;
     plate.sprite.position.set(0, p.eyeHeight + 0.55, 0);
   }

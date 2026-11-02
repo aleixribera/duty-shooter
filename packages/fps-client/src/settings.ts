@@ -37,7 +37,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   melee: 'Melee',
   switchWeapon: 'Switch weapon (also 1 / 2, mouse wheel)',
   grenade: 'Grenade (hold to cook)',
-  use: 'Use (hold: plant / defuse)',
+  use: 'Use (hold: plant / defuse / Revive)',
   scoreboard: 'Scoreboard',
 };
 

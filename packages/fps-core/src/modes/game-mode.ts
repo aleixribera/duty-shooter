@@ -191,10 +191,12 @@ export type ModeEvent =
       readonly killerName: string | null;
       readonly victim: PlayerId;
       readonly victimName: string;
-      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring';
+      readonly cause: Extract<SimEvent, { type: 'kill' }>['cause'];
       /** The weapon that did it, `frag` for a grenade (null for a fall). */
       readonly weapon: KillWeapon | null;
       readonly headshot: boolean;
+      /** The victim went Downed rather than out. */
+      readonly down?: boolean;
     }
   /** A team took a zone from `previous` (0: it was neutral). */
   | { readonly type: 'capture'; readonly zone: string; readonly team: TeamId; readonly previous: TeamId }
@@ -252,6 +254,8 @@ export interface GameMode {
   readonly frags?: number;
   /** HP a second the mode's own hazard takes from a seat at `position`, `matchTime` seconds in. */
   hazardAt?(position: Vec3, matchTime: number): number;
+  /** Whether seats go Downed at 0 health rather than dying. Never, when absent. */
+  downs?(): boolean;
   /** A joining player's team: `side` when given (humans vs bots, team modes only). */
   join(id: PlayerId, name: string, ctx: ModeContext, side?: TeamId): TeamId;
   leave(id: PlayerId): void;

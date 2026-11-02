@@ -412,7 +412,7 @@ export class Bot {
     const { self, time } = view;
     this.#lastTime = time;
     const r = (n: number) => noise(this.#seed, view.tick, n);
-    if (!self.alive) {
+    if (!self.alive || self.downed) {
       // Killed: it saw who did it, and from where.
       for (const e of view.events) if (e.type === 'kill' && e.victim === self.id) this.#marked(view, e, r(70), r(71), r(72));
       this.#using = false;
