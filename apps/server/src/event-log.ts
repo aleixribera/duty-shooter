@@ -20,12 +20,16 @@ export type LoggedEvent =
  * The server's event log: one JSON line per event, appended to a file (on the
  * container's one writable volume, so it survives redeploys) and printed to
  * stdout. A file that can't be written is reported once; stdout carries on.
+ *
+ * Both are synchronous, so what's written during a tick waits for {@link flush}
+ * after it: a full lobby's bots joining in one tick is 58 writes otherwise.
  */
 export class EventLog {
   readonly #path: string | null;
   readonly #print: (line: string) => void;
   readonly #now: () => Date;
   #failed = false;
+  #waiting: string[] = [];
 
   constructor(path: string | null, options: { print?: (line: string) => void; now?: () => Date } = {}) {
     this.#path = path;
@@ -41,11 +45,18 @@ export class EventLog {
   }
 
   write(entry: LoggedEvent): void {
-    const line = JSON.stringify({ time: this.#now().toISOString(), ...entry });
-    this.#print(line);
+    this.#waiting.push(JSON.stringify({ time: this.#now().toISOString(), ...entry }));
+  }
+
+  /** Writes out what's waiting, all at once. */
+  flush(): void {
+    if (this.#waiting.length === 0) return;
+    const lines = this.#waiting.join('\n');
+    this.#waiting = [];
+    this.#print(lines);
     if (!this.#path || this.#failed) return;
     try {
-      appendFileSync(this.#path, `${line}\n`);
+      appendFileSync(this.#path, `${lines}\n`);
     } catch (error) {
       this.#failed = true;
       console.error(`The event log can't be written to ${this.#path}: ${(error as Error).message}`);

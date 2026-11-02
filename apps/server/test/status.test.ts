@@ -157,7 +157,7 @@ describe('the event log', () => {
       expect(lines.map((l) => l.event)).toEqual(['serverStart', 'join', 'matchStart', 'leave']);
       expect(lines[1]).toMatchObject({ name: 'smoke', bot: false, script: true });
       expect(lines.every((l) => typeof l.time === 'string')).toBe(true);
-      expect(printed).toHaveLength(lines.length);
+      expect(printed.join('\n').split('\n')).toHaveLength(lines.length);
     } finally {
       await server.close();
     }

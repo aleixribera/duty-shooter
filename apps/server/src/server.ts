@@ -6,9 +6,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, decodeLargeNav, type Connection, type GameServerOptions, type NavGraph, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
+import { spendFirstUpgrade } from './first-upgrade';
 import { MODE_IDS, type ModeId, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { watchTicks } from './slow-ticks';
 import { TickCosts, type TickWindow } from './tick-costs';
 import { warmUp } from './warm-up';
 
@@ -44,6 +46,8 @@ export interface ServerOptions {
   readonly loadTestSockets?: number;
   /** Ticks of a private bot match played before listening, so the first real ticks run compiled. */
   readonly warmTicks?: number;
+  /** Ticks of at least this many milliseconds are logged with what they did; SLOW_TICK_MS by default. */
+  readonly slowTickMs?: number;
 }
 
 export interface RunningServer {
@@ -53,8 +57,8 @@ export interface RunningServer {
   readonly warmedSeats: number;
   /** The port actually bound (useful with port 0). */
   readonly port: number;
-  /** The game loop since the last call: milliseconds per tick, and ticks that started a whole tick late. */
-  takeLoopStats(): TickWindow;
+  /** The game loop since the last call: milliseconds per tick, ticks that started a whole tick late, and slow ticks by cause. */
+  takeLoopStats(): TickWindow & { readonly causes: Readonly<Record<string, number>> };
   close(): Promise<void>;
 }
 
@@ -163,8 +167,8 @@ const CONGESTED = 8 * 1024;
 const MAX_BUFFERED = 1024 * 1024;
 /** Ticks in a row that may fail before the server restarts (Compose brings it back). */
 const MAX_TICK_FAILURES = 60;
-/** A wide server's warm-up: ten seconds of match. */
-const WIDE_WARM_TICKS = 600;
+/** A wide server's warm-up: forty seconds of match, after the openings; about five seconds of real time in all. Fewer left routes cold: 600 ticks had them at 18 to 21 ms. */
+const WIDE_WARM_TICKS = 2400;
 
 const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 
@@ -375,6 +379,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});
   log.write({ event: 'serverStart', version: options.version });
+  log.flush();
   const config: GameServerOptions = {
     world: first.world,
     map: first.id,
@@ -400,8 +405,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     // Between matches everyone waits in the lobby for the host to start the next.
     lobby: true,
   };
+  if (options.warmTicks) await spendFirstUpgrade();
   const warmedSeats = options.warmTicks && first.nav ? warmUp(config, maxBots, options.warmTicks) : 0;
-  const game = new GameServer(transport, config);
+  const ticks = watchTicks(options.slowTickMs);
+  const game = new GameServer(transport, { ...config, probe: ticks.profiler });
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
@@ -451,21 +458,27 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     let ran = 0;
     while (now >= next && ran < 5) {
       try {
-        const late = now - next >= tickMs;
+        const lag = now - next;
         const started = performance.now();
+        ticks.profiler.willStart(lag);
         game.tick();
-        costs.record(performance.now() - started, late);
+        costs.record(performance.now() - started, lag >= tickMs, lag);
         failures = 0;
       } catch (error) {
         // A tick that fails is lost; the match goes on. One that keeps failing won't mend: a fresh start beats a frozen lobby.
         console.error('A tick failed:', error);
         failures += 1;
-        if (failures >= MAX_TICK_FAILURES) process.exit(1);
+        if (failures >= MAX_TICK_FAILURES) {
+          log.flush();
+          process.exit(1);
+        }
       }
       next += tickMs;
       ran += 1;
     }
     if (now - next > tickMs * 5) next = now; // a long stall: drop time instead of catching up
+    log.flush();
+    ticks.profiler.flush();
     timer = setTimeout(loop, Math.max(0, next - performance.now()));
   };
   loop();
@@ -479,9 +492,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     game,
     warmedSeats,
     port,
-    takeLoopStats: () => costs.take(),
+    takeLoopStats: () => ({ ...costs.take(), causes: ticks.profiler.takeCauses() }),
     close: async () => {
       if (timer) clearTimeout(timer);
+      ticks.stop();
+      log.flush();
       for (const client of wss.clients) client.terminate();
       wss.close();
       await new Promise<void>((done) => http.close(() => done()));
@@ -511,6 +526,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   const squads = env['SQUADS'] ? Number(env['SQUADS']) : undefined;
   if (squads !== undefined && squads !== 1 && squads !== 2 && squads !== 3) throw new Error('SQUADS must be 1, 2 or 3.');
   const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
+  const slowTickMs = env['SLOW_TICK_MS'] ? Number(env['SLOW_TICK_MS']) : undefined;
+  if (slowTickMs !== undefined && !(slowTickMs > 0)) throw new Error('SLOW_TICK_MS must be a number of milliseconds above 0.');
   if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
   const maxBotsPerTeam = Number(env['MAX_BOTS_PER_TEAM'] || MAX_BOTS_PER_TEAM);
   if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > mostBots) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${mostBots}.`);
@@ -535,5 +552,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     ...(wide ? { wideNet: true } : {}),
     ...(wide || royale ? { warmTicks: env['WARM_TICKS'] ? Number(env['WARM_TICKS']) : WIDE_WARM_TICKS } : {}),
     ...(loadTestSockets === undefined ? {} : { loadTestSockets }),
+    ...(slowTickMs === undefined ? {} : { slowTickMs }),
   };
 }

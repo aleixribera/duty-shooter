@@ -47,6 +47,8 @@ export type { Estimated, FireMode, MagazineReload, Provenance, ShellReload, Sour
 export { ARENA_SCALE, MATCH_SCALES, WIDE_SCALE, type MatchScale } from './modes/scale';
 export { GameServer, DEFAULT_MAX_PLAYERS, IDLE_TIMEOUT, MAX_BOTS_PER_TEAM, RECONNECT_GRACE, SPAWN_PROTECTION, hvbBots } from './net/server';
 export type { BotOptions, GameServerOptions, LobbyEvent, LobbyStatus, ServerMap, TeamSizes } from './net/server';
+export { TickProfiler, causeOf, noFacts } from './net/tick-profile';
+export type { Collection, SlowTick, TickFacts, TickPhase, TickProbe, TickProfilerOptions } from './net/tick-profile';
 export { GameClient } from './net/client';
 export type { ClientFrame, ClientStatus, GameClientOptions } from './net/client';
 export type { Connection, ServerTransport, WireData } from './net/transport';

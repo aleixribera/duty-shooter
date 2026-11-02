@@ -37,6 +37,7 @@ import {
   type WireSnapshot,
 } from './protocol';
 import { NET_PROFILES, eventReach, reaches, seatTier, within, type EventReach, type NetProfile, type Relevance } from './relevance';
+import { noFacts, type TickFacts, type TickProbe } from './tick-profile';
 import type { Connection, ServerTransport, WireData } from './transport';
 
 /** A map the server can run a match on: its collision, spawns, objectives and the bots' nav graph. */
@@ -100,6 +101,8 @@ export interface GameServerOptions {
   readonly reconnectGrace?: number;
   /** Hears every join, leave, match start and match end, for the lobby's event log. */
   readonly onLog?: (event: LobbyEvent) => void;
+  /** Told what each tick did and when, to name what a slow one was doing. */
+  readonly probe?: TickProbe;
   /**
    * Run a lobby between matches: the first person in is the host, who picks
    * the mode and bots and starts each match; after a match's nuke and
@@ -158,6 +161,10 @@ export interface BotOptions {
 
 /** Seconds between the bot teams' plans. */
 const PLAN_EVERY = 1;
+/** Battle Royale: Squads a plan in the countdown may give a first rally, so they're spread over its seconds instead of all in one tick; play gives the rest. */
+const FIRST_RALLIES = 8;
+/** A tick's mode events when it had none, shared: the profiler copies what it keeps. */
+const NO_EVENTS: string[] = [];
 /** The most bots a side a lobby offers in a team mode. */
 export const MAX_BOTS_PER_TEAM = MATCH_SCALES.tdm.botsPerTeam;
 /** Seconds a fresh spawn can't be hurt, unless it fires first. */
@@ -372,6 +379,8 @@ export class GameServer {
   #lobbyMap: ServerMap;
   /** The latest tick's simulation events, for the bots to hear. */
   #lastEvents: readonly SimEvent[] = [];
+  /** What this tick has done so far, for the probe. */
+  readonly #facts = noFacts();
   /** When each player last spawned, while their spawn protection lasts. */
   readonly #protectedSince = new Map<PlayerId, number>();
   /** Held seats by token. */
@@ -1073,6 +1082,11 @@ export class GameServer {
 
   /** Runs one server tick: queued usercmds, the simulation, the game mode and match flow, then snapshots. */
   tick(): TickOutput {
+    const probe = this.#options.probe;
+    if (probe) {
+      probe.start();
+      this.#facts.thoughts = this.#facts.plans = this.#facts.arcs = 0;
+    }
     this.#releaseAway();
     const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd | UserCmd[]> = {};
@@ -1107,7 +1121,10 @@ export class GameServer {
     }
     // A match's opening countdown and a round's freeze hold everyone where they stand, free to look around.
     const held = !frozen && (this.#countingDown || this.#mode.frozen());
+    probe?.phase('input');
     if (this.#bots.size > 0) this.#thinkBots(cmds, frozen || held);
+    else probe?.phase('plan');
+    probe?.phase('think');
     for (const [id, list] of Object.entries(cmds)) {
       const applied = Array.isArray(list) ? list : [list];
       if (held) cmds[id] = applied.map((cmd) => ({ ...cmd, forward: 0, right: 0, buttons: 0, firePresses: [] }));
@@ -1116,6 +1133,7 @@ export class GameServer {
       else if (last || frozen || held) this.#using.delete(id);
     }
     const out = this.simulation.step(cmds);
+    probe?.phase('sim');
     this.#lastEvents = out.events;
     // Firing ends spawn protection.
     for (const e of out.events) {
@@ -1127,6 +1145,7 @@ export class GameServer {
     const modeEvents = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
     this.#modeEvents = modeEvents;
     this.#noteChanges(out, modeEvents);
+    probe?.phase('mode');
 
     const tick = out.tick;
     this.#last = this.simulation.output();
@@ -1140,8 +1159,28 @@ export class GameServer {
     this.#recentEvents = [...kept, ...logged];
     this.#eventLog.push(...logged);
     while (this.#eventLog.length > 0 && (this.#eventLog[0] as LoggedEvent).tick <= tick - EVENT_LOG_TICKS) this.#eventLog.shift();
+    probe?.phase('events');
     this.#broadcast();
+    if (probe) {
+      probe.phase('send');
+      probe.end(this.#factsOf(out, modeEvents));
+    }
     return this.#last;
+  }
+
+  /** The tick just run, for the probe. */
+  #factsOf(out: TickOutput, modeEvents: readonly ModeEvent[]): TickFacts {
+    const facts = this.#facts;
+    facts.shots = facts.deaths = facts.downs = facts.blasts = 0;
+    for (const e of out.events) {
+      if (e.type === 'shot') facts.shots += 1;
+      else if (e.type === 'kill') facts.deaths += 1;
+      else if (e.type === 'down') facts.downs += 1;
+      else if (e.type === 'explosion') facts.blasts += 1;
+    }
+    facts.grenades = out.grenades.length;
+    facts.modeEvents = modeEvents.length > 0 ? modeEvents.map((e) => e.type) : NO_EVENTS;
+    return facts;
   }
 
   /** What this tick means for the sticky fields: nothing but a kill or a mode's event moves the scoreboard, and a tick of plain play leaves the match status alone. */
@@ -1206,6 +1245,7 @@ export class GameServer {
       played: timeLimit === null ? 0 : (time - this.#matchStart) / timeLimit,
       state,
       seats: seats.map((p) => ({ id: p.id, team: p.team, position: p.position, bot: this.#bots.has(p.id), downed: p.downed })),
+      ...(this.#countingDown ? { fresh: FIRST_RALLIES } : {}),
     });
   }
 
@@ -1221,8 +1261,12 @@ export class GameServer {
     const seats = this.#seatIndex;
     const time = this.simulation.time;
     const tick = this.simulation.tick;
+    const probe = this.#options.probe;
     this.#planBots();
-    const budget: ThinkBudget = { arcs: this.#scale.throwArcs };
+    probe?.phase('plan');
+    const arcs = this.#scale.throwArcs;
+    const budget: ThinkBudget = { arcs, plans: 0 };
+    const { plansPerTick } = this.#scale;
     const far = this.#scale.farBots;
     // Ticks of a match that seats its own so far: its bots wake a few at a time, as all of them planning their first route on one tick took 30 ms.
     const awake = this.#mode.fixedSeats === undefined ? Infinity : Math.round((time - this.#matchStart) / TICK_SECONDS);
@@ -1249,10 +1293,17 @@ export class GameServer {
         objective: this.#orders.get(id) ?? null,
         lives: this.#mode.canRespawn(id) ? 'respawn' : 'round',
         budget,
+        ...(budget.plans >= plansPerTick ? { rest: true } : {}),
         ...(ground ? { ground } : {}),
       };
       cmds[id] = seat.bot.think(view);
+      if (probe) {
+        probe.thought(id, seat.bot.activity);
+        this.#facts.thoughts += 1;
+      }
     }
+    this.#facts.plans = budget.plans;
+    this.#facts.arcs = arcs - budget.arcs;
   }
 
   /** A tick of play: scoring, the end of the match, respawns. */
@@ -1324,6 +1375,8 @@ export class GameServer {
       if (tick % PACE_TICKS === 0) this.#setPace(client, tick);
       if (due.length < share && tick - client.sentTick >= Math.max(client.pace, this.#net.snapshotEvery) && !client.connection.congested) due.push(client);
     }
+    this.#facts.snapshots = due.length;
+    this.#facts.bytes = 0;
     if (due.length === 0) return;
     this.#packSticky();
     /** Each seat packed the first time a client needs it this tick: one nobody is near costs nothing. */
@@ -1356,6 +1409,7 @@ export class GameServer {
       });
       client.sentTick = tick;
       client.connection.send(frame);
+      this.#facts.bytes += frame.length;
     }
   }
 

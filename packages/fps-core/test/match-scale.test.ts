@@ -54,6 +54,18 @@ describe('how often a bot thinks', () => {
     for (const b of bots) expect(rates.get(b.id), b.id).toBe(far(b) ? WIDE_SCALE.farBots!.thinkEvery : undefined);
   });
 
+  it('lets the bots of a wide match plan about one route a tick', () => {
+    const spawns: SpawnPoint[] = [{ position: [0, 0, 0], yaw: 0 }, { position: [200, 0, 200], yaw: 0 }];
+    const most: number[] = [];
+    const probe = { start() {}, phase() {}, thought() {}, end: (facts: { plans: number }) => void most.push(facts.plans) };
+    const m = createNetworkedMatch({ solids: [GROUND], spawns, mode: 'ffa', maxPlayers: 60, scale: WIDE_SCALE, net: WIDE_MAP, bots: { nav: wideNav, perTeam: 12, maxPerTeam: 30 }, probe });
+    m.join('alice');
+    m.run(ticks(20));
+    expect(most.reduce((sum, n) => sum + n, 0)).toBeGreaterThan(12);
+    // Only a bot that can't keep to its last usercmd, or one thought that plans twice, goes over.
+    expect(Math.max(...most)).toBeLessThanOrEqual(2);
+  });
+
   it('never slows a bot in a team mode, however far it stands', () => {
     const spawns: SpawnPoint[] = [{ position: [-300, 0, 0], yaw: 0 }, { position: [300, 0, 0], yaw: 0 }];
     const m = createNetworkedMatch({ solids: [GROUND], spawns, mode: 'ffa', bots: { nav: wideNav, perTeam: 3 } });

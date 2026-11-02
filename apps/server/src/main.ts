@@ -33,6 +33,6 @@ if (process.env['LOG_STATS'] === '1') {
     const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
     const m = process.memoryUsage();
     const loop = server.takeLoopStats();
-    console.log(`stats cpu=${percent.toFixed(1)}% rss=${mb(m.rss)}MB heap=${mb(m.heapUsed)}MB players=${server.game.playerCount} tick=${loop.average.toFixed(2)}ms p50=${loop.p50.toFixed(2)}ms p99=${loop.p99.toFixed(2)}ms slowest=${loop.slowest.toFixed(1)}ms late=${loop.late} window=${JSON.stringify(loop)}`);
+    console.log(`stats cpu=${percent.toFixed(1)}% rss=${mb(m.rss)}MB heap=${mb(m.heapUsed)}MB players=${server.game.playerCount} tick=${loop.average.toFixed(2)}ms p50=${loop.p50.toFixed(2)}ms p99=${loop.p99.toFixed(2)}ms slowest=${loop.slowest.toFixed(1)}ms late=${loop.late} lag=${loop.lag.toFixed(1)}ms causes=${JSON.stringify(loop.causes)} window=${JSON.stringify(loop)}`);
   }, 10_000).unref();
 }

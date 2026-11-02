@@ -36,6 +36,8 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
 - `apps/range/test/server-cpu.test.ts` and the benchmarks skip unless `BENCH=1`.
 - `apps/range/test/zero-island-royale-pace.test.ts` skips unless `ROYALE_PACE=size:seed,...` and prints whole Battle Royale matches (about 20 s each on the home server): length, Stage, deaths to the Ring, what bots were doing. `ROYALE_GOOD=1` puts the good-player proxy in a seat and prints how it did; retune `royale.botReaction` and `royale.botAim` in the stats file against that, over 30 seeds at least, since one match in four needs that many to tell from noise.
 - `npm run typecheck` also typechecks every package's tests, which vitest itself never does.
+- Tick costs measured under `remote-test` include its CPU cap: at 60 clients the cap held the thread for 20 to 65 ms at a time (ticket 30), so a soak's or a load test's worst tick there says nothing about the game. `CANARY=1` on `load-test.mjs` proves it (`capThrottledMs`, and slow ticks the canary was stalled in too), and the server names such a tick `stall`. To measure the game itself, run the load test as a plain process on the home server, on its own port, as `.scratch/battle-royale/ticks/uncapped.sh` does.
+- A rehearsal (`apps/server/src/warm-up.ts`) has to look to V8 like the real game in every way: a shape the warm-up never showed, such as a person's usercmd or a probe, throws compiled code away at the worst moment. `spendFirstUpgrade` exists because a process's first HTTP upgrade does the same to every typed-array function; `apps/server/test/first-upgrade.test.ts` shows it.
 
 ## Driving the game in a browser
 

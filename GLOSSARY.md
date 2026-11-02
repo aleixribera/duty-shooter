@@ -262,3 +262,10 @@ The 1.5 s after a spawn when a player can't be damaged. It ends early when they 
 **Usercmd**:
 One tick of a player's input, sent from client to server.
 _Avoid_: input packet
+
+**Slow tick**:
+A server tick of 8 ms or more (`SLOW_TICK_MS`), which the server logs with what it did and a cause: the game's own work in one phase, a garbage collection, or a stall.
+
+**Stall**:
+A slow tick whose thread spent most of it off the CPU: the machine (a CPU cap, another process) held it up, whatever the game was doing.
+_Avoid_: lag spike

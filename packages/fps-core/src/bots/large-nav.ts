@@ -764,17 +764,11 @@ class Index implements NavIndex {
     const cost = this.#cost;
     const came = this.#came;
     const [gx, gy, gz] = [positions[to * 3]!, positions[to * 3 + 1]!, positions[to * 3 + 2]!];
-    const h = (n: number) => {
-      const dx = positions[n * 3]! - gx;
-      const dy = positions[n * 3 + 1]! - gy;
-      const dz = positions[n * 3 + 2]! - gz;
-      return Math.sqrt(dx * dx + dy * dy + dz * dz) * GREED;
-    };
     const open = new MinHeap();
     seen[from] = stamp;
     cost[from] = 0;
     came[from] = -1;
-    open.push(from, h(from));
+    open.push(from, estimate(positions, from, gx, gy, gz));
     while (open.size) {
       const v = open.pop();
       if (v === to) {
@@ -792,12 +786,20 @@ class Index implements NavIndex {
           seen[w] = stamp;
           cost[w] = d;
           came[w] = v;
-          open.push(w, d + h(w));
+          open.push(w, d + estimate(positions, w, gx, gy, gz));
         }
       }
     }
     return null;
   }
+}
+
+/** The search's guess at the way left from `n`. A plain function: as a closure V8 compiled it afresh again and again, and a route met it cold. */
+function estimate(positions: Float32Array, n: number, gx: number, gy: number, gz: number): number {
+  const dx = positions[n * 3]! - gx;
+  const dy = positions[n * 3 + 1]! - gy;
+  const dz = positions[n * 3 + 2]! - gz;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz) * GREED;
 }
 
 const MAGIC = 0x4e565344; // 'DSVN', little-endian.

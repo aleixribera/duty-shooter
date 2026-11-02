@@ -19,6 +19,8 @@
 // opening of a match on a server that has been up a while. Without it the opening
 // lands in V8's first seconds, whose collections run to 45 ms whatever the tick does.
 // STATIC_DIR serves a built app, for a map whose nav comes from the build (MAP=zero-island).
+// The server logs what each slow tick did (SLOW_TICK_MS moves the line), and the run ends with those
+// ticks by cause; SHOW_SLOW=1 prints the lines as they come. CANARY=1 runs stall-canary.mjs beside it and counts the slow ticks the canary was stalled in too.
 // Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -79,8 +81,28 @@ function every60Hz(step) {
   return { stop: () => clearTimeout(timer) };
 }
 
+/** Runs `handle` on each whole line: a pipe's chunks can end mid-line. */
+function eachLine(stream, handle) {
+  let rest = '';
+  stream.on('data', (d) => {
+    const lines = (rest + d).split('\n');
+    rest = lines.pop();
+    for (const line of lines) if (line) handle(line);
+  });
+}
+
 let measuring = false;
 let opening = false;
+/** The slow ticks since the match's opening or measuring began. */
+const slow = [];
+const canary = process.env.CANARY === '1' ? spawn(process.execPath, [fileURLToPath(new URL('./stall-canary.mjs', import.meta.url))], { stdio: ['ignore', 'pipe', 'inherit'] }) : null;
+const stalls = [];
+let canarySummary = null;
+if (canary) eachLine(canary.stdout, (line) => {
+  const { gap, summary } = JSON.parse(line);
+  if (gap) stalls.push(gap);
+  if (summary) canarySummary = summary;
+});
 const server = target
   ? null
   : spawn(process.execPath, [...(process.env.SERVER_FLAGS?.split(' ') ?? []), process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
@@ -89,22 +111,27 @@ const server = target
     });
 /** The server's LOG_STATS lines since measuring started. */
 const windows = [];
-server?.stdout.on('data', (d) => {
-  for (const line of String(d).split('\n').filter(Boolean)) {
-    const stats = /^stats cpu=([\d.]+)% rss=([\d.]+)MB.* window=(.+)$/.exec(line);
-    if (!stats) {
-      console.log(`[server] ${line}`);
-      continue;
-    }
-    console.log(`[server] ${line.replace(/ window=.*/, '')}`);
-    if (opening) {
-      const { p99, slowest, late } = JSON.parse(stats[3]);
-      console.log(`window: p99 ${p99.toFixed(2)}, worst ${slowest.toFixed(1)}; ${late} late`);
-    }
-    if (measuring) windows.push({ cpu: Number(stats[1]), rss: Number(stats[2]), loop: JSON.parse(stats[3]) });
+if (server) eachLine(server.stdout, (line) => {
+  const tick = /^slow (.+)$/.exec(line);
+  if (tick) {
+    if (opening || measuring) slow.push(JSON.parse(tick[1]));
+    if (process.env.SHOW_SLOW === '1') console.log(`[server] ${line}`);
+    return;
   }
+  const stats = /^stats cpu=([\d.]+)% rss=([\d.]+)MB.* window=(.+)$/.exec(line);
+  if (!stats) {
+    console.log(`[server] ${line}`);
+    return;
+  }
+  console.log(`[server] ${line.replace(/ window=.*/, '')}`);
+  if (opening) {
+    const { p99, slowest, late } = JSON.parse(stats[3]);
+    console.log(`window: p99 ${p99.toFixed(2)}, worst ${slowest.toFixed(1)}; ${late} late`);
+  }
+  if (measuring) windows.push({ cpu: Number(stats[1]), rss: Number(stats[2]), loop: JSON.parse(stats[3]) });
 });
 const stop = (code) => {
+  canary?.kill('SIGTERM');
   if (!server) process.exit(code);
   // Its last log lines still need the pipe: exit once it has.
   server.on('exit', () => process.exit(code));
@@ -201,7 +228,27 @@ console.log(`match started: ${joined} clients${bots === undefined ? '' : `, ${bo
 await new Promise((resolve) => setTimeout(resolve, warmup * 1000));
 wireStart = sockets.map((s) => s.ws._socket.bytesRead);
 measuring = true;
-setTimeout(() => {
+/** The slow ticks by cause, then every tick over the bar with what it did, and what the canary saw. */
+function reportSlow() {
+  const causes = new Map();
+  for (const t of slow) {
+    const seen = causes.get(t.cause) ?? { count: 0, worst: 0, stalled: 0 };
+    seen.count += 1;
+    seen.worst = Math.max(seen.worst, t.wall);
+    if (stalls.some((g) => g.at < t.at + t.wall && g.at + g.ms > t.at)) seen.stalled += 1;
+    causes.set(t.cause, seen);
+  }
+  const list = [...causes].sort((a, b) => b[1].worst - a[1].worst).map(([cause, c]) => `${cause} ${c.count} (worst ${c.worst.toFixed(1)}${canary ? `, ${c.stalled} with the canary stalled` : ''})`);
+  console.log(`slow ticks by cause: ${list.join('; ') || 'none'}`);
+  for (const t of slow.filter((s) => s.wall >= 1000 / 60).slice(0, 30)) {
+    const facts = Object.entries(t.facts).filter(([, n]) => (Array.isArray(n) ? n.length > 0 : n !== 0)).map(([k, n]) => `${k} ${n}`).join(', ');
+    const phases = Object.entries(t.phases).map(([k, n]) => `${k} ${n.toFixed(1)}`).join(' ');
+    const gc = t.gc.map((c) => `${c.kind} ${c.ms.toFixed(1)}`).join(' ');
+    console.log(`  over the bar: ${t.wall.toFixed(1)} ms, ${t.cpu.toFixed(1)} on CPU, ${t.cause}; ${phases}${gc ? `; gc ${gc}` : ''}; ${facts}${t.slowestBot ? `; slowest bot ${t.slowestBot.state} ${t.slowestBot.ms.toFixed(1)}` : ''}`);
+  }
+}
+
+setTimeout(async () => {
   const all = (key) => sockets.flatMap((s) => s.stats[key]).sort((a, b) => a - b);
   const at = (list, q) => (list.length ? list[Math.min(list.length - 1, Math.floor(q * list.length))].toFixed(1) : '-');
   const gaps = all('gaps');
@@ -223,6 +270,12 @@ setTimeout(() => {
     const cpus = whole.map((w) => w.cpu);
     console.log(`tick ms over ${tick.ticks} ticks: mean ${tick.average.toFixed(2)}, p50 ${tick.p50.toFixed(2)}, p99 ${tick.p99.toFixed(2)}, worst ${tick.slowest.toFixed(1)}; ${tick.late} late`);
     console.log(`server: cpu ${(sum(cpus) / cpus.length).toFixed(0)}% of a core on average, ${Math.max(...cpus).toFixed(0)}% at most; rss ${Math.max(...whole.map((w) => w.rss)).toFixed(0)} MB at most`);
+  }
+  reportSlow();
+  if (canary) {
+    canary.kill('SIGTERM');
+    await new Promise((done) => canary.on('exit', done));
+    console.log(`canary: ${JSON.stringify(canarySummary)}`);
   }
   for (const s of sockets) s.ws.close();
   if (ended) console.error('The match ended while measuring: these numbers are not of play');

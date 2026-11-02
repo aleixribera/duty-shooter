@@ -51,7 +51,9 @@ To play online locally:
    | `PORT`, `HOST` | `3000`, `0.0.0.0` | Where it listens. |
    | `STATIC_DIR` | the built client | The files it serves. |
    | `EVENT_LOG` | none | A JSON-lines file of joins, leaves and matches. |
-   | `LOG_STATS` | off | `1` prints CPU and memory every 10 s. |
+   | `LOG_STATS` | off | `1` prints CPU and memory every 10 s, with the slow ticks by cause. |
+   | `SLOW_TICK_MS` | `8` | A tick this long logs a `slow {...}` line: each phase's milliseconds, the slowest bot, what happened, the collector's pauses during it, and a cause: `work:<phase>`, `gc:<kind>` or `stall` (the thread was off the CPU). |
+   | `WARM_TICKS` | `2400` with `NET=wide` or `battle-royale`, else none | Ticks of a private match, after eight openings, played before it listens, so V8 has the tick compiled. |
    | `LOAD_TEST_SOCKETS` | off | Open sockets the machine itself may hold, for a load test on a server of its own. Everyone else stays at 12. |
    | `DUTY_VERSION` | `dev` | The version `/healthz` reports. |
 

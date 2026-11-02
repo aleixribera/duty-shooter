@@ -32,6 +32,18 @@ describe('the wall', () => {
   });
 });
 
+describe('first rallies a few at a time', () => {
+  it('gives each Squad the rally it would have had all at once, a few Squads a plan', () => {
+    const seats = Array.from({ length: 9 }, (_, i) => seat(`s${i}`, i + 1, -300 + i * 70, (i % 3) * 90));
+    const atOnce = planner().plan(situation(seats));
+    const spread = planner();
+    const given = [2, 4, 6, 8, 9].map((_, k) => [...spread.plan(situation(seats, { fresh: 2 })).keys()].length);
+    expect(given).toEqual([2, 4, 6, 8, 9]);
+    const last = spread.plan(situation(seats, { fresh: 2 }));
+    for (const s of seats) expect(last.get(s.id)!.rally, s.id).toEqual(atOnce.get(s.id)!.rally);
+  });
+});
+
 describe('a Squad on the move', () => {
   it('a Squad caught outside the next circle gets a place inside it in time', () => {
     const p = planner();

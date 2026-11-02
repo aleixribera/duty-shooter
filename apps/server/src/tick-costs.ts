@@ -14,6 +14,8 @@ export interface TickWindow {
   readonly slowest: number;
   /** Ticks that started a whole tick late. */
   readonly late: number;
+  /** Milliseconds the latest tick started after it was due: what the rest of the loop (sockets, say) or a stall cost. */
+  readonly lag: number;
   /** Ticks in each bucket, by bucket number. */
   readonly buckets: Readonly<Record<number, number>>;
 }
@@ -36,22 +38,24 @@ export class TickCosts {
   #total = 0;
   #slowest = 0;
   #late = 0;
+  #lag = 0;
 
-  record(cost: number, late = false): void {
+  record(cost: number, late = false, lag = 0): void {
     const bucket = Math.min(TOP, Math.ceil(cost / BUCKET_MS));
     this.#buckets[bucket] = (this.#buckets[bucket] ?? 0) + 1;
     this.#ticks += 1;
     this.#total += cost;
     this.#slowest = Math.max(this.#slowest, cost);
+    this.#lag = Math.max(this.#lag, lag);
     if (late) this.#late += 1;
   }
 
   /** The window since the last call. */
   take(): TickWindow {
     const ticks = this.#ticks;
-    const taken = { ticks, average: ticks ? this.#total / ticks : 0, p50: percentile(this.#buckets, ticks, 0.5), p99: percentile(this.#buckets, ticks, 0.99), slowest: this.#slowest, late: this.#late, buckets: this.#buckets };
+    const taken = { ticks, average: ticks ? this.#total / ticks : 0, p50: percentile(this.#buckets, ticks, 0.5), p99: percentile(this.#buckets, ticks, 0.99), slowest: this.#slowest, late: this.#late, lag: this.#lag, buckets: this.#buckets };
     this.#buckets = {};
-    this.#ticks = this.#total = this.#slowest = this.#late = 0;
+    this.#ticks = this.#total = this.#slowest = this.#late = this.#lag = 0;
     return taken;
   }
 
@@ -61,6 +65,6 @@ export class TickCosts {
     for (const w of windows) for (const [bucket, count] of Object.entries(w.buckets)) buckets[Number(bucket)] = (buckets[Number(bucket)] ?? 0) + count;
     const ticks = windows.reduce((sum, w) => sum + w.ticks, 0);
     const total = windows.reduce((sum, w) => sum + w.average * w.ticks, 0);
-    return { ticks, average: ticks ? total / ticks : 0, p50: percentile(buckets, ticks, 0.5), p99: percentile(buckets, ticks, 0.99), slowest: Math.max(0, ...windows.map((w) => w.slowest)), late: windows.reduce((sum, w) => sum + w.late, 0), buckets };
+    return { ticks, average: ticks ? total / ticks : 0, p50: percentile(buckets, ticks, 0.5), p99: percentile(buckets, ticks, 0.99), slowest: Math.max(0, ...windows.map((w) => w.slowest)), late: windows.reduce((sum, w) => sum + w.late, 0), lag: Math.max(0, ...windows.map((w) => w.lag)), buckets };
   }
 }

@@ -44,6 +44,8 @@ export interface BotView {
    * `THROW_ARCS_PER_TICK` of its own when absent.
    */
   readonly budget?: ThinkBudget;
+  /** The tick's routes are spent: keep to the last usercmd this once, as a bot thinking less often does, unless that wouldn't be safe. */
+  readonly rest?: boolean;
   /** Battle Royale: what its Squad has it doing. With this it uses the ground (see `squad-plan.ts`) instead of roaming; without it, it plays as it always has. */
   readonly ground?: GroundOrder;
 }
@@ -52,6 +54,8 @@ export interface BotView {
 export interface ThinkBudget {
   /** Grenade arcs left to simulate this tick. */
   arcs: number;
+  /** Routes planned so far this tick. */
+  plans: number;
 }
 
 /** Grenade arcs a bot may simulate in a tick when no shared budget is given; a whole aim takes 27. */
@@ -476,10 +480,12 @@ export class Bot {
   think(sees: BotView): UserCmd {
     this.#sinceThought += 1;
     const every = sees.thinkEvery ?? 1;
-    if (every > 1 && this.#held && sees.self.alive && this.#alive && (sees.tick + this.#seed) % every !== 0 && !this.#delicate(sees.self)) {
+    if ((sees.rest || (every > 1 && (sees.tick + this.#seed) % every !== 0)) && this.#held && sees.self.alive && this.#alive && !this.#delicate(sees.self)) {
       if (sees.events.length > 0) this.#unheard.push(sees.events);
       return this.#held;
     }
+    // A first thought plans a route too, so it waits as well, standing as it is.
+    if (sees.rest && !this.#held && sees.self.alive) return usercmd({ forward: 0, right: 0, yaw: sees.self.yaw, pitch: sees.self.pitch, buttons: [] });
     const ticks = this.#sinceThought;
     this.#sinceThought = 0;
     // What it missed meanwhile, it hears now.
@@ -1671,23 +1677,13 @@ export class Bot {
 
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */
   #plan(from: Vec3, to: number, view: BotView, fresh = true, unseenBy: Vec3 | null = null): void {
+    if (view.budget) view.budget.plans += 1;
     const start = nearestNode(this.#nav, this.#world, from);
     // Out of sight of `unseenBy` (or else the newest danger spot near) where there's a way: each node it can see costs as much as a detour.
     const watcher = unseenBy ?? this.#watcher(from, view.time);
-    const seen = new Map<number, number>();
-    const exposure = watcher
-      ? (i: number) => {
-          let c = seen.get(i);
-          if (c === undefined) {
-            const p = this.#nav.nodes[i]!.position;
-            c = flat(p, watcher) > DANGER_REACH || !botSees(this.#world, watcher, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
-            seen.set(i, c);
-          }
-          return c;
-        }
-      : undefined;
+    const exposure = watcher ? new Exposure(this.#nav, this.#world, watcher) : null;
     const bits = view.ground ? coverBits(this.#nav) : null;
-    const costs = bits ? (i: number) => (bits[i] === 0 ? OPEN_GROUND : 0) + (exposure ? exposure(i) : 0) : exposure;
+    const costs = bits ? (i: number) => (bits[i] === 0 ? OPEN_GROUND : 0) + (exposure ? exposure.cost(i) : 0) : exposure ? (i: number) => exposure.cost(i) : undefined;
     const path = findPath(this.#nav, start, to, costs) ?? [];
     this.#path = path;
     // Replanned partway along the first leg (the nearest node is the one just left behind): carry on along it rather than turn back to its start.
@@ -1791,6 +1787,35 @@ export class Bot {
       this.#chasing = null;
       this.#plan(self.position, this.#goal, view);
     }
+  }
+}
+
+/**
+ * What each node costs a route for standing in sight of `watcher`. A class and
+ * not a closure: a route is tens of thousands of these calls, compiled in with
+ * the search, and each new closure could throw that out halfway along a route,
+ * leaving the rest of it to run interpreted at 15 to 40 ms.
+ */
+class Exposure {
+  readonly #seen = new Map<number, number>();
+  readonly #nav: NavGraph;
+  readonly #world: World;
+  readonly #watcher: Vec3;
+
+  constructor(nav: NavGraph, world: World, watcher: Vec3) {
+    this.#nav = nav;
+    this.#world = world;
+    this.#watcher = watcher;
+  }
+
+  cost(i: number): number {
+    let c = this.#seen.get(i);
+    if (c === undefined) {
+      const p = this.#nav.nodes[i]!.position;
+      c = flat(p, this.#watcher) > DANGER_REACH || !botSees(this.#world, this.#watcher, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
+      this.#seen.set(i, c);
+    }
+    return c;
   }
 }
 

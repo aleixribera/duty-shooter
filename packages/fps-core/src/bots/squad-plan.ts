@@ -32,6 +32,13 @@ export interface SquadSituation {
   readonly state: BattleRoyaleState;
   /** Every seat still in it, Downed ones too. */
   readonly seats: readonly PlannedSeat[];
+  /**
+   * The most Squads this plan may give a first rally, in the order it always
+   * goes; the rest get no orders until a later plan. Every one when absent.
+   * Each first rally looks for ground several times over, so all of them in
+   * one tick took 12 to 17 ms.
+   */
+  readonly fresh?: number;
 }
 
 /** What one bot is told, each second. */
@@ -247,7 +254,12 @@ export class SquadPlanner {
       if (list) list.push(seat);
       else squads.set(seat.team, [seat]);
     }
+    let fresh = s.fresh ?? Infinity;
     for (const [team, members] of squads) {
+      if (!this.#rallies.has(team)) {
+        if (fresh <= 0) continue;
+        fresh -= 1;
+      }
       const standing = members.filter((m) => !m.downed);
       // A person leads their Squad; otherwise the lowest seat standing.
       const leader = standing.find((m) => !m.bot) ?? standing[0] ?? members[0]!;
