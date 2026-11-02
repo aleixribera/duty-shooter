@@ -1,0 +1,8 @@
+// Ticket 44: finds a Ring circle and a spot inside it looking at a stretch where it crosses high ground.
+import * as L from '../bugs/lib.mjs';
+const c = await L.open('find', { url: 'http://localhost:5241/?explore=zero-island&nolock', width: 800, height: 600 });
+try {
+  await c.must('!!duty.map?.terrain', 90000, 500);
+  const H = `(x, z) => { const t = duty.map.terrain; const gx = (x - t.origin[0]) / t.cell, gz = (z - t.origin[1]) / t.cell; if (gx < 0 || gz < 0 || gx >= t.columns || gz >= t.rows) return 0; const i = Math.floor(gx), j = Math.floor(gz), u = gx - i, v = gz - j, s = t.columns + 1, h = t.heights; const a = h[j * s + i], b = h[j * s + i + 1], c = h[(j + 1) * s + i], d = h[(j + 1) * s + i + 1]; return Math.max(0, (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v); }`;
+  console.log(await c.evaluate(`(() => { const H = ${H}; const t = duty.map.terrain; const out = []; for (const r of [250, 320, 400]) for (let k = 0; k < 72; k++) { const a = k / 72 * Math.PI * 2; const x = 4 + Math.sin(a) * r, z = 7 + Math.cos(a) * r; const h = H(x, z); const vx = 4 + Math.sin(a) * (r - 140), vz = 7 + Math.cos(a) * (r - 140); let spread = 0; for (const da of [-0.12, 0.12]) spread = Math.max(spread, Math.abs(H(4 + Math.sin(a + da) * r, 7 + Math.cos(a + da) * r) - h)); out.push({ r, a: +a.toFixed(3), h: +h.toFixed(1), spread: +spread.toFixed(1), vh: +H(vx, vz).toFixed(1), vx: Math.round(vx), vz: Math.round(vz) }); } out.sort((m, n) => (n.h + n.spread) - (m.h + m.spread)); return JSON.stringify({ origin: t.origin, cell: t.cell, columns: t.columns, top: out.slice(0, 8) }); })()`));
+} finally { await c.close(); }

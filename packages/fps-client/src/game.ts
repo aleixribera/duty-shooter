@@ -271,7 +271,7 @@ export class Game {
       this.#worldView.scene.add(flash);
     }
     this.#zoneRings = new ZoneRings(this.#worldView.scene, this.#zones);
-    this.#ringWall = options.content.places && options.content.terrain ? new RingWall(this.#worldView.scene) : null;
+    this.#ringWall = options.content.places && options.content.terrain ? new RingWall(this.#worldView.scene, options.world.terrain) : null;
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);

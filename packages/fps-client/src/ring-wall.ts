@@ -1,5 +1,5 @@
-import { abs, atan, color, dot, exp, float, fract, fwidth, max, min, mix, mx_noise_float, normalWorld, normalize, positionWorld, cameraPosition, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
-import { AdditiveBlending, CylinderGeometry, DoubleSide, Mesh, MeshBasicNodeMaterial, type Node, type Scene } from 'three/webgpu';
+import { abs, atan, attribute, color, dot, exp, float, fract, fwidth, max, min, mix, mx_noise_float, normalWorld, normalize, positionWorld, cameraPosition, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
+import { AdditiveBlending, BufferAttribute, CylinderGeometry, DoubleSide, Mesh, MeshBasicNodeMaterial, type Node, type Scene } from 'three/webgpu';
 import type { RingCircle } from './ui/royale';
 
 /**
@@ -17,6 +17,31 @@ const HEIGHT = 420;
 const SEGMENTS = 256;
 /** A lattice diamond's width (m). */
 const CELL = 7;
+
+/** What the wall stands on: the ground's height and the water's surface, as the island's Terrain gives them. */
+export interface RingGround {
+  heightAt(x: number, z: number): number;
+  waterAbove(x: number, y: number, z: number): number;
+}
+
+/**
+ * The surface under each column of the wall, for its foot glow: the ground, or the water over
+ * it, never under sea level (off the island's rectangle there is only the sea). The cylinder's
+ * vertices run round it in `SEGMENTS + 1` columns, angle `2π·j/SEGMENTS` at (r·sin, r·cos),
+ * and its two rows share a column's height, so `out` holds the row twice (ticket 44).
+ */
+export function groundUnderRing(ring: RingCircle, ground: RingGround, out = new Float32Array((SEGMENTS + 1) * 2)): Float32Array {
+  const columns = out.length / 2;
+  for (let j = 0; j < columns; j++) {
+    const theta = (j / (columns - 1)) * Math.PI * 2;
+    const x = ring.x + ring.radius * Math.sin(theta);
+    const z = ring.z + ring.radius * Math.cos(theta);
+    const h = Math.max(0, ground.heightAt(x, z), ground.waterAbove(x, 0, z));
+    out[j] = h;
+    out[j + columns] = h;
+  }
+  return out;
+}
 
 /**
  * The Battle Royale's Ring as a wall in the world: one open cylinder, one
@@ -40,11 +65,20 @@ export class RingWall {
   readonly #cx = uniform(0);
   readonly #cz = uniform(0);
   readonly #cells = uniform(100);
+  /** The surface under each column, which the foot glow sits on; refilled only when the Ring moves. */
+  readonly #ground: BufferAttribute;
+  readonly #heights = new Float32Array((SEGMENTS + 1) * 2);
+  readonly #terrain: RingGround | null;
+  #at = { x: NaN, z: NaN, radius: NaN };
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, terrain: RingGround | null = null) {
     this.#scene = scene;
+    this.#terrain = terrain;
     const geometry = new CylinderGeometry(1, 1, 1, SEGMENTS, 1, true);
     geometry.translate(0, 0.5, 0);
+    // One float a vertex, read by the shader: no extra draw, no texture.
+    this.#ground = new BufferAttribute(this.#heights, 1);
+    geometry.setAttribute('ground', this.#ground);
     const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, fog: false });
     const p = positionWorld;
     const t = this.#clock;
@@ -53,8 +87,8 @@ export class RingWall {
     const around = atan(rel.y, rel.x).div(Math.PI * 2).mul(this.#cells);
     const up = p.y;
     const cell = this.#radius.mul(Math.PI * 2).div(this.#cells);
-    // Height: a bright foot at the ground, a long fade into the sky.
-    const foot = exp(up.sub(FOOT + 30).max(0).div(-14)).mul(0.9);
+    // Height: a bright foot where the wall meets the ground (or the sea), a long fade into the sky.
+    const foot = exp(up.sub(attribute<'float'>('ground', 'float')).max(0).div(-14)).mul(0.9);
     const body = smoothstep(float(HEIGHT - 30), float(20), up);
     // Detail fades as it shrinks toward a pixel, judged by how fast it changes across one: far away it would only shimmer.
     const sharp = (n: Node<'float'>) => smoothstep(float(0.4), float(0.1), fwidth(n));
@@ -116,6 +150,12 @@ export class RingWall {
     this.#radius.value = ring.radius;
     this.#cells.value = Math.max(4, Math.round((ring.radius * Math.PI * 2) / CELL));
     this.#clock.value = time % 1000;
+    const at = this.#at;
+    if (this.#terrain && (at.x !== ring.x || at.z !== ring.z || at.radius !== ring.radius)) {
+      this.#at = { x: ring.x, z: ring.z, radius: ring.radius };
+      groundUnderRing(ring, this.#terrain, this.#heights);
+      this.#ground.needsUpdate = true;
+    }
   }
 
   /** Brightness, 1 by default (the Preparation can ignite it from 0). */
