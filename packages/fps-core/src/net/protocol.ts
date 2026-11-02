@@ -11,7 +11,7 @@ import type { WireData } from './transport';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -72,7 +72,11 @@ export type ClientMessage =
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' }
   /** Anyone in a Battle Royale lobby: the Squad (from 1) they'd like to play in, if it has room. */
-  | { readonly t: 'squad'; readonly squad: number };
+  | { readonly t: 'squad'; readonly squad: number }
+  /** A Battle Royale's Preparation: this player has picked and is ready to drop (it can't be taken back). */
+  | { readonly t: 'ready' }
+  /** This player's page has what the match needs on screen (the load gate). */
+  | { readonly t: 'loaded' };
 
 /**
  * Where the match is: playing, or in the intermission after `matchEnd`
@@ -91,6 +95,25 @@ export const INTERMISSION = { nuke: 6, vote: 14, scoreboard: 10 } as const;
  * first round's freeze is the same countdown.
  */
 export const MATCH_COUNTDOWN = 5;
+
+/**
+ * A Battle Royale opens with a Preparation instead of the countdown (s): the
+ * whole of it, the camera's dive to the spawn that ends it, and how long past
+ * the dive's moment it waits for a page still loading before a bot holds
+ * that seat until it is.
+ */
+export const PREPARATION = { seconds: 20, dive: 5, loadLimit: 10 } as const;
+
+/** A Battle Royale's Preparation, while it runs. */
+export interface PreparationState {
+  /** Simulation time (s) it began. */
+  readonly start: number;
+  /** The people in it who are ready, and how many people it has. */
+  readonly ready: readonly string[];
+  readonly people: number;
+  /** People whose page is still loading (the dive waits for them, up to a limit). */
+  readonly loading: number;
+}
 
 /** The lobby between matches, as every client needs it. */
 export interface LobbyState {
@@ -127,6 +150,8 @@ export interface MatchStatus {
   readonly phaseEnds: number | null;
   /** Simulation time (s) the match's opening countdown ends, while it runs (see {@link MATCH_COUNTDOWN}); null otherwise. */
   readonly countdownEnds: number | null;
+  /** A Battle Royale's Preparation, while it runs (`countdownEnds` is when it ends); null otherwise. */
+  readonly preparation: PreparationState | null;
   readonly killLimit: number | null;
   /** Team points that win an objective mode; null for none. */
   readonly scoreLimit: number | null;
@@ -245,6 +270,8 @@ export function decodeClient(data: string): ClientMessage | null {
     return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }), ...(squads === undefined ? {} : { squads }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
+  if (value['t'] === 'ready') return { t: 'ready' };
+  if (value['t'] === 'loaded') return { t: 'loaded' };
   if (value['t'] === 'squad') {
     const { squad } = value;
     return typeof squad === 'number' && Number.isInteger(squad) && squad >= 1 && squad <= WIDE_SCALE.seats ? { t: 'squad', squad } : null;

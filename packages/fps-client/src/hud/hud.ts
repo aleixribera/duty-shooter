@@ -822,7 +822,8 @@ export class Hud {
   /** The match's opening countdown, big in the middle as Charge's freeze is (Charge has no countdown of its own). */
   #updateCountdown(state: HudState): void {
     const view = state.match;
-    const left = view?.status.phase === 'playing' ? (view.countdown ?? null) : null;
+    // A Battle Royale opens with its Preparation instead, which the page shows.
+    const left = view?.status.phase === 'playing' && view.status.mode !== 'battle-royale' ? (view.countdown ?? null) : null;
     if (left === null || left <= 0) {
       if (!state.charge) this.#style(this.#round, 'display', 'none');
       return;

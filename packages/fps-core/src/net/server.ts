@@ -26,12 +26,14 @@ import {
   EVENT_RESEND_TICKS,
   INTERMISSION,
   MATCH_COUNTDOWN,
+  PREPARATION,
   PROTOCOL_VERSION,
   decodeClient,
   encode,
   type LobbyState,
   type MatchStatus,
   type Phase,
+  type PreparationState,
   type RejectReason,
   type ServerMessage,
   type WireSnapshot,
@@ -405,6 +407,14 @@ export class GameServer {
   readonly #using = new Set<PlayerId>();
   /** Battle Royale: the Squad each person picked or was given in the lobby (see #lobbySquads). */
   #squadPicks = new Map<PlayerId, number>();
+  /**
+   * Battle Royale's Preparation: when it began (null outside one), the people
+   * ready to drop and the pages that have loaded (both kept through the match,
+   * since a page that loads late takes its seat back from its bot).
+   */
+  #prepStart: number | null = null;
+  readonly #ready = new Set<PlayerId>();
+  readonly #loaded = new Set<PlayerId>();
 
   constructor(transport: ServerTransport, options: GameServerOptions) {
     this.#options = options;
@@ -617,6 +627,7 @@ export class GameServer {
       phase: this.#phase,
       phaseEnds,
       countdownEnds: this.#countingDown ? this.#matchStart : null,
+      preparation: this.#preparation(),
       killLimit: this.#mode.killLimit,
       scoreLimit: this.#mode.scoreLimit,
       timeLimit: limit,
@@ -717,7 +728,13 @@ export class GameServer {
       this.#welcome(client);
       return;
     }
+    if (message.t === 'ready' || message.t === 'loaded') {
+      this.#prepared(client, message.t);
+      return;
+    }
     if (message.t === 'loadout') {
+      // A Battle Royale's loadout is locked when its Preparation ends.
+      if (this.#phase === 'playing' && this.#mode.id === BATTLE_ROYALE && !this.#countingDown) return;
       client.loadout = message.loadout;
       // In a round's freeze the change is made at once, where the player stands.
       if (this.#phase === 'playing' && (this.#countingDown || this.#mode.frozen()) && this.#seatIndex.get(client.id)?.alive) {
@@ -920,7 +937,11 @@ export class GameServer {
     }));
     const teams = this.#mode.start(entrants, this.#context());
     // The match (and its clock) starts after the opening countdown; a mode that opens with a freeze of its own (Charge) needs none.
-    if (!this.#mode.frozen()) this.#matchStart = this.simulation.time + (this.#options.countdown ?? MATCH_COUNTDOWN);
+    const royale = this.#mode.id === BATTLE_ROYALE;
+    if (!this.#mode.frozen()) this.#matchStart = this.simulation.time + (this.#options.countdown ?? (royale ? PREPARATION.seconds : MATCH_COUNTDOWN));
+    this.#prepStart = royale && this.#countingDown ? this.simulation.time : null;
+    this.#ready.clear();
+    this.#loaded.clear();
     for (const [id, team] of teams) this.simulation.setTeam(id, team);
     // A mode that seats its own has every spawn dealt: its spawns needn't look at the seats before them.
     const dealt = this.#mode.fixedSeats === undefined ? null : this.#context();
@@ -998,6 +1019,79 @@ export class GameServer {
   #spawn(id: PlayerId, spawn: SpawnPoint): void {
     this.simulation.respawn(id, spawn.position, spawn.yaw, this.#loadoutOf(id).loadout);
     this.#protectedSince.set(id, this.simulation.time);
+  }
+
+  /** The Preparation as the match status tells it, while it runs. */
+  #preparation(): PreparationState | null {
+    if (this.#prepStart === null || !this.#countingDown) return null;
+    const people = this.#preparing();
+    return {
+      start: this.#prepStart,
+      ready: people.filter((c) => this.#ready.has(c.id as PlayerId)).map((c) => c.id as string),
+      people: people.length,
+      loading: people.filter((c) => !this.#hasLoaded(c)).length,
+    };
+  }
+
+  /** The people with a seat in this match's Preparation, in join order. */
+  #preparing(): Client[] {
+    return this.#joined().filter((c) => this.simulation.has(c.id as PlayerId));
+  }
+
+  /** A script has nothing to load. */
+  #hasLoaded(client: Client): boolean {
+    return client.script || this.#loaded.has(client.id as PlayerId);
+  }
+
+  /** A person says they're ready, or that their page has loaded (which takes a seat back from the bot that held it). */
+  #prepared(client: Client, what: 'ready' | 'loaded'): void {
+    const id = client.id as PlayerId;
+    if (this.#phase !== 'playing' || this.#mode.id !== BATTLE_ROYALE) return;
+    if (what === 'ready') {
+      if (this.#prepStart === null || !this.#countingDown || this.#ready.has(id)) return;
+      this.#ready.add(id);
+    } else {
+      if (this.#loaded.has(id)) return;
+      this.#loaded.add(id);
+      if (this.#standIns.delete(id)) {
+        // The bot that held the seat hands it over as it stands.
+        this.#bots.delete(id);
+        this.#protectedSince.set(id, this.simulation.time);
+      }
+    }
+    this.#stale.add('match');
+    this.#prepare();
+  }
+
+  /**
+   * The Preparation's clock: everyone ready brings the dive forward; the dive
+   * waits for pages still loading, up to a limit; and when it is over, a bot
+   * holds the seat of any page that hasn't loaded, until it has.
+   */
+  #prepare(): void {
+    if (this.#prepStart === null) return;
+    const now = this.simulation.time;
+    const people = this.#preparing();
+    if (!this.#countingDown) {
+      this.#prepStart = null;
+      this.#stale.add('match');
+      for (const c of people) if (!this.#hasLoaded(c)) this.#standIn(c.id as PlayerId, c.name);
+      return;
+    }
+    const length = this.#options.countdown ?? PREPARATION.seconds;
+    const dive = Math.min(PREPARATION.dive, length);
+    const loaded = people.every((c) => this.#hasLoaded(c));
+    const ready = people.every((c) => this.#ready.has(c.id as PlayerId));
+    const diveAt = this.#matchStart - dive;
+    let start = this.#matchStart;
+    if (!loaded) {
+      // Up to the limit past the dive's moment, the dive waits.
+      if (now >= diveAt - 1e-9) start = Math.max(start, this.#prepStart + length + PREPARATION.loadLimit);
+    } else if (ready || now > this.#prepStart + length - dive) start = Math.min(start, now + dive);
+    if (Math.abs(start - this.#matchStart) > 1e-9) {
+      this.#matchStart = start;
+      this.#stale.add('match');
+    }
   }
 
   /** Whether the match's opening countdown is running: everyone held, the clock not yet started. */
@@ -1166,6 +1260,7 @@ export class GameServer {
       this.#facts.thoughts = this.#facts.plans = this.#facts.arcs = 0;
     }
     this.#releaseAway();
+    this.#prepare();
     const frozen = this.#phase !== 'playing';
     const cmds: Record<PlayerId, UserCmd | UserCmd[]> = {};
     for (const client of [...this.#clients]) {

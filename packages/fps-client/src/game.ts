@@ -53,13 +53,15 @@ import { WorldView, type WorldContent } from './world-view';
 import { ZoneRings } from './zone-rings';
 import { RingWall } from './ring-wall';
 import { RingSounds } from './ring-sounds';
+import { preparationShot, preparationTime, type PreparationShot, type PreparationTime } from './preparation-shot';
+import { PreparationSounds } from './preparation-sounds';
 import { Spectator } from './spectate';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import type { BakeFile, EndingShot } from './surfaces';
-import { currentLighting } from './surface-materials';
+import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
@@ -208,6 +210,9 @@ export class Game {
   readonly #ringWall: RingWall | null;
   readonly #ringSounds = new RingSounds();
   #ringPhase: RingPhase | null = null;
+  /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
+  readonly #prepSounds = new PreparationSounds();
+  #prepShot: PreparationShot | null = null;
   /** Use held on the last tick, so a press opens the loadout screen once. */
   #useHeld = false;
   /**
@@ -578,7 +583,22 @@ export class Game {
       this.#viewmodel.root.visible = false;
       this.#worldView.follow(o.position);
     }
-    const watched = this.overviewOnly ? null : this.#spectated();
+    const prepTime = this.preparation;
+    const prep = (this.#prepShot = prepTime && self && !this.overviewOnly ? this.#preparationShot(prepTime, self) : null);
+    if (prep) {
+      // The Preparation's shot: the island, your Squad, then the dive to your eyes.
+      const cam = this.#camera.camera;
+      cam.position.set(prep.position[0], prep.position[1], prep.position[2]);
+      cam.rotation.set(prep.pitch, prep.yaw, 0);
+      eye = prep.position;
+      forward = viewDirection(prep.yaw, prep.pitch);
+      this.#viewmodel.root.visible = false;
+      this.#worldView.follow(prep.stage === 'island' ? [prep.position[0], 0, prep.position[2]] : self!.position);
+    }
+    this.#effects.keyLight = prep?.light ?? null;
+    setHaze(prep?.haze ?? 1);
+    for (const c of this.#prepSounds.update(prep ? prepTime : null, performance.now() / 1000)) this.#play(c.event, c.params);
+    const watched = this.overviewOnly || prep ? null : this.#spectated();
     if (watched) {
       // Out of the fight: the camera rides behind the watched player, pulled in short of any wall, and eases after them.
       const head: Vec3 = [watched.position[0], watched.position[1] + watched.eyeHeight + 0.35, watched.position[2]];
@@ -630,7 +650,9 @@ export class Game {
     if (driver) {
       this.#others = driver.others(alpha);
       const teams = driver.match ? teamMode(driver.match.mode) : false;
-      this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null });
+      // Your own soldier stands with your Squad while the Preparation's camera is on them.
+      const shown = prep && prep.stage !== 'dive' && this.#cur ? [...this.#others, this.#cur] : this.#others;
+      this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null });
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }
@@ -845,6 +867,30 @@ export class Game {
     return id === null ? null : (this.#others.find((p) => p.id === id) ?? null);
   }
 
+  /** A Battle Royale's Preparation, where it is now, while it runs (online, in the match's opening). */
+  get preparation(): PreparationTime | null {
+    const driver = this.#driver;
+    const match = driver?.match;
+    const prep = match?.phase === 'playing' ? match.preparation : null;
+    if (!driver || !prep || match?.countdownEnds === null || match?.countdownEnds === undefined) return null;
+    return preparationTime(prep.start, match.countdownEnds, driver.serverTime);
+  }
+
+  /** The Preparation's camera from where you and your Squad stand, kept short of anything solid between it and them. */
+  #preparationShot(time: PreparationTime, self: PlayerOutput): PreparationShot | null {
+    const state = this.#royale;
+    if (!state) return null;
+    const squad = [self, ...this.#others.filter((p) => p.kind === 'player' && p.team === self.team && p.id !== self.id)];
+    const eye: Vec3 = [self.position[0], self.position[1] + self.eyeHeight, self.position[2]];
+    const shot = preparationShot({ island: state.circle, eye, yaw: self.yaw, squad: squad.map((p) => p.position) }, time);
+    if (shot.stage !== 'squad') return shot;
+    const hit = raycastWorld(this.#world, eye, shot.position);
+    if (!hit) return shot;
+    const t = Math.max(0.15, hit.t - 0.05);
+    const position: Vec3 = [eye[0] + (shot.position[0] - eye[0]) * t, eye[1] + (shot.position[1] - eye[1]) * t, eye[2] + (shot.position[2] - eye[2]) * t];
+    return { ...shot, position };
+  }
+
   /** The Battle Royale in play, or null. */
   get #royale(): BattleRoyaleState | null {
     const match = this.#driver?.match;
@@ -858,6 +904,7 @@ export class Game {
     const ring = state && driver ? ringNow(state, driver.serverTime) : null;
     const now = performance.now() / 1000;
     this.#ringWall.update(ring, now);
+    this.#ringWall.strength = this.#prepShot?.ring ?? 1;
     for (const c of this.#ringSounds.update(ring, now, listener)) this.#play(c.event, c.params);
     const phase = state && driver ? ringStatus(state, driver.serverTime, null).phase : null;
     if (phase === 'closing' && this.#ringPhase === 'hold') {

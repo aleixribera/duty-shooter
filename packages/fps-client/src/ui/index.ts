@@ -7,6 +7,8 @@ export type { Lobby, LobbyInfo, MenuCallbacks } from './menu';
 export { LobbyPage, lobbyMapName } from './lobby';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './lobby';
 export { RoyalePage } from './royale-screen';
+export { PreparationPage } from './preparation';
+export type { PreparationCallbacks, PreparationMate, PreparationView } from './preparation';
 export { royaleOpens, royaleServer } from './royale-lobby';
 export { placement } from './royale';
 export { connectionError } from './model';

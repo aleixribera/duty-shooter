@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
@@ -86,7 +86,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** A game on one map; switching maps builds a new one. */
   /** Wires a game to the page's menus, which only the game on show may answer to. */
   const wire = (g: Game) => {
-    g.input.onPadMenu = (nav) => (menu.open ? menu.navigate(nav) : lobbyPage.open ? lobbyPage.navigate(nav) : royalePage.open ? royalePage.navigate(nav) : menu.navigate(nav));
+    g.input.onPadMenu = (nav) =>
+      menu.open ? menu.navigate(nav) : lobbyPage.open ? lobbyPage.navigate(nav) : royalePage.open ? royalePage.navigate(nav) : prepPage.open ? prepPage.navigate(nav) : menu.navigate(nav);
     g.input.onUnlock = () => {
       if (!game.paused && game.driver) {
         game.paused = true;
@@ -485,6 +486,104 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     { image: 'maps/zero-island.jpg' },
   );
   /**
+   * A Battle Royale's Preparation, in the game over the live island: the page
+   * for the start it was opened for, whether this player pressed Ready, and
+   * the last view shown (kept for the Play card once the drop is over).
+   */
+  let prepUp = false;
+  let prepFor: number | null = null;
+  let prepReady = false;
+  let prepView: PreparationView | null = null;
+  const prepPage = new PreparationPage(document.body, {
+    loadout: (loadout) => {
+      settings = { ...settings, loadout };
+      saveSettings(settings);
+      game?.driver?.setLoadout(loadout);
+      game?.applySettings(settings);
+      menu.settings = settings;
+    },
+    // Ready is a press, so it can take the pointer (or the controller) for the drop.
+    ready: () => {
+      prepReady = true;
+      game.driver?.ready();
+      void sound.unlock();
+      if (!game.input.padMode && !game.input.locked) void game.input.lock();
+    },
+    play: () => {
+      void sound.unlock();
+      if (!game.input.padMode) void game.input.lock();
+    },
+  });
+  /** Each frame: the Preparation up while this seated player's Battle Royale opens, and until they take control. True while it is up. */
+  const updatePreparation = (): boolean => {
+    const driver = game?.driver;
+    const match = driver?.online ? driver.match : null;
+    const mine = driver?.scores.find((s) => s.id === driver.selfId);
+    const seated = mine !== undefined && mine.deaths === 0 && mine.place === undefined;
+    const playing = match?.phase === 'playing' && match.mode === 'battle-royale' && seated;
+    const time = playing ? game.preparation : null;
+    const prep = match?.preparation ?? null;
+    if (driver && match && mine && time && prep) {
+      if (prepFor !== prep.start) {
+        prepFor = prep.start;
+        prepReady = false;
+        // This page has the island up: the load gate counts it in.
+        driver.loaded();
+      }
+      if (!prepUp) {
+        prepUp = true;
+        leaveLobby();
+        lobbyJoin = false;
+        if (menu.open && menu.screen === 'pause') menu.hide();
+        game.paused = true;
+        game.overviewOnly = false;
+      }
+      game.hud.visible = false;
+      const team = mine.team;
+      const squad = driver.scores
+        .filter((s) => s.team === team)
+        .map((s) => ({ name: s.id === driver.selfId ? onlineName : s.name, you: s.id === driver.selfId, bot: s.bot === true, ready: prep.ready.includes(s.id) }));
+      const state = match.objective?.kind === 'battle-royale' ? match.objective : null;
+      prepView = {
+        ...time,
+        alive: state?.alive ?? driver.scores.length,
+        squads: state?.squads ?? 0,
+        squad,
+        loadout: settings.loadout,
+        ready: prepReady || prep.ready.includes(driver.selfId ?? ''),
+        readyCount: prep.ready.length,
+        people: prep.people,
+        loading: prep.loading,
+        play: false,
+      };
+      prepPage.show(prepView);
+      return true;
+    }
+    if (prepUp && playing && prepView && !game.input.locked) {
+      // The drop is over and the pointer isn't this page's yet: one click takes it.
+      game.hud.visible = false;
+      prepPage.show({ ...prepView, stage: 'dive', left: 0, play: true });
+      return true;
+    }
+    if (prepUp) {
+      prepUp = false;
+      prepView = null;
+      prepPage.hide();
+      if (playing) {
+        if (menu.open && menu.screen === 'pause') menu.hide();
+        game.paused = false;
+        game.hud.visible = true;
+      }
+    }
+    return false;
+  };
+  // Esc in the Preparation opens the menu (where Leave is); its Resume takes the pointer like Ready's press.
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape' || e.defaultPrevented || !prepPage.open || menu.open) return;
+    e.preventDefault();
+    menu.show('pause');
+  });
+  /**
    * Bot Match's setup is the lobby page offline: you alone, the bots the
    * match brings, and your picks, kept between visits. Opening it starts the
    * picked map's lighting downloading, so Start rarely waits. The bots fill
@@ -758,7 +857,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       bench(time);
       return;
     }
-    updateLobby();
+    if (!updatePreparation()) updateLobby();
     // The map is only a backdrop while the main menu is open. Limit its GPU
     // work, but keep polling controllers and immediately resume on play.
     const backdrop = (menu.open || lobbyPage.open || royalePage.open) && !fixedCamera;

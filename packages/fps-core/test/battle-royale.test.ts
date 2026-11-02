@@ -265,7 +265,7 @@ describe('a match on the server', () => {
 
   it('gives every seat 3 frags, bots too, and never refills them', () => {
     const m = match({ countdown: 1 });
-    joined(m, 'alice');
+    joined(m, 'alice').client.loaded();
     m.run(ticks(1.2));
     expect(new Set(m.server.latest.players.map((p) => p.grenades))).toEqual(new Set([STATS.royale.frags.value]));
     const alice = m.client('alice').client.id!;
@@ -285,6 +285,7 @@ describe('a match on the server', () => {
   it('a pick of loadout after the hold waits for a spawn that never comes', () => {
     const m = match({ countdown: 0.1 });
     const c = joined(m, 'alice');
+    c.client.loaded();
     m.run(ticks(1));
     c.client.setLoadout({ primary: 'smg', secondary: 'pistol', grenade: 'frag' });
     m.run(ticks(0.5));

@@ -230,6 +230,14 @@ _Avoid_: buy time, warm-up
 The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: everyone is held at their spawn, free to look around and change their loadout, while the HUD counts down; the match clock starts after it. Charge has none, because its first round's freeze is the same thing.
 _Avoid_: warm-up, pre-game
 
+**Preparation**:
+A Battle Royale's Countdown: 20 s (`PREPARATION`) over the live scene, with the island from above while the Ring ignites, then your Squad at its spawn beside the loadout picker, then the dive to your eyes in the last 5 s, when the loadout locks and control is yours at 0. It ends early, with the dive, once every person has pressed Ready. A page still loading at the dive holds it (the load gate) for up to 10 s, then a bot plays that seat until the page has loaded.
+_Avoid_: pre-game lobby, loadout screen, warm-up
+
+**Load gate**:
+The Preparation's hold for a page that hasn't yet said it has the match on screen (`loaded`). A page that never loads doesn't hold the match: after 10 s a stand-in bot plays that seat until it loads.
+_Avoid_: loading screen
+
 **Intermission**:
 The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (Survival Town's nuke, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
 _Avoid_: post-game, between rounds

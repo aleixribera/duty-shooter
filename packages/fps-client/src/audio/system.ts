@@ -100,6 +100,9 @@ const PROFILES: Record<SoundEventName, Profile> = {
   ringHum: { cap: 3, ref: 12, rolloff: 0.6, send: 0.3, indoorSend: 0.3 },
   ringCrackle: { cap: 4, ref: 8, rolloff: 0.8, send: 0.4, indoorSend: 0.3 },
   ringShift: ui,
+  // The Preparation: the moment's own sound, not the island's.
+  prepDrone: ui,
+  heartbeat: ui,
 };
 
 /**

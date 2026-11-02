@@ -89,6 +89,8 @@ const light = {
   skyHorizon: uniform(new Vector3(...LIGHTING.skyHorizon)),
   skyIntensity: uniform(LIGHTING.skyIntensity),
   ground: uniform(new Vector3(...LIGHTING.ground)),
+  /** How thick the distance haze is, 1 normally: thinner for a camera high over the island, where the air below is clear. */
+  haze: uniform(1),
 };
 let current: Lighting = LIGHTING;
 
@@ -102,6 +104,11 @@ export function useLighting(lighting: Lighting): void {
   light.skyHorizon.value.set(...lighting.skyHorizon);
   light.skyIntensity.value = lighting.skyIntensity;
   light.ground.value.set(...lighting.ground);
+}
+
+/** Thins (below 1) or restores (1) the distance haze for every world material; a uniform, so no shader rebuilds. */
+export function setHaze(scale: number): void {
+  light.haze.value = scale;
 }
 
 /** The light the world is drawn in now. */
@@ -146,7 +153,7 @@ export function skyNode(d: N3): N3 {
 /** Distance haze: far surfaces fade toward the horizon colour. */
 export function haze(lit: N3): N3 {
   const dist = length(positionWorld.sub(cameraPosition));
-  const k = float(1).sub(exp(dist.mul(-0.0035)));
+  const k = float(1).sub(exp(dist.mul(-0.0035).mul(light.haze)));
   // Dust in the air: thicker, and lit up, looking toward the sun.
   const toSun = pow(max(dot(normalize(positionWorld.sub(cameraPosition)) as unknown as N3, sunDir), float(0)), float(4));
   return mix(lit, horizonColor.add(sunColor.mul(toSun.mul(0.3))), k.mul(toSun.mul(0.4).add(0.45))) as N3;

@@ -242,6 +242,11 @@ const DUST: Partial<Record<Material, number>> = {
   plastic: 0xe8e4dc,
 };
 
+const BLAST_COLOR = 0xffa860;
+/** The Preparation's key light: a soft warm white, bright enough to lift a Squad out of the dusk from a few metres. */
+const KEY_COLOR = 0xffe6cc;
+const KEY_INTENSITY = 26;
+
 /**
  * Combat effects: a muzzle flash that lights the scene, muzzle smoke after
  * sustained fire, ejected casings that bounce and settle, bullet-hole decals,
@@ -271,8 +276,10 @@ export class Effects {
   readonly #flashMaterial: MeshBasicNodeMaterial;
   readonly #recentShots: number[] = [];
   /** A frag's flash: brighter and longer than a muzzle's. */
-  readonly #blastLight = new PointLight(0xffa860, 0, 22, 1.4);
+  readonly #blastLight = new PointLight(BLAST_COLOR, 0, 22, 1.4);
   #blastAge = 1;
+  /** The Preparation's key light on the Squad, which borrows the frag's light (nothing explodes while it is on). */
+  #key: Vec3 | null = null;
   #time = 0;
   /** Called when a casing hits a surface hard enough to be heard. */
   onCasingBounce: ((position: Vec3, material: Material, intensity: number) => void) | null = null;
@@ -305,6 +312,11 @@ export class Effects {
     this.#root.add(this.#sparks.mesh, this.#dust.mesh, this.#smoke.mesh, this.#blood.mesh, this.#holes.mesh, this.#splats.mesh, this.#casingMesh);
     if (this.#fire && this.#fireSmoke) this.#root.add(this.#fire.mesh, this.#fireSmoke.mesh);
     scene.add(this.#root);
+  }
+
+  /** Lights the Preparation's Squad from `at` (world), or puts the light out (null). */
+  set keyLight(at: Vec3 | null) {
+    this.#key = at;
   }
 
   /** A muzzle-flash star mesh, for attaching to a weapon's muzzle socket. */
@@ -491,7 +503,15 @@ export class Effects {
       light.intensity = age < 0.05 ? 14 * (1 - age / 0.05) + 4 : 0;
     }
     this.#blastAge += dt;
-    this.#blastLight.intensity = this.#blastAge < 0.25 ? 80 * (1 - this.#blastAge / 0.25) ** 2 : 0;
+    const key = this.#key;
+    if (key) {
+      this.#blastLight.position.set(key[0], key[1], key[2]);
+      this.#blastLight.color.setHex(KEY_COLOR);
+      this.#blastLight.intensity = KEY_INTENSITY;
+    } else {
+      if (this.#blastLight.color.getHex() !== BLAST_COLOR) this.#blastLight.color.setHex(BLAST_COLOR);
+      this.#blastLight.intensity = this.#blastAge < 0.25 ? 80 * (1 - this.#blastAge / 0.25) ** 2 : 0;
+    }
     for (let i = this.#flashes.length - 1; i >= 0; i--) {
       const f = this.#flashes[i]!;
       f.age += dt;

@@ -311,6 +311,16 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'squad', squad }));
   }
 
+  /** In a Battle Royale's Preparation: ready to drop (ignored outside one). */
+  ready(): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'ready' }));
+  }
+
+  /** The page has what the match needs on screen: the load gate lets this seat in. */
+  loaded(): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'loaded' }));
+  }
+
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));

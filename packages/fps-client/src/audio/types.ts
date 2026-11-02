@@ -53,7 +53,9 @@ export type SoundEventName =
   | 'chargeDisarmed' // the charge disarmed
   | 'ringHum' // one segment of the Ring's hum, from the point of the wall nearest the listener
   | 'ringCrackle' // a discharge along the Ring near the listener
-  | 'ringShift'; // the warning as the Ring starts to close (not placed in the world)
+  | 'ringShift' // the warning as the Ring starts to close (not placed in the world)
+  | 'prepDrone' // one segment of the Preparation's drone (intensity: how near the drop; not placed in the world)
+  | 'heartbeat'; // one beat of the Preparation's heartbeat (intensity: how near the drop; not placed in the world)
 
 /** Every world material has its own footsteps, impacts and casing bounces. */
 export type SurfaceMaterial = Material;
