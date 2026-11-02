@@ -35,6 +35,26 @@ describe('play report', () => {
     expect(report.botSeconds).toBe(55 * 60);
   });
 
+  it('keeps the Battle Royale process apart (ADR 0009): its seats are its own though ids repeat, and its restart ends only its own sessions', () => {
+    const royale = { process: 'royale' };
+    const log = [
+      line({ time: at(27, 10), event: 'serverStart', version: 'v2' }),
+      join(at(27, 10), 'p1', 'alice'),
+      line({ time: at(27, 10, 5), event: 'serverStart', version: 'v2', ...royale }),
+      join(at(27, 10, 5), 'p1', 'bob', royale),
+      // The Battle Royale process ended with bob still in it, and a fresh one started.
+      line({ time: at(27, 10, 15), event: 'serverStart', version: 'v2', ...royale }),
+      leave(at(27, 10, 30), 'p1', 'alice'),
+    ].join('\n');
+
+    const report = playReport(log);
+
+    expect(report.peakPeople).toBe(2);
+    expect(report.days).toEqual([{ day: '2026-10-27', sessions: 2, people: 2 }]);
+    // alice 30 min; bob from his join to the last line before his process restarted (10:05 to 10:05).
+    expect(report.peopleSeconds).toBe(30 * 60);
+  });
+
   it('leaves script players out of everything, and closes sessions a restart cut off at the last thing heard before it', () => {
     const log = [
       line({ time: at(26, 10), event: 'serverStart', version: 'v1.3.9' }),

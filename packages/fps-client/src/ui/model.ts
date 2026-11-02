@@ -22,6 +22,8 @@ export interface LobbyInfo {
   readonly lobbyMode?: string;
   readonly squadSize?: number;
   readonly royale?: boolean;
+  /** A Battle Royale process still warming up: it takes players once this is gone (ADR 0009). */
+  readonly starting?: boolean;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game', 'battle-royale': 'Battle Royale' };

@@ -28,11 +28,14 @@ export class EventLog {
   readonly #path: string | null;
   readonly #print: (line: string) => void;
   readonly #now: () => Date;
+  readonly #process: string | null;
   #failed = false;
   #waiting: string[] = [];
 
-  constructor(path: string | null, options: { print?: (line: string) => void; now?: () => Date } = {}) {
+  /** `process` names the server process on every line, where more than one shares the log (ADR 0009); absent for the main one. */
+  constructor(path: string | null, options: { print?: (line: string) => void; now?: () => Date; process?: string } = {}) {
     this.#path = path;
+    this.#process = options.process ?? null;
     this.#print = options.print ?? ((line) => console.log(line));
     this.#now = options.now ?? (() => new Date());
     if (path) {
@@ -45,7 +48,7 @@ export class EventLog {
   }
 
   write(entry: LoggedEvent): void {
-    this.#waiting.push(JSON.stringify({ time: this.#now().toISOString(), ...entry }));
+    this.#waiting.push(JSON.stringify({ time: this.#now().toISOString(), ...(this.#process ? { process: this.#process } : {}), ...entry }));
   }
 
   /** Writes out what's waiting, all at once. */

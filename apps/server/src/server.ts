@@ -3,6 +3,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { Duplex } from 'node:stream';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, decodeLargeNav, type Connection, type GameServerOptions, type NavGraph, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
@@ -48,6 +49,23 @@ export interface ServerOptions {
   readonly warmTicks?: number;
   /** Ticks of at least this many milliseconds are logged with what they did; SLOW_TICK_MS by default. */
   readonly slowTickMs?: number;
+  /** Battle Royale in a process of its own, behind `/royale/status` and `/royale/ws` (ADR 0009). */
+  readonly royale?: RoyaleRoute;
+  /**
+   * This is that Battle Royale process: it listens on no port and serves no
+   * files, taking its players' connections from the server that holds the
+   * public address. Its event log lines say so.
+   */
+  readonly handedSockets?: boolean;
+}
+
+/** What the server holding the public address needs of the Battle Royale process (`RoyaleProcess`). */
+export interface RoyaleRoute {
+  /** The Battle Royale lobby's status, starting the process if need be; null while it can't start. */
+  status(): object | null;
+  /** People in the Battle Royale now. */
+  readonly players: number;
+  upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void;
 }
 
 export interface RunningServer {
@@ -62,9 +80,13 @@ export interface RunningServer {
   close(): Promise<void>;
 }
 
-/** The map Battle Royale plays on, and where the build leaves its bots' nav (`MapDefinition.navFile`). */
-const ROYALE_MAP: MapId = 'zero-island';
+/** Where the build leaves Zero Island's bots' nav (`MapDefinition.navFile`). */
 const ISLAND_NAV = 'nav/zero-island.nav';
+
+/** Whether a server with these options can hold a Battle Royale: bots on, and the island's nav built. */
+export function royaleAvailable(options: Pick<ServerOptions, 'staticDir' | 'maxBotsPerTeam'>): boolean {
+  return (options.maxBotsPerTeam ?? 0) > 0 && existsSync(join(resolve(options.staticDir), ISLAND_NAV));
+}
 
 /** Largest WebSocket frame accepted, in bytes; the game server checks message sizes again. */
 const MAX_PAYLOAD = 16 * 1024;
@@ -378,20 +400,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const map = buildMapById(options.map);
   const first = serverMap(map);
   // Every lobby map is built up front, so a switch at a match's start costs nothing.
+  // Zero Island isn't among them: Battle Royale plays in a process of its own (ADR 0009).
   const others = LOBBY_MAPS.includes(options.map) ? LOBBY_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
-  // Zero Island too, for the Battle Royale screen, wherever its bots' nav was built: it plays only Battle Royale,
-  // so the team modes' lobby never offers it. (Ticket 13 moves Battle Royale to a process of its own.)
-  if (options.map !== ROYALE_MAP && maxBots > 0 && existsSync(join(root, ISLAND_NAV))) {
-    try {
-      others.push(serverMap(buildMapById(ROYALE_MAP)));
-    } catch (error) {
-      // A nav built for another island: the team modes still play, and Battle Royale waits for a build that matches.
-      console.error('Zero Island is left out:', error instanceof Error ? error.message : error);
-    }
-  }
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
-  const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});
+  const log = new EventLog(options.eventLog ?? null, { ...(options.printLog ? { print: options.printLog } : {}), ...(options.handedSockets ? { process: 'royale' } : {}) });
   log.write({ event: 'serverStart', version: options.version });
   log.flush();
   const config: GameServerOptions = {
@@ -426,12 +439,24 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version, protocol: PROTOCOL_VERSION }));
+      // Everyone on the box, Battle Royale included: the updater waits for nobody before it restarts the container.
+      const royalePlayers = options.royale?.players ?? 0;
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount + royalePlayers, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version, protocol: PROTOCOL_VERSION, ...(options.royale ? { royalePlayers } : {}) }));
       return;
     }
     if (req.url === '/status') {
       // The lobby as the Play Online menu shows it, fetched before joining.
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(game.status()));
+      return;
+    }
+    if (req.url === '/royale/status' && options.royale) {
+      // The Battle Royale screen's: asking starts the process, so it's warm by the time anyone joins.
+      const royale = options.royale.status();
+      res.writeHead(royale ? 200 : 503, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(royale ?? { status: 'starting soon' }));
+      return;
+    }
+    if (options.handedSockets) {
+      res.writeHead(404).end();
       return;
     }
     serveStatic(root, req, res).catch(() => res.destroy());
@@ -441,7 +466,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   http.on('upgrade', (req, socket, head) => {
     // Http stops watching the socket here: a reset before ws takes it over would otherwise end the process.
     socket.on('error', () => socket.destroy());
-    if ((req.url ?? '/').split('?')[0] !== '/ws' || !sameOrigin(req)) {
+    const path = (req.url ?? '/').split('?')[0];
+    if (path === '/royale/ws' && options.royale && sameOrigin(req)) {
+      // The Battle Royale process takes the connection whole, and holds its own per-address limit.
+      options.royale.upgrade(req, socket, head);
+      return;
+    }
+    if (path !== '/ws' || !sameOrigin(req)) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
@@ -497,8 +528,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   };
   loop();
 
-  await new Promise<void>((done) => http.listen(options.port, options.host, done));
-  void precompress(root);
+  if (!options.handedSockets) {
+    await new Promise<void>((done) => http.listen(options.port, options.host, done));
+    void precompress(root);
+  }
   const address = http.address();
   const port = typeof address === 'object' && address ? address.port : options.port;
   return {
@@ -513,7 +546,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       log.flush();
       for (const client of wss.clients) client.terminate();
       wss.close();
-      await new Promise<void>((done) => http.close(() => done()));
+      await new Promise<void>((done) => (http.listening ? http.close(() => done()) : done()));
     },
   };
 }

@@ -13,6 +13,8 @@ export default defineConfig({
       '/ws': { target: SERVER, ws: true },
       '/healthz': SERVER,
       '/status': SERVER,
+      // Battle Royale's process, behind the same server (ADR 0009).
+      '/royale': { target: SERVER, ws: true },
     },
   },
   // Relative asset paths: the same build works at the server's root and under GitHub Pages' /duty-shooter/.

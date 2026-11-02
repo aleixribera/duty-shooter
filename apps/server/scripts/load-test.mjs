@@ -7,6 +7,7 @@
 // the server's CPU and memory lines (`npm run load-test` builds it first).
 // TARGET=http://host:port loads a running server instead (the live lobby
 // through an SSH tunnel, say), where the host's own tools watch its CPU.
+// WS_PATH=/royale/ws joins that server's Battle Royale process instead of Play Online.
 // BOTS=n asks for n bots a side on top of the clients. The clients take
 // WebSocket compression when the server offers it, as browsers do
 // (DEFLATE=0 refuses it, to compare). NET=wide plays with the kilometre-wide
@@ -58,6 +59,8 @@ const clients = Number(process.argv[2] ?? 8);
 const seconds = Number(process.argv[3] ?? 40);
 const bots = process.env.BOTS === undefined ? undefined : Number(process.env.BOTS);
 const target = process.env.TARGET ?? null;
+/** `/royale/ws` reaches the Battle Royale process behind a server's public address (ADR 0009). */
+const wsPath = process.env.WS_PATH ?? '/ws';
 /** Usercmds in each message: one, as the game sends over TCP. */
 const resend = Number(process.env.RESEND ?? 1);
 const port = Number(process.env.PORT ?? 3999);
@@ -156,7 +159,7 @@ let shots = 0;
 let ended = false;
 let wireStart = [];
 for (let i = 0; i < clients; i++) {
-  const ws = new WebSocket(`${base.replace(/^http/, 'ws')}/ws`, { perMessageDeflate: process.env.DEFLATE !== '0' });
+  const ws = new WebSocket(`${base.replace(/^http/, 'ws')}${wsPath}`, { perMessageDeflate: process.env.DEFLATE !== '0' });
   let seq = 0;
   let yaw = Math.random() * 6;
   const pending = [];

@@ -6,6 +6,8 @@ interface LogLine {
   readonly name?: string;
   readonly bot?: boolean;
   readonly script?: boolean;
+  /** The server process that wrote it, where it isn't the main one: `royale` (ADR 0009). */
+  readonly process?: string;
 }
 
 export interface PlayReport {
@@ -29,11 +31,13 @@ interface Session {
  * Reads the event log (one JSON object per line) into the play report.
  * Script players (smoke and load tests) are left out. Sessions a restart cut
  * off (no `leave` before the next `serverStart`) end at the last line before
- * the restart. Unreadable lines are skipped.
+ * the restart: the main process's restart ends every session (the container
+ * went), the Battle Royale process's only its own. Seat ids repeat between
+ * processes, so a session is known by both. Unreadable lines are skipped.
  */
 export function playReport(log: string): PlayReport {
   const days = new Map<string, { sessions: number; people: Set<string> }>();
-  let open = new Map<string, Session>();
+  const open = new Map<string, Session & { readonly process: string }>();
   let peak = 0;
   let matches = 0;
   let peopleSeconds = 0;
@@ -51,14 +55,19 @@ export function playReport(log: string): PlayReport {
     const line = parse(raw);
     if (!line) continue;
     const time = Date.parse(line.time);
+    const process = line.process ?? 'main';
     if (line.event === 'serverStart') {
-      for (const s of open.values()) close(s, lastTime ?? time);
-      open = new Map();
+      for (const [key, s] of open) {
+        if (process !== 'main' && s.process !== process) continue;
+        close(s, lastTime ?? time);
+        open.delete(key);
+      }
     } else if ((line.event === 'join' || line.event === 'leave') && line.id && !line.script) {
       const bot = line.bot === true;
+      const key = `${process}:${line.id}`;
       if (line.event === 'join') {
-        const session = { name: line.name ?? line.id, bot, start: time };
-        open.set(line.id, session);
+        const session = { name: line.name ?? line.id, bot, start: time, process };
+        open.set(key, session);
         if (!bot) {
           const day = line.time.slice(0, 10);
           const entry = days.get(day) ?? { sessions: 0, people: new Set<string>() };
@@ -68,10 +77,10 @@ export function playReport(log: string): PlayReport {
           peak = Math.max(peak, people());
         }
       } else {
-        const session = open.get(line.id);
+        const session = open.get(key);
         if (session) {
           close(session, time);
-          open.delete(line.id);
+          open.delete(key);
         }
       }
     } else if (line.event === 'matchEnd') matches += 1;

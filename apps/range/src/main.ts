@@ -372,9 +372,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /**
    * The Battle Royale screen: before joining, the server's state and the
    * Squad size to open its lobby with; joined, the server's Battle Royale
-   * lobby (updateLobby feeds it each frame). It plays on this page's own
-   * server for now (ticket 13 gives it a process of its own); Local bots wait
-   * for their worker (ticket 15).
+   * lobby (updateLobby feeds it each frame). It plays in the server's Battle
+   * Royale process, behind `/royale/` on the same address (ADR 0009); Local
+   * bots wait for their worker (ticket 15).
    */
   let royale: Omit<RoyaleView, 'session'> = { status: undefined, name: '', passphrase: false, joining: null, error: null, squads: 1 };
   /** The screen is up before (or while) joining, with no lobby yet. */
@@ -389,8 +389,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const askRoyale = () => {
     royale = { ...royale, status: undefined };
     showRoyale();
-    void lobbyStatus().then((status) => {
-      if (lobby?.kind === 'server') lobby.status = status;
+    // Asking starts the Battle Royale process if it isn't running, so it's warm by the time this player joins.
+    void lobbyStatus(ROYALE_STATUS).then((status) => {
       royale = { ...royale, status };
       showRoyale();
     });
@@ -411,7 +411,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
     royale = { ...royale, name, joining: 0, error: null };
     showRoyale();
-    void lobbyStatus().then(async (status) => {
+    void lobbyStatus(ROYALE_STATUS).then(async (status) => {
       if (attempt !== joinAttempt) return;
       if (!status || !royaleServer(status).join) {
         royale = { ...royale, status, joining: null };
@@ -431,10 +431,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       if (attempt !== joinAttempt) return;
       royale = { ...royale, joining: 2 };
       showRoyale();
+      // A Battle Royale process still warming up takes its players once it's ready: no sooner, so the socket never waits on it.
+      for (let tries = 0; status?.starting === true && tries < 60; tries++) {
+        await new Promise((done) => setTimeout(done, 500));
+        if (attempt !== joinAttempt) return;
+        status = (await lobbyStatus(ROYALE_STATUS)) ?? status;
+      }
       pendingSquads = royaleOpens(status) ? royale.squads : null;
       lobbyPage.invite = null;
       const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, mode: 'battle-royale' });
+      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/royale/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, mode: 'battle-royale' });
       // No pointer lock yet: the lobby comes first, and the match takes the pointer when it starts.
       driver = next;
       game.setDriver(next);
@@ -871,16 +877,19 @@ function hasSeat(): boolean {
   }
 }
 
+/** The Battle Royale process's lobby status, which the server holding the page answers for it (ADR 0009). */
+const ROYALE_STATUS = '/royale/status';
+
 /** The lobby status, a second time if the first try fails: one lost request is not a server that is down. */
-async function lobbyStatus(): Promise<LobbyInfo | null> {
-  return (await askLobbyStatus()) ?? (await askLobbyStatus());
+async function lobbyStatus(path = '/status'): Promise<LobbyInfo | null> {
+  return (await askLobbyStatus(path)) ?? (await askLobbyStatus(path));
 }
 
 /** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
-async function askLobbyStatus(): Promise<LobbyInfo | null> {
+async function askLobbyStatus(path: string): Promise<LobbyInfo | null> {
   try {
     // A slow page (a busy main thread) still gets its answer; a server that is down fails fast anyway.
-    const res = await fetch('/status', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const res = await fetch(path, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
     return res.ok ? ((await res.json()) as LobbyInfo) : null;
   } catch {
     return null;

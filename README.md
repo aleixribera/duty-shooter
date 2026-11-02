@@ -35,7 +35,7 @@ To play online locally:
    node apps/server/dist/main.js
    ```
 
-   That runs a public lobby. The host picks the map and mode in the lobby; the environment sets where it starts and its limits. When the build left Zero Island's bot nav (`nav/zero-island.nav`) and bots are on, the server also holds the island for the main menu's **Battle Royale** screen: a Battle Royale lobby opens on it when someone asks for one on an empty server, and the server goes back to its own mode once everyone leaves. All are optional:
+   That runs a public lobby. The host picks the map and mode in the lobby; the environment sets where it starts and its limits. When the build left Zero Island's bot nav (`nav/zero-island.nav`) and bots are on, the main menu's **Battle Royale** screen plays in a process of the server's own (ADR 0009): the server starts it, from the same file, the first time the screen asks for it, hands it the players' connections under `/royale/`, and stops it after 3 minutes empty. Play Online plays on meanwhile. All are optional:
 
    | Variable | Default | |
    | --- | --- | --- |
@@ -68,7 +68,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - *dev* `?botmap=crash` selects Crash in Bot Match when it opens.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
-- *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`); a production build always does.
+- *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`, `/royale/`); a production build always does.
 - `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment.
 - `?webgl` forces the WebGL2 fallback.
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
@@ -164,7 +164,7 @@ Each map's lighting (lightmaps and light probes) is baked on the CPU by a Vite p
 
 ### Status endpoint
 
-The server answers `GET /status` with the lobby's map, mode, players, capacity, bots, humans vs bots and match phase, which the Play Online tile shows, and the mode its lobby is set for next, the Squad size and whether it holds a Battle Royale map, which the Battle Royale screen shows, and `GET /healthz` with its health, version and protocol.
+The server answers `GET /status` with the lobby's map, mode, players, capacity, bots, humans vs bots and match phase, which the Play Online tile shows, and `GET /healthz` with its health, version, protocol and the people playing (`players`, Battle Royale's included, and `royalePlayers`). `GET /royale/status` is the Battle Royale process's lobby in the same shape, for the Battle Royale screen: `starting: true` while that process warms up, `royale: false` on a server without the island, and a 503 for 5 s after it crashed. Asking for it starts the process.
 
 ## Deploy
 

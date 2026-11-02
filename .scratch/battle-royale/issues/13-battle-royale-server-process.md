@@ -1,6 +1,6 @@
 # Battle Royale runs in its own server process
 
-Status: open
+Status: claimed
 Blocked by: 07
 
 Spec: `../spec.md`

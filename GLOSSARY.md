@@ -132,6 +132,9 @@ The seats playing together in a Battle Royale: one (Solos), two (Duos) or three 
 **Battle Royale screen**:
 Where a Battle Royale is set up, reached from the main menu: where it plays (the server; Local bots once they have their own thread), the Squad size, your Squad's seats and the other Squads, the server's state in one line, and Start. Joining an empty server makes you the lobby's host, with the Squad size you picked. It replaces the lobby page for a Battle Royale.
 
+**Battle Royale process**:
+The OS process a server's Battle Royale plays in, beside the one that holds the public address and plays the team modes (ADR 0009). It starts when the Battle Royale screen first asks for it, takes its players' connections whole, and stops after 3 minutes empty; if it crashes, only its own match ends.
+
 **Bot seat**:
 A seat in a Squad with no person in it on the Battle Royale screen, drawn dashed: a bot takes it when the match starts, unless a friend joins first.
 
