@@ -25,12 +25,14 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    mem_limit: 512m
+    # Play Online and a Battle Royale's own process together peaked at 582 MiB with no
+    # limit (12 people in Play Online, a 60-seat Battle Royale; ticket 13, ADR 0009).
+    mem_limit: 1g
     # The 60 Hz loop must never wait on the disk or on the box's other work: none
     # of its memory goes to swap (the server swapped gigabytes while agent sessions
     # ran there), and it takes CPU first when the services, a transcription or a
     # test run want all four cores (8192 shares became cgroup weight 532 there, against 100).
-    memswap_limit: 512m
+    memswap_limit: 1g
     cpu_shares: 8192
     logging:
       driver: json-file

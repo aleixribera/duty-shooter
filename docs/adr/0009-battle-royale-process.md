@@ -21,7 +21,7 @@ Rejected: a second container (a second port and route, or a proxy in front, for 
 ## Consequences
 
 - Play Online and a Battle Royale play at the same time. `/status` is Play Online's alone and never names Zero Island.
-- Memory: the main process sits at about 130 to 145 MB (most of it the page's precompressed files), and the child adds the island, its nav and a 60-seat match. The measured peak and the container limit it set are in `docs/deploy.md` ("Hardening").
+- Memory: the main process sits at about 130 to 145 MB idle (most of it the page's precompressed files), and the child adds the island, its nav and a 60-seat match. Measured on the home server with no limit, Play Online with 12 scripted players and a Battle Royale with 2 and 58 bots at once peaked at 582 MiB for the container, about 240 MB and 415 MB for the two processes, so the container's limit went from 512 MB to 1 GB (`docs/deploy.md`, "Hardening").
 - A Battle Royale's first player waits for the child's start and warm-up, about 6 to 9 s, while the page builds the island anyway: on this PC the Battle Royale screen to its lobby took 8.7 s, against 4.9 s in ticket 12 with no warm-up at all.
 - `MODE=battle-royale` on its own still runs a Battle Royale server alone, which the load test and the gate use. `WS_PATH=/royale/ws` points the load test at a main server's Battle Royale.
 - Local bots (ticket 15) run the same server code in a Web Worker on the page: nothing here.
