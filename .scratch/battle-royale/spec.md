@@ -26,7 +26,7 @@ The UI was built for short arena matches. It reads as a functional tool, and the
 - **Squads:** Solos, Duos and Trios from the first release. Duos and Trios can be downed and revived.
 - **Where it runs:** on the owner's home server for friends, or fully local in the browser against 59 bots. Both use the same screen and the same rules, with a **Server / Local bots** selector. The bot count is never lowered: performance has to be made to work.
 - **The island:** six regions in realistic style at permanent dusk: Ground Zero, The Dustlands, Frostbite Peaks, Mutant Jungle, Neon City and Rogue Harbor. All of it is newly built. Old maps may donate assets but not layouts.
-- **The moment before:** a 30-second Preparation screen that builds tension, ending in a camera dive to your spawn.
+- **The moment before:** a 20-second Preparation inside the live game, with the loadout selector over the 3D world, building tension and ending in a camera dive to your spawn.
 - **The UI:** the whole interface is redesigned to a new, higher standard, written down in `DESIGN.md`.
 - **Delivery:** first a playable, nearly empty island with the complete rules, pushed to `main`. Then each region is finished and pushed one at a time.
 
@@ -51,7 +51,7 @@ The whole thing costs €0 a month and runs on the existing server.
 
 ### Preparation
 
-13. As a player, I want a 30-second Preparation screen after the host presses Start, so that the match starts with an event rather than a menu.
+13. As a player, I want a 20-second Preparation in the game itself after the host presses Start, so that the match starts with an event rather than a menu.
 14. As a player, I want to pick my loadout on that screen, so that I commit to my kit before I drop in.
 15. As a player, I want my last loadout kept if I don't choose, so that I'm never left unarmed or forced to hurry.
 16. As a player, I want the screen to end early when everyone is ready, so that nobody waits for nothing.
@@ -99,6 +99,11 @@ The whole thing costs €0 a month and runs on the existing server.
 49. As the winner, I want the nuke ending, so that a win feels enormous.
 50. As a dropped player, I want to reconnect to my seat, so that a bad connection doesn't end my match.
 51. As a player, I want to return to the Battle Royale screen with my squad after a match, so that we can go again quickly.
+
+### Spawns and spectating in every mode
+
+88. As a player on a normal map with bots or online, I want to spawn in different places, so that a match doesn't start the same way every time.
+89. As a spectator in any mode, I want to switch between players, see who I'm watching with their health and weapon, and follow them smoothly, so that watching is worth doing.
 
 ### Bots
 
@@ -270,7 +275,7 @@ Update stale entries as they're touched, including the Charge-only spectator and
 
 - **Main menu:** Play Online, Battle Royale, Bot Match, Practice Range, Settings. Update the rule in `AGENTS.md` that lists the menu.
 - **Battle Royale screen:** holds the Server / Local bots selector, the Solos / Duos / Trios picker, the Squad slots with friends and bot fills, connection state and Start. Battle Royale isn't in the team-mode picker or in Bot Match.
-- **Spectating and the map** are shared HUD parts, available to other modes only if a later ticket wants them.
+- **The map** is a shared HUD part, available to other modes only if a later ticket wants it. **Spectating** is shared by every mode that has it (see ticket 32).
 
 ### Preparation
 
@@ -279,9 +284,9 @@ The default answer would be a timed loadout menu. This one is staged instead:
 1. Dark, with the island in real 3D from above as the Ring ignites around it.
 2. The player's Squad lit in the foreground, using the real soldier models, with the loadout picker alongside.
 3. A low drone and a heartbeat rising, with "60 ALIVE" held on screen.
-4. In the last 5 seconds the camera dives to the player's spawn and control snaps to them.
+4. In the last 5 of the 20 seconds the camera dives to the player's spawn and control snaps to them.
 
-Timed at 30 s, ending early when everyone is ready, keeping the last loadout otherwise. The screen has to run on the integrated-graphics target. This is the deliberate exception to "no screen fades" in `DESIGN.md`.
+Owner's change: the loadout selector is in the game, over the live 3D scene, not a separate menu page, with a 20 s visible timer that includes the dive. It ends early when everyone is ready and keeps the last loadout otherwise. It has to run on the integrated-graphics target. This is the deliberate exception to "no screen fades" in `DESIGN.md`.
 
 ### UI redesign
 
