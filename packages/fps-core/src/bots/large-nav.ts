@@ -1,6 +1,7 @@
 import { raycastWorld } from '../combat/projectiles';
 import type { Vec3 } from '../math';
 import { hullBlocked, standingHeight, sweepY, type Hull } from '../movement/collision';
+import { hashString } from '../random';
 import { STATS } from '../stats';
 import type { World } from '../world';
 import { MinHeap, SIGHTLINE_MAX, climbable, climbs, insidePolygon, restingHeight, type NavGraph, type NavIndex, type NavLink, type NavLinkKind, type NavNode } from './nav';
@@ -48,6 +49,8 @@ export interface PackedNav {
   readonly columns: number;
   readonly rows: number;
   readonly regions: number;
+  /** The fingerprint of the world it was built from, so a server can tell a stale file. */
+  readonly world: number;
   /** Per chunk, row by row: where its nodes start (one more entry than chunks). */
   readonly chunkStart: Uint32Array;
   /** x, y, z per node. */
@@ -447,6 +450,7 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
     clusterTo: between.to,
     clusterCost: between.cost,
     regionRoutes: regionRoutes(clusters, regions, hubs, clusterRegion, between),
+    world: worldFingerprint(world),
   };
   return largeNav(packed);
 }
@@ -763,8 +767,8 @@ class Index implements NavIndex {
 }
 
 const MAGIC = 0x4e565344; // 'DSVN', little-endian.
-const VERSION = 1;
-const HEADER = 9;
+const VERSION = 2;
+const HEADER = 10;
 
 /** The arrays in the order the file holds them. */
 const SECTIONS = ['chunkStart', 'positions', 'flags', 'sightlines', 'sightYaws', 'linkStart', 'linkTo', 'linkCost', 'linkKinds', 'clusterOf', 'clusterRegion', 'clusterNode', 'clusterStart', 'clusterTo', 'clusterCost', 'regionRoutes'] as const;
@@ -787,6 +791,7 @@ export function encodeLargeNav(nav: LargeNav): Uint8Array {
   floats[6] = p.chunk;
   floats[7] = p.originX;
   floats[8] = p.originZ;
+  head[9] = p.world;
   sizes.forEach((n, i) => (head[HEADER + i] = n));
   let at = (HEADER + SECTIONS.length) * 4;
   for (const s of SECTIONS) {
@@ -796,8 +801,13 @@ export function encodeLargeNav(nav: LargeNav): Uint8Array {
   return bytes;
 }
 
-/** Loads the bytes `encodeLargeNav` wrote. */
-export function decodeLargeNav(data: Uint8Array): LargeNav {
+/** A number that changes with what a map's nav is built from: its solids and its ground. */
+function worldFingerprint(world: World): number {
+  return (hashString(JSON.stringify(world.solids)) ^ (world.terrain?.fingerprint() ?? 0)) >>> 0;
+}
+
+/** Loads the bytes `encodeLargeNav` wrote; given the `world` they're for, refuses a file built from anything else. */
+export function decodeLargeNav(data: Uint8Array, world?: World): LargeNav {
   // Typed views need the arrays on a boundary from the buffer's start, which a file read needn't give.
   const bytes = data.byteOffset % 4 === 0 ? data : new Uint8Array(data);
   const head = new Uint32Array(bytes.buffer, bytes.byteOffset, HEADER + SECTIONS.length);
@@ -822,7 +832,9 @@ export function decodeLargeNav(data: Uint8Array): LargeNav {
     const s = next(i);
     return new Uint8Array(bytes.buffer, s.offset, s.size);
   };
+  if (world && head[9] !== worldFingerprint(world)) throw new Error('This nav data is stale: the map changed after it was built. Rebuild the range app.');
   return largeNav({
+    world: head[9]!,
     columns: head[3]!,
     rows: head[4]!,
     regions: head[5]!,

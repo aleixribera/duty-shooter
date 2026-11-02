@@ -171,8 +171,7 @@ function pickPrimary(style: BotStyle, roll: number): WeaponId {
 export function botProfile(name: string): BotProfile {
   const seed = hashString(name);
   // The listed names take the styles in turn, so any handful of them is a mix; other names by their hash.
-  const listed = BOT_NAMES.indexOf(name);
-  const style = BOT_STYLES[listed >= 0 ? listed % BOT_STYLES.length : Math.floor(noise(seed, 0) * BOT_STYLES.length)]!;
+  const style = listedStyle(name) ?? BOT_STYLES[Math.floor(noise(seed, 0) * BOT_STYLES.length)]!;
   const ranges = { ...COMMON, ...STYLES[style] };
   const keys = Object.keys(COMMON) as Tunable[];
   const values = Object.fromEntries(
@@ -185,10 +184,11 @@ export function botProfile(name: string): BotProfile {
   return { name, style, loadout, ...values, reloadBelow: Math.round(values.reloadBelow) };
 }
 
+const LISTED_STYLES = new Map<string, BotStyle>(BOT_NAMES.map((name, i) => [name, BOT_STYLES[i % BOT_STYLES.length]!]));
+
 /** The style a listed name plays, or null for any other name. */
 function listedStyle(name: string): BotStyle | null {
-  const i = BOT_NAMES.indexOf(name);
-  return i < 0 ? null : BOT_STYLES[i % BOT_STYLES.length]!;
+  return LISTED_STYLES.get(name) ?? null;
 }
 
 /**
@@ -197,9 +197,13 @@ function listedStyle(name: string): BotStyle | null {
  * mix of styles; numbered once they run out.
  */
 export function botName(taken: ReadonlySet<string>, seed: number): string {
-  const used = (style: BotStyle) => [...taken].filter((n) => listedStyle(n) === style).length;
-  const fewest = Math.min(...BOT_STYLES.map(used));
-  const free = BOT_NAMES.filter((n) => !taken.has(n) && used(listedStyle(n)!) === fewest);
+  const used = new Map<BotStyle | null, number>();
+  for (const n of taken) {
+    const style = listedStyle(n);
+    used.set(style, (used.get(style) ?? 0) + 1);
+  }
+  const fewest = Math.min(...BOT_STYLES.map((style) => used.get(style) ?? 0));
+  const free = BOT_NAMES.filter((n) => !taken.has(n) && (used.get(listedStyle(n)) ?? 0) === fewest);
   if (free.length) return free[Math.floor(noise(seed, 7) * free.length)]!;
   for (let i = 2; ; i++) {
     const n = `${BOT_NAMES[seed % BOT_NAMES.length]}${i}`;

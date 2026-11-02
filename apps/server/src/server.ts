@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, decodeLargeNav, type Connection, type GameServerOptions, type NavGraph, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
-import { MODE_IDS, type ModeId } from '@duty-shooter/fps-core/modes';
+import { MODE_IDS, type ModeId, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { TickCosts, type TickWindow } from './tick-costs';
@@ -28,6 +28,8 @@ export interface ServerOptions {
   readonly map: MapId;
   /** Seconds per match in every mode, for short matches; each mode's own limit when absent. */
   readonly timeLimit?: number;
+  /** Seats a Squad in a Battle Royale: 1, 2 or 3; Solos when absent. */
+  readonly squadSize?: SquadSize;
   /** Bots a side the lobby fills to while anyone plays (0: none unless a first joiner asks); none when absent. */
   readonly botsPerTeam?: number;
   /** The most bots a side a first joiner may ask for; 0 or absent turns bots off. Only on maps with a nav graph. */
@@ -346,7 +348,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (def.navFile) {
       const file = join(root, def.navFile);
       if (!existsSync(file)) throw new Error(`${file} is missing: build the range app first.`);
-      return decodeLargeNav(readFileSync(file));
+      return decodeLargeNav(readFileSync(file), world);
     }
     return def.nav ? buildNavGraph(world, def.nav) : null;
   };
@@ -390,6 +392,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       ...(options.timeLimit === undefined ? {} : { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } }),
       // A load test measures play: a kill limit would end it partway and measure the lobby.
       ...(options.wideNet ? { ffa: { killLimit: null, ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) } } : {}),
+      battleRoyale: { ...(options.squadSize === undefined ? {} : { squadSize: options.squadSize }), ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) },
     },
     ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
@@ -496,13 +499,17 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   const maxPlayers = Number(env['MAX_PLAYERS'] ?? DEFAULT_MAX_PLAYERS);
   // NET=wide stands for a match on the wide map, with that match's own limits.
   const wide = env['NET'] === 'wide';
-  const mostPlayers = wide ? WIDE_SCALE.seats : MATCH_SCALES.tdm.seats;
-  const mostBots = wide ? WIDE_SCALE.botsPerTeam : MAX_BOTS_PER_TEAM;
+  const royale = env['MODE'] === 'battle-royale';
+  const mostPlayers = wide || royale ? WIDE_SCALE.seats : MATCH_SCALES.tdm.seats;
+  const mostBots = wide || royale ? WIDE_SCALE.botsPerTeam : MAX_BOTS_PER_TEAM;
   if (!Number.isInteger(maxPlayers) || maxPlayers < 1 || maxPlayers > mostPlayers) throw new Error(`MAX_PLAYERS must be an integer from 1 to ${mostPlayers}.`);
   const mode = env['MODE'] ?? 'tdm';
   if (!(MODE_IDS as readonly string[]).includes(mode)) throw new Error(`MODE must be one of ${MODE_IDS.join(', ')}.`);
-  const map = env['MAP'] ?? 'survival-town';
+  const map = env['MAP'] ?? (royale ? 'zero-island' : 'survival-town');
   if (!(MAP_IDS as readonly string[]).includes(map)) throw new Error(`MAP must be one of ${MAP_IDS.join(', ')}.`);
+  if (royale && map !== 'zero-island') throw new Error('Battle Royale plays only on zero-island.');
+  const squads = env['SQUADS'] ? Number(env['SQUADS']) : undefined;
+  if (squads !== undefined && squads !== 1 && squads !== 2 && squads !== 3) throw new Error('SQUADS must be 1, 2 or 3.');
   const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
   if (timeLimit !== undefined && !(Number.isFinite(timeLimit) && timeLimit >= 10 && timeLimit <= 3600)) throw new Error('TIME_LIMIT must be a number of seconds from 10 to 3600.');
   const maxBotsPerTeam = Number(env['MAX_BOTS_PER_TEAM'] || MAX_BOTS_PER_TEAM);
@@ -521,10 +528,12 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     mode: mode as ModeId,
     map: map as MapId,
     ...(timeLimit === undefined ? {} : { timeLimit }),
+    ...(squads === undefined ? {} : { squadSize: squads }),
     botsPerTeam,
     maxBotsPerTeam,
     ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),
-    ...(wide ? { wideNet: true, warmTicks: env['WARM_TICKS'] ? Number(env['WARM_TICKS']) : WIDE_WARM_TICKS } : {}),
+    ...(wide ? { wideNet: true } : {}),
+    ...(wide || royale ? { warmTicks: env['WARM_TICKS'] ? Number(env['WARM_TICKS']) : WIDE_WARM_TICKS } : {}),
     ...(loadTestSockets === undefined ? {} : { loadTestSockets }),
   };
 }

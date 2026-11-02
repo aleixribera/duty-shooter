@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Bot, MATCH_SCALES, MODE_IDS, Simulation, WIDE_MAP, WIDE_SCALE, botProfile, box, buildNavGraph, createWorld, type BotView, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type TickOutput, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
+import { Bot, LOBBY_MODES, MATCH_SCALES, Simulation, WIDE_MAP, WIDE_SCALE, botProfile, box, buildNavGraph, createWorld, type BotView, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type TickOutput, type UserCmd, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { ticks } from './support/movement';
 
@@ -10,7 +10,7 @@ const wideNav = buildNavGraph(createWorld([GROUND]), { area: area(300), spacing:
 const SPAWNS: readonly SpawnPoint[] = [[-20, -20], [20, -20], [-20, 20], [20, 20]].map(([x, z]) => ({ position: [x!, 0, z!], yaw: 0 }));
 
 describe('seat and bot limits', () => {
-  it.each(MODE_IDS)('%s keeps its 32 seats and 6 bots a side', (mode) => {
+  it.each(LOBBY_MODES)('%s keeps its 32 seats and 6 bots a side', (mode) => {
     expect(MATCH_SCALES[mode]).toMatchObject({ seats: 32, botsPerTeam: 6 });
     const m = createNetworkedMatch({ solids: [GROUND], spawns: SPAWNS, mode, maxPlayers: 60, bots: { nav: smallNav, perTeam: 3, maxPerTeam: 30 } });
     expect(m.server.maxPlayers).toBe(32);

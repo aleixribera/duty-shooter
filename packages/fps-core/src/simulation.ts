@@ -165,7 +165,7 @@ export type SimEvent =
       readonly type: 'kill';
       readonly killer: PlayerId | null;
       readonly victim: PlayerId;
-      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade';
+      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring';
       readonly zone: HitZone | null;
       /** The weapon that did it (null for a fall). */
       readonly weapon: KillWeapon | null;
@@ -208,6 +208,10 @@ export interface SimulationOptions {
   readonly canDamage?: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
   /** Whether a player's own grenade may hurt them now (the server's intermission says no). Defaults to always. */
   readonly selfDamage?: (victim: PlayerInfo) => boolean;
+  /** HP a second the ground at `position` takes from whoever stands there (the Ring). Defaults to none. */
+  readonly hazard?: (position: Vec3) => number;
+  /** Frags a fresh set of weapons comes with; the usual allowance by default. */
+  readonly frags?: () => number;
   /**
    * Prediction only (a client's local copy): thrown grenades leave the hand
    * but aren't simulated, since the server's snapshots carry the real ones.
@@ -285,12 +289,12 @@ function cmdList(sent: UserCmd | readonly UserCmd[] | undefined): readonly (User
 }
 
 /** A fresh set of weapons for `loadout`: the primary in hand and drawing, the secondary put away, grenades full. */
-function arms(loadout: Loadout): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades'> {
+function arms(loadout: Loadout, frags: number): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades'> {
   return {
     weapons: [createWeaponState(loadout.primary), createWeaponState(loadout.secondary)],
     slot: 0,
     loadout,
-    grenades: loadout.grenade ? STATS.grenade.perLife.value : 0,
+    grenades: loadout.grenade ? frags : 0,
   };
 }
 
@@ -344,11 +348,15 @@ export class Simulation {
   /** The outputs as of the last change; null once something has changed. */
   #output: TickOutput | null = null;
   readonly #canDamage: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
+  readonly #hazard: ((position: Vec3) => number) | null;
+  readonly #fragsOption: (() => number) | null;
 
   constructor(world: World, options: SimulationOptions = {}) {
     this.#world = world;
     this.#canDamage = options.canDamage ?? ((a, v) => a.id !== v.id);
     this.#selfDamage = options.selfDamage ?? (() => true);
+    this.#hazard = options.hazard ?? null;
+    this.#fragsOption = options.frags ?? null;
     this.#predictOnly = options.predictOnly ?? false;
   }
 
@@ -387,7 +395,7 @@ export class Simulation {
       team: spawn.team,
       kind: spawn.dummy ? 'dummy' : 'player',
       move: createMoveState(spawn.position, yaw),
-      ...arms(spawn.loadout ?? DEFAULT_LOADOUT),
+      ...arms(spawn.loadout ?? DEFAULT_LOADOUT, this.#frags()),
       cmdYaw: yaw,
       cmdPitch: pitch,
       viewYaw: 0,
@@ -427,7 +435,7 @@ export class Simulation {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
     p.move = createMoveState(position, yaw);
-    Object.assign(p, arms(loadout ?? p.loadout));
+    Object.assign(p, arms(loadout ?? p.loadout, this.#frags()));
     p.grenade = null;
     p.viewYaw = 0;
     p.viewPitch = 0;
@@ -445,7 +453,7 @@ export class Simulation {
   equip(id: PlayerId, loadout: Loadout): void {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
-    Object.assign(p, arms(loadout));
+    Object.assign(p, arms(loadout, this.#frags()));
     p.grenade = null;
     this.#output = null;
   }
@@ -514,6 +522,7 @@ export class Simulation {
       }
       for (const cmd of cmdList(cmds[player.id])) this.#stepPlayer(player, cmd, spawned, melees);
     }
+    this.#hurtByHazard();
     this.#regenerate();
     this.#record();
     for (const m of melees) this.#resolveMelee(m.attacker, m.rewind);
@@ -733,6 +742,21 @@ export class Simulation {
     d.move.movement = rail.speed > STATS.movement.walkSpeed.value + 1e-6 ? 'sprint' : 'walk';
   }
 
+  /** What the mode's hazard takes this tick. A blow like any other, so it holds regeneration back too. */
+  #hurtByHazard(): void {
+    if (!this.#hazard) return;
+    for (const p of this.#players.values()) {
+      if (p.dummy || p.health <= 0) continue;
+      const rate = this.#hazard(p.move.position);
+      if (rate > 0) this.#damage(p, rate * TICK_SECONDS, null, 'ring', null, null);
+    }
+  }
+
+  /** Frags a fresh set of weapons comes with. */
+  #frags(): number {
+    return this.#fragsOption?.() ?? STATS.grenade.perLife.value;
+  }
+
   /** Health regenerates to full over the regen duration, starting the regen delay after the last damage. */
   #regenerate(): void {
     const time = this.time;
@@ -904,7 +928,7 @@ export class Simulation {
   }
 
   /** Applies damage; returns true if it killed. Emits the kill event. */
-  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall' | 'grenade', zone: HitZone | null, weapon: KillWeapon | null): boolean {
+  #damage(victim: PlayerState, amount: number, attacker: PlayerId | null, cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring', zone: HitZone | null, weapon: KillWeapon | null): boolean {
     if (victim.health <= 0) return false;
     victim.health = Math.max(0, victim.health - amount);
     victim.lastDamage = this.time;

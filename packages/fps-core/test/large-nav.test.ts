@@ -191,4 +191,10 @@ describe('A large map: as data', () => {
     wrong[0] = 0;
     expect(() => decodeLargeNav(wrong)).toThrow(/nav/i);
   });
+
+  it('takes a file built from the world it is given, and refuses one built from another', () => {
+    expect(decodeLargeNav(bytes, world).packed.positions).toEqual(large.packed.positions);
+    const moved = createWorld([...world.solids, box({ min: [0, 0, 0], max: [1, 1, 1], material: 'concrete' })], { terrain: terrain() });
+    expect(() => decodeLargeNav(bytes, moved)).toThrow(/stale/);
+  });
 });

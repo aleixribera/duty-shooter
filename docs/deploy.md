@@ -74,7 +74,7 @@ npm run build -w @duty-shooter/server
 remote-test "NET=wide MODE=ffa BOTS=29 PORT=3991 node apps/server/scripts/load-test.mjs 2 92"
 ```
 
-`BOTS` is per side, so 29 and 2 clients is 60 seats. The tick line counts whole 10 s windows after the first; the first window, which holds the match's start, is printed apart. Every run from `remote-test` shares its cap of 1.5 CPUs with the server under test, and a server stalled by the cap reports 30 to 60 ms ticks that are the cap's. Watch `throttled_usec` in `remote-tests.slice/cpu.stat`: 60 clients with compression need more than the cap has. `DEFLATE=0` fits under it, and compression runs off the game thread.
+`BOTS` is per side, so 29 and 2 clients is 60 seats. For Battle Royale itself, `MODE=battle-royale STATIC_DIR=$PWD/apps/range/dist` (it seats 60 whatever the clients, without `NET=wide`) with `SETTLE=25` waits in the lobby first and prints every window from the start on: without it the opening lands in V8's first seconds, whose collections run to 45 ms whatever the tick does. The tick line counts whole 10 s windows after the first; the first window, which holds the match's start, is printed apart. Every run from `remote-test` shares its cap of 1.5 CPUs with the server under test, and a server stalled by the cap reports 30 to 60 ms ticks that are the cap's. Watch `throttled_usec` in `remote-tests.slice/cpu.stat`: 60 clients with compression need more than the cap has. `DEFLATE=0` fits under it, and compression runs off the game thread.
 
 ## The event log and the play report
 

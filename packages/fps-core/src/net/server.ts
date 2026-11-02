@@ -2,19 +2,23 @@ import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/
 import { planCharge, planOutposts } from '../bots/planner';
 import type { NavGraph } from '../bots/nav';
 import { botName, botProfile } from '../bots/profile';
+import { BattleRoyale, type BattleRoyaleOptions } from '../modes/battle-royale';
 import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
-import { MODE_IDS, teamMode, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
+import { LOBBY_MODES, teamMode, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
+import { playGround } from '../modes/ground';
 import { MATCH_SCALES, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
 import { hashString } from '../random';
 import { SeatIndex } from '../seats';
-import { Simulation, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TeamId, type TickOutput } from '../simulation';
+import { STATS } from '../stats';
+import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type PlayerSpawn, type PlayerState, type SimEvent, type TeamId, type TickOutput } from '../simulation';
 import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
+import type { Vec3 } from '../math';
 import type { World } from '../world';
 import { STICKY_FIELDS, joinSnapshot, packEvent, packGrenades, packPlayer, packValue, type StickyField } from './codec';
 import {
@@ -61,7 +65,7 @@ export interface GameServerOptions {
   /** The mode the server starts in. Defaults to team deathmatch. */
   readonly mode?: ModeId;
   /** Limits for each mode; by default TDM is 75 kills, FFA 30, Outposts 200 points, gun game 20 kills up its ladder, all 600 s, and Charge first to 4 rounds. */
-  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions; readonly gungame?: GunGameOptions };
+  readonly modes?: { readonly tdm?: TeamDeathmatchOptions; readonly ffa?: FreeForAllOptions; readonly outposts?: OutpostsOptions; readonly charge?: ChargeOptions; readonly gungame?: GunGameOptions; readonly battleRoyale?: BattleRoyaleOptions };
   /** Intermission phase lengths (s). Defaults: 6 s of nuke, then 14 s of scoreboard and vote. */
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** Free-for-all spawn points, spread over the map. */
@@ -207,8 +211,10 @@ const FLOOR_TICKS = 1200;
 /** Ticks a spare usercmd must go unused before it is run off: every one queued is a tick of input delay. */
 const SPARE_TICKS = 60;
 const MAX_NAME = 16;
+/** Ticks over which a match that seats its own wakes its bots. */
+const WAKE_TICKS = 30;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge']);
+const IMPORTANT = new Set(['hit', 'kill', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage']);
 
 interface Client {
   readonly connection: Connection;
@@ -366,6 +372,8 @@ export class GameServer {
   readonly #protectedSince = new Map<PlayerId, number>();
   /** Held seats by token. */
   readonly #away = new Map<string, AwaySeat>();
+  /** Seats whose player has gone, in a mode that seats its own: a bot plays each until they're back or the match is over. */
+  readonly #standIns = new Set<PlayerId>();
   /** Counts matches started, so a held seat knows whether its match is still on. */
   #matchNumber = 0;
   /** Each bot's objective from its team's planner, and when the plan is next made. */
@@ -382,6 +390,7 @@ export class GameServer {
       outposts: new Outposts(options.modes?.outposts),
       charge: new Charge(options.modes?.charge),
       gungame: new GunGame(options.modes?.gungame),
+      'battle-royale': new BattleRoyale(options.modes?.battleRoyale),
     };
     const first: ServerMap = {
       id: options.map ?? 'range',
@@ -402,6 +411,8 @@ export class GameServer {
     this.simulation = new Simulation(options.world, {
       canDamage: (a, v) => this.#phase === 'playing' && (v.kind === 'dummy' || (this.#mode.canDamage(a, v) && !this.#spawnProtected(v.id))),
       selfDamage: () => this.#phase === 'playing',
+      hazard: (position) => this.#hazardAt(position),
+      frags: () => this.#mode.frags ?? STATS.grenade.perLife.value,
     });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);
     this.#fill = this.#defaultFill();
@@ -414,6 +425,22 @@ export class GameServer {
 
   #defaultFill(): boolean {
     return (this.#options.bots?.perTeam ?? 0) > 0;
+  }
+
+  /** What the mode's hazard takes at `position`: nothing until the match's clock runs. */
+  #hazardAt(position: Vec3): number {
+    if (!this.#mode.hazardAt || this.#phase !== 'playing' || this.#countingDown) return 0;
+    return this.#mode.hazardAt(position, this.simulation.time - this.#matchStart);
+  }
+
+  /** The seats of the match being played, or in the lobby of the one picked, in a mode that seats its own. */
+  get #fixedSeats(): number | undefined {
+    return this.#modes[this.#phase === 'lobby' ? this.#lobbyMode : this.#mode.id].fixedSeats;
+  }
+
+  /** Whether `map` can play `mode`: a mode that seats its own is played only where the map says so, every other anywhere. */
+  #plays(mode: ModeId, map: ServerMap): boolean {
+    return this.#modes[mode].fixedSeats === undefined || map.teamSize?.[mode] !== undefined;
   }
 
   /** Bots a side a match on `map` in `mode` fills to: none with bots off, else the host's own size or the map's. */
@@ -498,7 +525,7 @@ export class GameServer {
   matchStatus(): MatchStatus {
     const { nuke, vote } = this.#intermissionLengths();
     const ended = this.#endedAt ?? 0;
-    const votes = Object.fromEntries(MODE_IDS.map((m) => [m, 0])) as Record<ModeId, number>;
+    const votes = Object.fromEntries(LOBBY_MODES.map((m) => [m, 0])) as Record<ModeId, number>;
     for (const m of this.#votes.values()) votes[m] += 1;
     const limit = this.#mode.timeLimit;
     const phaseEnds = this.#phase === 'playing' ? (limit === null ? null : this.#matchStart + limit) : this.#phase === 'nuke' ? ended + nuke : this.#phase === 'vote' ? ended + nuke + vote : null;
@@ -522,7 +549,7 @@ export class GameServer {
   }
 
   get maxPlayers(): number {
-    return Math.min(this.#options.maxPlayers ?? DEFAULT_MAX_PLAYERS, this.#scale.seats);
+    return this.#fixedSeats ?? Math.min(this.#options.maxPlayers ?? DEFAULT_MAX_PLAYERS, this.#scale.seats);
   }
 
   /** Players currently joined. */
@@ -617,7 +644,7 @@ export class GameServer {
       return;
     }
     if (message.t === 'vote') {
-      if (this.#phase === 'vote' && !this.#options.lobby) this.#votes.set(client.id, message.mode);
+      if (this.#phase === 'vote' && !this.#options.lobby && LOBBY_MODES.includes(message.mode)) this.#votes.set(client.id, message.mode);
       return;
     }
     if (message.t === 'lobby' || message.t === 'start') {
@@ -625,8 +652,9 @@ export class GameServer {
       if (this.#phase !== 'lobby' || client.id !== this.host) return;
       if (message.t === 'start') this.#startRequested = true;
       else {
-        const mode = message.mode ?? this.#lobbyMode;
         const map = this.#maps.find((m) => m.id === message.map) ?? this.#lobbyMap;
+        const asked = message.mode ?? this.#lobbyMode;
+        const mode = this.#plays(asked, map) ? asked : this.#plays(this.#lobbyMode, map) ? this.#lobbyMode : 'tdm';
         // The host's own size lasts until the map or the mode changes: then the new pick's team size applies.
         if (mode !== this.#lobbyMode || map !== this.#lobbyMap) this.#customBots = null;
         this.#lobbyMode = mode;
@@ -683,18 +711,21 @@ export class GameServer {
       if (bots !== null) this.#setCustomBots(bots);
       if (hvb !== null) this.#hvb = hvb;
       this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
-      if (this.#options.lobby && !client.script) {
-        this.#lobbyMode = preferred ?? this.#lobbyMode;
+      const asked = preferred !== null && this.#plays(preferred, this.#lobbyMap) ? preferred : null;
+      // A match that seats its own only starts when asked, so a script's other players don't all arrive to spectate.
+      if (this.#options.lobby && (!client.script || this.#modes[asked ?? this.#mode.id].fixedSeats !== undefined)) {
+        this.#lobbyMode = asked ?? this.#lobbyMode;
         this.#openLobby();
-      } else this.#startMatch(preferred ?? this.#mode.id);
+      } else this.#startMatch(asked ?? this.#mode.id);
     } else if (this.#phase === 'lobby') {
       // Into the lobby: they play from the next match.
       this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
-    } else {
+    } else if (this.#fixedSeats === undefined) {
       // A bot gives up its seat first (the newcomer already counts), so the newcomer joins the side it left.
       this.#fillBots();
       this.#add(id, name);
     }
+    // Otherwise, too late for a match that seats its own: they spectate it, and take a bot's seat at the next.
     this.#welcome(client);
   }
 
@@ -718,13 +749,17 @@ export class GameServer {
     this.#renamed();
     this.#names.set(away.id, away.name);
     this.#log({ event: 'join', id: away.id, name: away.name, bot: false, script: client.script });
-    if (away.match === this.#matchNumber) {
+    if (this.#standIns.delete(away.id)) {
+      // The bot hands the seat back as it stands, wherever it took it and alive or not.
+      this.#bots.delete(away.id);
+      this.#protectedSince.set(away.id, this.simulation.time);
+    } else if (away.match === this.#matchNumber) {
       this.#mode.rejoin(away.score);
       this.simulation.setPlayerState(away.state);
       // A moment's protection while the returning page finds its feet.
       this.#protectedSince.set(away.id, this.simulation.time);
     } else if (this.#phase === 'lobby') this.simulation.addPlayer({ id: away.id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(away.id) });
-    else this.#add(away.id, away.name);
+    else if (this.#fixedSeats === undefined) this.#add(away.id, away.name);
     this.#welcome(client);
   }
 
@@ -739,6 +774,7 @@ export class GameServer {
     this.#startRequested = false;
     this.#votes.clear();
     this.#protectedSince.clear();
+    this.#endStandIns();
     this.#fillBots();
   }
 
@@ -766,22 +802,30 @@ export class GameServer {
     this.#stale.add('popped').add('scores').add('match');
     this.#planAt = 0;
     this.#protectedSince.clear();
+    this.#endStandIns();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
     // This match's bots first: new ones join the simulation here and get their team below.
     this.#rosterBots();
+    // Those who spectated the last match have no seat yet.
+    for (const seat of this.#joined()) {
+      const id = seat.id as PlayerId;
+      if (!this.simulation.has(id)) this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
+    }
     const seats = this.#seats();
     const entrants = seats.map((seat) => ({
       id: seat.id,
       name: seat.name,
       // Teams carry over only between matches of the same mode.
-      team: previous.id === this.#mode.id ? (this.simulation.playerState(seat.id)?.team ?? null) : null,
+      team: previous.id === this.#mode.id ? (this.simulation.playerStateView(seat.id)?.team ?? null) : null,
       ...this.#sideOf(seat.id),
     }));
-    const teams = this.#mode.start(entrants);
+    const teams = this.#mode.start(entrants, this.#context());
     // The match (and its clock) starts after the opening countdown; a mode that opens with a freeze of its own (Charge) needs none.
     if (!this.#mode.frozen()) this.#matchStart = this.simulation.time + (this.#options.countdown ?? MATCH_COUNTDOWN);
     for (const [id, team] of teams) this.simulation.setTeam(id, team);
-    for (const seat of seats) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));
+    // A mode that seats its own has every spawn dealt: its spawns needn't look at the seats before them.
+    const dealt = this.#mode.fixedSeats === undefined ? null : this.#context();
+    for (const seat of seats) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, dealt ?? this.#context()));
     this.#log({ event: 'matchStart', map: this.#map.id, mode: this.#mode.id, hvb: this.#hvbOn });
     return { type: 'matchStart', mode: this.#mode.id };
   }
@@ -865,6 +909,9 @@ export class GameServer {
   #botTarget(): number {
     const people = this.#seated;
     if (!this.#options.bots || !this.#map.nav || (people === 0 && !this.#options.bots.alwaysOn) || this.#phase === 'lobby') return 0;
+    const fixed = this.#fixedSeats;
+    // A held seat's player joins that seat or none: it doesn't keep a seat from the next match.
+    if (fixed !== undefined) return this.#fill ? Math.max(0, fixed - this.playerCount) : 0;
     if (this.#hvbOn) return hvbBots(people, this.maxBotsPerTeam, this.maxPlayers);
     const wanted = this.#botsFor(this.#map, this.#mode.id) * 2 - people;
     return Math.max(0, Math.min(wanted, this.maxPlayers - people));
@@ -884,6 +931,8 @@ export class GameServer {
 
   /** Mid-match: bots join or leave so the match stays at the target, a leaving bot taken from the bigger side. */
   #fillBots(): void {
+    // A match that seats its own keeps them for its length: only the last person out ends it.
+    if (this.#fixedSeats !== undefined && this.#phase !== 'lobby' && this.#seated > 0) return;
     const target = this.#botTarget();
     while (this.#bots.size > target) {
       const sizes = new Map<number, number>();
@@ -913,7 +962,23 @@ export class GameServer {
   #dismissBot(id: PlayerId): void {
     this.#log({ event: 'leave', id, name: this.#names.get(id) ?? id, bot: true, script: false });
     this.#bots.delete(id);
+    this.#standIns.delete(id);
     this.#remove(id);
+  }
+
+  /** A bot takes over a seat whose player has gone, under their name, from where they stood. */
+  #standIn(id: PlayerId, name: string): void {
+    this.#standIns.add(id);
+    if (this.#map.nav) this.#bots.set(id, { name, bot: new Bot(id, botProfile(name), this.#map.nav, this.#map.world) });
+  }
+
+  /** The stand-ins go with the match they played in; their players can only come back to a later one fresh. */
+  #endStandIns(): void {
+    for (const id of [...this.#standIns]) {
+      this.#bots.delete(id);
+      this.#standIns.delete(id);
+      this.#remove(id);
+    }
   }
 
   /** Someone took or left a seat: the names, the scoreboard and the lobby in the match status all follow. */
@@ -929,7 +994,9 @@ export class GameServer {
     if (!this.#clients.delete(client) || client.id === null) return;
     this.#log({ event: 'leave', id: client.id, name: client.name, bot: false, script: client.script });
     if (hold) this.#hold(client);
-    this.#remove(client.id);
+    // A match that seats its own has no fewer for it.
+    if (this.#phase === 'playing' && this.#mode.fixedSeats !== undefined && this.simulation.has(client.id)) this.#standIn(client.id, client.name);
+    else this.#remove(client.id);
     this.#seatsChanged();
   }
 
@@ -956,6 +1023,7 @@ export class GameServer {
       this.#fill = this.#defaultFill();
       this.#customBots = null;
       this.#hvb = this.#options.hvb === true;
+      this.#endStandIns();
     }
     this.#fillBots();
   }
@@ -973,7 +1041,16 @@ export class GameServer {
       zones: this.#map.zones ?? [],
       sites: this.#map.sites ?? [],
       using: this.#using,
+      ...(this.#mode.fixedSeats === undefined ? {} : this.#seatContext()),
     };
+  }
+
+  /** What a mode that seats its own also sees: where it can put people, and which seats are theirs. */
+  #seatContext(): Pick<ModeContext, 'ground' | 'people'> {
+    const people = new Set<PlayerId>();
+    for (const c of this.#clients) if (c.id !== null && !c.script) people.add(c.id);
+    for (const away of this.#away.values()) people.add(away.id);
+    return { people, ...(this.#map.nav ? { ground: playGround(this.#map.nav, this.#map.world) } : {}) };
   }
 
   /** Runs one server tick: queued usercmds, the simulation, the game mode and match flow, then snapshots. */
@@ -1056,8 +1133,9 @@ export class GameServer {
       if (e.type === 'kill') eventful = true;
       else if (e.type === 'prop') this.#stale.add('popped');
     }
-    // An objective pays out as it's held, with no event to say so.
-    const objective = this.#mode.objective() !== null;
+    // An objective pays out as it's held, with no event to say so. A Battle Royale's moves only with an event.
+    const shown = this.#mode.objective();
+    const objective = shown !== null && shown.kind !== 'battle-royale';
     if (eventful || objective) this.#stale.add('scores');
     const settled = !eventful && !objective && this.#phase === 'playing' && !this.#countingDown;
     if (!settled || !this.#settled) this.#stale.add('match');
@@ -1105,10 +1183,13 @@ export class GameServer {
     this.#planBots();
     const budget: ThinkBudget = { arcs: this.#scale.throwArcs };
     const far = this.#scale.farBots;
+    // Ticks of a match that seats its own so far: its bots wake a few at a time, as all of them planning their first route on one tick took 30 ms.
+    const awake = this.#mode.fixedSeats === undefined ? Infinity : Math.round((time - this.#matchStart) / TICK_SECONDS);
+    let waking = 0;
     const people = far ? this.#joined().flatMap((c) => seats.get(c.id as PlayerId) ?? []) : [];
     for (const [id, seat] of this.#bots) {
       const self = seats.get(id);
-      if (!self || frozen) {
+      if (!self || frozen || awake < waking++ % WAKE_TICKS) {
         cmds[id] = [];
         continue;
       }

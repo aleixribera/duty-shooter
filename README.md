@@ -41,7 +41,8 @@ To play online locally:
    | --- | --- | --- |
    | `PASSPHRASE` | empty | Required to join; empty is a public lobby. |
    | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash`, `range` or `zero-island` (with bots it reads its nav from the built app in `STATIC_DIR`). |
-   | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge` or `gungame`. |
+   | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge`, `gungame` or `battle-royale` (which plays only on `zero-island`, so `MAP` defaults to it, and needs its nav from `STATIC_DIR`). |
+   | `SQUADS` | `1` | Seats a Squad in `battle-royale`: `1`, `2` or `3`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
    | `MAX_PLAYERS` | `12` | Seats, bots included. At most `32`, `60` with `NET=wide`. |
    | `BOTS_PER_TEAM` | `3` | Bots a side on a map with no team size of its own; `0` starts the lobby with bots off. At most `MAX_BOTS_PER_TEAM`. |

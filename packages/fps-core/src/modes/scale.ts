@@ -18,4 +18,4 @@ export const ARENA_SCALE: MatchScale = { seats: 32, botsPerTeam: 6, farBots: nul
 /** A kilometre-wide map. Battle Royale's load test settles these numbers. */
 export const WIDE_SCALE: MatchScale = { seats: 60, botsPerTeam: 30, farBots: { range: 150, thinkEvery: 4 }, throwArcs: 1 };
 
-export const MATCH_SCALES: Readonly<Record<ModeId, MatchScale>> = { tdm: ARENA_SCALE, ffa: ARENA_SCALE, outposts: ARENA_SCALE, charge: ARENA_SCALE, gungame: ARENA_SCALE };
+export const MATCH_SCALES: Readonly<Record<ModeId, MatchScale>> = { tdm: ARENA_SCALE, ffa: ARENA_SCALE, outposts: ARENA_SCALE, charge: ARENA_SCALE, gungame: ARENA_SCALE, 'battle-royale': WIDE_SCALE };

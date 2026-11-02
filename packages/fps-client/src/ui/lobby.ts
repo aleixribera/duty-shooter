@@ -1,4 +1,4 @@
-import { MODE_IDS, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
+import { LOBBY_MODES, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
@@ -255,7 +255,7 @@ export class LobbyPage {
       `<div class="ds-seg">${items.map(([value, label, on]) => `<button type="button" data-act="${act}" data-value="${value}" data-key="${act}-${value}" class="${on ? 'on' : ''}"${lock}>${escapeHtml(label)}</button>`).join('')}</div>`;
     const modes = seg(
       'mode',
-      MODE_IDS.map((m) => [m, MODE_NAMES[m] ?? m, m === l.mode] as const),
+      LOBBY_MODES.map((m) => [m, MODE_NAMES[m] ?? m, m === l.mode] as const),
     );
     // Humans vs bots is a choice in team modes; it sizes the bot team itself.
     const sides = l.maxBots > 0 && teamMode(l.mode);

@@ -30,6 +30,9 @@ export const IW_UNIT = 0.0254;
 
 const COLLECTED = '2026-10-25';
 
+/** Why the Ring's table reads as it does. */
+const RING = 'Game value for Battle Royale: closes in six Stages by 9:30, ahead of the 10:00 limit, always within a sprint of the next circle, and the last Stages kill in seconds.';
+
 function sourced<U extends Unit>(value: number, unit: U, source: Omit<Source, 'collected'>, tolerance: number, note?: string): Stat<U> {
   return {
     value,
@@ -345,6 +348,21 @@ export const STATS = {
    * design, not measured from any game; the fuse, centre damage and radius
    * are the spec's numbers.
    */
+  royale: {
+    frags: estimate(3, 'rounds', 'One each per seat, bots too, not refilled (the Battle Royale spec).'),
+    matchLength: estimate(600, 's', 'The longest a match lasts (the Battle Royale spec).'),
+    spawnSpacing: estimate(100, 'm', 'The least between a seat and any other Squad at the start (the Battle Royale spec).'),
+    squadmateGap: estimate(5, 'm', 'Squadmates start this close to their first seat: a few metres apart (the Battle Royale spec).'),
+    /** One row a Stage, first to last: seconds held, seconds shrinking, the circle it shrinks to as a share of the first, and what standing outside costs. */
+    ring: {
+      1: { hold: estimate(60, 's', RING), shrink: estimate(70, 's', RING), radius: estimate(0.62, 'multiplier', RING), damage: estimate(1, 'HP/s', RING) },
+      2: { hold: estimate(45, 's', RING), shrink: estimate(65, 's', RING), radius: estimate(0.38, 'multiplier', RING), damage: estimate(2, 'HP/s', RING) },
+      3: { hold: estimate(40, 's', RING), shrink: estimate(60, 's', RING), radius: estimate(0.22, 'multiplier', RING), damage: estimate(4, 'HP/s', RING) },
+      4: { hold: estimate(35, 's', RING), shrink: estimate(55, 's', RING), radius: estimate(0.12, 'multiplier', RING), damage: estimate(7, 'HP/s', RING) },
+      5: { hold: estimate(30, 's', RING), shrink: estimate(50, 's', RING), radius: estimate(0.05, 'multiplier', RING), damage: estimate(12, 'HP/s', RING) },
+      6: { hold: estimate(25, 's', RING), shrink: estimate(35, 's', RING), radius: estimate(0, 'multiplier', RING), damage: estimate(20, 'HP/s', RING) },
+    },
+  },
   grenade: {
     perLife: estimate(1, 'rounds', 'One frag per life (the v2 spec), so grenades are a tool and not spam.'),
     fuse: estimate(4, 's', 'From the moment cooking starts (the v2 spec); a grenade cooked this long explodes in the hand.'),

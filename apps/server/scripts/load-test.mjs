@@ -15,6 +15,9 @@
 // (LOAD_TEST_SOCKETS), which only the machine itself gets. WARMUP=s plays that
 // long before measuring; the tick costs are reported whole windows at a time,
 // so measure in tens of seconds.
+// SETTLE=s waits that long in the lobby first and prints the windows from the start on: the
+// opening of a match on a server that has been up a while. Without it the opening
+// lands in V8's first seconds, whose collections run to 45 ms whatever the tick does.
 // STATIC_DIR serves a built app, for a map whose nav comes from the build (MAP=zero-island).
 // Usage: node apps/server/scripts/load-test.mjs [clients=8] [seconds=40]
 import { spawn } from 'node:child_process';
@@ -58,6 +61,8 @@ const resend = Number(process.env.RESEND ?? 1);
 const port = Number(process.env.PORT ?? 3999);
 /** Seconds of match played before measuring starts. */
 const warmup = Number(process.env.WARMUP ?? 0);
+/** Seconds in the lobby before the match starts. */
+const settle = Number(process.env.SETTLE ?? 0);
 const base = target ?? `http://127.0.0.1:${port}`;
 const passphrase = target ? (process.env.PASSPHRASE ?? '') : 'load-test';
 
@@ -75,9 +80,10 @@ function every60Hz(step) {
 }
 
 let measuring = false;
+let opening = false;
 const server = target
   ? null
-  : spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
+  : spawn(process.execPath, [...(process.env.SERVER_FLAGS?.split(' ') ?? []), process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
       env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', PASSPHRASE: passphrase, MAX_PLAYERS: String(Math.max(clients, 2 * (bots ?? 0), 12)), ...(clients > 12 ? { LOAD_TEST_SOCKETS: String(clients) } : {}), ...(bots > 6 ? { MAX_BOTS_PER_TEAM: String(bots) } : {}), LOG_STATS: '1', STATIC_DIR: process.env.STATIC_DIR ?? fileURLToPath(new URL('.', import.meta.url)) },
       stdio: ['ignore', 'pipe', 'inherit'],
     });
@@ -91,6 +97,10 @@ server?.stdout.on('data', (d) => {
       continue;
     }
     console.log(`[server] ${line.replace(/ window=.*/, '')}`);
+    if (opening) {
+      const { p99, slowest, late } = JSON.parse(stats[3]);
+      console.log(`window: p99 ${p99.toFixed(2)}, worst ${slowest.toFixed(1)}; ${late} late`);
+    }
     if (measuring) windows.push({ cpu: Number(stats[1]), rss: Number(stats[2]), loop: JSON.parse(stats[3]) });
   }
 });
@@ -179,7 +189,10 @@ if (!(await waitFor(() => joined === clients, 30_000))) {
   console.error(`Only ${joined}/${clients} clients joined`);
   stop(1);
 }
-host.send(JSON.stringify({ t: 'start' }));
+await new Promise((resolve) => setTimeout(resolve, settle * 1000));
+opening = settle > 0;
+// The server's host is the lowest seat, which needn't be the first welcome read here: only its start counts.
+for (const { ws } of sockets) ws.send(JSON.stringify({ t: 'start' }));
 if (!(await waitFor(() => phase === 'playing', 30_000))) {
   console.error(`Match did not start (phase: ${phase})`);
   stop(1);

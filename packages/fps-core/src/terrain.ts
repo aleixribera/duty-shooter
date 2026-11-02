@@ -106,6 +106,16 @@ export class Terrain {
   }
 
   /** Ground height at (x, z), or -Infinity outside the rectangle. */
+  /** A number that changes with the ground. */
+  fingerprint(): number {
+    let hash = 0x811c9dc5;
+    for (const heights of [this.#heights, this.#water ?? new Float32Array()]) {
+      const bits = new Int32Array(heights.buffer, heights.byteOffset, heights.length);
+      for (let i = 0; i < bits.length; i++) hash = Math.imul(hash ^ bits[i]!, 16777619);
+    }
+    return hash >>> 0;
+  }
+
   heightAt(x: number, z: number): number {
     const i = this.#column(x);
     const j = this.#row(z);

@@ -113,6 +113,7 @@ function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventNa
 /** How a kill feed line names what did it. */
 function killedWith(cause: string, weapon: KillWeapon | null): string {
   if (cause === 'melee') return 'Melee';
+  if (cause === 'ring') return 'The Ring';
   if (weapon === 'frag') return 'Frag';
   return weapon ? STATS.weapons[weapon].traits.name : '';
 }

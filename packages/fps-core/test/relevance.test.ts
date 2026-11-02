@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MODE_IDS, NET_PROFILES, PROTOCOL_VERSION, anglesOf, decodeServer, zoneCentre, type Connection, type NetProfile, type Snapshot, type SpawnPoint, type WireData } from '@duty-shooter/fps-core';
+import { LOBBY_MODES, NET_PROFILES, PROTOCOL_VERSION, anglesOf, decodeServer, zoneCentre, type Connection, type NetProfile, type Snapshot, type SpawnPoint, type WireData } from '@duty-shooter/fps-core';
 import { box, createNetworkedMatch, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import type { WireSnapshot } from '../src/net/protocol';
 import { usercmd } from '../src/usercmd';
@@ -41,7 +41,7 @@ function tap(m: NetworkedMatch, frames: WireSnapshot[]): Connection {
 const dummies = (...xs: number[]) => xs.map((x, i) => ({ id: `d${i}`, team: 0, position: [x, 0, 0] as const, dummy: {} }));
 
 describe('a mode that plays at full rate', () => {
-  it.each(MODE_IDS)('%s keeps a snapshot a tick, with every seat in each', (mode) => {
+  it.each(LOBBY_MODES)('%s keeps a snapshot a tick, with every seat in each', (mode) => {
     expect(NET_PROFILES[mode]).toEqual({ snapshotEvery: 1, relevance: null });
   });
 

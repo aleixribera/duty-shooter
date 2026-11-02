@@ -1,0 +1,236 @@
+import type { Vec3 } from '../math';
+import { seededRandom } from '../random';
+import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
+import { STATS } from '../stats';
+import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, ObjectiveState, Score, SpawnPoint, TeamScore } from './game-mode';
+import { groundFromSpawns, squadSpots } from './ground';
+import { planRing, ringDamage, stageAt, type RingStage } from './ring';
+import { WIDE_SCALE } from './scale';
+
+/** Seats a Squad: Solos, Duos or Trios. */
+export type SquadSize = 1 | 2 | 3;
+
+export interface BattleRoyaleOptions {
+  /** Defaults to Solos. */
+  readonly squadSize?: SquadSize;
+  /** Seconds a match lasts at most; the Ring keeps to it. Defaults to the stats file's match length. */
+  readonly timeLimit?: number;
+  /** Every match's seed, which fixes its spawns and circles; a fresh one a match when absent. */
+  readonly seed?: number;
+  /** Draws each match's seed (0 to 1, like `Math.random`, its default). */
+  readonly random?: () => number;
+}
+
+interface Entry {
+  id: PlayerId;
+  name: string;
+  team: TeamId;
+  kills: number;
+  deaths: number;
+}
+
+const seatNumber = (id: PlayerId): number => Number(id.slice(1));
+
+/**
+ * Battle Royale: 60 seats in Squads, one life, 3 frags, and a Ring that closes
+ * until one Squad is left. A Squad is a team id, so everything that asks about
+ * teams (friendly fire, who a client keeps in view) works on Squads as it is.
+ */
+export class BattleRoyale implements GameMode {
+  readonly id = 'battle-royale';
+  readonly name = 'Battle Royale';
+  readonly respawnDelay = 0;
+  readonly killLimit = null;
+  readonly scoreLimit = null;
+  readonly timeLimit: number;
+  readonly fixedSeats = WIDE_SCALE.seats;
+  readonly frags = STATS.royale.frags.value;
+  readonly squadSize: SquadSize;
+  readonly #seed: number | null;
+  readonly #random: () => number;
+  readonly #entries = new Map<PlayerId, Entry>();
+  #result: MatchResult | null = null;
+  #ring: readonly RingStage[] = [];
+  #stage = 0;
+  /** Simulation time the match clock started, for the times a client counts to. */
+  #clock = 0;
+  /** Spawns not handed out yet, by Squad. */
+  readonly #spawns = new Map<TeamId, SpawnPoint[]>();
+  /** The Squads the match started with. */
+  #squads = 0;
+  /** Each Squad out, and the place it finished in. */
+  readonly #places = new Map<TeamId, number>();
+  /** Who was alive at the last look: the last seats, if one tick takes them all. */
+  #living: readonly PlayerId[] = [];
+  #squadsAlive = 0;
+  /** A person has had a seat in this match. */
+  #peopled = false;
+
+  constructor(options: BattleRoyaleOptions = {}) {
+    this.squadSize = options.squadSize ?? 1;
+    this.timeLimit = options.timeLimit ?? STATS.royale.matchLength.value;
+    this.#seed = options.seed ?? null;
+    this.#random = options.random ?? Math.random;
+  }
+
+  /** This match's circles. */
+  get ring(): readonly RingStage[] {
+    return this.#ring;
+  }
+
+  /** Nobody joins a match under way (the server has them spectate): only a seat the server insists on comes here, as a Squad of one. */
+  join(id: PlayerId, name: string): TeamId {
+    const team = Math.max(0, ...[...this.#entries.values()].map((e) => e.team)) + 1;
+    this.#entries.set(id, { id, name, team, kills: 0, deaths: 0 });
+    return team;
+  }
+
+  leave(id: PlayerId): void {
+    this.#entries.delete(id);
+  }
+
+  rejoin(score: Score): void {
+    this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths });
+  }
+
+  canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
+    return attacker.id !== victim.id && attacker.team !== victim.team;
+  }
+
+  canRespawn(): boolean {
+    return false;
+  }
+
+  frozen(): boolean {
+    return false;
+  }
+
+  chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
+    return this.#spawns.get(this.#entries.get(id)?.team ?? 0)?.shift() ?? ctx.spawns[0]!;
+  }
+
+  start(entrants: readonly MatchEntrant[], ctx?: ModeContext): ReadonlyMap<PlayerId, TeamId> {
+    if (!ctx) throw new Error('A Battle Royale needs its map');
+    this.#entries.clear();
+    this.#spawns.clear();
+    this.#places.clear();
+    this.#result = null;
+    this.#stage = 0;
+    this.#peopled = false;
+    const teams = new Map<PlayerId, TeamId>();
+    entrants.forEach((e, i) => {
+      const team = Math.floor(i / this.squadSize) + 1;
+      teams.set(e.id, team);
+      this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0 });
+    });
+    this.#squads = new Set(teams.values()).size;
+    this.#squadsAlive = this.#squads;
+    this.#living = [...teams.keys()];
+    const seed = this.#seed ?? Math.floor(this.#random() * 2 ** 32);
+    const ground = ctx.ground ?? groundFromSpawns(ctx.spawns);
+    this.#ring = planRing(ground, seededRandom(seed), this.timeLimit);
+    squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) => this.#spawns.set(i + 1, spawns));
+    return teams;
+  }
+
+  hazardAt(position: Vec3, matchTime: number): number {
+    return ringDamage(this.#ring, position, matchTime);
+  }
+
+  onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
+    this.#clock = ctx.time - ctx.matchTime;
+    const out: ModeEvent[] = [];
+    const stage = stageAt(this.#ring, ctx.matchTime);
+    if (this.#ring.length > 0 && stage !== this.#stage) {
+      this.#stage = stage;
+      out.push({ type: 'stage', stage: stage + 1 });
+    }
+    const headshots = new Set<PlayerId>();
+    for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
+    for (const e of events) {
+      if (e.type !== 'kill') continue;
+      const victim = this.#entries.get(e.victim);
+      if (!victim) continue;
+      victim.deaths += 1;
+      const killer = e.killer === null || e.killer === e.victim ? undefined : this.#entries.get(e.killer);
+      if (killer) killer.kills += 1;
+      out.push({ type: 'killFeed', killer: killer?.id ?? null, killerName: killer?.name ?? null, victim: victim.id, victimName: victim.name, cause: e.cause, weapon: e.weapon, headshot: headshots.has(e.victim) });
+    }
+    return out;
+  }
+
+  /** The best of `seats`: most kills, then the lowest seat. */
+  #first(seats: readonly PlayerId[]): Entry | null {
+    let best: Entry | null = null;
+    for (const id of seats) {
+      const e = this.#entries.get(id);
+      if (e && (!best || e.kills > best.kills || (e.kills === best.kills && seatNumber(e.id) < seatNumber(best.id)))) best = e;
+    }
+    return best;
+  }
+
+  /** `team` won: its place, and the result that says so. */
+  #won(team: TeamId, reason: MatchResult['reason']): MatchResult {
+    this.#places.set(team, 1);
+    const names = [...this.#entries.values()].filter((e) => e.team === team).map((e) => e.name);
+    return { winner: team, winnerName: names.join(', '), draw: false, reason };
+  }
+
+  result(ctx: ModeContext): MatchResult | null {
+    if (this.#result || this.#squads === 0) return this.#result;
+    const alive = ctx.players.filter((p) => p.alive && this.#entries.has(p.id));
+    const squads = new Set(alive.map((p) => p.team));
+    this.#squadsAlive = squads.size;
+    const lastSeats = this.#living;
+    this.#living = alive.map((p) => p.id);
+    // Those going out this tick share a place: the one behind every Squad left.
+    const place = squads.size + 1;
+    for (const e of this.#entries.values()) if (!squads.has(e.team) && !this.#places.has(e.team)) this.#places.set(e.team, place);
+
+    const people = ctx.people ?? new Set<PlayerId>();
+    if (!this.#peopled) for (const id of people) if (this.#entries.has(id)) this.#peopled = true;
+    if (squads.size === 0) {
+      // The last seats went on one tick: a result always exists while any seat is left to give it to.
+      const best = this.#first(lastSeats);
+      this.#result = best ? this.#won(best.team, 'lastSquad') : { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
+    } else if (squads.size === 1 && this.#squads > 1) {
+      this.#result = this.#won(squads.values().next().value as TeamId, 'lastSquad');
+    } else if (this.#peopled && !alive.some((p) => people.has(p.id))) {
+      this.#result = { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
+    } else if (ctx.matchTime >= this.timeLimit - 1e-9) {
+      this.#result = this.#won(this.#first(this.#living)!.team, 'timeLimit');
+    }
+    return this.#result;
+  }
+
+  scores(): Score[] {
+    return [...this.#entries.values()]
+      .map((e): Score => {
+        const place = this.#places.get(e.team);
+        return { id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, score: e.kills, ...(place === undefined ? {} : { place }) };
+      })
+      .sort((a, b) => (a.place ?? 0) - (b.place ?? 0) || b.score - a.score);
+  }
+
+  teamScores(): readonly TeamScore[] | null {
+    return null;
+  }
+
+  objective(): ObjectiveState {
+    const s = this.#ring[this.#stage];
+    const none = { x: 0, z: 0, radius: 0 };
+    const state: BattleRoyaleState = {
+      kind: 'battle-royale',
+      squadSize: this.squadSize,
+      stage: this.#stage + 1,
+      circle: s?.from ?? none,
+      next: s?.to ?? none,
+      shrinkAt: this.#clock + (s?.shrinkAt ?? 0),
+      shrinkEnd: this.#clock + (s?.shrinkEnd ?? 0),
+      damage: s?.damage ?? 0,
+      alive: this.#living.length,
+      squads: this.#squadsAlive,
+    };
+    return state;
+  }
+}

@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, MODE_IDS, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -20,9 +20,9 @@ export interface LobbyInfo {
   readonly hvb?: boolean;
 }
 
-export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
+export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game', 'battle-royale': 'Battle Royale' };
 /** How each way a match can end reads on the end screen. */
-export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit' };
+export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit', lastSquad: 'last squad standing', noHumans: 'no players left' };
 export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash' };
 /** The maps Bot Match plays on. */
 export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard', 'crash'];
@@ -199,7 +199,7 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
 /** Pick a concrete map and mode without changing the lobby's sides or bot settings. */
 export function randomLobbyPick(lobby: Pick<LobbyState, 'maps' | 'hvb'>, random: () => number = Math.random): { map: string; mode: ModeId } | null {
   if (lobby.maps.length === 0) return null;
-  const modes = lobby.hvb ? MODE_IDS.filter(teamMode) : MODE_IDS;
+  const modes = lobby.hvb ? LOBBY_MODES.filter(teamMode) : LOBBY_MODES;
   return { map: lobby.maps[Math.floor(random() * lobby.maps.length)]!, mode: modes[Math.floor(random() * modes.length)]! };
 }
 

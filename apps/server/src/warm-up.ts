@@ -8,7 +8,7 @@ import { GameServer, PROTOCOL_VERSION, type Connection, type GameServerOptions, 
  */
 export function warmUp(options: GameServerOptions, bots: number, ticks: number): number {
   let accept: ((connection: Connection) => void) | null = null;
-  const game = new GameServer({ onConnection: (handler) => (accept = handler) }, { ...options, onLog: () => undefined });
+  const game = new GameServer({ onConnection: (handler) => (accept = handler) }, { ...options, countdown: 0, onLog: () => undefined });
   let receive: ((data: WireData) => void) | null = null;
   const connection: Connection = {
     open: true,

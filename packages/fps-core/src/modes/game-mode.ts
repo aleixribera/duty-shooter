@@ -3,6 +3,7 @@ import type { KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId }
 import type { WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
+import type { PlayGround } from './ground';
 
 /** A place players can spawn. */
 export interface SpawnPoint {
@@ -11,12 +12,15 @@ export interface SpawnPoint {
 }
 
 /** The game modes a lobby can run. */
-export type ModeId = 'tdm' | 'ffa' | 'outposts' | 'charge' | 'gungame';
-export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa', 'outposts', 'charge', 'gungame'];
+export type ModeId = 'tdm' | 'ffa' | 'outposts' | 'charge' | 'gungame' | 'battle-royale';
+export const MODE_IDS: readonly ModeId[] = ['tdm', 'ffa', 'outposts', 'charge', 'gungame', 'battle-royale'];
 
-/** Whether a mode plays two teams (everything but free-for-all and gun game). */
+/** The modes a lobby's mode picker offers: Battle Royale has its own way in. */
+export const LOBBY_MODES: readonly ModeId[] = MODE_IDS.filter((m) => m !== 'battle-royale');
+
+/** Whether a mode plays two teams (everything but free-for-all, gun game and Battle Royale). */
 export function teamMode(id: ModeId): boolean {
-  return id !== 'ffa' && id !== 'gungame';
+  return id !== 'ffa' && id !== 'gungame' && id !== 'battle-royale';
 }
 
 /** An Outposts zone: a vertical cylinder from the map definition, captured by standing in it. */
@@ -96,12 +100,33 @@ export interface ChargeState {
   readonly outcome: { readonly winner: TeamId; readonly reason: RoundReason } | null;
 }
 
+/** The state of a Battle Royale, as the snapshot carries it: it changes with a kill or a Stage, so a client works out the wall from the times. */
+export interface BattleRoyaleState {
+  readonly kind: 'battle-royale';
+  /** Seats a Squad. */
+  readonly squadSize: number;
+  /** The Stage being played, from 1. */
+  readonly stage: number;
+  /** The circle this Stage holds at, and the one it shrinks to: the next circle, known throughout. */
+  readonly circle: { readonly x: number; readonly z: number; readonly radius: number };
+  readonly next: { readonly x: number; readonly z: number; readonly radius: number };
+  /** Simulation times the wall starts moving and reaches `next`. */
+  readonly shrinkAt: number;
+  readonly shrinkEnd: number;
+  /** HP a second outside it. */
+  readonly damage: number;
+  /** Seats and Squads still alive. */
+  readonly alive: number;
+  readonly squads: number;
+}
+
 /** The mode's own state, sent with every snapshot; null for a mode without any. */
 export type ObjectiveState =
   | { readonly kind: 'outposts'; readonly zones: readonly ZoneState[] }
   | ChargeState
   /** Gun game: this match's ladder, first gun first. */
-  | { readonly kind: 'gungame'; readonly guns: readonly WeaponId[] };
+  | { readonly kind: 'gungame'; readonly guns: readonly WeaponId[] }
+  | BattleRoyaleState;
 
 /** What a game mode can see of the match. */
 export interface ModeContext {
@@ -124,6 +149,10 @@ export interface ModeContext {
   readonly sites: readonly ChargeSite[];
   /** Players holding the use button (to plant or defuse). */
   readonly using: ReadonlySet<PlayerId>;
+  /** The map's open land, in a mode that seats its own: absent on a map with no nav. */
+  readonly ground?: PlayGround;
+  /** The seats that belong to people, connected or held for them; script players don't count. Set in a mode that seats its own. */
+  readonly people?: ReadonlySet<PlayerId>;
 }
 
 /** One row of the scoreboard. */
@@ -136,6 +165,8 @@ export interface Score {
   readonly score: number;
   /** Set for a bot, so it is shown with a BOT tag. */
   readonly bot?: boolean;
+  /** Where their Squad finished, once it has gone out or won; Battle Royale only. */
+  readonly place?: number;
 }
 
 /** A team's total in a team mode. */
@@ -144,12 +175,12 @@ export interface TeamScore {
   readonly score: number;
 }
 
-/** How a match ended. `winner` is a player id in free-for-all and a team id in team modes; null on a draw. */
+/** How a match ended. `winner` is a player id in free-for-all and a team id in team modes and for a Squad; null on a draw or an early end. */
 export interface MatchResult {
   readonly winner: PlayerId | TeamId | null;
   readonly winnerName: string | null;
   readonly draw: boolean;
-  readonly reason: 'killLimit' | 'scoreLimit' | 'timeLimit' | 'roundLimit' | 'forfeit';
+  readonly reason: 'killLimit' | 'scoreLimit' | 'timeLimit' | 'roundLimit' | 'forfeit' | 'lastSquad' | 'noHumans';
 }
 
 /** Something the game mode or the match flow wants clients to know about. */
@@ -160,7 +191,7 @@ export type ModeEvent =
       readonly killerName: string | null;
       readonly victim: PlayerId;
       readonly victimName: string;
-      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade';
+      readonly cause: 'bullet' | 'melee' | 'fall' | 'grenade' | 'ring';
       /** The weapon that did it, `frag` for a grenade (null for a fall). */
       readonly weapon: KillWeapon | null;
       readonly headshot: boolean;
@@ -181,6 +212,8 @@ export type ModeEvent =
     }
   /** Gun game: `player` moved to `level` (from 0, an index into the guns) and now plays with `weapon`; `demoted` when a melee kill knocked them back (perhaps on the same gun). */
   | { readonly type: 'level'; readonly player: PlayerId; readonly level: number; readonly weapon: WeaponId; readonly demoted: boolean }
+  /** Battle Royale: the Ring moved on to `stage` (from 1). */
+  | { readonly type: 'stage'; readonly stage: number }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 
@@ -213,6 +246,12 @@ export interface GameMode {
   readonly timeLimit: number | null;
   /** Seconds a dead player waits before respawning (0 = instant). */
   readonly respawnDelay: number;
+  /** A mode that seats its own: always this many, whatever the server's limits, filled with bots; those who come late spectate, and a bot plays a dropped seat. */
+  readonly fixedSeats?: number;
+  /** Frags a seat starts with, in place of the usual allowance. */
+  readonly frags?: number;
+  /** HP a second the mode's own hazard takes from a seat at `position`, `matchTime` seconds in. */
+  hazardAt?(position: Vec3, matchTime: number): number;
   /** A joining player's team: `side` when given (humans vs bots, team modes only). */
   join(id: PlayerId, name: string, ctx: ModeContext, side?: TeamId): TeamId;
   leave(id: PlayerId): void;
@@ -232,7 +271,7 @@ export interface GameMode {
    * A new match: scores back to zero, and every player gets a team, moving as
    * few players as possible from the team they had. Returns everyone's team.
    */
-  start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId>;
+  start(entrants: readonly MatchEntrant[], ctx?: ModeContext): ReadonlyMap<PlayerId, TeamId>;
   /** Runs a tick of the match: reacts to its simulation events (kills, ...) and the objectives, and returns what clients should hear about. */
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[];
   /** How the match ended, once a kill or time limit is reached; null while it is on. */

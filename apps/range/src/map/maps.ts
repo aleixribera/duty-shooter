@@ -114,7 +114,7 @@ export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
   switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
   crash: { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   range: {},
-  'zero-island': {},
+  'zero-island': { 'battle-royale': 30 },
 };
 
 const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, crash: buildCrash, range: buildRange, 'zero-island': buildZeroIsland };

@@ -35,7 +35,7 @@ export const FULL_RATE: NetProfile = { snapshotEvery: 1, relevance: null };
 /** A kilometre-wide map. Battle Royale's load test settles these numbers. */
 export const WIDE_MAP: NetProfile = { snapshotEvery: 3, relevance: { near: 60, mid: 250, midEvery: 6, hearing: 400, heardTicks: 120 } };
 
-export const NET_PROFILES: Readonly<Record<ModeId, NetProfile>> = { tdm: FULL_RATE, ffa: FULL_RATE, outposts: FULL_RATE, charge: FULL_RATE, gungame: FULL_RATE };
+export const NET_PROFILES: Readonly<Record<ModeId, NetProfile>> = { tdm: FULL_RATE, ffa: FULL_RATE, outposts: FULL_RATE, charge: FULL_RATE, gungame: FULL_RATE, 'battle-royale': WIDE_MAP };
 
 /** How far past {@link Relevance.mid} a seat in view may go before it's dropped, so one on the line doesn't blink. */
 const KEEP_MARGIN = 1.1;

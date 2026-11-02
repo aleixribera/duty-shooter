@@ -119,8 +119,25 @@ _Avoid_: nade (fine in player-facing text)
 ## Matches
 
 **Mode**:
-The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts, Charge or gun game.
+The rules of a match: team deathmatch (TDM), free-for-all (FFA), Outposts, Charge, gun game or Battle Royale.
 _Avoid_: playlist, game type
+
+**Battle Royale**:
+The mode played only on Zero Island: 60 seats in Squads, one life, 3 frags, and the Ring closing until one Squad is left. It seats its own, so the server's seat and bot limits don't apply. Those who come late spectate, and a bot plays a dropped seat until its player is back. It isn't in the lobby's mode picker.
+_Avoid_: BR
+
+**Squad**:
+The seats playing together in a Battle Royale: one (Solos), two (Duos) or three (Trios). Squadmates can't hurt each other, and the last Squad with anyone alive wins.
+
+**Ring**:
+The closing circle of a Battle Royale. Outside it health falls and doesn't regenerate. Its circles nest, close on land, and all come from the match's seed.
+_Avoid_: zone (that's Outposts), storm
+
+**Stage**:
+One step of the Ring: it holds, then shrinks to the next circle, known throughout. Six to a match, each hurting more than the last. Their table is in the stats file.
+
+**Early end**:
+A Battle Royale ending at once because no person is left alive, whatever the bots are doing. People are placed by how many Squads remained.
 
 **Gun game**:
 The free-for-all mode played on a ladder of weapons: five different guns drawn at random from the whole arsenal, in a random order, dealt afresh at each match's start (`GUN_GAME_LADDER_LENGTH`), one level each. While the arsenal has five guns that is all of them, shuffled. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the last gun wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
@@ -192,7 +209,7 @@ A computer-controlled player: a seat on the game server with no connection, whic
 _Avoid_: AI player, NPC
 
 **Bot fill**:
-Topping a match up with bots to the map's team size while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. The lobby's host only switches it on or off. Humans vs bots sizes the bots its own way instead.
+Topping a match up with bots to the map's team size while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. The lobby's host only switches it on or off. Humans vs bots sizes the bots its own way instead, and a Battle Royale always fills to 60.
 
 **Team size**:
 The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard 6v6 and Survival Town 4v4 in the team modes. The modes without teams (free-for-all, gun game) hold twice a size of their own, kept smaller so the map isn't crowded with enemies on every side: 8 players on Switchyard and 6 on Survival Town. The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
