@@ -233,6 +233,12 @@ const STEP_ASIDE = 8;
 const RUN_FIGHT = 15;
 /** A Downed enemy comes this many metres behind one on its feet. */
 const DOWNED_LAST = 20;
+/**
+ * How long (s) a bot lets a seat it sees Downed lie before finishing it, the boldest to the most careful:
+ * meanwhile it watches the body for the squadmate who comes for it, as people do. Finished at once,
+ * nearly every Down died where it fell and bots revived 8% of them (ticket 40).
+ */
+const FINISH_WAIT: readonly [number, number] = [1.5, 4.5];
 /** The route key on the way round an enemy. */
 const FLANK_KEY = '#flank';
 
@@ -1070,6 +1076,8 @@ export class Bot {
     const { self, time } = view;
     let best: { p: PlayerOutput; score: number } | null = null;
     let keep = false;
+    let fell: PlayerOutput | null = null;
+    const wait = FINISH_WAIT[0] + (FINISH_WAIT[1] - FINISH_WAIT[0]) * (1 - this.profile.aggression);
     for (const i of this.#seats.near(self.position, SIGHT_RANGE)) {
       const p = view.players[i]!;
       if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
@@ -1085,11 +1093,23 @@ export class Bot {
       // A reload in plain view.
       if (p.weapon.action === 'reload') this.#reloading.set(p.id, time + 1);
       this.#lastEnemySeen = time;
+      // Downed a moment ago: left to lie while the bot watches for who comes for them.
+      if (p.downed && STATS.royale.bleedOut.value - p.downed.bleedOut < wait) {
+        if (tracked) fell = p;
+        continue;
+      }
       if (tracked) keep = true;
       // Someone far off who isn't after it is let go by, unseen, in a match that's running ahead of itself.
       if (view.ground && !tracked && d > view.ground.engage && time - this.#shotAt > SHOT_MEMORY) continue;
       const score = d + off * 12 + (p.downed ? DOWNED_LAST : 0);
       if (!best || score < best.score) best = { p, score };
+    }
+    if (fell && !best) {
+      // Its own target went down and nobody else is in view: eyes on the body until it's time to finish it.
+      this.#target = null;
+      this.#chasing = null;
+      this.#holdUntil = time + wait - (STATS.royale.bleedOut.value - fell.downed!.bleedOut);
+      this.#holdYaw = yawTo(self.position, fell.position);
     }
     const target = this.#target;
     if (target) {
