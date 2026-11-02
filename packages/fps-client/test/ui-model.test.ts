@@ -157,6 +157,7 @@ describe('the Play Online tile', () => {
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
     expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
     expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true })).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
+    expect(lobbyTile({ map: 'zero-island', mode: 'battle-royale', players: 2, capacity: 60, phase: 'playing' })).toMatchObject({ map: 'Zero Island', mode: 'Battle Royale' });
     expect(BOT_MAPS).toContain('crash');
     expect(lobbyTile({ map:'crash', mode:'tdm', players:1, capacity:8, phase:'playing' }).map).toBe('Crash');
     expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
@@ -219,7 +220,7 @@ describe('the loadout screen', () => {
 });
 
 describe('the lobby', () => {
-  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, custom: false, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town' } as const;
+  const lobby = { host: 'b', players: ['b', 'a', 'c'], capacity: 5, mode: 'tdm', bots: 2, custom: false, maxBots: 4, hvb: false, maps: ['survival-town'], map: 'survival-town', squadSize: 1, squads: {} } as const;
 
   it('seats people in the order they joined, marks the host and you, then the bots the match brings and the open seats', () => {
     const seats = lobbySeats(lobby, 'a', { a: 'Ada', b: 'Bo' }, { a: 40, b: 150 });

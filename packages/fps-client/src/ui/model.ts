@@ -18,12 +18,16 @@ export interface LobbyInfo {
   readonly lobby?: boolean;
   /** Whether the match is humans vs bots (absent from servers older than it). */
   readonly hvb?: boolean;
+  /** The mode the lobby is set for next, and whether the server holds a Battle Royale map (absent from servers older than the Battle Royale screen). */
+  readonly lobbyMode?: string;
+  readonly squadSize?: number;
+  readonly royale?: boolean;
 }
 
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game', 'battle-royale': 'Battle Royale' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit', lastSquad: 'last squad standing', noHumans: 'no players left' };
-export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash' };
+export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash', 'zero-island': 'Zero Island' };
 /** The maps Bot Match plays on. */
 export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard', 'crash'];
 /** Teams always appear with their mark and name, never by colour alone. */

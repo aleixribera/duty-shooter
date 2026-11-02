@@ -78,6 +78,8 @@ export interface GameDriver {
   setLobby(settings: LobbyPick): void;
   /** The host starts the next match from the lobby (online only; ignored from anyone else). */
   startMatch(): void;
+  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room (online only). */
+  setSquad(squad: number): void;
   /** What to carry from the next spawn (offline: at once while alive). */
   setLoadout(loadout: Loadout): void;
   nameOf(id: PlayerId): string;
@@ -147,6 +149,8 @@ export class OfflineDriver implements GameDriver {
   setLobby(): void {}
 
   startMatch(): void {}
+
+  setSquad(): void {}
 
   /** Solo play has no one to be fair to: a living player re-arms where they stand. */
   setLoadout(loadout: Loadout): void {
@@ -303,6 +307,10 @@ export class OnlineDriver implements GameDriver {
 
   startMatch(): void {
     this.#client.startMatch();
+  }
+
+  setSquad(squad: number): void {
+    this.#client.setSquad(squad);
   }
 
   setLoadout(loadout: Loadout): void {

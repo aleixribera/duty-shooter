@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, loadSettings, lobbyMapName, padName, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
@@ -86,7 +86,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** A game on one map; switching maps builds a new one. */
   /** Wires a game to the page's menus, which only the game on show may answer to. */
   const wire = (g: Game) => {
-    g.input.onPadMenu = (nav) => (lobbyPage.open && !menu.open ? lobbyPage.navigate(nav) : menu.navigate(nav));
+    g.input.onPadMenu = (nav) => (menu.open ? menu.navigate(nav) : lobbyPage.open ? lobbyPage.navigate(nav) : royalePage.open ? royalePage.navigate(nav) : menu.navigate(nav));
     g.input.onUnlock = () => {
       if (!game.paused && game.driver) {
         game.paused = true;
@@ -265,10 +265,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu.loading('Practice Range', null);
         whenUp(() => void playOffline('range'));
       },
-      zeroIsland: () => {
-        menu.loading('Zero Island', null);
-        whenUp(() => void playOffline('zero-island'));
-      },
+      battleRoyale: () => openRoyale(),
       botMatch: () => openBotLobby(),
       playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
         const attempt = ++joinAttempt;
@@ -335,6 +332,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
     botLobbyOpen = false;
+    royalePre = false;
+    royalePage.hide();
     game?.setDriver(null);
     if (game) game.paused = true;
     game?.input.unlock();
@@ -371,6 +370,109 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? lobbyMapName(id), image: MAP_IMAGES.has(id) ? `maps/${id}.jpg` : null }) },
   );
   /**
+   * The Battle Royale screen: before joining, the server's state and the
+   * Squad size to open its lobby with; joined, the server's Battle Royale
+   * lobby (updateLobby feeds it each frame). It plays on this page's own
+   * server for now (ticket 13 gives it a process of its own); Local bots wait
+   * for their worker (ticket 15).
+   */
+  let royale: Omit<RoyaleView, 'session'> = { status: undefined, name: '', passphrase: false, joining: null, error: null, squads: 1 };
+  /** The screen is up before (or while) joining, with no lobby yet. */
+  let royalePre = false;
+  /** The screen shows the server's Battle Royale lobby. */
+  let royaleSession = false;
+  /** The Squad size picked before joining an empty server, sent once its lobby makes this player host. */
+  let pendingSquads: RoyaleView['squads'] | null = null;
+  const showRoyale = () => {
+    if (royalePre) royalePage.show({ ...royale, session: null });
+  };
+  const askRoyale = () => {
+    royale = { ...royale, status: undefined };
+    showRoyale();
+    void lobbyStatus().then((status) => {
+      if (lobby?.kind === 'server') lobby.status = status;
+      royale = { ...royale, status };
+      showRoyale();
+    });
+  };
+  const openRoyale = () => {
+    menu.hide();
+    royalePre = true;
+    royale = { ...royale, name: settings.name.trim(), passphrase: lobby?.kind === 'server' && !lobby.public, joining: null, error: null };
+    askRoyale();
+  };
+  const joinRoyale = (name: string, passphrase: string) => {
+    const attempt = ++joinAttempt;
+    onlineName = name;
+    if (name !== settings.name) {
+      settings = { ...settings, name };
+      saveSettings(settings);
+      menu.settings = settings;
+    }
+    royale = { ...royale, name, joining: 0, error: null };
+    showRoyale();
+    void lobbyStatus().then(async (status) => {
+      if (attempt !== joinAttempt) return;
+      if (!status || !royaleServer(status).join) {
+        royale = { ...royale, status, joining: null };
+        return showRoyale();
+      }
+      await engineReady;
+      if (attempt !== joinAttempt) return;
+      // The island is built on this thread: its step shows (and paints) first.
+      royale = { ...royale, joining: 1 };
+      showRoyale();
+      await nextPaint();
+      const id = ROYALE_MAP;
+      await load(id).bake;
+      if (attempt !== joinAttempt) return;
+      useMap(id);
+      await ready();
+      if (attempt !== joinAttempt) return;
+      royale = { ...royale, joining: 2 };
+      showRoyale();
+      pendingSquads = royaleOpens(status) ? royale.squads : null;
+      lobbyPage.invite = null;
+      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, mode: 'battle-royale' });
+      // No pointer lock yet: the lobby comes first, and the match takes the pointer when it starts.
+      driver = next;
+      game.setDriver(next);
+      game.paused = true;
+      menu.loadoutNote = 'Applies from your next spawn.';
+    });
+  };
+  const royalePage = new RoyalePage(
+    document.body,
+    {
+      join: (name, passphrase) => joinRoyale(name, passphrase),
+      squads: (size) => {
+        if (royaleSession) game.driver?.setLobby({ squads: size });
+        else {
+          royale = { ...royale, squads: size };
+          showRoyale();
+        }
+      },
+      squad: (squad) => game.driver?.setSquad(squad),
+      start: () => {
+        lobbyJoin = true;
+        game.driver?.startMatch();
+      },
+      enter: () => void joinMatch(),
+      refresh: () => askRoyale(),
+      loadout: () => menu.loadout('lobby'),
+      settings: () => menu.lobbySettings(),
+      leave: () => {
+        if (game?.driver) return leaveGame();
+        joinAttempt++;
+        royalePre = false;
+        royalePage.hide();
+        menu.show('main');
+      },
+    },
+    { image: 'maps/zero-island.jpg' },
+  );
+  /**
    * Bot Match's setup is the lobby page offline: you alone, the bots the
    * match brings, and your picks, kept between visits. Opening it starts the
    * picked map's lighting downloading, so Start rarely waits. The bots fill
@@ -381,7 +483,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // Keep the original development link selecting Crash for existing testers.
   const devBotCrash = import.meta.env.DEV && params.get('botmap') === 'crash';
   const initialBotMap = devBotCrash ? 'crash' : BOT_MAPS[0]!;
-  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: initialBotMap };
+  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: initialBotMap, squadSize: 1, squads: {} };
   let botLobbyOpen = false;
   /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
   let botLast: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
@@ -420,7 +522,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
   };
   const pickBots = (picks: LobbyPick) => {
-    const { fill: _fill, bots, ...rest } = picks;
+    const { fill: _fill, bots, squads: _squads, ...rest } = picks;
     const next = { ...botSetup, ...rest };
     // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
     const custom = bots !== undefined || (botSetup.custom && picks.fill === undefined && next.map === botSetup.map && next.mode === botSetup.mode);
@@ -443,6 +545,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let onlineName = 'You';
   const leaveLobby = () => {
     lobbyPage.hide();
+    if (royaleSession) {
+      royaleSession = false;
+      royalePage.hide();
+    }
     if (!game) return;
     game.overviewOnly = false;
     game.hud.visible = game.driver !== null;
@@ -502,11 +608,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Servers from before map switching name no map in their status.
     const next = match ? asMapId(match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map) : undefined;
     if (next && driver instanceof OnlineDriver) followMap(driver, next);
-    if (!driver || !match?.lobby || (match.phase !== 'lobby' && !lobbyPage.open)) {
-      if (lobbyPage.open) leaveLobby();
+    const pageUp = lobbyPage.open || royaleSession;
+    // A join from the Battle Royale screen lands in its lobby, or (a late arrival) in a match under way: the screen stays up for either.
+    const keep = pageUp || (royalePre && match !== null);
+    if (!driver || !match?.lobby || (match.phase !== 'lobby' && !keep)) {
+      if (pageUp) leaveLobby();
       return;
     }
-    if (!lobbyPage.open) {
+    if (!pageUp) {
       // Back from a match (or just joined): out of play, the map flying by behind the page.
       game.paused = true;
       game.input.unlock();
@@ -518,8 +627,25 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     for (const id of match.lobby.players) names[id] = id === driver.selfId ? onlineName : driver.nameOf(id);
     // Into the match only once its map is lit: the player stays on the page (out of the fight's way) until then.
     const entry = load(mapId);
-    const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: entry.ready ? null : entry.map.name };
-    lobbyPage.show(view);
+    const loadingName = entry.ready ? null : entry.map.name;
+    // A Battle Royale lobby (or its match, before this player is in it) is the Battle Royale screen's; every other lobby is the lobby page's.
+    if ((match.phase === 'lobby' ? match.lobby.mode : match.mode) === 'battle-royale') {
+      if (lobbyPage.open) lobbyPage.hide();
+      royalePre = false;
+      royaleSession = true;
+      if (pendingSquads !== null && match.phase === 'lobby' && match.lobby.host === driver.selfId) {
+        if (match.lobby.squadSize !== pendingSquads) driver.setLobby({ squads: pendingSquads });
+        pendingSquads = null;
+      }
+      const seated = driver.scores.some((s) => s.id === driver.selfId);
+      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated };
+      royalePage.show({ ...royale, joining: null, error: null, session });
+    } else {
+      if (royalePage.open) royalePage.hide();
+      royalePre = royaleSession = false;
+      const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName };
+      lobbyPage.show(view);
+    }
     if (match.phase !== 'lobby' && lobbyJoin && entry.ready) {
       lobbyJoin = false;
       void joinMatch();
@@ -612,7 +738,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     updateLobby();
     // The map is only a backdrop while the main menu is open. Limit its GPU
     // work, but keep polling controllers and immediately resume on play.
-    const backdrop = (menu.open || lobbyPage.open) && !fixedCamera;
+    const backdrop = (menu.open || lobbyPage.open || royalePage.open) && !fixedCamera;
     const drawBackdrop = !backdrop || time - lastMenuFrame >= 50;
     if (backdrop && drawBackdrop) lastMenuFrame = time;
     // No session needs ticking behind the main menu; with an online session,
@@ -635,11 +761,18 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (driver?.online && driver.status !== lastStatus) {
       lastStatus = driver.status;
       if (driver.status !== 'playing' && driver.status !== 'connecting' && driver.status !== 'reconnecting') {
+        // A Battle Royale join that failed (or its lobby dropping) says so on its own screen, ready to try again.
+        const royaleFailed = royalePre || royaleSession;
         leaveLobby();
         game.setDriver(null);
         game.paused = true;
         game.input.unlock();
-        menu.failed(driver.status);
+        if (royaleFailed) {
+          menu.hide();
+          royalePre = true;
+          royale = { ...royale, joining: null, error: connectionError(driver.status).body };
+          askRoyale();
+        } else menu.failed(driver.status);
       }
     }
   });
@@ -662,7 +795,9 @@ function nextPaint(): Promise<void> {
 const SEAT_KEY = 'duty-shooter.seat';
 
 /** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
-const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'crash']);
+const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'crash', 'zero-island']);
+/** The map a Battle Royale plays on. */
+const ROYALE_MAP: MapId = 'zero-island';
 
 /** The main menu's camera: metres per second along the map's fly-through. */
 const FLY_SPEED = 4;

@@ -23,7 +23,7 @@ describe('lobby status endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'lobby', away: 0, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, lobby: true, hvb: false });
+    expect(await res.json()).toEqual({ map: 'range', mode: 'ffa', players: 0, capacity: 6, phase: 'lobby', away: 0, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, lobby: true, hvb: false, lobbyMode: 'ffa', squadSize: 1, royale: false });
   });
 });
 

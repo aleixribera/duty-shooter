@@ -4,13 +4,14 @@ import type { PlayerId, PlayerOutput, PlayerState, SimEvent } from '../simulatio
 import { parseLoadout, type Loadout } from '../weapon/loadout';
 import { ALL_BUTTONS, type UserCmd } from '../usercmd';
 import { WIDE_SCALE } from '../modes/scale';
+import type { SquadSize } from '../modes/battle-royale';
 import { decodeSnapshot, type StickyField } from './codec';
 import type { WireData } from './transport';
 
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -35,7 +36,7 @@ export interface SequencedCmd {
  * map's team size for the mode) or off; `bots` sets a size of the host's own,
  * a side, kept until the map or mode changes.
  */
-export type LobbyPick = { readonly mode?: ModeId; readonly fill?: boolean; readonly bots?: number; readonly hvb?: boolean; readonly map?: string };
+export type LobbyPick = { readonly mode?: ModeId; readonly fill?: boolean; readonly bots?: number; readonly hvb?: boolean; readonly map?: string; readonly squads?: SquadSize };
 
 export type ClientMessage =
   | {
@@ -69,7 +70,9 @@ export type ClientMessage =
   /** The host's choices for the next match, in the lobby. */
   | ({ readonly t: 'lobby' } & LobbyPick)
   /** The host starts the next match from the lobby. */
-  | { readonly t: 'start' };
+  | { readonly t: 'start' }
+  /** Anyone in a Battle Royale lobby: the Squad (from 1) they'd like to play in, if it has room. */
+  | { readonly t: 'squad'; readonly squad: number };
 
 /**
  * Where the match is: playing, or in the intermission after `matchEnd`
@@ -109,6 +112,9 @@ export interface LobbyState {
   /** The maps the lobby can play, and the one picked. */
   readonly maps: readonly string[];
   readonly map: string;
+  /** Battle Royale: seats a Squad for the next match, and the Squad (from 1) each person is in. */
+  readonly squadSize: SquadSize;
+  readonly squads: Readonly<Record<string, number>>;
 }
 
 /** The match as every client needs it: map, mode, phase and its deadline, limits, team scores and the vote. */
@@ -229,15 +235,20 @@ export function decodeClient(data: string): ClientMessage | null {
     return isMode(mode) ? { t: 'vote', mode } : null;
   }
   if (value['t'] === 'lobby') {
-    const { mode, fill, bots, hvb, map } = value;
+    const { mode, fill, bots, hvb, map, squads } = value;
     if (mode !== undefined && !isMode(mode)) return null;
     if (fill !== undefined && typeof fill !== 'boolean') return null;
     if (bots !== undefined && !(typeof bots === 'number' && Number.isInteger(bots) && bots >= 0 && bots <= WIDE_SCALE.botsPerTeam)) return null;
     if (hvb !== undefined && typeof hvb !== 'boolean') return null;
     if (map !== undefined && !(typeof map === 'string' && map.length <= 40)) return null;
-    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }) };
+    if (squads !== undefined && squads !== 1 && squads !== 2 && squads !== 3) return null;
+    return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }), ...(squads === undefined ? {} : { squads }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
+  if (value['t'] === 'squad') {
+    const { squad } = value;
+    return typeof squad === 'number' && Number.isInteger(squad) && squad >= 1 && squad <= WIDE_SCALE.seats ? { t: 'squad', squad } : null;
+  }
   if (value['t'] === 'cmds') {
     const cmds = value['cmds'];
     if (!Array.isArray(cmds) || cmds.length > REDUNDANT_CMDS * 2) return null;

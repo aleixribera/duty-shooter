@@ -1,4 +1,4 @@
-import { STATS, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
 import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, weaponCard, type LobbyInfo } from './model';
@@ -12,50 +12,56 @@ const CSS = `
 .ds-screen { position: absolute; inset: 0; }
 /* The same screen drawn again (a tab, a new key, the server's status) does not fade in again. */
 
-/* The main menu: the title, a column of big entries over the map's fly-through, the name, key hints and the version. */
-.ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 44px 56px 22px;
-  background: linear-gradient(90deg, rgb(7 9 13 / 0.9) 0%, rgb(7 9 13 / 0.6) 30%, rgb(7 9 13 / 0) 58%), linear-gradient(0deg, rgb(7 9 13 / 0.75) 0%, rgb(7 9 13 / 0) 32%), linear-gradient(180deg, rgb(7 9 13 / 0.5) 0%, rgb(7 9 13 / 0) 20%); }
+/* The main menu: a title card over the map's fly-through. The wordmark and the name at the top, the destinations in display type with their live readouts at the foot, key hints and the version under them. */
+.ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 40px var(--ds-gutter) 22px;
+  background: linear-gradient(90deg, rgb(7 9 13 / 0.92) 0%, rgb(7 9 13 / 0.62) 32%, rgb(7 9 13 / 0) 60%), linear-gradient(0deg, rgb(7 9 13 / 0.8) 0%, rgb(7 9 13 / 0) 34%), linear-gradient(180deg, rgb(7 9 13 / 0.55) 0%, rgb(7 9 13 / 0) 18%); }
 .ds-home .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-.ds-brand h1 { margin: 0; font-size: 60px; line-height: 0.9; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; text-shadow: 0 2px 18px rgb(0 0 0 / 0.45); }
-.ds-brand h1 span { color: var(--ds-signal); }
-.ds-brand .tag { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ds-text-2); }
-.ds-brand .tag::before { content: ''; width: 28px; height: 2px; background: var(--ds-signal); }
+.ds-brand h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.9; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.ds-brand p { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-name { width: 270px; }
-.ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; margin-top: 6px; background: var(--ds-glass); border: 1px solid var(--ds-line); border-left: 3px solid var(--ds-signal); transition: border-color 120ms; }
+.ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; margin-top: 6px; background: var(--ds-scrim-soft); border: 1px solid var(--ds-line-2); transition: border-color var(--ds-fast); }
 .ds-name label:focus-within { border-color: var(--ds-signal); }
 .ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 19px var(--ds-font); letter-spacing: 0.02em; outline: none; }
-.ds-name .ds-icon { color: var(--ds-text-3); flex: none; }
-.ds-nav { align-self: end; display: flex; flex-direction: column; gap: 6px; width: min(480px, 100%); margin-bottom: 26px; }
-.ds-item { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; min-height: 76px; padding: 12px 20px 12px 16px; text-align: left;
-  background: linear-gradient(90deg, rgb(12 15 21 / 0.82), rgb(12 15 21 / 0.42)); border: 0; border-left: 3px solid transparent;
-  transition: transform 140ms var(--ds-ease), background-color 140ms, border-color 140ms; }
-.ds-item .ds-icon { grid-row: 1 / span 3; width: 30px; height: 30px; color: var(--ds-text-2); transition: color 140ms; }
-.ds-item b { grid-column: 2; font-size: 28px; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-.ds-item .desc { grid-column: 2; margin-top: 4px; font-size: 14px; color: var(--ds-text-2); }
-.ds-item .go { grid-row: 1 / span 3; grid-column: 3; opacity: 0; transform: translateX(-6px); color: var(--ds-signal); transition: opacity 140ms, transform 140ms var(--ds-ease); }
-.ds-item:hover, .ds-item:focus-visible, .ds-item[data-pad-focus] { transform: translateX(8px); background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.04)); border-left-color: var(--ds-signal); outline: none; }
-/* The strip the hovered entry slid off stays part of it, or its left edge would flicker between hovered and not and drop clicks. */
-.ds-item:hover::after { content: ''; position: absolute; top: 0; bottom: 0; left: -11px; width: 11px; }
-.ds-item:hover .ds-icon, .ds-item:focus-visible .ds-icon, .ds-item[data-pad-focus] .ds-icon { color: var(--ds-signal); }
-.ds-item:hover .go, .ds-item:focus-visible .go, .ds-item[data-pad-focus] .go { opacity: 1; transform: none; }
-.ds-item.primary { border-left-color: var(--ds-signal); }
-.ds-item.primary .ds-icon { color: var(--ds-signal); }
-.ds-item .meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); }
-.ds-item .meta b { font-size: 12px; letter-spacing: 0.12em; color: var(--ds-text); }
-.ds-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
-.ds-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ds-alert); }
-.ds-dot.up::before { background: var(--ds-signal); box-shadow: 0 0 8px var(--ds-signal); }
+.ds-name .ds-icon { color: var(--ds-text-2); flex: none; }
+.ds-name .ds-label { color: var(--ds-text); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+/* Destinations: display type, a readout under each, the lit one marked by a signal bar at its left edge. */
+.ds-dests { align-self: end; display: flex; flex-direction: column; width: min(720px, 100%); margin-bottom: 22px; }
+.ds-dest { position: relative; display: block; padding: 10px 0 12px 22px; text-align: left; background: none; border: 0; color: var(--ds-text); }
+.ds-dest::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
+.ds-dest.lit::before { background: var(--ds-signal); }
+.ds-dest b { display: block; font-size: var(--ds-type-display); line-height: 0.92; font-weight: 700; letter-spacing: 0.015em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
+.ds-dest .readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 6px; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
+.ds-dest .readout em { font-style: normal; color: var(--ds-text); }
+.ds-dest:hover::before, .ds-dest:focus-visible::before, .ds-dest[data-pad-focus]::before { background: var(--ds-signal); transform: scaleX(2); }
+.ds-dest:hover b, .ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { transform: translateX(10px); }
+.ds-dest:focus-visible, .ds-dest[data-pad-focus] { outline: none; }
+.ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { color: var(--ds-signal-hi); }
+.ds-dest.minor { margin-top: 14px; padding-top: 18px; border-top: 1px solid var(--ds-line); }
+.ds-dest.minor::before { top: 20px; }
+.ds-dest.minor b { font-size: var(--ds-type-heading); letter-spacing: 0.12em; }
+.ds-dest.minor .readout { display: none; }
+.ds-dot { display: inline-flex; align-items: center; gap: 8px; color: var(--ds-text); }
+.ds-dot::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--ds-alert); }
+.ds-dot.up::before { background: var(--ds-signal); }
 .ds-home footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.ds-version { font-size: 12px; color: var(--ds-text-3); letter-spacing: 0.08em; }
+.ds-version { font-size: var(--ds-type-small); color: var(--ds-text-2); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+/* The first time the menu shows, the destinations rise in one after another; never on a redraw. */
+@keyframes ds-rise { from { opacity: 0; transform: translateY(14px); } }
+.ds-home.enter .ds-dest { animation: ds-rise var(--ds-slow) var(--ds-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.ds-home.enter .ds-brand { animation: ds-rise var(--ds-slow) var(--ds-ease) both; }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ds-rise { from { opacity: 0; } }
+  .ds-dest b, .ds-dest::before { transition: none; }
+}
 /* Small windows: everything in one scrolling column. */
 @media (max-width: 900px), (max-height: 600px) {
-  .ds-home { display: flex; flex-direction: column; gap: 18px; padding: 20px 16px; overflow-y: auto; }
+  .ds-home { display: flex; flex-direction: column; gap: 18px; padding: 20px var(--ds-gutter); overflow-y: auto;
+    background: linear-gradient(0deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 55%, rgb(7 9 13 / 0.45) 100%); }
   .ds-home .top { flex-direction: column; gap: 14px; }
-  .ds-brand h1 { font-size: 38px; }
   .ds-name { width: min(270px, 100%); }
-  .ds-nav { margin: auto 0 0; }
-  .ds-item { min-height: 0; padding: 10px 14px; }
-  .ds-item b { font-size: 21px; }
+  .ds-dests { margin: auto 0 0; }
+  .ds-dest { padding: 8px 0 10px 18px; }
+  .ds-dest .readout { font-size: 14px; }
   .ds-home footer .ds-hints { display: none; }
 }
 
@@ -197,8 +203,8 @@ const PAD_KEYS: readonly (readonly [string, string])[] = [
 export interface MenuCallbacks {
   /** Practice on the range, offline. */
   practiceRange(): void;
-  /** Walk Zero Island alone, offline. A stand-in until the Battle Royale button replaces it (ticket 12). */
-  zeroIsland(): void;
+  /** The Battle Royale screen: its own lobby, on the server or (later) against local bots. */
+  battleRoyale(): void;
   /** Bot Match's setup: the lobby page, offline. */
   botMatch(): void;
   /** Join the server with this name and passphrase; `mode` and `bots` (a side) are the choices for an empty server, null for its own. */
@@ -256,6 +262,8 @@ export class Menu {
   #loading: { title: string; progress: number | null } = { title: '', progress: null };
   /** Connecting: which step is under way. */
   #step = 0;
+  /** The main menu has shown once: its entrance doesn't play again. */
+  #entered = false;
   #afterTip: (() => void) | null = null;
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
   #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
@@ -644,7 +652,7 @@ export class Menu {
     screen.append(home);
     const top = h('div', '', 'top');
     const brand = h('div', '', 'ds-brand');
-    brand.innerHTML = `<h1>Duty <span>Shooter</span></h1><div class="tag">Tactical arena shooter</div>`;
+    brand.innerHTML = `<h1>Duty Shooter</h1>`;
     top.append(brand);
 
     // The name, remembered between visits.
@@ -653,10 +661,11 @@ export class Menu {
     label.innerHTML = icon('user');
     const name = h('input') as HTMLInputElement;
     name.maxLength = 16;
-    name.placeholder = 'Your name';
+    name.placeholder = 'Your name…';
     name.value = this.#settings.name;
     name.setAttribute('aria-label', 'Name');
     name.setAttribute('autocomplete', 'nickname');
+    name.spellcheck = false;
     name.addEventListener('change', () => this.#change({ name: name.value.trim().slice(0, 16) }));
     label.append(name);
     nameBox.append(h('div', 'Name', 'ds-label'), label);
@@ -664,22 +673,22 @@ export class Menu {
     home.append(top);
 
     const lobby = this.#lobby;
-    const nav = h('nav', '', 'ds-nav');
+    const nav = h('nav', '', 'ds-dests');
     nav.setAttribute('aria-label', 'Main menu');
-    // The title is each entry's first text: scripts find the buttons by the text they start with.
-    const item = (iconName: string, title: string, desc: string, onClick: () => void, primary = false) => {
-      const b = h('button', '', `ds-item${primary ? ' primary' : ''}`) as HTMLButtonElement;
+    // The title is each destination's first text: scripts find the buttons by the text they start with.
+    const dest = (title: string, readout: string, onClick: () => void, lit = false, minor = false) => {
+      const b = h('button', '', `ds-dest${lit ? ' lit' : ''}${minor ? ' minor' : ''}`) as HTMLButtonElement;
       b.type = 'button';
-      b.innerHTML = `${icon(iconName)}<b>${escapeHtml(title)}</b><span class="desc">${escapeHtml(desc)}</span><span class="go">${icon('next')}</span>`;
+      b.style.setProperty('--i', String(nav.children.length));
+      b.innerHTML = `<b>${escapeHtml(title)}</b><span class="readout">${readout}</span>`;
       b.addEventListener('click', onClick);
       nav.append(b);
       return b;
     };
-    // Play Online is always first, with its server's state: the Pages copy has no server of its own and sends you to the public lobby's page.
+    // Play Online leads, with its server's state: the Pages copy has no server of its own and sends you to the public lobby's page.
     const server = lobby?.kind === 'server';
     const link = lobby?.kind === 'link' ? lobby.url : null;
     const t = lobbyTile(server ? (lobby.status ?? null) : null);
-    const desc = server ? (lobby.public ? 'The public lobby: anyone with the link can join.' : 'Join the server with its passphrase.') : link ? 'The public lobby, on its own page.' : 'No game server answers this page right now.';
     // The public lobby joins in one click under the name above (typed first if there is none); a private server asks for its passphrase.
     const playOnline = () => {
       if (link) return location.assign(link);
@@ -692,21 +701,33 @@ export class Menu {
       this.#change({ name: n });
       this.#callbacks.playOnline(n, '', null, null);
     };
-    const online = item('online', 'Play Online', desc, playOnline, server);
-    online.insertAdjacentHTML(
-      'beforeend',
-      link
-        ? '<span class="meta"><span class="ds-dot up">Public lobby</span></span>'
-        : `<span class="meta"><span class="ds-dot${t.online ? ' up' : ''}">${t.online ? (t.full ? 'Full' : 'Online') : 'Offline'}</span>${t.online ? `<span><b>${t.players}</b>${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span><span>${escapeHtml(t.map)}</span>` : ''}</span>`,
+    const onlineReadout = link
+      ? '<span class="ds-dot up">Public lobby, on its own page</span>'
+      : !server
+        ? '<span class="ds-dot">No game server answers this page</span>'
+        : t.online
+          ? `<span class="ds-dot up">${t.full ? 'Full' : 'Online'}</span><span><em>${escapeHtml(t.players)}</em> players${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span><span>${escapeHtml(t.mode)}${t.hvb ? ' vs bots' : ''} on ${escapeHtml(t.map)}</span>`
+          : '<span class="ds-dot">Server offline</span><span>Try again in a minute</span>';
+    dest('Play Online', onlineReadout, playOnline, server);
+    dest('Battle Royale', `<span><em>${WIDE_SCALE.seats}</em> seats</span><span>Zero Island</span><span>Solos, Duos or Trios</span>`, () => this.#callbacks.battleRoyale());
+    dest('Bot Match', '<span>Your own lobby against bots: any map, any mode</span><span>Offline</span>', () => this.#callbacks.botMatch(), !server);
+    dest('Practice Range', '<span>Lanes, dummies and the movement course</span><span>Offline</span>', () => this.#callbacks.practiceRange());
+    dest(
+      'Settings',
+      '',
+      () => {
+        this.#back = 'main';
+        this.show('settings');
+      },
+      false,
+      true,
     );
-    item('bots', 'Bot Match', 'Your own lobby against bots: any map, any mode. Offline.', () => this.#callbacks.botMatch(), !server);
-    item('range', 'Practice Range', 'Lanes, dummies and the movement course. Offline.', () => this.#callbacks.practiceRange());
-    item('island', 'Zero Island', 'Walk the island alone. Offline. Early build.', () => this.#callbacks.zeroIsland());
-    item('settings', 'Settings', 'Controls, keys, video and interface.', () => {
-      this.#back = 'main';
-      this.show('settings');
-    });
     home.append(nav);
+    // The destinations rise in the first time the menu shows, and never on a redraw.
+    if (!this.#entered) {
+      this.#entered = true;
+      home.classList.add('enter');
+    }
     const footer = h('footer');
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')), h('div', this.#version, 'ds-version'));
     home.append(footer);
@@ -785,6 +806,7 @@ export class Menu {
     name.required = true;
     name.value = this.#settings.name;
     name.setAttribute('autocomplete', 'nickname');
+    name.spellcheck = false;
     const pass = h('input') as HTMLInputElement;
     pass.type = 'password';
     pass.value = this.#settings.passphrase;

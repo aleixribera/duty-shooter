@@ -19,7 +19,7 @@ UI follows `DESIGN.md`; read it before any UI change.
 
 ## Trying the game in a browser
 
-Walking a map alone, scripting a browser, screenshots and benchmarks run on the page's URL parameters, listed under "Dev URL parameters" in `README.md`. Walking a map alone lives only there: `?explore=<map>` (`survival-town`, `switchyard`, `range`), with `?nolock` for a scripted browser. The main menu keeps to Play Online, Bot Match, Practice Range and Settings, plus a temporary Zero Island button the owner asked for, until the Battle Royale button replaces it.
+Walking a map alone, scripting a browser, screenshots and benchmarks run on the page's URL parameters, listed under "Dev URL parameters" in `README.md`. Walking a map alone lives only there: `?explore=<map>` (`survival-town`, `switchyard`, `range`), with `?nolock` for a scripted browser. The main menu keeps to Play Online, Battle Royale, Bot Match, Practice Range and Settings; walking Zero Island alone is `?explore=zero-island`.
 
 Script a browser through `launchChrome()` in `apps/range/scripts/chrome.mjs`: it runs headless and muted (`SOUND=1` to hear it). The owner works at this PC while scripted matches run, so a browser launched any other way also gets `--mute-audio`. `docs/agents/codebase.md` lists the ready-made scripts and their pitfalls.
 

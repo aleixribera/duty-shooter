@@ -3,14 +3,14 @@ import { planCharge, planOutposts } from '../bots/planner';
 import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
 import { nearestNode, type NavGraph } from '../bots/nav';
 import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
-import { BattleRoyale, type BattleRoyaleOptions } from '../modes/battle-royale';
+import { BattleRoyale, type BattleRoyaleOptions, type SquadSize } from '../modes/battle-royale';
 import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
 import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { playGround } from '../modes/ground';
-import { MATCH_SCALES, type MatchScale } from '../modes/scale';
+import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
 import { hashString } from '../random';
@@ -305,6 +305,12 @@ export interface LobbyStatus {
   readonly lobby: boolean;
   /** Whether the match is humans vs bots. */
   readonly hvb: boolean;
+  /** The mode the lobby is set for next: a Battle Royale screen tells its own lobby from the team modes' by it. */
+  readonly lobbyMode: ModeId;
+  /** Seats a Squad in the next Battle Royale. */
+  readonly squadSize: SquadSize;
+  /** Whether the server holds a map that plays Battle Royale. */
+  readonly royale: boolean;
 }
 
 /** An event ready for the wire. */
@@ -397,6 +403,8 @@ export class GameServer {
   #planAt = 0;
   /** Players holding the use button, as of their latest usercmd. */
   readonly #using = new Set<PlayerId>();
+  /** Battle Royale: the Squad each person picked or was given in the lobby (see #lobbySquads). */
+  #squadPicks = new Map<PlayerId, number>();
 
   constructor(transport: ServerTransport, options: GameServerOptions) {
     this.#options = options;
@@ -455,9 +463,61 @@ export class GameServer {
     return this.#modes[this.#phase === 'lobby' ? this.#lobbyMode : this.#mode.id].fixedSeats;
   }
 
-  /** Whether `map` can play `mode`: a mode that seats its own is played only where the map says so, every other anywhere. */
+  /**
+   * Whether `map` can play `mode`: a mode that seats its own is played only
+   * where the map says so; every other anywhere but on a map that names only
+   * modes that seat their own (Zero Island plays Battle Royale and nothing else).
+   */
   #plays(mode: ModeId, map: ServerMap): boolean {
-    return this.#modes[mode].fixedSeats === undefined || map.teamSize?.[mode] !== undefined;
+    if (this.#modes[mode].fixedSeats !== undefined) return map.teamSize?.[mode] !== undefined;
+    const named = Object.keys(map.teamSize ?? {}) as ModeId[];
+    return named.length === 0 || named.some((m) => this.#modes[m]?.fixedSeats === undefined);
+  }
+
+  /** Where the lobby goes to play `mode`: the map picked if it plays it, else the first that does. */
+  #mapFor(mode: ModeId, picked: ServerMap = this.#lobbyMap): ServerMap | null {
+    return this.#plays(mode, picked) ? picked : (this.#maps.find((m) => this.#plays(mode, m)) ?? null);
+  }
+
+  get #royale(): BattleRoyale {
+    return this.#modes[BATTLE_ROYALE] as BattleRoyale;
+  }
+
+  /**
+   * Each person's Squad for the next Battle Royale, made whole: a Squad picked
+   * keeps them while it has room (first come, first kept), and anyone else
+   * joins the first Squad with people in it and room, else a Squad of their own.
+   */
+  #lobbySquads(): Map<PlayerId, number> {
+    const size = this.#royale.squadSize;
+    const most = Math.floor(WIDE_SCALE.seats / size);
+    const count = new Map<number, number>();
+    const placed = new Map<PlayerId, number>();
+    const rest: PlayerId[] = [];
+    for (const c of this.#joined()) {
+      const id = c.id as PlayerId;
+      const squad = this.#squadPicks.get(id);
+      if (squad !== undefined && squad <= most && (count.get(squad) ?? 0) < size) {
+        placed.set(id, squad);
+        count.set(squad, (count.get(squad) ?? 0) + 1);
+      } else rest.push(id);
+    }
+    for (const id of rest) {
+      let squad = size > 1 ? [...count.keys()].sort((a, b) => a - b).find((s) => count.get(s)! < size) : undefined;
+      if (squad === undefined) for (squad = 1; count.has(squad); squad++);
+      placed.set(id, squad);
+      count.set(squad, (count.get(squad) ?? 0) + 1);
+    }
+    this.#squadPicks = placed;
+    return placed;
+  }
+
+  /** A person asks for a Squad: theirs if it has room without them. */
+  #pickSquad(id: PlayerId, squad: number): void {
+    const squads = this.#lobbySquads();
+    if (squad > Math.floor(WIDE_SCALE.seats / this.#royale.squadSize)) return;
+    const others = [...squads].filter(([who, s]) => who !== id && s === squad).length;
+    if (others < this.#royale.squadSize) squads.set(id, squad);
   }
 
   /** Bots a side a match on `map` in `mode` fills to: none with bots off, else the host's own size or the map's. */
@@ -513,6 +573,9 @@ export class GameServer {
       maxBotsPerTeam: this.maxBotsPerTeam,
       lobby: this.#options.lobby === true,
       hvb: this.#hvbOn,
+      lobbyMode: this.#lobbyMode,
+      squadSize: this.#royale.squadSize,
+      royale: this.#maps.some((m) => this.#plays(BATTLE_ROYALE, m)),
     };
   }
 
@@ -533,8 +596,10 @@ export class GameServer {
       custom: this.#customBots !== null,
       maxBots: this.maxBotsPerTeam,
       hvb: this.#hvb,
-      maps: this.#maps.map((m) => m.id),
+      maps: this.#maps.filter((m) => this.#plays(this.#lobbyMode, m)).map((m) => m.id),
       map: this.#lobbyMap.id,
+      squadSize: this.#royale.squadSize,
+      squads: Object.fromEntries(this.#lobbyMode === BATTLE_ROYALE ? this.#lobbySquads() : []),
     };
   }
 
@@ -669,9 +734,10 @@ export class GameServer {
       if (this.#phase !== 'lobby' || client.id !== this.host) return;
       if (message.t === 'start') this.#startRequested = true;
       else {
-        const map = this.#maps.find((m) => m.id === message.map) ?? this.#lobbyMap;
+        // The mode and map asked for, else the mode on a map that plays it, else no change.
+        const picked = this.#maps.find((m) => m.id === message.map);
         const asked = message.mode ?? this.#lobbyMode;
-        const mode = this.#plays(asked, map) ? asked : this.#plays(this.#lobbyMode, map) ? this.#lobbyMode : 'tdm';
+        const [mode, map] = picked && this.#plays(asked, picked) ? [asked, picked] : this.#mapFor(asked) ? [asked, this.#mapFor(asked)!] : [this.#lobbyMode, this.#lobbyMap];
         // The host's own size lasts until the map or the mode changes: then the new pick's team size applies.
         if (mode !== this.#lobbyMode || map !== this.#lobbyMap) this.#customBots = null;
         this.#lobbyMode = mode;
@@ -682,7 +748,12 @@ export class GameServer {
         }
         if (message.bots !== undefined) this.#setCustomBots(message.bots);
         if (message.hvb !== undefined) this.#hvb = message.hvb;
+        if (message.squads !== undefined) this.#royale.squadSize = message.squads;
       }
+      return;
+    }
+    if (message.t === 'squad') {
+      if (this.#phase === 'lobby' && this.#lobbyMode === BATTLE_ROYALE) this.#pickSquad(client.id, message.squad);
       return;
     }
     if (message.t === 'cmds') {
@@ -728,7 +799,12 @@ export class GameServer {
       if (bots !== null) this.#setCustomBots(bots);
       if (hvb !== null) this.#hvb = hvb;
       this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
-      const asked = preferred !== null && this.#plays(preferred, this.#lobbyMap) ? preferred : null;
+      // A mode asked for goes to a map that plays it; with none asked, a lobby left on a mode that seats its own goes back to the server's own.
+      const own = this.#options.mode ?? 'tdm';
+      const want = preferred ?? (this.#modes[this.#lobbyMode].fixedSeats !== undefined ? own : null);
+      const map = want === null ? null : this.#mapFor(want);
+      const asked = map ? want : null;
+      if (map) this.#lobbyMap = map;
       // A match that seats its own only starts when asked, so a script's other players don't all arrive to spectate.
       if (this.#options.lobby && (!client.script || this.#modes[asked ?? this.#mode.id].fixedSeats !== undefined)) {
         this.#lobbyMode = asked ?? this.#lobbyMode;
@@ -833,12 +909,14 @@ export class GameServer {
       if (!this.simulation.has(id)) this.simulation.addPlayer({ id, team: 0, position: [0, 0, 0], ...this.#loadoutOf(id) });
     }
     const seats = this.#seats();
+    const squads = this.#mode.id === BATTLE_ROYALE ? this.#lobbySquads() : null;
     const entrants = seats.map((seat) => ({
       id: seat.id,
       name: seat.name,
       // Teams carry over only between matches of the same mode.
       team: previous.id === this.#mode.id ? (this.simulation.playerStateView(seat.id)?.team ?? null) : null,
       ...this.#sideOf(seat.id),
+      ...(squads?.has(seat.id) ? { squad: squads.get(seat.id)! } : {}),
     }));
     const teams = this.#mode.start(entrants, this.#context());
     // The match (and its clock) starts after the opening countdown; a mode that opens with a freeze of its own (Charge) needs none.

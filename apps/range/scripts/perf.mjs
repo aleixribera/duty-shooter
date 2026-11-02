@@ -154,6 +154,8 @@ async function menus(chrome) {
   await go('Back', 'Online back');
   await go('Bot Match');
   await go('Back', 'Bot Match back');
+  await go('Battle Royale');
+  await go('Back', 'Battle Royale back');
   return steps;
 }
 

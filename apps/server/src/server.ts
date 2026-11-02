@@ -62,6 +62,10 @@ export interface RunningServer {
   close(): Promise<void>;
 }
 
+/** The map Battle Royale plays on, and where the build leaves its bots' nav (`MapDefinition.navFile`). */
+const ROYALE_MAP: MapId = 'zero-island';
+const ISLAND_NAV = 'nav/zero-island.nav';
+
 /** Largest WebSocket frame accepted, in bytes; the game server checks message sizes again. */
 const MAX_PAYLOAD = 16 * 1024;
 
@@ -375,6 +379,16 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const first = serverMap(map);
   // Every lobby map is built up front, so a switch at a match's start costs nothing.
   const others = LOBBY_MAPS.includes(options.map) ? LOBBY_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
+  // Zero Island too, for the Battle Royale screen, wherever its bots' nav was built: it plays only Battle Royale,
+  // so the team modes' lobby never offers it. (Ticket 13 moves Battle Royale to a process of its own.)
+  if (options.map !== ROYALE_MAP && maxBots > 0 && existsSync(join(root, ISLAND_NAV))) {
+    try {
+      others.push(serverMap(buildMapById(ROYALE_MAP)));
+    } catch (error) {
+      // A nav built for another island: the team modes still play, and Battle Royale waits for a build that matches.
+      console.error('Zero Island is left out:', error instanceof Error ? error.message : error);
+    }
+  }
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const log = new EventLog(options.eventLog ?? null, options.printLog ? { print: options.printLog } : {});

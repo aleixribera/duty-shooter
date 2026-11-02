@@ -306,6 +306,11 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'start' }));
   }
 
+  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room. */
+  setSquad(squad: number): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'squad', squad }));
+  }
+
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));

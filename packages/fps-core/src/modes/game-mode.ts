@@ -226,6 +226,8 @@ export interface MatchEntrant {
   readonly team: TeamId | null;
   /** The team they must play on, whatever the balance (humans vs bots); team modes only. */
   readonly side?: TeamId;
+  /** The Squad they picked in the lobby, as a label shared with their squadmates; Battle Royale only. */
+  readonly squad?: number;
 }
 
 /** Seconds a dead player waits before respawning, online and in bot matches. */

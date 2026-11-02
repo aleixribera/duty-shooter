@@ -29,7 +29,7 @@ A map's ground as a heightfield, colliding beside its solids: a grid of corner h
 _Avoid_: floor, landscape, mesh collision
 
 **Zero Island**:
-The Battle Royale's map: about a square kilometre of land on Terrain, with a Boundary out in the shallows. Its ground is generated in code when the map is built. Reached for now by `?explore=zero-island` and a temporary main menu button.
+The Battle Royale's map: about a square kilometre of land on Terrain, with a Boundary out in the shallows. Its ground is generated in code when the map is built. Played through the Battle Royale screen; walked alone with `?explore=zero-island`.
 
 **Region**:
 One of Zero Island's six areas: Ground Zero, The Dustlands, Frostbite Peaks, Mutant Jungle, Neon City and Rogue Harbor. Never "Zone", which stays with Outposts.
@@ -128,6 +128,12 @@ _Avoid_: BR
 
 **Squad**:
 The seats playing together in a Battle Royale: one (Solos), two (Duos) or three (Trios). Squadmates can't hurt each other, and the last Squad with anyone alive wins.
+
+**Battle Royale screen**:
+Where a Battle Royale is set up, reached from the main menu: where it plays (the server; Local bots once they have their own thread), the Squad size, your Squad's seats and the other Squads, the server's state in one line, and Start. Joining an empty server makes you the lobby's host, with the Squad size you picked. It replaces the lobby page for a Battle Royale.
+
+**Bot seat**:
+A seat in a Squad with no person in it on the Battle Royale screen, drawn dashed: a bot takes it when the match starts, unless a friend joins first.
 
 **Ring**:
 The closing circle of a Battle Royale. Outside it health falls and doesn't regenerate. Its circles nest, close on land, and all come from the match's seed.

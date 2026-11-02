@@ -52,6 +52,25 @@ function royale(options: { squadSize?: SquadSize; seats?: number; people?: reado
 const place = (mode: BattleRoyale, id: string) => mode.scores().find((s) => s.id === id)?.place;
 
 describe('Squads', () => {
+  it('seats picked Squads together, bots filling their gaps before Squads of their own', () => {
+    const mode = new BattleRoyale({ squadSize: 3, seed: 11 });
+    // p2 and p5 picked Squad 9, p4 picked Squad 2; the rest picked nothing.
+    const seats = entrants(9).map((e) => (e.id === 'p2' || e.id === 'p5' ? { ...e, squad: 9 } : e.id === 'p4' ? { ...e, squad: 2 } : e));
+    const team = mode.start(seats, { tick: 0, time: 0, matchTime: 0, players: [], spawns: SPAWNS, teamSpawns: null, world: WORLD, zones: [], sites: [], using: new Set(), ground: playGround(NAV, WORLD), people: new Set() });
+    expect(team.get('p2')).toBe(team.get('p5'));
+    expect(team.get('p4')).not.toBe(team.get('p2'));
+    const counts = new Map<number, number>();
+    for (const t of team.values()) counts.set(t, (counts.get(t) ?? 0) + 1);
+    expect([...counts.values()]).toEqual([3, 3, 3]);
+  });
+
+  it('can change its Squad size between matches', () => {
+    const mode = new BattleRoyale({ seed: 11 });
+    mode.squadSize = 2;
+    const team = mode.start(entrants(4), { tick: 0, time: 0, matchTime: 0, players: [], spawns: SPAWNS, teamSpawns: null, world: WORLD, zones: [], sites: [], using: new Set(), ground: playGround(NAV, WORLD), people: new Set() });
+    expect(new Set(team.values()).size).toBe(2);
+  });
+
   it.each([[1, 60], [2, 30], [3, 20]] as const)('%i a Squad seats 60 as %i Squads', (size, squads) => {
     const { team } = royale({ squadSize: size, seats: 60 });
     const counts = new Map<number, number>();

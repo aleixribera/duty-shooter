@@ -45,7 +45,8 @@ export class BattleRoyale implements GameMode {
   readonly timeLimit: number;
   readonly fixedSeats = WIDE_SCALE.seats;
   readonly frags = STATS.royale.frags.value;
-  readonly squadSize: SquadSize;
+  /** Seats a Squad; the lobby's host may change it between matches. */
+  squadSize: SquadSize;
   readonly #seed: number | null;
   readonly #random: () => number;
   readonly #entries = new Map<PlayerId, Entry>();
@@ -122,12 +123,8 @@ export class BattleRoyale implements GameMode {
     this.#result = null;
     this.#stage = 0;
     this.#peopled = false;
-    const teams = new Map<PlayerId, TeamId>();
-    entrants.forEach((e, i) => {
-      const team = Math.floor(i / this.squadSize) + 1;
-      teams.set(e.id, team);
-      this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0 });
-    });
+    const teams = squadTeams(entrants, this.squadSize);
+    for (const e of entrants) this.#entries.set(e.id, { id: e.id, name: e.name, team: teams.get(e.id)!, kills: 0, deaths: 0 });
     this.#squads = new Set(teams.values()).size;
     this.#squadsAlive = this.#squads;
     this.#living = [...teams.keys()];
@@ -245,4 +242,39 @@ export class BattleRoyale implements GameMode {
     };
     return state;
   }
+}
+
+/**
+ * Each entrant's Squad (a team id from 1): those who picked the same Squad
+ * together, in the order their picks first appear, then everyone else in
+ * order, filling the gaps in Squads already started before opening new ones.
+ * So bots fill a part-empty Squad of friends first.
+ */
+export function squadTeams(entrants: readonly MatchEntrant[], size: SquadSize): Map<PlayerId, TeamId> {
+  const teams = new Map<PlayerId, TeamId>();
+  const members: number[] = [0];
+  const labels = new Map<number, TeamId>();
+  const rest: MatchEntrant[] = [];
+  for (const e of entrants) {
+    const label = e.squad;
+    let team = label === undefined ? undefined : labels.get(label);
+    if (label !== undefined && team === undefined) {
+      team = members.length;
+      labels.set(label, team);
+      members.push(0);
+    }
+    if (team === undefined || members[team]! >= size) rest.push(e);
+    else {
+      teams.set(e.id, team);
+      members[team]! += 1;
+    }
+  }
+  let open = 1;
+  for (const e of rest) {
+    while (open < members.length && members[open]! >= size) open += 1;
+    if (open === members.length) members.push(0);
+    teams.set(e.id, open);
+    members[open]! += 1;
+  }
+  return teams;
 }

@@ -1,7 +1,8 @@
 /**
- * Duty Shooter's identity (ticket 07): system fonts only, a dark ink
- * palette with one signal colour (mint), and team colours that always come
- * with their mark. Shared by the menu, the lobby and the HUD.
+ * Duty Shooter's identity (DESIGN.md): system fonts only, a dark ink palette
+ * with one signal colour (mint), five type sizes, and team colours that always
+ * come with their mark. Shared by the menus, the lobby, the Battle Royale
+ * screen and the HUD.
  *
  * The page shell, buttons, segmented pickers and key hints live here so the
  * menu screens and the lobby are one design. Everything is cheap to draw over
@@ -17,8 +18,11 @@ const CSS = `
   --ds-alert: #ff6159; --ds-blue: #3d8bff; --ds-orange: #ff9a3c; --ds-gold: #f2c230;
   --ds-good: #7fdc6a; --ds-fair: #f2c230; --ds-poor: #ff5d52;
   --ds-line: rgb(243 241 234 / 0.12); --ds-line-2: rgb(243 241 234 / 0.22);
-  --ds-glass: rgb(14 18 24 / 0.84); --ds-scrim: rgb(7 9 13 / 0.9);
-  --ds-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ds-glass: rgb(14 18 24 / 0.84); --ds-scrim: rgb(7 9 13 / 0.9); --ds-scrim-soft: rgb(7 9 13 / 0.72);
+  --ds-ease: cubic-bezier(0.2, 0.7, 0.2, 1); --ds-fast: 120ms; --ds-slow: 240ms;
+  --ds-type-display: clamp(30px, min(5.6vh, 4.2vw), 60px); --ds-type-title: clamp(32px, 4.8vh, 52px);
+  --ds-type-heading: 22px; --ds-type-body: 16px; --ds-type-small: 13px;
+  --ds-gutter: 56px;
   --ds-font: Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 .ds-ui { font-family: var(--ds-font); font-variant-numeric: tabular-nums; color: var(--ds-text); -webkit-font-smoothing: antialiased; }
@@ -32,20 +36,33 @@ const CSS = `
 /* The page shell: a header with the breadcrumb and title, a body that scrolls on its own, and a footer that always shows the actions. */
 .ds-page { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.8) 55%, rgb(7 9 13 / 0.9) 100%); }
-.ds-page > header { display: flex; align-items: flex-end; gap: 24px; padding: 28px 56px 18px; border-bottom: 1px solid var(--ds-line); }
+.ds-page > header { display: flex; align-items: flex-end; gap: 24px; padding: 28px var(--ds-gutter) 18px; border-bottom: 1px solid var(--ds-line); }
 .ds-page > header .heading { flex: 1; min-width: 0; }
 .ds-crumb { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-text-3); }
 .ds-crumb::before { content: ''; width: 18px; height: 2px; background: var(--ds-signal); }
-.ds-page > header h1 { margin: 6px 0 0; font-size: 46px; line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-page > header h1 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ds-page > header .aside { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 4px; }
-.ds-page > .body { overflow-y: auto; overscroll-behavior: contain; padding: 28px 56px 32px; scrollbar-width: thin; scrollbar-color: var(--ds-line-2) transparent; }
-.ds-page > footer { display: flex; align-items: center; gap: 12px; padding: 14px 56px; background: rgb(7 9 13 / 0.72); border-top: 1px solid var(--ds-line); }
+.ds-page > .body { overflow-y: auto; overscroll-behavior: contain; padding: 28px var(--ds-gutter) 32px; scrollbar-width: thin; scrollbar-color: var(--ds-line-2) transparent; }
+.ds-page > footer { display: flex; align-items: center; gap: 12px; padding: 14px var(--ds-gutter); background: var(--ds-scrim-soft); border-top: 1px solid var(--ds-line); }
 .ds-page > footer .grow { flex: 1; min-width: 0; }
 .ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-line); background: rgb(243 241 234 / 0.04); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; }
 .ds-chip b { color: var(--ds-text); font-weight: 700; }
 .ds-h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 2px solid var(--ds-line);
   font-size: 18px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-h2 small { font-size: 13px; font-weight: 400; letter-spacing: 0.1em; color: var(--ds-text-3); }
+
+/* Readouts: a label over a value, side by side in one strip split by lines. */
+.ds-readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
+.ds-readouts > div { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; background: var(--ds-panel); }
+.ds-readouts span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-readouts b { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; }
+
+/* A status dot and the sentence that says what the state means. */
+.ds-state { display: flex; align-items: baseline; gap: 10px; font-size: var(--ds-type-body); color: var(--ds-text); }
+.ds-state::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--ds-alert); transform: translateY(-1px); }
+.ds-state.up::before { background: var(--ds-signal); }
+.ds-state.busy::before { background: var(--ds-fair); }
+.ds-state.wait::before { background: var(--ds-text-3); }
 
 /* Buttons: a quiet frame, the primary in signal, the big call to action in the footer. */
 .ds-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 22px; border: 1px solid var(--ds-line-2); border-radius: 2px;
@@ -85,10 +102,11 @@ const CSS = `
   @keyframes ds-slide { from { opacity: 0; } to { opacity: 1; } }
 }
 @media (max-width: 960px) {
-  .ds-page > header { flex-wrap: wrap; gap: 8px 16px; padding: 18px 16px 14px; }
+  :root { --ds-gutter: 16px; }
+  .ds-page > header { flex-wrap: wrap; gap: 8px 16px; padding: 18px var(--ds-gutter) 14px; }
   .ds-page > header h1 { font-size: 32px; }
-  .ds-page > .body { padding: 20px 16px 24px; }
-  .ds-page > footer { flex-wrap: wrap; padding: 12px 16px; }
+  .ds-page > .body { padding: 20px var(--ds-gutter) 24px; }
+  .ds-page > footer { flex-wrap: wrap; padding: 12px var(--ds-gutter); }
   .ds-page > footer .ds-hints { display: none; }
   .ds-btn.big { min-width: 0; flex: 1 1 100%; order: 9; }
 }

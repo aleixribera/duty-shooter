@@ -35,7 +35,7 @@ To play online locally:
    node apps/server/dist/main.js
    ```
 
-   That runs a public lobby. The host picks the map and mode in the lobby; the environment sets where it starts and its limits. All are optional:
+   That runs a public lobby. The host picks the map and mode in the lobby; the environment sets where it starts and its limits. When the build left Zero Island's bot nav (`nav/zero-island.nav`) and bots are on, the server also holds the island for the main menu's **Battle Royale** screen: a Battle Royale lobby opens on it when someone asks for one on an empty server, and the server goes back to its own mode once everyone leaves. All are optional:
 
    | Variable | Default | |
    | --- | --- | --- |
@@ -164,7 +164,7 @@ Each map's lighting (lightmaps and light probes) is baked on the CPU by a Vite p
 
 ### Status endpoint
 
-The server answers `GET /status` with the lobby's map, mode, players, capacity, bots, humans vs bots and match phase, which the Play Online tile shows, and `GET /healthz` with its health, version and protocol.
+The server answers `GET /status` with the lobby's map, mode, players, capacity, bots, humans vs bots and match phase, which the Play Online tile shows, and the mode its lobby is set for next, the Squad size and whether it holds a Battle Royale map, which the Battle Royale screen shows, and `GET /healthz` with its health, version and protocol.
 
 ## Deploy
 
