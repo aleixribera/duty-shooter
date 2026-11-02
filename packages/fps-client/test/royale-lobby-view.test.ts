@@ -105,7 +105,7 @@ describe('the Battle Royale screen’s server line', () => {
 });
 
 describe('the Battle Royale screen once joined', () => {
-  const session = (over: Partial<RoyaleSessionState>): RoyaleSessionState => ({ host: true, hostName: 'Aleix', phase: 'lobby', loading: null, seated: false, reconnecting: false, ...over });
+  const session = (over: Partial<RoyaleSessionState>): RoyaleSessionState => ({ host: true, hostName: 'Aleix', phase: 'lobby', loading: null, seated: false, out: false, reconnecting: false, ...over });
 
   it('lets the host start, and has everyone else wait for them', () => {
     expect(royaleSession(session({}))).toEqual({ tone: 'up', line: 'In the lobby. You are the host: start when your Squad is ready.', go: { label: 'Start match', act: 'start' }, picks: true });
@@ -125,5 +125,12 @@ describe('the Battle Royale screen once joined', () => {
     expect(royaleSession(session({ phase: 'playing', seated: true }))).toMatchObject({ tone: 'busy', go: { label: 'Join the match', act: 'enter' }, picks: false });
     expect(royaleSession(session({ phase: 'playing', loading: 'Zero Island' }))).toMatchObject({ line: 'The match has started. Building Zero Island first.', go: { label: 'Building the island…', act: null } });
     expect(royaleSession(session({ phase: 'playing' })).go.label).toBe('Watch the match');
+  });
+
+  it('tells a seat already out of the match, back on the page, that it can only watch (ticket 48)', () => {
+    const back = royaleSession(session({ phase: 'playing', seated: true, out: true }));
+    expect(back.line).toBe('You’re out of this match: watch it, and play the next one.');
+    expect(back.go).toEqual({ label: 'Watch the match', act: 'enter' });
+    expect(back.line).not.toContain('Join');
   });
 });

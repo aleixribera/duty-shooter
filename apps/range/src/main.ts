@@ -657,8 +657,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         if (match.lobby.squadSize !== pendingSquads) driver.setLobby({ squads: pendingSquads });
         pendingSquads = null;
       }
-      const seated = driver.scores.some((s) => s.id === driver.selfId);
-      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, reconnecting, place: royalePlace };
+      const mine = driver.scores.find((s) => s.id === driver.selfId);
+      const seated = mine !== undefined;
+      // One life: a seat that has died, or whose Squad has a place, is out of this match.
+      const out = mine !== undefined && (mine.deaths > 0 || mine.place !== undefined);
+      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, out, reconnecting, place: royalePlace };
       royalePage.show({ ...royale, joining: null, error: null, session });
     } else {
       if (royalePage.open) royalePage.hide();

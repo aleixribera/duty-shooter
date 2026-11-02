@@ -13,7 +13,7 @@ const CSS = `
 /* Over the live map: the scrim is heavy on the left, where the controls are, and lifts to the right. */
 .ds-royale .ds-page { background: linear-gradient(90deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.86) 50%, rgb(7 9 13 / 0.7) 100%); }
 .ds-royale .body { display: grid; grid-template-columns: minmax(0, 640px) minmax(380px, 1fr); gap: 64px; align-content: start; }
-.ds-royale .controls { display: grid; gap: 28px; align-content: start; }
+.ds-royale .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-content: start; }
 .ds-royale .controls .ds-seg { max-width: 520px; }
 .ds-royale .ds-seg button { min-height: 48px; font-size: 14px; }
 .ds-royale .ds-seg button small { display: block; margin-top: 2px; font-size: 12px; letter-spacing: 0.12em; color: var(--ds-text-2); }
@@ -32,7 +32,7 @@ const CSS = `
 @keyframes ds-fill { from { opacity: 0; transform: translateY(6px); } }
 .ds-royale .slot.fresh { animation: ds-fill var(--ds-slow) var(--ds-ease) both; }
 /* The other Squads: a row each, its people and a Join while it has room. */
-.ds-royale .squads { display: grid; gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
+.ds-royale .squads { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
 .ds-royale .squad { display: flex; align-items: center; gap: 16px; min-height: 56px; padding: 8px 8px 8px 16px; background: var(--ds-panel); }
 .ds-royale .squad .n { width: 72px; flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-royale .squad .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-body); }
@@ -63,7 +63,15 @@ const CSS = `
 @media (max-width: 960px) {
   .ds-royale .ds-page { background: var(--ds-scrim); }
   .ds-royale .body { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .ds-royale .body > aside { order: -1; }
+  /* A phone: what you came for first (where it stands, your Squad and Start, the others), the picks and the island after (ticket 51). */
+  .ds-royale .body > .controls, .ds-royale .body > aside { display: contents; }
+  .ds-royale .conn { order: 1; margin-top: 0; }
+  .ds-royale .sec-squad { order: 2; }
+  .ds-royale .sec-others { order: 3; }
+  .ds-royale .last { order: 4; }
+  .ds-royale .sec-size { order: 5; }
+  .ds-royale .sec-source { order: 6; }
+  .ds-royale .island { order: 7; }
   .ds-royale .slot { min-height: 84px; padding: 10px 12px; }
   .ds-royale .slot b { font-size: 18px; }
   .ds-royale .island .ds-readouts > div { padding: 10px 12px; }
@@ -90,6 +98,8 @@ export interface RoyaleSession {
   readonly loading: string | null;
   /** Whether this player has a seat in the match under way (a late arrival watches it instead). */
   readonly seated: boolean;
+  /** That seat is already out of the match under way: it can only watch. */
+  readonly out?: boolean;
   /** The connection dropped and is coming back: Start and the picks wait for it. */
   readonly reconnecting?: boolean;
   /** Your Squad's place in the last match and of how many Squads; null when you weren't placed in it. */
@@ -273,7 +283,7 @@ export class RoyalePage {
     const s = v.session;
     const host = s !== null && s.lobby.host !== null && s.lobby.host === s.selfId;
     const underway = s !== null && s.phase !== 'lobby';
-    const joined = s ? royaleSession({ host, hostName: s.lobby.host === null ? null : (s.names[s.lobby.host] ?? s.lobby.host), phase: s.phase, loading: s.loading, seated: s.seated, reconnecting: s.reconnecting === true }) : null;
+    const joined = s ? royaleSession({ host, hostName: s.lobby.host === null ? null : (s.names[s.lobby.host] ?? s.lobby.host), phase: s.phase, loading: s.loading, seated: s.seated, out: s.out === true, reconnecting: s.reconnecting === true }) : null;
     const server = royaleServer(v.status ?? null);
     const free = royaleOpens(v.status);
     const size: SquadSize = s ? s.lobby.squadSize : free ? v.squads : ((v.status?.squadSize ?? 1) as SquadSize);
@@ -295,13 +305,13 @@ export class RoyalePage {
         })
         .join('');
       const leaveSquad = view.newSquad !== null && !underway && !s.reconnecting ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
-      squadsHtml = `<section><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true) : ''}${leaveSquad}</section>
-${others ? `<section><h2>Other Squads<small>${view.others.length} with people in them</small></h2><div class="squads">${others}</div></section>` : ''}`;
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true) : ''}${leaveSquad}</section>
+${others ? `<section class="sec-others"><h2>Other Squads<small>${view.others.length} with people in them</small></h2><div class="squads">${others}</div></section>` : ''}`;
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
     } else {
       // Before joining: your own seat, and the seats friends take when they join, bots otherwise.
       const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: v.name ? 'You' : 'Type your name to join', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
-      squadsHtml = `<section><h2>Your Squad<small>Friends who join take these seats</small></h2>${this.#slots(mine, false)}</section>`;
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>Friends who join take these seats</small></h2>${this.#slots(mine, false)}</section>`;
       footNote = '';
     }
     const last = s ? lastMatch(s.result, s.mode, s.teamScores, s.place ?? null) : null;
@@ -338,9 +348,9 @@ ${v.passphrase ? `<label class="ds-field"><span class="ds-field-label">Passphras
 <header><div class="heading"><div class="ds-crumb">${s ? 'Online · Lobby' : 'Play'}</div><h1>Battle Royale</h1></div></header>
 <div class="body">
 <div class="controls">
-<section><span class="ds-field-label">Play on</span><div class="ds-seg"><button type="button" class="on" data-key="source-server" aria-pressed="true">Server</button><button type="button" disabled aria-pressed="false">Local bots<small>Coming soon</small></button></div>
+<section class="sec-source"><span class="ds-field-label">Play on</span><div class="ds-seg"><button type="button" class="on" data-key="source-server" aria-pressed="true">Server</button><button type="button" disabled aria-pressed="false">Local bots<small>Coming soon</small></button></div>
 <p class="why">Local bots will run all ${WIDE_SCALE.seats - 1} bots on this machine, on a thread of their own so they never slow your frames. Until then a Battle Royale plays on the server, with bots filling every empty seat.</p></section>
-<section><span class="ds-field-label">Squads</span><div class="ds-seg">${seg}</div><p class="why">${sizeWhy}</p></section>
+<section class="sec-size"><span class="ds-field-label">Squads</span><div class="ds-seg">${seg}</div><p class="why">${sizeWhy}</p></section>
 ${squadsHtml}
 ${lastHtml}
 </div>

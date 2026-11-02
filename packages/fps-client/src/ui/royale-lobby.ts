@@ -110,6 +110,8 @@ export interface RoyaleSessionState {
   readonly loading: string | null;
   /** Whether this player has a seat in the match under way. */
   readonly seated: boolean;
+  /** That seat is out of the match already (it died, or its Squad was placed): back on the page it can only watch (ticket 48). */
+  readonly out: boolean;
   /** The connection dropped and is coming back: nothing sent now would arrive (ticket 38). */
   readonly reconnecting: boolean;
 }
@@ -128,6 +130,7 @@ export function royaleSession(s: RoyaleSessionState): RoyaleSessionLine {
   if (s.reconnecting) return { tone: 'busy', line: 'Lost the connection to the server. Reconnecting: the match waits until it’s back.', go: { label: 'Reconnecting…', act: null }, picks: false };
   if (s.phase !== 'lobby') {
     if (s.loading) return { tone: 'busy', line: `The match has started. Building ${s.loading} first.`, go: { label: 'Building the island…', act: null }, picks: false };
+    if (s.seated && s.out) return { tone: 'busy', line: 'You’re out of this match: watch it, and play the next one.', go: { label: 'Watch the match', act: 'enter' }, picks: false };
     return s.seated
       ? { tone: 'busy', line: 'The match has started. Join it to drop in.', go: { label: 'Join the match', act: 'enter' }, picks: false }
       : { tone: 'busy', line: 'A match is under way without you: watch it, and play the next one.', go: { label: 'Watch the match', act: 'enter' }, picks: false };
