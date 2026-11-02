@@ -1,0 +1,67 @@
+{
+ "map": "switchyard",
+ "mode": "tdm",
+ "online": true,
+ "spawns": [
+  {
+   "match": 1,
+   "kind": "first",
+   "team": 8,
+   "at": [
+    -49,
+    0,
+    -13
+   ],
+   "yaw": -1.57,
+   "time": 2728.6
+  },
+  {
+   "match": 1,
+   "kind": "respawn",
+   "team": 8,
+   "at": [
+    4,
+    0,
+    26
+   ],
+   "yaw": 1.57,
+   "time": 2740.6
+  },
+  {
+   "match": 2,
+   "kind": "first",
+   "team": 16,
+   "at": [
+    -51,
+    0,
+    5
+   ],
+   "yaw": -1.57,
+   "time": 2766.1
+  },
+  {
+   "match": 3,
+   "kind": "first",
+   "team": 24,
+   "at": [
+    -49,
+    0,
+    25
+   ],
+   "yaw": -1.57,
+   "time": 2804
+  },
+  {
+   "match": 3,
+   "kind": "respawn",
+   "team": 24,
+   "at": [
+    4,
+    0,
+    26
+   ],
+   "yaw": 1.57,
+   "time": 2816
+  }
+ ]
+}

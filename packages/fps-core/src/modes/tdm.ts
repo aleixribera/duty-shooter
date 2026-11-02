@@ -9,6 +9,8 @@ export interface TeamDeathmatchOptions {
   readonly killLimit?: number | null;
   /** Seconds a match lasts; null for no limit. Defaults to 600. */
   readonly timeLimit?: number | null;
+  /** Draws where players spawn (0 to 1, like `Math.random`, its default). */
+  readonly random?: () => number;
 }
 
 /**
@@ -23,12 +25,13 @@ export class TeamDeathmatch implements GameMode {
   readonly killLimit: number | null;
   readonly scoreLimit = null;
   readonly timeLimit: number | null;
-  readonly #roster = new TeamRoster();
+  readonly #roster: TeamRoster;
   #result: MatchResult | null = null;
 
   constructor(options: TeamDeathmatchOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 75 : options.killLimit;
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
+    this.#roster = new TeamRoster(options.random);
   }
 
   join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {

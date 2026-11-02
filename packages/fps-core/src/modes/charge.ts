@@ -24,6 +24,8 @@ export interface ChargeOptions {
   readonly roundTime?: number;
   /** Seconds of the opening freeze. Defaults to {@link FREEZE_TIME}. */
   readonly freezeTime?: number;
+  /** Draws where players spawn (0 to 1, like `Math.random`, its default). */
+  readonly random?: () => number;
 }
 
 /** Seconds of play in a round, after the freeze. */
@@ -84,7 +86,7 @@ export class Charge implements GameMode {
   readonly timeLimit = null;
   readonly #roundTime: number;
   readonly #freezeTime: number;
-  readonly #roster = new TeamRoster();
+  readonly #roster: TeamRoster;
   /** Match time (s), as of the last tick. */
   #now = 0;
   #round = 1;
@@ -110,6 +112,7 @@ export class Charge implements GameMode {
     this.scoreLimit = options.roundsToWin ?? ROUNDS_TO_WIN;
     this.#roundTime = options.roundTime ?? ROUND_TIME;
     this.#freezeTime = options.freezeTime ?? FREEZE_TIME;
+    this.#roster = new TeamRoster(options.random);
   }
 
   join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {

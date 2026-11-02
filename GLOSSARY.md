@@ -256,6 +256,9 @@ Where an enemy killed a bot's teammate (as roughly as a callout would put it) or
 **Caution**:
 How carefully a bot plays at a moment, from 0 to 1. It starts from the bot's style. It rises in Charge (a death is for the round), when the bot is the last of its side, hurt, or near a danger spot, and falls when its side outnumbers the other or the Charge planner says hurry. A careful bot goes quietly near known enemies, holds the angle where a target vanished, and breaks off to cover to heal.
 
+**Spawn draw**:
+How a normal map's mode picks where a player appears, so nobody keeps appearing in one spot. A team's first spawns of a match (or Charge round) come from its own spawn set in an order drawn afresh each time, so team modes keep their side but not one fixed spot. Every later spawn is drawn at random among the spawns that pass the same safety rules (no living enemy within 8 m, out of every living enemy's sight, not one of the player's last two) and score within 10 m of the safest. Battle Royale has its own drops.
+
 **Spawn protection**:
 The 1.5 s after a spawn when a player can't be damaged. It ends early when they fire.
 

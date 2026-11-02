@@ -1,0 +1,55 @@
+{
+ "map": "survival-town",
+ "mode": "tdm",
+ "online": false,
+ "spawns": [
+  {
+   "match": 1,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -12,
+    0,
+    -44.5
+   ],
+   "yaw": -2.88,
+   "time": 0.1
+  },
+  {
+   "match": 2,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -4,
+    0,
+    -40
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 3,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -12,
+    0,
+    -44.5
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 4,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -12,
+    0,
+    -44.5
+   ],
+   "yaw": 0,
+   "time": 0.1
+  }
+ ]
+}

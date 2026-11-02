@@ -1,6 +1,6 @@
 import type { PlayerId, SimEvent, TeamId } from '../simulation';
 import type { MatchEntrant, ModeContext, ModeEvent, Score, SpawnPoint } from './game-mode';
-import { RecentSpawns, distinctSpawns, overrun, scoredSpawn } from './spawns';
+import { RecentSpawns, distinctSpawns, overrun, scoredSpawn, shuffledOrder } from './spawns';
 
 /** The two teams: blue, then orange. */
 export const TEAMS: readonly [TeamId, TeamId] = [1, 2];
@@ -26,8 +26,9 @@ export interface TeamEntry {
  * team deathmatch and the objective modes. Joiners go to the smaller team
  * (on a tie, the one behind on score); teams are rebalanced at match start
  * with as few moves as possible. A player's first spawn of a match is at
- * their team's spawn set, unless enemies stand in it; later spawns are out
- * of enemy sight, near teammates and away from enemies.
+ * their team's spawn set, unless enemies stand in it, taken in an order
+ * drawn afresh each match and round; later spawns are out of enemy sight,
+ * near teammates and away from enemies, drawn among the safest.
  */
 export class TeamRoster {
   readonly #entries = new Map<PlayerId, TeamEntry>();
@@ -36,7 +37,15 @@ export class TeamRoster {
   readonly #spawned = new Set<PlayerId>();
   /** Rotates through each team's first spawns. */
   readonly #nextFirst = new Map<TeamId, number>();
+  /** This match's (or round's) order of each team's first spawns. */
+  readonly #firstOrder = new Map<TeamId, readonly number[]>();
   readonly #recent = new RecentSpawns();
+  readonly #random: () => number;
+
+  /** `random` (0 to 1, like `Math.random`, its default) draws where players spawn. */
+  constructor(random: () => number = Math.random) {
+    this.#random = random;
+  }
 
   get(id: PlayerId): TeamEntry | undefined {
     return this.#entries.get(id);
@@ -76,6 +85,7 @@ export class TeamRoster {
     this.#entries.clear();
     this.#spawned.clear();
     this.#nextFirst.clear();
+    this.#firstOrder.clear();
     this.#recent.clear();
     const [a, b] = TEAMS;
     const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, points: 0, order: this.#order++, fixed: e.side !== undefined });
@@ -101,12 +111,13 @@ export class TeamRoster {
   newRound(): void {
     this.#spawned.clear();
     this.#nextFirst.clear();
+    this.#firstOrder.clear();
     this.#recent.clear();
   }
 
   /**
-   * Where `id` spawns: the next free spot of their team's own set on their
-   * first spawn of the match, otherwise the safest spawn anywhere (see
+   * Where `id` spawns: the next free spot of their team's own set (in this
+   * match's drawn order) on their first spawn of the match, otherwise the safest spawn anywhere (see
    * {@link scoredSpawn}), preferring those `favoured` ones that pass the
    * same safety rules.
    */
@@ -122,15 +133,17 @@ export class TeamRoster {
     if (first && own && own.length > 0) {
       // The next of the team's own spawns with no enemy on it (at match start, all of them); a joiner mid-match whose yard is overrun spawns as on a respawn.
       const i = this.#nextFirst.get(team) ?? 0;
+      let order = this.#firstOrder.get(team);
+      if (order?.length !== own.length) this.#firstOrder.set(team, (order = shuffledOrder(own.length, this.#random)));
       for (let k = 0; k < own.length; k++) {
-        const spawn = own[(i + k) % own.length] as SpawnPoint;
+        const spawn = own[order[(i + k) % own.length]!] as SpawnPoint;
         if (overrun(spawn, enemies)) continue;
         this.#nextFirst.set(team, i + k + 1);
         return this.#recent.add(id, spawn);
       }
     }
     const candidates = distinctSpawns([...(ctx.teamSpawns ?? []).flat(), ...ctx.spawns]);
-    const spawn = scoredSpawn(candidates, mates, enemies, ctx, this.#recent.of(id), favoured);
+    const spawn = scoredSpawn(candidates, mates, enemies, ctx, this.#recent.of(id), favoured, this.#random);
     if (!spawn) throw new Error('No spawn points');
     return this.#recent.add(id, spawn);
   }

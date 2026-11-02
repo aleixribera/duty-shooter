@@ -12,6 +12,8 @@ const TEAMMATE_WEIGHT = 0.5;
 const TOO_CLOSE = 8;
 /** How many of a player's own latest spawns they avoid going back to. */
 const REMEMBERED = 2;
+/** How much less safe (m of the distance score) than the safest a spawn may be and still be drawn, so players don't keep appearing in one spot. */
+const SAFE_ENOUGH = 10;
 
 function eye(position: Vec3, height: number): Vec3 {
   return [position[0], position[1] + height, position[2]];
@@ -46,8 +48,10 @@ export function overrun(spawn: SpawnPoint, enemies: readonly PlayerOutput[]): bo
  * enemy, out of every living enemy's sight, one the mode `favoured` (when it
  * says), not one of the player's own last two spawns (`recent`), then the
  * best mix of distance from living enemies and nearness to living teammates.
- * Each rule gives way only when no candidate meets it. Ties go to the earlier
- * spawn, so the choice is deterministic.
+ * Each rule gives way only when no candidate meets it. With `random`, the
+ * spawn is drawn from every candidate that meets the same rules and scores
+ * within {@link SAFE_ENOUGH} of the best mix, so the same situation doesn't
+ * always give the same spot; without it, ties go to the earlier spawn.
  */
 export function scoredSpawn(
   candidates: readonly SpawnPoint[],
@@ -56,9 +60,9 @@ export function scoredSpawn(
   ctx: ModeContext,
   recent: readonly SpawnPoint[] = [],
   favoured?: (spawn: SpawnPoint) => boolean,
+  random?: () => number,
 ): SpawnPoint | null {
-  let best: { spawn: SpawnPoint; rank: readonly number[] } | null = null;
-  for (const spawn of candidates) {
+  const ranked = candidates.map((spawn) => {
     const nearestEnemy = enemies.length ? Math.min(...enemies.map((e) => distance(e.position, spawn.position))) : FAR_ENOUGH;
     const nearestMate = teammates.length ? Math.min(...teammates.map((m) => distance(m.position, spawn.position))) : 0;
     const rank = [
@@ -68,9 +72,25 @@ export function scoredSpawn(
       recent.some((r) => samePlace(r, spawn)) ? 0 : 1,
       Math.min(FAR_ENOUGH, nearestEnemy) - TEAMMATE_WEIGHT * Math.min(FAR_ENOUGH, nearestMate),
     ];
-    if (!best || better(rank, best.rank)) best = { spawn, rank };
+    return { spawn, rank };
+  });
+  let best: (typeof ranked)[number] | null = null;
+  for (const r of ranked) if (!best || better(r.rank, best.rank)) best = r;
+  if (!best || !random) return best?.spawn ?? null;
+  const top = best.rank;
+  const SCORE = top.length - 1;
+  const pool = ranked.filter((r) => r.rank.every((v, i) => (i === SCORE ? v >= top[i]! - SAFE_ENOUGH : v === top[i])));
+  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))]!.spawn;
+}
+
+/** The numbers 0 to `n - 1` in a random order. */
+export function shuffledOrder(n: number, random: () => number): number[] {
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j]!, order[i]!];
   }
-  return best?.spawn ?? null;
+  return order;
 }
 
 function better(a: readonly number[], b: readonly number[]): boolean {

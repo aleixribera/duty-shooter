@@ -397,8 +397,9 @@ describe('free-for-all', () => {
     expect(bob!.client.takeSpawn()).toBeNull();
   });
 
-  it('rotates through the spawns when nobody else is alive, so a lone player does not always land in the same place', () => {
-    const m = match({ spawns: SPREAD, loss: 0 });
+  it('draws among the spawns when nobody else is alive, so a lone player does not always land in the same place', () => {
+    let draw = 0;
+    const m = match({ spawns: SPREAD, loss: 0, modes: { ffa: { random: () => (draw++ % 3) / 3 } } });
     const seen: string[] = [];
     for (const name of ['alice', 'bob', 'carol']) {
       const [c] = joinAll(m, name);

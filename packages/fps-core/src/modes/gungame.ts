@@ -28,7 +28,7 @@ export function dealLadder(random: () => number = Math.random, pool: readonly We
 export interface GunGameOptions {
   /** Seconds a match lasts; null for no limit. Defaults to 600. */
   readonly timeLimit?: number | null;
-  /** Deals each match's ladder (0 to 1, like `Math.random`, its default). */
+  /** Deals each match's ladder and draws where players spawn (0 to 1, like `Math.random`, its default). */
   readonly random?: () => number;
 }
 
@@ -51,7 +51,7 @@ export class GunGame implements GameMode {
   readonly scoreLimit = null;
   readonly timeLimit: number | null;
   /** Spawns, teams, kills and deaths, with no limits of its own. */
-  readonly #ffa = new FreeForAll({ killLimit: null, timeLimit: null });
+  readonly #ffa: FreeForAll;
   /** Each player's kills up the ladder, less what melee kills took. */
   readonly #progress = new Map<PlayerId, number>();
   #result: MatchResult | null = null;
@@ -62,6 +62,7 @@ export class GunGame implements GameMode {
   constructor(options: GunGameOptions = {}) {
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
     this.#random = options.random ?? Math.random;
+    this.#ffa = new FreeForAll({ killLimit: null, timeLimit: null, random: this.#random });
     this.#guns = dealLadder(this.#random);
   }
 

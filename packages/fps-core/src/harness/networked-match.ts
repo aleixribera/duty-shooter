@@ -19,6 +19,7 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly dummies?: readonly PlayerSpawn[];
   /** The mode the server starts in. Defaults to free-for-all (the live server defaults to team deathmatch). */
   readonly mode?: ModeId;
+  /** Each mode's options. Spawns here take the first of each draw (a `random` of 0) unless a mode's options give their own `random`, so a test's players stand in the same places every run; the game's servers draw from Math.random. */
   readonly modes?: GameServerOptions['modes'];
   /** The map's Outposts zones. */
   readonly zones?: GameServerOptions['zones'];
@@ -84,6 +85,19 @@ export interface NetworkedMatch {
   client(name: string): NetworkedClient;
 }
 
+const FIRST_DRAW = (): number => 0;
+
+/** `modes` with every spawn draw that a test didn't seed taking the first candidate (gun game's `random` also deals its ladder, so it is left alone). */
+function firstDraws(modes: GameServerOptions['modes'] = {}): NonNullable<GameServerOptions['modes']> {
+  return {
+    ...modes,
+    tdm: { random: FIRST_DRAW, ...modes.tdm },
+    ffa: { random: FIRST_DRAW, ...modes.ffa },
+    outposts: { random: FIRST_DRAW, ...modes.outposts },
+    charge: { random: FIRST_DRAW, ...modes.charge },
+  };
+}
+
 export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedMatch {
   const network = createMemoryNetwork(options);
   const passphrase = options.passphrase ?? 'letmein';
@@ -92,7 +106,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     mode: options.mode ?? 'ffa',
     spawns: options.spawns,
     ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
-    ...(options.modes ? { modes: options.modes } : {}),
+    modes: firstDraws(options.modes),
     ...(options.zones ? { zones: options.zones } : {}),
     ...(options.sites ? { sites: options.sites } : {}),
     ...(options.intermission ? { intermission: options.intermission } : {}),

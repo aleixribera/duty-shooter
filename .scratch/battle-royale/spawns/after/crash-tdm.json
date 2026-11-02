@@ -1,0 +1,55 @@
+{
+ "map": "crash",
+ "mode": "tdm",
+ "online": false,
+ "spawns": [
+  {
+   "match": 1,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -34,
+    0.6,
+    29
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 2,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -34,
+    0.6,
+    34
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 3,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -34,
+    0.6,
+    29
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 4,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -30,
+    0.6,
+    34
+   ],
+   "yaw": 0,
+   "time": 0.1
+  }
+ ]
+}

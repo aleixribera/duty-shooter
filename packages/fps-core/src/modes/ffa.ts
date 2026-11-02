@@ -7,6 +7,8 @@ export interface FreeForAllOptions {
   readonly killLimit?: number | null;
   /** Seconds a match lasts; null for no limit. Defaults to 600. */
   readonly timeLimit?: number | null;
+  /** Draws where players spawn (0 to 1, like `Math.random`, its default). */
+  readonly random?: () => number;
 }
 
 interface Entry {
@@ -33,15 +35,15 @@ export class FreeForAll implements GameMode {
   readonly #entries = new Map<PlayerId, Entry>();
   #nextTeam = 1;
   #result: MatchResult | null = null;
-  /** Rotates spawns when no living enemy separates them. */
-  #nextSpawn = 0;
   readonly #recent = new RecentSpawns();
   /** Players who have spawned since the match started. */
   readonly #spawned = new Set<PlayerId>();
+  readonly #random: () => number;
 
   constructor(options: FreeForAllOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 30 : options.killLimit;
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
+    this.#random = options.random ?? Math.random;
   }
 
   join(id: PlayerId, name: string): TeamId {
@@ -77,12 +79,8 @@ export class FreeForAll implements GameMode {
     // Only players placed this match count: the rest still stand where the last match left them.
     const enemies = ctx.players.filter((p) => p.id !== id && p.alive && this.#spawned.has(p.id));
     this.#spawned.add(id);
-    if (enemies.length === 0) {
-      const spawn = ctx.spawns[this.#nextSpawn++ % ctx.spawns.length];
-      if (!spawn) throw new Error('No spawn points');
-      return this.#recent.add(id, spawn);
-    }
-    const best = scoredSpawn(ctx.spawns, [], enemies, ctx, this.#recent.of(id));
+    // With no living enemy yet, every spawn is as safe: one is drawn at random.
+    const best = scoredSpawn(ctx.spawns, [], enemies, ctx, this.#recent.of(id), undefined, this.#random);
     if (!best) throw new Error('No spawn points');
     return this.#recent.add(id, best);
   }

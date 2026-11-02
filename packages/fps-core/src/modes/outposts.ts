@@ -21,6 +21,8 @@ export interface OutpostsOptions {
   readonly scoreLimit?: number | null;
   /** Seconds a match lasts; null for no limit. Defaults to 600. */
   readonly timeLimit?: number | null;
+  /** Draws where players spawn (0 to 1, like `Math.random`, its default). */
+  readonly random?: () => number;
 }
 
 /** Seconds one player takes to capture a neutral zone. */
@@ -66,7 +68,7 @@ export class Outposts implements GameMode {
   readonly killLimit = null;
   readonly scoreLimit: number | null;
   readonly timeLimit: number | null;
-  readonly #roster = new TeamRoster();
+  readonly #roster: TeamRoster;
   readonly #zones = new Map<string, ZoneRun>();
   /** The zones of the map being played, as of the last tick. */
   #layout: readonly Zone[] = [];
@@ -76,6 +78,7 @@ export class Outposts implements GameMode {
   constructor(options: OutpostsOptions = {}) {
     this.scoreLimit = options.scoreLimit === undefined ? 200 : options.scoreLimit;
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
+    this.#roster = new TeamRoster(options.random);
   }
 
   join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {

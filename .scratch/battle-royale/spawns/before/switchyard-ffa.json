@@ -1,0 +1,139 @@
+{
+ "map": "switchyard",
+ "mode": "ffa",
+ "online": false,
+ "spawns": [
+  {
+   "match": 1,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -50,
+    0,
+    -20.5
+   ],
+   "yaw": -1.57,
+   "time": 0.1
+  },
+  {
+   "match": 1,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    -30,
+    0,
+    26
+   ],
+   "yaw": -1.57,
+   "time": 12.1
+  },
+  {
+   "match": 1,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    50,
+    0,
+    -20.5
+   ],
+   "yaw": -1.57,
+   "time": 20.8
+  },
+  {
+   "match": 1,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    49,
+    0,
+    25
+   ],
+   "yaw": 1.57,
+   "time": 26.8
+  },
+  {
+   "match": 1,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    24.5,
+    0,
+    -3
+   ],
+   "yaw": 1.57,
+   "time": 46.2
+  },
+  {
+   "match": 2,
+   "kind": "first",
+   "team": 1,
+   "at": [
+    -50,
+    0,
+    -20.5
+   ],
+   "yaw": 0,
+   "time": 0.1
+  },
+  {
+   "match": 2,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    -30,
+    0,
+    26
+   ],
+   "yaw": -1.57,
+   "time": 12.1
+  },
+  {
+   "match": 2,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    -12,
+    0,
+    -26
+   ],
+   "yaw": -1.57,
+   "time": 19.1
+  },
+  {
+   "match": 2,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    24.5,
+    0,
+    -3
+   ],
+   "yaw": -2.71,
+   "time": 27.6
+  },
+  {
+   "match": 2,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    -12,
+    0,
+    -26
+   ],
+   "yaw": 1.57,
+   "time": 36.7
+  },
+  {
+   "match": 2,
+   "kind": "respawn",
+   "team": 1,
+   "at": [
+    -50,
+    0,
+    -20.5
+   ],
+   "yaw": -2.71,
+   "time": 45.8
+  }
+ ]
+}

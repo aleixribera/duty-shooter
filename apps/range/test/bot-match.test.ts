@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { usercmd } from '@duty-shooter/fps-core';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { usercmd, type ModeId } from '@duty-shooter/fps-core';
 import { BotMatchDriver } from '@duty-shooter/fps-client/session';
 import { buildMapById, mapSolids } from '../src/map/maps';
 
@@ -48,5 +48,44 @@ describe('Bot Match', () => {
     } finally {
       driver.dispose();
     }
+  });
+
+  describe('where you appear (ticket 31: always the same spot)', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    /** Your place (x, z, to the decimetre) at the start of each of `matches` Bot Matches, and the team you were on. */
+    function firstSpawns(mapId: 'survival-town' | 'switchyard' | 'crash', mode: ModeId, matches: number): { at: string; team: number }[] {
+      const map = buildMapById(mapId);
+      const out: { at: string; team: number }[] = [];
+      for (let n = 0; n < matches; n++) {
+        const driver = new BotMatchDriver({ map: map.id, solids: mapSolids(map), ladders: map.ladders ?? [], spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav!, mode, botsPerTeam: 2, name: 'You' });
+        try {
+          for (let i = 0; i < 240 && !(driver.match?.phase === 'playing' && driver.client.self?.alive); i++) driver.tick(usercmd());
+          const self = driver.client.self;
+          expect(self?.alive).toBe(true);
+          out.push({ at: `${self!.position[0].toFixed(1)},${self!.position[2].toFixed(1)}`, team: self!.team });
+        } finally {
+          driver.dispose();
+        }
+      }
+      return out;
+    }
+
+    it.each([
+      ['switchyard', 'tdm'],
+      ['survival-town', 'outposts'],
+      ['switchyard', 'charge'],
+    ] as const)('on %s (%s) you start somewhere different from match to match, always in your own team’s yard', (mapId, mode) => {
+      // Seeded, so the test is the same every run; the game draws from Math.random.
+      let state = 31;
+      vi.spyOn(Math, 'random').mockImplementation(() => ((state = (Math.imul(state, 1103515245) + 12345) >>> 0) / 2 ** 32));
+      const map = buildMapById(mapId);
+      const starts = firstSpawns(mapId, mode, 6);
+      for (const s of starts) {
+        const yard = map.spawns.teams![s.team - 1]!.map((p) => `${p.position[0].toFixed(1)},${p.position[2].toFixed(1)}`);
+        expect(yard).toContain(s.at);
+      }
+      expect(new Set(starts.map((s) => s.at)).size).toBeGreaterThanOrEqual(3);
+    }, 60_000);
   });
 });

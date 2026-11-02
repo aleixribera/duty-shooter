@@ -4,6 +4,17 @@ import { box } from '@duty-shooter/fps-core/harness';
 import { FreeForAll, TeamDeathmatch, type ModeContext, type SpawnPoint } from '@duty-shooter/fps-core/modes';
 import { FLOOR } from './support/movement';
 
+/** A seeded stream of values in [0, 1), so the draws below are the same every run. */
+function seeded(seed: number): () => number {
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** A tall wall along x = 10, from z = -2 to 2: whoever stands west of it can't see east of it. */
 const world = createWorld([FLOOR, box({ min: [10, 0, -2], max: [10.4, 4, 2], material: 'brick' })]);
 
@@ -71,7 +82,8 @@ describe('spawn rules', () => {
     const hidden = at(14, 0);
     const seen = at(-40, 0);
     const ctx = context([{ position: [14, 0, 1], team: 1 }], [hidden, seen]);
-    const ffa = new FreeForAll();
+    // With no living enemy every spawn is as safe and one is drawn: this draw takes the first, the one the stale enemy stands on.
+    const ffa = new FreeForAll({ random: () => 0 });
     ffa.start([{ id: 'p1', name: 'enemy', team: null }, { id: 'p9', name: 'me', team: null }]);
     expect(ffa.chooseSpawn('p9', ctx)).toBe(hidden);
   });
@@ -112,5 +124,42 @@ describe('spawn rules', () => {
     const spawn = tdm.chooseSpawn('p9', ctx);
     expect(spawn).not.toBe(home);
     expect(Math.hypot(spawn.position[0], spawn.position[2] - 26)).toBeGreaterThan(8);
+  });
+
+  describe('drawn, not always the same spot (ticket 31)', () => {
+    it('respawns in the same situation land on different safe spots, never seen, never close to an enemy, never a much less safe one', () => {
+      // A long wall along x = 10 and the enemy at the origin, west of it. Four spots behind the wall far enough off, one behind it but only 11 m off (much less safe), one seen, one too close.
+      const wall = createWorld([FLOOR, box({ min: [10, 0, -40], max: [10.4, 4, 40], material: 'brick' })]);
+      const safe = [at(30, 0), at(30, 12), at(34, -10), at(26, 6)];
+      const lessSafe = at(11, 3);
+      const seen = at(-40, 0);
+      const close = at(4, 4);
+      const ctx = { ...context([{ position: [0, 0, 0], team: 1 }], [lessSafe, seen, close, ...safe]), world: wall };
+      const ffa = new FreeForAll({ random: seeded(31) });
+      ffa.start([{ id: 'p1', name: 'enemy', team: null }, { id: 'p9', name: 'me', team: null }]);
+      ffa.chooseSpawn('p1', ctx);
+      const picks = Array.from({ length: 40 }, () => ffa.chooseSpawn('p9', ctx));
+      for (const p of picks) expect(safe).toContain(p);
+      expect(new Set(picks).size).toBe(safe.length);
+    });
+
+    it("a team's first spawns of a match come in a different order each match, always from its own set", () => {
+      const blue = [at(0, 30), at(4, 30), at(8, 30), at(12, 30), at(16, 30)];
+      const orange = [at(0, -30), at(4, -30), at(8, -30), at(12, -30), at(16, -30)];
+      const ctx = context([], [at(40, 0)], [blue, orange]);
+      const tdm = new TeamDeathmatch({ random: seeded(31) });
+      const firsts = Array.from({ length: 12 }, () => {
+        tdm.start([{ id: 'p9', name: 'me', team: 1 }, { id: 'p8', name: 'mate', team: 1 }, { id: 'p1', name: 'enemy', team: 2 }]);
+        const mine = tdm.chooseSpawn('p9', ctx);
+        const mate = tdm.chooseSpawn('p8', ctx);
+        // Two players of a team never share a first spot.
+        expect(mate).not.toBe(mine);
+        expect(blue).toContain(mate);
+        expect(orange).toContain(tdm.chooseSpawn('p1', ctx));
+        return mine;
+      });
+      for (const f of firsts) expect(blue).toContain(f);
+      expect(new Set(firsts).size).toBeGreaterThanOrEqual(4);
+    });
   });
 });
