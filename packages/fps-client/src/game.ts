@@ -34,7 +34,7 @@ import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
-import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
+import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
 import { TEAMS, chargeRoster, winVerb } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
@@ -1139,15 +1139,17 @@ export class Game {
         const d: Vec3 = [e.point[0] - from[0], e.point[1] - from[1], e.point[2] - from[2]];
         const len = Math.hypot(d[0], d[1], d[2]) || 1;
         const dir: Vec3 = [d[0] / len, d[1] / len, d[2] / len];
-        if (e.victim !== selfId) {
+        // A seat in its first second Downed takes nothing: no blood, and its own screen stays calm (ticket 54).
+        const landed = e.damage > 0 || e.killed;
+        if (e.victim !== selfId && landed) {
           this.#effects.blood(e.point, dir, e.zone === 'head');
           this.#players.hit(e.victim, dir, e.damage);
         }
         if (e.shooter === selfId && e.victim !== selfId) {
           const head = e.zone === 'head';
-          const kind: HitKind = e.killed ? (head ? 'headshotKill' : 'kill') : head ? 'headshot' : 'hit';
+          const kind = hitKind(e.killed, head, e.damage);
           this.hud.hitMarker(kind);
-          this.#play(e.killed ? 'killMarker' : head ? 'headshotMarker' : 'hitMarker');
+          if (kind !== 'shielded') this.#play(e.killed ? 'killMarker' : head ? 'headshotMarker' : 'hitMarker');
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
           this.hud.setLastHit(e.damage, e.zone, e.distance);
           if (e.victim.startsWith('dummy')) this.#damageNumber(e.point, e.damage, e.zone === 'head', e.distance, e.pellets, e.weapon);
@@ -1163,7 +1165,7 @@ export class Game {
             } else this.hud.setRangeStats(null, eng.shots, eng.hits);
           } else if (e.killed) this.#engagements.delete(e.victim);
         }
-        if (e.victim === selfId) {
+        if (e.victim === selfId && landed) {
           const attacker = this.#playerById(e.shooter);
           if (attacker && e.shooter !== selfId && this.#cur) {
             const yaw = Math.atan2(-(attacker.position[0] - this.#cur.position[0]), -(attacker.position[2] - this.#cur.position[2]));

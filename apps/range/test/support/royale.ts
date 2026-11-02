@@ -34,6 +34,8 @@ export interface RoyaleRun {
   readonly deaths: readonly Death[];
   readonly downs: number;
   readonly revives: number;
+  /** Seconds from going Down to being Finished by an enemy, one entry per Finish (ticket 54). */
+  readonly finishes: readonly number[];
   /** Tick cost (ms) over the match, of the server alone. */
   readonly tick: { readonly p99: number; readonly worst: number };
   /** How the stand-in for a good player did, if there was one. */
@@ -106,6 +108,8 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
   let stage = 1;
   let downs = 0;
   let revives = 0;
+  const downedAt = new Map<string, number>();
+  const finishes: number[] = [];
   let matchTime = 0;
   for (let tick = 0; tick < (limit + 2) * 60 && !result; tick++) {
     const t0 = performance.now();
@@ -116,9 +120,18 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
     (m.modeHistory as unknown[]).length = 0;
     matchTime = tick / 60;
     for (const e of out.events) {
-      if (e.type === 'kill') deaths.push({ time: matchTime, victim: e.victim, killer: e.killer, cause: e.cause });
-      else if (e.type === 'down') downs += 1;
-      else if (e.type === 'revive') revives += 1;
+      if (e.type === 'kill') {
+        deaths.push({ time: matchTime, victim: e.victim, killer: e.killer, cause: e.cause });
+        const since = downedAt.get(e.victim);
+        if (since !== undefined && e.cause !== 'bleedOut' && e.cause !== 'wipe') finishes.push(matchTime - since);
+        downedAt.delete(e.victim);
+      } else if (e.type === 'down') {
+        downs += 1;
+        downedAt.set(e.victim, matchTime);
+      } else if (e.type === 'revive') {
+        revives += 1;
+        downedAt.delete(e.target);
+      }
     }
     for (const e of m.server.modeEvents) {
       if (e.type === 'matchEnd') result = e;
@@ -138,6 +151,7 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
     deaths,
     downs,
     revives,
+    finishes,
     tick: { p99: costs[Math.floor(costs.length * 0.99)]!, worst: costs.at(-1)! },
     good: good && score ? { won: score.team === result?.winner, place: score.place ?? null, kills: score.kills } : null,
   };

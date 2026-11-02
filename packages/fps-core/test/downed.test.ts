@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Simulation, anglesOf, box, buildNavGraph, createWorld, type BattleRoyaleState, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SimulationOptions, type UserCmd } from '@duty-shooter/fps-core';
+import { STATS, Simulation, anglesOf, box, buildNavGraph, createWorld, type BattleRoyaleState, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SimulationOptions, type UserCmd } from '@duty-shooter/fps-core';
 import { BattleRoyale, playGround } from '@duty-shooter/fps-core/modes';
 import { usercmd } from '@duty-shooter/fps-core/harness';
 import { decodeSnapshot, encodeSnapshot } from '../src/net/codec';
@@ -139,10 +139,51 @@ describe('Bleed-out', () => {
   });
 });
 
+describe('the second after going Down (ticket 54)', () => {
+  it('a Downed seat lies with a pool as large as full health', () => {
+    const { out, knock } = duo();
+    knock('ada');
+    expect(STATS.royale.downedHealth.value).toBe(100);
+    expect(out('ada').health).toBe(100);
+  });
+
+  it('takes no damage for its first second, and every hit in it says so', () => {
+    const { out, knock, shoot, events, run } = duo();
+    knock('ada');
+    const downAt = events.length;
+    expect(STATS.royale.downedGrace.value).toBe(1);
+    shoot('ada');
+    shoot('ada');
+    expect(out('ada').health).toBe(100);
+    const shielded = events.slice(downAt).filter((e) => e.type === 'hit' && e.victim === 'ada');
+    expect(shielded.length).toBeGreaterThan(0);
+    for (const e of shielded) expect(e).toMatchObject({ damage: 0, killed: false });
+    run(0.5);
+    const after = events.length;
+    for (let i = 0; i < 10 && out('ada').health === 100; i++) shoot('ada');
+    expect(out('ada').health).toBeLessThan(100);
+    expect(events.slice(after).some((e) => e.type === 'hit' && e.victim === 'ada' && e.damage > 0)).toBe(true);
+  });
+
+  it('a burst that Downs a seat does not Finish it', () => {
+    const { out, lowTo, run, events } = duo();
+    lowTo('ada', 1);
+    const target = out('ada');
+    const eye = out('eve');
+    const aim = anglesOf([target.position[0] - eye.position[0], target.position[1] + 1.2 - eye.position[1] - eye.eyeHeight, target.position[2] - eye.position[2]]);
+    // A full second of automatic fire, starting the moment Ada is on 1 HP.
+    run(1, () => ({ eve: usercmd({ ...aim, buttons: ['Fire'] }) }));
+    expect(events.some((e) => e.type === 'down' && e.victim === 'ada')).toBe(true);
+    expect(out('ada').alive).toBe(true);
+    expect(out('ada').health).toBe(100);
+  });
+});
+
 describe('Finish', () => {
   it('enemies take a Downed seat down through its own health pool', () => {
-    const { out, knock, shoot, events } = duo();
+    const { out, knock, shoot, events, run } = duo();
     knock('ada');
+    run(STATS.royale.downedGrace.value);
     const pool = out('ada').health;
     expect(pool).toBeGreaterThan(0);
     shoot('ada');

@@ -741,8 +741,9 @@ export class Simulation {
       }
       if (!nearest) continue;
       const damage = blastDamage(nearest.distance) * (exposed / whole);
+      const landed = this.#landed(victim, damage);
       const killed = this.#damage(victim, damage, g.thrower, 'grenade', nearest.zone, 'frag');
-      this.#events.push({ type: 'hit', shooter: g.thrower, victim: victim.id, zone: nearest.zone, damage, distance: nearest.distance, point: nearest.centre, killed, cause: 'grenade', weapon: 'frag', pellets: 1 });
+      this.#events.push({ type: 'hit', shooter: g.thrower, victim: victim.id, zone: nearest.zone, damage: landed, distance: nearest.distance, point: nearest.centre, killed, cause: 'grenade', weapon: 'frag', pellets: 1 });
       this.#flinch(victim);
     }
   }
@@ -898,8 +899,9 @@ export class Simulation {
           }
           continue;
         }
+        const landed = this.#landed(body.victim, damage);
         const killed = this.#damage(body.victim, damage, p.shooter, 'bullet', body.zone, p.weapon);
-        this.#events.push({ type: 'hit', shooter: p.shooter, victim: body.victim.id, zone: body.zone, damage, distance: dist, point, killed, cause: 'bullet', weapon: p.weapon, pellets: 1 });
+        this.#events.push({ type: 'hit', shooter: p.shooter, victim: body.victim.id, zone: body.zone, damage: landed, distance: dist, point, killed, cause: 'bullet', weapon: p.weapon, pellets: 1 });
         this.#flinch(body.victim);
         continue;
       }
@@ -910,8 +912,9 @@ export class Simulation {
     }
     this.#projectiles = next;
     for (const b of blasts.values()) {
+      const landed = this.#landed(b.victim, b.damage);
       const killed = this.#damage(b.victim, b.damage, b.p.shooter, 'bullet', b.zone, b.p.weapon);
-      this.#events.push({ type: 'hit', shooter: b.p.shooter, victim: b.victim.id, zone: b.zone, damage: b.damage, distance: b.distance, point: b.point, killed, cause: 'bullet', weapon: b.p.weapon, pellets: b.pellets });
+      this.#events.push({ type: 'hit', shooter: b.p.shooter, victim: b.victim.id, zone: b.zone, damage: landed, distance: b.distance, point: b.point, killed, cause: 'bullet', weapon: b.p.weapon, pellets: b.pellets });
       this.#flinch(b.victim);
     }
   }
@@ -966,6 +969,7 @@ export class Simulation {
     if (victim.health <= 0) return false;
     // Only an enemy takes a Downed seat's pool: the Ring, a fall and its own frag don't.
     if (victim.downed && (attacker === null || attacker === victim.id)) return false;
+    if (this.#shielded(victim)) return false;
     victim.health = Math.max(0, victim.health - amount);
     victim.lastDamage = this.time;
     this.#stopRevive(victim);
@@ -976,6 +980,16 @@ export class Simulation {
     }
     this.#die(victim, attacker, cause, zone, weapon);
     return true;
+  }
+
+  /** A seat that went Downed under {@link STATS.royale.downedGrace} ago: no damage reaches it. */
+  #shielded(p: PlayerState): boolean {
+    return p.downed !== null && this.time - p.downed.since < R.downedGrace.value - 1e-9;
+  }
+
+  /** What a hit of `damage` takes from `victim`, read before it lands: nothing while it is shielded. */
+  #landed(victim: PlayerState, damage: number): number {
+    return this.#shielded(victim) ? 0 : damage;
   }
 
   #die(victim: PlayerState, attacker: PlayerId | null, cause: DamageCause | 'bleedOut' | 'wipe', zone: HitZone | null, weapon: KillWeapon | null): void {
@@ -1141,9 +1155,10 @@ export class Simulation {
     const damage = STATS.melee.damage.value;
     const point = zoneCentre(best.pose, 'upperTorso');
     const weapon = activeWeapon(attacker).id;
+    const landed = this.#landed(best.victim, damage);
     const killed = this.#damage(best.victim, damage, attacker.id, 'melee', 'upperTorso', weapon);
     this.#events.push({ type: 'melee', attacker: attacker.id, victim: best.victim.id });
-    this.#events.push({ type: 'hit', shooter: attacker.id, victim: best.victim.id, zone: 'upperTorso', damage, distance: best.dist, point, killed, cause: 'melee', weapon, pellets: 1 });
+    this.#events.push({ type: 'hit', shooter: attacker.id, victim: best.victim.id, zone: 'upperTorso', damage: landed, distance: best.dist, point, killed, cause: 'melee', weapon, pellets: 1 });
     this.#flinch(best.victim);
   }
 

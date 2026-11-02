@@ -15,6 +15,7 @@ const CSS = `
 .ds-hit i { position: absolute; width: 11px; height: 2.4px; background: #fff; left: -5.5px; top: -1.2px; box-shadow: 0 0 2px rgb(0 0 0 / 0.6); }
 .ds-hit.kill i { background: var(--ds-alert); }
 .ds-hit.head i { width: 15px; left: -7.5px; height: 3px; }
+.ds-hit.shielded i { width: 6px; left: -3px; height: 1.6px; top: -0.8px; background: var(--ds-text-2); }
 .ds-elim { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); text-align: center; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0; white-space: nowrap; }
 .ds-elim .what { font-size: 12px; color: var(--ds-alert); }
 .ds-elim .what.head { color: var(--ds-signal); }
@@ -100,6 +101,7 @@ const CSS = `
 .ds-action .bar i { display: block; height: 100%; background: var(--ds-signal); }
 .ds-action .bar i.bleed { background: var(--ds-alert); }
 .ds-action div { font-variant-numeric: tabular-nums; }
+.ds-action .shield { margin-bottom: 4px; font-weight: 700; color: var(--ds-text); }
 .ds-action .bar + div { margin-top: 8px; }
 .ds-round { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
 .ds-round .sub { font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); text-shadow: 0 1px 8px rgb(0 0 0 / 0.85); }
@@ -257,7 +259,20 @@ export interface ObjectiveMarker {
 /** How a Charge round was won, as the round banner says it. */
 const ROUND_REASONS: Readonly<Record<RoundReason, string>> = { detonated: 'Charge detonated', defused: 'Charge defused', eliminated: 'Team eliminated', time: 'Time ran out' };
 
-export type HitKind = 'hit' | 'kill' | 'headshot' | 'headshotKill';
+export type HitKind = 'hit' | 'kill' | 'headshot' | 'headshotKill' | 'shielded';
+
+/** The marker for a hit you made: `shielded` when it took nothing, a seat in its first second Downed (ticket 54). */
+export function hitKind(killed: boolean, head: boolean, damage: number): HitKind {
+  if (killed) return head ? 'headshotKill' : 'kill';
+  if (damage <= 0) return 'shielded';
+  return head ? 'headshot' : 'hit';
+}
+
+/** Seconds a Downed seat has left of the grace in which nothing damages it; 0 once it is over. */
+export function protectedFor(downed: { readonly bleedOut: number } | null): number {
+  if (!downed) return 0;
+  return Math.max(0, downed.bleedOut - (STATS.royale.bleedOut.value - STATS.royale.downedGrace.value));
+}
 
 /** An Outposts zone as the HUD shows it: its state, and where its marker goes on screen. */
 export interface ZoneMarker {
@@ -453,7 +468,7 @@ export class Hud {
 
   hitMarker(kind: HitKind): void {
     const kill = kind === 'kill' || kind === 'headshotKill';
-    this.#hit.className = `ds-hit${kill ? ' kill' : ''}${kind === 'headshot' || kind === 'headshotKill' ? ' head' : ''}`;
+    this.#hit.className = `ds-hit${kill ? ' kill' : ''}${kind === 'headshot' || kind === 'headshotKill' ? ' head' : ''}${kind === 'shielded' ? ' shielded' : ''}`;
     this.#hitAge = 0;
     this.#hitLife = kill ? 0.5 : 0.28;
   }
@@ -737,7 +752,8 @@ export class Hud {
     const bar = (share: number, cls = '') => `<div class="bar"><i class="${cls}" style="width:${Math.round(share * 100)}%"></i></div>`;
     if (downed) {
       const left = bar(downed.bleedOut / STATS.royale.bleedOut.value, 'bleed');
-      this.#set(this.#revive, `<div>Bleed-out ${Math.ceil(downed.bleedOut)}</div>${left}${downed.revive > 0 ? `<div>Being Revived</div>${bar(downed.revive)}` : ''}`);
+      const shield = protectedFor(downed) > 0 ? '<div class="shield">Protected</div>' : '';
+      this.#set(this.#revive, `${shield}<div>Bleed-out ${Math.ceil(downed.bleedOut)}</div>${left}${downed.revive > 0 ? `<div>Being Revived</div>${bar(downed.revive)}` : ''}`);
     } else if (reviving !== null && reviving !== undefined) this.#set(this.#revive, `<div>Reviving</div>${bar(reviving)}`);
   }
 

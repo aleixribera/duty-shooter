@@ -70,6 +70,16 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
     }
     const proxies = runs.flatMap((r) => (r.good ? [r.good] : []));
     if (proxies.length > 0) console.log(`GOOD-PLAYER PROXY won ${proxies.filter((g) => g.won).length} of ${proxies.length}; mean place ${(proxies.reduce((n, g) => n + (g.place ?? 0), 0) / proxies.length).toFixed(1)}, mean kills ${(proxies.reduce((n, g) => n + g.kills, 0) / proxies.length).toFixed(1)}`);
+    const median = (xs: readonly number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? NaN;
+    console.log('| Size | Matches | Mean length (s) | Downs | Revived | Finished | Down to Finish median (s) | Finished within 1 s |');
+    for (const size of [...new Set(runs.map((r) => r.size))]) {
+      const of = runs.filter((r) => r.size === size);
+      const downs = of.reduce((n, r) => n + r.downs, 0);
+      const revives = of.reduce((n, r) => n + r.revives, 0);
+      const finishes = of.flatMap((r) => r.finishes);
+      const pct = (n: number) => `${((100 * n) / Math.max(1, downs)).toFixed(0)}%`;
+      console.log(`| ${size} | ${of.length} | ${(of.reduce((n, r) => n + r.length, 0) / of.length).toFixed(0)} | ${downs} | ${pct(revives)} | ${pct(finishes.length)} | ${median(finishes).toFixed(2)} | ${finishes.filter((s) => s < 1).length} |`);
+    }
     console.log('| Size | Seed | Length (s) | Stage | Ended | Deaths | To the Ring | Downs | Revives | Tick p99 | Worst |');
     for (const r of runs) console.log(`| ${r.size} | ${r.seed} | ${r.length.toFixed(0)} | ${r.stage} | ${r.result?.reason} | ${r.deaths.length} | ${r.deaths.filter((d) => d.cause === 'ring').length} | ${r.downs} | ${r.revives} | ${r.tick.p99.toFixed(2)} | ${r.tick.worst.toFixed(1)} |`);
   }, 3_600_000);

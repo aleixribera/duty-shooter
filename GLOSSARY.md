@@ -161,7 +161,7 @@ One step of the Ring: it holds, then shrinks to the next circle, known throughou
 A Battle Royale ending at once because no person is left alive, whatever the bots are doing. A person Downed is still alive. People are placed by how many Squads remained.
 
 **Downed**:
-A seat in Duos or Trios at 0 health with someone on its feet in its Squad: on the ground, crawling, no firing, no frags, no regen, with a small health pool of its own. It stays in the match but no longer counts as standing.
+A seat in Duos or Trios at 0 health with someone on its feet in its Squad: on the ground, crawling, no firing, no frags, no regen, with a health pool of its own as large as full health. For its first second (the Grace) nothing damages it. It stays in the match but no longer counts as standing.
 
 **Bleed-out**:
 The 30 s a Downed seat has before it dies. The Ring neither pauses nor speeds it.
@@ -182,6 +182,10 @@ Holding Use for 5 s within reach of a Downed squadmate, which puts it back on it
 
 **Finish**:
 An enemy killing a Downed seat by taking its Downed pool to 0.
+
+**Grace**:
+The 1 s after a seat goes Downed in which nothing damages it, so the burst that Downed it can't also Finish it. Its own screen reads "Protected"; a shooter's hits on it show a small grey marker, no blood and no sound.
+_Avoid_: invulnerability, i-frames
 
 **Gun game**:
 The free-for-all mode played on a ladder of weapons: five different guns drawn at random from the whole arsenal, in a random order, dealt afresh at each match's start (`GUN_GAME_LADDER_LENGTH`), one level each. While the arsenal has five guns that is all of them, shuffled. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the last gun wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.

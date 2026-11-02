@@ -1,0 +1,228 @@
+[remote-test] homelab: syncing 5 changed file(s) (0 MB), 1 removed
+[remote-test] running on aleix (load 0.37): ROYALE_PACE=2:1,2:2,2:3,2:4,2:5,3:1,3:2,3:3,3:4,3:5 npx vitest run apps/range/test/zero-island-royale-pace.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/aleix/remote-tests/duty-shooter-61b75cd9[39m
+
+[90mstdout[2m | apps/range/test/zero-island-royale-pace.test.ts[2m > [22m[2mBattle Royale pace[2m > [22m[2mprints what whole matches came to
+[22m[39mPACE size 2 seed 1: 504 s, Stage 5, lastSquad, 58 deaths {"grenade":2,"bullet":32,"wipe":20,"melee":4}, 38 downs, 8 revives, tick p99 1.93 worst 62.5 ms, wall 20 s
+    0 s: 60 seats 30 squads, 0 outside, nearest enemy 128 m, {"roam":60}
+   30 s: 60 seats 30 squads, 0 outside, nearest enemy 73 m, {"hold":29,"roam":19,"chase":1,"fight":8,"flank":1,"flee":2}
+   60 s: 50 seats 25 squads, 0 outside, nearest enemy 71 m, {"hold":30,"roam":18,"flank":1,"throw":1}
+   90 s: 42 seats 21 squads, 0 outside, nearest enemy 75 m, {"hold":23,"roam":16,"cover":1,"chase":1,"fight":1}
+  120 s: 38 seats 19 squads, 0 outside, nearest enemy 76 m, {"roam":10,"hold":26,"fight":1,"chase":1}
+  150 s: 38 seats 19 squads, 0 outside, nearest enemy 78 m, {"hold":28,"roam":10}
+  180 s: 37 seats 19 squads, 0 outside, nearest enemy 73 m, {"roam":15,"hold":17,"chase":1,"fight":2,"cover":1,"flank":1}
+  210 s: 32 seats 17 squads, 2 outside, nearest enemy 80 m, {"roam":12,"hold":19,"flank":1}
+  240 s: 29 seats 16 squads, 2 outside, nearest enemy 69 m, {"hold":13,"roam":15,"flank":1}
+  270 s: 26 seats 14 squads, 0 outside, nearest enemy 64 m, {"roam":10,"hold":13,"fight":3}
+  300 s: 24 seats 13 squads, 0 outside, nearest enemy 46 m, {"hold":12,"fight":6,"flank":1,"roam":4,"cover":1}
+  330 s: 20 seats 11 squads, 0 outside, nearest enemy 37 m, {"roam":6,"hold":7,"fight":3,"flee":2,"cover":1,"chase":1}
+  360 s: 12 seats  6 squads, 0 outside, nearest enemy 36 m, {"roam":4,"chase":1,"hold":6,"use":1}
+  390 s:  7 seats  4 squads, 0 outside, nearest enemy 46 m, {"hold":2,"roam":4,"throw":1}
+  420 s:  4 seats  2 squads, 0 outside, nearest enemy 75 m, {"hold":4}
+  450 s:  4 seats  2 squads, 0 outside, nearest enemy 79 m, {"hold":3,"roam":1}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 40 m, {"hold":2,"roam":2}
+  first death 35 s; at rest 7050 in cover, 323 in the open (4%); Squad spread median 13 p90 30 m; seat-seconds {"roam":4697,"hold":7444,"flank":172,"fight":750,"chase":140,"throw":48,"flee":112,"cover":85,"use":49,"search":8}
+PACE size 2 seed 2: 519 s, Stage 6, lastSquad, 58 deaths {"melee":3,"bullet":39,"wipe":9,"grenade":4,"ring":2,"bleedOut":1}, 39 downs, 10 revives, tick p99 1.45 worst 54.6 ms, wall 16 s
+    0 s: 60 seats 30 squads, 0 outside, nearest enemy 125 m, {"roam":60}
+   30 s: 60 seats 30 squads, 0 outside, nearest enemy 86 m, {"roam":24,"hold":34,"fight":2}
+   60 s: 58 seats 30 squads, 0 outside, nearest enemy 67 m, {"roam":16,"hold":31,"fight":8,"search":1,"flank":2}
+   90 s: 48 seats 26 squads, 0 outside, nearest enemy 67 m, {"hold":27,"roam":9,"chase":4,"flee":2,"fight":5,"throw":1}
+  120 s: 38 seats 22 squads, 0 outside, nearest enemy 83 m, {"hold":19,"roam":14,"fight":2,"chase":1,"flank":1,"cover":1}
+  150 s: 35 seats 20 squads, 0 outside, nearest enemy 76 m, {"hold":22,"cover":1,"roam":9,"fight":2,"flank":1}
+  180 s: 28 seats 15 squads, 0 outside, nearest enemy 97 m, {"roam":10,"hold":17,"fight":1}
+  210 s: 26 seats 15 squads, 1 outside, nearest enemy 91 m, {"fight":2,"roam":12,"hold":11,"cover":1}
+  240 s: 24 seats 14 squads, 1 outside, nearest enemy 67 m, {"roam":7,"hold":14,"fight":2,"chase":1}
+  270 s: 18 seats 12 squads, 0 outside, nearest enemy 67 m, {"hold":6,"fight":3,"roam":4,"flee":1,"flank":1,"cover":1,"throw":1,"chase":1}
+  300 s: 13 seats  8 squads, 0 outside, nearest enemy 66 m, {"hold":7,"roam":4,"chase":1,"throw":1}
+  330 s: 12 seats  8 squads, 2 outside, nearest enemy 58 m, {"hold":7,"roam":3,"fight":2}
+  360 s:  7 seats  5 squads, 0 outside, nearest enemy 74 m, {"hold":6,"roam":1}
+  390 s:  7 seats  5 squads, 0 outside, nearest enemy 70 m, {"hold":5,"roam":2}
+  420 s:  6 seats  4 squads, 0 outside, nearest enemy 65 m, {"hold":3,"roam":3}
+  450 s:  6 seats  4 squads, 0 outside, nearest enemy 68 m, {"hold":5,"roam":1}
+  480 s:  6 seats  4 squads, 0 outside, nearest enemy 23 m, {"fight":1,"cover":1,"roam":2,"use":1,"flank":1}
+  510 s:  4 seats  3 squads, 0 outside, nearest enemy 13 m, {"fight":3,"chase":1}
+  first death 32 s; at rest 5832 in cover, 275 in the open (5%); Squad spread median 13 p90 27 m; seat-seconds {"roam":4743,"hold":6219,"use":64,"fight":842,"throw":52,"flee":105,"flank":190,"chase":83,"search":3,"cover":132}
+PACE size 2 seed 3: 495 s, Stage 5, lastSquad, 59 deaths {"bullet":38,"wipe":13,"bleedOut":1,"melee":2,"grenade":2,"ring":3}, 41 downs, 11 revives, tick p99 1.66 worst 59.6 ms, wall 16 s
+    0 s: 60 seats 30 squads, 0 outside, nearest enemy 123 m, {"roam":60}
+   30 s: 60 seats 30 squads, 0 outside, nearest enemy 81 m, {"hold":20,"roam":31,"fight":5,"flank":2,"chase":2}
+   60 s: 55 seats 28 squads, 0 outside, nearest enemy 71 m, {"hold":30,"roam":19,"fight":3,"cover":1,"use":1,"flank":1}
+   90 s: 54 seats 27 squads, 0 outside, nearest enemy 64 m, {"hold":29,"roam":17,"fight":2,"chase":5,"cover":1}
+  120 s: 47 seats 25 squads, 0 outside, nearest enemy 63 m, {"hold":19,"roam":15,"flank":5,"flee":2,"fight":6}
+  150 s: 38 seats 21 squads, 0 outside, nearest enemy 72 m, {"hold":26,"roam":8,"flank":2,"fight":1,"use":1}
+  180 s: 37 seats 21 squads, 0 outside, nearest enemy 70 m, {"roam":12,"hold":19,"fight":5,"flank":1}
+  210 s: 32 seats 18 squads, 0 outside, nearest enemy 74 m, {"roam":13,"hold":16,"cover":1,"fight":2}
+  240 s: 30 seats 17 squads, 3 outside, nearest enemy 61 m, {"hold":13,"flank":1,"roam":13,"throw":2,"use":1}
+  270 s: 27 seats 16 squads, 0 outside, nearest enemy 41 m, {"hold":5,"roam":8,"fight":10,"chase":1,"flank":2,"cover":1}
+  300 s: 17 seats 10 squads, 0 outside, nearest enemy 60 m, {"hold":8,"roam":8,"cover":1}
+  330 s: 14 seats  8 squads, 0 outside, nearest enemy 61 m, {"hold":8,"roam":2,"chase":4}
+  360 s: 12 seats  8 squads, 0 outside, nearest enemy 69 m, {"hold":8,"roam":4}
+  390 s: 12 seats  8 squads, 1 outside, nearest enemy 67 m, {"flee":1,"hold":4,"roam":5,"fight":1,"flank":1}
+  420 s:  6 seats  4 squads, 0 outside, nearest enemy 73 m, {"roam":1,"hold":5}
+  450 s:  6 seats  4 squads, 0 outside, nearest enemy 62 m, {"hold":5,"roam":1}
+  480 s:  6 seats  4 squads, 4 outside, nearest enemy 22 m, {"cover":1,"throw":1,"roam":2,"flee":1,"fight":1}
+  first death 41 s; at rest 6408 in cover, 303 in the open (5%); Squad spread median 15 p90 30 m; seat-seconds {"roam":5185,"hold":6752,"fight":1092,"flank":413,"throw":76,"chase":133,"flee":130,"use":92,"cover":95,"search":7}
+PACE size 2 seed 4: 521 s, Stage 6, lastSquad, 58 deaths {"grenade":8,"fall":1,"bullet":34,"wipe":10,"melee":1,"bleedOut":1,"ring":3}, 38 downs, 9 revives, tick p99 1.52 worst 62.1 ms, wall 17 s
+    0 s: 60 seats 30 squads, 0 outside, nearest enemy 133 m, {"roam":60}
+   30 s: 60 seats 30 squads, 0 outside, nearest enemy 92 m, {"roam":32,"fight":2,"hold":25,"chase":1}
+   60 s: 58 seats 29 squads, 0 outside, nearest enemy 68 m, {"fight":1,"roam":30,"hold":23,"chase":2,"flank":1,"flee":1}
+   90 s: 47 seats 25 squads, 0 outside, nearest enemy 61 m, {"fight":5,"hold":22,"roam":16,"flank":3,"cover":1}
+  120 s: 39 seats 21 squads, 0 outside, nearest enemy 83 m, {"roam":14,"hold":22,"cover":1,"fight":1,"flank":1}
+  150 s: 38 seats 20 squads, 0 outside, nearest enemy 82 m, {"hold":23,"roam":13,"use":1,"chase":1}
+  180 s: 38 seats 20 squads, 0 outside, nearest enemy 81 m, {"roam":21,"hold":15,"fight":2}
+  210 s: 38 seats 20 squads, 2 outside, nearest enemy 51 m, {"flee":1,"roam":15,"chase":3,"hold":11,"fight":7,"flank":1}
+  240 s: 29 seats 17 squads, 3 outside, nearest enemy 61 m, {"flee":1,"roam":9,"fight":4,"hold":11,"cover":1,"flank":1,"chase":2}
+  270 s: 21 seats 13 squads, 0 outside, nearest enemy 46 m, {"chase":4,"fight":2,"hold":8,"use":2,"flee":1,"roam":3,"flank":1}
+  300 s: 19 seats 11 squads, 1 outside, nearest enemy 55 m, {"roam":8,"hold":7,"fight":3,"cover":1}
+  330 s: 16 seats  9 squads, 1 outside, nearest enemy 39 m, {"flee":1,"chase":1,"roam":5,"fight":6,"hold":2,"cover":1}
+  360 s:  7 seats  5 squads, 0 outside, nearest enemy 68 m, {"hold":3,"fight":2,"roam":2}
+  390 s:  5 seats  3 squads, 0 outside, nearest enemy 140 m, {"hold":4,"roam":1}
+  420 s:  4 seats  2 squads, 0 outside, nearest enemy 76 m, {"roam":2,"hold":2}
+  450 s:  4 seats  2 squads, 0 outside, nearest enemy 86 m, {"roam":2,"hold":2}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 23 m, {"hold":2,"roam":1,"flee":1}
+  510 s:  4 seats  2 squads, 0 outside, nearest enemy 10 m, {"hold":4}
+  first death 56 s; at rest 5979 in cover, 372 in the open (6%); Squad spread median 14 p90 29 m; seat-seconds {"roam":5632,"hold":6167,"use":64,"fight":851,"chase":74,"throw":66,"flee":124,"cover":127,"flank":345,"search":2}
+PACE size 2 seed 5: 543 s, Stage 6, lastSquad, 58 deaths {"bullet":37,"wipe":17,"grenade":2,"melee":1,"bleedOut":1}, 38 downs, 8 revives, tick p99 1.42 worst 64.6 ms, wall 17 s
+    0 s: 60 seats 30 squads, 0 outside, nearest enemy 129 m, {"roam":60}
+   30 s: 60 seats 30 squads, 0 outside, nearest enemy 87 m, {"roam":21,"hold":35,"fight":3,"flank":1}
+   60 s: 57 seats 29 squads, 0 outside, nearest enemy 70 m, {"roam":23,"flank":3,"hold":28,"fight":2,"cover":1}
+   90 s: 51 seats 27 squads, 0 outside, nearest enemy 55 m, {"hold":23,"flank":2,"fight":8,"flee":3,"roam":12,"chase":3}
+  120 s: 40 seats 23 squads, 0 outside, nearest enemy 71 m, {"hold":21,"roam":15,"fight":1,"chase":2,"flank":1}
+  150 s: 34 seats 20 squads, 0 outside, nearest enemy 81 m, {"hold":24,"roam":10}
+  180 s: 32 seats 18 squads, 0 outside, nearest enemy 86 m, {"hold":23,"roam":9}
+  210 s: 30 seats 17 squads, 0 outside, nearest enemy 73 m, {"hold":14,"roam":14,"cover":1,"chase":1}
+  240 s: 29 seats 16 squads, 1 outside, nearest enemy 46 m, {"roam":12,"fight":5,"hold":7,"chase":4,"flank":1}
+  270 s: 20 seats 11 squads, 0 outside, nearest enemy 70 m, {"hold":15,"chase":1,"roam":4}
+  300 s: 20 seats 11 squads, 0 outside, nearest enemy 54 m, {"roam":10,"hold":9,"chase":1}
+  330 s: 16 seats  9 squads, 1 outside, nearest enemy 39 m, {"hold":5,"roam":7,"chase":2,"cover":1,"fight":1}
+  360 s: 13 seats  7 squads, 0 outside, nearest enemy 25 m, {"fight":2,"roam":4,"hold":4,"flank":2,"flee":1}
+  390 s:  9 seats  5 squads, 0 outside, nearest enemy 30 m, {"hold":6,"roam":3}
+  420 s:  9 seats  5 squads, 0 outside, nearest enemy 31 m, {"chase":1,"fight":1,"hold":3,"roam":2,"flee":2}
+  450 s:  8 seats  4 squads, 0 outside, nearest enemy 34 m, {"chase":2,"fight":2,"roam":2,"hold":2}
+  480 s:  6 seats  3 squads, 1 outside, nearest enemy 43 m, {"hold":1,"roam":5}
+  510 s:  4 seats  2 squads, 0 outside, nearest enemy 28 m, {"hold":3,"roam":1}
+  540 s:  4 seats  2 squads, 0 outside, nearest enemy 18 m, {"fight":3,"chase":1}
+  first death 36 s; at rest 6674 in cover, 310 in the open (4%); Squad spread median 13 p90 30 m; seat-seconds {"roam":5053,"hold":7001,"fight":889,"chase":193,"flank":350,"cover":114,"search":8,"use":49,"throw":34,"flee":68}
+PACE size 3 seed 1: 505 s, Stage 5, lastSquad, 58 deaths {"bullet":40,"melee":5,"wipe":7,"bleedOut":3,"grenade":3}, 53 downs, 14 revives, tick p99 1.59 worst 63.6 ms, wall 17 s
+    0 s: 60 seats 20 squads, 0 outside, nearest enemy 150 m, {"roam":60}
+   30 s: 60 seats 20 squads, 0 outside, nearest enemy 94 m, {"hold":19,"roam":27,"chase":2,"flee":1,"flank":2,"fight":4,"cover":4,"throw":1}
+   60 s: 52 seats 18 squads, 0 outside, nearest enemy 82 m, {"hold":20,"roam":20,"flank":2,"fight":8,"chase":1,"cover":1}
+   90 s: 45 seats 16 squads, 0 outside, nearest enemy 89 m, {"hold":19,"roam":16,"flee":1,"fight":7,"cover":1,"chase":1}
+  120 s: 41 seats 15 squads, 0 outside, nearest enemy 86 m, {"roam":16,"hold":19,"flee":1,"flank":4,"chase":1}
+  150 s: 35 seats 13 squads, 0 outside, nearest enemy 96 m, {"hold":22,"roam":6,"fight":2,"chase":2,"cover":1,"flee":1,"flank":1}
+  180 s: 32 seats 11 squads, 0 outside, nearest enemy 109 m, {"hold":15,"roam":13,"chase":2,"fight":2}
+  210 s: 28 seats 10 squads, 0 outside, nearest enemy 93 m, {"hold":16,"roam":12}
+  240 s: 28 seats 10 squads, 0 outside, nearest enemy 62 m, {"roam":15,"fight":3,"hold":10}
+  270 s: 26 seats 10 squads, 0 outside, nearest enemy 51 m, {"hold":10,"roam":9,"chase":1,"throw":1,"fight":3,"flank":2}
+  300 s: 23 seats  9 squads, 0 outside, nearest enemy 48 m, {"hold":11,"roam":9,"flank":1,"chase":1,"fight":1}
+  330 s: 18 seats  7 squads, 0 outside, nearest enemy 43 m, {"chase":1,"roam":5,"hold":10,"fight":2}
+  360 s: 12 seats  6 squads, 0 outside, nearest enemy 43 m, {"fight":2,"roam":4,"hold":5,"cover":1}
+  390 s: 11 seats  5 squads, 0 outside, nearest enemy 33 m, {"roam":4,"hold":1,"fight":2,"cover":1,"flee":3}
+  420 s:  7 seats  3 squads, 0 outside, nearest enemy 28 m, {"hold":3,"roam":4}
+  450 s:  6 seats  2 squads, 0 outside, nearest enemy 33 m, {"hold":3,"roam":3}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 22 m, {"flee":2,"chase":2}
+  first death 31 s; at rest 5580 in cover, 384 in the open (6%); Squad spread median 14 p90 28 m; seat-seconds {"roam":5190,"hold":6028,"fight":1053,"flank":355,"chase":87,"throw":59,"cover":166,"flee":143,"use":92,"search":2}
+PACE size 3 seed 2: 555 s, Stage 6, lastSquad, 57 deaths {"bullet":37,"melee":4,"wipe":11,"grenade":3,"bleedOut":2}, 52 downs, 14 revives, tick p99 1.50 worst 62.2 ms, wall 17 s
+    0 s: 60 seats 20 squads, 0 outside, nearest enemy 128 m, {"roam":60}
+   30 s: 58 seats 20 squads, 0 outside, nearest enemy 81 m, {"roam":35,"hold":21,"fight":2}
+   60 s: 55 seats 19 squads, 0 outside, nearest enemy 71 m, {"roam":15,"hold":29,"fight":5,"flank":1,"cover":1,"flee":1,"chase":3}
+   90 s: 51 seats 18 squads, 0 outside, nearest enemy 72 m, {"roam":20,"hold":24,"fight":5,"flank":2}
+  120 s: 43 seats 15 squads, 0 outside, nearest enemy 77 m, {"use":1,"roam":20,"hold":18,"flank":1,"fight":2,"cover":1}
+  150 s: 38 seats 13 squads, 0 outside, nearest enemy 93 m, {"roam":13,"hold":25}
+  180 s: 38 seats 13 squads, 0 outside, nearest enemy 84 m, {"roam":17,"hold":14,"fight":7}
+  210 s: 35 seats 12 squads, 0 outside, nearest enemy 58 m, {"roam":15,"hold":15,"fight":2,"flank":3}
+  240 s: 28 seats 11 squads, 3 outside, nearest enemy 47 m, {"fight":6,"roam":12,"chase":1,"hold":9}
+  270 s: 25 seats 10 squads, 0 outside, nearest enemy 42 m, {"fight":5,"flank":3,"hold":10,"roam":4,"cover":2,"chase":1}
+  300 s: 17 seats  7 squads, 0 outside, nearest enemy 52 m, {"fight":4,"roam":5,"hold":5,"throw":1,"chase":2}
+  330 s: 10 seats  5 squads, 0 outside, nearest enemy 68 m, {"roam":5,"hold":5}
+  360 s:  7 seats  4 squads, 0 outside, nearest enemy 75 m, {"roam":3,"use":1,"hold":3}
+  390 s:  7 seats  4 squads, 0 outside, nearest enemy 61 m, {"roam":3,"hold":4}
+  420 s:  7 seats  4 squads, 0 outside, nearest enemy 46 m, {"chase":1,"use":1,"hold":1,"fight":2,"roam":2}
+  450 s:  6 seats  3 squads, 0 outside, nearest enemy 43 m, {"hold":6}
+  480 s:  5 seats  2 squads, 0 outside, nearest enemy 68 m, {"roam":4,"hold":1}
+  510 s:  5 seats  2 squads, 0 outside, nearest enemy 48 m, {"hold":2,"fight":2,"roam":1}
+  540 s:  5 seats  2 squads, 0 outside, nearest enemy 28 m, {"fight":1,"roam":4}
+  first death 29 s; at rest 6335 in cover, 298 in the open (4%); Squad spread median 14 p90 28 m; seat-seconds {"roam":5059,"hold":6861,"fight":1127,"flank":261,"chase":60,"use":93,"throw":48,"flee":82,"cover":71,"search":1}
+PACE size 3 seed 3: 512 s, Stage 6, lastSquad, 59 deaths {"bullet":34,"bleedOut":5,"grenade":2,"wipe":12,"melee":5,"ring":1}, 52 downs, 12 revives, tick p99 1.43 worst 60.6 ms, wall 16 s
+    0 s: 60 seats 20 squads, 0 outside, nearest enemy 143 m, {"roam":60}
+   30 s: 60 seats 20 squads, 0 outside, nearest enemy 94 m, {"hold":27,"chase":2,"cover":1,"roam":25,"fight":5}
+   60 s: 55 seats 19 squads, 0 outside, nearest enemy 74 m, {"hold":27,"roam":21,"cover":1,"chase":2,"fight":3,"flank":1}
+   90 s: 50 seats 18 squads, 0 outside, nearest enemy 62 m, {"hold":23,"fight":5,"roam":16,"chase":5,"cover":1}
+  120 s: 41 seats 15 squads, 0 outside, nearest enemy 79 m, {"hold":26,"roam":15}
+  150 s: 41 seats 15 squads, 0 outside, nearest enemy 87 m, {"hold":29,"roam":12}
+  180 s: 41 seats 15 squads, 0 outside, nearest enemy 67 m, {"fight":3,"hold":17,"roam":20,"flank":1}
+  210 s: 35 seats 14 squads, 2 outside, nearest enemy 42 m, {"roam":20,"hold":6,"throw":1,"chase":3,"use":1,"fight":4}
+  240 s: 27 seats 13 squads, 6 outside, nearest enemy 52 m, {"hold":5,"chase":3,"fight":10,"roam":8,"flank":1}
+  270 s: 16 seats  9 squads, 0 outside, nearest enemy 76 m, {"roam":7,"hold":9}
+  300 s: 14 seats  8 squads, 0 outside, nearest enemy 62 m, {"hold":7,"roam":4,"fight":1,"chase":1,"flank":1}
+  330 s:  9 seats  5 squads, 0 outside, nearest enemy 98 m, {"hold":7,"roam":2}
+  360 s:  9 seats  5 squads, 0 outside, nearest enemy 77 m, {"roam":2,"hold":4,"fight":2,"cover":1}
+  390 s:  8 seats  4 squads, 3 outside, nearest enemy 106 m, {"roam":5,"hold":3}
+  420 s:  4 seats  2 squads, 0 outside, nearest enemy 108 m, {"hold":2,"roam":2}
+  450 s:  4 seats  2 squads, 0 outside, nearest enemy 94 m, {"hold":2,"roam":2}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 61 m, {"roam":3,"hold":1}
+  510 s:  4 seats  2 squads, 0 outside, nearest enemy 7 m, {"roam":2,"fight":1,"chase":1}
+  first death 37 s; at rest 5951 in cover, 290 in the open (5%); Squad spread median 13 p90 29 m; seat-seconds {"roam":5042,"hold":6351,"fight":942,"flank":201,"use":75,"cover":91,"chase":70,"search":4,"throw":49,"flee":88}
+PACE size 3 seed 4: 481 s, Stage 5, lastSquad, 57 deaths {"melee":3,"bullet":35,"wipe":8,"grenade":6,"bleedOut":3,"ring":2}, 47 downs, 9 revives, tick p99 1.61 worst 68.8 ms, wall 16 s
+    0 s: 60 seats 20 squads, 0 outside, nearest enemy 158 m, {"roam":60}
+   30 s: 59 seats 20 squads, 0 outside, nearest enemy 114 m, {"roam":30,"hold":24,"fight":3,"flank":1,"chase":1}
+   60 s: 57 seats 19 squads, 0 outside, nearest enemy 96 m, {"roam":29,"hold":27,"flank":1}
+   90 s: 57 seats 19 squads, 0 outside, nearest enemy 79 m, {"hold":27,"roam":24,"fight":3,"flank":1,"chase":1,"cover":1}
+  120 s: 51 seats 18 squads, 0 outside, nearest enemy 60 m, {"hold":21,"roam":16,"throw":1,"fight":8,"cover":2,"chase":2,"flank":1}
+  150 s: 43 seats 16 squads, 0 outside, nearest enemy 78 m, {"roam":17,"hold":19,"fight":3,"chase":1,"flank":1,"cover":2}
+  180 s: 39 seats 14 squads, 0 outside, nearest enemy 93 m, {"hold":21,"roam":16,"flank":2}
+  210 s: 38 seats 14 squads, 0 outside, nearest enemy 64 m, {"roam":21,"hold":11,"fight":3,"flank":2,"cover":1}
+  240 s: 34 seats 13 squads, 5 outside, nearest enemy 44 m, {"fight":7,"roam":16,"hold":7,"flank":1,"chase":2,"flee":1}
+  270 s: 23 seats 10 squads, 0 outside, nearest enemy 33 m, {"hold":10,"roam":6,"chase":2,"cover":1,"fight":2,"flank":2}
+  300 s: 17 seats  7 squads, 2 outside, nearest enemy 64 m, {"hold":6,"roam":10,"fight":1}
+  330 s: 11 seats  5 squads, 0 outside, nearest enemy 15 m, {"hold":4,"chase":3,"roam":3,"flank":1}
+  360 s:  6 seats  3 squads, 0 outside, nearest enemy 81 m, {"hold":6}
+  390 s:  6 seats  3 squads, 0 outside, nearest enemy 57 m, {"roam":6}
+  420 s:  5 seats  2 squads, 0 outside, nearest enemy 31 m, {"hold":3,"roam":1,"flee":1}
+  450 s:  5 seats  2 squads, 0 outside, nearest enemy 26 m, {"hold":5}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 23 m, {"flee":2,"fight":1,"flank":1}
+  first death 26 s; at rest 5600 in cover, 376 in the open (6%); Squad spread median 15 p90 31 m; seat-seconds {"roam":6034,"hold":6182,"fight":1089,"flank":306,"chase":110,"throw":48,"flee":97,"cover":106,"use":67}
+PACE size 3 seed 5: 495 s, Stage 5, lastSquad, 57 deaths {"bullet":39,"melee":6,"wipe":9,"grenade":3}, 53 downs, 15 revives, tick p99 1.57 worst 58.9 ms, wall 16 s
+    0 s: 60 seats 20 squads, 0 outside, nearest enemy 134 m, {"roam":60}
+   30 s: 60 seats 20 squads, 0 outside, nearest enemy 75 m, {"roam":24,"hold":31,"fight":4,"flank":1}
+   60 s: 50 seats 19 squads, 0 outside, nearest enemy 60 m, {"throw":1,"fight":4,"flank":2,"hold":15,"roam":25,"chase":2,"use":1}
+   90 s: 44 seats 17 squads, 0 outside, nearest enemy 74 m, {"roam":13,"chase":2,"use":2,"flank":3,"hold":24}
+  120 s: 40 seats 15 squads, 2 outside, nearest enemy 77 m, {"use":2,"hold":13,"roam":21,"flank":2,"chase":1,"fight":1}
+  150 s: 34 seats 13 squads, 0 outside, nearest enemy 88 m, {"roam":11,"hold":19,"flank":2,"throw":1,"chase":1}
+  180 s: 30 seats 11 squads, 0 outside, nearest enemy 103 m, {"cover":1,"roam":10,"fight":2,"hold":17}
+  210 s: 27 seats 11 squads, 0 outside, nearest enemy 80 m, {"flank":2,"roam":17,"hold":8}
+  240 s: 26 seats 10 squads, 0 outside, nearest enemy 49 m, {"hold":13,"roam":12,"chase":1}
+  270 s: 21 seats  9 squads, 0 outside, nearest enemy 64 m, {"hold":11,"roam":8,"fight":1,"flee":1}
+  300 s: 20 seats  8 squads, 0 outside, nearest enemy 67 m, {"flee":2,"roam":12,"hold":6}
+  330 s: 20 seats  8 squads, 0 outside, nearest enemy 28 m, {"roam":6,"fight":10,"cover":1,"hold":1,"flank":2}
+  360 s: 12 seats  5 squads, 0 outside, nearest enemy 28 m, {"fight":5,"chase":1,"roam":5,"flank":1}
+  390 s:  8 seats  4 squads, 0 outside, nearest enemy 51 m, {"hold":4,"roam":2,"chase":1,"use":1}
+  420 s:  8 seats  4 squads, 0 outside, nearest enemy 28 m, {"hold":6,"roam":2}
+  450 s:  7 seats  3 squads, 0 outside, nearest enemy 29 m, {"roam":3,"chase":2,"hold":2}
+  480 s:  4 seats  2 squads, 0 outside, nearest enemy 50 m, {"hold":2,"roam":2}
+  first death 46 s; at rest 5677 in cover, 347 in the open (6%); Squad spread median 14 p90 30 m; seat-seconds {"roam":4838,"hold":6032,"fight":984,"flank":299,"chase":153,"throw":50,"flee":121,"cover":132,"use":97,"search":5}
+| Size | Matches | Mean length (s) | Downs | Revived | Finished | Down to Finish median (s) | Finished within 1 s |
+| 2 | 5 | 516 | 194 | 24% | 38% | 6.53 | 2 |
+| 3 | 5 | 510 | 257 | 25% | 52% | 6.23 | 7 |
+| Size | Seed | Length (s) | Stage | Ended | Deaths | To the Ring | Downs | Revives | Tick p99 | Worst |
+| 2 | 1 | 504 | 5 | lastSquad | 58 | 0 | 38 | 8 | 1.93 | 62.5 |
+| 2 | 2 | 519 | 6 | lastSquad | 58 | 2 | 39 | 10 | 1.45 | 54.6 |
+| 2 | 3 | 495 | 5 | lastSquad | 59 | 3 | 41 | 11 | 1.66 | 59.6 |
+| 2 | 4 | 521 | 6 | lastSquad | 58 | 3 | 38 | 9 | 1.52 | 62.1 |
+| 2 | 5 | 543 | 6 | lastSquad | 58 | 0 | 38 | 8 | 1.42 | 64.6 |
+| 3 | 1 | 505 | 5 | lastSquad | 58 | 0 | 53 | 14 | 1.59 | 63.6 |
+| 3 | 2 | 555 | 6 | lastSquad | 57 | 0 | 52 | 14 | 1.50 | 62.2 |
+| 3 | 3 | 512 | 6 | lastSquad | 59 | 1 | 52 | 12 | 1.43 | 60.6 |
+| 3 | 4 | 481 | 5 | lastSquad | 57 | 2 | 47 | 9 | 1.61 | 68.8 |
+| 3 | 5 | 495 | 5 | lastSquad | 57 | 0 | 53 | 15 | 1.57 | 58.9 |
+
+ [32m✓[39m apps/range/test/zero-island-royale-pace.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 169897[2mms[22m[39m
+   [32m✓[39m Battle Royale pace [2m(1)[22m
+     [33m[2m✓[22m[39m prints what whole matches came to[33m 169894[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 21:00:47
+[2m   Duration [22m 170.40s[2m (tests 100%)[22m
+
+[remote-test] exit 0 after 171s
