@@ -184,8 +184,13 @@ export function chargeRoster(
 }
 
 export interface EndSummary {
-  readonly headline: { readonly kind: 'draw' } | { readonly kind: 'team'; readonly team: number; readonly won: boolean } | { readonly kind: 'player'; readonly name: string; readonly you: boolean } | { readonly kind: 'unknown' };
+  readonly headline: { readonly kind: 'draw' } | { readonly kind: 'team'; readonly team: number; readonly won: boolean } | { readonly kind: 'player'; readonly name: string; readonly you: boolean; readonly verb: 'win' | 'wins' } | { readonly kind: 'unknown' };
   readonly you: { readonly kills: number; readonly deaths: number; readonly ratio: string; readonly place: number; readonly of: number } | null;
+}
+
+/** "Ada wins", but "Ada and Mate win": a winning Squad of two or three is named in full, and the verb agrees. */
+export function winVerb(result: Pick<MatchResult, 'winners'>): 'win' | 'wins' {
+  return (result.winners ?? 1) > 1 ? 'win' : 'wins';
 }
 
 /** The end-of-match screen: who won (and whether it was you or your team) and your line. */
@@ -197,10 +202,10 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   let headline: EndSummary['headline'];
   if (!result) headline = { kind: 'unknown' };
   // A Battle Royale's winner is a Squad, and one that ends for want of people has none.
-  else if (mode === 'battle-royale') headline = result.winner === null ? { kind: 'unknown' } : { kind: 'player', name: result.winnerName ?? 'Someone', you: me?.team === result.winner };
+  else if (mode === 'battle-royale') headline = result.winner === null ? { kind: 'unknown' } : { kind: 'player', name: result.winnerName ?? 'Someone', you: me?.team === result.winner, verb: winVerb(result) };
   else if (result.draw || result.winner === null) headline = { kind: 'draw' };
   else if (teamMode(mode)) headline = { kind: 'team', team: Number(result.winner), won: me?.team === result.winner };
-  else headline = { kind: 'player', name: result.winnerName ?? 'Someone', you: result.winner === selfId };
+  else headline = { kind: 'player', name: result.winnerName ?? 'Someone', you: result.winner === selfId, verb: winVerb(result) };
   return { headline, you };
 }
 

@@ -35,7 +35,7 @@ import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
 import { Hud, type ChargeHud, type HitKind, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
-import { TEAMS, chargeRoster } from './ui/model';
+import { TEAMS, chargeRoster, winVerb } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { ChargeSounds } from './charge-sounds';
@@ -1269,7 +1269,7 @@ export class Game {
         break;
       }
       case 'matchEnd':
-        this.hud.toast(e.winnerName ? `${e.winnerName} wins the match.` : 'Match over.');
+        this.hud.toast(e.winnerName ? `${e.winnerName} ${winVerb(e)} the match.` : 'Match over.');
         break;
       case 'matchStart':
         this.#killer = null;

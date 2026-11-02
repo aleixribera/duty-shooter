@@ -861,7 +861,7 @@ export class Hud {
           : h.kind === 'player'
             ? h.you
               ? 'You win'
-              : `${escape(h.name)} wins`
+              : `${escape(h.name)} ${h.verb}`
             : 'Match over';
     const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result ? END_REASONS[s.result.reason] : 'over'}`;
     let html = `<div class="result">${sub}</div><h2>${headline}</h2>`;

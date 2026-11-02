@@ -180,7 +180,7 @@ export class BattleRoyale implements GameMode {
   #won(team: TeamId, reason: MatchResult['reason']): MatchResult {
     this.#places.set(team, 1);
     const names = [...this.#entries.values()].filter((e) => e.team === team).map((e) => e.name);
-    return { winner: team, winnerName: names.join(', '), draw: false, reason };
+    return { winner: team, winnerName: nameList(names), ...(names.length > 1 ? { winners: names.length } : {}), draw: false, reason };
   }
 
   result(ctx: ModeContext): MatchResult | null {
@@ -242,6 +242,12 @@ export class BattleRoyale implements GameMode {
     };
     return state;
   }
+}
+
+/** A Squad's names as a line reads them: "Ada", "Ada and Mate", "Ada, Mate and Joan". */
+export function nameList(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 /**

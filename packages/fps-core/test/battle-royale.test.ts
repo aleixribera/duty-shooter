@@ -3,6 +3,8 @@ import { STATS, TICK_SECONDS, botProfile, box, buildNavGraph, createWorld, type 
 import { BattleRoyale, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { Button } from '../src/usercmd';
+import { nameList } from '../src/modes/battle-royale';
+import { packValue, unpackValue } from '../src/net/codec';
 import { ticks } from './support/movement';
 
 const GROUND = box({ min: [-300, -1, -300], max: [300, 0, 300], material: 'concrete' });
@@ -99,6 +101,17 @@ describe('Winning', () => {
     const result = tick(['p4', 'p5']);
     expect(result).toMatchObject({ winner: 3, draw: false, reason: 'lastSquad' });
     expect(result?.winnerName).toContain('n5');
+    // A Squad of two is named as a line reads it, and says how many it names (ticket 42).
+    expect(result?.winnerName).not.toContain(',');
+    expect(result?.winnerName).toMatch(/^n\d and n\d$/);
+    expect(result?.winners).toBe(2);
+    expect(unpackValue(packValue({ type: 'matchEnd', ...result }))).toEqual({ type: 'matchEnd', ...result });
+  });
+
+  it('names a Squad as a line reads it', () => {
+    expect(nameList(['Ada'])).toBe('Ada');
+    expect(nameList(['Ada', 'Mate'])).toBe('Ada and Mate');
+    expect(nameList(['Ada', 'Mate', 'Joan'])).toBe('Ada, Mate and Joan');
   });
 
   it('places a Squad by how many remained when it went out', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BattleRoyaleState, Score } from '@duty-shooter/fps-core';
 import { mapPoint, paintIsland, terrainBounds } from '../src/ui/island-map';
-import { endSummary } from '../src/ui/model';
+import { endSummary, winVerb } from '../src/ui/model';
 import { bearing, compassOffset, compassTicks, heading, placement, ringNow, ringStatus } from '../src/ui/royale';
 
 /** Stage 2 of 6: holding at a 300 m circle round the origin until t = 100, shrinking to 100 m round (100, 0) by t = 150. */
@@ -132,9 +132,17 @@ describe('the end of a Battle Royale', () => {
   const scores = [score('a', 1, 1), score('b', 1, 1), score('c', 2, 2)];
 
   it('names the winning Squad, and says you won when it was yours', () => {
-    const result = { winner: 1, winnerName: 'a, b', draw: false, reason: 'lastSquad' as const };
-    expect(endSummary(result, 'battle-royale', scores, 'b').headline).toEqual({ kind: 'player', name: 'a, b', you: true });
-    expect(endSummary(result, 'battle-royale', scores, 'c').headline).toEqual({ kind: 'player', name: 'a, b', you: false });
+    const result = { winner: 1, winnerName: 'a and b', winners: 2, draw: false, reason: 'lastSquad' as const };
+    expect(endSummary(result, 'battle-royale', scores, 'b').headline).toEqual({ kind: 'player', name: 'a and b', you: true, verb: 'win' });
+    expect(endSummary(result, 'battle-royale', scores, 'c').headline).toEqual({ kind: 'player', name: 'a and b', you: false, verb: 'win' });
+  });
+
+  it('says "wins" for a Squad of one, and "win" for two or three (ticket 42)', () => {
+    expect(winVerb({})).toBe('wins');
+    expect(winVerb({ winners: 2 })).toBe('win');
+    expect(winVerb({ winners: 3 })).toBe('win');
+    const solo = { winner: 2, winnerName: 'c', draw: false, reason: 'lastSquad' as const };
+    expect(endSummary(solo, 'battle-royale', scores, 'a').headline).toEqual({ kind: 'player', name: 'c', you: false, verb: 'wins' });
   });
 
   it('is no draw when it ended for want of people', () => {

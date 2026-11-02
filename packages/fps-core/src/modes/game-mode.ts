@@ -179,6 +179,8 @@ export interface TeamScore {
 export interface MatchResult {
   readonly winner: PlayerId | TeamId | null;
   readonly winnerName: string | null;
+  /** How many people `winnerName` names, when more than one (a Squad of two or three): the line then reads "Ada and Mate win". */
+  readonly winners?: number;
   readonly draw: boolean;
   readonly reason: 'killLimit' | 'scoreLimit' | 'timeLimit' | 'roundLimit' | 'forfeit' | 'lastSquad' | 'noHumans';
 }

@@ -128,7 +128,7 @@ describe('the end of the match', () => {
 
   it('says draw on a tie, and who won in free-for-all', () => {
     expect(endSummary({ winner: null, winnerName: null, draw: true, reason: 'timeLimit' }, 'tdm', [], null).headline).toEqual({ kind: 'draw' });
-    expect(endSummary({ winner: 'b', winnerName: 'Bo', draw: false, reason: 'killLimit' }, 'ffa', [score('b', 1, 30, 2, 'Bo')], 'me').headline).toEqual({ kind: 'player', name: 'Bo', you: false });
+    expect(endSummary({ winner: 'b', winnerName: 'Bo', draw: false, reason: 'killLimit' }, 'ffa', [score('b', 1, 30, 2, 'Bo')], 'me').headline).toEqual({ kind: 'player', name: 'Bo', you: false, verb: 'wins' });
   });
 });
 
