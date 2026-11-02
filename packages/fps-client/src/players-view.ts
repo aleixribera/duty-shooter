@@ -2,15 +2,11 @@ import { raycastWorld, WEAPON_IDS, type PlayerId, type PlayerOutput, type TeamId
 import {
   BufferAttribute,
   BufferGeometry,
-  CanvasTexture,
   Color,
   Group,
   Mesh,
   MeshStandardNodeMaterial,
   Quaternion,
-  Sprite,
-  SpriteNodeMaterial,
-  SRGBColorSpace,
   Vector3,
   type Camera,
   type Object3D,
@@ -33,74 +29,17 @@ const TEAM_LOOKS: Readonly<Record<number, Look>> = {
 const GUNMETAL = new Color(0x2b2d31);
 const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet: 0xe07a2e, boots: 0x6e6a62, accent: 0xe07a2e, glove: 0xe8e2d6, lens: 0x1c1e20 };
 
-/** What the view needs to know about sides: whether the match has teams, the local player's team, and names for nameplates. */
+/** What the view needs to know about sides: whether the match has teams, and the local player's team. Allies' tags are the HUD's (`hud/ally-tags.ts`). */
 export interface Allegiance {
   readonly teams: boolean;
   readonly self: TeamId | null;
-  readonly names: ReadonlyMap<PlayerId, string>;
 }
 
-const NO_TEAMS: Allegiance = { teams: false, self: null, names: new Map() };
+const NO_TEAMS: Allegiance = { teams: false, self: null };
 
 function lookFor(p: PlayerOutput, allegiance: Allegiance): Look {
   if (p.kind === 'dummy') return DUMMY;
   return (allegiance.teams && TEAM_LOOKS[p.team]) || SOLDIER;
-}
-
-/**
- * A teammate's name over their head: a sprite that keeps the same size on
- * screen at any distance, depth-tested so walls hide it like anything else.
- */
-class Nameplate {
-  readonly sprite: Sprite;
-  readonly #material: SpriteNodeMaterial;
-  readonly #canvas: HTMLCanvasElement | null;
-  readonly #texture: CanvasTexture | null;
-  #shown: string | null = null;
-
-  constructor(player: PlayerId) {
-    // Headless (tests, the server's tools) there is no canvas; the plate is still placed and shown.
-    this.#canvas = typeof document === 'undefined' ? null : document.createElement('canvas');
-    this.#texture = this.#canvas ? new CanvasTexture(this.#canvas) : null;
-    if (this.#texture) this.#texture.colorSpace = SRGBColorSpace;
-    // It writes depth too, so the heat shimmer takes it for the near thing it is.
-    this.#material = new SpriteNodeMaterial({ transparent: true, depthWrite: true, depthTest: true, sizeAttenuation: false });
-    if (this.#texture) this.#material.map = this.#texture;
-    this.sprite = new Sprite(this.#material);
-    this.sprite.name = 'nameplate';
-    this.sprite.userData['player'] = player;
-    this.sprite.renderOrder = 10;
-  }
-
-  show(name: string, colour: number): void {
-    const key = `${name}/${colour}`;
-    if (key === this.#shown) return;
-    this.#shown = key;
-    const canvas = this.#canvas;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !this.#texture) return;
-    const font = '600 40px "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", sans-serif';
-    ctx.font = font;
-    canvas.width = Math.ceil(ctx.measureText(name).width) + 44;
-    canvas.height = 56;
-    ctx.font = font;
-    ctx.fillStyle = 'rgba(11, 14, 19, 0.72)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = `#${colour.toString(16).padStart(6, '0')}`;
-    ctx.fillRect(0, 0, 6, canvas.height);
-    ctx.fillStyle = '#f3f1ea';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(name, 22, canvas.height / 2 + 2);
-    this.#texture.needsUpdate = true;
-    // About 2.4 % of the screen's height, whatever the distance.
-    const h = 0.034;
-    this.sprite.scale.set((h * canvas.width) / canvas.height, h, 1);
-  }
-
-  dispose(): void {
-    this.#texture?.dispose();
-    this.#material.dispose();
-  }
 }
 
 /**
@@ -266,13 +205,11 @@ export class PlayersView {
   readonly #guns: GunModels | null;
   /** The look each soldier was built in, so a team change rebuilds it. */
   readonly #looks = new Map<PlayerId, Look>();
-  readonly #plates = new Map<PlayerId, Nameplate>();
   /**
    * The soldiers `showSamples` drew, kept hidden: while they live, their
    * shaders stay compiled for the real soldiers built later.
    */
   readonly #samples: Soldier[] = [];
-  readonly #samplePlate = new Nameplate('sample');
 
   constructor(scene: Scene, world: World, weapon: (() => Object3D) | null) {
     this.#world = world;
@@ -287,7 +224,7 @@ export class PlayersView {
 
   /**
    * Shows, for one frame, a soldier in every look holding each weapon in
-   * turn, with the pieces a ragdoll throws and a nameplate, a few metres in
+   * turn, with the pieces a ragdoll throws, a few metres in
    * front of `camera`: drawing them compiles their shaders before a match
    * needs them. They are drawn a thousandth of their size, so nothing shows
    * through the loading screen. Returns what hides them again.
@@ -305,9 +242,6 @@ export class PlayersView {
         if (gun) soldier.hold(id, gun);
         this.#samples.push(soldier);
       }
-        this.#samples[0]!.root.add(this.#samplePlate.sprite);
-      this.#samplePlate.show('Ready', TEAM_LOOKS[1]!.accent);
-      this.#samplePlate.sprite.position.set(0, 2.2, 0);
     }
     const ahead = new Vector3(0, 0, -4).applyQuaternion(camera.quaternion).add(camera.position);
     this.#samples.forEach((soldier, i) => {
@@ -339,7 +273,7 @@ export class PlayersView {
 
   /**
    * Poses everyone from this frame's output. With teams on, soldiers wear
-   * their team's uniform and teammates of the local player carry nameplates.
+   * their team's uniform.
    */
   update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS): void {
     const model = soldierModel();
@@ -365,7 +299,6 @@ export class PlayersView {
         this.#looks.set(p.id, look);
         this.#root.add(soldier.root);
       }
-      this.#nameplate(p, soldier, allegiance);
       if (look !== DUMMY && this.#guns && soldier.gunId !== p.weapon.id) {
         const gun = this.#guns.mesh(p.weapon.id);
         if (gun) soldier.hold(p.weapon.id, gun);
@@ -388,8 +321,6 @@ export class PlayersView {
       this.#soldiers.delete(id);
       this.#looks.delete(id);
       this.#alive.delete(id);
-      this.#plates.get(id)?.dispose();
-      this.#plates.delete(id);
     }
     for (let i = this.#ragdolls.length - 1; i >= 0; i--) {
       const rag = this.#ragdolls[i]!;
@@ -400,32 +331,10 @@ export class PlayersView {
     }
   }
 
-  /** A teammate's nameplate, above their head; nobody else gets one. */
-  #nameplate(p: PlayerOutput, soldier: Soldier, allegiance: Allegiance): void {
-    const ally = allegiance.teams && allegiance.self !== null && p.kind !== 'dummy' && p.team === allegiance.self;
-    let plate = this.#plates.get(p.id);
-    if (!ally) {
-      if (plate) plate.sprite.visible = false;
-      return;
-    }
-    if (!plate) {
-      plate = new Nameplate(p.id);
-      this.#plates.set(p.id, plate);
-    }
-    // On the soldier, so it hides with them when they die.
-    if (plate.sprite.parent !== soldier.root) soldier.root.add(plate.sprite);
-    const name = allegiance.names.get(p.id) ?? '';
-    plate.show(p.downed ? `${name} · Downed` : name, TEAM_LOOKS[p.team]?.accent ?? 0xf3f1ea);
-    plate.sprite.visible = true;
-    plate.sprite.position.set(0, p.eyeHeight + 0.55, 0);
-  }
-
   dispose(): void {
     for (const s of this.#soldiers.values()) s.dispose();
     for (const s of this.#samples) s.dispose();
-    this.#samplePlate.dispose();
     this.#guns?.dispose();
-    for (const plate of this.#plates.values()) plate.dispose();
     this.#root.removeFromParent();
   }
 }

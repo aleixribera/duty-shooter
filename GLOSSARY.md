@@ -129,6 +129,10 @@ _Avoid_: BR
 **Squad**:
 The seats playing together in a Battle Royale: one (Solos), two (Duos) or three (Trios). Squadmates can't hurt each other, and the last Squad with anyone alive wins.
 
+**Ally tag**:
+The mark over each teammate, or Squadmate in a Battle Royale: their name with a chevron up to 40 m in sight, the chevron alone further off or behind walls, held to the screen's edge when they're off it. A Downed ally's tag is a red cross with how far, or Revive once in reach. Enemies never get one.
+_Avoid_: nameplate
+
 **Battle Royale screen**:
 Where a Battle Royale is set up, reached from the main menu: where it plays (the server; Local bots once they have their own thread), the Squad size, your Squad's seats and the other Squads, the server's state in one line, and Start. Joining an empty server makes you the lobby's host, with the Squad size you picked. It replaces the lobby page for a Battle Royale.
 

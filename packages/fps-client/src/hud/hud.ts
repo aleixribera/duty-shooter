@@ -1,4 +1,5 @@
 import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
+import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 import { placement } from '../ui/royale';
@@ -194,6 +195,8 @@ const CSS = `
 
 export interface HudState {
   readonly self: PlayerOutput | null;
+  /** A tag over each ally (ticket 52): teammates, or your Squad in a Battle Royale. */
+  readonly allies?: readonly AllyTag[];
   /** Pixels per degree at the screen centre, for sizing the crosshair to the spread. */
   readonly pixelsPerDegree: number;
   readonly fps: number;
@@ -383,6 +386,7 @@ export class Hud {
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
   readonly #royale: RoyaleHud;
+  readonly #allies: AllyTagsView;
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
   readonly #html = new WeakMap<HTMLElement, string>();
@@ -395,7 +399,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -408,6 +412,7 @@ export class Hud {
     this.root = el('div', 'ds-hud ds-ui', parent);
     this.#scope = el('div', 'ds-scope', this.root, '<i class="h"></i><i class="v"></i><i class="h thick"></i><i class="h thick r"></i><i class="v thick"></i>');
     this.#vignette = el('div', 'ds-vignette', this.root);
+    this.#allies = new AllyTagsView(this.root);
     this.#cross = el('div', 'ds-cross', this.root, '<i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><b></b>');
     this.#arms = [...this.#cross.querySelectorAll('i')] as HTMLElement[];
     this.#hit = el('div', 'ds-hit', this.root, '<i></i><i></i><i></i><i></i>');
@@ -601,6 +606,7 @@ export class Hud {
     const sprinting = self?.movement === 'sprint' || self?.movement === 'tacticalSprint';
     const hide = !self || !self.alive || self.downed !== null || self.reviving !== null || (w?.ads ?? 0) > 0.35 || sprinting || w?.action === 'inspect';
     this.#style(this.#cross, 'opacity', hide ? '0' : '1');
+    this.#allies.update(state.allies ?? []);
     const gap = Math.round(Math.max(4, (w?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
     const [left, right, up, down] = this.#arms;
     if (left && right && up && down) {

@@ -115,7 +115,7 @@ const frame = (time: number, dt: number) => {
       list.push(output(`${row}-${i}`, team, [width - i * SPACING, (teams.length - 1 - row) * ROW, 0], yaw, weapon, col.state(t), t));
     });
   });
-  players.update(list, dt, { teams: true, self: null, names: new Map() });
+  players.update(list, dt, { teams: true, self: null });
 };
 
 let time = 0;

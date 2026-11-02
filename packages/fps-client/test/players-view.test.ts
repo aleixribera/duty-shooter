@@ -20,15 +20,6 @@ function colours(root: Object3D): Set<string> {
   return out;
 }
 
-/** Ids of the players whose nameplates are showing. */
-function nameplates(scene: Scene): string[] {
-  const out: string[] = [];
-  scene.traverse((o) => {
-    if (o.name === 'nameplate' && o.visible && o.parent?.visible) out.push(o.userData['player'] as string);
-  });
-  return out.sort();
-}
-
 describe('player presentation', () => {
   it('keeps ragdoll transforms finite when a redesigned soldier dies', () => {
     const scene = new Scene();
@@ -88,47 +79,14 @@ describe('player presentation', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);
     const roots = () => scene.children[0]!.children;
-    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: true, self: 1, names: new Map() });
+    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: true, self: 1 });
     const [blue, orange] = roots().map(colours);
     expect(blue).not.toEqual(orange);
-    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: false, self: null, names: new Map() });
+    view.update([player('player', 'p1', 1), player('player', 'p2', 2)], 1 / 60, { teams: false, self: null });
     const [a, b] = roots().map(colours);
     expect(a).toEqual(b);
     expect(a).not.toEqual(blue);
     expect(a).not.toEqual(orange);
-    view.dispose();
-  });
-
-  it('shows nameplates over living teammates only', () => {
-    const scene = new Scene();
-    const view = new PlayersView(scene, createWorld([]), null);
-    const names = new Map([
-      ['p2', 'Ally'],
-      ['p3', 'Enemy'],
-      ['p4', 'Ally two'],
-    ]);
-    const players = [player('player', 'p2', 1), player('player', 'p3', 2), player('player', 'p4', 1)];
-    view.update(players, 1 / 60, { teams: true, self: 1, names });
-    expect(nameplates(scene)).toEqual(['p2', 'p4']);
-    // A teammate down loses theirs.
-    view.update([players[0]!, players[1]!, { ...players[2]!, alive: false }], 1 / 60, { teams: true, self: 1, names });
-    expect(nameplates(scene)).toEqual(['p2']);
-    // No teams, no teammates.
-    view.update(players, 1 / 60, { teams: false, self: null, names });
-    expect(nameplates(scene)).toEqual([]);
-    view.dispose();
-  });
-
-  it('depth-tests nameplates, so a wall in front of a teammate hides theirs', () => {
-    const scene = new Scene();
-    const view = new PlayersView(scene, createWorld([]), null);
-    view.update([player('player', 'p2', 1)], 1 / 60, { teams: true, self: 1, names: new Map([['p2', 'Ally']]) });
-    let plate: Object3D | null = null;
-    scene.traverse((o) => {
-      if (o.name === 'nameplate') plate = o;
-    });
-    const material = (plate as unknown as Mesh).material as { depthTest: boolean };
-    expect(material.depthTest).toBe(true);
     view.dispose();
   });
 });

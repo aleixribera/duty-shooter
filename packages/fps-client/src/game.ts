@@ -56,6 +56,7 @@ import { RingSounds } from './ring-sounds';
 import { Spectator } from './spectate';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
+import { alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting } from './surface-materials';
@@ -158,6 +159,8 @@ export class Game {
   readonly #worldView: WorldView;
   readonly #world: World;
   readonly #camera = new FirstPersonCamera();
+  /** When each ally was last checked for a clear line from the eye, and whether it had one. */
+  readonly #allySight = new Map<PlayerId, { at: number; seen: boolean }>();
   readonly #viewmodel: Viewmodel;
   readonly #players: PlayersView;
   readonly #arsenal: ArsenalView;
@@ -626,7 +629,7 @@ export class Game {
     if (driver) {
       this.#others = driver.others(alpha);
       const teams = driver.match ? teamMode(driver.match.mode) : false;
-      this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null, names: new Map(driver.scores.map((s) => [s.id, s.name])) });
+      this.#players.update(this.#others, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null });
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }
@@ -718,6 +721,7 @@ export class Game {
     const showOverlay = this.#settings.showRangeOverlay && this.#inRange();
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
+      allies: this.#allyTags(eye),
       pixelsPerDegree,
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,
@@ -753,6 +757,42 @@ export class Game {
       charge: this.#chargeHud(eye),
       royale: this.#royaleHud(forward),
       dt,
+    });
+  }
+
+  /** A tag over each ally (ticket 52). Sight lines to them are checked ten times a second, not every frame. */
+  #allyTags(eye: Vec3): AllyTag[] {
+    const driver = this.#driver;
+    const match = driver?.match;
+    const self = this.#cur;
+    if (!driver || !match || match.phase !== 'playing' || !self || this.#inShot) return [];
+    const watched = this.#spectator.watching === null ? null : this.#playerById(this.#spectator.watching);
+    const view = self.alive ? self : (watched ?? self);
+    const allies = alliesOf(this.#others, view.id, self.team, match.mode);
+    if (allies.length === 0) return [];
+    const cam = this.#camera.camera;
+    const w = this.#canvas.clientWidth;
+    const h = this.#canvas.clientHeight;
+    const now = performance.now();
+    const reach = STATS.royale.reviveReach.value;
+    const canRevive = self.alive && !self.downed;
+    return allies.map((p) => {
+      const top = p.position[1] + p.eyeHeight;
+      let sight = this.#allySight.get(p.id);
+      if (!sight || now - sight.at > 100) {
+        sight = { at: now, seen: !sightBlocked(this.#world, eye, [p.position[0], top, p.position[2]]) };
+        this.#allySight.set(p.id, sight);
+      }
+      const v = new Vector3(p.position[0], top + 0.55, p.position[2]).project(cam);
+      // Behind the camera the projection mirrors: flip it back.
+      const behind = v.z > 1;
+      const flat = Math.hypot(p.position[0] - view.position[0], p.position[2] - view.position[2]);
+      const inReach = p.downed !== null && canRevive && flat <= reach && Math.abs(p.position[1] - self.position[1]) <= reach;
+      return allyTag(
+        { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen: sight.seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind },
+        w,
+        h,
+      );
     });
   }
 
