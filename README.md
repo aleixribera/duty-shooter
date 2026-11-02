@@ -55,6 +55,7 @@ To play online locally:
    | `SLOW_TICK_MS` | `8` | A tick this long logs a `slow {...}` line: each phase's milliseconds, the slowest bot, what happened, the collector's pauses during it, and a cause: `work:<phase>`, `gc:<kind>` or `stall` (the thread was off the CPU). |
    | `WARM_TICKS` | `2400` with `NET=wide` or `battle-royale`, else none | Ticks of a private match, after eight openings, played before it listens, so V8 has the tick compiled. |
    | `LOAD_TEST_SOCKETS` | off | Open sockets the machine itself may hold, for a load test on a server of its own. Everyone else stays at 12. |
+   | `TRUSTED_PROXY` | none | Comma-separated addresses besides loopback whose `X-Forwarded-For` names the visitor: the proxy in front, such as Docker's network gateway behind Funnel (`docs/deploy.md`). Nobody else's header is believed. |
    | `DUTY_VERSION` | `dev` | The version `/healthz` reports. |
 
 3. Open <http://localhost:3000>.

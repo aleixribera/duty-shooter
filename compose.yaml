@@ -17,6 +17,9 @@ services:
       # Bots a side the lobby fills to while anyone plays, and the most a host may pick.
       BOTS_PER_TEAM: "${BOTS_PER_TEAM:-3}"
       MAX_BOTS_PER_TEAM: "${MAX_BOTS_PER_TEAM:-6}"
+      # Funnel's connections reach the container through docker-proxy, from the network's
+      # gateway below; only that peer's X-Forwarded-For names the visitor (ticket 36).
+      TRUSTED_PROXY: "${TRUSTED_PROXY:-172.28.0.1}"
     # The event log (joins, leaves, matches) on the one writable path, kept across redeploys.
     volumes:
       - duty-data:/data
@@ -42,3 +45,11 @@ services:
 
 volumes:
   duty-data:
+
+# Pinned so the gateway TRUSTED_PROXY names stays the same address across recreations.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

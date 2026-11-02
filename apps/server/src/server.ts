@@ -2,6 +2,7 @@ import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
+import { isIP } from 'node:net';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -45,6 +46,11 @@ export interface ServerOptions {
   readonly wideNet?: boolean;
   /** Open sockets this machine itself may hold, for the load test; every other address keeps the limit. */
   readonly loadTestSockets?: number;
+  /**
+   * Peers besides loopback whose X-Forwarded-For names the visitor: the proxy
+   * in front, such as Docker's bridge gateway behind Funnel (TRUSTED_PROXY).
+   */
+  readonly trustedProxies?: readonly string[];
   /** Ticks of a private bot match played before listening, so the first real ticks run compiled. */
   readonly warmTicks?: number;
   /** Ticks of at least this many milliseconds are logged with what they did; SLOW_TICK_MS by default. */
@@ -198,14 +204,33 @@ const WIDE_WARM_TICKS = 2400;
 
 const isLoopback = (address: string | undefined): boolean => address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
 
+/** A peer's address as the proxy setting names it: IPv4 without the `::ffff:` a dual-stack socket adds. */
+const plainAddress = (address: string | undefined): string | undefined => (address?.startsWith('::ffff:') && isIP(address.slice(7)) === 4 ? address.slice(7) : address);
+
 /**
- * The visitor's address. Tailscale Funnel connects from loopback and names the
- * visitor in X-Forwarded-For; the header is trusted from loopback only.
+ * Whether this peer is a proxy that names the visitor in X-Forwarded-For:
+ * loopback (Tailscale Funnel on the same machine), or an address in
+ * `trustedProxies` (Docker's bridge gateway, which docker-proxy connects from,
+ * so a container sees every Funnel visitor arrive from it). Nobody else's
+ * header is believed.
  */
-function clientAddress(req: IncomingMessage): string {
+function fromTrustedProxy(req: IncomingMessage, trustedProxies: ReadonlySet<string>): boolean {
+  const remote = req.socket.remoteAddress;
+  return isLoopback(remote) || trustedProxies.has(plainAddress(remote) ?? '');
+}
+
+/**
+ * The visitor's address. Behind a trusted proxy it is the last X-Forwarded-For
+ * entry, the one that proxy added: anything before it the visitor could have
+ * written themselves. Funnel replaces the header with the one address.
+ */
+function clientAddress(req: IncomingMessage, trustedProxies: ReadonlySet<string>): string {
   const remote = req.socket.remoteAddress;
   const forwarded = req.headers['x-forwarded-for'];
-  if (isLoopback(remote) && typeof forwarded === 'string' && forwarded.length > 0) return forwarded.split(',')[0]!.trim();
+  if (fromTrustedProxy(req, trustedProxies) && typeof forwarded === 'string') {
+    const last = forwarded.split(',').at(-1)!.trim();
+    if (isIP(last)) return last;
+  }
   return remote ?? 'unknown';
 }
 
@@ -310,11 +335,11 @@ function wsConnection(socket: WebSocket, onLocalClose: (reason: string) => void)
 }
 
 /** Same-origin only: a page on another site cannot open a game connection with a visitor's browser. */
-function sameOrigin(req: IncomingMessage): boolean {
+function sameOrigin(req: IncomingMessage, trustedProxies: ReadonlySet<string>): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // non-browser clients (tests, load scripts)
-  // Behind a proxy on loopback (Funnel), the public host may arrive as X-Forwarded-Host.
-  const forwarded = isLoopback(req.socket.remoteAddress) ? req.headers['x-forwarded-host'] : undefined;
+  // Behind a trusted proxy (Funnel), the public host may arrive as X-Forwarded-Host.
+  const forwarded = fromTrustedProxy(req, trustedProxies) ? req.headers['x-forwarded-host'] : undefined;
   try {
     const host = new URL(origin).host;
     return host === req.headers.host || (typeof forwarded === 'string' && host === forwarded.split(',')[0]!.trim());
@@ -463,20 +488,21 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD, perMessageDeflate: DEFLATE });
   const guard = new AddressGuard(options.loadTestSockets ?? MAX_SOCKETS_PER_ADDRESS);
+  const trustedProxies = new Set(options.trustedProxies ?? []);
   http.on('upgrade', (req, socket, head) => {
     // Http stops watching the socket here: a reset before ws takes it over would otherwise end the process.
     socket.on('error', () => socket.destroy());
     const path = (req.url ?? '/').split('?')[0];
-    if (path === '/royale/ws' && options.royale && sameOrigin(req)) {
+    if (path === '/royale/ws' && options.royale && sameOrigin(req, trustedProxies)) {
       // The Battle Royale process takes the connection whole, and holds its own per-address limit.
       options.royale.upgrade(req, socket, head);
       return;
     }
-    if (path !== '/ws' || !sameOrigin(req)) {
+    if (path !== '/ws' || !sameOrigin(req, trustedProxies)) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
-    const address = clientAddress(req);
+    const address = clientAddress(req, trustedProxies);
     if (!guard.admits(address, Date.now())) {
       socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n');
       return;
@@ -580,6 +606,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (!Number.isInteger(maxBotsPerTeam) || maxBotsPerTeam < 0 || maxBotsPerTeam > mostBots) throw new Error(`MAX_BOTS_PER_TEAM must be an integer from 0 to ${mostBots}.`);
   const loadTestSockets = env['LOAD_TEST_SOCKETS'] ? Number(env['LOAD_TEST_SOCKETS']) : undefined;
   if (loadTestSockets !== undefined && !(Number.isInteger(loadTestSockets) && loadTestSockets >= MAX_SOCKETS_PER_ADDRESS)) throw new Error(`LOAD_TEST_SOCKETS must be an integer of at least ${MAX_SOCKETS_PER_ADDRESS}.`);
+  const trustedProxies = env['TRUSTED_PROXY'] ? env['TRUSTED_PROXY'].split(',').map((part) => part.trim()) : undefined;
+  if (trustedProxies?.some((address) => !isIP(address))) throw new Error('TRUSTED_PROXY must be a comma-separated list of IP addresses.');
   const botsPerTeam = Number(env['BOTS_PER_TEAM'] || Math.min(3, maxBotsPerTeam));
   if (!Number.isInteger(botsPerTeam) || botsPerTeam < 0 || botsPerTeam > maxBotsPerTeam) throw new Error(`BOTS_PER_TEAM must be an integer from 0 to MAX_BOTS_PER_TEAM (${maxBotsPerTeam}).`);
   return {
@@ -599,6 +627,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     ...(wide ? { wideNet: true } : {}),
     ...(wide || royale ? { warmTicks: env['WARM_TICKS'] ? Number(env['WARM_TICKS']) : WIDE_WARM_TICKS } : {}),
     ...(loadTestSockets === undefined ? {} : { loadTestSockets }),
+    ...(trustedProxies === undefined ? {} : { trustedProxies }),
     ...(slowTickMs === undefined ? {} : { slowTickMs }),
   };
 }

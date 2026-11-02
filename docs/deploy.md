@@ -1,6 +1,6 @@
 # Deploying on the home server
 
-The game runs as one container: the authoritative server, which also serves the built client and the WebSocket endpoint (`/ws`) on the same origin. A Battle Royale plays in a second Node process inside it, which the server starts when the Battle Royale screen first asks for one and stops after 3 minutes empty; it takes its players' connections under `/royale/` on the same address, and a crash in it leaves Play Online playing (ADR 0009). CI builds the image and publishes it to GHCR. The home server pulls it by hand and runs it with Compose behind Tailscale Funnel on **HTTPS port 443**. The existing game on port 8443 is not touched.
+The game runs as one container: the authoritative server, which also serves the built client and the WebSocket endpoint (`/ws`) on the same origin. A Battle Royale plays in a second Node process inside it, which the server starts when the Battle Royale screen first asks for one and stops after 3 minutes empty; it takes its players' connections under `/royale/` on the same address, and a crash in it leaves Play Online playing (ADR 0009). CI builds the image and publishes it to GHCR. The home server pulls it by hand and runs it with Compose behind Tailscale Funnel on **HTTPS port 10000** (`https://<machine>.<tailnet>.ts.net:10000/`). The existing game on port 8443 and whatever is on 443 are not touched.
 
 The server runs **one public lobby** of up to 12 players (`MAX_PLAYERS`), in team deathmatch on Survival Town by default, that everyone with the link joins with just a name. The first person in is the host: in the lobby they pick the mode, the map (Survival Town or Switchyard, both held by the server), bots on or off (filling each side to the map's team size: 6v6 on Switchyard, 4v4 on Survival Town, capped by `MAX_BOTS_PER_TEAM`, default 6) or humans vs bots, and press Start; after every match everyone goes back to the lobby. `MAP` (`survival-town`, `switchyard` or `range`) and `MODE` (`tdm`, `ffa`, `outposts` or `charge`) in the stack's `.env` set the first map and mode, `TIME_LIMIT` (seconds) shortens every match, and `BOTS_PER_TEAM` (default 3) is the fill on a map without a team size of its own (0 starts the lobby with bots off): a person joining takes a bot's seat, and the bots leave with the last person, so an empty lobby stays empty. For no bots at all, set both `BOTS_PER_TEAM` and `MAX_BOTS_PER_TEAM` to 0 (the server refuses to start with a fill above the cap). Setting `PASSPHRASE` in the stack's `.env` turns it into a private server instead, where every player types the passphrase.
 
@@ -40,7 +40,9 @@ The image's build stage bakes each map's lighting on the CPU, so a build takes a
 
 The container listens on 3000 inside and is published on **127.0.0.1:3090** only. Pick another host port with `DUTY_PORT` in `.env` if 3090 is taken. The existing game uses 3080.
 
-The server limits each visitor's address to 12 open sockets (12 in Play Online and 12 more in a Battle Royale, each process counting its own) and, with a passphrase set, 10 wrong passphrases. `LOAD_TEST_SOCKETS` lifts the socket limit for the machine itself and nobody else, for a load test on a server of its own; the stack's `.env` never sets it. After the tenth wrong passphrase, that address is refused for 10 minutes. Funnel connects from loopback and names the visitor in `X-Forwarded-For`, which the server trusts from loopback only.
+The server limits each visitor's address to 12 open sockets (12 in Play Online and 12 more in a Battle Royale, each process counting its own) and, with a passphrase set, 10 wrong passphrases. `LOAD_TEST_SOCKETS` lifts the socket limit for the machine itself and nobody else, for a load test on a server of its own; the stack's `.env` never sets it. After the tenth wrong passphrase, that address is refused for 10 minutes.
+
+Funnel names each visitor in `X-Forwarded-For` (it replaces the header with the one address it saw, so a visitor can't write their own). Inside the container no connection comes from loopback: docker-proxy forwards `127.0.0.1:3090` from the Docker network's gateway, so every visitor arrives as `172.28.0.1`. Until v2.108.5 the server believed the header from loopback only, so every outside visitor shared one budget of 12 sockets and one passphrase lockout (ticket 36). `TRUSTED_PROXY` names the peers besides loopback whose header the server believes, and `compose.yaml` sets it to the gateway and pins the network to `172.28.0.0/16` so that gateway never moves. From any other peer the header is ignored, and the server counts the header's last entry, the one the proxy added. If `172.28.0.0/16` is taken on a host, change the subnet, its gateway and `TRUSTED_PROXY` together. Docker can't change an existing network's subnet in place: after the first `compose.yaml` with the pin, run `docker compose down` then `docker compose up -d --wait` while nobody plays (the `duty-data` volume stays).
 
 Hardening, the same as the existing game: localhost-only binding, read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, a 1 GB memory limit, `init`, and log rotation (3 × 10 MB). The only writable path is `/data`, the `duty-data` named volume that holds the event log.
 
@@ -103,28 +105,28 @@ Every ticket of the arc is still tagged and published (`:vX.Y.Z`), but none of t
 
 **Releasing v2.0.0** is one step: set the line back to `DUTY_IMAGE=ghcr.io/aleixribera/duty-shooter:latest` (or delete it) and run `docker compose up -d --wait`. To pin any later release instead, use its tag, for example `DUTY_IMAGE=ghcr.io/aleixribera/duty-shooter:v2.0.0`.
 
-## Publish on Funnel port 443
+## Publish on Funnel port 10000
 
 Look at the current mappings first, so nothing else is replaced:
 
 ```bash
-sudo tailscale serve status
-sudo tailscale funnel status
+tailscale serve status
+tailscale funnel status
 ```
 
-The existing game is on `:8443`. Add this game on 443 as a separate mapping:
+The existing game is on `:8443` and another site on `:443`. This game has its own mapping on 10000, one of the three ports Funnel allows (443, 8443, 10000):
 
 ```bash
-sudo tailscale funnel --bg --https=443 http://127.0.0.1:3090
-sudo tailscale funnel status
+sudo tailscale funnel --bg --https=10000 http://127.0.0.1:3090
+tailscale funnel status
 ```
 
-`funnel status` should now list both `:443` (this game) and `:8443` (the existing game). The public link is `https://<machine>.<tailnet>.ts.net/`, using the name Tailscale prints. Check it from a phone on mobile data with Tailscale off. WebSockets go through Funnel without extra setup.
+`funnel status` should list `:10000` (this game) beside the others. The public link is `https://<machine>.<tailnet>.ts.net:10000/`, using the name Tailscale prints. Check it from a phone on mobile data with Tailscale off. WebSockets go through Funnel without extra setup.
 
 To remove only this mapping later:
 
 ```bash
-sudo tailscale funnel --https=443 off
+sudo tailscale funnel --https=10000 off
 ```
 
 ## Updating
