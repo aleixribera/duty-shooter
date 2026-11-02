@@ -1,4 +1,4 @@
-import { Button, MAX_PITCH, STATS, usercmd, type UserCmd } from '@duty-shooter/fps-core';
+import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type UserCmd } from '@duty-shooter/fps-core';
 import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 
@@ -14,15 +14,15 @@ const MENU_STICK = 0.6;
 /** Stick travel that counts as using the controller, well past any drift. */
 const PAD_ACTIVE_STICK = 0.35;
 const MENU_REPEAT_MS = 220;
-/** The furthest the usercmd pitch may go (the server's bound), however much recoil sits on top of it. */
-const CMD_PITCH_LIMIT = Math.PI;
 
 /**
  * The mouse pitch after moving it by `delta`, kept so the view (mouse pitch
  * plus the simulation's recoil and flinch, `offset`) stays inside the pitch
  * limits. Recoil does not wear off, so clamping the mouse pitch alone would
  * leave the floor out of reach after a spray: the limit counts the offset
- * instead. It never pulls the pitch back, only stops it moving further out.
+ * instead, and the mouse pitch goes as far past straight down as the recoil
+ * held against needs (see CMD_PITCH_LIMIT). It never pulls the pitch back,
+ * only stops it moving further out.
  */
 export function lookPitch(pitch: number, delta: number, offset: number): number {
   const low = Math.max(-CMD_PITCH_LIMIT, Math.min(pitch, -MAX_PITCH - offset));

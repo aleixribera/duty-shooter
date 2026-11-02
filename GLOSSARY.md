@@ -284,6 +284,10 @@ The 1.5 s after a spawn when a player can't be damaged. It ends early when they 
 One tick of a player's input, sent from client to server.
 _Avoid_: input packet
 
+**Recoil offset**:
+The recoil and flinch the simulation keeps on top of a usercmd's view angles; it never wears off. A player holds their aim by pulling the mouse against it, so the usercmd pitch can go far past straight down while the view (usercmd pitch plus offset) stays inside ±85°.
+_Avoid_: punch, recoil recovery
+
 **Slow tick**:
 A server tick of 8 ms or more (`SLOW_TICK_MS`), which the server logs with what it did and a cause: the game's own work in one phase, a garbage collection, or a stall.
 

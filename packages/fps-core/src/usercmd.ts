@@ -54,6 +54,16 @@ export interface UserCmd {
   readonly viewTick?: number;
 }
 
+/**
+ * The furthest a usercmd's pitch may go (radians), far past straight down on
+ * purpose. Recoil never wears off: holding the aim level against it moves the
+ * mouse pitch down by every kick of a life, which passes half a turn within a
+ * couple of minutes of firing. The view (usercmd pitch plus recoil and flinch)
+ * is what the simulation clamps to MAX_PITCH; this bound only keeps absurd
+ * numbers off the wire, and no life's recoil comes near it.
+ */
+export const CMD_PITCH_LIMIT = 1e6;
+
 /** Builds a usercmd, defaulting every field to "no input". */
 export function usercmd(
   partial: Partial<Omit<UserCmd, 'buttons'>> & { buttons?: number | readonly ButtonName[] } = {},

@@ -2,7 +2,7 @@ import { MODE_IDS, type MatchResult, type ModeEvent, type ModeId, type Objective
 import type { GrenadeOutput } from '../combat/grenade';
 import type { PlayerId, PlayerOutput, PlayerState, SimEvent } from '../simulation';
 import { parseLoadout, type Loadout } from '../weapon/loadout';
-import { ALL_BUTTONS, type UserCmd } from '../usercmd';
+import { ALL_BUTTONS, CMD_PITCH_LIMIT, type UserCmd } from '../usercmd';
 import { WIDE_SCALE } from '../modes/scale';
 import type { SquadSize } from '../modes/battle-royale';
 import { decodeSnapshot, type StickyField } from './codec';
@@ -304,8 +304,8 @@ function validCmd(value: unknown): UserCmd | null {
     forward: clamp(forward, -1, 1),
     right: clamp(right, -1, 1),
     yaw,
-    // Past straight down or up: the client counts recoil into its pitch limits, and the simulation clamps the view.
-    pitch: clamp(pitch, -Math.PI, Math.PI),
+    // Far past straight down or up: the client counts recoil into its pitch limits, and the simulation clamps the view.
+    pitch: clamp(pitch, -CMD_PITCH_LIMIT, CMD_PITCH_LIMIT),
     firePresses: firePresses.map((f) => clamp(f, 0, 0.999999)),
     ...(viewTick === undefined ? {} : { viewTick }),
   };

@@ -433,7 +433,8 @@ export class GameClient {
           this.#resync = false;
           if (snap.self && snap.self.life !== this.#life) {
             this.#life = snap.self.life;
-            this.#spawn = { yaw: snap.self.cmdYaw + snap.self.viewYaw, pitch: snap.self.cmdPitch + snap.self.viewPitch };
+            // The usercmd angles, not the view: the server keeps the recoil on top, so a seat taken back after a drop keeps its view.
+            this.#spawn = { yaw: snap.self.cmdYaw, pitch: snap.self.cmdPitch };
           }
           this.#serverTick = Math.max(this.#serverTick, snap.tick);
           // One sample per acknowledged usercmd: later snapshots repeating the same ack (the uplink stalled) would only add their wait.
