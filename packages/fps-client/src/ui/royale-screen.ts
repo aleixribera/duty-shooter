@@ -92,6 +92,8 @@ export interface RoyaleSession {
   readonly seated: boolean;
   /** The connection dropped and is coming back: Start and the picks wait for it. */
   readonly reconnecting?: boolean;
+  /** Your Squad's place in the last match and of how many Squads; null when you weren't placed in it. */
+  readonly place?: { readonly place: number; readonly of: number } | null;
 }
 
 export interface RoyaleView {
@@ -302,7 +304,7 @@ ${others ? `<section><h2>Other Squads<small>${view.others.length} with people in
       squadsHtml = `<section><h2>Your Squad<small>Friends who join take these seats</small></h2>${this.#slots(mine, false)}</section>`;
       footNote = '';
     }
-    const last = s ? lastMatch(s.result, s.mode, s.teamScores) : null;
+    const last = s ? lastMatch(s.result, s.mode, s.teamScores, s.place ?? null) : null;
     const lastHtml = last && s?.mode === 'battle-royale' ? `<section class="last"><b>${escapeHtml(last.headline)}</b><span>Last match · ${escapeHtml(last.detail)}</span></section>` : '';
 
     // The connection: the server's state before joining, the steps while joining, and the lobby once in.

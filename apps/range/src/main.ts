@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
@@ -381,6 +381,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let royalePre = false;
   /** The screen shows the server's Battle Royale lobby. */
   let royaleSession = false;
+  /**
+   * Your place in the Battle Royale match under way or just ended, as its HUD showed it: back in the
+   * lobby the bots are gone from the scores, so the number of Squads can't be read there (ticket 39).
+   */
+  let royalePlace: { readonly place: number; readonly of: number } | null = null;
+  let royaleMatchOn = false;
   /** The Squad size picked before joining an empty server, sent once its lobby makes this player host. */
   let pendingSquads: RoyaleView['squads'] | null = null;
   const showRoyale = () => {
@@ -614,6 +620,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Servers from before map switching name no map in their status.
     const next = match ? asMapId(match.phase === 'lobby' && match.lobby ? match.lobby.map : match.map) : undefined;
     if (next && driver instanceof OnlineDriver) followMap(driver, next);
+    // A Battle Royale's place, kept from its match (a new match clears the last one's).
+    if (driver && match && match.phase !== 'lobby' && match.mode === 'battle-royale') {
+      if (!royaleMatchOn) royalePlace = null;
+      royaleMatchOn = true;
+      royalePlace = placement(driver.scores, driver.selfId) ?? royalePlace;
+    } else if (match?.phase === 'lobby') royaleMatchOn = false;
     const pageUp = lobbyPage.open || royaleSession;
     // A join from the Battle Royale screen lands in its lobby, or (a late arrival) in a match under way: the screen stays up for either.
     const keep = pageUp || (royalePre && match !== null);
@@ -646,7 +658,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         pendingSquads = null;
       }
       const seated = driver.scores.some((s) => s.id === driver.selfId);
-      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, reconnecting };
+      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, reconnecting, place: royalePlace };
       royalePage.show({ ...royale, joining: null, error: null, session });
     } else {
       if (royalePage.open) royalePage.hide();

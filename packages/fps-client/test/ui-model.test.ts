@@ -266,4 +266,12 @@ describe('the lobby', () => {
     expect(lastMatch({ winner: 'p1', winnerName: 'Ada', draw: false, reason: 'timeLimit' }, 'ffa', null)).toEqual({ headline: 'Ada won', detail: 'Free-for-all · time limit' });
     expect(lastMatch({ winner: null, winnerName: null, draw: true, reason: 'timeLimit' }, 'outposts', [{ team: 1, score: 0 }, { team: 2, score: 0 }])).toEqual({ headline: 'Draw 0 to 0', detail: 'Outposts · time limit' });
   });
+
+  it('places you in a Battle Royale that ended with no person left, never a draw (ticket 39)', () => {
+    const noHumans = { winner: null, winnerName: null, draw: false, reason: 'noHumans' } as const;
+    expect(lastMatch(noHumans, 'battle-royale', null, { place: 37, of: 60 })).toEqual({ headline: '37th of 60', detail: 'Battle Royale · no players left' });
+    // Someone who wasn't in it has no place: still not a draw.
+    expect(lastMatch(noHumans, 'battle-royale', null, null)).toEqual({ headline: 'No winner', detail: 'Battle Royale · no players left' });
+    expect(lastMatch({ winner: 4, winnerName: 'Ada, Bo', draw: false, reason: 'lastSquad' }, 'battle-royale', null, { place: 2, of: 30 })).toEqual({ headline: 'Ada, Bo won', detail: 'Battle Royale · last squad standing' });
+  });
 });

@@ -8,6 +8,7 @@ export { LobbyPage, lobbyMapName } from './lobby';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './lobby';
 export { RoyalePage } from './royale-screen';
 export { royaleOpens, royaleServer } from './royale-lobby';
+export { placement } from './royale';
 export { connectionError } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
 export { BOT_MAPS } from './model';

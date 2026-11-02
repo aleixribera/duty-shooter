@@ -255,12 +255,17 @@ export function lobbySeats(lobby: LobbyState, selfId: PlayerId | null, names: Re
   return seats;
 }
 
-/** The last match, as the lobby recalls it: "Blue won 75 to 60", "Ada won", "Draw", with how it ended. Null before the first. */
-export function lastMatch(result: MatchResult | null, mode: ModeId, teamScores: readonly TeamScore[] | null): { readonly headline: string; readonly detail: string } | null {
+/**
+ * The last match, as the lobby recalls it: "Blue won 75 to 60", "Ada won", "Draw", with how it ended. Null before the first.
+ * A Battle Royale has no draw: one with no winner (no person left) gives your place in it, `place`, when you played it.
+ */
+export function lastMatch(result: MatchResult | null, mode: ModeId, teamScores: readonly TeamScore[] | null, place: { readonly place: number; readonly of: number } | null = null): { readonly headline: string; readonly detail: string } | null {
   if (!result) return null;
+  const detail = `${MODE_NAMES[mode] ?? mode} · ${END_REASONS[result.reason]}`;
+  if (mode === 'battle-royale' && result.winner === null) return { headline: place ? `${ordinal(place.place)} of ${place.of}` : 'No winner', detail };
   const totals = teamMode(mode) && teamScores && teamScores.length === 2 ? ` ${[...teamScores].sort((x, y) => y.score - x.score).map((t) => t.score).join(' to ')}` : '';
   const headline = result.draw || result.winner === null ? `Draw${totals}` : `${result.winnerName ?? 'Someone'} won${totals}`;
-  return { headline, detail: `${MODE_NAMES[mode] ?? mode} · ${END_REASONS[result.reason]}` };
+  return { headline, detail };
 }
 
 export interface ConnectionError {
