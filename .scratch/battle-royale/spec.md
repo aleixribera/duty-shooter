@@ -196,7 +196,7 @@ Update stale entries as they're touched, including the Charge-only spectator and
 ### Downed and revive
 
 - Duos and Trios only. At 0 health a seat becomes Downed unless it was already Downed, or the rest of its Squad is out, in which case it dies.
-- Downed: crawl speed, no firing, no frags, no regen, its own health pool that enemies can reduce to Finish. Bleed-out is 30 s and is not paused or sped up by the Ring.
+- Downed: crawl speed, no firing, no frags, no regen, its own health pool that enemies can reduce to Finish. Owner's change: the pool is as large as full health (100), and a seat that goes Downed takes no damage for its first 1 s, so a down isn't followed by an instant Finish from the same burst. Bleed-out is 30 s and is not paused or sped up by the Ring.
 - Revive: hold the interact key within reach for 5 s. Moving away or taking damage cancels it. No limit on how often. The Revived seat returns at half health with its loadout and remaining frags.
 - Bots go Downed and Revive by the same rules. A bot weighs a Revive against nearby threats and the Ring.
 - Needs a crawl pose and a revive action on the soldier model, built in Blender through its generator script, and a Downed first-person camera.

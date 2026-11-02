@@ -1,7 +1,7 @@
 # First playable release
 
 Status: open
-Blocked by: 03,08,09,10,11,13,14,15,28,30,31,32,34,35,52,53
+Blocked by: 03,08,09,10,11,13,14,15,28,30,31,32,34,35,52,53,54
 
 Spec: `../spec.md`
 
