@@ -272,6 +272,7 @@ export function buildZeroIsland(): MapDefinition {
     hiddenSolids: b.hidden,
     terrain: ground.data,
     terrainColors: TERRAIN_COLORS,
+    places: REGION_IDS.map((id) => ({ name: CORES[id].name, x: CORES[id].x, z: CORES[id].z })),
     finishes: FINISHES,
     looks: b.looks,
     decorations: b.decorations,

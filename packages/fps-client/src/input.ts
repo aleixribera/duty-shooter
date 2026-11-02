@@ -56,6 +56,8 @@ export class InputController {
   #crouchToggled = false;
   #proneToggled = false;
   #adsToggled = false;
+  /** The island map is open (its key toggles it). */
+  #mapOpen = false;
   #aiming = false;
   /** The sight magnification while aiming, for the ADS sensitivity scale. */
   #zoom: number | undefined = undefined;
@@ -273,6 +275,7 @@ export class InputController {
       this.#proneToggled = false;
       this.#crouchToggled = false;
     }
+    if (this.#is('map', code)) this.#mapOpen = !this.#mapOpen;
     if (this.#is('ads', code)) {
       this.#adsToggled = !this.#adsToggled;
       this.#padSprint = false;
@@ -451,6 +454,15 @@ export class InputController {
       pitch: this.#pitch,
       firePresses: active ? presses : [],
     });
+  }
+
+  /** Whether the island map is open: its key opens and closes it, and it closes with the game's input (pausing). */
+  get mapOpen(): boolean {
+    return this.#enabled && this.#mapOpen;
+  }
+
+  set mapOpen(on: boolean) {
+    this.#mapOpen = on;
   }
 
   /** True while the scoreboard key is held. */

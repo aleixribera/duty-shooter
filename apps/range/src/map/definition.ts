@@ -51,6 +51,8 @@ export interface MapDefinition {
   readonly terrain?: TerrainData;
   /** What each entry of the terrain's palette looks like (sRGB), for a map with terrain. */
   readonly terrainColors?: readonly number[];
+  /** The named places the island map letters, for a map that has one (Zero Island). */
+  readonly places?: readonly { readonly name: string; readonly x: number; readonly z: number }[];
   /** The map's named finishes (colour and pattern), beside the per-material defaults. */
   readonly finishes: Readonly<Record<string, Finish>>;
   /** Per drawn solid, how its faces look; null where its material's default finish will do. */

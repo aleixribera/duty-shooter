@@ -96,6 +96,10 @@ const PROFILES: Record<SoundEventName, Profile> = {
   chargeBeep: { cap: 2, ref: 4, rolloff: 0.8, send: 0.2, indoorSend: 0.3 },
   chargeTool: { cap: 3, ref: 2, rolloff: 1.2, send: 0.05, indoorSend: 0.12 },
   chargeDisarmed: { cap: 2, ref: 3, rolloff: 1, send: 0.1, indoorSend: 0.2 },
+  // The Ring: a wall of power heard from well off, louder than the wind but under the guns.
+  ringHum: { cap: 3, ref: 12, rolloff: 0.6, send: 0.3, indoorSend: 0.3 },
+  ringCrackle: { cap: 4, ref: 8, rolloff: 0.8, send: 0.4, indoorSend: 0.3 },
+  ringShift: ui,
 };
 
 /**

@@ -13,6 +13,7 @@ const CSS = `
   --ds-ink: #0b0e13; --ds-panel: #12161d; --ds-raised: #1c222c; --ds-raised-2: #252c38;
   --ds-text: #f3f1ea; --ds-text-2: #b4bac5; --ds-text-3: #8e96a3;
   --ds-signal: #8fe3c8; --ds-signal-hi: #b4f0dc; --ds-signal-ink: #062118; --ds-signal-dim: rgb(143 227 200 / 0.14);
+  --ds-hazard: #a68cff; --ds-hazard-dim: rgb(166 140 255 / 0.16);
   --ds-alert: #ff6159; --ds-blue: #3d8bff; --ds-orange: #ff9a3c; --ds-gold: #f2c230;
   --ds-good: #7fdc6a; --ds-fair: #f2c230; --ds-poor: #ff5d52;
   --ds-line: rgb(243 241 234 / 0.12); --ds-line-2: rgb(243 241 234 / 0.22);

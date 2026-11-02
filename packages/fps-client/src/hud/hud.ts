@@ -1,6 +1,8 @@
 import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
+import { placement } from '../ui/royale';
+import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
 
 const CSS = `
 .ds-hud { position: fixed; inset: 0; pointer-events: none; font: 400 14px/1.2 var(--ds-font); color: var(--ds-text); text-shadow: 0 1px 2px rgb(0 0 0 / 0.7); user-select: none; z-index: 5; }
@@ -53,6 +55,8 @@ const CSS = `
 .ds-feed { position: absolute; right: 24px; top: 24px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .ds-feed div { display: flex; align-items: center; background: linear-gradient(270deg, rgb(12 15 21 / 0.8), rgb(12 15 21 / 0.55)); padding: 5px 12px; border-radius: 2px; text-shadow: none; font-size: 14px; transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
 .ds-hud.rostered .ds-feed { top: 84px; }
+/* A phone's Battle Royale: the feed starts under the compass and keeps its newest three, clear of the ammo. */
+@media (max-width: 1000px) { .ds-hud.royale .ds-feed { top: 160px; } .ds-hud.royale .ds-feed div:nth-last-child(n+4) { display: none; } }
 @media (max-width: 1000px) { .ds-feed { top: 96px; } }
 .ds-feed .you { box-shadow: inset 3px 0 0 var(--ds-signal); background: linear-gradient(270deg, rgb(143 227 200 / 0.22), rgb(12 15 21 / 0.7)); }
 .ds-bot { display: inline-block; margin-left: 5px; padding: 0 3px; border: 1px solid currentColor; border-radius: 2px; color: var(--ds-text-3); font-size: 9px; line-height: 12px; letter-spacing: 0.08em; vertical-align: 1px; }
@@ -206,6 +210,8 @@ export interface HudState {
   readonly zones?: readonly ZoneMarker[];
   /** The Charge round, or null outside Charge. */
   readonly charge?: ChargeHud | null;
+  /** The Battle Royale in play, or null. */
+  readonly royale?: RoyaleHudState | null;
   readonly dt: number;
 }
 
@@ -347,6 +353,7 @@ export class Hud {
   onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
+  readonly #royale: RoyaleHud;
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
   readonly #html = new WeakMap<HTMLElement, string>();
@@ -418,6 +425,12 @@ export class Hud {
       if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
     });
     this.#toast = el('div', 'ds-toast', this.root);
+    this.#royale = new RoyaleHud(this.root, null);
+  }
+
+  /** The island the Battle Royale map draws (Zero Island), painted ahead of the map's first opening. */
+  setIsland(source: IslandMapSource): void {
+    this.#royale.island = source;
   }
 
   set visible(on: boolean) {
@@ -620,7 +633,10 @@ export class Hud {
     const charge = state.charge ?? null;
     const waiting = charge ? `\nBack next round${charge.spectating ? `\nWatching ${charge.spectating}` : ''}` : respawn;
     const banner = charge && (charge.state.phase === 'over' || charge.state.phase === 'freeze');
-    this.#text(this.#center, state.message ?? (self && !self.alive && !banner ? `You died${waiting}` : ''));
+    // Out of a Battle Royale (or at its end), the placement and the spectator's bar say it instead.
+    const royale = state.royale ?? null;
+    const quiet = royale !== null || state.match?.status.mode === 'battle-royale';
+    this.#text(this.#center, state.message ?? (self && !self.alive && !banner && !quiet ? `You died${waiting}` : ''));
     const prompt = state.message ? null : (state.prompt ?? null);
     this.#prompt.hidden = prompt === null;
     if (prompt !== null) this.#text(this.#prompt, prompt);
@@ -632,6 +648,8 @@ export class Hud {
     this.#updateZones(state);
     this.#updateCharge(state);
     this.#updateRevive(self);
+    this.#royale.update(royale);
+    this.root.classList.toggle('royale', royale !== null);
     this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
@@ -779,7 +797,8 @@ export class Hud {
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
   #updateMatch(state: HudState): void {
     const view = state.match;
-    this.#style(this.#match, 'display', view && view.status.phase === 'playing' ? 'flex' : 'none');
+    // A Battle Royale has its own bar: the compass, the count and the Ring.
+    this.#style(this.#match, 'display', view && view.status.phase === 'playing' && !state.royale ? 'flex' : 'none');
     this.#style(this.#end, 'display', view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
     // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
     this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
@@ -831,7 +850,11 @@ export class Hud {
             : 'Match over';
     const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result ? END_REASONS[s.result.reason] : 'over'}`;
     let html = `<div class="result">${sub}</div><h2>${headline}</h2>`;
-    if (end.you) {
+    const place = s.mode === 'battle-royale' ? placement(state.scores, state.selfId) : null;
+    if (place && end.you) {
+      // A Battle Royale's result is the place: it leads, big.
+      html += `<div class="mystats ds-plate"><div><span class="ds-label">Place</span><b>${ordinal(place.place)}<small> / ${place.of} Squads</small></b></div><div><span class="ds-label">Kills</span><b>${end.you.kills}</b></div></div>`;
+    } else if (end.you) {
       const y = end.you;
       html += `<div class="mystats ds-plate"><div><span class="ds-label">Kills</span><b>${y.kills}</b></div><div><span class="ds-label">Deaths</span><b>${y.deaths}</b></div><div><span class="ds-label">K/D</span><b>${y.ratio}</b></div><div><span class="ds-label">Place</span><b>${ordinal(y.place)}<small> / ${y.of}</small></b></div></div>`;
     }

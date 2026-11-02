@@ -190,6 +190,8 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   const you = me && row ? { kills: me.kills, deaths: me.deaths, ratio: (me.kills / Math.max(1, me.deaths)).toFixed(2), place: row.place, of: rows.length } : null;
   let headline: EndSummary['headline'];
   if (!result) headline = { kind: 'unknown' };
+  // A Battle Royale's winner is a Squad, and one that ends for want of people has none.
+  else if (mode === 'battle-royale') headline = result.winner === null ? { kind: 'unknown' } : { kind: 'player', name: result.winnerName ?? 'Someone', you: me?.team === result.winner };
   else if (result.draw || result.winner === null) headline = { kind: 'draw' };
   else if (teamMode(mode)) headline = { kind: 'team', team: Number(result.winner), won: me?.team === result.winner };
   else headline = { kind: 'player', name: result.winnerName ?? 'Someone', you: result.winner === selfId };

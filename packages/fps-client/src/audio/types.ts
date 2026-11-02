@@ -50,7 +50,10 @@ export type SoundEventName =
   | 'chargeArmed' // the charge armed
   | 'chargeBeep' // one beep of the charge's fuse
   | 'chargeTool' // the defuser's tools at work (intensity picks snip or screw)
-  | 'chargeDisarmed'; // the charge disarmed
+  | 'chargeDisarmed' // the charge disarmed
+  | 'ringHum' // one segment of the Ring's hum, from the point of the wall nearest the listener
+  | 'ringCrackle' // a discharge along the Ring near the listener
+  | 'ringShift'; // the warning as the Ring starts to close (not placed in the world)
 
 /** Every world material has its own footsteps, impacts and casing bounces. */
 export type SurfaceMaterial = Material;

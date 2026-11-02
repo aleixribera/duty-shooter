@@ -111,6 +111,7 @@ These are MW2019's defaults, and every one can be rebound in Settings.
 | Frag | G |
 | Use (loadout station, plant, defuse) | F |
 | Scoreboard | Tab |
+| Island map (Battle Royale) | M |
 | Menu | Esc |
 
 To use a ladder, walk toward it from either end. Keep moving forward to climb, move backward to reverse, or jump to let go. You cannot fire while climbing.
@@ -134,6 +135,7 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 | Frag | R1 |
 | Use (loadout station, plant, defuse) | L1 |
 | Scoreboard | Touchpad |
+| Island map (Battle Royale) | Share |
 | Menu | Options |
 
 The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls has the layout, stick sensitivity, ADS multiplier, deadzone and invert Y. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.

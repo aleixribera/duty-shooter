@@ -80,6 +80,8 @@ export interface WorldContent {
   /** The ground, for a map on terrain (see Terrain), and the sRGB colour of each palette entry. */
   readonly terrain?: TerrainData | null;
   readonly terrainColors?: readonly number[];
+  /** The named places the island map letters; a map with them and terrain gets the Battle Royale's Ring and island map. */
+  readonly places?: readonly { readonly name: string; readonly x: number; readonly z: number }[];
   /** The end-of-match nuke's ground zero, siren and the camera's shot of it, if the map has one (see Nuke). */
   readonly nuke?: { readonly groundZero: Vec3; readonly siren: Vec3; readonly shot?: EndingShot } | null;
   /** The end-of-match freight train, if the map has one (see Train). */

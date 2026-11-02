@@ -5,6 +5,7 @@ import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
 import { nukeBlastVoice, nukeSirenVoice } from './nuke';
 import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice, windVoice } from './ambience';
 import { chargeArmedVoice, chargeBeepVoice, chargeDisarmedVoice, chargeKeyVoice, chargeToolVoice } from './charge';
+import { ringCrackleVoice, ringHumVoice, ringShiftVoice } from './ring';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
@@ -77,6 +78,9 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     chargeBeep: chargeBeepVoice(),
     chargeTool: chargeToolVoice(),
     chargeDisarmed: chargeDisarmedVoice(),
+    ringHum: ringHumVoice(),
+    ringCrackle: ringCrackleVoice(),
+    ringShift: ringShiftVoice(),
   };
 }
 

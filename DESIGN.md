@@ -19,12 +19,14 @@ A machined instrument laid over a live map: dark ink, one signal colour, tight u
 | Signal (the one accent) | `--ds-signal`, `--ds-signal-hi` | `#8fe3c8`, `#b4f0dc` |
 | On signal | `--ds-signal-ink` | `#062118` |
 | Danger | `--ds-alert` | `#ff6159` |
+| Ring hazard (Battle Royale only) | `--ds-hazard`, `--ds-hazard-dim` | `#a68cff` (7.2:1 on ink), 16% of it |
 | Teams | `--ds-blue`, `--ds-orange` | `#3d8bff`, `#ff9a3c` |
 | Connection quality | `--ds-good`, `--ds-fair`, `--ds-poor` | `#7fdc6a`, `#f2c230`, `#ff5d52` |
 | Lines | `--ds-line`, `--ds-line-2` | 12% and 22% of the text colour |
 
 - Signal marks what can be acted on or what is selected. It is never decoration.
 - Team colours always come with a mark, never colour alone.
+- Hazard is the Ring's colour and nothing else's: its wall in the world, the outside warning, the Ring on the island map and its countdown while it closes. It is a warning, not a second accent: never on something to press.
 - `--ds-text-3` is for labels on solid panels only. Over the map, use `--ds-text` on a scrim.
 
 ## Type
@@ -66,7 +68,7 @@ A machined instrument laid over a live map: dark ink, one signal colour, tight u
 
 ## Don't
 
-- Don't add a second accent colour.
+- Don't add a second accent colour (the Ring hazard colour is a warning that belongs to one thing, not an accent).
 - Don't use a centred hero, icon cards, pill badges or gradient buttons.
 - Don't put hex values in components.
 - Don't use `--ds-signal` for status text that can't be acted on.

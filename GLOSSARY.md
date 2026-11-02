@@ -133,6 +133,15 @@ The seats playing together in a Battle Royale: one (Solos), two (Duos) or three 
 The closing circle of a Battle Royale. Outside it health falls and doesn't regenerate. Its circles nest, close on land, and all come from the match's seed.
 _Avoid_: zone (that's Outposts), storm
 
+**Ring hazard colour**:
+The purple-blue (`--ds-hazard`) that means the Ring and only the Ring: its crackling wall in the world, the warning while you stand outside it, the Ring on the island map, and the countdown while it closes.
+
+**Island map**:
+Zero Island drawn from above, opened and closed with the map key (M, the pad's Share): the Ring, the next circle, named places, a lettered 100 m grid, your Squad and you. It doesn't pause anything.
+
+**Spectating**:
+Watching another player's view from behind them once you're out: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Esc opens the menu, where you can leave.
+
 **Stage**:
 One step of the Ring: it holds, then shrinks to the next circle, known throughout. Six to a match, each hurting more than the last. Their table is in the stats file.
 
