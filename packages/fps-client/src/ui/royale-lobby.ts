@@ -98,3 +98,41 @@ export function royaleServer(status: LobbyInfo | null): RoyaleServer {
   if (people === 0) return { tone: 'up', join: true, line: 'The server is free: you open the Battle Royale lobby and pick the Squad size.' };
   return { tone: 'busy', join: false, line: `The server is playing ${MODE_NAMES[status.mode] ?? status.mode} with ${players(people)}. Battle Royale opens when they finish and leave.` };
 }
+
+/** What the Battle Royale screen needs of a joined session to say where it stands. */
+export interface RoyaleSessionState {
+  /** Whether this player is the lobby's host. */
+  readonly host: boolean;
+  readonly hostName: string | null;
+  /** 'lobby' while waiting; anything else means a match is under way. */
+  readonly phase: string;
+  /** The island's name while it is still being built; null once it is in. */
+  readonly loading: string | null;
+  /** Whether this player has a seat in the match under way. */
+  readonly seated: boolean;
+  /** The connection dropped and is coming back: nothing sent now would arrive (ticket 38). */
+  readonly reconnecting: boolean;
+}
+
+export interface RoyaleSessionLine {
+  readonly tone: 'up' | 'busy' | 'down';
+  readonly line: string;
+  /** The footer's main button: what it says, and what it does (null: disabled). */
+  readonly go: { readonly label: string; readonly act: 'start' | 'enter' | null };
+  /** Whether the host's picks (the Squad size) take a press now. */
+  readonly picks: boolean;
+}
+
+/** The joined Battle Royale screen's connection line and main button. */
+export function royaleSession(s: RoyaleSessionState): RoyaleSessionLine {
+  if (s.reconnecting) return { tone: 'busy', line: 'Lost the connection to the server. Reconnecting: the match waits until it’s back.', go: { label: 'Reconnecting…', act: null }, picks: false };
+  if (s.phase !== 'lobby') {
+    if (s.loading) return { tone: 'busy', line: `The match has started. Building ${s.loading} first.`, go: { label: 'Building the island…', act: null }, picks: false };
+    return s.seated
+      ? { tone: 'busy', line: 'The match has started. Join it to drop in.', go: { label: 'Join the match', act: 'enter' }, picks: false }
+      : { tone: 'busy', line: 'A match is under way without you: watch it, and play the next one.', go: { label: 'Watch the match', act: 'enter' }, picks: false };
+  }
+  return s.host
+    ? { tone: 'up', line: 'In the lobby. You are the host: start when your Squad is ready.', go: { label: 'Start match', act: 'start' }, picks: true }
+    : { tone: 'up', line: `In the lobby. ${s.hostName ?? 'The host'} starts the match.`, go: { label: 'Waiting for host', act: null }, picks: false };
+}

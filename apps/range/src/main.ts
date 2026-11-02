@@ -634,6 +634,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Into the match only once its map is lit: the player stays on the page (out of the fight's way) until then.
     const entry = load(mapId);
     const loadingName = entry.ready ? null : entry.map.name;
+    // The lobby as last heard while the connection comes back: the page says so and holds Start (ticket 38).
+    const reconnecting = driver.status === 'reconnecting';
     // A Battle Royale lobby (or its match, before this player is in it) is the Battle Royale screen's; every other lobby is the lobby page's.
     if ((match.phase === 'lobby' ? match.lobby.mode : match.mode) === 'battle-royale') {
       if (lobbyPage.open) lobbyPage.hide();
@@ -644,12 +646,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         pendingSquads = null;
       }
       const seated = driver.scores.some((s) => s.id === driver.selfId);
-      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated };
+      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, reconnecting };
       royalePage.show({ ...royale, joining: null, error: null, session });
     } else {
       if (royalePage.open) royalePage.hide();
       royalePre = royaleSession = false;
-      const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName };
+      const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, reconnecting };
       lobbyPage.show(view);
     }
     if (match.phase !== 'lobby' && lobbyJoin && entry.ready) {

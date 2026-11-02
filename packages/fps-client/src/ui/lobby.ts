@@ -81,6 +81,8 @@ export interface LobbyView {
   readonly loading: string | null;
   /** Bot Match: the same page offline, you alone against bots, with Back instead of Leave and no empty match. */
   readonly offline?: boolean;
+  /** The connection dropped and is coming back: the picks and Start wait for it (ticket 38). */
+  readonly reconnecting?: boolean;
 }
 
 export interface LobbyCallbacks {
@@ -230,6 +232,9 @@ export class LobbyPage {
     const modeName = MODE_NAMES[l.mode] ?? l.mode;
     const people = l.players.length;
     const underway = v.phase !== 'lobby';
+    const reconnecting = v.reconnecting === true && !offline;
+    // The host's picks go to the server: none while the connection is coming back.
+    const picking = host && !underway && !reconnecting;
     const peopleText = `${people} ${people === 1 ? 'player' : 'players'}`;
 
     const seatList = lobbySeats(l, v.selfId, v.names, v.pings);
@@ -250,7 +255,7 @@ export class LobbyPage {
       ? `<section class="last"><h2 class="ds-h2">Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
       : '';
 
-    const lock = host && !underway ? '' : ' disabled';
+    const lock = picking ? '' : ' disabled';
     const seg = (act: string, items: readonly (readonly [string, string, boolean])[]) =>
       `<div class="ds-seg">${items.map(([value, label, on]) => `<button type="button" data-act="${act}" data-value="${value}" data-key="${act}-${value}" class="${on ? 'on' : ''}"${lock}>${escapeHtml(label)}</button>`).join('')}</div>`;
     const modes = seg(
@@ -287,14 +292,16 @@ export class LobbyPage {
       ? `<div class="picks" style="margin-top:16px"><div><span class="ds-field-label">Invite link: anyone with it can join</span><div class="invite" style="margin:0"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy">${copied ? 'Copied' : 'Copy'}</button></div></div></div>`
       : '';
     const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
-    const start = underway
+    const start = reconnecting
+      ? `<button type="button" class="ds-btn primary big" disabled>Reconnecting…</button>`
+      : underway
       ? v.loading
         ? `<button type="button" class="ds-btn primary big" disabled>Loading ${escapeHtml(v.loading)}…</button>`
         : `<button type="button" class="ds-btn primary big" data-act="join" data-key="start">Join the match</button>`
       : host
         ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start</button>`
         : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
-    const who = offline ? `${bots} ${bots === 1 ? 'bot' : 'bots'} · offline` : underway ? 'The match has started' : host ? 'You are the host' : hostName ? `${escapeHtml(hostName)} is the host` : '';
+    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? `${bots} ${bots === 1 ? 'bot' : 'bots'} · offline` : underway ? 'The match has started' : host ? 'You are the host' : hostName ? `${escapeHtml(hostName)} is the host` : '';
     const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}. The match pauses with the game.` : lobbyFill(l);
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${offline ? hint('Esc', '○', 'Back') : ''}</div>`;
 
@@ -305,10 +312,10 @@ export class LobbyPage {
 <section><h2 class="ds-h2">Players <small>${offline ? `You + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : `${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} / ${l.capacity}`}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
 <aside>
 <h2 class="ds-h2">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
-<div class="maps${host && !underway ? '' : ' locked'}">${maps}</div>
-<button type="button" class="ds-btn random" data-act="random" data-key="random"${host && !underway && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
+<div class="maps${picking ? '' : ' locked'}">${maps}</div>
+<button type="button" class="ds-btn random" data-act="random" data-key="random"${picking && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
 <p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>
-<div class="picks${host && !underway ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div>${versus}${size}</div>
+<div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div>${versus}${size}</div>
 ${invite}
 </aside>
 </div>

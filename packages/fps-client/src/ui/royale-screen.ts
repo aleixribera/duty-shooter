@@ -1,7 +1,7 @@
 import { STATS, WIDE_SCALE, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { lastMatch, type LobbyInfo } from './model';
-import { royaleOpens, royaleServer, royaleSquads, type SquadView } from './royale-lobby';
+import { royaleOpens, royaleServer, royaleSession, royaleSquads, type SquadView } from './royale-lobby';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 type SquadSize = LobbyState['squadSize'];
@@ -90,6 +90,8 @@ export interface RoyaleSession {
   readonly loading: string | null;
   /** Whether this player has a seat in the match under way (a late arrival watches it instead). */
   readonly seated: boolean;
+  /** The connection dropped and is coming back: Start and the picks wait for it. */
+  readonly reconnecting?: boolean;
 }
 
 export interface RoyaleView {
@@ -269,13 +271,14 @@ export class RoyalePage {
     const s = v.session;
     const host = s !== null && s.lobby.host !== null && s.lobby.host === s.selfId;
     const underway = s !== null && s.phase !== 'lobby';
+    const joined = s ? royaleSession({ host, hostName: s.lobby.host === null ? null : (s.names[s.lobby.host] ?? s.lobby.host), phase: s.phase, loading: s.loading, seated: s.seated, reconnecting: s.reconnecting === true }) : null;
     const server = royaleServer(v.status ?? null);
     const free = royaleOpens(v.status);
     const size: SquadSize = s ? s.lobby.squadSize : free ? v.squads : ((v.status?.squadSize ?? 1) as SquadSize);
     // Before joining, an empty server's size is yours to pick (you open its lobby); in it, the host's alone.
-    const sizeFree = s ? host && !underway : v.joining === null && server.join && free;
+    const sizeFree = joined ? joined.picks : v.joining === null && server.join && free;
     const seg = SIZES.map(([n, label]) => `<button type="button" data-act="squads" data-value="${n}" data-key="squads-${n}" class="${n === size ? 'on' : ''}"${sizeFree ? '' : ' disabled'}>${label}</button>`).join('');
-    const sizeWhy = sizeFree ? (s ? 'You are the host: the size is yours to pick.' : 'You open the lobby, so the size is yours.') : s ? 'The host picks the Squad size.' : 'The lobby’s host picks the Squad size.';
+    const sizeWhy = s?.reconnecting ? 'The size waits for the connection.' : sizeFree ? (s ? 'You are the host: the size is yours to pick.' : 'You open the lobby, so the size is yours.') : s ? 'The host picks the Squad size.' : 'The lobby’s host picks the Squad size.';
 
     let squadsHtml: string;
     let footNote: string;
@@ -285,11 +288,11 @@ export class RoyalePage {
         .map((o) => {
           const who = o.slots.map((x) => (x.id === null ? '' : escapeHtml(x.name))).filter(Boolean).join(', ');
           const room = o.slots.filter((x) => x.id === null).length;
-          const join = o.open && !underway ? `<button type="button" class="ds-btn" data-act="squad" data-value="${o.squad}" data-key="squad-${o.squad}">Join</button>` : '';
+          const join = o.open && !underway && !s.reconnecting ? `<button type="button" class="ds-btn" data-act="squad" data-value="${o.squad}" data-key="squad-${o.squad}">Join</button>` : '';
           return `<div class="squad"><span class="n">Squad ${o.squad}</span><span class="who">${who}${room > 0 ? ` <i>· ${room} ${room === 1 ? 'seat' : 'seats'} for bots</i>` : ''}</span>${join}</div>`;
         })
         .join('');
-      const leaveSquad = view.newSquad !== null && !underway ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
+      const leaveSquad = view.newSquad !== null && !underway && !s.reconnecting ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
       squadsHtml = `<section><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true) : ''}${leaveSquad}</section>
 ${others ? `<section><h2>Other Squads<small>${view.others.length} with people in them</small></h2><div class="squads">${others}</div></section>` : ''}`;
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
@@ -304,11 +307,8 @@ ${others ? `<section><h2>Other Squads<small>${view.others.length} with people in
 
     // The connection: the server's state before joining, the steps while joining, and the lobby once in.
     let conn: string;
-    if (s) {
-      const hostName = s.lobby.host === null ? null : (s.names[s.lobby.host] ?? s.lobby.host);
-      conn = underway
-        ? `<p class="ds-state busy">${s.loading ? `The match has started. Building ${escapeHtml(s.loading)} first.` : s.seated ? 'The match has started. Join it to drop in.' : 'A match is under way without you: watch it, and play the next one.'}</p>`
-        : `<p class="ds-state up">${host ? 'In the lobby. You are the host: start when your Squad is ready.' : `In the lobby. ${escapeHtml(hostName ?? 'The host')} starts the match.`}</p>`;
+    if (joined) {
+      conn = `<p class="ds-state ${joined.tone}">${escapeHtml(joined.line)}</p>`;
     } else if (v.joining !== null) {
       conn = `<ol class="steps">${STEPS.map((label, i) => `<li class="${i < v.joining! ? 'done' : i === v.joining ? 'now' : ''}">${label}</li>`).join('')}</ol>`;
     } else if (v.status === undefined) {
@@ -320,14 +320,10 @@ ${v.passphrase ? `<label class="ds-field"><span class="ds-field-label">Passphras
     }
 
     let go: string;
-    if (s) {
-      go = underway
-        ? s.loading
-          ? `<button type="button" class="ds-btn primary big" disabled>Building the island…</button>`
-          : `<button type="button" class="ds-btn primary big" data-act="enter" data-key="go">${s.seated ? 'Join the match' : 'Watch the match'}</button>`
-        : host
-          ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="go">Start match</button>`
-          : `<button type="button" class="ds-btn primary big" disabled>Waiting for host</button>`;
+    if (joined) {
+      go = joined.go.act
+        ? `<button type="button" class="ds-btn primary big" data-act="${joined.go.act}" data-key="go">${escapeHtml(joined.go.label)}</button>`
+        : `<button type="button" class="ds-btn primary big" disabled>${escapeHtml(joined.go.label)}</button>`;
     } else if (v.joining !== null) go = `<button type="button" class="ds-btn primary big" disabled>Joining…</button>`;
     else if (v.status === undefined) go = `<button type="button" class="ds-btn primary big" disabled>Checking the server…</button>`;
     else if (!server.join) go = `<button type="button" class="ds-btn primary big" data-act="refresh" data-key="go">Check again</button>`;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LobbyState } from '@duty-shooter/fps-core';
-import { royaleOpens, royaleServer, royaleSquads } from '../src/ui/royale-lobby';
+import { royaleOpens, royaleServer, royaleSession, royaleSquads, type RoyaleSessionState } from '../src/ui/royale-lobby';
 
 const lobby = (over: Partial<LobbyState>): LobbyState => ({
   host: 'p1',
@@ -101,5 +101,29 @@ describe('the Battle Royale screen’s server line', () => {
 
   it('says so when the server is full', () => {
     expect(royaleServer({ ...status, players: 8, lobbyMode: 'battle-royale' })).toMatchObject({ tone: 'busy', join: false });
+  });
+});
+
+describe('the Battle Royale screen once joined', () => {
+  const session = (over: Partial<RoyaleSessionState>): RoyaleSessionState => ({ host: true, hostName: 'Aleix', phase: 'lobby', loading: null, seated: false, reconnecting: false, ...over });
+
+  it('lets the host start, and has everyone else wait for them', () => {
+    expect(royaleSession(session({}))).toEqual({ tone: 'up', line: 'In the lobby. You are the host: start when your Squad is ready.', go: { label: 'Start match', act: 'start' }, picks: true });
+    expect(royaleSession(session({ host: false }))).toEqual({ tone: 'up', line: 'In the lobby. Aleix starts the match.', go: { label: 'Waiting for host', act: null }, picks: false });
+  });
+
+  it('says the connection is coming back, and holds Start and the picks, while it reconnects (ticket 38)', () => {
+    const host = royaleSession(session({ reconnecting: true }));
+    expect(host.tone).toBe('busy');
+    expect(host.line).toBe('Lost the connection to the server. Reconnecting: the match waits until it’s back.');
+    expect(host.go).toEqual({ label: 'Reconnecting…', act: null });
+    expect(host.picks).toBe(false);
+    expect(royaleSession(session({ reconnecting: true, phase: 'playing', seated: true })).go.act).toBeNull();
+  });
+
+  it('offers the match under way once the island is built', () => {
+    expect(royaleSession(session({ phase: 'playing', seated: true }))).toMatchObject({ tone: 'busy', go: { label: 'Join the match', act: 'enter' }, picks: false });
+    expect(royaleSession(session({ phase: 'playing', loading: 'Zero Island' }))).toMatchObject({ line: 'The match has started. Building Zero Island first.', go: { label: 'Building the island…', act: null } });
+    expect(royaleSession(session({ phase: 'playing' })).go.label).toBe('Watch the match');
   });
 });
