@@ -60,6 +60,7 @@ import { alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting } from './surface-materials';
+import { cloudySky } from './surface-sky';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
 const OPEN_AMBIENT = 0.4;
@@ -274,7 +275,7 @@ export class Game {
       this.#worldView.scene.add(flash);
     }
     this.#zoneRings = new ZoneRings(this.#worldView.scene, this.#zones);
-    this.#ringWall = options.content.places && options.content.terrain ? new RingWall(this.#worldView.scene, options.world.terrain) : null;
+    this.#ringWall = options.content.places && options.content.terrain ? new RingWall(this.#worldView.scene, options.world.terrain, cloudySky) : null;
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);

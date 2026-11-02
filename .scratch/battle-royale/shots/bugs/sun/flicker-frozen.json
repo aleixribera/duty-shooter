@@ -1,0 +1,74 @@
+[
+ {
+  "spot": "inside-30-to-sun",
+  "way": "played",
+  "mean": 3.118,
+  "loud": 14.14
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "frozen",
+  "mean": 0.295,
+  "loud": 0.95
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "no-ring",
+  "mean": 0.64,
+  "loud": 3.26
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "played",
+  "mean": 3.194,
+  "loud": 14.12
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "frozen",
+  "mean": 0.687,
+  "loud": 3.73
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "no-ring",
+  "mean": 1.05,
+  "loud": 5.88
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "played",
+  "mean": 2.007,
+  "loud": 7.85
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "frozen",
+  "mean": 1.407,
+  "loud": 2.2
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "no-ring",
+  "mean": 0.203,
+  "loud": 0.7
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "played",
+  "mean": 4.324,
+  "loud": 26.82
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "frozen",
+  "mean": 3.403,
+  "loud": 10.15
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "no-ring",
+  "mean": 0.64,
+  "loud": 3.59
+ }
+]

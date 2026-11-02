@@ -1,0 +1,146 @@
+[
+ {
+  "spot": "inside-30-to-sun",
+  "way": "played",
+  "mean": 3.162,
+  "loud": 14.36
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "no-shafts",
+  "mean": 2.994,
+  "loud": 14.48
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "frozen",
+  "mean": 0.44,
+  "loud": 1.64
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "no-ring",
+  "mean": 1.584,
+  "loud": 6.48
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "played",
+  "mean": 4.674,
+  "loud": 25.23
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "no-shafts",
+  "mean": 5.411,
+  "loud": 31.89
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "frozen",
+  "mean": 1.955,
+  "loud": 7.17
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "no-ring",
+  "mean": 1.974,
+  "loud": 6.49
+ },
+ {
+  "spot": "inside-30-away",
+  "way": "played",
+  "mean": 0.302,
+  "loud": 0.85
+ },
+ {
+  "spot": "inside-30-away",
+  "way": "no-shafts",
+  "mean": 0.313,
+  "loud": 0.8
+ },
+ {
+  "spot": "inside-30-away",
+  "way": "frozen",
+  "mean": 0.319,
+  "loud": 1.07
+ },
+ {
+  "spot": "inside-30-away",
+  "way": "no-ring",
+  "mean": 0.645,
+  "loud": 3.8
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "played",
+  "mean": 1.584,
+  "loud": 5.32
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "no-shafts",
+  "mean": 2.201,
+  "loud": 7.26
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "frozen",
+  "mean": 1.784,
+  "loud": 6.12
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "no-ring",
+  "mean": 1.325,
+  "loud": 2.63
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "played",
+  "mean": 0.52,
+  "loud": 0.14
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "no-shafts",
+  "mean": 1.846,
+  "loud": 6.46
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "frozen",
+  "mean": 0.12,
+  "loud": 0.19
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "no-ring",
+  "mean": 0.097,
+  "loud": 0.1
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "played",
+  "mean": 1.342,
+  "loud": 2.26
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "no-shafts",
+  "mean": 1.446,
+  "loud": 3.27
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "frozen",
+  "mean": 0.5,
+  "loud": 1.82
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "no-ring",
+  "mean": 0.526,
+  "loud": 1.39
+ }
+]

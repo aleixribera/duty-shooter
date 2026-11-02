@@ -1,0 +1,182 @@
+[
+ {
+  "spot": "inside-30-to-sun",
+  "way": "played",
+  "mean": 2.922,
+  "loud": 13.59
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "beams",
+  "mean": 0.219,
+  "loud": 1.26
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "beams-no-ring",
+  "mean": 0.3,
+  "loud": 1.43
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "bloom",
+  "mean": 0.163,
+  "loud": 0.68
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "bloom-no-ring",
+  "mean": 0.174,
+  "loud": 0.89
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "no-ring",
+  "mean": 0.502,
+  "loud": 2.18
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "played",
+  "mean": 3.302,
+  "loud": 17.43
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "beams",
+  "mean": 0.698,
+  "loud": 1.5
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "beams-no-ring",
+  "mean": 0.324,
+  "loud": 1.07
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "bloom",
+  "mean": 0.406,
+  "loud": 1.7
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "bloom-no-ring",
+  "mean": 0.312,
+  "loud": 1.41
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "no-ring",
+  "mean": 0.489,
+  "loud": 1.36
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "played",
+  "mean": 0.343,
+  "loud": 1.24
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "beams",
+  "mean": 0.273,
+  "loud": 1.01
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "beams-no-ring",
+  "mean": 0.276,
+  "loud": 1.26
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "bloom",
+  "mean": 0.134,
+  "loud": 0.69
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "bloom-no-ring",
+  "mean": 0.12,
+  "loud": 0.46
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "no-ring",
+  "mean": 0.302,
+  "loud": 0.8
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "played",
+  "mean": 1.656,
+  "loud": 5.09
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "beams",
+  "mean": 0.029,
+  "loud": 0.06
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "beams-no-ring",
+  "mean": 0.025,
+  "loud": 0.18
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "bloom",
+  "mean": 0.019,
+  "loud": 0.06
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "bloom-no-ring",
+  "mean": 0.026,
+  "loud": 0.06
+ },
+ {
+  "spot": "outside-15-to-wall",
+  "way": "no-ring",
+  "mean": 0.268,
+  "loud": 0.49
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "played",
+  "mean": 1.681,
+  "loud": 6.01
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "beams",
+  "mean": 0.46,
+  "loud": 2.23
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "beams-no-ring",
+  "mean": 0.358,
+  "loud": 2.02
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "bloom",
+  "mean": 0.221,
+  "loud": 1.18
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "bloom-no-ring",
+  "mean": 0.276,
+  "loud": 1.39
+ },
+ {
+  "spot": "inside-150-to-sun",
+  "way": "no-ring",
+  "mean": 0.351,
+  "loud": 1.15
+ }
+]

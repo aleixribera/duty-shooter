@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Scene } from 'three/webgpu';
-import { RingWall, groundUnderRing, type RingGround } from '../src/ring-wall';
+import { DETAIL_FADE, RingWall, detailOver, groundUnderRing, type RingGround } from '../src/ring-wall';
 
 /** A hill rising to the east (x), with a lake to the south (z < -100) whose surface stands at 4 m. */
 const hill: RingGround = {
@@ -48,5 +48,26 @@ describe('the Ring wall’s foot glow', () => {
     const ground = wall.mesh.geometry.getAttribute('ground');
     for (let i = 0; i < ground.count; i++) expect(ground.getX(i)).toBe(0);
     wall.dispose();
+  });
+});
+
+describe('the Ring wall in front of the sun (ticket 53)', () => {
+  // The frame's bloom takes light past 1.6 for a highlight, and the sun shafts take the sky past 2.5 for the sun.
+  const BLOOM_FROM = 1.6;
+  // The wall's crackle at its usual brightest (the hot colour's luminance, 0.65, times a filament's 1.4), over its sheet's usual light.
+  const DETAIL = 0.91;
+  const SHEET = 0.3;
+
+  it('keeps all its detail over the open sky, and none over the sun’s glow and the lit cloud round it', () => {
+    expect(detailOver(0)).toBe(1);
+    expect(detailOver(DETAIL_FADE[0])).toBe(1);
+    expect(detailOver(DETAIL_FADE[1])).toBe(0);
+    expect(detailOver(3)).toBe(0);
+    for (let s = 0; s < 3; s += 0.05) expect(detailOver(s + 0.05)).toBeLessThanOrEqual(detailOver(s));
+  });
+
+  it('never lifts the sky behind it into a highlight: the crackle can’t make the sun’s glow flicker', () => {
+    // Wherever the sky and the sheet are short of a highlight, the detail doesn't make one.
+    for (let s = 0; s + SHEET < BLOOM_FROM; s += 0.02) expect(s + SHEET + DETAIL * detailOver(s)).toBeLessThan(BLOOM_FROM);
   });
 });

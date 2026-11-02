@@ -18,6 +18,20 @@ const SEGMENTS = 256;
 /** A lattice diamond's width (m). */
 const CELL = 7;
 
+/**
+ * How bright (linear luminance) the sky behind the wall is where its crackle and lattice
+ * start to fade, and where they are gone: the sun's glow and the lit cloud round it burn
+ * through them. Over that light the detail would lift the sky into the highlights the bloom
+ * and the sun shafts take for the sun, and the sun would flicker with the crackle (ticket 53).
+ */
+export const DETAIL_FADE = [0.3, 1.2] as const;
+
+/** How much of the wall's crackle and lattice shows over sky this bright: the shader's curve, for the tests. */
+export function detailOver(sky: number): number {
+  const t = Math.min(1, Math.max(0, (sky - DETAIL_FADE[1]) / (DETAIL_FADE[0] - DETAIL_FADE[1])));
+  return t * t * (3 - 2 * t);
+}
+
 /** What the wall stands on: the ground's height and the water's surface, as the island's Terrain gives them. */
 export interface RingGround {
   heightAt(x: number, z: number): number;
@@ -52,7 +66,8 @@ export function groundUnderRing(ring: RingCircle, ground: RingGround, out = new 
  * rising through it; a faint diamond lattice that reads as a made thing up
  * close and fades out before it can shimmer far away; and bright filaments
  * crackling across it in patches. At a grazing angle it thickens, so the
- * far side of the circle stands out as a wall rather than a haze. It
+ * far side of the circle stands out as a wall rather than a haze. Toward
+ * the sun its lattice and crackle fade, the sun burning through them. It
  * draws on both faces, so it reads the same from inside and outside.
  */
 export class RingWall {
@@ -71,7 +86,8 @@ export class RingWall {
   readonly #terrain: RingGround | null;
   #at = { x: NaN, z: NaN, radius: NaN };
 
-  constructor(scene: Scene, terrain: RingGround | null = null) {
+  /** `sky`: the sky the background draws in a direction, which the detail fades over where it's bright; none, no fade. */
+  constructor(scene: Scene, terrain: RingGround | null = null, sky: ((direction: Node<'vec3'>) => Node<'vec3'>) | null = null) {
     this.#scene = scene;
     this.#terrain = terrain;
     const geometry = new CylinderGeometry(1, 1, 1, SEGMENTS, 1, true);
@@ -120,12 +136,14 @@ export class RingWall {
     const bolt = smoothstep(aw.mul(1.6), float(0), abs(arc)).mul(sharp(arc));
     const flicker = smoothstep(float(0.55), float(0.8), mx_noise_float(vec3(p.x.div(160), up.div(90).add(t.mul(0.9)), p.z.div(160))).mul(0.5).add(0.5));
     const crackle = filament.mul(mask).mul(1.4).add(bolt.mul(flicker).mul(0.9));
+    // The sky behind the wall, as the background draws it: toward the sun it outshines the detail, which fades there.
+    const detail = sky ? smoothstep(float(DETAIL_FADE[1]), float(DETAIL_FADE[0]), dot(sky(normalize(p.sub(cameraPosition))), vec3(0.2126, 0.7152, 0.0722))) : float(1);
     // Grazing views see more of the sheet: the far side of the circle reads as a wall.
     const view = normalize(cameraPosition.sub(p));
     const facing = abs(dot(normalWorld, view));
     const graze = min(float(3), float(1).div(facing.add(0.33)));
     const sheet = float(0.16).add(flow.mul(0.22)).add(foot).mul(body).mul(graze);
-    const glow = mix(color(DEEP), color(HAZARD), stream.add(foot).min(1)).mul(sheet).add(color(HAZARD).mul(lattice.mul(body))).add(color(HOT).mul(crackle.mul(body)));
+    const glow = mix(color(DEEP), color(HAZARD), stream.add(foot).min(1)).mul(sheet).add(color(HAZARD).mul(lattice.mul(body).mul(detail))).add(color(HOT).mul(crackle.mul(body).mul(detail)));
     m.colorNode = glow.mul(this.#strength);
     this.mesh = new Mesh(geometry, m);
     this.mesh.frustumCulled = false;

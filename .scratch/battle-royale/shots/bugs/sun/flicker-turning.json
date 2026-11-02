@@ -1,0 +1,38 @@
+[
+ {
+  "spot": "inside-30-to-sun",
+  "way": "played",
+  "mean": 9.583,
+  "loud": 58.56
+ },
+ {
+  "spot": "inside-30-to-sun",
+  "way": "no-ring",
+  "mean": 11.515,
+  "loud": 61.09
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "played",
+  "mean": 7.667,
+  "loud": 57
+ },
+ {
+  "spot": "inside-8-to-sun",
+  "way": "no-ring",
+  "mean": 11.289,
+  "loud": 60.38
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "played",
+  "mean": 8.801,
+  "loud": 52.98
+ },
+ {
+  "spot": "outside-15-to-sun",
+  "way": "no-ring",
+  "mean": 10.358,
+  "loud": 55.3
+ }
+]
