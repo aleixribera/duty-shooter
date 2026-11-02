@@ -161,12 +161,25 @@ export interface World {
   readonly bullets: SolidIndex;
   /** The ground as a heightfield, for a map that has one. */
   readonly terrain: Terrain | null;
+  /** What hides a body without stopping a bullet, for a map that has it. */
+  readonly concealment: Concealment | null;
+}
+
+/**
+ * Soft cover: bushes, tall grass, foliage. Bots ask it before they believe their
+ * eyes, and bullets never do. A map supplies one through `createWorld`.
+ */
+export interface Concealment {
+  /** True when something soft stands in the way of a look from `from` to `to`. */
+  hides(from: Vec3, to: Vec3): boolean;
 }
 
 export interface WorldOptions {
   readonly ladders?: readonly Ladder[];
   /** The map's terrain, or nothing for a map whose ground is solids. */
   readonly terrain?: TerrainData | null | undefined;
+  /** The map's soft cover, or nothing for a map without any. */
+  readonly concealment?: Concealment | null | undefined;
   /**
    * Index solids in a uniform grid (the default). Off, every query scans
    * every solid: the results are identical, only slower. Tests compare the two.
@@ -187,5 +200,6 @@ export function createWorld(solids: readonly Solid[], options: WorldOptions = {}
     movement: new SolidIndex(list, members((s) => s.blocks !== 'bullets'), indexed ? CELL_SIZE : null),
     bullets: new SolidIndex(list, members((s) => s.blocks !== 'players'), indexed ? CELL_SIZE : null),
     terrain: options.terrain ? new Terrain(options.terrain) : null,
+    concealment: options.concealment ?? null,
   };
 }

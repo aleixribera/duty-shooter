@@ -34,6 +34,7 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
 - The full suite takes about 8 minutes on the home server once Zero Island's nav is cached (see `apps/range/test/support/island-nav.ts`), so run it in the background from `remote-test`; a change to the map or the nav generator builds a new nav, about 100 s for each test file that needs one at that moment. Its long pole is `packages/fps-core/test/balance.test.ts` (5,760 seeded bot duels, about 90 s there); next come the bot soaks (`apps/range/test/*-bots-*.test.ts`, one file per map and mode so they run in parallel, 8 to 20 s each). While iterating, run one file or one package (`npm run test:core`, `test:client`, `test:range`, `test:server`), and the whole suite once at the end.
 - Shared test helpers live in each package's `test/support/` (bot soaks and nav reachability in `apps/range/test/support/bots.ts`).
 - `apps/range/test/server-cpu.test.ts` and the benchmarks skip unless `BENCH=1`.
+- `apps/range/test/zero-island-royale-pace.test.ts` skips unless `ROYALE_PACE=size:seed,...` and prints whole Battle Royale matches (about 20 s each on the home server): length, Stage, deaths to the Ring, what bots were doing. `ROYALE_GOOD=1` puts the good-player proxy in a seat and prints how it did; retune `royale.botReaction` and `royale.botAim` in the stats file against that, over 30 seeds at least, since one match in four needs that many to tell from noise.
 - `npm run typecheck` also typechecks every package's tests, which vitest itself never does.
 
 ## Driving the game in a browser

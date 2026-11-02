@@ -145,6 +145,17 @@ A seat in Duos or Trios at 0 health with someone on its feet in its Squad: on th
 **Bleed-out**:
 The 30 s a Downed seat has before it dies. The Ring neither pauses nor speeds it.
 
+**Rally**:
+The place a Squad of bots is headed or holding: inside the circle that matters next, near where it stands. Squadmates share one and take cover spots around it.
+
+**Heat**:
+How far ahead of its pace a Battle Royale is running, as bots feel it. With more Squads left than the stats file's curve wants, bots open fights further off and more of them go hunting; with fewer, they let distant enemies pass. It sets how a match is paced without touching the Ring.
+_Avoid_: aggression (that's a bot's own)
+
+**Soft cover**:
+What hides a body without stopping a bullet: bushes, tall grass. Bots ask it through a world's `concealment` before they believe their eyes, and bullets never do.
+_Avoid_: concealment (that's only its name in the code)
+
 **Revive**:
 Holding Use for 5 s within reach of a Downed squadmate, which puts it back on its feet at half health. Moving away or taking damage cancels it.
 

@@ -153,19 +153,5 @@ export function planCharge(team: TeamId, bots: readonly PlannedBot[], mates: rea
   return orders;
 }
 
-/** How close (m) a bot walks to the seat it Revives: well inside the reach, so a crawl doesn't break it off. */
-const REVIVE_APPROACH = STATS.royale.reviveReach.value * 0.6;
-
-/** Revive orders: each Downed seat gets the nearest bot of its Squad still on its feet that isn't already at another. */
-export function planRevives(downed: readonly (PlannedBot & { readonly team: TeamId })[], bots: readonly (PlannedBot & { readonly team: TeamId })[]): Map<PlayerId, BotObjective> {
-  const orders = new Map<PlayerId, BotObjective>();
-  for (const seat of downed) {
-    let best: PlannedBot | null = null;
-    for (const bot of bots) {
-      if (bot.team !== seat.team || orders.has(bot.id)) continue;
-      if (!best || flat(bot.position, seat.position) < flat(best.position, seat.position)) best = bot;
-    }
-    if (best) orders.set(best.id, { position: seat.position, radius: REVIVE_APPROACH, use: true });
-  }
-  return orders;
-}
+/** How close (m) a bot walks to the seat it Revives: well inside the reach, so a shift doesn't break it off. */
+export const REVIVE_APPROACH = STATS.royale.reviveReach.value * 0.6;

@@ -51,6 +51,25 @@ function match(world: ReturnType<typeof createWorld>, nav: NavGraph, players: { 
 /** How far (rad) the bot's view is from facing `p`. */
 const offFrom = (self: PlayerOutput, p: Vec3) => Math.abs(angleDelta(self.yaw, Math.atan2(-(p[0] - self.position[0]), -(p[2] - self.position[2]))));
 
+describe('a bot and soft cover', () => {
+  const hiding = (hides: boolean) => createWorld([FLOOR], { concealment: { hides: () => hides } });
+  const fired = (world: ReturnType<typeof createWorld>) => {
+    const m = match(world, buildNavGraph(world, { area: AREA }), [{ id: 'b', team: 1, at: [0, 0, 0], yaw: 0 }, { id: 't', team: 2, at: [0, 0, -12], yaw: 0 }], 'Vandal', { objective: STAY([0, 0, 0]) });
+    let shots = 0;
+    for (let i = 0; i < ticks(3); i++) shots += m.step().events.filter((e) => e.type === 'shot').length;
+    return shots;
+  };
+
+  it('does not shoot at what soft cover hides from it', () => {
+    expect(fired(hiding(true))).toBe(0);
+  });
+
+  it('shoots as ever where nothing hides them', () => {
+    expect(fired(hiding(false))).toBeGreaterThan(0);
+    expect(fired(open)).toBeGreaterThan(0);
+  });
+});
+
 describe('a bot listening', () => {
   it('hears a sprinting enemy beyond a wall and turns to look; walking or standing there it goes unheard', () => {
     // The bot faces away from the wall; the enemy is 10 m off beyond it, crossing toward -x.

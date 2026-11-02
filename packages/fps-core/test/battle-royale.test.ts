@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, TICK_SECONDS, botProfile, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
 import { BattleRoyale, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { Button } from '../src/usercmd';
@@ -465,6 +465,15 @@ describe('late joiners', () => {
     expect(late.client.others()).toHaveLength(60);
   });
 
+  it('stay for as long as they watch, however long the match', () => {
+    const m = match({ countdown: 0, idleTimeout: 5 });
+    joined(m, 'alice');
+    m.run(ticks(0.5));
+    const late = joined(m, 'late');
+    m.run(ticks(12));
+    expect(late.client.status).toBe('joined');
+  });
+
   it('take a bot\'s seat at the next match', () => {
     const m = match({ countdown: 0, timeLimit: 60, bots: { nav: NAV, perTeam: 1, maxPerTeam: 1 }, lobby: true });
     const alice = joined(m, 'alice');
@@ -509,9 +518,41 @@ describe('Downed on the server', () => {
     expect(lying).toMatchObject({ stance: 'prone', grenade: null });
     expect(lying.downed).not.toBeNull();
   });
+
+  it('a Downed bot crawls toward its mate', () => {
+    const m = match({ squadSize: 2 });
+    joined(m, 'alice');
+    m.run(ticks(1));
+    const sim = m.server.simulation;
+    const bot = [...m.server.bots.keys()].at(-1)!;
+    const at = () => seat(m, bot)!.position;
+    const mate = m.server.latest.players.find((p) => p.team === seat(m, bot)!.team && p.id !== bot)!.id;
+    // Near enough to know of, and too far to reach it where it lies.
+    const state = sim.playerState(mate)!;
+    sim.setPlayerState({ ...state, move: { ...state.move, position: [at()[0] + 12, 0, at()[2]] } });
+    sim.setPlayerState({ ...sim.playerState(bot)!, health: STATS.royale.downedHealth.value, downed: { since: sim.time, by: null, revive: null } });
+    m.run(ticks(0.1));
+    const from = at();
+    m.run(ticks(5));
+    expect(seat(m, bot)!.downed).not.toBeNull();
+    expect(Math.hypot(at()[0] - from[0], at()[2] - from[2])).toBeGreaterThan(1);
+  });
 });
 
 describe('where the mode is offered', () => {
+  it('bots in a Battle Royale play below their usual skill', () => {
+    const m = createNetworkedMatch({ solids: [GROUND], spawns: SPAWNS, mode: 'tdm', lobby: true, teamSize: { [ROYALE]: 30 }, bots: { nav: NAV, perTeam: 1, maxPerTeam: 1 }, intermission: { nuke: 1, vote: 1 }, latency: 0.03 });
+    const alice = joined(m, 'alice');
+    m.run(ticks(0.2));
+    const slowed = () => [...m.server.bots.values()].every((b) => b.bot.profile.reaction > botProfile(b.name).reaction * 2);
+    alice.client.setLobby({ mode: ROYALE });
+    m.run(ticks(0.2));
+    alice.client.startMatch();
+    m.run(ticks(0.5));
+    expect(m.server.mode.id).toBe(ROYALE);
+    expect(slowed()).toBe(true);
+  });
+
   it('stays out of a lobby on a map that does not play it', () => {
     const m = createNetworkedMatch({ solids: [GROUND], spawns: SPAWNS, mode: 'tdm', lobby: true, bots: { nav: NAV, perTeam: 1, maxPerTeam: 1 }, latency: 0.03 });
     const alice = joined(m, 'alice');

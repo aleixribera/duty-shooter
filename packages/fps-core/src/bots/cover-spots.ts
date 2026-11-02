@@ -34,6 +34,11 @@ export function coverOf(graph: NavGraph, node: number): { full: number; low: num
   return p ? { full: p.coverFull[node]!, low: p.coverLow[node]! } : { full: 0, low: 0 };
 }
 
+/** Per node, the sides it has cover on when crouched, for a route that hugs cover; null on a map without them. */
+export function coverBits(graph: NavGraph): Uint8Array | null {
+  return packedOf(graph)?.coverLow ?? null;
+}
+
 /** True when a body at `node` is sheltered from `threat`, crouched or (with `standing`) on its feet. */
 export function coveredFrom(graph: NavGraph, node: number, threat: Vec3, standing = false): boolean {
   const p = packedOf(graph);

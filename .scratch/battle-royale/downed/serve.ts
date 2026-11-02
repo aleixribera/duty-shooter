@@ -42,9 +42,9 @@ const beat = () => {
     const press = seq % 12 === 0;
     cmd = { buttons: seq % 12 < 6 ? Button.Fire : 0, forward: 0, right: 0, yaw, pitch, firePresses: press ? [0] : [] };
   }
-  if (me?.alive && (me.health < 100 || me.downed)) sim().setPlayerState({ ...sim().playerState(id!)!, health: 100, downed: null });
+  if (!process.env['NO_HEAL'] && me?.alive && (me.health < 100 || me.downed)) sim().setPlayerState({ ...sim().playerState(id!)!, health: 100, downed: null });
   const kept = players.find((p) => p.id === guard);
-  if (kept?.alive && !kept.downed && kept.health < 100) sim().setPlayerState({ ...sim().playerState(guard!)!, health: 100 });
+  if (kept?.alive && (kept.downed || kept.health < 100)) sim().setPlayerState({ ...sim().playerState(guard!)!, health: 100, downed: null });
   ws.send(JSON.stringify({ t: 'cmds', cmds: [{ seq: ++seq, cmd }], seen: 0 }));
   filler.send(JSON.stringify({ t: 'cmds', cmds: [{ seq, cmd: { buttons: 0, forward: 0, right: 0, yaw: 0, pitch: 0, firePresses: [] } }], seen: 0 }));
 };
@@ -56,7 +56,7 @@ const control = createServer((req, res) => {
   const n = (k: string) => Number(q(k));
   let body: unknown = 'ok';
   if (url.pathname === '/list') {
-    body = { enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, bot: game.bots.has(p.id) })) };
+    body = { enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ act: game.bots.get(p.id)?.bot.activity, health: p.health, downed: p.downed, id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, bot: game.bots.has(p.id) })) };
   } else if (url.pathname === '/place') {
     const s = sim().playerState(q('id')!)!;
     sim().setPlayerState({ ...s, move: { ...s.move, position: [n('x'), n('y'), n('z')], velocity: [0, 0, 0] } });

@@ -1,12 +1,13 @@
 import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
-import { planCharge, planOutposts, planRevives } from '../bots/planner';
-import type { NavGraph } from '../bots/nav';
-import { botName, botProfile } from '../bots/profile';
+import { planCharge, planOutposts } from '../bots/planner';
+import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
+import { nearestNode, type NavGraph } from '../bots/nav';
+import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
 import { BattleRoyale, type BattleRoyaleOptions } from '../modes/battle-royale';
 import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
-import { LOBBY_MODES, teamMode, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
+import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { playGround } from '../modes/ground';
 import { MATCH_SCALES, type MatchScale } from '../modes/scale';
@@ -151,6 +152,8 @@ export interface BotOptions {
   readonly maxPerTeam?: number;
   /** Keep bots playing with nobody connected (tests and benchmarks). */
   readonly alwaysOn?: boolean;
+  /** How a named bot plays, given how it would (a soak's stand-in for a good player). */
+  readonly profile?: (name: string, base: BotProfile) => BotProfile;
 }
 
 /** Seconds between the bot teams' plans. */
@@ -170,6 +173,7 @@ export const DEFAULT_MAX_PLAYERS = 12;
  * from ever emptying. Their seat is held as for any drop.
  */
 export const IDLE_TIMEOUT = 20;
+const BATTLE_ROYALE: ModeId = 'battle-royale';
 /** Seconds a connection may stay open without joining. */
 const JOIN_TIMEOUT = 10;
 /**
@@ -378,6 +382,9 @@ export class GameServer {
   #matchNumber = 0;
   /** Each bot's objective from its team's planner, and when the plan is next made. */
   #orders = new Map<PlayerId, BotObjective>();
+  /** Battle Royale: this match's Squad brain, and what it last told each bot. */
+  #squads: SquadPlanner | null = null;
+  #grounds: ReadonlyMap<PlayerId, GroundOrder> = new Map();
   #planAt = 0;
   /** Players holding the use button, as of their latest usercmd. */
   readonly #using = new Set<PlayerId>();
@@ -804,7 +811,11 @@ export class GameServer {
     this.#planAt = 0;
     this.#protectedSince.clear();
     this.#endStandIns();
+    this.#squads = null;
+    this.#grounds = new Map();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
+    // A Battle Royale's bots play to their own profile, so into one or out of one they're briefed afresh.
+    else if ((previous.id === BATTLE_ROYALE) !== (this.#mode.id === BATTLE_ROYALE)) this.#freshBots();
     // This match's bots first: new ones join the simulation here and get their team below.
     this.#rosterBots();
     // Those who spectated the last match have no seat yet.
@@ -836,8 +847,14 @@ export class GameServer {
     this.#map = map;
     this.simulation.setWorld(map.world);
     this.#orders = new Map();
+    this.#freshBots();
+  }
+
+  /** New brains for the bots: ones that know the map and play as this mode asks. */
+  #freshBots(): void {
+    const { nav, world } = this.#map;
     for (const [id, seat] of this.#bots) {
-      if (map.nav) this.#bots.set(id, { ...seat, bot: new Bot(id, botProfile(seat.name), map.nav, map.world) });
+      if (nav) this.#bots.set(id, { ...seat, bot: new Bot(id, this.#profile(seat.name), nav, world) });
       else this.#dismissBot(id);
     }
   }
@@ -954,7 +971,7 @@ export class GameServer {
     const name = botName(new Set(this.#names.values()), hashString(id));
     this.#renamed();
     this.#names.set(id, name);
-    this.#bots.set(id, { name, bot: new Bot(id, botProfile(name), this.#map.nav!, this.#map.world) });
+    this.#bots.set(id, { name, bot: new Bot(id, this.#profile(name), this.#map.nav!, this.#map.world) });
     this.#log({ event: 'join', id, name, bot: true, script: false });
     return id;
   }
@@ -970,7 +987,7 @@ export class GameServer {
   /** A bot takes over a seat whose player has gone, under their name, from where they stood. */
   #standIn(id: PlayerId, name: string): void {
     this.#standIns.add(id);
-    if (this.#map.nav) this.#bots.set(id, { name, bot: new Bot(id, botProfile(name), this.#map.nav, this.#map.world) });
+    if (this.#map.nav) this.#bots.set(id, { name, bot: new Bot(id, this.#profile(name), this.#map.nav, this.#map.world) });
   }
 
   /** The stand-ins go with the match they played in; their players can only come back to a later one fresh. */
@@ -1173,9 +1190,29 @@ export class GameServer {
         for (const [id, order] of plan) this.#orders.set(id, order);
       }
     } else if (objective?.kind === 'battle-royale') {
-      const orders = planRevives(players.filter((p) => p.downed), bots.filter((p) => !p.downed));
-      for (const [id, order] of orders) this.#orders.set(id, order);
+      this.#planSquads(objective, players);
     }
+  }
+
+  /** Battle Royale: where each Squad goes, and who Revives whom. */
+  #planSquads(state: BattleRoyaleState, seats: readonly PlayerOutput[]): void {
+    const { nav, world } = this.#map;
+    if (!nav) return;
+    const time = this.simulation.time;
+    const { timeLimit } = this.#mode;
+    this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`));
+    this.#grounds = this.#squads.plan({
+      time,
+      played: timeLimit === null ? 0 : (time - this.#matchStart) / timeLimit,
+      state,
+      seats: seats.map((p) => ({ id: p.id, team: p.team, position: p.position, bot: this.#bots.has(p.id), downed: p.downed })),
+    });
+  }
+
+  /** How a named bot plays. */
+  #profile(name: string): BotProfile {
+    const base = this.#mode.id === BATTLE_ROYALE ? royaleProfile(botProfile(name)) : botProfile(name);
+    return this.#options.bots?.profile?.(name, base) ?? base;
   }
 
   /** Each bot's usercmd for this tick, from what the last tick showed. */
@@ -1198,6 +1235,7 @@ export class GameServer {
         continue;
       }
       const info = { id, team: self.team, kind: self.kind };
+      const ground = this.#grounds.get(id);
       const view: BotView = {
         tick,
         time,
@@ -1211,6 +1249,7 @@ export class GameServer {
         objective: this.#orders.get(id) ?? null,
         lives: this.#mode.canRespawn(id) ? 'respawn' : 'round',
         budget,
+        ...(ground ? { ground } : {}),
       };
       cmds[id] = seat.bot.think(view);
     }

@@ -48,6 +48,8 @@ export interface ClientFrame {
 /** Corrections bigger than this (m) are a teleport (respawn) and snap instead of smoothing. */
 const SNAP_DISTANCE = 2;
 const JOIN_RETRY_TICKS = 30;
+/** How often a client watching without a seat says it is still there. */
+const WATCHING_TICKS = 60;
 /** Silence this long (ticks, 3 s) is a dead connection: a half-open socket never reports its own close, and the server sends 60 times a second. */
 const SILENT_TICKS = 180;
 /** How long one attempt to connect may take (ticks, 5 s) before the next. */
@@ -354,7 +356,11 @@ export class GameClient {
     if (this.#status !== 'joined' || this.#id === null) return { self: null, predicted: [], server };
 
     this.#reconcile();
-    if (!this.#local.has(this.#id)) return { self: null, predicted: [], server };
+    if (!this.#local.has(this.#id)) {
+      // Watching, with no seat to send for: a word now and then, or the server takes the silence for a lost client.
+      if (this.#ticks % WATCHING_TICKS === 0) this.#sendCmds();
+      return { self: null, predicted: [], server };
+    }
 
     const seq = ++this.#seq;
     const sent: UserCmd = { ...cmd, viewTick: this.renderTick };

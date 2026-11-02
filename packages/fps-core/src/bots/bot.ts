@@ -8,9 +8,13 @@ import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '.
 import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
+import { coverBits, coverNear } from './cover-spots';
 import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, type NavGraph } from './nav';
 import { longSightlines, navMiddle, nodesNear } from './nav-queries';
+import { REVIVE_APPROACH } from './planner';
 import type { BotProfile } from './profile';
+import { botSees } from './sight';
+import type { GroundOrder } from './squad-plan';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
 export interface BotView {
@@ -40,6 +44,8 @@ export interface BotView {
    * `THROW_ARCS_PER_TICK` of its own when absent.
    */
   readonly budget?: ThinkBudget;
+  /** Battle Royale: what its Squad has it doing. With this it uses the ground (see `squad-plan.ts`) instead of roaming; without it, it plays as it always has. */
+  readonly ground?: GroundOrder;
 }
 
 /** Work the bots of one tick share. */
@@ -171,6 +177,60 @@ const REPLAN_MOVE = 2;
 
 /** The route key while heading for an objective (a player id never looks like it). */
 const OBJECTIVE_KEY = '#objective';
+
+/** On the ground of a Battle Royale. A route counts this many metres against a node with no cover near it, so it hugs cover where it can. */
+const OPEN_GROUND = 1.2;
+/** A bound runs the bot's roam length times this; a stop at the end of one lasts this long (s), twice that for a careful bot. */
+const BOUND: readonly [number, number] = [0.8, 1.6];
+const STOP: readonly [number, number] = [0.6, 1.8];
+/** A hunter's stops are this share of the rest's. */
+const HUNT_STOP = 0.4;
+/** Holding a spot in a rally: this many times its usual hold (s). */
+const SPOT_HOLD: readonly [number, number] = [2, 5];
+/** How far round a rally (m) it looks for a spot, and how many it weighs. */
+const SPOT_REACH = 8;
+const SPOTS_WEIGHED = 24;
+/** Near a squadmate's spot (m) is taken. */
+const SPOT_ROOM = 3;
+/** A fight is taken to cover this near (m), once every so often (s). */
+const STAND_REACH = 9;
+const STAND_AGAIN = 4;
+const STAND_MAX = 3;
+/** Hiding from a fight it's losing: cover this near (m). */
+const HIDE_REACH = 14;
+const HIDE_WEIGHED = 8;
+/** Enemies seen this recently (s) and this near (m) count toward being outgunned. */
+const OUTGUNNED_MEMORY = 4;
+const OUTGUNNED_REACH = 50;
+/** More enemies than this past its own Squad and it hides. */
+const OUTGUNNED_MARGIN = 2;
+/** A fight is opened at any range this long (s) after being hit. */
+const SHOT_MEMORY = 3;
+/** A chase on the ground stays within this share of how far it'd open a fight. */
+const CHASE_SHARE = 0.7;
+/** A target that went out of sight this near or far (m) isn't worth a way round. */
+const FLANK_RANGE: readonly [number, number] = [8, 45];
+/** How wide (m) a flank swings, as a share of the range, and the least; the longest (s) it may take. */
+const FLANK_SWING = 0.7;
+const FLANK_LEAST = 10;
+const FLANK_MAX = 9;
+/** Seen this near a Downed squadmate (m), this recently (s): not yet. */
+const REVIVE_THREAT = 16;
+const REVIVE_MEMORY = 4;
+/** A Downed bot lies still with a mate this near (m); makes for one this near; and looks for new ground this often (s). */
+const CRAWL_MATE_HERE = 3;
+const CRAWL_MATE = 30;
+const CRAWL_LOOK = 3;
+/** How far (m) it looks for cover to crawl to. */
+const CRAWL_COVER = 8;
+/** Stuck on the ground: how far (m) it steps aside to. */
+const STEP_ASIDE = 8;
+/** Someone in the way of a run from the wall, this near (m), gets fought. */
+const RUN_FIGHT = 15;
+/** A Downed enemy comes this many metres behind one on its feet. */
+const DOWNED_LAST = 20;
+/** The route key on the way round an enemy. */
+const FLANK_KEY = '#flank';
 
 /** With the primary dry and an enemy this near (m), out comes the pistol. */
 const PISTOL_RANGE = 10;
@@ -346,6 +406,23 @@ export class Bot {
   /** Breaking off to heal: the cover node, the eye it hides from, until when at most, and whether it got there. */
   #recover: { node: number; threat: Vec3; until: number; arrived: boolean } | null = null;
   #recoverAt = 0;
+  /** Metres to the next stop on a bound, and where it last counted from. */
+  #bound = 0;
+  #boundFrom: Vec3 = [0, 0, 0];
+  /** The cover node it holds in a rally, and when it moves on. */
+  #spot: number | null = null;
+  #spotUntil = 0;
+  /** A cover node it's fighting its way to, until when; no new one before `#standAt`. */
+  #stand: { node: number; until: number } | null = null;
+  #standAt = 0;
+  /** The way round to an enemy that went out of sight. */
+  #flank: { node: number; id: PlayerId; until: number } | null = null;
+  /** When it last took a hit. */
+  #shotAt = -Infinity;
+  /** When a Downed bot next looks for ground. */
+  #crawlAt = 0;
+  /** On the way to the spot it picked, not yet holding it. */
+  #walkingToSpot = false;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -383,11 +460,12 @@ export class Bot {
   }
 
   /** What the bot is up to, for tests and debugging. */
-  get activity(): 'use' | 'flee' | 'throw' | 'cover' | 'fight' | 'chase' | 'search' | 'hold' | 'roam' {
+  get activity(): 'use' | 'flee' | 'throw' | 'cover' | 'flank' | 'fight' | 'chase' | 'search' | 'hold' | 'roam' {
     if (this.#using) return 'use';
     if (this.#flee) return 'flee';
     if (this.#throw) return 'throw';
     if (this.#recover) return 'cover';
+    if (this.#flank) return 'flank';
     if (this.#target) return 'fight';
     if (this.#chasing && this.#chasing !== OBJECTIVE_KEY) return 'chase';
     if (this.#search && this.#search.until > this.#lastTime) return 'search';
@@ -405,7 +483,8 @@ export class Bot {
     const ticks = this.#sinceThought;
     this.#sinceThought = 0;
     // What it missed meanwhile, it hears now.
-    const view = this.#unheard.length > 0 ? { ...sees, events: [...this.#unheard.flat(), ...sees.events] } : sees;
+    const heard = this.#unheard.length > 0 ? { ...sees, events: [...this.#unheard.flat(), ...sees.events] } : sees;
+    const view = heard.ground ? this.#reviveOrder(heard) : heard;
     this.#unheard = [];
     this.#seats = view.seats ?? new SeatIndex(view.players);
     const seconds = ticks * TICK_SECONDS;
@@ -423,7 +502,10 @@ export class Bot {
       this.#flee = null;
       this.#search = null;
       this.#recover = null;
-      return this.#cmd(0, 0, []);
+      this.#stand = null;
+      this.#flank = null;
+      this.#spot = null;
+      return self.alive && view.ground ? this.#crawl(view, seconds) : this.#cmd(0, 0, []);
     }
     if (!this.#alive || flat(self.position, this.#lastPos) > 3) this.#reset(view);
     this.#alive = true;
@@ -441,14 +523,19 @@ export class Bot {
     this.#listen(view, eye, perceiving);
     if (this.#target || (this.#search && time >= this.#search.until)) this.#search = null;
     const caution = (this.#caution = this.#weigh(view));
-    const hurry = view.objective?.hurry === true;
+    const ground = view.ground ?? null;
+    const hurry = view.objective?.hurry === true || ground?.hurry === true;
+    if (this.#flank && (hurry || this.#target?.visible || time >= this.#flank.until)) this.#flank = null;
 
     // The fight: keep it while the target lives and was seen moments ago.
     let target = this.#target;
     const tp = target ? this.#seats.get(target.id) : undefined;
     if (target && (!tp || !tp.alive || (!target.visible && time - target.lastSeen > LOSE_TARGET))) {
       // Out of sight, not dead: a careful bot holds the angle they went behind, for them to come back round, rather than chase.
-      if (tp?.alive && caution > 0.55 && !this.#recover && !hurry) {
+      // On the ground of a Battle Royale, the bolder go round to them instead.
+      if (tp?.alive && ground && !hurry && !this.#recover && this.#flanks(view, tp, r)) {
+        this.#holdUntil = 0;
+      } else if (tp?.alive && caution > 0.55 && !this.#recover && !hurry) {
         const last = this.#memory.get(tp.id)?.position ?? tp.position;
         this.#holdUntil = time + 2 + 2 * r(25);
         this.#holdYaw = yawTo(self.position, last);
@@ -486,8 +573,11 @@ export class Bot {
     } else if (perceiving && fighting && target?.visible && tp && !using && !hurry && time >= this.#recoverAt && range > POINT_BLANK) {
       const left = this.#dealt.get(tp.id);
       const theirs = 100 - (left && time - left.time < DEALT_MEMORY ? left.damage : 0);
-      if (self.health < HURT + HURT_CAREFUL * caution && theirs > self.health + 10) this.#breakOff(view, eyeOf(tp));
+      const hurt = self.health < HURT + HURT_CAREFUL * caution;
+      if (ground ? (hurt && theirs > self.health) || this.#outgunned(view, ground) : hurt && theirs > self.health + 10) this.#breakOff(view, eyeOf(tp));
     }
+    if (ground && perceiving && fighting && target?.visible && tp && !using && !hurry && !this.#recover && !this.#stand && time >= this.#standAt && range > POINT_BLANK && !tactics.push) this.#takeStand(view, tp, range);
+    if (this.#stand && (time >= this.#stand.until || this.#recover)) this.#stand = null;
     const retreating = this.#recover !== null && !this.#recover.arrived;
     if (using || this.#throw || fighting) this.#aiming = null;
     else if (this.#aiming) this.#aim(view);
@@ -509,8 +599,8 @@ export class Bot {
       // Eyes on whoever is coming, if anyone; otherwise level.
       if (target && tp) lookYaw = yawTo(self.position, tp.position);
       lookPitch = -0.05;
-    } else if (retreating) {
-      // Running for cover: eyes on the way.
+    } else if (retreating || (ground?.hurry && !(fighting && target?.visible && range < RUN_FIGHT))) {
+      // Running for cover, or from the wall: eyes on the way.
       const ahead = this.#lookAhead(self.position);
       if (ahead) lookYaw = yawTo(self.position, ahead);
       lookPitch = 0;
@@ -556,7 +646,7 @@ export class Bot {
         const width = careful ? 0.2 : 0.32;
         const tolerance = Math.atan2(width, Math.max(range, 1)) + (ads ? (careful ? 0.1 : 0.4) : 1.2) * DEG;
         // Sight is checked a few times a second; a shot checks it again, so a target that just stepped behind cover isn't shot through it.
-        const clear = () => !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'head')) || !sightBlocked(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
+        const clear = () => botSees(this.#world, eye, zoneCentre(pose(tp), 'head')) || botSees(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
         // And only once the aim has settled on the body and the target has moved steadily for a moment, so the lead is right.
         const lined = Math.hypot(target.errYaw, target.errPitch) < Math.atan2(width, Math.max(range, 1));
         const steady = !careful || (lined && this.#steady(target, time));
@@ -636,6 +726,14 @@ export class Bot {
       // Standing still to aim and throw.
     } else if (retreating) {
       move = this.#advance(self, this.#nav.nodes[this.#recover!.node]!.position);
+    } else if (ground?.hurry && !(fighting && target?.visible && range < RUN_FIGHT)) {
+      // The wall: nothing else matters unless someone's in the way.
+      move = this.#follow(view, ground.rally, OBJECTIVE_KEY);
+    } else if (this.#flank) {
+      move = this.#flanking(view);
+    } else if (this.#stand) {
+      move = this.#advance(self, this.#nav.nodes[this.#stand.node]!.position);
+      if (move === null) this.#stand = null;
     } else if (fighting && target && tp) {
       // With the target in view, a bot closes in only beyond the distance its weapon holds at: walking straight at a gun is the easiest shot there is.
       const holdAt = tactics.hold ?? want + (tactics.rush !== null && tactics.rush < 12 ? 0.5 : 2);
@@ -656,13 +754,13 @@ export class Bot {
         this.#strafe = 0;
         backOff = range < want * BACK_OFF;
       }
-      if (target.crouch && range > 14 && !move) buttons.push('Crouch');
+      if ((target.crouch && range > 14 && !move) || (ground && self.weapon.action === 'reload')) buttons.push('Crouch');
     } else if (this.#recover) {
       // Down behind cover until healed.
       buttons.push('Crouch');
     } else {
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
-      const leashed = (at: Vec3) => order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH;
+      const leashed = (at: Vec3) => (ground && order === null ? flat(at, self.position) < ground.engage * CHASE_SHARE : order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH);
       // Roaming inside the objective only: an older goal elsewhere is dropped.
       if (order && this.#goal !== null && flat(this.#nav.nodes[this.#goal]!.position, order.position) > order.radius) this.#goal = null;
       if (chase && time - chase.time < this.profile.chase && leashed(chase.position)) {
@@ -684,6 +782,8 @@ export class Bot {
         // Off to the objective, by the quickest way.
         move = this.#follow(view, order.position, OBJECTIVE_KEY);
         this.#holdUntil = 0;
+      } else if (ground) {
+        move = this.#useGround(view, ground, r, buttons);
       } else if (time >= this.#holdUntil) {
         move = this.#roam(view, r);
       } else if (this.#holdCrouch) buttons.push('Crouch');
@@ -708,7 +808,7 @@ export class Bot {
       // Near an enemy it knows of but hasn't been fighting, a careful bot keeps its footsteps quiet, and creeps up on one it's after.
       const quiet = caution > 0.5 && !hurry && !this.#flee && !retreating && time - this.#lastEnemySeen > SPOTTED && this.#threatNear(view);
       const creeping = quiet && caution > 0.7 && !fighting && this.#chasing !== null && this.#chasing !== OBJECTIVE_KEY && this.#nearest(view) < SNEAK;
-      if ((this.#flee || retreating) && forward > 0.5 && !climbing && !laddering) buttons.push('Sprint');
+      if ((this.#flee || retreating || (ground?.hurry && !fighting)) && forward > 0.5 && !climbing && !laddering) buttons.push('Sprint');
       else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing && !laddering) {
         // Weaving a little on the way in.
         right = 0.35 * Math.sin(time * 2.6 + (this.#seed % 13));
@@ -798,6 +898,11 @@ export class Bot {
     this.#check = null;
     this.#recover = null;
     this.#dealt.clear();
+    this.#spot = null;
+    this.#stand = null;
+    this.#flank = null;
+    this.#bound = 0;
+    this.#boundFrom = view.self.position;
   }
 
   /** Where the bot likes to fight with this weapon (m). */
@@ -969,13 +1074,15 @@ export class Bot {
       if (d > SENSE && off > (tracked ? TRACK_FOV : FOV)) continue;
       const head = zoneCentre(pose(p), 'head');
       const chest = zoneCentre(pose(p), 'upperTorso');
-      if (sightBlocked(this.#world, eye, head) && sightBlocked(this.#world, eye, chest)) continue;
+      if (!botSees(this.#world, eye, head) && !botSees(this.#world, eye, chest)) continue;
       this.#memory.set(p.id, { position: p.position, time, seen: true, velocity: p.velocity });
       // A reload in plain view.
       if (p.weapon.action === 'reload') this.#reloading.set(p.id, time + 1);
       this.#lastEnemySeen = time;
       if (tracked) keep = true;
-      const score = d + off * 12;
+      // Someone far off who isn't after it is let go by, unseen, in a match that's running ahead of itself.
+      if (view.ground && !tracked && d > view.ground.engage && time - this.#shotAt > SHOT_MEMORY) continue;
+      const score = d + off * 12 + (p.downed ? DOWNED_LAST : 0);
       if (!best || score < best.score) best = { p, score };
     }
     const target = this.#target;
@@ -1042,6 +1149,7 @@ export class Bot {
       } else if (e.type === 'hit' && e.victim === self.id && e.shooter !== self.id) {
         const shooter = this.#seats.get(e.shooter);
         if (!shooter) continue;
+        this.#shotAt = time;
         this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false, velocity: STILL });
         if (!this.#target) {
           this.#alert = { yaw: yawTo(eye, eyeOf(shooter)) + (r(4) - 0.5) * 50 * DEG, until: time + 1.2 };
@@ -1124,7 +1232,7 @@ export class Bot {
     }
     c += (1 - self.health / 100) * 0.4;
     if (this.#dangers.some((d) => time - d.time < 8 && flat(d.position, self.position) < 20)) c += 0.15;
-    if (view.objective?.hurry) c -= 0.6;
+    if (view.objective?.hurry || view.ground?.hurry) c -= 0.6;
     return Math.max(0, Math.min(1, c));
   }
 
@@ -1143,7 +1251,7 @@ export class Bot {
   /** Breaks off to the nearest cover out of `threat`'s sight, if there is any close; otherwise fights on. */
   #breakOff(view: BotView, threat: Vec3): void {
     const { self, time } = view;
-    const node = this.#shelter(self.position, threat);
+    const node = (view.ground ? this.#hide(self.position, threat) : null) ?? this.#shelter(self.position, threat);
     if (node === null) {
       this.#recoverAt = time + 1;
       return;
@@ -1152,7 +1260,225 @@ export class Bot {
     this.#holdUntil = 0;
     this.#search = null;
     this.#chasing = null;
+    this.#stand = null;
+    this.#flank = null;
     this.#plan(self.position, node, view, true, threat);
+  }
+
+  /** The nearest cover sheltered from `threat`, not toward it, that truly hides a body from there. */
+  #hide(from: Vec3, threat: Vec3): number | null {
+    const away = flat(from, threat);
+    let tried = 0;
+    for (const { node } of coverNear(this.#nav, from, HIDE_REACH, threat)) {
+      const n = this.#nav.nodes[node]!.position;
+      if (Math.abs(n[1] - from[1]) > 2.5 || flat(n, threat) < away - 2) continue;
+      if (tried++ >= HIDE_WEIGHED) break;
+      if (!botSees(this.#world, threat, [n[0], n[1] + 0.9, n[2]])) return node;
+    }
+    return null;
+  }
+
+  /** More enemies have been seen lately than its Squad can answer. */
+  #outgunned(view: BotView, ground: GroundOrder): boolean {
+    const { self, time } = view;
+    let enemies = 0;
+    for (const [id, m] of this.#memory) if (m.seen && time - m.time < OUTGUNNED_MEMORY && flat(m.position, self.position) < OUTGUNNED_REACH && this.#seats.get(id)?.alive) enemies += 1;
+    return enemies > ground.mates + OUTGUNNED_MARGIN - 1;
+  }
+
+  /** Fights from cover if there's some a step or two away and it isn't behind any: on the move there, still shooting. */
+  #takeStand(view: BotView, tp: PlayerOutput, range: number): void {
+    const { self, time } = view;
+    this.#standAt = time + STAND_AGAIN;
+    const spots = coverNear(this.#nav, self.position, STAND_REACH, tp.position);
+    if (spots.length === 0 || spots[0]!.distance < 1.2) return;
+    const spot = spots.find((s) => flat(this.#nav.nodes[s.node]!.position, tp.position) > range - 3);
+    if (!spot) return;
+    this.#stand = { node: spot.node, until: time + STAND_MAX };
+    this.#plan(self.position, spot.node, view);
+  }
+
+  /** Whether to go round to `tp`, who just went out of sight; if so, starts on the way, out of their sight where it can. */
+  #flanks(view: BotView, tp: PlayerOutput, r: (n: number) => number): boolean {
+    const { self, time } = view;
+    const last = this.#memory.get(tp.id)?.position ?? tp.position;
+    const range = flat(self.position, last);
+    if (range < FLANK_RANGE[0] || range > FLANK_RANGE[1] || this.#flank) return false;
+    // Flankers always do, others as bold as they are; in a Squad the second seat goes while the first keeps them busy.
+    const slot = view.ground!.slot;
+    const style = this.profile.style === 'flanker' ? 1 : this.profile.aggression;
+    if (r(81) > style * (slot % 2 === 1 ? 1.4 : 1)) return false;
+    const [dx, dz] = [(last[0] - self.position[0]) / range, (last[2] - self.position[2]) / range];
+    const swing = Math.max(FLANK_LEAST, range * FLANK_SWING);
+    const side = r(82) < 0.5 ? 1 : -1;
+    const eye: Vec3 = [last[0], last[1] + 1.5, last[2]];
+    for (const way of [side, -side]) {
+      const at: Vec3 = [last[0] - dz * way * swing - dx * range * 0.15, last[1], last[2] + dx * way * swing - dz * range * 0.15];
+      const node = nearestNode(this.#nav, this.#world, at);
+      const p = this.#nav.nodes[node]!.position;
+      if (Math.abs(p[1] - self.position[1]) > 4) continue;
+      this.#flank = { node, id: tp.id, until: time + FLANK_MAX };
+      this.#chasing = FLANK_KEY;
+      this.#plan(self.position, node, view, true, eye);
+      return true;
+    }
+    return false;
+  }
+
+  /** On the way round; there, it comes in on where the enemy was. */
+  #flanking(view: BotView): Vec3 | null {
+    const flank = this.#flank!;
+    const at = this.#nav.nodes[flank.node]!.position;
+    const move = this.#advance(view.self, at);
+    if (move !== null) return move;
+    this.#flank = null;
+    const m = this.#memory.get(flank.id);
+    if (m) {
+      this.#memory.set(flank.id, { ...m, time: view.time });
+      this.#chasing = flank.id;
+    }
+    return null;
+  }
+
+  /** A Revive order, unless an enemy was seen near the seat a moment ago: then the fight comes first. */
+  #reviveOrder(view: BotView): BotView {
+    const seat = view.ground!.revive;
+    if (!seat) return view;
+    for (const m of this.#memory.values()) if (m.seen && view.time - m.time < REVIVE_MEMORY && flat(m.position, seat) < REVIVE_THREAT) return view;
+    return { ...view, objective: { position: seat, radius: REVIVE_APPROACH, use: true } };
+  }
+
+  /** Downed: stays by a mate who's come, else crawls to the nearest mate, else to cover from whoever did it, else on toward the rally. */
+  #crawl(view: BotView, seconds: number): UserCmd {
+    const { self, time } = view;
+    const ground = view.ground!;
+    let mate: PlayerOutput | null = null;
+    let near = CRAWL_MATE;
+    for (const i of this.#seats.near(self.position, CRAWL_MATE)) {
+      const p = view.players[i]!;
+      if (p.id === self.id || !p.alive || p.downed || p.team !== self.team) continue;
+      const d = flat(p.position, self.position);
+      if (d < near) {
+        near = d;
+        mate = p;
+      }
+    }
+    if ((self.downed?.revive ?? 0) > 0 || near < CRAWL_MATE_HERE) return this.#cmd(0, 0, []);
+    if (time >= this.#crawlAt) {
+      this.#crawlAt = time + CRAWL_LOOK;
+      const threat = this.#dangers[0]?.position;
+      const cover = coverNear(this.#nav, self.position, CRAWL_COVER, threat)[0];
+      const to = mate ? nearestNode(this.#nav, this.#world, mate.position) : cover ? cover.node : nearestNode(this.#nav, this.#world, ground.rally);
+      this.#plan(self.position, to, view);
+    }
+    const move = this.#advance(self, this.#nav.nodes[this.#path.at(-1) ?? 0]!.position);
+    if (!move) return this.#cmd(0, 0, []);
+    this.#turn(yawTo(self.position, move), 0, LOOK_RATE, seconds);
+    const d = angleDelta(self.yaw, yawTo(self.position, move));
+    return this.#cmd(Math.cos(d), -Math.sin(d), []);
+  }
+
+  /** What to look like while holding: what it knows of, or a side of its own in a Squad. */
+  #facing(ground: GroundOrder, at: Vec3): number {
+    return this.#holdFacing(at) + ((ground.slot * Math.PI * 2) / 3) * (this.#memory.size === 0 ? 1 : 0);
+  }
+
+  /** Stops where it stands for a moment, crouched: at the end of a bound, or to wait for a squadmate. */
+  #stopHere(view: BotView, ground: GroundOrder, seconds: number): void {
+    this.#holdUntil = view.time + seconds;
+    this.#holdYaw = this.#facing(ground, view.self.position);
+    this.#holdCrouch = true;
+  }
+
+  /**
+   * A Squad's way of getting about: bound from cover to cover toward the rally,
+   * stopping low at each to look; once there, take a spot with something to
+   * hide behind, watch from it a while, and shift to another. Never a stop in
+   * the open unless the ground has nothing to offer.
+   */
+  #useGround(view: BotView, ground: GroundOrder, r: (n: number) => number, buttons: ButtonName[]): Vec3 | null {
+    const { self, time } = view;
+    const nodes = this.#nav.nodes;
+    if (!ground.hurry && time < this.#holdUntil) {
+      if (this.#holdCrouch) buttons.push('Crouch');
+      return null;
+    }
+    const spotted = this.#spot !== null && flat(nodes[this.#spot]!.position, ground.rally) <= ground.radius + SPOT_REACH;
+    if (spotted && time >= this.#spotUntil && !this.#walkingToSpot) this.#spot = null;
+    if (!spotted) this.#spot = null;
+    if (this.#spot === null && flat(self.position, ground.rally) > ground.radius) {
+      if (ground.wait) this.#bound = 0;
+      const move = this.#follow(view, ground.rally, OBJECTIVE_KEY);
+      this.#bound -= flat(self.position, this.#boundFrom);
+      this.#boundFrom = self.position;
+      if (this.#bound <= 0) {
+        const at = this.#path[Math.max(0, this.#step - 1)];
+        if (at !== undefined && (coverBits(this.#nav)?.[at] ?? 0) !== 0) {
+          const [lo, hi] = STOP;
+          const hold = (lo + (hi - lo) * r(84)) * (1 + this.#caution) * (ground.hunt ? HUNT_STOP : 1);
+          this.#stopHere(view, ground, ground.wait ? hold + 1 : hold);
+          this.#bound = this.profile.roam * (BOUND[0] + (BOUND[1] - BOUND[0]) * r(85));
+          return null;
+        }
+      }
+      return move;
+    }
+    if (this.#spot === null) {
+      this.#spot = this.#pickSpot(view, ground, r);
+      this.#walkingToSpot = this.#spot !== null;
+      if (this.#spot === null) {
+        this.#stopHere(view, ground, 1 + 2 * r(86));
+        return null;
+      }
+      this.#plan(self.position, this.#spot, view);
+    }
+    if (this.#walkingToSpot) {
+      const move = this.#advance(self, nodes[this.#spot]!.position);
+      if (move !== null) return move;
+      this.#walkingToSpot = false;
+      const [lo, hi] = SPOT_HOLD;
+      const hold = this.profile.holdTime * (lo + (hi - lo) * r(87)) * (ground.hunt ? HUNT_STOP : 1);
+      this.#spotUntil = time + hold;
+      this.#stopHere(view, ground, hold);
+    }
+    return null;
+  }
+
+  /** The best place round the rally to hold: sheltered from what it knows of, hides a body standing, near, and not a squadmate's. */
+  #pickSpot(view: BotView, ground: GroundOrder, r: (n: number) => number): number | null {
+    const { self, time } = view;
+    let threat: Vec3 | undefined;
+    let latest = time - 20;
+    for (const m of this.#memory.values()) {
+      if (m.time > latest) {
+        latest = m.time;
+        threat = m.position;
+      }
+    }
+    const spots = coverNear(this.#nav, ground.rally, ground.radius + SPOT_REACH, threat);
+    const bits = coverBits(this.#nav);
+    let best: number | null = null;
+    let bestScore = -Infinity;
+    const count = (b: number) => {
+      let n = 0;
+      for (let k = b; k; k &= k - 1) n += 1;
+      return n;
+    };
+    for (const [k, s] of spots.entries()) {
+      if (k >= SPOTS_WEIGHED * 4) break;
+      if (k % 4 !== Math.floor(r(88) * 4) && spots.length > SPOTS_WEIGHED) continue;
+      const p = this.#nav.nodes[s.node]!.position;
+      let score = (s.full ? 3 : 0) + count(bits?.[s.node] ?? 0) - flat(p, self.position) * 0.15 + r(89 + k) * 2;
+      for (const i of this.#seats.near(p, SPOT_ROOM)) {
+        const q = view.players[i]!;
+        if (q.id !== self.id && q.team === self.team && flat(q.position, p) < SPOT_ROOM) score -= 12;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = s.node;
+      }
+    }
+    return best;
   }
 
   /** The nearest node out of `threat`'s sight, not toward it, within a short run of `from`; null when there's none. */
@@ -1164,7 +1490,7 @@ export class Bot {
       const n = this.#nav.nodes[i]!;
       const run = flat(from, n.position);
       if (run > SHELTER_SEARCH || run >= bestRun || Math.abs(n.position[1] - from[1]) > 2.5 || flat(n.position, threat) < away - 2) continue;
-      if (!sightBlocked(this.#world, threat, [n.position[0], n.position[1] + 1.2, n.position[2]])) continue;
+      if (botSees(this.#world, threat, [n.position[0], n.position[1] + 1.2, n.position[2]])) continue;
       best = i;
       bestRun = run;
     }
@@ -1354,13 +1680,15 @@ export class Bot {
           let c = seen.get(i);
           if (c === undefined) {
             const p = this.#nav.nodes[i]!.position;
-            c = flat(p, watcher) > DANGER_REACH || sightBlocked(this.#world, watcher, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
+            c = flat(p, watcher) > DANGER_REACH || !botSees(this.#world, watcher, [p[0], p[1] + 1.2, p[2]]) ? 0 : EXPOSED;
             seen.set(i, c);
           }
           return c;
         }
       : undefined;
-    const path = findPath(this.#nav, start, to, exposure) ?? [];
+    const bits = view.ground ? coverBits(this.#nav) : null;
+    const costs = bits ? (i: number) => (bits[i] === 0 ? OPEN_GROUND : 0) + (exposure ? exposure(i) : 0) : exposure;
+    const path = findPath(this.#nav, start, to, costs) ?? [];
     this.#path = path;
     // Replanned partway along the first leg (the nearest node is the one just left behind): carry on along it rather than turn back to its start.
     // Out of a fight only: a fighting bot strafes off its route, so where it stands says nothing about which way it was going.
@@ -1452,7 +1780,13 @@ export class Bot {
       if (this.#goal !== null) this.#plan(self.position, this.#goal, view, false);
       else this.#replanAt = 0;
     }
-    if (still > 4) {
+    if (still > 4 && view.ground) {
+      // Off the line for a moment; the run to the rally picks up after.
+      const near = nodesNear(this.#nav, self.position, STEP_ASIDE);
+      this.#spot = null;
+      if (near.length > 0) this.#plan(self.position, near[Math.floor(r(51) * near.length)]!, view);
+      this.#replanAt = time + still;
+    } else if (still > 4) {
       this.#goal = this.#pickGoal(view, r);
       this.#chasing = null;
       this.#plan(self.position, this.#goal, view);

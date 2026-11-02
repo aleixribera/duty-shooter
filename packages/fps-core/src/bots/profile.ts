@@ -1,6 +1,6 @@
 import { DEG } from '../math';
 import { hashString, noise } from '../random';
-import type { WeaponId } from '../stats';
+import { STATS, type WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 
 /** How a bot likes to play. */
@@ -182,6 +182,16 @@ export function botProfile(name: string): BotProfile {
   ) as Record<Tunable, number>;
   const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: 'pistol', grenade: 'frag' };
   return { name, style, loadout, ...values, reloadBelow: Math.round(values.reloadBelow) };
+}
+
+/**
+ * A bot as it plays a Battle Royale: the same style, with slower eyes and a
+ * looser hand from the stats file. One life against 59 means many more fights
+ * than an arena match, so what's a fair duel there is a wall here.
+ */
+export function royaleProfile(profile: BotProfile): BotProfile {
+  const R = STATS.royale;
+  return { ...profile, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
 }
 
 const LISTED_STYLES = new Map<string, BotStyle>(BOT_NAMES.map((name, i) => [name, BOT_STYLES[i % BOT_STYLES.length]!]));

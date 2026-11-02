@@ -30,7 +30,10 @@ export const IW_UNIT = 0.0254;
 
 const COLLECTED = '2026-10-25';
 
+/** Why a Battle Royale bot plays below its own skill. */
+const BOT_SKILL = 'Game value for Battle Royale, on top of the skill of each bot: tuned so the good-player proxy in the pace soak wins about 1 match in 4 (the Battle Royale spec). No person has been measured.';
 /** Why the Ring's table reads as it does. */
+const PACE = 'Game value for Battle Royale: a field that thins steadily, so whole matches run close to the Ring and a few Squads reach the last Stages. Bots run hotter ahead of it and cooler behind it.';
 const RING = 'Game value for Battle Royale: closes in six Stages by 9:30, ahead of the 10:00 limit, always within a sprint of the next circle, and the last Stages kill in seconds.';
 
 function sourced<U extends Unit>(value: number, unit: U, source: Omit<Source, 'collected'>, tolerance: number, note?: string): Stat<U> {
@@ -357,13 +360,25 @@ export const STATS = {
     bleedOut: estimate(30, 's', 'How long a seat stays Downed before it dies (the Battle Royale spec).'),
     reviveTime: estimate(5, 's', 'Holding use this long stands a Downed seat back up (the Battle Royale spec).'),
     reviveReach: estimate(2, 'm', 'How near a Downed seat its reviver must stay: an arm, plus the length of a prone body.'),
+    botReaction: estimate(2.6, 'multiplier', BOT_SKILL),
+    botAim: estimate(3.1, 'multiplier', BOT_SKILL),
+    /** The pace bots keep to: how far through the match (`at`, 0 to 1) the field should be down to what share of its Squads (`left`). */
+    pace: {
+      1: { at: estimate(0.1, 'multiplier', PACE), left: estimate(0.96, 'multiplier', PACE) },
+      2: { at: estimate(0.22, 'multiplier', PACE), left: estimate(0.78, 'multiplier', PACE) },
+      3: { at: estimate(0.4, 'multiplier', PACE), left: estimate(0.52, 'multiplier', PACE) },
+      4: { at: estimate(0.57, 'multiplier', PACE), left: estimate(0.32, 'multiplier', PACE) },
+      5: { at: estimate(0.72, 'multiplier', PACE), left: estimate(0.18, 'multiplier', PACE) },
+      6: { at: estimate(0.85, 'multiplier', PACE), left: estimate(0.08, 'multiplier', PACE) },
+      7: { at: estimate(0.95, 'multiplier', PACE), left: estimate(0.03, 'multiplier', PACE) },
+    },
     /** One row a Stage, first to last: seconds held, seconds shrinking, the circle it shrinks to as a share of the first, and what standing outside costs. */
     ring: {
       1: { hold: estimate(60, 's', RING), shrink: estimate(70, 's', RING), radius: estimate(0.62, 'multiplier', RING), damage: estimate(1, 'HP/s', RING) },
       2: { hold: estimate(45, 's', RING), shrink: estimate(65, 's', RING), radius: estimate(0.38, 'multiplier', RING), damage: estimate(2, 'HP/s', RING) },
       3: { hold: estimate(40, 's', RING), shrink: estimate(60, 's', RING), radius: estimate(0.22, 'multiplier', RING), damage: estimate(4, 'HP/s', RING) },
-      4: { hold: estimate(35, 's', RING), shrink: estimate(55, 's', RING), radius: estimate(0.12, 'multiplier', RING), damage: estimate(7, 'HP/s', RING) },
-      5: { hold: estimate(30, 's', RING), shrink: estimate(50, 's', RING), radius: estimate(0.05, 'multiplier', RING), damage: estimate(12, 'HP/s', RING) },
+      4: { hold: estimate(35, 's', RING), shrink: estimate(55, 's', RING), radius: estimate(0.15, 'multiplier', RING), damage: estimate(7, 'HP/s', RING) },
+      5: { hold: estimate(30, 's', RING), shrink: estimate(50, 's', RING), radius: estimate(0.08, 'multiplier', RING), damage: estimate(12, 'HP/s', RING) },
       6: { hold: estimate(25, 's', RING), shrink: estimate(35, 's', RING), radius: estimate(0, 'multiplier', RING), damage: estimate(20, 'HP/s', RING) },
     },
   },
