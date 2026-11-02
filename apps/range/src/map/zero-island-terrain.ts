@@ -49,7 +49,7 @@ const SHALLOWS = -0.6;
 /** How far the Boundary stands off the coast. */
 const OFFSHORE = 24;
 
-const CRATER = { x: 8, z: -42, floor: 50, rim: 120, skirt: 205, floorHeight: 1, rimHeight: 16 } as const;
+const CRATER = { x: 8, z: -42, floor: 50, rim: 120, skirt: 205, floorHeight: 3.4, rimHeight: 16 } as const;
 
 /** The land, as the art draws it; each outline is smoothed into a coast below. */
 const MAIN_COAST: readonly P[] = [
@@ -362,6 +362,9 @@ const ROADS: readonly Route[] = [
   { ...ROAD, points: [jungleNeon.to, [420, -47], [412, 33]], from: DECK },
 ];
 
+/** The Harbor's airstrip, a flat run of road beside the cross-channel road. */
+export const RUNWAY = { from: [188, 268], to: [258, 372], half: 13 } as const;
+
 /** The way up the two mesas that can be climbed, each from the canyon floor to its top. */
 const TRAILS: readonly Route[] = [
   { ...TRAIL, points: [[-265, 111], [-290, 64], [-345, 47], [-368, 33]] },
@@ -438,6 +441,118 @@ function level(heights: Float32Array, core: Core, blend: number): void {
       const c = corner(i, j);
       const k = smooth((distance(X0 + i, Z0 + j, core.x, core.z) - core.radius) / blend);
       heights[c] = mix(core.level, heights[c]!, k);
+    }
+  }
+}
+
+/** How a Region's ground is folded (m): how high its ridges stand, how deep its gullies run, and how tight the folds lie. */
+interface Folds {
+  readonly ridge: number;
+  readonly gully: number;
+  readonly size: number;
+}
+
+/** Streets and docks stay level: their cover is built, not sculpted. */
+const FOLDS: Readonly<Record<RegionId, Folds>> = {
+  'ground-zero': { ridge: 2.8, gully: 2.2, size: 32 },
+  'the-dustlands': { ridge: 3.6, gully: 2.6, size: 30 },
+  'frostbite-peaks': { ridge: 3.2, gully: 2, size: 34 },
+  'mutant-jungle': { ridge: 3, gully: 2.4, size: 26 },
+  'neon-city': { ridge: 0, gully: 0, size: 32 },
+  'rogue-harbor': { ridge: 0, gully: 0, size: 32 },
+};
+
+/** Metres between the points folds are worked out at: they're wider than this, and there are 1.8 million corners. */
+const FOLD_STEP = 4;
+/** A fold's half width, per metre of its height: no steeper than about 30 degrees, so they're walked over and not round. */
+const FOLD_WIDTH = 2.6;
+/** Ground this much steeper than walking stays as it is: a cliff or a mesa's face isn't made walkable or worse. */
+const FOLD_SLOPE = 0.35;
+/** The lowest a gully cuts: above the shore, so it stays dry and bots walk it. */
+const FOLD_FLOOR = 0.8;
+const BLAST_HEIGHT = 4.2;
+const BLAST_WIDTH = 10;
+const COS_A = 3 / 5;
+const SIN_A = 4 / 5;
+const COS_B = 5 / 13;
+const SIN_B = 12 / 13;
+
+/** Metres from (x, z) to the nearest line where noise of `size` crosses zero: lines that wander, with no end but each other. */
+function toFoldLine(x: number, z: number, size: number, seed: number): number {
+  const e = 2;
+  const n = noise(x, z, size, seed);
+  const dx = (noise(x + e, z, size, seed) - noise(x - e, z, size, seed)) / (2 * e);
+  const dz = (noise(x, z + e, size, seed) - noise(x, z - e, size, seed)) / (2 * e);
+  return Math.abs(n) / Math.max(Math.sqrt(dx * dx + dz * dz), 0.004);
+}
+
+/** One line of folds, `height` at its crest, with gaps where it breaks so more than one way leads through. */
+function fold(x: number, z: number, height: number, size: number, seed: number): number {
+  if (height === 0) return 0;
+  const gap = smooth((noise(x, z, 37, seed + 1) + 0.3) / 0.3);
+  if (gap === 0) return 0;
+  return height * gap * smooth(1 - toFoldLine(x, z, size, seed) / (height * FOLD_WIDTH));
+}
+
+/** A ring round the crater `radius` metres out, broken by gaps. */
+function blastRing(r: number, radius: number, x: number, z: number): number {
+  const off = Math.abs(r - radius);
+  return off >= BLAST_WIDTH ? 0 : BLAST_HEIGHT * smooth(1 - off / BLAST_WIDTH) * smooth((noise(x, z, 30, 37) + 0.35) / 0.2);
+}
+
+/**
+ * Folds the land with ridges and gullies, the cheapest cover there is: they
+ * break sightlines and draw nothing extra. Worked out on a coarse grid and
+ * spread over the corners, before routes cut through and surfaces are painted.
+ */
+function foldGround(heights: Float32Array): void {
+  const w = Math.ceil(COLUMNS / FOLD_STEP) + 1;
+  const h = Math.ceil(ROWS / FOLD_STEP) + 1;
+  const field = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const x = X0 + i * FOLD_STEP;
+      const z = Z0 + j * FOLD_STEP;
+      const y = heightOn(heights, x, z);
+      if (y < 1.2) continue;
+      const shore = smooth((y - 1.2) / 2.4);
+      const rise = Math.max(Math.abs(heightOn(heights, x + 4, z) - heightOn(heights, x - 4, z)), Math.abs(heightOn(heights, x, z + 4) - heightOn(heights, x, z - 4))) / 8;
+      const gentle = 1 - smooth((rise - FOLD_SLOPE) / 0.2);
+      if (gentle === 0) continue;
+      const id = regionAt(x, z);
+      const { ridge, gully, size } = FOLDS[id];
+      // Cores keep their level for what gets built on them; the crater's floor has no level, and gets ditches.
+      let open = 1;
+      for (const core of REGION_IDS) {
+        const c = CORES[core];
+        if (c.level !== null) open = Math.min(open, smooth((distance(x, z, c.x, c.z) - c.radius) / 16));
+      }
+      const blast = smooth((distance(x, z, CRATER.x, CRATER.z) - 16) / 10);
+      const k = shore * gentle * open * blast;
+      if (k === 0) continue;
+      const [ax, az] = [COS_A * x + SIN_A * z, COS_A * z - SIN_A * x];
+      const [bx, bz] = [COS_B * x - SIN_B * z, COS_B * z + SIN_B * x];
+      const up = Math.max(fold(ax, az, ridge, size, 31), 0.8 * fold(bx, bz, ridge, size * 1.3, 33));
+      const down = fold(bz, bx, gully, size * 1.15, 35);
+      // Rings the blast threw up on the crater's slopes: a bowl looks across itself, and these break the view.
+      const fromMiddle = distance(x, z, CRATER.x, CRATER.z) + 6 * noise(x, z, 44, 36);
+      const thrown = id === 'ground-zero' ? Math.max(blastRing(fromMiddle, 74, x, z), blastRing(fromMiddle, 102, x, z)) : 0;
+      field[j * w + i] = k * (Math.max(up, thrown) - down);
+    }
+  }
+  for (let j = 0; j <= ROWS; j++) {
+    const gz = (j * 1) / FOLD_STEP;
+    const b = Math.min(h - 2, Math.floor(gz));
+    const v = gz - b;
+    for (let i = 0; i <= COLUMNS; i++) {
+      const gx = i / FOLD_STEP;
+      const a = Math.min(w - 2, Math.floor(gx));
+      const u = gx - a;
+      const c = b * w + a;
+      const lift = mix(mix(field[c]!, field[c + 1]!, u), mix(field[c + w]!, field[c + w + 1]!, u), v);
+      if (lift === 0) continue;
+      const at = corner(i, j);
+      heights[at] = Math.max(Math.min(heights[at]!, FOLD_FLOOR), heights[at]! + lift);
     }
   }
 }
@@ -581,6 +696,8 @@ export interface ZeroIslandGround {
   readonly stream: readonly RoutePoint[];
   /** The climbable mesas' trails as built, from the canyon floor up. */
   readonly trails: readonly (readonly RoutePoint[])[];
+  /** The roads as built. */
+  readonly roads: readonly (readonly RoutePoint[])[];
 }
 
 let built: ZeroIslandGround | null = null;
@@ -628,6 +745,7 @@ export function zeroIslandGround(): ZeroIslandGround {
     }
   }
   for (const id of REGION_IDS) level(heights, CORES[id], 34);
+  foldGround(heights);
   const scratch = { near: new Float32Array(corners), level: new Float32Array(corners) };
   const lay = (route: Route) => {
     const line = trace(route, heights);
@@ -647,7 +765,8 @@ export function zeroIslandGround(): ZeroIslandGround {
   }
   const trails = TRAILS.map(lay);
   const railway = RAILWAY.map(lay);
-  ROADS.forEach(lay);
+  lay({ ...ROAD, points: [RUNWAY.from, RUNWAY.to], half: RUNWAY.half });
+  const roads = ROADS.map(lay);
   const stream = trace(STREAM, heights);
   cut(STREAM, stream, heights, cells, water, scratch);
   built = {
@@ -664,6 +783,7 @@ export function zeroIslandGround(): ZeroIslandGround {
     railway,
     stream,
     trails,
+    roads,
   };
   return built;
 }

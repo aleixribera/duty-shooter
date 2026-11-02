@@ -3,13 +3,13 @@ import { Terrain, createWorld, findPath, nearestNode, type MatchResult, type Mod
 import { BattleRoyale, playGround, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
-import { buildZeroIslandNav } from '../src/map/zero-island-nav';
+import { islandNav } from './support/island-nav';
 
 const map = buildMapById('zero-island');
 const solids = mapSolids(map);
 const terrain = new Terrain(map.terrain!);
 const world = createWorld(solids, { terrain: map.terrain });
-const nav = buildZeroIslandNav(map);
+const nav = islandNav(map);
 const ground = playGround(nav, world);
 const SIZES = [[1, 60], [2, 30], [3, 20]] as const;
 /** Seconds of the soak's match: ROYALE_FULL=1 plays the whole ten minutes, which takes minutes at each size. */

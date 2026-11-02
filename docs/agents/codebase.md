@@ -31,7 +31,7 @@ Work behind the menus has to stay out of a click's way. `Game.prepare` waits for
 
 Everything under `vitest` is Node-only; there are no browser tests in the suite. Run Node suites on the home server with `remote-test` (see the global instructions), and anything that drives Chrome locally with `remote-test --local`.
 
-- The full suite takes about 110 s on the home server. Its long pole is `packages/fps-core/test/balance.test.ts` (5,760 seeded bot duels, about 90 s there); next come the bot soaks (`apps/range/test/*-bots-*.test.ts`, one file per map and mode so they run in parallel, 8 to 20 s each). While iterating, run one file or one package (`npm run test:core`, `test:client`, `test:range`, `test:server`), and the whole suite once at the end.
+- The full suite takes about 8 minutes on the home server once Zero Island's nav is cached (see `apps/range/test/support/island-nav.ts`), so run it in the background from `remote-test`; a change to the map or the nav generator builds a new nav, about 100 s for each test file that needs one at that moment. Its long pole is `packages/fps-core/test/balance.test.ts` (5,760 seeded bot duels, about 90 s there); next come the bot soaks (`apps/range/test/*-bots-*.test.ts`, one file per map and mode so they run in parallel, 8 to 20 s each). While iterating, run one file or one package (`npm run test:core`, `test:client`, `test:range`, `test:server`), and the whole suite once at the end.
 - Shared test helpers live in each package's `test/support/` (bot soaks and nav reachability in `apps/range/test/support/bots.ts`).
 - `apps/range/test/server-cpu.test.ts` and the benchmarks skip unless `BENCH=1`.
 - `npm run typecheck` also typechecks every package's tests, which vitest itself never does.

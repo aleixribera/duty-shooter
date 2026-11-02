@@ -8,3 +8,5 @@ export { LONG_SIGHTLINE, SIGHTLINE_MAX, buildNavGraph, findPath, linkKind, neare
 export type { NavGraph, NavIndex, NavLink, NavLinkKind, NavNode, NavOptions } from './nav';
 export { buildLargeNav, decodeLargeNav, encodeLargeNav } from './large-nav';
 export type { LargeNav, LargeNavOptions } from './large-nav';
+export { coverNear, coverOf, coveredFrom } from './cover-spots';
+export type { CoverSpot } from './cover-spots';

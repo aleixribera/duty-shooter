@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Terrain, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode } from '@duty-shooter/fps-core';
+import { Terrain, coverNear, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, sightBlocked, type Vec3 } from '@duty-shooter/fps-core';
 import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
 import { buildZeroIslandNav } from '../src/map/zero-island-nav';
 import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt } from '../src/map/zero-island-terrain';
@@ -73,6 +73,31 @@ describe('Zero Island: where bots can go', () => {
     const dust = REGION_IDS.indexOf('the-dustlands');
     const neon = REGION_IDS.indexOf('neon-city');
     expect(nav.index!.regionsBetween(dust, neon).length).toBeGreaterThan(2);
+  });
+
+  it('has cover spots within a short run of nearly every node, in every Region', () => {
+    let near = 0;
+    let asked = 0;
+    for (let i = 0; i < nav.nodes.length; i += 97) {
+      asked += 1;
+      if (coverNear(nav, at(i), 15).length > 0) near += 1;
+    }
+    expect(near / asked).toBeGreaterThan(0.97);
+    for (const id of REGION_IDS) expect(coverNear(nav, at(coreNode(id)), 40).length, id).toBeGreaterThan(20);
+  });
+
+  it('marks spots that really hide a body from that side', () => {
+    let tried = 0;
+    let hidden = 0;
+    for (let i = 0; i < nav.nodes.length && tried < 3000; i += 11) {
+      const [x, y, z] = at(i);
+      const threat: Vec3 = [x + 30, terrain.heightAt(x + 30, z) + 1.6, z];
+      if (!coveredFrom(nav, i, threat, true) || threat[1] > y + 8) continue;
+      tried += 1;
+      if (sightBlocked(world, threat, [x, y + 1.4, z])) hidden += 1;
+    }
+    expect(tried).toBeGreaterThan(500);
+    expect(hidden / tried).toBeGreaterThan(0.9);
   });
 
   it('ships as data that routes the same', () => {

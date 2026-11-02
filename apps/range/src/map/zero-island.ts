@@ -1,8 +1,9 @@
 import { Terrain, yawBox, type SpawnPoint } from '@duty-shooter/fps-core';
 import { normalize, type Finish, type Lighting } from '@duty-shooter/fps-client/surfaces';
 import { Builder } from './builder';
-import type { CameraKey, CameraSpot, MapDefinition } from './definition';
-import { BRIDGES, CORES, REGION_IDS, TERRAIN_COLORS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
+import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
+import { placeCover, type CoverPiece } from './zero-island-cover';
+import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
 
 /** The one low sun, out over the sea to the south-west. */
 export const ZERO_ISLAND_LIGHT: Lighting = {
@@ -20,6 +21,8 @@ export const ZERO_ISLAND_LIGHT: Lighting = {
 /** The blockout's one finish: scale, not art. Each Region's ticket replaces it. */
 const FINISHES: Readonly<Record<string, Finish>> = {
   block: { family: 'concrete', color: 0x9b9b98, accent: 0x7c7c7a },
+  // One per Region: a mesh per finish, so a Region out of view is culled whole.
+  ...Object.fromEntries([...REGION_IDS, 'sea'].map((id) => [`cover-${id}`, { family: 'concrete', color: 0x8f8f8c, accent: 0x737371 } satisfies Finish])),
 };
 
 /** Boundary clip reaches this high: past any jump, and past the summit. */
@@ -129,6 +132,16 @@ function coreBlocks(b: Builder, terrain: Terrain, core: Core, blocks: readonly B
   }
 }
 
+/** Stands the generator's grey solids on the ground, or on a bridge's deck. */
+function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): void {
+  for (const { x, z, width, depth, height, yaw, material, region, deck } of pieces) {
+    const { low, high } = deck === undefined ? footprint(terrain, x, z, width, depth, yaw) : { low: deck + 0.6, high: deck };
+    const bottom = low - 0.6;
+    const top = high + height;
+    b.turned([x, (bottom + top) / 2, z], [width, top - bottom, depth], yaw, material, `cover-${region}`);
+  }
+}
+
 function bridges(b: Builder, terrain: Terrain): void {
   for (const bridge of BRIDGES) {
     const [ax, az] = bridge.from;
@@ -185,6 +198,15 @@ function boundary(b: Builder, outline: readonly (readonly [number, number])[]): 
   }
 }
 
+/** The offline spawn, then four round each Core, outside what stands in it: where the map's own spawns stand, kept clear of cover. */
+function spawnPlaces(): (readonly [x: number, z: number])[] {
+  const round = REGION_IDS.flatMap((id) => {
+    const { x, z, radius } = CORES[id];
+    return [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([dx, dz]) => [x + dx! * (radius + 8), z + dz! * (radius + 8)] as const);
+  });
+  return [[CORES['ground-zero'].x, 150], ...round];
+}
+
 const down = -0.32;
 const south = Math.PI;
 const west = Math.PI / 2;
@@ -197,8 +219,27 @@ export function buildZeroIsland(): MapDefinition {
   const outline = zeroIslandBoundary();
   const b = new Builder();
   for (const id of REGION_IDS) coreBlocks(b, terrain, CORES[id], BLOCKS[id]);
-  bridges(b, terrain);
   harbor(b, terrain);
+  cover(
+    b,
+    terrain,
+    placeCover({
+      terrain,
+      inside: (x, z) => insidePolygon(outline, x, z),
+      routes: [
+        ...ground.railway.map((line) => ({ line, half: 3 })),
+        ...ground.roads.map((line) => ({ line, half: 3.5 })),
+        ...ground.trails.map((line) => ({ line, half: 3 })),
+        { line: ground.stream, half: 5 },
+      ],
+      railway: ground.railway,
+      roads: ground.roads,
+      spots: spawnPlaces().map(([x, z]) => [x, z, 5] as const),
+      built: b.solids.map((s) => [s.min[0], s.min[2], s.max[0], s.max[2]] as const),
+      runway: [RUNWAY.from, RUNWAY.to, RUNWAY.half],
+    }),
+  );
+  bridges(b, terrain);
   boundary(b, outline);
   const at = (x: number, z: number, above: number) => terrain.heightAt(x, z) + above;
   /** A spot `from` a Core, looking back at it. */
@@ -216,15 +257,7 @@ export function buildZeroIsland(): MapDefinition {
     lookAt('neon-city', -105, 15, east),
     lookAt('rogue-harbor', 0, -90, south),
   ];
-  const spawn: SpawnPoint = { position: [CORES['ground-zero'].x, at(8, 150, 0), 150], yaw: 0 };
-  // Round each Core, outside what stands in it: ticket 07's random spawns replace these.
-  const roundCores = REGION_IDS.flatMap((id) => {
-    const { x, z, radius } = CORES[id];
-    return [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([dx, dz]): SpawnPoint => {
-      const [sx, sz] = [x + dx! * (radius + 8), z + dz! * (radius + 8)];
-      return { position: [sx, at(sx, sz, 0), sz], yaw: 0 };
-    });
-  });
+  const [spawn, ...roundCores] = spawnPlaces().map(([x, z]): SpawnPoint => ({ position: [x, at(x, z, 0), z], yaw: 0 }));
   const flight = (x: number, z: number, yaw: number): CameraKey => ({ position: [x, at(x, z, 3), z], yaw, pitch: -0.05 });
   // The widest views there are: over the crater to the peaks, the city in front of the island, and back along the south coast.
   const benchmarkPath: CameraKey[] = [
@@ -252,10 +285,10 @@ export function buildZeroIsland(): MapDefinition {
     nuke: null,
     train: null,
     ambience: [{ kind: 'wind' }],
-    spawns: { ffa: [spawn, ...roundCores], teams: null },
+    spawns: { ffa: [spawn!, ...roundCores], teams: null },
     zones: [],
     sites: [],
-    offlineSpawn: spawn,
+    offlineSpawn: spawn!,
     overview: spots[1]!,
     dummies: [],
     loadoutStation: null,

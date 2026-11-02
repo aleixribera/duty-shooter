@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLargeNav, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, type NavGraph, type TerrainData, type Vec3 } from '@duty-shooter/fps-core';
+import { buildLargeNav, coverNear, coverOf, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, type NavGraph, type TerrainData, type Vec3 } from '@duty-shooter/fps-core';
 import { box } from '@duty-shooter/fps-core/harness';
 
 /**
@@ -196,5 +196,42 @@ describe('A large map: as data', () => {
     expect(decodeLargeNav(bytes, world).packed.positions).toEqual(large.packed.positions);
     const moved = createWorld([...world.solids, box({ min: [0, 0, 0], max: [1, 1, 1], material: 'concrete' })], { terrain: terrain() });
     expect(() => decodeLargeNav(bytes, moved)).toThrow(/stale/);
+  });
+});
+
+describe('cover spots in the nav', () => {
+  // The tower on the west shore stands from x -60 to -54.
+  const behind = nearestNode(large, world, [-62, 3, -37]);
+  const east: Vec3 = [0, 4.6, -37];
+  const west: Vec3 = [-110, 4.6, -37];
+
+  it('knows which way a spot beside a solid is sheltered', () => {
+    expect(coveredFrom(large, behind, east, true)).toBe(true);
+    expect(coveredFrom(large, behind, west, true)).toBe(false);
+  });
+
+  it('marks nothing out on open ground', () => {
+    expect(coverOf(large, nearestNode(large, world, [80, 3, -90]))).toEqual({ full: 0, low: 0 });
+  });
+
+  it('finds spots near a point, nearest first, only the ones sheltered from a threat', () => {
+    const spots = coverNear(large, [-64, 3, -37], 10, east);
+    expect(spots.length).toBeGreaterThan(2);
+    expect(spots.map((s) => s.distance)).toEqual([...spots.map((s) => s.distance)].sort((a, b) => a - b));
+    for (const s of spots) {
+      expect(large.nodes[s.node]!.position[0]).toBeLessThan(-59);
+      expect(coveredFrom(large, s.node, east)).toBe(true);
+    }
+    expect(spots.some((s) => s.full)).toBe(true);
+  });
+
+  it('ships them in the file', () => {
+    const loaded = decodeLargeNav(encodeLargeNav(large));
+    expect(coverOf(loaded, behind)).toEqual(coverOf(large, behind));
+    expect(coverNear(loaded, [-64, 3, -37], 10, east)).toEqual(coverNear(large, [-64, 3, -37], 10, east));
+  });
+
+  it('finds none on a map built without them', () => {
+    expect(coverNear({ nodes: [], links: [] } as NavGraph, [0, 0, 0], 50)).toEqual([]);
   });
 });

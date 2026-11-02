@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { Terrain, WIDE_MAP, WIDE_SCALE, createWorld, nearestNode, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
-import { buildZeroIslandNav } from '../src/map/zero-island-nav';
+import { islandNav } from './support/island-nav';
 import { CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt, type RegionId } from '../src/map/zero-island-terrain';
 
 const map = buildMapById('zero-island');
-const nav = buildZeroIslandNav(map);
+const nav = islandNav(map);
 const SEATS = 60;
 const world = createWorld(mapSolids(map), { terrain: map.terrain });
 const terrain = new Terrain(map.terrain!);

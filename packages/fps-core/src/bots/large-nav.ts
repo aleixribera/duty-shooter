@@ -25,6 +25,8 @@ export interface LargeNavOptions {
   readonly spacing?: number;
   /** Grid spacing (m) beside solids and steep ground, where the open grid would miss a way through. Divides `spacing`. Defaults to 2. */
   readonly fine?: number;
+  /** How near (m) a solid or steep ground has to be to call for the fine grid. Defaults to 3. */
+  readonly detail?: number;
   /** Metres a side of a chunk. Defaults to 48. */
   readonly chunk?: number;
   /** Highest surface considered (m). Defaults to 200. */
@@ -60,6 +62,13 @@ export interface PackedNav {
   /** Per node: its clear view in whole metres, and the sixteenth of a turn it looks along. */
   readonly sightlines: Uint8Array;
   readonly sightYaws: Uint8Array;
+  /**
+   * Per node, one bit per eighth of a turn (bit k looks along (cos, sin) of k/8
+   * of a turn in x, z): something in that direction close enough to stand
+   * behind. `coverFull` hides someone standing, `coverLow` someone crouched.
+   */
+  readonly coverFull: Uint8Array;
+  readonly coverLow: Uint8Array;
   /** Per node: where its links start (one more entry than nodes). */
   readonly linkStart: Uint32Array;
   readonly linkTo: Uint32Array;
@@ -89,7 +98,7 @@ const MAX_DROP = Math.min(3.2, STATS.fallDamage.minHeight.value - 0.5);
 const WADE_COST = 1 / STATS.terrain.wadeMultiplier.value;
 /** Sample spacing along a link. */
 const SAMPLE = 0.2;
-/** Solids and steep ground this near (m) call for the fine grid. */
+/** Solids and steep ground this near (m) call for the fine grid, by default. */
 const DETAIL_REACH = 3;
 /** Climbs are tried between nodes at most this far apart: across a fine cell, as a roof's edge has no node of its own. */
 const CLIMB_REACH = 4.1;
@@ -141,12 +150,12 @@ function surfaces(world: World, x: number, z: number, ceiling: number, shore: nu
   return out;
 }
 
-/** True when anything near (x, z) calls for the fine grid. */
-function detailed(world: World, x: number, z: number): boolean {
-  if (solidsNear(world, x, z, x, z, DETAIL_REACH)) return true;
+/** True when anything within `reach` of (x, z) calls for the fine grid. */
+function detailed(world: World, x: number, z: number, reach: number): boolean {
+  if (solidsNear(world, x, z, x, z, reach)) return true;
   const t = world.terrain;
   if (!t) return false;
-  for (const [dx, dz] of [[0, 0], [DETAIL_REACH, 0], [-DETAIL_REACH, 0], [0, DETAIL_REACH], [0, -DETAIL_REACH]] as const) if (t.steepAt(x + dx, z + dz)) return true;
+  for (const [dx, dz] of [[0, 0], [reach, 0], [-reach, 0], [0, reach], [0, -reach]] as const) if (t.steepAt(x + dx, z + dz)) return true;
   return false;
 }
 
@@ -258,6 +267,23 @@ function viewFrom(world: World, p: Vec3): { sightline: number; turn: number } {
   return best;
 }
 
+/** Heights (m) a standing head and a crouched one are at, and how near (m) something has to be to shelter them. */
+const COVER_HEAD = 1.55;
+const COVER_CROUCH = 0.95;
+const COVER_REACH = 2.5;
+const COVER_SIDES = 8;
+
+/** Which ways a node at `p` is sheltered at height `y` above it, as bits. */
+function shelter(world: World, p: Vec3, y: number): number {
+  let bits = 0;
+  for (let k = 0; k < COVER_SIDES; k++) {
+    const turn = (k / COVER_SIDES) * Math.PI * 2;
+    const from: Vec3 = [p[0], p[1] + y, p[2]];
+    if (raycastWorld(world, from, [from[0] + Math.cos(turn) * COVER_REACH, from[1], from[2] + Math.sin(turn) * COVER_REACH])) bits |= 1 << k;
+  }
+  return bits;
+}
+
 /**
  * Generates a large map's nav. Only the biggest part a player can get round
  * in both directions is kept, which leaves out anything a walk can't reach,
@@ -266,6 +292,7 @@ function viewFrom(world: World, p: Vec3): { sightline: number; turn: number } {
 export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav {
   const spacing = options.spacing ?? 4;
   const fine = options.fine ?? 2;
+  const reach = options.detail ?? DETAIL_REACH;
   const chunk = options.chunk ?? 48;
   const ceiling = options.ceiling ?? 200;
   const shore = options.shore ?? -Infinity;
@@ -290,8 +317,9 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
       const z = j * fine;
       if (!insidePolygon(options.area, x, z)) continue;
       const open = i % every === 0 && j % every === 0;
-      if (!open && !detailed(world, x, z)) continue;
-      for (const y of surfaces(world, x, z, ceiling, shore)) points.push({ x, y, z, spacing: open && !detailed(world, x, z) ? spacing : fine });
+      const close = detailed(world, x, z, reach);
+      if (!open && !close) continue;
+      for (const y of surfaces(world, x, z, ceiling, shore)) points.push({ x, y, z, spacing: close ? fine : spacing });
     }
   }
 
@@ -360,6 +388,8 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
   const flags = new Uint8Array(count);
   const sightlines = new Uint8Array(count);
   const sightYaws = new Uint8Array(count);
+  const coverFull = new Uint8Array(count);
+  const coverLow = new Uint8Array(count);
   for (let n = 0; n < count; n++) {
     const p = points[kept[n]!.i]!;
     positions.set([p.x, p.y, p.z], n * 3);
@@ -368,6 +398,8 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
     const view = viewFrom(world, at);
     sightlines[n] = Math.floor(view.sightline);
     sightYaws[n] = view.turn;
+    coverFull[n] = shelter(world, at, COVER_HEAD);
+    coverLow[n] = coverFull[n]! | shelter(world, at, COVER_CROUCH);
   }
 
   const linkStart = new Uint32Array(count + 1);
@@ -439,6 +471,8 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
     flags,
     sightlines,
     sightYaws,
+    coverFull,
+    coverLow,
     linkStart,
     linkTo,
     linkCost,
@@ -767,11 +801,11 @@ class Index implements NavIndex {
 }
 
 const MAGIC = 0x4e565344; // 'DSVN', little-endian.
-const VERSION = 2;
+const VERSION = 3;
 const HEADER = 10;
 
 /** The arrays in the order the file holds them. */
-const SECTIONS = ['chunkStart', 'positions', 'flags', 'sightlines', 'sightYaws', 'linkStart', 'linkTo', 'linkCost', 'linkKinds', 'clusterOf', 'clusterRegion', 'clusterNode', 'clusterStart', 'clusterTo', 'clusterCost', 'regionRoutes'] as const;
+const SECTIONS = ['chunkStart', 'positions', 'flags', 'sightlines', 'sightYaws', 'linkStart', 'linkTo', 'linkCost', 'linkKinds', 'clusterOf', 'clusterRegion', 'clusterNode', 'clusterStart', 'clusterTo', 'clusterCost', 'regionRoutes', 'coverFull', 'coverLow'] as const;
 
 /** The bytes a build ships: a header, then every array, each on a 4-byte boundary so loading reads them where they lie. */
 export function encodeLargeNav(nav: LargeNav): Uint8Array {
@@ -857,5 +891,7 @@ export function decodeLargeNav(data: Uint8Array, world?: World): LargeNav {
     clusterTo: u32(13),
     clusterCost: f32(14),
     regionRoutes: u32(15),
+    coverFull: u8(16),
+    coverLow: u8(17),
   });
 }
