@@ -222,7 +222,7 @@ function fromTrustedProxy(req: IncomingMessage, trustedProxies: ReadonlySet<stri
 /**
  * The visitor's address. Behind a trusted proxy it is the last X-Forwarded-For
  * entry, the one that proxy added: anything before it the visitor could have
- * written themselves. Funnel replaces the header with the one address.
+ * written themselves.
  */
 function clientAddress(req: IncomingMessage, trustedProxies: ReadonlySet<string>): string {
   const remote = req.socket.remoteAddress;
