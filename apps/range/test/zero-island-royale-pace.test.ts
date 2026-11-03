@@ -62,7 +62,7 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       runs.push(run);
       const byCause: Record<string, number> = {};
       for (const d of run.deaths) byCause[d.cause] = (byCause[d.cause] ?? 0) + 1;
-      console.log(`PACE size ${size} seed ${seed}: ${run.length.toFixed(0)} s, Stage ${run.stage}, ${run.result?.reason}, ${run.deaths.length} deaths ${JSON.stringify(byCause)}, ${run.downs} downs, ${run.revives} revives, tick p99 ${run.tick.p99.toFixed(2)} worst ${run.tick.worst.toFixed(1)} ms, wall ${((performance.now() - t0) / 1000).toFixed(0)} s`);
+      console.log(`PACE size ${size} seed ${seed}: ${run.length.toFixed(0)} s, Stage ${run.stage}, ${run.result?.reason}, ${run.deaths.length} deaths ${JSON.stringify(byCause)}, ${run.downs} downs, ${run.revives} revives, tick p99 ${run.tick.p99.toFixed(2)} worst ${run.tick.worst.toFixed(1)} ms, wall ${((performance.now() - t0) / 1000).toFixed(0)} s${run.good ? `; proxy ${run.good.won ? 'WON' : `place ${run.good.place}`}, ${run.good.kills} kills` : ''}`);
       for (const [i, s] of slices.entries()) console.log(`  ${String(i * SLICE).padStart(3)} s: ${String(s.alive).padStart(2)} seats ${String(s.squads).padStart(2)} squads, ${s.outside} outside, nearest enemy ${s.nearest} m, ${JSON.stringify(s.acts)}`);
       const first = run.deaths[0];
       spread.sort((a, b) => a - b);
@@ -80,7 +80,22 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       const pct = (n: number) => `${((100 * n) / Math.max(1, downs)).toFixed(0)}%`;
       console.log(`| ${size} | ${of.length} | ${(of.reduce((n, r) => n + r.length, 0) / of.length).toFixed(0)} | ${downs} | ${pct(revives)} | ${pct(finishes.length)} | ${median(finishes).toFixed(2)} | ${finishes.filter((s) => s < 1).length} |`);
     }
-    console.log('| Size | Seed | Length (s) | Stage | Ended | Deaths | To the Ring | Downs | Revives | Tick p99 | Worst |');
-    for (const r of runs) console.log(`| ${r.size} | ${r.seed} | ${r.length.toFixed(0)} | ${r.stage} | ${r.result?.reason} | ${r.deaths.length} | ${r.deaths.filter((d) => d.cause === 'ring').length} | ${r.downs} | ${r.revives} | ${r.tick.p99.toFixed(2)} | ${r.tick.worst.toFixed(1)} |`);
+    console.log('| Size | Seed | Length (s) | Stage | Ended | Deaths | To the Ring | Downs | Revives | Tick mean | p99 | Worst | Late | Longest stuck (s) |');
+    for (const r of runs) console.log(`| ${r.size} | ${r.seed} | ${r.length.toFixed(0)} | ${r.stage} | ${r.result?.reason} | ${r.deaths.length} | ${r.deaths.filter((d) => d.cause === 'ring').length} | ${r.downs} | ${r.revives} | ${r.tick.mean.toFixed(2)} | ${r.tick.p99.toFixed(2)} | ${r.tick.worst.toFixed(1)} | ${r.tick.late} | ${r.stuck.seconds.toFixed(1)} (${r.stuck.who}) |`);
+    // Ticket 64's measures, per Squad size over its seeds.
+    const quart = (xs: readonly number[], q: number) => [...xs].sort((a, b) => a - b)[Math.min(xs.length - 1, Math.floor(xs.length * q))] ?? NaN;
+    console.log('| Size | Matches | Length mean (min-max) | Ring deaths | Squads out at 25/50/75% (s) | Downs | Revive share | Revives started | Enemy sight / known enemy sight at start | Interrupted | Down to start median (s) | Tick mean | p99 | Late ticks | Longest stuck (s) |');
+    for (const size of [...new Set(runs.map((r) => r.size))]) {
+      const of = runs.filter((r) => r.size === size);
+      const lengths = of.map((r) => r.length);
+      const starts = of.flatMap((r) => r.reviveStarts);
+      const downs = of.reduce((n, r) => n + r.downs, 0);
+      const out = of.map((r) => r.squadsOut);
+      const at = (q: number) => (out.reduce((n, o) => n + quart(o, q), 0) / out.length).toFixed(0);
+      const pct = (n: number, of: number) => `${n} (${((100 * n) / Math.max(1, of)).toFixed(0)}%)`;
+      console.log(
+        `| ${size} | ${of.length} | ${(lengths.reduce((a, b) => a + b, 0) / of.length).toFixed(0)} (${Math.min(...lengths).toFixed(0)}-${Math.max(...lengths).toFixed(0)}) | ${of.reduce((n, r) => n + r.deaths.filter((d) => d.cause === 'ring').length, 0)} | ${at(0.25)}/${at(0.5)}/${at(0.75)} | ${downs} | ${pct(of.reduce((n, r) => n + r.revives, 0), downs)} | ${starts.length} | ${pct(starts.filter((s) => s.anySight).length, starts.length)} / ${pct(starts.filter((s) => s.knownSight).length, starts.length)} | ${pct(starts.filter((s) => s.ended === 'interrupted').length, starts.length)} | ${median(starts.map((s) => s.afterDown)).toFixed(1)} | ${(of.reduce((n, r) => n + r.tick.mean, 0) / of.length).toFixed(2)} | ${Math.max(...of.map((r) => r.tick.p99)).toFixed(2)} | ${of.reduce((n, r) => n + r.tick.late, 0)} | ${Math.max(...of.map((r) => r.stuck.seconds)).toFixed(1)} |`,
+      );
+    }
   }, 3_600_000);
 });
