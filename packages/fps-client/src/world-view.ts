@@ -32,6 +32,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Scatter, type SurfaceLayout } from './surfaces';
 import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
+import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
+import { hasDistanceDetail } from './detail';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
@@ -220,15 +222,15 @@ function grimeGeometry(marks: readonly GrimeQuad[]): BufferGeometry {
  * for the finish patterns), its lightmap coordinates (uv1) and how far each
  * corner is from the wall's open edges (faceEdges, for the weathering).
  */
-function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[]): Map<string, BufferGeometry> {
+function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[], only: readonly number[] | null = null, open = openEdges(layout.faces)): Map<string, BufferGeometry> {
   const byFinish = new Map<string, number[]>();
-  const open = openEdges(layout.faces);
-  layout.faces.forEach((f, i) => {
-    if (f.solid >= 0 && solids[f.solid]!.prop !== null) return;
+  for (const i of only ?? layout.faces.keys()) {
+    const f = layout.faces[i]!;
+    if (f.solid >= 0 && solids[f.solid]!.prop !== null) continue;
     const list = byFinish.get(f.finish) ?? [];
     list.push(i);
     byFinish.set(f.finish, list);
-  });
+  }
   const out = new Map<string, BufferGeometry>();
   for (const [finish, faces] of byFinish) {
     const position = new Float32Array(faces.length * 12);
@@ -333,6 +335,8 @@ export class WorldView {
   readonly train: Train | null = null;
   /** The ground, for a map on terrain. */
   readonly terrain: TerrainView | null = null;
+  /** A map on terrain's surfaces, near and far by block. */
+  readonly #surfaceBlocks: SurfaceBlocks | null = null;
   /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
   readonly #props = new Map<string, Mesh>();
   /** Standard materials already switched to probe lighting. */
@@ -355,13 +359,28 @@ export class WorldView {
     const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones, modelled: content.models?.placements.flatMap((p) => p.solids) ?? [] });
     const size = uniform(new Vector2(1, 1));
     const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0), shadowCentre: this.#shadowCentre as never, shadowRadius: this.#shadowRadius as never };
-    for (const [key, geometry] of surfaceGeometries(layout, content.solids)) {
-      const mesh = new Mesh(geometry, surfaceMaterial(layout.finishes[key]!, baked));
-      // Everything casts into the realtime shadow map: near the player it lights static surfaces more crisply than the bake, and it keeps the sun off soldiers indoors.
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.#root.add(mesh);
-    }
+    const materials = new Map<string, ReturnType<typeof surfaceMaterial>>();
+    const materialOf = (key: string) => {
+      let m = materials.get(key);
+      if (!m) materials.set(key, (m = surfaceMaterial(layout.finishes[key]!, baked)));
+      return m;
+    };
+    const meshes = (geometries: Map<string, BufferGeometry>, castShadow: boolean) =>
+      [...geometries].map(([key, geometry]) => {
+        const mesh = new Mesh(geometry, materialOf(key));
+        // Everything near casts into the realtime shadow map: near the player it lights static surfaces more crisply than the bake, and it keeps the sun off soldiers indoors.
+        mesh.castShadow = castShadow;
+        mesh.receiveShadow = true;
+        return mesh;
+      });
+    if (content.terrain && hasDistanceDetail()) {
+      // A map on terrain is too wide to draw whole: its surfaces go in blocks, the far ones with their big solids alone.
+      const open = openEdges(layout.faces);
+      this.#surfaceBlocks = new SurfaceBlocks(
+        surfaceBlocks(layout, content.solids).map((b) => ({ ...b, near: meshes(surfaceGeometries(layout, content.solids, b.near, open), true), far: meshes(surfaceGeometries(layout, content.solids, b.far, open), false) })),
+      );
+      this.#root.add(this.#surfaceBlocks.root);
+    } else this.#root.add(...meshes(surfaceGeometries(layout, content.solids), true));
     if (content.horizon) {
       const finish = layout.finishes[content.horizon.ground];
       if (!finish) throw new Error(`Unknown horizon finish "${content.horizon.ground}"`);
@@ -568,6 +587,7 @@ export class WorldView {
    */
   follow(position: Vec3): void {
     this.terrain?.update(position);
+    this.#surfaceBlocks?.update(position);
     // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
     // redraws: at the display's rate frames land either side of the interval.
     const now = performance.now() / 1000;

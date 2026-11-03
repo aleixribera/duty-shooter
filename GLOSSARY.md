@@ -96,6 +96,14 @@ A named camera position in a map, used for repeatable screenshots and accuracy c
 **Indoor zone**:
 A volume in a map that switches audio to indoor reverb.
 
+**Distance detail**:
+How a large map is drawn lighter the farther it is (ticket 10, ADR 0011): soldiers by Soldier level, the far ground merged into blocks of chunks, and the map's surfaces in 512 m blocks that keep only their big solids (6 m and up) past 400 m. Lowering it is allowed on weak machines; the seat and bot count never are.
+_Avoid_: LOD (in product text)
+
+**Soldier level**:
+How much of a soldier is drawn, by its distance from the camera (divided by a scope's magnification): full (posed every frame, casting its shadow) out to 60 m, cheap animated (posed every third frame, no shadow) out to 150 m, and past that a far stand-in, a box per body piece in its stance, every far soldier of a look and stance in one instanced draw.
+_Avoid_: imposter (the stand-ins are boxes, not pictures)
+
 ## Weapons
 
 **Weapon**:

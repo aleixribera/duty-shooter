@@ -85,8 +85,8 @@ export type FromLocalRoyale =
   /** Every couple of seconds: ticks run, and their cost (ms) on the worker's thread. */
   | { readonly t: 'stats'; readonly ticks: number; readonly seconds: number; readonly mean: number; readonly p99: number; readonly worst: number };
 
-/** What the page says to the worker: start, with the island's nav as bytes or where to fetch it. */
-export type ToLocalRoyale = { readonly t: 'start'; readonly nav: Uint8Array | string };
+/** What the page says to the worker: start, with the island's nav as bytes or where to fetch it, and a seed for every match (a fresh one each when absent). */
+export type ToLocalRoyale = { readonly t: 'start'; readonly nav: Uint8Array | string; readonly seed?: number };
 
 const STATS_MS = 2000;
 
@@ -105,7 +105,7 @@ export function serveLocalRoyale(scope: PortLike): () => void {
     // Node's in the last bit, which changes the fingerprint and nothing else, and this file comes from the
     // same build as this code (served no-cache with an ETag, so never a release behind).
     const nav = decodeLargeNav(bytes);
-    const local = new LocalRoyale(transport, nav);
+    const local = new LocalRoyale(transport, nav, message.seed === undefined ? {} : { seed: message.seed });
     scope.postMessage({ t: 'ready' } satisfies FromLocalRoyale);
     const clock = new TickClock(performance.now());
     const costs: number[] = [];

@@ -699,7 +699,9 @@ export class Game {
       // Your own soldier stands with your Squad while the Preparation's camera is on them.
       // Through someone's eyes, their own body would fill the view.
       const shown = prep && prep.stage !== 'dive' && this.#cur ? [...this.#others, this.#cur] : eyes ? this.#others.filter((p) => p.id !== watched.id) : this.#others;
-      this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null });
+      // Each soldier at its distance's level from the camera (full near, cheap mid, instanced far), nearer through a scope.
+      const zoom = Math.tan(verticalFov(this.#settings.fov) / 2) / Math.tan((this.#camera.camera.fov * Math.PI) / 360);
+      this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom);
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }

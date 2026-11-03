@@ -1,7 +1,7 @@
 import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
-import type { FromLocalRoyale } from './local-royale';
+import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamMode, type Connection, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
@@ -16,6 +16,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let settings: Settings = loadSettings();
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
+  // `?stats`: each second, this frame's draw calls, triangles and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
+  const renderStats = params.has('stats');
   // The menus go up first, and take clicks while three.js and the map arrive behind them.
   const engineLoading = import('./engine');
   let engine: Awaited<typeof engineLoading> | null = null;
@@ -439,7 +441,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         if (connection) connection.close('The bots stopped on this machine.');
         else fail(new Error(e.message || 'the worker failed to load'));
       });
-      worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href });
+      // `?seed=<n>`: every Local bots match on the same spawns and circles, for measurements that compare.
+      const seed = Number(params.get('seed'));
+      worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href, ...(params.has('seed') && Number.isFinite(seed) ? { seed } : {}) } satisfies ToLocalRoyale);
     });
   /** Local bots: the worker starts while the island builds here, then this page joins its lobby as its host. */
   const joinLocalRoyale = async (attempt: number, name: string) => {
@@ -864,6 +868,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The engine, a piece at a time: the menus stay live between the pieces.
   await nextPaint();
   engine = await engineLoading;
+  // `?soldiers=near|mid|far`: every soldier at one level, to look at it up close.
+  const soldiers = params.get('soldiers');
+  if (soldiers === 'near' || soldiers === 'mid' || soldiers === 'far') engine.showSoldiersAt(soldiers);
+  // `?lod=off`: a large map drawn without its distance detail, to measure what it saves.
+  if (params.get('lod') === 'off') engine.useDistanceDetail(false);
   await nextPaint();
   const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
   renderer = created.renderer;
@@ -929,6 +938,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
     void game.prepare(restMoment, breath).then(keepRangeReady);
   }
+  if (renderStats) renderer.info.autoReset = false;
   await renderer.setAnimationLoop((time) => {
     if (bench) {
       bench(time);
@@ -950,7 +960,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
     // Drawn first, so the frame on show covers it.
     if (spare?.warming && drawBackdrop && !game.driver) spare.frame(time);
+    if (renderStats) renderer.info.reset();
     game.frame(time, drawBackdrop);
+    if (renderStats) countFrame(renderer, time);
     // An online session that ended (rejected, kicked, a server gone for good) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {
@@ -975,6 +987,21 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       }
     }
   });
+}
+
+const counted = { since: 0, frames: 0, draws: 0, triangles: 0, maxDraws: 0 };
+/** `?stats`: adds up the frame just drawn and, each second, writes the mean draw calls and triangles and the renderer's memory to the page. */
+function countFrame(renderer: WebGPURenderer, time: number): void {
+  const { drawCalls, triangles } = renderer.info.render;
+  if (drawCalls === 0) return;
+  counted.frames++;
+  counted.draws += drawCalls;
+  counted.triangles += triangles;
+  counted.maxDraws = Math.max(counted.maxDraws, drawCalls);
+  if (time - counted.since < 1000) return;
+  const { geometries, textures } = renderer.info.memory;
+  document.body.dataset['render'] = JSON.stringify({ frames: counted.frames, draws: Math.round(counted.draws / counted.frames), maxDraws: counted.maxDraws, triangles: Math.round(counted.triangles / counted.frames), geometries, textures });
+  Object.assign(counted, { since: time, frames: 0, draws: 0, triangles: 0, maxDraws: 0 });
 }
 
 /** How long (ms) without input counts as the player resting. */

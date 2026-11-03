@@ -1,9 +1,12 @@
-import { raycastWorld, WEAPON_IDS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { raycastWorld, STATS, WEAPON_IDS, type PlayerId, type PlayerOutput, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import {
   BufferAttribute,
+  BoxGeometry,
   BufferGeometry,
   Color,
   Group,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   MeshStandardNodeMaterial,
   Quaternion,
@@ -15,6 +18,7 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { hasDistanceDetail } from './detail';
 import { KIT_RIGS } from './viewmodel/kit';
 import { loadSoldierModel, Soldier, soldierModel, type Look } from './soldier';
 
@@ -28,6 +32,16 @@ const TEAM_LOOKS: Readonly<Record<number, Look>> = {
 /** The third-person rifle's one colour. */
 const GUNMETAL = new Color(0x2b2d31);
 const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet: 0xe07a2e, boots: 0x6e6a62, accent: 0xe07a2e, glove: 0xe8e2d6, lens: 0x1c1e20 };
+
+/** Every look, in a fixed order, for the far stand-ins' keys. */
+const FAR_LOOKS: readonly Look[] = [SOLDIER, ...Object.values(TEAM_LOOKS), DUMMY];
+
+/** A small stable number from a player id, to spread the mid-range soldiers' poses over frames. */
+function hashId(id: PlayerId): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 /** What the view needs to know about sides: whether the match has teams, and the local player's team. Allies' tags are the HUD's (`hud/ally-tags.ts`). */
 export interface Allegiance {
@@ -127,6 +141,158 @@ class GunModels {
   }
 }
 
+/**
+ * How far (m) from the camera each soldier level reaches (ticket 10). Near, as far as the
+ * server sends a seat every snapshot (`WIDE_MAP`'s near), a soldier is drawn in full, posed
+ * every frame and casting its shadow. Out to `far` it is posed every `midEvery` frames and
+ * casts none (cheap animated). Past that it is an instanced stand-in (`FarSoldiers`).
+ * A soldier changes level `margin` past the line, so one standing on it doesn't flicker.
+ */
+export const SOLDIER_LEVELS = { near: 60, far: 150, midEvery: 3, margin: 6 } as const;
+
+type Level = 0 | 1 | 2;
+const NEAR: Level = 0;
+const MID: Level = 1;
+const FAR: Level = 2;
+
+let forced: Level | null = null;
+/** Draws every soldier at one level whatever its distance, or by distance again with null: for looking at a level up close (`?soldiers=`). */
+export function showSoldiersAt(level: 'near' | 'mid' | 'far' | null): void {
+  forced = level === null ? null : ({ near: NEAR, mid: MID, far: FAR } as const)[level];
+}
+
+/** The level a soldier `distance` m away is drawn at, given the one it was drawn at. */
+function levelAt(distance: number, was: Level | undefined): Level {
+  const { near, far, margin } = SOLDIER_LEVELS;
+  // Each line moves away from the level the soldier is at, by the margin.
+  const at = (line: number, level: Level) => (was === undefined ? line : was < level ? line + margin : line - margin);
+  if (distance > at(far, FAR)) return FAR;
+  if (distance > at(near, MID)) return MID;
+  return NEAR;
+}
+
+/** A far soldier's stance: its stand-in is posed in each. */
+type FarStance = 'stand' | 'crouch' | 'prone';
+const farStance = (p: PlayerOutput): FarStance => (p.downed || p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : 'stand');
+
+/** The smallest piece (m³ of its box) a far stand-in keeps. */
+const STAND_IN_SMALLEST = 0.001;
+
+/** A posed soldier as one box per body piece, in each piece's colour: a few hundred triangles for a figure a few pixels tall. */
+function standIn(model: Object3D, look: Look, stance: FarStance): BufferGeometry {
+  const soldier = new Soldier(model, look);
+  const eyeHeight = stance === 'prone' ? STATS.stance.proneEyeHeight.value : stance === 'crouch' ? STATS.stance.crouchEyeHeight.value : STATS.stance.standEyeHeight.value;
+  const pose = { id: 'stand-in', team: 0, kind: 'player', alive: true, position: [0, 0, 0], velocity: [0, 0, 0], yaw: 0, pitch: 0, stance, movement: 'walk', eyeHeight, weapon: null, grenade: null } as unknown as PlayerOutput;
+  // Let the stance's easing settle.
+  for (let i = 0; i < 90; i++) soldier.update(pose, 1 / 30);
+  soldier.root.updateMatrixWorld(true);
+  const boxes: BufferGeometry[] = [];
+  for (const piece of soldier.parts.values()) {
+    if (!piece.geometry.boundingBox) piece.geometry.computeBoundingBox();
+    const bounds = piece.geometry.boundingBox!;
+    const size = bounds.getSize(new Vector3());
+    // Straps, soles, lenses and the smaller pouches don't show at that distance.
+    if (size.x * size.y * size.z < STAND_IN_SMALLEST) continue;
+    const box = new BoxGeometry(size.x, size.y, size.z);
+    box.deleteAttribute('uv');
+    const centre = bounds.getCenter(new Vector3());
+    box.translate(centre.x, centre.y, centre.z);
+    box.applyMatrix4(piece.matrixWorld);
+    const c = (piece.material as MeshStandardNodeMaterial).color;
+    const n = box.getAttribute('position').count;
+    const colour = new Float32Array(n * 3);
+    for (let v = 0; v < n; v++) colour.set([c.r, c.g, c.b], v * 3);
+    box.setAttribute('color', new BufferAttribute(colour, 3));
+    boxes.push(box);
+  }
+  soldier.dispose();
+  const merged = mergeGeometries(boxes) ?? new BufferGeometry();
+  for (const b of boxes) b.dispose();
+  return merged;
+}
+
+const _matrix = new Matrix4();
+const _place = new Vector3();
+const _turn = new Quaternion();
+const _one = new Vector3(1, 1, 1);
+const UP = new Vector3(0, 1, 0);
+
+/**
+ * The far soldiers: every one in a look and stance drawn by one instanced mesh of its
+ * stand-in, so sixty soldiers across the island cost a handful of draw calls. They cast
+ * no shadow (the sun's shadow map doesn't reach them) and aren't culled one by one.
+ */
+class FarSoldiers {
+  readonly root = new Group();
+  readonly #material = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+  readonly #meshes = new Map<string, InstancedMesh>();
+  readonly #used = new Map<InstancedMesh, number>();
+
+  /** Starts a frame: nobody drawn yet. */
+  begin(): void {
+    for (const mesh of this.#meshes.values()) this.#used.set(mesh, 0);
+  }
+
+  /** Draws `p` this frame, in `look`. */
+  add(model: Object3D, look: Look, p: PlayerOutput): void {
+    const stance = farStance(p);
+    const key = `${FAR_LOOKS.indexOf(look)} ${stance}`;
+    let mesh = this.#meshes.get(key);
+    const used = (mesh && this.#used.get(mesh)) ?? 0;
+    if (!mesh || used >= mesh.instanceMatrix.count) {
+      const grown = new InstancedMesh(mesh?.geometry ?? standIn(model, look, stance), this.#material, Math.max(64, used * 2));
+      grown.frustumCulled = false;
+      grown.castShadow = false;
+      grown.receiveShadow = true;
+      if (mesh) {
+        grown.instanceMatrix.array.set(mesh.instanceMatrix.array.subarray(0, used * 16));
+        mesh.removeFromParent();
+        mesh.dispose();
+        this.#used.delete(mesh);
+      }
+      mesh = grown;
+      this.#meshes.set(key, mesh);
+      this.root.add(mesh);
+    }
+    _place.set(p.position[0], p.position[1], p.position[2]);
+    _turn.setFromAxisAngle(UP, p.yaw);
+    mesh.setMatrixAt(used, _matrix.compose(_place, _turn, _one));
+    this.#used.set(mesh, used + 1);
+  }
+
+  /** A stand-in at `position`, a thousandth of its size, drawn for a frame to compile its shader before a far soldier needs it. Returns what takes it away. */
+  sample(model: Object3D, position: Vector3): () => void {
+    const mesh = new InstancedMesh(standIn(model, SOLDIER, 'stand'), this.#material, 1);
+    mesh.frustumCulled = false;
+    mesh.setMatrixAt(0, _matrix.compose(position, _turn.identity(), _one.clone().setScalar(0.001)));
+    this.root.add(mesh);
+    return () => {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+      mesh.dispose();
+    };
+  }
+
+  /** Ends a frame: each mesh draws the soldiers it was given, and none draws with none. */
+  end(): void {
+    for (const mesh of this.#meshes.values()) {
+      const used = this.#used.get(mesh) ?? 0;
+      mesh.count = used;
+      mesh.visible = used > 0;
+      if (used > 0) mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  dispose(): void {
+    for (const mesh of this.#meshes.values()) {
+      mesh.geometry.dispose();
+      mesh.dispose();
+    }
+    this.#material.dispose();
+    this.root.removeFromParent();
+  }
+}
+
 interface RagPart {
   mesh: Mesh;
   v: Vector3;
@@ -210,11 +376,16 @@ export class PlayersView {
    * shaders stay compiled for the real soldiers built later.
    */
   readonly #samples: Soldier[] = [];
+  /** The level each soldier was drawn at, and the time it has gone unposed (s). */
+  readonly #levels = new Map<PlayerId, Level>();
+  readonly #unposed = new Map<PlayerId, number>();
+  readonly #far = new FarSoldiers();
+  #frame = 0;
 
   constructor(scene: Scene, world: World, weapon: (() => Object3D) | null) {
     this.#world = world;
     this.#guns = weapon ? new GunModels(weapon) : null;
-    scene.add(this.#root);
+    scene.add(this.#root, this.#far.root);
   }
 
   /** Fetches the soldier and every third-person gun, settling once all are in. */
@@ -224,7 +395,7 @@ export class PlayersView {
 
   /**
    * Shows, for one frame, a soldier in every look holding each weapon in
-   * turn, with the pieces a ragdoll throws, a few metres in
+   * turn, with the pieces a ragdoll throws and a far stand-in, a few metres in
    * front of `camera`: drawing them compiles their shaders before a match
    * needs them. They are drawn a thousandth of their size, so nothing shows
    * through the loading screen. Returns what hides them again.
@@ -251,8 +422,10 @@ export class PlayersView {
       soldier.root.traverse((o) => (o.visible = true));
       this.#root.add(soldier.root);
     });
+    const farSample = model ? this.#far.sample(model, ahead) : null;
     return () => {
       for (const soldier of this.#samples) soldier.root.removeFromParent();
+      farSample?.();
     };
   }
 
@@ -266,16 +439,18 @@ export class PlayersView {
   /** Where a player's chest is right now, for effects and the damage indicator. */
   chest(id: PlayerId): Vec3 | null {
     const s = this.#soldiers.get(id);
-    if (!s || !s.root.visible) return null;
+    if (!s || !this.#alive.get(id)) return null;
     const p = s.root.position;
     return [p.x, p.y + 1.2, p.z];
   }
 
   /**
    * Poses everyone from this frame's output. With teams on, soldiers wear
-   * their team's uniform.
+   * their team's uniform. Seen from `viewer` (the camera), each is drawn at
+   * its distance's level (`SOLDIER_LEVELS`), that distance divided by
+   * `zoom` (a scope's magnification); with no viewer, all in full.
    */
-  update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS): void {
+  update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS, viewer: Vec3 | null = null, zoom = 1): void {
     const model = soldierModel();
     if (!model) {
       // Soldiers are built once their model is in (`prepare` fetches it).
@@ -283,6 +458,7 @@ export class PlayersView {
       return;
     }
     const seen = new Set<PlayerId>();
+    this.#far.begin();
     for (const p of players) {
       seen.add(p.id);
       let soldier = this.#soldiers.get(p.id);
@@ -303,17 +479,35 @@ export class PlayersView {
         const gun = this.#guns.mesh(p.weapon.id);
         if (gun) soldier.hold(p.weapon.id, gun);
       }
+      const level = forced ?? (viewer && hasDistanceDetail() ? levelAt(Math.hypot(p.position[0] - viewer[0], p.position[1] - viewer[1], p.position[2] - viewer[2]) / Math.max(1, zoom), this.#levels.get(p.id)) : NEAR);
+      this.#levels.set(p.id, level);
       const wasAlive = this.#alive.get(p.id) ?? p.alive;
-      if (wasAlive && !p.alive) {
+      // Far away, a soldier who falls is simply gone: a ragdoll there would be a few pixels.
+      if (wasAlive && !p.alive && level !== FAR) {
         soldier.update(p, 0);
         const rag = new Ragdoll(soldier, p.velocity, this.#lastPush.get(p.id) ?? [0, 0, 0], this.#world);
         this.#ragdolls.push(rag);
         this.#root.add(rag.root);
       }
       this.#alive.set(p.id, p.alive);
-      soldier.root.visible = p.alive;
-      if (p.alive) soldier.update(p, dt);
+      soldier.root.visible = p.alive && level !== FAR;
+      if (!p.alive) continue;
+      // The time since this soldier was last posed, so a pose that waited catches up (no more than a moment of it).
+      const unposed = Math.min(0.5, (this.#unposed.get(p.id) ?? 0) + dt);
+      // Mid-range soldiers take turns, so each frame poses about a third of them.
+      const pose = level === NEAR || (level === MID && (this.#frame + hashId(p.id)) % SOLDIER_LEVELS.midEvery === 0);
+      if (pose) {
+        soldier.update(p, unposed);
+        this.#unposed.set(p.id, 0);
+      } else {
+        soldier.place(p);
+        this.#unposed.set(p.id, unposed);
+      }
+      soldier.castShadows(level === NEAR);
+      if (level === FAR) this.#far.add(model, look, p);
     }
+    this.#far.end();
+    this.#frame++;
     for (const [id, soldier] of this.#soldiers) {
       if (seen.has(id)) continue;
       soldier.root.removeFromParent();
@@ -321,6 +515,8 @@ export class PlayersView {
       this.#soldiers.delete(id);
       this.#looks.delete(id);
       this.#alive.delete(id);
+      this.#levels.delete(id);
+      this.#unposed.delete(id);
     }
     for (let i = this.#ragdolls.length - 1; i >= 0; i--) {
       const rag = this.#ragdolls[i]!;
@@ -335,6 +531,7 @@ export class PlayersView {
     for (const s of this.#soldiers.values()) s.dispose();
     for (const s of this.#samples) s.dispose();
     this.#guns?.dispose();
+    this.#far.dispose();
     this.#root.removeFromParent();
   }
 }

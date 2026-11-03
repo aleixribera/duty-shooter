@@ -66,6 +66,10 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
 - `?bench` flies the benchmark path and reports frame times, draw calls and triangles.
+- `?soldiers=near|mid|far` draws every soldier at that level whatever its distance (full, cheap animated, or the far stand-in), to look at a level up close.
+- `?lod=off` draws a large map without its distance detail (soldier levels, far ground in blocks, far surfaces), to measure what that detail saves.
+- `?seed=<n>` plays every Local bots match on the same spawns and circles.
+- `?stats` writes each second's mean draw calls and triangles and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
 - *dev* `?botmap=crash` selects Crash in Bot Match when it opens.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.

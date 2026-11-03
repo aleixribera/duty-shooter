@@ -404,6 +404,18 @@ export class Soldier {
     if (gun) this.#gunMount.add(gun);
   }
 
+  /** Moves the soldier to where `p` stands and turns it their way, leaving the pose as it was (a soldier posed less often than drawn). */
+  place(p: PlayerOutput): void {
+    this.root.position.set(p.position[0], p.position[1], p.position[2]);
+    this.root.rotation.y = p.yaw;
+  }
+
+  /** Whether the body and the gun in hand cast into the sun's shadow map. */
+  castShadows(on: boolean): void {
+    if (this.#body) this.#body.castShadow = on;
+    if (this.#gun) this.#gun.castShadow = on;
+  }
+
   update(p: PlayerOutput, dt: number): void {
     const b = this.#bones;
     // Below, joints only set what their own pose moves: a clip's turns have to be gone first.

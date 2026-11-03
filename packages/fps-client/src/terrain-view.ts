@@ -13,8 +13,10 @@ import {
   UnsignedByteType,
   type Material,
 } from 'three/webgpu';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh, type TerrainMesh } from './surfaces';
 import { seabedMaterial, terrainMaterial } from './surface-materials';
+import { hasDistanceDetail } from './detail';
 
 /** The coarsest step: every chunk has it from the start, so nothing is ever a hole. */
 const COARSEST = 8;
@@ -28,6 +30,27 @@ const TELEPORT = 64;
 const SEABED = -5.5;
 /** How far the sea and seabed reach past the ground (m). */
 const SEA_REACH = 3000;
+
+/**
+ * Chunks a side of a block (ticket 10). Out where every chunk of a block is at
+ * `BLOCK_STEP` or coarser (a couple of hundred metres off), the block draws
+ * them as one mesh: one call where there were sixteen, the same triangles.
+ */
+export const TERRAIN_BLOCK = 4;
+/** The finest step a block is drawn whole at. */
+const BLOCK_STEP = 4;
+
+interface Block {
+  readonly chunks: readonly Chunk[];
+  readonly mesh: Mesh;
+  /** The steps its mesh was built from, or null before it was. */
+  built: string | null;
+}
+
+export interface TerrainViewOptions {
+  /** Whether far chunks are drawn in blocks (the default); off, every chunk draws on its own. */
+  readonly blocks?: boolean;
+}
 
 interface Chunk {
   readonly x: number;
@@ -59,8 +82,11 @@ export class TerrainView {
   #lookedFrom: Vec3 | null = null;
   /** Chunks waiting for another step, nearest first: [chunk, step]. */
   #queue: (readonly [Chunk, number])[] = [];
+  readonly #blocks: Block[] = [];
+  /** Whether a chunk changed since the blocks were last arranged. */
+  #changed = true;
 
-  constructor(data: TerrainData, colors: readonly number[], water: Material) {
+  constructor(data: TerrainData, colors: readonly number[], water: Material, options: TerrainViewOptions = {}) {
     this.#data = data;
     const t = new DataTexture(terrainColorBytes(data, colors), data.columns, data.rows, RGBAFormat, UnsignedByteType);
     t.colorSpace = SRGBColorSpace;
@@ -79,12 +105,29 @@ export class TerrainView {
       for (let x = 0; x < columns; x++) {
         if (this.#drowned(x, z)) continue;
         const mesh = new Mesh(geometry(terrainChunkMesh(data, x, z, COARSEST)), material);
+        mesh.name = 'ground';
         // The ground takes the sun's shadow but casts none: the shadow map reaches 45 m, and a low sun would have every hill redrawn into it.
         mesh.receiveShadow = true;
         mesh.castShadow = false;
         const x0 = data.origin[0] + x * span;
         const z0 = data.origin[1] + z * span;
         this.#chunks.push({ x, z, mesh, step: COARSEST, x0, x1: Math.min(x0 + span, data.origin[0] + width), z0, z1: Math.min(z0 + span, data.origin[1] + depth) });
+        this.root.add(mesh);
+      }
+    }
+    if (options.blocks ?? hasDistanceDetail()) {
+      const groups = new Map<string, Chunk[]>();
+      for (const chunk of this.#chunks) {
+        const key = `${Math.floor(chunk.x / TERRAIN_BLOCK)},${Math.floor(chunk.z / TERRAIN_BLOCK)}`;
+        groups.set(key, [...(groups.get(key) ?? []), chunk]);
+      }
+      for (const chunks of groups.values()) {
+        const mesh = new Mesh(new BufferGeometry(), material);
+        mesh.name = 'ground';
+        mesh.receiveShadow = true;
+        mesh.castShadow = false;
+        mesh.visible = false;
+        this.#blocks.push({ chunks, mesh, built: null });
         this.root.add(mesh);
       }
     }
@@ -126,6 +169,27 @@ export class TerrainView {
       chunk.mesh.geometry.dispose();
       chunk.mesh.geometry = geometry(terrainChunkMesh(this.#data, chunk.x, chunk.z, step));
       chunk.step = step;
+      this.#changed = true;
+    }
+    if (this.#changed) this.#arrange();
+  }
+
+  /** Draws each block whole when all its chunks are coarse enough, rebuilt from them when their steps changed; else chunk by chunk. */
+  #arrange(): void {
+    this.#changed = false;
+    for (const block of this.#blocks) {
+      const whole = block.chunks.every((c) => c.step >= BLOCK_STEP);
+      if (whole) {
+        const steps = block.chunks.map((c) => c.step).join();
+        if (block.built !== steps) {
+          block.mesh.geometry.dispose();
+          block.mesh.geometry = mergeGeometries(block.chunks.map((c) => c.mesh.geometry)) ?? new BufferGeometry();
+          block.mesh.geometry.computeBoundingSphere();
+          block.built = steps;
+        }
+      }
+      block.mesh.visible = whole;
+      for (const c of block.chunks) c.mesh.visible = !whole;
     }
   }
 
@@ -153,5 +217,6 @@ export class TerrainView {
   /** Frees what the scene's own traversal doesn't. */
   dispose(): void {
     this.#colors.dispose();
+    for (const block of this.#blocks) block.mesh.geometry.dispose();
   }
 }
