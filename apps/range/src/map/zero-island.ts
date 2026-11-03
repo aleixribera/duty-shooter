@@ -3,7 +3,7 @@ import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-sh
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
-import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
+import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
 
 /** The one low sun, out over the sea to the south-west. */
 export const ZERO_ISLAND_LIGHT: Lighting = {
@@ -296,6 +296,7 @@ export function buildZeroIsland(): MapDefinition {
     hiddenSolids: b.hidden,
     terrain: ground.data,
     terrainColors: TERRAIN_COLORS,
+    terrainLayers: TERRAIN_LAYERS,
     places: REGION_IDS.map((id) => ({ name: CORES[id].name, x: CORES[id].x, z: CORES[id].z })),
     finishes: FINISHES,
     looks: b.looks,

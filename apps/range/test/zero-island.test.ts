@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { INTERMISSION, STATS, TICK_SECONDS, Terrain, createWorld, raycastWorld, usercmd, viewDirection, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
-import { shotPose } from '@duty-shooter/fps-client/surfaces';
+import { GROUND_LAYERS, shotPose } from '@duty-shooter/fps-client/surfaces';
 import { createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, LOBBY_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
-import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt, zeroIslandGround, type RegionId } from '../src/map/zero-island-terrain';
+import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, TERRAIN_COLORS, TERRAIN_LAYERS, regionAt, zeroIslandGround, type RegionId } from '../src/map/zero-island-terrain';
 
 const map = buildMapById('zero-island');
 const data = map.terrain!;
@@ -50,6 +50,13 @@ describe('Zero Island: the map', () => {
     const seconds = (x1 - x0) / 6.22;
     expect(seconds).toBeGreaterThan(150);
     expect(seconds).toBeLessThan(215);
+  });
+
+  it('wears a photo ground layer on every surface of its palette', () => {
+    const names = GROUND_LAYERS.map((l) => l.name);
+    expect(TERRAIN_LAYERS).toHaveLength(TERRAIN_COLORS.length);
+    for (const layer of TERRAIN_LAYERS) expect(names).toContain(layer);
+    expect(buildMapById('zero-island').terrainLayers).toEqual(TERRAIN_LAYERS);
   });
 });
 

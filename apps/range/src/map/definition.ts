@@ -51,6 +51,8 @@ export interface MapDefinition {
   readonly terrain?: TerrainData;
   /** What each entry of the terrain's palette looks like (sRGB), for a map with terrain. */
   readonly terrainColors?: readonly number[];
+  /** The ground layer (a photo, see `GROUND_LAYERS` in fps-client) each palette entry wears; without it the ground is its colours. */
+  readonly terrainLayers?: readonly string[];
   /** The named places the island map letters, for a map that has one (Zero Island). */
   readonly places?: readonly { readonly name: string; readonly x: number; readonly z: number }[];
   /** The map's named finishes (colour and pattern), beside the per-material defaults. */

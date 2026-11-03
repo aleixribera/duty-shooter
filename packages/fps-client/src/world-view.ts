@@ -38,6 +38,7 @@ import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
+import { groundLoaded } from './ground-layers';
 import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
@@ -82,6 +83,8 @@ export interface WorldContent {
   /** The ground, for a map on terrain (see Terrain), and the sRGB colour of each palette entry. */
   readonly terrain?: TerrainData | null;
   readonly terrainColors?: readonly number[];
+  /** The ground layer each palette entry wears (see `GROUND_LAYERS`), for ground that wears photos. */
+  readonly terrainLayers?: readonly string[];
   /** The named places the island map letters; a map with them and terrain gets the Battle Royale's Ring and island map. */
   readonly places?: readonly { readonly name: string; readonly x: number; readonly z: number }[];
   /** The end-of-match nuke's ground zero, siren and the camera's shot of it, if the map has one (see Nuke). */
@@ -392,7 +395,7 @@ export class WorldView {
       if (content.horizon.town) this.#root.add(distantTown(content.horizon.town));
     }
     if (content.terrain) {
-      this.terrain = new TerrainView(content.terrain, content.terrainColors ?? [0x808080], surfaceMaterial({ family: 'glass', color: 0x2a5d6e, accent: 0x2a5d6e }, baked));
+      this.terrain = new TerrainView(content.terrain, content.terrainColors ?? [0x808080], surfaceMaterial({ family: 'glass', color: 0x2a5d6e, accent: 0x2a5d6e }, baked), { layers: content.terrainLayers ?? null });
       this.#root.add(this.terrain.root);
     }
     if (content.models) {
@@ -421,7 +424,7 @@ export class WorldView {
       this.train = new Train(this.#root, content.train, layout.finishes);
       this.modelsIn = Promise.all([this.modelsIn, this.train.modelsIn]).then(() => undefined);
     }
-    this.modelsIn = Promise.all([this.modelsIn, tilesLoaded()]).then(() => undefined);
+    this.modelsIn = Promise.all([this.modelsIn, tilesLoaded(), content.terrainLayers ? groundLoaded() : null]).then(() => undefined);
     void bake.then((file) => {
       if (!file) return;
       if (file.key !== layout.key) {

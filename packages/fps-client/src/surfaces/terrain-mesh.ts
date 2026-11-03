@@ -133,17 +133,22 @@ export function terrainChunkMesh(data: TerrainData, chunkX: number, chunkZ: numb
   return { positions, normals, index };
 }
 
-/** The ground's colour per cell, as RGBA bytes row by row: each cell its palette entry's sRGB colour. */
-export function terrainColorBytes(data: TerrainData, colors: readonly number[]): Uint8Array {
+/**
+ * The ground's colour per cell, as RGBA bytes row by row: each cell its palette
+ * entry's sRGB colour, and in alpha the ground layer it wears (`layers`, one per
+ * palette entry), or 255 for none.
+ */
+export function terrainColorBytes(data: TerrainData, colors: readonly number[], layers: readonly number[] | null = null): Uint8Array {
   const count = data.columns * data.rows;
   const bytes = new Uint8Array(count * 4);
   const materials = data.materials;
   for (let c = 0; c < count; c++) {
-    const color = colors[materials ? materials[c]! : 0] ?? colors[0]!;
+    const entry = materials ? materials[c]! : 0;
+    const color = colors[entry] ?? colors[0]!;
     bytes[c * 4] = color >> 16;
     bytes[c * 4 + 1] = (color >> 8) & 0xff;
     bytes[c * 4 + 2] = color & 0xff;
-    bytes[c * 4 + 3] = 255;
+    bytes[c * 4 + 3] = layers ? (layers[entry] ?? layers[0]!) : 255;
   }
   return bytes;
 }

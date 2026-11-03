@@ -126,6 +126,14 @@ describe('the colours of the ground', () => {
     expect(bytes.length).toBe(100 * 70 * 4);
     expect([...bytes.subarray(0, 4)]).toEqual([0xc0, 0xff, 0xee, 255]);
   });
+
+  it("carries each cell's ground layer in alpha, when the map names them", () => {
+    const materials = new Uint8Array(100 * 70).fill(1);
+    materials[5] = 0;
+    const bytes = terrainColorBytes({ ...ground(), materials }, [0x112233, 0xc0ffee], [7, 2]);
+    expect(bytes[3]).toBe(2);
+    expect(bytes[5 * 4 + 3]).toBe(7);
+  });
 });
 
 describe('the sea', () => {

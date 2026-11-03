@@ -21,6 +21,8 @@ export { SCATTER_FILE, SCATTER_FINISHES, scatterModels, scatterPlacements } from
 export type { Scatter } from './scatter';
 export { TERRAIN_CHUNK, chunkStep, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh } from './terrain-mesh';
 export type { TerrainMesh } from './terrain-mesh';
+export { GROUND_LAYER_SIZE, GROUND_LAYERS } from './ground-layers-data';
+export type { GroundLayer } from './ground-layers-data';
 export { DECORATION_TOLERANCE, DEFAULT_FINISHES, defaultFinishKey } from './types';
 export type { Decoration, EndingShot, Family, Finish, FreightTrain, Look, MapModels, ModelPlacement, SurfaceSpec } from './types';
 

@@ -17,6 +17,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh, type TerrainMesh } from './surfaces';
 import { seabedMaterial, terrainMaterial } from './surface-materials';
 import { hasDistanceDetail } from './detail';
+import { groundLayerIndex } from './ground-layers';
 
 /** The coarsest step: every chunk has it from the start, so nothing is ever a hole. */
 const COARSEST = 8;
@@ -50,6 +51,8 @@ interface Block {
 export interface TerrainViewOptions {
   /** Whether far chunks are drawn in blocks (the default); off, every chunk draws on its own. */
   readonly blocks?: boolean;
+  /** The ground layer each palette entry wears (names from `GROUND_LAYERS`), or nothing for plain colour. */
+  readonly layers?: readonly string[] | null;
 }
 
 interface Chunk {
@@ -88,7 +91,8 @@ export class TerrainView {
 
   constructor(data: TerrainData, colors: readonly number[], water: Material, options: TerrainViewOptions = {}) {
     this.#data = data;
-    const t = new DataTexture(terrainColorBytes(data, colors), data.columns, data.rows, RGBAFormat, UnsignedByteType);
+    const layers = options.layers ? options.layers.map(groundLayerIndex) : null;
+    const t = new DataTexture(terrainColorBytes(data, colors, layers), data.columns, data.rows, RGBAFormat, UnsignedByteType);
     t.colorSpace = SRGBColorSpace;
     t.magFilter = LinearFilter;
     t.minFilter = LinearMipmapLinearFilter;
@@ -98,7 +102,7 @@ export class TerrainView {
     this.#colors = t;
     const width = data.columns * data.cell;
     const depth = data.rows * data.cell;
-    const material = terrainMaterial({ texture: t, origin: data.origin, size: [width, depth] });
+    const material = terrainMaterial({ texture: t, origin: data.origin, size: [width, depth], layered: layers !== null });
     const { columns, rows } = terrainChunkCount(data);
     const span = TERRAIN_CHUNK * data.cell;
     for (let z = 0; z < rows; z++) {

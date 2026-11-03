@@ -286,28 +286,30 @@ export const BRIDGES: readonly Bridge[] = [
 ];
 const [dustHarbor, zeroHarbor, neonHarbor, zeroNeon, jungleNeon] = BRIDGES as [Bridge, Bridge, Bridge, Bridge, Bridge];
 
-/** The surfaces the ground wears; `TERRAIN_COLORS` draws each and its material sounds it. */
+/** The surfaces the ground wears: how its material sounds, the colour `TERRAIN_COLORS` tints it, and the photo layer it wears (`TERRAIN_LAYERS`). */
 const SURFACES = {
-  meadow: ['grass', 0x6d7a45],
-  beach: ['sand', 0xcbb389],
-  dust: ['sand', 0xc58a4c],
-  rock: ['dirt', 0x8e5a3a],
-  snow: ['dirt', 0xdfe6ee],
-  ice: ['gravel', 0x8e9eae],
-  jungle: ['grass', 0x2f5a3b],
-  ash: ['dirt', 0x7a7063],
-  city: ['asphalt', 0x5c5b66],
-  dock: ['concrete', 0x77766f],
-  ballast: ['gravel', 0x6b6358],
-  road: ['asphalt', 0x45454a],
-  bed: ['dirt', 0x6d6a55],
-} as const satisfies Record<string, readonly [Material, number]>;
+  meadow: ['grass', 0x6d7a45, 'meadow'],
+  beach: ['sand', 0xcbb389, 'beach'],
+  dust: ['sand', 0xb48656, 'dust'],
+  rock: ['dirt', 0x8e5a3a, 'rock'],
+  snow: ['dirt', 0xdfe6ee, 'snow'],
+  ice: ['gravel', 0x8e9eae, 'ice'],
+  jungle: ['grass', 0x2f5a3b, 'jungle'],
+  ash: ['dirt', 0x7a7063, 'ash'],
+  city: ['asphalt', 0x5c5b66, 'asphalt'],
+  dock: ['concrete', 0x77766f, 'dock'],
+  ballast: ['gravel', 0x6b6358, 'ballast'],
+  road: ['asphalt', 0x45454a, 'asphalt'],
+  bed: ['dirt', 0x6d6a55, 'bed'],
+} as const satisfies Record<string, readonly [Material, number, string]>;
 type Surface = keyof typeof SURFACES;
 const SURFACE_NAMES = Object.keys(SURFACES) as Surface[];
 const surfaceIndex = (s: Surface) => SURFACE_NAMES.indexOf(s);
 
 /** What each palette entry looks like (an sRGB colour), in the terrain's palette order. */
 export const TERRAIN_COLORS: readonly number[] = SURFACE_NAMES.map((s) => SURFACES[s][1]);
+/** The photo layer each palette entry wears, in the same order. */
+export const TERRAIN_LAYERS: readonly string[] = SURFACE_NAMES.map((s) => SURFACES[s][2]);
 
 const RING_RADIUS = 168;
 /** The ring round the crater, from the factory on the rim round to it again. */

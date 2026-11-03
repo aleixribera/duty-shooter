@@ -2,6 +2,11 @@ import type { Vec3 } from '@duty-shooter/fps-core';
 import {
   abs,
   attribute,
+  dFdx,
+  dFdy,
+  int,
+  select,
+  uniformArray,
   distance,
   cameraPosition,
   clamp,
@@ -58,6 +63,7 @@ import {
 import type { Node } from 'three/webgpu';
 import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
 import { roomColor } from './surface-room';
+import { CLIFF_LAYER, GROUND_LAYERS, groundLayerIndex, groundTextures } from './ground-layers';
 import { atlasAt, detailNormal, FAMILY_DEPTH, FAMILY_TILE, gradients, HEX_FAMILIES, hexRelief, noiseAt, parallax, reliefAt } from './surface-tiles';
 
 /**
@@ -535,6 +541,8 @@ export interface TerrainColors {
   readonly texture: Texture;
   readonly origin: readonly [x: number, z: number];
   readonly size: readonly [x: number, z: number];
+  /** Whether the map's alpha holds each cell's ground layer (see `GROUND_LAYERS`), so the ground wears its photos. */
+  readonly layered?: boolean;
 }
 
 /** Rock showing through wherever ground is too steep to hold anything. */
@@ -546,12 +554,14 @@ const BARE_ROCK = 0x6e645a;
  */
 class OpenGroundModel extends LightingModel {
   readonly #albedo: N3;
+  readonly #normal: N3;
   readonly #mask = float(1).toVar('sunMask');
   readonly #point = vec3(0, 0, 0).toVar('pointLight');
 
-  constructor(albedo: N3) {
+  constructor(albedo: N3, normal: N3 = normalWorld as unknown as N3) {
     super();
     this.#albedo = albedo;
+    this.#normal = normal;
   }
 
   override direct(input: Parameters<LightingModel['direct']>[0]): void {
@@ -569,7 +579,7 @@ class OpenGroundModel extends LightingModel {
 
   override finish(builder: NodeBuilder): void {
     const context = builder.context as unknown as { outgoingLight: N3 };
-    const n = normalWorld as unknown as N3;
+    const n = this.#normal;
     const up = n.y.mul(0.5).add(0.5);
     const sky = mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up);
     const sun = sunColor.mul(max(dot(n, sunDir), float(0)).mul(this.#mask));
@@ -586,9 +596,79 @@ export function terrainMaterial(colors: TerrainColors): NodeMaterial {
   const steep = smoothstep(float(0.66), float(0.8), (normalWorld as unknown as N3).y);
   const coarse = mx_noise_float(positionWorld.xz.mul(0.09) as never) as unknown as N;
   const fine = mx_noise_float(positionWorld.xz.mul(0.7) as never) as unknown as N;
+  if (colors.layered) return layeredGround(colors, paint, steep, coarse);
   const a = mix(color(BARE_ROCK) as unknown as N3, paint, steep).mul(coarse.mul(0.14).add(fine.mul(0.08)).add(1)) as N3;
   const m = new SurfaceMaterial(() => new OpenGroundModel(a));
   m.colorNode = vec4(a, 1);
+  return m;
+}
+
+/** How far (m) the edge between two cells' layers wanders, so it follows no grid. */
+const LAYER_WANDER = 1.4;
+/** How strongly the photos' relief bends the light: the low sun rakes across it. */
+const GROUND_RELIEF = 0.9;
+/** Big soft patches over every layer (m a cycle), and how much they lighten and darken. */
+const GROUND_PATCH = 23;
+const GROUND_PATCH_STRENGTH = 0.22;
+
+/**
+ * Ground that wears real surfaces (ticket 29): each cell names a layer of the
+ * photo strips (`GROUND_LAYERS`), read through hexagons so no grid shows over
+ * a field, tinted so its mean is the cell's palette colour. The edge between
+ * layers wanders with noise, the palette's own blend carries the tint across
+ * it, and steep ground shows the cliff layer from the side (triplanar), so no
+ * slope looks stretched.
+ */
+function layeredGround(colors: TerrainColors, paint: N3, flat: N, coarse: N): NodeMaterial {
+  const [ox, oz] = colors.origin;
+  const [sx, sz] = colors.size;
+  const { color: photos, relief } = groundTextures();
+  const metres = uniformArray(GROUND_LAYERS.map((l) => l.metres), 'float');
+  const means = uniformArray(GROUND_LAYERS.map((l) => new Vector3(...l.mean)), 'vec3');
+  const cliff = groundLayerIndex(CLIFF_LAYER);
+  const p = positionWorld.xz as unknown as N2;
+  const wander = vec2(noiseAt(p, 0.3, 'r'), noiseAt(p, 0.3, 'g')).sub(0.5).mul(LAYER_WANDER * 2) as unknown as N2;
+  const cell = floor(p.add(wander).sub(vec2(ox, oz))).add(0.5) as N2;
+  const layer = (texture(colors.texture, cell.div(vec2(sx, sz)) as never).level(float(0)) as unknown as N4).a.mul(255).round().toInt().toVar('groundLayer');
+  const size = (metres.element(layer) as unknown as N).toVar('groundMetres');
+  const st = p.div(size) as N2;
+  const dx = (dFdx(p as never) as unknown as N2).div(size) as N2;
+  const dy = (dFdy(p as never) as unknown as N2).div(size) as N2;
+  // Hex tiling (game-textures' hexSample): three places in the tile per pixel, blended where the hexagons meet.
+  const cells = st.mul(1.6 * 3.4641016) as N2;
+  const skew = vec2(cells.x, cells.x.mul(-0.57735027).add(cells.y.mul(1.15470054))) as N2;
+  const base = floor(skew) as N2;
+  const f = fract(skew) as N2;
+  const z = float(1).sub(f.x).sub(f.y) as N;
+  const low = z.greaterThan(0);
+  const corner = (a: Node, b: Node) => select(low, a, b) as unknown as N2;
+  const ca = corner(base, base.add(vec2(1, 1)));
+  const cb = corner(base.add(vec2(0, 1)), base.add(vec2(1, 0)));
+  const cc = corner(base.add(vec2(1, 0)), base.add(vec2(0, 1)));
+  const raw = pow(select(low, vec3(z, f.y, f.x), vec3(z.negate(), float(1).sub(f.y), float(1).sub(f.x))) as unknown as N3, vec3(7, 7, 7)) as N3;
+  const w = raw.div(raw.x.add(raw.y).add(raw.z)).toVar('groundHex') as N3;
+  const shift = (c: N2) => fract(sin(vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3)))).mul(43758.5453)) as unknown as N2;
+  const read = (map: Texture, c: N2) => (texture(map, st.add(shift(c)) as never).depth(layer).grad(dx as never, dy as never) as unknown as N4).rgb as N3;
+  const hex = (map: Texture) => read(map, ca).mul(w.x).add(read(map, cb).mul(w.y)).add(read(map, cc).mul(w.z)) as N3;
+  const photo = hex(photos);
+  const bump = hex(relief);
+  // The photo's own detail over the cell's palette colour: its mean divided out.
+  const tint = clamp(paint.div(max(means.element(layer) as unknown as N3, vec3(0.01, 0.01, 0.01))), vec3(0.15, 0.15, 0.15), vec3(5, 5, 5)) as N3;
+  const patch = noiseAt(p, 1 / GROUND_PATCH, 'r').sub(0.5).mul(GROUND_PATCH_STRENGTH * 2).add(1).mul(coarse.mul(0.08).add(1)) as N;
+  const g = normalWorld as unknown as N3;
+  // The photo's +y runs up its picture, which is the world's -z.
+  const lean = bump.xy.mul(2).sub(1).mul(GROUND_RELIEF) as N2;
+  // Steep ground: the cliff layer, read from the side along whichever way the slope faces (two reads, no hexagons: a cliff's strata run level anyway).
+  const q = positionWorld.div(GROUND_LAYERS[cliff]!.metres) as unknown as N3;
+  const side = (uvs: N2) => (texture(photos, uvs as never).depth(int(cliff)) as unknown as N4).rgb as N3;
+  const facing = pow(abs(normalize(vec2(g.x, g.z).add(0.0001)) as unknown as N2) as unknown as N2, vec2(4, 4)) as N2;
+  const across = facing.div(facing.x.add(facing.y)) as N2;
+  const rock = side(vec2(q.z, q.y.negate()) as N2).mul(across.x).add(side(vec2(q.x, q.y.negate()) as N2).mul(across.y)) as N3;
+  const rockTint = (color(BARE_ROCK) as unknown as N3).div(vec3(...GROUND_LAYERS[cliff]!.mean)) as N3;
+  const albedo = mix(rock.mul(rockTint), photo.mul(tint), flat).mul(patch).toVar('groundAlbedo') as N3;
+  const normal = normalize(g.add(vec3(lean.x, float(0), lean.y.negate()).mul(flat))).toVar('groundNormal') as N3;
+  const m = new SurfaceMaterial(() => new OpenGroundModel(albedo, normal));
+  m.colorNode = vec4(albedo, 1);
   return m;
 }
 
