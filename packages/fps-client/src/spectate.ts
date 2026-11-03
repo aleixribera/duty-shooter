@@ -73,6 +73,8 @@ export class Spectator {
     if (mode === 'charge') return self ? living.filter((p) => p.team === self.team) : [];
     if (mode !== 'battle-royale') return [];
     const mates = self ? living.filter((p) => p.team === self.team) : [];
+    // While the Squad fights, only the Squad: the server sends no one else's surroundings (ticket 58).
+    if (mates.length > 0) return [...mates.filter((p) => !p.downed), ...mates.filter((p) => p.downed)];
     const order = [...mates.filter((p) => !p.downed), ...mates.filter((p) => p.downed), ...living.filter((p) => p.id === view.killer), ...living.filter((p) => !p.downed && !p.far), ...living.filter((p) => !p.far), ...living];
     return [...new Set(order)];
   }

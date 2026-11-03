@@ -1603,7 +1603,11 @@ export class GameServer {
     if (own?.alive || client.watch === null || client.watch === client.id) return own;
     const watched = this.#seatIndex.get(client.watch);
     if (!watched?.alive) return own;
-    if (own && teamMode(this.#mode.id) && watched.team !== own.team) return own;
+    if (own && watched.team !== own.team) {
+      if (teamMode(this.#mode.id)) return own;
+      // A Battle Royale: while their Squad still fights, only the Squad (ticket 58).
+      if (this.#mode.id === 'battle-royale' && this.#last.players.some((p) => p.alive && p.team === own.team)) return own;
+    }
     return watched;
   }
 
