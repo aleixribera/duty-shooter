@@ -3,6 +3,8 @@ import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-sh
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
+import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
+import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
 
@@ -24,6 +26,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   block: { family: 'concrete', color: 0x9b9b98, accent: 0x7c7c7a },
   // One per Region: a mesh per finish, so a Region out of view is culled whole.
   ...Object.fromEntries([...REGION_IDS, 'sea'].map((id) => [`cover-${id}`, { family: 'concrete', color: 0x8f8f8c, accent: 0x737371 } satisfies Finish])),
+  // A Region's built pieces (ticket 17): drawn by its kit, so these faces are never seen.
+  ...Object.fromEntries(REGION_IDS.map((id) => [`built-${id}`, { family: 'concrete', color: 0x8f8f8c, accent: 0x737371 } satisfies Finish])),
 };
 
 /** Boundary clip reaches this high: past any jump, and past the summit. */
@@ -39,15 +43,8 @@ type Block = readonly [dx: number, dz: number, width: number, depth: number, hei
 
 /** Enough grey to read each Core's scale, placed as the art places its landmarks. */
 const BLOCKS: Readonly<Record<RegionId, readonly Block[]>> = {
-  'ground-zero': [
-    // The core, its ring of blast barriers, and the bunkers.
-    [0, 0, 9, 9, 11],
-    ...[[24, 0], [17, 17], [0, 24], [-17, 17], [-24, 0], [-17, -17], [0, -24], [17, -17]].map(([x, z], i): Block => [x!, z!, 7, 1, 1.3, ((i + 2) * Math.PI) / 4]),
-    [38, 14, 10, 7, 3],
-    [-36, 20, 10, 7, 3],
-    [-20, -38, 7, 10, 3],
-    [24, -36, 7, 10, 3],
-  ],
+  // Built for real (ticket 17): see GROUND_ZERO.
+  'ground-zero': [],
   'the-dustlands': [
     // The crashed jet, its wings, and the shacks and wrecks round it.
     [0, 0, 34, 5, 4.5, 0.5],
@@ -136,7 +133,35 @@ function coreBlocks(b: Builder, terrain: Terrain, core: Core, blocks: readonly B
   }
 }
 
-/** Stands the generator's grey solids on the ground, or on a bridge's deck; returns the rocks and trunks, for the kit to dress. */
+/**
+ * Ground Zero's kit (ticket 17): the reactor, bunkers, pipes, ruins, factory
+ * and rail hub of its plan, the ring of blast barriers round the reactor, and
+ * the models the cover pass's pieces there wear.
+ */
+const GROUND_ZERO: RegionKit = {
+  region: 'ground-zero',
+  url: 'models/ground-zero.glb',
+  pieces: GZ_PIECES,
+  pads: GZ_PADS,
+  placed: GZ_PLACED,
+  dress: GZ_KIT,
+  extra: Array.from({ length: GZ_BARRIERS.rows }, (_, k) => {
+    const bearing = Math.PI / 8 + (k * Math.PI) / 4;
+    return {
+      kind: 'wall',
+      x: GZ.x + GZ_BARRIERS.radius * Math.cos(bearing),
+      z: GZ.z - GZ_BARRIERS.radius * Math.sin(bearing),
+      width: GZ_BARRIERS.length,
+      depth: GZ_BARRIERS.thick,
+      height: GZ_BARRIERS.height,
+      yaw: bearing + Math.PI / 2,
+    };
+  }),
+};
+/** The Regions built so far, each with its kit. */
+const KITS: readonly RegionKit[] = [GROUND_ZERO];
+
+/** Stands the generator's grey solids on the ground, or on a bridge's deck; returns them all, for the kits to dress. */
 function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): DressedPiece[] {
   const dressed: DressedPiece[] = [];
   const dresser = new Dresser();
@@ -145,15 +170,16 @@ function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): Dre
     const { low, high } = deck === undefined ? footprint(terrain, x, z, width, depth, yaw) : { low: deck + 0.6, high: deck };
     const bottom = low - 0.6;
     const top = high + height;
-    // A rock or trunk is the boxes fitted inside the model it wears (ticket 63); anything else, its whole box.
+    // A rock or trunk, or a piece a Region's kit dresses, is the boxes fitted inside the model it wears (ticket 63); anything else, its whole box.
     const dress = dresser.dress(piece);
-    const fitted = dress ? fittedSolids(dress, x, bottom, z, width, top - bottom, depth) : [];
+    const wear = dress ? { dress, foot: bottom, height: top - bottom } : kitWear(KITS, terrain, { kind, region, x, z, yaw, bottom, top, ground: low });
+    const fitted = wear ? fittedSolids(wear.dress, x, wear.foot, z, width, wear.height, depth) : [];
     const boxes = fitted.length ? fitted : [{ center: [x, (bottom + top) / 2, z] as [number, number, number], size: [width, top - bottom, depth] as [number, number, number], yaw }];
     const solids = boxes.map((box) => {
       b.turned(box.center, box.size, box.yaw, material, `cover-${region}`);
       return b.solids.length - 1;
     });
-    if (kind === 'rock' || kind === 'trunk') dressed.push({ kind, region, solids, dress, x, z, width, depth, yaw, bottom, top, ground: low });
+    dressed.push({ kind, region, solids, dress, x, z, width, depth, yaw, bottom, top, ground: low });
   }
   return dressed;
 }
@@ -265,6 +291,7 @@ export function buildZeroIsland(): MapDefinition {
   const outline = zeroIslandBoundary();
   const b = new Builder();
   for (const id of REGION_IDS) coreBlocks(b, terrain, CORES[id], BLOCKS[id]);
+  const kits = KITS.map((kit) => ({ kit, ...standPieces(b, terrain, kit) }));
   harbor(b, terrain);
   const inside = (x: number, z: number) => insidePolygon(outline, x, z);
   const routes = [
@@ -291,7 +318,9 @@ export function buildZeroIsland(): MapDefinition {
   );
   bridges(b, terrain);
   boundary(b, outline);
-  const { plants, soft } = placePlants({ terrain, data: ground.data, inside, routes, spots: clear, runway, built: b.solids.map((s) => [s.min[0], s.min[2], s.max[0], s.max[2]] as const) }, dressed);
+  const { plants: grown, soft } = placePlants({ terrain, data: ground.data, inside, routes, spots: clear, runway, built: b.solids.map((s) => [s.min[0], s.min[2], s.max[0], s.max[2]] as const) }, dressed);
+  for (const { kit, kits: k, modelled } of kits) dressCover(terrain, kit, k, dressed, modelled);
+  const plants = { ...grown, kinds: [...grown.kinds, ...kits.flatMap(({ kits: k }) => k.done())], modelled: [...grown.modelled, ...kits.flatMap(({ modelled }) => modelled)] };
   const at = (x: number, z: number, above: number) => terrain.heightAt(x, z) + above;
   /** A spot `from` a Core, looking back at it. */
   const lookAt = (id: RegionId, dx: number, dz: number, yaw: number, name = CORES[id].name): CameraSpot => {

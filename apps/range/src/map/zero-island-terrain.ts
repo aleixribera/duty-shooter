@@ -1,4 +1,6 @@
 import type { Material, TerrainData } from '@duty-shooter/fps-core';
+import { GZ_PADS } from './zero-island-ground-zero-plan';
+import type { Pad } from './zero-island-region';
 
 /**
  * Zero Island's ground, sculpted in code from `reference/island-map.png`:
@@ -301,6 +303,8 @@ const SURFACES = {
   ballast: ['gravel', 0x6b6358, 'ballast'],
   road: ['asphalt', 0x45454a, 'asphalt'],
   bed: ['dirt', 0x6d6a55, 'bed'],
+  // Scorched concrete, what the Regions' built pieces stand on (ticket 17).
+  slab: ['concrete', 0x8a8378, 'slab'],
 } as const satisfies Record<string, readonly [Material, number, string]>;
 type Surface = keyof typeof SURFACES;
 const SURFACE_NAMES = Object.keys(SURFACES) as Surface[];
@@ -445,6 +449,41 @@ function level(heights: Float32Array, core: Core, blend: number): void {
       heights[c] = mix(core.level, heights[c]!, k);
     }
   }
+}
+
+/** Every Region's pads (see `zero-island-region.ts`): ground levelled for what's built on it. */
+const PADS: readonly Pad[] = [...GZ_PADS];
+
+/** Metres from (x, z) to a pad's rectangle, 0 inside it. */
+function toPad(pad: Pad, x: number, z: number): number {
+  const dx = Math.max(Math.abs(x - pad.x) - pad.halfX, 0);
+  const dz = Math.max(Math.abs(z - pad.z) - pad.halfZ, 0);
+  return Math.sqrt(dx * dx + dz * dz);
+}
+
+/** Brings the ground under each pad to its level, easing back over the pad's blend. */
+function levelPads(heights: Float32Array): void {
+  for (const pad of PADS) {
+    const at = pad.level ?? heightOn(heights, pad.x, pad.z);
+    const reach = pad.blend;
+    const i0 = Math.max(0, Math.floor(pad.x - pad.halfX - reach - X0));
+    const i1 = Math.min(COLUMNS, Math.ceil(pad.x + pad.halfX + reach - X0));
+    const j0 = Math.max(0, Math.floor(pad.z - pad.halfZ - reach - Z0));
+    const j1 = Math.min(ROWS, Math.ceil(pad.z + pad.halfZ + reach - Z0));
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        const k = smooth(toPad(pad, X0 + i, Z0 + j) / reach);
+        const c = corner(i, j);
+        heights[c] = mix(at, heights[c]!, k);
+      }
+    }
+  }
+}
+
+/** The pad a cell's middle lies on that wears its own surface, if any. */
+function padSurface(x: number, z: number): Surface | null {
+  for (const pad of PADS) if (pad.surface && toPad(pad, x, z) === 0) return pad.surface;
+  return null;
 }
 
 /** How a Region's ground is folded (m): how high its ridges stand, how deep its gullies run, and how tight the folds lie. */
@@ -748,6 +787,7 @@ export function zeroIslandGround(): ZeroIslandGround {
   }
   for (const id of REGION_IDS) level(heights, CORES[id], 34);
   foldGround(heights);
+  levelPads(heights);
   const scratch = { near: new Float32Array(corners), level: new Float32Array(corners) };
   const lay = (route: Route) => {
     const line = trace(route, heights);
@@ -762,7 +802,7 @@ export function zeroIslandGround(): ZeroIslandGround {
       const c = corner(i, j);
       const a = heights[c]!;
       const steep = Math.abs(heights[c + 1]! - a) > 0.8 || Math.abs(heights[c + STRIDE]! - a) > 0.8;
-      cells[j * COLUMNS + i] = surfaceIndex(surfaceOf(x, z, a, steep, f));
+      cells[j * COLUMNS + i] = surfaceIndex(padSurface(x, z) ?? surfaceOf(x, z, a, steep, f));
     }
   }
   const trails = TRAILS.map(lay);

@@ -30,7 +30,25 @@ export const SOURCES = [
     glb: 'apps/range/public/models/vegetation.glb',
     assets: { 'rock-a': 5, 'rock-b': 5, 'rock-strata': 5, 'pine-trunk': 4, 'broadleaf-trunk': 4 },
   },
+  {
+    // Ground Zero's kit for the cover pass's pieces (ticket 17), unit models like the rocks.
+    glb: 'apps/range/public/models/ground-zero.glb',
+    // A run of T-walls is six precast sections with a slot between each: a foot and a stem apiece.
+    assets: { 'gz-blastwall': 12, 'gz-shed': 4, 'gz-slab': 4, 'gz-footing': 4, 'gz-mast': 4, 'gz-wreck': 5, 'gz-wagon': 5 },
+  },
 ];
+
+/**
+ * The Regions' built pieces (zero-island-region.ts): each piece's plan boxes,
+ * as its Blender generator read them, and its model. A box its model fills to
+ * within `TOLERANCE` stays as planned; one it doesn't (a ruin's broken top, a
+ * round pipe, a rubble heap) is replaced by up to `most` boxes (by part)
+ * fitted inside the model where that box is.
+ */
+export const PIECES = [{ glb: 'apps/range/public/models/ground-zero.glb', plan: 'tools/map/regions/ground-zero.json', most: { rubble: 6, default: 4 } }];
+
+/** How far (m) a point of a solid may stand out of its model. */
+export const TOLERANCE = 0.05;
 
 /** Columns a side of the unit footprint (1 cm apart), and of them, every `STEP`th is where the search may put a box's side. */
 const COLUMNS = 101;
@@ -119,7 +137,7 @@ export function insideAlong(tris, x, z) {
 /** Column i's x (or z): just off the grid lines, so no line runs exactly down a mesh edge. */
 const along = (i) => -0.5 + i / (COLUMNS - 1) + (i === 0 ? 1e-5 : i === COLUMNS - 1 ? -1e-5 : 3.1e-6);
 
-export function fit(tris, most) {
+export function fit(tris, most, clip = false) {
   const n = COLUMNS;
   // Each column's longest stretch inside the mesh (the others are left out, so a box stays inside).
   const lo = new Float64Array(n * n).fill(Infinity);
@@ -129,7 +147,11 @@ export function fit(tris, most) {
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
       let best = null;
-      for (const s of insideAlong(tris, along(i), along(j))) if (!best || s[1] - s[0] > best[1] - best[0]) best = s;
+      for (const raw of insideAlong(tris, along(i), along(j))) {
+        // Clipped to the unit box's height, when fitting inside a box of a piece.
+        const s = clip ? [Math.max(raw[0], 0), Math.min(raw[1], 1)] : raw;
+        if (s[1] > s[0] && (!best || s[1] - s[0] > best[1] - best[0])) best = s;
+      }
       if (!best) continue;
       lo[i * n + j] = best[0];
       hi[i * n + j] = best[1];
@@ -246,6 +268,87 @@ export function fit(tris, most) {
 
 const round = (v) => Math.round(v * 1e4) / 1e4;
 
+/** How far a point is from a triangle (Ericson, Real-Time Collision Detection 5.1.5). */
+function toTriangle(p, t) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const [a, b, c] = [t.slice(0, 3), t.slice(3, 6), t.slice(6, 9)];
+  const at = (q) => Math.hypot(...sub(p, q));
+  const lerp = (u, v, k) => u.map((x, i) => x + (v[i] - x) * k);
+  const ab = sub(b, a);
+  const ac = sub(c, a);
+  const ap = sub(p, a);
+  const [d1, d2] = [dot(ab, ap), dot(ac, ap)];
+  if (d1 <= 0 && d2 <= 0) return at(a);
+  const bp = sub(p, b);
+  const [d3, d4] = [dot(ab, bp), dot(ac, bp)];
+  if (d3 >= 0 && d4 <= d3) return at(b);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) return at(lerp(a, b, d1 / (d1 - d3)));
+  const cp = sub(p, c);
+  const [d5, d6] = [dot(ab, cp), dot(ac, cp)];
+  if (d6 >= 0 && d5 <= d6) return at(c);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) return at(lerp(a, c, d2 / (d2 - d6)));
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return at(lerp(b, c, (d4 - d3) / (d4 - d3 + (d5 - d6))));
+  const den = 1 / (va + vb + vc);
+  return at(a.map((x, i) => x + ab[i] * vb * den + ac[i] * vc * den));
+}
+
+/** The triangles whose footprint comes within `r` of (x, z), flat. */
+function near(tris, x, z, r) {
+  const out = [];
+  for (let t = 0; t < tris.length; t += 9) {
+    if (Math.min(tris[t], tris[t + 3], tris[t + 6]) > x + r || Math.max(tris[t], tris[t + 3], tris[t + 6]) < x - r) continue;
+    if (Math.min(tris[t + 2], tris[t + 5], tris[t + 8]) > z + r || Math.max(tris[t + 2], tris[t + 5], tris[t + 8]) < z - r) continue;
+    for (let k = 0; k < 9; k++) out.push(tris[t + k]);
+  }
+  return out;
+}
+
+/** The farthest (m) a point of a box (centre, size, turn about +y) stands outside a mesh: a grid `n` a side through it. */
+export function overreach(tris, box, n = 8) {
+  const [c, s] = [Math.cos(box.yaw ?? 0), Math.sin(box.yaw ?? 0)];
+  const local = near(tris, box.c[0], box.c[2], Math.hypot(box.s[0], box.s[2]) / 2 + TOLERANCE * 2);
+  let worst = 0;
+  for (let i = 0; i <= n; i++) {
+    for (let k = 0; k <= n; k++) {
+      const [u, w] = [(i / n - 0.5) * box.s[0], (k / n - 0.5) * box.s[2]];
+      const [x, z] = [box.c[0] + u * c + w * s, box.c[2] - u * s + w * c];
+      // Just off the exact line, so it runs down no mesh edge.
+      const spans = insideAlong(local, x + 3.1e-6, z + 2.7e-6);
+      for (let j = 0; j <= n; j++) {
+        const y = box.c[1] + (j / n - 0.5) * box.s[1];
+        if (spans.some(([lo, hi]) => y >= lo - 1e-4 && y <= hi + 1e-4)) continue;
+        let d = Infinity;
+        for (let t = 0; t < local.length && d > worst; t += 9) d = Math.min(d, toTriangle([x, y, z], local.slice(t, t + 9)));
+        worst = Math.max(worst, d);
+      }
+    }
+  }
+  return worst;
+}
+
+/** A box of a piece its model doesn't fill, as the boxes fitted inside the model where it is (in the piece's frame). */
+function refit(tris, box, most) {
+  const [c, s] = [Math.cos(box.yaw ?? 0), Math.sin(box.yaw ?? 0)];
+  const y0 = box.c[1] - box.s[1] / 2;
+  const local = near(tris, box.c[0], box.c[2], Math.hypot(box.s[0], box.s[2]) / 2);
+  // Into the box's unit frame: x and z across it from -0.5 to 0.5, y up it from 0 to 1.
+  const unit = [];
+  for (let t = 0; t < local.length; t += 3) {
+    const [dx, dz] = [local[t] - box.c[0], local[t + 2] - box.c[2]];
+    unit.push((dx * c - dz * s) / box.s[0], (local[t + 1] - y0) / box.s[1], (dx * s + dz * c) / box.s[2]);
+  }
+  const { boxes, share } = fit(unit, most, true);
+  const out = boxes.map((b) => {
+    const [u, v, w] = [b.c[0] * box.s[0], y0 + b.c[1] * box.s[1], b.c[2] * box.s[2]];
+    return { part: box.part, c: [box.c[0] + u * c + w * s, v, box.c[2] - u * s + w * c], s: [b.s[0] * box.s[0], b.s[1] * box.s[1], b.s[2] * box.s[2]], yaw: box.yaw ?? 0, material: box.material };
+  });
+  return { boxes: out, share };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const out = {};
   for (const { glb, assets } of SOURCES) {
@@ -258,15 +361,45 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       out[asset] = boxes.map((b) => ({ c: b.c.map(round), s: b.s.map(round) }));
     }
   }
+  const pieces = {};
+  for (const { glb, plan, most } of PIECES) {
+    const meshes = readTriangles(join(ROOT, glb));
+    for (const [name, boxes] of Object.entries(JSON.parse(readFileSync(join(ROOT, plan), 'utf8')).pieces)) {
+      const tris = meshes.get(name);
+      if (!tris) throw new Error(`${glb} has no ${name}`);
+      const kept = [];
+      let refitted = 0;
+      for (const box of boxes) {
+        if (overreach(tris, box) <= TOLERANCE) {
+          kept.push(box);
+          continue;
+        }
+        const { boxes: fitted, share } = refit(tris, box, most[box.part] ?? most.default);
+        refitted++;
+        const worst = Math.max(0, ...fitted.map((b) => overreach(tris, b)));
+        if (worst > TOLERANCE) console.warn(`${name} ${box.part}: a fitted box stands ${worst.toFixed(3)} m out`);
+        console.log(`  ${name} ${box.part} ${box.s.map((v) => v.toFixed(2)).join('x')}: ${fitted.length} boxes, ${(share * 100).toFixed(0)}% of its model there`);
+        kept.push(...fitted);
+      }
+      console.log(`${name}: ${boxes.length} boxes, ${refitted} refitted, ${kept.length} now`);
+      pieces[name] = kept;
+    }
+  }
+  const pieceBody = Object.entries(pieces)
+    .map(([name, boxes]) => `  '${name}': [\n${boxes.map((b) => `    { part: '${b.part}', c: [${b.c.map(round).join(', ')}], s: [${b.s.map(round).join(', ')}], yaw: ${round(b.yaw ?? 0)}, material: '${b.material ?? 'concrete'}' },`).join('\n')}\n  ],`)
+    .join('\n');
   const body = Object.entries(out)
     .map(([asset, boxes]) => `  '${asset}': [\n${boxes.map((b) => `    { c: [${b.c.join(', ')}], s: [${b.s.join(', ')}] },`).join('\n')}\n  ],`)
     .join('\n');
   writeFileSync(
     OUT,
-    `// Written by tools/map/fit-solids.mjs from the models' GLBs: don't edit, rerun it.\n\n` +
+      `// Written by tools/map/fit-solids.mjs from the models' GLBs: don't edit, rerun it.\n\n` +
+    `import type { PartBox } from './zero-island-region';\n\n` +
       `/** A box of a kit model's solid, in the model's unit frame (x and z across, y up): its middle and size. */\n` +
       `export interface KitBox {\n  readonly c: readonly [number, number, number];\n  readonly s: readonly [number, number, number];\n}\n\n` +
       `/** The boxes each kit model's solid is made of, every one inside its mesh (ticket 63). */\n` +
-      `export const KIT_SOLIDS: Readonly<Record<string, readonly KitBox[]>> = {\n${body}\n};\n`,
+      `export const KIT_SOLIDS: Readonly<Record<string, readonly KitBox[]>> = {\n${body}\n};\n\n` +
+      `/** Each Region's built piece's solid, in its own frame: its plan's boxes, those its model doesn't fill refitted inside it (ticket 63). */\n` +
+      `export const PIECE_SOLIDS: Readonly<Record<string, readonly PartBox[]>> = {\n${pieceBody}\n};\n`,
   );
 }

@@ -46,6 +46,10 @@ LAYERS = [
     ("ballast", "river_small_rocks", 2.9, "Rob Tuytel, Rico Cilliers"),
     ("bed", "dry_river_pebbles", 2.0, "Amal Kumar"),
     ("cliff", "cliff_side", 9.0, "James Ray Cock, Jenelle van Heerden, Dario Barresi"),
+    # Built surfaces (ticket 17): the Regions' kits wear these triplanar, and the crater's pads are slab.
+    ("slab", "concrete_floor_damaged_01", 4.0, "Rob Tuytel"),
+    ("wall", "concrete_wall_006", 2.5, "Dario Barresi, Charlotte Baglioni"),
+    ("steel", "rusty_metal_02", 1.5, "Rob Tuytel"),
 ]
 
 

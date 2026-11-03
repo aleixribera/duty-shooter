@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PLANT_STRIDE } from '@duty-shooter/fps-client/surfaces';
-import { KIT_SOLIDS, type KitBox } from '../src/map/kit-solids';
+import { KIT_SOLIDS, PIECE_SOLIDS, type KitBox } from '../src/map/kit-solids';
+import { GZ_PIECES, GZ_PLACED } from '../src/map/zero-island-ground-zero-plan';
 import { buildMapById } from '../src/map/maps';
 
 /**
@@ -129,20 +130,38 @@ function samples(box: KitBox, n: number): [number, number, number][] {
 const map = buildMapById('zero-island');
 const plants = map.plants!;
 const file = (path: string) => new URL(`../../../${path}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const meshes = triangles(file('apps/range/public/models/vegetation.glb'));
+const meshes = new Map([...triangles(file('apps/range/public/models/vegetation.glb')), ...triangles(file('apps/range/public/models/ground-zero.glb'))]);
 
 /** Each fitted model's instances on the map: position, turn and scale. */
 const instances = (asset: string) =>
   plants.kinds
-    .filter((k) => k.asset === asset && !k.url)
+    .filter((k) => k.asset === asset)
     .flatMap((k) => Array.from({ length: k.instances.length / PLANT_STRIDE }, (_, i) => Array.from(k.instances.subarray(i * PLANT_STRIDE, i * PLANT_STRIDE + 7))));
 
-const FITTED = ['rock-a', 'rock-b', 'rock-strata', 'pine-trunk', 'broadleaf-trunk'];
+/** The kit models that dress a solid, and the least of each that its boxes fill. */
+const FILL: Readonly<Record<string, number>> = {
+  'rock-a': 0.85,
+  'rock-b': 0.85,
+  'rock-strata': 0.85,
+  // A trunk and a mast are round: a box can't fill their sides.
+  'pine-trunk': 0.55,
+  'broadleaf-trunk': 0.55,
+  'gz-mast': 0.55,
+  // Ground Zero's kit (ticket 17). A run of T-walls has a slot between its sections.
+  'gz-blastwall': 0.8,
+  'gz-shed': 0.85,
+  // A broken slab's, a footing's and a wagon's chamfers, steps and bogies are thin for a box.
+  'gz-slab': 0.75,
+  'gz-footing': 0.75,
+  'gz-wreck': 0.85,
+  'gz-wagon': 0.75,
+};
+const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(asset.startsWith('gz-') ? 5 : 100);
   });
 
   for (const asset of FITTED) {
@@ -179,8 +198,7 @@ describe('Kit models’ solids (ticket 63)', () => {
           }
         }
       }
-      // A rock is blocks, nearly all box; a trunk is round, a box can't fill its sides.
-      expect(filled / solid, asset).toBeGreaterThan(asset.startsWith('rock') ? 0.85 : 0.55);
+      expect(filled / solid, asset).toBeGreaterThan(FILL[asset]!);
     });
   }
 
@@ -215,4 +233,35 @@ describe('Kit models’ solids (ticket 63)', () => {
     // Every box of every rock and trunk, and nothing else of theirs.
     expect(boxes).toBeGreaterThan(20_000);
   }, 60_000);
+
+  it("keeps every built piece's solid inside its model, within 5 cm", () => {
+    for (const [name, boxes] of Object.entries(PIECE_SOLIDS)) {
+      const tris = meshes.get(name)!;
+      let worst = 0;
+      let at = '';
+      for (const box of boxes) {
+        const [c, s] = [Math.cos(box.yaw ?? 0), Math.sin(box.yaw ?? 0)];
+        const r = Math.hypot(box.s[0], box.s[2]) / 2 + 0.1;
+        // The triangles round the box, so a piece's hundred boxes don't each search all of it.
+        const local = tris.filter((t) => Math.min(t[0], t[3], t[6]) < box.c[0] + r && Math.max(t[0], t[3], t[6]) > box.c[0] - r && Math.min(t[2], t[5], t[8]) < box.c[2] + r && Math.max(t[2], t[5], t[8]) > box.c[2] - r);
+        for (const [u, v, w] of samples({ c: [0, box.c[1], 0], s: box.s }, 6)) {
+          // Into the piece's frame: the box's +x looks along (cos yaw, 0, -sin yaw).
+          const p = [box.c[0] + u * c + w * s + 3.1e-6, v, box.c[2] - u * s + w * c + 2.7e-6] as const;
+          if (inside(local, p[0], p[1], p[2])) continue;
+          const d = Math.min(...local.map((t) => toTriangle(p, t)));
+          if (d > worst) [worst, at] = [d, `${box.part} at ${p.map((x) => x.toFixed(2)).join(', ')}`];
+        }
+      }
+      expect(worst, `${name}: ${at}`).toBeLessThanOrEqual(TOLERANCE);
+    }
+  }, 120_000);
+
+  it('keeps a box of every part of every built piece, and stands them all on the map', () => {
+    for (const [name, piece] of Object.entries(GZ_PIECES)) {
+      const parts = new Set(PIECE_SOLIDS[name]!.map((b) => b.part));
+      for (const b of piece.boxes) expect(parts.has(b.part), `${name} ${b.part}`).toBe(true);
+    }
+    const built = map.looks.filter((l) => l?.side === 'built-ground-zero').length;
+    expect(built).toBe(GZ_PLACED.reduce((n, p) => n + PIECE_SOLIDS[p.asset]!.length, 0));
+  });
 });

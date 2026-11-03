@@ -559,10 +559,13 @@ class OpenGroundModel extends LightingModel {
   readonly #mask = float(1).toVar('sunMask');
   readonly #point = vec3(0, 0, 0).toVar('pointLight');
 
-  constructor(albedo: N3, normal: N3 = normalWorld as unknown as N3) {
+  readonly #glow: N3 | null;
+
+  constructor(albedo: N3, normal: N3 = normalWorld as unknown as N3, glow: N3 | null = null) {
     super();
     this.#albedo = albedo;
     this.#normal = normal;
+    this.#glow = glow;
   }
 
   override direct(input: Parameters<LightingModel['direct']>[0]): void {
@@ -584,18 +587,21 @@ class OpenGroundModel extends LightingModel {
     const up = n.y.mul(0.5).add(0.5);
     const sky = mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up);
     const sun = sunColor.mul(max(dot(n, sunDir), float(0)).mul(this.#mask));
-    context.outgoingLight.assign(haze(this.#albedo.mul(sky.add(sun).add(this.#point)) as N3));
+    const lit = this.#albedo.mul(sky.add(sun).add(this.#point));
+    context.outgoingLight.assign(haze((this.#glow ? lit.add(this.#glow) : lit) as N3));
   }
 }
 
 /**
  * A material lit as the open ground is (the sky, the sun with its shadow, the
  * distance haze), for what stands on the island with no bake to light it:
- * its plants and rocks (see PlantsView).
+ * its plants and rocks, and a Region's kit (see PlantsView), whose lit parts
+ * add their `glow` whatever light falls on them.
  */
-export function openGroundLit(albedo: Node): NodeMaterial {
+export function openGroundLit(albedo: Node, glow?: Node): NodeMaterial {
   const a = albedo as unknown as N3;
-  const m = new SurfaceMaterial(() => new OpenGroundModel(a));
+  const g = (glow ?? null) as unknown as N3 | null;
+  const m = new SurfaceMaterial(() => new OpenGroundModel(a, normalWorld as unknown as N3, g));
   m.colorNode = vec4(a, 1);
   return m;
 }

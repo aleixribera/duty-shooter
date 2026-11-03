@@ -24,4 +24,7 @@ export const GROUND_LAYERS: readonly GroundLayer[] = [
   { name: 'ballast', metres: 2.9, mean: [0.1954, 0.1546, 0.1086] }, // Poly Haven river_small_rocks, CC0, Rob Tuytel, Rico Cilliers
   { name: 'bed', metres: 2.0, mean: [0.2295, 0.1619, 0.0976] }, // Poly Haven dry_river_pebbles, CC0, Amal Kumar
   { name: 'cliff', metres: 9.0, mean: [0.2122, 0.0913, 0.0337] }, // Poly Haven cliff_side, CC0, James Ray Cock, Jenelle van Heerden, Dario Barresi
+  { name: 'slab', metres: 4.0, mean: [0.079, 0.0581, 0.0372] }, // Poly Haven concrete_floor_damaged_01, CC0, Rob Tuytel
+  { name: 'wall', metres: 2.5, mean: [0.1078, 0.0831, 0.0615] }, // Poly Haven concrete_wall_006, CC0, Dario Barresi, Charlotte Baglioni
+  { name: 'steel', metres: 1.5, mean: [0.4128, 0.2885, 0.1367] }, // Poly Haven rusty_metal_02, CC0, Rob Tuytel
 ];

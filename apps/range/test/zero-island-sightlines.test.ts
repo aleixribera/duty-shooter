@@ -73,7 +73,7 @@ const VIEW_MEDIAN = 35;
 const REGION_MEDIAN = 45;
 const AREA_MEDIAN = 60;
 /** Standing on the ground or a deck; a roof is a high spot, earned by climbing it. */
-const onRoof = (p: Sighted) => map.solids.some((s, i) => map.looks[i]?.side?.startsWith('cover-') && p.x > s.min[0] - 1 && p.x < s.max[0] + 1 && p.z > s.min[2] - 1 && p.z < s.max[2] + 1 && Math.abs(s.max[1] - p.y) < 0.6);
+const onRoof = (p: Sighted) => map.solids.some((s, i) => /^(cover|built)-/.test(map.looks[i]?.side ?? '') && p.x > s.min[0] - 1 && p.x < s.max[0] + 1 && p.z > s.min[2] - 1 && p.z < s.max[2] + 1 && Math.abs(s.max[1] - p.y) < 0.6);
 const onFoot = (p: Sighted) => !onRoof(p);
 
 describe('Zero Island: sightlines', () => {

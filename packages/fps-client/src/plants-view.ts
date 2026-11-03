@@ -1,6 +1,6 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { abs, attribute, cos, dFdx, dFdy, distance, float, int, length, log2, max, mix, normalLocal, normalWorld, normalWorldGeometry, pow, positionLocal, positionWorld, sin, smoothstep, step, texture, time, uv, vec2, vec3 } from 'three/tsl';
+import { abs, attribute, cos, dFdx, dFdy, distance, float, int, length, log2, max, mix, normalLocal, normalWorld, normalWorldGeometry, pow, positionLocal, positionWorld, select, sin, smoothstep, step, texture, time, uv, vec2, vec3 } from 'three/tsl';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -58,10 +58,35 @@ const CREASE = 0.5;
 const SNOW = new Color(0xe8edf2);
 const up = new Vector3(0, 1, 0);
 
-/** A model of the kit as one geometry: position, normal, atlas UVs, and its material colours with baked occlusion (in w) per vertex. */
-function assetGeometry(scene: Object3D, name: string): BufferGeometry {
+/** The ground layer a built part's material names (`<finish>@<layer>`), if any. */
+function layerOf(material: MeshStandardMaterial): number | null {
+  const named = material.name.split('@')[1]?.split('.')[0];
+  return named ? groundLayerIndex(named) : null;
+}
+
+/**
+ * A built part's UVs (see `PlantKind.built`): u the ground layer it wears
+ * (its index plus a half), or -1 for none; v how brightly it glows.
+ */
+function builtUv(material: MeshStandardMaterial, n: number): BufferAttribute {
+  const layer = layerOf(material);
+  const e = material.emissive;
+  const glow = e ? Math.max(e.r, e.g, e.b) * (material.emissiveIntensity ?? 1) : 0;
+  const out = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) out.set([layer === null ? -1 : layer + 0.5, glow], i * 2);
+  return new BufferAttribute(out, 2);
+}
+
+/**
+ * A model of the kit as one geometry: position, normal, atlas UVs, and its
+ * material colours with baked occlusion (in w) per vertex. A built model's
+ * UVs say which photo layer and glow each part has instead, and its colours
+ * are divided by their layer's mean, so the photo adds detail and the colour
+ * keeps its tint.
+ */
+function assetGeometry(scene: Object3D, name: string, built = false): BufferGeometry {
   const root = scene.getObjectByName(name);
-  if (!root) throw new Error(`The vegetation kit has no "${name}"`);
+  if (!root) throw new Error(`The kit has no "${name}"`);
   const toRoot = root.matrixWorld.clone().invert();
   const parts: BufferGeometry[] = [];
   root.traverse((o: Object3D) => {
@@ -72,20 +97,22 @@ function assetGeometry(scene: Object3D, name: string): BufferGeometry {
     const ao = source.getAttribute('color');
     // Colour and occlusion share one attribute: WebGPU allows a pipeline 8 vertex buffers, and the instances take 3 of them.
     const colour = new Float32Array(n * 4);
+    const layer = built ? layerOf(material) : null;
+    const mean = layer === null ? [1, 1, 1] : GROUND_LAYERS[layer]!.mean;
     for (let i = 0; i < n; i++) {
-      colour.set([material.color.r, material.color.g, material.color.b, ao ? ao.getX(i) : 1], i * 4);
+      colour.set([material.color.r / mean[0]!, material.color.g / mean[1]!, material.color.b / mean[2]!, ao ? ao.getX(i) : 1], i * 4);
     }
     const g = new BufferGeometry();
     g.setAttribute('position', source.getAttribute('position'));
     g.setAttribute('normal', source.getAttribute('normal'));
-    g.setAttribute('uv', source.getAttribute('uv') ?? new BufferAttribute(new Float32Array(n * 2).fill(SOLID_UV), 2));
+    g.setAttribute('uv', built ? builtUv(material, n) : (source.getAttribute('uv') ?? new BufferAttribute(new Float32Array(n * 2).fill(SOLID_UV), 2)));
     g.setAttribute('plantColor', new BufferAttribute(colour, 4));
     const index = source.index ? Array.from(source.index.array) : Array.from({ length: n }, (_, i) => i);
     g.setIndex(index);
     parts.push(g);
   });
   const merged = parts.length > 1 ? mergeGeometries(parts) : parts[0];
-  if (!merged) throw new Error(`The vegetation kit's "${name}" has no mesh`);
+  if (!merged) throw new Error(`The kit's "${name}" has no mesh`);
   merged.computeBoundingSphere();
   return merged;
 }
@@ -110,7 +137,16 @@ const FLUTTER_RATE = 4.3;
 const ROCK_LAYER = 'rock';
 const ROCK_METRES = 2.6;
 
+/**
+ * Metres a tile of photo covers on what a Region's kit builds (ticket 17), and
+ * how much its baked occlusion darkens: more than a plant's, so a bunker's
+ * inside reads as indoors.
+ */
+const BUILT_METRES = 2.4;
+const BUILT_CREASE = 0.7;
+
 type N = ReturnType<typeof float>;
+type N3 = ReturnType<typeof vec3>;
 
 /**
  * The plants' materials: their own colours and occlusion, swaying from the
@@ -122,11 +158,27 @@ type N = ReturnType<typeof float>;
  * - `leaf`: cards showing the foliage atlas, cut to the leaves' outline,
  *   lit as foliage (see `foliageLit`), their leaves fluttering.
  */
-function plantMaterial(kind: 'solid' | 'leaf' | 'rock', atlas: Texture | null): Material {
+function plantMaterial(kind: 'solid' | 'leaf' | 'rock' | 'built', atlas: Texture | null): Material {
   // x: snow, y: the plant's own phase in the wind, z: metres its sway reaches per square metre of the model's height.
   const extra = attribute<'vec3'>('plantExtra', 'vec3');
   const base = attribute<'vec4'>('plantColor', 'vec4');
-  let own = base.xyz.mul(attribute<'vec3'>('plantTint', 'vec3')).mul(mix(float(1 - CREASE), float(1), base.w));
+  const crease = kind === 'built' ? BUILT_CREASE : CREASE;
+  let own = base.xyz.mul(attribute<'vec3'>('plantTint', 'vec3')).mul(mix(float(1 - crease), float(1), base.w));
+  let glow: N3 | null = null;
+  if (kind === 'built') {
+    // u: the part's photo layer (plus a half), or below 0 for none; v: its glow.
+    const at = uv();
+    const photos = groundTextures().color;
+    const p = positionWorld.div(BUILT_METRES);
+    const n = normalWorld;
+    const w = pow(abs(n), vec3(4, 4, 4));
+    const ws = w.div(w.x.add(w.y).add(w.z));
+    const layer = int(at.x.max(0));
+    const read = (u: N, v: N) => texture(photos, vec3(u, v, 0).xy as never).depth(layer).rgb;
+    const photo = read(p.z as N, p.y.negate() as N).mul(ws.x).add(read(p.x as N, p.z as N).mul(ws.y)).add(read(p.x as N, p.y.negate() as N).mul(ws.z));
+    own = own.mul(select(at.x.lessThan(0), vec3(1, 1, 1), photo.clamp(0, 3)));
+    glow = base.xyz.mul(at.y) as unknown as N3;
+  }
   if (kind === 'rock') {
     const layer = groundLayerIndex(ROCK_LAYER);
     const mean = GROUND_LAYERS[layer]!.mean;
@@ -153,9 +205,9 @@ function plantMaterial(kind: 'solid' | 'leaf' | 'rock', atlas: Texture | null): 
     const alpha = leaf.a.mul(mip.mul(ALPHA_PER_MIP).add(1));
     m = foliageLit(mix(own.mul(leaf.rgb), snow, up), alpha, normal) as typeof m;
   } else {
-    m = openGroundLit(mix(own, snow, up)) as typeof m;
+    m = openGroundLit(mix(own, snow, up), glow ?? undefined) as typeof m;
   }
-  if (kind !== 'rock') {
+  if (kind !== 'rock' && kind !== 'built') {
     // The model's own height, before the instance's matrix (which three applies to positionLocal first).
     const height = attribute<'vec3'>('position', 'vec3').y.max(0);
     const phase = time.mul(1.3).add(extra.y);
@@ -332,17 +384,26 @@ export class PlantsView {
   }
 
   async #load(plants: Plants): Promise<void> {
-    const [{ scene }, atlas] = await Promise.all([new GLTFLoader().loadAsync(plants.url), loadAtlas(plants.atlas)]);
-    scene.updateMatrixWorld(true);
+    // The plants' own kit, and any Region's kit a kind comes from.
+    const urls = [...new Set([plants.url, ...plants.kinds.map((k) => k.url ?? plants.url)])];
+    const [atlas, ...files] = await Promise.all([loadAtlas(plants.atlas), ...urls.map((u) => new GLTFLoader().loadAsync(u))]);
+    const scenes = new Map(urls.map((u, i) => [u, files[i]!.scene]));
+    for (const s of scenes.values()) s.updateMatrixWorld(true);
     const geometries = new Map<string, BufferGeometry>();
-    const geometry = (name: string) => {
-      let g = geometries.get(name);
-      if (!g) geometries.set(name, (g = assetGeometry(scene, name)));
-      return g;
-    };
-    const materials = { solid: plantMaterial('solid', null), leaf: plantMaterial('leaf', atlas), rock: plantMaterial('rock', null) };
-    const material = (k: PlantKind) => materials[k.asset.startsWith('rock') ? 'rock' : k.asset.endsWith('-trunk') ? 'solid' : 'leaf'];
-    this.#kinds = plants.kinds.filter((k) => k.instances.length > 0).map((k) => new KindView(k, geometry, material));
+    const materials = { solid: plantMaterial('solid', null), leaf: plantMaterial('leaf', atlas), rock: plantMaterial('rock', null), built: plantMaterial('built', null) };
+    const material = (k: PlantKind) => materials[k.built ? 'built' : k.asset.startsWith('rock') ? 'rock' : k.asset.endsWith('-trunk') ? 'solid' : 'leaf'];
+    this.#kinds = plants.kinds
+      .filter((k) => k.instances.length > 0)
+      .map((k) => {
+        const url = k.url ?? plants.url;
+        const geometry = (name: string) => {
+          const key = `${url}#${name}`;
+          let g = geometries.get(key);
+          if (!g) geometries.set(key, (g = assetGeometry(scenes.get(url)!, name, k.built === true)));
+          return g;
+        };
+        return new KindView(k, geometry, material);
+      });
     for (const k of this.#kinds) {
       this.root.add(k.near.mesh);
       if (k.lod) this.root.add(k.lod.mesh);

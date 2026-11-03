@@ -35,7 +35,19 @@ The Battle Royale's map: about a square kilometre of land on Terrain, with a Bou
 One of Zero Island's six areas: Ground Zero, The Dustlands, Frostbite Peaks, Mutant Jungle, Neon City and Rogue Harbor. Never "Zone", which stays with Outposts.
 
 **Core**:
-A Region's dense, fully detailed place, about the size of Crash. Grey blocks stand in for them until each gets its own ticket.
+A Region's dense, fully detailed place, about the size of Crash. Grey blocks stand in for those not yet built; Ground Zero's is its Region kit.
+
+**Region kit**:
+A Region's own models (`models/<region>.glb`, built by `tools/map/regions/<region>.py`): its Built pieces, and unit models that dress the cover pass's pieces in the Region (walls, sheds, wrecks), all drawn instanced like Plants. Ground Zero's is the first (ticket 17); the steps every Region follows are in `zero-island-region.ts`.
+_Avoid_: asset pack, prefab
+
+**Built piece**:
+One building or landmark of a Region kit (the reactor, a bunker, a ruin, the factory, the station), planned as tagged boxes its model is built inside, and colliding as Fitted solids. It stands on a Pad.
+_Avoid_: prefab, structure
+
+**Pad**:
+A rectangle of ground the Terrain levels for Built pieces to stand on, eased back into the ground round it, optionally wearing scorched concrete.
+_Avoid_: foundation, plot
 
 **Slope limit**:
 The steepest terrain a player can walk up, 45 degrees. Past it the ground stops them like a wall, and a player on it slides down and can't jump.
@@ -66,7 +78,7 @@ A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegeta
 _Avoid_: foliage (only the soft part), decoration
 
 **Fitted solid**:
-The boxes a kit model collides as, fitted inside its Blender mesh by `tools/map/fit-solids.mjs` (ticket 63) and scaled and turned with each instance: no point of them stands more than 5 cm out of the model at the largest it is placed, so what stops a body, a bullet, a grenade or a bot's sight is what's drawn. A rock's boxes fill nearly all of it; a round trunk's, most.
+The boxes a kit model or a Built piece collides as, fitted inside its Blender mesh by `tools/map/fit-solids.mjs` (ticket 63) and scaled and turned with each instance: no point of them stands more than 5 cm out of the model at the largest it is placed, so what stops a body, a bullet, a grenade or a bot's sight is what's drawn. A rock's boxes fill nearly all of it; a round trunk's, most.
 _Avoid_: hitbox (that's a player's), collider
 
 **Leaf card**:

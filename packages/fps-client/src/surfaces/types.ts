@@ -108,6 +108,14 @@ export interface PlantKind {
   readonly thin: boolean;
   /** How far its top sways in the wind, as a share of its height. */
   readonly sway: number;
+  /** The GLB its models come from, when not the plants' own: a Region's kit (ticket 17). */
+  readonly url?: string;
+  /**
+   * Something built (a Region's kit), not grown: each part of it wears the
+   * ground photo layer its material names (`<finish>@<layer>`) from three
+   * sides, and a part with an emissive colour glows.
+   */
+  readonly built?: true;
   /** Per plant, `PLANT_STRIDE` numbers. Its colour tints the model's own. */
   readonly instances: Float32Array;
 }

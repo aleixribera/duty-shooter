@@ -2,11 +2,17 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PLANT_STRIDE } from '@duty-shooter/fps-client/surfaces';
 import { buildMapById } from '../src/map/maps';
-import { KIT_SOLIDS } from '../src/map/kit-solids';
+import { KIT_SOLIDS, PIECE_SOLIDS } from '../src/map/kit-solids';
 import { SOFT_PLANTS } from '../src/map/zero-island-plants';
 
 const map = buildMapById('zero-island');
-const plants = map.plants!;
+const all = map.plants!;
+/** The vegetation kit's own kinds; a Region's kit (ticket 17) has its test. */
+const plants = { ...all, kinds: all.kinds.filter((k) => !k.url) };
+/** Solids a Region's kit draws: its fitted boxes, a built piece's or a unit model's, for each instance. */
+const kitSolids = all.kinds
+  .filter((k) => k.url)
+  .reduce((n, k) => n + (k.instances.length / PLANT_STRIDE) * (PIECE_SOLIDS[k.asset] ?? KIT_SOLIDS[k.asset] ?? [0]).length, 0);
 
 type Gltf = { nodes: { name?: string; mesh?: number }[]; meshes: { primitives: { attributes: Record<string, number> }[] }[] };
 
@@ -41,14 +47,14 @@ describe('Zero Island: plants', () => {
   });
 
   it('dresses every rock and trunk of the cover pass, and keeps their solids', () => {
-    const coverRocksAndTrunks = map.solids.filter((s, i) => map.looks[i]?.side?.startsWith('cover-') && plants.modelled.includes(i));
+    const coverRocksAndTrunks = map.solids.filter((s, i) => /^(cover|built)-/.test(map.looks[i]?.side ?? '') && plants.modelled.includes(i));
     expect(plants.modelled.length).toBeGreaterThan(5000);
     expect(coverRocksAndTrunks.length).toBe(plants.modelled.length);
     expect(new Set(plants.modelled).size).toBe(plants.modelled.length);
     // A rock or trunk is the boxes fitted inside its model (ticket 63; kit-solids.test.ts).
     let boxes = 0;
     for (const asset of ['rock-a', 'rock-b', 'rock-strata', 'pine-trunk', 'broadleaf-trunk']) each(asset, () => (boxes += KIT_SOLIDS[asset]!.length));
-    expect(boxes).toBe(plants.modelled.length);
+    expect(boxes + kitSolids).toBe(plants.modelled.length);
   });
 
   it('draws every plant that hides a player at least as far as a bot can see', () => {
