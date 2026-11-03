@@ -1,0 +1,14 @@
+{
+  "tag": "dist-after-switchyard-webgpu",
+  "frames": 3150,
+  "frameMs": {
+    "mean": 12.87,
+    "p50": 5.2,
+    "p99": 32,
+    "worst": 32.7
+  },
+  "draws": 158,
+  "maxDraws": 159,
+  "triangles": 806634,
+  "errors": []
+}

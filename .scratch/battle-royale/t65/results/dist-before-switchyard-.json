@@ -1,0 +1,14 @@
+{
+  "tag": "dist-before-switchyard-",
+  "frames": 7091,
+  "frameMs": {
+    "mean": 5.78,
+    "p50": 5.5,
+    "p99": 11.7,
+    "worst": 56.5
+  },
+  "draws": 180,
+  "maxDraws": 435,
+  "triangles": 760442,
+  "errors": []
+}

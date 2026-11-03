@@ -1,0 +1,1 @@
+fire 0.070 ms/frame (20.3 shots), update 0.131 ms/frame, flying max 192, smoke max 640

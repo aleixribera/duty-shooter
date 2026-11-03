@@ -34,6 +34,7 @@ import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
+import { Tracers } from './tracers';
 import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
 import { TEAMS, chargeRoster, winVerb } from './ui/model';
 import { InputController } from './input';
@@ -178,6 +179,8 @@ export class Game {
   /** Explosions already shown (the server repeats important events in case a snapshot is lost). */
   readonly #explosions = new Set<number>();
   readonly #effects: Effects;
+  /** Every bullet's tracer, and the sniper's smoke trail. */
+  readonly #tracers: Tracers;
   /** The circles on the ground at the Outposts zones. */
   readonly #zoneRings: ZoneRings;
   readonly #pipeline: GamePipeline;
@@ -288,6 +291,7 @@ export class Game {
     this.#worldView = new WorldView(options.renderer, options.content, options.bake);
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
     this.#effects = new Effects(this.#worldView.scene, options.world, options.content.fires);
+    this.#tracers = new Tracers(this.#worldView.scene, options.world);
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
     this.#viewFlash = this.#effects.createFlash();
     this.#viewmodel.muzzle.add(this.#viewFlash);
@@ -330,6 +334,11 @@ export class Game {
 
   get fps(): number {
     return this.#fps;
+  }
+
+  /** Tracers fired and in flight, and sniper smoke pieces in the air, for scripts that screenshot them. */
+  get tracers(): { readonly fired: number; readonly flying: number; readonly smoke: number } {
+    return { fired: this.#tracers.fired, flying: this.#tracers.flying, smoke: this.#tracers.smoke };
   }
 
   get driver(): GameDriver | null {
@@ -714,6 +723,7 @@ export class Game {
     this.#zoneRings.update(driver?.match?.phase === 'playing' && objective?.kind === 'outposts' ? objective.zones : null, performance.now() / 1000);
     this.#updateRing(driver, eye);
     this.#effects.update(dt, this.#camera.camera);
+    this.#tracers.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
     this.#updateHud(dt, eye, forward);
     if (render && !this.#holding) {
@@ -1325,7 +1335,9 @@ export class Game {
           this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
           this.#effects.flash(this.#viewFlash);
-          this.#effects.shot(this.#viewToWorld(this.#viewmodel.muzzle), e.direction);
+          const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
+          this.#effects.shot(muzzle, e.direction);
+          this.#tracer(e, muzzle);
         } else if (own) {
           this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
@@ -1334,6 +1346,7 @@ export class Game {
           this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
           this.#effects.shot(muzzle, e.direction);
+          this.#tracer(e, muzzle);
           const cam = this.#camera.camera;
           const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
           const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
@@ -1351,11 +1364,13 @@ export class Game {
           flash.position.set(e.origin[0] + e.direction[0] * 0.9, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
           flash.quaternion.copy(this.#camera.camera.quaternion);
           this.#effects.flash(flash);
+          this.#tracer(e, [flash.position.x, flash.position.y, flash.position.z]);
           this.#crack(e.origin, e.direction);
         }
         break;
       }
       case 'impact':
+        if (e.side === 'entry') this.#tracers.land(e.shooter, e.point);
         this.#effects.impact(e.point, e.normal, e.material);
         this.#play('impact', { position: e.point, material: e.material });
         break;
@@ -1368,6 +1383,7 @@ export class Game {
         break;
       }
       case 'hit': {
+        if (e.cause === 'bullet') this.#tracers.land(e.shooter, e.point);
         const from = this.#eyeOf(e.shooter) ?? e.point;
         const d: Vec3 = [e.point[0] - from[0], e.point[1] - from[1], e.point[2] - from[2]];
         const len = Math.hypot(d[0], d[1], d[2]) || 1;
@@ -1518,6 +1534,19 @@ export class Game {
     }
   }
 
+  /**
+   * The shot's tracers from `muzzle` (one per pellet), onto the path the
+   * simulation flies from the eye, stopping where it would: in the world or
+   * in a soldier as drawn, not in a teammate.
+   */
+  #tracer(e: Extract<PresentedEvent, { type: 'shot' }>, muzzle: Vec3): void {
+    const mode = this.#driver?.match?.mode ?? 'ffa';
+    const team = mode === 'ffa' || mode === 'gungame' ? null : (this.#playerById(e.shooter)?.team ?? null);
+    const self = this.#cur && this.#driver?.selfId !== e.shooter ? this.#cur : null;
+    if (e.pellets) for (const d of e.pellets) this.#tracers.fire(e.shooter, e.weapon, e.origin, d, muzzle, this.#others, team, self);
+    else this.#tracers.fire(e.shooter, e.weapon, e.origin, e.direction, muzzle, this.#others, team, self);
+  }
+
   /** A supersonic crack when someone else's bullet passes close to the listener. */
   #crack(origin: Vec3, direction: Vec3): void {
     const self = this.#cur;
@@ -1551,6 +1580,7 @@ export class Game {
     this.hud.dispose();
     this.#pipeline.dispose();
     this.#effects.dispose();
+    this.#tracers.dispose();
     this.#zoneRings.dispose();
     this.#ringWall?.dispose();
     this.#players.dispose();

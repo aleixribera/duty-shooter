@@ -152,6 +152,14 @@ The loadout's sidearm, in slot 2: the pistol.
 The fragmentation grenade: cooked by holding the grenade button, thrown on release, one a life.
 _Avoid_: nade (fine in player-facing text)
 
+**Tracer**:
+The short bright streak drawn along a bullet's flight, for every shot by anyone: it leaves the muzzle as drawn, joins the path the simulation flies from the eye within 20 m, and ends where that bullet struck. Client-side only; the server sends nothing extra for it.
+_Avoid_: bullet trail, projectile (the simulation's bullet is not a rendered object)
+
+**Smoke trail**:
+The thin grey trail a sniper round leaves behind its Tracer, which drifts with the wind and fades in about a second and a half.
+_Avoid_: contrail, vapour trail
+
 ## Matches
 
 **Mode**:

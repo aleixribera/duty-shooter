@@ -1,0 +1,14 @@
+{
+  "tag": "dist-before-switchyard-webgl",
+  "frames": 8556,
+  "frameMs": {
+    "mean": 4.82,
+    "p50": 4.2,
+    "p99": 13.6,
+    "worst": 219
+  },
+  "draws": 164,
+  "maxDraws": 503,
+  "triangles": 745570,
+  "errors": []
+}

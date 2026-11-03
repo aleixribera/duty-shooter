@@ -1,0 +1,74 @@
+{
+  "tag": "t65-after-webgl",
+  "seconds": 41,
+  "frames": 4052,
+  "fps": 98.8,
+  "frameMs": {
+    "mean": 10.12,
+    "p50": 9.3,
+    "p99": 30.2,
+    "worst": 225.9
+  },
+  "mainThreadMsPerFrame": 10.1,
+  "scriptMsPerFrame": 9.58,
+  "mainThreadBusy": 0.998,
+  "heapMb": 54,
+  "worker": {
+    "t": "stats",
+    "ticks": 121,
+    "seconds": 2.008600000008941,
+    "mean": 1.3206611566307132,
+    "p99": 3.6000000089406967,
+    "worst": 4.300000011920929
+  },
+  "download": {
+    "beforeMatch": {
+      "files": 44,
+      "rawMb": 50.2,
+      "gzipMb": 25.8,
+      "largest": [
+        "/nav/zero-island.nav 6.43",
+        "/textures/foliage.webp 1.97",
+        "/assets/sniper-DhLpxvLv.glb 1.77",
+        "/assets/smg-Dme3hrW9.glb 1.77",
+        "/assets/pistol-BLgUjTty.glb 1.66",
+        "/textures/ground-relief.webp 1.58",
+        "/assets/shotgun-0PsdWc8l.glb 1.31",
+        "/assets/arms-nlOFAmfB.glb 1.16"
+      ]
+    },
+    "inMatch": {
+      "files": 44,
+      "rawMb": 50.2,
+      "gzipMb": 25.8,
+      "largest": [
+        "/nav/zero-island.nav 6.43",
+        "/textures/foliage.webp 1.97",
+        "/assets/sniper-DhLpxvLv.glb 1.77",
+        "/assets/smg-Dme3hrW9.glb 1.77",
+        "/assets/pistol-BLgUjTty.glb 1.66",
+        "/textures/ground-relief.webp 1.58",
+        "/assets/shotgun-0PsdWc8l.glb 1.31",
+        "/assets/arms-nlOFAmfB.glb 1.16"
+      ]
+    }
+  },
+  "render": {
+    "draws": 148,
+    "maxDraws": 167,
+    "triangles": 710846,
+    "geometries": 568,
+    "textures": 164
+  },
+  "preparation": {
+    "frameMs": 9.47,
+    "p99": 33.8,
+    "render": {
+      "draws": 65,
+      "maxDraws": 124,
+      "triangles": 264798,
+      "geometries": 517,
+      "textures": 164
+    }
+  }
+}
