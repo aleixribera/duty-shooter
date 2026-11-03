@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PLANT_STRIDE } from '@duty-shooter/fps-client/surfaces';
 import { buildMapById } from '../src/map/maps';
+import { KIT_SOLIDS } from '../src/map/kit-solids';
 import { SOFT_PLANTS } from '../src/map/zero-island-plants';
 
 const map = buildMapById('zero-island');
@@ -44,27 +45,10 @@ describe('Zero Island: plants', () => {
     expect(plants.modelled.length).toBeGreaterThan(5000);
     expect(coverRocksAndTrunks.length).toBe(plants.modelled.length);
     expect(new Set(plants.modelled).size).toBe(plants.modelled.length);
-    let rocks = 0;
-    for (const asset of ['rock-a', 'rock-b', 'rock-strata']) each(asset, () => rocks++);
-    let trunks = 0;
-    for (const asset of ['pine-trunk', 'broadleaf-trunk']) each(asset, () => trunks++);
-    expect(rocks + trunks).toBe(plants.modelled.length);
-  });
-
-  it('stands a rock exactly in its solid: what is seen is what stops a bullet', () => {
-    const solids = plants.modelled.map((i) => map.solids[i]!);
-    let checked = 0;
-    for (const asset of ['rock-a', 'rock-b', 'rock-strata']) {
-      each(asset, (x, y, z, sx, sy, sz) => {
-        const s = solids.find((b) => Math.abs((b.min[0] + b.max[0]) / 2 - x) < 0.01 && Math.abs((b.min[2] + b.max[2]) / 2 - z) < 0.01 && Math.abs(b.min[1] - y) < 0.01);
-        expect(s, `${asset} at ${x},${z}`).toBeDefined();
-        // The model fills the unit box, scaled to the solid's own size: its height to the solid's.
-        expect(sy).toBeCloseTo(s!.max[1] - s!.min[1], 3);
-        expect(Math.max(sx, sz)).toBeGreaterThan(0);
-        checked++;
-      });
-    }
-    expect(checked).toBeGreaterThan(5000);
+    // A rock or trunk is the boxes fitted inside its model (ticket 63; kit-solids.test.ts).
+    let boxes = 0;
+    for (const asset of ['rock-a', 'rock-b', 'rock-strata', 'pine-trunk', 'broadleaf-trunk']) each(asset, () => (boxes += KIT_SOLIDS[asset]!.length));
+    expect(boxes).toBe(plants.modelled.length);
   });
 
   it('draws every plant that hides a player at least as far as a bot can see', () => {
@@ -98,7 +82,20 @@ describe('Zero Island: plants', () => {
     }
     // Shrubs and grass (not a tree's canopy) never stand inside a solid.
     const low = soft.filter((s) => s.top - s.bottom < 3);
-    const inside = low.filter((s) => map.solids.some((b) => s.x > b.min[0] && s.x < b.max[0] && s.z > b.min[2] && s.z < b.max[2] && b.max[1] > s.bottom + 0.3));
+    // The solids by the 8 m squares their footprints touch; the few huge ones, checked against every shrub.
+    const cells = new Map<number, (typeof map.solids)[number][]>();
+    const huge: (typeof map.solids)[number][] = [];
+    const key = (i: number, j: number) => (i + 1000) * 2000 + j + 1000;
+    for (const b of map.solids) {
+      if (b.max[0] - b.min[0] > 200 || b.max[2] - b.min[2] > 200) {
+        huge.push(b);
+        continue;
+      }
+      for (let i = Math.floor(b.min[0] / 8); i <= Math.floor(b.max[0] / 8); i++) {
+        for (let j = Math.floor(b.min[2] / 8); j <= Math.floor(b.max[2] / 8); j++) cells.set(key(i, j), [...(cells.get(key(i, j)) ?? []), b]);
+      }
+    }
+    const inside = low.filter((s) => [...(cells.get(key(Math.floor(s.x / 8), Math.floor(s.z / 8))) ?? []), ...huge].some((b) => s.x > b.min[0] && s.x < b.max[0] && s.z > b.min[2] && s.z < b.max[2] && b.max[1] > s.bottom + 0.3));
     expect(inside.slice(0, 5)).toEqual([]);
   });
 });

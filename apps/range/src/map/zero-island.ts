@@ -3,7 +3,7 @@ import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-sh
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
-import { placePlants, type DressedPiece } from './zero-island-plants';
+import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
 
 /** The one low sun, out over the sea to the south-west. */
@@ -30,6 +30,9 @@ const FINISHES: Readonly<Record<string, Finish>> = {
 const SKY = 320;
 const CLIP_THICKNESS = 2;
 const LIP = 0.04;
+/** A bridge's parapet: thickness and height above the deck (m). Waist high, under a crouched body's eyes. */
+const PARAPET = 0.2;
+const PARAPET_HEIGHT = 0.9;
 
 /** One grey box of a Core: offset from its middle (x, z), footprint, height above the ground, and a turn. */
 type Block = readonly [dx: number, dz: number, width: number, depth: number, height: number, yaw?: number];
@@ -136,13 +139,21 @@ function coreBlocks(b: Builder, terrain: Terrain, core: Core, blocks: readonly B
 /** Stands the generator's grey solids on the ground, or on a bridge's deck; returns the rocks and trunks, for the kit to dress. */
 function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): DressedPiece[] {
   const dressed: DressedPiece[] = [];
-  for (const { kind, x, z, width, depth, height, yaw, material, region, deck } of pieces) {
+  const dresser = new Dresser();
+  for (const piece of pieces) {
+    const { kind, x, z, width, depth, height, yaw, material, region, deck } = piece;
     const { low, high } = deck === undefined ? footprint(terrain, x, z, width, depth, yaw) : { low: deck + 0.6, high: deck };
     const bottom = low - 0.6;
     const top = high + height;
-    const index = b.solids.length;
-    b.turned([x, (bottom + top) / 2, z], [width, top - bottom, depth], yaw, material, `cover-${region}`);
-    if (kind === 'rock' || kind === 'trunk') dressed.push({ kind, region, index, x, z, width, depth, yaw, bottom, top, ground: low });
+    // A rock or trunk is the boxes fitted inside the model it wears (ticket 63); anything else, its whole box.
+    const dress = dresser.dress(piece);
+    const fitted = dress ? fittedSolids(dress, x, bottom, z, width, top - bottom, depth) : [];
+    const boxes = fitted.length ? fitted : [{ center: [x, (bottom + top) / 2, z] as [number, number, number], size: [width, top - bottom, depth] as [number, number, number], yaw }];
+    const solids = boxes.map((box) => {
+      b.turned(box.center, box.size, box.yaw, material, `cover-${region}`);
+      return b.solids.length - 1;
+    });
+    if (kind === 'rock' || kind === 'trunk') dressed.push({ kind, region, solids, dress, x, z, width, depth, yaw, bottom, top, ground: low });
   }
   return dressed;
 }
@@ -158,6 +169,12 @@ function bridges(b: Builder, terrain: Terrain): void {
     const z = (az + bz) / 2;
     // A finger above the road it lands on, so the two don't flicker where they overlap.
     b.turned([x, bridge.deck + LIP - thick / 2, z], [length, thick, bridge.width], yaw, 'concrete', 'block');
+    // A parapet down each edge: a body pressed against the deck's edge in a fight stays on it.
+    const [ux, uz] = [(bx - ax) / length, (bz - az) / length];
+    for (const side of [-1, 1]) {
+      const off = side * (bridge.width / 2 - PARAPET / 2);
+      b.turned([x - uz * off, bridge.deck + PARAPET_HEIGHT / 2, z + ux * off], [length, PARAPET_HEIGHT, PARAPET], yaw, 'concrete', 'block');
+    }
     const piers = Math.max(1, Math.round(length / 28));
     for (let i = 1; i <= piers; i++) {
       const k = i / (piers + 1);

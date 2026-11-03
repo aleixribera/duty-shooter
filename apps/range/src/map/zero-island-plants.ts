@@ -1,5 +1,6 @@
 import type { SoftCover, Terrain, TerrainData } from '@duty-shooter/fps-core';
 import { PLANT_STRIDE, type PlantKind, type Plants } from '@duty-shooter/fps-client/surfaces';
+import { KIT_SOLIDS } from './kit-solids';
 import type { CoverKind } from './zero-island-cover';
 import { regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero-island-terrain';
 
@@ -7,9 +8,10 @@ import { regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero
  * Zero Island's vegetation and rocks (ticket 29), from the kit in
  * tools/map/vegetation.py:
  *
- * - The cover pass's rocks and trunks (ticket 28) wear the kit's boulders and
- *   trees. Their solids stay exactly as they were, so they stop bullets and
- *   bodies, and the bots' nav, as before; only their faces give way to models.
+ * - The cover pass's rocks and trunks (ticket 28) wear the kit's rocks and
+ *   trees. Each model is picked first (`Dresser`), and the map makes the
+ *   piece's solids the boxes fitted inside that model (`KIT_SOLIDS`, ticket
+ *   63), so what's seen is what stops bullets, bodies and the bots' sight.
  * - Soft cover fills the ground between them: thickets, shrubs, ferns and tall
  *   grass by what each Region's ground is, in patches with clearings between.
  *   It hides a body from bots (`MapDefinition.soft`) and stops nothing.
@@ -23,8 +25,10 @@ import { regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero
 export interface DressedPiece {
   readonly kind: CoverKind;
   readonly region: RegionId | 'sea';
-  /** The solid's index in the map. */
-  readonly index: number;
+  /** Its solids' indices in the map: one box, or the boxes fitted to the model it wears. */
+  readonly solids: readonly number[];
+  /** The kit model it wears and that model's turn, when the vegetation kit dresses it. */
+  readonly dress: Dress | null;
   readonly x: number;
   readonly z: number;
   readonly width: number;
@@ -35,6 +39,48 @@ export interface DressedPiece {
   readonly top: number;
   /** The ground it stands on, at its lowest. */
   readonly ground: number;
+}
+
+/** A kit model a cover piece wears: its x along the piece's width, turned by `yaw` (the piece's, or a half turn more; any for a trunk). */
+export interface Dress {
+  readonly asset: string;
+  readonly yaw: number;
+}
+
+/**
+ * Picks the model each rock and trunk of the cover pass wears, before the map
+ * makes its solids from that model's fit. Called once a piece, in the cover
+ * pass's order, on client and server alike: its own seeded numbers, so the
+ * picks are the same on both.
+ */
+export class Dresser {
+  readonly #r = random(63);
+
+  dress(p: { readonly kind: CoverKind; readonly region: RegionId | 'sea'; readonly width: number; readonly depth: number; readonly yaw: number }): Dress | null {
+    if (p.kind === 'rock') {
+      const long = Math.max(p.width, p.depth) / Math.min(p.width, p.depth) > 2.2 || p.region === 'the-dustlands';
+      const asset = long ? 'rock-strata' : this.#r() < 0.5 ? 'rock-a' : 'rock-b';
+      // A half turn now and then hides that every rock is the same way up.
+      return { asset, yaw: p.yaw + (this.#r() < 0.5 ? 0 : Math.PI) };
+    }
+    if (p.kind === 'trunk') return { asset: p.region === 'frostbite-peaks' ? 'pine-trunk' : 'broadleaf-trunk', yaw: this.#r() * Math.PI * 2 };
+    return null;
+  }
+}
+
+/**
+ * The solids of a piece wearing `dress`, scaled to the piece as the model is:
+ * the boxes fitted inside the model (`KIT_SOLIDS`), each as a centre, size and
+ * turn; none when the model has no fit.
+ */
+export function fittedSolids(dress: Dress, x: number, bottom: number, z: number, width: number, height: number, depth: number): { center: [number, number, number]; size: [number, number, number]; yaw: number }[] {
+  const c = Math.cos(dress.yaw);
+  const s = Math.sin(dress.yaw);
+  return (KIT_SOLIDS[dress.asset] ?? []).map((box) => {
+    const [u, v, w] = [box.c[0] * width, box.c[1] * height, box.c[2] * depth];
+    // Turned as the model is, about +y: its +x toward (cos, 0, -sin).
+    return { center: [x + u * c + w * s, bottom + v, z - u * s + w * c], size: [box.s[0] * width, box.s[1] * height, box.s[2] * depth], yaw: dress.yaw };
+  });
 }
 
 export interface PlantGround {
@@ -235,7 +281,7 @@ const FAR = 2000;
 /** A trunk past this is under a pixel wide, and its crown stands over it. */
 const FAR_TRUNK = 600;
 
-const rockKind = (asset: string, small: boolean): Omit<PlantKind, 'instances'> => ({ asset, lod: 'rock-lod', near: 50, far: small ? FAR_SMALL : FAR, thin: false, sway: 0 });
+const rockKind = (asset: string, small: boolean): Omit<PlantKind, 'instances'> => ({ asset, lod: `${asset}-lod`, near: 50, far: small ? FAR_SMALL : FAR, thin: false, sway: 0 });
 const KIND = {
   'pine-trunk': { asset: 'pine-trunk', lod: 'pine-trunk-lod', near: 35, far: FAR_TRUNK, thin: false, sway: 0 },
   'pine-crown': { asset: 'pine-crown', lod: 'pine-crown-lod', near: 45, far: FAR, thin: false, sway: 0.002 },
@@ -267,26 +313,23 @@ export function placePlants(ground: PlantGround, dressed: readonly DressedPiece[
   // The cover pass's rocks and trunks.
   for (const p of dressed) {
     const snow = p.region === 'frostbite-peaks' ? 1 : 0;
+    if (!p.dress) continue;
+    const { asset, yaw } = p.dress;
     if (p.kind === 'rock') {
-      const long = Math.max(p.width, p.depth) / Math.min(p.width, p.depth) > 2.2 || p.region === 'the-dustlands';
-      const asset = long ? 'rock-strata' : r() < 0.5 ? 'rock-a' : 'rock-b';
       const small = Math.max(p.width, p.depth, p.top - p.ground) < SMALL_ROCK;
-      // A model's x runs along the solid's width; a half turn now and then hides that every rock is the same way up.
-      const yaw = p.yaw + (r() < 0.5 ? 0 : Math.PI);
       kinds.add(rockKind(asset, small), p.x, p.bottom, p.z, yaw, p.width, p.top - p.bottom, p.depth, shade(ROCK[p.region], 0.88 + r() * 0.24), snow);
-      modelled.push(p.index);
+      modelled.push(...p.solids);
     } else if (p.kind === 'trunk') {
-      const pine = p.region === 'frostbite-peaks';
+      const pine = asset === 'pine-trunk';
       const crown = pine ? 'pine-crown' : 'broadleaf-crown';
       const tall = p.top - p.ground;
       const s = tall / CROWNS[crown].built;
-      const yaw = r() * Math.PI * 2;
-      kinds.add(KIND[pine ? 'pine-trunk' : 'broadleaf-trunk'], p.x, p.bottom, p.z, yaw, p.width, p.top - p.bottom, p.depth, shade(0xffffff, 0.85 + r() * 0.2), 0);
+      kinds.add(KIND[asset as 'pine-trunk' | 'broadleaf-trunk'], p.x, p.bottom, p.z, yaw, p.width, p.top - p.bottom, p.depth, shade(0xffffff, 0.85 + r() * 0.2), 0);
       const leaf = p.region === 'sea' ? 0xffffff : LEAF[p.region];
       kinds.add(KIND[crown], p.x, p.ground, p.z, yaw, s, s, s, shade(leaf, 0.85 + r() * 0.25), snow * 0.8);
       const c = CROWNS[crown];
       soft.push({ x: p.x, z: p.z, radius: c.reach * s, bottom: p.ground + c.bottom * c.built * s, top: p.ground + c.top * c.built * s });
-      modelled.push(p.index);
+      modelled.push(...p.solids);
     }
   }
 

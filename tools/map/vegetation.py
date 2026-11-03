@@ -53,8 +53,9 @@ CROWN_FOR = {"pine-crown": 12.0, "broadleaf-crown": 13.0}
 SOFT = {}
 
 
-def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0), rings=4):
-    """A trunk or stem: a cone from radius r0 at z = 0 to r1 at `height`, flaring at the foot, no caps but the top."""
+def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0), rings=4, turn=0.0):
+    """A trunk or stem: a cone from radius r0 at z = 0 to r1 at `height`, flaring at the foot, no caps but the top.
+    `turn` (radians) turns its sides about its axis."""
     bm = bmesh.new()
     verts = []
     for k in range(rings + 1):
@@ -62,7 +63,7 @@ def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0)
         r = r0 + (r1 - r0) * t + flare * max(0, 1 - t * 4) ** 2
         ring = []
         for i in range(segments):
-            a = math.tau * i / segments
+            a = math.tau * i / segments + turn
             wob = 1 + (0.08 * math.sin(a * 3 + k) if rng else 0)
             ring.append(bm.verts.new((math.cos(a) * r * wob + lean[0] * t * t, math.sin(a) * r * wob + lean[1] * t * t, height * t)))
         verts.append(ring)
@@ -153,14 +154,81 @@ def boulder_lod(name, seed):
     return kit.asset(name, [o], smooth_angle=50)
 
 
-def pine_trunk(name, segments, rings=4):
+# Jointed rocks (ticket 63): a map solid is boxes, so a rock is built from
+# blocks that boxes can follow. Rounded boulders left their box's corners and
+# top edges as invisible walls, and boxes fitted inside them left a hand's
+# width of rock that bullets went through. Each rock here is a few blocks of
+# stone broken along joints, as granite and sandstone weather: flat faces, a
+# small chamfer on every edge, the crown's top corners spalled off and the
+# faces pitted inward. Everything about a block is cut into it, never added, so
+# tools/map/fit-solids.mjs finds boxes a few centimetres inside its faces.
+ROCKS = {
+    # A big block with a smaller one sat on it and a lump at its side. The cover pass lays a rock out as
+    # a box to hide a body behind (zero-island-cover.ts), so most of each rock stands near its full height.
+    "rock-a": [((-0.5, -0.46, -0.06), (0.48, 0.5, 0.8)), ((-0.46, -0.46, 0.6), (0.42, 0.44, 1.0)), ((0.06, -0.5, -0.06), (0.5, -0.02, 0.56))],
+    # Two blocks split apart and a third wedged on top.
+    "rock-b": [((-0.5, -0.5, -0.06), (0.08, 0.44, 0.92)), ((-0.1, -0.4, -0.06), (0.5, 0.5, 0.84)), ((-0.42, -0.3, 0.8), (0.02, 0.36, 1.0))],
+    # Sandstone ledges, each stepped back a little from the one under it.
+    "rock-strata": [((-0.5, -0.5, -0.06), (0.5, 0.48, 0.4)), ((-0.48, -0.47, 0.34), (0.5, 0.5, 0.7)), ((-0.46, -0.45, 0.64), (0.47, 0.48, 0.9)), ((-0.4, -0.42, 0.85), (0.43, 0.42, 1.0))],
+}
+# Unit metres of a rock's edge chamfer, the most a face is pitted in, and how far down a top corner spalls (a share of the block).
+EDGE, PIT, SPALL = 0.01, 0.004, 0.1
+
+
+def jointed(name, seed, blocks, lod=False):
+    """A rock of `blocks` ((lo, hi) corners, unit frame, z up), overlapping. `lod`: the bare blocks, 12 triangles each."""
+    rng = random.Random(seed)
+    seed_v = Vector((rng.uniform(0, 50), rng.uniform(0, 50), rng.uniform(0, 50)))
+    parts = []
+    for lo, hi in blocks:
+        lo, hi = Vector(lo), Vector(hi)
+        c, h = (lo + hi) / 2, (hi - lo) / 2
+        bm = bmesh.new()
+        bmesh.ops.create_cube(bm, size=2.0)
+        for v in bm.verts:
+            v.co = c + Vector((v.co.x * h.x, v.co.y * h.y, v.co.z * h.z))
+        if not lod:
+            bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=1, use_grid_fill=True)
+            bm.normal_update()
+            outer = [e for e in bm.edges if len(e.link_faces) == 2 and e.link_faces[0].normal.angle(e.link_faces[1].normal, 0) > math.radians(45)]
+            bmesh.ops.bevel(bm, geom=outer, offset=EDGE, offset_type="OFFSET", segments=1, profile=0.5, affect="EDGES", clamp_overlap=True)
+            # The crowning block's top corners spall: whatever lies past a plane across each is pushed back
+            # onto it. Only the crown's, and not all of them: a spalled corner is rock no box can follow,
+            # and a block under it is what a body stands on and ducks behind.
+            for sx in (-1, 1):
+                for sy in (-1, 1):
+                    depth = SPALL * rng.uniform(0.4, 1.0) if rng.random() < 0.6 and hi.z > 0.99 else 0.0
+                    n = Vector((sx / h.x, sy / h.y, 1 / h.z))
+                    for v in bm.verts:
+                        d = v.co - c
+                        if d.x * sx < 0 or d.y * sy < 0:
+                            continue
+                        over = d.dot(n) - (3 - depth * 3)
+                        if over > 0:
+                            v.co -= n * (over / n.length_squared)
+            bm.normal_update()
+            # Pitted, inward only, so the block's faces stay the outside of the rock.
+            for v in bm.verts:
+                pit = 0.5 + 0.5 * noise.noise(v.co * 7.0 + seed_v)
+                v.co -= v.normal * PIT * max(0.0, min(1.0, pit))
+        bmesh.ops.triangulate(bm, faces=bm.faces)
+        parts.append(kit.obj(name, bm, rock))
+    return kit.asset(name, parts, smooth_angle=35)
+
+
+# A near trunk has eight sides, flat to the unit box's axes (ticket 63): its solid is boxes, and a
+# cross of boxes fills an octagon square to it all but its slanted sides' corners.
+TRUNK_SIDES, TRUNK_TURN = 8, math.pi / 8
+
+
+def pine_trunk(name, segments, rings=4, turn=0.0):
     # The unit trunk: 1 m across at the foot, tapering, 1 m tall.
-    o = tapered(0.5, 0.36, 1.0, segments, bark, flare=0.06 if segments > 6 else 0, rings=rings)
+    o = tapered(0.5, 0.36, 1.0, segments, bark, flare=0.06 if segments > 6 else 0, rings=rings, turn=turn)
     return kit.asset(name, [o], smooth_angle=70)
 
 
-def broadleaf_trunk(name, segments, rings=4):
-    o = tapered(0.46, 0.38, 1.0, segments, bark, flare=0.1 if segments > 6 else 0.05, rng=random.Random(5), rings=rings)
+def broadleaf_trunk(name, segments, rings=4, turn=0.0):
+    o = tapered(0.46, 0.38, 1.0, segments, bark, flare=0.1 if segments > 6 else 0.05, rng=random.Random(5), rings=rings, turn=turn)
     return kit.asset(name, [o], smooth_angle=70)
 
 
@@ -480,14 +548,12 @@ def blades_up(o, height, lean=0.3, ao_low=0.55):
 
 hard = [
     # Hard cover: rocks, filling a unit box.
-    boulder("rock-a", 11),
-    boulder("rock-b", 12, cuts=8),
-    boulder("rock-strata", 13, cuts=5, strata=7),
-    boulder_lod("rock-lod", 14),
+    *[jointed(name, 11 + i, blocks) for i, (name, blocks) in enumerate(ROCKS.items())],
+    *[jointed(f"{name}-lod", 11 + i, blocks, lod=True) for i, (name, blocks) in enumerate(ROCKS.items())],
     # Trees' unit trunks.
-    pine_trunk("pine-trunk", 9),
+    pine_trunk("pine-trunk", TRUNK_SIDES, turn=TRUNK_TURN),
     pine_trunk("pine-trunk-lod", 5, rings=1),
-    broadleaf_trunk("broadleaf-trunk", 10),
+    broadleaf_trunk("broadleaf-trunk", TRUNK_SIDES, turn=TRUNK_TURN),
     broadleaf_trunk("broadleaf-trunk-lod", 5, rings=1),
 ]
 PINE_TOP = CROWN_FOR["pine-crown"] + 1.6

@@ -62,8 +62,12 @@ A Blender model from a map's model file, drawn in place of the solids it stands 
 _Avoid_: prop (that's a shootable solid), mesh
 
 **Plant**:
-A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk stands exactly in a cover solid, as a Map model does, and is hard cover; foliage is Soft cover.
+A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk is hard cover, its solid a Fitted solid; foliage is Soft cover.
 _Avoid_: foliage (only the soft part), decoration
+
+**Fitted solid**:
+The boxes a kit model collides as, fitted inside its Blender mesh by `tools/map/fit-solids.mjs` (ticket 63) and scaled and turned with each instance: no point of them stands more than 5 cm out of the model at the largest it is placed, so what stops a body, a bullet, a grenade or a bot's sight is what's drawn. A rock's boxes fill nearly all of it; a round trunk's, most.
+_Avoid_: hitbox (that's a player's), collider
 
 **Leaf card**:
 A flat quad (or octagon, or tapering strip) of a Plant's foliage that shows one cell of the foliage atlas (`textures/foliage.webp`, cut from CC0 photo scans by `tools/textures/foliage.py`) and is cut to the leaves' outline by an alpha test. Crowns, bushes, ferns and grass are built from many of them (ticket 62), lit as the mass they make rather than as flat cards, so either side of a card shades the same. Bark and rock sit on the atlas's white cell and are not leaf cards.

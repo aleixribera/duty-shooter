@@ -28,9 +28,12 @@ describe('Zero Island: its cover', () => {
 
   it('never floats: every piece on the land reaches below the ground under it', () => {
     for (const id of REGION_IDS) {
-      for (const s of drawn(`cover-${id}`)) {
+      const pieces = drawn(`cover-${id}`);
+      // A rock's ledge may stand out over the block under it (ticket 63): it rests on that, not on the ground.
+      const resting = (s: Solid) => pieces.some((o) => o !== s && o.min[1] < s.min[1] && o.max[1] >= s.min[1] - 0.01 && o.min[0] < s.max[0] && o.max[0] > s.min[0] && o.min[2] < s.max[2] && o.max[2] > s.min[2]);
+      for (const s of pieces) {
         const [x, z] = middle(s);
-        expect(s.min[1], `${x},${z}`).toBeLessThanOrEqual(terrain.heightAt(x, z));
+        if (s.min[1] > terrain.heightAt(x, z)) expect(resting(s), `${x},${z}`).toBe(true);
       }
     }
   });
