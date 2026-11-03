@@ -112,7 +112,7 @@ describe('Tracers', () => {
     expect(far).toBeCloseTo(60, 2);
   });
 
-  it('leaves a drifting smoke trail behind a sniper round only, which fades in about a second', () => {
+  it('leaves a drifting smoke trail behind a sniper round only, which lingers 1.5 to 2 s', () => {
     const t = new Tracers(new Scene(), world);
     const cam = camera();
     t.fire('me', 'm4a1', eye, east, eye, [], null);
@@ -131,8 +131,62 @@ describe('Tracers', () => {
     expect(t.smoke).toBe(n);
     // It drifts: up a little, with the wind.
     expect(a[13]!).toBeGreaterThan(y0);
-    for (let i = 0; i < 80; i++) t.update(0.016, cam);
+    // At 1.45 s after the shot most of it still hangs there; by 2.2 s it is gone.
+    for (let i = 0; i < 60; i++) t.update(0.016, cam);
+    expect(t.smoke).toBeGreaterThan(n * 0.8);
+    for (let i = 0; i < 50; i++) t.update(0.016, cam);
     expect(t.smoke).toBe(0);
+  });
+
+  /** Width (side column), extent across the view (along column, less its part toward the camera) and alpha of every smoke piece. */
+  function pieces(t: Tracers, cam: PerspectiveCamera): { width: number; across: number; alpha: number }[] {
+    const a = t.trails.instanceMatrix.array;
+    const al = t.trails.geometry.getAttribute('tAlpha').array as Float32Array;
+    const c = cam.position;
+    const out = [];
+    for (let i = 0; i < t.trails.count; i++) {
+      const o = i * 16;
+      const v = [a[o + 12]! - c.x, a[o + 13]! - c.y, a[o + 14]! - c.z] as const;
+      const vl = Math.hypot(...v);
+      const l = [a[o + 4]!, a[o + 5]!, a[o + 6]!] as const;
+      const d = (l[0] * v[0] + l[1] * v[1] + l[2] * v[2]) / vl;
+      out.push({
+        width: Math.hypot(a[o]!, a[o + 1]!, a[o + 2]!),
+        across: Math.hypot(l[0] - (d * v[0]) / vl, l[1] - (d * v[1]) / vl, l[2] - (d * v[2]) / vl),
+        alpha: al[i]!,
+      });
+    }
+    return out;
+  }
+
+  it('starts a few centimetres wide and spreads into a plume tens of centimetres across', () => {
+    const t = new Tracers(new Scene(), world);
+    const cam = camera();
+    t.fire('me', 'sniper', eye, east, eye, [], null);
+    for (let i = 0; i < 4; i++) t.update(0.016, cam);
+    const young = pieces(t, cam);
+    expect(young.length).toBeGreaterThan(3);
+    for (const p of young) expect(p.width).toBeGreaterThanOrEqual(0.03);
+    for (let i = 0; i < 60; i++) t.update(0.016, cam);
+    // About a second on: spread wide, and still clearly there.
+    for (const p of pieces(t, cam).slice(0, 5)) {
+      expect(p.width).toBeGreaterThan(0.25);
+      expect(p.alpha).toBeGreaterThan(0.2);
+    }
+  });
+
+  it('is seen down the line it was fired along: each piece covers at least its own width on screen', () => {
+    const t = new Tracers(new Scene(), world);
+    // The shooter's own camera, on the line, looking along it.
+    const cam = new PerspectiveCamera(20, 16 / 9, 0.05, 2000);
+    cam.position.set(...eye);
+    cam.lookAt(10, 1.5, 0);
+    cam.updateMatrixWorld();
+    t.fire('me', 'sniper', eye, east, eye, [], null);
+    for (let i = 0; i < 20; i++) t.update(0.016, cam);
+    const seen = pieces(t, cam);
+    expect(seen.length).toBeGreaterThan(5);
+    for (const p of seen) expect(p.across).toBeGreaterThanOrEqual(p.width * 0.99);
   });
 
   it('keeps a fixed pool: a long burst of fire reuses the oldest slots', () => {

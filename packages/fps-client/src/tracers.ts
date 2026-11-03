@@ -1,5 +1,6 @@
 import { STATS, hitBody, raycastWorld, type HitPose, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
-import { attribute, clamp, float, mx_noise_float, positionWorld, uv, vec3 } from 'three/tsl';
+import { attribute, cameraPosition, clamp, dot, float, max, min, mx_noise_float, positionWorld, uv, vec2, vec3 } from 'three/tsl';
+import { horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
 import { AdditiveBlending, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicNodeMaterial, NormalBlending, PlaneGeometry, type Camera, type Scene } from 'three/webgpu';
 
 /** Someone a bullet can stop in: a pose for the hitboxes, and who they are. */
@@ -110,6 +111,12 @@ const MIN_WIDTH = 0.008;
 /** A sniper's smoke: pieces along the path, at most this many per shot. */
 const SMOKE_PIECES = 72;
 const SMOKE_PIECE = 3;
+/** A smoke piece's width (m) as it is laid, and what it spreads to by the end of its life. */
+const SMOKE_BORN = 0.04;
+const SMOKE_SPREAD = 0.55;
+/** How long a smoke piece hangs in the air (s): this, plus up to SMOKE_LIFE_JITTER. */
+const SMOKE_LIFE = 1.7;
+const SMOKE_LIFE_JITTER = 0.4;
 /** The air the smoke drifts on (m/s): a dusk breeze, and the warm trail rising. */
 const WIND: Vec3 = [0.32, 0.16, 0.14];
 /** How bright each kind of shot's tracer is: shotgun pellets dimmer, many at once. */
@@ -166,6 +173,81 @@ function writeQuad(m: Float32Array, o: number, h: Vec3, t: Vec3, w: number, cx: 
   m[o + 15] = 1;
 }
 
+/**
+ * A smoke piece from `a` to `b`, `w` wide, as a quad in the screen's plane:
+ * along the piece as seen, and never shorter than its width, so seen end on
+ * (down the line it was fired along) it is a round puff rather than nothing.
+ * The quad runs `w / 2` past each end, so neighbours overlap into one plume.
+ * Returns the share of its length taken by each rounded end.
+ */
+function writePuff(m: Float32Array, o: number, a: Vec3, b: Vec3, w: number, cx: number, cy: number, cz: number): number {
+  const mx = (a[0] + b[0]) / 2;
+  const my = (a[1] + b[1]) / 2;
+  const mz = (a[2] + b[2]) / 2;
+  let vx = mx - cx;
+  let vy = my - cy;
+  let vz = mz - cz;
+  const vl = Math.hypot(vx, vy, vz) || 1;
+  vx /= vl;
+  vy /= vl;
+  vz /= vl;
+  const ax = b[0] - a[0];
+  const ay = b[1] - a[1];
+  const az = b[2] - a[2];
+  const d = ax * vx + ay * vy + az * vz;
+  // The piece as seen: its part across the view.
+  let px = ax - d * vx;
+  let py = ay - d * vy;
+  let pz = az - d * vz;
+  let pl = Math.hypot(px, py, pz);
+  if (pl < 1e-6) {
+    // Exactly end on: any direction across the view.
+    px = -vz;
+    py = 0;
+    pz = vx;
+    pl = Math.hypot(px, pz);
+    if (pl < 1e-6) {
+      px = 1;
+      pz = 0;
+      pl = 1;
+    }
+    px /= pl;
+    py = 0;
+    pz /= pl;
+    pl = 0;
+  } else {
+    px /= pl;
+    py /= pl;
+    pz /= pl;
+  }
+  const length = pl + w;
+  // Across: the view crossed with the piece.
+  let sx = vy * pz - vz * py;
+  let sy = vz * px - vx * pz;
+  let sz = vx * py - vy * px;
+  const sl = Math.hypot(sx, sy, sz) || 1;
+  sx *= w / sl;
+  sy *= w / sl;
+  sz *= w / sl;
+  m[o] = sx;
+  m[o + 1] = sy;
+  m[o + 2] = sz;
+  m[o + 3] = 0;
+  m[o + 4] = px * length;
+  m[o + 5] = py * length;
+  m[o + 6] = pz * length;
+  m[o + 7] = 0;
+  m[o + 8] = -vx;
+  m[o + 9] = -vy;
+  m[o + 10] = -vz;
+  m[o + 11] = 0;
+  m[o + 12] = mx;
+  m[o + 13] = my;
+  m[o + 14] = mz;
+  m[o + 15] = 1;
+  return (0.5 * w) / length;
+}
+
 function layer(max: number, material: MeshBasicNodeMaterial, name: string): { mesh: InstancedMesh; alpha: InstancedBufferAttribute } {
   const geometry = new PlaneGeometry(1, 1);
   const alpha = new InstancedBufferAttribute(new Float32Array(max), 1);
@@ -191,6 +273,7 @@ export class Tracers {
   readonly trails: InstancedMesh;
   readonly #streakAlpha: InstancedBufferAttribute;
   readonly #trailAlpha: InstancedBufferAttribute;
+  readonly #trailCap: InstancedBufferAttribute;
   readonly #world: World;
   readonly #root: Scene;
 
@@ -237,13 +320,30 @@ export class Tracers {
     const streak = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending });
     streak.colorNode = vec3(1, 0.6, 0.28).mul(3.2).add(vec3(1, 0.92, 0.75).mul(across.pow(4).mul(4)));
     streak.opacityNode = across.pow(1.5).mul(uv().y.pow(1.2).mul(0.75).add(0.25)).mul(attribute<'float'>('tAlpha', 'float'));
-    // The smoke: soft across, broken up along its length by noise fixed in the world, so the pieces join into one wisp.
+    // The smoke: a soft rounded capsule per piece, overlapping its neighbours, made lumpy by noise fixed
+    // in the world so the pieces join into one puffy plume. Lit by the map's sky, and by its sun most
+    // when you look toward it (smoke scatters light forward), so a dusk trail glows warm.
     const smoke = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: NormalBlending });
-    smoke.colorNode = vec3(0.8, 0.78, 0.76);
-    const wisp = clamp(mx_noise_float(positionWorld.mul(vec3(1.1, 2.2, 1.1))).mul(0.9).add(0.5), 0, 1);
-    smoke.opacityNode = across.pow(1.6).mul(wisp).mul(attribute<'float'>('tAlpha', 'float'));
+    const cap = max(attribute<'float'>('tCap', 'float'), float(1e-3));
+    const endward = clamp(cap.sub(min(uv().y, float(1).sub(uv().y))).div(cap), 0, 1);
+    const r = vec2(uv().x.sub(0.5).mul(2), endward).length();
+    const body = clamp(float(1).sub(r), 0, 1);
+    const lumps = mx_noise_float(positionWorld.mul(1.7)).mul(0.55).add(mx_noise_float(positionWorld.mul(vec3(4.1, 5.3, 4.1))).mul(0.3));
+    const puff = clamp(body.mul(1.9).add(lumps).sub(0.2), 0, 1);
+    smoke.opacityNode = puff.mul(puff).mul(attribute<'float'>('tAlpha', 'float'));
+    const look = positionWorld.sub(cameraPosition).normalize();
+    const forward = clamp(dot(look, sunDir), 0, 1).pow(3);
+    const shade = lumps.mul(0.35).add(0.85);
+    smoke.colorNode = sunColor
+      .mul(forward.mul(0.5).add(0.22))
+      .add(horizonColor.mul(0.32))
+      .add(skyZenith.mul(0.4))
+      .mul(shade.mul(0.78));
     const s = layer(TRACERS, streak, 'tracers');
     const t = layer(SMOKE, smoke, 'tracer-smoke');
+    this.#trailCap = new InstancedBufferAttribute(new Float32Array(SMOKE), 1);
+    this.#trailCap.setUsage(DynamicDrawUsage);
+    t.mesh.geometry.setAttribute('tCap', this.#trailCap);
     this.streaks = s.mesh;
     this.#streakAlpha = s.alpha;
     this.trails = t.mesh;
@@ -430,7 +530,7 @@ export class Tracers {
         this.#sB[o + a] = this.#t[a] as number;
       }
       this.#sAge[j] = 0;
-      this.#sLife[j] = 1.2 + Math.random() * 0.4;
+      this.#sLife[j] = SMOKE_LIFE + Math.random() * SMOKE_LIFE_JITTER;
       this.#sSeed[j] = Math.random() * Math.PI * 2;
       from = to;
     }
@@ -440,6 +540,7 @@ export class Tracers {
   #updateSmoke(dt: number, cx: number, cy: number, cz: number): void {
     const m = this.trails.instanceMatrix.array as Float32Array;
     const alpha = this.#trailAlpha.array as Float32Array;
+    const caps = this.#trailCap.array as Float32Array;
     const a = this.#h;
     const b = this.#t;
     let n = 0;
@@ -467,9 +568,13 @@ export class Tracers {
         b[1] = (this.#sB[o + 1] as number) + WIND[1] * age + Math.abs(curlA) * 0.4;
         b[2] = (this.#sB[o + 2] as number) + WIND[2] * age + curlA;
         const dist = Math.hypot((a[0] + b[0]) / 2 - cx, (a[1] + b[1]) / 2 - cy, (a[2] + b[2]) / 2 - cz);
-        const width = Math.max(0.02 + 0.15 * Math.sqrt(u), dist * WIDTH_PER_METRE * 2);
-        writeQuad(m, n * 16, b, a, width, cx, cy, cz);
-        alpha[n] = 0.55 * Math.min(1, age * 25) * (1 - u) ** 1.1;
+        // It spreads fast at first, then slowly; far away it keeps a few pixels so it still reads.
+        const spread = SMOKE_BORN + (SMOKE_SPREAD - SMOKE_BORN) * Math.sqrt(Math.min(1, age / 1.6));
+        const width = Math.max(spread, dist * WIDTH_PER_METRE * 3);
+        caps[n] = writePuff(m, n * 16, b, a, width, cx, cy, cz);
+        // Thinner as it spreads (the same smoke over more air), gone at the end of its life, and faded right at
+        // your eye so your own trail never fogs the scope.
+        alpha[n] = Math.min(1, age * 25) * (SMOKE_BORN / spread) ** 0.2 * (1 - u) ** 0.4 * Math.min(1, Math.max(0, (dist - 0.6) / 2.5));
         n += 1;
       }
     }
@@ -477,6 +582,7 @@ export class Tracers {
     if (n > 0) {
       this.trails.instanceMatrix.needsUpdate = true;
       this.#trailAlpha.needsUpdate = true;
+      this.#trailCap.needsUpdate = true;
     }
   }
 
