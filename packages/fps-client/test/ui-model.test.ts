@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
@@ -286,6 +286,18 @@ describe('when a loadout change applies, as the loadout screen says it', () => {
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop.');
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop.');
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked for this match. Applies from the next one.');
+  });
+});
+
+describe("the pause screen's Controls list", () => {
+  it('names the island map only in a Battle Royale, the one mode with a map', () => {
+    expect(pauseActions('battle-royale')).toContain('map');
+    for (const mode of ['tdm', 'ffa', 'charge', 'outposts', 'gungame'] as const) expect(pauseActions(mode), mode).not.toContain('map');
+    expect(pauseActions(null)).not.toContain('map');
+  });
+
+  it('lists the rest of the bound keys in every mode', () => {
+    expect(pauseActions('tdm')).toEqual(['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard']);
   });
 });
 

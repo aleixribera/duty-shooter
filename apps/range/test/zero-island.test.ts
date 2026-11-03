@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, Terrain, usercmd, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, STATS, TICK_SECONDS, Terrain, createWorld, raycastWorld, usercmd, viewDirection, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { shotPose } from '@duty-shooter/fps-client/surfaces';
 import { createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, LOBBY_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
 import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt, zeroIslandGround, type RegionId } from '../src/map/zero-island-terrain';
@@ -378,5 +379,51 @@ describe('Zero Island: the railway', () => {
       expect(reached[walk.cellAt(top.x, top.z)]).toBe(1);
       expect(top.y).toBeGreaterThan(trail[0]!.y + 12);
     }
+  });
+});
+
+describe('Zero Island: the ending', () => {
+  const world = createWorld(mapSolids(map), { terrain: map.terrain });
+  const nuke = map.nuke!;
+
+  it('ends in the nuke, going off over the crater at Ground Zero', () => {
+    expect(nuke).not.toBeNull();
+    const c = CORES['ground-zero'];
+    const [x, y, z] = nuke.groundZero;
+    expect(Math.hypot(x - c.x, z - c.z)).toBeLessThan(5);
+    expect(Math.abs(y - terrain.heightAt(x, z))).toBeLessThan(1);
+  });
+
+  it('films it for the whole of a Battle Royale\'s ending, the nuke then the scoreboard', () => {
+    expect(nuke.shot.seconds).toBe(INTERMISSION.nuke + INTERMISSION.scoreboard);
+  });
+
+  it('keeps the shot in open air above the island, with the cloud in sight and in frame all the way', () => {
+    const { from, to } = nuke.shot;
+    expect(raycastWorld(world, from, to)).toBeNull();
+    for (let t = 0; t <= nuke.shot.seconds; t += 0.5) {
+      const pose = shotPose(nuke.shot, t);
+      const p = pose.position;
+      expect(p[1] - terrain.heightAt(p[0], p[2]), `${t} s: above the ground`).toBeGreaterThan(3);
+      expect(insidePolygon(boundary, p[0], p[2]), `${t} s: over the island`).toBe(true);
+      // Outside the base surge, which rolls out to about 300 m: inside it, the dust fills the frame.
+      expect(Math.hypot(p[0] - nuke.groundZero[0], p[2] - nuke.groundZero[2]), `${t} s: clear of the surge`).toBeGreaterThan(330);
+      // The column rises from the crater; the cap climbs to about 300 m.
+      const forward = viewDirection(pose.yaw, pose.pitch);
+      for (const height of [40, 150, 280]) {
+        const cloud: Vec3 = [nuke.groundZero[0], nuke.groundZero[1] + height, nuke.groundZero[2]];
+        expect(raycastWorld(world, p, cloud), `${t} s: cloud at ${height} m hidden`).toBeNull();
+        const d = [cloud[0] - p[0], cloud[1] - p[1], cloud[2] - p[2]];
+        const along = (d[0]! * forward[0] + d[1]! * forward[1] + d[2]! * forward[2]) / Math.hypot(d[0]!, d[1]!, d[2]!);
+        // Within the frame's height: the top of the cloud once it has climbed, its foot before.
+        if ((t < 4 && height <= 150) || (t >= 6 && height >= 150)) expect(Math.acos(along), `${t} s: cloud at ${height} m out of frame`).toBeLessThan(((nuke.shot.fov / 2) * Math.PI) / 180);
+      }
+    }
+  });
+
+  it('sounds the siren near where the shot starts, so it is heard', () => {
+    const [sx, sy, sz] = nuke.siren;
+    const [fx, fy, fz] = nuke.shot.from;
+    expect(Math.hypot(sx - fx, sy - fy, sz - fz)).toBeLessThan(60);
   });
 });

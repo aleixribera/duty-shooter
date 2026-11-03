@@ -1,4 +1,5 @@
 import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import type { Action } from '../settings';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -420,6 +421,19 @@ export function weaponCard(id: WeaponId): WeaponCard {
     ],
   };
 }
+
+/**
+ * The actions the pause screen's Controls list names, after Move: every
+ * bound key, with the island map only in a Battle Royale, the one mode that
+ * has one.
+ */
+export function pauseActions(mode: ModeId | null): readonly PauseAction[] {
+  const keys: PauseAction[] = ['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard'];
+  return mode === 'battle-royale' ? [...keys, 'map'] : keys;
+}
+
+/** An action the pause screen lists (movement is one row of its own). */
+export type PauseAction = Exclude<Action, 'forward' | 'back' | 'left' | 'right'>;
 
 /**
  * When a loadout change applies in the game being played, as the loadout

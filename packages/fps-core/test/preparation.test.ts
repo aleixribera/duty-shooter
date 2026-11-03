@@ -22,7 +22,7 @@ function match(): NetworkedMatch {
   });
 }
 
-function joined(m: NetworkedMatch, name: string, options: { script?: boolean } = {}): NetworkedClient {
+function joined(m: NetworkedMatch, name: string, options: { script?: boolean; resume?: string } = {}): NetworkedClient {
   const c = m.join(name, options);
   for (let i = 0; i < ticks(3) && c.client.status !== 'joined'; i++) m.step();
   expect(c.client.status).toBe('joined');
@@ -106,6 +106,61 @@ describe('the Preparation', () => {
     alice.client.ready();
     m.run(ticks(0.2));
     expect(left(m)).toBeLessThanOrEqual(PREPARATION.dive);
+  });
+
+  it('gives a person who left on purpose their seat back if they return before the dive', () => {
+    const { m, alice, bob } = started();
+    const id = bob.client.id!;
+    const token = bob.client.token!;
+    m.run(ticks(2));
+    bob.client.close();
+    m.run(ticks(1));
+    // A bot holds it meanwhile, under their name.
+    expect(m.server.bots.has(id)).toBe(true);
+    expect(status(m).preparation).toMatchObject({ people: 1 });
+    const back = joined(m, 'bob', { resume: token });
+    m.run(ticks(0.2));
+    expect(back.client.id).toBe(id);
+    expect(m.server.bots.has(id)).toBe(false);
+    expect(status(m).preparation).toMatchObject({ people: 2 });
+    // And they drop with everyone else.
+    for (const c of [alice, back]) c.client.loaded();
+    m.run(ticks(PREPARATION.seconds));
+    expect(status(m).countdownEnds).toBeNull();
+    expect(m.server.latest.players.find((p) => p.id === id)?.alive).toBe(true);
+    expect(m.server.bots.has(id)).toBe(false);
+  });
+
+  it('holds the match for the one person in it who left, until the dive', () => {
+    const m = match();
+    const alice = joined(m, 'alice');
+    alice.client.startMatch();
+    m.run(ticks(2));
+    const id = alice.client.id!;
+    const token = alice.client.token!;
+    alice.client.close();
+    m.run(ticks(1));
+    expect(m.server.phase).toBe('playing');
+    // Nobody left in it is no reason to cut it short.
+    expect(left(m)).toBeGreaterThan(PREPARATION.dive + 5);
+    const back = joined(m, 'alice', { resume: token });
+    m.run(ticks(0.2));
+    expect(back.client.id).toBe(id);
+    expect(m.server.phase).toBe('playing');
+  });
+
+  it('keeps no seat for one who left on purpose once the dive has begun', () => {
+    const { m, bob } = started();
+    const id = bob.client.id!;
+    const token = bob.client.token!;
+    m.run(ticks(1));
+    bob.client.close();
+    m.run(ticks(PREPARATION.seconds - PREPARATION.dive));
+    expect(m.server.status().away).toBe(0);
+    const back = joined(m, 'bob', { resume: token });
+    m.run(ticks(0.2));
+    expect(back.client.id).not.toBe(id);
+    expect(m.server.bots.has(id)).toBe(true);
   });
 
   it('is a Battle Royale’s alone: other modes keep their countdown', () => {

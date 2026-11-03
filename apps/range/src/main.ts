@@ -597,6 +597,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const driver = game?.driver;
     const match = driver?.online ? driver.match : null;
     menu.loadoutNote = loadoutNote({ online: driver?.online ?? false, mode: match?.mode ?? null, phase: match?.phase ?? null, preparing: (match?.preparation ?? null) !== null });
+    menu.matchMode = driver?.match?.mode ?? null;
     const mine = driver?.scores.find((s) => s.id === driver.selfId);
     const seated = mine !== undefined && mine.deaths === 0 && mine.place === undefined;
     const playing = match?.phase === 'playing' && match.mode === 'battle-royale' && seated;
@@ -612,6 +613,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       if (!prepUp) {
         prepUp = true;
         leaveLobby();
+        // Back in a seat held through the Preparation, straight from the screen's join: the Preparation takes over from it.
+        if (royalePre) {
+          royalePre = false;
+          royalePage.hide();
+        }
         lobbyJoin = false;
         if (menu.open && menu.screen === 'pause') menu.hide();
         game.paused = true;

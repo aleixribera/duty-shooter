@@ -1,7 +1,7 @@
 import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
-import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, weaponCard, type LobbyInfo } from './model';
+import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, hint, icon, installTheme } from './theme';
 
 export type { LobbyInfo } from './model';
@@ -279,6 +279,7 @@ export class Menu {
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
   #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
   #loadoutNote = '';
+  #matchMode: ModeId | null = null;
   readonly #padName: () => string | null;
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
@@ -507,6 +508,11 @@ export class Menu {
   /** When a loadout change applies in the game being played, as the loadout screen says it. */
   set loadoutNote(text: string) {
     this.#loadoutNote = text;
+  }
+
+  /** The mode being played, or null: the pause screen lists only the keys it has (the island map in a Battle Royale). */
+  set matchMode(mode: ModeId | null) {
+    this.#matchMode = mode;
   }
 
   /** Shows the one-time tip (Firefox has no raw mouse input), then runs `then`. */
@@ -891,7 +897,7 @@ export class Menu {
     const move = `${bindingLabel(b.forward)}${bindingLabel(b.left)}${bindingLabel(b.back)}${bindingLabel(b.right)}`;
     const keyRows: (readonly [string, string])[] = [
       [move.length === 4 ? move : 'Move', 'Move'],
-      ...(['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard', 'map'] as const).map((a) => [bindingLabel(b[a]), ACTION_LABELS[a].replace(/ \(.*\)$/, '')] as const),
+      ...pauseActions(this.#matchMode).map((a) => [bindingLabel(b[a]), ACTION_LABELS[a].replace(/ \(.*\)$/, '')] as const),
       ['Esc', 'Menu'],
     ];
     keys.innerHTML = `<h2 class="ds-h2">Controls <small class="ds-label">Rebind in Settings</small></h2>${list('key-list', keyRows)}${list('pad-list', PAD_KEYS)}`;

@@ -1,5 +1,5 @@
-import { Terrain, yawBox, type SpawnPoint } from '@duty-shooter/fps-core';
-import { normalize, type Finish, type Lighting } from '@duty-shooter/fps-client/surfaces';
+import { INTERMISSION, Terrain, yawBox, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
+import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-shooter/fps-client/surfaces';
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
@@ -207,6 +207,30 @@ function spawnPlaces(): (readonly [x: number, z: number])[] {
   return [[CORES['ground-zero'].x, 150], ...round];
 }
 
+/**
+ * The ending: the bomb goes off over the crater at Ground Zero, and everyone
+ * watches it from the edge of the Dustlands to the south-west, with the low
+ * sun behind the camera lighting the cloud's near side. The camera stands
+ * well outside the base surge (about 300 m out at its widest), pulls back
+ * and up while the siren sounds, tilts up after the cloud as it climbs, and
+ * holds on it behind the scoreboard. A Battle Royale runs a lobby, so its
+ * ending is the nuke and then the scoreboard.
+ */
+function nukeEnding(terrain: Terrain): { groundZero: Vec3; siren: Vec3; shot: EndingShot } {
+  const { x, z } = CORES['ground-zero'];
+  const ground = terrain.heightAt(x, z);
+  const shot: EndingShot = {
+    from: [-300, terrain.heightAt(-300, 215) + 14, 215],
+    to: [-335, terrain.heightAt(-335, 250) + 40, 250],
+    lookFrom: [x, ground + 30, z],
+    lookTo: [x, ground + 200, z],
+    seconds: INTERMISSION.nuke + INTERMISSION.scoreboard,
+    fov: 62,
+  };
+  // The siren on a pylon at the Dustlands' edge, beside the shot.
+  return { groundZero: [x, ground, z], siren: [-285, terrain.heightAt(-285, 195) + 12, 195], shot };
+}
+
 const down = -0.32;
 const south = Math.PI;
 const west = Math.PI / 2;
@@ -283,7 +307,7 @@ export function buildZeroIsland(): MapDefinition {
     horizon: null,
     lighting: ZERO_ISLAND_LIGHT,
     lamps: [],
-    nuke: null,
+    nuke: nukeEnding(terrain),
     train: null,
     ambience: [{ kind: 'wind' }],
     spawns: { ffa: [spawn!, ...roundCores], teams: null },

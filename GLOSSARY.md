@@ -246,7 +246,7 @@ The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: eve
 _Avoid_: warm-up, pre-game
 
 **Preparation**:
-A Battle Royale's Countdown: 20 s (`PREPARATION`) over the live scene, with the island from above while the Ring ignites, then your Squad at its spawn beside the loadout picker, then the dive to your eyes in the last 5 s, when the loadout locks and control is yours at 0. It ends early, with the dive, once every person has pressed Ready. A page still loading at the dive holds it (the load gate) for up to 10 s, then a bot plays that seat until the page has loaded.
+A Battle Royale's Countdown: 20 s (`PREPARATION`) over the live scene, with the island from above while the Ring ignites, then your Squad at its spawn beside the loadout picker, then the dive to your eyes in the last 5 s, when the loadout locks and control is yours at 0. It ends early, with the dive, once every person has pressed Ready. A page still loading at the dive holds it (the load gate) for up to 10 s, then a bot plays that seat until the page has loaded. A person who leaves on purpose before the dive has their seat held (a bot plays it) until the dive begins, and takes it back if they rejoin before then; nobody left in it doesn't end it early.
 _Avoid_: pre-game lobby, loadout screen, warm-up
 
 **Load gate**:
@@ -254,7 +254,7 @@ The Preparation's hold for a page that hasn't yet said it has the match on scree
 _Avoid_: loading screen
 
 **Intermission**:
-The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (Survival Town's nuke, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (the nuke on Survival Town and on Zero Island, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
 _Avoid_: post-game, between rounds
 
 **Freight train**:
@@ -262,7 +262,7 @@ Switchyard's end-of-match ending: two locos and 22 wagons that thunder west alon
 _Avoid_: the nuke (on Switchyard)
 
 **Ending shot**:
-A map's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move, so everyone watches it however they stood (input is frozen, so nobody could turn to it). On Survival Town it moves from behind the west end of town toward ground zero, for the siren, the flash and the cloud climbing over the rooftops; on Switchyard it looks from the long lane over the barrier up the main line and swings west with the Freight train as it roars past. The map data holds it (`nuke.shot`, `train.shot`).
+A map's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move, so everyone watches it however they stood (input is frozen, so nobody could turn to it). On Survival Town it moves from behind the west end of town toward ground zero, for the siren, the flash and the cloud climbing over the rooftops; on Zero Island it looks across the Dustlands at the crater, where every Battle Royale ends in the nuke at Ground Zero, then pulls back clear of the surge as the cloud climbs; on Switchyard it looks from the long lane over the barrier up the main line and swings west with the Freight train as it roars past. The map data holds it (`nuke.shot`, `train.shot`).
 _Avoid_: kill cam, video (nothing is recorded; it is drawn live)
 
 **Mode vote**:

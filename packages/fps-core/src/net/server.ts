@@ -287,6 +287,8 @@ interface AwaySeat {
   readonly match: number;
   /** Simulation time the seat is let go. */
   readonly until: number;
+  /** They left on purpose in the Preparation: held only until the dive begins. */
+  readonly left?: boolean;
 }
 
 /** What the lobby status endpoint reports. */
@@ -1087,7 +1089,8 @@ export class GameServer {
     const length = this.#options.countdown ?? PREPARATION.seconds;
     const dive = Math.min(PREPARATION.dive, length);
     const loaded = people.every((c) => this.#hasLoaded(c));
-    const ready = people.every((c) => this.#ready.has(c.id as PlayerId));
+    // One who left and may still come back isn't ready: with nobody else in it, the hold doesn't end early.
+    const ready = people.every((c) => this.#ready.has(c.id as PlayerId)) && ![...this.#away.values()].some((a) => a.left);
     const diveAt = this.#matchStart - dive;
     let start = this.#matchStart;
     if (!loaded) {
@@ -1199,26 +1202,41 @@ export class GameServer {
     if (!this.#clients.delete(client) || client.id === null) return;
     this.#log({ event: 'leave', id: client.id, name: client.name, bot: false, script: client.script });
     if (hold) this.#hold(client);
+    // Leaving the Preparation on purpose isn't final until the dive: back before it, they drop with their Squad.
+    else if (this.#beforeDive()) this.#hold(client, true);
     // A match that seats its own has no fewer for it.
     if (this.#phase === 'playing' && this.#mode.fixedSeats !== undefined && this.simulation.has(client.id)) this.#standIn(client.id, client.name);
     else this.#remove(client.id);
     this.#seatsChanged();
   }
 
-  /** Holds a dropped player's seat for the grace period, with their state and score as they left. */
-  #hold(client: Client): void {
+  /**
+   * Holds a dropped player's seat for the grace period, with their state and
+   * score as they left; one who `left` on purpose in the Preparation, only
+   * until its dive begins.
+   */
+  #hold(client: Client, left = false): void {
     const id = client.id as PlayerId;
-    const grace = this.#options.reconnectGrace ?? RECONNECT_GRACE;
+    // The dive can wait on a page still loading, so a hold for one who left ends with the dive itself (`#releaseAway`), not at a time.
+    const grace = left ? Infinity : (this.#options.reconnectGrace ?? RECONNECT_GRACE);
     const state = this.simulation.playerState(id);
     const score = this.#mode.scores().find((s) => s.id === id);
     if (grace <= 0 || !state || !score) return;
-    this.#away.set(client.token, { id, name: client.name, token: client.token, state, score, match: this.#matchNumber, until: this.simulation.time + grace });
+    this.#away.set(client.token, { id, name: client.name, token: client.token, state, score, match: this.#matchNumber, until: this.simulation.time + grace, ...(left ? { left } : {}) });
   }
 
-  /** Lets go of held seats whose grace period ran out. */
+  /** A Battle Royale's Preparation is on and its dive hasn't begun. */
+  #beforeDive(): boolean {
+    if (this.#prepStart === null || !this.#countingDown) return false;
+    const dive = Math.min(PREPARATION.dive, this.#options.countdown ?? PREPARATION.seconds);
+    return this.simulation.time < this.#matchStart - dive - 1e-9;
+  }
+
+  /** Lets go of held seats whose grace period ran out, and of those left on purpose once the dive begins. */
   #releaseAway(): void {
     const held = this.#away.size;
-    for (const [token, away] of this.#away) if (this.simulation.time >= away.until - 1e-9) this.#away.delete(token);
+    const diving = !this.#beforeDive();
+    for (const [token, away] of this.#away) if (this.simulation.time >= away.until - 1e-9 || (away.left && diving)) this.#away.delete(token);
     if (this.#away.size < held) this.#seatsChanged();
   }
 
