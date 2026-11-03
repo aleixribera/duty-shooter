@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LobbyState } from '@duty-shooter/fps-core';
-import { royaleOpens, royaleServer, royaleSession, royaleSquads, type RoyaleSessionState } from '../src/ui/royale-lobby';
+import { royaleLocal, royaleOpens, royaleServer, royaleSession, royaleSquads, royaleSteps, type RoyaleSessionState } from '../src/ui/royale-lobby';
 
 const lobby = (over: Partial<LobbyState>): LobbyState => ({
   host: 'p1',
@@ -101,6 +101,17 @@ describe('the Battle Royale screen’s server line', () => {
 
   it('says so when the server is full', () => {
     expect(royaleServer({ ...status, players: 8, lobbyMode: 'battle-royale' })).toMatchObject({ tone: 'busy', join: false });
+  });
+});
+
+describe('the Battle Royale screen on Local bots (ticket 15)', () => {
+  it('always opens a lobby of your own, its size yours to pick, with every other seat a bot', () => {
+    expect(royaleLocal()).toEqual({ tone: 'up', join: true, line: 'You open a lobby on this machine and pick the Squad size. 59 bots take every other seat.' });
+  });
+
+  it('names its own steps: the bots start before the island is built', () => {
+    expect(royaleSteps('local')).toEqual(['Starting the bots', 'Building Zero Island', 'Joining the lobby']);
+    expect(royaleSteps('server')).toEqual(['Reaching the server', 'Building Zero Island', 'Joining the lobby']);
   });
 });
 

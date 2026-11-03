@@ -155,6 +155,13 @@ describe('Early end', () => {
     expect(place(mode, 'p1')).toBe(5);
   });
 
+  it('a human out while their Squad’s bots still stand is placed with the Squads that remained (ticket 15)', () => {
+    const { mode, tick } = royale({ squadSize: 3, seats: 9, people: ['p1'] });
+    expect(tick(['p1', 'p9'])).toMatchObject({ winner: null, reason: 'noHumans' });
+    // Three Squads still standing, the human's among them: they share the place behind none, counted as the third.
+    expect(place(mode, 'p1')).toBe(3);
+  });
+
   it('a human alive keeps it going, a Squad of bots out or not', () => {
     const { tick } = royale({ seats: 4, people: ['p1'] });
     expect(tick(['p2'])).toBeNull();

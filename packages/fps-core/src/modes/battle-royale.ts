@@ -205,6 +205,8 @@ export class BattleRoyale implements GameMode {
     } else if (squads.size === 1 && this.#squads > 1) {
       this.#result = this.#won(squads.values().next().value as TeamId, 'lastSquad');
     } else if (this.#peopled && !seats.some((p) => people.has(p.id))) {
+      // The Squads still standing share the last of their places: a person out while their Squad's bots stand is placed too.
+      for (const team of squads) if (!this.#places.has(team)) this.#places.set(team, squads.size);
       this.#result = { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
     } else if (ctx.matchTime >= this.timeLimit - 1e-9) {
       this.#result = this.#won(this.#first(this.#living)!.team, 'timeLimit');

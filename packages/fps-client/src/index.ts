@@ -22,7 +22,7 @@ export type { Lobby, LobbyInfo, MenuCallbacks } from './ui/menu';
 export { LobbyPage, lobbyMapName } from './ui/lobby';
 export { BOT_MAPS } from './ui/model';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './ui/lobby';
-export { BotMatchDriver, OfflineDriver, OnlineDriver } from './session';
+export { BotMatchDriver, LocalRoyaleDriver, OfflineDriver, OnlineDriver } from './session';
 export type { BotMatchOptions, DriverTick, GameDriver, OfflineOptions, OnlineOptions, PresentedEvent } from './session';
 export { connectWebSocket } from './net/websocket';
 export { createSoundSystem, sampleVoice } from './audio';

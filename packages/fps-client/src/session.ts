@@ -430,6 +430,35 @@ export interface BotMatchOptions {
 }
 
 /**
+ * A Battle Royale on Local bots (ticket 15, ADR 0010): the game server runs in
+ * a worker on this page, reached over its message channel with the protocol a
+ * WebSocket carries, so this is the online game in every way but the address.
+ * Nobody waits on it, so it has no round trip to show, and leaving stops the
+ * worker.
+ */
+export class LocalRoyaleDriver extends OnlineDriver {
+  readonly #stop: () => void;
+
+  constructor(options: Omit<OnlineOptions, 'server' | 'seatKey' | 'passphrase'> & { readonly server: Connection; readonly stop: () => void }) {
+    super({ ...options, passphrase: '', mode: 'battle-royale' });
+    this.#stop = options.stop;
+  }
+
+  override get ping(): number | null {
+    return null;
+  }
+
+  override get pings(): Readonly<Record<string, number>> {
+    return {};
+  }
+
+  override dispose(): void {
+    super.dispose();
+    this.#stop();
+  }
+}
+
+/**
  * A match against bots with no server to reach: a game server runs in the
  * page, over a zero-latency in-memory link, so modes, scores, the clock and
  * the intermission all work as online. Like the online server it has a

@@ -99,6 +99,16 @@ export function royaleServer(status: LobbyInfo | null): RoyaleServer {
   return { tone: 'busy', join: false, line: `The server is playing ${MODE_NAMES[status.mode] ?? status.mode} with ${players(people)}. Battle Royale opens when they finish and leave.` };
 }
 
+/** Before joining on Local bots: a lobby of this player's own, always free (ticket 15). */
+export function royaleLocal(): RoyaleServer {
+  return { tone: 'up', join: true, line: `You open a lobby on this machine and pick the Squad size. ${WIDE_SCALE.seats - 1} bots take every other seat.` };
+}
+
+/** The steps a join goes through, shown while it does: the bots' worker starts where a server would be reached. */
+export function royaleSteps(source: 'server' | 'local'): readonly string[] {
+  return [source === 'local' ? 'Starting the bots' : 'Reaching the server', 'Building Zero Island', 'Joining the lobby'];
+}
+
 /** What the Battle Royale screen needs of a joined session to say where it stands. */
 export interface RoyaleSessionState {
   /** Whether this player is the lobby's host. */

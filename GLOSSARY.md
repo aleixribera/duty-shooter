@@ -134,7 +134,11 @@ The mark over each teammate, or Squadmate in a Battle Royale: their name with a 
 _Avoid_: nameplate
 
 **Battle Royale screen**:
-Where a Battle Royale is set up, reached from the main menu: where it plays (the server; Local bots once they have their own thread), the Squad size, your Squad's seats and the other Squads, the server's state in one line, and Start. Joining an empty server makes you the lobby's host, with the Squad size you picked. It replaces the lobby page for a Battle Royale.
+Where a Battle Royale is set up, reached from the main menu: where it plays (the server, or Local bots), the Squad size, your Squad's seats and the other Squads, the server's state in one line, and Start. Joining an empty server makes you the lobby's host, with the Squad size you picked. It replaces the lobby page for a Battle Royale.
+
+**Local bots**:
+A Battle Royale played on this machine alone: you and 59 bots on Zero Island, the same server code as the Battle Royale process running in a Web Worker on the page, so the bots never take the render thread's time (ADR 0010). Picked on the Battle Royale screen; you are always its lobby's host, and friends can't join it.
+_Avoid_: offline Battle Royale, single player
 
 **Battle Royale process**:
 The OS process a server's Battle Royale plays in, beside the one that holds the public address and plays the team modes (ADR 0009). It starts when the Battle Royale screen first asks for it, takes its players' connections whole, and stops after 3 minutes empty; if it crashes, only its own match ends.

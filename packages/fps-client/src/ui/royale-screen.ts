@@ -1,7 +1,7 @@
 import { STATS, WIDE_SCALE, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { lastMatch, type LobbyInfo } from './model';
-import { royaleOpens, royaleServer, royaleSession, royaleSquads, type SquadView } from './royale-lobby';
+import { royaleLocal, royaleOpens, royaleServer, royaleSession, royaleSquads, royaleSteps, type SquadView } from './royale-lobby';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 type SquadSize = LobbyState['squadSize'];
@@ -107,6 +107,8 @@ export interface RoyaleSession {
 }
 
 export interface RoyaleView {
+  /** Where it plays: the server, or this machine with 59 bots in a worker. */
+  readonly source: RoyaleSource;
   /** The server's status before joining: undefined while it is being asked, null when nothing answered. */
   readonly status: LobbyInfo | null | undefined;
   /** The name to join with, and whether the server asks for a passphrase. */
@@ -123,6 +125,8 @@ export interface RoyaleView {
 }
 
 export interface RoyaleCallbacks {
+  /** Play on the server or on Local bots (before joining). */
+  source(source: RoyaleSource): void;
   /** Join the server's Battle Royale lobby. */
   join(name: string, passphrase: string): void;
   /** Squad size: the host's pick in the lobby, or the pick to open an empty server's lobby with. */
@@ -146,13 +150,12 @@ const SIZES: readonly (readonly [SquadSize, string])[] = [
   [2, 'Duos'],
   [3, 'Trios'],
 ];
-const STEPS = ['Reaching the server', 'Building Zero Island', 'Joining the lobby'];
 const MINUTES = Math.round(STATS.royale.matchLength.value / 60);
 const STAGES = Object.keys(STATS.royale.ring).length;
 
 /**
- * The Battle Royale screen: where to play it (the server; local bots once
- * they have their own thread), the Squad size, your Squad's seats with
+ * The Battle Royale screen: where to play it (the server, or Local bots on
+ * a thread of their own), the Squad size, your Squad's seats with
  * friends and the bots that fill the rest, the other Squads to join, the
  * island and its numbers, the connection, and one action named for what it
  * does now. Plain DOM patched in place, like the lobby page.
@@ -248,7 +251,8 @@ export class RoyalePage {
     if (!el || (el as HTMLButtonElement).disabled) return;
     const act = el.dataset['act'];
     const value = Number(el.dataset['value'] ?? '');
-    if (act === 'squads') this.#callbacks.squads(value as SquadSize);
+    if (act === 'source') this.#callbacks.source(el.dataset['value'] === 'local' ? 'local' : 'server');
+    else if (act === 'squads') this.#callbacks.squads(value as SquadSize);
     else if (act === 'squad') this.#callbacks.squad(value);
     else if (act === 'start') this.#callbacks.start();
     else if (act === 'enter') this.#callbacks.enter();
@@ -266,10 +270,10 @@ export class RoyalePage {
     this.#callbacks.leave();
   }
 
-  #slots(squad: SquadView, mine: boolean): string {
+  #slots(squad: SquadView, mine: boolean, local: boolean): string {
     const tiles = squad.slots
       .map((s, i) => {
-        if (s.id === null) return `<div class="slot bot"><b>Bot fills this seat</b><span>Until a friend takes it</span></div>`;
+        if (s.id === null) return `<div class="slot bot"><b>Bot fills this seat</b><span>${local ? 'A bot plays it' : 'Until a friend takes it'}</span></div>`;
         const key = `${squad.squad}:${s.id}`;
         const fresh = mine && !s.you && !this.#seen.has(key);
         this.#seen.add(key);
@@ -284,8 +288,9 @@ export class RoyalePage {
     const host = s !== null && s.lobby.host !== null && s.lobby.host === s.selfId;
     const underway = s !== null && s.phase !== 'lobby';
     const joined = s ? royaleSession({ host, hostName: s.lobby.host === null ? null : (s.names[s.lobby.host] ?? s.lobby.host), phase: s.phase, loading: s.loading, seated: s.seated, out: s.out === true, reconnecting: s.reconnecting === true }) : null;
-    const server = royaleServer(v.status ?? null);
-    const free = royaleOpens(v.status);
+    const local = v.source === 'local';
+    const server = local ? royaleLocal() : royaleServer(v.status ?? null);
+    const free = local || royaleOpens(v.status);
     const size: SquadSize = s ? s.lobby.squadSize : free ? v.squads : ((v.status?.squadSize ?? 1) as SquadSize);
     // Before joining, an empty server's size is yours to pick (you open its lobby); in it, the host's alone.
     const sizeFree = joined ? joined.picks : v.joining === null && server.join && free;
@@ -305,13 +310,13 @@ export class RoyalePage {
         })
         .join('');
       const leaveSquad = view.newSquad !== null && !underway && !s.reconnecting ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
-      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true) : ''}${leaveSquad}</section>
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true, local) : ''}${leaveSquad}</section>
 ${others ? `<section class="sec-others"><h2>Other Squads<small>${view.others.length} with people in them</small></h2><div class="squads">${others}</div></section>` : ''}`;
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
     } else {
       // Before joining: your own seat, and the seats friends take when they join, bots otherwise.
       const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: v.name ? 'You' : 'Type your name to join', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
-      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>Friends who join take these seats</small></h2>${this.#slots(mine, false)}</section>`;
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${local ? 'Bots take the other seats' : 'Friends who join take these seats'}</small></h2>${this.#slots(mine, false, local)}</section>`;
       footNote = '';
     }
     const last = s ? lastMatch(s.result, s.mode, s.teamScores, s.place ?? null) : null;
@@ -322,13 +327,13 @@ ${others ? `<section class="sec-others"><h2>Other Squads<small>${view.others.len
     if (joined) {
       conn = `<p class="ds-state ${joined.tone}">${escapeHtml(joined.line)}</p>`;
     } else if (v.joining !== null) {
-      conn = `<ol class="steps">${STEPS.map((label, i) => `<li class="${i < v.joining! ? 'done' : i === v.joining ? 'now' : ''}">${label}</li>`).join('')}</ol>`;
-    } else if (v.status === undefined) {
+      conn = `<ol class="steps">${royaleSteps(v.source).map((label, i) => `<li class="${i < v.joining! ? 'done' : i === v.joining ? 'now' : ''}">${label}</li>`).join('')}</ol>`;
+    } else if (v.status === undefined && !local) {
       conn = `<p class="ds-state wait">Asking the server…</p>`;
     } else {
       conn = `<p class="ds-state ${server.tone}">${escapeHtml(server.line)}</p>${v.error ? `<p class="error">${escapeHtml(v.error)}</p>` : ''}
 <label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>
-${v.passphrase ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" data-key="passphrase"></label>` : ''}`;
+${v.passphrase && !local ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" data-key="passphrase"></label>` : ''}`;
     }
 
     let go: string;
@@ -337,19 +342,24 @@ ${v.passphrase ? `<label class="ds-field"><span class="ds-field-label">Passphras
         ? `<button type="button" class="ds-btn primary big" data-act="${joined.go.act}" data-key="go">${escapeHtml(joined.go.label)}</button>`
         : `<button type="button" class="ds-btn primary big" disabled>${escapeHtml(joined.go.label)}</button>`;
     } else if (v.joining !== null) go = `<button type="button" class="ds-btn primary big" disabled>Joining…</button>`;
+    else if (local) go = `<button type="submit" class="ds-btn primary big" data-key="go">Open lobby</button>`;
     else if (v.status === undefined) go = `<button type="button" class="ds-btn primary big" disabled>Checking the server…</button>`;
     else if (!server.join) go = `<button type="button" class="ds-btn primary big" data-act="refresh" data-key="go">Check again</button>`;
     else go = `<button type="submit" class="ds-btn primary big" data-key="go">Join server</button>`;
 
+    // Picked before joining; once in a lobby, where it plays is fixed until you leave.
+    const sourceSeg = (['server', 'local'] as const)
+      .map((src) => `<button type="button" data-act="source" data-value="${src}" data-key="source-${src}" class="${v.source === src ? 'on' : ''}" aria-pressed="${v.source === src}"${s || v.joining !== null ? ' disabled' : ''}>${src === 'local' ? 'Local bots' : 'Server'}</button>`)
+      .join('');
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${s ? '' : hint('Esc', '○', 'Back')}</div>`;
     const extras = s ? `<button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>` : '';
 
     return `<form class="ds-page" novalidate>
-<header><div class="heading"><div class="ds-crumb">${s ? 'Online · Lobby' : 'Play'}</div><h1>Battle Royale</h1></div></header>
+<header><div class="heading"><div class="ds-crumb">${s ? (local ? 'Local bots · Lobby' : 'Online · Lobby') : 'Play'}</div><h1>Battle Royale</h1></div></header>
 <div class="body">
 <div class="controls">
-<section class="sec-source"><span class="ds-field-label">Play on</span><div class="ds-seg"><button type="button" class="on" data-key="source-server" aria-pressed="true">Server</button><button type="button" disabled aria-pressed="false">Local bots<small>Coming soon</small></button></div>
-<p class="why">Local bots will run all ${WIDE_SCALE.seats - 1} bots on this machine, on a thread of their own so they never slow your frames. Until then a Battle Royale plays on the server, with bots filling every empty seat.</p></section>
+<section class="sec-source"><span class="ds-field-label">Play on</span><div class="ds-seg">${sourceSeg}</div>
+<p class="why">${local ? `All ${WIDE_SCALE.seats - 1} bots run on this machine, on a thread of their own so they never slow your frames. Only you play: friends join on the server.` : 'Friends join you on the server, and bots fill every empty seat.'}</p></section>
 <section class="sec-size"><span class="ds-field-label">Squads</span><div class="ds-seg">${seg}</div><p class="why">${sizeWhy}</p></section>
 ${squadsHtml}
 ${lastHtml}

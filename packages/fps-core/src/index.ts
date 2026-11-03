@@ -55,6 +55,7 @@ export type { Connection, ServerTransport, WireData } from './net/transport';
 export { FULL_RATE, NET_PROFILES, WIDE_MAP } from './net/relevance';
 export type { NetProfile, Relevance } from './net/relevance';
 export { createMemoryNetwork } from './net/memory';
+export { connectPort, messageData, servePort, type PortLike } from './net/port';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
 export { INTERMISSION, MATCH_COUNTDOWN, PREPARATION, PROTOCOL_VERSION, decodeServer } from './net/protocol';
 export type { ClientMessage, LobbyPick, LobbyState, MatchStatus, Phase, PreparationState, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';

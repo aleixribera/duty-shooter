@@ -1,7 +1,8 @@
 import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
-import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, createWorld, teamMode, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
+import type { FromLocalRoyale } from './local-royale';
+import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamMode, type Connection, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
 import { TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
@@ -374,10 +375,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
    * The Battle Royale screen: before joining, the server's state and the
    * Squad size to open its lobby with; joined, the server's Battle Royale
    * lobby (updateLobby feeds it each frame). It plays in the server's Battle
-   * Royale process, behind `/royale/` on the same address (ADR 0009); Local
-   * bots wait for their worker (ticket 15).
+   * Royale process, behind `/royale/` on the same address (ADR 0009), or on
+   * Local bots: the same server in a worker on this page (ticket 15, ADR 0010).
    */
-  let royale: Omit<RoyaleView, 'session'> = { status: undefined, name: '', passphrase: false, joining: null, error: null, squads: 1 };
+  let royale: Omit<RoyaleView, 'session'> = { source: 'server', status: undefined, name: '', passphrase: false, joining: null, error: null, squads: 1 };
   /** The screen is up before (or while) joining, with no lobby yet. */
   let royalePre = false;
   /** The screen shows the server's Battle Royale lobby. */
@@ -394,6 +395,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (royalePre) royalePage.show({ ...royale, session: null });
   };
   const askRoyale = () => {
+    if (royale.source === 'local') return showRoyale();
     royale = { ...royale, status: undefined };
     showRoyale();
     // Asking starts the Battle Royale process if it isn't running, so it's warm by the time this player joins.
@@ -408,6 +410,71 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     royale = { ...royale, name: settings.name.trim(), passphrase: lobby?.kind === 'server' && !lobby.public, joining: null, error: null };
     askRoyale();
   };
+  /** Local bots' worker's last word on its ticks, for the scripts that measure it. */
+  let localStats: FromLocalRoyale | null = null;
+  /** Starts Local bots' worker: the island's server, ready once it has built the island and its nav. */
+  const startLocalBots = () =>
+    new Promise<{ readonly connection: Connection; readonly stop: () => void }>((done, fail) => {
+      const worker = new Worker(new URL('./royale-worker.ts', import.meta.url), { type: 'module', name: 'local-bots' });
+      const stop = () => worker.terminate();
+      let connection: Connection | null = null;
+      worker.addEventListener('message', (e: MessageEvent<FromLocalRoyale | { readonly k: string }>) => {
+        const m = e.data;
+        if (!('t' in m)) return;
+        if (m.t === 'ready') {
+          connection = connectPort(worker);
+          done({ connection, stop });
+        } else if (m.t === 'stats') {
+          localStats = m;
+          // For the scripts that measure a production build, which has no `duty` hooks.
+          document.body.dataset['localBots'] = JSON.stringify(m);
+        } else {
+          stop();
+          fail(new Error(m.reason));
+        }
+      });
+      worker.addEventListener('error', (e) => {
+        stop();
+        // Mid-match, the game hears the server is gone rather than waiting on silence.
+        if (connection) connection.close('The bots stopped on this machine.');
+        else fail(new Error(e.message || 'the worker failed to load'));
+      });
+      worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href });
+    });
+  /** Local bots: the worker starts while the island builds here, then this page joins its lobby as its host. */
+  const joinLocalRoyale = async (attempt: number, name: string) => {
+    const bots = startLocalBots();
+    const abandon = () => void bots.then((link) => link.stop(), () => undefined);
+    await engineReady;
+    if (attempt !== joinAttempt) return abandon();
+    royale = { ...royale, joining: 1 };
+    showRoyale();
+    await nextPaint();
+    const id = ROYALE_MAP;
+    await load(id).bake;
+    if (attempt !== joinAttempt) return abandon();
+    useMap(id);
+    await ready();
+    if (attempt !== joinAttempt) return abandon();
+    royale = { ...royale, joining: 2 };
+    showRoyale();
+    let link: Awaited<typeof bots>;
+    try {
+      link = await bots;
+    } catch (error) {
+      if (attempt !== joinAttempt) return;
+      royale = { ...royale, joining: null, error: `The bots couldn’t start on this machine (${(error as Error).message}). Try again, or play on the server.` };
+      return showRoyale();
+    }
+    if (attempt !== joinAttempt) return link.stop();
+    pendingSquads = royale.squads;
+    lobbyPage.invite = null;
+    const next = new engine!.LocalRoyaleDriver({ server: link.connection, stop: link.stop, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, loadout: settings.loadout });
+    driver = next;
+    game.setDriver(next);
+    game.paused = true;
+    menu.loadoutNote = 'Applies from your next spawn.';
+  };
   const joinRoyale = (name: string, passphrase: string) => {
     const attempt = ++joinAttempt;
     onlineName = name;
@@ -418,6 +485,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     }
     royale = { ...royale, name, joining: 0, error: null };
     showRoyale();
+    if (royale.source === 'local') return void joinLocalRoyale(attempt, name);
     void lobbyStatus(ROYALE_STATUS).then(async (status) => {
       if (attempt !== joinAttempt) return;
       if (!status || !royaleServer(status).join) {
@@ -458,6 +526,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const royalePage = new RoyalePage(
     document.body,
     {
+      source: (source) => {
+        if (royaleSession || royale.joining !== null || source === royale.source) return;
+        royale = { ...royale, source, error: null };
+        askRoyale();
+      },
       join: (name, passphrase) => joinRoyale(name, passphrase),
       squads: (size) => {
         if (royaleSession) game.driver?.setLobby({ squads: size });
@@ -832,6 +905,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu,
         get driver() {
           return driver;
+        },
+        /** Local bots' worker: ticks run and their cost on its thread, every 2 s. */
+        get localBots() {
+          return localStats;
         },
       },
     });

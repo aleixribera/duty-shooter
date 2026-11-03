@@ -203,7 +203,7 @@ const PAD_KEYS: readonly (readonly [string, string])[] = [
 export interface MenuCallbacks {
   /** Practice on the range, offline. */
   practiceRange(): void;
-  /** The Battle Royale screen: its own lobby, on the server or (later) against local bots. */
+  /** The Battle Royale screen: its own lobby, on the server or against Local bots. */
   battleRoyale(): void;
   /** Bot Match's setup: the lobby page, offline. */
   botMatch(): void;
