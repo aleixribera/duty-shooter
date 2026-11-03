@@ -3,6 +3,8 @@ export { DEG, angleDelta, anglesOf, viewDirection } from './math';
 export { MATERIALS, box, createWorld, orientedBox, playerClip, yawBox } from './world';
 export type { Blocks, Concealment, Ladder, Material, Orientation, Solid, World, WorldOptions } from './world';
 export { Terrain } from './terrain';
+export { SOFT_DEPTH, softConcealment } from './soft-cover';
+export type { SoftCover, SoftCoverOptions } from './soft-cover';
 export type { TerrainData } from './terrain';
 export { ALL_BUTTONS, Button, CMD_PITCH_LIMIT, isPressed, usercmd } from './usercmd';
 export type { ButtonName, UserCmd } from './usercmd';
