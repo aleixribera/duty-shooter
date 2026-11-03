@@ -442,7 +442,7 @@ describe('a match on the server', () => {
 });
 
 /** Joins over a line `cut` drops, as the network does; the client isn't told to come back. */
-function joinedOver(m: NetworkedMatch, name: string) {
+function joinedOver(m: NetworkedMatch, name: string, options: Parameters<NetworkedMatch['join']>[1] = {}) {
   let live!: Connection;
   const connection: Connection = {
     get open() {
@@ -454,7 +454,7 @@ function joinedOver(m: NetworkedMatch, name: string) {
     onClose: (handler) => live.onClose(handler),
   };
   live = m.network.connect();
-  const c = joined(m, name, { connection });
+  const c = joined(m, name, { ...options, connection });
   return { c, cut: () => live.close('network went away') };
 }
 
@@ -483,6 +483,34 @@ describe('reconnects', () => {
     const held = seat(m, id)!.position;
     m.run(ticks(1));
     expect(flat(seat(m, id)!.position, held)).toBeLessThan(0.2);
+  });
+
+  // Ticket 77: a person's seat never gets a bot's commands, however often it changes hands.
+  it('never drives a seat its person holds: an idle player back from three drops stands still and fires nothing', () => {
+    const m = match({ countdown: 0, reconnectGrace: 60, spawnProtection: 30 });
+    let line = joinedOver(m, 'alice');
+    const id = line.c.client.id!;
+    const token = line.c.client.token!;
+    for (let drop = 0; drop < 3; drop++) {
+      m.run(ticks(0.5));
+      line.cut();
+      m.run(ticks(1.5));
+      expect(m.server.bots.has(id)).toBe(true);
+      line = joinedOver(m, 'alice', { resume: token });
+      expect(line.c.client.id).toBe(id);
+      // The bot's run carries a few tenths of a second; after that the seat does only what its person sends (nothing).
+      for (let i = 0; i < ticks(0.4); i++) {
+        m.step();
+        expect(m.server.bots.has(id)).toBe(false);
+      }
+      const held = seat(m, id)!;
+      for (let i = 0; i < ticks(1.5); i++) {
+        m.step();
+        expect(m.server.bots.has(id)).toBe(false);
+      }
+      expect(flat(seat(m, id)!.position, held.position)).toBeLessThan(0.2);
+      expect(seat(m, id)!.weapon.ammo).toBe(held.weapon.ammo);
+    }
   });
 
   it('a seat that died under its bot stays dead when its player returns', () => {

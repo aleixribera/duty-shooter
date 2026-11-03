@@ -55,8 +55,11 @@ export interface PadReading {
 /** How far a trigger travels before it counts as pressed. */
 const TRIGGER_THRESHOLD = 0.12;
 
-/** The first connected pad, or null. */
+/** The first connected pad, or null (also while the page is hidden or another window has the focus). */
 export function readPad(): PadReading | null {
+  // The browser hands the controller to every page, focused or not: a pad used in another
+  // window (another game, a person at the PC beside a scripted match) must not play here.
+  if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) return null;
   const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
   for (const pad of pads) {
     if (!pad || !pad.connected) continue;

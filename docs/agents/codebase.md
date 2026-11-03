@@ -43,6 +43,7 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
 
 Use the scripts in `apps/range/scripts/` (`npm run bot-runs`, `record`, `bench`, `spots`, and `node apps/range/scripts/soldier-sheet.mjs`, which screenshots `soldiers.html`: every look holding each weapon through the poses and actions the game uses): they launch Chrome through `chrome.mjs`, headless and muted (`HEADED=1` shows it, `SOUND=1` unmutes it, `CHROME` names another browser). They expect the dev server (`npm run dev`, port 5173) and use the dev hooks: `?nolock`, and `globalThis.duty` (`game`, `driver`, `menu`, ...; `duty.game.player` is the local player).
 
+- This PC has a real controller connected (a DualShock 4), often in use, and Chrome hands it to a page once a script's click focuses it: it walked and fired the "idle" player of scripted runs (ticket 77). `launchChrome()` hides every controller unless `PAD=1`; a script testing the controller puts its own fake `navigator.getGamepads` in place. The game itself reads no controller while its page is hidden or another window has the focus.
 - Open one page per Chrome; a second navigation in the same browser can hang at "Starting renderer".
 - `chrome.navigate` returns before the page commits, sometimes by seconds: a press timed from it can land on `about:blank`. Wait for `location.protocol` and `performance.now()` in the page.
 - Editing the game's source while a scripted run is going makes Vite reload the page and fails that run. Change tests, docs and scripts meanwhile, and source after.

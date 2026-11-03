@@ -1,7 +1,9 @@
 // A Chrome driven over the DevTools protocol, for the benchmark and the
 // reference-spot screenshots: 1920 x 1080, WebGPU on, vsync off. Headless
 // unless HEADED=1, and muted unless SOUND=1 (a headless page still plays
-// through the speakers); CHROME overrides the browser path.
+// through the speakers); CHROME overrides the browser path. The page sees no
+// controller unless PAD=1: Chrome hands a page the PC's real one once a script's
+// click focuses it, and a pad in use at this PC then plays the scripted match.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -69,6 +71,8 @@ export async function launchChrome({ profile: keep } = {}) {
   await send('Runtime.enable');
   await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+  // Writable, so a script can still put a fake pad of its own in its place.
+  if (!process.env.PAD) await send('Page.addScriptToEvaluateOnNewDocument', { source: "Object.defineProperty(Navigator.prototype, 'getGamepads', { value: () => [], writable: true, configurable: true });" });
   return {
     send,
     errors,
