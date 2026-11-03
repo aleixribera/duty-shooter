@@ -321,6 +321,40 @@ describe('a match on the server', () => {
     expect(seat(m, c.client.id)!.loadout.primary).toBe('smg');
   });
 
+  it('bots start each match knowing nothing of the last one (ticket 74)', () => {
+    const m = match({ countdown: 0.1, timeLimit: 3 });
+    joined(m, 'alice').client.loaded();
+    const known = () => {
+      let newest = -Infinity;
+      let count = 0;
+      for (const { bot } of m.server.bots.values()) {
+        for (const p of m.server.latest.players) {
+          const r = bot.recall(p.id);
+          if (r) [count, newest] = [count + 1, Math.max(newest, r.time)];
+        }
+      }
+      return { count, newest };
+    };
+    let left = false;
+    let before = { count: 0, newest: -Infinity };
+    for (let i = 0; i < ticks(30); i++) {
+      if (left) before = known();
+      const was = m.server.simulation.time;
+      m.step();
+      const status = m.server.matchStatus();
+      if (status.phase !== 'playing') left = true;
+      if (left && status.phase === 'playing') {
+        // Carried over from the last match, they'd date from before this tick.
+        expect(before.count).toBeGreaterThan(0);
+        let stale = 0;
+        for (const { bot } of m.server.bots.values()) for (const p of m.server.latest.players) if ((bot.recall(p.id)?.time ?? Infinity) < was) stale += 1;
+        expect(stale).toBe(0);
+        return;
+      }
+    }
+    expect.unreachable('a second match started');
+  });
+
   it('squadmates spawn a few metres apart, and every Squad far from every other', () => {
     const m = match({ squadSize: 3 });
     joined(m, 'alice');

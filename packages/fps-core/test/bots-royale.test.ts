@@ -54,13 +54,14 @@ function scene(seats: readonly Seat[], options: { canDamage?: boolean } = {}) {
   let out: TickOutput = sim.output();
   let events: readonly SimEvent[] = [];
   const ground = (me: PlayerOutput, mates: number): GroundOrder => ({ rally: me.position, radius: 30, hurry: false, hunt: false, wait: false, slot: 0, mates, ring, intel: intel.get(me.team)!, noise });
-  const step = () => {
+  /** One tick; `heard` joins the events the bots take in, as if the tick before had them. */
+  const step = (heard: readonly SimEvent[] = []) => {
     const cmds: Record<string, UserCmd> = {};
     for (const s of seats) {
       const me = out.players.find((p) => p.id === s.id)!;
       const bot = bots.get(s.id);
       if (bot) {
-        const view: BotView = { tick: out.tick, time: sim.time, self: me, players: out.players, events, isEnemy: (o: PlayerOutput) => o.team !== me.team, ground: ground(me, seats.filter((x) => x.team === s.team && x.id !== s.id).length) };
+        const view: BotView = { tick: out.tick, time: sim.time, self: me, players: out.players, events: heard.length ? [...events, ...heard] : events, isEnemy: (o: PlayerOutput) => o.team !== me.team, ground: ground(me, seats.filter((x) => x.team === s.team && x.id !== s.id).length) };
         cmds[s.id] = bot.think(view);
       } else if (s.cmd) cmds[s.id] = s.cmd;
     }
@@ -161,5 +162,53 @@ describe('noticing someone takes a moment (ticket 64)', () => {
     // 60 m off and 40 degrees aside: inside the cone, outside the box.
     const a = 40 * (Math.PI / 180);
     expect(noticed([Math.sin(a) * 60, 0, Math.cos(a) * 60], undefined, 1.5)).toBe(Infinity);
+  });
+});
+
+const reviveStarted = (s: ReturnType<typeof scene>, seconds: number, first: readonly SimEvent[] = []): boolean => {
+  for (let i = 0; i < ticks(seconds); i++) if ((s.step(i === 0 ? first : []).players.find((p) => p.id === 'd')!.downed?.revive ?? 0) > 0) return true;
+  return false;
+};
+
+describe('a bot knows only what its Squad perceived (ticket 74)', () => {
+  // A squadmate saw the enemy, standing in view of the Downed seat, a moment ago; the enemy is truly elsewhere now, Downed where nobody saw (its own squadmate, out of sight too, keeps its Squad in it).
+  const setup = () => {
+    const s = scene([{ id: 'b', team: 1, at: [3, 0, 0], bot: 'Moss' }, { id: 'd', team: 1, at: [0, 0, 4], downed: true }, { id: 'e', team: 2, at: [0, 0, -40], downed: true }, { id: 'f', team: 2, at: [40, 0, -60], cmd: crouch }], { canDamage: false });
+    s.intel.get(1)!.report('e', { position: [0, 0, 30], time: 0, seen: true, velocity: [0, 0, 0], by: 'd' });
+    return s;
+  };
+
+  it('a Revive weighs an enemy as last seen, not as truly is: no Revive under a seen enemy nobody saw go Down', () => {
+    expect(reviveStarted(setup(), 8)).toBe(false);
+  });
+
+  it('a Down in the feed, which everyone sees, lets it go', () => {
+    const down: SimEvent = { type: 'down', attacker: null, victim: 'e', cause: 'bullet', zone: null, weapon: null };
+    expect(reviveStarted(setup(), 8, [down])).toBe(true);
+  });
+
+  const hit = (shooter: string, victim: string): SimEvent => ({ type: 'hit', shooter, victim, damage: 10, zone: 'upperTorso', point: [0, 1, 0], weapon: 'm4a1', kind: 'bullet' }) as unknown as SimEvent;
+  const felt = (enemy: Vec3, bots: number) =>
+    Array.from({ length: bots }, (_, k) => {
+      const s = scene([{ id: `b${k}`, team: 1, at: [0, 0, 0], bot: 'Moss' }, { id: 'e', team: 2, at: enemy }], { canDamage: false });
+      s.step();
+      s.step([hit('e', `b${k}`)]);
+      const m = s.bots.get(`b${k}`)!.recall('e')!;
+      const told = [...s.intel.get(1)!.callouts(s.sim.time)].find(([id]) => id === 'e')![1];
+      const bearing = (p: Vec3) => Math.atan2(p[0], p[2]);
+      const turn = Math.abs(((bearing(m.position) - bearing(enemy) + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+      return { error: Math.hypot(m.position[0] - enemy[0], m.position[2] - enemy[2]), turn, told: Math.hypot(told.position[0] - enemy[0], told.position[2] - enemy[2]) };
+    });
+
+  it('a hit from far off and out of sight gives a direction, not a place', () => {
+    // 65 m off, behind the wall.
+    const far = felt([8, 0, -65], 10);
+    expect(Math.max(...far.map((f) => f.error))).toBeGreaterThan(8);
+    expect(Math.max(...far.map((f) => f.told))).toBeGreaterThan(8);
+    for (const f of far) expect(f.turn).toBeLessThan(0.3);
+  });
+
+  it('a hit from near and in sight is placed about where it came from', () => {
+    for (const f of felt([4, 0, 15], 10)) expect(f.error).toBeLessThan(5);
   });
 });

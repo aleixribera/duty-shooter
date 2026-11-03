@@ -928,6 +928,8 @@ export class GameServer {
     else if ((previous.id === BATTLE_ROYALE) !== (this.#mode.id === BATTLE_ROYALE)) this.#freshBots();
     // This match's bots first: new ones join the simulation here and get their team below.
     this.#rosterBots();
+    // Bots kept from the last match start this one knowing nothing of it.
+    for (const { bot } of this.#bots.values()) bot.newMatch();
     // Those who spectated the last match have no seat yet.
     for (const seat of this.#joined()) {
       const id = seat.id as PlayerId;

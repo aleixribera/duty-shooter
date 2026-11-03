@@ -152,3 +152,51 @@ describe('each bot decides for itself (ticket 64)', () => {
   });
 });
 
+
+describe('a person is a squadmate like any other (ticket 74)', () => {
+  it('the person’s moves are news to the Squad: a Heading with the time they were made', () => {
+    const p = planner();
+    p.plan(situation([seat('h', 1, 40, 40, { bot: false }), seat('b', 1, 10, 10)], { time: 10 }));
+    p.plan(situation([seat('h', 1, 150, -60, { bot: false }), seat('b', 1, 12, 10)], { time: 30 }));
+    expect(p.intel(1).heading('h')).toMatchObject({ point: [150, 0, -60], time: 30 });
+  });
+
+  it('a bot weighs the person’s Heading as it weighs a bot squadmate’s: its own newer choice stands', () => {
+    // The person stands still all along; the bot's own shifts about are its own to make, as with a bot squadmate who said nothing new.
+    const p = planner();
+    let own = 0;
+    for (let t = 10; t < 200; t += 1) {
+      const order = p.plan(situation([seat('h', 1, 40, 40, { bot: false }), seat('b', 1, 12, 10, { bold: 1 })], { time: t })).get('b')!;
+      if (apart(order.rally, [40, 40]) > 5) own += 1;
+    }
+    expect(own).toBeGreaterThan(0);
+  });
+
+  it('when the person moves on, a bot that went its own way joins where the person went', () => {
+    const p = planner();
+    for (let t = 10; t < 200; t += 1) p.plan(situation([seat('h', 1, 40, 40, { bot: false }), seat('b', 1, 12, 10, { bold: 1 })], { time: t }));
+    const order = p.plan(situation([seat('h', 1, 180, 30, { bot: false }), seat('b', 1, 12, 10, { bold: 1 })], { time: 200 })).get('b')!;
+    expect(apart(order.rally, [180, 30])).toBeLessThan(5);
+  });
+});
+
+describe('the island hears only what made a sound (ticket 74)', () => {
+  const where = (id: string) => (id === 'v' ? { team: 2, position: [50, 0, 0] as Vec3 } : undefined);
+  const kill = (cause: string): SimEvent => ({ type: 'kill', killer: cause === 'bullet' ? 'k' : null, victim: 'v', cause, zone: null, weapon: null }) as unknown as SimEvent;
+
+  it('a death to the Ring or a Bleed-out makes no noise on the grid', () => {
+    for (const cause of ['ring', 'bleedOut', 'wipe', 'fall']) {
+      const p = planner();
+      p.hear([kill(cause)], where, 10);
+      expect(p.noise.heat([50, 0, 0], 10), cause).toBe(0);
+    }
+  });
+
+  it('a kill by gunfire or a blast does', () => {
+    for (const cause of ['bullet', 'grenade']) {
+      const p = planner();
+      p.hear([kill(cause)], where, 10);
+      expect(p.noise.heat([50, 0, 0], 10), cause).toBeGreaterThan(0);
+    }
+  });
+});

@@ -233,6 +233,9 @@ const REVIVE_SIGHT = 80;
 const FAR_HEARING = 120;
 const FAR_MUFFLED = 60;
 const FAR_BLUR = 0.12;
+/** A hit from farther than {@link HEARING} or out of sight gives a direction: the bearing, this far off at most (rad), and the range only as roughly as {@link FAR_BLUR} places gunfire, twice over. */
+const HIT_BEARING = 8 * DEG;
+const HIT_RANGE = 2;
 /** Spotting (ticket 64): seconds to notice a figure, about this plus its distance over this (m), before stance, stillness and gunfire. */
 const SPOT_BASE = 0.12;
 const SPOT_DISTANCE = 45;
@@ -463,6 +466,8 @@ export class Bot {
   #lookedAt = 0;
   /** When each enemy was last heard or seen firing: gunfire gives a body away. */
   readonly #loud = new Map<PlayerId, number>();
+  /** Seats the feed (which every player sees) has shown going Down, not since Revived or out. */
+  readonly #downs = new Set<PlayerId>();
   /** The Downed squadmate it has said it will Revive, when it next weighs that, and the enemy eye its way there keeps out of. */
   #reviving: PlayerId | null = null;
   #reviveAt = 0;
@@ -474,6 +479,29 @@ export class Bot {
     this.#nav = nav;
     this.#world = world;
     this.#seed = hashString(`${profile.name}:${id}`);
+  }
+
+  /**
+   * A new match: what it knew of the last one is no use and nobody in this one
+   * could know it, so it starts afresh, as a person does.
+   */
+  newMatch(): void {
+    this.#memory.clear();
+    this.#loud.clear();
+    this.#downs.clear();
+    this.#spotting.clear();
+    this.#reloading.clear();
+    this.#dealt.clear();
+    this.#dangers = [];
+    this.#target = null;
+    this.#chasing = null;
+    this.#reviving = null;
+    this.#reviveThreat = null;
+    this.#shotAt = -Infinity;
+    this.#lastEnemySeen = -Infinity;
+    this.#unheard = [];
+    // The next thought starts its life afresh, too.
+    this.#alive = false;
   }
 
   /** Sends the bot to the node nearest `position`, as its next roaming goal (scripted bots and tests). */
@@ -537,6 +565,7 @@ export class Bot {
     const heard = this.#unheard.length > 0 ? { ...sees, events: [...this.#unheard.flat(), ...sees.events] } : sees;
     this.#unheard = [];
     this.#seats = heard.seats ?? new SeatIndex(heard.players);
+    this.#readFeed(heard.events);
     const view = heard.ground ? this.#reviveChoice(heard) : heard;
     const seconds = ticks * TICK_SECONDS;
     const { self, time } = view;
@@ -1211,6 +1240,18 @@ export class Bot {
     }
   }
 
+  /** What the feed shows every player: who went Down, who got up, who is out (and so makes no more noise). */
+  #readFeed(events: readonly SimEvent[]): void {
+    for (const e of events) {
+      if (e.type === 'down') this.#downs.add(e.victim);
+      else if (e.type === 'revive') this.#downs.delete(e.target);
+      else if (e.type === 'kill') {
+        this.#downs.delete(e.victim);
+        this.#loud.delete(e.victim);
+      }
+    }
+  }
+
   /**
    * Gunfire nearby, and hits taken, give away where enemies are: exactly in
    * the open, roughly through walls (and only nearer), and a hit gives only
@@ -1250,7 +1291,17 @@ export class Bot {
         this.#shotAt = time;
         // Whoever is hitting it gives themselves away: the flash is where it looks.
         this.#loud.set(e.shooter, time);
-        const felt = blur(shooter.position, 1 + 3 * r(2), r(3), 1);
+        // Near and in sight, the flash places them; from far off or out of sight, a hit gives a direction and a rough guess at the range.
+        const d = flat(self.position, shooter.position);
+        const unseen = sightBlocked(this.#world, eye, eyeOf(shooter));
+        const rough = d > HEARING || unseen ? d * FAR_BLUR * (unseen ? 1.6 : 1) * HIT_RANGE : 0;
+        let felt: Vec3;
+        if (rough === 0) felt = blur(shooter.position, 1 + 3 * r(2), r(3), 1);
+        else {
+          const bearing = Math.atan2(shooter.position[0] - self.position[0], shooter.position[2] - self.position[2]) + (r(2) - 0.5) * 2 * HIT_BEARING;
+          const range = Math.max(SENSE, d + (r(3) - 0.5) * 2 * rough);
+          felt = [self.position[0] + Math.sin(bearing) * range, shooter.position[1], self.position[2] + Math.cos(bearing) * range];
+        }
         this.#memory.set(e.shooter, { position: felt, time, seen: false, velocity: STILL });
         view.ground?.intel.report(e.shooter, { position: felt, time, seen: false, velocity: STILL, by: self.id });
         if (!this.#target) {
@@ -1555,8 +1606,8 @@ export class Bot {
     const between: Vec3 = [(seat.position[0] + self.position[0]) / 2, (seat.position[1] + self.position[1]) / 2 + 1.2, (seat.position[2] + self.position[2]) / 2];
     for (const [id, m] of this.#memory) {
       if (time - m.time > REVIVE_KNOWN) continue;
-      const enemy = this.#seats.get(id);
-      if (!enemy?.alive || enemy.downed) continue;
+      // Out (the kill feed took it from memory) or Down as the feed showed: no eye on the Revive.
+      if (this.#downs.has(id)) continue;
       const eye: Vec3 = [m.position[0], m.position[1] + 1.5, m.position[2]];
       if (flat(eye, seat.position) > REVIVE_SIGHT && flat(eye, self.position) > REVIVE_SIGHT) continue;
       this.#reviveThreat ??= eye;

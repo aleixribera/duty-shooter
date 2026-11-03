@@ -13,9 +13,10 @@ import { SquadIntel } from './squad-intel';
  * ({@link SquadIntel}). There is no leader and no order: each bot weighs its
  * own reasons, and squadmates end up together because joining where a
  * squadmate said it's going is usually the best choice. Nothing here looks at
- * how the match is going, who is winning, or whether a seat is a person, except
- * that bots in a person's Squad stay with that person. Bots learn of distant
- * fights only by ear ({@link NoiseGrid}), never from where anyone truly is.
+ * how the match is going, who is winning, or whether a seat is a person: a
+ * person's moves are a Heading like any squadmate's, weighed the same way.
+ * Bots learn of distant fights only by ear ({@link NoiseGrid}), never from
+ * where anyone truly is.
  */
 
 /** A seat as the planner sees it. */
@@ -108,6 +109,10 @@ const HUNT_LOUD = 3;
 /** A hunt lands about this far (m) from the noise's cell and lasts this long at most (s). */
 const HUNT_BLUR = 12;
 const HUNT_FOR = 45;
+/** A person who has moved this far (m) from where they last were has gone somewhere new: that's their Heading. */
+const PERSON_MOVED = 10;
+/** Kills that made a sound: gunfire and blasts. The Ring, a fall and a Bleed-out are silent. */
+const LOUD_KILLS: ReadonlySet<string> = new Set(['bullet', 'grenade']);
 /** Tries at a random spot inside a circle. */
 const TRIES = 6;
 
@@ -166,7 +171,7 @@ export class SquadPlanner {
         if (victim) this.intel(victim.team).contact = time;
       } else if (e.type === 'kill') {
         const victim = where(e.victim);
-        if (victim) this.noise.add(victim.position, time, 3);
+        if (victim && LOUD_KILLS.has(e.cause)) this.noise.add(victim.position, time, 3);
         for (const intel of this.#intel.values()) {
           intel.forget(e.victim);
           intel.settled(e.victim);
@@ -310,10 +315,12 @@ export class SquadPlanner {
       const intel = this.intel(team);
       const standing = members.filter((m) => !m.downed);
       const ids = new Set(standing.map((m) => m.id));
-      // A person in the Squad: its bots stay with them, unless the person stands where the Ring is.
-      const person = standing.find((m) => !m.bot);
-      const personSafe = person !== undefined && away(person.position, soon) < soon.radius - WALL_MARGIN;
-      if (person) intel.head(person.id, { point: person.position, time: intel.heading(person.id)?.time ?? time, hunt: false });
+      // A person says where they're going by going there: moved on, it's news for the Squad, weighed as a bot's would be.
+      for (const person of standing) {
+        if (person.bot) continue;
+        const said = intel.heading(person.id);
+        if (!said || flat(said.point, person.position) > PERSON_MOVED) intel.head(person.id, { point: person.position, time, hunt: false });
+      }
       const radius = Math.min(RALLY_RADIUS + RALLY_PER_SEAT * members.length, Math.max(3, state.next.radius * 0.6));
       for (const [slot, seat] of members.entries()) {
         if (!seat.bot) continue;
@@ -324,7 +331,7 @@ export class SquadPlanner {
         // Well ahead of the nearest squadmate on the way to the same place: worth waiting for.
         const ahead = nearest !== null && flat(nearest.position, seat.position) > STRAGGLER && flat(seat.position, mind.point) < flat(nearest.position, mind.point);
         orders.set(seat.id, {
-          rally: person && personSafe && !inDanger ? person.position : mind.point,
+          rally: mind.point,
           radius,
           hurry: inDanger,
           hunt: mind.hunt,
