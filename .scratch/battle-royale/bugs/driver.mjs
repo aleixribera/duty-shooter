@@ -14,9 +14,9 @@ import * as L from './lib.mjs';
 
 const pages = new Map();
 const routes = {
-  async open({ name, url, phone, width, height }) {
+  async open({ name, url, phone, width, height, pad, lock }) {
     if (pages.has(name)) await pages.get(name).close();
-    const c = await L.open(name, { url, phone, width, height });
+    const c = await L.open(name, { url, phone, width, height, pad, lock });
     pages.set(name, c);
     return 'ok';
   },
@@ -49,6 +49,11 @@ const routes = {
     const c = pages.get(name);
     return JSON.stringify({ watch: await L.report(c), errors: c.errors.slice(-20), errorCount: c.errors.length, warnings: (await L.warnings(c)).slice(-10), warnCount: (await L.warnings(c)).length });
   },
+  pad: async ({ name, ...o }) => (await L.pad(pages.get(name), o), 'ok'),
+  padconnect: ({ name }) => pages.get(name).evaluate('__padConnect(), 1'),
+  hide: ({ name }) => L.hide(pages.get(name)),
+  show: ({ name }) => L.show(pages.get(name)),
+  errors: ({ name }) => JSON.stringify(pages.get(name).errors),
   list: () => [...pages.keys()].join(','),
   async quit() {
     for (const c of pages.values()) await c.close();

@@ -65,12 +65,28 @@ const WATCH = `(() => {
   }
 })()`;
 
-export async function open(name, { url, phone = false, width = 1600, height = 900 } = {}) {
+/** A simulated standard pad, driven by window.__pad = { buttons: [0..17 values], axes: [lx, ly, rx, ry] }. */
+const PAD = `(() => { const pad = (window.__pad = { buttons: Array(18).fill(0), axes: [0, 0, 0, 0], connected: false });
+  navigator.getGamepads = () => pad.connected ? [{ id: 'Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 09cc)', index: 0, connected: true, mapping: 'standard', timestamp: performance.now(), axes: pad.axes.slice(), buttons: pad.buttons.map((v) => ({ pressed: v > 0.5, touched: v > 0, value: v })) }] : [];
+  window.__padConnect = () => { pad.connected = true; const e = new Event('gamepadconnected'); e.gamepad = navigator.getGamepads()[0]; window.dispatchEvent(e); };
+})()`;
+
+/** A stand-in for pointer lock (headless refuses it): request sets it, exit or __loseLock() drops it, as Chrome does on alt-tab. */
+const LOCK = `(() => { let el = null; Object.defineProperty(Document.prototype, 'pointerLockElement', { get: () => el, configurable: true });
+  const fire = () => document.dispatchEvent(new Event('pointerlockchange'));
+  Element.prototype.requestPointerLock = function () { el = this; setTimeout(fire, 5); return Promise.resolve(); };
+  Document.prototype.exitPointerLock = function () { if (el) { el = null; setTimeout(fire, 5); } };
+  window.__loseLock = () => { if (el) { el = null; fire(); } };
+  window.addEventListener('blur', () => window.__loseLock());
+})()`;
+
+export async function open(name, { url, phone = false, width = 1600, height = 900, pad = false, lock = false } = {}) {
   const chrome = await launchChrome();
   chrome.name = name;
   chrome.warnings = [];
   chrome.logs = [];
-  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: 'navigator.getGamepads = () => [];' });
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: pad ? PAD : 'navigator.getGamepads = () => [];' });
+  if (lock) await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: LOCK });
   await chrome.send('Log.enable');
   await chrome.send(
     'Emulation.setDeviceMetricsOverride',
@@ -193,3 +209,28 @@ export const state = async (chrome) =>
   );
 
 export const text = (chrome, sel) => chrome.evaluate(`[...document.querySelectorAll(${JSON.stringify(sel)})].filter((e) => e.getClientRects().length > 0).map((e) => e.innerText.replace(/\\s+/g, ' ').trim()).join(' | ')`);
+
+/** Presses or releases pad buttons by index (value 0..1), sets axes, for `ms` then releases when given. */
+export async function pad(chrome, { buttons = {}, axes, ms }) {
+  const set = () => `(() => { const p = window.__pad; ${Object.entries(buttons).map(([i, v]) => `p.buttons[${i}] = ${v}`).join(';')}; ${axes ? `p.axes = ${JSON.stringify(axes)};` : ''} return 1; })()`;
+  await chrome.evaluate(set());
+  if (ms) {
+    await sleep(ms);
+    await chrome.evaluate(`(() => { const p = window.__pad; ${Object.keys(buttons).map((i) => `p.buttons[${i}] = 0`).join(';')}; ${axes ? 'p.axes = [0, 0, 0, 0];' : ''} return 1; })()`);
+  }
+}
+
+/** Puts another tab in front (the game's tab goes hidden, as on alt-tab to another tab) or brings the game back. */
+export async function hide(chrome) {
+  const r = await chrome.send('Target.createTarget', { url: 'about:blank', background: false });
+  chrome.blank = r.result?.targetId;
+  return JSON.stringify(r.result ?? r.error);
+}
+export async function show(chrome) {
+  if (chrome.blank) await chrome.send('Target.closeTarget', { targetId: chrome.blank });
+  chrome.blank = null;
+  const me = (await chrome.send('Target.getTargetInfo', {})).result?.targetInfo?.targetId;
+  if (me) await chrome.send('Target.activateTarget', { targetId: me });
+  await chrome.send('Page.bringToFront');
+  return 'shown';
+}

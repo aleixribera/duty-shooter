@@ -6,7 +6,10 @@
 //   npm run build && remote-test --local "node apps/range/scripts/chaos.mjs [cuts=12]"
 //
 // Serves apps/range/dist with the real server on CHAOS_PORT (default 3191),
-// behind the proxy on the next port up.
+// behind the proxy on the next port up. CHAOS_MODE=royale plays a Battle Royale
+// instead (the server's own process, SQUADS=2 or 3 for Squads): through the
+// Preparation and on into the match while the cuts come. CHAOS_SERVER names
+// another built server, and STATIC_DIR another built app.
 import { spawn } from 'node:child_process';
 import { createServer, connect } from 'node:net';
 import { launchChrome, sleep } from './chrome.mjs';
@@ -14,6 +17,7 @@ import { launchChrome, sleep } from './chrome.mjs';
 const cuts = Number(process.argv[2] ?? 12);
 const port = Number(process.env.CHAOS_PORT ?? 3191);
 const proxyPort = port + 1;
+const royale = process.env.CHAOS_MODE === 'royale';
 
 /** A TCP proxy to the server; `cut` closes everything open, `stall` stops passing bytes on what's open until it dies. */
 const pairs = new Set();
@@ -58,9 +62,9 @@ const PROBES = `(() => {
   };
 })()`;
 
-const server = spawn(process.execPath, ['apps/server/dist/main.js'], { env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', NODE_ENV: 'development' }, stdio: 'ignore' });
+const server = spawn(process.execPath, [process.env.CHAOS_SERVER ?? 'apps/server/dist/main.js'], { env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', NODE_ENV: 'development' }, stdio: 'ignore' });
 await new Promise((done) => proxy.listen(proxyPort, '127.0.0.1', done));
-const status = () => fetch(`http://127.0.0.1:${port}/status`).then((r) => r.json());
+const status = () => fetch(`http://127.0.0.1:${port}/${royale ? 'royale/status' : 'status'}`).then((r) => r.json());
 const base = `http://127.0.0.1:${proxyPort}/`;
 let failed = false;
 const report = { cuts: 0, stalls: 0, survived: 0, lost: 0, backMs: [] };
@@ -77,13 +81,28 @@ try {
     await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: PROBES });
     await chrome.navigate(base);
     await chrome.waitFor(`!!globalThis.__find?.('Play Online')`, 60_000, 50);
-    // A public lobby joins from the tile, under the name above it; with no name the tile only focuses the field.
-    await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; __find('Play Online').click()`);
-    await chrome.waitFor(`!!__find('Join') || !!__find('Start')`, 20_000, 50);
-    await chrome.evaluate(`if (__find('Join')) { document.querySelector('.ds-field input').value = 'Chaos'; __find('Join').click(); }`);
-    await chrome.waitFor(`__state() === 'lobby' && !!__find('Start')`, 90_000, 50);
-    await chrome.evaluate(`__find('Start').click()`);
-    if (!(await chrome.waitFor(`__state() === 'playing'`, 30_000, 50))) throw new Error(`Not in the match: ${await chrome.evaluate('__state()')}`);
+    if (royale) {
+      // Battle Royale's screen: the name, the Squad size, Join server, then Start and Ready in the Preparation.
+      await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; document.querySelector('.ds-menu input').dispatchEvent(new Event('input')); __find('Battle Royale').click()`);
+      await chrome.waitFor(`!!__find('Join server')`, 120_000, 100);
+      const size = { 2: 'Duos', 3: 'Trios' }[process.env.SQUADS ?? ''];
+      if (size) await chrome.evaluate(`__find(${JSON.stringify(size)}).click()`);
+      await chrome.evaluate(`for (const i of document.querySelectorAll('input')) if (i.getClientRects().length > 0 && !i.value) { i.value = 'Chaos'; i.dispatchEvent(new Event('input', { bubbles: true })); }`);
+      await chrome.evaluate(`__find('Join server').click()`);
+      if (!(await chrome.waitFor(`!!__find('Start match')`, 90_000, 100))) throw new Error(`No Battle Royale lobby: ${await chrome.evaluate('__state()')}`);
+      await chrome.evaluate(`__find('Start match').click()`);
+      await chrome.waitFor(`!!__find('Ready')`, 30_000, 100);
+      await chrome.evaluate(`__find('Ready')?.click()`);
+      if (!(await chrome.waitFor(`__state() === 'playing' && (document.querySelector('.ds-prep')?.hidden ?? true)`, 60_000, 100))) throw new Error(`Not in the match: ${await chrome.evaluate('__state()')}`);
+    } else {
+      // A public lobby joins from the tile, under the name above it; with no name the tile only focuses the field.
+      await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; __find('Play Online').click()`);
+      await chrome.waitFor(`!!__find('Join') || !!__find('Start')`, 20_000, 50);
+      await chrome.evaluate(`if (__find('Join')) { document.querySelector('.ds-field input').value = 'Chaos'; __find('Join').click(); }`);
+      await chrome.waitFor(`__state() === 'lobby' && !!__find('Start')`, 90_000, 50);
+      await chrome.evaluate(`__find('Start').click()`);
+      if (!(await chrome.waitFor(`__state() === 'playing'`, 30_000, 50))) throw new Error(`Not in the match: ${await chrome.evaluate('__state()')}`);
+    }
     await sleep(2000);
     for (let i = 0; i < cuts; i++) {
       const stalled = i % 3 === 2;
@@ -101,7 +120,9 @@ try {
       const ms = Date.now() - start;
       const state = await chrome.evaluate('__state()');
       const lobby = await status();
-      if (back && lobby.players === 1) {
+      // In a Battle Royale, back in the seat rather than watching it: no spectator panel.
+      const seated = lobby.players === 1 && (!royale || (await chrome.evaluate(`document.querySelector('.ds-spec')?.hidden ?? true`)));
+      if (back && seated) {
         report.survived += 1;
         report.backMs.push(ms);
       } else {

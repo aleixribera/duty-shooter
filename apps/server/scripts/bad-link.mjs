@@ -11,7 +11,9 @@
 //           arrives at once, as after a Wi-Fi roam or a retransmission timeout
 //
 // Usage: node apps/server/scripts/bad-link.mjs [clients=4] [seconds=30] [scenario,...]
-// `npm run build -w @duty-shooter/server` first.
+// `npm run build -w @duty-shooter/server` first. A Battle Royale: MODE=battle-royale
+// (SQUADS=2 or 3 puts the clients in Squads) with STATIC_DIR naming a built app,
+// for Zero Island's nav: `STATIC_DIR=$PWD/apps/range/dist`.
 import { spawn } from 'node:child_process';
 import { createServer, connect } from 'node:net';
 import { fileURLToPath } from 'node:url';
@@ -109,11 +111,11 @@ const quantile = (list, q) => (list.length ? list[Math.min(list.length - 1, Math
 async function run(name, link, index) {
   const port = basePort + index * 2;
   const server = spawn(process.execPath, [process.env.SERVER_MAIN ?? fileURLToPath(new URL('../dist/main.js', import.meta.url))], {
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', STATIC_DIR: fileURLToPath(new URL('.', import.meta.url)), NODE_ENV: 'development', EVENT_LOG: '' },
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', STATIC_DIR: process.env.STATIC_DIR ?? fileURLToPath(new URL('.', import.meta.url)), NODE_ENV: 'development', EVENT_LOG: '' },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   let health = null;
-  for (let i = 0; i < 120 && !health; i++) {
+  for (let i = 0; i < 240 && !health; i++) {
     health = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.json(), () => null);
     if (!health) await sleep(500);
   }
