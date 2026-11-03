@@ -274,13 +274,19 @@ export function lastMatch(result: MatchResult | null, mode: ModeId, teamScores: 
 }
 
 export interface ConnectionError {
-  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'other';
+  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'gpu' | 'other';
   readonly title: string;
   readonly body: string;
 }
 
+/** The status the page puts on the error screen when the GPU device (or WebGL context) is lost: nothing more can be drawn (ticket 61). */
+export const GRAPHICS_LOST = 'Graphics lost.';
+
 /** A failed join or a dropped connection, as the error screen explains it. `status` is the driver's status line, or null when the server did not answer. */
 export function connectionError(status: string | null): ConnectionError {
+  if (status === GRAPHICS_LOST) {
+    return { kind: 'gpu', title: 'Graphics stopped', body: 'The graphics card stopped drawing the game: its driver reset, or it ran short of memory. Reload to carry on; in an online match you take your seat back.' };
+  }
   if (status === 'Disconnected: idle.') {
     return { kind: 'idle', title: 'Left the match', body: 'The game was in the background for over a minute, so the server let you go. Join again within a few minutes to carry on where you left off.' };
   }

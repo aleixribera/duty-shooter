@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
@@ -286,5 +286,14 @@ describe('when a loadout change applies, as the loadout screen says it', () => {
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop.');
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop.');
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked for this match. Applies from the next one.');
+  });
+});
+
+describe('the graphics stopping (ticket 61)', () => {
+  it('is its own error, which a reload mends', () => {
+    const e = connectionError(GRAPHICS_LOST);
+    expect(e.kind).toBe('gpu');
+    expect(e.title).toBe('Graphics stopped');
+    expect(e.body).toMatch(/Reload/);
   });
 });

@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -569,6 +569,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let prepFor: number | null = null;
   let prepReady = false;
   let prepView: PreparationView | null = null;
+  /** The renderer lost its device: the frame loop stops and the error screen stays up. */
+  let graphicsLost = false;
   const loadReport = new LoadReport();
   const prepPage = new PreparationPage(document.body, {
     loadout: (loadout) => {
@@ -876,6 +878,21 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   await nextPaint();
   const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
   renderer = created.renderer;
+  // The GPU device (or the WebGL context) gone: nothing more can be drawn, so the page says so and offers a reload, which takes an online seat back (ticket 61).
+  const loseGraphics = renderer.onDeviceLost.bind(renderer);
+  renderer.onDeviceLost = (info) => {
+    loseGraphics(info);
+    graphicsLost = true;
+    prepPage.hide();
+    lobbyPage.hide();
+    royalePage.hide();
+    // Paused first, or giving up the pointer would put the pause menu over the notice.
+    if (game) {
+      game.paused = true;
+      game.input.unlock();
+    }
+    menu.failed(GRAPHICS_LOST);
+  };
   const { backend } = created;
   document.body.dataset['backend'] = backend;
   status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
@@ -940,6 +957,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   }
   if (renderStats) renderer.info.autoReset = false;
   await renderer.setAnimationLoop((time) => {
+    if (graphicsLost) return;
     if (bench) {
       bench(time);
       return;

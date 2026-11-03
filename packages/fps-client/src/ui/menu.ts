@@ -587,11 +587,12 @@ export class Menu {
         p.append(h('p', e.body));
         const row = h('div', '', 'ds-btns');
         p.append(row);
-        if (e.kind === 'version') button(row, 'Reload', () => location.reload(), 'primary');
+        if (e.kind === 'version' || e.kind === 'gpu') button(row, 'Reload', () => location.reload(), 'primary');
         else if (e.kind === 'down' || e.kind === 'full') button(row, 'Try again', () => this.#openOnline(), 'primary');
         else if (e.kind === 'idle') button(row, 'Join again', () => this.#openOnline(), 'primary');
         else button(row, 'Play Online', () => this.show('online'), 'primary');
-        button(row, 'Main menu', () => this.show('main'), 'back');
+        // Without graphics there is no going on: only Reload.
+        if (e.kind !== 'gpu') button(row, 'Main menu', () => this.show('main'), 'back');
         break;
       }
       case 'pause':
