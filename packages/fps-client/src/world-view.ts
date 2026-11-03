@@ -29,7 +29,7 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Scatter, type SurfaceLayout } from './surfaces';
+import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Plants, type Scatter, type SurfaceLayout } from './surfaces';
 import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
@@ -39,6 +39,7 @@ import { loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
+import { PlantsView } from './plants-view';
 import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
@@ -69,6 +70,8 @@ export interface WorldContent {
   readonly decorations: readonly Decoration[];
   /** Modelled things drawn in place of the solids they stand for (see ModelPlacement). */
   readonly models?: MapModels | null;
+  /** Vegetation and rocks, drawn instanced (see PlantsView). */
+  readonly plants?: Plants | null;
   readonly indoorZones: readonly { readonly min: Vec3; readonly max: Vec3 }[];
   /** The Outposts zones, for the HUD's markers (none on a map without them). */
   readonly zones?: readonly Zone[];
@@ -340,6 +343,7 @@ export class WorldView {
   readonly terrain: TerrainView | null = null;
   /** A map on terrain's surfaces, near and far by block. */
   readonly #surfaceBlocks: SurfaceBlocks | null = null;
+  readonly #plants: PlantsView | null = null;
   /** Props (mannequin heads), drawn on their own so a shot can knock one off. */
   readonly #props = new Map<string, Mesh>();
   /** Standard materials already switched to probe lighting. */
@@ -359,7 +363,7 @@ export class WorldView {
     this.#sun = this.#makeSun();
     this.follow([0, 0, 0]);
 
-    const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones, modelled: content.models?.placements.flatMap((p) => p.solids) ?? [] });
+    const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones, modelled: [...(content.models?.placements.flatMap((p) => p.solids) ?? []), ...(content.plants?.modelled ?? [])] });
     const size = uniform(new Vector2(1, 1));
     const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0), shadowCentre: this.#shadowCentre as never, shadowRadius: this.#shadowRadius as never };
     const materials = new Map<string, ReturnType<typeof surfaceMaterial>>();
@@ -406,6 +410,15 @@ export class WorldView {
         },
         (error: unknown) => console.error(`Map models failed to load: ${String(error)}`),
       );
+    }
+    if (content.plants) {
+      const plants = new PlantsView(content.plants);
+      this.#plants = plants;
+      const plantsIn = plants.loaded.then(() => {
+        this.#lightObject(plants.root);
+        this.#root.add(plants.root);
+      });
+      this.modelsIn = Promise.all([this.modelsIn, plantsIn]).then(() => undefined);
     }
     if (content.scatter) {
       const marks = grimeQuads(layout.faces, content.solids, layout.finishes, content.scatter);
@@ -575,6 +588,23 @@ export class WorldView {
     this.terrain?.dispose();
   }
 
+  /** The view's magnification (1 unscoped): plants are drawn as far again through a scope, as soldiers are. */
+  zoom(zoom: number): void {
+    this.#plants?.zoom(zoom);
+  }
+
+  /** Where the plants were last asked to be filled round: `follow` may run more than once a frame. */
+  #plantsAt: Vec3 | null = null;
+
+  /**
+   * Once a frame, just before it's drawn: the plants refill round the last
+   * place followed. A frame can follow two places (you, then whom you watch),
+   * and refilling for each in turn would upload every plant every frame.
+   */
+  frame(): void {
+    if (this.#plantsAt) this.#plants?.update(this.#plantsAt);
+  }
+
   /** Redraws the shadow map on the next frame, whatever its refresh rate. */
   redrawShadow(): void {
     this.#sun.shadow.needsUpdate = true;
@@ -591,6 +621,7 @@ export class WorldView {
   follow(position: Vec3): void {
     this.terrain?.update(position);
     this.#surfaceBlocks?.update(position);
+    this.#plantsAt = position;
     // The map and the light move only on the frames that redraw it, so nothing jumps. A frame a little early still
     // redraws: at the display's rate frames land either side of the interval.
     const now = performance.now() / 1000;

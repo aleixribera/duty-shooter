@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Terrain, WIDE_MAP, WIDE_SCALE, createWorld, nearestNode, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch } from '@duty-shooter/fps-core/harness';
-import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
+import { buildMapById, insidePolygon, mapConcealment, mapSolids } from '../src/map/maps';
 import { islandNav } from './support/island-nav';
 import { CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt, type RegionId } from '../src/map/zero-island-terrain';
 
@@ -23,6 +23,7 @@ function match(mode: 'tdm' | 'ffa') {
   return createNetworkedMatch({
     solids: mapSolids(map),
     terrain: map.terrain!,
+    concealment: mapConcealment(map),
     spawns,
     teamSpawns: [spawns, spawns],
     mode,

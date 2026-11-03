@@ -1,14 +1,14 @@
 import { DEG, WIDE_MAP, WIDE_SCALE, botProfile, createWorld, type BotProfile, type MatchResult, type PlayerOutput, type World } from '@duty-shooter/fps-core';
 import type { BattleRoyale, SquadSize } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
-import { buildMapById, mapSolids } from '../../src/map/maps';
+import { buildMapById, mapConcealment, mapSolids } from '../../src/map/maps';
 import { islandNav } from './island-nav';
 
 /** The island, once for a test file: building it takes a second or two, and its nav more. */
 export function island() {
   const map = buildMapById('zero-island');
   const solids = mapSolids(map);
-  const world: World = createWorld(solids, { terrain: map.terrain });
+  const world: World = createWorld(solids, { terrain: map.terrain, concealment: mapConcealment(map) });
   return { map, solids, world, nav: islandNav(map) };
 }
 
@@ -90,6 +90,7 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
   const m = createNetworkedMatch({
     solids: isle.solids,
     terrain: isle.map.terrain!,
+    concealment: isle.world.concealment,
     spawns: isle.map.spawns.ffa,
     mode: 'battle-royale',
     modes: { battleRoyale: { squadSize: size, seed, ...(timeLimit === undefined ? {} : { timeLimit }) } },

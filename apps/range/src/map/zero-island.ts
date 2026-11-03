@@ -3,6 +3,7 @@ import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-sh
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
+import { placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
 
 /** The one low sun, out over the sea to the south-west. */
@@ -132,14 +133,18 @@ function coreBlocks(b: Builder, terrain: Terrain, core: Core, blocks: readonly B
   }
 }
 
-/** Stands the generator's grey solids on the ground, or on a bridge's deck. */
-function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): void {
-  for (const { x, z, width, depth, height, yaw, material, region, deck } of pieces) {
+/** Stands the generator's grey solids on the ground, or on a bridge's deck; returns the rocks and trunks, for the kit to dress. */
+function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): DressedPiece[] {
+  const dressed: DressedPiece[] = [];
+  for (const { kind, x, z, width, depth, height, yaw, material, region, deck } of pieces) {
     const { low, high } = deck === undefined ? footprint(terrain, x, z, width, depth, yaw) : { low: deck + 0.6, high: deck };
     const bottom = low - 0.6;
     const top = high + height;
+    const index = b.solids.length;
     b.turned([x, (bottom + top) / 2, z], [width, top - bottom, depth], yaw, material, `cover-${region}`);
+    if (kind === 'rock' || kind === 'trunk') dressed.push({ kind, region, index, x, z, width, depth, yaw, bottom, top, ground: low });
   }
+  return dressed;
 }
 
 function bridges(b: Builder, terrain: Terrain): void {
@@ -244,27 +249,32 @@ export function buildZeroIsland(): MapDefinition {
   const b = new Builder();
   for (const id of REGION_IDS) coreBlocks(b, terrain, CORES[id], BLOCKS[id]);
   harbor(b, terrain);
-  cover(
+  const inside = (x: number, z: number) => insidePolygon(outline, x, z);
+  const routes = [
+    ...ground.railway.map((line) => ({ line, half: 3 })),
+    ...ground.roads.map((line) => ({ line, half: 3.5 })),
+    ...ground.trails.map((line) => ({ line, half: 3 })),
+    { line: ground.stream, half: 5 },
+  ];
+  const clear = spawnPlaces().map(([x, z]) => [x, z, 5] as const);
+  const runway = [RUNWAY.from, RUNWAY.to, RUNWAY.half] as const;
+  const dressed = cover(
     b,
     terrain,
     placeCover({
       terrain,
-      inside: (x, z) => insidePolygon(outline, x, z),
-      routes: [
-        ...ground.railway.map((line) => ({ line, half: 3 })),
-        ...ground.roads.map((line) => ({ line, half: 3.5 })),
-        ...ground.trails.map((line) => ({ line, half: 3 })),
-        { line: ground.stream, half: 5 },
-      ],
+      inside,
+      routes,
       railway: ground.railway,
       roads: ground.roads,
-      spots: spawnPlaces().map(([x, z]) => [x, z, 5] as const),
+      spots: clear,
       built: b.solids.map((s) => [s.min[0], s.min[2], s.max[0], s.max[2]] as const),
-      runway: [RUNWAY.from, RUNWAY.to, RUNWAY.half],
+      runway,
     }),
   );
   bridges(b, terrain);
   boundary(b, outline);
+  const { plants, soft } = placePlants({ terrain, data: ground.data, inside, routes, spots: clear, runway, built: b.solids.map((s) => [s.min[0], s.min[2], s.max[0], s.max[2]] as const) }, dressed);
   const at = (x: number, z: number, above: number) => terrain.heightAt(x, z) + above;
   /** A spot `from` a Core, looking back at it. */
   const lookAt = (id: RegionId, dx: number, dz: number, yaw: number, name = CORES[id].name): CameraSpot => {
@@ -302,6 +312,8 @@ export function buildZeroIsland(): MapDefinition {
     looks: b.looks,
     decorations: b.decorations,
     models: null,
+    plants,
+    soft,
     ramps: [],
     labels: [],
     populationSign: null,

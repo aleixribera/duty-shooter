@@ -79,10 +79,9 @@ def blob(rng, centre, radius, squash=0.8, level=1, rough=0.25, material=leaves):
     return kit.obj("blob", bm, material)
 
 
-def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0)):
+def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0), rings=4):
     """A trunk or stem: a cone from radius r0 at z = 0 to r1 at `height`, flaring at the foot, no caps but the top."""
     bm = bmesh.new()
-    rings = 4
     verts = []
     for k in range(rings + 1):
         t = k / rings
@@ -171,20 +170,37 @@ def boulder(name, seed, cuts=6, level=3, strata=0):
 
 
 def boulder_lod(name, seed):
+    """A rock far off: a ragged hexagon in the unit box, bellied, its shoulders rounding to a low peak; no underside. 30 triangles."""
     rng = random.Random(seed)
     bm = bmesh.new()
-    bmesh.ops.create_cube(bm, size=1)
-    for v in bm.verts:
-        v.co = Vector((v.co.x * rng.uniform(0.85, 1), v.co.y * rng.uniform(0.85, 1), v.co.z + 0.5))
-    bevel = bmesh.ops.bevel(bm, geom=list(bm.edges), offset=0.12, segments=1, affect="EDGES")
-    del bevel
+    sides = 6
+    # (radius, height) of each ring, foot to shoulder.
+    rings = [(0.88, 0.0), (1.0, 0.38), (0.66, 0.8)]
+    verts = []
+    for r0, z in rings:
+        ring = []
+        for k in range(sides):
+            a = math.tau * k / sides
+            r = r0 * 0.5 / math.cos(math.pi / sides) * rng.uniform(0.9, 1.0)
+            x, y = max(-0.5, min(0.5, math.cos(a) * r)), max(-0.5, min(0.5, math.sin(a) * r))
+            ring.append(bm.verts.new((x, y, z + (rng.uniform(-0.05, 0.05) if z else 0))))
+        verts.append(ring)
+    top = bm.verts.new((rng.uniform(-0.06, 0.06), rng.uniform(-0.06, 0.06), 1.0))
+    for a, b in zip(verts, verts[1:]):
+        for k in range(sides):
+            n = (k + 1) % sides
+            bm.faces.new((a[k], a[n], b[n], b[k]))
+    for k in range(sides):
+        bm.faces.new((verts[-1][k], verts[-1][(k + 1) % sides], top))
+    bmesh.ops.triangulate(bm, faces=list(bm.faces))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     o = kit.obj(name, bm, rock)
     return kit.asset(name, [o], smooth_angle=50)
 
 
-def pine_trunk(name, segments):
+def pine_trunk(name, segments, rings=4):
     # The unit trunk: 1 m across at the foot, tapering, 1 m tall.
-    o = tapered(0.5, 0.36, 1.0, segments, bark, flare=0.06 if segments > 6 else 0)
+    o = tapered(0.5, 0.36, 1.0, segments, bark, flare=0.06 if segments > 6 else 0, rings=rings)
     return kit.asset(name, [o], smooth_angle=70)
 
 
@@ -198,7 +214,7 @@ def pine_crown(name, seed, tiers, segments):
         z = bottom + (top - 2.5 - bottom) * t
         r = 2.9 * (1 - t) ** 0.85 + 0.5
         # Each tier reaches down over the one below, so few tiers still make one tree.
-        h = max(2.7 - 0.6 * t, (top - 2.5 - bottom) / max(tiers - 1, 1) * 1.45)
+        h = min(max(2.7 - 0.6 * t, (top - 2.5 - bottom) / max(tiers - 1, 1) * 1.45), top - z)
         bm = bmesh.new()
         tip = bm.verts.new((rng.uniform(-0.1, 0.1), rng.uniform(-0.1, 0.1), z + h))
         rim = []
@@ -216,8 +232,8 @@ def pine_crown(name, seed, tiers, segments):
     return kit.asset(name, parts, smooth_angle=35)
 
 
-def broadleaf_trunk(name, segments):
-    o = tapered(0.46, 0.38, 1.0, segments, bark, flare=0.1 if segments > 6 else 0.05, rng=random.Random(5))
+def broadleaf_trunk(name, segments, rings=4):
+    o = tapered(0.46, 0.38, 1.0, segments, bark, flare=0.1 if segments > 6 else 0.05, rng=random.Random(5), rings=rings)
     return kit.asset(name, [o], smooth_angle=70)
 
 
@@ -318,26 +334,26 @@ built = [
     boulder_lod("rock-lod", 14),
     # Trees: unit trunks and their crowns.
     pine_trunk("pine-trunk", 9),
-    pine_trunk("pine-trunk-lod", 5),
+    pine_trunk("pine-trunk-lod", 5, rings=1),
     pine_crown("pine-crown", 21, 6, 9),
     pine_crown("pine-crown-lod", 22, 3, 5),
     broadleaf_trunk("broadleaf-trunk", 10),
-    broadleaf_trunk("broadleaf-trunk-lod", 5),
+    broadleaf_trunk("broadleaf-trunk-lod", 5, rings=1),
     broadleaf_crown("broadleaf-crown", 31, 7, 2, 4),
-    broadleaf_crown("broadleaf-crown-lod", 31, 4, 1, 0),
+    broadleaf_crown("broadleaf-crown-lod", 31, 3, 1, 0),
     # Soft cover.
     bush("bush-leafy", 51, 7, 2.3, 1.75, stems=3),
-    bush("bush-leafy-lod", 51, 3, 2.3, 1.75, level=1, rough=0.2),
+    bush("bush-leafy-lod", 51, 2, 2.3, 1.75, level=1, rough=0.2),
     bush("bush-dry", 52, 6, 2.0, 1.5, material=scrub, dark=straw, rough=0.45, stems=4),
-    bush("bush-dry-lod", 52, 3, 2.0, 1.5, material=scrub, dark=straw, rough=0.3),
+    bush("bush-dry-lod", 52, 2, 2.0, 1.5, material=scrub, dark=straw, rough=0.3),
     juniper("juniper", 53, 5, 2.2, 1.7),
-    juniper("juniper-lod", 53, 2, 2.2, 1.7, segments=5),
+    juniper("juniper-lod", 53, 1, 2.2, 1.7, segments=6),
     fern("fern", 54, 11, 1.6),
-    fern("fern-lod", 54, 6, 1.6, segments=2),
+    fern("fern-lod", 54, 5, 1.6, segments=1),
     tussock("grass-tall", 55, 44, 1.35, 1.1, grass),
-    tussock("grass-tall-lod", 55, 14, 1.35, 1.1, grass, segments=2, width=0.12),
+    tussock("grass-tall-lod", 55, 7, 1.35, 1.1, grass, segments=1, width=0.22),
     tussock("grass-dry", 56, 40, 1.25, 1.1, straw),
-    tussock("grass-dry-lod", 56, 13, 1.25, 1.1, straw, segments=2, width=0.12),
+    tussock("grass-dry-lod", 56, 7, 1.25, 1.1, straw, segments=1, width=0.22),
     # Ground cover, drawn near only: no cover at all.
     tussock("tuft", 57, 9, 0.38, 0.4, grass, segments=2, width=0.05),
     tussock("tuft-dry", 58, 8, 0.32, 0.4, straw, segments=2, width=0.05),

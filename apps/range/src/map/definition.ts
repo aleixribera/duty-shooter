@@ -1,5 +1,5 @@
-import type { ChargeSite, Ladder, NavOptions, PlayerSpawn, Solid, SpawnPoint, TerrainData, Vec3, Zone } from '@duty-shooter/fps-core';
-import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Scatter } from '@duty-shooter/fps-client/surfaces';
+import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
+import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -63,6 +63,10 @@ export interface MapDefinition {
   readonly decorations: readonly Decoration[];
   /** Modelled things (Blender models) drawn in place of the solids they stand for, or null for a map without any. */
   readonly models: MapModels | null;
+  /** Vegetation and rocks, drawn instanced (ticket 29); its rocks and trunks stand for solids the way `models` do. */
+  readonly plants?: Plants;
+  /** Soft cover: what hides a body from bots without stopping a bullet (see `softConcealment`). */
+  readonly soft?: readonly SoftCover[];
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
   /**
@@ -138,6 +142,11 @@ export interface MapDefinition {
 /** Every solid the simulation collides against. */
 export function mapSolids(map: Pick<MapDefinition, 'solids' | 'hiddenSolids'>): Solid[] {
   return [...map.solids, ...map.hiddenSolids];
+}
+
+/** What hides a body from the map's bots without stopping bullets, for `createWorld`; null for a map without soft cover. */
+export function mapConcealment(map: Pick<MapDefinition, 'soft'>): Concealment | null {
+  return map.soft && map.soft.length > 0 ? softConcealment(map.soft) : null;
 }
 
 /** Whether (x, z) lies inside a polygon (even-odd rule). */

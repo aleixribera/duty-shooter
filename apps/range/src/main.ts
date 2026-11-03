@@ -6,7 +6,7 @@ import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamM
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
 import { LoadReport } from './load-report';
-import { TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { TEAM_SIZES, asMapId, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -104,9 +104,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const g = new engine!.Game({
       canvas,
       renderer,
-      content: map,
+      // `?plants=off`: the map without its plants drawn (they still hide bots), to measure what they cost.
+      content: params.get('plants') === 'off' ? { ...map, plants: null } : map,
       bake,
-      world: createWorld(solids, { ladders: map.ladders ?? [], terrain: map.terrain }),
+      world: createWorld(solids, { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map) }),
       settings,
       sound,
       overview: map.overview,

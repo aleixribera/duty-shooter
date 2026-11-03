@@ -40,6 +40,10 @@ export interface SightOptions {
   readonly viewReach?: number;
   /** Metres between the people looked for along a view. */
   readonly viewStep?: number;
+  /** How high above the ground the person looked for is seen (m): a standing eye by default. */
+  readonly target?: number;
+  /** Count soft cover (`world.concealment`) as hiding them, as a bot's eyes do. */
+  readonly soft?: boolean;
 }
 
 /** True when a crest at `r` metres along (ux, uz) stands proud of the ground either side of it, or the point is down in a ditch that does. */
@@ -72,6 +76,7 @@ export function nearestCover(world: World, p: Standing, reach: number): number {
 
 /** Along each bearing from `p`, the farthest person standing on the ground its eye can see. */
 function viewsFrom(world: World, p: Standing, o: Required<Pick<SightOptions, 'viewReach' | 'viewStep'>> & SightOptions): number[] {
+  const target = o.target ?? EYE;
   const t = world.terrain!;
   const eye: Vec3 = [p.x, p.y + EYE, p.z];
   const out: number[] = [];
@@ -82,7 +87,8 @@ function viewsFrom(world: World, p: Standing, o: Required<Pick<SightOptions, 'vi
     for (let r = o.viewStep; r <= o.viewReach; r += o.viewStep) {
       const [x, z] = [p.x + ux * r, p.z + uz * r];
       if (!o.standable(x, z)) continue;
-      if (!sightBlocked(world, eye, [x, t.heightAt(x, z) + EYE, z])) far = r;
+      const seen: Vec3 = [x, t.heightAt(x, z) + target, z];
+      if (!sightBlocked(world, eye, seen) && !(o.soft && world.concealment?.hides(eye, seen))) far = r;
     }
     out.push(far);
   }

@@ -702,6 +702,7 @@ export class Game {
       // Each soldier at its distance's level from the camera (full near, cheap mid, instanced far), nearer through a scope.
       const zoom = Math.tan(verticalFov(this.#settings.fov) / 2) / Math.tan((this.#camera.camera.fov * Math.PI) / 360);
       this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom);
+      this.#worldView.zoom(zoom);
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
     }
@@ -718,6 +719,7 @@ export class Game {
     if (render && !this.#holding) {
       const warm = this.#warmUp;
       const restore = warm ? this.#showSamples() : [];
+      this.#worldView.frame();
       this.#worldView.lightMoving();
       this.#pipeline.render();
       for (const put of restore) put();

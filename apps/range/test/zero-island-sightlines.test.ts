@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Terrain, createWorld } from '@duty-shooter/fps-core';
-import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
+import { Terrain, createWorld, type SoftCover } from '@duty-shooter/fps-core';
+import { buildMapById, insidePolygon, mapConcealment, mapSolids } from '../src/map/maps';
 import { islandNav } from './support/island-nav';
 import { SUMMIT, SUMMIT_RADIUS, regionAt, REGION_IDS } from '../src/map/zero-island-terrain';
 import { quantile, report, sight, type Sighted, type Standing } from './support/sightlines';
@@ -8,7 +8,7 @@ import { quantile, report, sight, type Sighted, type Standing } from './support/
 const before = performance.now();
 const map = buildMapById('zero-island');
 const mapSeconds = (performance.now() - before) / 1000;
-const world = createWorld(mapSolids(map), { terrain: map.terrain });
+const world = createWorld(mapSolids(map), { terrain: map.terrain, concealment: mapConcealment(map) });
 const terrain = new Terrain(map.terrain!);
 const nav = islandNav(map);
 const GRID = 12;
@@ -40,9 +40,13 @@ function seaPoints(): Standing[] {
 }
 
 const options = { standable };
+const CROUCHED = 1.1;
 const t0 = performance.now();
 const land: Sighted[] = landPoints().map((p) => sight(world, p, options));
 const sea: Sighted[] = seaPoints().map((p) => sight(world, p, options));
+/** The same points as a bot sees them: someone crouched (head 1.1 m up), through foliage or not. */
+const crouched: Sighted[] = landPoints().map((p) => sight(world, p, { ...options, target: CROUCHED, soft: true }));
+const crouchedBare: Sighted[] = landPoints().map((p) => sight(world, p, { ...options, target: CROUCHED }));
 const seconds = (performance.now() - t0) / 1000;
 
 const line = (name: string, points: readonly Sighted[]) => {
@@ -63,6 +67,7 @@ function areas(points: readonly Sighted[]): Map<string, Sighted[]> {
 }
 
 const COVER_WITHIN = 15;
+const SOFT_WITHIN = 6;
 /** Spec: median clear line of sight about 50 m or less. The owner has asked twice for this to be a minimum, so the island beats it by a margin. */
 const VIEW_MEDIAN = 35;
 const REGION_MEDIAN = 45;
@@ -77,6 +82,9 @@ describe('Zero Island: sightlines', () => {
     console.log(line('land', land));
     for (const id of REGION_IDS) console.log(line(id, land.filter((p) => regionAt(p.x, p.z) === id)));
     console.log(line('shallows', sea));
+    console.log(line('crouched, bare', crouchedBare));
+    console.log(line('crouched, soft', crouched));
+    for (const id of REGION_IDS) console.log(line(`  ${id}`, crouched.filter((p) => regionAt(p.x, p.z) === id)));
     const worst = [...areas(land)].map(([key, points]) => ({ key, median: quantile(points.flatMap((p) => p.views), 0.5) })).sort((a, b) => b.median - a.median);
     console.log(worst.slice(0, 12).map((a) => `${a.key}: ${a.median}`).join('; '));
     expect(land.length).toBeGreaterThan(5000);
@@ -96,6 +104,37 @@ describe('Zero Island: sightlines', () => {
   it('leaves no area open: not the crater floor, the airstrip, the snowfields or the desert', () => {
     const open = [...areas(land)].filter(([, points]) => points.length >= 8).map(([key, points]) => ({ key, median: quantile(points.flatMap((p) => p.views), 0.5) })).filter((a) => a.median > AREA_MEDIAN);
     expect(open).toEqual([]);
+  });
+
+  it("hides a crouched body from a bot's eyes sooner with the soft cover than without it", () => {
+    expect(map.soft!.length).toBeGreaterThan(10_000);
+    const [soft, bare] = [report(crouched, COVER_WITHIN), report(crouchedBare, COVER_WITHIN)];
+    expect(soft.viewP90).toBeLessThan(bare.viewP90);
+    expect(soft.lanes).toBeLessThan(bare.lanes);
+  });
+
+  it('puts soft cover a few steps from most of the open ground', () => {
+    // Where a body can drop into a bush, grass or under a canopy: the places to fiddle about in between the hard cover.
+    const cells = new Map<number, SoftCover[]>();
+    const key = (i: number, j: number) => (i + 1000) * 2000 + j + 1000;
+    for (const s of map.soft!) {
+      const k = key(Math.floor(s.x / 10), Math.floor(s.z / 10));
+      cells.set(k, [...(cells.get(k) ?? []), s]);
+    }
+    const near = (p: Sighted) => {
+      const [ci, cj] = [Math.floor(p.x / 10), Math.floor(p.z / 10)];
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        for (let j = cj - 1; j <= cj + 1; j++) {
+          for (const s of cells.get(key(i, j)) ?? []) if (Math.hypot(s.x - p.x, s.z - p.z) - s.radius <= SOFT_WITHIN && s.top > p.y + 0.9 && s.bottom < p.y + 1.2) return true;
+        }
+      }
+      return false;
+    };
+    const share = (points: readonly Sighted[]) => points.filter(near).length / points.length;
+    const shares = Object.fromEntries(REGION_IDS.map((id) => [id, share(land.filter((p) => regionAt(p.x, p.z) === id))]));
+    console.log(`soft cover within ${SOFT_WITHIN} m: land ${(share(land) * 100).toFixed(1)}%, ${REGION_IDS.map((id) => `${id} ${(shares[id]! * 100).toFixed(1)}%`).join(', ')}`);
+    // The paved Regions (the city, the docks) are left to their hard cover.
+    for (const id of ['ground-zero', 'the-dustlands', 'frostbite-peaks', 'mutant-jungle'] as const) expect(shares[id], id).toBeGreaterThan(0.6);
   });
 
   it('keeps a few long lanes for a sniper, and only a few', () => {

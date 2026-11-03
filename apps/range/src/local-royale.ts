@@ -7,7 +7,7 @@
  * lobby to the Preparation, the Ring, Downed and spectating is the online game.
  */
 import { GameServer, TICK_SECONDS, WIDE_SCALE, createWorld, decodeLargeNav, messageData, servePort, type NavGraph, type PortLike, type ServerTransport } from '@duty-shooter/fps-core';
-import { TEAM_SIZES, buildMapById, mapSolids } from './map/maps';
+import { TEAM_SIZES, buildMapById, mapConcealment, mapSolids } from './map/maps';
 
 const MAP = 'zero-island';
 /**
@@ -28,7 +28,7 @@ export class LocalRoyale {
 
   constructor(transport: ServerTransport, nav: NavGraph, options: LocalRoyaleOptions = {}) {
     const map = buildMapById(MAP);
-    const world = createWorld(mapSolids(map), { ladders: map.ladders ?? [], terrain: map.terrain });
+    const world = createWorld(mapSolids(map), { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map) });
     this.server = new GameServer(transport, {
       world,
       map: MAP,

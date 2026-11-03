@@ -23,8 +23,8 @@ export { TERRAIN_CHUNK, chunkStep, terrainChunkCount, terrainChunkMesh, terrainC
 export type { TerrainMesh } from './terrain-mesh';
 export { GROUND_LAYER_SIZE, GROUND_LAYERS } from './ground-layers-data';
 export type { GroundLayer } from './ground-layers-data';
-export { DECORATION_TOLERANCE, DEFAULT_FINISHES, defaultFinishKey } from './types';
-export type { Decoration, EndingShot, Family, Finish, FreightTrain, Look, MapModels, ModelPlacement, SurfaceSpec } from './types';
+export { DECORATION_TOLERANCE, DEFAULT_FINISHES, PLANT_STRIDE, defaultFinishKey } from './types';
+export type { Decoration, EndingShot, Family, Finish, FreightTrain, Look, MapModels, ModelPlacement, PlantKind, Plants, SurfaceSpec } from './types';
 
 /** A map's surfaces, laid out: what both the bake and the renderer start from. */
 export interface SurfaceLayout {

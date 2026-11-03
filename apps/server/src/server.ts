@@ -10,7 +10,7 @@ import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTO
 import { EventLog } from './event-log';
 import { spendFirstUpgrade } from './first-upgrade';
 import { MODE_IDS, type ModeId, type SquadSize } from '@duty-shooter/fps-core/modes';
-import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
+import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { watchTicks } from './slow-ticks';
 import { TickCosts, type TickWindow } from './tick-costs';
@@ -409,7 +409,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   };
   /** A map as the game server runs it, its nav graph ready when bots are on. */
   const serverMap = (def: MapDefinition): ServerMap => {
-    const world = createWorld(mapSolids(def), { ladders: def.ladders ?? [], terrain: def.terrain });
+    const world = createWorld(mapSolids(def), { ladders: def.ladders ?? [], terrain: def.terrain, concealment: mapConcealment(def) });
     const nav = maxBots > 0 ? navOf(def, world) : null;
     return {
       id: def.id,

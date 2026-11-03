@@ -68,6 +68,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?bench` flies the benchmark path and reports frame times, draw calls and triangles.
 - `?soldiers=near|mid|far` draws every soldier at that level whatever its distance (full, cheap animated, or the far stand-in), to look at a level up close.
 - `?lod=off` draws a large map without its distance detail (soldier levels, far ground in blocks, far surfaces), to measure what that detail saves.
+- `?plants=off` draws a map without its plants (their soft cover still hides from bots; rocks and trunks show as their plain solids), to measure what the plants cost.
 - `?seed=<n>` plays every Local bots match on the same spawns and circles.
 - `?stats` writes each second's mean draw calls and triangles and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
 - *dev* `?botmap=crash` selects Crash in Bot Match when it opens.

@@ -90,6 +90,36 @@ export interface MapModels {
   readonly placements: readonly ModelPlacement[];
 }
 
+/** Numbers per plant in `PlantKind.instances`: x, y, z, yaw, scale x, y, z, colour (0xrrggbb), snow (0 to 1). */
+export const PLANT_STRIDE = 9;
+
+/**
+ * One kind of plant or rock (ticket 29): a model of the vegetation kit
+ * (tools/map/vegetation.py) and every place it stands. Drawn instanced, the
+ * full model out to `near` m from the camera, `lod` out to `far`, and nothing
+ * past that.
+ */
+export interface PlantKind {
+  readonly asset: string;
+  readonly lod: string | null;
+  readonly near: number;
+  readonly far: number;
+  /** Blades and fronds, seen from both sides. */
+  readonly thin: boolean;
+  /** How far its top sways in the wind, as a share of its height. */
+  readonly sway: number;
+  /** Per plant, `PLANT_STRIDE` numbers. Its colour tints the model's own. */
+  readonly instances: Float32Array;
+}
+
+/** A map's vegetation and rocks: the kit's GLB, its kinds, and the solids it draws instead of their faces. */
+export interface Plants {
+  readonly url: string;
+  readonly kinds: readonly PlantKind[];
+  /** Solids (rocks, trunks) a plant stands for: they collide and stop bullets as before, but get no faces. */
+  readonly modelled: readonly number[];
+}
+
 /**
  * The camera's move over a map's ending, shown instead of the player's view
  * from the match's end through the scoreboard: from `from` to `to`, looking

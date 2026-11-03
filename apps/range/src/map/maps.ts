@@ -125,4 +125,4 @@ export function buildMapById(id: MapId): MapDefinition {
 }
 
 export type { CameraKey, CameraSpot, IndoorZone, MapDefinition, MapId, Measured } from './definition';
-export { insidePolygon, mapSolids } from './definition';
+export { insidePolygon, mapConcealment, mapSolids } from './definition';

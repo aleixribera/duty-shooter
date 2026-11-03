@@ -587,6 +587,18 @@ class OpenGroundModel extends LightingModel {
   }
 }
 
+/**
+ * A material lit as the open ground is (the sky, the sun with its shadow, the
+ * distance haze), for what stands on the island with no bake to light it:
+ * its plants and rocks (see PlantsView).
+ */
+export function openGroundLit(albedo: Node): NodeMaterial {
+  const a = albedo as unknown as N3;
+  const m = new SurfaceMaterial(() => new OpenGroundModel(a));
+  m.colorNode = vec4(a, 1);
+  return m;
+}
+
 /** The ground: its colour map, with bare rock on the steep and a little noise so a flat colour doesn't read as paint. */
 export function terrainMaterial(colors: TerrainColors): NodeMaterial {
   const [ox, oz] = colors.origin;
