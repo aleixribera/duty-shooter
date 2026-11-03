@@ -241,6 +241,8 @@ Update stale entries as they're touched, including the Charge-only spectator and
 
 ### Bots at scale
 
+- **Owner's direction (2026-11-03):** no director and no adapting. Bots never steer by match pace, by who is winning, or by whether a target is a person, and never take turns to shoot. Each bot makes its own decisions; squadmates share what they see and hear. Bots revive only when it is sensible, not as soon as they can. Ticket 64 has the detail.
+
 - **Nav:** hierarchical: a coarse Region-level graph over chunked local nav, loaded from build output. `nearestNode` no longer sorts everything. This extends ADR 0004's nav graph.
 - **Brains:** far-from-humans bots think less often and may use simplified movement and fights, as long as outcomes stay believable. Bots near humans run at full rate.
 - **Behaviour:** routes to the next circle, fights other Squads, moves as a Squad and Revives. Existing bot styles and moderate skill stay, with no difficulty setting, and tuning targets a good player's win rate of about 1 in 4.
