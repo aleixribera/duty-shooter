@@ -1606,7 +1606,7 @@ export class GameServer {
     if (own && watched.team !== own.team) {
       if (teamMode(this.#mode.id)) return own;
       // A Battle Royale: while their Squad still fights, only the Squad (ticket 58).
-      if (this.#mode.id === 'battle-royale' && this.#last.players.some((p) => p.alive && p.team === own.team)) return own;
+      if (this.#mode.id === BATTLE_ROYALE && this.#last.players.some((p) => p.alive && p.team === own.team)) return own;
     }
     return watched;
   }
