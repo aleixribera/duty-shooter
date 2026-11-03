@@ -106,7 +106,10 @@ try {
   if (SQUADS !== 1) await chrome.evaluate(`document.querySelector('[data-key="squads-${SQUADS}"]').click()`);
   await chrome.evaluate(`const i = document.querySelector('.ds-royale input[name="name"]'); i.value = 'Ada'; document.querySelector('.ds-royale [data-key="go"]').click()`);
   const t0 = Date.now();
-  await until('lobby', () => ev(`return !!document.querySelector('.ds-royale [data-act="start"]')`), 120000, 200);
+  await until('lobby', () => ev(`return !!document.querySelector('.ds-royale [data-act="start"]')`), 120000, 200).catch(async (e) => {
+    say(`  lobby wait failed; screen: ${await screen()}; errors: ${JSON.stringify(await ev('return globalThis.__errors ?? []'))}; body: ${await ev('return document.body.innerText.replace(/\s+/g, " ").slice(0, 600)')}`);
+    throw e;
+  });
   say(`  lobby after ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   const lobby = await screen();
   say(`  lobby: ${lobby}`);
@@ -144,6 +147,20 @@ try {
   while (Date.now() - started < PLAY * 1000 && alive) {
     await sleep(1000);
     playRender.push(await renderNow());
+    const k = Math.round((Date.now() - started) / 1000);
+    if (process.env.WATCH && k % 5 === 0) {
+      const allies = await ev(`return [...document.querySelectorAll('.ds-allies > *')].filter((e) => e.getClientRects().length).map((e) => e.innerText.replace(/\s+/g, ' ').trim() + (e.className.includes('downed') ? ' [downed]' : '')).join(' | ')`);
+      const hud = await ev(`return document.querySelector('.ds-br-top')?.innerText.replace(/\s+/g, ' ') ?? null`);
+      const hp = await ev(`return document.body.innerText.match(/HEALTH\s*(\d+)/)?.[1] ?? null`);
+      say(`WATCH ${k}s hp ${hp} hud ${hud} allies ${allies}`);
+      if (k % 15 === 0) await shot(`w-${String(k).padStart(3, '0')}`);
+      if (k % 30 === 0) {
+        const key = (type) => chrome.send('Input.dispatchKeyEvent', { type, key: 'm', code: 'KeyM', windowsVirtualKeyCode: 77 });
+        await key('keyDown'); await sleep(80); await key('keyUp'); await sleep(700);
+        await shot(`w-${String(k).padStart(3, '0')}-map`);
+        await key('keyDown'); await sleep(80); await key('keyUp');
+      }
+    }
     alive = !(await ev(`return !!document.querySelector('.ds-royale:not([hidden])')`));
   }
   if (process.env.PROFILE) {
