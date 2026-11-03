@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -233,7 +233,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const play = (next: GameDriver) => {
     driver = next;
     game.setDriver(next);
-    menu.loadoutNote = next.online ? 'Applies from your next spawn.' : 'Applies at once.';
     if (engine!.isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
     else void enter();
   };
@@ -478,7 +477,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     driver = next;
     game.setDriver(next);
     game.paused = true;
-    menu.loadoutNote = 'Applies from your next spawn.';
   };
   const joinRoyale = (name: string, passphrase: string) => {
     const attempt = ++joinAttempt;
@@ -525,7 +523,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       driver = next;
       game.setDriver(next);
       game.paused = true;
-      menu.loadoutNote = 'Applies from your next spawn.';
     });
   };
   const royalePage = new RoyalePage(
@@ -597,6 +594,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const updatePreparation = (): boolean => {
     const driver = game?.driver;
     const match = driver?.online ? driver.match : null;
+    menu.loadoutNote = loadoutNote({ online: driver?.online ?? false, mode: match?.mode ?? null, phase: match?.phase ?? null, preparing: (match?.preparation ?? null) !== null });
     const mine = driver?.scores.find((s) => s.id === driver.selfId);
     const seated = mine !== undefined && mine.deaths === 0 && mine.place === undefined;
     const playing = match?.phase === 'playing' && match.mode === 'battle-royale' && seated;

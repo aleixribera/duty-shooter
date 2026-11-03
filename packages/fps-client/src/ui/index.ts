@@ -11,7 +11,7 @@ export { PreparationPage } from './preparation';
 export type { PreparationCallbacks, PreparationMate, PreparationView } from './preparation';
 export { royaleOpens, royaleServer } from './royale-lobby';
 export { placement } from './royale';
-export { connectionError } from './model';
+export { connectionError, loadoutNote } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
 export { BOT_MAPS } from './model';
 export { loadSettings, saveSettings, type Settings } from '../settings';

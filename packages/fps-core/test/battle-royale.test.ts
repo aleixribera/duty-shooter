@@ -299,6 +299,28 @@ describe('a match on the server', () => {
     expect(seat(m, c.client.id)!.loadout.primary).toBe('m4a1');
   });
 
+  it('a pick of loadout after the hold is kept for the next match (ticket 59)', () => {
+    const m = match({ countdown: 0.1, timeLimit: 2 });
+    const c = joined(m, 'alice');
+    c.client.loaded();
+    m.run(ticks(1));
+    c.client.setLoadout({ primary: 'smg', secondary: 'pistol', grenade: 'frag' });
+    m.run(ticks(0.5));
+    expect(seat(m, c.client.id)!.loadout.primary).toBe('m4a1');
+    const first = m.server.matchStatus();
+    expect(first.phase).toBe('playing');
+    let left = false;
+    for (let i = 0; i < ticks(30); i++) {
+      m.step();
+      const status = m.server.matchStatus();
+      if (status.phase !== 'playing') left = true;
+      if (left && status.phase === 'playing' && seat(m, c.client.id)) break;
+    }
+    expect(left).toBe(true);
+    expect(m.server.matchStatus().phase).toBe('playing');
+    expect(seat(m, c.client.id)!.loadout.primary).toBe('smg');
+  });
+
   it('squadmates spawn a few metres apart, and every Squad far from every other', () => {
     const m = match({ squadSize: 3 });
     joined(m, 'alice');

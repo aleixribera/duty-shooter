@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
 export interface LobbyInfo {
@@ -413,4 +413,15 @@ export function weaponCard(id: WeaponId): WeaponCard {
       { key: 'handling', label: 'Handling', value: quickest / bearTime(id), text: `ADS ${h.adsTime.value.toFixed(2)} s` },
     ],
   };
+}
+
+/**
+ * When a loadout change applies in the game being played, as the loadout
+ * screen says it: a Battle Royale locks it when the Preparation ends, and a
+ * pick after that waits for the next match (ticket 59).
+ */
+export function loadoutNote(game: { readonly online: boolean; readonly mode: ModeId | null; readonly phase: Phase | null; readonly preparing: boolean }): string {
+  if (!game.online) return 'Applies at once.';
+  if (game.mode !== 'battle-royale') return 'Applies from your next spawn.';
+  return game.phase === 'playing' && !game.preparing ? 'Locked for this match. Applies from the next one.' : 'Applies when you drop.';
 }

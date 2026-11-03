@@ -739,9 +739,9 @@ export class GameServer {
       return;
     }
     if (message.t === 'loadout') {
-      // A Battle Royale's loadout is locked when its Preparation ends.
-      if (this.#phase === 'playing' && this.#mode.id === BATTLE_ROYALE && !this.#countingDown) return;
       client.loadout = message.loadout;
+      // A Battle Royale's loadout is locked when its Preparation ends: a later pick waits for the next match (ticket 59).
+      if (this.#phase === 'playing' && this.#mode.id === BATTLE_ROYALE && !this.#countingDown) return;
       // In a round's freeze the change is made at once, where the player stands.
       if (this.#phase === 'playing' && (this.#countingDown || this.#mode.frozen()) && this.#seatIndex.get(client.id)?.alive) {
         this.simulation.equip(client.id, this.#loadoutOf(client.id).loadout ?? message.loadout);

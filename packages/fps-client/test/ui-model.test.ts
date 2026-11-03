@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Score } from '@duty-shooter/fps-core';
-import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+import { BOT_MAPS, chargeRoster, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
@@ -273,5 +273,18 @@ describe('the lobby', () => {
     // Someone who wasn't in it has no place: still not a draw.
     expect(lastMatch(noHumans, 'battle-royale', null, null)).toEqual({ headline: 'No winner', detail: 'Battle Royale · no players left' });
     expect(lastMatch({ winner: 4, winnerName: 'Ada, Bo', draw: false, reason: 'lastSquad' }, 'battle-royale', null, { place: 2, of: 30 })).toEqual({ headline: 'Ada, Bo won', detail: 'Battle Royale · last squad standing' });
+  });
+});
+
+describe('when a loadout change applies, as the loadout screen says it', () => {
+  it('at once offline, from the next spawn online', () => {
+    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at once.');
+    expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies from your next spawn.');
+  });
+
+  it('in a Battle Royale, at the drop until the Preparation ends, then from the next match (ticket 59)', () => {
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop.');
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop.');
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked for this match. Applies from the next one.');
   });
 });
