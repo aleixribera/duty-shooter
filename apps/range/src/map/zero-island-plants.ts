@@ -365,7 +365,7 @@ export function placePlants(ground: PlantGround, dressed: readonly DressedPiece[
     }
   }
 
-  return { plants: { url: 'models/vegetation.glb', kinds: kinds.done(), modelled }, soft };
+  return { plants: { url: 'models/vegetation.glb', atlas: 'textures/foliage.webp', kinds: kinds.done(), modelled }, soft };
 }
 
 /** How many plants of each kind, for reports. */

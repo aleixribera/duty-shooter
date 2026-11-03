@@ -7,13 +7,21 @@ import { SOFT_PLANTS } from '../src/map/zero-island-plants';
 const map = buildMapById('zero-island');
 const plants = map.plants!;
 
-/** The node names in a GLB: its JSON chunk, read directly. */
-function glbNodes(path: string): string[] {
+type Gltf = { nodes: { name?: string; mesh?: number }[]; meshes: { primitives: { attributes: Record<string, number> }[] }[] };
+
+/** A GLB's JSON chunk, read directly. */
+function glbJson(path: string): Gltf {
   const bytes = readFileSync(path);
   const length = bytes.readUInt32LE(12);
-  const json = JSON.parse(bytes.subarray(20, 20 + length).toString('utf8')) as { nodes: { name?: string }[] };
-  return json.nodes.map((n) => n.name ?? '');
+  return JSON.parse(bytes.subarray(20, 20 + length).toString('utf8')) as Gltf;
 }
+
+const publicFile = (path: string) => new URL(`../public/${path}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const kit = glbJson(publicFile('models/vegetation.glb'));
+const glbNodes = () => kit.nodes.map((n) => n.name ?? '');
+
+/** How far a bot sees another player (fps-core's bots/bot.ts, `SIGHT_RANGE`). */
+const BOT_SIGHT = 70;
 
 const each = (asset: string, visit: (x: number, y: number, z: number, sx: number, sy: number, sz: number) => void) => {
   for (const k of plants.kinds.filter((kind) => kind.asset === asset)) {
@@ -23,7 +31,7 @@ const each = (asset: string, visit: (x: number, y: number, z: number, sx: number
 
 describe('Zero Island: plants', () => {
   it('draws only models the kit has', () => {
-    const nodes = glbNodes(new URL('../public/models/vegetation.glb', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+    const nodes = glbNodes();
     for (const k of plants.kinds) {
       expect(nodes, k.asset).toContain(k.asset);
       if (k.lod) expect(nodes, k.lod).toContain(k.lod);
@@ -57,6 +65,28 @@ describe('Zero Island: plants', () => {
       });
     }
     expect(checked).toBeGreaterThan(5000);
+  });
+
+  it('draws every plant that hides a player at least as far as a bot can see', () => {
+    // Bots can't see through soft cover at any range; drawn shorter, a player would see an open field where a bot sees a bush.
+    const hiding = plants.kinds.filter((k) => k.asset in SOFT_PLANTS || k.asset.endsWith('-crown'));
+    expect(hiding.map((k) => k.asset).sort()).toEqual(expect.arrayContaining([...Object.keys(SOFT_PLANTS), 'broadleaf-crown', 'pine-crown'].sort()));
+    for (const k of hiding) expect(k.far, k.asset).toBeGreaterThanOrEqual(BOT_SIGHT);
+  });
+
+  it('maps every model onto the foliage atlas', () => {
+    expect(plants.atlas).toBe('textures/foliage.webp');
+    expect(readFileSync(publicFile(plants.atlas)).subarray(8, 12).toString('ascii')).toBe('WEBP');
+    const uvs = (asset: string) => {
+      const node = kit.nodes.find((n) => n.name === asset)!;
+      return kit.meshes[node.mesh!]!.primitives.every((p) => 'TEXCOORD_0' in p.attributes);
+    };
+    for (const k of plants.kinds) {
+      for (const asset of [k.asset, k.lod].filter((a): a is string => !!a)) {
+        // Leaf cards show a cell each; bark and rock sit on the white cell, which leaves their own colour.
+        expect(uvs(asset), asset).toBe(true);
+      }
+    }
   });
 
   it('keeps soft cover off the spawns and out of solids', () => {

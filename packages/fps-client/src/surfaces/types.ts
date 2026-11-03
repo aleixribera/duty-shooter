@@ -115,6 +115,8 @@ export interface PlantKind {
 /** A map's vegetation and rocks: the kit's GLB, its kinds, and the solids it draws instead of their faces. */
 export interface Plants {
   readonly url: string;
+  /** The foliage atlas the kit's leaf cards show (tools/textures/foliage.py). */
+  readonly atlas: string;
   readonly kinds: readonly PlantKind[];
   /** Solids (rocks, trunks) a plant stands for: they collide and stop bullets as before, but get no faces. */
   readonly modelled: readonly number[];

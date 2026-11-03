@@ -250,7 +250,8 @@ class Kit:
                 worst, where = d, [round(x, 3) for x in g]
         return round(worst, 4), where
 
-    def export(self, objects, path):
+    def export(self, objects, path, texcoords=False):
+        """Exports `objects` as a GLB: materials by name and colour (never their images), vertex colours, and UVs if `texcoords`."""
         bpy.ops.object.select_all(action="DESELECT")
         for o in objects:
             o.select_set(True)
@@ -261,7 +262,8 @@ class Kit:
             export_apply=True,
             export_yup=True,
             export_materials="EXPORT",
-            export_texcoords=False,
+            export_texcoords=texcoords,
+            export_image_format="NONE",
             export_vertex_color="ACTIVE",
             export_all_vertex_colors=False,
         )

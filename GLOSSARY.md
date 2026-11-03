@@ -65,6 +65,10 @@ _Avoid_: prop (that's a shootable solid), mesh
 A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk stands exactly in a cover solid, as a Map model does, and is hard cover; foliage is Soft cover.
 _Avoid_: foliage (only the soft part), decoration
 
+**Leaf card**:
+A flat quad (or octagon, or tapering strip) of a Plant's foliage that shows one cell of the foliage atlas (`textures/foliage.webp`, cut from CC0 photo scans by `tools/textures/foliage.py`) and is cut to the leaves' outline by an alpha test. Crowns, bushes, ferns and grass are built from many of them (ticket 62), lit as the mass they make rather than as flat cards, so either side of a card shades the same. Bark and rock sit on the atlas's white cell and are not leaf cards.
+_Avoid_: billboard (that turns to face the camera; a leaf card doesn't), sprite, impostor
+
 **Ground layer**:
 One of the thirteen photo surfaces a terrain wears (meadow, beach, dust, rock, snow, ice, jungle floor, ash, asphalt, dock, ballast, river bed, cliff), picked per terrain cell and tinted to its Region's palette; steep ground shows cliff rock whatever its layer.
 _Avoid_: ground texture, splat

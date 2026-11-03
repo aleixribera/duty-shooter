@@ -45,6 +45,7 @@ import {
 } from 'three/tsl';
 import {
   ClampToEdgeWrapping,
+  DoubleSide,
   Data3DTexture,
   DataTexture,
   type DirectionalLight,
@@ -596,6 +597,72 @@ export function openGroundLit(albedo: Node): NodeMaterial {
   const a = albedo as unknown as N3;
   const m = new SurfaceMaterial(() => new OpenGroundModel(a));
   m.colorNode = vec4(a, 1);
+  return m;
+}
+
+/** How far round a leaf the low sun still reaches (0 a hard terminator), and how much shines through leaves seen against it. */
+const LEAF_WRAP = 0.6;
+const LEAF_TRANSLUCENCY = 0.55;
+/** The least sky light a leaf gets: light scattered through the canopy and off the ground, so the shade under a crown isn't black. */
+const LEAF_SKY_FLOOR = vec3(0.24, 0.25, 0.24);
+
+/**
+ * Foliage's light (ticket 62): leaves are thin and many, so a crown is lit as
+ * the rounded mass it makes (its `normal`, the same from either side of a
+ * card) rather than as the cards it's built from. The sun wraps round it, a
+ * leaf seen against the sun glows with the light coming through, and the
+ * sky's share never falls to nothing, the shade inside a canopy being lit by
+ * the leaves around it.
+ */
+class FoliageModel extends LightingModel {
+  readonly #albedo: N3;
+  readonly #normal: N3;
+  readonly #mask = float(1).toVar('sunMask');
+  readonly #point = vec3(0, 0, 0).toVar('pointLight');
+
+  constructor(albedo: N3, normal: N3) {
+    super();
+    this.#albedo = albedo;
+    this.#normal = normal;
+  }
+
+  override direct(input: Parameters<LightingModel['direct']>[0]): void {
+    const { lightNode } = input;
+    const lightDirection = input.lightDirection as unknown as N3;
+    const lightColor = input.lightColor as unknown as N3;
+    const light = (lightNode as unknown as { light?: { isDirectionalLight?: boolean } }).light;
+    if (light?.isDirectionalLight) {
+      const shadow = (lightNode as unknown as { shadowNode: N | null }).shadowNode;
+      if (shadow) this.#mask.mulAssign(shadow);
+      return;
+    }
+    // Lamps light leaves from either side, wrapped as the sun is.
+    this.#point.addAssign(lightColor.mul(abs(dot(normalView as unknown as N3, lightDirection)).mul(0.6).add(0.4)).div(Math.PI));
+  }
+
+  override finish(builder: NodeBuilder): void {
+    const context = builder.context as unknown as { outgoingLight: N3 };
+    const n = this.#normal;
+    const up = n.y.mul(0.5).add(0.5);
+    const sky = max(mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up), LEAF_SKY_FLOOR);
+    const wrapped = max(dot(n, sunDir).add(LEAF_WRAP).div(1 + LEAF_WRAP), float(0));
+    const towardSun = pow(max(dot(normalize(positionWorld.sub(cameraPosition)) as unknown as N3, sunDir), float(0)), float(3));
+    const sun = sunColor.mul(wrapped.add(towardSun.mul(LEAF_TRANSLUCENCY)).mul(this.#mask));
+    context.outgoingLight.assign(haze(this.#albedo.mul(sky.add(sun).add(this.#point)) as N3));
+  }
+}
+
+/**
+ * A material for alpha-tested foliage cards: `albedo` lit as foliage (see
+ * `FoliageModel`) by `normal`, a world normal that doesn't turn over on a
+ * card's back, cut where `alpha` is under a half. Drawn from both sides.
+ */
+export function foliageLit(albedo: Node, alpha: Node, normal: Node): NodeMaterial {
+  const a = albedo as unknown as N3;
+  const m = new SurfaceMaterial(() => new FoliageModel(a, normal as unknown as N3));
+  m.colorNode = vec4(a, alpha as unknown as N);
+  m.alphaTest = 0.5;
+  m.side = DoubleSide;
   return m;
 }
 

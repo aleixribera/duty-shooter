@@ -43,40 +43,14 @@ kit.densify = lambda o, longest=0.8: None
 # Light, near-neutral bases: the game tints each instance (a Region's rock, a shrub's own green).
 rock = mapkit.material(bkit, "plant.rock", (176, 170, 160), 0.95)  # noqa: F821
 bark = mapkit.material(bkit, "plant.bark", (98, 78, 62), 0.95)  # noqa: F821
-needles = mapkit.material(bkit, "plant.needles", (52, 74, 50), 0.9)  # noqa: F821
-leaves = mapkit.material(bkit, "plant.leaves", (74, 108, 52), 0.85)  # noqa: F821
-leavesDark = mapkit.material(bkit, "plant.leavesDark", (44, 72, 38), 0.85)  # noqa: F821
-grass = mapkit.material(bkit, "plant.grass", (112, 122, 62), 0.9)  # noqa: F821
-straw = mapkit.material(bkit, "plant.straw", (170, 146, 92), 0.95)  # noqa: F821
-scrub = mapkit.material(bkit, "plant.scrub", (134, 126, 88), 0.95)  # noqa: F821
+# Leaves, needles, fronds and blades: their colour is the atlas's photo, so the material is white.
+leafCard = mapkit.material(bkit, "plant.leaf", (255, 255, 255), 0.85)  # noqa: F821
 twig = mapkit.material(bkit, "plant.twig", (92, 76, 58), 0.95)  # noqa: F821
 
 # Metres a crown is built for: the height of the trunk solid it sits on.
 CROWN_FOR = {"pine-crown": 12.0, "broadleaf-crown": 13.0}
 # Soft cover: (reach from the middle, top), metres, as the game's concealment counts it.
 SOFT = {}
-
-
-def jitter(bm, rng, amount, scale=1.0, keep_base=True):
-    """Pushes each vertex along smooth noise, so a primitive stops reading as one."""
-    seed = Vector((rng.uniform(0, 100), rng.uniform(0, 100), rng.uniform(0, 100)))
-    for v in bm.verts:
-        if keep_base and v.co.z <= 0.001:
-            continue
-        n = noise.noise_vector(v.co * scale + seed)
-        v.co += n * amount
-
-
-def blob(rng, centre, radius, squash=0.8, level=1, rough=0.25, material=leaves):
-    """A leafy mass: an icosphere, flattened a little and pushed out of round."""
-    bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=level, radius=1)
-    seed = Vector((rng.uniform(0, 100), rng.uniform(0, 100), rng.uniform(0, 100)))
-    for v in bm.verts:
-        d = v.co.normalized()
-        k = 1 + rough * noise.noise(d * 1.7 + seed) + rough * 0.5 * noise.noise(d * 4.1 + seed)
-        v.co = Vector((d.x * radius * k, d.y * radius * k, d.z * radius * k * squash)) + Vector(centre)
-    return kit.obj("blob", bm, material)
 
 
 def tapered(r0, r1, height, segments, material, flare=0.0, rng=None, lean=(0, 0), rings=4):
@@ -111,25 +85,6 @@ def limb(start, end, r0, r1, material, segments=5):
     o.data.transform(o.matrix_world)
     o.matrix_world = Matrix.Identity(4)
     return o
-
-
-def blade(bm, rng, base, height, width, lean, turn, segments=3):
-    """One curved blade or frond: a strip of quads narrowing to a point, bending over as it rises."""
-    ca, sa = math.cos(turn), math.sin(turn)
-    side = Vector((-sa, ca, 0))
-    rows = []
-    for k in range(segments + 1):
-        t = k / segments
-        out = lean * t * t
-        p = Vector(base) + Vector((ca * out, sa * out, height * (t - 0.35 * t * t * abs(lean) / max(height, 0.01))))
-        w = width * (1 - t) ** 0.8
-        rows.append((bm.verts.new(p - side * w / 2), bm.verts.new(p + side * w / 2)) if k < segments else (bm.verts.new(p),))
-    for k in range(segments):
-        a, b = rows[k], rows[k + 1]
-        if len(b) == 1:
-            bm.faces.new((a[0], a[1], b[0]))
-        else:
-            bm.faces.new((a[0], a[1], b[1], b[0]))
 
 
 def boulder(name, seed, cuts=6, level=3, strata=0):
@@ -204,43 +159,161 @@ def pine_trunk(name, segments, rings=4):
     return kit.asset(name, [o], smooth_angle=70)
 
 
-def pine_crown(name, seed, tiers, segments):
-    """Tiers of drooping, ragged skirts of needles round the top of the trunk, from 3 m up."""
-    rng = random.Random(seed)
-    parts = []
-    top, bottom = CROWN_FOR["pine-crown"] + 1.6, 3.0
-    for k in range(tiers):
-        t = k / max(tiers - 1, 1)
-        z = bottom + (top - 2.5 - bottom) * t
-        r = 2.9 * (1 - t) ** 0.85 + 0.5
-        # Each tier reaches down over the one below, so few tiers still make one tree.
-        h = min(max(2.7 - 0.6 * t, (top - 2.5 - bottom) / max(tiers - 1, 1) * 1.45), top - z)
-        bm = bmesh.new()
-        tip = bm.verts.new((rng.uniform(-0.1, 0.1), rng.uniform(-0.1, 0.1), z + h))
-        rim = []
-        for i in range(segments * 2):
-            a = math.tau * i / (segments * 2) + rng.uniform(-0.1, 0.1)
-            rr = r * (1 if i % 2 == 0 else 0.72) * rng.uniform(0.88, 1.1)
-            rim.append(bm.verts.new((math.cos(a) * rr, math.sin(a) * rr, z - (0.45 if i % 2 == 0 else 0.05) * r / 2.9 + rng.uniform(-0.1, 0.1))))
-        for i in range(len(rim)):
-            bm.faces.new((rim[i], rim[(i + 1) % len(rim)], tip))
-        under = bm.verts.new((0, 0, z + 0.25 * h))
-        for i in range(len(rim)):
-            bm.faces.new((rim[(i + 1) % len(rim)], rim[i], under))
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        parts.append(kit.obj("tier", bm, needles))
-    return kit.asset(name, parts, smooth_angle=35)
-
-
 def broadleaf_trunk(name, segments, rings=4):
     o = tapered(0.46, 0.38, 1.0, segments, bark, flare=0.1 if segments > 6 else 0.05, rng=random.Random(5), rings=rings)
     return kit.asset(name, [o], smooth_angle=70)
 
 
-def broadleaf_crown(name, seed, masses, level, limbs):
-    """A broad, layered canopy from 6.5 m up, on a few limbs that fork from the trunk's top."""
+# ------------------------------------------------------------------ cards
+#
+# Foliage is alpha-tested cards (ticket 62): quads that each show a cell of
+# the foliage atlas (tools/textures/foliage.py), a cluster of scanned leaves,
+# a pine spray, a frond or a fan of blades. The game draws them from both
+# sides and lights them by the volume they make, not by their flat faces:
+# each card's normals point out from the middle of its crown or bush, so a
+# whole bush shades as one rounded mass, the way leaves do.
+
+# The atlas's cells, in foliage.py's `CELLS` order: a 4 x 4 grid, the first row at the image's top.
+ATLAS = [
+    "broad-a", "broad-b", "bush-a", "bush-b",
+    "pine-a", "pine-b", "juniper", "dry-a",
+    "dry-b", "fern-a", "fern-b", "grass",
+    "straw", "tuft", "tuft-dry", "solid",
+]
+GRID = 4
+# What a cell's picture spans across it (the fronds stand in the middle), and the clear frame round every cell (px of 512).
+SPAN = {"fern-a": (0.3, 0.7), "fern-b": (0.3, 0.7)}
+FRAME = 6 / 512
+
+
+def cell_uv(cell, s, t):
+    """Blender UV of (s, t) on a card showing `cell`: s across, t from the card's foot (0) to its top (1)."""
+    i = ATLAS.index(cell)
+    col, row = i % GRID, i // GRID
+    u0, u1 = SPAN.get(cell, (FRAME, 1 - FRAME))
+    t = FRAME + (1 - 2 * FRAME) * t
+    return ((col + u0 + (u1 - u0) * s) / GRID, (GRID - 1 - row + t) / GRID)
+
+
+SOLID_UV = cell_uv("solid", 0.5, 0.5)
+
+
+# The leaf clusters are discs: their cards are octagons round them, so the empty corners of the cell cost no pixels.
+DISCS = {"broad-a", "broad-b", "bush-a", "bush-b", "dry-a", "dry-b"}
+# A card's width at its tip as a share of its foot's: fronds narrow to a point.
+TAPER = {"fern-a": 0.45, "fern-b": 0.45}
+
+
+def card(bm, cell, foot, right, up, width, length, droop=0.0, segments=1, taper=None, squeeze=False):
+    """A card standing on `foot` along `up` (unit vectors), `width` across and `length` long, its far end sagging `droop` m,
+    its tip `taper` of its foot's width (the cell's own by default): the cell cropped to the narrower card, or `squeeze`d into it,
+    which keeps the cell's own ragged edges as the card's."""
+    uv = bm.loops.layers.uv.get("UVMap") or bm.loops.layers.uv.new("UVMap")
+    foot, right, up = Vector(foot), Vector(right).normalized(), Vector(up).normalized()
+    if cell in DISCS and segments == 1 and not droop:
+        # An octagon whose sides touch a circle of 0.49 of the card: the cluster's leaves reach no farther.
+        rim = []
+        for k in range(8):
+            a = math.tau * (k + 0.5) / 8
+            r = 0.49 / math.cos(math.pi / 8)
+            s, t = 0.5 + r * math.cos(a), 0.5 + r * math.sin(a)
+            s, t = min(1.0, max(0.0, s)), min(1.0, max(0.0, t))
+            rim.append((bm.verts.new(foot + right * width * (s - 0.5) + up * length * t), cell_uv(cell, s, t)))
+        f = bm.faces.new([v for v, _ in rim])
+        for loop, (_, coords) in zip(f.loops, rim):
+            loop[uv].uv = coords
+        return
+    tip = TAPER.get(cell, 1.0) if taper is None else taper
+    rows = []
+    for k in range(segments + 1):
+        t = k / segments
+        centre = foot + up * length * t + Vector((0, 0, -droop * t * t))
+        w = 1 - (1 - tip) * t
+        rows.append([(bm.verts.new(centre + right * width * w * (s - 0.5)), cell_uv(cell, s if squeeze else 0.5 + w * (s - 0.5), t)) for s in (0.0, 1.0)])
+    for a, b in zip(rows, rows[1:]):
+        f = bm.faces.new((a[0][0], a[1][0], b[1][0], b[0][0]))
+        for loop, (_, coords) in zip(f.loops, (a[0], a[1], b[1], b[0])):
+            loop[uv].uv = coords
+
+
+def frame(normal, roll):
+    """Right and up vectors of a card facing along `normal`, turned `roll` radians about it."""
+    n = Vector(normal).normalized()
+    side = n.cross(Vector((0, 0, 1)))
+    if side.length < 1e-3:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    upv = side.cross(n).normalized()
+    right = side * math.cos(roll) + upv * math.sin(roll)
+    return right, right.cross(n).normalized()
+
+
+def solid(o):
+    """Bark and stems read the atlas's white cell, so they keep their own colour."""
+    uv = o.data.uv_layers.get("UVMap") or o.data.uv_layers.new(name="UVMap")
+    for d in uv.data:
+        d.uv = SOLID_UV
+    return o
+
+
+def cards(name, build):
+    bm = bmesh.new()
+    build(bm)
+    return kit.obj(name, bm, leafCard)
+
+
+def cluster(rng, bm, cells, centre, radii, count, size, up_bias=0.25, lift=0.0):
+    """Cards scattered through an ellipsoid, each facing out from its middle give or take, so it reads full from every side."""
+    c = Vector(centre)
+    for _ in range(count):
+        d = Vector((rng.gauss(0, 1), rng.gauss(0, 1), rng.gauss(0, 1) * 0.8 + lift)).normalized()
+        r = rng.random() ** 0.4
+        p = c + Vector((d.x * radii[0], d.y * radii[1], d.z * radii[2])) * r * 0.82
+        n = (d + Vector((rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6), up_bias))).normalized()
+        right, upv = frame(n, rng.uniform(0, math.tau))
+        s = size * rng.uniform(0.8, 1.15)
+        card(bm, cells[rng.randrange(len(cells))], p - upv * s / 2, right, upv, s, s)
+
+
+def pine_crown(name, seed, tiers, branches, core=3, ragged=True):
+    """Whorls of drooping sprays round the top of the trunk, from 3 m up, narrowing to a spire, over a core of
+    crossed sprays the crown's height, which fills the cone between the whorls from every side. A `ragged` core keeps the
+    sprays' own edges as its outline; the distance model's is cut to the cone, fuller where its whorls are few."""
     rng = random.Random(seed)
-    parts = []
+    top, bottom = CROWN_FOR["pine-crown"] + 1.6, 3.0
+
+    def build(bm):
+        for i in range(core):
+            a = math.pi * i / core + rng.uniform(-0.15, 0.15)
+            # A cone, not a board: wide at the bottom whorl, to a point at the spire.
+            card(bm, ("pine-a", "pine-b")[i % 2], (0, 0, bottom - 0.6), (math.cos(a), math.sin(a), 0), (0, 0, 1), 7.4, top - bottom + 0.6, segments=3, taper=0.06, squeeze=ragged)
+        for k in range(tiers):
+            t = k / max(tiers - 1, 1)
+            z = bottom + 0.4 + (top - 2.4 - bottom) * t
+            reach = 2.9 * (1 - t) ** 0.85 + 0.5
+            n = max(4, round(branches * (1 - 0.45 * t)))
+            for i in range(n):
+                a = math.tau * (i + rng.uniform(-0.3, 0.3)) / n + k * 0.7
+                out = Vector((math.cos(a), math.sin(a), 0))
+                along = (out + Vector((0, 0, rng.uniform(-0.1, 0.35)))).normalized()
+                # Each spray rolls about its own length, so from the side some show broad and none vanish edge-on.
+                roll = rng.uniform(-0.9, 0.9)
+                side = out.cross(Vector((0, 0, 1)))
+                right = (side * math.cos(roll) + Vector((0, 0, 1)) * math.sin(roll)).normalized()
+                card(bm, rng.choice(("pine-a", "pine-b")), Vector((0, 0, z)) - out * 0.15, right, along, reach * 1.0, reach * 1.05, droop=reach * 0.4, segments=2)
+        # The spire: short sprays leaning up round the trunk's last metres, which the narrowing core can't hide.
+        for k, z in enumerate((CROWN_FOR["pine-crown"] - 2.6, CROWN_FOR["pine-crown"] - 1.6, CROWN_FOR["pine-crown"] - 0.6)):
+            for i in range(7):
+                a = math.tau * (i + 0.5 * k) / 7 + rng.uniform(-0.2, 0.2)
+                out = Vector((math.cos(a), math.sin(a), 0))
+                along = (out * 0.45 + Vector((0, 0, 1))).normalized()
+                card(bm, rng.choice(("pine-a", "pine-b")), Vector((0, 0, z)) - out * 0.1, out.cross(Vector((0, 0, 1))), along, 1.6 - 0.35 * k, 2.6 - 0.5 * k)
+    return kit.asset(name, [cards("tiers", build)], smooth_angle=180)
+
+
+def broadleaf_crown(name, seed, masses, per_mass, size, limbs, caps=6):
+    """A broad, layered canopy from 6.5 m up: leaf clusters through a few masses, on limbs that fork from the trunk's top."""
+    rng = random.Random(seed)
     h = CROWN_FOR["broadleaf-crown"]
     spots = []
     for i in range(masses):
@@ -248,121 +321,211 @@ def broadleaf_crown(name, seed, masses, level, limbs):
         d = rng.uniform(2.0, 3.6) if i else 0
         z = h - 2.2 + rng.uniform(-1.4, 1.2) + (1.5 if i == 0 else 0)
         spots.append((math.cos(a) * d, math.sin(a) * d, z))
-    for i, (x, y, z) in enumerate(spots):
-        r = rng.uniform(2.2, 3.0) if i else 3.0
-        parts.append(blob(rng, (x, y, z), r, squash=0.62, level=level, rough=0.3, material=leaves if i % 2 else leavesDark))
-        if i and i <= limbs:
-            parts.append(limb((0, 0, h * 0.55), (x * 0.8, y * 0.8, z - 0.8), 0.28, 0.12, bark))
-    return kit.asset(name, parts, smooth_angle=40)
+
+    def build(bm):
+        for i, (x, y, z) in enumerate(spots):
+            r = rng.uniform(2.2, 3.0) if i else 3.0
+            cluster(rng, bm, ("broad-a", "broad-b"), (x, y, z), (r, r, r * 0.62), per_mass, size, lift=0.25)
+        # The clusters lie through each mass's skin: cards lying over the trunk's top close the hollow it would show through from above.
+        for _ in range(caps):
+            n = Vector((rng.uniform(-0.35, 0.35), rng.uniform(-0.35, 0.35), 1))
+            right, upv = frame(n, rng.uniform(0, math.tau))
+            s = size * 1.3
+            card(bm, rng.choice(("broad-a", "broad-b")), Vector((rng.uniform(-0.8, 0.8), rng.uniform(-0.8, 0.8), h + rng.uniform(0.1, 0.7))) - upv * s / 2, right, upv, s, s)
+    parts = [cards("canopy", build)]
+    for x, y, z in spots[1:limbs + 1]:
+        parts.append(solid(limb((0, 0, h * 0.55), (x * 0.8, y * 0.8, z - 0.8), 0.28, 0.12, bark)))
+    return kit.asset(name, parts, smooth_angle=180)
 
 
-def bush(name, seed, masses, width, height, level=1, material=leaves, dark=leavesDark, rough=0.3, stems=0):
-    """A shrub: overlapping leafy masses on the ground, `width` across and `height` tall."""
+def bush(name, seed, width, height, cells, count, size, stems=0, upright=0.25):
+    """A shrub: leaf clusters through a dome on the ground, `width` across and `height` tall."""
     rng = random.Random(seed)
-    parts = []
-    for i in range(masses):
-        a = math.tau * i / masses + rng.uniform(-0.4, 0.4)
-        d = (width / 2 - width * 0.22) * (0 if i == 0 else rng.uniform(0.55, 1))
-        r = width * (0.3 if i == 0 else rng.uniform(0.2, 0.27))
-        z = height - r * 0.62 if i == 0 else rng.uniform(r * 0.5, height - r * 0.7)
-        parts.append(blob(rng, (math.cos(a) * d, math.sin(a) * d, z), r, squash=0.85, level=level, rough=rough, material=material if i % 2 == 0 else dark))
-    for i in range(stems):
+
+    def build(bm):
+        cluster(rng, bm, cells, (0, 0, height * 0.5), (width * 0.5, width * 0.5, height * 0.5), count, size, up_bias=upright)
+    parts = [cards("leaves", build)]
+    for _ in range(stems):
         a = rng.uniform(0, math.tau)
-        parts.append(limb((0, 0, 0), (math.cos(a) * width * 0.2, math.sin(a) * width * 0.2, height * 0.5), 0.05, 0.03, twig, segments=4))
-    o = kit.asset(name, parts, smooth_angle=50)
+        parts.append(solid(limb((0, 0, 0), (math.cos(a) * width * 0.2, math.sin(a) * width * 0.2, height * 0.5), 0.05, 0.03, twig, segments=4)))
+    o = kit.asset(name, parts, smooth_angle=180)
     SOFT[name] = (round(width * 0.42, 2), round(height * 0.92, 2))
     return o
 
 
-def tussock(name, seed, blades, height, spread, material, segments=3, width=0.07):
-    """A clump of tall grass blades from one root, leaning out."""
+def crossed(name, cell, width, height, count, seed=0):
+    """`count` cards standing crossed through the middle: a far plant, or a clump of grass far off."""
     rng = random.Random(seed)
-    bm = bmesh.new()
-    for _ in range(blades):
-        a = rng.uniform(0, math.tau)
-        r = spread * 0.25 * math.sqrt(rng.random())
-        blade(bm, rng, (math.cos(a) * r, math.sin(a) * r, 0), height * rng.uniform(0.7, 1.05), width * rng.uniform(0.7, 1.2), spread * rng.uniform(0.3, 0.7), a + rng.uniform(-0.5, 0.5), segments)
-    o = kit.obj(name, bm, material)
-    o = kit.asset(name, [o], smooth_angle=80)
+
+    def build(bm):
+        for i in range(count):
+            a = math.pi * i / count + rng.uniform(-0.2, 0.2)
+            card(bm, cell, (0, 0, -0.03), (math.cos(a), math.sin(a), 0), (0, 0, 1), width, height)
+    return kit.asset(name, [cards(name, build)], smooth_angle=180)
+
+
+def bush_lod(name, cell, width, height):
+    """A shrub far off: three crossed cards and one lying across the top."""
+    def build(bm):
+        for i in range(3):
+            a = math.pi * i / 3
+            card(bm, cell, (0, 0, -0.05), (math.cos(a), math.sin(a), 0), (0, 0, 1), width, height * 1.05)
+        card(bm, cell, (0, -width * 0.45, height * 0.7), (1, 0, 0), (0, 1, 0), width * 0.9, width * 0.9)
+    return kit.asset(name, [cards(name, build)], smooth_angle=180)
+
+
+def tussock(name, seed, cell, height, spread, count, segments=2):
+    """A clump of tall grass: cards of blades crossing at its root, leaning a little out."""
+    rng = random.Random(seed)
+
+    def build(bm):
+        for i in range(count):
+            a = math.pi * i / count + rng.uniform(-0.25, 0.25)
+            lean = rng.uniform(-0.2, 0.2)
+            right = Vector((math.cos(a), math.sin(a), 0))
+            out = right.cross(Vector((0, 0, 1)))
+            card(bm, cell, out * rng.uniform(-0.05, 0.05), right, Vector((0, 0, 1)) + out * lean, spread, height * rng.uniform(0.85, 1.05), droop=height * 0.08, segments=segments)
+    o = kit.asset(name, [cards(name, build)], smooth_angle=180)
     SOFT[name] = (round(spread * 0.45, 2), round(height * 0.88, 2))
     return o
 
 
-def fern(name, seed, fronds, length, segments=4):
+def fern(name, seed, fronds, length, segments=3):
     """Fronds arching out from a crown at the ground, a jungle floor's cover."""
     rng = random.Random(seed)
-    bm = bmesh.new()
-    for i in range(fronds):
-        a = math.tau * i / fronds + rng.uniform(-0.25, 0.25)
-        blade(bm, rng, (0, 0, 0), length * rng.uniform(0.8, 1.05), 0.42 * rng.uniform(0.8, 1.1), length * rng.uniform(0.7, 0.95), a, segments)
-    o = kit.obj(name, bm, leaves)
-    o = kit.asset(name, [o], smooth_angle=60)
+
+    def build(bm):
+        for i in range(fronds):
+            a = math.tau * i / fronds + rng.uniform(-0.25, 0.25)
+            out = Vector((math.cos(a), math.sin(a), 0))
+            rise = rng.uniform(1.1, 2.4)
+            along = (out + Vector((0, 0, rise))).normalized()
+            right = out.cross(Vector((0, 0, 1))).normalized()
+            n = length * rng.uniform(0.8, 1.05)
+            card(bm, rng.choice(("fern-a", "fern-b")), (0, 0, 0), right, along, 0.55 * rng.uniform(0.85, 1.1), n, droop=n * 0.4 * max(0.2, 1 - rise / 2.6), segments=segments)
+    o = kit.asset(name, [cards(name, build)], smooth_angle=180)
     SOFT[name] = (round(length * 0.55, 2), round(length * 0.72, 2))
     return o
 
 
-def juniper(name, seed, cones, width, height, segments=7):
-    """A low, wind-pressed conifer on the snowfields: ragged cones crowded together."""
+def juniper(name, seed, sprays, width, height):
+    """A low, wind-pressed conifer on the snowfields: sprays fanning up and out from its root."""
     rng = random.Random(seed)
-    parts = []
-    for i in range(cones):
-        a = math.tau * i / cones + rng.uniform(-0.3, 0.3)
-        d = 0 if i == 0 else width * rng.uniform(0.18, 0.3)
-        h = height * (1 if i == 0 else rng.uniform(0.55, 0.85))
-        r = width * (0.32 if i == 0 else rng.uniform(0.22, 0.3))
-        bm = bmesh.new()
-        cx, cy = math.cos(a) * d, math.sin(a) * d
-        tip = bm.verts.new((cx + rng.uniform(-0.1, 0.1), cy + rng.uniform(-0.1, 0.1), h))
-        ring = [bm.verts.new((cx + math.cos(math.tau * k / segments) * r * rng.uniform(0.8, 1.15), cy + math.sin(math.tau * k / segments) * r * rng.uniform(0.8, 1.15), rng.uniform(0, 0.12))) for k in range(segments)]
-        mid = [bm.verts.new((cx + (v.co.x - cx) * 0.62, cy + (v.co.y - cy) * 0.62, h * 0.48 + rng.uniform(-0.08, 0.08))) for v in ring]
-        for k in range(segments):
-            j = (k + 1) % segments
-            bm.faces.new((ring[k], ring[j], mid[j], mid[k]))
-            bm.faces.new((mid[k], mid[j], tip))
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        parts.append(kit.obj("cone", bm, needles))
-    o = kit.asset(name, parts, smooth_angle=45)
+
+    def build(bm):
+        for i in range(sprays):
+            a = math.tau * i / sprays + rng.uniform(-0.2, 0.2)
+            out = Vector((math.cos(a), math.sin(a), 0))
+            tilt = rng.uniform(0.25, 1.0) if i % 3 else rng.uniform(0.0, 0.2)
+            along = (out * tilt + Vector((0, 0, 1))).normalized()
+            right = out.cross(Vector((0, 0, 1))).normalized()
+            roll = rng.uniform(-0.6, 0.6)
+            right = (right * math.cos(roll) + out * math.sin(roll)).normalized()
+            n = height * rng.uniform(0.75, 1.05) / max(along.z, 0.5)
+            card(bm, "juniper", out * width * rng.uniform(0.0, 0.12), right, along, width * rng.uniform(0.45, 0.6), n, droop=n * 0.15, segments=2)
+    o = kit.asset(name, [cards(name, build)], smooth_angle=180)
     SOFT[name] = (round(width * 0.42, 2), round(height * 0.9, 2))
     return o
 
 
-built = [
+def shade_with(o, normals, ao):
+    o.data.normals_split_custom_set_from_vertices(normals)
+    me = o.data
+    for a in list(me.color_attributes):
+        me.color_attributes.remove(a)
+    ca = me.color_attributes.new("Color", "BYTE_COLOR", "POINT")
+    me.color_attributes.active_color = ca
+    for d, a in zip(ca.data, ao):
+        d.color = (a, a, a, 1.0)
+    return o
+
+
+def volume(o, centre, radii, up=0.2, floor=None, ao_low=0.45):
+    """Normals out from the plant's middle (an ellipsoid of `radii` round `centre`), leaning up; occlusion deepening inward and, given a
+    `floor` height, toward the ground. Bark and stems (on the white cell) keep their own normals and a mid occlusion."""
+    me = o.data
+    uv = me.uv_layers["UVMap"].data
+    on_card = [False] * len(me.vertices)
+    for loop in me.loops:
+        if (Vector(uv[loop.index].uv) - Vector(SOLID_UV)).length > 0.06:
+            on_card[loop.vertex_index] = True
+    c, r = Vector(centre), Vector(radii)
+    normals, ao = [], []
+    for v, leafy in zip(me.vertices, on_card):
+        if not leafy:
+            normals.append(v.normal.copy())
+            ao.append(0.6)
+            continue
+        q = Vector(((v.co.x - c.x) / r.x, (v.co.y - c.y) / r.y, (v.co.z - c.z) / r.z))
+        depth = min(q.length, 1.0)
+        n = (q.normalized() if q.length > 1e-4 else Vector((0, 0, 1))) + Vector((0, 0, up))
+        normals.append(n.normalized())
+        a = ao_low + (1 - ao_low) * depth ** 1.5
+        if floor is not None:
+            a *= 0.7 + 0.3 * min(1.0, max(0.0, (v.co.z - floor) / (r.z * 0.8)))
+        ao.append(a)
+    return shade_with(o, normals, ao)
+
+
+def blades_up(o, height, lean=0.3, ao_low=0.55):
+    """Blades and fronds: normals leaning up and a little out, lit like the ground they grow from; darker at the root."""
+    normals, ao = [], []
+    for v in o.data.vertices:
+        out = Vector((v.co.x, v.co.y, 0))
+        out = out.normalized() if out.length > 1e-4 else Vector((0, 0, 0))
+        normals.append((Vector((0, 0, 1)) + out * lean).normalized())
+        ao.append(ao_low + (1 - ao_low) * min(1.0, max(0.0, v.co.z / height)) ** 0.6)
+    return shade_with(o, normals, ao)
+
+
+hard = [
     # Hard cover: rocks, filling a unit box.
     boulder("rock-a", 11),
     boulder("rock-b", 12, cuts=8),
     boulder("rock-strata", 13, cuts=5, strata=7),
     boulder_lod("rock-lod", 14),
-    # Trees: unit trunks and their crowns.
+    # Trees' unit trunks.
     pine_trunk("pine-trunk", 9),
     pine_trunk("pine-trunk-lod", 5, rings=1),
-    pine_crown("pine-crown", 21, 6, 9),
-    pine_crown("pine-crown-lod", 22, 3, 5),
     broadleaf_trunk("broadleaf-trunk", 10),
     broadleaf_trunk("broadleaf-trunk-lod", 5, rings=1),
-    broadleaf_crown("broadleaf-crown", 31, 7, 2, 4),
-    broadleaf_crown("broadleaf-crown-lod", 31, 3, 1, 0),
-    # Soft cover.
-    bush("bush-leafy", 51, 7, 2.3, 1.75, stems=3),
-    bush("bush-leafy-lod", 51, 2, 2.3, 1.75, level=1, rough=0.2),
-    bush("bush-dry", 52, 6, 2.0, 1.5, material=scrub, dark=straw, rough=0.45, stems=4),
-    bush("bush-dry-lod", 52, 2, 2.0, 1.5, material=scrub, dark=straw, rough=0.3),
-    juniper("juniper", 53, 5, 2.2, 1.7),
-    juniper("juniper-lod", 53, 1, 2.2, 1.7, segments=6),
-    fern("fern", 54, 11, 1.6),
-    fern("fern-lod", 54, 5, 1.6, segments=1),
-    tussock("grass-tall", 55, 44, 1.35, 1.1, grass),
-    tussock("grass-tall-lod", 55, 7, 1.35, 1.1, grass, segments=1, width=0.22),
-    tussock("grass-dry", 56, 40, 1.25, 1.1, straw),
-    tussock("grass-dry-lod", 56, 7, 1.25, 1.1, straw, segments=1, width=0.22),
-    # Ground cover, drawn near only: no cover at all.
-    tussock("tuft", 57, 9, 0.38, 0.4, grass, segments=2, width=0.05),
-    tussock("tuft-dry", 58, 8, 0.32, 0.4, straw, segments=2, width=0.05),
 ]
+PINE_TOP = CROWN_FOR["pine-crown"] + 1.6
+PINE_MID, PINE_HALF = (3.0 + PINE_TOP) / 2, (PINE_TOP - 3.0) / 2 + 0.6
+BROAD = CROWN_FOR["broadleaf-crown"]
+# Soft cover keeps ticket 29's outer sizes, which the game's concealment (`SOFT`) is tuned to.
+leafy = [
+    volume(pine_crown("pine-crown", 21, 8, 9), (0, 0, PINE_MID), (3.4, 3.4, PINE_HALF), up=0.15),
+    volume(pine_crown("pine-crown-lod", 22, 3, 4, core=3, ragged=False), (0, 0, PINE_MID), (3.4, 3.4, PINE_HALF), up=0.15),
+    volume(broadleaf_crown("broadleaf-crown", 31, 7, 11, 2.0, 4), (0, 0, BROAD - 1.5), (6.2, 6.2, 3.2), up=0.25),
+    volume(broadleaf_crown("broadleaf-crown-lod", 31, 4, 8, 3.4, 0, caps=3), (0, 0, BROAD - 1.5), (6.2, 6.2, 3.2), up=0.25),
+    volume(bush("bush-leafy", 51, 2.3, 1.75, ("bush-a", "bush-b"), 26, 1.0, stems=3), (0, 0, 0.7), (1.2, 1.2, 1.0), floor=0.0),
+    volume(bush_lod("bush-leafy-lod", "bush-a", 2.3, 1.75), (0, 0, 0.7), (1.2, 1.2, 1.0), floor=0.0),
+    volume(bush("bush-dry", 52, 2.0, 1.5, ("dry-a", "dry-b"), 24, 0.95, stems=4, upright=0.5), (0, 0, 0.6), (1.05, 1.05, 0.9), floor=0.0),
+    volume(bush_lod("bush-dry-lod", "dry-a", 2.0, 1.5), (0, 0, 0.6), (1.05, 1.05, 0.9), floor=0.0),
+    volume(juniper("juniper", 53, 22, 2.2, 1.7), (0, 0, 0.6), (1.15, 1.15, 1.1), floor=0.0),
+    volume(crossed("juniper-lod", "juniper", 1.9, 1.75, 3, seed=53), (0, 0, 0.6), (1.15, 1.15, 1.1), floor=0.0),
+]
+thin = [
+    blades_up(fern("fern", 54, 16, 1.6), 1.2),
+    blades_up(fern("fern-lod", 54, 7, 1.6, segments=1), 1.2),
+    blades_up(tussock("grass-tall", 55, "grass", 1.35, 1.1, 4), 1.35),
+    blades_up(crossed("grass-tall-lod", "grass", 1.1, 1.3, 2, seed=55), 1.35),
+    blades_up(tussock("grass-dry", 56, "straw", 1.25, 1.1, 4), 1.25),
+    blades_up(crossed("grass-dry-lod", "straw", 1.1, 1.2, 2, seed=56), 1.25),
+    # Ground cover, drawn near only: no cover at all.
+    blades_up(tussock("tuft", 57, "tuft", 0.38, 0.45, 3, segments=1), 0.38),
+    blades_up(tussock("tuft-dry", 58, "tuft-dry", 0.32, 0.45, 3, segments=1), 0.32),
+]
+built = hard + leafy + thin
 for o in built:
     o.location = (0, 0, 0)
-kit.bake_ao(built, distance=0.8, samples=16)
+kit.bake_ao(hard, distance=0.8, samples=16)
+for o in hard:
+    # The GLB carries one UV set for the whole kit: rocks and trunks sit on the white cell.
+    solid(o)
 result = {"assets": {o.name: {"tris": kit.tris(o), "size": [round(d, 2) for d in o.dimensions]} for o in built}, "soft": SOFT}
 if ARGS.get("export", False):  # noqa: F821
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    kit.export(built, OUT)
+    kit.export(built, OUT, texcoords=True)
     result["glb"] = {"path": os.path.abspath(OUT), "bytes": os.path.getsize(OUT)}
