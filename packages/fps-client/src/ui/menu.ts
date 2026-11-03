@@ -6,7 +6,8 @@ import { escapeHtml, hint, icon, installTheme } from './theme';
 
 export type { LobbyInfo } from './model';
 
-const CSS = `
+/** The menus' stylesheet. */
+export const MENU_CSS = `
 .ds-menu { position: fixed; inset: 0; z-index: 20; font: 400 15px/1.4 var(--ds-font); color: var(--ds-text); }
 .ds-menu[hidden] { display: none; }
 .ds-screen { position: absolute; inset: 0; }
@@ -137,9 +138,19 @@ const CSS = `
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 40%, rgb(7 9 13 / 0.55) 100%); overflow-y: auto; }
 .ds-pause .col { display: flex; flex-direction: column; gap: 6px; }
 .ds-pause h1 { margin: 6px 0 24px; font-size: 56px; line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-.ds-pause .ds-item { min-height: 60px; }
-.ds-pause .ds-item b { font-size: 24px; }
-.ds-pause .ds-item .ds-icon, .ds-pause .ds-item .go { grid-row: 1; }
+.ds-pause .ds-item { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; min-height: 60px; padding: 12px 20px 12px 16px; text-align: left; color: var(--ds-text);
+  background: linear-gradient(90deg, rgb(12 15 21 / 0.82), rgb(12 15 21 / 0.42)); border: 0; border-left: 3px solid transparent;
+  transition: transform 140ms var(--ds-ease), background-color 140ms, border-color 140ms; }
+.ds-pause .ds-item .ds-icon { grid-row: 1; width: 30px; height: 30px; color: var(--ds-text-2); transition: color 140ms; }
+.ds-pause .ds-item b { grid-column: 2; font-size: 24px; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-pause .ds-item .go { grid-row: 1; grid-column: 3; opacity: 0; transform: translateX(-6px); color: var(--ds-signal); transition: opacity 140ms, transform 140ms var(--ds-ease); }
+.ds-pause .ds-item:hover, .ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { transform: translateX(8px); background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.04)); border-left-color: var(--ds-signal); outline: none; }
+/* The strip the hovered entry slid off stays part of it, or its left edge would flicker between hovered and not and drop clicks. */
+.ds-pause .ds-item:hover::after { content: ''; position: absolute; top: 0; bottom: 0; left: -11px; width: 11px; }
+.ds-pause .ds-item:hover .ds-icon, .ds-pause .ds-item:focus-visible .ds-icon, .ds-pause .ds-item[data-pad-focus] .ds-icon { color: var(--ds-signal); }
+.ds-pause .ds-item:hover .go, .ds-pause .ds-item:focus-visible .go, .ds-pause .ds-item[data-pad-focus] .go { opacity: 1; transform: none; }
+.ds-pause .ds-item.primary { border-left-color: var(--ds-signal); }
+.ds-pause .ds-item.primary .ds-icon { color: var(--ds-signal); }
 .ds-pause .ds-error { margin: -12px 0 12px; }
 .ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.8); border: 1px solid var(--ds-line); }
 .ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: 13px; color: var(--ds-text-2); }
@@ -283,7 +294,7 @@ export class Menu {
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
       style.id = 'ds-menu-css';
-      style.textContent = CSS;
+      style.textContent = MENU_CSS;
       document.head.append(style);
     }
     this.#root = document.createElement('div');
