@@ -187,6 +187,8 @@ Update stale entries as they're touched, including the Charge-only spectator and
 - **Frags:** 3 per seat, bots included, not refilled. The simulation gains a per-mode starting frag count, and the HUD shows it.
 - **Health:** existing regen rules, paused while outside the Ring.
 - **One life:** `canRespawn` is false. A Finished or bled-out seat is out.
+- **Owner's change (2026-11-03), Reboot:** in Duos and Trios a seat that is out drops its **Reboot Card** where it fell (Fortnite and Apex style). A squadmate who picks it up within its time can carry it to a **Reboot Beacon** and bring that seat back at the beacon with its loadout. Beacons stand across every Region. Solos has no Reboot. This replaces "one life" for Squads. The exact numbers (card time, channel time, beacon cooldown, the last Stages without Reboot) are tuned in ticket 70 and kept in the stats file.
+- **Owner's change (2026-11-03), Supply Drops:** the sniper rifle (Ridgeline .308) can't be picked in a Battle Royale loadout. It comes only from **Supply Drops**: crates that fall at set times inside the next Ring, announced ahead with where they land (HUD, island map, a flare in the world). Other modes keep the sniper in the loadout. Bots contest the drops too.
 - **Ring:** 10 minutes in total, with the first shrink starting at 1:00, and 6 Stages. Each Stage holds, then shrinks to a new circle fully inside the last, which ends the match by 10:00 at the latest. The next circle is known and shown throughout. Each final circle's centre must be on land. All circles come from a match seed, so a test can replay them. Damage rises per Stage, and the exact table is a stat in the stats file and tuned by bot soaks. Starting radii and damage are tuning, not a contract.
 - **Winning:** the last Squad with anyone alive wins. Being downed doesn't count as alive. If the last seats die on the same tick, the higher kill count wins, then the lower seat number, so a result always exists.
 - **Early end:** when no humans are alive, the match ends at once, and placement comes from how many squads remained.
@@ -350,6 +352,10 @@ A good test checks what a player or the server can observe through a public inte
 - **Sightlines:** a headless sampler over the island's terrain and solids reports the density targets and fails when they regress. Prior art: nav reachability in the bot soak support.
 
 **Bugs and shipping:** as with the rest of the repo, UI isn't finished until screenshots at desktop and phone width have been looked at, and each Region isn't finished until its model has been seen in preview renders and in the game.
+
+### Owner's game improvements (2026-11-03)
+
+The owner asked for the "game" improvements that successful Battle Royales share, and named: visible bullets (tracers, sniper smoke trails), smarter bots, pings. The research in `research/bots.md` and `research/mode-elements.md` lists the rest; those that fit the rules above are built (tickets 64-71 and any filed from the research): pings that bots answer, mantling, a clearer Ring (next-Ring preview, damage rising per Stage, a moving final Ring), and the match's big moments (Kill Leader, Squad wiped, the champion Squad).
 
 ## Out of Scope
 
