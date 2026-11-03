@@ -5,6 +5,7 @@ import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamMode, type Connection, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, type BenchReport } from './bench';
+import { LoadReport } from './load-report';
 import { TEAM_SIZES, asMapId, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
@@ -571,6 +572,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let prepFor: number | null = null;
   let prepReady = false;
   let prepView: PreparationView | null = null;
+  const loadReport = new LoadReport();
   const prepPage = new PreparationPage(document.body, {
     loadout: (loadout) => {
       settings = { ...settings, loadout };
@@ -600,12 +602,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const playing = match?.phase === 'playing' && match.mode === 'battle-royale' && seated;
     const time = playing ? game.preparation : null;
     const prep = match?.preparation ?? null;
+    // This page has the island up: the load gate counts it in, or hands its seat back if the Preparation ended without it.
+    if (driver && loadReport.due({ seated: playing, preparation: prep?.start ?? null })) driver.loaded();
     if (driver && match && mine && time && prep) {
       if (prepFor !== prep.start) {
         prepFor = prep.start;
         prepReady = false;
-        // This page has the island up: the load gate counts it in.
-        driver.loaded();
       }
       if (!prepUp) {
         prepUp = true;
