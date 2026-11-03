@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, type Vec3 } from '@duty-shooter/fps-core';
-import { SquadPlanner, expectedShare, wallAt, type PlannedSeat, type SquadSituation } from '../src/bots/squad-plan';
+import type { SimEvent, Vec3 } from '@duty-shooter/fps-core';
+import { SquadPlanner, wallAt, type PlannedSeat, type SquadSituation } from '../src/bots/squad-plan';
 import type { BattleRoyaleState } from '../src/modes/game-mode';
 
 const state = (over: Partial<BattleRoyaleState> = {}): BattleRoyaleState => ({
@@ -20,7 +20,7 @@ const state = (over: Partial<BattleRoyaleState> = {}): BattleRoyaleState => ({
 const seat = (id: string, team: number, x: number, z: number, over: Partial<PlannedSeat> = {}): PlannedSeat => ({ id, team, position: [x, 0, z], bot: true, downed: null, ...over });
 
 const planner = () => new SquadPlanner((x, z): Vec3 => [x, 0, z], 7);
-const situation = (seats: readonly PlannedSeat[], over: Partial<SquadSituation> = {}): SquadSituation => ({ time: 10, played: 0.02, state: state(), seats, ...over });
+const situation = (seats: readonly PlannedSeat[], over: Partial<SquadSituation> = {}): SquadSituation => ({ time: 10, state: state(), seats, ...over });
 const apart = (a: Vec3, b: readonly [number, number]) => Math.hypot(a[0] - b[0], a[2] - b[1]);
 
 describe('the wall', () => {
@@ -73,10 +73,12 @@ describe('a Squad on the move', () => {
     expect(orders.get('a')!.hurry).toBe(true);
   });
 
-  it('a straggler is sent to its leader, and the leader waits for it', () => {
-    const orders = planner().plan(situation([seat('a', 1, 0, 0), seat('b', 1, 60, 0)]));
-    expect(apart(orders.get('b')!.rally, [0, 0])).toBeLessThan(5);
-    expect(orders.get('a')!.wait).toBe(true);
+  it('a bot well ahead of its squadmate waits for it, and both are headed for the same place', () => {
+    const orders = planner().plan(situation([seat('a', 1, 120, 0), seat('b', 1, 40, 0)]));
+    expect(orders.get('a')!.rally).toEqual(orders.get('b')!.rally);
+    const [near, far] = apart(orders.get('a')!.rally, [120, 0]) < apart(orders.get('a')!.rally, [40, 0]) ? ['a', 'b'] : ['b', 'a'];
+    expect(orders.get(near)!.wait).toBe(true);
+    expect(orders.get(far)!.wait).toBe(false);
   });
 
   it('bots in a person’s Squad go with the person', () => {
@@ -91,65 +93,62 @@ describe('a Squad on the move', () => {
   });
 });
 
-describe('a Revive with judgement', () => {
-  const down = (bleedOut: number, x = 3) => seat('d', 1, x, 0, { downed: { bleedOut, revive: 0 } });
+const shot = (x: number, z: number): SimEvent => ({ type: 'shot', shooter: 'x', weapon: 'm4a1', origin: [x, 1.5, z], direction: [1, 0, 0], index: 0, fraction: 0 }) as SimEvent;
+const nobody = () => undefined;
 
-  it('the nearest mate on its feet goes', () => {
-    const orders = planner().plan(situation([seat('a', 1, 0, 0), seat('c', 1, 30, 0), down(25)]));
-    expect(orders.get('a')!.revive).toEqual([3, 0, 0]);
-    expect(orders.get('c')!.revive).toBeNull();
-  });
-
-  it('not when the Bleed-out would beat it there', () => {
-    const orders = planner().plan(situation([seat('a', 1, 0, 0), down(4)]));
-    expect(orders.get('a')!.revive).toBeNull();
-  });
-
-  it('not when the wall will have passed the seat before it is done', () => {
-    // A seat 5 m inside a wall closing at 4 m/s, a 5 s Revive away from being outside it.
-    const wall = wallAt(state(), 100);
-    const x = wall.x - wall.radius + 5;
-    const orders = planner().plan(situation([seat('a', 1, x + 2, 0), seat('d', 1, x, 0, { downed: { bleedOut: 25, revive: 0 } })], { time: 100 }));
-    expect(orders.get('a')!.revive).toBeNull();
-  });
-
-  it('a person isn’t ordered, and a Downed bot gets no walking orders', () => {
-    const orders = planner().plan(situation([seat('h', 1, 0, 0, { bot: false }), seat('d', 1, 2, 0, { downed: { bleedOut: 20, revive: 0 } })]));
-    expect(orders.has('h')).toBe(false);
-    expect(orders.get('d')!.revive).toBeNull();
-  });
-});
-
-describe('the pace of a match', () => {
-  it('expects the field to thin steadily, and a few to reach the last Stage', () => {
-    const rows = [0, 0.25, 0.5, 0.75, 0.9].map(expectedShare);
-    for (const [i, share] of rows.entries()) if (i > 0) expect(share).toBeLessThan(rows[i - 1]!);
-    expect(expectedShare(0)).toBe(1);
-    expect(expectedShare(0.85)).toBeGreaterThan(2 / 30);
-  });
-
-  const field = (left: number) => Array.from({ length: left }, (_, i) => seat(`s${i}`, i + 1, 20 * i, 0));
-
-  it('a field dying too fast cools every bot off', () => {
-    const cold = planner().plan(situation(field(6), { time: 300, played: 0.5, state: state({ squads: 30, squadSize: 2 }) }));
-    const hot = planner().plan(situation(field(29), { time: 300, played: 0.5, state: state({ squads: 30, squadSize: 2 }) }));
-    expect(cold.get('s0')!.engage).toBeLessThan(hot.get('s0')!.engage);
-    const hunters = (o: typeof cold) => [...o.values()].filter((x) => x.hunt).length;
-    expect(hunters(cold)).toBe(0);
-    expect(hunters(hot)).toBeGreaterThan(0);
-  });
-
-  it('hunters go for the nearest other Squad, whoever is in it', () => {
-    const seats = [seat('a', 1, 0, 0), seat('h', 2, 60, 0, { bot: false }), seat('c', 3, -300, 0), ...Array.from({ length: 27 }, (_, i) => seat(`s${i}`, i + 4, 100 + 5 * i, 300))];
+describe('each bot decides for itself (ticket 64)', () => {
+  it('no seat leads: squadmates join where one of them said it is going', () => {
     const p = planner();
-    let hunted = false;
-    for (let t = 300; t < 400 && !hunted; t += 10) {
-      const order = p.plan(situation(seats, { time: t, played: 0.5, state: state({ squads: 30, squadSize: 1 }) })).get('a')!;
-      if (order.hunt) {
-        hunted = true;
-        expect(apart(order.rally, [60, 0])).toBeLessThan(STATS.royale.reviveReach.value * 15);
-      }
+    const orders = p.plan(situation([seat('a', 1, 110, 10), seat('b', 1, 130, -10), seat('c', 1, 120, 20)]));
+    expect(orders.get('b')!.rally).toEqual(orders.get('a')!.rally);
+    expect(orders.get('c')!.rally).toEqual(orders.get('a')!.rally);
+    expect(p.intel(1).heading('a')?.point).toEqual(orders.get('a')!.rally);
+  });
+
+  it('nothing in it follows the pace of the match: a field thinning fast or slow gets the same ground', () => {
+    const field = (left: number) => Array.from({ length: left }, (_, i) => seat(`s${i}`, i + 1, 20 * i, 0));
+    const fast = planner().plan(situation(field(6), { time: 300, state: state({ squads: 6 }) })).get('s0')!;
+    const slow = planner().plan(situation(field(29), { time: 300, state: state({ squads: 29 }) })).get('s0')!;
+    expect([fast.rally, fast.hunt, fast.hurry, fast.wait]).toEqual([slow.rally, slow.hunt, slow.hurry, slow.wait]);
+  });
+
+  it('a bold bot goes after a fight it hears, never after a Squad that makes no sound', () => {
+    const p = planner();
+    // A silent enemy 60 m off, and a fight 200 m off: only the fight can be known.
+    const seats = [seat('a', 1, 0, 0, { bold: 1 }), seat('h', 2, 60, 0, { bot: false })];
+    let rally: Vec3 | null = null;
+    for (let t = 10; t < 200 && !rally; t += 1) {
+      if (t % 2 === 0) p.hear([shot(200, 0), shot(201, 1)], nobody, t);
+      const order = p.plan(situation(seats, { time: t })).get('a')!;
+      if (order.hunt) rally = order.rally;
     }
-    expect(hunted).toBe(true);
+    expect(rally).not.toBeNull();
+    expect(apart(rally!, [212.5, 12.5])).toBeLessThan(20);
+  });
+
+  it('gunfire beyond earshot draws nobody, and a careful bot lets the fights it hears go by', () => {
+    const far = planner();
+    const careful = planner();
+    let hunts = 0;
+    for (let t = 10; t < 200; t += 1) {
+      if (t % 2 === 0) {
+        far.hear([shot(-260, 0)], nobody, t);
+        careful.hear([shot(200, 0)], nobody, t);
+      }
+      if (far.plan(situation([seat('a', 1, 160, 0, { bold: 1 })], { time: t })).get('a')!.hunt) hunts += 1;
+      if (careful.plan(situation([seat('a', 1, 0, 0, { bold: 0 })], { time: t })).get('a')!.hunt) hunts += 1;
+    }
+    expect(hunts).toBe(0);
+  });
+
+  it('a Squad hit or Downed is on its guard, and the kill feed clears the dead from every Squad', () => {
+    const p = planner();
+    const where = (id: string) => ({ a: { team: 1, position: [0, 0, 0] as Vec3 }, e: { team: 2, position: [20, 0, 0] as Vec3 } })[id];
+    p.intel(1).report('e', { position: [20, 0, 0], time: 4, seen: true, velocity: [0, 0, 0], by: 'a' });
+    p.hear([{ type: 'down', attacker: 'e', victim: 'a', cause: 'bullet', zone: 'head', weapon: 'm4a1' } as SimEvent], where, 5);
+    expect(p.intel(1).contact).toBe(5);
+    p.hear([{ type: 'kill', killer: 'a', victim: 'e', cause: 'bullet' } as unknown as SimEvent], where, 6);
+    expect([...p.intel(1).callouts(6)]).toEqual([]);
   });
 });
+

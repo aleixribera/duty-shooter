@@ -214,11 +214,21 @@ A seat in Duos or Trios at 0 health with someone on its feet in its Squad: on th
 The 30 s a Downed seat has before it dies. The Ring neither pauses nor speeds it.
 
 **Rally**:
-The place a Squad of bots is headed or holding: inside the circle that matters next, near where it stands. Squadmates share one and take cover spots around it.
+The place a bot in a Battle Royale is headed or holding: inside the circle that matters next. Each bot picks its own; it takes up the newest Heading a squadmate gave when that one is still good, so a Squad keeps together because that is the sensible thing, not because anyone leads.
 
-**Heat**:
-How far ahead of its pace a Battle Royale is running, as bots feel it. With more Squads left than the stats file's curve wants, bots open fights further off and more of them go hunting; with fewer, they let distant enemies pass. It sets how a match is paced without touching the Ring.
-_Avoid_: aggression (that's a bot's own)
+**Heading**:
+Where a bot has told its Squad it is going, the bots' "going here" ping. Squadmates read the newest and mostly follow it; none of them has to.
+
+**Squad intel**:
+What one Squad of bots knows together: every enemy a squadmate saw or heard (a **callout**, with where and when), when the Squad last had a brush with an enemy, who has said it will Revive whom, and each squadmate's Heading. Only what a squadmate could have seen, heard or felt goes in, never a true position.
+_Avoid_: shared memory, wallhack
+
+**Noise grid**:
+The island's gunfire and deaths by 25 m cell, fading over about half a minute: the fights going on, as a listener could place them. A bot reads only the cells within earshot (400 m) of where it stands, and a bold, healthy one may go hunting the loudest.
+_Avoid_: heat map, threat map
+
+**Spotting**:
+A bot noticing someone over a moment rather than on the frame they come into view: faster up close, for someone moving or firing, and slower far off, for someone crouched or still. At range it looks only within a box of the island ahead, as a person would, not its whole field of view.
 
 **Soft cover**:
 What hides a body without stopping a bullet: bushes, tall grass, a tree's canopy. Bots ask it through a world's `concealment` before they believe their eyes, and bullets never do. A look is hidden once it has passed through 0.8 m of foliage, added up along it, so one thin edge of a bush doesn't hide and its middle does; a bot inside a bush still sees out.

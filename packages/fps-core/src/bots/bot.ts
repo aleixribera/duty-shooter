@@ -14,7 +14,7 @@ import { longSightlines, navMiddle, nodesNear } from './nav-queries';
 import { REVIVE_APPROACH } from './planner';
 import type { BotProfile } from './profile';
 import { botSees } from './sight';
-import type { GroundOrder } from './squad-plan';
+import { RUN, wallAt, type GroundOrder } from './squad-plan';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
 export interface BotView {
@@ -210,17 +210,42 @@ const OUTGUNNED_REACH = 50;
 const OUTGUNNED_MARGIN = 2;
 /** A fight is opened at any range this long (s) after being hit. */
 const SHOT_MEMORY = 3;
-/** A chase on the ground stays within this share of how far it'd open a fight. */
-const CHASE_SHARE = 0.7;
 /** A target that went out of sight this near or far (m) isn't worth a way round. */
 const FLANK_RANGE: readonly [number, number] = [8, 45];
 /** How wide (m) a flank swings, as a share of the range, and the least; the longest (s) it may take. */
 const FLANK_SWING = 0.7;
 const FLANK_LEAST = 10;
 const FLANK_MAX = 9;
-/** Seen this near a Downed squadmate (m), this recently (s): not yet. */
-const REVIVE_THREAT = 16;
-const REVIVE_MEMORY = 4;
+/** Battle Royale (ticket 64). A Revive is weighed this often (s), for a Downed squadmate this near (m). */
+const REVIVE_THINK = 0.25;
+const REVIVE_LOOK = 90;
+/** It needs this much spare (s) on the Bleed-out, and the seat this far (m) inside the wall, now and when it'd be done. */
+const REVIVE_SPARE = 1.5;
+const REVIVE_WALL = 3;
+/** Its Squad must have had no brush with an enemy for this long (s) first, the boldest to the most careful, while an enemy it knows of is near but out of sight. */
+const REVIVE_CALM: readonly [number, number] = [2, 6];
+/** The same with no enemy it knows of near: the fight is over (s). */
+const REVIVE_SETTLE: readonly [number, number] = [1, 2.5];
+/** An enemy known of this recently (s), believed this near (m) the seat or the bot, that could see either or the way between: not now. */
+const REVIVE_KNOWN = 12;
+const REVIVE_SIGHT = 80;
+/** On the ground of a Battle Royale, gunfire is heard this far (m) in the open and through walls, placed roughly (by this share of the distance, and more when muffled). */
+const FAR_HEARING = 120;
+const FAR_MUFFLED = 60;
+const FAR_BLUR = 0.12;
+/** Spotting (ticket 64): seconds to notice a figure, about this plus its distance over this (m), before stance, stillness and gunfire. */
+const SPOT_BASE = 0.12;
+const SPOT_DISTANCE = 45;
+/** One seen this recently (s) is picked up again at once. */
+const REACQUIRE = 2;
+/** Beyond this distance (m) the field of view is a box this wide each side: someone far off to one side goes unseen. */
+const BOX = 25 * Math.tan(50 * DEG);
+/** A squadmate's fresh sighting this near (m) is worth going to help with, for a bold bot. */
+const HELP_RANGE = 45;
+/** How far (m) each gun has a real shot at someone, for opening a fight on the ground (before a bot's boldness). */
+const OPENS_AT: Readonly<Record<WeaponId, number>> = { m4a1: 55, smg: 35, shotgun: 15, sniper: 70, pistol: 25 };
+/** How far (m) a bot on the ground chases what it last saw or heard: the boldest farther. */
+const CHASE_REACH: readonly [number, number] = [25, 70];
 /** A Downed bot lies still with a mate this near (m); makes for one this near; and looks for new ground this often (s). */
 const CRAWL_MATE_HERE = 3;
 const CRAWL_MATE = 30;
@@ -433,6 +458,15 @@ export class Bot {
   #crawlAt = 0;
   /** On the way to the spot it picked, not yet holding it. */
   #walkingToSpot = false;
+  /** How far along noticing each enemy in view it is (1 is noticed), and when it last looked. */
+  readonly #spotting = new Map<PlayerId, number>();
+  #lookedAt = 0;
+  /** When each enemy was last heard or seen firing: gunfire gives a body away. */
+  readonly #loud = new Map<PlayerId, number>();
+  /** The Downed squadmate it has said it will Revive, when it next weighs that, and the enemy eye its way there keeps out of. */
+  #reviving: PlayerId | null = null;
+  #reviveAt = 0;
+  #reviveThreat: Vec3 | null = null;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -462,6 +496,11 @@ export class Bot {
   /** Where the bot believes `id` was when it last saw or heard them, or null (tests and debugging). */
   believedPosition(id: PlayerId): Vec3 | null {
     return this.#memory.get(id)?.position ?? null;
+  }
+
+  /** What the bot knows of `id`: where, when (s), and whether it saw them rather than heard or was told (tests and soaks). */
+  recall(id: PlayerId): { readonly position: Vec3; readonly time: number; readonly seen: boolean } | null {
+    return this.#memory.get(id) ?? null;
   }
 
   /** The danger spots the bot keeps in mind, newest first (tests and debugging). */
@@ -496,9 +535,9 @@ export class Bot {
     this.#sinceThought = 0;
     // What it missed meanwhile, it hears now.
     const heard = this.#unheard.length > 0 ? { ...sees, events: [...this.#unheard.flat(), ...sees.events] } : sees;
-    const view = heard.ground ? this.#reviveOrder(heard) : heard;
     this.#unheard = [];
-    this.#seats = view.seats ?? new SeatIndex(view.players);
+    this.#seats = heard.seats ?? new SeatIndex(heard.players);
+    const view = heard.ground ? this.#reviveChoice(heard) : heard;
     const seconds = ticks * TICK_SECONDS;
     const { self, time } = view;
     this.#lastTime = time;
@@ -528,6 +567,7 @@ export class Bot {
     const beat = view.tick + this.#seed;
     const perceiving = Math.floor(beat / PERCEIVE_TICKS) !== Math.floor((beat - ticks) / PERCEIVE_TICKS);
     if (perceiving) {
+      if (view.ground) this.#takeIntel(view, r);
       this.#perceive(view, eye, r);
       this.#check = this.#angleToCheck(view, eye);
     }
@@ -772,7 +812,7 @@ export class Bot {
       buttons.push('Crouch');
     } else {
       const chase = this.#chasing ? this.#memory.get(this.#chasing) : undefined;
-      const leashed = (at: Vec3) => (ground && order === null ? flat(at, self.position) < ground.engage * CHASE_SHARE : order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH);
+      const leashed = (at: Vec3) => (ground && order === null ? flat(at, self.position) < this.#chaseReach() : order === null || flat(at, order.position) < order.radius + OBJECTIVE_LEASH);
       // Roaming inside the objective only: an older goal elsewhere is dropped.
       if (order && this.#goal !== null && flat(this.#nav.nodes[this.#goal]!.position, order.position) > order.radius) this.#goal = null;
       if (chase && time - chase.time < this.profile.chase && leashed(chase.position)) {
@@ -791,8 +831,8 @@ export class Bot {
       } else if (this.#search) {
         // Standing to search.
       } else if (order && flat(self.position, order.position) > order.radius * 0.7) {
-        // Off to the objective, by the quickest way.
-        move = this.#follow(view, order.position, OBJECTIVE_KEY);
+        // Off to the objective, by the quickest way; to a Revive, out of sight of the enemy it knows of where there's a way.
+        move = this.#follow(view, order.position, OBJECTIVE_KEY, this.#reviving ? this.#reviveThreat : null);
         this.#holdUntil = 0;
       } else if (ground) {
         move = this.#useGround(view, ground, r, buttons);
@@ -1074,10 +1114,14 @@ export class Bot {
   /** What the bot can see: living enemies in its view and line of sight. Picks or keeps the one to fight. */
   #perceive(view: BotView, eye: Vec3, r: (n: number) => number): void {
     const { self, time } = view;
-    let best: { p: PlayerOutput; score: number } | null = null;
+    let best: { p: PlayerOutput; score: number; chest: boolean } | null = null;
     let keep = false;
     let fell: PlayerOutput | null = null;
     const wait = FINISH_WAIT[0] + (FINISH_WAIT[1] - FINISH_WAIT[0]) * (1 - this.profile.aggression);
+    const ground = view.ground ?? null;
+    const looked = Math.max(0, Math.min(0.5, time - this.#lookedAt));
+    this.#lookedAt = time;
+    const noticing = ground ? new Set<PlayerId>() : null;
     for (const i of this.#seats.near(self.position, SIGHT_RANGE)) {
       const p = view.players[i]!;
       if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
@@ -1085,11 +1129,28 @@ export class Bot {
       if (d > SIGHT_RANGE) continue;
       const off = Math.abs(angleDelta(self.yaw, yawTo(eye, eyeOf(p))));
       const tracked = this.#target?.id === p.id;
-      if (d > SENSE && off > (tracked ? TRACK_FOV : FOV)) continue;
+      // On the ground of a Battle Royale the view is a box at range: far off to one side goes unseen.
+      const fov = tracked ? TRACK_FOV : ground && d > BOX / Math.tan(FOV) ? Math.atan2(BOX, d) : FOV;
+      if (d > SENSE && off > fov) continue;
       const head = zoneCentre(pose(p), 'head');
       const chest = zoneCentre(pose(p), 'upperTorso');
-      if (!botSees(this.#world, eye, head) && !botSees(this.#world, eye, chest)) continue;
+      const chestSeen = botSees(this.#world, eye, chest);
+      if (!chestSeen && !botSees(this.#world, eye, head)) continue;
+      if (noticing && !tracked && d > SENSE) {
+        // Noticing takes a moment, more for someone far off, low or still, much less for one firing or called out.
+        const known = this.#memory.get(p.id);
+        if (!(known?.seen && time - known.time < REACQUIRE)) {
+          noticing.add(p.id);
+          const meter = (this.#spotting.get(p.id) ?? 0) + looked * this.#spotRate(view, p, d, off);
+          if (meter < 1) {
+            this.#spotting.set(p.id, meter);
+            continue;
+          }
+          this.#spotting.delete(p.id);
+        }
+      }
       this.#memory.set(p.id, { position: p.position, time, seen: true, velocity: p.velocity });
+      ground?.intel.report(p.id, { position: p.position, time, seen: true, velocity: p.velocity, by: self.id });
       // A reload in plain view.
       if (p.weapon.action === 'reload') this.#reloading.set(p.id, time + 1);
       this.#lastEnemySeen = time;
@@ -1099,11 +1160,12 @@ export class Bot {
         continue;
       }
       if (tracked) keep = true;
-      // Someone far off who isn't after it is let go by, unseen, in a match that's running ahead of itself.
-      if (view.ground && !tracked && d > view.ground.engage && time - this.#shotAt > SHOT_MEMORY) continue;
+      // Someone who isn't after it, beyond where its gun has a real shot (farther for the bold), it lets go by rather than give itself away.
+      if (ground && !tracked && d > this.#opensAt(TACTICS[self.weapon.id], self.weapon.id) && time - this.#shotAt > SHOT_MEMORY) continue;
       const score = d + off * 12 + (p.downed ? DOWNED_LAST : 0);
-      if (!best || score < best.score) best = { p, score };
+      if (!best || score < best.score) best = { p, score, chest: chestSeen };
     }
+    if (noticing) for (const id of this.#spotting.keys()) if (!noticing.has(id)) this.#spotting.delete(id);
     if (fell && !best) {
       // Its own target went down and nobody else is in view: eyes on the body until it's time to finish it.
       this.#target = null;
@@ -1122,9 +1184,11 @@ export class Bot {
       const d = flat(self.position, best.p.position);
       const off = Math.abs(angleDelta(self.yaw, yawTo(eye, eyeOf(best.p))));
       const p = this.profile;
-      const e = p.aimError * (1 + Math.min(d, 40) / 40);
-      // Someone at the edge of view or far off takes longer to notice.
-      const notice = 0.22 * Math.min(1, off / FOV) ** 2 + (0.15 * Math.min(d, 50)) / 50;
+      // Off by more on a target on the move, while on the move itself, and when just hit (Battle Royale).
+      const situation = ground ? 1 + 0.4 * Math.min(1, Math.hypot(best.p.velocity[0], best.p.velocity[2]) / 5) + (Math.hypot(self.velocity[0], self.velocity[2]) > 2 ? 0.3 : 0) + (time - this.#shotAt < 1 ? 0.3 : 0) : 1;
+      const e = p.aimError * (1 + Math.min(d, 40) / 40) * situation;
+      // Someone at the edge of view or far off takes longer to notice (on the ground of a Battle Royale, the spotting above did that).
+      const notice = ground ? 0 : 0.22 * Math.min(1, off / FOV) ** 2 + (0.15 * Math.min(d, 50)) / 50;
       // A big turn onto them sometimes swings past before settling back.
       const turn = angleDelta(self.yaw, yawTo(eye, eyeOf(best.p)));
       const swing = Math.abs(turn) > 25 * DEG && r(6) < p.overshoot ? Math.sign(turn) * (2 + 4 * r(7)) * DEG : 0;
@@ -1132,7 +1196,8 @@ export class Bot {
         id: best.p.id,
         trail: [],
         react: time + p.reaction * (0.85 + 0.35 * r(1)) + notice,
-        zone: r(2) < p.headshots ? 'head' : 'upperTorso',
+        // Only a head over the cover: that's what it aims at.
+        zone: r(2) < p.headshots || (ground !== null && !best.chest) ? 'head' : 'upperTorso',
         errYaw: (r(3) - 0.5) * 2 * e + swing,
         errPitch: (r(4) - 0.5) * 1.2 * e,
         visible: true,
@@ -1158,16 +1223,23 @@ export class Bot {
       if (e.type !== 'shot' && e.type !== 'hit' && e.type !== 'reload' && e.type !== 'kill') continue;
       const r = (n: number) => noise(this.#seed, view.tick, 100 + k * 8 + n);
       if (e.type === 'shot' && e.shooter !== self.id) {
+        const ground = view.ground ?? null;
         const d = flat(self.position, e.origin);
-        if (d > HEARING) continue;
+        if (d > (ground ? FAR_HEARING : HEARING)) continue;
         const shooter = this.#seats.get(e.shooter);
         if (!shooter || !view.isEnemy(shooter)) continue;
         const muffled = d > SENSE && sightBlocked(this.#world, eye, e.origin);
-        if (d > (muffled ? MUFFLED_HEARING : HEARING)) continue;
+        if (d > (ground ? (muffled ? FAR_MUFFLED : FAR_HEARING) : muffled ? MUFFLED_HEARING : HEARING)) continue;
+        this.#loud.set(e.shooter, time);
         const known = this.#memory.get(e.shooter);
-        const heard = muffled ? blur(shooter.position, 2 + 4 * r(0), r(1), 1) : shooter.position;
-        if (!known || !known.seen || time - known.time > 1) this.#memory.set(e.shooter, { position: heard, time, seen: false, velocity: STILL });
-        if (!this.#target && !this.#chasing) this.#chasing = e.shooter;
+        // Near, it's placed as before; farther off on the island, only roughly: a bearing and about how far.
+        const rough = ground && d > HEARING ? d * FAR_BLUR * (muffled ? 1.6 : 1) : 0;
+        const heard = muffled || rough > 0 ? blur(shooter.position, 2 + 4 * r(0) + rough, r(1), 1) : shooter.position;
+        if (!known || !known.seen || time - known.time > 1) {
+          this.#memory.set(e.shooter, { position: heard, time, seen: false, velocity: STILL });
+          ground?.intel.report(e.shooter, { position: heard, time, seen: false, velocity: STILL, by: self.id }, d <= HEARING);
+        }
+        if (!this.#target && !this.#chasing && (!ground || d < this.#chaseReach())) this.#chasing = e.shooter;
       } else if (e.type === 'hit' && e.shooter === self.id && e.victim !== self.id) {
         const before = this.#dealt.get(e.victim);
         const kept = before && time - before.time < DEALT_MEMORY ? before.damage : 0;
@@ -1176,7 +1248,11 @@ export class Bot {
         const shooter = this.#seats.get(e.shooter);
         if (!shooter) continue;
         this.#shotAt = time;
-        this.#memory.set(e.shooter, { position: blur(shooter.position, 1 + 3 * r(2), r(3), 1), time, seen: false, velocity: STILL });
+        // Whoever is hitting it gives themselves away: the flash is where it looks.
+        this.#loud.set(e.shooter, time);
+        const felt = blur(shooter.position, 1 + 3 * r(2), r(3), 1);
+        this.#memory.set(e.shooter, { position: felt, time, seen: false, velocity: STILL });
+        view.ground?.intel.report(e.shooter, { position: felt, time, seen: false, velocity: STILL, by: self.id });
         if (!this.#target) {
           this.#alert = { yaw: yawTo(eye, eyeOf(shooter)) + (r(4) - 0.5) * 50 * DEG, until: time + 1.2 };
           this.#chasing = e.shooter;
@@ -1366,12 +1442,129 @@ export class Bot {
     return null;
   }
 
-  /** A Revive order, unless an enemy was seen near the seat a moment ago: then the fight comes first. */
-  #reviveOrder(view: BotView): BotView {
-    const seat = view.ground!.revive;
-    if (!seat) return view;
-    for (const m of this.#memory.values()) if (m.seen && view.time - m.time < REVIVE_MEMORY && flat(m.position, seat) < REVIVE_THREAT) return view;
-    return { ...view, objective: { position: seat, radius: REVIVE_APPROACH, use: true } };
+  /** How far (m) it opens a fight on someone not after it, on the ground of a Battle Royale: its gun's real reach, by its own boldness, the same all match. */
+  #opensAt(tactics: Tactics, weapon: WeaponId): number {
+    return Math.min(SIGHT_RANGE, OPENS_AT[weapon] * (0.7 + 0.6 * this.profile.aggression), tactics.reach);
+  }
+
+  /** How far (m) it chases on the ground of a Battle Royale: its own boldness, the same all match. */
+  #chaseReach(): number {
+    return CHASE_REACH[0] + (CHASE_REACH[1] - CHASE_REACH[0]) * this.profile.aggression;
+  }
+
+  /** How fast (share a second) it notices `p` in plain view at `d` m, `off` rad from where it looks. */
+  #spotRate(view: BotView, p: PlayerOutput, d: number, off: number): number {
+    const { time } = view;
+    let rate = 1 / (SPOT_BASE + Math.max(d, 3) / SPOT_DISTANCE);
+    const speed = Math.hypot(p.velocity[0], p.velocity[2]);
+    if (p.downed || p.stance !== 'stand') rate *= 0.6;
+    if (speed < QUIET) rate *= 0.6;
+    else if (p.movement === 'sprint' || p.movement === 'tacticalSprint') rate *= 1.25;
+    // Muzzle flash and noise give a body away; so does knowing roughly where to look.
+    if (time - (this.#loud.get(p.id) ?? -Infinity) < 1.5) rate *= 3;
+    const told = this.#memory.get(p.id);
+    if (told && time - told.time < 5) rate *= 2;
+    return rate * (1 - 0.5 * Math.min(1, off / FOV) ** 2);
+  }
+
+  /**
+   * What its squadmates have seen and heard, taken into its own memory as
+   * told rather than seen (a little off, more the farther away it is). A
+   * fresh sighting near enough sends a bold bot to help and turns the rest
+   * toward it.
+   */
+  #takeIntel(view: BotView, r: (n: number) => number): void {
+    const { self, time } = view;
+    let k = 0;
+    for (const [id, c] of view.ground!.intel.callouts(time)) {
+      if (c.by === self.id) continue;
+      const known = this.#memory.get(id);
+      if (known && known.time >= c.time) continue;
+      const d = flat(self.position, c.position);
+      const at = blur(c.position, CALLOUT_ERROR + d / 20, r(400 + k), r(401 + k));
+      k += 2;
+      this.#memory.set(id, { position: at, time: c.time, seen: false, velocity: c.velocity });
+      if (!c.seen || time - c.time > 1 || d > HELP_RANGE || this.#target || this.#chasing || this.#using || this.#flee || this.#recover || this.#reviving) continue;
+      this.#alert = { yaw: yawTo(self.position, at), until: time + 1 };
+      if (this.#bold()) {
+        this.#chasing = id;
+        this.#holdUntil = 0;
+      }
+    }
+  }
+
+  /**
+   * Battle Royale: whether to go and Revive a Downed squadmate now, as this bot
+   * judges it, a few times a second; the view with that Revive as its
+   * objective if so. One squadmate goes for each Downed seat (the first to say
+   * so), and only when it's sensible (see {@link #worthReviving}).
+   */
+  #reviveChoice(view: BotView): BotView {
+    const { self, time } = view;
+    const intel = view.ground!.intel;
+    if (!self.alive || self.downed) {
+      if (this.#reviving) intel.release(self.id);
+      this.#reviving = null;
+      return view;
+    }
+    if (time >= this.#reviveAt) {
+      this.#reviveAt = time + REVIVE_THINK;
+      const was = this.#reviving;
+      this.#reviving = null;
+      let best: { p: PlayerOutput; d: number } | null = null;
+      for (const i of this.#seats.near(self.position, REVIVE_LOOK)) {
+        const p = view.players[i]!;
+        if (p.id === self.id || !p.alive || !p.downed || p.team !== self.team) continue;
+        const by = intel.reviver(p.id);
+        const holder = by && by !== self.id ? this.#seats.get(by) : undefined;
+        if (holder?.alive && !holder.downed) continue;
+        if (by && by !== self.id) intel.release(by, p.id);
+        const d = flat(self.position, p.position);
+        if (d <= REVIVE_LOOK && (!best || d < best.d)) best = { p, d };
+      }
+      if (best && this.#worthReviving(view, best.p, best.d, was === best.p.id) && intel.claim(best.p.id, self.id, time)) this.#reviving = best.p.id;
+      if (was && was !== this.#reviving) intel.release(self.id, was);
+    }
+    const seat = this.#reviving ? this.#seats.get(this.#reviving) : undefined;
+    if (!seat?.alive || !seat.downed) {
+      if (this.#reviving) intel.release(self.id, this.#reviving);
+      this.#reviving = null;
+      return view;
+    }
+    return { ...view, objective: { position: seat.position, radius: REVIVE_APPROACH, use: true } };
+  }
+
+  /**
+   * Whether a Revive of `seat`, `d` m off, is sensible now: there's time on the
+   * Bleed-out and the Ring for it, the bot isn't in a fight or under fire, its
+   * Squad has had a quiet moment first (longer the more careful it is, unless
+   * it's already at it), and no enemy it knows of could see the seat, the bot,
+   * or the way between. A fight won (no enemy known of near) is safe.
+   */
+  #worthReviving(view: BotView, seat: PlayerOutput, d: number, already: boolean): boolean {
+    const { self, time } = view;
+    const ground = view.ground!;
+    const need = d / RUN + STATS.royale.reviveTime.value * (1 - seat.downed!.revive) + REVIVE_SPARE;
+    if (need > seat.downed!.bleedOut) return false;
+    const inside = (c: { x: number; z: number; radius: number }) => Math.hypot(seat.position[0] - c.x, seat.position[2] - c.z) < c.radius - REVIVE_WALL;
+    if (!inside(wallAt(ground.ring, time)) || !inside(wallAt(ground.ring, time + need))) return false;
+    if ((this.#target?.visible && time >= this.#target.react) || time - this.#shotAt < SHOT_MEMORY) return false;
+    this.#reviveThreat = null;
+    const body: Vec3 = [seat.position[0], seat.position[1] + 0.4, seat.position[2]];
+    const chest = zoneCentre(pose(self), 'upperTorso');
+    const between: Vec3 = [(seat.position[0] + self.position[0]) / 2, (seat.position[1] + self.position[1]) / 2 + 1.2, (seat.position[2] + self.position[2]) / 2];
+    for (const [id, m] of this.#memory) {
+      if (time - m.time > REVIVE_KNOWN) continue;
+      const enemy = this.#seats.get(id);
+      if (!enemy?.alive || enemy.downed) continue;
+      const eye: Vec3 = [m.position[0], m.position[1] + 1.5, m.position[2]];
+      if (flat(eye, seat.position) > REVIVE_SIGHT && flat(eye, self.position) > REVIVE_SIGHT) continue;
+      this.#reviveThreat ??= eye;
+      if (botSees(this.#world, eye, body) || botSees(this.#world, eye, chest) || (d > 6 && botSees(this.#world, eye, between))) return false;
+    }
+    // A moment's quiet first: longer with an enemy it knows of still about (only out of sight), shorter once none is.
+    const [lo, hi] = this.#reviveThreat ? REVIVE_CALM : REVIVE_SETTLE;
+    return already || time - ground.intel.contact >= lo + (hi - lo) * this.#caution;
   }
 
   /** Downed: stays by a mate who's come, else crawls to the nearest mate, else to cover from whoever did it, else on toward the rally. */
@@ -1586,7 +1779,11 @@ export class Bot {
     const muffled = d > SENSE && sightBlocked(this.#world, eye, eyeOf(p));
     if (muffled && d > reach * MUFFLED) return false;
     const known = this.#memory.get(p.id);
-    if (!known || !known.seen || time - known.time > 1) this.#memory.set(p.id, { position: blur(p.position, muffled ? 2 + 3 * r1 : 0.8 * r1, r2, 1), time, seen: false, velocity: STILL });
+    if (!known || !known.seen || time - known.time > 1) {
+      const at = blur(p.position, muffled ? 2 + 3 * r1 : 0.8 * r1, r2, 1);
+      this.#memory.set(p.id, { position: at, time, seen: false, velocity: STILL });
+      view.ground?.intel.report(p.id, { position: at, time, seen: false, velocity: STILL, by: self.id });
+    }
     return true;
   }
 

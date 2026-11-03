@@ -1430,18 +1430,19 @@ export class GameServer {
     }
   }
 
-  /** Battle Royale: where each Squad goes, and who Revives whom. */
+  /** Battle Royale: the ground each bot chooses, from its own position, temper and health and what its Squad knows. */
   #planSquads(state: BattleRoyaleState, seats: readonly PlayerOutput[]): void {
     const { nav, world } = this.#map;
     if (!nav) return;
     const time = this.simulation.time;
-    const { timeLimit } = this.#mode;
     this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`));
     this.#grounds = this.#squads.plan({
       time,
-      played: timeLimit === null ? 0 : (time - this.#matchStart) / timeLimit,
       state,
-      seats: seats.map((p) => ({ id: p.id, team: p.team, position: p.position, bot: this.#bots.has(p.id), downed: p.downed })),
+      seats: seats.map((p) => {
+        const bot = this.#bots.get(p.id)?.bot;
+        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}) };
+      }),
       ...(this.#countingDown ? { fresh: FIRST_RALLIES } : {}),
     });
   }
@@ -1459,6 +1460,8 @@ export class GameServer {
     const time = this.simulation.time;
     const tick = this.simulation.tick;
     const probe = this.#options.probe;
+    // The island hears last tick's gunfire and deaths, and each Squad what befell its own.
+    this.#squads?.hear(this.#lastEvents, (id) => seats.get(id), time);
     this.#planBots();
     probe?.phase('plan');
     const arcs = this.#scale.throwArcs;

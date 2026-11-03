@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bot, Simulation, botProfile, botSees, coverNear, coverOf, type BotProfile, type GroundOrder, type PlayerOutput, type SimEvent, type Vec3, type World } from '@duty-shooter/fps-core';
+import { Bot, NoiseGrid, Simulation, SquadIntel, botProfile, botSees, coverNear, coverOf, type BotProfile, type GroundOrder, type PlayerOutput, type SimEvent, type Vec3, type World } from '@duty-shooter/fps-core';
 import { usercmd } from '@duty-shooter/fps-core/harness';
 import { island, playRoyale } from './support/royale';
 
@@ -28,10 +28,12 @@ function exposed(range: number): { at: Vec3; enemy: Vec3 } {
   throw new Error('no such ground on the island');
 }
 
-const order = (rally: Vec3, over: Partial<GroundOrder> = {}): GroundOrder => ({ rally, radius: 12, hurry: false, hunt: false, wait: false, engage: 70, revive: null, slot: 0, mates: 0, ...over });
+/** The Ring far off: nothing here is about it. */
+const RING = { kind: 'battle-royale', squadSize: 1, stage: 1, circle: { x: 0, z: 0, radius: 5000 }, next: { x: 0, z: 0, radius: 4000 }, shrinkAt: 1e6, shrinkEnd: 2e6, damage: 1, alive: 2, squads: 2 } as const;
+const order = (rally: Vec3, over: Partial<GroundOrder> = {}): GroundOrder => ({ rally, radius: 12, hurry: false, hunt: false, wait: false, slot: 0, mates: 0, ring: RING, intel: new SquadIntel(), noise: new NoiseGrid(), ...over });
 
 /** One bot on the island under a Squad order, against people who stand where they're put. */
-function scene(at: Vec3, enemies: readonly Vec3[], over: { health?: number; profile?: BotProfile; ground?: Partial<GroundOrder>; world?: World } = {}) {
+function scene(at: Vec3, enemies: readonly Vec3[], over: { health?: number; profile?: BotProfile; ground?: Partial<GroundOrder>; world?: World; firing?: () => boolean } = {}) {
   const sim = new Simulation(over.world ?? world);
   // Facing them: it's what it does on seeing them that's in question.
   sim.addPlayer({ id: 'b', team: 1, position: at, yaw: enemies[0] ? Math.atan2(at[0] - enemies[0][0], at[2] - enemies[0][2]) : 0 });
@@ -52,6 +54,8 @@ function scene(at: Vec3, enemies: readonly Vec3[], over: { health?: number; prof
       enemies.forEach((_, i) => sim.setPlayerState({ ...sim.playerState(`e${i}`)!, health: 100 }));
       // As it would stay under fire, with no time to heal.
       if (over.health !== undefined) sim.setPlayerState({ ...sim.playerState('b')!, health: over.health });
+      // Under fire from the first of them, each second: a hit that does no harm, so being shot gives them away (noticing takes a moment otherwise).
+      if (over.firing?.() && out.tick % 60 === 0) events = [...events, { type: 'hit', shooter: 'e0', victim: 'b', zone: 'upperTorso', damage: 0, distance: flat(me.position, enemies[0]!), point: me.position, killed: false, cause: 'bullet', weapon: 'm4a1', pellets: 1 }];
       const cmd = bot.think({ tick: out.tick, time: sim.time, self: me, players: out.players, events, isEnemy: (o: PlayerOutput) => o.team !== me.team, objective: null, lives: 'round', ground } as never);
       out = sim.step({ ...cmds, b: cmd });
       events = out.events;
@@ -63,7 +67,7 @@ function scene(at: Vec3, enemies: readonly Vec3[], over: { health?: number; prof
 describe('a bot on Zero Island uses the ground', () => {
   it('hurt in the open, it gets out of sight', () => {
     const { at, enemy } = exposed(22);
-    const s = scene(at, [enemy], { health: 20 });
+    const s = scene(at, [enemy], { health: 20, firing: () => true });
     for (let i = 0; i < 60 * 8; i++) s.step();
     expect(s.self().alive).toBe(true);
     expect(flat(s.self().position, at)).toBeGreaterThan(1.5);
@@ -89,7 +93,7 @@ describe('a bot on Zero Island uses the ground', () => {
     const { at, enemy } = exposed(26);
     // Bushes, as it were: the enemy stays put and the bot just stops seeing them.
     let hidden = false;
-    const s = scene(at, [enemy], { profile: { ...botProfile('Moss'), style: 'flanker' }, world: { ...world, concealment: { hides: () => hidden } } });
+    const s = scene(at, [enemy], { profile: { ...botProfile('Moss'), style: 'flanker' }, world: { ...world, concealment: { hides: () => hidden } }, firing: () => !hidden });
     const bearing = () => Math.atan2(s.self().position[2] - enemy[2], s.self().position[0] - enemy[0]);
     const from = bearing();
     let swing = 0;
