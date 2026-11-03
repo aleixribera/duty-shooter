@@ -337,6 +337,9 @@ An offline match against bots on either map (Survival Town or Switchyard), in an
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots. A small map's is generated when a server starts; a large map's is built ahead of time, shipped as data and searched in levels: Regions, then clusters, then nodes (ADR 0008).
 
+**Way out**:
+A nav node a route can start from but never go to: in the shallows near the land, or on ground a body can fall onto but not walk back from. Its links lead back to the land. A bot stranded below a sea cliff starts its route from one (ticket 75, ADR 0008).
+
 **Cover spot**:
 A nav node with something close enough to stand behind, and which of eight directions it hides a body from, standing or crouched. It comes from the same build as the nav, so a bot can ask for the nearest one sheltered from a threat without casting a ray.
 

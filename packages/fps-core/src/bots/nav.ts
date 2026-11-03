@@ -34,6 +34,13 @@ export interface NavNode {
   /** The longest clear view from here at eye height (m, up to {@link SIGHTLINE_MAX}), and the yaw it looks along. */
   readonly sightline: number;
   readonly sightYaw: number;
+  /**
+   * Only a way out (ticket 75): in the shallows, or in a pit a body can fall
+   * into, with links back to the land and none in. No route ends here and
+   * nothing looks for a place here; it is where a route starts for someone
+   * stranded.
+   */
+  readonly escape?: boolean;
 }
 
 /** How far a node's sightline is measured. */
@@ -51,10 +58,10 @@ export interface NavGraph {
 
 /** What a large map answers for itself. */
 export interface NavIndex {
-  /** The nodes within `radius` (m) of `p` on the ground plane, ascending. */
+  /** The nodes within `radius` (m) of `p` on the ground plane, ascending; never a way out ({@link NavNode.escape}). */
   near(p: Vec3, radius: number): readonly number[];
-  /** The `count` nodes nearest `p`, nearest first, by distance with height counted threefold. */
-  closest(p: Vec3, count: number): readonly number[];
+  /** The `count` nodes nearest `p`, nearest first, by distance with height counted threefold; the ways out too when `ways`. */
+  closest(p: Vec3, count: number, ways?: boolean): readonly number[];
   route(from: number, to: number, extra?: (node: number) => number): number[] | null;
   linkKind(a: number, b: number): NavLinkKind | null;
   regionOf(node: number): number;
@@ -397,10 +404,20 @@ const NEAREST_TRIED = 8;
 /**
  * The node nearest `p` that a player standing at `p` can walk straight to
  * (the movement code's way: steps, slopes, no walls in between). Falls back
- * to the nearest in sight, then the nearest at all.
+ * to the nearest in sight, then the nearest at all. Somewhere to go, so never
+ * a way out ({@link NavNode.escape}): for where a route starts, see {@link startNode}.
  */
 export function nearestNode(graph: NavGraph, world: World, p: Vec3): number {
-  const close = graph.index ? graph.index.closest(p, NEAREST_TRIED) : closestNodes(graph, p);
+  return nearest(graph, world, p, false);
+}
+
+/** The node a route from `p` starts at: as {@link nearestNode}, a way out of the shallows or a pit included. */
+export function startNode(graph: NavGraph, world: World, p: Vec3): number {
+  return nearest(graph, world, p, true);
+}
+
+function nearest(graph: NavGraph, world: World, p: Vec3, ways: boolean): number {
+  const close = graph.index ? graph.index.closest(p, NEAREST_TRIED, ways) : closestNodes(graph, p);
   for (const i of close) {
     const n = graph.nodes[i]!.position;
     if (n[1] - p[1] <= STEP + 0.01 && traverse(world, p, n) !== null) return i;

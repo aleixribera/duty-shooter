@@ -19,7 +19,9 @@ const standable = (x: number, z: number) => insidePolygon(map.playArea!, x, z) &
 /** One standing point on a nav node per cell of a grid: everywhere a player or bot can stand, roofs and bridges included. */
 function landPoints(): Standing[] {
   const cells = new Map<number, Standing>();
-  for (const { position: [x, y, z] } of nav.nodes) {
+  for (const { position: [x, y, z], escape } of nav.nodes) {
+    // A way out (ticket 75) is where a stranded body starts back, not a place to stand.
+    if (escape) continue;
     const key = Math.floor(x / GRID) * 100_000 + Math.floor(z / GRID);
     if (!cells.has(key)) cells.set(key, { x, y, z });
   }

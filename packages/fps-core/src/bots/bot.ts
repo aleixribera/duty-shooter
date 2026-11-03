@@ -9,7 +9,7 @@ import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
 import { coverBits, coverNear } from './cover-spots';
-import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, type NavGraph } from './nav';
+import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, startNode, type NavGraph } from './nav';
 import { longSightlines, navMiddle, nodesNear } from './nav-queries';
 import { REVIVE_APPROACH } from './planner';
 import type { BotProfile } from './profile';
@@ -1946,7 +1946,8 @@ export class Bot {
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */
   #plan(from: Vec3, to: number, view: BotView, fresh = true, unseenBy: Vec3 | null = null): void {
     if (view.budget) view.budget.plans += 1;
-    const start = nearestNode(this.#nav, this.#world, from);
+    // Stranded in the shallows or a pit, the way out is where it starts.
+    const start = startNode(this.#nav, this.#world, from);
     // Out of sight of `unseenBy` (or else the newest danger spot near) where there's a way: each node it can see costs as much as a detour.
     const watcher = unseenBy ?? this.#watcher(from, view.time);
     const exposure = watcher ? new Exposure(this.#nav, this.#world, watcher) : null;

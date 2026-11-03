@@ -41,7 +41,7 @@ export type { WorldHit } from './combat/projectiles';
 export { SWAY_SETTLED, recoilKick, weaponRow } from './weapon/weapon';
 export { DEFAULT_LOADOUT, parseLoadout, slotWeapons } from './weapon/loadout';
 export type { GrenadeId, Loadout } from './weapon/loadout';
-export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildLargeNav, botSees, buildNavGraph, coverBits, coverNear, coverOf, coveredFrom, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, SquadPlanner, SquadIntel, NoiseGrid, planCharge, planOutposts, royaleProfile, targetSite, wallAt } from './bots';
+export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildLargeNav, botSees, buildNavGraph, coverBits, coverNear, coverOf, coveredFrom, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, startNode, SquadPlanner, SquadIntel, NoiseGrid, planCharge, planOutposts, royaleProfile, targetSite, wallAt } from './bots';
 export type { BotObjective, BotProfile, BotStyle, BotView, CoverSpot, GroundOrder, LargeNav, LargeNavOptions, NavGraph, NavIndex, NavLink, NavLinkKind, NavNode, NavOptions, PlannedSeat, SquadSituation } from './bots';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { IW_UNIT, STATS, WEAPON_IDS, isShellReload } from './stats';

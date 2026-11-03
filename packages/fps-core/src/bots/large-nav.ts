@@ -31,8 +31,14 @@ export interface LargeNavOptions {
   readonly chunk?: number;
   /** Highest surface considered (m). Defaults to 200. */
   readonly ceiling?: number;
-  /** Ground lower than this is sea: no node stands on it and no link wades it. */
+  /** Ground lower than this is sea: no node stands on it and no link wades it, except a way out of the shallows (`wade`). */
   readonly shore?: number;
+  /**
+   * The shallows: ground from `floor` up to the shore, within `reach` (m) of
+   * land. No route goes into them, but nodes there, and in any pit beside them,
+   * lead someone stranded back to the land ({@link NavNode.escape}).
+   */
+  readonly wade?: { readonly floor: number; readonly reach: number };
   /** The Regions, each with a place in its middle that routes between Regions are measured from. */
   readonly regions?: { readonly hubs: readonly (readonly [number, number])[]; readonly of: (x: number, z: number) => number };
 }
@@ -89,6 +95,8 @@ export interface PackedNav {
 
 const KINDS: readonly NavLinkKind[] = ['walk', 'drop', 'climb', 'ladder'];
 const INDOOR = 1;
+/** Only a way out: see {@link NavNode.escape}. */
+const ESCAPE = 2;
 const ST = STATS.stance;
 const MV = STATS.movement;
 const STAND: Hull = { halfWidth: ST.hullHalfWidth.value, height: ST.standHullHeight.value };
@@ -118,6 +126,8 @@ interface Point {
   readonly z: number;
   /** The spacing of the grid it came from. */
   readonly spacing: number;
+  /** In the shallows, below the shore. */
+  readonly wet?: boolean;
 }
 
 /** True when there are solids within `reach` of the box round a and b. */
@@ -148,6 +158,19 @@ function surfaces(world: World, x: number, z: number, ceiling: number, shore: nu
     if (h !== null && !out.some((o) => Math.abs(o - h) < 0.1)) out.push(h);
   }
   return out;
+}
+
+/** Where someone can stand in the shallows at (x, z), with land (ground at the shore or above) within `reach`. */
+function shallowsAt(world: World, x: number, z: number, shore: number, wade: { readonly floor: number; readonly reach: number }): number | null {
+  const t = world.terrain;
+  if (!t) return null;
+  const y = t.heightAt(x, z);
+  if (y >= shore || y < wade.floor || t.steepAt(x, z) || hullBlocked(world, [x, y, z], STAND)) return null;
+  for (let k = 0; k < 16; k++) {
+    const turn = (k / 8) * Math.PI;
+    for (const r of [wade.reach / 3, (wade.reach * 2) / 3, wade.reach]) if (t.heightAt(x + Math.cos(turn) * r, z + Math.sin(turn) * r) >= shore) return y;
+  }
+  return null;
 }
 
 /** True when anything within `reach` of (x, z) calls for the fine grid. */
@@ -205,6 +228,23 @@ function walkLink(world: World, a: Point, b: Point, shore: number): Walked | nul
   }
   if (Math.abs(y - b.y) > 0.08) return null;
   return { kind: fell ? 'drop' : 'walk', wet: wet / n };
+}
+
+/** Each node outside the land (`land` false) that has a way to it along the links: 1 for those. */
+function waysBack(count: number, links: readonly (readonly NavLink[])[], land: (i: number) => boolean): Uint8Array {
+  const into: number[][] = Array.from({ length: count }, () => []);
+  for (let i = 0; i < count; i++) for (const l of links[i]!) into[l.to]!.push(i);
+  const out = new Uint8Array(count);
+  const queue: number[] = [];
+  for (let i = 0; i < count; i++) if (land(i)) queue.push(i);
+  for (let k = 0; k < queue.length; k++) {
+    for (const from of into[queue[k]!]!) {
+      if (out[from] || land(from)) continue;
+      out[from] = 1;
+      queue.push(from);
+    }
+  }
+  return out;
 }
 
 /** Strongly connected components along the links `keep` allows (Tarjan, iterative): each node's component, and how many there are. */
@@ -320,6 +360,8 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
       const close = detailed(world, x, z, reach);
       if (!open && !close) continue;
       for (const y of surfaces(world, x, z, ceiling, shore)) points.push({ x, y, z, spacing: close ? fine : spacing });
+      const wet = options.wade ? shallowsAt(world, x, z, shore, options.wade) : null;
+      if (wet !== null) points.push({ x, y: wet, z, spacing: close ? fine : spacing, wet: true });
     }
   }
 
@@ -346,7 +388,9 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
           const d = flat(a.x, a.z, b.x, b.z);
           // Off an edge may span the cell where the edge itself has no node, as a climb onto it does.
           const offEdge = d <= CLIMB_REACH && b.y < a.y - STEP;
-          const walked = d <= Math.max(a.spacing, b.spacing) * Math.SQRT2 + 0.01 || offEdge ? walkLink(world, a, b, shore) : null;
+          // Into or out of the shallows only as a way out, which may wade them.
+          const floor = a.wet || b.wet ? options.wade!.floor : shore;
+          const walked = d <= Math.max(a.spacing, b.spacing) * Math.SQRT2 + 0.01 || offEdge ? walkLink(world, a, b, floor) : null;
           const length = Math.hypot(d, b.y - a.y);
           if (walked) {
             links[i]!.push({ to: j, kind: walked.kind, cost: length * (1 + (WADE_COST - 1) * walked.wet) });
@@ -364,20 +408,23 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
     }
   }
 
-  // The biggest part a player can get round, in chunk order.
-  const whole = components(points.length, links, () => true);
+  // The biggest part a player can get round on land, in chunk order.
+  const whole = components(points.length, links, (a, b) => !points[a]!.wet && !points[b]!.wet);
   const sizes = new Int32Array(whole.total);
   for (let i = 0; i < points.length; i++) sizes[whole.of[i]!]! += 1;
   const main = sizes.indexOf(Math.max(...sizes));
+  // And the ways back to it: from the shallows, and from any pit off it that has one.
+  const escape = options.wade ? waysBack(points.length, links, (i) => whole.of[i] === main) : new Uint8Array(points.length);
   const chunkOrigin = { x: Math.floor(x0 / chunk) * chunk, z: Math.floor(z0 / chunk) * chunk };
   const columns = Math.floor((x1 - chunkOrigin.x) / chunk) + 1;
   const rows = Math.floor((z1 - chunkOrigin.z) / chunk) + 1;
   const chunkAt = (p: Point) => Math.floor((p.z - chunkOrigin.z) / chunk) * columns + Math.floor((p.x - chunkOrigin.x) / chunk);
-  const kept = points.flatMap((p, i) => (whole.of[i] === main ? [{ i, c: chunkAt(p) }] : [])).sort((a, b) => a.c - b.c || a.i - b.i);
+  const kept = points.flatMap((p, i) => (whole.of[i] === main || escape[i] ? [{ i, c: chunkAt(p) }] : [])).sort((a, b) => a.c - b.c || a.i - b.i);
   const newIndex = new Int32Array(points.length).fill(-1);
   kept.forEach((k, i) => (newIndex[k.i] = i));
   const count = kept.length;
-  const nodeLinks: NavLink[][] = kept.map((k) => links[k.i]!.filter((l) => newIndex[l.to]! >= 0).map((l) => ({ ...l, to: newIndex[l.to]! })));
+  // Nothing on land leads into a way out.
+  const nodeLinks: NavLink[][] = kept.map((k) => links[k.i]!.filter((l) => newIndex[l.to]! >= 0 && (escape[k.i] || !escape[l.to])).map((l) => ({ ...l, to: newIndex[l.to]! })));
   const chunkOf = Int32Array.from(kept, (k) => k.c);
 
   const chunkStart = new Uint32Array(columns * rows + 1);
@@ -394,7 +441,7 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
     const p = points[kept[n]!.i]!;
     positions.set([p.x, p.y, p.z], n * 3);
     const at: Vec3 = [p.x, p.y, p.z];
-    flags[n] = raycastWorld(world, [p.x, p.y + 1.8, p.z], [p.x, p.y + 8, p.z]) !== null ? INDOOR : 0;
+    flags[n] = (raycastWorld(world, [p.x, p.y + 1.8, p.z], [p.x, p.y + 8, p.z]) !== null ? INDOOR : 0) | (escape[kept[n]!.i] ? ESCAPE : 0);
     const view = viewFrom(world, at);
     sightlines[n] = Math.floor(view.sightline);
     sightYaws[n] = view.turn;
@@ -578,6 +625,7 @@ export function largeNav(packed: PackedNav): LargeNav {
       position: [packed.positions[i * 3]!, packed.positions[i * 3 + 1]!, packed.positions[i * 3 + 2]!],
       indoor: (packed.flags[i]! & INDOOR) !== 0,
       precise: false,
+      ...((packed.flags[i]! & ESCAPE) !== 0 ? { escape: true } : {}),
       sightline: packed.sightlines[i]!,
       sightYaw: (packed.sightYaws[i]! / 16) * Math.PI * 2,
     };
@@ -654,15 +702,15 @@ class Index implements NavIndex {
 
   near(p: Vec3, radius: number): number[] {
     const out: number[] = [];
-    const positions = this.#p.positions;
+    const { positions, flags } = this.#p;
     this.#square(p[0], p[2], radius, (n) => {
-      if (flat(p[0], p[2], positions[n * 3]!, positions[n * 3 + 2]!) <= radius) out.push(n);
+      if ((flags[n]! & ESCAPE) === 0 && flat(p[0], p[2], positions[n * 3]!, positions[n * 3 + 2]!) <= radius) out.push(n);
     });
     return out;
   }
 
-  closest(p: Vec3, count: number): number[] {
-    const positions = this.#p.positions;
+  closest(p: Vec3, count: number, ways = false): number[] {
+    const { positions, flags } = this.#p;
     const span = Math.max(this.#p.columns, this.#p.rows) * this.#p.chunk * 2;
     const close: number[] = [];
     const far: number[] = [];
@@ -670,6 +718,7 @@ class Index implements NavIndex {
       close.length = 0;
       far.length = 0;
       this.#square(p[0], p[2], r, (n) => {
+        if (!ways && (flags[n]! & ESCAPE) !== 0) return;
         const d = flat(p[0], p[2], positions[n * 3]!, positions[n * 3 + 2]!) + Math.abs(positions[n * 3 + 1]! - p[1]) * 3;
         if (close.length === count && d >= far[count - 1]!) return;
         let at = Math.min(close.length, count - 1);

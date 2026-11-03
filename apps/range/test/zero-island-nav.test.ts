@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Terrain, coverNear, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, sightBlocked, type Vec3 } from '@duty-shooter/fps-core';
+import { Terrain, coverNear, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, sightBlocked, startNode, type Vec3 } from '@duty-shooter/fps-core';
 import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
 import { buildZeroIslandNav } from '../src/map/zero-island-nav';
 import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt } from '../src/map/zero-island-terrain';
@@ -44,7 +44,8 @@ describe('Zero Island: where bots can go', () => {
   it('never stands in the sea, past the Boundary or near the summit', () => {
     for (const n of nav.nodes) {
       const [x, y, z] = n.position;
-      expect(y, `${x},${z}`).toBeGreaterThan(0.25);
+      // A way out (ticket 75) may stand in the shallows, but no deeper than wading.
+      expect(y, `${x},${z}`).toBeGreaterThan(n.escape ? -1.05 : 0.25);
       expect(insidePolygon(map.playArea!, x, z)).toBe(true);
       expect(Math.hypot(x - SUMMIT.x, z - SUMMIT.z)).toBeGreaterThan(SUMMIT_RADIUS);
     }
@@ -106,7 +107,11 @@ describe('Zero Island: where bots can go', () => {
     const t0 = performance.now();
     const pairs = 2000;
     let hops = 0;
-    for (let i = 0; i < pairs; i++) hops += findPath(loaded, (i * 7919) % nav.nodes.length, (i * 104729 + 13) % nav.nodes.length)!.length;
+    const land = (i: number) => {
+      while (nav.nodes[i]!.escape) i = (i + 1) % nav.nodes.length;
+      return i;
+    };
+    for (let i = 0; i < pairs; i++) hops += findPath(loaded, (i * 7919) % nav.nodes.length, land((i * 104729 + 13) % nav.nodes.length))!.length;
     const query = (performance.now() - t0) / pairs;
     if (process.env['BENCH']) {
       const before = process.memoryUsage();
@@ -119,5 +124,50 @@ describe('Zero Island: where bots can go', () => {
       console.log(`LOAD ${decode.toFixed(0)} ms, ${(grown / 1e6).toFixed(1)} MB in memory for ${held.nodes.length} nodes`);
     }
     expect(findPath(loaded, coreNode('the-dustlands'), coreNode('mutant-jungle'))).toEqual(findPath(nav, coreNode('the-dustlands'), coreNode('mutant-jungle')));
+  });
+});
+
+describe('Zero Island: a way out of the shallows and the pits (ticket 75)', () => {
+  // A Solos bot slid down the Frostbite sea cliff onto the beach strip at its foot, where no
+  // node was in reach, and stood there 110 s.
+  const PIT: Vec3 = [-431.6, terrain.heightAt(-431.6, -391.4), -391.4];
+  const SHALLOWS: Vec3 = [-445, terrain.heightAt(-445, -400), -400];
+
+  it('starts a route beside a bot stranded below the sea cliff, and leads it back to the Frostbite Core', () => {
+    for (const p of [PIT, SHALLOWS]) {
+      const from = startNode(nav, world, p);
+      expect(Math.hypot(at(from)[0] - p[0], at(from)[2] - p[2]), `${p[0]},${p[2]}`).toBeLessThan(6);
+      const path = findPath(nav, from, coreNode('frostbite-peaks'));
+      expect(path, `${p[0]},${p[2]}`).not.toBeNull();
+      for (let i = 1; i < path!.length; i++) expect(linkKind(nav, path![i - 1]!, path![i]!)).not.toBeNull();
+    }
+  });
+
+  it('never sends a bot into the water: no way out is a goal, or reached from land', () => {
+    const ways = nav.nodes.flatMap((n, i) => (n.escape ? [i] : []));
+    expect(ways.length).toBeGreaterThan(1000);
+    const { linkStart, linkTo } = nav.packed;
+    const into: string[] = [];
+    for (let i = 0; i < nav.nodes.length; i++) {
+      if (nav.nodes[i]!.escape) continue;
+      for (let l = linkStart[i]!; l < linkStart[i + 1]!; l++) if (nav.nodes[linkTo[l]!]!.escape) into.push(`${i} to ${linkTo[l]}`);
+    }
+    expect(into.slice(0, 10)).toEqual([]);
+    expect(nav.nodes[nearestNode(nav, world, PIT)]!.escape).toBeFalsy();
+    for (const i of nav.index!.near(PIT, 30)) expect(nav.nodes[i]!.escape).toBeFalsy();
+  });
+
+  it('leaves no standable ground in Ground Zero without a node in reach', () => {
+    const holes: string[] = [];
+    for (let x = -800; x <= 800; x += 4) {
+      for (let z = -800; z <= 800; z += 4) {
+        if (regionAt(x, z) !== 'ground-zero' || !insidePolygon(map.playArea!, x, z)) continue;
+        const y = terrain.heightAt(x, z);
+        if (y < 0.3 || terrain.steepAt(x, z) || nav.index!.near([x, y, z], 1).length > 0) continue;
+        const c = at(startNode(nav, world, [x, y, z]));
+        if (Math.hypot(c[0] - x, c[2] - z) > 8 || Math.abs(c[1] - y) > 4) holes.push(`${x},${z}`);
+      }
+    }
+    expect(holes.length, holes.slice(0, 10).join(' ')).toBe(0);
   });
 });

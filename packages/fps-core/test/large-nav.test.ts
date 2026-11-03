@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildLargeNav, coverNear, coverOf, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, type NavGraph, type TerrainData, type Vec3 } from '@duty-shooter/fps-core';
+import { buildLargeNav, coverNear, coverOf, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, startNode, type NavGraph, type TerrainData, type Vec3 } from '@duty-shooter/fps-core';
 import { box } from '@duty-shooter/fps-core/harness';
+import { playGround } from '@duty-shooter/fps-core/modes';
 
 /**
  * A small island: two shores with a shallow channel between them and one
@@ -233,5 +234,66 @@ describe('cover spots in the nav', () => {
 
   it('finds none on a map built without them', () => {
     expect(coverNear({ nodes: [], links: [] } as NavGraph, [0, 0, 0], 50)).toEqual([]);
+  });
+});
+
+/**
+ * A coast (ticket 75): land at 3 m to the west; north of z = 30 a beach runs
+ * gently down into the shallows; south of it the land ends in a cliff onto a
+ * strip of beach at 0.5 m with the shallows beyond. Anyone can fall onto the
+ * strip, and only wading out round the shallows to the beach leads back.
+ */
+describe('A large map: a way out of the shallows and the pits (ticket 75)', () => {
+  const COVE = 30;
+  const coast = (x: number, z: number): number => {
+    if (x <= 0) return 3;
+    if (z > COVE) return Math.max(-0.6, 3 - x * 0.09);
+    if (x <= 1) return 0.5;
+    return x <= 8 ? 0.5 : Math.max(-0.6, 0.5 - (x - 8) * 0.3);
+  };
+  const ground = (): TerrainData => {
+    const [x0, z0, n] = [-40, -60, 120];
+    const heights = new Float32Array((n + 1) * (n + 1));
+    for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) heights[j * (n + 1) + i] = coast(x0 + i, z0 + j);
+    return { origin: [x0, z0], cell: 1, columns: n, rows: n, heights, water: new Float32Array((n + 1) * (n + 1)), palette: ['dirt'] };
+  };
+  const shoreWorld = createWorld([], { terrain: ground() });
+  const shoreArea: [number, number][] = [[-38, -58], [78, -58], [78, 58], [-38, 58]];
+  const plain = buildLargeNav(shoreWorld, { area: shoreArea, shore: SHORE, chunk: 32 });
+  const nav = buildLargeNav(shoreWorld, { area: shoreArea, shore: SHORE, chunk: 32, wade: { floor: -1, reach: 12 } });
+  const land: Vec3 = [-20, 3, 0];
+  const strip: Vec3 = [5, 0.5, -20];
+  const shallows: Vec3 = [20, -0.6, -40];
+
+  it('had no way out of the strip below the cliff', () => {
+    const from = startNode(plain, shoreWorld, strip);
+    expect(plan(pos(plain, from), strip)).toBeGreaterThan(6);
+  });
+
+  it('a route leads from the strip and from the shallows back to the land', () => {
+    for (const at of [strip, shallows]) {
+      const from = startNode(nav, shoreWorld, at);
+      expect(plan(pos(nav, from), at), `${at}`).toBeLessThan(4);
+      const path = findPath(nav, from, nearestNode(nav, shoreWorld, land));
+      expect(path, `${at}`).not.toBeNull();
+      for (let i = 1; i < path!.length; i++) expect(linkKind(nav, path![i - 1]!, path![i]!)).not.toBeNull();
+    }
+  });
+
+  it('no route leads into them, and nothing else treats them as somewhere to be', () => {
+    const out = nav.nodes.flatMap((n, i) => (n.escape ? [i] : []));
+    expect(out.length).toBeGreaterThan(20);
+    for (let i = 0; i < nav.nodes.length; i++) if (!nav.nodes[i]!.escape) for (const l of nav.links[i]!) expect(nav.nodes[l.to]!.escape, `${i} to ${l.to}`).toBeFalsy();
+    for (const at of [strip, shallows]) expect(nav.nodes[nearestNode(nav, shoreWorld, at)]!.escape).toBeFalsy();
+    for (const i of nav.index!.near(strip, 15)) expect(nav.nodes[i]!.escape, 'near').toBeFalsy();
+    const spots = playGround(nav, shoreWorld);
+    for (let i = 0; i < spots.count; i++) expect(spots.spot(i)[0] <= 1 || spots.spot(i)[2] > COVE, `${spots.spot(i)}`).toBe(true);
+  });
+
+  it('keeps what it was on land, and ships the way out in the file', () => {
+    const kept = (g: NavGraph) => g.nodes.filter((n) => !n.escape).map((n) => n.position.join());
+    expect(kept(nav)).toEqual(kept(plain));
+    const loaded = decodeLargeNav(encodeLargeNav(nav));
+    expect(loaded.nodes.map((n) => !!n.escape)).toEqual(nav.nodes.map((n) => !!n.escape));
   });
 });

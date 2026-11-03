@@ -26,7 +26,7 @@ export function nodesNear(graph: NavGraph, p: Vec3, radius: number): readonly nu
 export function longSightlines(graph: NavGraph): readonly number[] {
   let found = longViews.get(graph);
   if (!found) {
-    found = graph.nodes.flatMap((n, i) => (n.sightline >= LONG_SIGHTLINE ? [i] : []));
+    found = graph.nodes.flatMap((n, i) => (n.sightline >= LONG_SIGHTLINE && !n.escape ? [i] : []));
     longViews.set(graph, found);
   }
   return found;

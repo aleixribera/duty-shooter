@@ -17,7 +17,7 @@ const TRIES = 6;
 /**
  * Where a large match can put people: every spot a bot's nav stands on open
  * land, so a spawn is walkable and has a way to everywhere else. Bridges, roofs,
- * interiors and water are left out. Found once per map, in cells.
+ * interiors, water and the ways out of it are left out. Found once per map, in cells.
  */
 export class PlayGround {
   /** x, y, z per spot. */
@@ -83,9 +83,9 @@ export function playGround(nav: NavGraph, world: World): PlayGround {
   if (!ground) {
     const spots: number[] = [];
     const terrain = world.terrain;
-    for (const { position, indoor } of nav.nodes) {
+    for (const { position, indoor, escape } of nav.nodes) {
       const [x, y, z] = position;
-      if (indoor) continue;
+      if (indoor || escape) continue;
       if (terrain && (Math.abs(y - terrain.heightAt(x, z)) > ON_THE_GROUND || terrain.waterAbove(x, y, z) > 0)) continue;
       spots.push(x, y, z);
     }
