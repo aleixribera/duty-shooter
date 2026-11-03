@@ -136,3 +136,30 @@ export class AllyTagsView {
 function escape(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
+
+/** How often (ms) the sight line to each ally is checked again. */
+const SIGHT_EVERY = 100;
+
+/** Whether each ally is in sight, checked at most ten times a second each; forgotten when a match starts (ticket 60). */
+export class AllySight {
+  readonly #seen = new Map<string, { at: number; seen: boolean }>();
+
+  /** Whether `id` was in sight at the last check, looking again (`look`) when that is older than a tenth of a second. */
+  seen(id: string, now: number, look: () => boolean): boolean {
+    let sight = this.#seen.get(id);
+    if (!sight || now - sight.at > SIGHT_EVERY) {
+      sight = { at: now, seen: look() };
+      this.#seen.set(id, sight);
+    }
+    return sight.seen;
+  }
+
+  /** The allies checked so far. */
+  get size(): number {
+    return this.#seen.size;
+  }
+
+  clear(): void {
+    this.#seen.clear();
+  }
+}

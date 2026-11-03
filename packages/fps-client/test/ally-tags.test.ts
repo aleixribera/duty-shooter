@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerOutput } from '@duty-shooter/fps-core';
-import { NAME_RANGE, allyTag, alliesOf, type AllySeen } from '../src/hud/ally-tags';
+import { AllySight, NAME_RANGE, allyTag, alliesOf, type AllySeen } from '../src/hud/ally-tags';
 
 const W = 1920;
 const H = 1080;
@@ -82,5 +82,27 @@ describe('who gets a tag', () => {
     expect(alliesOf(field, 'me', 1, 'ffa')).toEqual([]);
     expect(alliesOf(field, 'me', 1, 'gungame')).toEqual([]);
     expect(alliesOf(field, 'me', null, 'tdm')).toEqual([]);
+  });
+});
+
+describe('sight lines to allies', () => {
+  it('looks again only after a tenth of a second', () => {
+    const sight = new AllySight();
+    let looks = 0;
+    const look = () => (looks++, true);
+    expect(sight.seen('p2', 0, look)).toBe(true);
+    expect(sight.seen('p2', 50, () => false)).toBe(true);
+    expect(sight.seen('p2', 101, () => false)).toBe(false);
+    expect(looks).toBe(1);
+  });
+
+  it('forgets every ally when a new match starts (ticket 60)', () => {
+    const sight = new AllySight();
+    sight.seen('p2', 0, () => true);
+    sight.seen('p3', 0, () => true);
+    expect(sight.size).toBe(2);
+    sight.clear();
+    expect(sight.size).toBe(0);
+    expect(sight.seen('p2', 10, () => false)).toBe(false);
   });
 });

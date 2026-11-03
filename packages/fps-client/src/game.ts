@@ -60,7 +60,7 @@ import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
-import { alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
+import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
@@ -171,7 +171,7 @@ export class Game {
   readonly #world: World;
   readonly #camera = new FirstPersonCamera();
   /** When each ally was last checked for a clear line from the eye, and whether it had one. */
-  readonly #allySight = new Map<PlayerId, { at: number; seen: boolean }>();
+  readonly #allySight = new AllySight();
   readonly #viewmodel: Viewmodel;
   readonly #players: PlayersView;
   readonly #arsenal: ArsenalView;
@@ -852,18 +852,14 @@ export class Game {
     const canRevive = self.alive && !self.downed;
     return allies.map((p) => {
       const top = p.position[1] + p.eyeHeight;
-      let sight = this.#allySight.get(p.id);
-      if (!sight || now - sight.at > 100) {
-        sight = { at: now, seen: !sightBlocked(this.#world, eye, [p.position[0], top, p.position[2]]) };
-        this.#allySight.set(p.id, sight);
-      }
+      const seen = this.#allySight.seen(p.id, now, () => !sightBlocked(this.#world, eye, [p.position[0], top, p.position[2]]));
       const v = new Vector3(p.position[0], top + 0.55, p.position[2]).project(cam);
       // Behind the camera the projection mirrors: flip it back.
       const behind = v.z > 1;
       const flat = Math.hypot(p.position[0] - view.position[0], p.position[2] - view.position[2]);
       const inReach = p.downed !== null && canRevive && flat <= reach && Math.abs(p.position[1] - self.position[1]) <= reach;
       return allyTag(
-        { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen: sight.seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind },
+        { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind },
         w,
         h,
       );
@@ -1513,6 +1509,7 @@ export class Game {
         this.#killer = null;
         this.#outBy.clear();
         this.#spectateNotice = null;
+        this.#allySight.clear();
         this.hud.toast('New match.', 3);
         this.#worldView.restoreProps();
         break;
