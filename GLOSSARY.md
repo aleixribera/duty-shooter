@@ -61,6 +61,14 @@ _Avoid_: detail mesh
 A Blender model from a map's model file, drawn in place of the solids it stands for (a freight car's underframe, a tank's barrel). Those solids still collide and still cast shadows in the bake, but get no faces of their own, and every vertex of the model stays within 5 cm of them.
 _Avoid_: prop (that's a shootable solid), mesh
 
+**Plant**:
+A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk stands exactly in a cover solid, as a Map model does, and is hard cover; foliage is Soft cover.
+_Avoid_: foliage (only the soft part), decoration
+
+**Ground layer**:
+One of the thirteen photo surfaces a terrain wears (meadow, beach, dust, rock, snow, ice, jungle floor, ash, asphalt, dock, ballast, river bed, cliff), picked per terrain cell and tinted to its Region's palette; steep ground shows cliff rock whatever its layer.
+_Avoid_: ground texture, splat
+
 ## Maps
 
 **Map**:
@@ -193,7 +201,7 @@ How far ahead of its pace a Battle Royale is running, as bots feel it. With more
 _Avoid_: aggression (that's a bot's own)
 
 **Soft cover**:
-What hides a body without stopping a bullet: bushes, tall grass. Bots ask it through a world's `concealment` before they believe their eyes, and bullets never do.
+What hides a body without stopping a bullet: bushes, tall grass, a tree's canopy. Bots ask it through a world's `concealment` before they believe their eyes, and bullets never do. A look is hidden once it has passed through 0.8 m of foliage, added up along it, so one thin edge of a bush doesn't hide and its middle does; a bot inside a bush still sees out.
 _Avoid_: concealment (that's only its name in the code)
 
 **Revive**:
