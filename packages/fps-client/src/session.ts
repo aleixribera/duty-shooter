@@ -84,6 +84,8 @@ export interface GameDriver {
   ready(): void;
   /** The page has what the match needs on screen, for the server's load gate (online only). */
   loaded(): void;
+  /** Out of the fight: the seat watched, so the server sends its surroundings (online only). */
+  watch(id: PlayerId | null): void;
   /** What to carry from the next spawn (offline: at once while alive). */
   setLoadout(loadout: Loadout): void;
   nameOf(id: PlayerId): string;
@@ -159,6 +161,8 @@ export class OfflineDriver implements GameDriver {
   ready(): void {}
 
   loaded(): void {}
+
+  watch(): void {}
 
   /** Solo play has no one to be fair to: a living player re-arms where they stand. */
   setLoadout(loadout: Loadout): void {
@@ -327,6 +331,10 @@ export class OnlineDriver implements GameDriver {
 
   loaded(): void {
     this.#client.loaded();
+  }
+
+  watch(id: PlayerId | null): void {
+    this.#client.watch(id);
   }
 
   setLoadout(loadout: Loadout): void {

@@ -253,7 +253,7 @@ export class RoyaleHud {
     if (s.out) {
       this.#set(
         this.#watch,
-        `${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? `<span class="k">Watching</span><span class="who">${escape(s.watching)}</span>` : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
+        `${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? '' : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
       );
     }
     this.#map.classList.toggle('open', s.mapOpen);

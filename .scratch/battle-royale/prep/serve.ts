@@ -1,3 +1,4 @@
+// Ticket 32: Enemy reloads an empty magazine, to put out more than one.
 // Ticket 14's copy of ticket 11's harness: Mate can also say 'loaded' and 'ready'.
 // Ticket 11's copy of ticket 08's harness: beside Filler and Enemy, a second
 // person (Mate, not a script, so the match doesn't end when the browser's seat
@@ -46,7 +47,7 @@ const beat = () => {
     const h = them.downed ? 0.25 : 1.1;
     const { yaw, pitch } = anglesOf([them.position[0] - me.position[0], them.position[1] + h - me.position[1] - me.eyeHeight, them.position[2] - me.position[2]]);
     const press = seq % 12 === 0;
-    cmd = { buttons: seq % 12 < 6 ? Button.Fire : 0, forward: 0, right: 0, yaw, pitch, firePresses: press ? [0] : [] };
+    cmd = { buttons: me.weapon.ammo === 0 ? Button.Reload : seq % 12 < 6 ? Button.Fire : 0, forward: 0, right: 0, yaw, pitch, firePresses: press ? [0] : [] };
   }
   if (!process.env['NO_HEAL'] && me?.alive && (me.health < 100 || me.downed)) sim().setPlayerState({ ...sim().playerState(id!)!, health: 100, downed: null });
   for (const kept of players) if (guards.has(kept.id) && kept.alive && (kept.downed || kept.health < 100)) sim().setPlayerState({ ...sim().playerState(kept.id)!, health: 100, downed: null });
@@ -62,7 +63,7 @@ const control = createServer((req, res) => {
   const n = (k: string) => Number(q(k));
   let body: unknown = 'ok';
   if (url.pathname === '/list') {
-    body = { mate: [...game.names].find(([, n]) => n === 'Mate')?.[0] ?? null, enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ act: game.bots.get(p.id)?.bot.activity, health: p.health, downed: p.downed, id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, bot: game.bots.has(p.id) })) };
+    body = { mate: [...game.names].find(([, n]) => n === 'Mate')?.[0] ?? null, enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ act: game.bots.get(p.id)?.bot.activity, health: p.health, downed: p.downed, id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, weapon: p.weapon, bot: game.bots.has(p.id) })) };
   } else if (url.pathname === '/place') {
     const s = sim().playerState(q('id')!)!;
     sim().setPlayerState({ ...s, move: { ...s.move, position: [n('x'), n('y'), n('z')], velocity: [0, 0, 0] } });

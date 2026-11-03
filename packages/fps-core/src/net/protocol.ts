@@ -11,7 +11,7 @@ import type { WireData } from './transport';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -76,7 +76,9 @@ export type ClientMessage =
   /** A Battle Royale's Preparation: this player has picked and is ready to drop (it can't be taken back). */
   | { readonly t: 'ready' }
   /** This player's page has what the match needs on screen (the load gate). */
-  | { readonly t: 'loaded' };
+  | { readonly t: 'loaded' }
+  /** Out of the fight: the seat this player is watching (null for none), so it is sent that seat's surroundings. */
+  | { readonly t: 'watch'; readonly id: string | null };
 
 /**
  * Where the match is: playing, or in the intermission after `matchEnd`
@@ -272,6 +274,10 @@ export function decodeClient(data: string): ClientMessage | null {
   if (value['t'] === 'start') return { t: 'start' };
   if (value['t'] === 'ready') return { t: 'ready' };
   if (value['t'] === 'loaded') return { t: 'loaded' };
+  if (value['t'] === 'watch') {
+    const id = value['id'];
+    return id === null || (typeof id === 'string' && id.length <= 40) ? { t: 'watch', id } : null;
+  }
   if (value['t'] === 'squad') {
     const { squad } = value;
     return typeof squad === 'number' && Number.isInteger(squad) && squad >= 1 && squad <= WIDE_SCALE.seats ? { t: 'squad', squad } : null;

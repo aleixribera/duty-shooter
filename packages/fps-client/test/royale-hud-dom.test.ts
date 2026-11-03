@@ -56,7 +56,14 @@ describe('out of a Battle Royale', () => {
     hud.update(state({ out: true, placement: { place: 3, of: 20 }, watching: 'Ada' }));
     expect(shown('ds-out')).toBe(true);
     expect(root.one('ds-out').text).toContain('3rd');
-    expect(root.one('ds-watch').text).toContain('Watching Ada');
+    // Who you watch is the spectator panel's to say (ticket 32); the bar keeps the place and the keys.
+    expect(root.one('ds-watch').text).toContain('3rd');
+    expect(root.one('ds-watch').text).not.toContain('Ada');
+  });
+
+  it('says Spectating while there is nobody to watch', () => {
+    hud.update(state({ out: true, watching: null }));
+    expect(root.one('ds-watch').text).toContain('Spectating');
   });
 
   it('tells a seat put out that its Squad fights on', () => {
@@ -67,7 +74,7 @@ describe('out of a Battle Royale', () => {
   it('gives a late arrival, who never had a seat, no out card: only who it watches (ticket 43)', () => {
     hud.update(state({ out: true, seated: false, at: null, watching: 'Ada' }));
     expect(shown('ds-out')).toBe(false);
-    expect(root.one('ds-watch').text).toContain('Watching Ada');
+    expect(shown('ds-watch')).toBe(true);
     expect(root.one('ds-watch').text).not.toMatch(/out|fights on/i);
   });
 

@@ -55,7 +55,9 @@ import { RingWall } from './ring-wall';
 import { RingSounds } from './ring-sounds';
 import { preparationShot, preparationTime, type PreparationShot, type PreparationTime } from './preparation-shot';
 import { PreparationSounds } from './preparation-sounds';
-import { Spectator } from './spectate';
+import { Spectator, withRoster, type SpectateView } from './spectate';
+import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel';
+import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
@@ -70,6 +72,12 @@ const OPEN_AMBIENT = 0.4;
 const TICK_MS = TICK_SECONDS * 1000;
 /** How far the nuke's shock shakes the ending's shot at its strongest (radians, peak to peak). */
 const SHOT_SHAKE = 0.012;
+/** A spectator switching to someone nearer than this (m) glides there; farther, it cuts. */
+const SPECTATE_GLIDE = 40;
+/** How long (ms) the spectator's notice of who put out the one watched stays up. */
+const SPECTATE_NOTICE_MS = 4000;
+/** A binding as a short key cap for the spectator's panel. */
+const shortKey = (code: string): string => (code === 'Mouse0' ? 'LMB' : code === 'Mouse2' ? 'RMB' : code === 'Mouse1' ? 'MMB' : bindingLabel(code));
 
 export interface GameOptions {
   readonly canvas: HTMLCanvasElement;
@@ -203,9 +211,19 @@ export class Game {
   readonly #sites: readonly ChargeSite[];
   /** Who a player out of the fight watches (Charge, Battle Royale), and where the camera following them stood last frame. */
   readonly #spectator = new Spectator();
-  #follow: { eye: Vec3; yaw: number; pitch: number; id: PlayerId } | null = null;
+  #follow: { eye: Vec3; yaw: number; pitch: number; id: PlayerId; eyes: boolean } | null = null;
   /** Who last put the local player out, for the spectator. */
   #killer: PlayerId | null = null;
+  /** Behind the one watched, or through their eyes (ticket 32); kept from one watched to the next. */
+  #spectateView: 'follow' | 'eyes' = 'follow';
+  /** Who put each seat out (by name), from the kill feed, for the spectator's notice. */
+  readonly #outBy = new Map<PlayerId, string | null>();
+  /** The spectator's notice of who put out the one watched, and until when (performance.now ms). */
+  #spectateNotice: { readonly text: string; readonly until: number } | null = null;
+  /** The watched player's view last frame, for the movement of their weapon in your hands. */
+  #eyesLook: { readonly id: PlayerId; readonly yaw: number; readonly pitch: number } | null = null;
+  /** The spectator's panel as last shown, held while a seat stepped to is on its way. */
+  #lastPanel: SpectatorPanelState | null = null;
   /** The Battle Royale's wall in the world and its sound (Zero Island only), and what the Ring was doing last frame. */
   readonly #ringWall: RingWall | null;
   readonly #ringSounds = new RingSounds();
@@ -598,31 +616,59 @@ export class Game {
     this.#effects.keyLight = prep?.light ?? null;
     setHaze(prep?.haze ?? 1);
     for (const c of this.#prepSounds.update(prep ? prepTime : null, performance.now() / 1000)) this.#play(c.event, c.params);
-    const watched = this.overviewOnly || prep ? null : this.#spectated();
+    const presses = this.input.takeSpectate();
+    const watched = this.overviewOnly || prep ? null : this.#spectated(presses);
+    const eyes = watched !== null && this.#spectateView === 'eyes';
     if (watched) {
-      // Out of the fight: the camera rides behind the watched player, pulled in short of any wall, and eases after them.
+      // Out of the fight: the camera rides behind the watched player, pulled in short of any wall, and eases after them;
+      // or it looks through their eyes, with their weapon in hand and their crosshair (ticket 32).
       const head: Vec3 = [watched.position[0], watched.position[1] + watched.eyeHeight + 0.35, watched.position[2]];
-      const back = viewDirection(watched.yaw, 0);
-      const want: Vec3 = [head[0] - back[0] * 2.6, head[1] + 0.4, head[2] - back[2] * 2.6];
-      const hit = raycastWorld(this.#world, head, want);
-      const t = hit ? Math.max(0, hit.t - 0.1) : 1;
-      const target: Vec3 = [head[0] + (want[0] - head[0]) * t, head[1] + (want[1] - head[1]) * t, head[2] + (want[2] - head[2]) * t];
-      const targetPitch = Math.max(-0.5, Math.min(0.4, watched.pitch)) - 0.12;
-      // A new player to watch cuts to them; the same one is followed smoothly.
-      const same = this.#follow?.id === watched.id ? this.#follow : null;
-      const k = same ? 1 - Math.exp(-dt * 12) : 1;
-      const from = same ?? { eye: target, yaw: watched.yaw, pitch: targetPitch };
-      eye = [from.eye[0] + (target[0] - from.eye[0]) * k, from.eye[1] + (target[1] - from.eye[1]) * k, from.eye[2] + (target[2] - from.eye[2]) * k];
+      let target: Vec3;
+      let targetPitch: number;
+      if (eyes) {
+        target = [watched.position[0], watched.position[1] + watched.eyeHeight, watched.position[2]];
+        targetPitch = watched.pitch;
+      } else {
+        const back = viewDirection(watched.yaw, 0);
+        const want: Vec3 = [head[0] - back[0] * 2.6, head[1] + 0.4, head[2] - back[2] * 2.6];
+        const hit = raycastWorld(this.#world, head, want);
+        const t = hit ? Math.max(0, hit.t - 0.1) : 1;
+        target = [head[0] + (want[0] - head[0]) * t, head[1] + (want[1] - head[1]) * t, head[2] + (want[2] - head[2]) * t];
+        targetPitch = Math.max(-0.5, Math.min(0.4, watched.pitch)) - 0.12;
+      }
+      // The same player is followed smoothly; a switch glides to someone near and cuts to someone far; their eyes are exact.
+      const was = this.#follow;
+      const same = was?.id === watched.id && was.eyes === eyes ? was : null;
+      const glide = !same && was && !eyes && Math.hypot(target[0] - was.eye[0], target[1] - was.eye[1], target[2] - was.eye[2]) < SPECTATE_GLIDE ? was : null;
+      const from = same ?? glide ?? { eye: target, yaw: watched.yaw, pitch: targetPitch };
+      const k = same || glide ? 1 - Math.exp(-dt * (eyes ? 30 : glide ? 6 : 12)) : 1;
+      eye = eyes ? target : [from.eye[0] + (target[0] - from.eye[0]) * k, from.eye[1] + (target[1] - from.eye[1]) * k, from.eye[2] + (target[2] - from.eye[2]) * k];
       const yaw = from.yaw + angleDelta(from.yaw, watched.yaw) * k;
       const pitch = from.pitch + (targetPitch - from.pitch) * k;
-      this.#follow = { eye, yaw, pitch, id: watched.id };
+      this.#follow = { eye, yaw, pitch, id: watched.id, eyes };
       const cam = this.#camera.camera;
       cam.position.set(eye[0], eye[1], eye[2]);
       cam.rotation.set(pitch, yaw, 0);
       forward = viewDirection(yaw, pitch);
-      this.#viewmodel.root.visible = false;
+      if (eyes) this.#theirWeapon(watched, eye, yaw, pitch, alpha, dt);
+      else {
+        this.#viewmodel.root.visible = false;
+        this.#eyesLook = null;
+      }
       this.#worldView.follow(watched.position);
-    } else this.#follow = null;
+    } else if (this.#follow && this.#spectator.watching !== null && !this.overviewOnly && !prep) {
+      // Stepped to someone too far to have been sent: hold the shot until the server, told whom you watch, sends them.
+      const f = this.#follow;
+      const cam = this.#camera.camera;
+      cam.position.set(f.eye[0], f.eye[1], f.eye[2]);
+      cam.rotation.set(f.pitch, f.yaw, 0);
+      eye = f.eye;
+      forward = viewDirection(f.yaw, f.pitch);
+      this.#viewmodel.root.visible = false;
+    } else {
+      this.#follow = null;
+      this.#eyesLook = null;
+    }
     const shot = this.#endingShot;
     const ending = shot ? this.#sinceMatchEnd(driver) : null;
     this.#inShot = ending !== null;
@@ -651,7 +697,8 @@ export class Game {
       this.#others = driver.others(alpha);
       const teams = driver.match ? teamMode(driver.match.mode) : false;
       // Your own soldier stands with your Squad while the Preparation's camera is on them.
-      const shown = prep && prep.stage !== 'dive' && this.#cur ? [...this.#others, this.#cur] : this.#others;
+      // Through someone's eyes, their own body would fill the view.
+      const shown = prep && prep.stage !== 'dive' && this.#cur ? [...this.#others, this.#cur] : eyes ? this.#others.filter((p) => p.id !== watched.id) : this.#others;
       this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null });
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
@@ -745,6 +792,8 @@ export class Game {
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
       allies: this.#allyTags(eye),
+      spectator: this.#spectatorPanel(),
+      spectatorAim: this.#follow?.eyes && !this.#inShot ? (this.#playerById(this.#follow.id) ?? null) : null,
       pixelsPerDegree,
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,
@@ -858,13 +907,103 @@ export class Game {
     return best;
   }
 
-  /** Who a player out of the fight watches (see Spectator), or null. Charge's dead wait for the next round; Battle Royale's are out for the match. */
-  #spectated(): PlayerOutput | null {
-    const match = this.#driver?.match;
+  /**
+   * Who a player out of the fight watches (see Spectator), or null. Charge's dead wait for the next round; Battle Royale's are out for the match.
+   * Fire and Aim step to the next and previous player, Jump changes the view; when the one watched is put out, it moves on and says who did it.
+   */
+  #spectated(presses: readonly SpectateInput[]): PlayerOutput | null {
+    const driver = this.#driver;
+    const match = driver?.match;
     const mode = match?.mode ?? null;
     const playing = match?.phase === 'playing' && (mode !== 'charge' || this.#charge !== null);
-    const id = this.#spectator.update({ mode, playing, self: this.#cur, players: this.#others, killer: this.#killer });
+    const view = this.#spectateChoice(mode, playing);
+    let id = this.#spectator.update(view);
+    const lost = this.#spectator.lost;
+    if (lost !== null && driver) this.#spectateNotice = { text: spectatorNotice(driver.nameOf(lost), this.#outBy.get(lost) ?? null), until: performance.now() + SPECTATE_NOTICE_MS };
+    if (id !== null)
+      for (const press of presses) {
+        if (press === 'view') this.#spectateView = this.#spectateView === 'follow' ? 'eyes' : 'follow';
+        else id = this.#spectator.step(view, press === 'next' ? 1 : -1);
+      }
+    driver?.watch(id);
     return id === null ? null : (this.#others.find((p) => p.id === id) ?? null);
+  }
+
+  /** What the spectator chooses from: the seats in view and, in Battle Royale, the rest of the match from the scoreboard. */
+  #spectateChoice(mode: ModeId | null, playing: boolean): SpectateView {
+    const driver = this.#driver;
+    return { mode, playing, self: this.#cur, players: withRoster(mode, this.#others, driver?.scores ?? [], driver?.selfId ?? null), killer: this.#killer };
+  }
+
+  /** Watching through someone's eyes: their weapon in your hands as it moves in theirs, lit where they stand. */
+  #theirWeapon(p: PlayerOutput, eye: Vec3, yaw: number, pitch: number, alpha: number, dt: number): void {
+    const last = this.#eyesLook?.id === p.id ? this.#eyesLook : null;
+    const lookDelta = last ? { yaw: angleDelta(last.yaw, yaw), pitch: pitch - last.pitch } : { yaw: 0, pitch: 0 };
+    this.#eyesLook = { id: p.id, yaw, pitch };
+    this.#viewmodel.root.visible = true;
+    this.#viewmodel.update(
+      {
+        weapon: p.weapon.id,
+        grenade: p.grenade,
+        action: p.weapon.action,
+        actionTime: p.weapon.actionTime + alpha * TICK_SECONDS,
+        reload: p.weapon.reload,
+        ammo: p.weapon.ammo,
+        ads: p.weapon.ads,
+        movement: p.movement,
+        stance: p.stance,
+        speed: Math.hypot(p.velocity[0], p.velocity[2]),
+        grounded: p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'ladder',
+        lookDelta,
+        alive: p.alive && !p.downed && p.reviving === null,
+      },
+      dt,
+      verticalFov(this.#settings.fov),
+    );
+    this.#lightViewmodel(eye, dt);
+  }
+
+  /** The spectator's panel: who you watch, their health, weapon and side, and the keys (ticket 32). */
+  #spectatorPanel(): SpectatorPanelState | null {
+    const driver = this.#driver;
+    const id = this.#spectator.watching;
+    const watched = id === null || this.#inShot ? null : this.#playerById(id);
+    if (!driver || id === null || this.#inShot || this.#cur?.alive || !this.#follow) return (this.#lastPanel = null);
+    if (!watched) {
+      // Stepped to someone not sent yet: the panel names them while the shot holds.
+      const held = this.#lastPanel;
+      if (!held) return null;
+      const order = this.#spectator.order(this.#spectateChoice(driver.match?.mode ?? null, true));
+      return { ...held, name: driver.nameOf(id), bot: driver.scores.some((s) => s.id === id && s.bot), index: order.findIndex((p) => p.id === id) + 1, of: order.length };
+    }
+    const mode = driver.match?.mode ?? null;
+    const scores = driver.scores;
+    const side = scores.filter((s) => s.team === watched.team && s.id !== watched.id);
+    const solo = mode === 'battle-royale' ? side.length === 0 : !teamMode(mode ?? 'ffa');
+    const mates = solo
+      ? []
+      : side.map((s) => {
+          const p = s.id === driver.selfId ? this.#cur : this.#others.find((o) => o.id === s.id);
+          return { name: s.id === driver.selfId ? 'You' : driver.nameOf(s.id), state: !p?.alive ? ('out' as const) : p.downed ? ('downed' as const) : ('up' as const) };
+        });
+    const order = this.#spectator.order(this.#spectateChoice(mode, true));
+    const pad = this.input.padMode;
+    const b = this.#settings.bindings;
+    const notice = this.#spectateNotice && performance.now() < this.#spectateNotice.until ? this.#spectateNotice.text : null;
+    return (this.#lastPanel = {
+      name: driver.nameOf(watched.id),
+      bot: scores.some((s) => s.id === watched.id && s.bot),
+      health: watched.health,
+      downed: watched.downed !== null,
+      weapon: STATS.weapons[watched.weapon.id].traits.name,
+      group: solo ? null : mode === 'battle-royale' ? 'Squad' : 'Team',
+      mates,
+      index: order.findIndex((p) => p.id === watched.id) + 1,
+      of: order.length,
+      view: this.#spectateView,
+      notice,
+      keys: pad ? { prev: 'LT', next: 'RT', view: 'A' } : { prev: shortKey(b.ads), next: shortKey(b.fire), view: shortKey(b.jump) },
+    });
   }
 
   /** A Battle Royale's Preparation, where it is now, while it runs (online, in the match's opening). */
@@ -1181,7 +1320,13 @@ export class Game {
     switch (e.type) {
       case 'shot': {
         const own = e.shooter === selfId;
-        if (own) {
+        if (!own && this.#follow?.eyes && this.#follow.id === e.shooter) {
+          // Through their eyes, their shot is fired from your hands.
+          this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
+          this.#viewmodel.fire();
+          this.#effects.flash(this.#viewFlash);
+          this.#effects.shot(this.#viewToWorld(this.#viewmodel.muzzle), e.direction);
+        } else if (own) {
           this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
           this.#effects.flash(this.#viewFlash);
@@ -1270,6 +1415,7 @@ export class Game {
         break;
       case 'killFeed':
         if (e.victim === selfId && !e.down) this.#killer = e.killer === selfId ? null : e.killer;
+        if (!e.down) this.#outBy.set(e.victim, e.killer === null || e.killer === e.victim ? null : e.killer === selfId ? 'You' : e.killerName);
         if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot, e.down);
         this.hud.killFeed(
           e.killer === null || e.killer === e.victim ? null : e.killerName,
@@ -1363,6 +1509,8 @@ export class Game {
         break;
       case 'matchStart':
         this.#killer = null;
+        this.#outBy.clear();
+        this.#spectateNotice = null;
         this.hud.toast('New match.', 3);
         this.#worldView.restoreProps();
         break;

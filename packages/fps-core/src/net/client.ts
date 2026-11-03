@@ -84,6 +84,9 @@ const DELAY_FALL = 0.01;
 export class GameClient {
   readonly #options: GameClientOptions;
   #loadout: Loadout | null = null;
+  /** The seat watched out of the fight, and what the server was last told of it on this connection. */
+  #watch: string | null = null;
+  #watchSent: string | null = null;
   #connection: Connection;
   /** Which connection is current: a replaced one's late messages and close are ignored. */
   #generation = 0;
@@ -321,6 +324,17 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'loaded' }));
   }
 
+  /**
+   * Out of the fight: the seat this player watches, or null. Sent when it changes,
+   * and again after a reconnect, so the server sends that seat's surroundings.
+   */
+  watch(id: string | null): void {
+    this.#watch = id;
+    if (this.#status !== 'joined' || this.#watchSent === id) return;
+    this.#watchSent = id;
+    this.#connection.send(encode({ t: 'watch', id }));
+  }
+
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */
   vote(mode: ModeId): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'vote', mode }));
@@ -421,6 +435,9 @@ export class GameClient {
       if (message.t === 'welcome') {
         if (this.#rejoining) this.#rejoined(message.id);
         this.#status = 'joined';
+        // A new connection: the server knows nothing of who this page watches.
+        this.#watchSent = null;
+        if (this.#watch !== null) this.watch(this.#watch);
         this.#attempting = false;
         this.#id = message.id;
         this.#token = message.token;

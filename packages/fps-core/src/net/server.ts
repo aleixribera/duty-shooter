@@ -271,6 +271,8 @@ interface Client {
   script: boolean;
   /** What the player carries from their next spawn; null for the default. */
   loadout: Loadout | null;
+  /** The seat it watches while out of the fight (ticket 32): its view is measured from there. */
+  watch: PlayerId | null;
 }
 
 /** A seat held for a player who dropped, until they come back or the grace period runs out. */
@@ -675,7 +677,7 @@ export class GameServer {
   }
 
   #accept(connection: Connection): void {
-    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), spare: Infinity, spareTicks: 0, sticky: {}, sentTick: this.#last.tick, seats: new Map(), pace: 1, behind: 0, floor: Infinity, floorBefore: Infinity, floorSince: this.#last.tick, clear: 0, patience: PATIENCE, spedUp: -Infinity, ping: 0, allowance: this.#rate * RATE_BURST, refilled: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null };
+    const client: Client = { connection, id: null, name: '', ack: 0, queue: new Map(), spare: Infinity, spareTicks: 0, sticky: {}, sentTick: this.#last.tick, seats: new Map(), pace: 1, behind: 0, floor: Infinity, floorBefore: Infinity, floorSince: this.#last.tick, clear: 0, patience: PATIENCE, spedUp: -Infinity, ping: 0, allowance: this.#rate * RATE_BURST, refilled: this.simulation.time, heard: this.simulation.time, token: '', script: false, loadout: null, watch: null };
     this.#clients.add(client);
     connection.onMessage((data) => this.#receive(client, data));
     connection.onClose((reason) => this.#drop(client, reason !== LEFT));
@@ -726,6 +728,10 @@ export class GameServer {
     if (message.t === 'join') {
       // The welcome was lost: say it again.
       this.#welcome(client);
+      return;
+    }
+    if (message.t === 'watch') {
+      client.watch = message.id as PlayerId | null;
       return;
     }
     if (message.t === 'ready' || message.t === 'loaded') {
@@ -1563,7 +1569,7 @@ export class GameServer {
     for (const client of due) {
       const reliable = client.connection.reliable === true;
       const self = this.simulation.playerStateView(client.id as PlayerId);
-      const viewer = this.#net.relevance ? this.#seatIndex.get(client.id as PlayerId) : undefined;
+      const viewer = this.#net.relevance ? this.#viewerOf(client) : undefined;
       const view = this.#viewOf(client, viewer, tick);
       const frame = joinSnapshot({
         tick,
@@ -1584,6 +1590,21 @@ export class GameServer {
       client.connection.send(frame);
       this.#facts.bytes += frame.length;
     }
+  }
+
+  /**
+   * Where a client's view is measured from: its own seat while it is in the fight;
+   * out of it, the seat it watches (a teammate in a team mode, anyone in a Battle
+   * Royale or free-for-all), so a spectator is sent what is around the one it
+   * watches, not around where it fell. Undefined (everything) with neither.
+   */
+  #viewerOf(client: Client): PlayerOutput | undefined {
+    const own = this.#seatIndex.get(client.id as PlayerId);
+    if (own?.alive || client.watch === null || client.watch === client.id) return own;
+    const watched = this.#seatIndex.get(client.watch);
+    if (!watched?.alive) return own;
+    if (own && teamMode(this.#mode.id) && watched.team !== own.team) return own;
+    return watched;
   }
 
   /** This match's network profile. */

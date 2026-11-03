@@ -153,7 +153,10 @@ The purple-blue (`--ds-hazard`) that means the Ring and only the Ring: its crack
 Zero Island drawn from above, opened and closed with the map key (M, the pad's Share): the Ring, the next circle, named places, a lettered 100 m grid, your Squad and you. It doesn't pause anything.
 
 **Spectating**:
-Watching another player's view from behind them once you're out: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Esc opens the menu, where you can leave.
+Watching another player once you're out, or from a late arrival: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Fire and Aim step to the next and previous (RT and LT on a pad), through your Squad first and then the rest of the match; Jump (A) changes between following behind them and **their view**, through their eyes with their weapon and crosshair. When the one watched is put out it moves on by itself and says who did it. Bots are watched like anyone. The server sends what is around the one watched, not where you fell. Esc opens the menu, where you can leave.
+
+**Spectator panel**:
+The bottom-left corner while Spectating, where your health was: who you watch (a Bot tag for a bot), where they are in the order, their health, weapon and Squad, the keys, and for a few seconds who put out the last one watched.
 
 **Bottom bars**:
 Health in the HUD's bottom-left corner and ammo in its bottom-right, each kept to its own half of a phone's screen. They show only while you're in play (alive or Downed), and nothing is drawn over them: a marker for something off-screen sits just above.

@@ -1,5 +1,6 @@
 import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
+import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 import { placement } from '../ui/royale';
@@ -197,6 +198,10 @@ export interface HudState {
   readonly self: PlayerOutput | null;
   /** A tag over each ally (ticket 52): teammates, or your Squad in a Battle Royale. */
   readonly allies?: readonly AllyTag[];
+  /** Out of the fight: the spectator's panel (ticket 32), or null. */
+  readonly spectator?: SpectatorPanelState | null;
+  /** Watching through someone's eyes: whose aim the crosshair shows. */
+  readonly spectatorAim?: PlayerOutput | null;
   /** Pixels per degree at the screen centre, for sizing the crosshair to the spread. */
   readonly pixelsPerDegree: number;
   readonly fps: number;
@@ -387,6 +392,7 @@ export class Hud {
   #toastTime = 0;
   readonly #royale: RoyaleHud;
   readonly #allies: AllyTagsView;
+  readonly #spectator: SpectatorPanel;
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
   readonly #html = new WeakMap<HTMLElement, string>();
@@ -399,7 +405,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS + ALLY_TAGS_CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -413,6 +419,7 @@ export class Hud {
     this.#scope = el('div', 'ds-scope', this.root, '<i class="h"></i><i class="v"></i><i class="h thick"></i><i class="h thick r"></i><i class="v thick"></i>');
     this.#vignette = el('div', 'ds-vignette', this.root);
     this.#allies = new AllyTagsView(this.root);
+    this.#spectator = new SpectatorPanel(this.root);
     this.#cross = el('div', 'ds-cross', this.root, '<i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><b></b>');
     this.#arms = [...this.#cross.querySelectorAll('i')] as HTMLElement[];
     this.#hit = el('div', 'ds-hit', this.root, '<i></i><i></i><i></i><i></i>');
@@ -601,13 +608,16 @@ export class Hud {
   update(state: HudState): void {
     const self = state.self;
     const dt = state.dt;
-    // Crosshair: spread-sized, hidden on ADS and while sprinting, as in MW2019.
+    // Crosshair: spread-sized, hidden on ADS and while sprinting, as in MW2019; a spectator through someone's eyes sees theirs.
+    const aimer = self?.alive ? self : (state.spectatorAim ?? self);
     const w = self?.weapon;
-    const sprinting = self?.movement === 'sprint' || self?.movement === 'tacticalSprint';
-    const hide = !self || !self.alive || self.downed !== null || self.reviving !== null || (w?.ads ?? 0) > 0.35 || sprinting || w?.action === 'inspect';
+    const aw = aimer?.weapon;
+    const sprinting = aimer?.movement === 'sprint' || aimer?.movement === 'tacticalSprint';
+    const hide = !aimer || !aimer.alive || aimer.downed !== null || aimer.reviving !== null || (aw?.ads ?? 0) > 0.35 || sprinting || aw?.action === 'inspect';
     this.#style(this.#cross, 'opacity', hide ? '0' : '1');
     this.#allies.update(state.allies ?? []);
-    const gap = Math.round(Math.max(4, (w?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
+    this.#spectator.update(state.spectator ?? null);
+    const gap = Math.round(Math.max(4, (aw?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
     const [left, right, up, down] = this.#arms;
     if (left && right && up && down) {
       this.#style(left, 'left', `${-gap - 9}px`);
@@ -667,7 +677,8 @@ export class Hud {
     const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';
     // In Charge the dead wait for the next round, watching a teammate.
     const charge = state.charge ?? null;
-    const waiting = charge ? `\nBack next round${charge.spectating ? `\nWatching ${charge.spectating}` : ''}` : respawn;
+    // Who they watch is on the spectator's panel.
+    const waiting = charge ? '\nBack next round' : respawn;
     const banner = charge && (charge.state.phase === 'over' || charge.state.phase === 'freeze');
     // Out of a Battle Royale (or at its end), the placement and the spectator's bar say it instead.
     const royale = state.royale ?? null;

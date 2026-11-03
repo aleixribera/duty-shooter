@@ -2,6 +2,9 @@ import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type UserCmd } from
 import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 
+/** What a spectator's presses ask for: the next or previous player, or the other view. */
+export type SpectateInput = 'next' | 'prev' | 'view';
+
 /** Mouse-wheel steps closer together than this (ms) count as one switch. */
 const WHEEL_MS = 180;
 
@@ -58,6 +61,8 @@ export class InputController {
   #adsToggled = false;
   /** The island map is open (its key toggles it). */
   #mapOpen = false;
+  /** Presses a spectator acts on since the game last took them (ticket 32): Fire steps on, Aim back, Jump changes the view. */
+  #spectate: SpectateInput[] = [];
   #aiming = false;
   /** The sight magnification while aiming, for the ADS sensitivity scale. */
   #zoom: number | undefined = undefined;
@@ -246,6 +251,9 @@ export class InputController {
     this.#held.add(code);
     this.#tapped.add(code);
     const now = performance.now();
+    if (this.#is('fire', code)) this.#spectate.push('next');
+    if (this.#is('ads', code)) this.#spectate.push('prev');
+    if (this.#is('jump', code)) this.#spectate.push('view');
     if (this.#is('fire', code)) {
       this.#firePresses.push(now);
       this.#padSprint = false;
@@ -454,6 +462,13 @@ export class InputController {
       pitch: this.#pitch,
       firePresses: active ? presses : [],
     });
+  }
+
+  /** The spectator's presses since the last call, oldest first; taken every frame, so none wait for a later spectating. */
+  takeSpectate(): SpectateInput[] {
+    const taken = this.#spectate;
+    this.#spectate = [];
+    return taken;
   }
 
   /** Whether the island map is open: its key opens and closes it, and it closes with the game's input (pausing). */
