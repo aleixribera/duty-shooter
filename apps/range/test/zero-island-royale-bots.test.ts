@@ -136,8 +136,10 @@ describe.each([1, 2, 3] as const)('whole matches in Squads of %i', (size) => {
     expect(run.result).toMatchObject({ draw: false, reason: 'lastSquad' });
     // One seed's length swings by a minute with any change in how routes tie-break. In Trios
     // about one seed in fifteen ends in Stage 4 near 400 s, its last two Squads meeting early:
-    // seed 104 before ticket 75's nav, seed 101 after it (ticket 75's Comments).
-    expect(run.length).toBeGreaterThan(380);
+    // seed 104 before ticket 75's nav, seed 101 after it (ticket 75's Comments). Crates and
+    // Beacons standing solid (ticket 66) moved seed 101 to 362 s; over Trios seeds 1-8, 101 and
+    // 104 the mean went 449 s to 467 s and the shortest 371 s (seed 104) to 362 s.
+    expect(run.length).toBeGreaterThan(350);
     expect(run.stage).toBeGreaterThanOrEqual(4);
     expect(run.deaths.filter((d) => d.cause === 'ring').length).toBeLessThanOrEqual(10);
     expect(open / (open + cover)).toBeLessThan(0.1);

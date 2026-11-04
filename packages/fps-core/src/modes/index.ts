@@ -28,6 +28,7 @@ export { LOBBY_MODES, MODE_IDS, inSite, inZone, siteCentre, teamMode } from './g
 export { PlayGround, playGround } from './ground';
 export { DROP_WEAPON, dropSniper, planDrops, royaleLoadout, SupplyDrops } from './supply-drops';
 export { planBeacons, Reboot } from './reboot';
+export { clearOf, propsKey, royaleProps, standProps } from './royale-props';
 export { planRing, ringAt, ringDamage, stageAt } from './ring';
 export type { Circle, RingStage } from './ring';
 export type {

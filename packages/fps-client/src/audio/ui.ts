@@ -42,6 +42,21 @@ export const headshotMarkerVoice = (): Voice & VoiceExtras =>
     modes(d, sr, 0.002, [b, b * 1.006, b * 2.76, b * 5.4, b * 8.93], [1, 0.6, 0.4, 0.25, 0.1], [0.22, 0.18, 0.12, 0.06, 0.03], 0.55);
   });
 
+/** A ping: two soft rising notes, a fifth apart, like a radio's call tone. */
+export const pingVoice = (): Voice & VoiceExtras =>
+  marker('ping', 0.4, 0.3, (d, sr) => {
+    modes(d, sr, 0, [1320, 2640], [1, 0.25], [0.07, 0.03], 0.8, 0.002);
+    modes(d, sr, 0.09, [1980, 3960], [1, 0.2], [0.12, 0.04], 0.8, 0.002);
+  });
+
+/** An enemy pinged: the same call, quicker and a step down, then once more: urgent without being an alarm. */
+export const pingEnemyVoice = (): Voice & VoiceExtras =>
+  marker('pingEnemy', 0.35, 0.34, (d, sr) => {
+    modes(d, sr, 0, [1760, 3520], [1, 0.3], [0.05, 0.02], 0.8, 0.001);
+    modes(d, sr, 0.07, [1320, 2640], [1, 0.3], [0.05, 0.02], 0.8, 0.001);
+    modes(d, sr, 0.14, [1760, 3520], [1, 0.3], [0.08, 0.03], 0.8, 0.001);
+  });
+
 export const damageTakenVoice = (): Voice & VoiceExtras =>
   marker('damageTaken', 0.35, 0.5, (d, sr, rng) => {
     noiseBurst(d, sr, rng, { at: 0, attack: 0.002, tau: 0.04, gain: 1, mode: 'lowpass', freq: 200, steep: true });

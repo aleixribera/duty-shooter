@@ -19,9 +19,10 @@ export type Action =
   | 'grenade'
   | 'use'
   | 'scoreboard'
-  | 'map';
+  | 'map'
+  | 'ping';
 
-export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard', 'map'];
+export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard', 'map', 'ping'];
 
 export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   forward: 'Move forward',
@@ -41,6 +42,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   use: 'Use (hold: plant / defuse / Revive)',
   scoreboard: 'Scoreboard',
   map: 'Island map (Battle Royale)',
+  ping: 'Ping (hold: ping wheel)',
 };
 
 export interface Settings {
@@ -96,6 +98,7 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
   use: 'KeyF',
   scoreboard: 'Tab',
   map: 'KeyM',
+  ping: 'Mouse1',
 };
 
 export const DEFAULT_SETTINGS: Settings = {

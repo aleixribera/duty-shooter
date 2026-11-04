@@ -296,6 +296,11 @@ export class GameClient {
   }
 
   /** Predicts on another map from now on: the one a new match is played on. */
+  /** The world prediction runs in: the map's, with the props (crates, Beacons) the match stands in it. */
+  get world(): World {
+    return this.#local.world;
+  }
+
   setWorld(world: World): void {
     this.#local.setWorld(world);
   }

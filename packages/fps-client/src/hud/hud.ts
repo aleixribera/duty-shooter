@@ -5,6 +5,8 @@ import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboa
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 import { placement } from '../ui/royale';
 import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
+import { PingMarks, type PingScreenMark } from './ping-marks';
+import type { PingKind } from '@duty-shooter/fps-core';
 
 const CSS = `
 .ds-hud { position: fixed; inset: 0; pointer-events: none; font: 400 14px/1.2 var(--ds-font); color: var(--ds-text); text-shadow: 0 1px 2px rgb(0 0 0 / 0.7); user-select: none; z-index: 5; }
@@ -232,6 +234,10 @@ export interface HudState {
   readonly charge?: ChargeHud | null;
   /** The Battle Royale in play, or null. */
   readonly royale?: RoyaleHudState | null;
+  /** Something you are holding use for that takes a while (opening a Supply Drop, a Reboot), and how far along it is. */
+  readonly action?: { readonly label: string; readonly share: number } | null;
+  /** The pings standing, where they show on the screen, and the ping wheel while it is open (ticket 66). */
+  readonly pingMarks?: { readonly marks: readonly PingScreenMark[]; readonly wheel: { readonly pick: PingKind | null } | null };
   readonly dt: number;
 }
 
@@ -394,6 +400,7 @@ export class Hud {
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
   readonly #royale: RoyaleHud;
+  readonly #pings: PingMarks;
   readonly #allies: AllyTagsView;
   readonly #spectator: SpectatorPanel;
   #traceShots: { yaw: number; pitch: number }[] = [];
@@ -471,6 +478,7 @@ export class Hud {
     });
     this.#toast = el('div', 'ds-toast', this.root);
     this.#royale = new RoyaleHud(this.root, null);
+    this.#pings = new PingMarks(this.root);
   }
 
   /** The island the Battle Royale map draws (Zero Island), painted ahead of the map's first opening. */
@@ -700,8 +708,11 @@ export class Hud {
     this.#updateMatch(state);
     this.#updateZones(state);
     this.#updateCharge(state);
-    this.#updateRevive(self);
+    this.#updateRevive(self, state.action ?? null);
     this.#royale.update(royale);
+    // The island map open, nothing else speaks over it.
+    this.#style(this.#toast, 'visibility', royale?.mapOpen ? 'hidden' : 'visible');
+    this.#pings.update(royale?.mapOpen ? [] : (state.pingMarks?.marks ?? []), state.pingMarks?.wheel ?? null);
     this.root.classList.toggle('royale', royale !== null);
     this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
@@ -768,16 +779,17 @@ export class Hud {
   }
 
   /** Under the crosshair: Downed, the Bleed-out running out and any Revive coming; Reviving, how far along it is. */
-  #updateRevive(self: PlayerOutput | null): void {
+  #updateRevive(self: PlayerOutput | null, action: { readonly label: string; readonly share: number } | null): void {
     const downed = self?.alive ? self.downed : null;
     const reviving = self?.alive ? self.reviving : null;
-    this.#style(this.#revive, 'display', downed || (reviving !== null && reviving !== undefined) ? '' : 'none');
+    this.#style(this.#revive, 'display', downed || (reviving !== null && reviving !== undefined) || action ? '' : 'none');
     const bar = (share: number, cls = '') => `<div class="bar"><i class="${cls}" style="width:${Math.round(share * 100)}%"></i></div>`;
     if (downed) {
       const left = bar(downed.bleedOut / STATS.royale.bleedOut.value, 'bleed');
       const shield = protectedFor(downed) > 0 ? '<div class="shield">Protected</div>' : '';
       this.#set(this.#revive, `${shield}<div>Bleed-out ${Math.ceil(downed.bleedOut)}</div>${left}${downed.revive > 0 ? `<div>Being Revived</div>${bar(downed.revive)}` : ''}`);
     } else if (reviving !== null && reviving !== undefined) this.#set(this.#revive, `<div>Reviving</div>${bar(reviving)}`);
+    else if (action) this.#set(this.#revive, `<div>${escape(action.label)}</div>${bar(Math.max(0, Math.min(1, action.share)))}`);
   }
 
   /**

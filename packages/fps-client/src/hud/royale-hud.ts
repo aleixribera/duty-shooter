@@ -1,4 +1,4 @@
-import type { TerrainData } from '@duty-shooter/fps-core';
+import type { PingKind, TerrainData } from '@duty-shooter/fps-core';
 import { mapPoint, paintIsland, terrainBounds, type MapBounds } from '../ui/island-map';
 import { ordinal } from '../ui/model';
 import { bearing, compassOffset, compassTicks, type RingCircle, type RingStatus } from '../ui/royale';
@@ -24,7 +24,7 @@ const CSS = `
 .ds-compass i.pt { height: 11px; width: 2px; background: var(--ds-text); }
 .ds-compass em { position: absolute; top: 12px; transform: translateX(-50%); font-style: normal; font-size: 11px; letter-spacing: 0.06em; color: var(--ds-text-2); }
 .ds-compass em.pt { font-size: 14px; font-weight: 700; color: var(--ds-text); top: 13px; }
-.ds-compass .hd { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 11px; font-weight: 700; padding: 0 4px; background: var(--ds-ink); color: var(--ds-text); }
+.ds-compass .hd { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 11px; font-weight: 700; padding: 0 4px; background: var(--ds-ink); color: var(--ds-text); z-index: 1; }
 .ds-compass .caret { position: absolute; left: 50%; top: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--ds-text); transform: translateX(-50%); }
 .ds-compass .mk { position: absolute; bottom: 6px; transform: translateX(-50%); font-size: 12px; line-height: 1; }
 .ds-compass .mk.safe { color: var(--ds-hazard); font-size: 14px; }
@@ -37,6 +37,9 @@ const CSS = `
 .ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-signal); transform: rotate(45deg); background: var(--ds-ink); }
 .ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-signal); }
 .ds-watch .card { font-size: 13px; letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
+.ds-compass .mk.ping { color: var(--ds-signal); font-size: 12px; white-space: nowrap; }
+.ds-compass .mk.ping.enemy { color: var(--ds-alert); }
+.ds-compass .mk.ping small { margin-left: 3px; font-size: 10px; font-weight: 700; color: var(--ds-text); }
 .ds-compass .mk.drop small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-ringline { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-ringline .stage { color: var(--ds-text-2); }
@@ -122,6 +125,8 @@ export interface RoyaleHudState {
   readonly reboot?: readonly RebootMark[];
   /** You carry a Card: the compass shows the nearest ready Beacon. */
   readonly carrying?: boolean;
+  /** The Squad's pings standing (ticket 66). */
+  readonly pings?: readonly { readonly kind: PingKind; readonly x: number; readonly z: number }[];
   /** Out: what has become of your Reboot Card, or null without one. */
   readonly card?: string | null;
   /** Your Squad's place once it's out, with how many Squads started. */
@@ -311,6 +316,12 @@ export class RoyaleHud {
         const m = Math.round(Math.hypot(r.x - here[0], r.z - here[1]));
         html += `<span class="mk reboot${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">${r.kind === 'card' ? '▬' : '◇'}<small>${m} m</small></span>`;
       }
+      // The Squad's pings: a triangle for an enemy, a dot for a place, each with its distance.
+      for (const p of s.pings ?? []) {
+        const o = compassOffset(s.heading, bearing(here, [p.x, p.z]), COMPASS_SPAN);
+        const m = Math.round(Math.hypot(p.x - here[0], p.z - here[1]));
+        html += `<span class="mk ping${p.kind === 'enemy' ? ' enemy' : ''}${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">${p.kind === 'enemy' ? '▼' : '●'}<small>${m} m</small></span>`;
+      }
       for (const m of s.mates) {
         const o = compassOffset(s.heading, bearing(here, [m.x, m.z]), COMPASS_SPAN);
         if (!o.pinned) html += `<span class="mk mate" style="left:${pct(o.x)}">${m.downed ? '✚' : '▲'}</span>`;
@@ -487,6 +498,22 @@ export class RoyaleHud {
       ctx.globalAlpha = 1;
       ctx.fillStyle = tok.text;
       ctx.fillText(label.toUpperCase(), x, y + h + 16 * k);
+    }
+    // The Squad's pings: a red triangle for an enemy, a ringed dot for a place.
+    for (const p of s.pings ?? []) {
+      const [x, y] = at(p.x, p.z);
+      ctx.lineWidth = 2 * k;
+      ctx.strokeStyle = tok.ink;
+      ctx.fillStyle = p.kind === 'enemy' ? tok.alert : tok.signal;
+      ctx.beginPath();
+      if (p.kind === 'enemy') {
+        ctx.moveTo(x - 6 * k, y - 5 * k);
+        ctx.lineTo(x + 6 * k, y - 5 * k);
+        ctx.lineTo(x, y + 6 * k);
+        ctx.closePath();
+      } else ctx.arc(x, y, 5 * k, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fill();
     }
     // Squadmates, then you (or who you watch): an arrow along the view.
     for (const m of s.mates) {

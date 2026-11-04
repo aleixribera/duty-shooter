@@ -163,6 +163,20 @@ export interface World {
   readonly terrain: Terrain | null;
   /** What hides a body without stopping a bullet, for a map that has it. */
   readonly concealment: Concealment | null;
+  /** Solids that come and go in a match (a landed Supply Drop, a Beacon): they follow the map's own in `solids` while they stand. */
+  readonly props: WorldProps;
+}
+
+/** How many props a world holds at once: a Battle Royale's Beacons and its crates, with room to spare. */
+export const PROP_SLOTS = 40;
+
+/** The props a world holds now. */
+export interface WorldProps {
+  /** How many of `solids` are the map's own: the props follow them. */
+  readonly fixed: number;
+  /** The props as they stand now (at most PROP_SLOTS), replacing the last. */
+  set(solids: readonly Solid[]): void;
+  readonly current: readonly Solid[];
 }
 
 /**
@@ -192,14 +206,33 @@ const CELL_SIZE = 4;
 
 export function createWorld(solids: readonly Solid[], options: WorldOptions = {}): World {
   const list = [...solids];
+  const fixed = list.length;
   const indexed = options.spatialIndex ?? true;
   const members = (keep: (s: Solid) => boolean) => list.flatMap((s, i) => (keep(s) ? [i] : []));
+  const movement = new SolidIndex(list, members((s) => s.blocks !== 'bullets'), indexed ? CELL_SIZE : null, fixed + PROP_SLOTS);
+  const bullets = new SolidIndex(list, members((s) => s.blocks !== 'players'), indexed ? CELL_SIZE : null, fixed + PROP_SLOTS);
+  let current: readonly Solid[] = [];
+  const props: WorldProps = {
+    fixed,
+    get current() {
+      return current;
+    },
+    set(next) {
+      current = next.slice(0, PROP_SLOTS);
+      list.length = fixed;
+      list.push(...current);
+      const which = (keep: (s: Solid) => boolean) => current.flatMap((s, k) => (keep(s) ? [fixed + k] : []));
+      movement.setProps(which((s) => s.blocks !== 'bullets'));
+      bullets.setProps(which((s) => s.blocks !== 'players'));
+    },
+  };
   return {
     solids: list,
     ladders: [...(options.ladders ?? [])],
-    movement: new SolidIndex(list, members((s) => s.blocks !== 'bullets'), indexed ? CELL_SIZE : null),
-    bullets: new SolidIndex(list, members((s) => s.blocks !== 'players'), indexed ? CELL_SIZE : null),
+    movement,
+    bullets,
     terrain: options.terrain ? new Terrain(options.terrain) : null,
     concealment: options.concealment ?? null,
+    props,
   };
 }

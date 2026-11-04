@@ -28,7 +28,7 @@ import {
   type World,
   type Zone,
 } from '@duty-shooter/fps-core';
-import { DEFUSE_RANGE } from '@duty-shooter/fps-core/modes';
+import { DEFUSE_RANGE, standProps } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
@@ -68,6 +68,8 @@ import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/ro
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
 import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
+import { PingBoard, aimPing, pingCallout } from './ui/pings';
+import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
@@ -240,6 +242,10 @@ export class Game {
   readonly #rebootView: RebootView | null;
   /** The island map's square, for saying where a crate lands. */
   readonly #islandBounds: MapBounds | null;
+  /** The Squad's pings standing now (ticket 66). */
+  readonly #pingBoard = new PingBoard();
+  /** Which crates and Beacons each world (the shown one, and prediction's) stands as solids. */
+  readonly #propsKeys = new WeakMap<World, string>();
   readonly #ringSounds = new RingSounds();
   #ringPhase: RingPhase | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
@@ -731,6 +737,8 @@ export class Game {
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
       this.#supplyDrops?.update(this.#royale, driver.serverTime, this.#camera.camera, dt);
       this.#rebootView?.update(this.#royale, driver.serverTime, dt);
+      this.#standProps(driver);
+      this.#sendPings(driver, eye, forward);
     }
     this.#updateNuke(driver, eye);
     this.#updateTrain(driver, eye);
@@ -820,6 +828,7 @@ export class Game {
     const pixelsPerDegree = this.#canvas.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360) / (180 / Math.PI);
     const status = driver.status;
     const showOverlay = this.#settings.showRangeOverlay && this.#inRange();
+    const action = this.#action();
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
       allies: this.#allyTags(eye),
@@ -854,13 +863,69 @@ export class Game {
           }
         : null,
       respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,
-      prompt: this.#prompt(),
+      // While a crate opens or a Reboot runs, its bar says so in the prompt's place.
+      prompt: action ? null : this.#prompt(),
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status === 'reconnecting' ? 'Reconnecting…' : status),
       zones: this.#zoneMarkers(eye),
       charge: this.#chargeHud(eye),
       royale: this.#royaleHud(forward),
+      pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
+      action,
       dt,
     });
+  }
+
+  /** The crates landed and the Beacons as solids, in the world drawn and in prediction's, so you walk round them as the server has you do. */
+  #standProps(driver: GameDriver): void {
+    const state = this.#royale;
+    for (const world of new Set([this.#world, driver.prediction ?? this.#world])) {
+      const key = this.#propsKeys.get(world) ?? '';
+      const next = standProps(world, state, driver.serverTime, key);
+      if (next !== key) this.#propsKeys.set(world, next);
+    }
+  }
+
+  /** Sends the pings asked for since the last frame: what the crosshair is on, or the wheel's choice there. */
+  #sendPings(driver: GameDriver, eye: Vec3, forward: Vec3): void {
+    const asked = this.input.takePings();
+    const self = this.#cur;
+    if (asked.length === 0 || !self?.alive || driver.match?.phase !== 'playing' || this.#inShot) return;
+    const reach = STATS.ping.reach.value;
+    const hit = raycastWorld(this.#world, eye, [eye[0] + forward[0] * reach, eye[1] + forward[1] * reach, eye[2] + forward[2] * reach]);
+    const teams = teamMode(driver.match.mode);
+    const enemies = this.#others
+      .filter((p) => p.alive && (!teams || p.team !== self.team))
+      .map((p) => ({ id: p.id, at: [p.position[0], p.position[1] + p.eyeHeight * 0.75, p.position[2]] as Vec3 }));
+    for (const kind of asked) {
+      const ping = aimPing({ eye, forward, hit: hit?.point ?? null, enemies, royale: this.#royale, team: self.team }, kind);
+      if (ping) driver.mark(ping);
+    }
+  }
+
+  /** The pings standing, each where it shows on the screen; none while the island map is open or a shot plays. */
+  #pingMarks(eye: Vec3): PingScreenMark[] {
+    const driver = this.#driver;
+    if (!driver || this.#inShot || this.input.mapOpen) return [];
+    return this.#pingBoard.live(driver.serverTime).flatMap((m) => {
+      const at: Vec3 = [m.position[0], m.position[1] + (m.kind === 'enemy' ? 0.6 : 0.4), m.position[2]];
+      const s = this.#project(at, eye);
+      return s ? [{ id: m.id, kind: m.kind, name: m.name, ...s }] : [];
+    });
+  }
+
+  /** The bar over the prompt while you open a crate or reboot at a Beacon. */
+  #action(): { label: string; share: number } | null {
+    const state = this.#royale;
+    const driver = this.#driver;
+    const selfId = driver?.selfId;
+    if (!state || !driver || !selfId) return null;
+    const share = (since: number, of: number) => Math.max(0, Math.min(1, (driver.serverTime - since) / of));
+    const drop = state.drops?.find((d) => d.opening?.by === selfId);
+    // The prompt's own words (who is being rebooted, the seconds left) go over the bar.
+    if (drop?.opening) return { label: this.#prompt() ?? 'Opening Supply Drop', share: share(drop.opening.since, STATS.royale.supplyDrop.openTime.value) };
+    const beacon = state.beacons?.find((b) => b.channel?.by === selfId);
+    if (beacon?.channel) return { label: this.#prompt() ?? 'Rebooting', share: share(beacon.channel.since, STATS.royale.reboot.channel.value) };
+    return null;
   }
 
   /** A tag over each ally (ticket 52). Sight lines to them are checked ten times a second, not every frame. */
@@ -1116,6 +1181,7 @@ export class Game {
       mapKey: bindingLabel(this.#settings.bindings.map),
       menuKey: 'Esc',
       mapOpen: this.input.mapOpen,
+      pings: this.#pingBoard.live(driver.serverTime).map((m) => ({ kind: m.kind, x: m.position[0], z: m.position[2] })),
     };
   }
 
@@ -1537,6 +1603,15 @@ export class Game {
         else if (e.type === 'reboot' && e.action === 'done' && selfId !== null && e.seats.includes(selfId)) this.hud.toast(`Rebooted by ${e.playerName}: back with ${STATS.royale.reboot.health.value} HP and ${STATS.royale.reboot.frags.value} frag.`, 5);
         break;
       }
+      case 'ping': {
+        const mine = e.player === selfId;
+        const name = mine ? 'You' : driver.nameOf(e.player);
+        if (!this.#pingBoard.add(e, name, mine)) break;
+        this.#play(e.kind === 'enemy' ? 'pingEnemy' : 'ping', { local: true });
+        const cell = this.#islandBounds && e.kind !== 'enemy' ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
+        this.hud.objectiveFeed(pingCallout(e.kind, name, cell), e.team, mine);
+        break;
+      }
       case 'loose':
         if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
         break;
@@ -1583,6 +1658,7 @@ export class Game {
         this.#outBy.clear();
         this.#spectateNotice = null;
         this.#allySight.clear();
+        this.#pingBoard.clear();
         this.hud.toast('New match.', 3);
         this.#worldView.restoreProps();
         break;

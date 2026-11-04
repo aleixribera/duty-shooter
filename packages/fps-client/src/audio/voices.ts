@@ -10,7 +10,7 @@ import { heartbeatVoice, prepDroneVoice } from './preparation';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
-import { damageTakenVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice } from './ui';
+import { damageTakenVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice, pingEnemyVoice, pingVoice } from './ui';
 import {
   adsInVoice,
   adsOutVoice,
@@ -82,6 +82,8 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     ringHum: ringHumVoice(),
     ringCrackle: ringCrackleVoice(),
     ringShift: ringShiftVoice(),
+    ping: pingVoice(),
+    pingEnemy: pingEnemyVoice(),
     prepDrone: prepDroneVoice(),
     heartbeat: heartbeatVoice(),
   };

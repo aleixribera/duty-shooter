@@ -13,6 +13,7 @@ import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type Ga
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { playGround } from '../modes/ground';
 import { royaleLoadout } from '../modes/supply-drops';
+import { clearOf, royaleProps, standProps } from '../modes/royale-props';
 import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
@@ -425,6 +426,8 @@ export class GameServer {
   readonly #marks = new Pings();
   /** Team modes: what each team with a person in it has pinged (a Battle Royale's Squads keep theirs in the planner). */
   readonly #teamIntel = new Map<TeamId, SquadIntel>();
+  /** What the world's props were last made from (see royale-props). */
+  #propsKey = '';
   /** Battle Royale: the Squad each person picked or was given in the lobby (see #lobbySquads). */
   #squadPicks = new Map<PlayerId, number>();
   /**
@@ -990,6 +993,8 @@ export class GameServer {
   #switchMap(map: ServerMap): void {
     this.#map = map;
     this.simulation.setWorld(map.world);
+    // The new map's world has no props yet.
+    this.#propsKey = '';
     this.#orders = new Map();
     this.#freshBots();
   }
@@ -1385,6 +1390,7 @@ export class GameServer {
     const pinged = this.#takePings();
     const modeEvents = pinged.length > 0 ? [...played, ...pinged] : played;
     this.#modeEvents = modeEvents;
+    this.#standProps();
     this.#noteChanges(out, modeEvents);
     probe?.phase('mode');
 
@@ -1603,6 +1609,27 @@ export class GameServer {
       intel?.heard(ping, (ping.target !== null ? seats.get(ping.target)?.velocity : undefined) ?? [0, 0, 0], time);
     }
     return out;
+  }
+
+  /**
+   * A Battle Royale's crates and Beacons stand in the world as solids; one
+   * landing where someone stands puts them beside it rather than inside.
+   */
+  #standProps(): void {
+    const objective = this.#phase === 'playing' ? this.#mode.objective() : null;
+    const state = objective?.kind === 'battle-royale' ? objective : null;
+    const time = this.simulation.time;
+    const key = standProps(this.simulation.world, state, time, this.#propsKey);
+    if (key === this.#propsKey) return;
+    this.#propsKey = key;
+    const solids = royaleProps(state, time);
+    if (solids.length === 0) return;
+    const margin = STATS.stance.hullHalfWidth.value;
+    for (const p of this.simulation.output().players) {
+      const at = p.alive ? clearOf(solids, p.position, margin, p.eyeHeight) : null;
+      const s = at ? this.simulation.playerState(p.id) : null;
+      if (at && s) this.simulation.setPlayerState({ ...s, move: { ...s.move, position: at } });
+    }
   }
 
   /** A tick of play: scoring, the end of the match, respawns. */

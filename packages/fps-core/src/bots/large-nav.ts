@@ -888,7 +888,7 @@ export function encodeLargeNav(nav: LargeNav): Uint8Array {
 
 /** A number that changes with what a map's nav is built from: its solids and its ground. */
 function worldFingerprint(world: World): number {
-  return (hashString(JSON.stringify(world.solids)) ^ (world.terrain?.fingerprint() ?? 0)) >>> 0;
+  return (hashString(JSON.stringify(world.solids.slice(0, world.props.fixed))) ^ (world.terrain?.fingerprint() ?? 0)) >>> 0;
 }
 
 /** Loads the bytes `encodeLargeNav` wrote; given the `world` they're for, refuses a file built from anything else. */

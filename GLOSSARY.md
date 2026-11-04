@@ -243,6 +243,10 @@ The place a bot in a Battle Royale is headed or holding: inside the circle that 
 **Heading**:
 Where a bot has told its Squad it is going, the bots' "going here" ping. Squadmates read the newest and mostly follow it; none of them has to.
 
+**Ping**:
+A mark a player puts down for their side with one key (middle mouse, the pad's d-pad up): a tap marks what the crosshair is on (an enemy, a Supply Drop, their side's Reboot Card, a Reboot Beacon, else the ground as "Going here"); a hold opens the **ping wheel** (Enemy, Going here, Defend here, Need help). Only that side sees it, as a marker on the view, on the compass and on the Island map, with a sound and a feed line. An enemy ping stays 6 s where they stood and never follows them; a place stands 20 s, one per player. Three at once, then one per 1.5 s. Bot squadmates hear it into their Squad intel and each decides whether to answer, and a bot with a person in its Squad pings the enemies it sees.
+_Avoid_: marker, spot, callout (a callout is what a bot tells its Squad intel)
+
 **Squad intel**:
 What one Squad of bots knows together: every enemy a squadmate saw or heard (a **callout**, with where and when), when the Squad last had a brush with an enemy, who has said it will Revive whom, and each squadmate's Heading. Only what a squadmate could have seen, heard or felt goes in, never a true position.
 _Avoid_: shared memory, wallhack

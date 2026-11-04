@@ -24,11 +24,13 @@ import {
   type PlayerId,
   type PlayerOutput,
   type PlayerSpawn,
+  type PingRequest,
   type Score,
   type SimEvent,
   type SpawnPoint,
   type UserCmd,
   type Vec3,
+  type World,
   type Zone,
   type ChargeSite,
 } from '@duty-shooter/fps-core';
@@ -88,6 +90,10 @@ export interface GameDriver {
   watch(id: PlayerId | null): void;
   /** What to carry from the next spawn (offline: at once while alive). */
   setLoadout(loadout: Loadout): void;
+  /** Pings something for your Squad or team (online only). */
+  mark(ping: PingRequest): void;
+  /** The world your movement is predicted in, to stand a match's props in; null offline, where the page's world is the one. */
+  readonly prediction: World | null;
   nameOf(id: PlayerId): string;
   /** 'playing', 'connecting', 'reconnecting' (the seat held while the connection comes back), or why it ended. */
   readonly status: string;
@@ -163,6 +169,10 @@ export class OfflineDriver implements GameDriver {
   loaded(): void {}
 
   watch(): void {}
+
+  mark(): void {}
+
+  readonly prediction = null;
 
   /** Solo play has no one to be fair to: a living player re-arms where they stand. */
   setLoadout(loadout: Loadout): void {
@@ -339,6 +349,14 @@ export class OnlineDriver implements GameDriver {
 
   setLoadout(loadout: Loadout): void {
     this.#client.setLoadout(loadout);
+  }
+
+  mark(ping: PingRequest): void {
+    this.#client.mark(ping);
+  }
+
+  get prediction(): World {
+    return this.#client.world;
   }
 
   get status(): string {

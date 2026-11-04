@@ -30,11 +30,14 @@ export class SolidIndex {
   #visit = 0;
   /** What a cell gave `firstHit`: kept, since the bots' sight and frag arcs ask thousands of times a tick. */
   readonly #found: number[] = [];
+  /** Props among the members (solids that come and go in a match: a landed crate, a Beacon), ascending: few, so asked on every query rather than gridded. */
+  #props: readonly number[] = [];
 
-  constructor(solids: readonly Solid[], members: readonly number[], cellSize: number | null) {
+  /** `room` is how many solids the list may grow to with props. */
+  constructor(solids: readonly Solid[], members: readonly number[], cellSize: number | null, room = solids.length) {
     this.#solids = solids;
     this.#members = members;
-    this.#stamp = new Uint32Array(solids.length);
+    this.#stamp = new Uint32Array(Math.max(room, solids.length));
     if (cellSize === null || members.length === 0) {
       this.#cell = 0;
       this.#ox = this.#oz = 0;
@@ -89,8 +92,27 @@ export class SolidIndex {
     return this.#solids;
   }
 
+  /** The props this index takes part in now (indices into the solids), replacing the last. */
+  setProps(indices: readonly number[]): void {
+    this.#props = [...indices].sort((a, b) => a - b);
+  }
+
   /** Member solids that may reach into the X/Z rectangle, in solid order. */
   inRect(x0: number, z0: number, x1: number, z1: number): readonly number[] {
+    const found = this.#inGrid(x0, z0, x1, z1);
+    if (this.#props.length === 0) return found;
+    const lx = Math.min(x0, x1) - MARGIN;
+    const hx = Math.max(x0, x1) + MARGIN;
+    const lz = Math.min(z0, z1) - MARGIN;
+    const hz = Math.max(z0, z1) + MARGIN;
+    const near = this.#props.filter((i) => {
+      const { min, max } = this.#solids[i] as Solid;
+      return max[0] >= lx && min[0] <= hx && max[2] >= lz && min[2] <= hz;
+    });
+    return near.length === 0 ? found : [...found, ...near].sort((a, b) => a - b);
+  }
+
+  #inGrid(x0: number, z0: number, x1: number, z1: number): readonly number[] {
     if (this.#cell === 0) return this.#members;
     const lx = Math.min(x0, x1) - MARGIN;
     const hx = Math.max(x0, x1) + MARGIN;
@@ -136,6 +158,9 @@ export class SolidIndex {
           bestIndex = index;
         }
       }
+      this.#propHit(apart, test, (t, index) => {
+        if (t < bestT || (t === bestT && index < bestIndex)) [bestT, bestIndex] = [t, index];
+      });
       return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
     }
     const visit = this.#nextVisit();
@@ -154,11 +179,27 @@ export class SolidIndex {
       }
       return bestT < exit - 1e-9;
     });
+    this.#propHit(apart, test, (t, index) => {
+      if (t < bestT || (t === bestT && index < bestIndex)) [bestT, bestIndex] = [t, index];
+    });
     return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
+  }
+
+  #propHit(apart: (index: number) => boolean, test: (index: number) => number | null, hit: (t: number, index: number) => void): void {
+    for (const index of this.#props) {
+      if (apart(index)) continue;
+      const t = test(index);
+      if (t !== null) hit(t, index);
+    }
   }
 
   /** Every member solid that may touch the segment a→b, in solid order. */
   alongSegment(a: Vec3, b: Vec3): readonly number[] {
+    const found = this.#onSegment(a, b);
+    return this.#props.length === 0 ? found : [...found, ...this.#props].sort((x, y) => x - y);
+  }
+
+  #onSegment(a: Vec3, b: Vec3): readonly number[] {
     if (this.#cell === 0) return this.#members;
     const visit = this.#nextVisit();
     const out: number[] = [];

@@ -1,12 +1,15 @@
-import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type UserCmd } from '@duty-shooter/fps-core';
+import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type PingKind, type UserCmd } from '@duty-shooter/fps-core';
 import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
+import { wheelPick } from './ui/pings';
 
 /** What a spectator's presses ask for: the next or previous player, or the other view. */
 export type SpectateInput = 'next' | 'prev' | 'view';
 
 /** Mouse-wheel steps closer together than this (ms) count as one switch. */
 const WHEEL_MS = 180;
+/** Holding the ping key this long (ms) opens the ping wheel; a shorter press is a tap. */
+const WHEEL_HOLD_MS = 250;
 
 /** Two sprint presses within this many milliseconds start a tactical sprint. */
 const DOUBLE_TAP_MS = 300;
@@ -61,6 +64,12 @@ export class InputController {
   #adsToggled = false;
   /** The island map is open (its key toggles it). */
   #mapOpen = false;
+  /** When the ping key went down (ms), while it is held. */
+  #pingSince: number | null = null;
+  /** The push since the ping wheel opened: mouse travel (px), or the look stick's (x100). */
+  #wheelPush: [number, number] = [0, 0];
+  /** Pings asked for since the game last took them: a kind from the wheel, or null for a tap (whatever the crosshair is on). */
+  #pings: (PingKind | null)[] = [];
   /** Presses a spectator acts on since the game last took them (ticket 32): Fire steps on, Aim back, Jump changes the view. */
   #spectate: SpectateInput[] = [];
   #aiming = false;
@@ -118,7 +127,10 @@ export class InputController {
         this.onUnlock?.();
       }
     });
-    on(window, 'blur', () => this.#held.clear());
+    on(window, 'blur', () => {
+      this.#held.clear();
+      this.#pingSince = null;
+    });
   }
 
   set settings(settings: Settings) {
@@ -155,6 +167,7 @@ export class InputController {
       this.#held.clear();
       this.#padSprint = false;
       this.#padCrouchSince = null;
+      this.#pingSince = null;
     }
     this.#updateCursor();
   }
@@ -246,7 +259,8 @@ export class InputController {
       return;
     }
     if (!this.#enabled || !this.locked) return;
-    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC' || code === 'KeyQ' || code === 'KeyG' || code === 'KeyF') e?.preventDefault();
+    // Mouse1 (the wheel button) would start the browser's autoscroll.
+    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC' || code === 'KeyQ' || code === 'KeyG' || code === 'KeyF' || code === 'Mouse1') e?.preventDefault();
     if (this.#held.has(code)) return; // key repeat
     this.#held.add(code);
     this.#tapped.add(code);
@@ -284,6 +298,10 @@ export class InputController {
       this.#crouchToggled = false;
     }
     if (this.#is('map', code)) this.#mapOpen = !this.#mapOpen;
+    if (this.#is('ping', code)) {
+      this.#pingSince = now;
+      this.#wheelPush = [0, 0];
+    }
     if (this.#is('ads', code)) {
       this.#adsToggled = !this.#adsToggled;
       this.#padSprint = false;
@@ -301,6 +319,15 @@ export class InputController {
 
   #up(code: string): void {
     this.#held.delete(code);
+    if (this.#is('ping', code) && this.#pingSince !== null) {
+      // A tap marks what the crosshair is on; a hold opens the wheel, and letting go picks where it was pushed (or nothing, unpushed).
+      if (performance.now() - this.#pingSince < WHEEL_HOLD_MS) this.#pings.push(null);
+      else {
+        const kind = wheelPick(this.#wheelPush[0], this.#wheelPush[1]);
+        if (kind) this.#pings.push(kind);
+      }
+      this.#pingSince = null;
+    }
     const fromPad = code.startsWith('Pad');
     // A controller sprint is latched: it ends when the move stick stops pushing forward.
     if (this.#is('sprint', code) && !fromPad) this.#tactical = false;
@@ -375,6 +402,11 @@ export class InputController {
       this.#crouchToggled = false;
     }
     const [lx, ly] = look;
+    if (this.#wheelOpen) {
+      // The look stick picks on the wheel, where it is pushed now.
+      if (lx !== 0 || ly !== 0) this.#wheelPush = [lx * 100, ly * 100];
+      return;
+    }
     if (lx === 0 && ly === 0) return;
     // The response curve: fine aim near the centre, full speed at the edge.
     const m = Math.hypot(lx, ly);
@@ -412,6 +444,11 @@ export class InputController {
 
   #move(e: MouseEvent): void {
     if (!this.#enabled || !this.locked) return;
+    // The wheel open, the mouse picks on it instead of turning the view.
+    if (this.#wheelOpen) {
+      this.#wheelPush = [this.#wheelPush[0] + e.movementX, this.#wheelPush[1] + e.movementY];
+      return;
+    }
     const scale = radiansPerCount(this.#settings) * (this.#aiming ? adsSensitivityScale(this.#settings, this.#settings.adsMultiplier, this.#zoom) : 1);
     this.#yaw -= e.movementX * scale;
     this.#pitch = lookPitch(this.#pitch, -e.movementY * scale, this.#pitchOffset);
@@ -468,6 +505,22 @@ export class InputController {
   takeSpectate(): SpectateInput[] {
     const taken = this.#spectate;
     this.#spectate = [];
+    return taken;
+  }
+
+  get #wheelOpen(): boolean {
+    return this.#pingSince !== null && performance.now() - this.#pingSince >= WHEEL_HOLD_MS;
+  }
+
+  /** The ping wheel while it is open, with what it would pick now; null while closed. */
+  get pingWheel(): { readonly pick: PingKind | null } | null {
+    return this.#enabled && this.#wheelOpen ? { pick: wheelPick(this.#wheelPush[0], this.#wheelPush[1]) } : null;
+  }
+
+  /** The pings asked for since the last call, oldest first: a kind from the wheel, or null for a tap. */
+  takePings(): (PingKind | null)[] {
+    const taken = this.#pings;
+    this.#pings = [];
     return taken;
   }
 

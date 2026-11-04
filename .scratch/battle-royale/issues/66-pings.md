@@ -1,9 +1,17 @@
 # Pings that squadmates and bots answer
 
-Status: open
+Status: resolved
+Release: v2.129.0 (server and bots in v2.128.0)
 Blocked by: none
 Labels: enhancement
 
 Owner wants pings (Apex style). One key (and a pad button) marks what you aim at: an enemy (marked for your Squad a few seconds, at its spot when pinged, never tracking), a place ("Going here"), a Supply Drop, a Reboot Card or Beacon. A wheel (hold) for "Enemy", "Going here", "Defend", "Looting/Need help". Shown in the world, at the screen edge and on the island map, with a short sound and a callout line. Bot squadmates answer: move to "Going here", turn to and engage a marked enemy, and bots ping what they see so a human with bot squadmates learns where enemies are. Rate-limited server-side; works in team modes too. DESIGN.md for the marks.
 
 ## Comments
+
+- v2.128.0 (server, bots): pings are a client message checked on the server (`Pings` in `packages/fps-core/src/pings.ts`) and sent only to the pinger's side as a mode event; protocol 21. Numbers in `STATS.ping`: burst 3 then one per 1.5 s; an enemy mark stands 6 s where they stood and never follows them; a place stands 20 s, one per player; reach 500 m, an enemy 300 m and only one the pinger can see, a crate/Card/Beacon within 5 m of where they aimed. Bots: a person's ping goes into their Squad's intel as a Heading or a callout. A bot answers "Going here"/"Defend here" only inside the circle that matters next, "Need help" only within 60-200 m by its boldness, an enemy ping by looking there if it isn't fighting (3 s, within 100 m). A bot with a person in its Squad pings an enemy it has just spotted, at most every 8 s and not one pinged in the last 4 s. No director: each bot decides from its own state.
+- v2.129.0 (client): middle mouse / d-pad up. A tap marks what the crosshair is on: an enemy within 3 degrees, else a crate, your side's Card or a Beacon within 2.5 degrees or 5 m of the hit, else the ground ("Going here"); the sky marks nothing. Holding 250 ms opens the wheel (Enemy up, Going here right, Defend here down, Need help left; 18 px dead zone, release there cancels). Each shows as a marker on the view (signal colour, diamond; an enemy in alert colour, triangle), on the compass with its distance, on the island map, with a sound (`ping`, `pingEnemy`) and a feed line "Name: Going here in F9".
+- Leftovers from 70/71: crates and Beacons are now solid (world prop slots, 40, shared by the server and client prediction; a crate landing on someone puts them beside it; each goes 1 m into the ground so nobody walks under its downhill edge on a slope). Opening a crate or rebooting shows a bar in the prompt's place. The toast no longer shows through the open map, and neither do ping markers.
+- Played (t66/play.mjs, Duos, headless Chrome at 1920x1080 and 390x844): tap, wheel, enemy and crate pings, compass, map, toast, bar and solid crate all seen working. The bot squadmate walked from 44-54 m to 5-24 m of a "Going here" inside the next circle within 8 s, held its ground for ones outside it, and pinged an enemy it saw ("Moss: Enemy spotted").
+- Trios seed 101 now ends at 362 s (floor was 380 s): A/B over seeds 1-8, 101, 104, the mean went 449 s to 467 s and the shortest 371 s to 362 s; the floor is now 350 s.
+- Measures: 60 seats, all bots, Duos/Trios seed 1: server tick mean 0.98/0.88 ms, p99 2.86/2.28 ms. Local bots worker: Solos mean 1.31 p99 3.14 ms, Trios mean 1.35 p99 3.27 ms.
