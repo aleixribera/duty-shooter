@@ -7,6 +7,7 @@ import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import { PROTOCOL_VERSION, REDUNDANT_CMDS, decodeServer, encode, type LobbyPick, type MatchStatus, type RejectReason, type SequencedCmd, type Snapshot, type WireSnapshot } from './protocol';
 import type { Connection, WireData } from './transport';
+import type { PingRequest } from '../pings';
 
 export interface GameClientOptions {
   readonly connection: Connection;
@@ -333,6 +334,11 @@ export class GameClient {
     if (this.#status !== 'joined' || this.#watchSent === id) return;
     this.#watchSent = id;
     this.#connection.send(encode({ t: 'watch', id }));
+  }
+
+  /** Marks something for the Squad or team (a ping); the server checks it and tells them. */
+  mark(ping: PingRequest): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'ping', ...ping }));
   }
 
   /** Votes for the next match's mode (counted only while the vote is open; a later vote replaces it). */

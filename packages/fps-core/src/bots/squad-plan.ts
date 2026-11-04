@@ -116,6 +116,10 @@ const HUNT_BLUR = 12;
 const HUNT_FOR = 45;
 /** A person who has moved this far (m) from where they last were has gone somewhere new: that's their Heading. */
 const PERSON_MOVED = 10;
+/** A "Need help" ping is answered from this far (m) by the most careful bot, and this much farther by the boldest. */
+const HELP_PING: readonly [number, number] = [60, 200];
+/** A person's pinged place stands as their Heading this long (s), or until they get there, whatever their feet say meanwhile. */
+const PING_HEADING = STATS.ping.placeLife.value;
 /** Kills that made a sound: gunfire and blasts. The Ring, a fall and a Bleed-out are silent. */
 const LOUD_KILLS: ReadonlySet<string> = new Set(['bullet', 'grenade']);
 /** Tries at a random spot inside a circle. */
@@ -271,7 +275,9 @@ export class SquadPlanner {
       else intel.head(seat.id, { point: mind.point, time: shared.time, hunt: mind.hunt });
       return mind;
     }
-    if (shared && shared.time > mind.since && flat(shared.point, mind.point) > 1 && inside(shared.point)) {
+    // A squadmate's "Need help" is answered by those near enough for their boldness; the rest keep to their own.
+    const answers = (h: { readonly point: Vec3; readonly ping?: string }) => h.ping !== 'help' || flat(seat.position, h.point) <= this.#between(HELP_PING, bold);
+    if (shared && shared.time > mind.since && flat(shared.point, mind.point) > 1 && inside(shared.point) && answers(shared)) {
       // A squadmate is off somewhere new: it goes with them, and to a crate, for it too.
       mind.point = shared.point;
       mind.hunt = shared.hunt;
@@ -438,6 +444,8 @@ export class SquadPlanner {
       for (const person of standing) {
         if (person.bot) continue;
         const said = intel.heading(person.id);
+        // A place they pinged holds until they get there or it runs out.
+        if (said?.ping && time - said.time < PING_HEADING && flat(said.point, person.position) > PERSON_MOVED) continue;
         if (!said || flat(said.point, person.position) > PERSON_MOVED) intel.head(person.id, { point: person.position, time, hunt: false });
       }
       const radius = Math.min(RALLY_RADIUS + RALLY_PER_SEAT * members.length, Math.max(3, state.next.radius * 0.6));

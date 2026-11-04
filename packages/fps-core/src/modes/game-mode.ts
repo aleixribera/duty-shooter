@@ -4,6 +4,7 @@ import type { WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import type { PlayGround } from './ground';
+import type { PingEvent } from '../pings';
 
 /** A place players can spawn. */
 export interface SpawnPoint {
@@ -287,6 +288,8 @@ export type ModeEvent =
   | { readonly type: 'card'; readonly action: 'drop' | 'take' | 'expire' | 'void'; readonly owner: PlayerId; readonly ownerName: string; readonly player: PlayerId | null; readonly playerName: string | null; readonly position: Vec3 }
   /** Battle Royale: `player` began, broke off or finished a Reboot at Beacon `beacon`, for `seats`. */
   | { readonly type: 'reboot'; readonly action: 'start' | 'stop' | 'done'; readonly player: PlayerId; readonly playerName: string; readonly beacon: number; readonly seats: readonly PlayerId[]; readonly names: readonly string[]; readonly position: Vec3 }
+  /** A ping, for the pinger's Squad or team only. */
+  | PingEvent
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 

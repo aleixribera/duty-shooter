@@ -15,6 +15,8 @@ import { REVIVE_APPROACH } from './planner';
 import type { BotProfile } from './profile';
 import { botSees } from './sight';
 import { RUN, wallAt, type GroundOrder } from './squad-plan';
+import type { SquadIntel } from './squad-intel';
+import type { PingRequest } from '../pings';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
 export interface BotView {
@@ -48,6 +50,8 @@ export interface BotView {
   readonly rest?: boolean;
   /** Battle Royale: what its Squad has it doing. With this it uses the ground (see `squad-plan.ts`) instead of roaming; without it, it plays as it always has. */
   readonly ground?: GroundOrder;
+  /** A team mode: what its team has pinged (a Battle Royale's is the ground's). */
+  readonly intel?: SquadIntel;
 }
 
 /** Work the bots of one tick share. */
@@ -248,6 +252,12 @@ const REACQUIRE = 2;
 const BOX = 25 * Math.tan(50 * DEG);
 /** A squadmate's fresh sighting this near (m) is worth going to help with, for a bold bot. */
 const HELP_RANGE = 45;
+/** A squadmate's ping is news for this long (s): a bot thinking less often still turns to it. */
+const PING_HEED = 3;
+/** Farther than this (m), a pinged enemy is only remembered: nothing it could do about them from here. */
+const PING_REACH = 100;
+/** An enemy it saw before within this long (s) is no news to ping. */
+const PING_NEWS = 4;
 /** How far (m) each gun has a real shot at someone, for opening a fight on the ground (before a bot's boldness). */
 const OPENS_AT: Readonly<Record<WeaponId, number>> = { m4a1: 55, smg: 35, shotgun: 15, sniper: 70, pistol: 25 };
 /** How far (m) a bot on the ground chases what it last saw or heard: the boldest farther. */
@@ -477,6 +487,11 @@ export class Bot {
   /** Its primary is shot dry with nothing to reload from: the pistol stays in hand. */
   #dry = false;
   #reviveThreat: Vec3 | null = null;
+  /** The ping it means to send, when it last pinged, and the pings (by their time) it has already answered. */
+  #pingOut: PingRequest | null = null;
+  #pingedAt = -Infinity;
+  readonly #heeded = new Map<PlayerId, number>();
+  #lookedOut = -Infinity;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
     this.id = id;
@@ -505,6 +520,10 @@ export class Bot {
     this.#shotAt = -Infinity;
     this.#lastEnemySeen = -Infinity;
     this.#unheard = [];
+    this.#pingOut = null;
+    this.#pingedAt = -Infinity;
+    this.#heeded.clear();
+    this.#lookedOut = -Infinity;
     // The next thought starts its life afresh, too.
     this.#alive = false;
   }
@@ -534,6 +553,13 @@ export class Bot {
   /** What the bot knows of `id`: where, when (s), and whether it saw them rather than heard or was told (tests and soaks). */
   recall(id: PlayerId): { readonly position: Vec3; readonly time: number; readonly seen: boolean } | null {
     return this.#memory.get(id) ?? null;
+  }
+
+  /** The ping it decided on in its last thought (an enemy it just spotted), taken once; the server checks and sends it as a person's. */
+  takePing(): PingRequest | null {
+    const ping = this.#pingOut;
+    this.#pingOut = null;
+    return ping;
   }
 
   /** The danger spots the bot keeps in mind, newest first (tests and debugging). */
@@ -601,7 +627,7 @@ export class Bot {
     const beat = view.tick + this.#seed;
     const perceiving = Math.floor(beat / PERCEIVE_TICKS) !== Math.floor((beat - ticks) / PERCEIVE_TICKS);
     if (perceiving) {
-      if (view.ground) this.#takeIntel(view, r);
+      if (view.ground || view.intel) this.#takeIntel(view, r);
       this.#perceive(view, eye, r);
       this.#check = this.#angleToCheck(view, eye);
     }
@@ -1187,8 +1213,10 @@ export class Bot {
           this.#spotting.delete(p.id);
         }
       }
+      const before = this.#memory.get(p.id);
       this.#memory.set(p.id, { position: p.position, time, seen: true, velocity: p.velocity });
       ground?.intel.report(p.id, { position: p.position, time, seen: true, velocity: p.velocity, by: self.id });
+      if (!(before?.seen && time - before.time < PING_NEWS)) this.#pingSeen(view, p);
       // A reload in plain view.
       if (p.weapon.action === 'reload') this.#reloading.set(p.id, time + 1);
       this.#lastEnemySeen = time;
@@ -1535,15 +1563,22 @@ export class Bot {
    */
   #takeIntel(view: BotView, r: (n: number) => number): void {
     const { self, time } = view;
+    const intel = (view.ground?.intel ?? view.intel)!;
     let k = 0;
-    for (const [id, c] of view.ground!.intel.callouts(time)) {
+    for (const [id, c] of intel.callouts(time)) {
       if (c.by === self.id) continue;
       const known = this.#memory.get(id);
-      if (known && known.time >= c.time) continue;
+      const pinged = c.pinged !== undefined && time - c.pinged <= PING_HEED && this.#heeded.get(id) !== c.pinged;
+      if (known && known.time >= c.time && !pinged) continue;
       const d = flat(self.position, c.position);
       const at = blur(c.position, CALLOUT_ERROR + d / 20, r(400 + k), r(401 + k));
       k += 2;
-      this.#memory.set(id, { position: at, time: c.time, seen: false, velocity: c.velocity });
+      if (!known || known.time < c.time) this.#memory.set(id, { position: at, time: c.time, seen: false, velocity: c.velocity });
+      if (pinged) {
+        this.#heeded.set(id, c.pinged!);
+        this.#heedPing(view, id, at, d);
+        continue;
+      }
       if (!c.seen || time - c.time > 1 || d > HELP_RANGE || this.#target || this.#chasing || this.#using || this.#flee || this.#recover || this.#reviving) continue;
       this.#alert = { yaw: yawTo(self.position, at), until: time + 1 };
       if (this.#bold()) {
@@ -1551,6 +1586,46 @@ export class Bot {
         this.#holdUntil = 0;
       }
     }
+    this.#heedLookout(view, intel);
+  }
+
+  /**
+   * A squadmate pinged an enemy: whether to do anything about it is the bot's
+   * own call. Busy (in a fight of its own, using, fleeing, healing, reviving)
+   * or too far off, it only remembers; otherwise it turns to look, and goes
+   * for them if they're within its gun's reach and it's bold enough or they're
+   * close.
+   */
+  #heedPing(view: BotView, id: PlayerId, at: Vec3, d: number): void {
+    const { self, time } = view;
+    if (d > PING_REACH || this.#target || this.#using || this.#flee || this.#recover || this.#reviving) return;
+    this.#alert = { yaw: yawTo(self.position, at), until: time + 1.5 };
+    if (this.#chasing || self.health < HURT) return;
+    if (d <= this.#opensAt(TACTICS[self.weapon.id], self.weapon.id) && (this.#bold() || d <= CLOSE_RANGE * 2)) {
+      this.#chasing = id;
+      this.#holdUntil = 0;
+    }
+  }
+
+  /** "Enemy here" pinged at a place: a bot with nothing better to do looks that way. */
+  #heedLookout(view: BotView, intel: SquadIntel): void {
+    const { self, time } = view;
+    const l = intel.lookout(self.id, time, PING_HEED);
+    if (!l || l.time === this.#lookedOut) return;
+    this.#lookedOut = l.time;
+    if (flat(self.position, l.point) > PING_REACH || this.#target || this.#using || this.#flee || this.#recover || this.#reviving) return;
+    this.#alert = { yaw: yawTo(self.position, l.point), until: time + 1.5 };
+  }
+
+  /** An enemy it has just spotted: it pings them for its Squad, unless it pinged lately or a squadmate already has. */
+  #pingSeen(view: BotView, p: PlayerOutput): void {
+    const intel = view.ground?.intel ?? view.intel;
+    const every = STATS.ping.botEvery.value;
+    if (!intel || view.time - this.#pingedAt < every) return;
+    const said = intel.callout(p.id)?.pinged;
+    if (said !== undefined && view.time - said < every) return;
+    this.#pingedAt = view.time;
+    this.#pingOut = { kind: 'enemy', at: p.position, target: p.id };
   }
 
   /** Battle Royale: a job its ground gives it (opening a Supply Drop it went for), when it has no Revive to see to. */

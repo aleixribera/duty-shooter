@@ -212,3 +212,77 @@ describe('a bot knows only what its Squad perceived (ticket 74)', () => {
     for (const f of felt([4, 0, 15], 10)) expect(f.error).toBeLessThan(5);
   });
 });
+
+describe('pings (ticket 66)', () => {
+  const yawTo = (a: Vec3, b: Vec3) => Math.atan2(-(b[0] - a[0]), -(b[2] - a[2]));
+  const off = (yaw: number, want: number) => Math.abs(Math.atan2(Math.sin(yaw - want), Math.cos(yaw - want)));
+  const pinged = (s: ReturnType<typeof scene>, by: string, foe: string, team = 1) => {
+    const e = s.player(foe);
+    s.intel.get(team)!.heard({ type: 'ping', id: 1, kind: 'enemy', player: by, team, position: e.position, target: foe, until: s.sim.time + 6 }, e.velocity, s.sim.time);
+  };
+
+  /** Bot a's yaw a second on, with and without a squadmate's ping of e. */
+  const turned = (seats: Parameters<typeof scene>[0]) => {
+    const run = (ping: boolean) => {
+      const s = scene(seats, { canDamage: false });
+      s.step();
+      if (ping) pinged(s, 'p', 'e');
+      for (let i = 0; i < ticks(1); i++) s.step();
+      return { yaw: s.player('a').yaw, knows: s.bots.get('a')!.recall('e') !== null };
+    };
+    return { pinged: run(true), quiet: run(false) };
+  };
+
+  it('a bot with nothing on turns to an enemy a squadmate pinged behind it, and knows where they are', () => {
+    const r = turned([
+      { id: 'a', team: 1, at: [0, 0, 0], yaw: 0, bot: 'Moss' },
+      { id: 'p', team: 1, at: [-15, 0, -15] },
+      { id: 'e', team: 2, at: [35, 0, 5], cmd: crouch },
+    ]);
+    const want = yawTo([0, 0, 0], [35, 0, 5]);
+    expect(r.pinged.knows).toBe(true);
+    expect(r.quiet.knows).toBe(false);
+    expect(off(r.pinged.yaw, want)).toBeLessThan(0.6);
+    expect(off(r.quiet.yaw, want)).toBeGreaterThan(1);
+  });
+
+  it('a bot too far off only remembers: it keeps to what it was doing', () => {
+    const r = turned([
+      { id: 'a', team: 1, at: [-65, 0, 65], yaw: 0, bot: 'Moss' },
+      { id: 'p', team: 1, at: [50, 0, -60] },
+      { id: 'e', team: 2, at: [60, 0, -65], cmd: crouch },
+    ]);
+    expect(r.pinged.knows).toBe(true);
+    expect(r.pinged.yaw).toBeCloseTo(r.quiet.yaw, 5);
+  });
+
+  it('a bot pings an enemy it spots for its Squad, once in a while, and not one a squadmate just pinged', () => {
+    const s = scene([
+      { id: 'a', team: 1, at: [0, 0, 0], yaw: Math.PI, bot: 'Moss' },
+      { id: 'e', team: 2, at: [0, 0, 25] },
+      { id: 'f', team: 2, at: [6, 0, 25] },
+    ], { canDamage: false });
+    const asked: string[] = [];
+    for (let i = 0; i < ticks(3); i++) {
+      s.step();
+      const ping = s.bots.get('a')!.takePing();
+      if (ping) asked.push(`${ping.kind} ${ping.target}`);
+    }
+    // One of the two, not both: the next waits.
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatch(/^enemy [ef]$/);
+
+    const t = scene([
+      { id: 'a', team: 1, at: [0, 0, 0], yaw: Math.PI, bot: 'Moss' },
+      { id: 'p', team: 1, at: [10, 0, 0] },
+      { id: 'e', team: 2, at: [0, 0, 25] },
+    ], { canDamage: false });
+    pinged(t, 'p', 'e');
+    let again = 0;
+    for (let i = 0; i < ticks(3); i++) {
+      t.step();
+      if (t.bots.get('a')!.takePing()) again += 1;
+    }
+    expect(again).toBe(0);
+  });
+});

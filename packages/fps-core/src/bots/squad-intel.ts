@@ -1,4 +1,5 @@
 import type { Vec3 } from '../math';
+import type { PingEvent, PingKind } from '../pings';
 import type { PlayerId } from '../simulation';
 
 /** An enemy as a squadmate saw or heard them, passed on to the rest of the Squad. */
@@ -12,6 +13,15 @@ export interface Callout {
   readonly velocity: Vec3;
   /** The squadmate who saw or heard it. */
   readonly by: PlayerId;
+  /** When a squadmate last pinged them (s): a mark the whole Squad is meant to turn to. Kept through later callouts. */
+  readonly pinged?: number;
+}
+
+/** "Enemy here" pinged at a place with nobody under the crosshair: somewhere to look. */
+export interface Lookout {
+  readonly point: Vec3;
+  readonly time: number;
+  readonly by: PlayerId;
 }
 
 /** Where a squadmate has said it is going: what a "going here" ping says. */
@@ -21,6 +31,8 @@ export interface Heading {
   readonly time: number;
   /** Going after a fight it heard. */
   readonly hunt: boolean;
+  /** Said with a ping ("Going here", "Defend", "Need help", or a thing marked), rather than by going. */
+  readonly ping?: PingKind;
 }
 
 /** Callouts older than this (s) are dropped: a squadmate would have said something newer by now. */
@@ -37,6 +49,7 @@ export class SquadIntel {
   readonly #callouts = new Map<PlayerId, Callout>();
   readonly #claims = new Map<PlayerId, { readonly by: PlayerId; readonly time: number }>();
   readonly #headings = new Map<PlayerId, Heading>();
+  #lookout: Lookout | null = null;
   /** When a squadmate last saw an enemy, heard one near, was hit, or went Down (s). */
   contact = -Infinity;
 
@@ -48,13 +61,44 @@ export class SquadIntel {
   report(enemy: PlayerId, callout: Callout, near = true): void {
     const known = this.#callouts.get(enemy);
     if (near && callout.time > this.contact) this.contact = callout.time;
-    if (known && (known.time > callout.time || (known.time === callout.time && known.seen && !callout.seen))) return;
-    this.#callouts.set(enemy, callout);
+    const pinged = Math.max(known?.pinged ?? -Infinity, callout.pinged ?? -Infinity);
+    if (known && (known.time > callout.time || (known.time === callout.time && known.seen && !callout.seen))) {
+      if (pinged > (known.pinged ?? -Infinity)) this.#callouts.set(enemy, { ...known, pinged });
+      return;
+    }
+    this.#callouts.set(enemy, pinged > -Infinity ? { ...callout, pinged } : callout);
+  }
+
+  /**
+   * A squadmate's ping, taken in as what they said: an enemy marked is a
+   * sighting (they could see them: the server checked), "enemy here" a place
+   * to look, and anything else is where they're headed.
+   */
+  heard(ping: PingEvent, velocity: Vec3, time: number): void {
+    if (ping.kind === 'enemy' && ping.target !== null) this.report(ping.target, { position: ping.position, time, seen: true, velocity, by: ping.player, pinged: time });
+    else if (ping.kind === 'enemy') this.lookHere({ point: ping.position, time, by: ping.player });
+    else this.head(ping.player, { point: ping.position, time, hunt: false, ping: ping.kind });
+  }
+
+  /** A squadmate pinged "enemy here" at a place: the newest such, for a while. */
+  lookHere(lookout: Lookout): void {
+    this.#lookout = lookout;
+  }
+
+  /** The newest "enemy here" from someone other than `self`, if it's no older than `life` seconds at `time`. */
+  lookout(self: PlayerId, time: number, life: number): Lookout | null {
+    const l = this.#lookout;
+    return l && l.by !== self && time - l.time <= life ? l : null;
   }
 
   /** The enemy is out (killed): nothing more to say about them. */
   forget(enemy: PlayerId): void {
     this.#callouts.delete(enemy);
+  }
+
+  /** What the Squad last said of `enemy`, however old. */
+  callout(enemy: PlayerId): Callout | null {
+    return this.#callouts.get(enemy) ?? null;
   }
 
   /** Every enemy called out within the last half minute of `time`. */

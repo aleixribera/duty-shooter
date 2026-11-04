@@ -7,11 +7,12 @@ import { WIDE_SCALE } from '../modes/scale';
 import type { SquadSize } from '../modes/battle-royale';
 import { decodeSnapshot, type StickyField } from './codec';
 import type { WireData } from './transport';
+import { parsePing, type PingRequest } from '../pings';
 
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -78,7 +79,9 @@ export type ClientMessage =
   /** This player's page has what the match needs on screen (the load gate). */
   | { readonly t: 'loaded' }
   /** Out of the fight: the seat this player is watching (null for none), so it is sent that seat's surroundings. */
-  | { readonly t: 'watch'; readonly id: string | null };
+  | { readonly t: 'watch'; readonly id: string | null }
+  /** A ping: what this player marks for their Squad or team (see `pings.ts`). */
+  | ({ readonly t: 'ping' } & PingRequest);
 
 /**
  * Where the match is: playing, or in the intermission after `matchEnd`
@@ -277,6 +280,10 @@ export function decodeClient(data: string): ClientMessage | null {
   if (value['t'] === 'watch') {
     const id = value['id'];
     return id === null || (typeof id === 'string' && id.length <= 40) ? { t: 'watch', id } : null;
+  }
+  if (value['t'] === 'ping') {
+    const ping = parsePing(value);
+    return ping ? { t: 'ping', ...ping } : null;
   }
   if (value['t'] === 'squad') {
     const { squad } = value;

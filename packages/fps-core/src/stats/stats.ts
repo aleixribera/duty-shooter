@@ -470,6 +470,18 @@ export const STATS = {
     dummyResetDelay: estimated(1.5, 's', 'Range dummies stand back up at full health this long after dying; a design choice.'),
   },
 
+  /** Pings (ticket 66): one key marks what you aim at for your Squad or team, Apex style. */
+  ping: {
+    burst: estimate(3, 'rounds', 'Pings a seat may send at once before the server holds the rest: enough for "enemy, enemy, going here", not a stream.'),
+    refill: estimate(1.5, 's', 'One more ping is allowed this long after the last, up to the burst.'),
+    enemyLife: estimate(6, 's', 'An enemy mark stands this long at the spot it was pinged, never following them (owner, ticket 66: "a few seconds").'),
+    placeLife: estimate(20, 's', 'A place, a Supply Drop, a Card or a Beacon stays marked this long, or until the same seat pings another place.'),
+    reach: estimate(500, 'm', 'The farthest point a ping can mark: half the island, past any sightline in it.'),
+    enemyReach: estimate(300, 'm', 'An enemy can be marked this far off, if the pinger can see them.'),
+    objectReach: estimate(5, 'm', 'A ping this near a crate, a Card or a Beacon marks it rather than the ground.'),
+    botEvery: estimate(8, 's', 'A bot pings an enemy it has just spotted at most this often, and not one a squadmate pinged in the last few seconds.'),
+  },
+
   /** Mouse sensitivity and field of view. */
   input: {
     yawPerCount: sourced(

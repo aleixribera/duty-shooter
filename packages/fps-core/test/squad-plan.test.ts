@@ -277,3 +277,31 @@ describe('a Reboot Card out of reach', () => {
     expect(asked).toHaveLength(2);
   });
 });
+
+describe('a person’s pings are what they said (ticket 66)', () => {
+  const ping = (kind: 'go' | 'help', at: Vec3, time: number) => ({ type: 'ping' as const, id: 1, kind, player: 'h', team: 1, position: at, target: null, until: time + 20 });
+  /** Bot b's rally once person h, standing at 40,40 all along, pings `kind` at `at`. */
+  const after = (kind: 'go' | 'help', at: Vec3, b: PlannedSeat) => {
+    const p = planner();
+    for (let t = 10; t < 200; t += 1) p.plan(situation([seat('h', 1, 40, 40, { bot: false }), b], { time: t }));
+    p.intel(1).heard(ping(kind, at, 200), [0, 0, 0], 200);
+    const first = p.plan(situation([seat('h', 1, 40, 40, { bot: false }), b], { time: 200 })).get('b')!.rally;
+    // The person hasn't moved: their feet don't take the ping back.
+    const later = p.plan(situation([seat('h', 1, 40, 40, { bot: false }), b], { time: 205 })).get('b')!.rally;
+    return { first, later, heading: p.intel(1).heading('h') };
+  };
+
+  it('"Going here": a bot joins where the person pinged, and the Heading stands while they make their way', () => {
+    const r = after('go', [180, 0, 30], seat('b', 1, 12, 10, { bold: 0.5 }));
+    expect(apart(r.first, [180, 30])).toBeLessThan(5);
+    expect(apart(r.later, [180, 30])).toBeLessThan(5);
+    expect(r.heading).toMatchObject({ point: [180, 0, 30], ping: 'go' });
+  });
+
+  it('"Need help": answered by a bot near enough for its boldness; a careful one far off keeps to its own', () => {
+    const help: Vec3 = [250, 0, 0];
+    expect(apart(after('help', help, seat('b', 1, 60, 0, { bold: 1 })).first, [250, 0])).toBeLessThan(5);
+    expect(apart(after('help', help, seat('b', 1, 200, 0, { bold: 0 })).first, [250, 0])).toBeLessThan(5);
+    expect(apart(after('help', help, seat('b', 1, 100, 0, { bold: 0 })).first, [250, 0])).toBeGreaterThan(5);
+  });
+});

@@ -1,6 +1,8 @@
 import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
 import { planCharge, planOutposts } from '../bots/planner';
 import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
+import { SquadIntel } from '../bots/squad-intel';
+import { Pings, type PingEvent, type PingRequest } from '../pings';
 import { findPath, nearestNode, startNode, type NavGraph } from '../bots/nav';
 import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
 import { BattleRoyale, type BattleRoyaleOptions, type SquadSize } from '../modes/battle-royale';
@@ -164,6 +166,8 @@ export interface BotOptions {
 
 /** Seconds between the bot teams' plans. */
 const PLAN_EVERY = 1;
+/** Pings waiting for a tick at most: more in one tick are dropped (each seat's allowance holds them to a few anyway). */
+const MAX_PING_ASKS = 256;
 /** A Card lying farther than this (m) from the nearest nav node is out of a bot's reach (in the sea, on a roof). */
 const CARD_REACH = 3;
 /** Battle Royale: Squads a plan in the countdown may give a first rally, so they're spread over its seconds instead of all in one tick; play gives the rest. */
@@ -230,7 +234,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot']);
+const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping']);
 
 interface Client {
   readonly connection: Connection;
@@ -329,6 +333,8 @@ interface LoggedEvent {
   readonly bytes: Uint8Array;
   /** Who it's for; null where every seat goes to everyone. */
   readonly reach: EventReach | null;
+  /** A ping's: only its team hears of it. */
+  readonly team?: TeamId;
 }
 
 interface BotSeat {
@@ -414,6 +420,11 @@ export class GameServer {
   #locked: Map<PlayerId, Loadout | undefined> | null = null;
   /** Players holding the use button, as of their latest usercmd. */
   readonly #using = new Set<PlayerId>();
+  /** Pings asked for since the last tick, by people and bots, checked and sent in the next. */
+  #pingAsks: { readonly by: PlayerId; readonly req: PingRequest }[] = [];
+  readonly #marks = new Pings();
+  /** Team modes: what each team with a person in it has pinged (a Battle Royale's Squads keep theirs in the planner). */
+  readonly #teamIntel = new Map<TeamId, SquadIntel>();
   /** Battle Royale: the Squad each person picked or was given in the lobby (see #lobbySquads). */
   #squadPicks = new Map<PlayerId, number>();
   /**
@@ -782,6 +793,12 @@ export class GameServer {
       }
       return;
     }
+    if (message.t === 'ping') {
+      if (client.id !== null && this.#phase === 'playing' && this.#pingAsks.length < MAX_PING_ASKS) {
+        this.#pingAsks.push({ by: client.id, req: { kind: message.kind, at: message.at, ...(message.target === undefined ? {} : { target: message.target }) } });
+      }
+      return;
+    }
     if (message.t === 'squad') {
       if (this.#phase === 'lobby' && this.#lobbyMode === BATTLE_ROYALE) this.#pickSquad(client.id, message.squad);
       return;
@@ -928,6 +945,9 @@ export class GameServer {
     this.#endStandIns();
     this.#squads = null;
     this.#locked = null;
+    this.#marks.reset();
+    this.#pingAsks = [];
+    this.#teamIntel.clear();
     this.#grounds = new Map();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
     // A Battle Royale's bots play to their own profile, so into one or out of one they're briefed afresh.
@@ -1361,7 +1381,9 @@ export class GameServer {
       this.#firedAt.set(e.shooter, out.tick);
     }
     for (const e of out.events) if (e.type === 'prop') this.#popped.add(e.prop);
-    const modeEvents = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
+    const played = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
+    const pinged = this.#takePings();
+    const modeEvents = pinged.length > 0 ? [...played, ...pinged] : played;
     this.#modeEvents = modeEvents;
     this.#noteChanges(out, modeEvents);
     probe?.phase('mode');
@@ -1371,7 +1393,13 @@ export class GameServer {
     const seats = (this.#seatIndex = new SeatIndex(this.#last.players));
     const relevant = this.#net.relevance !== null;
     const logged = [...out.events, ...modeEvents].map(
-      (event, index): LoggedEvent => ({ tick, type: event.type, bytes: packEvent({ tick, index, event }), reach: relevant ? eventReach(event, (id) => seats.get(id)?.position) : null }),
+      (event, index): LoggedEvent => ({
+        tick,
+        type: event.type,
+        bytes: packEvent({ tick, index, event }),
+        reach: relevant ? eventReach(event, (id) => seats.get(id)?.position) : null,
+        ...(event.type === 'ping' ? { team: event.team } : {}),
+      }),
     );
     // Cosmetic events go out once; the ones that matter are repeated for a while in case a snapshot is lost.
     const kept = this.#recentEvents.filter((e) => e.tick > tick - EVENT_RESEND_TICKS && IMPORTANT.has(e.type));
@@ -1506,6 +1534,14 @@ export class GameServer {
     const awake = this.#mode.fixedSeats === undefined ? Infinity : Math.round((time - this.#matchStart) / TICK_SECONDS);
     let waking = 0;
     const people = far ? this.#joined().flatMap((c) => seats.get(c.id as PlayerId) ?? []) : [];
+    // A bot's pings are for the people of its side: a side of bots alone shares what it sees without them.
+    const heard = new Set<TeamId>();
+    for (const c of this.#joined()) {
+      const team = seats.get(c.id as PlayerId)?.team;
+      if (team !== undefined) heard.add(team);
+    }
+    if (!this.#squads) for (const team of heard) if (!this.#teamIntel.has(team)) this.#teamIntel.set(team, new SquadIntel());
+    const teamIntel = this.#squads ? null : this.#teamIntel;
     for (const [id, seat] of this.#bots) {
       const self = seats.get(id);
       if (!self || frozen || awake < waking++ % WAKE_TICKS) {
@@ -1529,8 +1565,11 @@ export class GameServer {
         budget,
         ...(budget.plans >= plansPerTick ? { rest: true } : {}),
         ...(ground ? { ground } : {}),
+        ...(teamIntel?.has(self.team) ? { intel: teamIntel.get(self.team)! } : {}),
       };
       cmds[id] = seat.bot.think(view);
+      const ping = seat.bot.takePing();
+      if (ping && heard.has(self.team) && this.#pingAsks.length < MAX_PING_ASKS) this.#pingAsks.push({ by: id, req: ping });
       if (probe) {
         probe.thought(id, seat.bot.activity);
         this.#facts.thoughts += 1;
@@ -1538,6 +1577,32 @@ export class GameServer {
     }
     this.#facts.plans = budget.plans;
     this.#facts.arcs = arcs - budget.arcs;
+  }
+
+  /**
+   * The pings asked for since the last tick, checked against what the server
+   * knows: those that stand go to their side, and into what its bots know.
+   */
+  #takePings(): PingEvent[] {
+    if (this.#pingAsks.length === 0) return [];
+    const asks = this.#pingAsks;
+    this.#pingAsks = [];
+    if (this.#phase !== 'playing') return [];
+    const players = this.#last.players;
+    const seats = this.#seatIndex;
+    const time = this.simulation.time;
+    const world = { world: this.#map.world, players, objective: this.#mode.objective(), time, enemies: (a: PlayerOutput, b: PlayerOutput) => this.#mode.canDamage(a, b) };
+    const out: PingEvent[] = [];
+    for (const { by, req } of asks) {
+      const seat = seats.get(by);
+      if (!seat) continue;
+      const ping = this.#marks.request(seat, req, world);
+      if (!ping) continue;
+      out.push(ping);
+      const intel = this.#squads ? this.#squads.intel(ping.team) : this.#teamIntel.get(ping.team);
+      intel?.heard(ping, (ping.target !== null ? seats.get(ping.target)?.velocity : undefined) ?? [0, 0, 0], time);
+    }
+    return out;
   }
 
   /** A tick of play: scoring, the end of the match, respawns. */
@@ -1735,7 +1800,12 @@ export class GameServer {
     const log = reliable ? this.#eventLog : this.#recentEvents;
     let from = reliable ? log.length : 0;
     while (reliable && from > 0 && (log[from - 1] as LoggedEvent).tick > client.sentTick) from -= 1;
-    const events = log.slice(from);
+    let events = log.slice(from);
+    // Pings are for their side only: a spectator without a seat hears none.
+    if (events.some((e) => e.team !== undefined)) {
+      const team = this.#seatIndex.get(client.id as PlayerId)?.team;
+      events = events.filter((e) => e.team === undefined || e.team === team);
+    }
     const relevance = this.#net.relevance;
     if (!relevance || !viewer) return events;
     return events.filter((e) => !e.reach || reaches(e.reach, viewer.id, viewer.position, relevance));
