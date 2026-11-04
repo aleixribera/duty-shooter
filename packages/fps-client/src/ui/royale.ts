@@ -112,7 +112,13 @@ export function placement(scores: readonly Score[], selfId: PlayerId | null): { 
 
 /** The feed's line for a Squad with nobody left standing (ticket 69). */
 export function squadWipedLine(e: { readonly names: readonly string[]; readonly by: string | null; readonly squadsLeft: number }): string {
-  return `Squad wiped: ${nameList(e.names)}${e.by ? `, by ${e.by}` : ''} · ${e.squadsLeft} ${e.squadsLeft === 1 ? 'Squad' : 'Squads'} left`;
+  const [text, tail] = squadWipedParts(e);
+  return `${text} ${tail}`;
+}
+
+/** The same line in two parts: who, and the count left, which a narrow feed keeps whole. */
+export function squadWipedParts(e: { readonly names: readonly string[]; readonly by: string | null; readonly squadsLeft: number }): readonly [string, string] {
+  return [`Squad wiped: ${nameList(e.names)}${e.by ? `, by ${e.by}` : ''}`, `· ${e.squadsLeft} ${e.squadsLeft === 1 ? 'Squad' : 'Squads'} left`];
 }
 
 /** The feed's line for a new Kill Leader. */

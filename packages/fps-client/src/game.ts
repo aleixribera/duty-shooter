@@ -10,6 +10,7 @@ import {
   siteCentre,
   isShellReload,
   teamMode,
+  INTERMISSION,
   raycastWorld,
   sightBlocked,
   wading,
@@ -60,11 +61,13 @@ import { preparationShot, preparationTime, type PreparationShot, type Preparatio
 import { PreparationSounds } from './preparation-sounds';
 import { Spectator, withRoster, type SpectateView } from './spectate';
 import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel';
+import type { MatchCardState } from './hud/match-card';
+import { MatchLog, type RecapLookup } from './ui/recap';
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
-import { heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedLine, victoryCard, type RingPhase } from './ui/royale';
+import { heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedParts, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
 import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
@@ -82,6 +85,8 @@ const TICK_MS = TICK_SECONDS * 1000;
 const SHOT_SHAKE = 0.012;
 /** A spectator switching to someone nearer than this (m) glides there; farther, it cuts. */
 const SPECTATE_GLIDE = 40;
+/** How long (ms) the death recap stays on the spectator's panel once you're out (ticket 73); the map keeps its mark. */
+const RECAP_OUT_MS = 20_000;
 /** How long (ms) the spectator's notice of who put out the one watched stays up. */
 const SPECTATE_NOTICE_MS = 4000;
 /** A binding as a short key cap for the spectator's panel. */
@@ -228,6 +233,8 @@ export class Game {
   #spectateView: 'follow' | 'eyes' = 'follow';
   /** Who put each seat out (by name), from the kill feed, for the spectator's notice. */
   readonly #outBy = new Map<PlayerId, string | null>();
+  /** This match as the death recap and the match card tell it (ticket 73); kept in the page, dropped at the next match. */
+  readonly #log = new MatchLog();
   /** The spectator's notice of who put out the one watched, and until when (performance.now ms). */
   #spectateNotice: { readonly text: string; readonly until: number } | null = null;
   /** The watched player's view last frame, for the movement of their weapon in your hands. */
@@ -820,6 +827,10 @@ export class Game {
   #updateHud(dt: number, eye: Vec3, forward: Vec3): void {
     const driver = this.#driver;
     if (!driver) return;
+    // The match card's time alive and route: a Battle Royale in play, past its Preparation, while you're in the fight.
+    this.#log.self = driver.selfId;
+    const inFight = this.#royale !== null && driver.match?.preparation === null && this.#cur?.alive === true && !this.#inShot;
+    this.#log.sample(dt, inFight ? this.#cur!.position : null);
     const match = driver.match;
     if (!match || match.phase === 'playing') this.#myVote = null;
     // The population sign: everyone in the lobby (at least you) and this match's kills.
@@ -870,6 +881,8 @@ export class Game {
       charge: this.#chargeHud(eye),
       royale: this.#royaleHud(forward),
       victory: victoryTime(driver.match, driver.serverTime) === null ? null : victoryCard(driver.match?.result, driver.scores, driver.selfId),
+      matchCard: this.#matchCard(),
+      recap: this.#royale && this.#cur?.alive && this.#cur.downed ? this.#log.recap : null,
       pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
       action,
       dt,
@@ -1089,6 +1102,7 @@ export class Game {
     const b = this.#settings.bindings;
     const notice = this.#spectateNotice && performance.now() < this.#spectateNotice.until ? this.#spectateNotice.text : null;
     return (this.#lastPanel = {
+      recap: mode === 'battle-royale' && driver.scores.some((s) => s.id === driver.selfId) ? this.#recapFor(RECAP_OUT_MS) : null,
       name: driver.nameOf(watched.id),
       bot: scores.some((s) => s.id === watched.id && s.bot),
       health: watched.health,
@@ -1151,6 +1165,60 @@ export class Game {
     this.#ringPhase = phase;
   }
 
+  /** What the log looks up as it records: names, bots, the seats as last sent, weapon names. */
+  readonly #lookup: RecapLookup = {
+    nameOf: (id) => this.#driver?.nameOf(id) ?? id,
+    isBot: (id) => this.#driver?.scores.some((s) => s.id === id && s.bot) ?? false,
+    seat: (id) => {
+      const p = this.#others.find((o) => o.id === id);
+      return p?.alive ? p : null;
+    },
+    weaponName: (cause, weapon) => killedWith(cause, weapon as KillWeapon | null) || null,
+  };
+
+  /** Your own match on one card, at a Battle Royale's end, after the victory beat (ticket 73). */
+  #matchCard(): MatchCardState | null {
+    const driver = this.#driver;
+    const match = driver?.match;
+    if (!driver || !match || match.mode !== 'battle-royale' || !driver.scores.some((s) => s.id === driver.selfId)) return null;
+    const ending = match.phase === 'nuke' || (match.phase === 'vote' && match.lobby !== null);
+    if (!ending || victoryTime(match, driver.serverTime) !== null) return null;
+    const left = Math.max(0, (match.phaseEnds ?? driver.serverTime) - driver.serverTime) + (match.phase === 'nuke' ? INTERMISSION.scoreboard : 0);
+    const winners = victoryCard(match.result, driver.scores, driver.selfId);
+    const me = driver.scores.find((s) => s.id === driver.selfId);
+    return {
+      card: this.#cardFor(placement(driver.scores, driver.selfId), me?.kills ?? 0),
+      winners: winners?.names ?? null,
+      yours: winners?.yours ?? false,
+      next: match.lobby ? `Back to the lobby in ${Math.ceil(left)} s` : `Next match in ${Math.ceil(left)} s`,
+    };
+  }
+
+  /** The card, made once for what it shows: a fresh object would redraw its island every frame. */
+  #cardFor(place: { place: number; of: number } | null, kills: number) {
+    const key = `${place?.place}/${place?.of}/${kills}`;
+    if (this.#cardKey !== key || !this.#cardMade) {
+      this.#cardKey = key;
+      this.#cardMade = this.#log.card(place, kills);
+    }
+    return this.#cardMade;
+  }
+
+  /** The recap while it is fresh, so out of the fight the spectator's panel gets its room back. */
+  #recapFor(ms: number): MatchLog['recap'] {
+    const r = this.#log.recap;
+    if (r !== this.#recapSeen) {
+      this.#recapSeen = r;
+      this.#recapAt = performance.now();
+    }
+    return r && performance.now() - this.#recapAt < ms ? r : null;
+  }
+
+  #recapSeen: MatchLog['recap'] = null;
+  #recapAt = 0;
+  #cardKey = '';
+  #cardMade: ReturnType<MatchLog['card']> | null = null;
+
   /** The Battle Royale HUD: the Ring, the compass from where the view stands, the count, your placement and who you watch. */
   #royaleHud(forward: Vec3): RoyaleHudState | null {
     const state = this.#royale;
@@ -1184,7 +1252,15 @@ export class Game {
       mapOpen: this.input.mapOpen,
       pings: this.#pingBoard.live(driver.serverTime).map((m) => ({ kind: m.kind, x: m.position[0], z: m.position[2] })),
       leader: state.leader ? { name: state.leader.name, kills: state.leader.kills, you: state.leader.id === driver.selfId } : null,
+      attacker: this.#attackerMark(),
     };
+  }
+
+  /** Where whoever put you Downed or out stood, for the map, while you're Downed or out. */
+  #attackerMark(): { name: string; x: number; z: number } | null {
+    const r = this.#log.recap;
+    if (!r?.at || !r.name || (this.#cur?.alive && !this.#cur.downed)) return null;
+    return { name: r.name, x: r.at[0], z: r.at[1] };
   }
 
   /** The Charge round for the HUD: your side, who carries and acts, and markers over the sites and the charge. */
@@ -1423,6 +1499,7 @@ export class Game {
     const selfId = driver.selfId;
     switch (e.type) {
       case 'shot': {
+        this.#log.shot(e.shooter, e.origin);
         const own = e.shooter === selfId;
         if (!own && this.#follow?.eyes && this.#follow.id === e.shooter) {
           // Through their eyes, their shot is fired from your hands.
@@ -1477,6 +1554,7 @@ export class Game {
         break;
       }
       case 'hit': {
+        this.#log.hit(e, driver.serverTime, this.#cur?.alive ? this.#cur.position : null);
         if (e.cause === 'bullet') this.#tracers.land(e.shooter, e.point);
         const from = this.#eyeOf(e.shooter) ?? e.point;
         const d: Vec3 = [e.point[0] - from[0], e.point[1] - from[1], e.point[2] - from[2]];
@@ -1519,7 +1597,11 @@ export class Game {
         }
         break;
       }
+      case 'down':
+        this.#log.down(e, this.#lookup, e.victim === selfId ? (this.#cur?.position ?? null) : null);
+        break;
       case 'kill':
+        this.#log.kill(e, this.#lookup, e.victim === selfId ? (this.#cur?.position ?? null) : null);
         if (!driver.online && e.killer === selfId && e.victim !== selfId) this.hud.eliminated(driver.nameOf(e.victim), e.zone === 'head');
         if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId, {}, killedWith(e.cause, e.weapon));
         break;
@@ -1542,6 +1624,7 @@ export class Game {
         );
         break;
       case 'revive': {
+        this.#log.revive(e);
         const team = driver.scores.find((s) => s.id === e.target)?.team;
         if (team !== undefined && team === driver.scores.find((s) => s.id === selfId)?.team) {
           this.hud.objectiveFeed(`${driver.nameOf(e.reviver)} Revived ${driver.nameOf(e.target)}`, team, e.reviver === selfId || e.target === selfId);
@@ -1593,6 +1676,7 @@ export class Game {
       }
       case 'card':
       case 'reboot': {
+        if (e.type === 'reboot' && e.action === 'done') this.#log.reboot(e);
         const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
         const line = rebootFeed(e, cell);
         const mine = e.player === selfId || (e.type === 'reboot' && e.seats.includes(selfId ?? ''));
@@ -1609,7 +1693,8 @@ export class Game {
         // Duos and Trios only (the mode's call): in Solos the kill feed has said it.
         const ownTeam = driver.scores.find((s) => s.id === selfId)?.team;
         const byUs = e.by !== null && driver.scores.some((s) => s.team === ownTeam && s.name === e.by);
-        this.hud.objectiveFeed(squadWipedLine(e), e.team, e.team === ownTeam || byUs);
+        const [line, tail] = squadWipedParts(e);
+        this.hud.objectiveFeed(line, e.team, e.team === ownTeam || byUs, tail);
         break;
       }
       case 'killLeader': {
@@ -1671,6 +1756,8 @@ export class Game {
         this.hud.toast(e.winnerName ? `${e.winnerName} ${winVerb(e)} the match.` : 'Match over.');
         break;
       case 'matchStart':
+        this.#log.reset(selfId);
+        this.#cardMade = null;
         this.#killer = null;
         this.#outBy.clear();
         this.#spectateNotice = null;

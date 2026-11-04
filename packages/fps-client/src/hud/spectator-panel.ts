@@ -1,4 +1,5 @@
 import { STATS } from '@duty-shooter/fps-core';
+import { recapHtml, type Recap } from '../ui/recap';
 
 /**
  * The spectator's panel (ticket 32), in every mode that has spectating: who you
@@ -31,6 +32,8 @@ export interface SpectatorPanelState {
   readonly view: 'follow' | 'eyes';
   /** Who put out the last one watched, for a few seconds after, or null. */
   readonly notice: string | null;
+  /** Battle Royale: who put you out and how that fight went (ticket 73), or null. */
+  readonly recap?: Recap | null;
   /** The key or button for each, as shown. */
   readonly keys: { readonly prev: string; readonly next: string; readonly view: string };
 }
@@ -54,6 +57,7 @@ export function spectatorPanelHtml(s: SpectatorPanelState): string {
     key(s.keys.view, s.view === 'follow' ? 'Their view' : 'Follow'),
   ].join('');
   return (
+    (s.recap ? `<div class="recap">${recapHtml(s.recap)}</div>` : '') +
     (s.notice ? `<div class="notice">${escape(s.notice)}</div>` : '') +
     `<div class="head"><span>Watching</span>${s.of > 1 ? `<span class="n">${s.index} / ${s.of}</span>` : ''}</div>` +
     `<div class="who"><b>${escape(s.name)}</b>${s.bot ? '<em>Bot</em>' : ''}</div>` +
@@ -69,6 +73,7 @@ export const SPECTATOR_PANEL_CSS = `
   background: radial-gradient(ellipse at 0% 100%, var(--ds-scrim-soft), rgb(7 9 13 / 0) 72%); font-variant-numeric: tabular-nums; }
 .ds-spec[hidden] { display: none; }
 .ds-spec .notice { align-self: flex-start; margin-bottom: 6px; padding: 5px 10px; background: var(--ds-scrim); border-left: 3px solid var(--ds-alert); font-size: var(--ds-type-small); color: var(--ds-text); animation: ds-in var(--ds-slow) var(--ds-ease); }
+.ds-spec .recap { align-self: stretch; margin-bottom: 12px; padding: 10px 14px; background: var(--ds-scrim); border-left: 3px solid var(--ds-alert); }
 .ds-spec .head { display: flex; gap: 12px; align-items: baseline; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-spec .head .n { color: var(--ds-text); }
 .ds-spec .who { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
@@ -100,6 +105,9 @@ export const SPECTATOR_PANEL_CSS = `
   .ds-spec { min-width: 0; padding: 48px 24px 76px 14px; }
   .ds-spec .who b { font-size: 26px; }
   .ds-spec .hp .bar { width: 180px; }
+  .ds-spec .recap { padding: 8px 10px; margin-bottom: 8px; }
+  .ds-spec .recap .who b { font-size: 18px; }
+  .ds-spec .recap .nums b { font-size: 17px; }
 }
 `;
 

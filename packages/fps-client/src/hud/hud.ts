@@ -1,6 +1,8 @@
 import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
+import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
+import { RECAP_CSS, recapHtml, type Recap } from '../ui/recap';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 import { placement, type VictoryCard } from '../ui/royale';
@@ -62,7 +64,14 @@ const CSS = `
 .ds-feed div { display: flex; align-items: center; background: linear-gradient(270deg, rgb(12 15 21 / 0.8), rgb(12 15 21 / 0.55)); padding: 5px 12px; border-radius: 2px; text-shadow: none; font-size: 14px; transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
 .ds-hud.rostered .ds-feed { top: 84px; }
 /* A phone's Battle Royale: the feed starts under the compass and keeps its newest three, clear of the ammo. */
-@media (max-width: 1000px) { .ds-hud.royale .ds-feed { top: 160px; } .ds-hud.royale .ds-feed div:nth-last-child(n+4) { display: none; } }
+@media (max-width: 1000px) { .ds-hud.royale .ds-feed { top: calc(var(--ds-brstack-foot, 150px) + 10px); } .ds-hud.royale .ds-feed div:nth-last-child(n+4) { display: none; } }
+/* A phone: a feed line stays one line; a long one gives up the middle of its names, never its end (ticket 69's "Squad wiped" lines). */
+@media (max-width: 640px) {
+  .ds-feed { right: 12px; }
+  .ds-feed div { max-width: calc(100vw - 24px); box-sizing: border-box; white-space: nowrap; font-size: 13px; padding: 5px 10px; }
+  .ds-feed div > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ds-feed div > span.tail, .ds-feed div > span.gun { flex: none; }
+}
 @media (max-width: 1000px) { .ds-feed { top: 96px; } }
 /* A phone: health and ammo each keep to their half of the screen, so the bars never cross (ticket 41). */
 @media (max-width: 640px) {
@@ -194,6 +203,8 @@ const CSS = `
 .ds-votes button .tally i { display: block; height: 100%; background: var(--ds-signal); transition: width 200ms ease-out; }
 .ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: 22px; font-weight: 700; }
 .ds-end .next { margin-top: 8px; font-size: 13px; color: var(--ds-text-2); }
+.ds-recap { position: absolute; left: 32px; bottom: 156px; min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; background: var(--ds-scrim-soft); border-left: 3px solid var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
+@media (max-width: 640px) { .ds-recap { left: 12px; bottom: 150px; min-width: 0; padding: 8px 12px; } .ds-recap .who b { font-size: 18px; } .ds-recap .nums b { font-size: 17px; } }
 .ds-toast { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); max-width: 560px; background: rgb(12 15 21 / 0.92); border: 1px solid var(--ds-line); border-left: 3px solid var(--ds-signal); padding: 10px 16px; font-size: 14px; line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
 `;
 
@@ -236,6 +247,10 @@ export interface HudState {
   readonly royale?: RoyaleHudState | null;
   /** A Battle Royale's victory beat, between its result and the nuke (ticket 69), or null. */
   readonly victory?: VictoryCard | null;
+  /** A Battle Royale's match card, at its end in place of the end panel (ticket 73), or null. */
+  readonly matchCard?: MatchCardState | null;
+  /** Who put you Downed, while you are (ticket 73); out, the spectator's panel says it. */
+  readonly recap?: Recap | null;
   /** Something you are holding use for that takes a while (opening a Supply Drop, a Reboot), and how far along it is. */
   readonly action?: { readonly label: string; readonly share: number } | null;
   /** The pings standing, where they show on the screen, and the ping wheel while it is open (ticket 66). */
@@ -405,6 +420,8 @@ export class Hud {
   readonly #pings: PingMarks;
   readonly #allies: AllyTagsView;
   readonly #spectator: SpectatorPanel;
+  readonly #card: MatchCardView;
+  readonly #recap: HTMLDivElement;
   #traceShots: { yaw: number; pitch: number }[] = [];
   #flash = 0;
   readonly #html = new WeakMap<HTMLElement, string>();
@@ -417,7 +434,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -480,6 +497,8 @@ export class Hud {
     });
     this.#toast = el('div', 'ds-toast', this.root);
     this.#royale = new RoyaleHud(this.root, null);
+    this.#recap = el('div', 'ds-recap', this.root);
+    this.#card = new MatchCardView(this.root, () => this.#royale.picture());
     this.#pings = new PingMarks(this.root);
   }
 
@@ -536,10 +555,11 @@ export class Hud {
   }
 
   /** A line in the kill feed about the objectives (a zone taken), in `team`'s colour. */
-  objectiveFeed(text: string, team: number, involvesYou: boolean): void {
+  objectiveFeed(text: string, team: number, involvesYou: boolean, tail = ''): void {
     const row = document.createElement('div');
     if (involvesYou) row.className = 'you';
-    row.innerHTML = `<span class="ds-t${team}">${TEAMS[team]?.mark ?? ''} ${escape(text)}</span>`;
+    // `tail` is the line's end, kept whole when a narrow screen shortens the rest.
+    row.innerHTML = `<span class="ds-t${team}">${TEAMS[team]?.mark ?? ''} ${escape(text)}</span>${tail ? `<span class="tail">&nbsp;${escape(tail)}</span>` : ''}`;
     this.#feed.append(row);
     while (this.#feed.children.length > 6) this.#feed.firstElementChild?.remove();
     setTimeout(() => (row.style.opacity = '0'), 5000);
@@ -713,6 +733,10 @@ export class Hud {
     this.#updateRevive(self, state.action ?? null);
     this.#royale.update(royale);
     this.#royale.victory(state.victory ?? null);
+    this.#card.update(state.matchCard ?? null);
+    const recap = state.recap ?? null;
+    this.#style(this.#recap, 'display', recap ? '' : 'none');
+    if (recap) this.#set(this.#recap, recapHtml(recap));
     // The island map open, nothing else speaks over it.
     this.#style(this.#toast, 'visibility', royale?.mapOpen ? 'hidden' : 'visible');
     this.#pings.update(royale?.mapOpen ? [] : (state.pingMarks?.marks ?? []), state.pingMarks?.wheel ?? null);
@@ -720,7 +744,8 @@ export class Hud {
     this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';
-    const board = (state.showScoreboard || voting) && state.scores.length > 0;
+    // A Battle Royale's card stands in the scoreboard's place at the end; Tab still opens the board.
+    const board = (state.showScoreboard || (voting && !state.matchCard)) && state.scores.length > 0;
     this.#style(this.#board, 'display', board ? 'block' : 'none');
     this.#board.classList.toggle('end', voting);
     if (board) this.#set(this.#board, boardHtml(state));
@@ -869,7 +894,7 @@ export class Hud {
     const view = state.match;
     // A Battle Royale has its own bar: the compass, the count and the Ring.
     this.#style(this.#match, 'display', view && view.status.phase === 'playing' && !state.royale ? 'flex' : 'none');
-    this.#style(this.#end, 'display', view && !state.victory && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
+    this.#style(this.#end, 'display', view && !state.victory && !state.matchCard && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
     // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
     this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
     if (!view) return;

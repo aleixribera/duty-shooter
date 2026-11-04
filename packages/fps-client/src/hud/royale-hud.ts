@@ -36,6 +36,8 @@ const CSS = `
 .ds-compass .mk.reboot small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-signal); transform: rotate(45deg); background: var(--ds-ink); }
 .ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-signal); }
+.ds-map aside .key i.foe { width: 12px; height: 0; border: 0; font-style: normal; }
+.ds-map aside .key i.foe::before { content: '✕'; display: block; margin-top: -8px; font-size: 14px; font-weight: 700; color: var(--ds-alert); }
 .ds-watch .card { font-size: 13px; letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
 .ds-compass .mk.ping { color: var(--ds-signal); font-size: 12px; white-space: nowrap; }
 .ds-compass .mk.ping.enemy { color: var(--ds-alert); }
@@ -160,6 +162,8 @@ export interface RoyaleHudState {
   readonly mapOpen: boolean;
   /** The Kill Leader, shown to everyone (ticket 69); absent until someone has 3 eliminations. */
   readonly leader?: { readonly name: string; readonly kills: number; readonly you: boolean } | null;
+  /** Who put you Downed or out and where they stood, marked on the map (ticket 73). */
+  readonly attacker?: { readonly name: string; readonly x: number; readonly z: number } | null;
 }
 
 /** The island as the map draws it: its terrain, palette colours and named places. */
@@ -232,6 +236,9 @@ export class RoyaleHud {
     this.#leader = el('ds-leader ds-plate', '', stack);
     this.#outside = el('ds-outside', '', stack);
     this.#nextline = el('ds-nextline ds-plate', '', stack);
+    // On a phone the kill feed stands under this column: its foot, as a variable the feed's CSS reads (no layout read a frame).
+    if (typeof ResizeObserver !== 'undefined')
+      new ResizeObserver(() => root.style.setProperty('--ds-brstack-foot', `${Math.round(stack.offsetTop + stack.offsetHeight)}px`)).observe(stack);
     this.#out = el('ds-out');
     this.#watch = el('ds-watch ds-plate');
     this.#victory = el('ds-victory');
@@ -242,6 +249,12 @@ export class RoyaleHud {
     this.#aside = document.createElement('aside');
     this.#map.append(this.#aside);
     this.#show(false);
+  }
+
+  /** The island as painted for the map, for the match card (ticket 73); null until there is one. */
+  picture(): { readonly picture: HTMLCanvasElement; readonly bounds: MapBounds } | null {
+    this.#paint();
+    return this.#island && this.#bounds ? { picture: this.#island, bounds: this.#bounds } : null;
   }
 
   /** The island the map draws. */
@@ -400,7 +413,7 @@ export class RoyaleHud {
     const now = performance.now();
     this.#set(
       this.#aside,
-      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div>${(s.drops ?? []).some((d) => !d.opened) ? '<div class="key"><i class="drop"></i>Supply Drop</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'beacon') ? '<div class="key"><i class="beacon"></i>Reboot Beacon</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'card') ? '<div class="key"><i class="card"></i>Reboot Card</div>' : ''}<div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
+      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div>${(s.drops ?? []).some((d) => !d.opened) ? '<div class="key"><i class="drop"></i>Supply Drop</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'beacon') ? '<div class="key"><i class="beacon"></i>Reboot Beacon</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'card') ? '<div class="key"><i class="card"></i>Reboot Card</div>' : ''}${s.attacker ? '<div class="key"><i class="foe"></i>Who put you down</div>' : ''}<div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
     );
     if (now - this.#lastDraw < 50) return;
     this.#lastDraw = now;
@@ -576,6 +589,33 @@ export class RoyaleHud {
       ctx.fill();
       ctx.fillStyle = tok.text;
       ctx.fillText(m.name.slice(0, 12), x, y - 9 * k);
+    }
+    // Who put you Downed or out: a cross in the alert colour where they stood, with their name.
+    if (s.attacker) {
+      const [x, y] = at(s.attacker.x, s.attacker.z);
+      const h = 7 * k;
+      for (const [width, colour] of [
+        [5 * k, tok.ink],
+        [2.5 * k, tok.alert],
+      ] as const) {
+        ctx.lineWidth = width;
+        ctx.strokeStyle = colour;
+        ctx.beginPath();
+        ctx.moveTo(x - h, y - h);
+        ctx.lineTo(x + h, y + h);
+        ctx.moveTo(x + h, y - h);
+        ctx.lineTo(x - h, y + h);
+        ctx.stroke();
+      }
+      const label = s.attacker.name.slice(0, 16).toUpperCase();
+      ctx.font = `700 ${Math.round(11 * k)}px ${font}`;
+      const w = ctx.measureText(label).width + 10 * k;
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = tok.ink;
+      ctx.fillRect(x - w / 2, y + h + 4 * k, w, 16 * k);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = tok.alert;
+      ctx.fillText(label, x, y + h + 16 * k);
     }
     if (s.at) {
       const [x, y] = at(s.at.x, s.at.z);

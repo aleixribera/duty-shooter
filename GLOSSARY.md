@@ -237,6 +237,12 @@ The seat with the most eliminations in a Battle Royale, once they have at least 
 **Champion Squad**:
 The Squad a Battle Royale's dive introduces: the one holding any of the last match's winners, or else the last match's Kill Leader. With neither back, there is none.
 
+**Death recap**:
+What a Battle Royale shows you once you are Downed or out: who did it, with what and from how far, the damage each of you dealt the other this match, and their health then. The island map marks where they stood. Out of the fight it leads the spectator's panel for 20 s.
+
+**Match card**:
+Your own Battle Royale on one card at its end, after the victory beat and before the Battle Royale screen: place, eliminations, Downs, Revives, Reboots, damage, time alive, and your route across the island with your fights and where you fell. Built in the page from the match's events and gone at the next match.
+
 **Victory beat**:
 The 3 seconds between a Battle Royale's result and its nuke: the winners see "Victory, 1st", everyone else sees who won, each from where they stood. The nuke's phase is that much longer.
 
