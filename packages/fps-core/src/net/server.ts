@@ -7,9 +7,10 @@ import { BattleRoyale, type BattleRoyaleOptions, type SquadSize } from '../modes
 import { Charge, type ChargeOptions } from '../modes/charge';
 import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
-import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
+import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeActions, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { playGround } from '../modes/ground';
+import { royaleLoadout } from '../modes/supply-drops';
 import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
@@ -227,7 +228,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage']);
+const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose']);
 
 interface Client {
   readonly connection: Connection;
@@ -1012,7 +1013,8 @@ export class GameServer {
   /** The loadout a player's next spawn carries (the mode's, else their pick or a bot's from its profile), as spawn options (empty for the default). */
   #loadoutOf(id: PlayerId): { loadout?: Loadout } {
     const loadout = this.#mode.loadoutOf?.(id) ?? [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
-    return loadout ? { loadout } : {};
+    // In a Battle Royale the sniper comes only from a Supply Drop (ticket 71).
+    return loadout ? { loadout: this.#mode.id === BATTLE_ROYALE ? royaleLoadout(loadout) : loadout } : {};
   }
 
   #remove(id: PlayerId): void {
@@ -1253,6 +1255,12 @@ export class GameServer {
     this.#fillBots();
   }
 
+  /** What a mode may do to seats' weapons, through the simulation. */
+  readonly #act: ModeActions = {
+    give: (id, weapon) => this.simulation.giveWeapon(id, weapon),
+    primary: (id) => this.simulation.primary(id),
+  };
+
   #context(): ModeContext {
     const sim = this.simulation.output();
     return {
@@ -1266,6 +1274,7 @@ export class GameServer {
       zones: this.#map.zones ?? [],
       sites: this.#map.sites ?? [],
       using: this.#using,
+      act: this.#act,
       ...(this.#mode.fixedSeats === undefined ? {} : this.#seatContext()),
     };
   }
@@ -1443,7 +1452,7 @@ export class GameServer {
       state,
       seats: seats.map((p) => {
         const bot = this.#bots.get(p.id)?.bot;
-        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}) };
+        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}), ...(p.loadout.primary === 'sniper' ? { sniper: true } : {}) };
       }),
       ...(this.#countingDown ? { fresh: FIRST_RALLIES } : {}),
     });

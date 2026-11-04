@@ -26,6 +26,7 @@ export {
 export type { ChargeOptions } from './charge';
 export { LOBBY_MODES, MODE_IDS, inSite, inZone, siteCentre, teamMode } from './game-mode';
 export { PlayGround, playGround } from './ground';
+export { DROP_WEAPON, dropSniper, planDrops, royaleLoadout, SupplyDrops } from './supply-drops';
 export { planRing, ringAt, ringDamage, stageAt } from './ring';
 export type { Circle, RingStage } from './ring';
 export type {
@@ -33,8 +34,10 @@ export type {
   ChargeSite,
   ChargeState,
   GameMode,
+  LooseWeaponState,
   MatchEntrant,
   MatchResult,
+  ModeActions,
   ModeContext,
   ModeEvent,
   ModeId,
@@ -43,6 +46,7 @@ export type {
   RoundReason,
   Score,
   SpawnPoint,
+  SupplyDropState,
   TeamScore,
   Zone,
   ZoneState,

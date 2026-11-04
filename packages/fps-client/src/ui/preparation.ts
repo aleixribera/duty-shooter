@@ -1,4 +1,4 @@
-import { STATS, type GrenadeId, type Loadout, type WeaponId } from '@duty-shooter/fps-core';
+import { DROP_WEAPON, royaleLoadout, STATS, type GrenadeId, type Loadout, type WeaponId } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import type { PreparationStage } from '../preparation-shot';
 import { loadoutOptions } from './model';
@@ -75,6 +75,7 @@ const CSS = `
 .ds-prep .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; }
 .ds-prep .ds-field-label { margin-bottom: 6px; color: var(--ds-text-2); }
 .ds-prep .kit { display: grid; gap: 14px; }
+.ds-prep .kit .drop-note { margin-top: -8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-prep .ds-seg button { min-height: 44px; font-size: 14px; }
 .ds-prep .ds-seg button:disabled:not(.on) { color: var(--ds-text-3); }
 .ds-prep .mates { display: grid; gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
@@ -111,6 +112,11 @@ const CSS = `
 `;
 
 const weaponName = (id: WeaponId) => STATS.weapons[id].traits.name;
+
+/** The Preparation's primaries and what is lit: the sniper isn't a pick in a Battle Royale (it comes only from a Supply Drop), and a saved pick of it starts with the M4A1. */
+export function preparationKit(loadout: Loadout): { readonly primaries: readonly WeaponId[]; readonly picked: Loadout } {
+  return { primaries: loadoutOptions().primary.filter((w) => w !== DROP_WEAPON), picked: royaleLoadout(loadout) };
+}
 
 export class PreparationPage {
   readonly #root: HTMLDivElement;
@@ -219,10 +225,11 @@ export class PreparationPage {
     const total = v.elapsed + v.left;
     const done = total > 0 ? Math.min(1, v.elapsed / total) : 1;
     const options = loadoutOptions();
+    const { primaries, picked } = preparationKit(v.loadout);
     const seg = <T extends string | null>(slot: keyof Loadout, title: string, choices: readonly T[], name: (c: T) => string) =>
       `<div><span class="ds-field-label">${escapeHtml(title)}</span><div class="ds-seg" role="group" aria-label="${escapeHtml(title)}">${choices
         .map((c) => {
-          const on = v.loadout[slot] === c;
+          const on = picked[slot] === c;
           return `<button type="button" data-act="pick" data-slot="${slot}" data-value="${escapeHtml(c ?? '')}" data-key="${slot}-${escapeHtml(c ?? 'none')}" class="${on ? 'on' : ''}" aria-pressed="${on}"${locked ? ' disabled' : ''}>${escapeHtml(name(c))}</button>`;
         })
         .join('')}</div></div>`;
@@ -235,7 +242,7 @@ export class PreparationPage {
     return `<div class="card" role="region" aria-label="Preparation">
 <div><div class="ds-crumb">Battle Royale · Zero Island</div><h1>Preparation</h1></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
-<div class="kit">${seg('primary', 'Primary', options.primary, weaponName)}${seg('secondary', 'Secondary', options.secondary, weaponName)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
+<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
 <div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button><div class="note">${escapeHtml(action.note)}</div>${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>

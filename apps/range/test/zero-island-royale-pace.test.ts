@@ -18,11 +18,21 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       const rest = { cover: 0, open: 0 };
       const seen: Record<string, number> = {};
       const spread: number[] = [];
+      const drops = { announced: 0, landed: 0, opened: 0, at: [] as number[] };
       const run = playRoyale(isle, {
         size,
         seed,
         good: process.env['ROYALE_GOOD'] === '1',
         each: (m, out, t) => {
+          for (const e of m.server.modeEvents) {
+            if (e.type !== 'drop') continue;
+            if (e.action === 'announce') drops.announced += 1;
+            if (e.action === 'land') drops.landed += 1;
+            if (e.action === 'open') {
+              drops.opened += 1;
+              drops.at.push(Math.round(t));
+            }
+          }
           if (Math.round(t * 60) % 60 === 0) {
             const standing = out.players.filter((p) => p.alive && !p.downed);
             for (const p of standing) {
@@ -63,6 +73,7 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       const byCause: Record<string, number> = {};
       for (const d of run.deaths) byCause[d.cause] = (byCause[d.cause] ?? 0) + 1;
       console.log(`PACE size ${size} seed ${seed}: ${run.length.toFixed(0)} s, Stage ${run.stage}, ${run.result?.reason}, ${run.deaths.length} deaths ${JSON.stringify(byCause)}, ${run.downs} downs, ${run.revives} revives, tick p99 ${run.tick.p99.toFixed(2)} worst ${run.tick.worst.toFixed(1)} ms, wall ${((performance.now() - t0) / 1000).toFixed(0)} s${run.good ? `; proxy ${run.good.won ? 'WON' : `place ${run.good.place}`}, ${run.good.kills} kills` : ''}`);
+      console.log(`  Supply Drops: ${drops.announced} announced, ${drops.landed} landed, ${drops.opened} opened (by bots) at ${JSON.stringify(drops.at)} s`);
       for (const [i, s] of slices.entries()) console.log(`  ${String(i * SLICE).padStart(3)} s: ${String(s.alive).padStart(2)} seats ${String(s.squads).padStart(2)} squads, ${s.outside} outside, nearest enemy ${s.nearest} m, ${JSON.stringify(s.acts)}`);
       const first = run.deaths[0];
       spread.sort((a, b) => a - b);

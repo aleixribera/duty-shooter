@@ -73,6 +73,9 @@ export interface BotObjective {
   readonly hurry?: boolean;
 }
 
+/** How near (m) a crate a bot stands to open it: inside the opening reach. */
+const GROUND_USE = 1.5;
+
 /** A bot sent to an objective chases a noise no farther than this (m) beyond its edge. */
 const OBJECTIVE_LEASH = 12;
 
@@ -471,6 +474,8 @@ export class Bot {
   /** The Downed squadmate it has said it will Revive, when it next weighs that, and the enemy eye its way there keeps out of. */
   #reviving: PlayerId | null = null;
   #reviveAt = 0;
+  /** Its primary is shot dry with nothing to reload from: the pistol stays in hand. */
+  #dry = false;
   #reviveThreat: Vec3 | null = null;
 
   constructor(id: PlayerId, profile: BotProfile, nav: NavGraph, world: World) {
@@ -566,7 +571,7 @@ export class Bot {
     this.#unheard = [];
     this.#seats = heard.seats ?? new SeatIndex(heard.players);
     this.#readFeed(heard.events);
-    const view = heard.ground ? this.#reviveChoice(heard) : heard;
+    const view = heard.ground ? this.#groundJob(this.#reviveChoice(heard)) : heard;
     const seconds = ticks * TICK_SECONDS;
     const { self, time } = view;
     this.#lastTime = time;
@@ -916,8 +921,12 @@ export class Bot {
     // The pistol when the primary runs dry close up; the primary again once things are quiet.
     const w = self.weapon;
     const busy = w.action === 'holster' || w.action === 'draw' || w.action === 'grenade' || self.grenade !== null;
-    const toPistol = w.slot === 0 && w.ammo === 0 && fighting && target?.visible === true && range < PISTOL_RANGE;
-    const toPrimary = w.slot === 1 && !fighting && time - this.#lastEnemySeen > 2;
+    // A primary with nothing left to reload from (a Supply Drop's sniper, shot dry) is put away for good.
+    const dry = w.slot === 0 && w.ammo === 0 && w.reserve === 0;
+    if (w.slot === 0 && !dry) this.#dry = false;
+    else if (dry) this.#dry = true;
+    const toPistol = w.slot === 0 && w.ammo === 0 && ((fighting && target?.visible === true && range < PISTOL_RANGE) || dry);
+    const toPrimary = w.slot === 1 && !fighting && time - this.#lastEnemySeen > 2 && !this.#dry;
     const switching = (toPistol || toPrimary) && !busy && time >= this.#switchAt && !(this.#lastButtons & Button.SwitchWeapon);
     if (switching) {
       buttons.push('SwitchWeapon');
@@ -1542,6 +1551,12 @@ export class Bot {
         this.#holdUntil = 0;
       }
     }
+  }
+
+  /** Battle Royale: a job its ground gives it (opening a Supply Drop it went for), when it has no Revive to see to. */
+  #groundJob(view: BotView): BotView {
+    const use = view.ground?.use;
+    return use && !view.objective && view.self.alive && !view.self.downed ? { ...view, objective: { position: use, radius: GROUND_USE, use: true } } : view;
   }
 
   /**

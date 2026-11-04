@@ -53,6 +53,7 @@ import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
 import { ZoneRings } from './zone-rings';
 import { RingWall } from './ring-wall';
+import { SupplyDropView } from './supply-drop-view';
 import { RingSounds } from './ring-sounds';
 import { preparationShot, preparationTime, type PreparationShot, type PreparationTime } from './preparation-shot';
 import { PreparationSounds } from './preparation-sounds';
@@ -63,6 +64,8 @@ import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
+import { terrainBounds, type MapBounds } from './ui/island-map';
+import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
@@ -229,6 +232,10 @@ export class Game {
   #lastPanel: SpectatorPanelState | null = null;
   /** The Battle Royale's wall in the world and its sound (Zero Island only), and what the Ring was doing last frame. */
   readonly #ringWall: RingWall | null;
+  /** The Supply Drops and the weapons on the ground (island maps only). */
+  readonly #supplyDrops: SupplyDropView | null;
+  /** The island map's square, for saying where a crate lands. */
+  readonly #islandBounds: MapBounds | null;
   readonly #ringSounds = new RingSounds();
   #ringPhase: RingPhase | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
@@ -305,6 +312,9 @@ export class Game {
     this.#ringWall = options.content.places && options.content.terrain ? new RingWall(this.#worldView.scene, options.world.terrain, cloudySky) : null;
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
+    const island = Boolean(options.content.places && options.content.terrain);
+    this.#supplyDrops = island ? new SupplyDropView(this.#worldView.scene, (id) => this.#players.gunMesh(id)) : null;
+    this.#islandBounds = options.content.places && options.content.terrain ? terrainBounds(options.content.terrain) : null;
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
     this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero) : null;
     this.input = new InputController(options.canvas, options.settings);
@@ -714,6 +724,7 @@ export class Game {
       this.#worldView.zoom(zoom);
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
+      this.#supplyDrops?.update(this.#royale, driver.serverTime, this.#camera.camera, dt);
     }
     this.#updateNuke(driver, eye);
     this.#updateTrain(driver, eye);
@@ -898,7 +909,9 @@ export class Game {
       if (charge.phase === 'planted' && p && self.team !== charge.attackers && Math.hypot(self.position[0] - p[0], self.position[2] - p[2]) <= DEFUSE_RANGE) return `Hold ${this.#useLabel()}  Defuse`;
     }
     const mate = this.#revivable(self);
-    return mate ? `Hold ${this.#useLabel()}  Revive ${this.#driver?.nameOf(mate.id) ?? ''}` : null;
+    if (mate) return `Hold ${this.#useLabel()}  Revive ${this.#driver?.nameOf(mate.id) ?? ''}`;
+    const royale = this.#royale;
+    return royale && this.#driver ? dropPrompt(self, royale, this.#driver.serverTime, self.loadout?.primary ?? null, this.#useLabel()) : null;
   }
 
   /** The Downed squadmate a Revive would start on (the nearest in reach nobody is at yet), as the simulation picks it. */
@@ -1083,6 +1096,7 @@ export class Game {
       heading: heading(Math.atan2(-forward[0], -forward[2])),
       at: view ? { x: view.position[0], z: view.position[2] } : null,
       mates: mates.map((p) => ({ name: driver.nameOf(p.id), x: p.position[0], z: p.position[2], downed: Boolean(p.downed) })),
+      drops: dropMarks(state, driver.serverTime, this.#islandBounds),
       placement: placement(driver.scores, driver.selfId),
       out: !self?.alive,
       seated: driver.scores.some((s) => s.id === driver.selfId),
@@ -1485,6 +1499,21 @@ export class Game {
         this.hud.objectiveFeed(`${team} took ${e.zone}${lost}`, e.team, this.#cur?.team === e.team || this.#cur?.team === e.previous);
         break;
       }
+      case 'drop': {
+        const state = this.#royale;
+        const lands = state?.drops?.find((d) => d.stage === e.stage)?.lands;
+        const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
+        if (e.action === 'announce') this.hud.toast(dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - driver.serverTime), 6);
+        else if (e.action === 'open' && e.player !== null) {
+          const mine = e.player === selfId;
+          const team = driver.scores.find((s) => s.id === e.player)?.team ?? 0;
+          this.hud.objectiveFeed(`${mine ? 'You' : driver.nameOf(e.player)} took the sniper from the Supply Drop${cell ? ` in ${cell}` : ''}`, team, mine);
+        }
+        break;
+      }
+      case 'loose':
+        if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
+        break;
       case 'roundStart': {
         const attack = this.#cur?.team === e.attackers;
         this.hud.toast(`Round ${e.round}: you ${attack ? 'attack' : 'defend'}.`, 4);
@@ -1583,6 +1612,7 @@ export class Game {
     this.#tracers.dispose();
     this.#zoneRings.dispose();
     this.#ringWall?.dispose();
+    this.#supplyDrops?.dispose();
     this.#players.dispose();
     this.#arsenal.dispose();
     this.#worldView.dispose();

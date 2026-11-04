@@ -1,5 +1,5 @@
 import type { Vec3 } from '../math';
-import type { KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
+import type { HeldWeapon, KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
 import type { WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
@@ -118,6 +118,39 @@ export interface BattleRoyaleState {
   /** Seats and Squads still alive. */
   readonly alive: number;
   readonly squads: number;
+  /** The Supply Drops announced so far, opened ones too; absent while none is. */
+  readonly drops?: readonly SupplyDropState[];
+  /** Weapons lying on the ground for anyone to take; absent while none does. */
+  readonly loose?: readonly LooseWeaponState[];
+}
+
+/** A Supply Drop as everyone is told of it: where it lands and when, and who is opening or has opened it. Times are simulation times. */
+export interface SupplyDropState {
+  /** The Stage it came with. */
+  readonly stage: number;
+  /** Where it lands: its foot on the ground. */
+  readonly position: Vec3;
+  readonly lands: number;
+  /** Who is holding use at it, and since when. */
+  readonly opening?: { readonly by: PlayerId; readonly since: number };
+  /** Who opened it and took the sniper. */
+  readonly opened?: PlayerId;
+}
+
+/** A weapon on the ground: a primary dropped for a Supply Drop's sniper, or the sniper of a seat that went out. */
+export interface LooseWeaponState {
+  /** Numbers it in the match, so a client can tell one from the next. */
+  readonly id: number;
+  readonly weapon: WeaponId;
+  readonly position: Vec3;
+}
+
+/** What a mode may do to a seat's weapons (the server's simulation does it). */
+export interface ModeActions {
+  /** Puts `weapon` in a seat's primary slot and hands; returns the primary it replaced. */
+  give(id: PlayerId, weapon: HeldWeapon): HeldWeapon | null;
+  /** A seat's primary as it is now. */
+  primary(id: PlayerId): HeldWeapon | null;
 }
 
 /** The mode's own state, sent with every snapshot; null for a mode without any. */
@@ -153,6 +186,8 @@ export interface ModeContext {
   readonly ground?: PlayGround;
   /** The seats that belong to people, connected or held for them; script players don't count. Set in a mode that seats its own. */
   readonly people?: ReadonlySet<PlayerId>;
+  /** What the mode may do to seats' weapons; nothing when absent. */
+  readonly act?: ModeActions;
 }
 
 /** One row of the scoreboard. */
@@ -218,6 +253,10 @@ export type ModeEvent =
   | { readonly type: 'level'; readonly player: PlayerId; readonly level: number; readonly weapon: WeaponId; readonly demoted: boolean }
   /** Battle Royale: the Ring moved on to `stage` (from 1). */
   | { readonly type: 'stage'; readonly stage: number }
+  /** Battle Royale: a Supply Drop was announced, landed, began or stopped being opened, or was opened by `player`. */
+  | { readonly type: 'drop'; readonly action: 'announce' | 'land' | 'start' | 'stop' | 'open'; readonly stage: number; readonly player: PlayerId | null; readonly position: Vec3 }
+  /** Battle Royale: `player` took `weapon` from the ground, leaving `left` there (null: nothing), or a weapon fell there (`player` null). */
+  | { readonly type: 'loose'; readonly player: PlayerId | null; readonly weapon: WeaponId; readonly left: WeaponId | null; readonly position: Vec3 }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 

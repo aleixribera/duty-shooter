@@ -11,9 +11,12 @@ function play(size: SquadSize) {
   const network = createMemoryNetwork();
   const local = new LocalRoyale(network.server, nav, { seed: size });
   const client = new GameClient({ connection: network.connect(), world: createWorld(solids, { terrain: map.terrain }), name: 'Ada', passphrase: '', mode: 'battle-royale' });
+  const costs: number[] = [];
   const step = () => {
     network.advance(TICK_SECONDS);
+    const t0 = performance.now();
     local.tick();
+    costs.push(performance.now() - t0);
     return client.tick(usercmd());
   };
   for (let i = 0; i < 60 && client.match?.phase !== 'lobby'; i++) step();
@@ -21,12 +24,12 @@ function play(size: SquadSize) {
   client.setLobby({ squads: size });
   for (let i = 0; i < 10; i++) step();
   client.startMatch();
-  return { local, client, step };
+  return { local, client, step, costs };
 }
 
 describe('Local bots: the Battle Royale server as the worker runs it (ticket 15)', () => {
   it.each([1, 3] as const)('plays Squads of %i to the end: 59 bots, the Preparation, a Ring that closes, and your place when you go out', (size) => {
-    const { local, client, step } = play(size);
+    const { local, client, step, costs } = play(size);
     let prepared = false;
     let result: MatchResult | null = null;
     let seats = 0;
@@ -42,6 +45,10 @@ describe('Local bots: the Battle Royale server as the worker runs it (ticket 15)
       seats = Math.max(seats, client.scores.length);
       for (const e of frame.server) if (e.type === 'matchEnd') result = e as MatchResult;
       events.push(...(frame.server.filter((e) => e.type === 'stage') as ModeEvent[]));
+    }
+    if (process.env['WORKER_TICK']) {
+      const sorted = [...costs].sort((a, b) => a - b);
+      console.log(`WORKER Squads of ${size}: ${result?.reason} after ${(costs.length / 60).toFixed(0)} s, tick mean ${(costs.reduce((a, b) => a + b, 0) / costs.length).toFixed(2)} p99 ${sorted[Math.floor(sorted.length * 0.99)]!.toFixed(2)} ms`);
     }
     expect(prepared).toBe(true);
     expect(seats).toBe(WIDE_SCALE.seats);

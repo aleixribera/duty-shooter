@@ -6,6 +6,7 @@ import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContex
 import { groundFromSpawns, squadSpots } from './ground';
 import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
+import { SupplyDrops } from './supply-drops';
 
 /** Seats a Squad: Solos, Duos or Trios. */
 export type SquadSize = 1 | 2 | 3;
@@ -66,6 +67,8 @@ export class BattleRoyale implements GameMode {
   #squadsAlive = 0;
   /** A person has had a seat in this match. */
   #peopled = false;
+  /** The crates that bring the sniper, and the weapons on the ground. */
+  readonly #drops = new SupplyDrops();
 
   constructor(options: BattleRoyaleOptions = {}) {
     this.squadSize = options.squadSize ?? 1;
@@ -132,6 +135,7 @@ export class BattleRoyale implements GameMode {
     const ground = ctx.ground ?? groundFromSpawns(ctx.spawns);
     this.#ring = planRing(ground, seededRandom(seed), this.timeLimit);
     squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) => this.#spawns.set(i + 1, spawns));
+    this.#drops.start(this.#ring, ground, seededRandom(seed ^ 0x2f6b1c3d));
     return teams;
   }
 
@@ -147,6 +151,7 @@ export class BattleRoyale implements GameMode {
       this.#stage = stage;
       out.push({ type: 'stage', stage: stage + 1 });
     }
+    out.push(...this.#drops.step(events, ctx));
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
@@ -242,7 +247,9 @@ export class BattleRoyale implements GameMode {
       alive: this.#living.length,
       squads: this.#squadsAlive,
     };
-    return state;
+    const drops = this.#drops.drops();
+    const loose = this.#drops.loose();
+    return { ...state, ...(drops.length > 0 ? { drops } : {}), ...(loose.length > 0 ? { loose } : {}) };
   }
 }
 

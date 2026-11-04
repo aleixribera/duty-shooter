@@ -156,9 +156,9 @@ const PRIMARY_WEIGHTS: Readonly<Record<BotStyle, Readonly<Partial<Record<WeaponI
   support: { m4a1: 6, smg: 2, sniper: 2 },
 };
 
-/** A primary for `style`, picked by its weights with `roll` (0 to 1). */
-function pickPrimary(style: BotStyle, roll: number): WeaponId {
-  const weights = Object.entries(PRIMARY_WEIGHTS[style]) as [WeaponId, number][];
+/** A primary for `style`, picked by its weights with `roll` (0 to 1), leaving out `not`. */
+function pickPrimary(style: BotStyle, roll: number, not?: WeaponId): WeaponId {
+  const weights = (Object.entries(PRIMARY_WEIGHTS[style]) as [WeaponId, number][]).filter(([id]) => id !== not);
   let left = roll * weights.reduce((n, [, w]) => n + w, 0);
   for (const [id, w] of weights) {
     left -= w;
@@ -187,11 +187,14 @@ export function botProfile(name: string): BotProfile {
 /**
  * A bot as it plays a Battle Royale: the same style, with slower eyes and a
  * looser hand from the stats file. One life against 59 means many more fights
- * than an arena match, so what's a fair duel there is a wall here.
+ * than an arena match, so what's a fair duel there is a wall here. The sniper
+ * comes only from a Supply Drop (ticket 71), so a style that would bring it
+ * brings its next pick by the same roll (an anchor, mostly the M4A1).
  */
 export function royaleProfile(profile: BotProfile): BotProfile {
   const R = STATS.royale;
-  return { ...profile, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
+  const loadout = profile.loadout.primary === 'sniper' ? { ...profile.loadout, primary: pickPrimary(profile.style, noise(hashString(profile.name), 99), 'sniper') } : profile.loadout;
+  return { ...profile, loadout, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
 }
 
 const LISTED_STYLES = new Map<string, BotStyle>(BOT_NAMES.map((name, i) => [name, BOT_STYLES[i % BOT_STYLES.length]!]));

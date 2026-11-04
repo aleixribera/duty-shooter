@@ -62,6 +62,15 @@ export interface PlayerSpawn {
 
 export type EntityKind = 'player' | 'dummy';
 
+/** A weapon as it changes hands (a Supply Drop's sniper, one lying on the ground): which, and the rounds it carries. */
+export interface HeldWeapon {
+  readonly id: WeaponId;
+  /** Rounds in its magazine. */
+  readonly ammo: number;
+  /** Rounds left to reload from; absent, unlimited. */
+  readonly reserve?: number;
+}
+
 /** What the weapon is doing, as reported in the match outputs. */
 export interface WeaponOutput {
   /** The weapon in hand. */
@@ -83,6 +92,8 @@ export interface WeaponOutput {
   readonly shotIndex: number;
   /** Scope sway the aim point drifts by (radians, yaw and pitch); zero without a scope. */
   readonly sway: readonly [number, number];
+  /** Rounds left to reload from, for a weapon without an unlimited reserve (a Supply Drop's sniper). */
+  readonly reserve?: number;
 }
 
 /** What the simulation reports about one player after a tick. */
@@ -482,6 +493,33 @@ export class Simulation {
     Object.assign(p, arms(loadout, this.#frags()));
     p.grenade = null;
     this.#output = null;
+  }
+
+  /**
+   * Puts `weapon` in a player's primary slot and in their hands, drawing; the
+   * secondary and grenades stay as they are. Returns the primary it replaced,
+   * as it was, or null for no such player.
+   */
+  giveWeapon(id: PlayerId, weapon: HeldWeapon): HeldWeapon | null {
+    const p = this.#players.get(id);
+    if (!p) return null;
+    const old = p.weapons[0]!;
+    const fresh = createWeaponState(weapon.id, weapon.reserve);
+    fresh.ammo = Math.min(weapon.ammo, fresh.ammo);
+    const clock = activeWeapon(p).clock;
+    drawWeapon(fresh, clock, activeWeapon(p).prevButtons);
+    p.weapons[0] = fresh;
+    if (p.slot !== 0) p.slot = 0;
+    p.grenade = null;
+    p.loadout = { ...p.loadout, primary: weapon.id };
+    this.#output = null;
+    return { id: old.id, ammo: old.ammo, ...(old.reserve === undefined ? {} : { reserve: old.reserve }) };
+  }
+
+  /** A player's primary as it is now, or null for no such player. */
+  primary(id: PlayerId): HeldWeapon | null {
+    const w = this.#players.get(id)?.weapons[0];
+    return w ? { id: w.id, ammo: w.ammo, ...(w.reserve === undefined ? {} : { reserve: w.reserve }) } : null;
   }
 
   /** The full state of a player, deep-copied, for client prediction. */
@@ -1209,6 +1247,7 @@ export class Simulation {
         canFire: p.health > 0 && !p.downed && !p.reviving && canFire(w, p.move.movement),
         shotIndex: w.shotIndex,
         sway: [sway.yaw, sway.pitch],
+        ...(w.reserve === undefined ? {} : { reserve: w.reserve }),
       },
       loadout: p.loadout,
       grenades: p.grenades,

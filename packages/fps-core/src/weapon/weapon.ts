@@ -23,8 +23,10 @@ export type ReloadKind = 'tactical' | 'empty';
 
 export interface WeaponState {
   readonly id: WeaponId;
-  /** Rounds in the magazine. The reserve is unlimited: a reload always fills it. */
+  /** Rounds in the magazine. */
   ammo: number;
+  /** Rounds left to reload from (a Supply Drop's sniper); absent, the reserve is unlimited and a reload always fills the magazine. */
+  reserve?: number;
   action: WeaponAction;
   /** Seconds since the current action started. */
   actionTime: number;
@@ -57,11 +59,12 @@ export function weaponRow(id: WeaponId): WeaponRow {
   return STATS.weapons[id];
 }
 
-export function createWeaponState(id: WeaponId = 'm4a1'): WeaponState {
+export function createWeaponState(id: WeaponId = 'm4a1', reserve?: number): WeaponState {
   const row = weaponRow(id);
   return {
     id,
     ammo: row.handling.magazineSize.value,
+    ...(reserve === undefined ? {} : { reserve }),
     action: 'draw',
     actionTime: 0,
     reload: null,
@@ -317,7 +320,7 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
       break;
   }
 
-  if (state.action === 'ready' && state.ammo < h.magazineSize.value) {
+  if (state.action === 'ready' && state.ammo < h.magazineSize.value && state.reserve !== 0) {
     if (reloadPress || (fire && state.ammo === 0)) startReload(state, events);
   }
   if (state.action === 'ready' && state.ammo === h.magazineSize.value && state.reloadHeld >= W.inspectHoldTime.value - 1e-9 && !fire) {
@@ -341,9 +344,10 @@ function advanceReload(state: WeaponState, row: WeaponRow, fire: boolean, events
   const magazine = row.handling.magazineSize.value;
   const empty = state.reload === 'empty';
   if (isShellReload(r)) {
-    const needed = magazine - state.ammo + state.shellsLoaded;
+    const needed = Math.min(magazine - state.ammo + state.shellsLoaded, state.shellsLoaded + (state.reserve ?? Infinity));
     while (state.shellsLoaded < needed && state.actionTime >= r.start.value + state.shellsLoaded * r.perShell.value - 1e-9) {
       state.ammo += 1;
+      if (state.reserve !== undefined) state.reserve -= 1;
       state.shellsLoaded += 1;
       state.ammoAdded = true;
       events.ammoAdded = true;
@@ -355,7 +359,9 @@ function advanceReload(state: WeaponState, row: WeaponRow, fire: boolean, events
   const addAmmo = empty ? r.emptyAddAmmo.value : r.tacticalAddAmmo.value;
   const duration = empty ? r.emptyDuration.value : r.tacticalDuration.value;
   if (!state.ammoAdded && state.actionTime >= addAmmo - 1e-9) {
-    state.ammo = magazine;
+    const taken = Math.min(magazine - state.ammo, state.reserve ?? Infinity);
+    state.ammo += taken;
+    if (state.reserve !== undefined) state.reserve -= taken;
     state.ammoAdded = true;
     events.ammoAdded = true;
   }

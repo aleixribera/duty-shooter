@@ -63,11 +63,13 @@ export { INTERMISSION, MATCH_COUNTDOWN, PREPARATION, PROTOCOL_VERSION, decodeSer
 export type { ClientMessage, LobbyPick, LobbyState, MatchStatus, Phase, PreparationState, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
 export { LOBBY_MODES, MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamMode } from './modes/game-mode';
 export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, dealLadder, gunGameLevel } from './modes/gungame';
+export { DROP_WEAPON, royaleLoadout } from './modes/supply-drops';
 export type {
   BattleRoyaleState,
   ChargeSite,
   ChargeState,
   GameMode,
+  LooseWeaponState,
   MatchResult,
   ModeContext,
   ModeEvent,
@@ -77,6 +79,7 @@ export type {
   RoundReason,
   Score,
   SpawnPoint,
+  SupplyDropState,
   TeamScore,
   Zone,
   ZoneState,

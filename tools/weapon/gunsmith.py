@@ -28,6 +28,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 ASSETS = os.path.join(REPO, "packages", "fps-client", "src", "viewmodel", "assets")
 PREVIEWS = os.path.join(HERE, "previews")
+# How many times a gun's size the surface detail is drawn at: 1 for the arsenal,
+# about 20 for a world prop a metre across (the supply drop), so its wear, grime
+# and grain read at the size it is seen.
+WORLD_SCALE = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +94,12 @@ FINISHES = {
     # Fibre-optic / tritium inserts.
     "green_insert": dict(base=(0.15, 0.6, 0.12), rough=0.3, metal=0.0, wear=(0.15, 0.6, 0.12), wear_rough=0.3,
                          wear_amount=0.0, grain=0.0, bump=0.0, flat=True),
+    # Rip-stop nylon: a parachute's canopy and webbing.
+    "nylon": dict(base=(0.16, 0.14, 0.075), rough=0.82, metal=0.0, wear=(0.2, 0.18, 0.1), wear_rough=0.85,
+                  wear_amount=0.15, grain=0.3, bump=0.25),
+    # Signal red enamel: a flare's casing.
+    "red_paint": dict(base=(0.5, 0.04, 0.025), rough=0.5, metal=0.0, wear=(0.3, 0.3, 0.3), wear_rough=0.3,
+                      wear_amount=0.4, grain=0.3, bump=0.1, chip_metal=True),
     "red_insert": dict(base=(0.65, 0.05, 0.03), rough=0.3, metal=0.0, wear=(0.65, 0.05, 0.03), wear_rough=0.3,
                        wear_amount=0.0, grain=0.0, bump=0.0, flat=True),
 }
@@ -633,7 +643,7 @@ def _surface(mat):
     def noise(scale, detail=6, rough=0.6, stretch=None, coord=None):
         n = N("ShaderNodeTexNoise")
         n.noise_dimensions = "3D"
-        n.inputs["Scale"].default_value = scale
+        n.inputs["Scale"].default_value = scale / WORLD_SCALE
         n.inputs["Detail"].default_value = detail
         n.inputs["Roughness"].default_value = rough
         tc = N("ShaderNodeTexCoord")
@@ -655,7 +665,7 @@ def _surface(mat):
         # Edges: where a wide bevel sample bends away from the true face normal...
         bev_e = N("ShaderNodeBevel")
         bev_e.samples = 16
-        bev_e.inputs["Radius"].default_value = 0.0012
+        bev_e.inputs["Radius"].default_value = 0.0012 * WORLD_SCALE
         geo = N("ShaderNodeNewGeometry")
         dot = N("ShaderNodeVectorMath")
         dot.operation = "DOT_PRODUCT"
@@ -666,7 +676,7 @@ def _surface(mat):
         ao = N("ShaderNodeAmbientOcclusion")
         ao.only_local = True
         ao.samples = 16
-        ao.inputs["Distance"].default_value = 0.01
+        ao.inputs["Distance"].default_value = 0.01 * WORLD_SCALE
         convex = remap(ao.outputs["AO"], 0.55, 0.85)
         edge_raw = math_node("MULTIPLY", edge_raw, convex)
         cavity = remap(ao.outputs["AO"], 0.1, 0.9, 0.3, 1.0)
@@ -750,12 +760,12 @@ def _surface(mat):
         height = math_node("ADD", height, math_node("MULTIPLY", pores, -0.4))
     bump = N("ShaderNodeBump")
     bump.inputs["Strength"].default_value = 0.25 if spec.get("stipple") or spec.get("checker") else 0.12
-    bump.inputs["Distance"].default_value = 0.0003
+    bump.inputs["Distance"].default_value = 0.0003 * WORLD_SCALE
     L(height, bump.inputs["Height"])
     if not flat:
         bev = N("ShaderNodeBevel")
         bev.samples = 8
-        bev.inputs["Radius"].default_value = 0.00035
+        bev.inputs["Radius"].default_value = 0.00035 * WORLD_SCALE
         L(bev.outputs["Normal"], bump.inputs["Normal"])
     normal = bump.outputs["Normal"]
 

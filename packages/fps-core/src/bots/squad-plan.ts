@@ -31,6 +31,8 @@ export interface PlannedSeat {
   readonly health?: number;
   /** The bot's own boldness, 0 to 1 (its profile's aggression); 0.5 when absent. */
   readonly bold?: number;
+  /** It carries the sniper already: a Supply Drop has nothing for it. */
+  readonly sniper?: boolean;
 }
 
 export interface SquadSituation {
@@ -70,6 +72,8 @@ export interface GroundOrder {
   readonly intel: SquadIntel;
   /** The island's gunfire, for the bot to read what's within its earshot. */
   readonly noise: NoiseGrid;
+  /** Once at the rally, hold use here: a landed Supply Drop it went for. */
+  readonly use?: Vec3;
 }
 
 /** Where the wall stands at `time`, from what a client is told of the Stage. */
@@ -115,6 +119,18 @@ const PERSON_MOVED = 10;
 const LOUD_KILLS: ReadonlySet<string> = new Set(['bullet', 'grenade']);
 /** Tries at a random spot inside a circle. */
 const TRIES = 6;
+/**
+ * Going for a Supply Drop, weighed once by each bot when it's announced: the
+ * chance at its boldest and in full health, and how much of it even the most
+ * careful keeps; past this (s) of a run beyond the landing, nobody goes, and a
+ * nearer run counts for more.
+ */
+const DROP_CHANCE = 0.75;
+const DROP_CAREFUL = 0.2;
+const DROP_LATE = 25;
+/** It works the crate from this near (m) once it has landed; a rally this near a crate is a squadmate's run to it. */
+const DROP_NEAR = 30;
+const DROP_SAME = 1.5;
 
 /** One bot's choice of ground. */
 interface Mind {
@@ -126,6 +142,10 @@ interface Mind {
   decideAt: number;
   hunt: boolean;
   huntUntil: number;
+  /** The Stage of the Supply Drop it's going for, if any. */
+  drop?: number;
+  /** The Stages of the drops it has weighed already. */
+  weighed?: Set<number>;
 }
 
 /** Works out the ground of every bot of one Battle Royale. `spot` gives the nearest place to stand to a point on the plane. */
@@ -240,12 +260,19 @@ export class SquadPlanner {
       return mind;
     }
     if (shared && shared.time > mind.since && flat(shared.point, mind.point) > 1 && inside(shared.point)) {
-      // A squadmate is off somewhere new: it goes with them.
+      // A squadmate is off somewhere new: it goes with them, and to a crate, for it too.
       mind.point = shared.point;
       mind.hunt = shared.hunt;
       mind.huntUntil = shared.hunt ? time + HUNT_FOR : 0;
       mind.since = shared.time;
+      const crate = (state.drops ?? []).find((d) => !d.opened && flat(d.position, shared.point) < DROP_SAME);
+      if (crate && !seat.sniper) mind.drop = crate.stage;
+      else delete mind.drop;
       intel.head(seat.id, { point: mind.point, time: shared.time, hunt: mind.hunt });
+      return mind;
+    }
+    if (this.#weighDrop(seat, s, mind)) {
+      this.#say(seat, mind, intel, time);
       return mind;
     }
     if (!inside(mind.point)) {
@@ -266,7 +293,7 @@ export class SquadPlanner {
       mind.shiftAt = time + this.#between(SHIFT_EVERY, this.#random()) * (1.4 - 0.8 * bold);
       return mind;
     }
-    if (mind.hunt || seat.downed) return mind;
+    if (mind.hunt || seat.downed || mind.drop !== undefined) return mind;
     if (time >= mind.decideAt) {
       mind.decideAt = time + this.#between(DECIDE_EVERY, this.#random());
       const health = Math.max(0, Math.min(1, (seat.health ?? 100) / 100));
@@ -292,6 +319,40 @@ export class SquadPlanner {
       this.#say(seat, mind, intel, time);
     }
     return mind;
+  }
+
+  /**
+   * A Supply Drop as one bot weighs it: once when it's announced, by its own
+   * boldness and health and how far it has to run, against the time it lands
+   * (the crate is always well inside the next circle, so the Ring is weighed by
+   * the run). Going, it heads for the crate; once the crate is opened, or it
+   * holds the sniper, it lets it go. True when it has just chosen to go.
+   */
+  #weighDrop(seat: PlannedSeat, s: SquadSituation, mind: Mind): boolean {
+    const drops = s.state.drops ?? [];
+    const going = mind.drop === undefined ? undefined : drops.find((d) => d.stage === mind.drop);
+    const next = s.state.next;
+    if (mind.drop !== undefined && (!going || going.opened || seat.sniper || away(going.position, next) > next.radius * DEEP)) {
+      delete mind.drop;
+      mind.shiftAt = s.time;
+    }
+    if (mind.drop !== undefined || seat.sniper || seat.downed) return false;
+    for (const d of drops) {
+      if (d.opened || mind.weighed?.has(d.stage) || away(d.position, next) > next.radius * DEEP) continue;
+      (mind.weighed ??= new Set()).add(d.stage);
+      const run = flat(seat.position, d.position) / RUN;
+      const spare = d.lands - s.time + DROP_LATE;
+      if (run >= spare) continue;
+      const bold = seat.bold ?? 0.5;
+      const health = Math.max(0, Math.min(1, (seat.health ?? 100) / 100));
+      const chance = DROP_CHANCE * (DROP_CAREFUL + (1 - DROP_CAREFUL) * bold) * health * (1 - run / spare);
+      if (this.#random() >= chance) continue;
+      mind.drop = d.stage;
+      mind.point = d.position;
+      mind.hunt = false;
+      return true;
+    }
+    return false;
   }
 
   /** Each bot's ground for the next second. */
@@ -330,9 +391,11 @@ export class SquadPlanner {
         for (const m of standing) if (m !== seat && (!nearest || flat(m.position, seat.position) < flat(nearest.position, seat.position))) nearest = m;
         // Well ahead of the nearest squadmate on the way to the same place: worth waiting for.
         const ahead = nearest !== null && flat(nearest.position, seat.position) > STRAGGLER && flat(seat.position, mind.point) < flat(nearest.position, mind.point);
+        const crate = mind.drop === undefined ? undefined : state.drops?.find((d) => d.stage === mind.drop);
+        const working = crate !== undefined && !crate.opened && time >= crate.lands - 1 && flat(seat.position, crate.position) < DROP_NEAR;
         orders.set(seat.id, {
           rally: mind.point,
-          radius,
+          radius: crate ? Math.min(radius, 4) : radius,
           hurry: inDanger,
           hunt: mind.hunt,
           wait: ahead && !inDanger && !seat.downed,
@@ -341,6 +404,7 @@ export class SquadPlanner {
           ring: state,
           intel,
           noise: this.noise,
+          ...(working ? { use: crate.position } : {}),
         });
       }
     }

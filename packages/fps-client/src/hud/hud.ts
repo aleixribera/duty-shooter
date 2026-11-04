@@ -30,6 +30,7 @@ const CSS = `
 .ds-ammo .mag { font-size: 54px; font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: 20px; color: var(--ds-text-2); margin-left: 8px; }
+.ds-ammo .res.low { color: var(--ds-alert); }
 .ds-ammo .gun { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-bottom: 4px; font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-ammo .gun small { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; padding: 2px 5px 1px; border: 1px solid var(--ds-line-2); color: var(--ds-text-2); }
 .ds-ammo .nade { display: inline-flex; align-items: center; gap: 5px; margin-right: 16px; padding: 3px 8px; border: 1px solid var(--ds-line-2); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--ds-text); vertical-align: 10px; }
@@ -357,6 +358,8 @@ export class Hud {
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
+  /** The spare rounds: infinite, except a sniper from a Supply Drop. */
+  readonly #res: HTMLSpanElement;
   readonly #gun: HTMLElement;
   readonly #nade: HTMLElement;
   readonly #scope: HTMLDivElement;
@@ -434,7 +437,8 @@ export class Hud {
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
     const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, '<div class="gun">M4A1</div><span class="nade">◆ 1</span><span class="mag">30</span><span class="res">/ ∞</span><div class="bar"><i></i></div>'));
-    this.#mag =ammo.querySelector('.mag') as HTMLSpanElement;
+    this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
+    this.#res = ammo.querySelector('.res') as HTMLSpanElement;
     this.#gun = ammo.querySelector('.gun') as HTMLElement;
     this.#nade = ammo.querySelector('.nade') as HTMLElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
@@ -660,6 +664,8 @@ export class Hud {
       const size = row.handling.magazineSize.value;
       this.#set(this.#gun, `${escape(row.traits.name)}<small>${row.traits.sight === 'scope' ? 'scoped' : row.traits.fireMode}</small>`);
       this.#text(this.#mag, String(w.ammo));
+      this.#text(this.#res, w.reserve === undefined ? '/ ∞' : `/ ${w.reserve}`);
+      this.#res.classList.toggle('low', w.reserve === 0);
       this.#mag.classList.toggle('low', w.ammo <= Math.max(1, Math.floor(size / 5)));
       this.#style(this.#bar, 'transform', `scaleX(${fixed(w.ammo / size)})`);
       const cooking = self.grenade?.phase === 'cook';

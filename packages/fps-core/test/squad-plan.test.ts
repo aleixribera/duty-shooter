@@ -200,3 +200,61 @@ describe('the island hears only what made a sound (ticket 74)', () => {
     }
   });
 });
+
+describe('Supply Drops (ticket 71)', () => {
+  const crate: Vec3 = [140, 0, 20];
+  const announced = (over: Partial<BattleRoyaleState['drops'] & object>[number] | object = {}) => state({ drops: [{ stage: 2, position: crate, lands: 30, ...over }] });
+
+  it('bold, healthy bots near one go for it, and work it once it has landed; the careful far away mostly leave it', () => {
+    let went = 0;
+    let far = 0;
+    for (let i = 0; i < 40; i++) {
+      const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);
+      p.plan(situation([seat('a', 1, 100, 0, { bold: 0.9 }), seat('b', 2, -150, 0, { bold: 0.1 })], { time: 5, state: state() }));
+      const orders = p.plan(situation([seat('a', 1, 100, 0, { bold: 0.9 }), seat('b', 2, -150, 0, { bold: 0.1 })], { time: 10, state: announced() }));
+      if (apart(orders.get('a')!.rally, [crate[0], crate[2]]) < 1) went += 1;
+      if (apart(orders.get('b')!.rally, [crate[0], crate[2]]) < 1) far += 1;
+    }
+    expect(went).toBeGreaterThan(20);
+    expect(far).toBeLessThan(went / 3);
+  });
+
+  it('one that went holds use at it once it has landed and it is near, and lets it go once it is opened', () => {
+    for (let i = 0; i < 40; i++) {
+      const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);
+      const a = (x: number, z: number) => seat('a', 1, x, z, { bold: 1 });
+      p.plan(situation([a(100, 0)], { time: 5 }));
+      if (apart(p.plan(situation([a(100, 0)], { time: 10, state: announced() })).get('a')!.rally, [crate[0], crate[2]]) > 1) continue;
+      expect(p.plan(situation([a(138, 20)], { time: 20, state: announced() })).get('a')!.use).toBeUndefined();
+      expect(p.plan(situation([a(138, 20)], { time: 31, state: announced() })).get('a')!.use).toEqual(crate);
+      const after = p.plan(situation([a(138, 20)], { time: 34, state: announced({ opened: 'x' }) })).get('a')!;
+      expect(after.use).toBeUndefined();
+      return;
+    }
+    throw new Error('no bot went for the crate');
+  });
+
+  it('a bot with the sniper already leaves it to others', () => {
+    for (let i = 0; i < 20; i++) {
+      const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);
+      p.plan(situation([seat('a', 1, 120, 0, { bold: 1, sniper: true })], { time: 5 }));
+      expect(apart(p.plan(situation([seat('a', 1, 120, 0, { bold: 1, sniper: true })], { time: 10, state: announced() })).get('a')!.rally, [crate[0], crate[2]])).toBeGreaterThan(1);
+    }
+  });
+
+  it('squadmates who join a run to it work it too', () => {
+    for (let i = 0; i < 40; i++) {
+      const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);
+      const squad = [seat('a', 1, 120, 0, { bold: 1 }), seat('b', 1, 124, 2, { bold: 0 })];
+      p.plan(situation(squad, { time: 5 }));
+      const o = p.plan(situation(squad, { time: 10, state: announced() }));
+      if (apart(o.get('a')!.rally, [crate[0], crate[2]]) > 1) continue;
+      expect(o.get('b')!.rally).toEqual(crate);
+      const later = p.plan(situation([seat('a', 1, 120, 0, { bold: 1 }), seat('b', 1, 139, 20, { bold: 0 })], { time: 31, state: announced() }));
+      expect(later.get('b')!.rally).toEqual(crate);
+      expect(later.get('b')!.use).toEqual(crate);
+      return;
+    }
+    throw new Error('no bot went for the crate');
+  });
+});

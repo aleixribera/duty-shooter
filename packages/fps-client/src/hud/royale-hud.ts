@@ -2,6 +2,7 @@ import type { TerrainData } from '@duty-shooter/fps-core';
 import { mapPoint, paintIsland, terrainBounds, type MapBounds } from '../ui/island-map';
 import { ordinal } from '../ui/model';
 import { bearing, compassOffset, compassTicks, type RingCircle, type RingStatus } from '../ui/royale';
+import type { DropMark } from '../ui/supply-drop';
 import { escapeHtml as escape } from '../ui/theme';
 
 /**
@@ -28,6 +29,9 @@ const CSS = `
 .ds-compass .mk.safe { color: var(--ds-hazard); font-size: 14px; }
 .ds-compass .mk.mate { color: var(--ds-text); font-size: 10px; }
 .ds-compass .mk.pinned { opacity: 0.75; }
+.ds-compass .mk.drop { color: var(--ds-signal); font-size: 13px; }
+.ds-compass .mk.drop { white-space: nowrap; }
+.ds-compass .mk.drop small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-ringline { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-ringline .stage { color: var(--ds-text-2); }
 .ds-ringline .t { font-size: 15px; letter-spacing: 0.04em; }
@@ -61,6 +65,7 @@ const CSS = `
 .ds-map aside .key { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .key i { width: 22px; height: 0; border-top: 2px solid var(--ds-hazard); }
 .ds-map aside .key i.next { border-top: 2px dashed var(--ds-text); }
+.ds-map aside .key i.drop { width: 10px; height: 10px; border: 2px solid var(--ds-signal); background: var(--ds-ink); }
 .ds-map aside .key i.you { width: 0; height: 0; border: 6px solid transparent; border-bottom: 11px solid var(--ds-signal); border-top: 0; }
 .ds-map aside .close { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .close kbd { font: inherit; font-weight: 700; padding: 1px 6px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 6px; }
@@ -103,6 +108,8 @@ export interface RoyaleHudState {
   /** Where the view stands on the island: you, or whoever you watch; null for neither. */
   readonly at: { readonly x: number; readonly z: number } | null;
   readonly mates: readonly RoyaleMate[];
+  /** The Supply Drops called in so far (each until it is opened). */
+  readonly drops?: readonly DropMark[];
   /** Your Squad's place once it's out, with how many Squads started. */
   readonly placement: { readonly place: number; readonly of: number } | null;
   /** You are out of this match (dead, or arrived late). */
@@ -275,6 +282,13 @@ export class RoyaleHud {
         const o = compassOffset(s.heading, bearing(here, [s.next.x, s.next.z]), COMPASS_SPAN);
         html += `<span class="mk safe${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">◆</span>`;
       }
+      // Each crate not yet opened: a square in the signal colour, its distance over it, held at the strip's edge when behind.
+      for (const d of s.drops ?? []) {
+        if (d.opened) continue;
+        const o = compassOffset(s.heading, bearing(here, [d.x, d.z]), COMPASS_SPAN);
+        const m = Math.round(Math.hypot(d.x - here[0], d.z - here[1]));
+        html += `<span class="mk drop${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">■<small>${m} m</small></span>`;
+      }
       for (const m of s.mates) {
         const o = compassOffset(s.heading, bearing(here, [m.x, m.z]), COMPASS_SPAN);
         if (!o.pinned) html += `<span class="mk mate" style="left:${pct(o.x)}">${m.downed ? '✚' : '▲'}</span>`;
@@ -301,7 +315,7 @@ export class RoyaleHud {
     const now = performance.now();
     this.#set(
       this.#aside,
-      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div><div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
+      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div>${(s.drops ?? []).some((d) => !d.opened) ? '<div class="key"><i class="drop"></i>Supply Drop</div>' : ''}<div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
     );
     if (now - this.#lastDraw < 50) return;
     this.#lastDraw = now;
@@ -392,6 +406,28 @@ export class RoyaleHud {
       ctx.globalAlpha = 1;
       ctx.fillStyle = tok.text;
       ctx.fillText(text, x, y + 3 * k);
+    }
+    // Supply Drops not yet opened: a square in the signal colour with its countdown while it falls.
+    for (const d of s.drops ?? []) {
+      if (d.opened) continue;
+      const [x, y] = at(d.x, d.z);
+      const h = 7 * k;
+      ctx.fillStyle = tok.ink;
+      ctx.fillRect(x - h - 2 * k, y - h - 2 * k, 2 * h + 4 * k, 2 * h + 4 * k);
+      ctx.strokeStyle = tok.signal;
+      ctx.lineWidth = 2.5 * k;
+      ctx.strokeRect(x - h, y - h, 2 * h, 2 * h);
+      ctx.fillStyle = tok.signal;
+      ctx.fillRect(x - h * 0.45, y - h * 0.45, h * 0.9, h * 0.9);
+      const label = d.landsIn > 0 ? `Supply Drop ${Math.ceil(d.landsIn)} s` : 'Supply Drop';
+      ctx.font = `700 ${Math.round(11 * k)}px ${font}`;
+      const w = ctx.measureText(label.toUpperCase()).width + 10 * k;
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = tok.ink;
+      ctx.fillRect(x - w / 2, y + h + 4 * k, w, 16 * k);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = tok.text;
+      ctx.fillText(label.toUpperCase(), x, y + h + 16 * k);
     }
     // Squadmates, then you (or who you watch): an arrow along the view.
     for (const m of s.mates) {

@@ -388,6 +388,11 @@ export class PlayersView {
     scene.add(this.#root, this.#far.root);
   }
 
+  /** A new mesh of third-person gun `id` (a weapon lying on the ground), or null while it loads. */
+  gunMesh(id: WeaponId): Mesh | null {
+    return this.#guns?.mesh(id) ?? null;
+  }
+
   /** Fetches the soldier and every third-person gun, settling once all are in. */
   prepare(): Promise<void> {
     return Promise.all([loadSoldierModel(), this.#guns?.loadAll()]).then(() => undefined);
