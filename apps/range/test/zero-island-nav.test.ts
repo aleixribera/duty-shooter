@@ -42,13 +42,16 @@ describe('Zero Island: where bots can go', () => {
   });
 
   it('never stands in the sea, past the Boundary or near the summit', () => {
+    // ~160k nodes: gather the bad ones and assert once, as an expect per node outruns the timeout on CI.
+    const bad: string[] = [];
     for (const n of nav.nodes) {
       const [x, y, z] = n.position;
       // A way out (ticket 75) may stand in the shallows, but no deeper than wading.
-      expect(y, `${x},${z}`).toBeGreaterThan(n.escape ? -1.05 : 0.25);
-      expect(insidePolygon(map.playArea!, x, z)).toBe(true);
-      expect(Math.hypot(x - SUMMIT.x, z - SUMMIT.z)).toBeGreaterThan(SUMMIT_RADIUS);
+      if (!(y > (n.escape ? -1.05 : 0.25))) bad.push(`${x},${z} in the sea (y ${y})`);
+      if (!insidePolygon(map.playArea!, x, z)) bad.push(`${x},${z} past the Boundary`);
+      if (!(Math.hypot(x - SUMMIT.x, z - SUMMIT.z) > SUMMIT_RADIUS)) bad.push(`${x},${z} near the summit`);
     }
+    expect(bad.slice(0, 20)).toEqual([]);
   });
 
   it('covers the plateau and each Core, and nearly all the land', () => {
