@@ -275,6 +275,37 @@ describe('the spatial grid', () => {
   });
 });
 
+describe('props in the grid (review, ticket 66)', () => {
+  it('give the same raycasts, segment candidates and boxes as a linear scan, with crates near and far', () => {
+    for (const seed of [21, 22]) {
+      const solids = randomWorld(seed);
+      const r = rng(seed);
+      // Crates and Beacons scattered over and past the map, some straddling a bucket's edge.
+      const props = Array.from({ length: 30 }, (_, i) => {
+        const [x, z] = i < 3 ? [32 * i - 0.6, 31.7] : [(r() - 0.5) * 200, (r() - 0.5) * 200];
+        return box({ min: [x, 0, z], max: [x + 1.2, 0.8 + r(), z + 0.8], material: 'metal', prop: `p${i}` });
+      });
+      const gridded = createWorld(solids);
+      const linear = createWorld(solids, { spatialIndex: false });
+      gridded.props.set(props);
+      linear.props.set(props);
+      for (let i = 0; i < 3000; i++) {
+        const a: Vec3 = [(r() - 0.5) * 120, r() * 3, (r() - 0.5) * 120];
+        const length = r() < 0.5 ? r() * 15 : r() * 300;
+        const dir: Vec3 = [r() - 0.5, (r() - 0.5) * 0.3, r() - 0.5];
+        const k = length / Math.hypot(...dir);
+        const b: Vec3 = [a[0] + dir[0] * k, a[1] + dir[1] * k, a[2] + dir[2] * k];
+        expect(raycastWorld(gridded, a, b)).toEqual(raycastWorld(linear, a, b));
+        const hit = (w: typeof gridded) => w.bullets.alongSegment(a, b).filter((j) => segmentSolid(a, b, w.solids[j]!) !== null);
+        expect(hit(gridded)).toEqual(hit(linear));
+        const rect = (w: typeof gridded) => w.movement.inRect(a[0] - 2, a[2] - 2, a[0] + 2, a[2] + 2).filter((j) => w.solids[j]!.prop !== null);
+        const want = props.flatMap((p, j) => (p.max[0] >= a[0] - 2.01 && p.min[0] <= a[0] + 2.01 && p.max[2] >= a[2] - 2.01 && p.min[2] <= a[2] + 2.01 ? [solids.length + j] : []));
+        expect(rect(gridded)).toEqual(want);
+      }
+    }
+  });
+});
+
 describe('a ray against solids it barely reaches', () => {
   const solids = [
     box({ min: [0, 0, 0], max: [2, 2, 2], material: 'concrete' }),

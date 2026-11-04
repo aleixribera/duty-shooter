@@ -7,6 +7,8 @@ const MARGIN = 0.01;
 const BOUNDS_SLACK = 1e-6;
 /** Above this many cells the grid coarsens, so a map with far scenery stays small in memory. */
 const MAX_CELLS = 1 << 20;
+/** Metres a side of the cells props are bucketed in: a crate or a Beacon is a cell or two, and a short query a handful. */
+const PROP_CELL = 32;
 
 /**
  * A uniform grid over the ground plane (X/Z), built once, listing which
@@ -30,8 +32,12 @@ export class SolidIndex {
   #visit = 0;
   /** What a cell gave `firstHit`: kept, since the bots' sight and frag arcs ask thousands of times a tick. */
   readonly #found: number[] = [];
-  /** Props among the members (solids that come and go in a match: a landed crate, a Beacon), ascending: few, so asked on every query rather than gridded. */
+  /** Props among the members (solids that come and go in a match: a landed crate, a Beacon), ascending. */
   #props: readonly number[] = [];
+  /** The props by {@link PROP_CELL} cell, so a query far from every crate asks none. */
+  readonly #propCells = new Map<number, number[]>();
+  /** What {@link #propsNear} found: reused, as `firstHit` asks it thousands of times a tick. */
+  readonly #nearProps: number[] = [];
 
   /** `room` is how many solids the list may grow to with props. */
   constructor(solids: readonly Solid[], members: readonly number[], cellSize: number | null, room = solids.length) {
@@ -95,20 +101,57 @@ export class SolidIndex {
   /** The props this index takes part in now (indices into the solids), replacing the last. */
   setProps(indices: readonly number[]): void {
     this.#props = [...indices].sort((a, b) => a - b);
+    this.#propCells.clear();
+    for (const i of this.#props) {
+      const { min, max } = this.#solids[i] as Solid;
+      for (let z = Math.floor((min[2] - MARGIN) / PROP_CELL); z <= Math.floor((max[2] + MARGIN) / PROP_CELL); z++) {
+        for (let x = Math.floor((min[0] - MARGIN) / PROP_CELL); x <= Math.floor((max[0] + MARGIN) / PROP_CELL); x++) {
+          const key = propKey(x, z);
+          const list = this.#propCells.get(key);
+          if (list) list.push(i);
+          else this.#propCells.set(key, [i]);
+        }
+      }
+    }
+  }
+
+  /**
+   * The props whose bounds reach the box: those of the cells it covers, or of
+   * every prop when it covers more cells than there are props (a long shot).
+   * Into a reused list, in no order.
+   */
+  #propsNear(lx: number, ly: number, lz: number, hx: number, hy: number, hz: number): readonly number[] {
+    const out = this.#nearProps;
+    out.length = 0;
+    const take = (i: number) => {
+      const { min, max } = this.#solids[i] as Solid;
+      if (min[0] <= hx && max[0] >= lx && min[1] <= hy && max[1] >= ly && min[2] <= hz && max[2] >= lz) out.push(i);
+    };
+    const [x0, x1, z0, z1] = [Math.floor(lx / PROP_CELL), Math.floor(hx / PROP_CELL), Math.floor(lz / PROP_CELL), Math.floor(hz / PROP_CELL)];
+    if ((x1 - x0 + 1) * (z1 - z0 + 1) > this.#props.length) {
+      for (const i of this.#props) take(i);
+      return out;
+    }
+    const visit = this.#nextVisit();
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const list = this.#propCells.get(propKey(x, z));
+        if (!list) continue;
+        for (const i of list) {
+          if (this.#stamp[i] === visit) continue;
+          this.#stamp[i] = visit;
+          take(i);
+        }
+      }
+    }
+    return out;
   }
 
   /** Member solids that may reach into the X/Z rectangle, in solid order. */
   inRect(x0: number, z0: number, x1: number, z1: number): readonly number[] {
     const found = this.#inGrid(x0, z0, x1, z1);
     if (this.#props.length === 0) return found;
-    const lx = Math.min(x0, x1) - MARGIN;
-    const hx = Math.max(x0, x1) + MARGIN;
-    const lz = Math.min(z0, z1) - MARGIN;
-    const hz = Math.max(z0, z1) + MARGIN;
-    const near = this.#props.filter((i) => {
-      const { min, max } = this.#solids[i] as Solid;
-      return max[0] >= lx && min[0] <= hx && max[2] >= lz && min[2] <= hz;
-    });
+    const near = this.#propsNear(Math.min(x0, x1) - MARGIN, -Infinity, Math.min(z0, z1) - MARGIN, Math.max(x0, x1) + MARGIN, Infinity, Math.max(z0, z1) + MARGIN);
     return near.length === 0 ? found : [...found, ...near].sort((a, b) => a - b);
   }
 
@@ -158,9 +201,10 @@ export class SolidIndex {
           bestIndex = index;
         }
       }
-      this.#propHit(apart, test, (t, index) => {
-        if (t < bestT || (t === bestT && index < bestIndex)) [bestT, bestIndex] = [t, index];
-      });
+      for (const index of this.#props.length === 0 ? [] : this.#propsNear(lx, ly, lz, hx, hy, hz)) {
+        const t = test(index);
+        if (t !== null && (t < bestT || (t === bestT && index < bestIndex))) [bestT, bestIndex] = [t, index];
+      }
       return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
     }
     const visit = this.#nextVisit();
@@ -179,24 +223,22 @@ export class SolidIndex {
       }
       return bestT < exit - 1e-9;
     });
-    this.#propHit(apart, test, (t, index) => {
-      if (t < bestT || (t === bestT && index < bestIndex)) [bestT, bestIndex] = [t, index];
-    });
-    return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
-  }
-
-  #propHit(apart: (index: number) => boolean, test: (index: number) => number | null, hit: (t: number, index: number) => void): void {
-    for (const index of this.#props) {
-      if (apart(index)) continue;
-      const t = test(index);
-      if (t !== null) hit(t, index);
+    if (this.#props.length > 0) {
+      for (const index of this.#propsNear(lx, ly, lz, hx, hy, hz)) {
+        const t = test(index);
+        if (t !== null && (t < bestT || (t === bestT && index < bestIndex))) [bestT, bestIndex] = [t, index];
+      }
     }
+    return bestIndex < 0 ? null : { t: bestT, index: bestIndex };
   }
 
   /** Every member solid that may touch the segment a→b, in solid order. */
   alongSegment(a: Vec3, b: Vec3): readonly number[] {
     const found = this.#onSegment(a, b);
-    return this.#props.length === 0 ? found : [...found, ...this.#props].sort((x, y) => x - y);
+    if (this.#props.length === 0) return found;
+    // Only the props whose bounds the segment's reach: most shots pass nowhere near a crate.
+    const near = this.#propsNear(Math.min(a[0], b[0]) - MARGIN, Math.min(a[1], b[1]) - MARGIN, Math.min(a[2], b[2]) - MARGIN, Math.max(a[0], b[0]) + MARGIN, Math.max(a[1], b[1]) + MARGIN, Math.max(a[2], b[2]) + MARGIN);
+    return near.length === 0 ? found : [...found, ...near].sort((x, y) => x - y);
   }
 
   #onSegment(a: Vec3, b: Vec3): readonly number[] {
@@ -345,3 +387,8 @@ export class PointGrid {
 
 const cellOf = (v: number) => Math.floor(v / POINT_CELL);
 const cellKey = (x: number, z: number) => (x + 0x8000) * 0x10000 + (z + 0x8000);
+
+/** A prop cell's key. */
+function propKey(x: number, z: number): number {
+  return (x + 32768) * 65536 + z + 32768;
+}

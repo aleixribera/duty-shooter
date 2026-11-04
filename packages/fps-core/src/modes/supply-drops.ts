@@ -2,6 +2,7 @@ import type { Vec3 } from '../math';
 import type { HeldWeapon, PlayerId, PlayerOutput, SimEvent } from '../simulation';
 import { STATS, type WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
+import type { World } from '../world';
 import type { LooseWeaponState, ModeContext, ModeEvent, SupplyDropState } from './game-mode';
 import type { PlayGround } from './ground';
 import type { RingStage } from './ring';
@@ -20,6 +21,10 @@ export function royaleLoadout(loadout: Loadout): Loadout {
 const MOST_LOOSE = 16;
 /** Tries at a spot inside the circle before the ground nearest its middle. */
 const TRIES = 16;
+/** Room (m) a crate needs between it and any solid around it, so one landing on a body can put it beside the crate rather than in a wall. */
+const ROOM = 2;
+/** Height (m) above the ground a solid counts as in the way: lower is a kerb or a step, part of the ground. */
+const STEP = 0.4;
 /** How far (m) from a crate its opener's old primary lands: out of the pickup reach of anyone still at the crate's middle. */
 const BESIDE = 1.8;
 /** A seat that just opened a crate swaps nothing for this long (s): a bot still holding use at it would take its old gun straight back. */
@@ -51,12 +56,26 @@ export function dropSniper(): HeldWeapon {
   return { id: DROP_WEAPON, ammo: magazine, reserve: magazine * D.magazines.value };
 }
 
+/** Whether a crate at `at` has {@link ROOM} clear around it: no solid that stands above the ground there within it. */
+export function roomForDrop(world: World, at: Vec3): boolean {
+  // Half the crate's longest side, and the room.
+  const size = 0.6 + ROOM;
+  for (const i of world.movement.inRect(at[0] - size, at[2] - size, at[0] + size, at[2] + size)) {
+    const s = world.solids[i]!;
+    if (s.max[1] <= at[1] + STEP || s.min[1] >= at[1] + 2.5) continue;
+    if (s.max[0] < at[0] - size || s.min[0] > at[0] + size || s.max[2] < at[2] - size || s.min[2] > at[2] + size) continue;
+    return false;
+  }
+  return true;
+}
+
 /**
  * When and where each crate of a match falls: one at the start of each Stage
  * from the stats file's first to its last, landing on open ground well inside
- * that Stage's next circle, its warning after it's announced.
+ * that Stage's next circle with room around it (when `world` is given), its
+ * warning after it's announced.
  */
-export function planDrops(ring: readonly RingStage[], ground: PlayGround, random: () => number): { readonly stage: number; readonly position: Vec3; readonly announce: number; readonly lands: number }[] {
+export function planDrops(ring: readonly RingStage[], ground: PlayGround, random: () => number, world?: World): { readonly stage: number; readonly position: Vec3; readonly announce: number; readonly lands: number }[] {
   const out: { stage: number; position: Vec3; announce: number; lands: number }[] = [];
   for (let stage = D.firstStage.value; stage <= Math.min(D.lastStage.value, ring.length); stage++) {
     const s = ring[stage - 1]!;
@@ -67,16 +86,17 @@ export function planDrops(ring: readonly RingStage[], ground: PlayGround, random
       const [x, z] = [c.x + Math.cos(turn) * out, c.z + Math.sin(turn) * out];
       const found = ground.near(x, z, 12)[0];
       if (found === undefined) continue;
-      const spot = ground.spot(found);
-      if (Math.hypot(spot[0] - c.x, spot[2] - c.z) <= c.radius * D.ring.value) position = [spot[0], spot[1], spot[2]];
+      const spot: Vec3 = [...ground.spot(found)];
+      if (Math.hypot(spot[0] - c.x, spot[2] - c.z) <= c.radius * D.ring.value && (!world || roomForDrop(world, spot))) position = spot;
     }
     if (!position) {
+      // The ground nearest the circle's middle, the nearest with room if there is any.
       let reach = Math.max(8, c.radius);
-      let found = ground.near(c.x, c.z, reach)[0];
-      while (found === undefined && reach < 4000) found = ground.near(c.x, c.z, (reach *= 2))[0];
-      if (found === undefined) continue;
-      const spot = ground.spot(found);
-      position = [spot[0], spot[1], spot[2]];
+      let near = ground.near(c.x, c.z, reach);
+      while (near.length === 0 && reach < 4000) near = ground.near(c.x, c.z, (reach *= 2));
+      if (near.length === 0) continue;
+      const roomy = world ? near.find((i) => roomForDrop(world, [...ground.spot(i)])) : undefined;
+      position = [...ground.spot(roomy ?? near[0]!)];
     }
     out.push({ stage, position, announce: s.start, lands: s.start + D.warning.value });
   }
@@ -104,8 +124,8 @@ export class SupplyDrops {
   readonly #openedAt = new Map<PlayerId, number>();
 
   /** A new match's crates. */
-  start(ring: readonly RingStage[], ground: PlayGround, random: () => number): void {
-    this.#drops = planDrops(ring, ground, random).map((d) => ({ ...d, announced: false, landed: false, opening: null, opened: null }));
+  start(ring: readonly RingStage[], ground: PlayGround, random: () => number, world?: World): void {
+    this.#drops = planDrops(ring, ground, random, world).map((d) => ({ ...d, announced: false, landed: false, opening: null, opened: null }));
     this.#loose = [];
     this.#nextLoose = 1;
     this.#held = new Set();

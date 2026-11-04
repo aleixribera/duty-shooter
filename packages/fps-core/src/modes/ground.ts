@@ -1,4 +1,5 @@
 import type { NavGraph } from '../bots/nav';
+import { navAreas } from '../bots/nav-areas';
 import { STATS } from '../stats';
 import type { World } from '../world';
 import type { SpawnPoint } from './game-mode';
@@ -22,14 +23,17 @@ const TRIES = 6;
 export class PlayGround {
   /** x, y, z per spot. */
   readonly #spots: Float32Array;
+  /** Each spot's nav area (see navAreas), or null on ground with no nav. */
+  readonly #areas: Int32Array | null;
   readonly #cells = new Map<number, number[]>();
   /** The middle of the land, and how far from there its farthest spot lies. */
   readonly centre: readonly [x: number, z: number];
   readonly radius: number;
 
-  constructor(spots: Float32Array) {
+  constructor(spots: Float32Array, areas: Int32Array | null = null) {
     if (spots.length === 0) throw new Error('No ground to play on');
     this.#spots = spots;
+    this.#areas = areas;
     let [minX, maxX, minZ, maxZ] = [Infinity, -Infinity, Infinity, -Infinity];
     for (let i = 0; i < this.count; i++) {
       const [x, z] = [spots[i * 3]!, spots[i * 3 + 2]!];
@@ -51,6 +55,11 @@ export class PlayGround {
 
   #cell(column: number, row: number): number {
     return (column + 32768) * 65536 + row + 32768;
+  }
+
+  /** The part of the nav a spot lies in: two spots of one area each have a route to the other. Null on ground with no nav. */
+  area(i: number): number | null {
+    return this.#areas ? this.#areas[i]! : null;
   }
 
   /** One spot's feet. */
@@ -82,14 +91,17 @@ export function playGround(nav: NavGraph, world: World): PlayGround {
   let ground = grounds.get(nav);
   if (!ground) {
     const spots: number[] = [];
+    const areas: number[] = [];
+    const of = navAreas(nav);
     const terrain = world.terrain;
-    for (const { position, indoor, escape } of nav.nodes) {
+    for (const [i, { position, indoor, escape }] of nav.nodes.entries()) {
       const [x, y, z] = position;
       if (indoor || escape) continue;
       if (terrain && (Math.abs(y - terrain.heightAt(x, z)) > ON_THE_GROUND || terrain.waterAbove(x, y, z) > 0)) continue;
       spots.push(x, y, z);
+      areas.push(of[i]!);
     }
-    ground = new PlayGround(new Float32Array(spots));
+    ground = new PlayGround(new Float32Array(spots), Int32Array.from(areas));
     grounds.set(nav, ground);
   }
   return ground;

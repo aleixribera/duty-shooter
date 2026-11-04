@@ -61,6 +61,16 @@ export interface PingWorld {
 const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, stance: p.stance, eyeHeight: p.eyeHeight });
 const flat = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 const finite = (v: Vec3) => v.every(Number.isFinite);
+/** Half the view (radians) a pinged enemy must stand within: one behind the pinger, or off to the side, it can't be looking at. */
+const PING_VIEW = Math.PI / 3;
+/** Whether `at` lies within {@link PING_VIEW} of where `by` faces, on the ground plane. */
+function ahead(by: PlayerOutput, at: Vec3): boolean {
+  const dx = at[0] - by.position[0];
+  const dz = at[2] - by.position[2];
+  const d = Math.hypot(dx, dz);
+  if (d < 1) return true;
+  return (-Math.sin(by.yaw) * dx - Math.cos(by.yaw) * dz) / d >= Math.cos(PING_VIEW);
+}
 
 /** Each seat's allowance of pings: a few at once, then one every so often. */
 export class Pings {
@@ -93,8 +103,10 @@ export class Pings {
    */
   request(by: PlayerOutput, req: PingRequest, w: PingWorld): PingEvent | null {
     if (!by.alive || by.kind !== 'player' || !finite(req.at)) return null;
+    // Spent before any raycast: a seat out of pings costs the server nothing.
+    if (!this.#spend(by.id, w.time)) return null;
     const resolved = this.#resolve(by, req, w);
-    if (!resolved || !this.#spend(by.id, w.time)) return null;
+    if (!resolved) return null;
     const life = resolved.kind === 'enemy' ? STATS.ping.enemyLife.value : STATS.ping.placeLife.value;
     return { type: 'ping', id: this.#next++, kind: resolved.kind, player: by.id, team: by.team, position: resolved.position, target: resolved.target, until: w.time + life };
   }
@@ -105,7 +117,7 @@ export class Pings {
     if (req.kind === 'enemy' && req.target !== undefined) {
       const t = w.players.find((p) => p.id === req.target);
       if (t && t.alive && t.kind === 'player' && w.enemies(by, t) && flat(by.position, t.position) <= P.enemyReach.value) {
-        const seen = !sightBlocked(w.world, eye, zoneCentre(pose(t), 'upperTorso')) || !sightBlocked(w.world, eye, zoneCentre(pose(t), 'head'));
+        const seen = ahead(by, t.position) && [zoneCentre(pose(t), 'upperTorso'), zoneCentre(pose(t), 'head')].some((to) => !sightBlocked(w.world, eye, to) && !w.world.concealment?.hides(eye, to));
         if (seen) return { kind: 'enemy', position: t.position, target: t.id };
       }
     }

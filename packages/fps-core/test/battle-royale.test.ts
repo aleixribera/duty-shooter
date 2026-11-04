@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { INTERMISSION, STATS, TICK_SECONDS, victoryBeat, botProfile, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type ModeEvent, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
-import { BattleRoyale, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
+import { BattleRoyale, PlayGround, planRing, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
+import { seededRandom } from '../src/random';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { Button } from '../src/usercmd';
 import { nameList } from '../src/modes/battle-royale';
@@ -306,6 +307,28 @@ describe('the Ring', () => {
       expect(drift).toBeLessThan(last.from.radius * STATS.royale.finalDrift.value * 1.2);
       expect(ground.near(last.to.x, last.to.z, 0.01)).not.toEqual([]);
     }
+  });
+
+  it('drifts the last circle only onto ground a route joins to where the Ring was closing (review, ticket 68)', () => {
+    // Open ground every 4 m; a cut at x = 0 splits it in two parts no route crosses.
+    const spots: number[] = [];
+    const areas: number[] = [];
+    for (let x = -240; x <= 240; x += 4) for (let z = -240; z <= 240; z += 4) spots.push(x, 0, z), areas.push(x > 0 ? 1 : 0);
+    const split = new PlayGround(new Float32Array(spots), Int32Array.from(areas));
+    const whole = new PlayGround(new Float32Array(spots));
+    const side = (c: { x: number; z: number }) => split.area(split.near(c.x, c.z, 4)[0]!);
+    let crossed = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      const blind = planRing(whole, seededRandom(seed), 600);
+      const seeing = planRing(split, seededRandom(seed), 600);
+      const [b, s] = [blind.at(-1)!, seeing.at(-1)!];
+      // Every circle before the last is the same; only where the last one drifts to may differ.
+      expect(s.from).toEqual(b.from);
+      if (side(b.to) !== side(seeing.at(-2)!.to) && Math.abs(seeing.at(-2)!.to.x) > seeing.at(-2)!.to.radius) crossed += 1;
+      if (Math.abs(s.from.x) > s.from.radius) expect(side(s.to)).toBe(side(s.from));
+    }
+    // Without the parts known, some drifted across the cut.
+    expect(crossed).toBeGreaterThan(0);
   });
 
   it('hurts more at each Stage', () => {

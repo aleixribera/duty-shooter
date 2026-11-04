@@ -72,8 +72,11 @@ export function planRing(ground: PlayGround, random: () => number, timeLimit: nu
 /**
  * Where the last circle closes: not where it stood but `finalDrift` of its
  * radius on, the way the Ring was heading (through the end it was closing on,
- * or on from the island's middle), at the open ground nearest that point. It
- * draws no randomness, so the rest of a seed's match is as it was.
+ * or on from the island's middle), at the open ground nearest that point that
+ * a route joins to the ground the Ring was closing on (the circle before it
+ * holds that), so it never drifts across water or onto a cliff top nobody
+ * inside can climb to. It draws no
+ * randomness, so the rest of a seed's match is as it was.
  */
 function drifted(ground: PlayGround, first: Circle, from: Circle, end: Circle): { x: number; z: number } {
   const want = from.radius * STATS.royale.finalDrift.value;
@@ -82,15 +85,26 @@ function drifted(ground: PlayGround, first: Circle, from: Circle, end: Circle): 
   if (Math.hypot(dx, dz) < 1) [dx, dz] = [1, 0];
   const k = want / Math.hypot(dx, dz);
   const [x, z] = [from.x + dx * k, from.z + dz * k];
+  // The part of the island the Ring was closing on: the open ground nearest where the last circle stood.
+  const area = areaNear(ground, end.x, end.z);
   // Open ground nearest there; the wider the water or the cliffs, the further it looks.
   for (let reach = 8; reach <= 512; reach *= 2) {
-    const spot = ground.near(x, z, reach)[0];
+    const spot = ground.near(x, z, reach).find((i) => area === null || ground.area(i) === area);
     if (spot !== undefined) {
       const [sx, , sz] = ground.spot(spot);
       return { x: sx, z: sz };
     }
   }
   return { x: end.x, z: end.z };
+}
+
+/** The nav area of the open ground nearest (x, z), or null on ground with no nav. */
+function areaNear(ground: PlayGround, x: number, z: number): number | null {
+  for (let reach = 8; reach <= 4096; reach *= 2) {
+    const spot = ground.near(x, z, reach)[0];
+    if (spot !== undefined) return ground.area(spot);
+  }
+  return null;
 }
 
 /** The Stage in play at `time`: the last, once it has closed. */

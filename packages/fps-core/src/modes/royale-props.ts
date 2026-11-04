@@ -42,9 +42,11 @@ export function propsKey(state: BattleRoyaleState | null, time: number): string 
 /**
  * Where a body standing at `at` is put so it is clear of `solids`: out the
  * nearest side of the first it stands in, a hull's half width (`margin`) off
- * it; null when it is in none.
+ * it; null when it is in none. `fits` is asked of each side, nearest first,
+ * and may move it (onto the ground) or turn it down (inside a wall); with every
+ * side turned down the body goes on top of the solid instead.
  */
-export function clearOf(solids: readonly Solid[], at: Vec3, margin: number, height: number): Vec3 | null {
+export function clearOf(solids: readonly Solid[], at: Vec3, margin: number, height: number, fits: (at: Vec3) => Vec3 | null = (x) => x): Vec3 | null {
   for (const s of solids) {
     if (at[1] >= s.max[1] || at[1] + height <= s.min[1]) continue;
     if (at[0] <= s.min[0] - margin || at[0] >= s.max[0] + margin || at[2] <= s.min[2] - margin || at[2] >= s.max[2] + margin) continue;
@@ -55,7 +57,13 @@ export function clearOf(solids: readonly Solid[], at: Vec3, margin: number, heig
       [s.max[2] + margin - at[2], [at[0], at[1], s.max[2] + margin + 0.05]],
     ];
     ways.sort((a, b) => a[0] - b[0]);
-    return ways[0]![1];
+    for (const [, way] of ways) {
+      const fit = fits(way);
+      if (fit) return fit;
+    }
+    const x = Math.min(Math.max(at[0], s.min[0]), s.max[0]);
+    const z = Math.min(Math.max(at[2], s.min[2]), s.max[2]);
+    return [x, s.max[1] + 0.02, z];
   }
   return null;
 }

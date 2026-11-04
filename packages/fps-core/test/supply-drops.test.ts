@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOT_NAMES, STATS, TICK_SECONDS, botProfile, box, buildNavGraph, createWorld, royaleProfile, type BattleRoyaleState, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
-import { BattleRoyale, DROP_WEAPON, planDrops, planRing, playGround, royaleLoadout, type ModeActions } from '@duty-shooter/fps-core/modes';
+import { BattleRoyale, DROP_WEAPON, planDrops, planRing, playGround, roomForDrop, royaleLoadout, type ModeActions } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { seededRandom } from '../src/random';
 import { Button } from '../src/usercmd';
@@ -78,6 +78,25 @@ describe('planning the drops', () => {
         expect(flat(d.position, s.to)).toBeLessThanOrEqual(s.to.radius * D.ring.value + 1e-6);
       }
     }
+  });
+
+  it('lands only with room round it, clear of walls and posts (review, ticket 66)', () => {
+    // Posts 1 m wide every 10 m: much of the ground has one within the crate's room.
+    const posts = [];
+    for (let x = -240; x <= 240; x += 10) for (let z = -240; z <= 240; z += 10) posts.push(box({ min: [x, 0, z], max: [x + 1, 3, z + 1], material: 'concrete' }));
+    const kerb = box({ min: [-300, 0, -300], max: [300, 0.2, -200], material: 'concrete' });
+    const world = createWorld([GROUND, kerb, ...posts]);
+    expect(roomForDrop(world, [2, 0, 2])).toBe(false);
+    expect(roomForDrop(world, [5.5, 0, 5.5])).toBe(true);
+    expect(roomForDrop(createWorld([GROUND, kerb]), [0, 0.2, -250])).toBe(true);
+    let cramped = 0;
+    for (let seed = 1; seed <= 8; seed++) {
+      const ring = planRing(ground, seededRandom(seed), 600);
+      cramped += planDrops(ring, ground, seededRandom(seed + 100)).filter((d) => !roomForDrop(world, d.position)).length;
+      for (const d of planDrops(ring, ground, seededRandom(seed + 100), world)) expect(roomForDrop(world, d.position)).toBe(true);
+    }
+    // Without the world to look at, some would have landed against a post.
+    expect(cramped).toBeGreaterThan(0);
   });
 
   it('replays from its seed', () => {

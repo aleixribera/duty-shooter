@@ -51,6 +51,16 @@ describe('a Battle Royale on Zero Island', () => {
     }
   });
 
+  it('closes where a route goes both ways between it and the middle of the island (review, ticket 68)', () => {
+    const middle = nearestNode(nav, world, [...ground.spot(ground.near(ground.centre[0], ground.centre[1], 80)[0]!)]);
+    for (let seed = 0; seed < 30; seed++) {
+      const end = opening(1, 60, seed).ring.at(-1)!.to;
+      const there = nearestNode(nav, world, [end.x, terrain.heightAt(end.x, end.z), end.z]);
+      expect(findPath(nav, there, middle), `seed ${seed}`).not.toBeNull();
+      expect(findPath(nav, middle, there), `seed ${seed}`).not.toBeNull();
+    }
+  });
+
   it('closes on land', () => {
     for (let seed = 0; seed < 100; seed++) {
       const end = opening(1, 60, seed).ring.at(-1)!.to;

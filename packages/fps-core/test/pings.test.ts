@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Pings, STATS, box, buildNavGraph, createWorld, type BattleRoyaleState, type PingEvent, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { parsePing, type PingWorld } from '../src/pings';
+import { IMPORTANT } from '../src/net/server';
 import { decodeClient } from '../src/net/protocol';
 import { ticks } from './support/movement';
 
@@ -19,12 +20,14 @@ function world(players: PlayerOutput[], over: Partial<PingWorld> = {}): PingWorl
 }
 
 describe('a ping', () => {
+  /** Yaw 0 faces −z; this one faces +x, toward the wall. */
   const me = seat('me', 1, [0, 0, 0]);
+  const east = seat('me', 1, [0, 0, 0], { yaw: -Math.PI / 2 });
 
   it('marks an enemy the pinger can see where they truly stand, for a few seconds', () => {
-    const foe = seat('foe', 2, [0, 0, 40]);
-    const ping = new Pings().request(me, { kind: 'enemy', at: [1, 0, 39], target: 'foe' }, world([me, foe]))!;
-    expect(ping).toMatchObject({ type: 'ping', kind: 'enemy', player: 'me', team: 1, target: 'foe', position: [0, 0, 40] });
+    const foe = seat('foe', 2, [0, 0, -40]);
+    const ping = new Pings().request(me, { kind: 'enemy', at: [1, 0, -39], target: 'foe' }, world([me, foe]))!;
+    expect(ping).toMatchObject({ type: 'ping', kind: 'enemy', player: 'me', team: 1, target: 'foe', position: [0, 0, -40] });
     expect(ping.until).toBeCloseTo(10 + P.enemyLife.value);
   });
 
@@ -32,8 +35,31 @@ describe('a ping', () => {
     const hidden = seat('foe', 2, [40, 0, 0]);
     const mate = seat('mate', 1, [0, 0, 30]);
     const pings = new Pings();
-    expect(pings.request(me, { kind: 'enemy', at: [39, 0, 0], target: 'foe' }, world([me, hidden]))).toMatchObject({ kind: 'enemy', target: null, position: [39, 0, 0] });
+    expect(pings.request(east, { kind: 'enemy', at: [39, 0, 0], target: 'foe' }, world([east, hidden]))).toMatchObject({ kind: 'enemy', target: null, position: [39, 0, 0] });
     expect(pings.request(me, { kind: 'enemy', at: [0, 0, 30], target: 'mate' }, world([me, mate]))).toMatchObject({ kind: 'enemy', target: null });
+  });
+
+  it('an enemy hidden in foliage, or off to the side of where the pinger looks, is only a place too (review, ticket 66)', () => {
+    // Foliage over everything beyond z = −30: bullets pass, eyes don't.
+    const leafy = createWorld([FLOOR], { concealment: { hides: (_from, to) => to[2] < -30 } });
+    const inLeaves = seat('foe', 2, [0, 0, -40]);
+    expect(new Pings().request(me, { kind: 'enemy', at: [0, 0, -40], target: 'foe' }, world([me, inLeaves], { world: leafy }))).toMatchObject({ target: null });
+    const open = seat('foe', 2, [0, 0, -20]);
+    expect(new Pings().request(me, { kind: 'enemy', at: [0, 0, -20], target: 'foe' }, world([me, open], { world: leafy }))).toMatchObject({ target: 'foe' });
+    // In the open, but 70° and 180° off where the pinger faces.
+    const aside = seat('foe', 2, [-40 * Math.sin((70 * Math.PI) / 180), 0, -40 * Math.cos((70 * Math.PI) / 180)]);
+    const behind = seat('foe', 2, [0, 0, 40]);
+    const side = seat('foe', 2, [-40 * Math.sin((50 * Math.PI) / 180), 0, -40 * Math.cos((50 * Math.PI) / 180)]);
+    expect(new Pings().request(me, { kind: 'enemy', at: aside.position, target: 'foe' }, world([me, aside]))).toMatchObject({ target: null });
+    expect(new Pings().request(me, { kind: 'enemy', at: behind.position, target: 'foe' }, world([me, behind]))).toMatchObject({ target: null });
+    expect(new Pings().request(me, { kind: 'enemy', at: side.position, target: 'foe' }, world([me, side]))).toMatchObject({ target: 'foe' });
+  });
+
+  it('spends the allowance before looking, so asks that mark nothing still use it up (review, ticket 66)', () => {
+    const pings = new Pings();
+    const far: Vec3 = [P.reach.value + 1, 0, 0];
+    for (let i = 0; i < P.burst.value; i++) expect(pings.request(me, { kind: 'go', at: far }, world([me]))).toBeNull();
+    expect(pings.request(me, { kind: 'go', at: [5, 0, 5] }, world([me]))).toBeNull();
   });
 
   it('a place stands longer; one out of reach is no ping', () => {
@@ -100,5 +126,21 @@ describe('on the server', () => {
     expect(heard(mate)[0]).toMatchObject({ kind: 'go', player: pinger.client.id, team: team(pinger) });
     expect(heard(pinger)).toHaveLength(1);
     expect(heard(foe)).toEqual([]);
+  });
+
+  it('takes a couple of asks from one seat in a tick, and drops the rest before checking them (review, ticket 66)', () => {
+    const spawns = [[0, 0], [10, 0]].map(([x, z]) => ({ position: [x, 0, z] as Vec3, yaw: 0 }));
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns, mode: 'tdm', bots: { nav: NAV, perTeam: 0, maxPerTeam: 0 }, latency: 0.03 });
+    const pinger = m.join('a');
+    m.run(ticks(1));
+    for (let i = 0; i < 5; i++) pinger.client.mark({ kind: 'go', at: [i * 10, 0, -20] });
+    m.run(ticks(0.5));
+    const heard = pinger.frames.flatMap((f) => f.server).filter((e): e is PingEvent => e.type === 'ping');
+    expect(P.burst.value).toBeGreaterThan(2);
+    expect(heard).toHaveLength(2);
+  });
+
+  it('sends a Squad wipe and a new Kill Leader again in later snapshots, like a kill (review, ticket 69)', () => {
+    for (const type of ['kill', 'killFeed', 'squadOut', 'killLeader', 'reboot', 'ping']) expect(IMPORTANT.has(type)).toBe(true);
   });
 });

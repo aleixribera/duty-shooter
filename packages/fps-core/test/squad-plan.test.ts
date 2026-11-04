@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SimEvent, Vec3 } from '@duty-shooter/fps-core';
+import { STATS, type SimEvent, type Vec3 } from '@duty-shooter/fps-core';
 import { SquadPlanner, wallAt, type PlannedSeat, type SquadSituation } from '../src/bots/squad-plan';
 import type { BattleRoyaleState } from '../src/modes/game-mode';
 
@@ -266,15 +266,34 @@ describe('a Reboot Card out of reach', () => {
     const card: Vec3 = [60, 0, 0];
     const seats = [seat('b', 1, 40, 0)];
     const asked: Vec3[] = [];
-    const reachable = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, (_from, to) => (asked.push(to), to));
+    const reachable = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, { area: () => 0, spot: (_from, to) => (asked.push(to), to) });
     expect(reachable.plan(situation(seats, { state: lying(card) })).get('b')!.use).toEqual(card);
-    const out = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, (_from, to) => (asked.push(to), null));
+    const out = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, { area: () => 0, spot: (_from, to) => (asked.push(to), null) });
     const order = out.plan(situation(seats, { state: lying(card) })).get('b')!;
     expect(order.use).toBeUndefined();
     expect(order.rally).not.toEqual(card);
     // Asked once a Card, not every plan.
     out.plan(situation(seats, { state: lying(card), time: 11 }));
     expect(asked).toHaveLength(2);
+  });
+
+  it('asks again for a bot in another part of the nav, and sends it by the nav spot to within reach of the Card (review, ticket 70)', () => {
+    const card: Vec3 = [60, 0, 0];
+    // The nav stands 3 m off the Card; only the part of the nav east of x = 50 has a route to it.
+    const asked: number[] = [];
+    const planner = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, {
+      area: (at) => (at[0] > 50 ? 1 : 0),
+      spot: (from) => (asked.push(from[0] > 50 ? 1 : 0), from[0] > 50 ? [60, 0, 3] : null),
+    });
+    // The nearest bot is cut off: nobody goes.
+    expect(planner.plan(situation([seat('b', 1, 45, 0), seat('c', 1, 90, 0)], { state: lying(card) })).get('b')!.use).toBeUndefined();
+    // Once the bot that can get there is the nearest, it is asked for, and goes.
+    const order = planner.plan(situation([seat('b', 1, 20, 0), seat('c', 1, 70, 0)], { state: lying(card), time: 11 })).get('c')!;
+    expect(asked).toEqual([0, 1]);
+    expect(order.use).toBeDefined();
+    const stand = order.use!;
+    expect(Math.hypot(stand[0] - card[0], stand[2] - card[2])).toBeLessThanOrEqual(STATS.royale.reboot.cardReach.value / 2 + 1e-9);
+    expect(stand[2]).toBeGreaterThan(0);
   });
 });
 

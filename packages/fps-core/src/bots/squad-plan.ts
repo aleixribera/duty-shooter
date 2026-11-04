@@ -138,6 +138,8 @@ const DROP_NEAR = 30;
 const DROP_SAME = 1.5;
 /** A Reboot's channel (s), which the wall must leave its Beacon for. */
 const REBOOT_CHANNEL = STATS.royale.reboot.channel.value;
+/** How near a Card (m) a bot sent for it stands: well within the reach that picks it up, its rally being a metre across. */
+const CARD_STAND = STATS.royale.reboot.cardReach.value / 2;
 
 /** One bot's choice of ground. */
 interface Mind {
@@ -155,13 +157,21 @@ interface Mind {
   weighed?: Set<number>;
 }
 
+/** Where bots can get to on the nav, for a Card lying somewhere. */
+export interface CardReach {
+  /** The part of the nav a point stands in: from anywhere in one part, the same places are reachable. */
+  area(at: Vec3): number;
+  /** The nav spot by `to` a bot at `from` can reach to take it, or null for none (the sea, a roof). */
+  spot(from: Vec3, to: Vec3): Vec3 | null;
+}
+
 /** Works out the ground of every bot of one Battle Royale. `spot` gives the nearest place to stand to a point on the plane. */
 export class SquadPlanner {
   readonly #spot: (x: number, z: number) => Vec3;
   readonly #seed: number;
-  readonly #reach: ((from: Vec3, to: Vec3) => Vec3 | null) | null;
-  /** Whether a bot can reach each Card lying on the island (by owner and time): the nav spot by it, or null for none. */
-  readonly #cardSpots = new Map<string, Vec3 | null>();
+  readonly #reach: CardReach | null;
+  /** Whether a bot can reach each Card lying on the island (by owner and time), from each part of the nav: the nav spot by it, or null for none. */
+  readonly #cardSpots = new Map<string, Map<number, Vec3 | null>>();
   readonly #minds = new Map<PlayerId, Mind>();
   readonly #intel = new Map<TeamId, SquadIntel>();
   /** The island's gunfire, as everyone in earshot hears it. */
@@ -173,7 +183,7 @@ export class SquadPlanner {
    * take something lying at another, or null when there's no such place
    * (a Card in the sea or on a roof); without it, everywhere is reachable.
    */
-  constructor(spot: (x: number, z: number) => Vec3, seed: number, reach?: (from: Vec3, to: Vec3) => Vec3 | null) {
+  constructor(spot: (x: number, z: number) => Vec3, seed: number, reach?: CardReach) {
     this.#spot = spot;
     this.#seed = seed;
     this.#reach = reach ?? null;
@@ -408,13 +418,23 @@ export class SquadPlanner {
       let best: PlannedSeat | null = null;
       for (const m of bots) if (!jobs.has(m.id) && (!best || flat(m.position, c.position) < flat(best.position, c.position))) best = m;
       if (!best) continue;
-      // Found once a Card: the nav spot by it, if a route reaches one.
-      const key = `${c.owner}:${c.until ?? 0}`;
-      let spot = this.#cardSpots.get(key);
-      if (spot === undefined) this.#cardSpots.set(key, (spot = this.#reach ? this.#reach(best.position, c.position) : c.position));
+      // Found once a Card and part of the nav: the nav spot by it, if a route from there reaches one.
+      let spot: Vec3 | null = c.position;
+      if (this.#reach) {
+        const key = `${c.owner}:${c.until ?? 0}`;
+        const area = this.#reach.area(best.position);
+        let known = this.#cardSpots.get(key);
+        if (!known) this.#cardSpots.set(key, (known = new Map()));
+        spot = known.get(area) ?? null;
+        if (!known.has(area)) known.set(area, (spot = this.#reach.spot(best.position, c.position)));
+      }
       if (!spot) continue;
       const wall = wallAt(state, time + flat(best.position, c.position) / RUN);
-      if (away(c.position, wall) <= wall.radius - WALL_MARGIN) jobs.set(best.id, c.position);
+      // From the nav spot by the Card, on toward it just far enough to pick it up.
+      const off = flat(spot, c.position);
+      const k = off > CARD_STAND ? (off - CARD_STAND) / off : 1;
+      const stand: Vec3 = [spot[0] + (c.position[0] - spot[0]) * k, spot[1] + (c.position[1] - spot[1]) * k, spot[2] + (c.position[2] - spot[2]) * k];
+      if (away(c.position, wall) <= wall.radius - WALL_MARGIN) jobs.set(best.id, stand);
     }
     return jobs;
   }

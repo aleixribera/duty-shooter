@@ -248,7 +248,7 @@ function waysBack(count: number, links: readonly (readonly NavLink[])[], land: (
 }
 
 /** Strongly connected components along the links `keep` allows (Tarjan, iterative): each node's component, and how many there are. */
-function components(count: number, links: readonly (readonly NavLink[])[], keep: (from: number, to: number) => boolean): { of: Int32Array; total: number } {
+export function components(count: number, links: readonly (readonly NavLink[])[], keep: (from: number, to: number) => boolean): { of: Int32Array; total: number } {
   const of = new Int32Array(count).fill(-1);
   const order = new Int32Array(count).fill(-1);
   const low = new Int32Array(count);

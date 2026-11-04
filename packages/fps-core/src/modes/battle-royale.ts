@@ -165,7 +165,7 @@ export class BattleRoyale implements GameMode {
     const ground = ctx.ground ?? groundFromSpawns(ctx.spawns);
     this.#ring = planRing(ground, seededRandom(seed), this.timeLimit);
     squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) => this.#spawns.set(i + 1, spawns));
-    this.#drops.start(this.#ring, ground, seededRandom(seed ^ 0x2f6b1c3d));
+    this.#drops.start(this.#ring, ground, seededRandom(seed ^ 0x2f6b1c3d), ctx.world);
     this.#reboot.start(this.squadSize > 1 ? beaconsOf(ground) : [], this.squadSize, this.#ring.length);
     return teams;
   }

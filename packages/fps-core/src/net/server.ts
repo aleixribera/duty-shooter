@@ -4,6 +4,7 @@ import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
 import { SquadIntel } from '../bots/squad-intel';
 import { Pings, type PingEvent, type PingRequest } from '../pings';
 import { findPath, nearestNode, startNode, type NavGraph } from '../bots/nav';
+import { navAreas } from '../bots/nav-areas';
 import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
 import { BattleRoyale, type BattleRoyaleOptions, type SquadSize } from '../modes/battle-royale';
 import { Charge, type ChargeOptions } from '../modes/charge';
@@ -24,6 +25,7 @@ import { Simulation, TICK_SECONDS, type PlayerId, type PlayerOutput, type Player
 import { Button, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { Vec3 } from '../math';
+import { hullBlocked } from '../movement/collision';
 import type { World } from '../world';
 import { STICKY_FIELDS, joinSnapshot, packEvent, packGrenades, packPlayer, packValue, type StickyField } from './codec';
 import {
@@ -170,6 +172,8 @@ export interface BotOptions {
 const PLAN_EVERY = 1;
 /** Pings waiting for a tick at most: more in one tick are dropped (each seat's allowance holds them to a few anyway). */
 const MAX_PING_ASKS = 256;
+/** Pings one seat may queue in a tick: more are dropped before any raycast, so one client can't crowd out the rest. */
+const MAX_PING_ASKS_PER_SEAT = 2;
 /** A Card lying farther than this (m) from the nearest nav node is out of a bot's reach (in the sea, on a roof). */
 const CARD_REACH = 3;
 /** Battle Royale: Squads a plan in the countdown may give a first rally, so they're spread over its seconds instead of all in one tick; play gives the rest. */
@@ -235,8 +239,8 @@ const SPARE_TICKS = 60;
 const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
-/** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping']);
+/** Events repeated in later snapshots (lost packets still reach the feed); the rest (shots, impacts, reloads) are cosmetic and sent once. */
+export const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping', 'squadOut', 'killLeader']);
 
 interface Client {
   readonly connection: Connection;
@@ -424,6 +428,8 @@ export class GameServer {
   readonly #using = new Set<PlayerId>();
   /** Pings asked for since the last tick, by people and bots, checked and sent in the next. */
   #pingAsks: { readonly by: PlayerId; readonly req: PingRequest }[] = [];
+  /** How many of {@link #pingAsks} each seat has queued. */
+  readonly #pingAsksBy = new Map<PlayerId, number>();
   readonly #marks = new Pings();
   /** Team modes: what each team with a person in it has pinged (a Battle Royale's Squads keep theirs in the planner). */
   readonly #teamIntel = new Map<TeamId, SquadIntel>();
@@ -798,8 +804,8 @@ export class GameServer {
       return;
     }
     if (message.t === 'ping') {
-      if (client.id !== null && this.#phase === 'playing' && this.#pingAsks.length < MAX_PING_ASKS) {
-        this.#pingAsks.push({ by: client.id, req: { kind: message.kind, at: message.at, ...(message.target === undefined ? {} : { target: message.target }) } });
+      if (client.id !== null && this.#phase === 'playing') {
+        this.#askPing(client.id, { kind: message.kind, at: message.at, ...(message.target === undefined ? {} : { target: message.target }) });
       }
       return;
     }
@@ -951,6 +957,7 @@ export class GameServer {
     this.#locked = null;
     this.#marks.reset();
     this.#pingAsks = [];
+    this.#pingAsksBy.clear();
     this.#teamIntel.clear();
     this.#grounds = new Map();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
@@ -1492,12 +1499,15 @@ export class GameServer {
     const { nav, world } = this.#map;
     if (!nav) return;
     const time = this.simulation.time;
-    this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`), (from, to) => {
-      // Something lying where no nav node is near (the sea, a roof), or no route reaches it, is out of reach.
-      const node = nearestNode(nav, world, to);
-      const at = nav.nodes[node]!.position;
-      if (Math.hypot(at[0] - to[0], at[1] - to[1], at[2] - to[2]) > CARD_REACH) return null;
-      return findPath(nav, startNode(nav, world, from), node) ? at : null;
+    this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`), {
+      area: (at) => navAreas(nav)[startNode(nav, world, at)]!,
+      spot: (from, to) => {
+        // Something lying where no nav node is near (the sea, a roof), or no route reaches it, is out of reach.
+        const node = nearestNode(nav, world, to);
+        const at = nav.nodes[node]!.position;
+        if (Math.hypot(at[0] - to[0], at[1] - to[1], at[2] - to[2]) > CARD_REACH) return null;
+        return findPath(nav, startNode(nav, world, from), node) ? at : null;
+      },
     });
     this.#grounds = this.#squads.plan({
       time,
@@ -1576,7 +1586,7 @@ export class GameServer {
       };
       cmds[id] = seat.bot.think(view);
       const ping = seat.bot.takePing();
-      if (ping && heard.has(self.team) && this.#pingAsks.length < MAX_PING_ASKS) this.#pingAsks.push({ by: id, req: ping });
+      if (ping && heard.has(self.team)) this.#askPing(id, ping);
       if (probe) {
         probe.thought(id, seat.bot.activity);
         this.#facts.thoughts += 1;
@@ -1584,6 +1594,14 @@ export class GameServer {
     }
     this.#facts.plans = budget.plans;
     this.#facts.arcs = arcs - budget.arcs;
+  }
+
+  /** Queues `by`'s ping for the next tick, within the server's and the seat's caps. */
+  #askPing(by: PlayerId, req: PingRequest): void {
+    const queued = this.#pingAsksBy.get(by) ?? 0;
+    if (this.#pingAsks.length >= MAX_PING_ASKS || queued >= MAX_PING_ASKS_PER_SEAT) return;
+    this.#pingAsksBy.set(by, queued + 1);
+    this.#pingAsks.push({ by, req });
   }
 
   /**
@@ -1594,6 +1612,7 @@ export class GameServer {
     if (this.#pingAsks.length === 0) return [];
     const asks = this.#pingAsks;
     this.#pingAsks = [];
+    this.#pingAsksBy.clear();
     if (this.#phase !== 'playing') return [];
     const players = this.#last.players;
     const seats = this.#seatIndex;
@@ -1626,8 +1645,16 @@ export class GameServer {
     const solids = royaleProps(state, time);
     if (solids.length === 0) return;
     const margin = STATS.stance.hullHalfWidth.value;
+    const world = this.simulation.world;
     for (const p of this.simulation.output().players) {
-      const at = p.alive ? clearOf(solids, p.position, margin, p.eyeHeight) : null;
+      // A side of the crate inside a wall or a cliff won't do: up onto the ground there, or the next side.
+      const hull = { halfWidth: margin, height: p.eyeHeight + 0.1 };
+      const fits = (at: Vec3): Vec3 | null => {
+        const ground = world.terrain?.heightAt(at[0], at[2]);
+        const stand: Vec3 = ground !== undefined && ground > at[1] ? [at[0], ground, at[2]] : at;
+        return stand[1] - at[1] <= STATS.mantle.highClimbMaxHeight.value && !hullBlocked(world, stand, hull) ? stand : null;
+      };
+      const at = p.alive ? clearOf(solids, p.position, margin, p.eyeHeight, fits) : null;
       const s = at ? this.simulation.playerState(p.id) : null;
       if (at && s) this.simulation.setPlayerState({ ...s, move: { ...s.move, position: at } });
     }

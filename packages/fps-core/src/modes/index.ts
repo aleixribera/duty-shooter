@@ -26,7 +26,7 @@ export {
 export type { ChargeOptions } from './charge';
 export { LOBBY_MODES, MODE_IDS, inSite, inZone, siteCentre, teamMode } from './game-mode';
 export { PlayGround, playGround } from './ground';
-export { DROP_WEAPON, dropSniper, planDrops, royaleLoadout, SupplyDrops } from './supply-drops';
+export { DROP_WEAPON, dropSniper, planDrops, roomForDrop, royaleLoadout, SupplyDrops } from './supply-drops';
 export { planBeacons, Reboot } from './reboot';
 export { clearOf, propsKey, royaleProps, standProps } from './royale-props';
 export { planRing, ringAt, ringDamage, stageAt } from './ring';

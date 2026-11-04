@@ -52,6 +52,21 @@ describe('a Battle Royale’s props', () => {
     expect(clearOf(solids, [0, 0.77, 20], HULL.halfWidth, 1.6)).toBeNull();
   });
 
+  it('one landing on someone by a wall puts them out a side that is clear of it, or on top (review, ticket 66)', () => {
+    const solids = royaleProps(state(0), 1);
+    // A wall just past the crate's +z side, the side nearest the body.
+    const wall = box({ min: [-5, 0, 20.5], max: [5, 3, 21.5], material: 'brick' });
+    const world = createWorld([GROUND, wall]);
+    world.props.set(solids);
+    const fits = (at: Vec3) => (hullBlocked(world, at, HULL) ? null : at);
+    expect(clearOf(solids, [0.3, 0, 20.1], HULL.halfWidth, 1.6)![2]).toBeGreaterThan(20.4);
+    const out = clearOf(solids, [0.3, 0, 20.1], HULL.halfWidth, 1.6, fits)!;
+    expect(hullBlocked(world, out, HULL)).toBe(false);
+    expect(out[1]).toBe(0);
+    // Boxed in on every side: up on the lid.
+    expect(clearOf(solids, [0.3, 0, 20.1], HULL.halfWidth, 1.6, () => null)).toEqual([0.3, 0.79, 20.1]);
+  });
+
   it('go on down into the ground, so a body down a slope beside one can’t walk under its edge', () => {
     const world = createWorld([WALL]);
     world.props.set(royaleProps(state(0), 1));
