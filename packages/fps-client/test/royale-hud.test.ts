@@ -28,10 +28,24 @@ describe('where the Ring stands', () => {
   });
 });
 
+describe('the way to the next circle (ticket 68)', () => {
+  it('is how far its edge is from where you stand outside it, 0 inside', () => {
+    // The next circle is 100 m round (100, 0): (-100, 0) is 100 m out of it, inside the Ring.
+    expect(ringStatus(state(), 50, [-100, 0, 0]).toNext).toBeCloseTo(100);
+    expect(ringStatus(state(), 50, [150, 0, 0]).toNext).toBe(0);
+    expect(ringStatus(state(), 50, null).toNext).toBe(0);
+  });
+
+  it('runs to the last point once the last circle closes on one', () => {
+    const last = state({ stage: 6, circle: { x: 0, z: 0, radius: 40 }, next: { x: 50, z: 0, radius: 0 } });
+    expect(ringStatus(last, 50, [0, 0, 0]).toNext).toBeCloseTo(50);
+  });
+});
+
 describe('the Ring line under the compass', () => {
   it('counts down to the shrink while it holds', () => {
     const s = ringStatus(state(), 58.2, [0, 0, 0]);
-    expect(s).toMatchObject({ stage: 2, stages: 6, phase: 'hold', seconds: 41.8, outside: false, toSafety: 0, damage: 2 });
+    expect(s).toMatchObject({ stage: 2, stages: 6, phase: 'hold', seconds: 41.8, outside: false, toSafety: 0, toNext: 0, damage: 2 });
   });
 
   it('counts down to the end of the shrink while it moves', () => {

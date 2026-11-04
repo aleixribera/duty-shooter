@@ -207,9 +207,9 @@ describe('the Ring', () => {
     for (const [i, s] of plan.entries()) if (i > 0) expect(s.shrinkAt).toBeGreaterThan(plan[i - 1]!.shrinkEnd);
   });
 
-  it('keeps each circle fully inside the last, for any seed', () => {
+  it('keeps each circle fully inside the last, for any seed, up to the last', () => {
     for (let seed = 0; seed < 200; seed++) {
-      for (const s of ring(seed)) {
+      for (const s of ring(seed).slice(0, -1)) {
         expect(Math.hypot(s.to.x - s.from.x, s.to.z - s.from.z) + s.to.radius).toBeLessThanOrEqual(s.from.radius + 1e-6);
       }
     }
@@ -219,6 +219,18 @@ describe('the Ring', () => {
     const plan = ring(2);
     expect(plan[0]!.from.radius).toBeGreaterThanOrEqual(Math.hypot(240, 240));
     expect(plan.at(-1)!.to.radius).toBe(0);
+  });
+
+  it('moves the last circle away as it closes, on to open ground, so the end is never where everyone sat (ticket 68)', () => {
+    const ground = playGround(NAV, WORLD);
+    for (let seed = 0; seed < 50; seed++) {
+      const last = ring(seed).at(-1)!;
+      const drift = Math.hypot(last.to.x - last.from.x, last.to.z - last.from.z);
+      // About the drift asked for: the open ground nearest that point.
+      expect(drift).toBeGreaterThan(last.from.radius * STATS.royale.finalDrift.value * 0.8);
+      expect(drift).toBeLessThan(last.from.radius * STATS.royale.finalDrift.value * 1.2);
+      expect(ground.near(last.to.x, last.to.z, 0.01)).not.toEqual([]);
+    }
   });
 
   it('hurts more at each Stage', () => {

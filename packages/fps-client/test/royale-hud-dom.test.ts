@@ -3,10 +3,10 @@ import { RoyaleHud, type RoyaleHudState } from '../src/hud/royale-hud';
 import { installFakeDom, type FakeElement } from './helpers/fake-dom';
 
 /** The Battle Royale HUD's own elements, by class. */
-const PARTS = ['ds-br-top', 'ds-ringline', 'ds-outside', 'ds-out', 'ds-watch'] as const;
+const PARTS = ['ds-br-top', 'ds-ringline', 'ds-outside', 'ds-nextline', 'ds-out', 'ds-watch'] as const;
 
 const state = (over: Partial<RoyaleHudState> = {}): RoyaleHudState => ({
-  status: { stage: 1, stages: 6, phase: 'hold', seconds: 40, outside: false, toSafety: 0, damage: 1 },
+  status: { stage: 1, stages: 6, phase: 'hold', seconds: 40, outside: false, toSafety: 0, toNext: 0, damage: 1 },
   ring: { x: 0, z: 0, radius: 300 },
   next: { x: 0, z: 0, radius: 200 },
   alive: 50,
@@ -83,5 +83,23 @@ describe('out of a Battle Royale', () => {
     const bar = root.one('ds-watch').text;
     expect(bar).toContain('Esc Menu');
     expect(bar).not.toContain('Leave');
+  });
+});
+
+describe('on the way to the next circle (ticket 68)', () => {
+  it('says how far, inside the Ring but out of the next circle', () => {
+    hud.update(state({ status: { stage: 2, stages: 6, phase: 'hold', seconds: 30, outside: false, toSafety: 0, toNext: 123.4, damage: 2 } }));
+    expect(shown('ds-nextline')).toBe(true);
+    expect(root.one('ds-nextline').text).toMatch(/124 m.*next circle/);
+  });
+
+  it('gives way to the warning outside the Ring, and says nothing inside the next circle or out of the match', () => {
+    hud.update(state({ status: { stage: 2, stages: 6, phase: 'hold', seconds: 30, outside: true, toSafety: 20, toNext: 120, damage: 2 } }));
+    expect(shown('ds-nextline')).toBe(false);
+    expect(shown('ds-outside')).toBe(true);
+    hud.update(state());
+    expect(shown('ds-nextline')).toBe(false);
+    hud.update(state({ out: true, status: { stage: 2, stages: 6, phase: 'hold', seconds: 30, outside: false, toSafety: 0, toNext: 120, damage: 2 } }));
+    expect(shown('ds-nextline')).toBe(false);
   });
 });

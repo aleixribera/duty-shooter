@@ -64,7 +64,33 @@ export function planRing(ground: PlayGround, random: () => number, timeLimit: nu
     from = to;
     time = shrinkEnd;
   }
+  const last = stages.at(-1);
+  if (last && stages.length > 1) stages[stages.length - 1] = { ...last, to: { ...drifted(ground, first, last.from, last.to), radius: last.to.radius } };
   return stages;
+}
+
+/**
+ * Where the last circle closes: not where it stood but `finalDrift` of its
+ * radius on, the way the Ring was heading (through the end it was closing on,
+ * or on from the island's middle), at the open ground nearest that point. It
+ * draws no randomness, so the rest of a seed's match is as it was.
+ */
+function drifted(ground: PlayGround, first: Circle, from: Circle, end: Circle): { x: number; z: number } {
+  const want = from.radius * STATS.royale.finalDrift.value;
+  let [dx, dz] = [end.x - from.x, end.z - from.z];
+  if (Math.hypot(dx, dz) < 1) [dx, dz] = [from.x - first.x, from.z - first.z];
+  if (Math.hypot(dx, dz) < 1) [dx, dz] = [1, 0];
+  const k = want / Math.hypot(dx, dz);
+  const [x, z] = [from.x + dx * k, from.z + dz * k];
+  // Open ground nearest there; the wider the water or the cliffs, the further it looks.
+  for (let reach = 8; reach <= 512; reach *= 2) {
+    const spot = ground.near(x, z, reach)[0];
+    if (spot !== undefined) {
+      const [sx, , sz] = ground.spot(spot);
+      return { x: sx, z: sz };
+    }
+  }
+  return { x: end.x, z: end.z };
 }
 
 /** The Stage in play at `time`: the last, once it has closed. */

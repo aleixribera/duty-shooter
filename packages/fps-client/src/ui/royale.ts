@@ -33,6 +33,8 @@ export interface RingStatus {
   readonly outside: boolean;
   /** Metres to the wall from outside it; 0 inside. */
   readonly toSafety: number;
+  /** Metres to the next circle's edge from outside it (to its point, for the last); 0 inside it, or with no position. */
+  readonly toNext: number;
   /** HP a second outside it this Stage. */
   readonly damage: number;
 }
@@ -46,7 +48,8 @@ export function ringStatus(state: BattleRoyaleState, time: number, at: Vec3 | nu
   const seconds = phase === 'hold' ? round(state.shrinkAt - time) : phase === 'closing' ? round(Math.max(0, state.shrinkEnd - time)) : null;
   const ring = ringNow(state, time);
   const out = at ? Math.hypot(at[0] - ring.x, at[2] - ring.z) - ring.radius : 0;
-  return { stage: state.stage, stages: RING_STAGES, phase, seconds, outside: out > 0, toSafety: Math.max(0, out), damage: state.damage };
+  const toNext = at ? Math.max(0, Math.hypot(at[0] - state.next.x, at[2] - state.next.z) - state.next.radius) : 0;
+  return { stage: state.stage, stages: RING_STAGES, phase, seconds, outside: out > 0, toSafety: Math.max(0, out), toNext, damage: state.damage };
 }
 
 /** To a tenth of a second, so the HUD's string doesn't change faster than it can be read. */

@@ -54,6 +54,9 @@ const CSS = `
 .ds-outside .arrow { width: 22px; height: 22px; display: grid; place-items: center; color: var(--ds-hazard); font-size: 18px; line-height: 1; }
 .ds-outside b { display: block; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-hazard); }
 .ds-outside small { display: block; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text); margin-top: 2px; }
+.ds-nextline { position: absolute; left: 50%; top: 116px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
+.ds-nextline .arrow { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ds-text); font-size: 12px; line-height: 1; }
+.ds-nextline b { color: var(--ds-text); font-variant-numeric: tabular-nums; }
 .ds-hazardedge { position: absolute; inset: 0; box-shadow: inset 0 0 90px 20px color-mix(in srgb, var(--ds-hazard) 50%, transparent); opacity: 0; transition: opacity 300ms linear; }
 .ds-out { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 10px 22px 12px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
 .ds-out .what { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-alert); }
@@ -163,6 +166,8 @@ export class RoyaleHud {
   readonly #right: HTMLElement;
   readonly #ringline: HTMLDivElement;
   readonly #outside: HTMLDivElement;
+  /** Inside the Ring but out of the next circle: which way, and how far (ticket 68). */
+  readonly #nextline: HTMLDivElement;
   readonly #edge: HTMLDivElement;
   readonly #out: HTMLDivElement;
   /** What the out panel last said, and when it started saying it (performance.now ms). */
@@ -205,6 +210,7 @@ export class RoyaleHud {
     this.#right = el('count', '', this.#top);
     this.#ringline = el('ds-ringline ds-plate');
     this.#outside = el('ds-outside');
+    this.#nextline = el('ds-nextline ds-plate');
     this.#out = el('ds-out');
     this.#watch = el('ds-watch ds-plate');
     this.#map = el('ds-map');
@@ -225,7 +231,7 @@ export class RoyaleHud {
     if (on === this.#shown) return;
     this.#shown = on;
     for (const e of [this.#top, this.#ringline]) e.style.display = on ? '' : 'none';
-    if (!on) for (const e of [this.#outside, this.#out, this.#watch]) e.style.display = 'none';
+    if (!on) for (const e of [this.#outside, this.#nextline, this.#out, this.#watch]) e.style.display = 'none';
     if (!on) this.#map.classList.remove('open');
     if (!on) this.#edge.style.opacity = '0';
   }
@@ -262,6 +268,13 @@ export class RoyaleHud {
         this.#outside,
         `<span class="arrow" style="transform:rotate(${Math.round(turn)}deg)">▲</span><span><b>Outside the Ring</b><small>${st.damage} HP a second · ${Math.ceil(st.toSafety)} m to safety</small></span>`,
       );
+    }
+    // Inside the Ring with the next circle elsewhere: the way there, quietly, before the wall makes it urgent.
+    const toNext = !outside && !s.out && st.phase !== 'closed' && st.toNext >= 1 && s.at !== null;
+    this.#nextline.style.display = toNext ? '' : 'none';
+    if (toNext && s.at) {
+      const turn = bearing([s.at.x, s.at.z], [s.next.x, s.next.z]) - s.heading;
+      this.#set(this.#nextline, `<span class="arrow" style="transform:rotate(${Math.round(turn)}deg)">▲</span><span><b>${Math.ceil(st.toNext)} m</b> to the next circle</span>`);
     }
     // Out: a few seconds of your placement big (or that your Squad fights on), then out of the spectator's way; who you watch stays, with the way to the menu.
     // A late arrival was never in, so it gets no out card: only who it watches (ticket 43).

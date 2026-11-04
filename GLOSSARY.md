@@ -207,7 +207,7 @@ The OS process a server's Battle Royale plays in, beside the one that holds the 
 A seat in a Squad with no person in it on the Battle Royale screen, drawn dashed: a bot takes it when the match starts, unless a friend joins first.
 
 **Ring**:
-The closing circle of a Battle Royale. Outside it health falls and doesn't regenerate. Its circles nest, close on land, and all come from the match's seed.
+The closing circle of a Battle Royale. Outside it health falls and doesn't regenerate. Its circles nest and close on land, and they all come from the match's seed. The last one is the exception: it moves off as it closes, so the final fight can't hold one spot. While you're inside the Ring but outside the next circle, the HUD shows which way the next circle is and how far.
 _Avoid_: zone (that's Outposts), storm
 
 **Ring hazard colour**:

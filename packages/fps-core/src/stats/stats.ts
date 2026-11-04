@@ -386,6 +386,11 @@ export const STATS = {
     },
     botReaction: estimate(2.6, 'multiplier', BOT_SKILL),
     botAim: estimate(3.1, 'multiplier', BOT_SKILL),
+    finalDrift: estimate(
+      1.25,
+      'multiplier',
+      'The last circle closes on a point this many of its starting radii from where it started (owner, ticket 68: the final Ring moves, so the last fight cannot camp one spot). Its far edge then comes on at about 4 m/s on Zero Island, a jog.',
+    ),
     /** One row a Stage, first to last: seconds held, seconds shrinking, the circle it shrinks to as a share of the first, and what standing outside costs. */
     ring: {
       1: { hold: estimate(60, 's', RING), shrink: estimate(70, 's', RING), radius: estimate(0.62, 'multiplier', RING), damage: estimate(1, 'HP/s', RING) },
