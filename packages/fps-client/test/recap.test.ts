@@ -63,6 +63,17 @@ describe('the death recap (ticket 73)', () => {
     expect(text(recapHtml(log.recap!))).toBe('Out to the Ring');
   });
 
+  it('says your own frag, not a fall, for a frag that put you out', () => {
+    const log = new MatchLog();
+    log.reset('a');
+    log.kill({ killer: 'a', victim: 'a', cause: 'grenade', weapon: 'frag' }, lookup(), at(0, 0));
+    expect(log.recap).toMatchObject({ what: 'self', name: null });
+    expect(text(recapHtml(log.recap!))).toBe('Out to your own frag');
+    log.reset('a');
+    log.kill({ killer: null, victim: 'a', cause: 'fall', weapon: null }, lookup(), at(0, 0));
+    expect(text(recapHtml(log.recap!))).toBe('Out in a fall');
+  });
+
   it('clears when you are back up, and ignores other seats', () => {
     const log = new MatchLog();
     log.reset('a');

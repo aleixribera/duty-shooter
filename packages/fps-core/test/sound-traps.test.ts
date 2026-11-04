@@ -15,6 +15,7 @@ import {
   type PlayerOutput,
   type SoundTrap,
   type TrapEvent,
+  type TrapSound,
   type Vec3,
 } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, usercmd } from '@duty-shooter/fps-core/harness';
@@ -31,8 +32,13 @@ describe('a sound trap', () => {
   it('goes off for a body running, sliding or landing within reach of it, once, at its own spot', () => {
     for (const over of [{ movement: 'sprint' }, { movement: 'tacticalSprint' }, { movement: 'slide' }, { movement: 'walk', landing: { at: 1 } }] as Partial<PlayerOutput>[]) {
       const traps = new SoundTraps([BIRDS, GRAVEL]);
-      expect(traps.step([body('a', [TRAP_REACH - 1, 0, 0], over)], 5)).toEqual([{ type: 'trap', kind: 'birds', position: [0, 6, 0], player: 'a' }]);
+      expect(traps.step([body('a', [TRAP_REACH - 1, 0, 0], over)], 5)).toEqual([{ type: 'trap', kind: 'birds', position: [0, 6, 0], players: ['a'] }]);
     }
+  });
+
+  it('names every body that set it off, not just the first', () => {
+    const traps = new SoundTraps([BIRDS]);
+    expect(traps.step([body('m', [1, 0, 0]), body('t', [-1, 0, 0])], 1)).toEqual([{ type: 'trap', kind: 'birds', position: [0, 6, 0], players: ['m', 't'] }]);
   });
 
   it('stays quiet for a walk, a crouch, a body out of reach, far below it, downed or out', () => {
@@ -57,7 +63,7 @@ describe('a sound trap', () => {
   });
 
   it('is heard by whoever is within the mid range of its spot, like a hit', () => {
-    const e: TrapEvent = { type: 'trap', kind: 'metal', position: [10, 1, 20], player: 'a' };
+    const e: TrapEvent = { type: 'trap', kind: 'metal', position: [10, 1, 20] };
     expect(eventReach(e, () => undefined)).toEqual({ seats: [], at: [10, 1, 20], loud: false });
   });
 });
@@ -79,7 +85,8 @@ describe('a sound trap on the server', () => {
       expect(heard(c)).toHaveLength(1);
       expect(heard(c)[0]).toMatchObject({ kind: 'metal', position: [0, 0, -12] });
     }
-    expect([a.client.id, b.client.id]).toContain(heard(a)[0]!.player);
+    // What and where only: who ran past stays on the server.
+    expect(Object.keys(heard(a)[0]!).sort()).toEqual(['kind', 'position', 'type']);
   });
 });
 
@@ -88,7 +95,7 @@ describe('a bot hearing a sound trap', () => {
   const nav = buildNavGraph(world, { area: [[-40, -40], [40, -40], [40, 40], [-40, 40]] });
 
   /** A bot facing −z and an enemy standing still 30 m behind it; a trap goes off by the enemy at tick 30 if `sounds` says so. */
-  const listen = (sounds: (t: TrapEvent) => TrapEvent | null, at = 30, thinkEvery = 1) => {
+  const listen = (sounds: (t: TrapSound) => TrapSound | null, at = 30, thinkEvery = 1) => {
     const sim = new Simulation(world);
     sim.addPlayer({ id: 'b', team: 1, position: [0, 0, 0], yaw: 0 });
     sim.addPlayer({ id: 't', team: 2, position: [0, 0, 30], yaw: 0 });
@@ -98,7 +105,7 @@ describe('a bot hearing a sound trap', () => {
     let turned = false;
     for (let i = 0; i < ticks(1.5); i++) {
       const me = out.players.find((p) => p.id === 'b')!;
-      const trap = i === at ? sounds({ type: 'trap', kind: 'birds', position: [1, 6, 29], player: 't' }) : null;
+      const trap = i === at ? sounds({ type: 'trap', kind: 'birds', position: [1, 6, 29], players: ['t'] }) : null;
       const view: BotView = { tick: out.tick, time: sim.time, self: me, players: out.players, events: out.events, isEnemy: (o) => o.team !== me.team, objective: { position: [0, 0, 0], radius: 1.5 }, ...(thinkEvery > 1 ? { thinkEvery } : {}), ...(trap ? { sounds: [trap] } : {}) };
       out = sim.step({ b: bot.think(view) });
       const self = out.players.find((p) => p.id === 'b')!;
@@ -118,9 +125,13 @@ describe('a bot hearing a sound trap', () => {
     for (const at of [30, 31, 32, 33]) expect(listen((t) => t, at, 4).heard, `tick ${at}`).not.toBeNull();
   });
 
+  it('hears an enemy who ran past beside its own squadmate', () => {
+    expect(listen((t) => ({ ...t, players: ['m', 't'] })).heard).not.toBeNull();
+  });
+
   it('pays no mind to its own side, or to a trap beyond its hearing', () => {
     expect(listen(() => null)).toEqual({ heard: null, turned: false });
-    expect(listen((t) => ({ ...t, player: 'm' }))).toEqual({ heard: null, turned: false });
+    expect(listen((t) => ({ ...t, players: ['m'] }))).toEqual({ heard: null, turned: false });
     expect(listen((t) => ({ ...t, position: [0, 6, TRAP_HEARD + 5] }))).toEqual({ heard: null, turned: false });
   });
 });

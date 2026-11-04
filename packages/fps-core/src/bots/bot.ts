@@ -17,7 +17,7 @@ import { botSees } from './sight';
 import { RUN, wallAt, type GroundOrder } from './squad-plan';
 import type { SquadIntel } from './squad-intel';
 import type { PingRequest } from '../pings';
-import { TRAP_HEARD, type TrapEvent } from '../sound-traps';
+import { TRAP_HEARD, type TrapSound } from '../sound-traps';
 
 /** What a bot knows each tick: the latest simulation output, as the server has it. */
 export interface BotView {
@@ -34,7 +34,7 @@ export interface BotView {
   /** The latest tick's events. */
   readonly events: readonly SimEvent[];
   /** Sound traps set off last tick (ticket 72): birds flushing, metal rattling, gravel sliding. */
-  readonly sounds?: readonly TrapEvent[];
+  readonly sounds?: readonly TrapSound[];
   /** Live grenades, as anyone could see them land; none when absent. */
   readonly grenades?: readonly GrenadeOutput[];
   /** Whether `other` is on the other side (any other player in free-for-all). */
@@ -436,7 +436,7 @@ export class Bot {
   /** The events of the ticks since it last thought, and how many ticks that is. */
   #unheard: (readonly SimEvent[])[] = [];
   /** The sound traps set off while it wasn't thinking, heard on its next thought like the events. */
-  #unheardTraps: TrapEvent[] = [];
+  #unheardTraps: TrapSound[] = [];
   #sinceThought = 0;
   /** The tick's seats, for everything below. */
   #seats = new SeatIndex([]);
@@ -949,8 +949,9 @@ export class Bot {
       }
       if (time < this.#slideUntil && !laddering) buttons.push('Crouch');
       // Up a climb link, or held up on the way to higher ground (a kerb of rubble, a sill the nav walked): jump, which mantles where there's a ledge.
-      // Not at or on a ladder, where Jump would keep it from taking hold or throw it off; standing, as a mantle needs.
-      const wedged = this.#stuck(view, r) && !laddering && self.movement !== 'ladder' && self.stance === 'stand';
+      // Not at or on a ladder, where Jump would keep it from taking hold or throw it off; standing, as a mantle needs;
+      // not in a fight, where standing still is strafing, not stuck, and a mantle would go where it aims rather than its route.
+      const wedged = this.#stuck(view, r) && !fighting && !laddering && self.movement !== 'ladder' && self.stance === 'stand';
       if (((climbing && this.#blocked >= 2) || wedged) && !(this.#lastButtons & Button.Jump)) buttons.push('Jump');
       if (time < this.#unstickUntil) {
         forward = -0.4;
@@ -1383,25 +1384,25 @@ export class Bot {
    * where (the trap's spot, rougher the farther off), not who it saw, and a
    * near one turns its head that way.
    */
-  #hearTraps(view: BotView, sounds: readonly TrapEvent[]): void {
+  #hearTraps(view: BotView, sounds: readonly TrapSound[]): void {
     const { self, time } = view;
     for (const [k, e] of sounds.entries()) {
-      if (e.player === self.id) continue;
       const d = flat(self.position, e.position);
       if (d > TRAP_HEARD) continue;
-      const p = this.#seats.get(e.player);
-      if (!p || !view.isEnemy(p)) continue;
-      const known = this.#memory.get(e.player);
+      // Of those who ran past, the first enemy: a squadmate beside them doesn't hide them.
+      const p = e.players.map((id) => this.#seats.get(id)).find((o) => o !== undefined && o.id !== self.id && view.isEnemy(o));
+      if (!p) continue;
+      const known = this.#memory.get(p.id);
       if (known?.seen && time - known.time < 1) continue;
       const r = (n: number) => noise(this.#seed, view.tick, 700 + k * 4 + n);
       // About where the trap is, on the ground under it: birds call from the canopy, but nobody runs up there.
       const ground = this.#world.terrain?.heightAt(e.position[0], e.position[2]) ?? e.position[1];
       const heard = blur([e.position[0], Math.min(e.position[1], ground), e.position[2]], 3 + d * FAR_BLUR * 2 * r(0), r(1), 1);
-      this.#memory.set(e.player, { position: heard, time, seen: false, velocity: STILL });
-      view.ground?.intel.report(e.player, { position: heard, time, seen: false, velocity: STILL, by: self.id }, d <= HEARING);
+      this.#memory.set(p.id, { position: heard, time, seen: false, velocity: STILL });
+      view.ground?.intel.report(p.id, { position: heard, time, seen: false, velocity: STILL, by: self.id }, d <= HEARING);
       if (this.#target || this.#chasing || d > HEARING) continue;
       this.#alert = { yaw: yawTo(eyeOf(self), heard) + (r(2) - 0.5) * 30 * DEG, until: time + 1 };
-      if (r(3) < this.profile.aggression * 0.5) this.#chasing = e.player;
+      if (r(3) < this.profile.aggression * 0.5) this.#chasing = p.id;
     }
   }
 

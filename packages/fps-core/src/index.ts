@@ -67,7 +67,7 @@ export { DROP_WEAPON, royaleLoadout } from './modes/supply-drops';
 export { PING_KINDS, PING_WHEEL, Pings, placePing } from './pings';
 export type { PingEvent, PingKind, PingRequest } from './pings';
 export { SoundTraps, TRAP_HEARD, TRAP_KINDS, TRAP_REACH, TRAP_REST } from './sound-traps';
-export type { SoundTrap, TrapEvent, TrapKind } from './sound-traps';
+export type { SoundTrap, TrapEvent, TrapKind, TrapSound } from './sound-traps';
 export type {
   BattleRoyaleState,
   ChargeSite,

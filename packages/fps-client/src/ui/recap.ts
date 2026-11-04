@@ -9,7 +9,7 @@ import type { PlayerId, Vec3 } from '@duty-shooter/fps-core';
  */
 
 /** What happened to you, as the recap's headline says it. */
-export type RecapWhat = 'downed' | 'finished' | 'eliminated' | 'bledOut' | 'squadOut' | 'ring' | 'fall';
+export type RecapWhat = 'downed' | 'finished' | 'eliminated' | 'bledOut' | 'squadOut' | 'ring' | 'fall' | 'self';
 
 export interface Recap {
   readonly what: RecapWhat;
@@ -169,7 +169,8 @@ export class MatchLog {
       return;
     }
     if (e.killer === null || e.killer === this.#self) {
-      this.#recap = { ...this.#make(e.cause === 'ring' ? 'ring' : 'fall', null, e.cause, null, lookup) };
+      const what = e.cause === 'ring' ? 'ring' : e.cause === 'fall' ? 'fall' : 'self';
+      this.#recap = { ...this.#make(what, null, e.cause, null, lookup) };
       return;
     }
     this.#recap = this.#make(before?.what === 'downed' ? 'finished' : 'eliminated', e.killer, e.cause, e.weapon, lookup);
@@ -283,6 +284,8 @@ export function recapHeadline(r: Recap): string {
       return 'Out to the Ring';
     case 'fall':
       return 'Out in a fall';
+    case 'self':
+      return r.cause === 'grenade' ? 'Out to your own frag' : 'Out';
   }
 }
 

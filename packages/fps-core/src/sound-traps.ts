@@ -17,12 +17,16 @@ export interface SoundTrap {
   readonly position: Vec3;
 }
 
-/** A trap went off: `player` ran past it. */
+/** A trap went off, as clients hear it: what and where, never who. */
 export interface TrapEvent {
   readonly type: 'trap';
   readonly kind: TrapKind;
   readonly position: Vec3;
-  readonly player: PlayerId;
+}
+
+/** A trap went off, as the server knows it: every loud body within reach set it off (for bots only). */
+export interface TrapSound extends TrapEvent {
+  readonly players: readonly PlayerId[];
 }
 
 /** How near (m, on the ground plane) a running body sets a trap off. */
@@ -61,20 +65,22 @@ export class SoundTraps {
   }
 
   /** The traps the players set off at `time`. */
-  step(players: readonly PlayerOutput[], time: number): TrapEvent[] {
-    const out: TrapEvent[] = [];
+  step(players: readonly PlayerOutput[], time: number): TrapSound[] {
+    const out: TrapSound[] = [];
     if (this.#traps.length === 0) return out;
     for (let i = 0; i < this.#traps.length; i++) {
       if (time < this.#ready[i]!) continue;
       const t = this.#traps[i]!;
+      let by: PlayerId[] | null = null;
       for (const p of players) {
         if (Math.abs(p.position[0] - t.position[0]) > TRAP_REACH || Math.abs(p.position[2] - t.position[2]) > TRAP_REACH) continue;
         if (Math.hypot(p.position[0] - t.position[0], p.position[2] - t.position[2]) > TRAP_REACH) continue;
         if (Math.abs(p.position[1] - t.position[1]) > TRAP_HEIGHT || !loud(p)) continue;
-        out.push({ type: 'trap', kind: t.kind, position: t.position, player: p.id });
-        this.#ready[i] = time + TRAP_REST;
-        break;
+        (by ??= []).push(p.id);
       }
+      if (!by) continue;
+      out.push({ type: 'trap', kind: t.kind, position: t.position, players: by });
+      this.#ready[i] = time + TRAP_REST;
     }
     return out;
   }
