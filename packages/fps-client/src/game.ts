@@ -40,7 +40,7 @@ import { TEAMS, chargeRoster, winVerb } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { ChargeSounds } from './charge-sounds';
-import { DETONATION, Nuke, nukeFrame, sinceMatchEnd } from './nuke';
+import { DETONATION, Nuke, nukeFrame, sinceMatchEnd, victoryTime } from './nuke';
 import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline } from './pipeline';
@@ -64,7 +64,7 @@ import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
-import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
+import { heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedLine, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
 import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
@@ -869,6 +869,7 @@ export class Game {
       zones: this.#zoneMarkers(eye),
       charge: this.#chargeHud(eye),
       royale: this.#royaleHud(forward),
+      victory: victoryTime(driver.match, driver.serverTime) === null ? null : victoryCard(driver.match?.result, driver.scores, driver.selfId),
       pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
       action,
       dt,
@@ -1182,6 +1183,7 @@ export class Game {
       menuKey: 'Esc',
       mapOpen: this.input.mapOpen,
       pings: this.#pingBoard.live(driver.serverTime).map((m) => ({ kind: m.kind, x: m.position[0], z: m.position[2] })),
+      leader: state.leader ? { name: state.leader.name, kills: state.leader.kills, you: state.leader.id === driver.selfId } : null,
     };
   }
 
@@ -1603,6 +1605,19 @@ export class Game {
         else if (e.type === 'reboot' && e.action === 'done' && selfId !== null && e.seats.includes(selfId)) this.hud.toast(`Rebooted by ${e.playerName}: back with ${STATS.royale.reboot.health.value} HP and ${STATS.royale.reboot.frags.value} frag.`, 5);
         break;
       }
+      case 'squadOut': {
+        // Duos and Trios only (the mode's call): in Solos the kill feed has said it.
+        const ownTeam = driver.scores.find((s) => s.id === selfId)?.team;
+        const byUs = e.by !== null && driver.scores.some((s) => s.team === ownTeam && s.name === e.by);
+        this.hud.objectiveFeed(squadWipedLine(e), e.team, e.team === ownTeam || byUs);
+        break;
+      }
+      case 'killLeader': {
+        const you = e.player === selfId;
+        this.hud.objectiveFeed(killLeaderLine(e.name, e.kills, you), e.team, you);
+        if (you) this.hud.toast(`You are the Kill Leader: ${e.kills} eliminations, and everyone can see it.`, 4);
+        break;
+      }
       case 'ping': {
         const mine = e.player === selfId;
         const name = mine ? 'You' : driver.nameOf(e.player);
@@ -1651,6 +1666,8 @@ export class Game {
         break;
       }
       case 'matchEnd':
+        // A Battle Royale's victory beat says who won, big; the toast would say it twice.
+        if (victoryCard(e, [], null) && this.#driver?.match?.mode === 'battle-royale') break;
         this.hud.toast(e.winnerName ? `${e.winnerName} ${winVerb(e)} the match.` : 'Match over.');
         break;
       case 'matchStart':

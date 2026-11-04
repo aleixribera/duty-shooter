@@ -2,7 +2,7 @@ import type { Vec3 } from '../math';
 import { seededRandom } from '../random';
 import type { PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
 import { STATS } from '../stats';
-import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, ObjectiveState, Score, SpawnPoint, TeamScore } from './game-mode';
+import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, ObjectiveState, RoyaleChampion, Score, SpawnPoint, TeamScore } from './game-mode';
 import { groundFromSpawns, squadSpots } from './ground';
 import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
@@ -32,6 +32,9 @@ interface Entry {
 }
 
 const seatNumber = (id: PlayerId): number => Number(id.slice(1));
+
+/** Eliminations that make a Kill Leader (owner, ticket 69). */
+export const KILL_LEADER = 3;
 
 /** Each island's Reboot Beacons, found once for every match played on it. */
 const BEACONS = new WeakMap<object, Vec3[]>();
@@ -80,6 +83,14 @@ export class BattleRoyale implements GameMode {
   readonly #drops = new SupplyDrops();
   /** Reboot Cards and Beacons (Duos and Trios). */
   readonly #reboot = new Reboot();
+  /** The seat with the most eliminations, from `KILL_LEADER` on: a tie keeps the one who got there first. */
+  #leader: Entry | null = null;
+  /** The Squads with anyone standing at the last look, to call each one out as it goes. */
+  readonly #standing = new Set<TeamId>();
+  /** Who last put a seat of each Squad out (null: the Ring, a fall), for its wipe's line. */
+  readonly #lastBy = new Map<TeamId, string | null>();
+  /** The Squad this match introduces as champions: the last match's winners, or else its Kill Leader's. */
+  #champion: RoyaleChampion | null = null;
 
   constructor(options: BattleRoyaleOptions = {}) {
     this.squadSize = options.squadSize ?? 1;
@@ -131,7 +142,14 @@ export class BattleRoyale implements GameMode {
 
   start(entrants: readonly MatchEntrant[], ctx?: ModeContext): ReadonlyMap<PlayerId, TeamId> {
     if (!ctx) throw new Error('A Battle Royale needs its map');
+    // The last match, before it is cleared away: who won it, and who led it.
+    const won = this.#result?.winner ?? null;
+    const winners = won === null ? [] : [...this.#entries.values()].filter((e) => e.team === won).map((e) => e.id);
+    const leader = this.#leader ? { id: this.#leader.id, kills: this.#leader.kills } : null;
     this.#entries.clear();
+    this.#leader = null;
+    this.#standing.clear();
+    this.#lastBy.clear();
     this.#spawns.clear();
     this.#places.clear();
     this.#result = null;
@@ -140,6 +158,7 @@ export class BattleRoyale implements GameMode {
     const teams = squadTeams(entrants, this.squadSize);
     for (const e of entrants) this.#entries.set(e.id, { id: e.id, name: e.name, team: teams.get(e.id)!, kills: 0, deaths: 0 });
     this.#squads = new Set(teams.values()).size;
+    this.#champion = this.#crown(winners, leader);
     this.#squadsAlive = this.#squads;
     this.#living = [...teams.keys()];
     const seed = this.#seed ?? Math.floor(this.#random() * 2 ** 32);
@@ -184,8 +203,44 @@ export class BattleRoyale implements GameMode {
       const killer = e.killer === null || e.killer === e.victim ? undefined : this.#entries.get(e.killer);
       if (killer) killer.kills += 1;
       out.push({ type: 'killFeed', killer: killer?.id ?? null, killerName: killer?.name ?? null, victim: victim.id, victimName: victim.name, cause: e.cause, weapon: e.weapon, headshot: headshots.has(e.victim) });
+      this.#lastBy.set(victim.team, killer?.name ?? null);
+      if (killer && killer.kills >= KILL_LEADER && killer !== this.#leader && killer.kills > (this.#leader?.kills ?? 0)) {
+        this.#leader = killer;
+        out.push({ type: 'killLeader', player: killer.id, name: killer.name, team: killer.team, kills: killer.kills });
+      }
     }
+    out.push(...this.#wiped(ctx));
     return out;
+  }
+
+  /** Each Squad of Duos or Trios with nobody left standing since the last look, once: who finished it and how many Squads remain. */
+  #wiped(ctx: ModeContext): ModeEvent[] {
+    const standing = new Set<TeamId>();
+    for (const p of ctx.players) {
+      const team = p.alive && !p.downed ? this.#entries.get(p.id)?.team : undefined;
+      if (team !== undefined) standing.add(team);
+    }
+    const out: ModeEvent[] = [];
+    for (const team of this.#standing) {
+      if (standing.has(team)) continue;
+      const names = [...this.#entries.values()].filter((e) => e.team === team).map((e) => e.name);
+      // In Solos the kill feed says it; a Squad that left the server has nobody to name.
+      if (this.squadSize < 2 || names.length === 0) continue;
+      out.push({ type: 'squadOut', team, names, by: this.#lastBy.get(team) ?? null, squadsLeft: standing.size });
+    }
+    this.#standing.clear();
+    for (const team of standing) this.#standing.add(team);
+    return out;
+  }
+
+  /** This match's champions: the Squad holding any of `winners`, else the one holding the last Kill Leader. */
+  #crown(winners: readonly PlayerId[], leader: { readonly id: PlayerId; readonly kills: number } | null): RoyaleChampion | null {
+    const squad = (team: TeamId) => [...this.#entries.values()].filter((e) => e.team === team).map((e) => e.name);
+    const winner = winners.map((id) => this.#entries.get(id)).find((e) => e !== undefined);
+    if (winner) return { team: winner.team, names: squad(winner.team), why: 'won' };
+    const led = leader ? this.#entries.get(leader.id) : undefined;
+    if (led && leader) return { team: led.team, names: squad(led.team), why: 'leader', kills: leader.kills };
+    return null;
   }
 
   /** The best of `seats`: most kills, then the lowest seat. */
@@ -264,6 +319,8 @@ export class BattleRoyale implements GameMode {
       damage: s?.damage ?? 0,
       alive: this.#living.length,
       squads: this.#squadsAlive,
+      ...(this.#leader ? { leader: { id: this.#leader.id, name: this.#leader.name, kills: this.#leader.kills } } : {}),
+      ...(this.#champion ? { champion: this.#champion } : {}),
     };
     const drops = this.#drops.drops();
     const loose = this.#drops.loose();

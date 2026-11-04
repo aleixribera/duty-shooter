@@ -3,7 +3,7 @@ import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
-import { placement } from '../ui/royale';
+import { placement, type VictoryCard } from '../ui/royale';
 import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
 import { PingMarks, type PingScreenMark } from './ping-marks';
 import type { PingKind } from '@duty-shooter/fps-core';
@@ -234,6 +234,8 @@ export interface HudState {
   readonly charge?: ChargeHud | null;
   /** The Battle Royale in play, or null. */
   readonly royale?: RoyaleHudState | null;
+  /** A Battle Royale's victory beat, between its result and the nuke (ticket 69), or null. */
+  readonly victory?: VictoryCard | null;
   /** Something you are holding use for that takes a while (opening a Supply Drop, a Reboot), and how far along it is. */
   readonly action?: { readonly label: string; readonly share: number } | null;
   /** The pings standing, where they show on the screen, and the ping wheel while it is open (ticket 66). */
@@ -710,6 +712,7 @@ export class Hud {
     this.#updateCharge(state);
     this.#updateRevive(self, state.action ?? null);
     this.#royale.update(royale);
+    this.#royale.victory(state.victory ?? null);
     // The island map open, nothing else speaks over it.
     this.#style(this.#toast, 'visibility', royale?.mapOpen ? 'hidden' : 'visible');
     this.#pings.update(royale?.mapOpen ? [] : (state.pingMarks?.marks ?? []), state.pingMarks?.wheel ?? null);
@@ -866,7 +869,7 @@ export class Hud {
     const view = state.match;
     // A Battle Royale has its own bar: the compass, the count and the Ring.
     this.#style(this.#match, 'display', view && view.status.phase === 'playing' && !state.royale ? 'flex' : 'none');
-    this.#style(this.#end, 'display', view && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
+    this.#style(this.#end, 'display', view && !state.victory && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
     // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
     this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
     if (!view) return;

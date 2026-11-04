@@ -129,6 +129,18 @@ export interface BattleRoyaleState {
   readonly beacons?: readonly BeaconState[];
   /** Reboot Cards lying or carried; absent while none is. */
   readonly cards?: readonly RebootCardState[];
+  /** The Kill Leader: most eliminations, from 3 on; absent until someone has them. */
+  readonly leader?: { readonly id: PlayerId; readonly name: string; readonly kills: number };
+  /** The Squad introduced at the dive as champions; absent when nobody from the last match's winners (or its Kill Leader) is back. */
+  readonly champion?: RoyaleChampion;
+}
+
+/** The champion Squad: who won the last match (`won`), or else whose Squad holds its Kill Leader (`leader`, with their eliminations). */
+export interface RoyaleChampion {
+  readonly team: TeamId;
+  readonly names: readonly string[];
+  readonly why: 'won' | 'leader';
+  readonly kills?: number;
 }
 
 /** A Reboot Card: the seat it brings back, and where it lies or who carries it. Times are simulation times. */
@@ -286,6 +298,10 @@ export type ModeEvent =
   | { readonly type: 'loose'; readonly player: PlayerId | null; readonly weapon: WeaponId; readonly left: WeaponId | null; readonly position: Vec3 }
   /** Battle Royale: `owner`'s Reboot Card fell, was taken by `player`, ran out, or was voided (the last Stages, or nobody left to carry it). */
   | { readonly type: 'card'; readonly action: 'drop' | 'take' | 'expire' | 'void'; readonly owner: PlayerId; readonly ownerName: string; readonly player: PlayerId | null; readonly playerName: string | null; readonly position: Vec3 }
+  /** Battle Royale: nobody of Squad `team` is left standing; `by` put out its last seat (null: the Ring, a fall), and `squadsLeft` remain. */
+  | { readonly type: 'squadOut'; readonly team: TeamId; readonly names: readonly string[]; readonly by: string | null; readonly squadsLeft: number }
+  /** Battle Royale: `player` is the new Kill Leader, with `kills` eliminations. */
+  | { readonly type: 'killLeader'; readonly player: PlayerId; readonly name: string; readonly team: TeamId; readonly kills: number }
   /** Battle Royale: `player` began, broke off or finished a Reboot at Beacon `beacon`, for `seats`. */
   | { readonly type: 'reboot'; readonly action: 'start' | 'stop' | 'done'; readonly player: PlayerId; readonly playerName: string; readonly beacon: number; readonly seats: readonly PlayerId[]; readonly names: readonly string[]; readonly position: Vec3 }
   /** A ping, for the pinger's Squad or team only. */

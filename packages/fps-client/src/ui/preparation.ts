@@ -1,4 +1,5 @@
-import { DROP_WEAPON, royaleLoadout, STATS, type GrenadeId, type Loadout, type WeaponId } from '@duty-shooter/fps-core';
+import { DROP_WEAPON, royaleLoadout, STATS, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
+import { nameList } from '@duty-shooter/fps-core/modes';
 import type { PadNav } from '../gamepad';
 import type { PreparationStage } from '../preparation-shot';
 import { loadoutOptions } from './model';
@@ -35,6 +36,25 @@ export interface PreparationView {
   readonly loading: number;
   /** The drop is over and the match waits on this page to take control (a click, for the pointer). */
   readonly play: boolean;
+  /** The champion Squad, introduced at the dive (ticket 69); absent or null when there is none. */
+  readonly champion?: PreparationChampion | null;
+}
+
+/** The champion Squad as the dive introduces it. */
+export interface PreparationChampion {
+  readonly title: string;
+  readonly names: string;
+  readonly why: string;
+}
+
+/** How the dive introduces `champion` to a seat of Squad `team`; null with none. */
+export function preparationChampion(champion: RoyaleChampion | undefined, team: TeamId | null): PreparationChampion | null {
+  if (!champion) return null;
+  return {
+    title: champion.team === team ? 'Your Squad: champions' : 'Champion Squad',
+    names: nameList(champion.names),
+    why: champion.why === 'won' ? 'Won the last match' : `Last match's Kill Leader, ${champion.kills ?? 0} eliminations`,
+  };
 }
 
 export interface PreparationCallbacks {
@@ -96,12 +116,19 @@ const CSS = `
 .ds-prep .alive small { margin-top: 2px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 .ds-prep.dive .card { background: linear-gradient(90deg, rgb(7 9 13 / 0.7) 0%, rgb(7 9 13 / 0) 100%); }
 .ds-prep.dive .kit, .ds-prep.dive .squad { display: none; }
+/* At the dive, under the field: the Squad to beat. */
+.ds-prep .champ { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; text-align: right; animation: ds-in 300ms var(--ds-ease) both; }
+.ds-prep .champ span { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-prep .champ b { margin-top: 4px; max-width: min(420px, 60vw); font-size: 28px; line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
+.ds-prep .champ small { margin-top: 4px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 @media (max-width: 760px) {
   .ds-prep .card { top: auto; width: 100%; max-height: 76vh; gap: 14px; padding: 48px var(--ds-gutter) 18px; background: linear-gradient(0deg, rgb(7 9 13 / 0.96) 0%, rgb(7 9 13 / 0.9) 84%, rgb(7 9 13 / 0) 100%); }
   .ds-prep .card > * { max-width: none; }
   .ds-prep h1 { font-size: 30px; }
   .ds-prep .clock b, .ds-prep .alive b { font-size: 56px; }
   .ds-prep .alive { top: 18px; }
+  .ds-prep .champ { margin-top: 14px; }
+  .ds-prep .champ b { font-size: 20px; }
   .ds-prep .ds-seg button { font-size: 13px; letter-spacing: 0.08em; }
   .ds-prep .mates { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .ds-prep .mate { flex-direction: column; gap: 0; padding: 6px 10px; }
@@ -239,6 +266,8 @@ export class PreparationPage {
     const mates = v.squad
       .map((m) => `<div class="mate${m.you ? ' you' : ''}${m.ready ? ' on' : ''}"><b>${escapeHtml(m.name)}</b><span>${m.bot ? 'Bot' : m.ready ? 'Ready' : m.you ? 'You' : 'Choosing'}</span></div>`)
       .join('');
+    const c = v.stage === 'dive' && !v.play ? v.champion : null;
+    const champ = c ? `<div class="champ"><span>${escapeHtml(c.title)}</span><b>${escapeHtml(c.names)}</b><small>${escapeHtml(c.why)}</small></div>` : '';
     return `<div class="card" role="region" aria-label="Preparation">
 <div><div class="ds-crumb">Battle Royale · Zero Island</div><h1>Preparation</h1></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
@@ -246,6 +275,6 @@ export class PreparationPage {
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
 <div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button><div class="note">${escapeHtml(action.note)}</div>${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>
-<div class="alive" aria-label="${v.alive} alive"><b>${v.alive}</b><span>Alive</span><small>${v.squads} ${v.squads === 1 ? 'Squad' : 'Squads'}</small></div>`;
+<div class="alive" aria-label="${v.alive} alive"><b>${v.alive}</b><span>Alive</span><small>${v.squads} ${v.squads === 1 ? 'Squad' : 'Squads'}</small>${champ}</div>`;
   }
 }

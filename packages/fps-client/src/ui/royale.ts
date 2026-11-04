@@ -1,4 +1,5 @@
-import { STATS, type BattleRoyaleState, type PlayerId, type Score, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, type BattleRoyaleState, type MatchResult, type PlayerId, type Score, type Vec3 } from '@duty-shooter/fps-core';
+import { nameList } from '@duty-shooter/fps-core/modes';
 
 /**
  * What the Battle Royale HUD reads off the match: where the Ring stands now,
@@ -107,4 +108,28 @@ export function placement(scores: readonly Score[], selfId: PlayerId | null): { 
   const me = scores.find((s) => s.id === selfId);
   if (!me || me.place === undefined) return null;
   return { place: me.place, of: new Set(scores.map((s) => s.team)).size };
+}
+
+/** The feed's line for a Squad with nobody left standing (ticket 69). */
+export function squadWipedLine(e: { readonly names: readonly string[]; readonly by: string | null; readonly squadsLeft: number }): string {
+  return `Squad wiped: ${nameList(e.names)}${e.by ? `, by ${e.by}` : ''} · ${e.squadsLeft} ${e.squadsLeft === 1 ? 'Squad' : 'Squads'} left`;
+}
+
+/** The feed's line for a new Kill Leader. */
+export function killLeaderLine(name: string, kills: number, you: boolean): string {
+  return `${you ? 'You are' : `${name} is`} the Kill Leader · ${kills} eliminations`;
+}
+
+/** What the victory beat says: to the winners their win, to everyone else who won; null with no winner. */
+export interface VictoryCard {
+  readonly yours: boolean;
+  readonly names: string;
+  /** Squads the match started with. */
+  readonly of: number;
+}
+
+export function victoryCard(result: MatchResult | null | undefined, scores: readonly Score[], selfId: PlayerId | null): VictoryCard | null {
+  if (!result || result.winner === null || !result.winnerName) return null;
+  const me = scores.find((s) => s.id === selfId);
+  return { yours: me?.team === result.winner, names: result.winnerName, of: new Set(scores.map((s) => s.team)).size };
 }

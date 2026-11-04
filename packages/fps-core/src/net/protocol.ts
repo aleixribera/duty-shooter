@@ -12,7 +12,7 @@ import { parsePing, type PingRequest } from '../pings';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -92,7 +92,14 @@ export type ClientMessage =
 export type Phase = 'playing' | 'nuke' | 'vote' | 'lobby';
 
 /** The intermission's default phase lengths (s): the nuke, then the scoreboard and vote (just the scoreboard on a server with a lobby). */
-export const INTERMISSION = { nuke: 6, vote: 14, scoreboard: 10 } as const;
+export const INTERMISSION = { nuke: 6, vote: 14, scoreboard: 10, victory: 3 } as const;
+
+/**
+ * Seconds a mode's ending waits before the nuke (or the train): a Battle
+ * Royale's winning Squad gets a moment of its own (ticket 69). The nuke's
+ * phase is this much longer, and its shot and sound start this much later.
+ */
+export const victoryBeat = (mode: string | undefined): number => (mode === 'battle-royale' ? INTERMISSION.victory : 0);
 
 /**
  * Seconds every match opens with, everyone held at their spawn (free to look

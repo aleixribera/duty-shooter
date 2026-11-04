@@ -1,7 +1,7 @@
 import type { PingKind, TerrainData } from '@duty-shooter/fps-core';
 import { mapPoint, paintIsland, terrainBounds, type MapBounds } from '../ui/island-map';
 import { ordinal } from '../ui/model';
-import { bearing, compassOffset, compassTicks, type RingCircle, type RingStatus } from '../ui/royale';
+import { bearing, compassOffset, compassTicks, type RingCircle, type RingStatus, type VictoryCard } from '../ui/royale';
 import type { DropMark } from '../ui/supply-drop';
 import type { RebootMark } from '../ui/reboot';
 import { escapeHtml as escape } from '../ui/theme';
@@ -41,7 +41,9 @@ const CSS = `
 .ds-compass .mk.ping.enemy { color: var(--ds-alert); }
 .ds-compass .mk.ping small { margin-left: 3px; font-size: 10px; font-weight: 700; color: var(--ds-text); }
 .ds-compass .mk.drop small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
-.ds-ringline { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+/* Under the compass, one under another: the Ring's line, the Kill Leader, then outside or the way to the next circle. */
+.ds-brstack { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.ds-ringline { display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-ringline .stage { color: var(--ds-text-2); }
 .ds-ringline .t { font-size: 15px; letter-spacing: 0.04em; }
 .ds-ringline.closing { border-left: 3px solid var(--ds-hazard); }
@@ -50,13 +52,22 @@ const CSS = `
 .ds-ringline kbd { font: inherit; padding: 0 5px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 5px; }
 .ds-ringline .bar { width: 70px; height: 3px; background: var(--ds-line-2); }
 .ds-ringline .bar i { display: block; height: 100%; background: var(--ds-hazard); transform-origin: 0 50%; }
-.ds-outside { position: absolute; left: 50%; top: 116px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 12px; border: 1px solid var(--ds-hazard); background: var(--ds-glass); white-space: nowrap; text-shadow: none; }
+.ds-outside { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 12px; border: 1px solid var(--ds-hazard); background: var(--ds-glass); white-space: nowrap; text-shadow: none; }
 .ds-outside .arrow { width: 22px; height: 22px; display: grid; place-items: center; color: var(--ds-hazard); font-size: 18px; line-height: 1; }
 .ds-outside b { display: block; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-hazard); }
 .ds-outside small { display: block; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text); margin-top: 2px; }
-.ds-nextline { position: absolute; left: 50%; top: 116px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
+.ds-nextline { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
 .ds-nextline .arrow { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ds-text); font-size: 12px; line-height: 1; }
 .ds-nextline b { color: var(--ds-text); font-variant-numeric: tabular-nums; }
+.ds-leader { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
+.ds-leader .k { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-leader b { color: var(--ds-text); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
+.ds-leader .n { color: var(--ds-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ds-victory { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 12px 28px 14px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
+.ds-victory .what { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-victory .place { margin-top: 4px; font-size: 76px; font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
+.ds-victory .who { margin-top: 6px; font-size: 34px; font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
+.ds-victory .of { margin-top: 4px; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
 .ds-hazardedge { position: absolute; inset: 0; box-shadow: inset 0 0 90px 20px color-mix(in srgb, var(--ds-hazard) 50%, transparent); opacity: 0; transition: opacity 300ms linear; }
 .ds-out { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 10px 22px 12px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
 .ds-out .what { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-alert); }
@@ -84,7 +95,10 @@ const CSS = `
 @media (max-width: 760px) {
   .ds-br-top .count { min-width: 58px; padding: 4px 6px; }
   .ds-br-top .count b { font-size: 20px; }
-  .ds-ringline { top: 70px; font-size: 11px; }
+  .ds-brstack { top: 70px; }
+  .ds-ringline { font-size: 11px; }
+  .ds-victory .place { font-size: 56px; }
+  .ds-victory .who { font-size: 24px; }
   .ds-out .place { font-size: 56px; }
   .ds-watch { bottom: 8px; width: calc(100vw - 24px); box-sizing: border-box; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 12px; white-space: normal; }
   .ds-watch .card { flex-basis: 100%; text-align: center; }
@@ -144,6 +158,8 @@ export interface RoyaleHudState {
   readonly mapKey: string;
   readonly menuKey: string;
   readonly mapOpen: boolean;
+  /** The Kill Leader, shown to everyone (ticket 69); absent until someone has 3 eliminations. */
+  readonly leader?: { readonly name: string; readonly kills: number; readonly you: boolean } | null;
 }
 
 /** The island as the map draws it: its terrain, palette colours and named places. */
@@ -168,6 +184,9 @@ export class RoyaleHud {
   readonly #outside: HTMLDivElement;
   /** Inside the Ring but out of the next circle: which way, and how far (ticket 68). */
   readonly #nextline: HTMLDivElement;
+  readonly #leader: HTMLDivElement;
+  /** The winners' moment between the result and the ending (ticket 69). */
+  readonly #victory: HTMLDivElement;
   readonly #edge: HTMLDivElement;
   readonly #out: HTMLDivElement;
   /** What the out panel last said, and when it started saying it (performance.now ms). */
@@ -208,11 +227,15 @@ export class RoyaleHud {
     this.#alive = el('count', '', this.#top);
     this.#compass = el('ds-compass', '', this.#top);
     this.#right = el('count', '', this.#top);
-    this.#ringline = el('ds-ringline ds-plate');
-    this.#outside = el('ds-outside');
-    this.#nextline = el('ds-nextline ds-plate');
+    const stack = el('ds-brstack');
+    this.#ringline = el('ds-ringline ds-plate', '', stack);
+    this.#leader = el('ds-leader ds-plate', '', stack);
+    this.#outside = el('ds-outside', '', stack);
+    this.#nextline = el('ds-nextline ds-plate', '', stack);
     this.#out = el('ds-out');
     this.#watch = el('ds-watch ds-plate');
+    this.#victory = el('ds-victory');
+    this.#victory.style.display = 'none';
     this.#map = el('ds-map');
     this.#canvas = document.createElement('canvas');
     this.#map.append(this.#canvas);
@@ -231,12 +254,24 @@ export class RoyaleHud {
     if (on === this.#shown) return;
     this.#shown = on;
     for (const e of [this.#top, this.#ringline]) e.style.display = on ? '' : 'none';
-    if (!on) for (const e of [this.#outside, this.#nextline, this.#out, this.#watch]) e.style.display = 'none';
+    if (!on) for (const e of [this.#outside, this.#nextline, this.#leader, this.#out, this.#watch]) e.style.display = 'none';
     if (!on) this.#map.classList.remove('open');
     if (!on) this.#edge.style.opacity = '0';
   }
 
   /** Draws the Battle Royale HUD, or hides it (null: not a Battle Royale in play). */
+  /** The victory beat: the winners' own card, or who won; null hides it. Apart from `update`, which the match's end puts away. */
+  victory(v: VictoryCard | null): void {
+    this.#victory.style.display = v ? '' : 'none';
+    if (!v) return;
+    this.#set(
+      this.#victory,
+      v.yours
+        ? `<div class="what">Victory</div><div class="place">1st</div><div class="of">of ${v.of} Squads</div>`
+        : `<div class="what">Match over</div><div class="who">${escape(v.names)}</div><div class="of">win, 1st of ${v.of} Squads</div>`,
+    );
+  }
+
   update(s: RoyaleHudState | null): void {
     this.#show(s !== null);
     if (!s) return;
@@ -269,6 +304,10 @@ export class RoyaleHud {
         `<span class="arrow" style="transform:rotate(${Math.round(turn)}deg)">▲</span><span><b>Outside the Ring</b><small>${st.damage} HP a second · ${Math.ceil(st.toSafety)} m to safety</small></span>`,
       );
     }
+    // The Kill Leader, for everyone: who, and how many.
+    const leader = s.leader ?? null;
+    this.#leader.style.display = leader ? '' : 'none';
+    if (leader) this.#set(this.#leader, `<span class="k">Kill Leader</span><b>${leader.you ? 'You' : escape(leader.name)}</b><span class="n">${leader.kills}</span>`);
     // Inside the Ring with the next circle elsewhere: the way there, quietly, before the wall makes it urgent.
     const toNext = !outside && !s.out && st.phase !== 'closed' && st.toNext >= 1 && s.at !== null;
     this.#nextline.style.display = toNext ? '' : 'none';

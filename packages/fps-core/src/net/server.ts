@@ -29,6 +29,7 @@ import { STICKY_FIELDS, joinSnapshot, packEvent, packGrenades, packPlayer, packV
 import {
   EVENT_RESEND_TICKS,
   INTERMISSION,
+  victoryBeat,
   MATCH_COUNTDOWN,
   PREPARATION,
   PROTOCOL_VERSION,
@@ -908,7 +909,7 @@ export class GameServer {
 
   #intermissionLengths(): { nuke: number; vote: number } {
     const vote = this.#options.lobby ? INTERMISSION.scoreboard : INTERMISSION.vote;
-    return { nuke: this.#options.intermission?.nuke ?? INTERMISSION.nuke, vote: this.#options.intermission?.vote ?? vote };
+    return { nuke: this.#options.intermission?.nuke ?? INTERMISSION.nuke + victoryBeat(this.#mode.id), vote: this.#options.intermission?.vote ?? vote };
   }
 
   /** Everyone back to the lobby: no match, no bots, the last result kept for the lobby to show. */

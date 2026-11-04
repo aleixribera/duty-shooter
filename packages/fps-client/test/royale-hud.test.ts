@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BattleRoyaleState, Score } from '@duty-shooter/fps-core';
 import { mapPoint, paintIsland, terrainBounds } from '../src/ui/island-map';
 import { endSummary, winVerb } from '../src/ui/model';
-import { bearing, compassOffset, compassTicks, heading, placement, ringNow, ringStatus } from '../src/ui/royale';
+import { bearing, compassOffset, compassTicks, heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedLine, victoryCard } from '../src/ui/royale';
 
 /** Stage 2 of 6: holding at a 300 m circle round the origin until t = 100, shrinking to 100 m round (100, 0) by t = 150. */
 const state = (over: Partial<BattleRoyaleState> = {}): BattleRoyaleState => ({
@@ -161,5 +161,33 @@ describe('the end of a Battle Royale', () => {
 
   it('is no draw when it ended for want of people', () => {
     expect(endSummary({ winner: null, winnerName: null, draw: false, reason: 'noHumans' }, 'battle-royale', scores, 'c').headline).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe("the match's big moments (ticket 69)", () => {
+  it('a wiped Squad: who, by whom, and how many Squads are left', () => {
+    expect(squadWipedLine({ names: ['Ada', 'Mate'], by: 'Joan', squadsLeft: 7 })).toBe('Squad wiped: Ada and Mate, by Joan · 7 Squads left');
+    expect(squadWipedLine({ names: ['Ada'], by: null, squadsLeft: 2 })).toBe('Squad wiped: Ada · 2 Squads left');
+    expect(squadWipedLine({ names: ['Ada', 'Mate', 'Joan'], by: 'Bo', squadsLeft: 1 })).toBe('Squad wiped: Ada, Mate and Joan, by Bo · 1 Squad left');
+  });
+
+  it('a new Kill Leader, by name or as you', () => {
+    expect(killLeaderLine('Ada', 4, false)).toBe('Ada is the Kill Leader · 4 eliminations');
+    expect(killLeaderLine('Ada', 3, true)).toBe('You are the Kill Leader · 3 eliminations');
+  });
+
+  it("the victory card: the winners' own, or who won for everyone else", () => {
+    const scores = [
+      { id: 'a', team: 1, place: 1 },
+      { id: 'b', team: 1, place: 1 },
+      { id: 'c', team: 2, place: 2 },
+      { id: 'd', team: 3, place: 3 },
+    ] as unknown as Score[];
+    const result = { winner: 1, winnerName: 'Ada and Bo', draw: false, reason: 'lastSquad' as const };
+    expect(victoryCard(result, scores, 'a')).toEqual({ yours: true, names: 'Ada and Bo', of: 3 });
+    expect(victoryCard(result, scores, 'c')).toEqual({ yours: false, names: 'Ada and Bo', of: 3 });
+    expect(victoryCard(result, scores, null)).toEqual({ yours: false, names: 'Ada and Bo', of: 3 });
+    expect(victoryCard({ ...result, winner: null, winnerName: null, reason: 'noHumans' }, scores, 'a')).toBeNull();
+    expect(victoryCard(null, scores, 'a')).toBeNull();
   });
 });

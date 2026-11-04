@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, TICK_SECONDS, botProfile, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, STATS, TICK_SECONDS, victoryBeat, botProfile, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type ModeEvent, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
 import { BattleRoyale, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { Button } from '../src/usercmd';
@@ -45,10 +45,11 @@ function royale(options: { squadSize?: SquadSize; seats?: number; people?: reado
       return { type: 'kill', killer: killer ?? null, victim, cause: 'bullet', zone: null, weapon: null };
     });
     matchTime += TICK_SECONDS;
-    mode.onEvents(events, ctx());
+    heard.push(...mode.onEvents(events, ctx()));
     return mode.result(ctx());
   };
-  return { mode, team, tick, ctx, people, advance: (s: number) => (matchTime += s) };
+  const heard: ModeEvent[] = [];
+  return { mode, team, tick, ctx, people, heard, advance: (s: number) => (matchTime += s) };
 }
 
 const place = (mode: BattleRoyale, id: string) => mode.scores().find((s) => s.id === id)?.place;
@@ -143,6 +144,80 @@ describe('Winning', () => {
     m.tick(['p4', 'p2']);
     m.advance(10_000);
     expect(m.tick()).toMatchObject({ winner: 2, reason: 'timeLimit', draw: false });
+  });
+});
+
+describe("the match's big moments (ticket 69)", () => {
+  const of = <T extends ModeEvent['type']>(heard: readonly ModeEvent[], type: T) => heard.filter((e): e is Extract<ModeEvent, { type: T }> => e.type === type);
+
+  it('calls a Squad wiped as its last seat goes, with who did it and how many Squads are left', () => {
+    const { tick, heard, team } = royale({ squadSize: 2, seats: 6 });
+    const mates = (id: string) => [...team].filter(([, t]) => t === team.get(id)).map(([s]) => s);
+    const [a, b] = mates('p1') as [string, string];
+    const killer = [...team.keys()].find((id) => team.get(id) !== team.get('p1'))!;
+    tick([a, killer]);
+    expect(of(heard, 'squadOut')).toEqual([]);
+    tick([b, killer]);
+    const out = of(heard, 'squadOut');
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ team: team.get('p1'), by: `n${killer.slice(1)}`, squadsLeft: 2 });
+    expect([...out[0]!.names].sort()).toEqual([a, b].map((id) => `n${id.slice(1)}`).sort());
+    // Each Squad once.
+    tick();
+    expect(of(heard, 'squadOut')).toHaveLength(1);
+  });
+
+  it('leaves Solos to the kill feed', () => {
+    const { tick, heard } = royale({ seats: 4 });
+    tick(['p1', 'p2'], ['p3', 'p2']);
+    expect(of(heard, 'squadOut')).toEqual([]);
+  });
+
+  it('names a Kill Leader from 3 eliminations, and again only when someone passes them', () => {
+    const { tick, heard, mode } = royale({ seats: 10 });
+    tick(['p2', 'p1']);
+    tick(['p3', 'p1']);
+    expect(of(heard, 'killLeader')).toEqual([]);
+    expect((mode.objective() as BattleRoyaleState).leader).toBeUndefined();
+    tick(['p4', 'p1']);
+    expect(of(heard, 'killLeader')).toEqual([{ type: 'killLeader', player: 'p1', name: 'n1', team: expect.any(Number), kills: 3 }]);
+    expect((mode.objective() as BattleRoyaleState).leader).toEqual({ id: 'p1', name: 'n1', kills: 3 });
+    // Equal isn't past: the title stays.
+    tick(['p6', 'p5'], ['p7', 'p5'], ['p8', 'p5']);
+    expect(of(heard, 'killLeader')).toHaveLength(1);
+    // Past it: a new Kill Leader. The count itself rides on the Ring's state, so it needs no call.
+    tick(['p9', 'p5']);
+    expect(of(heard, 'killLeader')).toHaveLength(2);
+    expect(of(heard, 'killLeader').at(-1)).toMatchObject({ player: 'p5', kills: 4 });
+    tick(['p10', 'p5']);
+    expect(of(heard, 'killLeader')).toHaveLength(2);
+    expect((mode.objective() as BattleRoyaleState).leader).toEqual({ id: 'p5', name: 'n5', kills: 5 });
+  });
+
+  it("crowns the last match's winning Squad when the next one starts, or else its Kill Leader's", () => {
+    const m = royale({ squadSize: 2, seats: 6 });
+    expect((m.mode.objective() as BattleRoyaleState).champion).toBeUndefined();
+    const winners = [...m.team].filter(([, t]) => t === m.team.get('p5')).map(([id]) => id);
+    const rest = [...m.team.keys()].filter((id) => !winners.includes(id));
+    for (const id of rest) m.tick([id, winners[0]!]);
+    expect(m.mode.result(m.ctx())).toMatchObject({ winner: m.team.get('p5') });
+    const again = m.mode.start(entrants(6), m.ctx());
+    const champion = (m.mode.objective() as BattleRoyaleState).champion;
+    expect(champion).toMatchObject({ team: again.get(winners[0]!), why: 'won' });
+    expect([...champion!.names].sort()).toEqual([...again].filter(([, t]) => t === again.get(winners[0]!)).map(([id]) => `n${id.slice(1)}`).sort());
+    // Nobody back from the winners (who held the Kill Leader too): no champion.
+    m.mode.start(entrants(6).filter((e) => !winners.includes(e.id)), m.ctx());
+    expect((m.mode.objective() as BattleRoyaleState).champion).toBeUndefined();
+  });
+
+  it("crowns the last match's Kill Leader when none of the winners is back", () => {
+    const m = royale({ seats: 6 });
+    m.tick(['p2', 'p1'], ['p3', 'p1'], ['p4', 'p1']);
+    m.tick(['p1', 'p5']);
+    m.tick(['p6', 'p5']);
+    expect(m.mode.result(m.ctx())).toMatchObject({ winner: m.team.get('p5') });
+    const again = m.mode.start(entrants(6).filter((e) => e.id !== 'p5'), m.ctx());
+    expect((m.mode.objective() as BattleRoyaleState).champion).toEqual({ team: again.get('p1'), names: ['n1'], why: 'leader', kills: 3 });
   });
 });
 
@@ -339,6 +414,18 @@ describe('a match on the server', () => {
     expect(left).toBe(true);
     expect(m.server.matchStatus().phase).toBe('playing');
     expect(seat(m, c.client.id)!.loadout.primary).toBe('smg');
+  });
+
+  it("holds the nuke back for the winners' moment: its phase runs the victory beat longer (ticket 69)", () => {
+    // The intermission as it ships: no override.
+    const m = createNetworkedMatch({ solids: [GROUND], spawns: SPAWNS, mode: ROYALE, modes: { battleRoyale: { squadSize: 1, seed: 3, timeLimit: 2 } }, bots: { nav: NAV, perTeam: 3, maxPerTeam: 6 }, countdown: 0.1, latency: 0.03 });
+    joined(m, 'alice').client.loaded();
+    for (let i = 0; i < ticks(10) && m.server.matchStatus().phase === 'playing'; i++) m.step();
+    const status = m.server.matchStatus();
+    expect(status.phase).toBe('nuke');
+    expect(status.phaseEnds! - m.server.simulation.time).toBeCloseTo(INTERMISSION.nuke + INTERMISSION.victory, 1);
+    expect(victoryBeat('battle-royale')).toBe(INTERMISSION.victory);
+    expect(victoryBeat('tdm')).toBe(0);
   });
 
   it('bots start each match knowing nothing of the last one (ticket 74)', () => {

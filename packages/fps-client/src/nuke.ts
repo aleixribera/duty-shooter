@@ -1,4 +1,4 @@
-import { INTERMISSION, type MatchStatus, type Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, victoryBeat, type MatchStatus, type Vec3 } from '@duty-shooter/fps-core';
 import { color, dot, float, instancedBufferAttribute, max, mix, mx_noise_float, normalLocal, normalWorld, positionLocal, positionWorld, smoothstep, time, uniform, vec3, vec4 } from 'three/tsl';
 import {
   CylinderGeometry,
@@ -22,13 +22,29 @@ export const DETONATION = 2.4;
 export const SHOCK_SPEED = 343;
 
 /**
- * Seconds since the match ended, through the nuke and the vote (a lobby's
- * shorter scoreboard), from the match status and the server's clock; null
- * while a match is being played.
+ * Seconds since the map's ending began (the nuke, the train), through the
+ * nuke and the vote (a lobby's shorter scoreboard), from the match status and
+ * the server's clock; null while a match is being played, and through a
+ * Battle Royale's victory beat, which comes first.
  */
 export function sinceMatchEnd(status: MatchStatus | null, serverTime: number): number | null {
+  const t = sinceResult(status, serverTime);
+  if (t === null) return null;
+  const beat = victoryBeat(status?.mode);
+  return t < beat ? null : t - beat;
+}
+
+/** Seconds into a Battle Royale's victory beat, the moment between its result and the ending; null outside it. */
+export function victoryTime(status: MatchStatus | null, serverTime: number): number | null {
+  const t = sinceResult(status, serverTime);
+  return t !== null && t < victoryBeat(status?.mode) ? t : null;
+}
+
+/** Seconds since the result, through the whole intermission; null while a match is played. */
+function sinceResult(status: MatchStatus | null, serverTime: number): number | null {
   if (!status || status.phase === 'playing' || status.phaseEnds === null) return null;
-  const end = status.phase === 'nuke' ? INTERMISSION.nuke : INTERMISSION.nuke + (status.lobby ? INTERMISSION.scoreboard : INTERMISSION.vote);
+  const nuke = INTERMISSION.nuke + victoryBeat(status.mode);
+  const end = status.phase === 'nuke' ? nuke : nuke + (status.lobby ? INTERMISSION.scoreboard : INTERMISSION.vote);
   return Math.max(0, end - (status.phaseEnds - serverTime));
 }
 

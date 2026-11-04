@@ -1,4 +1,4 @@
-export { BattleRoyale } from './battle-royale';
+export { BattleRoyale, KILL_LEADER, nameList } from './battle-royale';
 export type { BattleRoyaleOptions, SquadSize } from './battle-royale';
 export { FreeForAll } from './ffa';
 export type { FreeForAllOptions } from './ffa';
@@ -50,6 +50,7 @@ export type {
   SpawnPoint,
   SupplyDropState,
   RebootCardState,
+  RoyaleChampion,
   BeaconState,
   TeamScore,
   Zone,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { INTERMISSION, type MatchStatus } from '@duty-shooter/fps-core';
 import { Scene, Sprite } from 'three/webgpu';
-import { DETONATION, Nuke, SHOCK_SPEED, nukeFrame, sinceMatchEnd } from '../src/nuke';
+import { DETONATION, Nuke, SHOCK_SPEED, nukeFrame, sinceMatchEnd, victoryTime } from '../src/nuke';
 
 const status = (phase: MatchStatus['phase'], phaseEnds: number | null) => ({ phase, phaseEnds }) as MatchStatus;
 
@@ -21,6 +21,23 @@ describe('the nuke clock', () => {
     // The match ended at 100: the nuke ends at 106, the scoreboard at 116.
     expect(sinceMatchEnd(lobby('nuke', 106), 105.9)).toBeCloseTo(5.9);
     expect(sinceMatchEnd(lobby('vote', 116), 106.1)).toBeCloseTo(6.1);
+  });
+});
+
+describe("a Battle Royale's victory beat (ticket 69)", () => {
+  const royale = (phase: MatchStatus['phase'], phaseEnds: number) => ({ phase, phaseEnds, lobby: {}, mode: 'battle-royale' }) as MatchStatus;
+  const beat = INTERMISSION.victory;
+  it('holds the ending back while the winners have their moment, then runs it as anywhere else', () => {
+    // The match ended at 100: the beat to 103, the nuke to 109, the scoreboard to 119.
+    const nukeEnds = 100 + beat + INTERMISSION.nuke;
+    expect(sinceMatchEnd(royale('nuke', nukeEnds), 101)).toBeNull();
+    expect(victoryTime(royale('nuke', nukeEnds), 101)).toBeCloseTo(1);
+    expect(sinceMatchEnd(royale('nuke', nukeEnds), 100 + beat + 1)).toBeCloseTo(1);
+    expect(victoryTime(royale('nuke', nukeEnds), 100 + beat + 1)).toBeNull();
+    expect(sinceMatchEnd(royale('vote', nukeEnds + INTERMISSION.scoreboard), nukeEnds + 1)).toBeCloseTo(INTERMISSION.nuke + 1);
+    // Other modes have no beat.
+    expect(victoryTime(status('nuke', 106), 101)).toBeNull();
+    expect(victoryTime(royale('playing', 600), 300)).toBeNull();
   });
 });
 

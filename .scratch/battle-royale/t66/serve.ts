@@ -69,7 +69,8 @@ const control = createServer((req, res) => {
     target = q('at');
   } else if (url.pathname === '/out') {
     // Downed with its bleed-out nearly run: the simulation's own bleed-out puts it out a moment later.
-    sim().setPlayerState({ ...sim().playerState(q('id')!)!, health: 40, downed: { since: sim().time - 29.8, by: null, revive: null } });
+    // `by`: who put them Downed, so the bleed-out is theirs (ticket 69's Kill Leader).
+    sim().setPlayerState({ ...sim().playerState(q('id')!)!, health: 40, downed: { since: sim().time - 29.8, by: q('by') ?? null, revive: null } });
   } else if (url.pathname === '/down') {
     sim().setPlayerState({ ...sim().playerState(q('id')!)!, health: 40, downed: { since: sim().time, by: null, revive: null } });
   }

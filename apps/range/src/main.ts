@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -641,6 +641,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         people: prep.people,
         loading: prep.loading,
         play: false,
+        champion: preparationChampion(state?.champion, team ?? null),
       };
       prepPage.show(prepView);
       return true;

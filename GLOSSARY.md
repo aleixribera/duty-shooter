@@ -228,6 +228,18 @@ Health in the HUD's bottom-left corner and ammo in its bottom-right, each kept t
 **Stage**:
 One step of the Ring: it holds, then shrinks to the next circle, known throughout. Six to a match, each hurting more than the last. Their table is in the stats file.
 
+**Squad wiped**:
+The feed's line when nobody of a Squad is left standing in Duos or Trios: who they were, who put out the last of them, and how many Squads are left. In Solos the kill feed already says it.
+
+**Kill Leader**:
+The seat with the most eliminations in a Battle Royale, once they have at least 3. Everyone sees them under the Ring's line, and the feed calls it each time someone passes them. A tie keeps the one who got there first.
+
+**Champion Squad**:
+The Squad a Battle Royale's dive introduces: the one holding any of the last match's winners, or else the last match's Kill Leader. With neither back, there is none.
+
+**Victory beat**:
+The 3 seconds between a Battle Royale's result and its nuke: the winners see "Victory, 1st", everyone else sees who won, each from where they stood. The nuke's phase is that much longer.
+
 **Early end**:
 A Battle Royale ending at once because no person is left alive, whatever the bots are doing. A person Downed is still alive. People are placed by how many Squads remained.
 

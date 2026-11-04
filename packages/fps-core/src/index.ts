@@ -59,7 +59,7 @@ export type { NetProfile, Relevance } from './net/relevance';
 export { createMemoryNetwork } from './net/memory';
 export { connectPort, messageData, servePort, type PortLike } from './net/port';
 export type { MemoryNetwork, MemoryNetworkOptions } from './net/memory';
-export { INTERMISSION, MATCH_COUNTDOWN, PREPARATION, PROTOCOL_VERSION, decodeServer } from './net/protocol';
+export { INTERMISSION, MATCH_COUNTDOWN, PREPARATION, PROTOCOL_VERSION, decodeServer, victoryBeat } from './net/protocol';
 export type { ClientMessage, LobbyPick, LobbyState, MatchStatus, Phase, PreparationState, RejectReason, ServerMessage, Snapshot, StampedEvent } from './net/protocol';
 export { LOBBY_MODES, MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamMode } from './modes/game-mode';
 export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, dealLadder, gunGameLevel } from './modes/gungame';
@@ -83,6 +83,7 @@ export type {
   SpawnPoint,
   SupplyDropState,
   RebootCardState,
+  RoyaleChampion,
   BeaconState,
   TeamScore,
   Zone,

@@ -4,7 +4,7 @@ import { preparationShot, preparationTime, type PreparationScene } from '../src/
 import { PreparationSounds } from '../src/preparation-sounds';
 import { heartbeat, prepDrone } from '../src/audio/preparation';
 import { createRng } from '../src/audio/dsp';
-import { preparationAction, preparationClock, type PreparationView } from '../src/ui/preparation';
+import { preparationAction, preparationChampion, preparationClock, type PreparationView } from '../src/ui/preparation';
 
 const scene: PreparationScene = {
   island: { x: 0, z: 0, radius: 400 },
@@ -153,5 +153,13 @@ describe('the Preparation’s one action', () => {
     expect(preparationClock(20)).toBe('20');
     expect(preparationClock(4.2)).toBe('5');
     expect(preparationClock(0)).toBe('0');
+  });
+});
+
+describe('the champion Squad at the dive (ticket 69)', () => {
+  it("says who they are and why, and when they're yours", () => {
+    expect(preparationChampion({ team: 2, names: ['Ada', 'Bo'], why: 'won' }, 1)).toEqual({ title: 'Champion Squad', names: 'Ada and Bo', why: 'Won the last match' });
+    expect(preparationChampion({ team: 1, names: ['Ada'], why: 'leader', kills: 7 }, 1)).toEqual({ title: 'Your Squad: champions', names: 'Ada', why: "Last match's Kill Leader, 7 eliminations" });
+    expect(preparationChampion(undefined, 1)).toBeNull();
   });
 });

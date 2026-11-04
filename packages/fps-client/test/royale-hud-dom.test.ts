@@ -3,7 +3,7 @@ import { RoyaleHud, type RoyaleHudState } from '../src/hud/royale-hud';
 import { installFakeDom, type FakeElement } from './helpers/fake-dom';
 
 /** The Battle Royale HUD's own elements, by class. */
-const PARTS = ['ds-br-top', 'ds-ringline', 'ds-outside', 'ds-nextline', 'ds-out', 'ds-watch'] as const;
+const PARTS = ['ds-br-top', 'ds-ringline', 'ds-outside', 'ds-nextline', 'ds-leader', 'ds-out', 'ds-watch', 'ds-victory'] as const;
 
 const state = (over: Partial<RoyaleHudState> = {}): RoyaleHudState => ({
   status: { stage: 1, stages: 6, phase: 'hold', seconds: 40, outside: false, toSafety: 0, toNext: 0, damage: 1 },
@@ -101,5 +101,28 @@ describe('on the way to the next circle (ticket 68)', () => {
     expect(shown('ds-nextline')).toBe(false);
     hud.update(state({ out: true, status: { stage: 2, stages: 6, phase: 'hold', seconds: 30, outside: false, toSafety: 0, toNext: 120, damage: 2 } }));
     expect(shown('ds-nextline')).toBe(false);
+  });
+});
+
+describe("the match's big moments (ticket 69)", () => {
+  it('shows the Kill Leader to everyone, once there is one', () => {
+    hud.update(state());
+    expect(shown('ds-leader')).toBe(false);
+    hud.update(state({ leader: { name: 'Ada', kills: 5, you: false } }));
+    expect(shown('ds-leader')).toBe(true);
+    expect(root.one('ds-leader').text).toMatch(/Kill Leader.*Ada.*5/);
+    hud.update(state({ leader: { name: 'Ada', kills: 3, you: true }, out: true }));
+    expect(root.one('ds-leader').text).toMatch(/Kill Leader.*You.*3/);
+  });
+
+  it("gives the winners their moment, and everyone else who won, until it's over", () => {
+    hud.update(null);
+    hud.victory({ yours: true, names: 'Ada and Bo', of: 20 });
+    expect(shown('ds-victory')).toBe(true);
+    expect(root.one('ds-victory').text).toMatch(/Victory.*1st.*of 20 Squads/);
+    hud.victory({ yours: false, names: 'Ada and Bo', of: 20 });
+    expect(root.one('ds-victory').text).toMatch(/Ada and Bo.*win/);
+    hud.victory(null);
+    expect(shown('ds-victory')).toBe(false);
   });
 });
