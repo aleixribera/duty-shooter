@@ -2,6 +2,7 @@ import type { Vec3 } from '../math';
 import type { BattleRoyaleState } from '../modes/game-mode';
 import type { Circle } from '../modes/ring';
 import { noise } from '../random';
+import { STATS } from '../stats';
 import type { PlayerId, SimEvent, TeamId } from '../simulation';
 import { NoiseGrid } from './noise-grid';
 import { SquadIntel } from './squad-intel';
@@ -131,6 +132,8 @@ const DROP_LATE = 25;
 /** It works the crate from this near (m) once it has landed; a rally this near a crate is a squadmate's run to it. */
 const DROP_NEAR = 30;
 const DROP_SAME = 1.5;
+/** A Reboot's channel (s), which the wall must leave its Beacon for. */
+const REBOOT_CHANNEL = STATS.royale.reboot.channel.value;
 
 /** One bot's choice of ground. */
 interface Mind {
@@ -355,6 +358,47 @@ export class SquadPlanner {
     return false;
   }
 
+  /**
+   * Reboot, as its Squad sees it: the nearest bot on its feet goes over each
+   * Card of theirs lying on the island, and a bot carrying Cards goes to the
+   * nearest Beacon that will be ready when it gets there (one inside the next
+   * circle first) and holds use at it. By bot, the spot it goes to.
+   */
+  #rebootJobs(team: TeamId, standing: readonly PlannedSeat[], s: SquadSituation): Map<PlayerId, Vec3> {
+    const jobs = new Map<PlayerId, Vec3>();
+    const { state, time } = s;
+    const cards = (state.cards ?? []).filter((c) => c.team === team);
+    if (cards.length === 0 || !state.reboot) return jobs;
+    const bots = standing.filter((m) => m.bot);
+    for (const c of cards) {
+      if (!c.carrier) continue;
+      const carrier = bots.find((m) => m.id === c.carrier);
+      if (!carrier || jobs.has(carrier.id)) continue;
+      let best: Vec3 | null = null;
+      let cost = Infinity;
+      for (const b of state.beacons ?? []) {
+        if (b.channel && b.channel.by !== carrier.id) continue;
+        const run = flat(carrier.position, b.position) / RUN;
+        if (b.ready !== undefined && b.ready > time + run) continue;
+        // Not where the wall will be before the Reboot is done.
+        const wall = wallAt(state, time + run + REBOOT_CHANNEL);
+        if (away(b.position, wall) > wall.radius - WALL_MARGIN) continue;
+        const outside = away(b.position, state.next) > state.next.radius ? 2 : 1;
+        if (run * outside < cost) [best, cost] = [b.position, run * outside];
+      }
+      if (best) jobs.set(carrier.id, best);
+    }
+    for (const c of cards) {
+      if (!c.position) continue;
+      let best: PlannedSeat | null = null;
+      for (const m of bots) if (!jobs.has(m.id) && (!best || flat(m.position, c.position) < flat(best.position, c.position))) best = m;
+      if (!best) continue;
+      const wall = wallAt(state, time + flat(best.position, c.position) / RUN);
+      if (away(c.position, wall) <= wall.radius - WALL_MARGIN) jobs.set(best.id, c.position);
+    }
+    return jobs;
+  }
+
   /** Each bot's ground for the next second. */
   plan(s: SquadSituation): Map<PlayerId, GroundOrder> {
     const orders = new Map<PlayerId, GroundOrder>();
@@ -383,9 +427,27 @@ export class SquadPlanner {
         if (!said || flat(said.point, person.position) > PERSON_MOVED) intel.head(person.id, { point: person.position, time, hunt: false });
       }
       const radius = Math.min(RALLY_RADIUS + RALLY_PER_SEAT * members.length, Math.max(3, state.next.radius * 0.6));
+      const reboot = this.#rebootJobs(team, standing, s);
       for (const [slot, seat] of members.entries()) {
         if (!seat.bot) continue;
         const mind = this.#decide(seat, s, intel, ids);
+        const job = reboot.get(seat.id);
+        if (job) {
+          orders.set(seat.id, {
+            rally: job,
+            radius: 1,
+            hurry: true,
+            hunt: false,
+            wait: false,
+            slot,
+            mates: Math.max(0, standing.length - 1),
+            ring: state,
+            intel,
+            noise: this.noise,
+            use: job,
+          });
+          continue;
+        }
         const inDanger = away(seat.position, wall) > wall.radius - WALL_MARGIN || away(seat.position, soon) > soon.radius - WALL_MARGIN;
         let nearest: PlannedSeat | null = null;
         for (const m of standing) if (m !== seat && (!nearest || flat(m.position, seat.position) < flat(nearest.position, seat.position))) nearest = m;

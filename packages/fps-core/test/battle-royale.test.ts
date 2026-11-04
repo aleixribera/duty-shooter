@@ -156,10 +156,18 @@ describe('Early end', () => {
   });
 
   it('a human out while their Squad’s bots still stand is placed with the Squads that remained (ticket 15)', () => {
-    const { mode, tick } = royale({ squadSize: 3, seats: 9, people: ['p1'] });
+    const { mode, tick, advance } = royale({ squadSize: 3, seats: 9, people: ['p1'] });
+    // Once the last two Stages have closed Reboot (ticket 70): no Card can bring the human back.
+    advance(mode.ring.at(-2)!.start + 1);
+    expect(tick()).toBeNull();
     expect(tick(['p1', 'p9'])).toMatchObject({ winner: null, reason: 'noHumans' });
     // Three Squads still standing, the human's among them: they share the place behind none, counted as the third.
     expect(place(mode, 'p1')).toBe(3);
+  });
+
+  it('while Reboot is open, a human out with squadmates standing keeps it going: their Card can bring them back (ticket 70)', () => {
+    const { tick } = royale({ squadSize: 3, seats: 9, people: ['p1'] });
+    expect(tick(['p1', 'p9'])).toBeNull();
   });
 
   it('a human alive keeps it going, a Squad of bots out or not', () => {

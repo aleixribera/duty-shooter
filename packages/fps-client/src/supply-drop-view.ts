@@ -16,7 +16,7 @@ const SMOKE_NEAR = 8;
 const SMOKE_CLEAR = 30;
 
 /** The glTF's baked textures on a standard node material. */
-function nodeMaterial(m: MeshStandardMaterial): MeshStandardNodeMaterial {
+export function nodeMaterial(m: MeshStandardMaterial): MeshStandardNodeMaterial {
   const out = new MeshStandardNodeMaterial({ color: m.color, roughness: m.roughness, metalness: m.metalness, map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, metalnessMap: m.metalnessMap });
   out.name = m.name;
   m.dispose();

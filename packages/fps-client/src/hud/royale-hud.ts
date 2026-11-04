@@ -3,6 +3,7 @@ import { mapPoint, paintIsland, terrainBounds, type MapBounds } from '../ui/isla
 import { ordinal } from '../ui/model';
 import { bearing, compassOffset, compassTicks, type RingCircle, type RingStatus } from '../ui/royale';
 import type { DropMark } from '../ui/supply-drop';
+import type { RebootMark } from '../ui/reboot';
 import { escapeHtml as escape } from '../ui/theme';
 
 /**
@@ -31,6 +32,11 @@ const CSS = `
 .ds-compass .mk.pinned { opacity: 0.75; }
 .ds-compass .mk.drop { color: var(--ds-signal); font-size: 13px; }
 .ds-compass .mk.drop { white-space: nowrap; }
+.ds-compass .mk.reboot { color: var(--ds-signal); font-size: 13px; white-space: nowrap; }
+.ds-compass .mk.reboot small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
+.ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-signal); transform: rotate(45deg); background: var(--ds-ink); }
+.ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-signal); }
+.ds-watch .card { font-size: 13px; letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
 .ds-compass .mk.drop small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-ringline { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-ringline .stage { color: var(--ds-text-2); }
@@ -74,6 +80,8 @@ const CSS = `
   .ds-br-top .count b { font-size: 20px; }
   .ds-ringline { top: 70px; font-size: 11px; }
   .ds-out .place { font-size: 56px; }
+  .ds-watch { bottom: 8px; width: calc(100vw - 24px); box-sizing: border-box; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 12px; white-space: normal; }
+  .ds-watch .card { flex-basis: 100%; text-align: center; }
 }
 @media (max-aspect-ratio: 1/1) {
   .ds-map { flex-direction: column; }
@@ -110,6 +118,12 @@ export interface RoyaleHudState {
   readonly mates: readonly RoyaleMate[];
   /** The Supply Drops called in so far (each until it is opened). */
   readonly drops?: readonly DropMark[];
+  /** Reboot: the Beacons and your Squad's Cards lying on the island. */
+  readonly reboot?: readonly RebootMark[];
+  /** You carry a Card: the compass shows the nearest ready Beacon. */
+  readonly carrying?: boolean;
+  /** Out: what has become of your Reboot Card, or null without one. */
+  readonly card?: string | null;
   /** Your Squad's place once it's out, with how many Squads started. */
   readonly placement: { readonly place: number; readonly of: number } | null;
   /** You are out of this match (dead, or arrived late). */
@@ -260,7 +274,7 @@ export class RoyaleHud {
     if (s.out) {
       this.#set(
         this.#watch,
-        `${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? '' : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
+        `${s.card ? `<span class="card">${escape(s.card)}</span>` : ''}${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? '' : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
       );
     }
     this.#map.classList.toggle('open', s.mapOpen);
@@ -289,6 +303,14 @@ export class RoyaleHud {
         const m = Math.round(Math.hypot(d.x - here[0], d.z - here[1]));
         html += `<span class="mk drop${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">■<small>${m} m</small></span>`;
       }
+      // Your Squad's Cards lying on the island, and, carrying one, the nearest ready Beacon.
+      const beacons = (s.reboot ?? []).filter((r) => r.kind === 'beacon' && r.state === 'ready');
+      const nearest = s.carrying ? beacons.reduce<RebootMark | null>((a, b) => (!a || Math.hypot(b.x - here[0], b.z - here[1]) < Math.hypot(a.x - here[0], a.z - here[1]) ? b : a), null) : null;
+      for (const r of [...(s.reboot ?? []).filter((x) => x.kind === 'card'), ...(nearest ? [nearest] : [])]) {
+        const o = compassOffset(s.heading, bearing(here, [r.x, r.z]), COMPASS_SPAN);
+        const m = Math.round(Math.hypot(r.x - here[0], r.z - here[1]));
+        html += `<span class="mk reboot${o.pinned ? ' pinned' : ''}" style="left:${pct(o.x)}">${r.kind === 'card' ? '▬' : '◇'}<small>${m} m</small></span>`;
+      }
       for (const m of s.mates) {
         const o = compassOffset(s.heading, bearing(here, [m.x, m.z]), COMPASS_SPAN);
         if (!o.pinned) html += `<span class="mk mate" style="left:${pct(o.x)}">${m.downed ? '✚' : '▲'}</span>`;
@@ -315,7 +337,7 @@ export class RoyaleHud {
     const now = performance.now();
     this.#set(
       this.#aside,
-      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div>${(s.drops ?? []).some((d) => !d.opened) ? '<div class="key"><i class="drop"></i>Supply Drop</div>' : ''}<div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
+      `<h2>Zero Island</h2><div class="row"><span class="ds-label">Stage</span><b>${s.status.stage}/${s.status.stages}</b></div><div class="row hz"><span class="ds-label">${s.status.phase === 'hold' ? 'Ring closes in' : s.status.phase === 'closing' ? 'Ring closing' : 'Final circle'}</span><b>${s.status.seconds === null ? '–' : clock(s.status.seconds)}</b></div><div class="row"><span class="ds-label">Alive</span><b>${s.alive}</b></div><div class="key"><i></i>The Ring</div><div class="key"><i class="next"></i>Next circle</div>${(s.drops ?? []).some((d) => !d.opened) ? '<div class="key"><i class="drop"></i>Supply Drop</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'beacon') ? '<div class="key"><i class="beacon"></i>Reboot Beacon</div>' : ''}${(s.reboot ?? []).some((r) => r.kind === 'card') ? '<div class="key"><i class="card"></i>Reboot Card</div>' : ''}<div class="key"><i class="you"></i>${s.out ? 'Watching' : 'You'}</div><div class="close"><kbd>${escape(s.mapKey)}</kbd>Close</div>`,
     );
     if (now - this.#lastDraw < 50) return;
     this.#lastDraw = now;
@@ -406,6 +428,43 @@ export class RoyaleHud {
       ctx.globalAlpha = 1;
       ctx.fillStyle = tok.text;
       ctx.fillText(text, x, y + 3 * k);
+    }
+    // Reboot Beacons: a diamond, outlined when ready, filled while one reboots, dim red while it rests.
+    for (const r of s.reboot ?? []) {
+      if (r.kind !== 'beacon') continue;
+      const [x, y] = at(r.x, r.z);
+      const h = 5.5 * k;
+      ctx.beginPath();
+      ctx.moveTo(x, y - h);
+      ctx.lineTo(x + h, y);
+      ctx.lineTo(x, y + h);
+      ctx.lineTo(x - h, y);
+      ctx.closePath();
+      ctx.fillStyle = r.state === 'busy' ? tok.signal : tok.ink;
+      ctx.fill();
+      ctx.strokeStyle = r.state === 'resting' ? tok.alert : tok.signal;
+      ctx.globalAlpha = r.state === 'resting' ? 0.7 : 1;
+      ctx.lineWidth = 2 * k;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // Your Squad's Cards: a card in the signal colour with whose it is and the seconds it has left.
+    for (const r of s.reboot ?? []) {
+      if (r.kind !== 'card') continue;
+      const [x, y] = at(r.x, r.z);
+      ctx.fillStyle = tok.ink;
+      ctx.fillRect(x - 9 * k, y - 6 * k, 18 * k, 12 * k);
+      ctx.fillStyle = tok.signal;
+      ctx.fillRect(x - 7 * k, y - 4 * k, 14 * k, 8 * k);
+      const label = `${r.name ?? ''} ${r.left ?? 0} s`.trim();
+      ctx.font = `700 ${Math.round(11 * k)}px ${font}`;
+      const w = ctx.measureText(label.toUpperCase()).width + 10 * k;
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = tok.ink;
+      ctx.fillRect(x - w / 2, y + 8 * k, w, 16 * k);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = tok.text;
+      ctx.fillText(label.toUpperCase(), x, y + 20 * k);
     }
     // Supply Drops not yet opened: a square in the signal colour with its countdown while it falls.
     for (const d of s.drops ?? []) {

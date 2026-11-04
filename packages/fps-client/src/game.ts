@@ -54,6 +54,7 @@ import { WorldView, type WorldContent } from './world-view';
 import { ZoneRings } from './zone-rings';
 import { RingWall } from './ring-wall';
 import { SupplyDropView } from './supply-drop-view';
+import { RebootView } from './reboot-view';
 import { RingSounds } from './ring-sounds';
 import { preparationShot, preparationTime, type PreparationShot, type PreparationTime } from './preparation-shot';
 import { PreparationSounds } from './preparation-sounds';
@@ -66,6 +67,7 @@ import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
 import { heading, placement, ringNow, ringStatus, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
+import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
@@ -234,6 +236,8 @@ export class Game {
   readonly #ringWall: RingWall | null;
   /** The Supply Drops and the weapons on the ground (island maps only). */
   readonly #supplyDrops: SupplyDropView | null;
+  /** The Reboot Beacons and the Cards lying on the island (island maps only). */
+  readonly #rebootView: RebootView | null;
   /** The island map's square, for saying where a crate lands. */
   readonly #islandBounds: MapBounds | null;
   readonly #ringSounds = new RingSounds();
@@ -314,6 +318,7 @@ export class Game {
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     const island = Boolean(options.content.places && options.content.terrain);
     this.#supplyDrops = island ? new SupplyDropView(this.#worldView.scene, (id) => this.#players.gunMesh(id)) : null;
+    this.#rebootView = island ? new RebootView(this.#worldView.scene) : null;
     this.#islandBounds = options.content.places && options.content.terrain ? terrainBounds(options.content.terrain) : null;
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
     this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero) : null;
@@ -725,6 +730,7 @@ export class Game {
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
       this.#supplyDrops?.update(this.#royale, driver.serverTime, this.#camera.camera, dt);
+      this.#rebootView?.update(this.#royale, driver.serverTime, dt);
     }
     this.#updateNuke(driver, eye);
     this.#updateTrain(driver, eye);
@@ -911,6 +917,9 @@ export class Game {
     const mate = this.#revivable(self);
     if (mate) return `Hold ${this.#useLabel()}  Revive ${this.#driver?.nameOf(mate.id) ?? ''}`;
     const royale = this.#royale;
+    const driver = this.#driver;
+    const reboot = royale && driver ? rebootPrompt(self, royale, driver.serverTime, this.#useLabel(), (id) => driver.nameOf(id)) : null;
+    if (reboot) return reboot;
     return royale && this.#driver ? dropPrompt(self, royale, this.#driver.serverTime, self.loadout?.primary ?? null, this.#useLabel()) : null;
   }
 
@@ -1097,6 +1106,9 @@ export class Game {
       at: view ? { x: view.position[0], z: view.position[2] } : null,
       mates: mates.map((p) => ({ name: driver.nameOf(p.id), x: p.position[0], z: p.position[2], downed: Boolean(p.downed) })),
       drops: dropMarks(state, driver.serverTime, this.#islandBounds),
+      reboot: rebootMarks(state, driver.scores.find((s) => s.id === driver.selfId)?.team ?? team, driver.serverTime, (id) => driver.nameOf(id)),
+      carrying: Boolean(self?.alive && state.cards?.some((c) => c.carrier === self.id)),
+      card: self && !self.alive && driver.selfId ? cardNote(driver.selfId, state, driver.serverTime, (id) => driver.nameOf(id)) : null,
       placement: placement(driver.scores, driver.selfId),
       out: !self?.alive,
       seated: driver.scores.some((s) => s.id === driver.selfId),
@@ -1511,6 +1523,20 @@ export class Game {
         }
         break;
       }
+      case 'card':
+      case 'reboot': {
+        const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
+        const line = rebootFeed(e, cell);
+        const mine = e.player === selfId || (e.type === 'reboot' && e.seats.includes(selfId ?? ''));
+        const team = driver.scores.find((s) => s.id === e.player)?.team ?? 0;
+        if (line) this.hud.objectiveFeed(line, team, mine);
+        const ownTeam = driver.scores.find((s) => s.id === selfId)?.team;
+        if (e.type === 'card' && e.action === 'take' && e.player === selfId) this.hud.toast(`You carry ${e.ownerName}'s Reboot Card: take it to a Beacon and hold ${this.#useLabel()}.`, 5);
+        else if (e.type === 'card' && e.action === 'drop' && e.owner !== selfId && driver.scores.find((s) => s.id === e.owner)?.team === ownTeam && this.#cur?.alive)
+          this.hud.toast(`${e.ownerName}'s Reboot Card lies where they fell${cell ? ` in ${cell}` : ''}: ${STATS.royale.reboot.cardTime.value} s to take it.`, 5);
+        else if (e.type === 'reboot' && e.action === 'done' && selfId !== null && e.seats.includes(selfId)) this.hud.toast(`Rebooted by ${e.playerName}: back with ${STATS.royale.reboot.health.value} HP and ${STATS.royale.reboot.frags.value} frag.`, 5);
+        break;
+      }
       case 'loose':
         if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
         break;
@@ -1613,6 +1639,7 @@ export class Game {
     this.#zoneRings.dispose();
     this.#ringWall?.dispose();
     this.#supplyDrops?.dispose();
+    this.#rebootView?.dispose();
     this.#players.dispose();
     this.#arsenal.dispose();
     this.#worldView.dispose();

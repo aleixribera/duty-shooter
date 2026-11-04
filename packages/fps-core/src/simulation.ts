@@ -62,6 +62,12 @@ export interface PlayerSpawn {
 
 export type EntityKind = 'player' | 'dummy';
 
+/** How a seat comes back, when not as fresh as a respawn (a Reboot): its health and frags. */
+export interface RespawnOptions {
+  readonly health?: number;
+  readonly frags?: number;
+}
+
 /** A weapon as it changes hands (a Supply Drop's sniper, one lying on the ground): which, and the rounds it carries. */
 export interface HeldWeapon {
   readonly id: WeaponId;
@@ -466,11 +472,11 @@ export class Simulation {
    * Brings a player back to life at full health with fresh weapons (the
    * primary drawn), at `position`, carrying `loadout` (or the last one).
    */
-  respawn(id: PlayerId, position: Vec3, yaw: number, loadout?: Loadout): void {
+  respawn(id: PlayerId, position: Vec3, yaw: number, loadout?: Loadout, options: RespawnOptions = {}): void {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
     p.move = createMoveState(position, yaw);
-    Object.assign(p, arms(loadout ?? p.loadout, this.#frags()));
+    Object.assign(p, arms(loadout ?? p.loadout, options.frags ?? this.#frags()));
     p.grenade = null;
     this.#stopRevive(p);
     p.downed = null;
@@ -478,8 +484,8 @@ export class Simulation {
     p.viewPitch = 0;
     p.cmdYaw = yaw;
     p.cmdPitch = 0;
-    p.health = H.max.value;
-    p.lastDamage = -1e9;
+    p.health = Math.min(H.max.value, options.health ?? H.max.value);
+    p.lastDamage = options.health === undefined ? -1e9 : this.time;
     p.diedAt = null;
     p.landing = null;
     p.life += 1;

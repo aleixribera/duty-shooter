@@ -80,6 +80,8 @@ export type {
   Score,
   SpawnPoint,
   SupplyDropState,
+  RebootCardState,
+  BeaconState,
   TeamScore,
   Zone,
   ZoneState,

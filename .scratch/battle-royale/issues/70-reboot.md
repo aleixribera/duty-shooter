@@ -1,6 +1,7 @@
 # Reboot Cards and Reboot Beacons
 
-Status: open
+Status: resolved
+Release: v2.127.0
 Blocked by: 63
 Labels: enhancement
 
@@ -9,3 +10,12 @@ Owner: "we can implement the reboot card like in fortnite/apex". Spec: Match rul
 Lead's numbers (tune and write in Comments): the Card drops where the seat went out and lasts 90 s; a squadmate picks it up by walking over it; at a Beacon, a 10 s channel (interruptible, visible to all, loud) brings the seat back there with its loadout and frags reset to 1, 50 HP; a Beacon then cools down 120 s; no Reboot once the last two Stages begin. Beacons: Blender model, 2-3 per Region, placed in contested but reachable spots. Out players see their Card's state and the carrier while spectating. Bots pick up Cards and reboot squadmates (person or bot). Kill feed and pings (66) know Cards and Beacons. Ending rules: a Squad is out only when no member stands and no Card is held or lying. Server load gate still passes.
 
 ## Comments
+
+- Numbers kept from the lead, all in `STATS.royale.reboot`: a Card lies 90 s, is taken within 1.5 m, a Beacon is used within 3 m, a 10 s channel, the Beacon rests 120 s, the seat comes back with 50 HP, its loadout and 1 frag, and Reboot closes when the last two Stages begin (Stage 5 of 6). The channel breaks if the carrier lets go of F, steps out of reach, goes down or out.
+- Beacons: 15 on Zero Island (2-3 per Region), placed by farthest-point sampling over the PlayGround's spots, so each is reachable ground and they spread over every Region (`planBeacons`). Model: `tools/weapon/reboot_beacon.py` (gunsmith, renders checked): steel base with hazard paint, olive battery cabinet with a card reader, mast with light bands and a turning ring antenna; the Card is a dark plastic card with a chip. Light bands: mint when ready, pulsing with a 60 m column of light while rebooting, red while resting, dark once closed.
+- Ending rule: a Squad is out only when no member stands and no Card of theirs is held or lying. Cards are voided at once when no squadmate stands (nobody could carry them), so this reads as "a member stands" and the existing last-Squad rule holds; the person's early end (`noHumans`) waits while a person's Card lives, and on the tick they come back (a bug the play-through found: the match ended under a bot rebooting the person; fixed, with a test).
+- Bots: a carrier heads for the cheapest Beacon (run time, doubled outside the next circle) that no one else is using and will be ready when it gets there; the nearest free bot fetches each lying Card of its Squad; both skip anything the wall will reach first (ring deaths in pace runs went 5/3/6 to 0/1/0). They reboot persons and bots alike.
+- HUD (DESIGN.md tokens): toasts for a squadmate's Card dropping (with its grid cell), carrying one, and being rebooted ("Rebooted by Moss: back with 50 HP and 1 frag."); the use prompt "Hold F  Reboot Moss", counting the channel down, or "Beacon resting 1:30"; the compass points at your Squad's Cards and, carrying, the nearest ready Beacon; the Island map draws Beacons by state and your Squad's Cards with name and seconds; the kill feed tells Cards taken and Reboots begun (with cell) and done; an out player's watch bar says where their Card is, who carries it and the countdown. Protocol 20.
+- Seen in a real Duos match (`.scratch/battle-royale/t70/play.mjs`, 12/12 checks, no page errors, shots at 1920x1080 and 390x844): the person took a bot's Card, walked to a Beacon, held F, the bot came back with 50 HP and the feed said so; then the person went out, watched their Card's note and map mark, a bot squadmate carried it and rebooted them, and the match went on. On the phone the watch bar now wraps the Card's note.
+- Measures: Duos 496 s / 527 s, Trios 470 s (60 seats). Reboot per match: Duos 38/23 Cards dropped, 17/10 taken, 3/1 ran out, 18/14 void, 7/4 begun, 6/4 done; Trios 57 dropped, 27 taken, 6 begun, 4 done, 5 seats back. 60-seat server tick p99 1.9-2.9 ms. Local bots worker tick: Solos mean 1.30 p99 3.07 ms, Trios mean 1.17 p99 2.77 ms.
+- Left: pings (66) do not mark Cards or Beacons yet; Beacons are not Solids (you walk through the base); the design-audit skill's reviewer subagents were not run (no subagents in this run), the screenshots were checked by eye against DESIGN.md.

@@ -1,5 +1,5 @@
 import type { Vec3 } from '../math';
-import type { HeldWeapon, KillWeapon, PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
+import type { HeldWeapon, KillWeapon, PlayerId, PlayerInfo, PlayerOutput, RespawnOptions, SimEvent, TeamId } from '../simulation';
 import type { WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
@@ -122,6 +122,30 @@ export interface BattleRoyaleState {
   readonly drops?: readonly SupplyDropState[];
   /** Weapons lying on the ground for anyone to take; absent while none does. */
   readonly loose?: readonly LooseWeaponState[];
+  /** Reboot is open (Duos and Trios, before the last Stages); absent when it isn't. */
+  readonly reboot?: true;
+  /** The island's Reboot Beacons, sent while Reboot is open. */
+  readonly beacons?: readonly BeaconState[];
+  /** Reboot Cards lying or carried; absent while none is. */
+  readonly cards?: readonly RebootCardState[];
+}
+
+/** A Reboot Card: the seat it brings back, and where it lies or who carries it. Times are simulation times. */
+export interface RebootCardState {
+  readonly owner: PlayerId;
+  readonly team: TeamId;
+  /** Where it lies, and until when; absent while carried. */
+  readonly position?: Vec3;
+  readonly until?: number;
+  /** The squadmate carrying it. */
+  readonly carrier?: PlayerId;
+}
+
+/** A Reboot Beacon: where it stands, who is rebooting at it and since when, or until when it rests. */
+export interface BeaconState {
+  readonly position: Vec3;
+  readonly channel?: { readonly by: PlayerId; readonly since: number };
+  readonly ready?: number;
 }
 
 /** A Supply Drop as everyone is told of it: where it lands and when, and who is opening or has opened it. Times are simulation times. */
@@ -151,6 +175,8 @@ export interface ModeActions {
   give(id: PlayerId, weapon: HeldWeapon): HeldWeapon | null;
   /** A seat's primary as it is now. */
   primary(id: PlayerId): HeldWeapon | null;
+  /** Brings a seat that is out back at `position` with its loadout (a Reboot). */
+  respawn?(id: PlayerId, position: Vec3, yaw: number, options: RespawnOptions): void;
 }
 
 /** The mode's own state, sent with every snapshot; null for a mode without any. */
@@ -257,6 +283,10 @@ export type ModeEvent =
   | { readonly type: 'drop'; readonly action: 'announce' | 'land' | 'start' | 'stop' | 'open'; readonly stage: number; readonly player: PlayerId | null; readonly position: Vec3 }
   /** Battle Royale: `player` took `weapon` from the ground, leaving `left` there (null: nothing), or a weapon fell there (`player` null). */
   | { readonly type: 'loose'; readonly player: PlayerId | null; readonly weapon: WeaponId; readonly left: WeaponId | null; readonly position: Vec3 }
+  /** Battle Royale: `owner`'s Reboot Card fell, was taken by `player`, ran out, or was voided (the last Stages, or nobody left to carry it). */
+  | { readonly type: 'card'; readonly action: 'drop' | 'take' | 'expire' | 'void'; readonly owner: PlayerId; readonly ownerName: string; readonly player: PlayerId | null; readonly playerName: string | null; readonly position: Vec3 }
+  /** Battle Royale: `player` began, broke off or finished a Reboot at Beacon `beacon`, for `seats`. */
+  | { readonly type: 'reboot'; readonly action: 'start' | 'stop' | 'done'; readonly player: PlayerId; readonly playerName: string; readonly beacon: number; readonly seats: readonly PlayerId[]; readonly names: readonly string[]; readonly position: Vec3 }
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 

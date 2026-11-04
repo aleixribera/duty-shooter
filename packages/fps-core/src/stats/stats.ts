@@ -372,6 +372,18 @@ export const STATS = {
       ring: estimate(0.7, 'multiplier', 'A crate lands within this share of the radius of the next circle from its middle, so the Ring never takes it before anyone can reach it.'),
       pickupReach: estimate(1.5, 'm', 'How near a weapon on the ground must be to take it: underfoot, as a Charge is picked up.'),
     },
+    /** Reboot (ticket 70): a Squad's way back, Duos and Trios only, on Fortnite's numbers. */
+    reboot: {
+      cardTime: estimate(90, 's', 'How long a Reboot Card lies before it is gone (Fortnite v8.30 patch notes, lead of ticket 70).'),
+      channel: estimate(10, 's', 'Holding use at a Beacon this long brings the Cards carried back (Fortnite v8.30, lead of ticket 70): long, loud and seen, so a Reboot is a risk.'),
+      cooldown: estimate(120, 's', 'A Beacon rests this long after a Reboot (Fortnite v8.30, lead of ticket 70).'),
+      health: estimate(50, 'HP', 'A rebooted seat comes back with half health (lead, ticket 70), and heals as anyone does.'),
+      frags: estimate(1, 'rounds', 'Frags a rebooted seat comes back with (lead, ticket 70).'),
+      lastStages: estimate(2, 'level', 'No Reboot once this many Stages are left (lead, ticket 70): Stages 5 and 6 are the end game.'),
+      cardReach: estimate(1.5, 'm', 'Walking this near the Card of a squadmate picks it up (lead, ticket 70).'),
+      beaconReach: estimate(3, 'm', 'How near a Beacon its carrier must stand to reboot: the Beacon is 1.4 m across, plus a step.'),
+      beacons: estimate(15, 'rounds', 'Beacons on the island (lead, ticket 70: 2 to 3 per Region, six Regions), spread evenly over its open land.'),
+    },
     botReaction: estimate(2.6, 'multiplier', BOT_SKILL),
     botAim: estimate(3.1, 'multiplier', BOT_SKILL),
     /** One row a Stage, first to last: seconds held, seconds shrinking, the circle it shrinks to as a share of the first, and what standing outside costs. */

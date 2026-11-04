@@ -6,6 +6,7 @@ import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContex
 import { groundFromSpawns, squadSpots } from './ground';
 import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
+import { Reboot, planBeacons } from './reboot';
 import { SupplyDrops } from './supply-drops';
 
 /** Seats a Squad: Solos, Duos or Trios. */
@@ -31,6 +32,14 @@ interface Entry {
 }
 
 const seatNumber = (id: PlayerId): number => Number(id.slice(1));
+
+/** Each island's Reboot Beacons, found once for every match played on it. */
+const BEACONS = new WeakMap<object, Vec3[]>();
+function beaconsOf(ground: Parameters<typeof planBeacons>[0]): Vec3[] {
+  let beacons = BEACONS.get(ground);
+  if (!beacons) BEACONS.set(ground, (beacons = planBeacons(ground)));
+  return beacons;
+}
 
 /**
  * Battle Royale: 60 seats in Squads, one life, 3 frags, and a Ring that closes
@@ -69,6 +78,8 @@ export class BattleRoyale implements GameMode {
   #peopled = false;
   /** The crates that bring the sniper, and the weapons on the ground. */
   readonly #drops = new SupplyDrops();
+  /** Reboot Cards and Beacons (Duos and Trios). */
+  readonly #reboot = new Reboot();
 
   constructor(options: BattleRoyaleOptions = {}) {
     this.squadSize = options.squadSize ?? 1;
@@ -136,6 +147,7 @@ export class BattleRoyale implements GameMode {
     this.#ring = planRing(ground, seededRandom(seed), this.timeLimit);
     squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) => this.#spawns.set(i + 1, spawns));
     this.#drops.start(this.#ring, ground, seededRandom(seed ^ 0x2f6b1c3d));
+    this.#reboot.start(this.squadSize > 1 ? beaconsOf(ground) : [], this.squadSize, this.#ring.length);
     return teams;
   }
 
@@ -152,6 +164,7 @@ export class BattleRoyale implements GameMode {
       out.push({ type: 'stage', stage: stage + 1 });
     }
     out.push(...this.#drops.step(events, ctx));
+    out.push(...this.#reboot.step(events, ctx, this.#stage + 1, (id) => this.#entries.get(id)?.team, (id) => this.#entries.get(id)?.name ?? id));
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
@@ -209,7 +222,8 @@ export class BattleRoyale implements GameMode {
       this.#result = best ? this.#won(best.team, 'lastSquad') : { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
     } else if (squads.size === 1 && this.#squads > 1) {
       this.#result = this.#won(squads.values().next().value as TeamId, 'lastSquad');
-    } else if (this.#peopled && !seats.some((p) => people.has(p.id))) {
+    } else if (this.#peopled && !seats.some((p) => people.has(p.id)) && ![...people].some((id) => this.#reboot.live(id))) {
+      // No person in it, and none of their Cards left to bring one back.
       // The Squads still standing share the last of their places: a person out while their Squad's bots stand is placed too.
       for (const team of squads) if (!this.#places.has(team)) this.#places.set(team, squads.size);
       this.#result = { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
@@ -249,7 +263,15 @@ export class BattleRoyale implements GameMode {
     };
     const drops = this.#drops.drops();
     const loose = this.#drops.loose();
-    return { ...state, ...(drops.length > 0 ? { drops } : {}), ...(loose.length > 0 ? { loose } : {}) };
+    const beacons = this.#reboot.beacons();
+    const cards = this.#reboot.cards();
+    return {
+      ...state,
+      ...(drops.length > 0 ? { drops } : {}),
+      ...(loose.length > 0 ? { loose } : {}),
+      ...(this.#reboot.open ? { reboot: true as const, beacons } : {}),
+      ...(cards.length > 0 ? { cards } : {}),
+    };
   }
 }
 

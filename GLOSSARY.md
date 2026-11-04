@@ -168,6 +168,14 @@ _Avoid_: airdrop, care package, loot crate
 A primary lying on the ground in a Battle Royale: the one you dropped when a Supply Drop's sniper replaced it, or a sniper left where its holder fell. Walking onto it and pressing F swaps it for your primary.
 _Avoid_: pickup, loot
 
+**Reboot Card**:
+What a seat leaves where it goes out in a Duos or Trios Battle Royale while a squadmate still stands. It lies for 90 s; a standing squadmate takes it by walking over it, and carries it until they reach a Reboot Beacon or go out themselves (then it drops where they fell, for another 90 s). It is void once no squadmate stands, and none drop or count once the last two Stages begin. A Squad holding or leaving a Card is still in the match.
+_Avoid_: banner, dog tag, respawn token
+
+**Reboot Beacon**:
+One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP and 1 frag; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
+_Avoid_: respawn tower, revive station
+
 ## Matches
 
 **Mode**:

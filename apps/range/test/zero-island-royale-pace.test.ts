@@ -19,12 +19,27 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       const seen: Record<string, number> = {};
       const spread: number[] = [];
       const drops = { announced: 0, landed: 0, opened: 0, at: [] as number[] };
+      const reboot = { cards: 0, taken: 0, started: 0, done: 0, back: 0, expired: 0, voided: 0, at: [] as number[] };
       const run = playRoyale(isle, {
         size,
         seed,
         good: process.env['ROYALE_GOOD'] === '1',
         each: (m, out, t) => {
           for (const e of m.server.modeEvents) {
+            if (e.type === 'card') {
+              if (e.action === 'drop') reboot.cards += 1;
+              if (e.action === 'take') reboot.taken += 1;
+              if (e.action === 'expire') reboot.expired += 1;
+              if (e.action === 'void') reboot.voided += 1;
+            }
+            if (e.type === 'reboot') {
+              if (e.action === 'start') reboot.started += 1;
+              if (e.action === 'done') {
+                reboot.done += 1;
+                reboot.back += e.seats.length;
+                reboot.at.push(Math.round(t));
+              }
+            }
             if (e.type !== 'drop') continue;
             if (e.action === 'announce') drops.announced += 1;
             if (e.action === 'land') drops.landed += 1;
@@ -73,6 +88,7 @@ describe.skipIf(!WANTED)('Battle Royale pace', () => {
       const byCause: Record<string, number> = {};
       for (const d of run.deaths) byCause[d.cause] = (byCause[d.cause] ?? 0) + 1;
       console.log(`PACE size ${size} seed ${seed}: ${run.length.toFixed(0)} s, Stage ${run.stage}, ${run.result?.reason}, ${run.deaths.length} deaths ${JSON.stringify(byCause)}, ${run.downs} downs, ${run.revives} revives, tick p99 ${run.tick.p99.toFixed(2)} worst ${run.tick.worst.toFixed(1)} ms, wall ${((performance.now() - t0) / 1000).toFixed(0)} s${run.good ? `; proxy ${run.good.won ? 'WON' : `place ${run.good.place}`}, ${run.good.kills} kills` : ''}`);
+      console.log(`  Reboot: ${reboot.cards} Cards dropped, ${reboot.taken} taken, ${reboot.expired} ran out, ${reboot.voided} void; ${reboot.started} begun, ${reboot.done} done (${reboot.back} seats back) at ${JSON.stringify(reboot.at)} s`);
       console.log(`  Supply Drops: ${drops.announced} announced, ${drops.landed} landed, ${drops.opened} opened (by bots) at ${JSON.stringify(drops.at)} s`);
       for (const [i, s] of slices.entries()) console.log(`  ${String(i * SLICE).padStart(3)} s: ${String(s.alive).padStart(2)} seats ${String(s.squads).padStart(2)} squads, ${s.outside} outside, nearest enemy ${s.nearest} m, ${JSON.stringify(s.acts)}`);
       const first = run.deaths[0];

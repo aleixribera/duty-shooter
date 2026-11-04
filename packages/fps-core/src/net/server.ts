@@ -228,7 +228,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots; the rest (shots, impacts, reloads) are cosmetic and sent once. */
-const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose']);
+const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot']);
 
 interface Client {
   readonly connection: Connection;
@@ -1259,6 +1259,10 @@ export class GameServer {
   readonly #act: ModeActions = {
     give: (id, weapon) => this.simulation.giveWeapon(id, weapon),
     primary: (id) => this.simulation.primary(id),
+    respawn: (id, position, yaw, options) => {
+      this.simulation.respawn(id, position, yaw, this.#loadoutOf(id).loadout, options);
+      this.#protectedSince.set(id, this.simulation.time);
+    },
   };
 
   #context(): ModeContext {
