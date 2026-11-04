@@ -133,7 +133,7 @@ const LEAF_SNOW = 0.45;
 const FLUTTER = 0.03;
 const FLUTTER_RATE = 4.3;
 
-/** The ground layer rocks wear, read from three sides (see `ground-layers.ts`), and its metres a tile. */
+/** The ground layer a rock wears when its kind names none, read from three sides (see `ground-layers.ts`), and its metres a tile. */
 const ROCK_LAYER = 'rock';
 const ROCK_METRES = 2.6;
 
@@ -158,7 +158,7 @@ type N3 = ReturnType<typeof vec3>;
  * - `leaf`: cards showing the foliage atlas, cut to the leaves' outline,
  *   lit as foliage (see `foliageLit`), their leaves fluttering.
  */
-function plantMaterial(kind: 'solid' | 'leaf' | 'rock' | 'built', atlas: Texture | null): Material {
+function plantMaterial(kind: 'solid' | 'leaf' | 'rock' | 'built', atlas: Texture | null, rockLayer = ROCK_LAYER): Material {
   // x: snow, y: the plant's own phase in the wind, z: metres its sway reaches per square metre of the model's height.
   const extra = attribute<'vec3'>('plantExtra', 'vec3');
   const base = attribute<'vec4'>('plantColor', 'vec4');
@@ -180,10 +180,11 @@ function plantMaterial(kind: 'solid' | 'leaf' | 'rock' | 'built', atlas: Texture
     glow = base.xyz.mul(at.y) as unknown as N3;
   }
   if (kind === 'rock') {
-    const layer = groundLayerIndex(ROCK_LAYER);
+    const layer = groundLayerIndex(rockLayer);
     const mean = GROUND_LAYERS[layer]!.mean;
     const photos = groundTextures().color;
-    const p = positionWorld.div(ROCK_METRES);
+    // The old sandstone keeps the scale it was tuned at; the others their photo's own (ticket 78).
+    const p = positionWorld.div(rockLayer === ROCK_LAYER ? ROCK_METRES : GROUND_LAYERS[layer]!.metres);
     const n = normalWorld;
     const w = pow(abs(n), vec3(4, 4, 4));
     const ws = w.div(w.x.add(w.y).add(w.z));
@@ -390,8 +391,11 @@ export class PlantsView {
     const scenes = new Map(urls.map((u, i) => [u, files[i]!.scene]));
     for (const s of scenes.values()) s.updateMatrixWorld(true);
     const geometries = new Map<string, BufferGeometry>();
-    const materials = { solid: plantMaterial('solid', null), leaf: plantMaterial('leaf', atlas), rock: plantMaterial('rock', null), built: plantMaterial('built', null) };
-    const material = (k: PlantKind) => materials[k.built ? 'built' : k.asset.startsWith('rock') ? 'rock' : k.asset.endsWith('-trunk') ? 'solid' : 'leaf'];
+    const materials = { solid: plantMaterial('solid', null), leaf: plantMaterial('leaf', atlas), built: plantMaterial('built', null) };
+    // A rock material per photo layer the rocks wear (ticket 78).
+    const rocks = new Map<string, Material>();
+    const rock = (layer: string) => rocks.get(layer) ?? rocks.set(layer, plantMaterial('rock', null, layer)).get(layer)!;
+    const material = (k: PlantKind) => (k.built ? materials.built : /^(rock|rubble)-/.test(k.asset) ? rock(k.layer ?? ROCK_LAYER) : materials[k.asset.endsWith('-trunk') ? 'solid' : 'leaf']);
     this.#kinds = plants.kinds
       .filter((k) => k.instances.length > 0)
       .map((k) => {

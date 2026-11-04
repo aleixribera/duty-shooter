@@ -166,12 +166,13 @@ function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): Dre
   const dressed: DressedPiece[] = [];
   const dresser = new Dresser();
   for (const piece of pieces) {
-    const { kind, x, z, width, depth, height, yaw, material, region, deck } = piece;
+    const { kind, x, z, height, yaw, material, region, deck } = piece;
+    // A rock or trunk, or a piece a Region's kit dresses, is the boxes fitted inside the model it wears (ticket 63); anything else, its whole box.
+    const dress = dresser.dress(piece);
+    const [width, depth] = [piece.width * (dress?.across ?? 1), piece.depth * (dress?.across ?? 1)];
     const { low, high } = deck === undefined ? footprint(terrain, x, z, width, depth, yaw) : { low: deck + 0.6, high: deck };
     const bottom = low - 0.6;
     const top = high + height;
-    // A rock or trunk, or a piece a Region's kit dresses, is the boxes fitted inside the model it wears (ticket 63); anything else, its whole box.
-    const dress = dresser.dress(piece);
     const wear = dress ? { dress, foot: bottom, height: top - bottom } : kitWear(KITS, terrain, { kind, region, x, z, yaw, bottom, top, ground: low });
     const fitted = wear ? fittedSolids(wear.dress, x, wear.foot, z, width, wear.height, depth) : [];
     const boxes = fitted.length ? fitted : [{ center: [x, (bottom + top) / 2, z] as [number, number, number], size: [width, top - bottom, depth] as [number, number, number], yaw }];

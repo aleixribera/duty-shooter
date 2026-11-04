@@ -50,6 +50,9 @@ LAYERS = [
     ("slab", "concrete_floor_damaged_01", 4.0, "Rob Tuytel"),
     ("wall", "concrete_wall_006", 2.5, "Dario Barresi, Charlotte Baglioni"),
     ("steel", "rusty_metal_02", 1.5, "Rob Tuytel"),
+    # Rocks (ticket 78): weathered granite boulders, and the jungle's boulders under moss and lichen.
+    ("boulder", "rock_boulder_dry", 1.8, "Dimitrios Savva, Rico Cilliers"),
+    ("moss", "mossy_rock", 3.0, "Rob Tuytel"),
 ]
 
 

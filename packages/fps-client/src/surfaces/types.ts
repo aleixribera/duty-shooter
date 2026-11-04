@@ -116,6 +116,8 @@ export interface PlantKind {
    * sides, and a part with an emissive colour glows.
    */
   readonly built?: true;
+  /** The ground photo layer a rock wears from three sides (ticket 78): `rock` when absent. */
+  readonly layer?: string;
   /** Per plant, `PLANT_STRIDE` numbers. Its colour tints the model's own. */
   readonly instances: Float32Array;
 }

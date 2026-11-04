@@ -24,11 +24,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(ROOT, 'apps/range/src/map/kit-solids.ts');
 
-/** The models fitted, by GLB, with the most boxes each may have. */
+/** The models fitted, by GLB, with the most boxes each may have (and, given as a pair, the least share of its volume a box must add). */
 export const SOURCES = [
   {
     glb: 'apps/range/public/models/vegetation.glb',
-    assets: { 'rock-a': 5, 'rock-b': 5, 'rock-strata': 5, 'pine-trunk': 4, 'broadleaf-trunk': 4 },
+    // Boulders and rubble (ticket 78) are rounded and broken where the jointed rocks were flat: more boxes, and
+    // rubble's breaks are worth a box down to a smaller share, as there are few of them on the island.
+    assets: { 'rock-a': 8, 'rock-b': 8, 'rock-strata': 3, 'rubble-a': [10, 0.004], 'rubble-b': [10, 0.004], 'pine-trunk': 4, 'broadleaf-trunk': 4 },
   },
   {
     // Ground Zero's kit for the cover pass's pieces (ticket 17), unit models like the rocks.
@@ -137,7 +139,7 @@ export function insideAlong(tris, x, z) {
 /** Column i's x (or z): just off the grid lines, so no line runs exactly down a mesh edge. */
 const along = (i) => -0.5 + i / (COLUMNS - 1) + (i === 0 ? 1e-5 : i === COLUMNS - 1 ? -1e-5 : 3.1e-6);
 
-export function fit(tris, most, clip = false) {
+export function fit(tris, most, clip = false, worth = WORTH) {
   const n = COLUMNS;
   // Each column's longest stretch inside the mesh (the others are left out, so a box stays inside).
   const lo = new Float64Array(n * n).fill(Infinity);
@@ -174,8 +176,14 @@ export function fit(tris, most, clip = false) {
   };
 
   // The volume, in cells between the search's lines and levels: inside when every column round the cell holds its level.
+  // A line a column in from each edge as well (ticket 78): the outermost columns run just inside the unit
+  // box's sides, and a rounded or dented side never reaches them, which hid its last cells from the search.
   const lines = [];
   for (let i = 0; i < n; i += STEP) lines.push(i);
+  lines.splice(1, 0, 1);
+  lines.splice(lines.length - 1, 0, n - 2);
+  // Each cell weighs its width and depth in columns, as cells between the edge lines are narrower.
+  const wide = (a) => lines[a + 1] - lines[a];
   const m = lines.length - 1;
   const level = (k) => bottom + ((top - bottom) * k) / LEVELS;
   const inside = new Uint8Array(m * m * LEVELS);
@@ -186,7 +194,7 @@ export function fit(tris, most, clip = false) {
       for (let k = 0; k < LEVELS; k++) {
         if (floor <= level(k) && roof >= level(k + 1)) {
           inside[(a * m + b) * LEVELS + k] = 1;
-          total++;
+          total += wide(a) * wide(b);
         }
       }
     }
@@ -206,7 +214,7 @@ export function fit(tris, most, clip = false) {
     const a0 = Math.floor(key / 262144);
     const k0 = Math.ceil(((floor - bottom) / (top - bottom)) * LEVELS - 1e-9);
     const k1 = Math.floor(((roof - bottom) / (top - bottom)) * LEVELS + 1e-9);
-    if (k1 > k0) candidates.push({ a0, a1, b0, b1, k0, k1, cells: (a1 - a0) * (b1 - b0) * (k1 - k0) });
+    if (k1 > k0) candidates.push({ a0, a1, b0, b1, k0, k1, cells: (lines[a1] - lines[a0]) * (lines[b1] - lines[b0]) * (k1 - k0) });
   }
   candidates.sort((p, q) => q.cells - p.cells);
 
@@ -217,20 +225,22 @@ export function fit(tris, most, clip = false) {
     for (const c of candidates) {
       if (best && c.cells <= best.gain) break;
       let gain = 0;
-      for (let a = c.a0; a < c.a1; a++) for (let b = c.b0; b < c.b1; b++) for (let k = c.k0; k < c.k1; k++) gain += 1 - covered[(a * m + b) * LEVELS + k];
+      for (let a = c.a0; a < c.a1; a++) for (let b = c.b0; b < c.b1; b++) for (let k = c.k0; k < c.k1; k++) gain += (1 - covered[(a * m + b) * LEVELS + k]) * wide(a) * wide(b);
       if (!best || gain > best.gain) best = { ...c, gain };
     }
-    if (!best || best.gain < WORTH * total) break;
+    if (!best || best.gain < worth * total) break;
     // Its own cells are taken, whatever growing it does to it.
     for (let a = best.a0; a < best.a1; a++) for (let b = best.b0; b < best.b1; b++) for (let k = best.k0; k < best.k1; k++) covered[(a * m + b) * LEVELS + k] = 1;
     filled += best.gain;
     // Then grown or shrunk a few columns a side at a time, while that makes it bigger: past a face's
     // chamfer by giving up a little of its height, but never more than a little, so it keeps its place.
+    // Nor gaining more than a little: a low wide box picked to fill a rounded rock's sides would
+    // otherwise narrow itself into a tall one like those it already has (ticket 78).
     let c = [lines[best.a0], lines[best.a1], lines[best.b0], lines[best.b1]];
     const tall = ((f, r) => r - f)(...span(...c));
     const size = (b) => {
       const [f, r] = span(...b);
-      return r - f < tall * (1 - GIVE) ? 0 : (b[1] - b[0]) * (b[3] - b[2]) * (r - f);
+      return r - f < tall * (1 - GIVE) || r - f > tall * (1 + GIVE) ? 0 : (b[1] - b[0]) * (b[3] - b[2]) * (r - f);
     };
     let v = size(c);
     for (let better = true; better; ) {
@@ -254,7 +264,7 @@ export function fit(tris, most, clip = false) {
         if (lines[a] < i0 || lines[a + 1] > i1 || lines[b] < j0 || lines[b + 1] > j1) continue;
         for (let k = 0; k < LEVELS; k++) {
           const cell = (a * m + b) * LEVELS + k;
-          if (level(k) >= floor - 1e-9 && level(k + 1) <= roof + 1e-9 && !covered[cell]) [covered[cell], filled] = [1, filled + inside[cell]];
+          if (level(k) >= floor - 1e-9 && level(k + 1) <= roof + 1e-9 && !covered[cell]) [covered[cell], filled] = [1, filled + inside[cell] * wide(a) * wide(b)];
         }
       }
     }
@@ -353,10 +363,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const out = {};
   for (const { glb, assets } of SOURCES) {
     const meshes = readTriangles(join(ROOT, glb));
-    for (const [asset, most] of Object.entries(assets)) {
+    for (const [asset, limit] of Object.entries(assets)) {
+      const [most, worth] = Array.isArray(limit) ? limit : [limit, WORTH];
       const tris = meshes.get(asset);
       if (!tris) throw new Error(`${glb} has no ${asset}`);
-      const { boxes, share } = fit(tris, most);
+      const { boxes, share } = fit(tris, most, false, worth);
       console.log(`${asset}: ${boxes.length} boxes, ${(share * 100).toFixed(0)}% of its volume`);
       out[asset] = boxes.map((b) => ({ c: b.c.map(round), s: b.s.map(round) }));
     }

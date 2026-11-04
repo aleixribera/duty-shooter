@@ -157,17 +157,12 @@ def boulder_lod(name, seed):
 # Jointed rocks (ticket 63): a map solid is boxes, so a rock is built from
 # blocks that boxes can follow. Rounded boulders left their box's corners and
 # top edges as invisible walls, and boxes fitted inside them left a hand's
-# width of rock that bullets went through. Each rock here is a few blocks of
+# width of rock that bullets went through. The Dustlands' ledges are a few blocks of
 # stone broken along joints, as granite and sandstone weather: flat faces, a
 # small chamfer on every edge, the crown's top corners spalled off and the
 # faces pitted inward. Everything about a block is cut into it, never added, so
 # tools/map/fit-solids.mjs finds boxes a few centimetres inside its faces.
 ROCKS = {
-    # A big block with a smaller one sat on it and a lump at its side. The cover pass lays a rock out as
-    # a box to hide a body behind (zero-island-cover.ts), so most of each rock stands near its full height.
-    "rock-a": [((-0.5, -0.46, -0.06), (0.48, 0.5, 0.8)), ((-0.46, -0.46, 0.6), (0.42, 0.44, 1.0)), ((0.06, -0.5, -0.06), (0.5, -0.02, 0.56))],
-    # Two blocks split apart and a third wedged on top.
-    "rock-b": [((-0.5, -0.5, -0.06), (0.08, 0.44, 0.92)), ((-0.1, -0.4, -0.06), (0.5, 0.5, 0.84)), ((-0.42, -0.3, 0.8), (0.02, 0.36, 1.0))],
     # Sandstone ledges, each stepped back a little from the one under it.
     "rock-strata": [((-0.5, -0.5, -0.06), (0.5, 0.48, 0.4)), ((-0.48, -0.47, 0.34), (0.5, 0.5, 0.7)), ((-0.46, -0.45, 0.64), (0.47, 0.48, 0.9)), ((-0.4, -0.42, 0.85), (0.43, 0.42, 1.0))],
 }
@@ -214,6 +209,144 @@ def jointed(name, seed, blocks, lod=False):
         bmesh.ops.triangulate(bm, faces=bm.faces)
         parts.append(kit.obj(name, bm, rock))
     return kit.asset(name, parts, smooth_angle=35)
+
+
+# Boulders (ticket 78): jointed blocks read as stacked cubes on open ground, so outside the Dustlands a
+# rock is one weathered granite boulder again: no two of its corners alike, one worn right round and
+# another left nearly square, a corner split off along a vertical joint at an odd angle, a shoulder
+# sheared, its top rounded over into its sides and drawn in, its skin dented. Its sides stay near upright
+# down to a square foot in the ground, which is where a body hides and bullets fly, so
+# tools/map/fit-solids.mjs fills it with a handful of boxes; what they leave is mostly the rounding over
+# its top and its round corners.
+BOULDERS = {
+    # (seed, [(box, rounding of each upright corner (-x-y, +x-y, +x+y, -x+y) and of its top, as shares of its half-size,
+    # corner joints, shoulder joints, how far its top draws in)])
+    "rock-a": (41, [(((-0.5, -0.5, -0.06), (0.5, 0.5, 1.0)), (0.46, 0.18, 0.34, 0.14), 0.4, 1, 1, 0.07)]),
+    "rock-b": (47, [(((-0.5, -0.5, -0.06), (0.5, 0.5, 1.0)), (0.15, 0.45, 0.2, 0.4), 0.44, 2, 1, 0.08)]),
+}
+
+
+def boulder_mass(rng, box, side, top, corners, shoulders, draw, lod):
+    """One boulder of a rock, rounded and jointed in its own cube, then stood in `box`."""
+    seed_v = Vector((rng.uniform(0, 50), rng.uniform(0, 50), rng.uniform(0, 50)))
+    part = bmesh.new()
+    bmesh.ops.create_cube(part, size=1.0)
+    bmesh.ops.subdivide_edges(part, edges=list(part.edges), cuts=2 if lod else 7, use_grid_fill=True)
+    # Each upright corner its own rounding (a number: all four alike).
+    corner_r = side if isinstance(side, tuple) else (side,) * 4
+    rounds = [Vector((0.5 * c * rng.uniform(0.85, 1.15), 0.5 * c * rng.uniform(0.85, 1.15), 0.5 * top)) for c in corner_r]
+    # Joints: near-vertical ones across corners, then steep ones across a top edge. (normal, how far out from the middle.)
+    planes = []
+    for k in rng.sample(range(4), corners):
+        a = math.pi / 4 + k * math.pi / 2 + rng.uniform(-0.4, 0.4)
+        n = Vector((math.cos(a), math.sin(a), rng.uniform(-0.05, 0.25))).normalized()
+        planes.append((n, (abs(n.x) + abs(n.y)) * 0.5 - rng.uniform(0.04, 0.09)))
+    for k in rng.sample(range(4), shoulders):
+        a = k * math.pi / 2 + rng.uniform(-0.5, 0.5)
+        n = Vector((math.cos(a), math.sin(a), rng.uniform(0.9, 1.6))).normalized()
+        planes.append((n, (abs(n.x) + abs(n.y) + n.z) * 0.5 - rng.uniform(0.1, 0.16)))
+    for v in part.verts:
+        p = v.co.copy()
+        r = rounds[(0 if p.y < 0 else 3) if p.x < 0 else (1 if p.y < 0 else 2)]
+        # The foot isn't rounded: it stands square in the ground.
+        lo, hi = Vector((-0.5 + r.x, -0.5 + r.y, -0.5)), Vector((0.5 - r.x, 0.5 - r.y, 0.5 - r.z))
+        # The rounded box: the nearest point of its core, pushed out along the way to p, ellipsoidally.
+        q = Vector([max(lo[k], min(hi[k], p[k])) for k in range(3)])
+        d = Vector([(p[k] - q[k]) / r[k] for k in range(3)])
+        if d.length > 1e-6:
+            d.normalize()
+        p = q + Vector([d[k] * r[k] for k in range(3)])
+        for n, cut in planes:
+            over = p.dot(n) - cut
+            if over > 0:
+                p -= n * over
+        # The top drawn in, the lower half left upright.
+        k = 1 - draw * 4 * max(0.0, p.z) ** 2
+        p.x *= k
+        p.y *= k
+        if not lod:
+            out = p.normalized()
+            # Dented over the top, barely down the sides: a box stands no further in than a side's deepest dent.
+            h = max(0.0, min(1.0, (p.z + 0.1) / 0.5))
+            rise = 0.12 + 0.88 * h * h * (3 - 2 * h)
+            # Inward only, so the upright foot stays the widest the boulder is and the boxes reach it.
+            p -= out * rise * ((0.5 + 0.5 * noise.noise(p * 1.9 + seed_v)) * 0.045 + (0.5 + 0.5 * noise.noise(p * 5.3 + seed_v)) * 0.012)
+        v.co = p
+    # Into its box.
+    plo = Vector([min(v.co[k] for v in part.verts) for k in range(3)])
+    phi = Vector([max(v.co[k] for v in part.verts) for k in range(3)])
+    blo, bhi = Vector(box[0]), Vector(box[1])
+    for v in part.verts:
+        v.co = Vector([blo[k] + (v.co[k] - plo[k]) / (phi[k] - plo[k]) * (bhi[k] - blo[k]) for k in range(3)])
+    bmesh.ops.triangulate(part, faces=part.faces)
+    return part
+
+
+def granite(name, seed, masses, lod=False):
+    """A rock of boulders (`BOULDERS`), filling the unit box. `lod`: the same in about a hundred triangles."""
+    rng = random.Random(seed)
+    parts = [kit.obj(name, boulder_mass(rng, *m, lod), rock) for m in masses]
+    return kit.asset(name, parts, smooth_angle=60)
+
+
+# Rubble (ticket 78): Ground Zero's rocks are what the blast left of its concrete, slabs and blocks
+# broken across, lying on one another; their fracture faces run at odd angles, their edges are sharp
+# with the arrises chipped, and rebar sticks out of the breaks. Blocks again, so boxes follow them, but
+# each broken by planes, not chamfered.
+RUBBLE = {
+    # A thick slab broken across, a block of wall lying on it, and a chunk at its foot.
+    "rubble-a": [((-0.5, -0.5, -0.06), (0.5, 0.5, 0.46)), ((-0.42, -0.36, 0.4), (0.3, 0.42, 1.0)), ((0.22, -0.5, -0.06), (0.5, -0.05, 0.62))],
+    # Two pieces of a broken beam side by side, the taller one cracked off at its top.
+    "rubble-b": [((-0.5, -0.5, -0.06), (0.06, 0.5, 1.0)), ((-0.04, -0.44, -0.06), (0.5, 0.46, 0.74)), ((0.0, -0.3, 0.68), (0.36, 0.3, 0.86))],
+}
+rebar = mapkit.material(bkit, "plant.rebar", (70, 52, 40), 0.8)  # noqa: F821
+
+
+def broken(name, seed, blocks, lod=False):
+    """Concrete rubble of `blocks` ((lo, hi) corners, unit frame, z up): each block's top broken off by tilted planes, its corners chipped."""
+    rng = random.Random(seed)
+    seed_v = Vector((rng.uniform(0, 50), rng.uniform(0, 50), rng.uniform(0, 50)))
+    parts = []
+    for lo, hi in blocks:
+        lo, hi = Vector(lo), Vector(hi)
+        c, h = (lo + hi) / 2, (hi - lo) / 2
+        bm = bmesh.new()
+        bmesh.ops.create_cube(bm, size=2.0)
+        if not lod:
+            bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=3, use_grid_fill=True)
+        planes = []
+        # The break: one or two planes across the top, tilted a few tens of degrees.
+        for _ in range(rng.choice((1, 2))):
+            a = rng.uniform(0, math.tau)
+            t = math.radians(rng.uniform(8, 20))
+            planes.append((Vector((math.cos(a) * math.sin(t), math.sin(a) * math.sin(t), math.cos(t))), rng.uniform(0.86, 0.96)))
+        # Chipped vertical arrises.
+        for _ in range(2):
+            a = rng.choice((0.25, 0.75, 1.25, 1.75)) * math.pi + rng.uniform(-0.3, 0.3)
+            planes.append((Vector((math.cos(a), math.sin(a), rng.uniform(-0.2, 0.4))).normalized(), rng.uniform(1.12, 1.3)))
+        for v in bm.verts:
+            p = v.co.copy()  # -1..1 in the block's frame
+            for n, cut in planes:
+                over = p.dot(n) - cut
+                if over > 0:
+                    p -= n * over
+            if not lod:
+                # Fracture faces rough, cast faces flat: the roughness only where a plane cut.
+                cut_here = any(p.dot(n) > cut - 1e-4 for n, cut in planes)
+                if cut_here:
+                    p -= Vector((0, 0, 1)) * 0.04 * (0.5 + 0.5 * noise.noise(p * 4.0 + seed_v))
+            v.co = c + Vector((p.x * h.x, p.y * h.y, p.z * h.z))
+        bmesh.ops.triangulate(bm, faces=bm.faces)
+        parts.append(kit.obj(name, bm, rock))
+        if not lod and rng.random() < 0.8:
+            # Rebar out of the break: two bent bars, thin enough that no box need follow them.
+            for _ in range(2):
+                u, w = rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6)
+                foot = c + Vector((u * h.x, w * h.y, h.z * 0.55))
+                tip = foot + Vector((rng.uniform(-0.12, 0.12), rng.uniform(-0.12, 0.12), rng.uniform(0.1, 0.18)))
+                tip.z = min(tip.z, 1.02)
+                parts.append(limb(foot, tip, 0.008, 0.007, rebar, segments=4))
+    return kit.asset(name, parts, smooth_angle=30)
 
 
 # A near trunk has eight sides, flat to the unit box's axes (ticket 63): its solid is boxes, and a
@@ -548,8 +681,13 @@ def blades_up(o, height, lean=0.3, ao_low=0.55):
 
 hard = [
     # Hard cover: rocks, filling a unit box.
-    *[jointed(name, 11 + i, blocks) for i, (name, blocks) in enumerate(ROCKS.items())],
-    *[jointed(f"{name}-lod", 11 + i, blocks, lod=True) for i, (name, blocks) in enumerate(ROCKS.items())],
+    # Granite boulders on open ground, the Dustlands' sandstone ledges, Ground Zero's broken concrete (ticket 78).
+    *[granite(name, seed, masses) for name, (seed, masses) in BOULDERS.items()],
+    *[granite(f"{name}-lod", seed, masses, lod=True) for name, (seed, masses) in BOULDERS.items()],
+    jointed("rock-strata", 13, ROCKS["rock-strata"]),
+    jointed("rock-strata-lod", 13, ROCKS["rock-strata"], lod=True),
+    *[broken(name, 71 + i, blocks) for i, (name, blocks) in enumerate(RUBBLE.items())],
+    *[broken(f"{name}-lod", 71 + i, blocks, lod=True) for i, (name, blocks) in enumerate(RUBBLE.items())],
     # Trees' unit trunks.
     pine_trunk("pine-trunk", TRUNK_SIDES, turn=TRUNK_TURN),
     pine_trunk("pine-trunk-lod", 5, rings=1),

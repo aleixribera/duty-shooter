@@ -2,7 +2,7 @@ import type { SoftCover, Terrain, TerrainData } from '@duty-shooter/fps-core';
 import { PLANT_STRIDE, type PlantKind, type Plants } from '@duty-shooter/fps-client/surfaces';
 import { KIT_SOLIDS } from './kit-solids';
 import type { CoverKind } from './zero-island-cover';
-import { regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero-island-terrain';
+import { CRATER, regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero-island-terrain';
 
 /**
  * Zero Island's vegetation and rocks (ticket 29), from the kit in
@@ -45,7 +45,16 @@ export interface DressedPiece {
 export interface Dress {
   readonly asset: string;
   readonly yaw: number;
+  /** How much wider and deeper than its piece the model stands, when it does: a boulder, rounded where the stone it replaced was square. */
+  readonly across?: number;
 }
+
+/**
+ * A granite boulder's rounded corners and drawn-in top leave about a tenth of
+ * its piece's box empty that the square stone before it filled (ticket 78);
+ * stood this much wider and deeper, it blocks the sightlines that stone did.
+ */
+export const BOULDER_ACROSS = 1.08;
 
 /**
  * Picks the model each rock and trunk of the cover pass wears, before the map
@@ -56,12 +65,15 @@ export interface Dress {
 export class Dresser {
   readonly #r = random(63);
 
-  dress(p: { readonly kind: CoverKind; readonly region: RegionId | 'sea'; readonly width: number; readonly depth: number; readonly yaw: number }): Dress | null {
+  dress(p: { readonly kind: CoverKind; readonly region: RegionId | 'sea'; readonly x: number; readonly z: number; readonly width: number; readonly depth: number; readonly yaw: number }): Dress | null {
     if (p.kind === 'rock') {
       const long = Math.max(p.width, p.depth) / Math.min(p.width, p.depth) > 2.2 || p.region === 'the-dustlands';
-      const asset = long ? 'rock-strata' : this.#r() < 0.5 ? 'rock-a' : 'rock-b';
+      // The crater's rocks are what the blast left of its concrete (ticket 78); elsewhere boulders, or ledges where long.
+      const rubble = p.region === 'ground-zero' && Math.hypot(p.x - CRATER.x, p.z - CRATER.z) < CRATER.rim;
+      const asset = long && !rubble ? 'rock-strata' : `${rubble ? 'rubble' : 'rock'}-${this.#r() < 0.5 ? 'a' : 'b'}`;
       // A half turn now and then hides that every rock is the same way up.
-      return { asset, yaw: p.yaw + (this.#r() < 0.5 ? 0 : Math.PI) };
+      const yaw = p.yaw + (this.#r() < 0.5 ? 0 : Math.PI);
+      return asset.startsWith('rock-') && asset !== 'rock-strata' ? { asset, yaw, across: BOULDER_ACROSS } : { asset, yaw };
     }
     if (p.kind === 'trunk') return { asset: p.region === 'frostbite-peaks' ? 'pine-trunk' : 'broadleaf-trunk', yaw: this.#r() * Math.PI * 2 };
     return null;
@@ -137,12 +149,13 @@ const SOLID_GAP = 0.8;
 
 /** Rock colours by Region: the Dustlands' red sandstone, the peaks' cold grey, the jungle's moss. */
 const ROCK: Readonly<Record<RegionId | 'sea', number>> = {
-  'ground-zero': 0x9b958b,
+  // Granite and concrete a little lighter than the old sandstone-photo rocks were (ticket 78): weathered granite is pale.
+  'ground-zero': 0xaaa59a,
   'the-dustlands': 0xc08460,
-  'frostbite-peaks': 0x969ca4,
-  'mutant-jungle': 0x7f8a6e,
-  'neon-city': 0x8e8c88,
-  'rogue-harbor': 0x8a8780,
+  'frostbite-peaks': 0xa9adb3,
+  'mutant-jungle': 0x8c9878,
+  'neon-city': 0xa29f99,
+  'rogue-harbor': 0x9e9a92,
   sea: 0x7c7a72,
 };
 /** Foliage tint by Region: lush in the jungle, sun-bleached on the plain. */
@@ -263,7 +276,7 @@ class Kinds {
   readonly #lists = new Map<string, { kind: Omit<PlantKind, 'instances'>; values: number[] }>();
 
   add(kind: Omit<PlantKind, 'instances'>, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number, color: number, snow: number): void {
-    const key = `${kind.asset} ${kind.far}`;
+    const key = `${kind.asset} ${kind.far} ${kind.layer ?? ''}`;
     let list = this.#lists.get(key);
     if (!list) this.#lists.set(key, (list = { kind, values: [] }));
     list.values.push(x, y, z, yaw, sx, sy, sz, color, snow);
@@ -281,7 +294,18 @@ const FAR = 2000;
 /** A trunk past this is under a pixel wide, and its crown stands over it. */
 const FAR_TRUNK = 600;
 
-const rockKind = (asset: string, small: boolean): Omit<PlantKind, 'instances'> => ({ asset, lod: `${asset}-lod`, near: 50, far: small ? FAR_SMALL : FAR, thin: false, sway: 0 });
+const rockKind = (asset: string, small: boolean, layer: string): Omit<PlantKind, 'instances'> => ({ asset, lod: `${asset}-lod`, near: 50, far: small ? FAR_SMALL : FAR, thin: false, sway: 0, layer });
+
+/**
+ * The ground photo layer a rock wears (ticket 78), by the Region it stands in:
+ * the Dustlands' rocks the old sandstone, rubble the concrete wall, the
+ * jungle's rocks moss and lichen, and every other rock weathered granite.
+ */
+function rockLayer(asset: string, region: RegionId): string {
+  if (asset.startsWith('rubble-')) return 'wall';
+  if (region === 'the-dustlands') return 'rock';
+  return region === 'mutant-jungle' ? 'moss' : 'boulder';
+}
 const KIND = {
   'pine-trunk': { asset: 'pine-trunk', lod: 'pine-trunk-lod', near: 35, far: FAR_TRUNK, thin: false, sway: 0 },
   'pine-crown': { asset: 'pine-crown', lod: 'pine-crown-lod', near: 45, far: FAR, thin: false, sway: 0.002 },
@@ -317,7 +341,9 @@ export function placePlants(ground: PlantGround, dressed: readonly DressedPiece[
     const { asset, yaw } = p.dress;
     if (p.kind === 'rock') {
       const small = Math.max(p.width, p.depth, p.top - p.ground) < SMALL_ROCK;
-      kinds.add(rockKind(asset, small), p.x, p.bottom, p.z, yaw, p.width, p.top - p.bottom, p.depth, shade(ROCK[p.region], 0.88 + r() * 0.24), snow);
+      // Its finish and colour by the Region it stands in, which a piece of the sea's or a border's needn't be named for.
+      const where = regionAt(p.x, p.z);
+      kinds.add(rockKind(asset, small, rockLayer(asset, where)), p.x, p.bottom, p.z, yaw, p.width, p.top - p.bottom, p.depth, shade(ROCK[where], 0.88 + r() * 0.24), snow);
       modelled.push(...p.solids);
     } else if (p.kind === 'trunk') {
       const pine = asset === 'pine-trunk';

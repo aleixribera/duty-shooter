@@ -51,7 +51,7 @@ const SHALLOWS = -0.6;
 /** How far the Boundary stands off the coast. */
 const OFFSHORE = 24;
 
-const CRATER = { x: 8, z: -42, floor: 50, rim: 120, skirt: 205, floorHeight: 3.4, rimHeight: 16 } as const;
+export const CRATER = { x: 8, z: -42, floor: 50, rim: 120, skirt: 205, floorHeight: 3.4, rimHeight: 16 } as const;
 
 /** The land, as the art draws it; each outline is smoothed into a coast below. */
 const MAIN_COAST: readonly P[] = [

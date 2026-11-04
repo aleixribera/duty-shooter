@@ -4,6 +4,7 @@ import { PLANT_STRIDE } from '@duty-shooter/fps-client/surfaces';
 import { buildMapById } from '../src/map/maps';
 import { KIT_SOLIDS, PIECE_SOLIDS } from '../src/map/kit-solids';
 import { SOFT_PLANTS } from '../src/map/zero-island-plants';
+import { regionAt } from '../src/map/zero-island-terrain';
 
 const map = buildMapById('zero-island');
 const all = map.plants!;
@@ -53,8 +54,43 @@ describe('Zero Island: plants', () => {
     expect(new Set(plants.modelled).size).toBe(plants.modelled.length);
     // A rock or trunk is the boxes fitted inside its model (ticket 63; kit-solids.test.ts).
     let boxes = 0;
-    for (const asset of ['rock-a', 'rock-b', 'rock-strata', 'pine-trunk', 'broadleaf-trunk']) each(asset, () => (boxes += KIT_SOLIDS[asset]!.length));
+    for (const asset of ['rock-a', 'rock-b', 'rock-strata', 'rubble-a', 'rubble-b', 'pine-trunk', 'broadleaf-trunk']) each(asset, () => (boxes += KIT_SOLIDS[asset]!.length));
     expect(boxes + kitSolids).toBe(plants.modelled.length);
+  });
+
+  it("gives each Region its own rock (ticket 78): granite, mossy, sandstone ledges, or Ground Zero's broken concrete", () => {
+    // What each Region's rocks wear: model and ground photo layer, counted.
+    const seen = new Map<string, number>();
+    for (const k of plants.kinds) {
+      if (!/^(rock|rubble)-/.test(k.asset)) continue;
+      for (let o = 0; o < k.instances.length; o += PLANT_STRIDE) {
+        const region = regionAt(k.instances[o]!, k.instances[o + 2]!);
+        const key = `${region} ${k.asset === 'rock-strata' ? 'rock-strata' : k.asset.replace(/-[ab]$/, '')} ${k.layer ?? 'rock'}`;
+        seen.set(key, (seen.get(key) ?? 0) + 1);
+      }
+    }
+    const share = (region: string, look: string) => {
+      const mine = [...seen].filter(([k]) => k.startsWith(`${region} `));
+      return mine.filter(([k]) => k === `${region} ${look}`).reduce((n, [, v]) => n + v, 0) / mine.reduce((n, [, v]) => n + v, 0);
+    };
+    expect(share('frostbite-peaks', 'rock boulder'), 'granite boulders in the peaks').toBeGreaterThan(0.75);
+    expect(share('frostbite-peaks', 'rock boulder') + share('frostbite-peaks', 'rock-strata boulder'), 'granite in the peaks').toBeCloseTo(1, 9);
+    expect(share('mutant-jungle', 'rock moss') + share('mutant-jungle', 'rock-strata moss'), "moss on the jungle's rocks").toBeCloseTo(1, 9);
+    expect(share('the-dustlands', 'rock-strata rock'), 'sandstone ledges in the Dustlands').toBeGreaterThan(0.9);
+    expect(share('the-dustlands', 'rock-strata rock') + share('the-dustlands', 'rock rock'), 'sandstone in the Dustlands').toBeCloseTo(1, 9);
+    // The crater is rubble; the skirt round it is grassland with boulders.
+    let rubble = 0;
+    let crater = 0;
+    for (const k of plants.kinds) {
+      if (!/^(rock|rubble)-/.test(k.asset)) continue;
+      for (let o = 0; o < k.instances.length; o += PLANT_STRIDE) {
+        if (Math.hypot(k.instances[o]! - 8, k.instances[o + 2]! + 42) > 110) continue;
+        crater++;
+        if (k.asset.startsWith('rubble-') && k.layer === 'wall') rubble++;
+      }
+    }
+    expect(crater).toBeGreaterThan(20);
+    expect(rubble / crater, 'rubble in the crater').toBeGreaterThan(0.9);
   });
 
   it('draws every plant that hides a player at least as far as a bot can see', () => {

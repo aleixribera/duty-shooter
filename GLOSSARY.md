@@ -74,11 +74,11 @@ A Blender model from a map's model file, drawn in place of the solids it stands 
 _Avoid_: prop (that's a shootable solid), mesh
 
 **Plant**:
-A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk is hard cover, its solid a Fitted solid; foliage is Soft cover.
+A rock, tree, bush, fern or clump of grass from the plant kit (`tools/map/vegetation.py`, ticket 29), drawn instanced by kind: the full model near, a cheaper one out to its far distance (farther through a scope), nothing past it. A rock or a trunk is hard cover, its solid a Fitted solid; foliage is Soft cover. Each Region's rocks are its own (ticket 78): weathered granite boulders (mossy in the Mutant Jungle, snow-capped in Frostbite Peaks), sandstone ledges in the Dustlands, and broken concrete rubble with rebar in Ground Zero's crater.
 _Avoid_: foliage (only the soft part), decoration
 
 **Fitted solid**:
-The boxes a kit model or a Built piece collides as, fitted inside its Blender mesh by `tools/map/fit-solids.mjs` (ticket 63) and scaled and turned with each instance: no point of them stands more than 5 cm out of the model at the largest it is placed, so what stops a body, a bullet, a grenade or a bot's sight is what's drawn. A rock's boxes fill nearly all of it; a round trunk's, most.
+The boxes a kit model or a Built piece collides as, fitted inside its Blender mesh by `tools/map/fit-solids.mjs` (ticket 63) and scaled and turned with each instance: no point of them stands more than 5 cm out of the model at the largest it is placed, so what stops a body, a bullet, a grenade or a bot's sight is what's drawn. A ledge's boxes fill nearly all of it; a granite boulder's or a rubble block's 80 to 90%, a boulder's rounded corners and top and a block's broken top left over (a 5 m boulder's skin stands a median 13 cm off its boxes); a round trunk's, most.
 _Avoid_: hitbox (that's a player's), collider
 
 **Leaf card**:

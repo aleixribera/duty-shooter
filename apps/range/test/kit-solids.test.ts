@@ -143,6 +143,9 @@ const FILL: Readonly<Record<string, number>> = {
   'rock-a': 0.85,
   'rock-b': 0.85,
   'rock-strata': 0.85,
+  // Ground Zero's broken concrete (ticket 78): its breaks and chipped arrises run at angles no box follows.
+  'rubble-a': 0.75,
+  'rubble-b': 0.75,
   // A trunk and a mast are round: a box can't fill their sides.
   'pine-trunk': 0.55,
   'broadleaf-trunk': 0.55,
