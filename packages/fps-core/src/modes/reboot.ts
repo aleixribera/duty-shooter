@@ -83,6 +83,13 @@ export class Reboot {
     return this.#open;
   }
 
+  /** Whether a press of use by `p` is for a Beacon: it carries a Card and stands at one, or is rebooting. */
+  claims(p: PlayerOutput): boolean {
+    if (this.#beacons.some((b) => b.channel?.by === p.id)) return true;
+    if (!this.#cards.some((c) => c.carrier === p.id)) return false;
+    return this.#beacons.some((b) => flat(p.position, b.position) <= R.beaconReach.value && Math.abs(p.position[1] - b.position[1]) <= TALL);
+  }
+
   /** `id`'s Card lies or is carried, or it has just come back: they are still in it. */
   live(id: PlayerId): boolean {
     return this.#back.has(id) || this.#cards.some((c) => c.owner === id);

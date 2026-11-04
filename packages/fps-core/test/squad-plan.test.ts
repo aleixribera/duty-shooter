@@ -258,3 +258,22 @@ describe('Supply Drops (ticket 71)', () => {
     throw new Error('no bot went for the crate');
   });
 });
+
+describe('a Reboot Card out of reach', () => {
+  const lying = (at: Vec3) => state({ reboot: true, cards: [{ owner: 'a', team: 1, position: at, until: 100 }] });
+
+  it('sends a bot to a Card it can reach, and none to one lying where no route goes (the sea, a roof)', () => {
+    const card: Vec3 = [60, 0, 0];
+    const seats = [seat('b', 1, 40, 0)];
+    const asked: Vec3[] = [];
+    const reachable = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, (_from, to) => (asked.push(to), to));
+    expect(reachable.plan(situation(seats, { state: lying(card) })).get('b')!.use).toEqual(card);
+    const out = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, (_from, to) => (asked.push(to), null));
+    const order = out.plan(situation(seats, { state: lying(card) })).get('b')!;
+    expect(order.use).toBeUndefined();
+    expect(order.rally).not.toEqual(card);
+    // Asked once a Card, not every plan.
+    out.plan(situation(seats, { state: lying(card), time: 11 }));
+    expect(asked).toHaveLength(2);
+  });
+});

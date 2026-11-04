@@ -20,8 +20,10 @@ export function royaleLoadout(loadout: Loadout): Loadout {
 const MOST_LOOSE = 16;
 /** Tries at a spot inside the circle before the ground nearest its middle. */
 const TRIES = 16;
-/** How far (m) from a crate its opener's old primary lands. */
-const BESIDE = 1.1;
+/** How far (m) from a crate its opener's old primary lands: out of the pickup reach of anyone still at the crate's middle. */
+const BESIDE = 1.8;
+/** A seat that just opened a crate swaps nothing for this long (s): a bot still holding use at it would take its old gun straight back. */
+const OPENED_PAUSE = 1.5;
 
 interface Drop {
   readonly stage: number;
@@ -98,6 +100,8 @@ export class SupplyDrops {
   #held = new Set<PlayerId>();
   /** Simulation time at match time 0. */
   #clock = 0;
+  /** When each seat last opened a crate. */
+  readonly #openedAt = new Map<PlayerId, number>();
 
   /** A new match's crates. */
   start(ring: readonly RingStage[], ground: PlayGround, random: () => number): void {
@@ -105,16 +109,21 @@ export class SupplyDrops {
     this.#loose = [];
     this.#nextLoose = 1;
     this.#held = new Set();
+    this.#openedAt.clear();
   }
 
   /** A tick: crates announced, landing and being opened, weapons taken from the ground and dropped by the fallen. */
-  step(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
+  step(events: readonly SimEvent[], ctx: ModeContext, claimed: (p: PlayerOutput) => boolean = () => false): ModeEvent[] {
     this.#clock = ctx.time - ctx.matchTime;
     const out: ModeEvent[] = [];
     const seats = new Map<PlayerId, PlayerOutput>();
     for (const p of ctx.players) seats.set(p.id, p);
     const standing = (p: PlayerOutput | undefined): p is PlayerOutput => p !== undefined && p.alive && !p.downed;
-    const primaryOf = (p: PlayerOutput) => ctx.act?.primary(p.id)?.id ?? p.loadout?.primary;
+    // A sniper shot dry, with nothing left to reload, is no reason to keep away from a crate.
+    const sniperIn = (p: PlayerOutput) => {
+      const held = ctx.act?.primary(p.id);
+      return held ? held.id === DROP_WEAPON && held.ammo + (held.reserve ?? 0) > 0 : p.loadout?.primary === DROP_WEAPON;
+    };
     // The fallen leave the sniper where they fell.
     for (const e of events) {
       if (e.type !== 'kill' || !ctx.act) continue;
@@ -143,6 +152,7 @@ export class SupplyDrops {
         } else if (ctx.time - d.opening.since >= D.openTime.value - 1e-9) {
           d.opened = by.id;
           d.opening = null;
+          this.#openedAt.set(by.id, ctx.time);
           const old = ctx.act?.give(by.id, dropSniper()) ?? null;
           out.push({ type: 'drop', action: 'open', stage: d.stage, player: by.id, position: d.position });
           if (old && old.id !== DROP_WEAPON) {
@@ -158,7 +168,7 @@ export class SupplyDrops {
         // The nearest of those holding use at it, who don't carry the sniper already.
         let best: PlayerOutput | null = null;
         for (const p of ctx.players) {
-          if (!standing(p) || !ctx.using.has(p.id) || !near(p) || primaryOf(p) === DROP_WEAPON) continue;
+          if (!standing(p) || !ctx.using.has(p.id) || !near(p) || sniperIn(p)) continue;
           if (!best || flat(p.position, d.position) < flat(best.position, d.position)) best = p;
         }
         if (best) {
@@ -167,12 +177,14 @@ export class SupplyDrops {
         }
       }
     }
-    // A press of use over a weapon on the ground swaps it for the primary in hand.
+    // A press of use over a weapon on the ground swaps it for the primary in hand, unless the press is for something else there:
+    // a landed crate, a Beacon or a Revive (`claimed`), or it has just opened a crate.
     if (this.#loose.length > 0 && ctx.act) {
       for (const id of ctx.using) {
         if (this.#held.has(id)) continue;
         const p = seats.get(id);
-        if (!standing(p) || this.#opening(id)) continue;
+        if (!standing(p) || this.#opening(id) || ctx.time - (this.#openedAt.get(id) ?? -Infinity) < OPENED_PAUSE) continue;
+        if (this.#drops.some((d) => d.landed && !d.opened && flat(p.position, d.position) <= D.reach.value && Math.abs(p.position[1] - d.position[1]) <= D.reach.value) || claimed(p)) continue;
         const mine = ctx.act.primary(id);
         let best: Loose | null = null;
         for (const l of this.#loose) {

@@ -1,7 +1,7 @@
 import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
 import { planCharge, planOutposts } from '../bots/planner';
 import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
-import { nearestNode, type NavGraph } from '../bots/nav';
+import { findPath, nearestNode, startNode, type NavGraph } from '../bots/nav';
 import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
 import { BattleRoyale, type BattleRoyaleOptions, type SquadSize } from '../modes/battle-royale';
 import { Charge, type ChargeOptions } from '../modes/charge';
@@ -164,6 +164,8 @@ export interface BotOptions {
 
 /** Seconds between the bot teams' plans. */
 const PLAN_EVERY = 1;
+/** A Card lying farther than this (m) from the nearest nav node is out of a bot's reach (in the sea, on a roof). */
+const CARD_REACH = 3;
 /** Battle Royale: Squads a plan in the countdown may give a first rally, so they're spread over its seconds instead of all in one tick; play gives the rest. */
 const FIRST_RALLIES = 8;
 /** A tick's mode events when it had none, shared: the profiler copies what it keeps. */
@@ -408,6 +410,8 @@ export class GameServer {
   #squads: SquadPlanner | null = null;
   #grounds: ReadonlyMap<PlayerId, GroundOrder> = new Map();
   #planAt = 0;
+  /** Battle Royale: each seat's loadout as Preparation locked it, which a Reboot brings back; null until it ends. */
+  #locked: Map<PlayerId, Loadout | undefined> | null = null;
   /** Players holding the use button, as of their latest usercmd. */
   readonly #using = new Set<PlayerId>();
   /** Battle Royale: the Squad each person picked or was given in the lobby (see #lobbySquads). */
@@ -923,6 +927,7 @@ export class GameServer {
     this.#protectedSince.clear();
     this.#endStandIns();
     this.#squads = null;
+    this.#locked = null;
     this.#grounds = new Map();
     if (this.#lobbyMap !== this.#map) this.#switchMap(this.#lobbyMap);
     // A Battle Royale's bots play to their own profile, so into one or out of one they're briefed afresh.
@@ -1260,7 +1265,9 @@ export class GameServer {
     give: (id, weapon) => this.simulation.giveWeapon(id, weapon),
     primary: (id) => this.simulation.primary(id),
     respawn: (id, position, yaw, options) => {
-      this.simulation.respawn(id, position, yaw, this.#loadoutOf(id).loadout, options);
+      // Back with what it dropped in with, not whatever its person picked while out.
+      const loadout = this.#locked?.has(id) ? this.#locked.get(id) : this.#loadoutOf(id).loadout;
+      this.simulation.respawn(id, position, yaw, loadout, options);
       this.#protectedSince.set(id, this.simulation.time);
     },
   };
@@ -1450,16 +1457,28 @@ export class GameServer {
     const { nav, world } = this.#map;
     if (!nav) return;
     const time = this.simulation.time;
-    this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`));
+    this.#squads ??= new SquadPlanner((x, z) => nav.nodes[nearestNode(nav, world, [x, world.terrain?.heightAt(x, z) ?? 0, z])]!.position, hashString(`${this.#matchStart}`), (from, to) => {
+      // Something lying where no nav node is near (the sea, a roof), or no route reaches it, is out of reach.
+      const node = nearestNode(nav, world, to);
+      const at = nav.nodes[node]!.position;
+      if (Math.hypot(at[0] - to[0], at[1] - to[1], at[2] - to[2]) > CARD_REACH) return null;
+      return findPath(nav, startNode(nav, world, from), node) ? at : null;
+    });
     this.#grounds = this.#squads.plan({
       time,
       state,
       seats: seats.map((p) => {
         const bot = this.#bots.get(p.id)?.bot;
-        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}), ...(p.loadout.primary === 'sniper' ? { sniper: true } : {}) };
+        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}), ...(this.#armedSniper(p.id) ? { sniper: true } : {}) };
       }),
       ...(this.#countingDown ? { fresh: FIRST_RALLIES } : {}),
     });
+  }
+
+  /** Whether a seat holds the sniper with rounds left to fire: one shot dry has nothing to keep it from the next crate. */
+  #armedSniper(id: PlayerId): boolean {
+    const held = this.simulation.primary(id);
+    return held?.id === 'sniper' && held.ammo + (held.reserve ?? 0) > 0;
   }
 
   /** How a named bot plays. */
@@ -1524,6 +1543,8 @@ export class GameServer {
   /** A tick of play: scoring, the end of the match, respawns. */
   #playing(out: TickOutput): ModeEvent[] {
     const ctx = this.#context();
+    // Preparation over: every seat's loadout is locked for the match.
+    if (this.#mode.id === BATTLE_ROYALE && !this.#countingDown && !this.#locked) this.#locked = new Map(ctx.players.map((p) => [p.id, this.#loadoutOf(p.id).loadout]));
     const events = this.#mode.onEvents(out.events, ctx);
     // A new round puts everyone back at their side's spawns, alive and with the loadout they picked.
     if (events.some((e) => e.type === 'roundStart')) for (const seat of this.#seats()) this.#spawn(seat.id, this.#mode.chooseSpawn(seat.id, this.#context()));

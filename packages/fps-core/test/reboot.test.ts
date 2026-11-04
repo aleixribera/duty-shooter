@@ -243,7 +243,7 @@ describe('the simulation', () => {
 });
 
 describe('on the server', () => {
-  it('a Duo: one goes out, the other walks over the Card and holds use at a Beacon, and the first is back there with half health', () => {
+  it('a Duo: one goes out, the other walks over the Card and holds use at a Beacon, and the first is back there with half health and the loadout it dropped in with', () => {
     const m = createNetworkedMatch({
       solids: [GROUND],
       spawns: SPAWNS,
@@ -271,11 +271,16 @@ describe('on the server', () => {
     const [ida, idb] = [a.client.id!, b.client.id!];
     const objective = () => m.server.matchStatus().objective as BattleRoyaleState;
     expect(sim.playerState(ida)!.team).toBe(sim.playerState(idb)!.team);
+    const dropped = sim.playerState(idb)!.loadout.primary;
     // Bob bleeds out.
     sim.setPlayerState({ ...sim.playerState(idb)!, health: 40, downed: { since: sim.time - STATS.royale.bleedOut.value + 0.1, by: null, revive: null } } as never);
     m.run(ticks(0.5));
     const card = objective().cards?.find((c) => c.owner === idb);
     expect(card?.position).toBeDefined();
+    // Out, Bob picks another gun: it waits for the next match.
+    const other = dropped === 'shotgun' ? 'smg' : 'shotgun';
+    b.client.setLoadout({ primary: other, secondary: 'pistol', grenade: 'frag' });
+    m.run(ticks(0.2));
     sim.respawn(ida, card!.position!, 0);
     m.run(ticks(0.3));
     expect(objective().cards?.[0]?.carrier).toBe(ida);
@@ -285,6 +290,7 @@ describe('on the server', () => {
     const back = m.server.latest.players.find((p) => p.id === idb)!;
     expect(back.alive).toBe(true);
     expect(back.health).toBe(R.health.value);
+    expect(back.loadout.primary).toBe(dropped);
     expect(Math.hypot(back.position[0] - beacon[0], back.position[2] - beacon[2])).toBeLessThan(2.5);
     expect(objective().cards).toBeUndefined();
     m.run(ticks(0.5));

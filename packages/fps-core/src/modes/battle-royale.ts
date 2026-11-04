@@ -1,6 +1,6 @@
 import type { Vec3 } from '../math';
 import { seededRandom } from '../random';
-import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
+import type { PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../simulation';
 import { STATS } from '../stats';
 import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, ObjectiveState, Score, SpawnPoint, TeamScore } from './game-mode';
 import { groundFromSpawns, squadSpots } from './ground';
@@ -163,7 +163,11 @@ export class BattleRoyale implements GameMode {
       this.#stage = stage;
       out.push({ type: 'stage', stage: stage + 1 });
     }
-    out.push(...this.#drops.step(events, ctx));
+    // A press of use that starts a Revive or a Reboot doesn't also swap guns with one lying there.
+    const reach = STATS.royale.reviveReach.value;
+    const revives = (p: PlayerOutput) =>
+      this.squadSize > 1 && ctx.players.some((o) => o.id !== p.id && o.team === p.team && o.alive && o.downed !== null && Math.hypot(o.position[0] - p.position[0], o.position[2] - p.position[2]) <= reach && Math.abs(o.position[1] - p.position[1]) <= reach);
+    out.push(...this.#drops.step(events, ctx, (p) => this.#reboot.claims(p) || revives(p)));
     out.push(...this.#reboot.step(events, ctx, this.#stage + 1, (id) => this.#entries.get(id)?.team, (id) => this.#entries.get(id)?.name ?? id));
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);

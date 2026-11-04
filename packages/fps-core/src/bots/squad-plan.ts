@@ -155,15 +155,24 @@ interface Mind {
 export class SquadPlanner {
   readonly #spot: (x: number, z: number) => Vec3;
   readonly #seed: number;
+  readonly #reach: ((from: Vec3, to: Vec3) => Vec3 | null) | null;
+  /** Whether a bot can reach each Card lying on the island (by owner and time): the nav spot by it, or null for none. */
+  readonly #cardSpots = new Map<string, Vec3 | null>();
   readonly #minds = new Map<PlayerId, Mind>();
   readonly #intel = new Map<TeamId, SquadIntel>();
   /** The island's gunfire, as everyone in earshot hears it. */
   readonly noise = new NoiseGrid();
   #draws = 0;
 
-  constructor(spot: (x: number, z: number) => Vec3, seed: number) {
+  /**
+   * `reach` says where on the nav a bot coming from one point can stand to
+   * take something lying at another, or null when there's no such place
+   * (a Card in the sea or on a roof); without it, everywhere is reachable.
+   */
+  constructor(spot: (x: number, z: number) => Vec3, seed: number, reach?: (from: Vec3, to: Vec3) => Vec3 | null) {
     this.#spot = spot;
     this.#seed = seed;
+    this.#reach = reach ?? null;
   }
 
   #random(): number {
@@ -393,6 +402,11 @@ export class SquadPlanner {
       let best: PlannedSeat | null = null;
       for (const m of bots) if (!jobs.has(m.id) && (!best || flat(m.position, c.position) < flat(best.position, c.position))) best = m;
       if (!best) continue;
+      // Found once a Card: the nav spot by it, if a route reaches one.
+      const key = `${c.owner}:${c.until ?? 0}`;
+      let spot = this.#cardSpots.get(key);
+      if (spot === undefined) this.#cardSpots.set(key, (spot = this.#reach ? this.#reach(best.position, c.position) : c.position));
+      if (!spot) continue;
       const wall = wallAt(state, time + flat(best.position, c.position) / RUN);
       if (away(c.position, wall) <= wall.radius - WALL_MARGIN) jobs.set(best.id, c.position);
     }
@@ -473,6 +487,10 @@ export class SquadPlanner {
     const present = new Set(seats.map((x) => x.id));
     for (const id of this.#minds.keys()) if (!present.has(id)) this.#minds.delete(id);
     for (const team of this.#intel.keys()) if (!squads.has(team)) this.#intel.delete(team);
+    if (this.#cardSpots.size > 0) {
+      const lying = new Set((state.cards ?? []).map((c) => `${c.owner}:${c.until ?? 0}`));
+      for (const key of this.#cardSpots.keys()) if (!lying.has(key)) this.#cardSpots.delete(key);
+    }
     return orders;
   }
 }
