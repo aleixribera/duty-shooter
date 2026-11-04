@@ -101,6 +101,20 @@ describe('mantle', () => {
     expect(atTop?.position[1]).toBeCloseTo(height, 9);
   });
 
+  it('pulls up before it goes over: the feet clear the top before they pass the face (ticket 67)', () => {
+    for (const { max } of bands) {
+      const height = max.value - tolerance(max);
+      const face = -(stance.hullHalfWidth.value + mantle.reach.value / 2);
+      const { outputs } = jumpAt(height);
+      const during = outputs.filter((p) => p.movement === 'mantle');
+      // The hull's front edge past the face only once the feet are within a hand of the top.
+      for (const p of during) if (p.position[2] - stance.hullHalfWidth.value < face) expect(p.position[1], `${max.value} m`).toBeGreaterThan(height - 0.25);
+      // Rising from the start, and still moving on toward the ledge to the end.
+      expect(during[0]!.velocity[1]).toBeGreaterThan(0);
+      expect(during.at(-2)!.velocity[2]).toBeLessThan(0);
+    }
+  });
+
   it('does not mantle when there is no room to stand on the ledge', () => {
     const height = mantle.lowVaultMaxHeight.value;
     const face = -(stance.hullHalfWidth.value + mantle.reach.value / 2);
@@ -111,5 +125,28 @@ describe('mantle', () => {
     const outputs = hold(match, ticks(1), jump);
 
     expect(outputs.some((p) => p.movement === 'mantle')).toBe(false);
+  });
+});
+
+describe('a bot wedged at a ledge its route walks up (ticket 67)', () => {
+  it('mantles it: the route took stairs that are not there, so it climbs where it stands', async () => {
+    const { Bot, Simulation, botProfile, buildNavGraph, createWorld } = await import('@duty-shooter/fps-core');
+    // A 1.2 m platform. The nav was built with steps up its front (0.3 m each, a walk, not a climb); the world has none.
+    const platform = box({ min: [-3, 0, -12], max: [3, 1.2, -7.5], material: 'concrete' });
+    const steps = [1, 2, 3].map((k) => box({ min: [-3, 0, -5.5 - k + 1], max: [3, k * 0.3, -4.5 - k + 1], material: 'concrete' }));
+    const nav = buildNavGraph(createWorld([FLOOR, platform, ...steps]), { area: [[-10, -16], [10, -16], [10, 6], [-10, 6]], spacing: 1 });
+    const world = createWorld([FLOOR, platform]);
+    const sim = new Simulation(world);
+    sim.addPlayer({ id: 'b', team: 1, position: [0, 0, 2], yaw: 0 });
+    const bot = new Bot('b', botProfile('Vandal'), nav, world);
+    let out = sim.output();
+    let mantled = false;
+    for (let i = 0; i < ticks(8); i++) {
+      const self = out.players[0]!;
+      out = sim.step({ b: bot.think({ tick: out.tick, time: sim.time, self, players: out.players, events: out.events, isEnemy: () => false, objective: { position: [0, 1.2, -10], radius: 1 } }) });
+      if (out.players[0]!.movement === 'mantle') mantled = true;
+    }
+    expect(mantled).toBe(true);
+    expect(out.players[0]!.position[1]).toBeCloseTo(1.2, 1);
   });
 });

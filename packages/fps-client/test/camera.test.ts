@@ -1,7 +1,7 @@
 import { usercmd, type PlayerOutput, type Solid } from '@duty-shooter/fps-core';
 import { box, createHeadlessMatch, playerClip } from '@duty-shooter/fps-core/harness';
 import { describe, expect, it } from 'vitest';
-import { FirstPersonCamera, shotPose } from '../src/camera';
+import { FirstPersonCamera, mantleView, shotPose } from '../src/camera';
 import { DEFAULT_SETTINGS } from '../src/settings';
 
 const DEG = Math.PI / 180;
@@ -124,5 +124,45 @@ describe('ending shot', () => {
     const along = (t: number) => (shotPose(shot, t).position[1] - 5) / 10;
     expect(along(5)).toBeGreaterThan(0.25);
     expect(along(10) - along(5)).toBeGreaterThan(along(19) - along(14));
+  });
+});
+
+describe('first-person camera through a mantle (ticket 67)', () => {
+  it('nods down to the ledge and back up, the high climb most, and is level at either end', () => {
+    for (const band of ['lowVault', 'waist', 'highClimb'] as const) {
+      expect(mantleView(band, 0).pitch).toBeCloseTo(0, 6);
+      expect(mantleView(band, 0).roll).toBeCloseTo(0, 6);
+      expect(mantleView(band, 5).pitch).toBeCloseTo(0, 6);
+      expect(mantleView(band, 5).roll).toBeCloseTo(0, 6);
+    }
+    expect(mantleView('highClimb', 0.6).pitch).toBeCloseTo(-6 * DEG, 3);
+    expect(mantleView('lowVault', 0.225).pitch).toBeGreaterThan(mantleView('highClimb', 0.6).pitch);
+  });
+
+  it('turns the view by it while mantling, and settles back once over', () => {
+    const cam = new FirstPersonCamera();
+    const frame = (p: PlayerOutput) => cam.update({ prev: p, cur: p, alpha: 0, look: { yaw: 0, pitch: 0 }, cmd: { yaw: 0, pitch: 0 }, dt: 1 / 60 }, DEFAULT_SETTINGS);
+    const climbing = { ...player('mantle'), mantle: 'highClimb' } as PlayerOutput;
+    let lowest = 0;
+    for (let i = 0; i < 72; i++) {
+      frame(climbing);
+      lowest = Math.min(lowest, cam.camera.rotation.x);
+    }
+    expect(lowest).toBeLessThan(-4 * DEG);
+    for (let i = 0; i < 120; i++) frame(player('walk'));
+    expect(cam.camera.rotation.x).toBeCloseTo(0, 3);
+    expect(cam.camera.rotation.z).toBeCloseTo(0, 3);
+  });
+  it('nods again for a mantle chained onto the last, and never turns the view past straight down', () => {
+    const cam = new FirstPersonCamera();
+    const climbing = { ...player('mantle'), mantle: 'highClimb' } as PlayerOutput;
+    const frame = (p: PlayerOutput, pitch = 0) => cam.update({ prev: p, cur: p, alpha: 0, look: { yaw: 0, pitch }, cmd: { yaw: 0, pitch: 0 }, dt: 1 / 60 }, DEFAULT_SETTINGS);
+    // Two climbs back to back: the output never leaves 'mantle'. Halfway into the second, the view is nodding again.
+    for (let i = 0; i < 72 + 36; i++) frame(climbing);
+    expect(cam.camera.rotation.x).toBeLessThan(-4 * DEG);
+    for (let i = 0; i < 30; i++) {
+      frame(climbing, -89 * DEG);
+      expect(cam.camera.rotation.x).toBeGreaterThanOrEqual(-89 * DEG - 1e-9);
+    }
   });
 });

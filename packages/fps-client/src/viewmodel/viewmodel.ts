@@ -273,6 +273,8 @@ function shellReload(row: WeaponRow, t: number, ammo: number, empty: boolean): S
 
 /** Cooking: the gun lowered and the frag held up in the support hand. */
 const GRENADE_LOWERED = pose([0.06, -0.22, 0.08], [-0.7, 0.2, 0.3]);
+/** Mantling (ticket 67): the gun swung down and rolled over to the right, out of the way of the hands on the ledge. */
+const MANTLE_AWAY = pose([0.08, -0.18, 0.08], [-0.6, -0.25, -0.6]);
 /** The right hand on a bolt knob (tools/weapon/sniper.py), in gun space: from below and behind, palm up and in, the knob at the base of the fingers. */
 const BOLT_PALM = (() => {
   const o = new Object3D();
@@ -353,6 +355,8 @@ export class Viewmodel {
   #bobPhase = 0;
   #bobAmount = 0;
   #sprint = 0;
+  /** How far the gun is swung out of the way for a mantle, eased, 0 to 1. */
+  #mantle = 0;
   #tactical = 0;
   #boltCycle = 1;
   #time = 0;
@@ -534,6 +538,9 @@ export class Viewmodel {
     // A reload carries on through a sprint, so the gun stays in its reload pose rather than the sprint cant.
     this.#sprint += ((sprinting && state.action !== 'melee' && state.action !== 'reload' ? 1 : 0) - this.#sprint) * k(0.09);
     this.#tactical += ((state.movement === 'tacticalSprint' ? 1 : 0) - this.#tactical) * k(0.1);
+    // A mantle: the gun drops away fast as the hands go to the ledge, and comes back up once over.
+    const mantling = state.movement === 'mantle';
+    this.#mantle += ((mantling ? 1 : 0) - this.#mantle) * k(mantling ? 0.05 : 0.12);
 
     // Viewmodel FOV: a little narrower when aimed, so the sights fill more of the view.
     const fov = (54 - ads * 10) * DEG + (worldVerticalFov - 49 * DEG) * 0.25;
@@ -588,8 +595,9 @@ export class Viewmodel {
 
     const hip = kit ? new Vector3(...kit.rig.hip) : HIP;
     const base = hip.clone().lerp(this.#adsOffset, ads);
-    const p = s.pose.p.map((v, i) => lerp(v, GRENADE_LOWERED.p[i] as number, lowered));
-    const r = s.pose.r.map((v, i) => lerp(v, GRENADE_LOWERED.r[i] as number, lowered));
+    const away = ease(this.#mantle);
+    const p = s.pose.p.map((v, i) => lerp(lerp(v, GRENADE_LOWERED.p[i] as number, lowered), MANTLE_AWAY.p[i] as number, away));
+    const r = s.pose.r.map((v, i) => lerp(lerp(v, GRENADE_LOWERED.r[i] as number, lowered), MANTLE_AWAY.r[i] as number, away));
     const actionWeight = 1 - ads * 0.6;
     this.#pivot.position.set(
       base.x + (p[0] ?? 0) * actionWeight + sprintP.x * this.#sprint + bobX + this.#swayX.value * 0.6 * calm,

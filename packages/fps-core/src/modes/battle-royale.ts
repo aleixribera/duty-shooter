@@ -279,6 +279,8 @@ export class BattleRoyale implements GameMode {
       // The last seats went on one tick: a result always exists while any seat is left to give it to.
       const best = this.#first(lastSeats);
       this.#result = best ? this.#won(best.team, 'lastSquad') : { winner: null, winnerName: null, draw: false, reason: 'noHumans' };
+      // The others out on that tick are second, behind the one given the win.
+      if (best) for (const [team, at] of this.#places) if (at === 1 && team !== best.team) this.#places.set(team, 2);
     } else if (squads.size === 1 && this.#squads > 1) {
       this.#result = this.#won(squads.values().next().value as TeamId, 'lastSquad');
     } else if (this.#peopled && !seats.some((p) => people.has(p.id)) && ![...people].some((id) => this.#reboot.live(id))) {

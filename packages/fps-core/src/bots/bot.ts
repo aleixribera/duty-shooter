@@ -201,6 +201,10 @@ const STOP: readonly [number, number] = [0.6, 1.8];
 const HUNT_STOP = 0.4;
 /** Holding a spot in a rally: this many times its usual hold (s). */
 const SPOT_HOLD: readonly [number, number] = [2, 5];
+/** Within this far (m) of its spot at the end of the route there, a bot is at it. */
+const SPOT_THERE = 1;
+/** Held up this long (s) below where its route goes next, a bot jumps at it (a mantle where there's a ledge). */
+const WEDGED = 0.6;
 /** How far round a rally (m) it looks for a spot, and how many it weighs. */
 const SPOT_REACH = 8;
 const SPOTS_WEIGHED = 24;
@@ -583,6 +587,8 @@ export class Bot {
     if (this.#target) return 'fight';
     if (this.#chasing && this.#chasing !== OBJECTIVE_KEY) return 'chase';
     if (this.#search && this.#search.until > this.#lastTime) return 'search';
+    // Watching from a spot by the rally is a hold too, standing or not.
+    if (this.#spot !== null && !this.#walkingToSpot && this.#spotUntil > this.#lastTime) return 'hold';
     return this.#holdUntil > this.#lastTime ? 'hold' : 'roam';
   }
 
@@ -942,8 +948,10 @@ export class Bot {
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
       }
       if (time < this.#slideUntil && !laddering) buttons.push('Crouch');
-      if (climbing && this.#blocked >= 2 && !(this.#lastButtons & Button.Jump)) buttons.push('Jump');
-      this.#stuck(view, r);
+      // Up a climb link, or held up on the way to higher ground (a kerb of rubble, a sill the nav walked): jump, which mantles where there's a ledge.
+      // Not at or on a ladder, where Jump would keep it from taking hold or throw it off; standing, as a mantle needs.
+      const wedged = this.#stuck(view, r) && !laddering && self.movement !== 'ladder' && self.stance === 'stand';
+      if (((climbing && this.#blocked >= 2) || wedged) && !(this.#lastButtons & Button.Jump)) buttons.push('Jump');
       if (time < this.#unstickUntil) {
         forward = -0.4;
         right = this.#unstickSide;
@@ -1831,7 +1839,9 @@ export class Bot {
     }
     if (this.#walkingToSpot) {
       const move = this.#advance(self, nodes[this.#spot]!.position);
-      if (move !== null) return move;
+      // At the end of the route and within a stride of the spot is there: the last of it may be against what it hides behind.
+      const there = this.#step >= this.#path.length && flat(self.position, nodes[this.#spot]!.position) < SPOT_THERE;
+      if (move !== null && !there) return move;
       this.#walkingToSpot = false;
       const [lo, hi] = SPOT_HOLD;
       const hold = this.profile.holdTime * (lo + (hi - lo) * r(87)) * (ground.hunt ? HUNT_STOP : 1);
@@ -2156,16 +2166,23 @@ export class Bot {
     return total;
   }
 
-  /** When the bot has barely moved for a while: back off a step to one side and find the way again; after longer, go somewhere else. */
-  #stuck(view: BotView, r: (n: number) => number): void {
+  /**
+   * When the bot has barely moved for a while: back off a step to one side and
+   * find the way again; after longer, go somewhere else. True while it is held
+   * up below where its route goes next, for a jump at it (a mantle, where it
+   * can get onto something).
+   */
+  #stuck(view: BotView, r: (n: number) => number): boolean {
     const { self, time } = view;
     // Height gained counts only once landed: hopping at a ledge it can't get onto is no progress.
     const climbed = self.movement !== 'airborne' && Math.abs(self.position[1] - this.#progress.position[1]) > 0.5;
     if (flat(self.position, this.#progress.position) > 0.6 || climbed) {
       this.#progress = { position: self.position, time };
-      return;
+      return false;
     }
     const still = time - this.#progress.time;
+    const next = this.#path[this.#step];
+    const wedged = still > WEDGED && still <= 4 && next !== undefined && this.#nav.nodes[next]!.position[1] > self.position[1] + STATS.movement.stepHeight.value;
     if (still > 1.2 && time >= this.#unstickUntil + 0.6) {
       this.#unstickUntil = time + 0.45;
       this.#unstickSide = r(50) < 0.5 ? -1 : 1;
@@ -2183,6 +2200,7 @@ export class Bot {
       this.#chasing = null;
       this.#plan(self.position, this.#goal, view);
     }
+    return wedged;
   }
 }
 

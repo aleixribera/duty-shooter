@@ -193,7 +193,11 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
       if (now.size > 0) teams = now;
       for (const p of out.players) {
         const activity = m.server.bots.get(p.id)?.bot.activity;
-        if (!p.alive || p.downed || activity === undefined) continue;
+        // A spell Down or out is no time stood still: the clock starts again once up.
+        if (!p.alive || p.downed || activity === undefined) {
+          still.delete(p.id);
+          continue;
+        }
         const [x, , z] = p.position;
         const s = still.get(p.id);
         if (!s || activity !== 'roam' || Math.hypot(x - s.x, z - s.z) > 1.5) still.set(p.id, { x, z, since: matchTime });

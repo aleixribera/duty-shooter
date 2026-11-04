@@ -16,6 +16,7 @@ const LOOKS: Look[] = [
 type State = {
   readonly stance?: PlayerOutput['stance'];
   readonly movement?: PlayerOutput['movement'];
+  readonly mantle?: PlayerOutput['mantle'];
   readonly speed?: number;
   readonly pitch?: number;
   readonly eyeHeight?: number;
@@ -30,7 +31,7 @@ type State = {
 function output(id: WeaponId, s: State, t: number): PlayerOutput {
   return {
     id: 'p1', team: 0, kind: 'player', alive: true, position: [0, 0, 0], velocity: [0, 0, -(s.speed ?? 0)], yaw: 0.7, pitch: s.pitch ?? 0,
-    movement: s.movement ?? 'walk', mantle: null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
+    movement: s.movement ?? 'walk', mantle: s.mantle ?? null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
     weapon: { id, slot: 0, action: s.action ?? 'ready', actionTime: t, reload: s.reload ?? null, ammo: 10, ads: s.ads ?? 0, spread: 0, canFire: true, shotIndex: 0, sway: [0, 0] },
     grenade: s.grenade ?? null, downed: s.downed ?? null, reviving: s.reviving ?? null,
   } as unknown as PlayerOutput;
@@ -231,6 +232,55 @@ describe('the third-person soldier holding each weapon', () => {
       for (const joint of ['hips', 'spine', 'hipL', 'hipR', 'kneeL', 'ankleR', 'neck']) {
         expect(jointAt(soldier, joint).distanceTo(jointAt(fresh, joint)), joint).toBeLessThan(0.01);
       }
+    });
+  });
+  describe('Mantling (ticket 67)', () => {
+    const jointAt = (soldier: Soldier, name: string) => {
+      soldier.root.updateMatrixWorld(true);
+      return soldier.root.getObjectByName(name)!.getWorldPosition(new Vector3());
+    };
+    const standing = () => {
+      const soldier = new Soldier(soldierModel()!, LOOKS[0]!);
+      soldier.hold('m4a1', new Mesh());
+      for (let i = 0; i < 90; i++) soldier.update(output('m4a1', {}, i / 60), 1 / 60);
+      return soldier;
+    };
+    const mantle = (soldier: Soldier, band: NonNullable<PlayerOutput['mantle']>, seconds: number) => {
+      for (let i = 0; i < seconds * 60; i++) soldier.update(output('m4a1', { movement: 'mantle', mantle: band }, i / 60), 1 / 60);
+    };
+
+    it('climbs with both hands up on the ledge, the gun put away, then pulls a knee up', () => {
+      const soldier = standing();
+      mantle(soldier, 'highClimb', 0.15);
+      for (const wrist of ['wristL', 'wristR']) expect(jointAt(soldier, wrist).y, wrist).toBeGreaterThan(jointAt(soldier, 'neck').y);
+      expect(soldier.gunMount.visible).toBe(false);
+      mantle(soldier, 'highClimb', 0.25);
+      // Standing, the knee is a thigh (0.42 m) under the hip.
+      expect(jointAt(soldier, 'kneeR').y).toBeGreaterThan(jointAt(soldier, 'hipR').y - 0.25);
+    });
+
+    it('vaults a low wall one-handed: the left hand down on it, the gun kept in the right', () => {
+      const soldier = standing();
+      mantle(soldier, 'lowVault', 0.2);
+      expect(jointAt(soldier, 'wristL').y).toBeLessThan(jointAt(soldier, 'hips').y);
+      expect(soldier.gunMount.visible).toBe(true);
+      expect(soldier.handError[1]).toBeLessThan(0.01);
+    });
+
+    it('plays a new mantle from its start, and stands back up as it was', () => {
+      const fresh = standing();
+      const soldier = standing();
+      mantle(soldier, 'highClimb', 1.2);
+      for (let i = 0; i < 180; i++) {
+        soldier.update(output('m4a1', {}, i / 60), 1 / 60);
+        fresh.update(output('m4a1', {}, i / 60), 1 / 60);
+      }
+      expect(soldier.gunMount.visible).toBe(true);
+      for (const joint of ['hips', 'spine', 'wristL', 'wristR', 'kneeR', 'neck']) {
+        expect(jointAt(soldier, joint).distanceTo(jointAt(fresh, joint)), joint).toBeLessThan(0.01);
+      }
+      mantle(soldier, 'highClimb', 0.15);
+      expect(jointAt(soldier, 'wristL').y).toBeGreaterThan(jointAt(soldier, 'neck').y);
     });
   });
 });

@@ -10,7 +10,7 @@ export { ALL_BUTTONS, Button, CMD_PITCH_LIMIT, isPressed, usercmd } from './user
 export type { ButtonName, UserCmd } from './usercmd';
 export { MAX_PITCH, Simulation, TICK_RATE, TICK_SECONDS, activeWeapon } from './simulation';
 export { wading } from './movement/collision';
-export type { MantleBand } from './movement/mantle';
+export { mantleDuration, type MantleBand } from './movement/mantle';
 export type { MovementState, Stance } from './movement/pmove';
 export type {
   DummyOptions,

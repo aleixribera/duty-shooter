@@ -1,5 +1,5 @@
 import { PlayersView, buildM4A1, createRenderer } from '@duty-shooter/fps-client';
-import { STATS, WEAPON_IDS, createWorld, isShellReload, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, createWorld, isShellReload, mantleDuration, type MantleBand, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
 import { Color, DirectionalLight, HemisphereLight, PerspectiveCamera, Scene, Vector3 } from 'three/webgpu';
 
 /**
@@ -14,6 +14,7 @@ import { Color, DirectionalLight, HemisphereLight, PerspectiveCamera, Scene, Vec
 type State = {
   readonly stance?: PlayerOutput['stance'];
   readonly movement?: PlayerOutput['movement'];
+  readonly mantle?: PlayerOutput['mantle'];
   readonly speed?: number;
   readonly pitch?: number;
   readonly eyeHeight?: number;
@@ -36,6 +37,12 @@ function columns(id: WeaponId): Column[] {
   const r = row.reload;
   const reload = isShellReload(r) ? r.start.value + 3 * r.perShell.value : r.tacticalDuration.value;
   const crouch = STATS.stance.crouchEyeHeight.value;
+  // A mantle and a moment standing after it, so each loop starts a new one.
+  const mantle = (name: string, band: MantleBand): Column => ({
+    name,
+    duration: mantleDuration(band) + 0.6,
+    state: (t) => (t < mantleDuration(band) ? { movement: 'mantle', mantle: band } : {}),
+  });
   return [
     { name: 'Idle', duration: 2, state: () => ({}) },
     { name: 'Aim', duration: 2, state: () => ({ ads: 1 }) },
@@ -49,6 +56,8 @@ function columns(id: WeaponId): Column[] {
     { name: 'Crawl', duration: 2, state: () => ({ stance: 'prone', eyeHeight: 0.4, speed: 0.7, downed: { bleedOut: 20, revive: 0 } }) },
     { name: 'Downed', duration: 2, state: () => ({ stance: 'prone', eyeHeight: 0.4, downed: { bleedOut: 20, revive: 0 } }) },
     { name: 'Revive', duration: 2, state: (t) => ({ stance: 'crouch', eyeHeight: crouch, reviving: t / 2 }) },
+    mantle('Climb', 'highClimb'),
+    mantle('Vault', 'lowVault'),
   ];
 }
 
@@ -60,7 +69,7 @@ function output(id: string, team: number, position: [number, number, number], ya
   const v = s.speed ?? 0;
   return {
     id, team, kind: 'player', alive: true, position, velocity: [-Math.sin(yaw) * v, 0, -Math.cos(yaw) * v], yaw, pitch: s.pitch ?? 0,
-    movement: s.movement ?? 'walk', mantle: null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
+    movement: s.movement ?? 'walk', mantle: s.mantle ?? null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
     weapon: { id: weapon, slot: 0, action: s.action ?? 'ready', actionTime: t, reload: s.reload ?? null, ammo: 10, ads: s.ads ?? 0, spread: 0, canFire: true, shotIndex: 0, sway: [0, 0] },
     loadout: { primary: weapon, secondary: 'pistol' },
     grenades: 2,

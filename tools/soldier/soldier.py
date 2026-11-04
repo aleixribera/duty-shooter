@@ -121,10 +121,68 @@ def revive_key(press):
     }
 
 
-# Clip: (seconds a loop, its keys evenly through it; the last repeats the first).
+def climb_keys():
+    """A pull-up over a ledge (ticket 67), for the waist and high bands: both hands up on the edge, the chest pulled
+    to it with the right knee coming up, the arms pressing the body over onto that knee, then standing. The sim
+    lifts the body first and carries it over after (pmove's mantle path), so the keys only bend it."""
+    reach = {
+        "hips": ((-0.08, 0, 0), (0, 0.86, 0)), "spine": ((0.12, 0, 0), None), "neck": ((0.35, 0, 0), None),
+        "shoulderL": ((2.85, 0, 0.12), None), "shoulderR": ((2.85, 0, -0.12), None),
+        "elbowL": ((0.3, 0, 0), None), "elbowR": ((0.3, 0, 0), None),
+        "wristL": ((-0.45, 0, 0), None), "wristR": ((-0.45, 0, 0), None),
+        "hipL": ((0.35, 0, 0), None), "kneeL": ((-0.6, 0, 0), None), "ankleL": ((0.25, 0, 0), None),
+        "hipR": ((0.1, 0, 0), None), "kneeR": ((-0.3, 0, 0), None), "ankleR": ((0.2, 0, 0), None),
+    }
+    pull = {
+        "hips": ((-0.35, 0, 0), (0, 0.86, 0)), "spine": ((-0.3, 0, 0), None), "neck": ((0.55, 0, 0), None),
+        "shoulderL": ((1.0, 0, 0.12), None), "shoulderR": ((1.0, 0, -0.12), None),
+        "elbowL": ((1.7, 0, 0), None), "elbowR": ((1.7, 0, 0), None),
+        "wristL": ((-0.9, 0, 0), None), "wristR": ((-0.9, 0, 0), None),
+        "hipL": ((0.15, 0, 0), None), "kneeL": ((-0.75, 0, 0), None), "ankleL": ((0.35, 0, 0), None),
+        "hipR": ((1.5, 0, 0), None), "kneeR": ((-1.9, 0, 0), None), "ankleR": ((0.4, 0, 0), None),
+    }
+    over = {
+        "hips": ((-0.55, 0, 0), (0, 0.8, 0)), "spine": ((-0.25, 0, 0), None), "neck": ((0.7, 0, 0), None),
+        "shoulderL": ((0.4, 0, 0.18), None), "shoulderR": ((0.4, 0, -0.18), None),
+        "elbowL": ((0.25, 0, 0), None), "elbowR": ((0.25, 0, 0), None),
+        "wristL": ((-1.1, 0, 0), None), "wristR": ((-1.1, 0, 0), None),
+        "hipL": ((-0.15, 0, 0), None), "kneeL": ((-0.9, 0, 0), None), "ankleL": ((0.5, 0, 0), None),
+        "hipR": ((1.7, 0, 0), None), "kneeR": ((-2.2, 0, 0), None), "ankleR": ((0.5, 0, 0), None),
+    }
+    stand = {
+        "hips": ((-0.1, 0, 0), (0, 0.84, 0)), "spine": ((-0.05, 0, 0), None), "neck": ((0.12, 0, 0), None),
+        "shoulderL": ((0.2, 0, 0.08), None), "shoulderR": ((0.2, 0, -0.08), None),
+        "elbowL": ((0.5, 0, 0), None), "elbowR": ((0.5, 0, 0), None),
+        "wristL": (fingers_down(-1), None), "wristR": (fingers_down(1), None),
+        "hipL": ((0.2, 0, 0), None), "kneeL": ((-0.3, 0, 0), None), "ankleL": ((0.1, 0, 0), None),
+        "hipR": ((0.5, 0, 0), None), "kneeR": ((-0.6, 0, 0), None), "ankleR": ((0.1, 0, 0), None),
+    }
+    return (reach, pull, over, stand)
+
+
+def vault_keys():
+    """A low vault (ticket 67): the left hand planted on the top and both knees tucked through, the gun kept in the
+    right hand. It keys only the left arm and the legs, so the gun pose holds everywhere else."""
+    def key(shoulder, elbow, wrist, hl, kl, hr, kr, ankle):
+        return {
+            "shoulderL": ((shoulder, 0, -0.25), None), "elbowL": ((elbow, 0, 0), None), "wristL": (wrist, None),
+            "hipL": ((hl, 0, 0), None), "kneeL": ((kl, 0, 0), None), "ankleL": ((ankle, 0, 0), None),
+            "hipR": ((hr, 0, 0), None), "kneeR": ((kr, 0, 0), None), "ankleR": ((ankle, 0, 0), None),
+        }
+    return (
+        key(0.7, 0.2, (-1.1, 0, 0), 0.6, -0.8, 0.3, -0.5, 0.2),
+        key(0.2, 0.0, (-1.4, 0, 0), 1.5, -2.1, 1.3, -2.0, 0.35),
+        key(0.5, 0.5, fingers_down(-1), 0.35, -0.45, 0.2, -0.35, 0.1),
+    )
+
+
+# Clip: (seconds, its keys evenly through it). The loops (crawl, revive) end on their first key; the mantles
+# (climb, vault) are played once, by how far the mantle is through, and key only the joints they move.
 CLIPS = {
     "crawl": (1.0, (crawl_key(-1), crawl_key(1), crawl_key(-1))),
     "revive": (0.8, (revive_key(0), revive_key(1), revive_key(0))),
+    "climb": (1.2, climb_keys()),
+    "vault": (0.45, vault_keys()),
 }
 
 # Slot colours (sRGB) as the free-for-all look wears them; the client recolours by slot.
@@ -432,6 +490,8 @@ def author_clips():
     for clip, (seconds, keys) in CLIPS.items():
         frames = [1 + round(seconds * fps * i / (len(keys) - 1)) for i in range(len(keys))]
         for name, e in empties.items():
+            if not any(name in key for key in keys):
+                continue
             action = bpy.data.actions.new(clip + "_" + name)
             data = e.animation_data_create()
             data.action = action

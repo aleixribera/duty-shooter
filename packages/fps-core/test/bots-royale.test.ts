@@ -286,3 +286,23 @@ describe('pings (ticket 66)', () => {
     expect(again).toBe(0);
   });
 });
+
+describe('a bot watching from a spot by its rally (ticket 67)', () => {
+  it('gets there and counts the watch as a hold, never as a roam stood still', () => {
+    const s = scene([{ id: 'b', team: 1, at: [6, 0, -10], bot: 'Moss' }]);
+    let still = 0;
+    let stuckRoaming = 0;
+    let held = false;
+    let last = s.player('b').position;
+    for (let i = 0; i < ticks(30); i++) {
+      const me = s.step().players.find((p) => p.id === 'b')!;
+      still = Math.hypot(me.position[0] - last[0], me.position[2] - last[2]) < 0.01 ? still + 1 : 0;
+      last = me.position;
+      const activity = s.bots.get('b')!.activity;
+      if (activity === 'hold') held = true;
+      if (activity === 'roam' && still > ticks(1.5)) stuckRoaming++;
+    }
+    expect(held).toBe(true);
+    expect(stuckRoaming).toBe(0);
+  });
+});

@@ -1,4 +1,4 @@
-import { STATS, isShellReload, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, isShellReload, mantleDuration, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
 import {
   type AnimationClip,
   Bone,
@@ -137,7 +137,7 @@ const PISTOL_ADS = new Vector3(0.03, 0.43, -0.45);
 const VEST_POUCH = new Vector3(-0.085, 0.14, -0.2);
 const BELT_SHELLS = new Vector3(-0.16, 0.07, -0.1);
 
-/** The clips the model carries, by name: `crawl` and `revive`. */
+/** The clips the model carries, by name: `crawl`, `revive`, and the mantles' `climb` and `vault`. */
 type Clips = ReadonlyMap<string, Clip>;
 /** A clip's joints, each with where it turns and sits at any moment. */
 interface Clip {
@@ -163,6 +163,10 @@ function readClips(animations: readonly AnimationClip[]): Clips {
 
 /** Metres a whole crawl cycle (a reach with each arm) covers. */
 const CRAWL_STRIDE = 0.8;
+/** A clip played once stops just short of its end: `#wear` takes time in loops. */
+const MANTLE_END = 0.999;
+/** Past a mantle's length by this much (s), a body still mantling is on its next one (as the camera reads it). */
+const MANTLE_AGAIN = 0.05;
 /** The clip is up over the gun pose from about here: the gun goes away out of sight of the pose it left. */
 const GUN_AWAY = 0.5;
 
@@ -279,6 +283,12 @@ export class Soldier {
   /** Each clip's own time, in loops. */
   #crawled = 0;
   #revived = 0;
+  /** The mantle under way or last made (ticket 67): its clip, how far into it the body is (s), and the clip's weight. */
+  #mantleClip: 'climb' | 'vault' = 'climb';
+  #mantleTime = 0;
+  #mantleSeconds = 1;
+  #mantling = false;
+  #mantle = 0;
   #dt = 0;
   /** The support palm, eased, in gun space. */
   readonly #left = { pos: new Vector3(), q: new Quaternion(), set: false };
@@ -419,7 +429,7 @@ export class Soldier {
   update(p: PlayerOutput, dt: number): void {
     const b = this.#bones;
     // Below, joints only set what their own pose moves: a clip's turns have to be gone first.
-    if (this.#crawl + this.#revive > 0) {
+    if (this.#crawl + this.#revive + this.#mantle > 0) {
       for (const joint of JOINTS) {
         b[joint].position.copy(this.#rest[joint]);
         b[joint].rotation.set(0, 0, 0);
@@ -514,7 +524,7 @@ export class Soldier {
     for (const m of this.#materials) m.emissive.copy(glow);
   }
 
-  /** Lays the crawl or the Revive over the pose worked out so far, and puts the gun away under them. */
+  /** Lays the crawl, the Revive or a mantle over the pose worked out so far, and puts the gun away under them. */
   #playClips(p: PlayerOutput, speed: number, ease: (cur: number, target: number, tau: number) => number): void {
     this.#crawl = ease(this.#crawl, p.downed ? 1 : 0, 0.14);
     this.#revive = ease(this.#revive, p.reviving != null ? 1 : 0, 0.14);
@@ -525,7 +535,27 @@ export class Soldier {
     this.#revived += this.#dt / (clips.get('revive')?.duration ?? 1);
     this.#wear(clips.get('crawl'), this.#crawled, this.#crawl);
     this.#wear(clips.get('revive'), this.#revived, this.#revive);
-    this.#gunMount.visible = Math.max(this.#crawl, this.#revive) < GUN_AWAY;
+    // A mantle plays its clip once, by how far through it the body is; a new one starts it over. The climb takes both
+    // hands, so the gun goes away for it; the vault keeps it in the right hand.
+    const band = p.movement === 'mantle' ? p.mantle : null;
+    if (band && !this.#mantling) {
+      this.#mantleClip = band === 'lowVault' ? 'vault' : 'climb';
+      this.#mantleSeconds = mantleDuration(band);
+      this.#mantleTime = 0;
+    }
+    this.#mantling = band !== null;
+    if (band) this.#mantleTime += this.#dt;
+    // Still mantling past its length is the next one, started on the tick the last arrived.
+    if (band && this.#mantleTime > this.#mantleSeconds + MANTLE_AGAIN) {
+      this.#mantleTime -= this.#mantleSeconds;
+      this.#mantleClip = band === 'lowVault' ? 'vault' : 'climb';
+      this.#mantleSeconds = mantleDuration(band);
+    }
+    this.#mantle = ease(this.#mantle, band ? 1 : 0, band ? 0.05 : 0.1);
+    if (this.#mantle < 0.001) this.#mantle = 0;
+    this.#wear(clips.get(this.#mantleClip), Math.min(MANTLE_END, this.#mantleTime / this.#mantleSeconds), this.#mantle);
+    const climb = this.#mantleClip === 'climb' ? this.#mantle : 0;
+    this.#gunMount.visible = Math.max(this.#crawl, this.#revive, climb) < GUN_AWAY;
   }
 
   #wear(clip: Clip | undefined, loops: number, weight: number): void {

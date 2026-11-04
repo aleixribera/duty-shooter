@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INTERMISSION, STATS, TICK_SECONDS, Terrain, createWorld, raycastWorld, usercmd, viewDirection, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { INTERMISSION, STATS, TICK_SECONDS, Terrain, createWorld, raycastWorld, usercmd, viewDirection, type PlayerOutput, type Solid, type Vec3 } from '@duty-shooter/fps-core';
 import { GROUND_LAYERS, shotPose } from '@duty-shooter/fps-client/surfaces';
 import { createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
 import { insidePolygon, LOBBY_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
@@ -257,13 +257,14 @@ describe('Zero Island: moving on it', () => {
   const at = (x: number, z: number): Vec3 => [x, terrain.heightAt(x, z), z];
   const start = (position: Vec3, standing = solids): HeadlessMatch => createHeadlessMatch({ solids: standing, terrain: data, players: [{ id: 'p', team: 1, position }] });
   const faceTo = (from: readonly number[], x: number, z: number) => Math.atan2(-(x - from[0]!), -(z - from[2]!));
-  /** Sprints at (x, z) until within 1.5 m or `seconds` run out; every tick's output. */
-  function run(match: HeadlessMatch, x: number, z: number, seconds: number, buttons: ('Sprint' | 'Jump')[] = ['Sprint']): PlayerOutput[] {
+  type Pressed = ('Sprint' | 'Jump')[];
+  /** Sprints at (x, z) until within 1.5 m or `seconds` run out; every tick's output. `buttons` may change by tick. */
+  function run(match: HeadlessMatch, x: number, z: number, seconds: number, buttons: Pressed | ((tick: number) => Pressed) = ['Sprint']): PlayerOutput[] {
     const out: PlayerOutput[] = [];
     for (let t = 0; t < seconds / TICK_SECONDS; t++) {
       const me = match.latest.players[0]!;
       if (Math.hypot(me.position[0] - x, me.position[2] - z) < 1.5) break;
-      const output = match.step({ p: usercmd({ forward: 1, yaw: faceTo(me.position, x, z), buttons }) });
+      const output = match.step({ p: usercmd({ forward: 1, yaw: faceTo(me.position, x, z), buttons: typeof buttons === 'function' ? buttons(t) : buttons }) });
       out.push(output.players[0]!);
     }
     return out;
@@ -290,6 +291,52 @@ describe('Zero Island: moving on it', () => {
       expect(closest, `from bearing ${k * 15}`).toBeGreaterThan(SUMMIT_RADIUS);
     }
   });
+
+  /** Jump pressed afresh every few ticks, as a player trying every ledge would: each press can start a mantle. */
+  const tapping = (t: number): Pressed => (t % 8 < 4 ? ['Sprint', 'Jump'] : ['Sprint']);
+
+  it('fails to mantle up to the summit from any side, pressing Jump again and again (ticket 67)', () => {
+    for (let k = 0; k < 24; k++) {
+      const bearing = (k / 24) * 2 * Math.PI;
+      const r = SUMMIT.cliffFoot + 12;
+      const x = SUMMIT.x + Math.cos(bearing) * r;
+      const z = SUMMIT.z + Math.sin(bearing) * r;
+      if (!insidePolygon(boundary, x, z)) continue;
+      const out = run(start(at(x, z)), SUMMIT.x, SUMMIT.z, 20, tapping);
+      const closest = Math.min(...out.map((p) => Math.hypot(p.position[0] - SUMMIT.x, p.position[2] - SUMMIT.z)));
+      expect(closest, `from bearing ${k * 15}`).toBeGreaterThan(SUMMIT_RADIUS);
+    }
+  });
+
+  it('mantles onto the cover it runs into (ticket 67)', () => {
+    // Single boxes standing on level ground, low enough to climb (a rock's fitted boxes are left out: their bounds aren't their shape).
+    const overlaps = (s: Solid, o: Solid) => o !== s && o.min[0] < s.max[0] && o.max[0] > s.min[0] && o.min[2] < s.max[2] && o.max[2] > s.min[2];
+    const pieces = solids.filter((s) => {
+      if (s.orientation !== null) return false;
+      const [cx, cz] = [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2];
+      const rise = s.max[1] - terrain.heightAt(cx, cz);
+      const [w, d] = [s.max[0] - s.min[0], s.max[2] - s.min[2]];
+      return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && w > 1 && w < 5 && d > 1 && d < 5 && insidePolygon(boundary, cx, cz) && !solids.some((o) => overlaps(s, o));
+    });
+    expect(pieces.length).toBeGreaterThan(20);
+    let tried = 0;
+    let climbed = 0;
+    for (let i = 0; i < pieces.length && tried < 24; i++) {
+      const s = pieces[i]!;
+      const [cx, cz] = [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2];
+      const from = [cx, s.min[2] - 1.6] as const;
+      const ground = terrain.heightAt(from[0], from[1]);
+      // Only a clear, level approach: nothing else in the way, no slope to walk up first.
+      if (Math.abs(ground - terrain.heightAt(cx, s.min[2] - 0.3)) > 0.2 || terrain.steepAt(from[0], from[1])) continue;
+      if (solids.some((o) => o !== s && o.max[1] > ground + 0.3 && o.min[0] < cx + 0.6 && o.max[0] > cx - 0.6 && o.min[2] < s.min[2] && o.max[2] > from[1] - 0.5)) continue;
+      tried++;
+      // At a point beyond it, so the run doesn't stop short of the piece.
+      const out = run(start([from[0], ground, from[1]]), cx, s.max[2] + 4, 3, tapping);
+      if (out.some((p) => p.movement === 'mantle') && Math.max(...out.map((p) => p.position[1])) > s.max[1] - 0.1) climbed++;
+    }
+    expect(tried).toBeGreaterThan(8);
+    expect(climbed, `${climbed} of ${tried}`).toBe(tried);
+  }, 30_000);
 
   it('crosses every bridge dry, its ends level with the ground either side', () => {
     for (const bridge of BRIDGES) {
@@ -326,6 +373,9 @@ describe('Zero Island: moving on it', () => {
       tried++;
       const end = last(run(start(at(x, z)), ex * 1.1, ez * 1.1, 8)).position;
       expect(insidePolygon(boundary, end[0], end[2]), `edge ${k}`).toBe(true);
+      // Nor does a mantle take anyone over it (ticket 67).
+      const over = run(start(at(x, z)), ex * 1.1, ez * 1.1, 8, tapping);
+      expect(over.every((p) => insidePolygon(boundary, p.position[0], p.position[2])), `edge ${k}, mantling`).toBe(true);
     }
     expect(tried).toBeGreaterThan(8);
   });

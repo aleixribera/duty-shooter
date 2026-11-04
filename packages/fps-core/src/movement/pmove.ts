@@ -169,12 +169,22 @@ function enterLadder(state: MoveState, cmd: UserCmd, world: World): void {
   }
 }
 
-/** Moves the mantle on by one tick along a straight line; on arrival the player stands on the ledge. */
+/**
+ * A mantle's shape (ticket 67): the body rises over the first part and goes
+ * over the top in the rest, overlapping in the middle, so it pulls up and then
+ * rolls on rather than sliding up through the ledge's edge.
+ */
+const MANTLE_RISE = 0.55;
+const MANTLE_OVER = 0.3;
+const smooth = (x: number) => x * x * (3 - 2 * x);
+
+/** Moves the mantle on by one tick, up and then over; on arrival the player stands on the ledge. */
 function advanceMantle(state: MoveState, m: MantleProgress, dt: number): void {
   m.ticks += 1;
   const f = Math.min(1, (m.ticks * dt) / m.duration);
-  const lerp = (a: number, b: number) => a + (b - a) * f;
-  const next: Vec3 = f >= 1 - 1e-9 ? m.to : [lerp(m.from[0], m.to[0]), lerp(m.from[1], m.to[1]), lerp(m.from[2], m.to[2])];
+  const up = smooth(Math.min(1, f / MANTLE_RISE));
+  const over = smooth(Math.max(0, (f - MANTLE_OVER) / (1 - MANTLE_OVER)));
+  const next: Vec3 = f >= 1 - 1e-9 ? m.to : [m.from[0] + (m.to[0] - m.from[0]) * over, m.from[1] + (m.to[1] - m.from[1]) * up, m.from[2] + (m.to[2] - m.from[2]) * over];
   state.velocity = [(next[0] - state.position[0]) / dt, (next[1] - state.position[1]) / dt, (next[2] - state.position[2]) / dt];
   state.position = next;
   state.movement = 'mantle';

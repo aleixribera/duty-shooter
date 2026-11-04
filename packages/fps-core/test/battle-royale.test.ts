@@ -128,9 +128,12 @@ describe('Winning', () => {
   });
 
   it('when the last seats die on one tick, the higher kill count wins', () => {
-    const { tick } = royale({ seats: 3 });
+    const { tick, mode } = royale({ seats: 3 });
     tick(['p1', 'p3']);
     expect(tick(['p2', 'p3'], ['p3', 'p2'])).toMatchObject({ winner: 3, reason: 'lastSquad' });
+    // One first place: the other out on that tick is second.
+    expect(place(mode, 'p3')).toBe(1);
+    expect(place(mode, 'p2')).toBe(2);
   });
 
   it('then the lower seat number, read as a number, so a result always exists', () => {
