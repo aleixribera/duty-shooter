@@ -28,7 +28,7 @@ export class LocalRoyale {
 
   constructor(transport: ServerTransport, nav: NavGraph, options: LocalRoyaleOptions = {}) {
     const map = buildMapById(MAP);
-    const world = createWorld(mapSolids(map), { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map) });
+    const world = createWorld(mapSolids(map), { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map), traps: map.soundTraps ?? [] });
     this.server = new GameServer(transport, {
       world,
       map: MAP,

@@ -56,6 +56,9 @@ export type SoundEventName =
   | 'ringShift' // the warning as the Ring starts to close (not placed in the world)
   | 'ping' // a squadmate marked a place or a thing (not placed in the world)
   | 'pingEnemy' // a squadmate marked an enemy (not placed in the world)
+  | 'trapBirds' // birds flushing out of a canopy as someone runs past (a sound trap)
+  | 'trapMetal' // loose sheet metal rattling as someone runs past (a sound trap)
+  | 'trapGravel' // loose gravel sliding as someone runs past (a sound trap)
   | 'prepDrone' // one segment of the Preparation's drone (intensity: how near the drop; not placed in the world)
   | 'heartbeat'; // one beat of the Preparation's heartbeat (intensity: how near the drop; not placed in the world)
 
@@ -117,6 +120,8 @@ export interface VoiceParams extends SoundParams {
 export interface VoiceExtras {
   /** Longest the voice can ring for, in seconds (used to free the routing nodes behind it). */
   readonly duration?: number;
+  /** How long this one play rings for (s), when it is shorter than `duration`: a voice's longest layer needn't hold every play's slot. */
+  lengthOf?(params: VoiceParams): number;
   /** Precompute anything expensive (buffers) for this context ahead of the first play. */
   warm?(ctx: BaseAudioContext): void;
   /** The same work as warm(), split into small slices the sound system runs between frames. */

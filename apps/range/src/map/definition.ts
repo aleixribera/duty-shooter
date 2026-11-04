@@ -1,4 +1,4 @@
-import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
+import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SoundTrap, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
 import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
@@ -67,6 +67,8 @@ export interface MapDefinition {
   readonly plants?: Plants;
   /** Soft cover: what hides a body from bots without stopping a bullet (see `softConcealment`). */
   readonly soft?: readonly SoftCover[];
+  /** Spots that give away whoever runs past (ticket 72): birds, sheet metal, gravel. */
+  readonly soundTraps?: readonly SoundTrap[];
   readonly ramps: readonly Ramp[];
   readonly labels: readonly Label[];
   /**

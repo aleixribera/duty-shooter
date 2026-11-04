@@ -3,6 +3,7 @@ import { normalize, type EndingShot, type Finish, type Lighting } from '@duty-sh
 import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
+import { soundTraps } from './zero-island-traps';
 import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
@@ -361,6 +362,7 @@ export function buildZeroIsland(): MapDefinition {
     models: null,
     plants,
     soft,
+    soundTraps: soundTraps(terrain, dressed),
     ramps: [],
     labels: [],
     populationSign: null,

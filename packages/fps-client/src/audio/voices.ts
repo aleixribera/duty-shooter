@@ -7,6 +7,7 @@ import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice
 import { chargeArmedVoice, chargeBeepVoice, chargeDisarmedVoice, chargeKeyVoice, chargeToolVoice } from './charge';
 import { ringCrackleVoice, ringHumVoice, ringShiftVoice } from './ring';
 import { heartbeatVoice, prepDroneVoice } from './preparation';
+import { trapBirdsVoice, trapGravelVoice, trapMetalVoice } from './traps';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
@@ -84,6 +85,9 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     ringShift: ringShiftVoice(),
     ping: pingVoice(),
     pingEnemy: pingEnemyVoice(),
+    trapBirds: trapBirdsVoice(),
+    trapMetal: trapMetalVoice(),
+    trapGravel: trapGravelVoice(),
     prepDrone: prepDroneVoice(),
     heartbeat: heartbeatVoice(),
   };

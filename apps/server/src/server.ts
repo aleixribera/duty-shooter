@@ -409,7 +409,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   };
   /** A map as the game server runs it, its nav graph ready when bots are on. */
   const serverMap = (def: MapDefinition): ServerMap => {
-    const world = createWorld(mapSolids(def), { ladders: def.ladders ?? [], terrain: def.terrain, concealment: mapConcealment(def) });
+    const world = createWorld(mapSolids(def), { ladders: def.ladders ?? [], terrain: def.terrain, concealment: mapConcealment(def), traps: def.soundTraps ?? [] });
     const nav = maxBots > 0 ? navOf(def, world) : null;
     return {
       id: def.id,

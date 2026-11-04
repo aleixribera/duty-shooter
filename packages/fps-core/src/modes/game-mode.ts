@@ -5,6 +5,7 @@ import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
 import type { PlayGround } from './ground';
 import type { PingEvent } from '../pings';
+import type { TrapEvent } from '../sound-traps';
 
 /** A place players can spawn. */
 export interface SpawnPoint {
@@ -306,6 +307,8 @@ export type ModeEvent =
   | { readonly type: 'reboot'; readonly action: 'start' | 'stop' | 'done'; readonly player: PlayerId; readonly playerName: string; readonly beacon: number; readonly seats: readonly PlayerId[]; readonly names: readonly string[]; readonly position: Vec3 }
   /** A ping, for the pinger's Squad or team only. */
   | PingEvent
+  /** A sound trap went off (ticket 72): heard by everyone near, people and bots. */
+  | TrapEvent
   | ({ readonly type: 'matchEnd' } & MatchResult)
   | { readonly type: 'matchStart'; readonly mode: ModeId };
 

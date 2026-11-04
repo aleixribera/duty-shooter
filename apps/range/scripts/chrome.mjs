@@ -1,7 +1,7 @@
 // A Chrome driven over the DevTools protocol, for the benchmark and the
 // reference-spot screenshots: 1920 x 1080, WebGPU on, vsync off. Headless
 // unless HEADED=1, and muted unless SOUND=1 (a headless page still plays
-// through the speakers); CHROME overrides the browser path. The page sees no
+// through the speakers, and the announcer speaks unless the page is marked automated); CHROME overrides the browser path. The page sees no
 // controller unless PAD=1: Chrome hands a page the PC's real one once a script's
 // click focuses it, and a pad in use at this PC then plays the scripted match.
 import { spawn } from 'node:child_process';
@@ -29,7 +29,9 @@ export async function launchChrome({ profile: keep } = {}) {
     'about:blank',
   ];
   if (!process.env.HEADED) args.unshift('--headless=new');
-  if (!process.env.SOUND) args.unshift('--mute-audio');
+  // Muted, and marked as automated (navigator.webdriver): the game's announcer speaks through the PC's own
+  // speech engine, which --mute-audio doesn't reach, so it keeps quiet for a page that says it is scripted.
+  if (!process.env.SOUND) args.unshift('--mute-audio', '--enable-automation');
   const browser = spawn(chrome, args, { stdio: 'ignore' });
   let target;
   for (let i = 0; i < 50 && !target; i++) {

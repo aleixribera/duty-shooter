@@ -8,7 +8,7 @@ import { islandNav } from './island-nav';
 export function island() {
   const map = buildMapById('zero-island');
   const solids = mapSolids(map);
-  const world: World = createWorld(solids, { terrain: map.terrain, concealment: mapConcealment(map) });
+  const world: World = createWorld(solids, { terrain: map.terrain, concealment: mapConcealment(map), traps: map.soundTraps ?? [] });
   return { map, solids, world, nav: islandNav(map) };
 }
 
@@ -110,6 +110,7 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
     solids: isle.solids,
     terrain: isle.map.terrain!,
     concealment: isle.world.concealment,
+    traps: isle.world.traps,
     spawns: isle.map.spawns.ffa,
     mode: 'battle-royale',
     modes: { battleRoyale: { squadSize: size, seed, ...(timeLimit === undefined ? {} : { timeLimit }) } },

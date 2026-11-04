@@ -8,6 +8,7 @@ import { usercmd, type UserCmd } from '../usercmd';
 import type { Loadout } from '../weapon/loadout';
 import type { TerrainData } from '../terrain';
 import { createWorld, type Concealment, type Ladder, type Solid } from '../world';
+import type { SoundTrap } from '../sound-traps';
 
 export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly solids: readonly Solid[];
@@ -15,6 +16,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly terrain?: TerrainData;
   /** Soft cover the bots can't see through (see `softConcealment`). */
   readonly concealment?: Concealment | null;
+  /** The map's sound traps (ticket 72). */
+  readonly traps?: readonly SoundTrap[];
   readonly spawns: readonly SpawnPoint[];
   /** One spawn set per team, for team deathmatch. */
   readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
@@ -104,7 +107,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
   const network = createMemoryNetwork(options);
   const passphrase = options.passphrase ?? 'letmein';
   const server = new GameServer(network.server, {
-    world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain, concealment: options.concealment ?? null }),
+    world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain, concealment: options.concealment ?? null, traps: options.traps ?? [] }),
     mode: options.mode ?? 'ffa',
     spawns: options.spawns,
     ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
@@ -161,7 +164,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
       const client = new GameClient({
         connection: joinOptions.connection ?? network.connect(),
         ...(joinOptions.reconnect ? { reconnect: joinOptions.reconnect } : {}),
-        world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain, concealment: options.concealment ?? null }),
+        world: createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain, concealment: options.concealment ?? null, traps: options.traps ?? [] }),
         name,
         passphrase: joinOptions.passphrase ?? passphrase,
         ...(joinOptions.mode ? { mode: joinOptions.mode } : {}),

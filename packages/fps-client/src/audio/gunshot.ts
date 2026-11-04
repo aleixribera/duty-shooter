@@ -11,7 +11,8 @@
  *           plus a ground reflection (and L/R decorrelated air for the stereo local version)
  *   mech  = (3) bolt carrier: unlock clack (~8 ms), lock clack (~50 ms), buffer spring ring,
  *           receiver ring. Only audible for the local gun and very close shooters.
- *   far   = what a shot sounds like past ~60 m: smeared front, dull pop, rumble, terrain echoes.
+ *   far   = what a shot sounds like past ~60 m, one bank per family (rifle, sniper, shotgun, light):
+ *           smeared front, dull pop, rumble, terrain echoes, fading out at the hearing range's edge.
  */
 import {
   buffer,
@@ -28,7 +29,7 @@ import {
 } from './dsp';
 import { kitFor } from './kit';
 import { dbToGain, jit, cleanupOnEnd } from './synth-voice';
-import type { WeaponId } from '@duty-shooter/fps-core';
+import { WIDE_MAP, type WeaponId } from '@duty-shooter/fps-core';
 import type { SoundParams, Voice, VoiceExtras, VoiceParams } from './types';
 
 const LOCAL = 'gunshot/local';
@@ -104,17 +105,45 @@ function renderCore(rng: Rng, sr: number, local: boolean): Float32Array[] {
   return finishChannels(out, sr, 28);
 }
 
-function renderFar(rng: Rng, sr: number): Float32Array[] {
-  const dry = buffer(sr, 0.65);
+/**
+ * A gun's family as heard from far off (ticket 72): what is left of each kind
+ * of shot past ~60 m, so a fight can be told by ear. Rifles a dull thump with a
+ * rolling echo; the sniper the supersonic crack arriving ahead of a deep boom
+ * and a long echo off the hills; the shotgun a broad boom with no crack; the
+ * light guns a flat pop that dies quickly.
+ */
+export type FarFamily = 'rifle' | 'sniper' | 'shotgun' | 'light';
+
+export const FAR_FAMILY: Readonly<Record<WeaponId, FarFamily>> = { m4a1: 'rifle', sniper: 'sniper', shotgun: 'shotgun', smg: 'light', pistol: 'light' };
+
+const FAR_SHAPE: Readonly<Record<FarFamily, { seconds: number; front: number; crack: number; band: number; bang: number; thump: number; roll: number; echoes: number; spread: number; dark: number }>> = {
+  rifle: { seconds: 1.0, front: 0.8, crack: 0, band: 420, bang: 1, thump: 80, roll: 0.16, echoes: 4, spread: 0.35, dark: 2200 },
+  sniper: { seconds: 1.4, front: 0.5, crack: 0.9, band: 330, bang: 1, thump: 62, roll: 0.24, echoes: 6, spread: 0.6, dark: 2000 },
+  shotgun: { seconds: 1.1, front: 0.4, crack: 0, band: 300, bang: 1.2, thump: 58, roll: 0.2, echoes: 4, spread: 0.4, dark: 1500 },
+  light: { seconds: 0.7, front: 0.7, crack: 0, band: 650, bang: 0.8, thump: 110, roll: 0.08, echoes: 3, spread: 0.18, dark: 2800 },
+};
+
+export function renderFar(rng: Rng, sr: number, family: FarFamily = 'rifle'): Float32Array[] {
+  const f = FAR_SHAPE[family];
+  const dry = buffer(sr, f.seconds);
+  // A supersonic round's own crack outruns the muzzle's report: a sharp tick ahead of the boom.
+  const lead = f.crack > 0 ? rng.range(0.06, 0.1) : 0;
+  if (f.crack > 0) {
+    const n = Math.round(0.0006 * sr);
+    for (let i = 0; i < n; i++) dry[i] = (dry[i] ?? 0) + f.crack * (1 - (2 * i) / n);
+    noiseBurst(dry, sr, rng, { at: 0, attack: 0.0001, tau: 0.002, gain: f.crack * 0.6, mode: 'highpass', freq: 2500, length: 0.02 });
+  }
   const nN = Math.round(0.0013 * sr);
-  for (let i = 0; i < nN; i++) dry[i] = (dry[i] ?? 0) + 0.8 * (1 - (2 * i) / nN);
-  noiseBurst(dry, sr, rng, { at: 0, attack: 0.002, tau: rng.range(0.03, 0.04), gain: 1, mode: 'bandpass', freq: rng.range(350, 500), q: 0.7, length: 0.25 });
-  thump(dry, sr, { at: 0.001, f0: rng.range(80, 92), f1: 45, glideTau: 0.03, attack: 0.003, tau: 0.06, gain: 0.8 });
-  noiseBurst(dry, sr, rng, { at: 0.005, attack: 0.012, tau: rng.range(0.14, 0.18), gain: 0.5, mode: 'lowpass', freq: 260, steep: true, length: 0.6 });
+  const at0 = Math.round(lead * sr);
+  for (let i = 0; i < nN; i++) dry[at0 + i] = (dry[at0 + i] ?? 0) + f.front * (1 - (2 * i) / nN);
+  noiseBurst(dry, sr, rng, { at: lead, attack: 0.002, tau: rng.range(0.03, 0.04), gain: f.bang, mode: 'bandpass', freq: f.band * rng.range(0.85, 1.2), q: 0.7, length: 0.25 });
+  thump(dry, sr, { at: lead + 0.001, f0: f.thump * rng.range(0.95, 1.1), f1: f.thump * 0.55, glideTau: 0.03, attack: 0.003, tau: 0.06, gain: 0.8 });
+  noiseBurst(dry, sr, rng, { at: lead + 0.005, attack: 0.012, tau: f.roll * rng.range(0.9, 1.1), gain: 0.5, mode: 'lowpass', freq: 260, steep: true, length: f.seconds - lead - 0.05 });
+  // The echoes off the island: darker, later and fainter each time.
   const echoes = Float32Array.from(dry);
   lp(echoes, sr, 1200);
-  for (let i = 0; i < 3; i++) mix(dry, echoes, sr, rng.range(0.015, 0.07), rng.range(0.2, 0.38));
-  lp(dry, sr, 2200);
+  for (let i = 0; i < f.echoes; i++) mix(dry, echoes, sr, lead + rng.range(0.015, f.spread) * (1 + i * 0.4), rng.range(0.2, 0.36) / (1 + i * 0.35));
+  lp(dry, sr, f.dark);
   saturate(dry, 1.4);
   return finishChannels([dry], sr, 30);
 }
@@ -143,7 +172,6 @@ function renderMech(rng: Rng, sr: number): Float32Array[] {
 const render = {
   local: (rng: Rng, sr: number) => renderCore(rng, sr, true),
   near: (rng: Rng, sr: number) => renderCore(rng, sr, false),
-  far: (rng: Rng, sr: number) => renderFar(rng, sr),
   mech: (rng: Rng, sr: number) => renderMech(rng, sr),
 };
 
@@ -163,10 +191,33 @@ const CHARACTER: Readonly<Record<WeaponId, { rate: number; gain: number; tone: n
 
 const FAR_START = 40;
 const FAR_FULL = 110;
+/**
+ * Shots are sent to everyone within hearing range (400 m on the island) and no
+ * farther, so the far shot fades out over its last stretch rather than
+ * stopping dead at the edge.
+ */
+export const HEARD_EDGE = WIDE_MAP.relevance?.hearing ?? 400;
+const EDGE_FADE = 80;
+
+/** How much of a shot is left `distance` m off at the hearing range's edge: 1 well inside it, 0 at the edge. */
+export function edgeFade(distance: number): number {
+  return Math.min(1, Math.max(0, (HEARD_EDGE - distance) / EDGE_FADE));
+}
+
+const FAMILIES: readonly FarFamily[] = ['rifle', 'sniper', 'shotgun', 'light'];
+const farId = (family: FarFamily): string => `${FAR}/${family}`;
+const farRender = (family: FarFamily) => (rng: Rng, sr: number) => renderFar(rng, sr, family);
 
 export function gunshotVoice(): Voice & VoiceExtras {
   return {
-    duration: 0.75,
+    /** The far sniper's tail at the slowest rate: the most any shot rings. */
+    duration: FAR_SHAPE.sniper.seconds / 0.74,
+    /** A near shot is over in well under a second; only a far one rings for its family's tail. */
+    lengthOf(p: VoiceParams) {
+      const near = 0.75;
+      if (p.local === true || p.distance === undefined || p.distance <= FAR_START) return near;
+      return Math.max(near, FAR_SHAPE[FAR_FAMILY[p.weapon ?? 'm4a1']].seconds / 0.98);
+    },
     warm(ctx: BaseAudioContext) {
       for (const task of this.warmTasks?.(ctx) ?? []) task();
     },
@@ -179,7 +230,7 @@ export function gunshotVoice(): Voice & VoiceExtras {
           kit.bank(MECH, MECH_VARIANTS, render.mech);
         },
         () => void kit.bank(NEAR, NEAR_VARIANTS, render.near),
-        () => void kit.bank(FAR, FAR_VARIANTS, render.far),
+        ...FAMILIES.map((family) => () => void kit.bank(farId(family), FAR_VARIANTS, farRender(family))),
       ];
     },
     play(ctx: AudioContext, out: AudioNode, params: SoundParams, startTime: number) {
@@ -211,9 +262,11 @@ export function gunshotVoice(): Voice & VoiceExtras {
         const d = p.distance ?? 0;
         const w = Math.min(1, Math.max(0, (d - FAR_START) / (FAR_FULL - FAR_START)));
         const nearGain = Math.cos((w * Math.PI) / 2);
-        const farGain = Math.sin((w * Math.PI) / 2);
+        const farGain = Math.sin((w * Math.PI) / 2) * edgeFade(d);
         if (nearGain > 0.01) layers.push({ buffer: kit.pick(NEAR, NEAR_VARIANTS, render.near), gain: 0.85 * nearGain, delay: 0 });
-        if (farGain > 0.01) layers.push({ buffer: kit.pick(FAR, FAR_VARIANTS, render.far), gain: 0.85 * farGain, delay: 0 });
+        // The far bank already sounds like its family: played near its own pitch, not the near shot's.
+        const family = FAR_FAMILY[p.weapon ?? 'm4a1'];
+        if (farGain > 0.01) layers.push({ buffer: kit.pick(farId(family), FAR_VARIANTS, farRender(family)), gain: 0.85 * farGain, delay: 0, rate: 1 / character.rate });
         if (d < 12) layers.push({ buffer: kit.pick(MECH, MECH_VARIANTS, render.mech), gain: 0.14 * (1 - d / 12) * character.mech, delay: 0 });
         if (character.boom > 0 && nearGain > 0.01) layers.push({ buffer: kit.pick(NEAR, NEAR_VARIANTS, render.near), gain: character.boom * nearGain * 0.8, delay: 0, rate: 0.5 });
       }

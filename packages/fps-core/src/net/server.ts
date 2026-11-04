@@ -3,6 +3,7 @@ import { planCharge, planOutposts } from '../bots/planner';
 import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
 import { SquadIntel } from '../bots/squad-intel';
 import { Pings, type PingEvent, type PingRequest } from '../pings';
+import { SoundTraps, type TrapEvent } from '../sound-traps';
 import { findPath, nearestNode, startNode, type NavGraph } from '../bots/nav';
 import { navAreas } from '../bots/nav-areas';
 import { botName, botProfile, royaleProfile, type BotProfile } from '../bots/profile';
@@ -180,6 +181,8 @@ const CARD_REACH = 3;
 const FIRST_RALLIES = 8;
 /** A tick's mode events when it had none, shared: the profiler copies what it keeps. */
 const NO_EVENTS: string[] = [];
+/** A tick with no trap set off, shared. */
+const NO_TRAPS: readonly TrapEvent[] = [];
 /** The most bots a side a lobby offers in a team mode. */
 export const MAX_BOTS_PER_TEAM = MATCH_SCALES.tdm.botsPerTeam;
 /** Seconds a fresh spawn can't be hurt, unless it fires first. */
@@ -431,6 +434,10 @@ export class GameServer {
   /** How many of {@link #pingAsks} each seat has queued. */
   readonly #pingAsksBy = new Map<PlayerId, number>();
   readonly #marks = new Pings();
+  /** The map's sound traps through the match (ticket 72). */
+  #traps: SoundTraps;
+  /** The traps set off last tick: what the bots hear of them. */
+  #lastTraps: readonly TrapEvent[] = [];
   /** Team modes: what each team with a person in it has pinged (a Battle Royale's Squads keep theirs in the planner). */
   readonly #teamIntel = new Map<TeamId, SquadIntel>();
   /** What the world's props were last made from (see royale-props). */
@@ -468,6 +475,7 @@ export class GameServer {
     };
     this.#maps = [first, ...(options.maps ?? []).filter((m) => m.id !== first.id)];
     this.#map = first;
+    this.#traps = new SoundTraps(first.world.traps);
     this.#lobbyMap = first;
     this.#mode = this.#modes[options.mode ?? 'tdm'];
     this.#lobbyMode = this.#mode.id;
@@ -956,6 +964,7 @@ export class GameServer {
     this.#squads = null;
     this.#locked = null;
     this.#marks.reset();
+    this.#traps.reset();
     this.#pingAsks = [];
     this.#pingAsksBy.clear();
     this.#teamIntel.clear();
@@ -1000,6 +1009,7 @@ export class GameServer {
   /** Onto another map at a match's start: its world for the simulation, fresh bot brains that know its ways, and its props all standing. */
   #switchMap(map: ServerMap): void {
     this.#map = map;
+    this.#traps = new SoundTraps(map.world.traps);
     this.simulation.setWorld(map.world);
     // The new map's world has no props yet.
     this.#propsKey = '';
@@ -1396,7 +1406,8 @@ export class GameServer {
     for (const e of out.events) if (e.type === 'prop') this.#popped.add(e.prop);
     const played = this.#phase === 'playing' ? this.#playing(out) : this.#intermission();
     const pinged = this.#takePings();
-    const modeEvents = pinged.length > 0 ? [...played, ...pinged] : played;
+    const trapped = (this.#lastTraps = this.#phase === 'playing' ? this.#traps.step(out.players, this.simulation.time) : NO_TRAPS);
+    const modeEvents = pinged.length > 0 || trapped.length > 0 ? [...played, ...pinged, ...trapped] : played;
     this.#modeEvents = modeEvents;
     this.#standProps();
     this.#noteChanges(out, modeEvents);
@@ -1575,6 +1586,7 @@ export class GameServer {
         seats,
         ...(far && !people.some((p) => Math.hypot(p.position[0] - self.position[0], p.position[2] - self.position[2]) <= far.range) ? { thinkEvery: far.thinkEvery } : {}),
         events: this.#lastEvents,
+        ...(this.#lastTraps.length > 0 ? { sounds: this.#lastTraps } : {}),
         grenades: this.#last.grenades,
         isEnemy: (other) => other.kind === 'player' && this.#mode.canDamage(info, other),
         objective: this.#orders.get(id) ?? null,

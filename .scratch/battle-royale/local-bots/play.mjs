@@ -144,6 +144,7 @@ try {
   const started = Date.now();
   let alive = true;
   const playRender = [];
+  const heard = new Map();
   while (Date.now() - started < PLAY * 1000 && alive) {
     await sleep(1000);
     playRender.push(await renderNow());
@@ -161,6 +162,8 @@ try {
         await key('keyDown'); await sleep(80); await key('keyUp');
       }
     }
+    // Ticket 72: the sound traps and far gunshots heard, from the sound log (it keeps only the newest, so it is read every second).
+    for (const e of (await ev(`return (globalThis.duty?.sounds?.() ?? []).filter((e) => e.event.startsWith('trap') || e.event === 'gunshot' || e.event === 'bulletCrack').map((e) => [e.event, Math.round(e.time * 1000), e.params.position ?? null, e.params.weapon ?? null])`)) ?? []) heard.set(`${e[0]}@${e[1]}`, e);
     alive = !(await ev(`return !!document.querySelector('.ds-royale:not([hidden])')`));
   }
   if (process.env.PROFILE) {
@@ -196,6 +199,8 @@ try {
   const task = (m1.TaskDuration - m0.TaskDuration) * 1000;
   const script = (m1.ScriptDuration - m0.ScriptDuration) * 1000;
   const report = { tag, seconds: +seconds.toFixed(1), frames: frames.length, fps: +(frames.length / seconds).toFixed(1), frameMs: { mean: +(frames.reduce((s, f) => s + f, 0) / frames.length).toFixed(2), p50: +q(0.5).toFixed(2), p99: +q(0.99).toFixed(2), worst: +q(1).toFixed(1) }, mainThreadMsPerFrame: +(task / frames.length).toFixed(2), scriptMsPerFrame: +(script / frames.length).toFixed(2), mainThreadBusy: +(task / (seconds * 1000)).toFixed(3), heapMb: Math.round(heap / 1048576), worker, download: { beforeMatch, inMatch: await downloaded(ev, [`http://127.0.0.1:${PORT}/nav/zero-island.nav`, `http://127.0.0.1:${PORT}/index.html`]) }, render: summarize(playRender), preparation: { frameMs: +(prepFrames.reduce((s, f) => s + f, 0) / prepFrames.length).toFixed(2), p99: +[...prepFrames].sort((a, b) => a - b)[Math.floor(prepFrames.length * 0.99)].toFixed(2), render: summarize(prepRender) } };
+  const all = [...heard.values()];
+  report.hearing = { traps: all.filter((e) => e[0].startsWith('trap')).map((e) => [e[0], e[2]?.map((v) => Math.round(v))]), gunshots: all.filter((e) => e[0] === 'gunshot').length, cracks: all.filter((e) => e[0] === 'bulletCrack').length, said: await ev('return globalThis.__announced ?? []') };
   say(`REPORT ${JSON.stringify(report)}`);
   writeFileSync(`${out}/${tag}-report.json`, JSON.stringify(report, null, 2));
   check('the worker keeps 60 ticks a second', worker && worker.ticks / worker.seconds > 57);

@@ -25,6 +25,7 @@ import {
   type PlayerOutput,
   type UserCmd,
   type Vec3,
+  type TrapKind,
   type WeaponId,
   type World,
   type Zone,
@@ -76,6 +77,7 @@ import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
+import { Announcer, browserSpeaker, leftLine } from './announcer';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
 const OPEN_AMBIENT = 0.4;
@@ -155,6 +157,11 @@ function killedWith(cause: string, weapon: KillWeapon | null): string {
 /** How hard each gun kicks the camera, against the M4A1's 1. */
 const CAMERA_KICK: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.7, pistol: 0.9, shotgun: 2.6, sniper: 3 };
 
+/** Each sound trap's sound (ticket 72). */
+const TRAP_SOUNDS: Readonly<Record<TrapKind, SoundEventName>> = { birds: 'trapBirds', metal: 'trapMetal', gravel: 'trapGravel' };
+/** The guns whose rounds crack past the listener, and how near (m) a miss must pass to be heard cracking. */
+const SUPERSONIC: ReadonlySet<WeaponId> = new Set<WeaponId>(['m4a1', 'sniper']);
+const CRACK_MISS = 5;
 const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, tacticalSprint: 2.0, crouch: 1.1, prone: 0.9 };
 
 interface Tracked {
@@ -255,6 +262,9 @@ export class Game {
   readonly #propsKeys = new WeakMap<World, string>();
   readonly #ringSounds = new RingSounds();
   #ringPhase: RingPhase | null = null;
+  /** The announcer (ticket 72), and the Squads left when it last looked (null outside a Battle Royale). */
+  readonly #announcer = new Announcer(browserSpeaker());
+  #squadsLeft: number | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
   readonly #prepSounds = new PreparationSounds();
   #prepShot: PreparationShot | null = null;
@@ -417,6 +427,7 @@ export class Game {
     this.#settings = settings;
     this.input.settings = settings;
     this.#sound.setVolume(settings.volume);
+    this.#announcer.volume = settings.volume;
   }
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
@@ -1161,8 +1172,12 @@ export class Game {
     if (phase === 'closing' && this.#ringPhase === 'hold') {
       this.#play('ringShift');
       this.hud.toast('The Ring is closing.', 3);
+      this.#announcer.say('Ring closing');
     }
     this.#ringPhase = phase;
+    const left = state ? leftLine(this.#squadsLeft, state.squads, state.squadSize === 1) : null;
+    if (left) this.#announcer.say(left);
+    this.#squadsLeft = state ? state.squads : null;
   }
 
   /** What the log looks up as it records: names, bots, the seats as last sent, weapon names. */
@@ -1536,7 +1551,7 @@ export class Game {
           flash.quaternion.copy(this.#camera.camera.quaternion);
           this.#effects.flash(flash);
           this.#tracer(e, [flash.position.x, flash.position.y, flash.position.z]);
-          this.#crack(e.origin, e.direction);
+          this.#crack(e.origin, e.direction, e.weapon);
         }
         break;
       }
@@ -1712,6 +1727,10 @@ export class Game {
         this.hud.objectiveFeed(pingCallout(e.kind, name, cell), e.team, mine);
         break;
       }
+      case 'trap':
+        // Someone ran past a sound trap: the birds, the metal or the gravel, from where it lies.
+        this.#play(TRAP_SOUNDS[e.kind], { position: e.position });
+        break;
       case 'loose':
         if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
         break;
@@ -1782,8 +1801,9 @@ export class Game {
     else this.#tracers.fire(e.shooter, e.weapon, e.origin, e.direction, muzzle, this.#others, team, self);
   }
 
-  /** A supersonic crack when someone else's bullet passes close to the listener. */
-  #crack(origin: Vec3, direction: Vec3): void {
+  /** A supersonic crack when someone else's rifle round passes close to the listener (the slower guns' rounds don't crack). */
+  #crack(origin: Vec3, direction: Vec3, weapon: WeaponId | undefined): void {
+    if (!SUPERSONIC.has(weapon ?? 'm4a1')) return;
     const self = this.#cur;
     if (!self || !self.alive) return;
     const eye: Vec3 = [self.position[0], self.position[1] + self.eyeHeight, self.position[2]];
@@ -1792,7 +1812,7 @@ export class Game {
     if (along < 8) return;
     const closest: Vec3 = [origin[0] + direction[0] * along, origin[1] + direction[1] * along, origin[2] + direction[2] * along];
     const miss = Math.hypot(closest[0] - eye[0], closest[1] - eye[1], closest[2] - eye[2]);
-    if (miss < 3) this.#play('bulletCrack', { position: closest, intensity: 1 - miss / 3, when: along / STATS.weapon.muzzleVelocity.value });
+    if (miss < CRACK_MISS) this.#play('bulletCrack', { position: closest, intensity: 1 - miss / CRACK_MISS, when: along / STATS.weapons[weapon ?? 'm4a1'].handling.muzzleVelocity.value });
   }
 
   /**
@@ -1809,6 +1829,7 @@ export class Game {
 
   dispose(): void {
     removeEventListener('keydown', this.#onVoteKey);
+    this.#announcer.stop();
     this.setDriver(null);
     this.#resizeObserver.disconnect();
     this.input.dispose();

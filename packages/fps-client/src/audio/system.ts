@@ -102,6 +102,10 @@ const PROFILES: Record<SoundEventName, Profile> = {
   ringShift: ui,
   ping: ui,
   pingEnemy: ui,
+  // Sound traps: carry well past the runner's own steps (a fight's distance), and ring off the island.
+  trapBirds: { cap: 2, ref: 10, rolloff: 0.8, send: 0.3, indoorSend: 0.3 },
+  trapMetal: { cap: 2, ref: 8, rolloff: 0.8, send: 0.3, indoorSend: 0.3 },
+  trapGravel: { cap: 2, ref: 6, rolloff: 0.9, send: 0.2, indoorSend: 0.3 },
   // The Preparation: the moment's own sound, not the island's.
   prepDrone: ui,
   heartbeat: ui,
@@ -381,12 +385,13 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       nodes.push(send);
     }
 
-    const life = lifeOf(voice);
+    const vp: VoiceParams = distance === undefined ? params : { ...params, distance };
+    const length = (voice as VoiceExtras).lengthOf?.(vp);
+    const life = length !== undefined && Number.isFinite(length) && length > 0 ? Math.min(length, lifeOf(voice)) : lifeOf(voice);
     const entry: ActiveVoice = { event, input, nodes, end: startTime + life, released: false };
     active.push(entry);
     setTimeout(() => release(entry), (startTime + life - t0) * 1000 + 100);
 
-    const vp: VoiceParams = distance === undefined ? params : { ...params, distance };
     voice.play(c, input, vp, startTime);
   }
 

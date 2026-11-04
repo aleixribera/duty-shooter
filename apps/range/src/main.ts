@@ -107,7 +107,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       // `?plants=off`: the map without its plants drawn (they still hide bots), to measure what they cost.
       content: params.get('plants') === 'off' ? { ...map, plants: null } : map,
       bake,
-      world: createWorld(solids, { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map) }),
+      world: createWorld(solids, { ladders: map.ladders ?? [], terrain: map.terrain, concealment: mapConcealment(map), traps: map.soundTraps ?? [] }),
       settings,
       sound,
       overview: map.overview,
@@ -906,6 +906,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
   setTimeout(() => (status.hidden = true), 4000);
   sound = engine.createSoundSystem();
+  // For scripted browsers: the last sounds played (the sound system's own log), as `duty.sounds()`.
+  Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), sounds: () => sound.log } });
   await nextPaint();
   engine.reflections(renderer);
   await nextPaint();

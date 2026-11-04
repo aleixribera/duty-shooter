@@ -1,6 +1,7 @@
 import type { Vec3 } from './math';
 import { SolidIndex } from './grid';
 import { Terrain, type TerrainData } from './terrain';
+import type { SoundTrap } from './sound-traps';
 
 /**
  * Surface material carried by every solid. Drives impact effects, footstep
@@ -163,6 +164,8 @@ export interface World {
   readonly terrain: Terrain | null;
   /** What hides a body without stopping a bullet, for a map that has it. */
   readonly concealment: Concealment | null;
+  /** Spots that give away whoever runs past (birds, sheet metal, gravel), for a map that has them. */
+  readonly traps: readonly SoundTrap[];
   /** Solids that come and go in a match (a landed Supply Drop, a Beacon): they follow the map's own in `solids` while they stand. */
   readonly props: WorldProps;
 }
@@ -194,6 +197,8 @@ export interface WorldOptions {
   readonly terrain?: TerrainData | null | undefined;
   /** The map's soft cover, or nothing for a map without any. */
   readonly concealment?: Concealment | null | undefined;
+  /** The map's sound traps, or none. */
+  readonly traps?: readonly SoundTrap[] | undefined;
   /**
    * Index solids in a uniform grid (the default). Off, every query scans
    * every solid: the results are identical, only slower. Tests compare the two.
@@ -233,6 +238,7 @@ export function createWorld(solids: readonly Solid[], options: WorldOptions = {}
     bullets,
     terrain: options.terrain ? new Terrain(options.terrain) : null,
     concealment: options.concealment ?? null,
+    traps: options.traps ?? [],
     props,
   };
 }

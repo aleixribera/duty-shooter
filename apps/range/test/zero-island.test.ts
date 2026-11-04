@@ -434,3 +434,36 @@ describe('Zero Island: the ending', () => {
     expect(Math.hypot(sx - fx, sy - fy, sz - fz)).toBeLessThan(60);
   });
 });
+
+describe('Zero Island: sound traps (ticket 72)', () => {
+  const traps = map.soundTraps ?? [];
+
+  it('lays two or three in every Region, on dry land in the play area, near where people land', () => {
+    for (const id of REGION_IDS) {
+      const mine = traps.filter((t) => regionAt(t.position[0], t.position[2]) === id);
+      expect(mine.length, id).toBeGreaterThanOrEqual(2);
+      expect(mine.length, id).toBeLessThanOrEqual(3);
+      for (const t of mine) {
+        const [x, y, z] = t.position;
+        expect(terrain.heightAt(x, z), `${id} ${t.kind}`).toBeGreaterThan(0);
+        expect(insidePolygon(boundary, x, z), `${id} ${t.kind}`).toBe(true);
+        expect(y - terrain.heightAt(x, z)).toBeGreaterThan(0);
+        expect(Math.hypot(x - CORES[id].x, z - CORES[id].z), id).toBeLessThanOrEqual(CORES[id].radius * 2.5 + 1);
+      }
+      // Apart, so one run sets off one.
+      for (const a of mine) for (const b of mine) if (a !== b) expect(Math.hypot(a.position[0] - b.position[0], a.position[2] - b.position[2])).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it('fits each Region: birds in the Jungle and the Peaks, metal in the Dustlands, gravel in the crater', () => {
+    const kinds = (id: RegionId) => new Set(traps.filter((t) => regionAt(t.position[0], t.position[2]) === id).map((t) => t.kind));
+    expect(kinds('mutant-jungle')).toEqual(new Set(['birds']));
+    expect(kinds('frostbite-peaks')).toEqual(new Set(['birds']));
+    expect(kinds('the-dustlands')).toEqual(new Set(['metal']));
+    expect(kinds('ground-zero')).toEqual(new Set(['gravel']));
+  });
+
+  it('are the world the server plays them in', () => {
+    expect(createWorld(map.solids, { terrain: data, traps: map.soundTraps }).traps).toBe(map.soundTraps);
+  });
+});

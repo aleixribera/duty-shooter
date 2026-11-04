@@ -80,6 +80,8 @@ export function eventReach(event: SimEvent | ModeEvent, where: (id: PlayerId) =>
       return quiet([event.shooter], event.point);
     case 'bounce':
       return quiet([], event.point);
+    case 'trap':
+      return quiet([], event.position);
     case 'melee':
       return quiet(event.victim === null ? [event.attacker] : [event.attacker, event.victim], where(event.attacker));
     case 'reload':
