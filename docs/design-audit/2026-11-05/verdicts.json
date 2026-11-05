@@ -1,0 +1,67 @@
+{
+  "F02": {
+    "verdict": "PASS",
+    "note": "Match block (readouts, maps, mode, sides) now comes before the seat list on phone",
+    "evidence": "after/bot-lobby@phone: MATCH at y~150, seats below"
+  },
+  "F03": {
+    "verdict": "PASS",
+    "note": "Same fix as F02; offline open seats are gone, so the list is 8 rows not 12",
+    "evidence": "after/bot-lobby@phone"
+  },
+  "F04": {
+    "verdict": "PASS",
+    "note": "Error dialog focuses its way on (Try again) with the focus ring visible",
+    "evidence": "after/error@desktop: Try again outlined"
+  },
+  "F11": {
+    "verdict": "FAIL",
+    "note": "Settings and lobby still open with no focused control for keyboard users (pad mode does focus); left for a later pass",
+    "evidence": "after/settings@desktop"
+  },
+  "F12": {
+    "verdict": "PASS",
+    "note": "On coarse pointers sliders are 44px tall with a 22x30 thumb and selects 44px",
+    "evidence": "menu.ts @media (pointer: coarse)"
+  },
+  "F13": {
+    "verdict": "PASS",
+    "note": "Status reads Offline: you and 7 bots",
+    "evidence": "after/bot-lobby@desktop header"
+  },
+  "F15": {
+    "verdict": "PASS",
+    "note": "Your seat is a raised step with a text-colour bar; signal only on picks",
+    "evidence": "after/bot-lobby@desktop seat 01"
+  },
+  "F16": {
+    "verdict": "PASS",
+    "note": "Heavier bottom scrim on map pictures",
+    "evidence": "contrast Picked p50 3.61 -> 6.87 (phone)"
+  },
+  "F17": {
+    "verdict": "PASS",
+    "note": "Offline shows only the 8 players and a Players 8 readout, no open seats",
+    "evidence": "after/bot-lobby@desktop"
+  },
+  "F19": {
+    "verdict": "FAIL",
+    "note": "Kept on purpose: DESIGN.md defines the lit .ds-seg segment as a light fill; map pictures need a frame instead",
+    "evidence": "DESIGN.md Pickers"
+  },
+  "F22": {
+    "verdict": "PASS",
+    "note": "Server-down dialog has a Bot Match button and its text says so",
+    "evidence": "after/error@desktop"
+  },
+  "F26": {
+    "verdict": "PASS",
+    "note": "Settings lists drop the outer outline; rows are separated by 1px lines only",
+    "evidence": "after/settings@desktop"
+  },
+  "F27": {
+    "verdict": "PASS",
+    "note": "ADS spelled out: Aim-down-sights sensitivity / field of view",
+    "evidence": "after/settings@desktop"
+  }
+}

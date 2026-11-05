@@ -1,0 +1,115 @@
+{
+  "lens": "first-time",
+  "findings": [
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "A phone player is never told the game can't be played by touch",
+      "detail": "On a phone the whole menu works: they can type a name, open Bot Match and press START. But the game has no touch controls (no joystick or touch handlers in fps-client), so they reach a match they can't move or shoot in. Nothing on the menu, in the lobby or in Settings says a keyboard and mouse or a controller is needed. Settings even opens on MOUSE and CONTROLLER sections, which suggests a phone isn't expected but never says so.",
+      "evidence": "main-menu@phone.png: all five entries are enabled with no device note; settings@phone.png opens on 'Mouse sensitivity'. Grep for touchstart/joystick in packages/fps-client/src finds nothing.",
+      "fix": "On touch-only devices, show a one-line notice under the title ('Needs a keyboard and mouse or a controller') in place of the footer hint. Keep the menus browsable but repeat the notice on START, rather than dropping the player into a match they can't control.",
+      "box": [16, 418, 358, 370]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "high",
+      "title": "On a phone, START sits above the fold but the mode and map choices don't",
+      "detail": "The first view is twelve rows of 'You / Bot / Open seat' with a big pinned START. The MATCH panel (mode, map, sides, and the goal text 'First team to 75 kills wins') is below the player list, and the phone DOM sample has none of it in view. A newcomer presses the only loud thing and starts a match without knowing what mode, what map or what the goal is. The 'Bots fill the match to 4v4' line (y 822) is also hidden under the pinned bar.",
+      "evidence": "bot-lobby@phone.png: the visible area is the player list plus BACK/LOADOUT/SETTINGS/START; the DOM texts stop at 'Open seat' 12 and the hint at [16,822].",
+      "fix": "On phone, put the MATCH summary (Mode · Map · goal line, tappable to change) above PLAYERS, and collapse the twelve seats into one line such as 'You + 7 bots, 4v4'.",
+      "box": [16, 140, 358, 692]
+    },
+    {
+      "screen": "loading",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "title": "The loading screen doesn't say the goal or the controls before you drop in",
+      "detail": "The wait shows the map name, 42% and 'Building the map and its baked lighting'. That covers FB-03, but this is the last calm moment before play and it gives the newcomer nothing: not the mode ('Team deathmatch'), not the goal ('first team to 75 kills'), not the basic keys. A first-timer arrives in a firefight without knowing what wins or how to aim.",
+      "evidence": "loading@desktop.dom.json has only 3 texts: 'Survival Town', '42%', 'Building the map and its baked lighting'.",
+      "fix": "Add the mode name and its one-line goal under the map name, plus a short row of core key hints along the bottom edge (WASD move, mouse aim, RMB aim down sights, R reload), matched to the current input device.",
+      "box": [56, 834, 620, 154]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "'No game server answers this page' reads like a developer message, and Play Online still looks pressable",
+      "detail": "A newcomer doesn't know what a 'game server' for 'this page' is or whether it's their fault. PLAY ONLINE stays at full size and full colour and is still enabled, so the first thing they're likely to press leads straight to the 'Server unreachable' dialog. It's also unclear whether Battle Royale (60 seats) needs that same server, because it's the only mode with no Online/Offline tag.",
+      "evidence": "main-menu@desktop.dom.json: control 'PLAY ONLINE No game server answers this page' disabled:false; the Battle Royale meta is '60 seats · Zero Island · Solos, Duos or Trios' with no Offline tag, while Bot Match and Practice Range both say 'Offline'.",
+      "fix": "Say it in player terms: 'Online play is down right now. Try Bot Match.' Dim PLAY ONLINE (and Battle Royale too if it needs the server), and tag every entry 'Online' or 'Offline' the same way.",
+      "box": [56, 524, 720, 212]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Four equally huge mode names, no single 'start here'",
+      "detail": "PLAY ONLINE, BATTLE ROYALE, BOT MATCH and PRACTICE RANGE are all 60 px uppercase. The only hint of a default is a thin teal bar on Bot Match, which a newcomer reads as a hover state, not as a recommendation. With online down, the best first step (Bot Match or Practice Range) gets no extra weight.",
+      "evidence": "main-menu@desktop.dom.json: all four title boxes are 60 px tall; the only difference is the thin teal left bar at x 56 on BOT MATCH.",
+      "fix": "Give the recommended entry a filled or brighter treatment plus a small 'Start here' line (Bot Match while offline, Play Online once a server answers), and make the others secondary.",
+      "box": [56, 524, 720, 423]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "Outposts, Charge and Gun game are only explained after you pick them",
+      "detail": "Team deathmatch gets a clear line ('Two teams... First team to 75 kills wins'), but the other modes are bare made-up names. A newcomer has to click each tile to learn what it is, and picking one also changes the match. 'Loadout' in the bottom bar is unexplained too.",
+      "evidence": "bot-lobby@desktop.dom.json: mode buttons 'Outposts', 'Charge' and 'Gun game' have no description texts; the only description is for the selected mode, at [1344,629,510,38].",
+      "fix": "Show the description on hover or focus as well as on select, or add a 3–5 word subtitle under each mode tile (for example 'Hold three points' or 'Every kill swaps your gun').",
+      "box": [1344, 521, 520, 90]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "'You against 7 bots' contradicts the 4v4 mixed-teams setup, and 'Open seat' implies others can join",
+      "detail": "The status line says 'Offline: you against 7 bots', but Sides is MIXED TEAMS and the hint says 'Bots fill the match to 4v4', so three of those bots are on your side. Seats 9–12 show 'Open seat' with dashed outlines and the header says 'Seats 8 / 12', which suggests friends could join an offline match. A newcomer wonders whether to wait for them and whether they're really alone.",
+      "evidence": "Texts 'Offline: you against 7 bots' [1681,75], 'Bots fill the match to 4v4.' [56,551], 'Seats 8 / 12' [1758,233], and four 'Open seat' rows at x 731.",
+      "fix": "Make the status follow Sides ('Offline: you + 3 bots vs 4 bots'), split the list into the two teams, and drop or relabel the unused rows ('Empty: offline match') without the invite-style dashed outline.",
+      "box": [56, 75, 1808, 492]
+    },
+    {
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "The dialog suggests practising offline but gives no button for it",
+      "detail": "The body says 'try again in a minute, or practise offline meanwhile', but the only actions are TRY AGAIN (primary, which will probably fail again) and MAIN MENU. A newcomer then has to work out which menu entry 'practise offline' means.",
+      "evidence": "error@desktop.dom.json: the only controls are 'TRY AGAIN' [80,964] and 'MAIN MENU' [270,964].",
+      "fix": "Replace MAIN MENU with 'PLAY BOTS OFFLINE' (opening the Bot Match lobby) and keep a quiet Back. Consider making the offline action primary once one retry has failed.",
+      "box": [80, 899, 478, 109]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "'ADS' is used before it's spelled out, and the controller sliders show with no controller",
+      "detail": "The second row is 'ADS sensitivity multiplier'; 'Aim down sights' only appears one row later, and 'Controller ADS multiplier' and 'Stick deadzone' are never explained. The CONTROLLER block says 'None detected' but still lists six live controls a newcomer may fiddle with for nothing.",
+      "evidence": "settings@desktop.dom.json: the 'ADS sensitivity multiplier' row at y 293 sits above 'Aim down sights' at y 350; 'None detected. Connect a controller and press any button.' is followed by six controller rows.",
+      "fix": "Rename it to 'Aim-down-sights sensitivity' (or add a one-line hint) and collapse the controller rows behind the 'None detected' line until a controller is connected.",
+      "box": [56, 265, 980, 612]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "A 'WebGPU' tag overlaps the game title, and the name field doesn't say why it's there",
+      "detail": "On a phone a translucent 'WebGPU' debug tag sits on top of 'DUTY SHOOTER', the first thing a newcomer reads. The 'Name' field just below gives no hint whether it's required or where the name shows up, so they hesitate before choosing a mode.",
+      "evidence": "main-menu@phone.png top-left: the 'WebGPU' chip at about [8,8,67,26] CSS px over the title [16,18,290,40]; the Name input [65,105,206,25] has only the placeholder 'Your name...'.",
+      "fix": "Hide the renderer tag outside dev builds, or move it to the footer next to 'dev'. Add a short helper under the field ('Shown to other players · optional').",
+      "box": [8, 8, 298, 122]
+    }
+  ]
+}

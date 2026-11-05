@@ -1,0 +1,82 @@
+{
+  "lens": "accessibility",
+  "findings": [
+    {
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "high",
+      "title": "Nothing has focus when a screen opens, so keyboard and gamepad players can't tell what Enter will do",
+      "detail": "The `focused` field is null in all 10 DOM samples. On the Connection-failed dialog, TRY AGAIN and MAIN MENU look like a filled button and an outlined one, with no focus mark on either, so a pad player can't tell which one A or Enter will trigger. Settings and the Bot Match lobby are the same: their footers promise '↑↓ MOVE / ENTER SELECT', but no control is marked. The only highlight in the lobby is the teal-bordered '01 You' row, which is a player marker and can't be clicked, so it looks like focus when it isn't.",
+      "evidence": "error@desktop.dom.json: focused=null; controls TRY AGAIN [80,964,180,44] and MAIN MENU [270,964,180,44] are drawn with no focus ring. bot-lobby@desktop.dom.json: focused=null, while the only outlined element is the '01 You' row at about [56,192,608,52]. settings@desktop.dom.json: focused=null, and no row has a focus treatment (only the active-tab underline).",
+      "fix": "When each screen opens, move focus to its default action (TRY AGAIN on the error dialog, START or the first match option in the lobby, the first settings row) and give :focus-visible a clear 2 px signal-colour outline plus a fill change. Make the '01 You' identity marker look different from the focus style, for example a left bar only, no full outline.",
+      "box": [80, 964, 370, 44]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The 'Picked' label on the selected map card fails contrast over the thumbnail",
+      "detail": "The word that shows which map is selected is 13 px regular text placed straight on the map photo. Over the bright Survival Town sky it drops below even the large-text limit. The 'Map' label on the Crash card also falls under 4.5:1 in its worst tenth.",
+      "evidence": "contrast.md bot-lobby@desktop: 'Picked' [1359,340,39,13], 13 px, needs 4.5, p50 3.56, p10 2.67: FAIL. 'Map' (Crash) [1711,361,24,13], 13 px, p50 5.38, p10 3.8: warn.",
+      "fix": "Put a dark gradient scrim (about 60% black) across the bottom half of each map thumbnail, or set 'Picked' as a small filled signal-colour tag. Raise the label to 14 px.",
+      "box": [1344, 287, 168, 128]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "COL-02",
+      "severity": "medium",
+      "title": "The lit destination differs from the others only by a thin coloured bar",
+      "detail": "Every destination row has a 4 px bar on its left edge. The lit row (Bot Match) differs only in that its bar is teal instead of grey. Its title colour, size, weight and background are the same as the other rows'. Across a 720 px wide row, a 4 px change in hue is easy to miss from couch distance and for players with colour-vision deficiency. DESIGN.md says hover and focus grow the bar and slide the title 10 px, but in the resting lit state that cue isn't visible.",
+      "evidence": "main-menu@desktop.png: Bot Match row [56,736,720,106] has a teal bar at x=56; Play Online, Battle Royale and Practice Range have grey bars of the same width. Title colour is (243,241,234) on all four rows in main-menu@desktop.dom.json. The same holds on phone: the Bot Match row [16,561,358,93] differs only by bar colour.",
+      "fix": "Give the lit state at least one cue that isn't hue: keep the 10 px title offset applied, widen the bar to 6–8 px, and/or add a faint row fill (about 8% white). Dim the unlit titles slightly so the lit one stands out by luminance as well as hue.",
+      "box": [56, 736, 720, 106]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "title": "Sliders and dropdowns are below touch-target size on phone (and sliders are short on desktop)",
+      "detail": "Each sensitivity slider is a 20 px tall input, so a thumb aimed at the thin track often misses, or changes the value by accident while the page scrolls. The dropdowns are 40 px tall, under the 44 px touch minimum. On desktop the six sliders are also 20 px tall, below the ~32 px mouse guideline.",
+      "evidence": "contrast.md settings@phone small targets (need 44x44): 'Mouse sensitivity' 252x20, 'ADS sensitivity multiplier' 252x20, selects 'Hold Toggle' / 'Toggle Hold' / 'Default Tactical…' 328x40. settings@desktop (need 32 tall): six range inputs at 284x20, e.g. 'Mouse sensitivity' [659,227,284,20].",
+      "fix": "Make each range input's hit box at least 44 px tall on touch (and 32 px on desktop), using padding or a taller transparent track with the visual line centred in it, and enlarge the thumb under @media (pointer: coarse). Raise select min-height to 44 px on coarse pointers.",
+      "box": [33, 292, 252, 20]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "On phone the mode, map and sides choices are hidden below a 12-row player list and the sticky footer",
+      "detail": "The phone lobby's first screen shows only the header, the seat rows and a sticky footer with START. The whole MATCH section (mode, map cards, Random, sides) is below the fold, and nothing hints that it's there. A phone player can start a match without seeing which map or mode they picked. The last seat rows also scroll under the footer: the measured contrast of 'Open seat 12' (1.3:1) comes from it being hidden behind the footer, not from its colour.",
+      "evidence": "bot-lobby@phone.dom.json lists no Match/Mode/Map texts or controls in the viewport; its only controls are BACK/LOADOUT/SETTINGS at y=718 (44 tall) and START [16,774,358,58]. contrast.md bot-lobby@phone: '12' [31,775,11,13] p50 1.3 FAIL, 'Open seat' [67,773,71,16] p50 1.3 FAIL, 'Open seat' [67,721,71,16] p10 2.12 warn, all under the footer.",
+      "fix": "On narrow screens, put the Match summary card (Mode / Map / Seats) above the player list, or collapse the seat list to a 'You + 7 bots, 4 open' summary row that expands. Show the chosen map and mode on the START button or right above it.",
+      "box": [16, 140, 358, 578]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "title": "Secondary information is set at 13 px in mid-grey across the lobby, settings and menu footers",
+      "detail": "The key hints (Move / Select / Adjust / Back), the 'You + 7 bots' and 'Your pick' counters, the Mode/Map/Seats card labels, the seat numbers and 'Changes save as you make them' are all 13 px regular in (180,186,197). They pass contrast (p10 7.5–9.9), but they fall below the 14 px floor for text a player must read at 1920x1080 from sitting distance. The key hints are what teach keyboard and pad navigation.",
+      "evidence": "contrast.md size warns: 22 on bot-lobby@desktop (e.g. 'Your pick' [1811,152,53,13] 13 px, 'Mode' [1361,211,31,13] 13 px, seat numbers 01–12 at 13 px), 13 on bot-lobby@phone, 'Changes save as you make them' at 13 px on settings@desktop/phone, 'Name' and 'dev' at 13 px on main-menu. Footer hints 'Move' [520,1030,40,13], 'Select' [647,1030,55,13], 'Back' [771,1030,39,13] are all 13 px.",
+      "fix": "Raise the small/meta text token from 13 px to 14 px and set the key-hint words in the same weight as the key caps. Keep the 12 px uppercase eyebrow style for one-word labels only.",
+      "box": [482, 1022, 330, 30]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "low",
+      "title": "On phone, titles sit inside the notch area and a 'WebGPU' badge overlaps the game title",
+      "detail": "On the 390x844 phone viewport the top text starts 18–20 px from the top edge, inside the ~47 px status-bar and notch inset, so on a real notched phone the breadcrumb and title collide with the clock. On the main menu a translucent 'WebGPU' badge in the top-left corner sits under the 'DUTY SHOOTER' title, so the two pieces of text overprint.",
+      "evidence": "main-menu@phone.dom.json: 'Duty Shooter' [16,18,290,40]. bot-lobby@phone: 'Offline · Play' [44,20,117,12]. settings@phone: 'Main menu' [44,20,86,12]. main-menu@phone.png: a 'WebGPU' badge at about [8,8,67,26] CSS px sits behind the title glyphs.",
+      "fix": "Pad the top of each screen with max(16px, env(safe-area-inset-top)) and set viewport-fit=cover. Move the renderer badge to the bottom corner next to 'dev', or hide it outside dev builds.",
+      "box": [8, 8, 300, 52]
+    }
+  ]
+}

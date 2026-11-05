@@ -293,7 +293,7 @@ export function connectionError(status: string | null): ConnectionError {
   }
   if (status === null || status.startsWith('Disconnected') || status === 'down') {
     const detail = status && status !== 'down' ? ` (${status.replace(/^Disconnected: /, '').replace(/\.$/, '')})` : '';
-    return { kind: 'down', title: 'Server unreachable', body: `The game server did not answer${detail}. It may be restarting: try again in a minute, or practise offline meanwhile.` };
+    return { kind: 'down', title: 'Server unreachable', body: `The game server did not answer${detail}. It may be restarting: try again in a minute, or play a Bot Match meanwhile.` };
   }
   if (/full/i.test(status)) return { kind: 'full', title: 'Server full', body: 'Every slot is taken. Try again in a moment; a slot frees up whenever someone leaves.' };
   if (/updated|reload/i.test(status)) return { kind: 'version', title: 'Update needed', body: 'The server runs a newer version of the game than this page. Reload to get it.' };

@@ -4,56 +4,70 @@ import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, m
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
-.ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 15px/1.35 var(--ds-font); }
+.ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 var(--ds-type-body)/1.4 var(--ds-font); }
 .ds-lobby[hidden] { display: none; }
 /* Loadout and Settings open over the page: it steps aside meanwhile rather than showing through. */
 .ds-menu:not([hidden]) ~ .ds-lobby { visibility: hidden; }
-.ds-lobby .body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 500px); gap: 40px; align-content: start; }
-.ds-lobby .seats { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 20px; }
-.ds-lobby .seat { display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 14px; background: rgb(18 22 29 / 0.82); border: 1px solid transparent; border-left: 3px solid transparent; }
-.ds-lobby .seat .n { width: 20px; font-size: 12px; color: var(--ds-text-3); }
-.ds-lobby .seat .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 19px; font-weight: 700; letter-spacing: 0.02em; }
-.ds-lobby .seat .ping { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
+.ds-lobby .body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 520px); gap: 56px; align-content: start; }
+/* The seats: one row each, filled down the left column, then the right. Your seat is a step up with a bar in text colour (signal is kept for what you pick); an open seat is the one dashed frame. */
+.ds-lobby .seats { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 16px; }
+.ds-lobby .seat { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 6px 16px 6px 14px; background: var(--ds-panel); border: 1px solid transparent; }
+.ds-lobby .seat .n { width: 22px; flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-lobby .seat .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ds-lobby .seat .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px; line-height: 1.1; font-weight: 700; letter-spacing: 0.02em; }
+.ds-lobby .seat .role { font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-lobby .seat .ping { flex: none; font-size: var(--ds-type-small); font-weight: 700; }
 .ds-lobby .seat .ping.good { color: var(--ds-good); } .ds-lobby .seat .ping.fair { color: var(--ds-fair); } .ds-lobby .seat .ping.poor { color: var(--ds-poor); }
-.ds-lobby .tag { padding: 3px 7px 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; border: 1px solid var(--ds-line-2); color: var(--ds-text-2); }
-.ds-lobby .tag.host { background: var(--ds-gold); border-color: var(--ds-gold); color: #17130a; }
-.ds-lobby .tag.you { background: var(--ds-signal); border-color: var(--ds-signal); color: var(--ds-signal-ink); }
-.ds-lobby .seat.you { background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.06)); border-color: rgb(143 227 200 / 0.35); border-left-color: var(--ds-signal); }
-.ds-lobby .seat.bot { background: rgb(18 22 29 / 0.55); }
-.ds-lobby .seat.bot .name { font-size: 15px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
-.ds-lobby .seat.bot .ds-icon { width: 18px; height: 18px; color: var(--ds-text-3); }
-.ds-lobby .seat.open { background: rgb(18 22 29 / 0.3); border: 1px dashed var(--ds-line); }
-.ds-lobby .seat.open .name { font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .note { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0 0; padding: 12px 14px; background: rgb(18 22 29 / 0.6); border-left: 2px solid var(--ds-line-2); font-size: 14px; color: var(--ds-text-2); }
-.ds-lobby .last { margin-top: 36px; }
-.ds-lobby .last .result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; padding: 14px 16px; background: rgb(18 22 29 / 0.82); }
-.ds-lobby .last .result b { font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
-.ds-lobby .last .result span { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-lobby .blurb { margin: 12px 0 16px; font-size: 14px; color: var(--ds-text-2); }
-.ds-lobby .random { margin-top: 10px; width: 100%; }
-.ds-lobby .picks { display: grid; gap: 16px; padding: 18px; background: rgb(18 22 29 / 0.72); border: 1px solid var(--ds-line); }
-.ds-lobby .picks .ds-seg { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
-/* The maps as pictures: the picked one framed in signal with the mode over it. Name first in the markup (scripts click by it), shown under the kicker. */
-.ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
-.ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 136px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: #2b2a26 center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color 100ms, opacity 100ms, box-shadow 100ms; }
-.ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(8 10 14 / 0.05) 20%, rgb(8 10 14 / 0.88) 100%); }
-.ds-lobby .maps button b, .ds-lobby .maps button small { position: relative; z-index: 1; text-shadow: 0 1px 4px rgb(0 0 0 / 0.7); }
-.ds-lobby .maps button b { font-size: 26px; line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
-.ds-lobby .maps button small { margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-lobby .seat.you { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-text); }
+.ds-lobby .seat.bot { background: rgb(18 22 29 / 0.6); }
+.ds-lobby .seat.bot .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
+.ds-lobby .seat.open { background: transparent; border: 1px dashed var(--ds-line-2); }
+.ds-lobby .seat.open .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
+.ds-lobby .note { margin: 14px 0 0; max-width: 64ch; font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-lobby .last { margin-top: 40px; }
+.ds-lobby .last .result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; padding: 14px 16px; background: var(--ds-panel); }
+.ds-lobby .last .result b { font-size: var(--ds-type-heading); line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-lobby .last .result span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
+/* The match: what is set (a strip of readouts), the maps as pictures, the mode's line, the picks. */
+.ds-lobby .match { display: grid; gap: 18px; }
+.ds-lobby .match .ds-readouts { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr); }
+.ds-lobby .match .ds-readouts > div { background: var(--ds-ink); min-width: 0; }
+.ds-lobby .match .ds-readouts b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-lobby .blurb { margin: -4px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-lobby .picks { display: grid; gap: 18px; }
+/* Five modes wrap two or three a row, the last row's buttons sharing its width: no empty cell. */
+.ds-lobby .picks .modes { display: flex; flex-wrap: wrap; }
+.ds-lobby .picks .modes button { flex: 1 1 150px; }
+.ds-lobby .picks .ds-seg button { min-height: 44px; }
+/* The maps as pictures: the picked one framed in signal with the mode under its name. Name first in the markup (scripts click by it), shown under the kicker. */
+.ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 128px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: var(--ds-raised) center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color var(--ds-fast), opacity var(--ds-fast); }
+/* The scrim behind the name, from the bottom edge. */
+.ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
+.ds-lobby .maps button b, .ds-lobby .maps button small { position: relative; z-index: 1; }
+.ds-lobby .maps button b { font-size: var(--ds-type-heading); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ds-lobby .maps button small { margin-bottom: 4px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .maps button.on { border-color: var(--ds-signal); box-shadow: inset 0 0 0 1px var(--ds-signal); }
-.ds-lobby .maps button.on small { color: var(--ds-signal); }
+.ds-lobby .maps button.on small { color: var(--ds-text); }
 .ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
-.ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.5; }
-.ds-lobby .invite { display: flex; gap: 8px; margin-top: 16px; }
-.ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--ds-text); background: rgb(11 14 19 / 0.92); border: 1px solid var(--ds-line); border-radius: 2px; }
-.ds-lobby .who { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); text-align: right; }
+.ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
+.ds-lobby .invite { display: flex; }
+.ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
+.ds-lobby .invite .ds-btn { border-radius: 0; }
 .ds-lobby footer .ds-btn:not(.big) { min-width: 120px; }
 @media (max-width: 960px) {
-  .ds-lobby .body { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .ds-lobby .ds-page { background: var(--ds-scrim); }
+  .ds-lobby .body { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  /* On a phone the match's picks come first: the seats are a list to scroll past, the picks are what you came to set. */
+  .ds-lobby .match { order: -1; }
   .ds-lobby .seats { grid-template-columns: 1fr; grid-auto-flow: row; }
-  .ds-lobby .maps button { height: 104px; }
-  .ds-lobby .who { display: none; }
+  .ds-lobby .seat { min-height: 46px; }
+  .ds-lobby .seat .name { font-size: 18px; }
+  .ds-lobby .maps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-lobby .maps button { height: 96px; }
+  .ds-lobby .match .ds-readouts > div { padding: 10px 12px; }
+  .ds-lobby .match .ds-readouts b { font-size: 17px; white-space: normal; overflow-wrap: anywhere; }
   .ds-lobby footer .ds-btn:not(.big) { flex: 1; min-width: 0; padding: 0 10px; }
 }
 `;
@@ -147,8 +161,11 @@ export class LobbyPage {
   /** Shows the lobby as `view` has it (cheap to call every frame). */
   show(view: LobbyView): void {
     this.#view = view;
+    const opening = this.#root.hidden;
     this.#root.hidden = false;
     const html = this.#render(view);
+    // Each time the page opens it starts at its top: your seat, not where Bot Match was last scrolled to.
+    if (opening) this.#root.querySelector('.body')?.scrollTo(0, 0);
     if (html === this.#html) return;
     const focused = this.#root.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['key'] : undefined;
     this.#html = html;
@@ -239,27 +256,33 @@ export class LobbyPage {
 
     const seatList = lobbySeats(l, v.selfId, v.names, v.pings);
     const bots = seatList.filter((s) => s.bot).length;
-    const seats = seatList
+    // Offline nobody else can join: no open seats, only the players the match has.
+    const shown = offline ? seatList.filter((s) => s.bot || s.id !== null) : seatList;
+    const seats = shown
       .map((s) => {
-        if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span>${icon('bots')}<span class="name">Bot</span></div>`;
-        if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="name">Open seat</span></div>`;
-        const ping = s.ping === null || offline ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} MS</span>`;
-        const tags = `${s.host && !offline ? '<span class="tag host">HOST</span>' : ''}${s.you ? '<span class="tag you">YOU</span>' : ''}`;
-        return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="name">${escapeHtml(s.name)}</span>${ping}${tags}</div>`;
+        if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Bot</span></span></div>`;
+        if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Open seat</span></span></div>`;
+        const ping = s.ping === null || offline ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} ms</span>`;
+        // Who this seat is to you, in words under the name: You, Host, or both.
+        const role = offline ? '' : [s.you ? 'You' : '', s.host ? 'Host' : ''].filter(Boolean).join(' · ');
+        return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">${escapeHtml(s.name)}</span>${role ? `<span class="role">${role}</span>` : ''}</span>${ping}</div>`;
       })
       .join('');
     // Rows fill the left column first, then the right.
-    const rows = Math.ceil(Math.max(l.capacity, 1) / 2);
+    const rows = Math.ceil(Math.max(offline ? shown.length : l.capacity, 1) / 2);
     const last = lastMatch(v.result, v.mode, v.teamScores);
     const lastHtml = last
       ? `<section class="last"><h2 class="ds-h2">Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
       : '';
 
     const lock = picking ? '' : ' disabled';
-    const seg = (act: string, items: readonly (readonly [string, string, boolean])[]) =>
-      `<div class="ds-seg">${items.map(([value, label, on]) => `<button type="button" data-act="${act}" data-value="${value}" data-key="${act}-${value}" class="${on ? 'on' : ''}"${lock}>${escapeHtml(label)}</button>`).join('')}</div>`;
+    // `act` may name an extra class after the action: "mode modes".
+    const seg = (actClass: string, items: readonly (readonly [string, string, boolean])[]) => {
+      const [act, cls] = actClass.split(' ');
+      return `<div class="ds-seg${cls ? ` ${cls}` : ''}">${items.map(([value, label, on]) => `<button type="button" data-act="${act}" data-value="${value}" data-key="${act}-${value}" class="${on ? 'on' : ''}" aria-pressed="${on}"${lock}>${escapeHtml(label)}</button>`).join('')}</div>`;
+    };
     const modes = seg(
-      'mode',
+      'mode modes',
       LOBBY_MODES.map((m) => [m, MODE_NAMES[m] ?? m, m === l.mode] as const),
     );
     // Humans vs bots is a choice in team modes; it sizes the bot team itself.
@@ -284,12 +307,12 @@ export class LobbyPage {
       .map((id) => {
         const m = this.#map(id);
         const on = id === l.map;
-        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${on ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}"${lock}><b>${escapeHtml(m.name)}</b><small>${on ? `✓ ${escapeHtml(modeName)}` : 'Map'}</small></button>`;
+        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${on ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}" aria-pressed="${on}"${lock}><b>${escapeHtml(m.name)}</b><small>${on ? 'Picked' : 'Map'}</small></button>`;
       })
       .join('');
     const copied = performance.now() < this.#copiedUntil;
     const invite = this.invite && !offline
-      ? `<div class="picks" style="margin-top:16px"><div><span class="ds-field-label">Invite link: anyone with it can join</span><div class="invite" style="margin:0"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy">${copied ? 'Copied' : 'Copy'}</button></div></div></div>`
+      ? `<div><span class="ds-field-label">Invite link: anyone with it can join</span><div class="invite"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy" aria-live="polite">${copied ? 'Copied' : 'Copy'}</button></div></div>`
       : '';
     const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
     const start = reconnecting
@@ -301,26 +324,27 @@ export class LobbyPage {
       : host
         ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start</button>`
         : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
-    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? `${bots} ${bots === 1 ? 'bot' : 'bots'} · offline` : underway ? 'The match has started' : host ? 'You are the host' : hostName ? `${escapeHtml(hostName)} is the host` : '';
+    // The connection line: a dot for the state and what it means for you.
+    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? `Offline: you and ${bots} ${bots === 1 ? 'bot' : 'bots'}` : underway ? 'The match has started: join it now' : host ? 'You are the host: the picks and Start are yours' : hostName ? `${escapeHtml(hostName)} is the host and picks the match` : 'Waiting for a host';
+    const state = reconnecting ? 'busy' : offline || host || underway ? 'up' : 'wait';
     const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}. The match pauses with the game.` : lobbyFill(l);
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${offline ? hint('Esc', '○', 'Back') : ''}</div>`;
 
     return `<div class="ds-page">
 <header><div class="heading"><div class="ds-crumb">${offline ? 'Offline · Play' : 'Online · Play'}</div><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
-<div class="aside"><span class="ds-chip">${escapeHtml(modeName)}</span><span class="ds-chip">${escapeHtml(map.name)}</span><span class="ds-chip"><b>${offline ? 'You' : peopleText}</b>${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''}</span></div></header>
+<div class="aside"><span class="ds-state ${state}" role="status">${who}</span></div></header>
 <div class="body">
-<section><h2 class="ds-h2">Players <small>${offline ? `You + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : `${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} / ${l.capacity}`}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
-<aside>
-<h2 class="ds-h2">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
+<section><h2 class="ds-h2">Players <small>${offline ? `You + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : `${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats`}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
+<aside class="match">
+<h2 class="ds-h2" style="margin:0">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
+<div class="ds-readouts"><div><span>Mode</span><b>${escapeHtml(modeName)}</b></div><div><span>Map</span><b>${escapeHtml(map.name)}</b></div>${offline ? `<div><span>Players</span><b>${people + bots}</b></div>` : `<div><span>Seats</span><b>${people + bots} / ${l.capacity}</b></div>`}</div>
 <div class="maps${picking ? '' : ' locked'}">${maps}</div>
 <button type="button" class="ds-btn random" data-act="random" data-key="random"${picking && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
-<p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>
-<div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div>${versus}${size}</div>
-${invite}
+<div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div><p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>${versus}${size}${invite}</div>
 </aside>
 </div>
 <footer><button type="button" class="ds-btn" data-act="leave" data-key="leave">${icon('back')}${offline ? 'Back' : 'Leave'}</button><button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>
-${hints}<span class="who">${who}</span>${start}</footer>
+${hints}${start}</footer>
 </div>`;
   }
 }

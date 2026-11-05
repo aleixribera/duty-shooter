@@ -68,55 +68,59 @@ export const MENU_CSS = `
 
 /* Page content: columns, cards, facts and fields. */
 .ds-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 40px; align-items: start; }
-.ds-box { padding: 18px; background: rgb(18 22 29 / 0.72); border: 1px solid var(--ds-line); }
+.ds-box { padding: 18px; background: rgb(18 22 29 / 0.88); }
 .ds-box + .ds-box { margin-top: 16px; }
-.ds-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); margin: 0 0 20px; }
-.ds-facts div { background: rgb(18 22 29 / 0.88); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
-.ds-facts span:last-child { font-size: 22px; font-weight: 700; letter-spacing: 0.02em; }
+.ds-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); margin: 0 0 24px; }
+.ds-facts div { background: var(--ds-panel); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-facts span:last-child { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; overflow-wrap: anywhere; }
 .ds-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-.ds-mode { padding: 12px 14px; text-align: left; background: rgb(11 14 19 / 0.9); border: 1px solid var(--ds-line); border-left: 3px solid transparent; transition: border-color 100ms, background-color 100ms; }
-.ds-mode b { display: block; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; }
-.ds-mode span { font-size: 13px; color: var(--ds-text-2); }
+.ds-mode { padding: 12px 14px; text-align: left; background: var(--ds-panel); border: 1px solid var(--ds-line); transition: border-color var(--ds-fast), background-color var(--ds-fast); }
+.ds-mode b { display: block; font-size: 18px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.03em; }
+.ds-mode span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-mode:hover { background: var(--ds-raised); }
-.ds-mode.on { border-color: var(--ds-signal); border-left-color: var(--ds-signal); background: var(--ds-signal-dim); }
+.ds-mode.on { border-color: var(--ds-signal); box-shadow: inset 4px 0 0 var(--ds-signal); }
 .ds-mode:focus-visible, .ds-mode[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
 .ds-field { display: block; margin: 0 0 16px; }
-.ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: rgb(11 14 19 / 0.92); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 2px; font: 700 18px var(--ds-font); letter-spacing: 0.02em; transition: border-color 120ms; }
-.ds-field input:focus { border-color: var(--ds-signal); outline: none; box-shadow: inset 3px 0 0 var(--ds-signal); }
+.ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 18px var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
+.ds-field input:focus { border-color: var(--ds-signal); outline: none; }
 .ds-error { color: var(--ds-alert); min-height: 20px; font-size: 14px; }
 .ds-sub { margin: 6px 0 0; color: var(--ds-text-2); }
 .ds-gap { height: 20px; }
 
 /* Settings: tabs in the header, rows of label and control. */
 .ds-tabs { display: flex; gap: 2px; }
-.ds-tabs button { position: relative; height: 40px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-3); font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
+.ds-tabs button { position: relative; height: 44px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-2); font-size: 14px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
 .ds-tabs button::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--ds-signal); transform: scaleX(0); transition: transform 140ms var(--ds-ease); }
 .ds-tabs button:hover { color: var(--ds-text); background: rgb(243 241 234 / 0.04); }
 .ds-tabs button.on { color: var(--ds-text); }
 .ds-tabs button.on::after { transform: none; }
 .ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: -2px; }
-.ds-rows { max-width: 920px; }
-.ds-rows h3 { margin: 26px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
-.ds-rows h3:first-child { margin-top: 0; }
-.ds-rows .ds-sub { margin: -2px 0 10px; font-size: 14px; }
-.ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: center; min-height: 52px; padding: 6px 16px; background: rgb(18 22 29 / 0.62); border-left: 3px solid transparent; transition: background-color 100ms, border-color 100ms; }
-.ds-row + .ds-row { margin-top: 2px; }
-.ds-row:hover, .ds-row:focus-within { background: rgb(28 34 44 / 0.86); border-left-color: var(--ds-signal); }
-.ds-row > label { font-size: 16px; }
+/* Settings: a block a section, its name at heading size with a line on what it covers, then a row a setting, the control on the right. */
+.ds-rows { max-width: 980px; }
+.ds-rows section + section { margin-top: 36px; }
+.ds-rows h3 { margin: 0 0 6px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
+.ds-rows .ds-sub { margin: 0 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-rows .list { display: grid; gap: 1px; background: var(--ds-line); }
+.ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: center; min-height: 56px; padding: 6px 16px 6px 20px; background: var(--ds-panel); transition: background-color var(--ds-fast), box-shadow var(--ds-fast); }
+.ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-signal); }
+.ds-row > label { font-size: var(--ds-type-body); }
 .ds-slider { display: flex; align-items: center; gap: 12px; }
 .ds-slider input { flex: 1; min-width: 0; height: 20px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
-.ds-slider input::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 2px; }
-.ds-slider input::-moz-range-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 2px; }
-.ds-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 20px; margin-top: -8px; background: var(--ds-text); border: 0; border-radius: 2px; box-shadow: 0 0 0 3px rgb(7 9 13 / 0.6); }
-.ds-slider input::-moz-range-thumb { width: 14px; height: 20px; background: var(--ds-text); border: 0; border-radius: 2px; }
+.ds-slider input::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
+.ds-slider input::-moz-range-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
+.ds-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 20px; margin-top: -8px; background: var(--ds-text); border: 0; border-radius: 0; box-shadow: 0 0 0 3px rgb(7 9 13 / 0.6); }
+.ds-slider input::-moz-range-thumb { width: 14px; height: 20px; background: var(--ds-text); border: 0; border-radius: 0; }
+/* A thumb's reach: the whole row height on touch, with a bigger thumb, so a slider is not a 20px strip to hit. */
+@media (pointer: coarse) { .ds-slider input { height: 44px; } .ds-slider input::-webkit-slider-thumb { width: 22px; height: 30px; margin-top: -13px; } .ds-row select, .ds-bind { min-height: 44px; } }
 .ds-slider input:focus { outline: none; }
 .ds-slider input:focus-visible::-webkit-slider-thumb, .ds-slider input[data-pad-focus]::-webkit-slider-thumb { background: var(--ds-signal); }
-.ds-slider .val { min-width: 58px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: rgb(11 14 19 / 0.9); border: 1px solid var(--ds-line); font-size: 14px; font-weight: 700; color: var(--ds-text); }
-.ds-row select, .ds-bind { width: 100%; height: 38px; padding: 0 36px 0 12px; background: rgb(11 14 19 / 0.92); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 2px; font: 700 14px var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
+.ds-slider .val { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: var(--ds-ink); border: 1px solid var(--ds-line); font-size: 14px; font-weight: 700; color: var(--ds-text); }
+.ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 14px var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
 .ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238fe3c8' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
 .ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-signal); outline: none; }
 .ds-bind { padding-right: 12px; cursor: pointer; }
+.ds-saved { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-bind:hover { border-color: var(--ds-signal); }
 .ds-bind.wait { border-color: var(--ds-signal); color: var(--ds-signal); background: var(--ds-signal-dim); }
 
@@ -160,34 +164,42 @@ export const MENU_CSS = `
 .pad .ds-keys .key-list { display: none; } .pad .ds-keys .pad-list { display: grid; }
 .ds-pause footer { grid-column: 1 / -1; align-self: end; }
 
-/* Dialogs: loading, connecting, errors, tips. */
-.ds-dim { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgb(7 9 13 / 0.78), rgb(7 9 13 / 0.94)); }
-.ds-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(540px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; background: rgb(14 18 24 / 0.97); border: 1px solid var(--ds-line); border-top: 3px solid var(--ds-signal); padding: 26px 28px 24px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.5); }
-.ds-panel.error { border-top-color: var(--ds-alert); }
-.ds-panel h2 { margin: 0 0 6px; font-size: 30px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
-.ds-panel h2 .ds-icon { color: var(--ds-signal); width: 28px; height: 28px; }
-.ds-panel.error h2 .ds-icon { color: var(--ds-alert); }
-.ds-panel p { margin: 6px 0 18px; color: var(--ds-text-2); }
-.ds-btns { display: flex; gap: 10px; margin-top: 8px; }
-.ds-btns .ds-btn { flex: 1; }
-.ds-progress { height: 4px; background: var(--ds-raised); overflow: hidden; margin: 20px 0 8px; }
-.ds-progress i { display: block; height: 100%; width: 0; background: var(--ds-signal); transition: width 200ms ease-out; }
+/* Dialogs: loading, connecting, errors, tips. Set like a title card at the lower left over the world, as the main menu is, the scrim heavy where the words are. */
+.ds-dim { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.8) 45%, rgb(7 9 13 / 0.5) 100%); }
+.ds-panel { position: absolute; left: var(--ds-gutter); bottom: 72px; width: min(620px, calc(100vw - 2 * var(--ds-gutter))); max-height: calc(100vh - 96px); overflow: auto; animation: ds-in var(--ds-slow) var(--ds-ease) both; }
+.ds-panel.error { padding-left: 24px; box-shadow: inset 4px 0 0 var(--ds-alert); }
+.ds-panel h2 { margin: 0 0 16px; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ds-panel p { margin: 0 0 22px; max-width: 56ch; font-size: var(--ds-type-body); line-height: 1.45; color: var(--ds-text-2); }
+.ds-panel .figure { display: flex; align-items: baseline; gap: 14px; margin: 0 0 12px; }
+.ds-panel .figure b { font-size: calc(var(--ds-type-display) * 1.4); line-height: 0.85; font-weight: 700; min-width: 3ch; }
+.ds-panel .figure span { font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.ds-btns .ds-btn { min-width: 180px; }
+.ds-progress { height: 4px; background: var(--ds-line-2); overflow: hidden; margin: 0 0 20px; }
+.ds-progress i { display: block; height: 100%; width: 0; background: var(--ds-text); transition: width 200ms ease-out; }
 .ds-progress.busy i { width: 30%; animation: ds-busy 1.1s ease-in-out infinite; }
 @keyframes ds-busy { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
-.ds-steps { list-style: none; margin: 16px 0 18px; padding: 0; }
-.ds-steps li { display: flex; align-items: center; gap: 12px; padding: 5px 0; color: var(--ds-text-3); }
-.ds-steps li::before { content: ''; width: 9px; height: 9px; border-radius: 50%; border: 1.6px solid currentColor; }
-.ds-steps li.done { color: var(--ds-text-2); }
-.ds-steps li.done::before { background: var(--ds-signal); border-color: var(--ds-signal); }
-.ds-steps li.now { color: var(--ds-text); }
-.ds-steps li.now::before { border-color: var(--ds-signal); box-shadow: 0 0 0 3px var(--ds-signal-dim); }
+@media (prefers-reduced-motion: reduce) { .ds-progress.busy i { animation: none; width: 100%; opacity: 0.4; } .ds-panel { animation: none; } }
+/* Connecting's steps: a short mark each, lit for the one under way, as on the Battle Royale screen. */
+.ds-steps { display: grid; gap: 8px; list-style: none; margin: 0 0 26px; padding: 0; font-size: var(--ds-type-body); }
+.ds-steps li { display: flex; align-items: center; gap: 12px; color: var(--ds-text-2); }
+.ds-steps li::before { content: ''; flex: none; width: 18px; height: 2px; background: var(--ds-line-2); }
+.ds-steps li.done::before { background: var(--ds-text-2); }
+.ds-steps li.now { color: var(--ds-text); font-weight: 700; }
+.ds-steps li.now::before { background: var(--ds-signal); }
 .ds-menu.pad .ds-panel [data-pad-focus], .ds-menu.pad .ds-field input[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
 
 @media (max-width: 960px) {
   .ds-cols { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .ds-row { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px; }
+  .ds-row { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px 12px 16px; }
+  .ds-facts span:last-child { font-size: 18px; }
+  .ds-dim { background: var(--ds-scrim); }
+  .ds-panel { bottom: 32px; }
+  .ds-panel .figure b { font-size: 64px; }
+  .ds-btns .ds-btn { flex: 1 1 140px; min-width: 0; }
   .ds-kit { grid-template-columns: repeat(2, 1fr); }
   .ds-tabs { order: 3; flex-basis: 100%; overflow-x: auto; }
+  .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: 13px; letter-spacing: 0.08em; }
   .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; }
   .ds-pause h1 { font-size: 40px; }
   .ds-keys { justify-self: stretch; }
@@ -352,6 +364,8 @@ export class Menu {
     const same = this.#screen === 'loading' && this.open && this.#loading.title === title;
     this.#loading = { title, progress };
     if (!same) this.show('loading');
+    const figure = this.#root.querySelector<HTMLElement>('.ds-panel .figure b');
+    if (figure) figure.textContent = progress === null ? '…' : `${Math.round(progress * 100)}%`;
     const bar = this.#root.querySelector<HTMLElement>('.ds-progress');
     if (bar) {
       bar.classList.toggle('busy', progress === null);
@@ -547,13 +561,13 @@ export class Menu {
       p.append(b);
       return b;
     };
-    /** A centred dialog over the dimmed game, for the screens that come and go on their own. */
-    const panel = (title: string, iconName: string, cls = '') => {
+    /** A title card at the lower left over the dimmed game, for the screens that come and go on their own. */
+    const panel = (title: string, cls = '') => {
       screen.append(h('div', '', 'ds-dim'));
       const p = h('div', '', `ds-panel ${cls}`);
-      const t = h('h2');
-      t.innerHTML = `${icon(iconName)}<span>${escapeHtml(title)}</span>`;
-      p.append(t);
+      p.setAttribute('role', cls === 'error' ? 'alertdialog' : 'dialog');
+      p.setAttribute('aria-label', title);
+      p.append(h('h2', title));
       screen.append(p);
       return p;
     };
@@ -565,8 +579,11 @@ export class Menu {
         this.#renderOnline(screen, h, button);
         break;
       case 'loading': {
-        const p = panel(this.#loading.title, 'town');
-        p.append(h('p', 'Building the map and its baked lighting.'));
+        const p = panel(this.#loading.title);
+        // The screen's one figure: how much of the map is in, or a quiet line while that is unknown.
+        const figure = h('div', '', 'figure');
+        figure.innerHTML = `<b>${this.#loading.progress === null ? '…' : `${Math.round(this.#loading.progress * 100)}%`}</b><span>Building the map and its baked lighting</span>`;
+        p.append(figure);
         const bar = h('div', '', `ds-progress${this.#loading.progress === null ? ' busy' : ''}`);
         const fill = h('i');
         if (this.#loading.progress !== null) fill.style.width = `${Math.round(this.#loading.progress * 100)}%`;
@@ -575,7 +592,7 @@ export class Menu {
         break;
       }
       case 'connecting': {
-        const p = panel('Connecting', 'online');
+        const p = panel('Connecting');
         const bar = h('div', '', 'ds-progress busy');
         bar.append(h('i'));
         p.append(bar);
@@ -589,16 +606,20 @@ export class Menu {
       }
       case 'error': {
         const e = connectionError(this.#failure);
-        const p = panel(e.title, 'alert', 'error');
+        const p = panel(e.title, 'error');
         p.append(h('p', e.body));
         const row = h('div', '', 'ds-btns');
         p.append(row);
         if (e.kind === 'version' || e.kind === 'gpu') button(row, 'Reload', () => location.reload(), 'primary');
         else if (e.kind === 'down' || e.kind === 'full') button(row, 'Try again', () => this.#openOnline(), 'primary');
+        // No server: the bots are a way to play now, not a sentence to follow.
+        if (e.kind === 'down') button(row, 'Bot Match', () => this.#callbacks.botMatch());
         else if (e.kind === 'idle') button(row, 'Join again', () => this.#openOnline(), 'primary');
         else button(row, 'Play Online', () => this.show('online'), 'primary');
         // Without graphics there is no going on: only Reload.
         if (e.kind !== 'gpu') button(row, 'Main menu', () => this.show('main'), 'back');
+        // The way on has the focus, so Enter does what the lit button says.
+        if (!this.#root.classList.contains('pad')) queueMicrotask(() => row.querySelector('button')?.focus({ preventScroll: true }));
         break;
       }
       case 'pause':
@@ -608,7 +629,7 @@ export class Menu {
         this.#renderLoadout(screen, h, button);
         break;
       case 'tip': {
-        const p = panel('Tip for Firefox', 'alert');
+        const p = panel('Tip for Firefox');
         p.append(
           h(
             'p',
@@ -1002,13 +1023,20 @@ export class Menu {
     aside.append(tabs);
     const rows = h('div', '', 'ds-rows');
     body.append(rows);
+    let list = h('div', '', 'list');
     const row = (label: string, control: HTMLElement) => {
       const r = h('div', '', 'ds-row');
       const l = h('label', label);
       r.append(l, control);
-      rows.append(r);
+      list.append(r);
     };
-    const section = (title: string) => rows.append(h('h3', title));
+    /** A block of settings: its name, a line on what it covers, then its rows. */
+    const section = (title: string, sub: string) => {
+      const block = h('section');
+      list = h('div', '', 'list');
+      block.append(h('h3', title), h('p', sub, 'ds-sub'), list);
+      rows.append(block);
+    };
     const slider = (label: string, value: number, min: number, max: number, step: number, format: (v: number) => string, set: (v: number) => void) => {
       const wrap = h('div', '', 'ds-slider');
       const input = h('input') as HTMLInputElement;
@@ -1049,9 +1077,9 @@ export class Menu {
       ], (v) => set(v === 'on'));
 
     if (this.#tab === 'controls') {
-      section('Mouse');
+      section('Mouse', 'How far a mouse move turns you, and how aiming and crouching answer the button.');
       slider('Mouse sensitivity', s.sensitivity, 0.5, 20, 0.05, (v) => v.toFixed(2), (v) => this.#change({ sensitivity: v }));
-      slider('ADS sensitivity multiplier', s.adsMultiplier, 0.1, 2, 0.01, (v) => v.toFixed(2), (v) => this.#change({ adsMultiplier: v }));
+      slider('Aim-down-sights sensitivity', s.adsMultiplier, 0.1, 2, 0.01, (v) => v.toFixed(2), (v) => this.#change({ adsMultiplier: v }));
       select('Aim down sights', s.adsMode, [
         ['hold', 'Hold'],
         ['toggle', 'Toggle'],
@@ -1061,34 +1089,32 @@ export class Menu {
         ['hold', 'Hold'],
       ], (v) => this.#change({ crouchMode: v }));
       const pad = this.#padName();
-      section('Controller');
-      rows.append(h('p', pad ? `Connected: ${padName(pad)}` : 'None detected. Connect a controller and press any button.', 'ds-sub'));
+      section('Controller', pad ? `Connected: ${padName(pad)}.` : 'None detected. Connect a controller and press any button.');
       select('Button layout', s.padLayout, [
         ['default', 'Default'],
         ['tactical', 'Tactical (crouch on R3, melee on ○)'],
       ], (v) => this.#change({ padLayout: v }));
       slider('Horizontal stick sensitivity', s.padSensitivityX, 1, 20, 1, (v) => String(v), (v) => this.#change({ padSensitivityX: v }));
       slider('Vertical stick sensitivity', s.padSensitivityY, 1, 20, 1, (v) => String(v), (v) => this.#change({ padSensitivityY: v }));
-      slider('Controller ADS multiplier', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
+      slider('Controller aim-down-sights sensitivity', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
       slider('Stick deadzone', s.padDeadzone, 0, 0.3, 0.01, (v) => v.toFixed(2), (v) => this.#change({ padDeadzone: v }));
       toggle('Invert vertical look', s.padInvertY, (v) => this.#change({ padInvertY: v }));
     } else if (this.#tab === 'bindings') {
-      section('Keyboard and mouse');
-      rows.append(h('p', 'Click an action, then press the key or mouse button for it. Esc cancels. A key already in use swaps over.', 'ds-sub'));
+      section('Keyboard and mouse', 'Click an action, then press the key or mouse button for it. Esc cancels. A key already in use swaps over.');
       for (const action of ACTIONS) row(ACTION_LABELS[action], this.#bindButton(action, h));
     } else if (this.#tab === 'video') {
-      section('View');
+      section('View', 'How wide you see, and whether aiming narrows it with your field of view.');
       slider('Field of view', s.fov, STATS.input.minFov.value, STATS.input.maxFov.value, 1, (v) => `${v}°`, (v) => this.#change({ fov: v }));
-      select('ADS field of view', s.adsFov, [
+      select('Aim-down-sights field of view', s.adsFov, [
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
     } else {
-      section('HUD');
+      section('HUD', 'The readouts drawn over play.');
       toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));
       toggle('Ping counter', s.showPing, (v) => this.#change({ showPing: v }));
       toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
-      section('Audio');
+      section('Audio', 'Everything the game plays.');
       slider('Volume', s.volume, 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`, (v) => this.#change({ volume: v }));
     }
     button(footer, 'Back', () => (this.#back === 'close' ? this.hide() : this.show(this.#back)), 'back', 'back');
@@ -1099,7 +1125,7 @@ export class Menu {
       });
     }
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('←→', '✥', 'Adjust'), hint('Esc', '○', 'Back')));
-    footer.append(h('span', 'Changes save as you make them', 'ds-label'));
+    footer.append(h('span', 'Changes save as you make them', 'ds-saved'));
   }
 
   #bindButton(action: Action, h: El): HTMLElement {

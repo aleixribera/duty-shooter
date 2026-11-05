@@ -1,0 +1,620 @@
+{
+  "project": "duty-shooter",
+  "date": "2026-11-05",
+  "commit": "f0d907f",
+  "dirty": true,
+  "findings": [
+    {
+      "id": "F01",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "A phone player is never told the game can't be played by touch",
+      "detail": "On a phone the whole menu works: they can type a name, open Bot Match and press START. But the game has no touch controls (no joystick or touch handlers in fps-client), so they reach a match they can't move or shoot in. Nothing on the menu, in the lobby or in Settings says a keyboard and mouse or a controller is needed. Settings even opens on MOUSE and CONTROLLER sections, which suggests a phone isn't expected but never says so.",
+      "fix": "On touch-only devices, show a one-line notice under the title ('Needs a keyboard and mouse or a controller') in place of the footer hint. Keep the menus browsable but repeat the notice on START, rather than dropping the player into a match they can't control.",
+      "evidence": "main-menu@phone.png: all five entries are enabled with no device note; settings@phone.png opens on 'Mouse sensitivity'. Grep for touchstart/joystick in packages/fps-client/src finds nothing.",
+      "box": [
+        16,
+        418,
+        358,
+        370
+      ]
+    },
+    {
+      "id": "F02",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "On phone the mode, map and sides choices are hidden below a 12-row player list and the sticky footer",
+      "detail": "The phone lobby's first screen shows only the header, the seat rows and a sticky footer with START. The whole MATCH section (mode, map cards, Random, sides) is below the fold, and nothing hints that it's there. A phone player can start a match without seeing which map or mode they picked. The last seat rows also scroll under the footer: the measured contrast of 'Open seat 12' (1.3:1) comes from it being hidden behind the footer, not from its colour.",
+      "fix": "On narrow screens, put the Match summary card (Mode / Map / Seats) above the player list, or collapse the seat list to a 'You + 7 bots, 4 open' summary row that expands. Show the chosen map and mode on the START button or right above it.",
+      "evidence": "bot-lobby@phone.dom.json lists no Match/Mode/Map texts or controls in the viewport; its only controls are BACK/LOADOUT/SETTINGS at y=718 (44 tall) and START [16,774,358,58]. contrast.md bot-lobby@phone: '12' [31,775,11,13] p50 1.3 FAIL, 'Open seat' [67,773,71,16] p50 1.3 FAIL, 'Open seat' [67,721,71,16] p10 2.12 warn, all under the footer. · bot-lobby@phone.png: the visible area is the player list plus BACK/LOADOUT/SETTINGS/START; the DOM texts stop at 'Open seat' 12 and the hint at [16,822]. · DOM sample: the last visible content is 'Bots fill the match to 4v4...' at y=822; no Mode/Map/Seats text is in the viewport. Rows 01-10 occupy y=187-700, footer with Start at y=774.",
+      "box": [
+        16,
+        140,
+        358,
+        578
+      ],
+      "alsoNoted": [
+        "first-time: On a phone, START sits above the fold but the mode and map choices don't",
+        "hierarchy: Map and mode choices are buried below twelve player rows; Start is pressable before they are ever seen"
+      ]
+    },
+    {
+      "id": "F03",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "lenses": [
+        "rules"
+      ],
+      "title": "On a phone the match setup is off-screen and the footer covers the last seats",
+      "detail": "At 390x844 the lobby shows 12 seat tiles first and the whole Match block (Mode/Map/Seats readout, map cards, Random, Mode and Sides pickers) is below the fold with nothing showing that more follows. The fixed footer (Back/Loadout/Settings/Start) sits over seats 11-12 and the 'Bots fill the match to 4v4' note. The obvious next step is Start, pressed without seeing which map or mode will load. Closest rule is MENU-01: the one next step is clear, but not what it will do. DESIGN.md also says a block on the left is answered by readouts.",
+      "fix": "On narrow widths put the Mode/Map/Seats readout strip (or the whole Match block) above the seat list, and fold the 12 seats into a compact two-column grid or a single 'You + 7 bots' line that expands. Give the scrolling body bottom padding equal to the footer height.",
+      "evidence": "bot-lobby@phone.dom.json has no Match texts in the viewport. Seat 12 'Open seat' at [67,773] and the note at [16,822,352,38] sit under the footer (controls BACK [16,718,111,44], START [16,774,358,58]). contrast.md gives 'Open seat' and '12' 1.3:1 (fail), and the note p10 1.3.",
+      "box": [
+        16,
+        712,
+        358,
+        132
+      ]
+    },
+    {
+      "id": "F04",
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "high",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Nothing has focus when a screen opens, so keyboard and gamepad players can't tell what Enter will do",
+      "detail": "The `focused` field is null in all 10 DOM samples. On the Connection-failed dialog, TRY AGAIN and MAIN MENU look like a filled button and an outlined one, with no focus mark on either, so a pad player can't tell which one A or Enter will trigger. Settings and the Bot Match lobby are the same: their footers promise '↑↓ MOVE / ENTER SELECT', but no control is marked. The only highlight in the lobby is the teal-bordered '01 You' row, which is a player marker and can't be clicked, so it looks like focus when it isn't.",
+      "fix": "When each screen opens, move focus to its default action (TRY AGAIN on the error dialog, START or the first match option in the lobby, the first settings row) and give :focus-visible a clear 2 px signal-colour outline plus a fill change. Make the '01 You' identity marker look different from the focus style, for example a left bar only, no full outline.",
+      "evidence": "error@desktop.dom.json: focused=null; controls TRY AGAIN [80,964,180,44] and MAIN MENU [270,964,180,44] are drawn with no focus ring. bot-lobby@desktop.dom.json: focused=null, while the only outlined element is the '01 You' row at about [56,192,608,52]. settings@desktop.dom.json: focused=null, and no row has a focus treatment (only the active-tab underline).",
+      "box": [
+        80,
+        964,
+        370,
+        44
+      ]
+    },
+    {
+      "id": "F05",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "'No game server answers this page' reads like a developer message, and Play Online still looks pressable",
+      "detail": "A newcomer doesn't know what a 'game server' for 'this page' is or whether it's their fault. PLAY ONLINE stays at full size and full colour and is still enabled, so the first thing they're likely to press leads straight to the 'Server unreachable' dialog. It's also unclear whether Battle Royale (60 seats) needs that same server, because it's the only mode with no Online/Offline tag.",
+      "fix": "Say it in player terms: 'Online play is down right now. Try Bot Match.' Dim PLAY ONLINE (and Battle Royale too if it needs the server), and tag every entry 'Online' or 'Offline' the same way.",
+      "evidence": "main-menu@desktop.dom.json: control 'PLAY ONLINE No game server answers this page' disabled:false; the Battle Royale meta is '60 seats · Zero Island · Solos, Duos or Trios' with no Offline tag, while Bot Match and Practice Range both say 'Offline'.",
+      "box": [
+        56,
+        524,
+        720,
+        212
+      ]
+    },
+    {
+      "id": "F06",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "Four equally huge mode names, no single 'start here'",
+      "detail": "PLAY ONLINE, BATTLE ROYALE, BOT MATCH and PRACTICE RANGE are all 60 px uppercase. The only hint of a default is a thin teal bar on Bot Match, which a newcomer reads as a hover state, not as a recommendation. With online down, the best first step (Bot Match or Practice Range) gets no extra weight.",
+      "fix": "Give the recommended entry a filled or brighter treatment plus a small 'Start here' line (Bot Match while offline, Play Online once a server answers), and make the others secondary.",
+      "evidence": "main-menu@desktop.dom.json: all four title boxes are 60 px tall; the only difference is the thin teal left bar at x 56 on BOT MATCH.",
+      "box": [
+        56,
+        524,
+        720,
+        423
+      ]
+    },
+    {
+      "id": "F07",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Unavailable 'Play Online' is the first and equally loud destination",
+      "detail": "The eye lands first on PLAY ONLINE (top of the list, same 60 px white display type as every row), but no server answers, so the first thing a player tries is a dead end. The only cue is a small red dot and a 16 px line under it.",
+      "fix": "When the server is down, drop the Play Online title to --ds-text-2 (or move it below the offline destinations) and make its readout say what to do instead ('Server down: try Bot Match'); keep the lit signal bar on the first playable row.",
+      "evidence": "'Play Online' box [78,531,373,60] at 60 px #f3f1ea, identical to Battle Royale / Bot Match / Practice Range; status 'No game server answers this page' 16 px at [95,599,250,16].",
+      "box": [
+        56,
+        531,
+        400,
+        86
+      ]
+    },
+    {
+      "id": "F08",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "COL-02",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "The lit destination differs from the others only by a thin coloured bar",
+      "detail": "Every destination row has a 4 px bar on its left edge. The lit row (Bot Match) differs only in that its bar is teal instead of grey. Its title colour, size, weight and background are the same as the other rows'. Across a 720 px wide row, a 4 px change in hue is easy to miss from couch distance and for players with colour-vision deficiency. DESIGN.md says hover and focus grow the bar and slide the title 10 px, but in the resting lit state that cue isn't visible.",
+      "fix": "Give the lit state at least one cue that isn't hue: keep the 10 px title offset applied, widen the bar to 6–8 px, and/or add a faint row fill (about 8% white). Dim the unlit titles slightly so the lit one stands out by luminance as well as hue.",
+      "evidence": "main-menu@desktop.png: Bot Match row [56,736,720,106] has a teal bar at x=56; Play Online, Battle Royale and Practice Range have grey bars of the same width. Title colour is (243,241,234) on all four rows in main-menu@desktop.dom.json. The same holds on phone: the Bot Match row [16,561,358,93] differs only by bar colour.",
+      "box": [
+        56,
+        736,
+        720,
+        106
+      ]
+    },
+    {
+      "id": "F09",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy",
+        "rules"
+      ],
+      "title": "A 'WebGPU' renderer badge overlaps the game title",
+      "detail": "The first thing on the phone screen is a grey dev badge drawn on top of 'DUTY SHOOTER', so the title collides with another text.",
+      "fix": "Hide the renderer badge outside dev URLs, or move it beside the 'dev' tag at the bottom.",
+      "evidence": "Screenshot: dark rounded 'WebGPU' chip at roughly [8,8,67,26] CSS px over the h1 'Duty Shooter' [16,18,290,40]; the chip is not in the DOM sample, so it comes from an overlay outside the menu. · main-menu@phone.png, about (16,16)-(150,66) device px: 'WebGPU' drawn under and over the 'DUTY' glyphs. The h1 is at [16,18,290,40].",
+      "box": [
+        8,
+        8,
+        67,
+        26
+      ],
+      "alsoNoted": [
+        "rules: A rounded 'WebGPU' debug badge sits on top of the game title"
+      ]
+    },
+    {
+      "id": "F10",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy",
+        "rules"
+      ],
+      "title": "Section tabs float in the far top-right, detached from the column they switch",
+      "detail": "All content holds a 980 px column on the left, but the Controls / Keys / Video / Interface tabs sit 400 px past its right edge over the sky, so the eye reads title then Mouse and misses that there are three more pages of settings.",
+      "fix": "Place the tab row under the 'Settings' title, left-aligned to the 56 px gutter and spanning the content column, as the phone layout already does.",
+      "evidence": "Tabs span about [1454,58,400,36] while the settings panel ends at x=1035; tab labels are 14 px, smaller than the 22 px block headings directly under the title. · contrast.md font sizes: settings@desktop 12,13,14,15,16,22,51.84; bot-lobby@desktop 12,13,16,20,22,24,51.84; error 15,16,51.84; loading 16,51.84,84. DOM: Controls tab 14/700 [1462,65,87,14], Back 15 [109,1037,46,15].",
+      "box": [
+        1454,
+        58,
+        400,
+        36
+      ],
+      "alsoNoted": [
+        "rules: Off-scale type sizes (12, 14, 15, 18, 20, 24, 84 px) alongside the five DESIGN.md steps"
+      ]
+    },
+    {
+      "id": "F11",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Nothing has focus when Settings, the Bot Match lobby or the error dialog opens",
+      "detail": "Each of these screens advertises keyboard control in its footer hints (arrows Move, Enter Select, Esc Back), but focus lands nowhere and no row is highlighted, so the first arrow press starts from an unknown place. On the error dialog, Enter should retry by default. The main menu passes: its lit row (Bot Match) is visible.",
+      "fix": "When a screen opens, focus its first sensible control: the Controls tab or the first setting row, Start in the lobby, Try again in the error dialog. Give it the same 4 px signal bar the main menu uses.",
+      "evidence": "\"focused\": null in settings@desktop, bot-lobby@desktop and error@desktop .dom.json. In the screenshots no control on these screens is highlighted except the selected tab, picker and map state.",
+      "box": [
+        56,
+        208,
+        980,
+        57
+      ]
+    },
+    {
+      "id": "F12",
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "rules"
+      ],
+      "title": "Sliders and dropdowns are below touch-target size on phone (and sliders are short on desktop)",
+      "detail": "Each sensitivity slider is a 20 px tall input, so a thumb aimed at the thin track often misses, or changes the value by accident while the page scrolls. The dropdowns are 40 px tall, under the 44 px touch minimum. On desktop the six sliders are also 20 px tall, below the ~32 px mouse guideline.",
+      "fix": "Make each range input's hit box at least 44 px tall on touch (and 32 px on desktop), using padding or a taller transparent track with the visual line centred in it, and enlarge the thumb under @media (pointer: coarse). Raise select min-height to 44 px on coarse pointers.",
+      "evidence": "contrast.md settings@phone small targets (need 44x44): 'Mouse sensitivity' 252x20, 'ADS sensitivity multiplier' 252x20, selects 'Hold Toggle' / 'Toggle Hold' / 'Default Tactical…' 328x40. settings@desktop (need 32 tall): six range inputs at 284x20, e.g. 'Mouse sensitivity' [659,227,284,20]. · contrast.md small targets: settings@phone 'Mouse sensitivity' 252x20, 'ADS sensitivity multiplier' 252x20; settings@desktop six sliders 284x20; main-menu desktop and phone 'Name' input 206x25.",
+      "box": [
+        33,
+        292,
+        252,
+        20
+      ],
+      "alsoNoted": [
+        "rules: Sliders are 20 px tall: too small to hit on touch, and short for a mouse"
+      ]
+    },
+    {
+      "id": "F13",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "'You against 7 bots' contradicts the 4v4 mixed-teams setup, and 'Open seat' implies others can join",
+      "detail": "The status line says 'Offline: you against 7 bots', but Sides is MIXED TEAMS and the hint says 'Bots fill the match to 4v4', so three of those bots are on your side. Seats 9–12 show 'Open seat' with dashed outlines and the header says 'Seats 8 / 12', which suggests friends could join an offline match. A newcomer wonders whether to wait for them and whether they're really alone.",
+      "fix": "Make the status follow Sides ('Offline: you + 3 bots vs 4 bots'), split the list into the two teams, and drop or relabel the unused rows ('Empty: offline match') without the invite-style dashed outline.",
+      "evidence": "Texts 'Offline: you against 7 bots' [1681,75], 'Bots fill the match to 4v4.' [56,551], 'Seats 8 / 12' [1758,233], and four 'Open seat' rows at x 731.",
+      "box": [
+        56,
+        75,
+        1808,
+        492
+      ]
+    },
+    {
+      "id": "F14",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Players list takes two thirds of the width for low-information rows while the decisions are crammed right",
+      "detail": "Eleven of twelve rows read just 'Bot' or 'Open seat' in grey, yet they span 1230 px in two columns and draw the eye first after the title; the Match column, where every real choice lives, gets 520 px and packs readouts, tiles, a random button, two pickers and a description into it.",
+      "fix": "Give the Players list a single narrow column (or a compact strip) and widen the Match column so the map tiles and mode picker read as the main block; player rows can shrink to about 40 px.",
+      "evidence": "Players grid [56,192,1232,342]; Match column [1344,145,520,616]. Row text 'Bot' 16 px #b4bac5 repeated 7 times, 'Open seat' 4 times.",
+      "box": [
+        56,
+        192,
+        1232,
+        342
+      ]
+    },
+    {
+      "id": "F15",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Selected uses three different treatments, and mint marks the 'You' slot, which is neither actionable nor a choice",
+      "detail": "The picked map card has a mint outline. The picked Mode and Sides segments are filled cream (#f3f1ea with ink text), not signal. The 'You' seat, which you can't click or pick, gets the mint outline and the 4 px mint bar. DESIGN.md says signal marks what can be acted on or the one selected choice, and pickers are .ds-seg with one choice lit. Here 'selected' has two looks and mint also means 'you'. The two cream blocks are also the brightest shapes on the screen and compete with the mint Start.",
+      "fix": "Pick one 'selected' treatment for every picker: a signal-dim fill with a signal edge on segments and map cards alike. Mark the player's own seat with weight or text ('You', heading size) and a neutral raised step, not signal.",
+      "evidence": "Screenshot: SURVIVAL TOWN card mint border at [1344,287,168,128]; TEAM DEATHMATCH [1345,522,172,44] and MIXED TEAMS [1345,716,259,44] cream fill (text colour 11,14,19); 'You' slot mint frame and bar at ~[56,192,608,52]. Same on bot-lobby@phone (You slot ~[16,187,358,46]).",
+      "box": [
+        56,
+        192,
+        608,
+        52
+      ]
+    },
+    {
+      "id": "F16",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "hierarchy",
+        "rules"
+      ],
+      "title": "The 'Picked' label on the selected map card fails contrast over the thumbnail",
+      "detail": "The word that shows which map is selected is 13 px regular text placed straight on the map photo. Over the bright Survival Town sky it drops below even the large-text limit. The 'Map' label on the Crash card also falls under 4.5:1 in its worst tenth.",
+      "fix": "Put a dark gradient scrim (about 60% black) across the bottom half of each map thumbnail, or set 'Picked' as a small filled signal-colour tag. Raise the label to 14 px.",
+      "evidence": "contrast.md bot-lobby@desktop: 'Picked' [1359,340,39,13], 13 px, needs 4.5, p50 3.56, p10 2.67: FAIL. 'Map' (Crash) [1711,361,24,13], 13 px, p50 5.38, p10 3.8: warn. · contrast.md: 'Picked' [1359,340,39,13] p10 2.67:1 (fail); 'Map' on Crash [1711,361,24,13] p10 3.8:1 (warn). · contrast.md bot-lobby@desktop: 'Picked' [1359,340,39,13] p50 3.56, p10 2.67 (fail, needs 4.5). 'Map' [1711,361,24,13] p10 3.8 (warn).",
+      "box": [
+        1344,
+        287,
+        168,
+        128
+      ],
+      "alsoNoted": [
+        "hierarchy: Labels on the map thumbnails sit straight on busy imagery",
+        "rules: Map cards carry eyebrow labels ('Picked', 'Map') that are hard to read over the thumbnails"
+      ]
+    },
+    {
+      "id": "F17",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Four 'Open seat' slots and 'Seats 8 / 12' in an offline 4v4 that nobody else can join",
+      "detail": "The lobby is offline ('Offline: you against 7 bots'), and the note says bots fill the match to 4v4, yet it shows 12 seats with four dashed 'Open seat' slots and a Seats readout of 8 / 12. Nothing can fill those seats, so the screen suggests a 6v6 or a wait for players. DESIGN.md: 'Don't show a number that isn't real', and a seat that bots fill reads 'Bot fills this seat'. The dashed frame itself is used correctly.",
+      "fix": "Show only the seats the chosen mode uses (8 for 4v4, so no open seats offline) and make the readout '8 / 8'. If seats do stay open for some modes, label them with what happens to them.",
+      "evidence": "Readout 'Seats' '8 / 12' [1758,211,53,44]; 'Open seat' rows 09-12 [680,308,608,226]; note 'Bots fill the match to 4v4...' [56,551,426,16]; status line 'Offline: you against 7 bots' [1681,75,183,16]. Same on phone, rows 09-12.",
+      "box": [
+        680,
+        308,
+        608,
+        226
+      ]
+    },
+    {
+      "id": "F18",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "Outposts, Charge and Gun game are only explained after you pick them",
+      "detail": "Team deathmatch gets a clear line ('Two teams... First team to 75 kills wins'), but the other modes are bare made-up names. A newcomer has to click each tile to learn what it is, and picking one also changes the match. 'Loadout' in the bottom bar is unexplained too.",
+      "fix": "Show the description on hover or focus as well as on select, or add a 3–5 word subtitle under each mode tile (for example 'Hold three points' or 'Every kill swaps your gun').",
+      "evidence": "bot-lobby@desktop.dom.json: mode buttons 'Outposts', 'Charge' and 'Gun game' have no description texts; the only description is for the selected mode, at [1344,629,510,38].",
+      "box": [
+        1344,
+        521,
+        520,
+        90
+      ]
+    },
+    {
+      "id": "F19",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Two different 'selected' treatments, and the cream-filled segments outshout everything but Start",
+      "detail": "The picked map tile is marked with a signal border, while the selected mode and sides segments are solid cream blocks. The cream blocks are the brightest surfaces on screen after Start, so they pull the eye away from the map choice and the readouts, and one meaning gets two visual languages.",
+      "fix": "Use one selected style for all pickers per DESIGN.md: --ds-signal-dim fill with a signal edge or underline and a --ds-text label, matching the picked map tile.",
+      "evidence": "'Team deathmatch' seg [1344,522,173,44] and 'Mixed teams' seg [1344,716,260,44] filled near-white with dark text (rgb 11,14,19); 'Survival Town' tile [1344,288,167,126] uses a mint outline only.",
+      "box": [
+        1344,
+        522,
+        520,
+        238
+      ]
+    },
+    {
+      "id": "F20",
+      "screen": "loading",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "The loading screen doesn't say the goal or the controls before you drop in",
+      "detail": "The wait shows the map name, 42% and 'Building the map and its baked lighting'. That covers FB-03, but this is the last calm moment before play and it gives the newcomer nothing: not the mode ('Team deathmatch'), not the goal ('first team to 75 kills'), not the basic keys. A first-timer arrives in a firefight without knowing what wins or how to aim.",
+      "fix": "Add the mode name and its one-line goal under the map name, plus a short row of core key hints along the bottom edge (WASD move, mouse aim, RMB aim down sights, R reload), matched to the current input device.",
+      "evidence": "loading@desktop.dom.json has only 3 texts: 'Survival Town', '42%', 'Building the map and its baked lighting'.",
+      "box": [
+        56,
+        834,
+        620,
+        154
+      ]
+    },
+    {
+      "id": "F22",
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "The dialog suggests practising offline but gives no button for it",
+      "detail": "The body says 'try again in a minute, or practise offline meanwhile', but the only actions are TRY AGAIN (primary, which will probably fail again) and MAIN MENU. A newcomer then has to work out which menu entry 'practise offline' means.",
+      "fix": "Replace MAIN MENU with 'PLAY BOTS OFFLINE' (opening the Bot Match lobby) and keep a quiet Back. Consider making the offline action primary once one retry has failed.",
+      "evidence": "error@desktop.dom.json: the only controls are 'TRY AGAIN' [80,964] and 'MAIN MENU' [270,964]. · Body [80,899,478,39]: 'try again in a minute, or practise offline meanwhile.' Buttons: 'Try again' about [80,964,180,44], 'Main menu' about [270,964,180,44].",
+      "box": [
+        80,
+        899,
+        478,
+        109
+      ],
+      "alsoNoted": [
+        "hierarchy: Copy suggests practising offline, but there is no offline action on the dialog"
+      ]
+    },
+    {
+      "id": "F23",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Name field is isolated in the far top-right, away from the destinations that use it",
+      "detail": "The only input on the menu sits 1500 px from the destination list under a 13 px label, so it reads as account chrome rather than part of joining a match and is easy to miss before pressing Play Online.",
+      "fix": "Move the name field into the left column above the destination list, or into the Play Online / Battle Royale readout when it is needed.",
+      "evidence": "'Name' label [1594,42,35,13] at 13 px; input about [1594,65,270,44]; destinations start at x=78.",
+      "box": [
+        1594,
+        42,
+        270,
+        67
+      ]
+    },
+    {
+      "id": "F24",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "On phone, titles sit inside the notch area and a 'WebGPU' badge overlaps the game title",
+      "detail": "On the 390x844 phone viewport the top text starts 18–20 px from the top edge, inside the ~47 px status-bar and notch inset, so on a real notched phone the breadcrumb and title collide with the clock. On the main menu a translucent 'WebGPU' badge in the top-left corner sits under the 'DUTY SHOOTER' title, so the two pieces of text overprint.",
+      "fix": "Pad the top of each screen with max(16px, env(safe-area-inset-top)) and set viewport-fit=cover. Move the renderer badge to the bottom corner next to 'dev', or hide it outside dev builds.",
+      "evidence": "main-menu@phone.dom.json: 'Duty Shooter' [16,18,290,40]. bot-lobby@phone: 'Offline · Play' [44,20,117,12]. settings@phone: 'Main menu' [44,20,86,12]. main-menu@phone.png: a 'WebGPU' badge at about [8,8,67,26] CSS px sits behind the title glyphs.",
+      "box": [
+        8,
+        8,
+        300,
+        52
+      ]
+    },
+    {
+      "id": "F25",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "A 'WebGPU' tag overlaps the game title, and the name field doesn't say why it's there",
+      "detail": "On a phone a translucent 'WebGPU' debug tag sits on top of 'DUTY SHOOTER', the first thing a newcomer reads. The 'Name' field just below gives no hint whether it's required or where the name shows up, so they hesitate before choosing a mode.",
+      "fix": "Hide the renderer tag outside dev builds, or move it to the footer next to 'dev'. Add a short helper under the field ('Shown to other players · optional').",
+      "evidence": "main-menu@phone.png top-left: the 'WebGPU' chip at about [8,8,67,26] CSS px over the title [16,18,290,40]; the Name input [65,105,206,25] has only the placeholder 'Your name...'.",
+      "box": [
+        8,
+        8,
+        298,
+        122
+      ]
+    },
+    {
+      "id": "F26",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Setting groups use a line and a surface step together",
+      "detail": "Each settings group is a --ds-panel fill with a 1px outline, plus 1px lines between rows. DESIGN.md: separate with a 1px line or a flat surface step, never both. The same doubling appears on the bot lobby 'You' slot (raised fill plus outline), on the Mode/Map/Seats readout strip (box with an outline on a panel fill, where DESIGN wants one strip split by lines) and on the error dialog's Main menu button (fill plus outline).",
+      "fix": "Keep the panel fill and drop the outer outline, using row lines only between rows if the step alone isn't enough, or drop the fill and keep the lines. Do the same on the readout strip and the secondary button.",
+      "evidence": "settings@desktop.png Mouse group [56,208,980,229] and Controller group [56,535,980,343]: filled rows with an outer outline and row rules. bot-lobby readout [1344,196,520,73].",
+      "box": [
+        56,
+        208,
+        980,
+        229
+      ]
+    },
+    {
+      "id": "F27",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "'ADS' is used before it's spelled out, and the controller sliders show with no controller",
+      "detail": "The second row is 'ADS sensitivity multiplier'; 'Aim down sights' only appears one row later, and 'Controller ADS multiplier' and 'Stick deadzone' are never explained. The CONTROLLER block says 'None detected' but still lists six live controls a newcomer may fiddle with for nothing.",
+      "fix": "Rename it to 'Aim-down-sights sensitivity' (or add a one-line hint) and collapse the controller rows behind the 'None detected' line until a controller is connected.",
+      "evidence": "settings@desktop.dom.json: the 'ADS sensitivity multiplier' row at y 293 sits above 'Aim down sights' at y 350; 'None detected. Connect a controller and press any button.' is followed by six controller rows. · contrast.md sizes for settings@desktop: 12, 13, 14, 15, 16, 22, 51.84. Slider values 14 px bold [972,229,30,14]; row labels 16 px; Back 15 px; tabs 14 px; crumb 12 px.",
+      "box": [
+        56,
+        265,
+        980,
+        612
+      ],
+      "alsoNoted": [
+        "hierarchy: Five near-identical small sizes flatten the label / value / control hierarchy"
+      ]
+    },
+    {
+      "id": "F28",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "The crumb is a non-clickable eyebrow: tracked caps, a decorative mint dash, text-3 over the map",
+      "detail": "'OFFLINE · PLAY' (and 'MAIN MENU' in Settings) sits above the h1 as small tracked capitals behind a mint dash, but it is not a control: it is missing from the controls list, and 'Offline · Play' is not a path you can go back along. That makes it an eyebrow over a heading. It breaks three DESIGN.md rules: no eyebrows, tracked caps only on controls, and signal never as decoration. It is also --ds-text-3 (142,150,163) at 12 px over the map scrim, where DESIGN.md asks for text-2 or brighter.",
+      "fix": "Either make the crumb a real back link ('Main menu' as a button, with focus and hover) in text-2 at 13 px, with the dash in a neutral line colour, or remove it and let the h1 and the footer Back carry the orientation.",
+      "evidence": "DOM div.ds-crumb 'Offline · Play' [84,30,117,12] 12px upper, colour 142,150,163; Settings 'Main menu' [84,30,86,12]; neither appears in controls. A mint dash precedes it in all four lobby and settings screenshots.",
+      "box": [
+        56,
+        30,
+        145,
+        12
+      ]
+    },
+    {
+      "id": "F29",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "13 px sentence-case labels players have to read",
+      "detail": "The field labels 'Mode' and 'Sides' above the pickers, the readout labels Mode/Map/Seats, 'You + 7 bots', 'Your pick' and the slot numbers are all 13 px sentence case. TYP-01 allows 12-13 px only for short uppercase labels, and wants 14 px or more for anything that must be read. The same holds for Settings' 'Changes save as you make them' (13 px running sentence) and the main menu's 'Name' label. All of them pass contrast, so this is a size issue only.",
+      "fix": "Raise --ds-type-small to 14 px, or set field labels in body 16. Keep 13 px for the uppercase key-hint captions only.",
+      "evidence": "contrast.md size warns: bot-lobby@desktop 22, bot-lobby@phone 13, settings 1 ('Changes save as you make them' [1674,1037,190,13]), main-menu 2 ('Name' [1594,42,35,13]).",
+      "box": [
+        1344,
+        497,
+        31,
+        13
+      ]
+    },
+    {
+      "id": "F30",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Secondary information is set at 13 px in mid-grey across the lobby, settings and menu footers",
+      "detail": "The key hints (Move / Select / Adjust / Back), the 'You + 7 bots' and 'Your pick' counters, the Mode/Map/Seats card labels, the seat numbers and 'Changes save as you make them' are all 13 px regular in (180,186,197). They pass contrast (p10 7.5–9.9), but they fall below the 14 px floor for text a player must read at 1920x1080 from sitting distance. The key hints are what teach keyboard and pad navigation.",
+      "fix": "Raise the small/meta text token from 13 px to 14 px and set the key-hint words in the same weight as the key caps. Keep the 12 px uppercase eyebrow style for one-word labels only.",
+      "evidence": "contrast.md size warns: 22 on bot-lobby@desktop (e.g. 'Your pick' [1811,152,53,13] 13 px, 'Mode' [1361,211,31,13] 13 px, seat numbers 01–12 at 13 px), 13 on bot-lobby@phone, 'Changes save as you make them' at 13 px on settings@desktop/phone, 'Name' and 'dev' at 13 px on main-menu. Footer hints 'Move' [520,1030,40,13], 'Select' [647,1030,55,13], 'Back' [771,1030,39,13] are all 13 px.",
+      "box": [
+        482,
+        1022,
+        330,
+        30
+      ]
+    }
+  ]
+}

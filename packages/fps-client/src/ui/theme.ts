@@ -29,7 +29,8 @@ const CSS = `
 .ds-ui *, .ds-ui *::before, .ds-ui *::after { box-sizing: border-box; }
 .ds-ui button { font: inherit; color: inherit; cursor: pointer; }
 .ds-ui button:disabled { cursor: default; }
-.ds-label { font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
+/* A label over a value: sentence case, small, the second text colour. */
+.ds-label { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0.01em; color: var(--ds-text-2); }
 .ds-title { font-weight: 700; font-stretch: condensed; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-t1 { color: var(--ds-blue); } .ds-t2 { color: var(--ds-orange); }
 
@@ -47,9 +48,10 @@ const CSS = `
 .ds-page > footer .grow { flex: 1; min-width: 0; }
 .ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-line); background: rgb(243 241 234 / 0.04); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; }
 .ds-chip b { color: var(--ds-text); font-weight: 700; }
-.ds-h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 2px solid var(--ds-line);
-  font-size: 18px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-.ds-h2 small { font-size: 13px; font-weight: 400; letter-spacing: 0.1em; color: var(--ds-text-3); }
+/* A block's name at heading size, its count or note beside it in sentence case. */
+.ds-h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ds-line-2);
+  font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-h2 small { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text-2); }
 
 /* Readouts: a label over a value, side by side in one strip split by lines. */
 .ds-readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
@@ -85,14 +87,14 @@ const CSS = `
 .ds-seg button.on { background: var(--ds-text); color: var(--ds-ink); }
 .ds-seg button:not(:disabled):not(.on):hover { background: var(--ds-raised-2); color: var(--ds-text); }
 .ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: -2px; position: relative; z-index: 1; }
-.ds-field-label { display: block; margin: 0 0 8px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-field-label { display: block; margin: 0 0 8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 
 /* Key hints: keyboard caps, or the controller's glyphs once a pad drives the screen. */
-.ds-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: var(--ds-type-small); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-hints > span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-.ds-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 6px; border: 1px solid var(--ds-line-2); border-bottom-width: 2px; border-radius: 3px;
-  background: rgb(243 241 234 / 0.06); font-size: 11px; font-weight: 700; font-style: normal; letter-spacing: 0.04em; color: var(--ds-text); }
-.ds-kbd.pad { display: none; border-radius: 50%; min-width: 22px; width: 22px; padding: 0; font-size: 12px; }
+.ds-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1px solid var(--ds-line-2); border-bottom-width: 2px; border-radius: 3px;
+  background: rgb(243 241 234 / 0.06); font-size: var(--ds-type-small); font-weight: 700; font-style: normal; letter-spacing: 0.04em; color: var(--ds-text); }
+.ds-kbd.pad { display: none; border-radius: 50%; min-width: 24px; width: 24px; padding: 0; }
 .pad .ds-kbd.key { display: none; } .pad .ds-kbd.pad { display: inline-flex; }
 
 @keyframes ds-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -104,6 +106,7 @@ const CSS = `
 @media (max-width: 960px) {
   :root { --ds-gutter: 16px; }
   .ds-page > header { flex-wrap: wrap; gap: 8px 16px; padding: 18px var(--ds-gutter) 14px; }
+  .ds-page > header .heading { flex: 1 1 100%; }
   .ds-page > header h1 { font-size: 32px; }
   .ds-page > .body { padding: 20px var(--ds-gutter) 24px; }
   .ds-page > footer { flex-wrap: wrap; padding: 12px var(--ds-gutter); }

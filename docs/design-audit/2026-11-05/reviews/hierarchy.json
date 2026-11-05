@@ -1,0 +1,115 @@
+{
+  "lens": "hierarchy",
+  "findings": [
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "high",
+      "title": "Map and mode choices are buried below twelve player rows; Start is pressable before they are ever seen",
+      "detail": "On a phone the Players list (mostly identical 'Bot' and 'Open seat' rows) fills the whole first screen, and the Match block with mode, map and sides is not in view at all. The sticky footer puts Start right under the player list, so a player can launch without knowing which map or mode they picked.",
+      "evidence": "DOM sample: the last visible content is 'Bots fill the match to 4v4...' at y=822; no Mode/Map/Seats text is in the viewport. Rows 01-10 occupy y=187-700, footer with Start at y=774.",
+      "fix": "On narrow widths put the Match block (readout strip Mode / Map / Seats plus the map tiles) first and collapse the player list to a one-line summary ('You + 7 bots, 4 open seats') that expands on tap.",
+      "box": [16, 187, 358, 520]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Unavailable 'Play Online' is the first and equally loud destination",
+      "detail": "The eye lands first on PLAY ONLINE (top of the list, same 60 px white display type as every row), but no server answers, so the first thing a player tries is a dead end. The only cue is a small red dot and a 16 px line under it.",
+      "evidence": "'Play Online' box [78,531,373,60] at 60 px #f3f1ea, identical to Battle Royale / Bot Match / Practice Range; status 'No game server answers this page' 16 px at [95,599,250,16].",
+      "fix": "When the server is down, drop the Play Online title to --ds-text-2 (or move it below the offline destinations) and make its readout say what to do instead ('Server down: try Bot Match'); keep the lit signal bar on the first playable row.",
+      "box": [56, 531, 400, 86]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "medium",
+      "title": "Two different 'selected' treatments, and the cream-filled segments outshout everything but Start",
+      "detail": "The picked map tile is marked with a signal border, while the selected mode and sides segments are solid cream blocks. The cream blocks are the brightest surfaces on screen after Start, so they pull the eye away from the map choice and the readouts, and one meaning gets two visual languages.",
+      "evidence": "'Team deathmatch' seg [1344,522,173,44] and 'Mixed teams' seg [1344,716,260,44] filled near-white with dark text (rgb 11,14,19); 'Survival Town' tile [1344,288,167,126] uses a mint outline only.",
+      "fix": "Use one selected style for all pickers per DESIGN.md: --ds-signal-dim fill with a signal edge or underline and a --ds-text label, matching the picked map tile.",
+      "box": [1344, 522, 520, 238]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Players list takes two thirds of the width for low-information rows while the decisions are crammed right",
+      "detail": "Eleven of twelve rows read just 'Bot' or 'Open seat' in grey, yet they span 1230 px in two columns and draw the eye first after the title; the Match column, where every real choice lives, gets 520 px and packs readouts, tiles, a random button, two pickers and a description into it.",
+      "evidence": "Players grid [56,192,1232,342]; Match column [1344,145,520,616]. Row text 'Bot' 16 px #b4bac5 repeated 7 times, 'Open seat' 4 times.",
+      "fix": "Give the Players list a single narrow column (or a compact strip) and widen the Match column so the map tiles and mode picker read as the main block; player rows can shrink to about 40 px.",
+      "box": [56, 192, 1232, 342]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Labels on the map thumbnails sit straight on busy imagery",
+      "detail": "'Picked' and 'Map' are 13 px over bright parts of the map photos with no scrim strong enough to hold them, and 'Picked' is the word that carries the tile's selected state.",
+      "evidence": "contrast.md: 'Picked' [1359,340,39,13] p10 2.67:1 (fail); 'Map' on Crash [1711,361,24,13] p10 3.8:1 (warn).",
+      "fix": "Add the bottom-edge text scrim (--ds-scrim-soft to transparent) over the lower half of each tile, and drop the 'Map' label, which repeats on every tile and adds nothing.",
+      "box": [1344, 288, 520, 126]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "title": "Section tabs float in the far top-right, detached from the column they switch",
+      "detail": "All content holds a 980 px column on the left, but the Controls / Keys / Video / Interface tabs sit 400 px past its right edge over the sky, so the eye reads title then Mouse and misses that there are three more pages of settings.",
+      "evidence": "Tabs span about [1454,58,400,36] while the settings panel ends at x=1035; tab labels are 14 px, smaller than the 22 px block headings directly under the title.",
+      "fix": "Place the tab row under the 'Settings' title, left-aligned to the 56 px gutter and spanning the content column, as the phone layout already does.",
+      "box": [1454, 58, 400, 36]
+    },
+    {
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Copy suggests practising offline, but there is no offline action on the dialog",
+      "detail": "The body offers two ways forward (try again, or practise offline) while the buttons offer Try again and Main menu, so the most useful fallback while the server restarts needs a detour the dialog doesn't name.",
+      "evidence": "Body [80,899,478,39]: 'try again in a minute, or practise offline meanwhile.' Buttons: 'Try again' about [80,964,180,44], 'Main menu' about [270,964,180,44].",
+      "fix": "Replace 'Main menu' with 'Bot match' (or add it as the secondary action and keep Esc for the menu), so every option in the sentence has its button.",
+      "box": [80, 899, 480, 109]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "A 'WebGPU' renderer badge overlaps the game title",
+      "detail": "The first thing on the phone screen is a grey dev badge drawn on top of 'DUTY SHOOTER', so the title collides with another text.",
+      "evidence": "Screenshot: dark rounded 'WebGPU' chip at roughly [8,8,67,26] CSS px over the h1 'Duty Shooter' [16,18,290,40]; the chip is not in the DOM sample, so it comes from an overlay outside the menu.",
+      "fix": "Hide the renderer badge outside dev URLs, or move it beside the 'dev' tag at the bottom.",
+      "box": [8, 8, 67, 26]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "title": "Five near-identical small sizes flatten the label / value / control hierarchy",
+      "detail": "Settings mixes 12, 13, 14, 15 and 16 px within the same rows and footer, so values, tab labels, the Back button and row labels differ by a pixel instead of a step; dropdown values in tracked bold caps (HOLD, TOGGLE) are louder than the numeric values beside them.",
+      "evidence": "contrast.md sizes for settings@desktop: 12, 13, 14, 15, 16, 22, 51.84. Slider values 14 px bold [972,229,30,14]; row labels 16 px; Back 15 px; tabs 14 px; crumb 12 px.",
+      "fix": "Snap to the DESIGN.md steps: row labels and values 16 px (values tabular), tabs, crumb and key hints 13 px; render dropdown values in sentence case at body size like the numbers.",
+      "box": [56, 208, 980, 670]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "Name field is isolated in the far top-right, away from the destinations that use it",
+      "detail": "The only input on the menu sits 1500 px from the destination list under a 13 px label, so it reads as account chrome rather than part of joining a match and is easy to miss before pressing Play Online.",
+      "evidence": "'Name' label [1594,42,35,13] at 13 px; input about [1594,65,270,44]; destinations start at x=78.",
+      "fix": "Move the name field into the left column above the destination list, or into the Play Online / Battle Royale readout when it is needed.",
+      "box": [1594, 42, 270, 67]
+    }
+  ]
+}
