@@ -54,6 +54,11 @@ export const SOURCES = [
     glb: 'apps/range/public/models/neon.glb',
     assets: { 'nc-shop': 4, 'nc-barrier': 4, 'nc-car': 6, 'nc-car-b': 6, 'nc-boxes': 1 },
   },
+  {
+    // Frostbite Peaks' kit (ticket 21): prefab huts, ice walls broken along their tops, sandbags, crates, drums and snowcats.
+    glb: 'apps/range/public/models/frostbite.glb',
+    assets: { 'fb-hut': 4, 'fb-icewall': 6, 'fb-sandbags': 4, 'fb-crates': 4, 'fb-drums': 8, 'fb-snowcat': 8 },
+  },
 ];
 
 /**
@@ -68,6 +73,7 @@ export const PIECES = [
   { glb: 'apps/range/public/models/dustlands.glb', plan: 'tools/map/regions/dustlands.json', most: { heap: 6, default: 4 } },
   { glb: 'apps/range/public/models/harbor.glb', plan: 'tools/map/regions/harbor.json', most: { default: 4 } },
   { glb: 'apps/range/public/models/neon.glb', plan: 'tools/map/regions/neon.json', most: { default: 4 } },
+  { glb: 'apps/range/public/models/frostbite.glb', plan: 'tools/map/regions/frostbite.json', most: { dome: 6, dish: 6, gable: 6, default: 4 } },
 ];
 
 /** How far (m) a point of a solid may stand out of its model. */

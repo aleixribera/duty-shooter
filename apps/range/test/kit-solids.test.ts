@@ -182,13 +182,20 @@ const FILL: Readonly<Record<string, number>> = {
   'nc-car': 0.8,
   'nc-car-b': 0.8,
   'nc-boxes': 0.85,
+  // Frostbite Peaks' kit (ticket 21): an ice wall's top is broken, four drums are round.
+  'fb-hut': 0.85,
+  'fb-icewall': 0.75,
+  'fb-sandbags': 0.75,
+  'fb-crates': 0.85,
+  'fb-drums': 0.72,
+  'fb-snowcat': 0.7 /* open between its tracks */,
 };
 const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh|nc)-/.test(asset) ? 3 : 100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh|nc|fb)-/.test(asset) ? 3 : 100);
   });
 
   for (const asset of FITTED) {
