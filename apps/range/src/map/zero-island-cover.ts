@@ -133,8 +133,8 @@ interface Mix {
 const CHARACTER: Readonly<Record<RegionId, Mix>> = {
   // Scrub and pylons: the plain, with rubble once the blast reached it.
   'ground-zero': { spacing: 26, table: [[34, rocks(3, 5, 2.8)], [20, corner('wall', 10, 0.9, 2.4)], [12, pylon], [12, shed], [12, single('rock', 12, 3, 2.4)], [10, wreck]] },
-  // Canyons and boulders.
-  'the-dustlands': { spacing: 26, table: [[46, rocks(3, 5.6, 3.4)], [18, single('rock', 3.4, 3.4, 7)], [14, single('rock', 15, 3, 3.2)], [10, shed], [12, wreck]] },
+  // Canyons and boulders, the mine's sheds and dry-stone walls, burnt-out pickups on the tracks (ticket 18: dense enough to cross under cover).
+  'the-dustlands': { spacing: 24, table: [[42, rocks(3, 5.6, 3.4)], [18, single('rock', 3.4, 3.4, 7)], [14, single('rock', 15, 3, 3.2)], [8, corner('wall', 8, 1, 1.5)], [8, shed], [10, wreck]] },
   // Rock outcrops and pines.
   'frostbite-peaks': { spacing: 26, table: [[42, rocks(3, 5.4, 3.2)], [28, grove(4, 6, 0.9, 10)], [18, corner('rock', 12, 1.4, 3)], [12, shed]] },
   // Forest.

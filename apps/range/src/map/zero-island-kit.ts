@@ -27,10 +27,22 @@ export interface RegionKit {
 /** Where a pad's floor is once the terrain has levelled it. */
 export const padFloor = (terrain: Terrain, pad: Pad) => terrain.heightAt(pad.x, pad.z);
 
-/** The kit kind a cover piece wears: a pylon's low base is its footing. */
-export function dressKind(p: { kind: string; top: number; ground: number }): string {
-  return p.kind === 'pylon' && p.top - p.ground < 3 ? 'pylon-base' : p.kind;
+/**
+ * The kit kind a cover piece wears: a pylon's low base is its footing, a
+ * wreck as tall as a lorry is a truck, and a container is one high or a stack
+ * of two, in one of two liveries by where it stands.
+ */
+export function dressKind(p: { kind: string; top: number; ground: number; x: number; z: number }): string {
+  const tall = p.top - p.ground;
+  if (p.kind === 'pylon' && tall < 3) return 'pylon-base';
+  if (p.kind === 'wreck' && tall > 2.2) return 'truck';
+  if (p.kind === 'container') return `${tall > 4 ? 'stack' : 'container'}${(Math.floor(p.x / 7) + Math.floor(p.z / 7)) & 1 ? '-b' : ''}`;
+  return p.kind;
 }
+
+/** How a kit dresses a cover piece: its own kind's model, or failing that the plain kind's. */
+const dressOf = (kit: RegionKit | undefined, p: { kind: string; top: number; ground: number; x: number; z: number }): KitDress | undefined =>
+  kit?.dress[dressKind(p)] ?? kit?.dress[p.kind];
 
 const WHITE = 0xffffff;
 /** A slightly lighter or darker grey per instance, so a row of the same wall doesn't read as copies. */
@@ -73,12 +85,12 @@ export function standPieces(b: Builder, terrain: Terrain, kit: RegionKit): { rea
     kits.add(kindOf(kit.url, p.asset, piece.near, 2000), p.x, floor, p.z, p.yaw, 1, 1, 1, WHITE);
   }
   for (const e of kit.extra ?? []) {
-    const dress = kit.dress[e.kind];
-    if (!dress) throw new Error(`${kit.region}: nothing dresses "${e.kind}"`);
-    // Sunk past its lowest corner, as the cover pass sinks its pieces.
+    // Sunk past its lowest corner, as the cover pass sinks its pieces; a `stand` model stands on its lowest corner's ground.
     const low = Math.min(...[-1, 1].flatMap((sx) => [-1, 1].map((sz) => terrain.heightAt(e.x + (sx * e.width) / 2, e.z + (sz * e.depth) / 2))));
-    const bottom = low - 0.6;
-    const top = low + e.height;
+    const dress = dressOf(kit, { kind: e.kind, top: low + e.height, ground: low, x: e.x, z: e.z });
+    if (!dress) throw new Error(`${kit.region}: nothing dresses "${e.kind}"`);
+    const bottom = dress.fit === 'stand' ? low : low - 0.6;
+    const top = dress.fit === 'stand' ? bottom + e.height : low + e.height;
     // The boxes fitted inside its model, as the cover pass's pieces have them.
     for (const box of fittedSolids({ asset: dress.asset, yaw: e.yaw }, e.x, bottom, e.z, e.width, top - bottom, e.depth)) {
       modelled.push(b.solids.length);
@@ -92,7 +104,7 @@ export function standPieces(b: Builder, terrain: Terrain, kit: RegionKit): { rea
 /**
  * The model a cover piece in a kit's Region wears, if the kit dresses its
  * kind, and the span it is scaled to: a `stretch` model fills the solid from
- * its foot, a `stand` one stands on the ground at its middle up to its top.
+ * its foot, a `stand` one stands on the ground (`standing`).
  * The piece's solids are the boxes fitted inside that (`fittedSolids`).
  */
 export function kitWear(
@@ -100,29 +112,38 @@ export function kitWear(
   terrain: Terrain,
   p: { readonly kind: string; readonly region: string; readonly x: number; readonly z: number; readonly yaw: number; readonly bottom: number; readonly top: number; readonly ground: number },
 ): { readonly dress: Dress; readonly foot: number; readonly height: number } | null {
-  const kit = kits.find((k) => k.region === p.region);
-  const dress = kit?.dress[dressKind(p)];
+  const dress = dressOf(kits.find((k) => k.region === p.region), p);
   if (!dress) return null;
-  const foot = dress.fit === 'stretch' ? p.bottom : terrain.heightAt(p.x, p.z);
-  return { dress: { asset: dress.asset, yaw: p.yaw }, foot, height: p.top - foot };
+  if (dress.fit === 'stretch') return { dress: { asset: dress.asset, yaw: p.yaw }, foot: p.bottom, height: p.top - p.bottom };
+  return { dress: { asset: dress.asset, yaw: p.yaw }, ...standing(terrain, p) };
+}
+
+/**
+ * Where a `stand` model (a wreck, a wagon) stands: on the lowest ground under
+ * it, so on a slope its downhill wheels touch and the uphill ones sink rather
+ * than its body hanging in the air, and as tall as it'd stand at its middle.
+ */
+function standing(terrain: Terrain, p: { readonly x: number; readonly z: number; readonly top: number; readonly ground: number }): { readonly foot: number; readonly height: number } {
+  const middle = terrain.heightAt(p.x, p.z);
+  return { foot: p.ground, height: p.top - middle };
 }
 
 /**
  * Dresses the cover pass's pieces in the kit's Region with its models: a
- * `stretch` model fills its solid, a `stand` one stands on the ground at the
- * solid's middle and reaches its top. Rocks and trunks stay the plants'.
+ * `stretch` model fills its solid, a `stand` one stands on the ground under
+ * it (`standing`). Rocks and trunks stay the plants'.
  */
 export function dressCover(terrain: Terrain, kit: RegionKit, kits: KitKinds, dressed: readonly DressedPiece[], modelled: number[]): void {
   for (const p of dressed) {
     if (p.region !== kit.region) continue;
-    const dress = kit.dress[dressKind(p)];
+    const dress = dressOf(kit, p);
     if (!dress) continue;
     const tint = shade(Math.sin(p.x * 1.7 + p.z * 0.9));
     if (dress.fit === 'stretch') {
       kits.add(kindOf(kit.url, dress.asset, dress.near, dress.far), p.x, p.bottom, p.z, p.yaw, p.width, p.top - p.bottom, p.depth, tint);
     } else {
-      const ground = terrain.heightAt(p.x, p.z);
-      kits.add(kindOf(kit.url, dress.asset, dress.near, dress.far), p.x, ground, p.z, p.yaw, p.width, p.top - ground, p.depth, tint);
+      const { foot, height } = standing(terrain, p);
+      kits.add(kindOf(kit.url, dress.asset, dress.near, dress.far), p.x, foot, p.z, p.yaw, p.width, height, p.depth, tint);
     }
     modelled.push(...p.solids);
   }

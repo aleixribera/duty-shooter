@@ -53,6 +53,11 @@ LAYERS = [
     # Rocks (ticket 78): weathered granite boulders, and the jungle's boulders under moss and lichen.
     ("boulder", "rock_boulder_dry", 1.8, "Dimitrios Savva, Rico Cilliers"),
     ("moss", "mossy_rock", 3.0, "Rob Tuytel"),
+    # The Dustlands' camp (ticket 18): sun-greyed planks, rusted corrugated tin, the jet's painted panelled skin, adobe.
+    ("plank", "weathered_planks", 2.0, "Rob Tuytel"),
+    ("tin", "rusty_corrugated_iron", 2.0, "Rob Tuytel"),
+    ("plate", "blue_metal_plate", 3.0, "Rob Tuytel"),
+    ("adobe", "clay_plaster", 2.5, "Rob Tuytel"),
 ]
 
 

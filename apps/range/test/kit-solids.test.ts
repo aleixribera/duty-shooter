@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PLANT_STRIDE } from '@duty-shooter/fps-client/surfaces';
 import { KIT_SOLIDS, PIECE_SOLIDS, type KitBox } from '../src/map/kit-solids';
-import { GZ_PIECES, GZ_PLACED } from '../src/map/zero-island-ground-zero-plan';
 import { buildMapById } from '../src/map/maps';
+import { ZERO_ISLAND_KITS } from '../src/map/zero-island';
 
 /**
  * A kit model's solid is boxes inside its mesh (ticket 63): no invisible wall
@@ -130,7 +130,7 @@ function samples(box: KitBox, n: number): [number, number, number][] {
 const map = buildMapById('zero-island');
 const plants = map.plants!;
 const file = (path: string) => new URL(`../../../${path}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const meshes = new Map([...triangles(file('apps/range/public/models/vegetation.glb')), ...triangles(file('apps/range/public/models/ground-zero.glb'))]);
+const meshes = new Map([...triangles(file('apps/range/public/models/vegetation.glb')), ...ZERO_ISLAND_KITS.flatMap((k) => [...triangles(file(`apps/range/public/${k.url}`))])]);
 
 /** Each fitted model's instances on the map: position, turn and scale. */
 const instances = (asset: string) =>
@@ -158,13 +158,21 @@ const FILL: Readonly<Record<string, number>> = {
   'gz-footing': 0.75,
   'gz-wreck': 0.85,
   'gz-wagon': 0.75,
+  // The Dustlands' kit (ticket 18).
+  'dl-hut': 0.85,
+  'dl-pickup': 0.75,
+  'dl-orecar': 0.75,
+  'dl-stonewall': 0.8,
+  'dl-crates': 0.85,
+  // Four round drums in eight boxes: the boxes leave each drum's rounded sides, as a trunk's do.
+  'dl-drums': 0.72,
 };
 const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(asset.startsWith('gz-') ? 5 : 100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl)-/.test(asset) ? 3 : 100);
   });
 
   for (const asset of FITTED) {
@@ -260,11 +268,13 @@ describe('Kit models’ solids (ticket 63)', () => {
   }, 120_000);
 
   it('keeps a box of every part of every built piece, and stands them all on the map', () => {
-    for (const [name, piece] of Object.entries(GZ_PIECES)) {
-      const parts = new Set(PIECE_SOLIDS[name]!.map((b) => b.part));
-      for (const b of piece.boxes) expect(parts.has(b.part), `${name} ${b.part}`).toBe(true);
+    for (const kit of ZERO_ISLAND_KITS) {
+      for (const [name, piece] of Object.entries(kit.pieces)) {
+        const parts = new Set(PIECE_SOLIDS[name]!.map((b) => b.part));
+        for (const b of piece.boxes) expect(parts.has(b.part), `${name} ${b.part}`).toBe(true);
+      }
+      const built = map.looks.filter((l) => l?.side === `built-${kit.region}`).length;
+      expect(built, kit.region).toBe(kit.placed.reduce((n, p) => n + PIECE_SOLIDS[p.asset]!.length, 0));
     }
-    const built = map.looks.filter((l) => l?.side === 'built-ground-zero').length;
-    expect(built).toBe(GZ_PLACED.reduce((n, p) => n + PIECE_SOLIDS[p.asset]!.length, 0));
   });
 });

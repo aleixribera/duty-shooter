@@ -4,6 +4,7 @@
 // and a bot's sight, but for what the boxes leave of the model's rounding.
 //
 //   node tools/map/fit-solids.mjs
+//   ONLY=dustlands node tools/map/fit-solids.mjs   # refit only the GLBs whose path has that in it (comma-separated)
 //
 // Reads the models from their GLBs (as Blender exported them) and writes
 // apps/range/src/map/kit-solids.ts. Rerun it whenever a fitted model changes;
@@ -38,6 +39,11 @@ export const SOURCES = [
     // A run of T-walls is six precast sections with a slot between each: a foot and a stem apiece.
     assets: { 'gz-blastwall': 12, 'gz-shed': 4, 'gz-slab': 4, 'gz-footing': 4, 'gz-mast': 4, 'gz-wreck': 5, 'gz-wagon': 5 },
   },
+  {
+    // The Dustlands' kit (ticket 18): drums are round, so each drum gets boxes of its own.
+    glb: 'apps/range/public/models/dustlands.glb',
+    assets: { 'dl-hut': 4, 'dl-pickup': 6, 'dl-orecar': 5, 'dl-stonewall': 6, 'dl-crates': 4, 'dl-drums': 8 },
+  },
 ];
 
 /**
@@ -47,7 +53,10 @@ export const SOURCES = [
  * round pipe, a rubble heap) is replaced by up to `most` boxes (by part)
  * fitted inside the model where that box is.
  */
-export const PIECES = [{ glb: 'apps/range/public/models/ground-zero.glb', plan: 'tools/map/regions/ground-zero.json', most: { rubble: 6, default: 4 } }];
+export const PIECES = [
+  { glb: 'apps/range/public/models/ground-zero.glb', plan: 'tools/map/regions/ground-zero.json', most: { rubble: 6, default: 4 } },
+  { glb: 'apps/range/public/models/dustlands.glb', plan: 'tools/map/regions/dustlands.json', most: { heap: 6, default: 4 } },
+];
 
 /** How far (m) a point of a solid may stand out of its model. */
 export const TOLERANCE = 0.05;
@@ -129,7 +138,9 @@ export function insideAlong(tris, x, z) {
     depth += h.step;
     if (depth > 0 && from === null) from = h.y;
     else if (depth <= 0 && from !== null) {
-      out.push([from, h.y]);
+      // A part standing on another (a cab on its body, a load in its bed) is one solid with it: no gap between.
+      if (out.length && from - out[out.length - 1][1] < 1e-5) out[out.length - 1][1] = h.y;
+      else out.push([from, h.y]);
       from = null;
     }
   }
@@ -359,9 +370,33 @@ function refit(tris, box, most) {
   return { boxes: out, share };
 }
 
+/** The boxes the file holds now, by model, as its text: kept for the GLBs `ONLY` leaves out (a full refit takes ten minutes). */
+function keptBoxes() {
+  let text = '';
+  try {
+    text = readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n');
+  } catch {
+    return [new Map(), new Map()];
+  }
+  const [units, pieces] = text.split('export const PIECE_SOLIDS');
+  const blocks = (t) => new Map([...(t ?? '').matchAll(/^  '([^']+)': \[\n([\s\S]*?)^  \],$/gm)].map((m) => [m[1], m[2]]));
+  return [blocks(units), blocks(pieces)];
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const only = process.env.ONLY?.split(',').filter(Boolean);
+  const redo = (glb) => !only || only.some((o) => glb.includes(o));
+  const [keptUnits, keptPieces] = keptBoxes();
   const out = {};
+  const outText = {};
   for (const { glb, assets } of SOURCES) {
+    if (!redo(glb)) {
+      for (const asset of Object.keys(assets)) {
+        if (!keptUnits.has(asset)) throw new Error(`${asset} isn't fitted yet: refit ${glb}`);
+        outText[asset] = keptUnits.get(asset);
+      }
+      continue;
+    }
     const meshes = readTriangles(join(ROOT, glb));
     for (const [asset, limit] of Object.entries(assets)) {
       const [most, worth] = Array.isArray(limit) ? limit : [limit, WORTH];
@@ -373,7 +408,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
   }
   const pieces = {};
+  const pieceText = {};
   for (const { glb, plan, most } of PIECES) {
+    if (!redo(glb)) {
+      for (const name of Object.keys(JSON.parse(readFileSync(join(ROOT, plan), 'utf8')).pieces)) {
+        if (!keptPieces.has(name)) throw new Error(`${name} isn't fitted yet: refit ${glb}`);
+        pieceText[name] = keptPieces.get(name);
+      }
+      continue;
+    }
     const meshes = readTriangles(join(ROOT, glb));
     for (const [name, boxes] of Object.entries(JSON.parse(readFileSync(join(ROOT, plan), 'utf8')).pieces)) {
       const tris = meshes.get(name);
@@ -396,11 +439,18 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       pieces[name] = kept;
     }
   }
-  const pieceBody = Object.entries(pieces)
-    .map(([name, boxes]) => `  '${name}': [\n${boxes.map((b) => `    { part: '${b.part}', c: [${b.c.map(round).join(', ')}], s: [${b.s.map(round).join(', ')}], yaw: ${round(b.yaw ?? 0)}, material: '${b.material ?? 'concrete'}' },`).join('\n')}\n  ],`)
+  // In SOURCES' and PIECES' order, each refitted or kept as it was.
+  const pieceBody = PIECES.flatMap(({ plan }) => Object.keys(JSON.parse(readFileSync(join(ROOT, plan), 'utf8')).pieces))
+    .map((name) => {
+      const text = pieceText[name] ?? `${pieces[name].map((b) => `    { part: '${b.part}', c: [${b.c.map(round).join(', ')}], s: [${b.s.map(round).join(', ')}], yaw: ${round(b.yaw ?? 0)}, material: '${b.material ?? 'concrete'}' },`).join('\n')}\n`;
+      return `  '${name}': [\n${text}  ],`;
+    })
     .join('\n');
-  const body = Object.entries(out)
-    .map(([asset, boxes]) => `  '${asset}': [\n${boxes.map((b) => `    { c: [${b.c.join(', ')}], s: [${b.s.join(', ')}] },`).join('\n')}\n  ],`)
+  const body = SOURCES.flatMap(({ assets }) => Object.keys(assets))
+    .map((asset) => {
+      const text = outText[asset] ?? `${out[asset].map((b) => `    { c: [${b.c.join(', ')}], s: [${b.s.join(', ')}] },`).join('\n')}\n`;
+      return `  '${asset}': [\n${text}  ],`;
+    })
     .join('\n');
   writeFileSync(
     OUT,

@@ -4,6 +4,7 @@ import { Builder } from './builder';
 import { insidePolygon, type CameraKey, type CameraSpot, type MapDefinition } from './definition';
 import { placeCover, type CoverPiece } from './zero-island-cover';
 import { soundTraps } from './zero-island-traps';
+import { DL_EXTRA, DL_KIT, DL_PADS, DL_PIECES, DL_PLACED } from './zero-island-dustlands-plan';
 import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
@@ -46,17 +47,8 @@ type Block = readonly [dx: number, dz: number, width: number, depth: number, hei
 const BLOCKS: Readonly<Record<RegionId, readonly Block[]>> = {
   // Built for real (ticket 17): see GROUND_ZERO.
   'ground-zero': [],
-  'the-dustlands': [
-    // The crashed jet, its wings, and the shacks and wrecks round it.
-    [0, 0, 34, 5, 4.5, 0.5],
-    [-2, 10, 7, 22, 1.2, 0.5],
-    [-28, -12, 3, 8, 7, 0.5],
-    [30, 22, 7, 5, 3],
-    [34, -12, 6, 5, 3],
-    [-30, 26, 5, 6, 3],
-    [8, 32, 4, 2, 1.6, 0.3],
-    [-10, -30, 4, 2, 1.6, 1.1],
-  ],
+  // Built for real (ticket 18): see DUSTLANDS.
+  'the-dustlands': [],
   'frostbite-peaks': [
     // The radar base, the dish plinths, the watchtower and an ice wall.
     [0, 0, 16, 10, 4.5],
@@ -159,8 +151,23 @@ const GROUND_ZERO: RegionKit = {
     };
   }),
 };
+/**
+ * The Dustlands' kit (ticket 18): the crashed jet, the shacks, the mine
+ * office and the ore hopper of its plan, the camp's walls, pickups, ore wagons, crates and
+ * drums, and the models the cover pass's pieces there wear.
+ */
+const DUSTLANDS: RegionKit = {
+  region: 'the-dustlands',
+  url: 'models/dustlands.glb',
+  pieces: DL_PIECES,
+  pads: DL_PADS,
+  placed: DL_PLACED,
+  dress: DL_KIT,
+  extra: DL_EXTRA,
+};
 /** The Regions built so far, each with its kit. */
-const KITS: readonly RegionKit[] = [GROUND_ZERO];
+export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS];
+const KITS = ZERO_ISLAND_KITS;
 
 /** Stands the generator's grey solids on the ground, or on a bridge's deck; returns them all, for the kits to dress. */
 function cover(b: Builder, terrain: Terrain, pieces: readonly CoverPiece[]): DressedPiece[] {

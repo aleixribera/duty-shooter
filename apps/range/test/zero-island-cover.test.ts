@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Terrain, type Solid } from '@duty-shooter/fps-core';
 import { buildMapById, insidePolygon } from '../src/map/maps';
-import { buildZeroIsland } from '../src/map/zero-island';
-import { GZ_KIT } from '../src/map/zero-island-ground-zero-plan';
+import { buildZeroIsland, ZERO_ISLAND_KITS } from '../src/map/zero-island';
 import { instancesOf } from '../src/map/zero-island-kit';
 import { BRIDGES, REGION_IDS, regionAt, zeroIslandGround } from '../src/map/zero-island-terrain';
 
@@ -10,7 +9,7 @@ const map = buildMapById('zero-island');
 const terrain = new Terrain(map.terrain!);
 const drawn = (finish: string) => map.solids.filter((_, i) => map.looks[i]?.side === finish);
 /** The kit models that stand on their own wheels rather than fill their piece's solid. */
-const STANDING = new Set(Object.values(GZ_KIT).flatMap((d) => (d.fit === 'stand' ? [d.asset] : [])));
+const STANDING = new Set(ZERO_ISLAND_KITS.flatMap((k) => Object.values(k.dress)).flatMap((d) => (d.fit === 'stand' ? [d.asset] : [])));
 const middle = (s: Solid) => [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2] as const;
 
 describe('Zero Island: its cover', () => {

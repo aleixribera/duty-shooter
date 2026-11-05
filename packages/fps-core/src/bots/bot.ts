@@ -918,7 +918,8 @@ export class Bot {
 
     // Steering: the move direction in the bot's own frame.
     let forward = backOff ? -0.8 : 0;
-    let right = fighting && !this.#throw && !using ? this.#strafe * (ads ? 1 : 0.8) : 0;
+    // In cover to heal it stays put: a strafe there walks it back out into sight.
+    let right = fighting && !this.#throw && !using && !this.#recover?.arrived ? this.#strafe * (ads ? 1 : 0.8) : 0;
     const climbing = move !== null && this.#nextLink() === 'climb';
     const laddering = move !== null && this.#nextLink() === 'ladder';
     if (move) {
