@@ -78,7 +78,7 @@ export const SPECTATOR_PANEL_CSS = `
 .ds-spec .head .n { color: var(--ds-text); }
 .ds-spec .who { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .ds-spec .who b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 34px; line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
-.ds-spec .who em { flex: none; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 2px 5px 1px; border: 1px solid var(--ds-line-2); color: var(--ds-text-2); }
+.ds-spec .who em { flex: none; font-style: normal; font-size: var(--ds-type-small); font-weight: 400; color: var(--ds-text-2); }
 .ds-spec .hp { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 10px; margin-top: 4px; }
 .ds-spec .hp .v { font-size: 26px; font-weight: 700; line-height: 1; }
 .ds-spec .hp .l { font-size: var(--ds-type-small); color: var(--ds-text-2); }

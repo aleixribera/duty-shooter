@@ -14,13 +14,14 @@ function rule(selector: string): string | undefined {
 describe("the pause menu's buttons", () => {
   it('have a dark panel, no browser border, and the menu text colour', () => {
     const item = rule('.ds-pause .ds-item') ?? '';
-    expect(item).toMatch(/background:\s*linear-gradient\(90deg, rgb\(12 15 21/);
+    // Ticket 24: a destination row over the scrim, as on the main menu: no surface of its own.
+    expect(item).toMatch(/background:\s*none/);
     expect(item).toMatch(/border:\s*0/);
     expect(item).toMatch(/color:\s*var\(--ds-text\)/);
     expect(item).toMatch(/display:\s*grid/);
   });
 
   it('light up when hovered, focused or picked with the pad', () => {
-    expect(MENU_CSS).toMatch(/\.ds-pause \.ds-item:hover, \.ds-pause \.ds-item:focus-visible, \.ds-pause \.ds-item\[data-pad-focus\] \{[^}]*border-left-color: var\(--ds-signal\)/);
+    expect(MENU_CSS).toMatch(/\.ds-pause \.ds-item:hover::before, \.ds-pause \.ds-item:focus-visible::before, \.ds-pause \.ds-item\[data-pad-focus\]::before \{[^}]*background: var\(--ds-signal\)/);
   });
 });

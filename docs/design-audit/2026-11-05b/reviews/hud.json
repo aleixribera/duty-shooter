@@ -1,0 +1,137 @@
+{
+  "lens": "hud",
+  "findings": [
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "high",
+      "title": "Orange team's K, D and Ping columns are cut off the right edge",
+      "detail": "On a 390 px phone the two team tables stay side by side. The Orange table runs past the viewport: its header reads 'ORANG', the K and D values sit at x 359-393, and the Ping column isn't drawn at all. The phone player can't read the enemy team's score, which is the main reason to hold Tab.",
+      "evidence": "scoreboard@phone.dom.json: Orange 'K' [359,265,9,11] and 'D' [384,265,9,11] (right edge 393 > 390), contrast p50 1.06 / 1.31 because they are clipped; no Orange 'Ping' text sampled. Screenshot shows 'ORANG' with only Player visible.",
+      "fix": "Below ~700 px wide, stack the team tables (Blue above Orange) at full width, or drop Ping and the '#' column on phone so both tables fit. Put the BOT tag inline after the name so each row is one line high.",
+      "box": [261, 210, 129, 270]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "high",
+      "title": "Pause menu overlaps the score strip and the countdown banner",
+      "detail": "On phone the in-play HUD stays drawn above the pause scrim. The score strip sits behind the 'MATCH / PAUSED' title, and the countdown line 'TEAM DEATHMATCH · CHANGE YOUR LOADOUT NOW' plus its big '2' run through the Loadout and Settings rows. The title and menu items have other text crossing them.",
+      "evidence": "pause@phone.dom.json: 'Paused' [16,48,155,40] overlaps the strip '10:00' [179,35,49,22] / '0' [90,31,17,30]; banner [1,220,388,13] and '2' [182,241,26,46] fall between 'Loadout' [89,201,106,24] and 'Settings' [89,267,114,24].",
+      "fix": "When pause opens, hide the countdown banner and the score strip (or put the pause layer above them on a full scrim). Show the score and timer as one readout line inside the pause page if they're still wanted.",
+      "box": [0, 22, 390, 270]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "Countdown banner shows through the scoreboard's top row",
+      "detail": "The pre-match line 'TEAM DEATHMATCH · CHANGE YOUR LOADOUT NOW' is drawn over the scoreboard panel. Its ghost runs across the 'You' row and Onyx's K/D cells, so the player's own row is the hardest one to read. The same line also shows through the Blue/Orange headers on phone.",
+      "evidence": "scoreboard@desktop.png: faint banner text across y≈291-304 behind the 'You' row (row '1' at [529,290,5,15], contrast p10 1.99). scoreboard@phone.dom.json banner [1,220,388,13] crosses the team headers at y 223.",
+      "fix": "Hide the countdown banner while the scoreboard is open, or give the scoreboard panel an opaque --ds-panel floor and a z-index above the banner layer.",
+      "box": [766, 288, 388, 20]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "Phone HUD sits inside the notch and home-bar zones, and the countdown banner runs edge to edge",
+      "detail": "The score strip starts at y 24 and its scores at y 31, inside the 47 px top inset. The health and ammo bars sit at about y 818-822, inside the bottom 34 px. The banner line is 388 px wide on a 390 px screen, so its first and last letters touch the bezel and get lost on rounded corners.",
+      "evidence": "match-hud@phone.dom.json: '0' [90,31,17,30], '10:00' [179,35,49,22]; banner 'Team deathmatch · change your loadout now' [1,220,388,13]; bar strips at phone px y≈1636-1644 (CSS ≈818-822).",
+      "fix": "Pad the HUD root with env(safe-area-inset-*) and at least 47/34 px top/bottom on phone. Let the banner wrap inside a 16 px gutter (--ds-gutter), or shorten it on narrow screens ('Change loadout now').",
+      "box": [1, 24, 388, 798]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Score strip labels are 11 px text-3 over the sky, and 'TDM · 75' isn't explained",
+      "detail": "The team labels and the mode line under the timer are 11 px in the dim --ds-text-3 on a see-through plate over a bright sky. Their worst-tenth contrast is about 2:1, and DESIGN.md keeps text-3 for solid panels. '75' is the score limit but nothing says so, so new players can't tell how far the match has to go.",
+      "evidence": "contrast.md match-hud@desktop: '◆ Blue · you' [819,64,88,11] p10 1.97 fail; '▲ Orange' [1031,64,70,11] p10 2.67 fail; 'TDM · 75' [941,62,55,11] p10 2.91 fail; all 11 px (size fail).",
+      "fix": "Raise the labels to the 13 px small step in --ds-text-2, and make the strip's plate opaque --ds-panel (or a 90% scrim). Write the limit as 'First to 75' or put a 'to 75' readout under the timer.",
+      "box": [804, 24, 312, 58]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "Range stats panel is mostly an empty box and covers a third of the phone view",
+      "detail": "The TTK / Distance / Shots / Last hit panel has a large empty dark sub-box under it, presumably a shot-group plot with no data yet. On phone it fills x 24-230, y 484-731, from below the target down to the health readout, which hides the near lanes. Its labels are 11 px tracked caps. Desktop has the same empty block at the lower left.",
+      "evidence": "range-hud@phone.png: panel phone px ≈48-460 x 968-1462; DOM labels 'TTK' [37,497,24,11], 'Last hit' [37,550,58,11] at 11 px, contrast fail on phone (p10 4.25). range-hud@desktop.png shows the same empty block at ≈[24,720,206,247].",
+      "fix": "Don't draw the plot area until the first shot lands. On phone, shrink the panel to the four readouts in one strip (13 px labels) placed under the score area, or collapse it behind a tap.",
+      "box": [24, 484, 206, 248]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "'Health' label and the 'auto' fire-mode tag vanish over bright ground",
+      "detail": "The health label is 13 px --ds-text-2 with only a text shadow. Over the lit grass and sky it drops to about 1:1 at its worst, and 'auto' is 10 px, below the 12 px floor. The health figure stays readable, but the label and the fire-mode tag are effectively invisible in daylight maps.",
+      "evidence": "contrast.md match-hud@desktop: 'Health' [51,975,39,13] p10 1.08; 'auto' [1852,973,30,10] 10 px size fail, p10 1.15; match-hud@phone 'Health' p10 1.12.",
+      "fix": "Put a bottom-edge scrim gradient (the one gradient DESIGN.md allows) behind both bottom corners, or use --ds-text for the label. Raise 'auto' to 12 px uppercase minimum.",
+      "box": [32, 969, 68, 13]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "COL-03",
+      "severity": "medium",
+      "title": "Unlabelled signal-teal chevrons float at the screen edges",
+      "detail": "Teal double chevrons appear at changing edge spots: top-left and bottom-left on desktop, stacked on the right edge on phone, and near the top-right of the pause menu. They have no label or distance, so a player can't tell if they point to teammates, threats or an objective. They also use --ds-signal, which DESIGN.md reserves for things you can act on.",
+      "evidence": "match-hud@phone.png at phone px ≈695-735 x 595-740; match-hud@desktop.png at ≈(32,55) and (32,955),(272,955); scoreboard@desktop.png at (32,65); pause@phone.png at (715,110). None appear in the DOM text sample.",
+      "fix": "Give the off-screen markers a team colour plus a shape (◆ for Blue teammates), and clamp them inside the safe area. If they mark something specific (damage, objective), add a short label or distance. Keep teal for interactive elements only.",
+      "box": [347, 297, 22, 73]
+    },
+    {
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "Pause footer key hints sit on top of the health readout",
+      "detail": "The pause footer row '↑↓ MOVE · ENTER SELECT · CLICK RESUME' is drawn at y 1004, right across the dimmed '100' health figure and the Health label. The keycaps read over a ghosted number.",
+      "evidence": "pause@desktop.dom.json: '↑↓' [64,1004,14,13], 'Enter' [162,1004,43,13] over '100' [32,993,68,48] and 'Health' [51,975,39,13]; visible in pause@desktop.png lower left.",
+      "fix": "Hide the bottom HUD corners while paused, or lift the footer hints above the HUD band (at least y ≈ 940) on the pause page's own scrim.",
+      "box": [32, 975, 385, 66]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "'Change your loadout now' gives no key for doing it",
+      "detail": "The pre-match banner tells the player to change loadout but doesn't say how. Loadout is only reachable through Esc → Loadout, and the countdown is 1 second from ending. A new player reads an instruction they can't act on in time.",
+      "evidence": "match-hud@desktop.dom.json: 'Team deathmatch · change your loadout now' [766,291,388,13] with countdown '1' [951,312,17,46]; no keycap in the HUD. Pause menu lists LOADOUT as a separate row.",
+      "fix": "Add the key in a keycap in the line itself ('Esc  Change loadout'), or bind a direct loadout key during the countdown and show it.",
+      "box": [766, 291, 388, 67]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "low",
+      "title": "Grenade count uses the Blue team's ◆ mark",
+      "detail": "The grenade counter beside the ammo reads '◆ 1', and the same diamond marks Blue team in the score strip and the scoreboard. The shape stands for two different things, and the count has no label, so it reads as a team or rank marker rather than grenades left.",
+      "evidence": "match-hud@desktop.dom.json: '◆ 1' [1746,1010,22,13] next to '◆ Blue · you' [819,64,88,11]; scoreboard '◆ Blue' header.",
+      "fix": "Use a grenade glyph or a 'G' keycap with the count ('G 1'), and keep ◆ for Blue only.",
+      "box": [1738, 1004, 38, 26]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-03",
+      "severity": "low",
+      "title": "Desktop bottom HUD hugs the edges at 32 px",
+      "detail": "Health, ammo and their bars sit 32 px from the left, right and bottom edges, about half of the ~58 px (3%) safe margin. They also don't use DESIGN.md's 56 px desktop gutter, which the menus use. On TVs or overscanned displays the bars and the '/ ∞' get trimmed.",
+      "evidence": "range-hud@desktop.dom.json: '100' [32,993,68,48]; '/ ∞' [1861,1014,27,20] (right edge 1888 → 32 px); bar strips at y ≈1048-1052.",
+      "fix": "Anchor the in-play HUD corners to --ds-gutter (56 px) on desktop, so they line up with the menu and pause layouts.",
+      "box": [32, 969, 1856, 84]
+    }
+  ]
+}

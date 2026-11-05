@@ -140,23 +140,21 @@ export const MENU_CSS = `
 /* Pause: a column of actions over the paused game, and the controls beside it. */
 .ds-pause { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 56px; padding: 56px;
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 40%, rgb(7 9 13 / 0.55) 100%); overflow-y: auto; }
+/* The HUD under it goes: its readouts would sit behind the actions and the key hints. */
+body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .col { display: flex; flex-direction: column; gap: 6px; }
-.ds-pause h1 { margin: 6px 0 24px; font-size: 56px; line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-.ds-pause .ds-item { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; column-gap: 14px; min-height: 60px; padding: 12px 20px 12px 16px; text-align: left; color: var(--ds-text);
-  background: linear-gradient(90deg, rgb(12 15 21 / 0.82), rgb(12 15 21 / 0.42)); border: 0; border-left: 3px solid transparent;
-  transition: transform 140ms var(--ds-ease), background-color 140ms, border-color 140ms; }
-.ds-pause .ds-item .ds-icon { grid-row: 1; width: 30px; height: 30px; color: var(--ds-text-2); transition: color 140ms; }
-.ds-pause .ds-item b { grid-column: 2; font-size: 24px; line-height: 1; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-.ds-pause .ds-item .go { grid-row: 1; grid-column: 3; opacity: 0; transform: translateX(-6px); color: var(--ds-signal); transition: opacity 140ms, transform 140ms var(--ds-ease); }
-.ds-pause .ds-item:hover, .ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { transform: translateX(8px); background: linear-gradient(90deg, rgb(143 227 200 / 0.2), rgb(143 227 200 / 0.04)); border-left-color: var(--ds-signal); outline: none; }
-/* The strip the hovered entry slid off stays part of it, or its left edge would flicker between hovered and not and drop clicks. */
-.ds-pause .ds-item:hover::after { content: ''; position: absolute; top: 0; bottom: 0; left: -11px; width: 11px; }
-.ds-pause .ds-item:hover .ds-icon, .ds-pause .ds-item:focus-visible .ds-icon, .ds-pause .ds-item[data-pad-focus] .ds-icon { color: var(--ds-signal); }
-.ds-pause .ds-item:hover .go, .ds-pause .ds-item:focus-visible .go, .ds-pause .ds-item[data-pad-focus] .go { opacity: 1; transform: none; }
-.ds-pause .ds-item.primary { border-left-color: var(--ds-signal); }
-.ds-pause .ds-item.primary .ds-icon { color: var(--ds-signal); }
+.ds-pause h1 { margin: 6px 0 24px; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+/* Its actions are the main menu's destinations at display size: a 4px bar at the left, lit in signal for Resume and for the one under the pointer or the pad. */
+.ds-pause .ds-item { position: relative; display: grid; align-items: center; min-height: 64px; padding: 8px 0 8px 22px; text-align: left; color: var(--ds-text); background: none; border: 0; cursor: pointer; }
+.ds-pause .ds-item::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
+.ds-pause .ds-item b { font-size: var(--ds-type-display); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
+.ds-pause .ds-item.primary::before { background: var(--ds-signal); }
+.ds-pause .ds-item:hover::before, .ds-pause .ds-item:focus-visible::before, .ds-pause .ds-item[data-pad-focus]::before { background: var(--ds-signal); transform: scaleX(2); }
+.ds-pause .ds-item:hover b, .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { transform: translateX(10px); }
+.ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { outline: none; }
+.ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { color: var(--ds-signal-hi); }
 .ds-pause .ds-error { margin: -12px 0 12px; }
-.ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.8); border: 1px solid var(--ds-line); }
+.ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.86); }
 .ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: 13px; color: var(--ds-text-2); }
 .ds-keys dt { justify-self: start; }
 .ds-keys dd { margin: 0; }
@@ -200,8 +198,8 @@ export const MENU_CSS = `
   .ds-kit { grid-template-columns: repeat(2, 1fr); }
   .ds-tabs { order: 3; flex-basis: 100%; overflow-x: auto; }
   .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: 13px; letter-spacing: 0.08em; }
-  .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; }
-  .ds-pause h1 { font-size: 40px; }
+  .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; background: var(--ds-scrim); }
+  .ds-pause h1 { font-size: 40px; } .ds-pause .ds-item { min-height: 54px; }
   .ds-keys { justify-self: stretch; }
   .ds-keys dl { grid-template-columns: max-content 1fr; }
 }
@@ -895,21 +893,21 @@ export class Menu {
     const col = h('div', '', 'col');
     col.append(h('div', 'Match', 'ds-crumb'), h('h1', 'Paused'));
     if (this.#error) col.append(h('div', this.#error, 'ds-error'));
-    const item = (iconName: string, title: string, onClick: () => void, primary = false) => {
+    const item = (title: string, onClick: () => void, primary = false) => {
       const b = h('button', '', `ds-item${primary ? ' primary' : ''}`) as HTMLButtonElement;
       b.type = 'button';
-      b.innerHTML = `${icon(iconName)}<b>${escapeHtml(title)}</b><span class="go">${icon('next')}</span>`;
+      b.innerHTML = `<b>${escapeHtml(title)}</b>`;
       b.addEventListener('click', onClick);
       col.append(b);
       return b;
     };
-    item('play', 'Resume', () => this.#callbacks.resume(), true);
-    item('kit', 'Loadout', () => this.loadout('pause'));
-    item('settings', 'Settings', () => {
+    item('Resume', () => this.#callbacks.resume(), true);
+    item('Loadout', () => this.loadout('pause'));
+    item('Settings', () => {
       this.#back = 'pause';
       this.show('settings');
     });
-    item('leave', 'Leave', () => this.#callbacks.leave());
+    item('Leave', () => this.#callbacks.leave());
     wrap.append(col);
     const keys = h('div', '', 'ds-keys');
     const b = this.#settings.bindings;
