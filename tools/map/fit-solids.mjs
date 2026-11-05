@@ -44,6 +44,11 @@ export const SOURCES = [
     glb: 'apps/range/public/models/dustlands.glb',
     assets: { 'dl-hut': 4, 'dl-pickup': 6, 'dl-orecar': 5, 'dl-stonewall': 6, 'dl-crates': 4, 'dl-drums': 8 },
   },
+  {
+    // Rogue Harbor's kit (ticket 19): containers one high or a stack of two, a yard office, walls, crates and vehicles.
+    glb: 'apps/range/public/models/harbor.glb',
+    assets: { 'rh-container': 4, 'rh-container-b': 4, 'rh-stack': 4, 'rh-stack-b': 4, 'rh-office': 4, 'rh-wall': 4, 'rh-crates': 6, 'rh-car': 6, 'rh-truck': 6 },
+  },
 ];
 
 /**
@@ -56,6 +61,7 @@ export const SOURCES = [
 export const PIECES = [
   { glb: 'apps/range/public/models/ground-zero.glb', plan: 'tools/map/regions/ground-zero.json', most: { rubble: 6, default: 4 } },
   { glb: 'apps/range/public/models/dustlands.glb', plan: 'tools/map/regions/dustlands.json', most: { heap: 6, default: 4 } },
+  { glb: 'apps/range/public/models/harbor.glb', plan: 'tools/map/regions/harbor.json', most: { default: 4 } },
 ];
 
 /** How far (m) a point of a solid may stand out of its model. */

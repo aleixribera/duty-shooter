@@ -166,13 +166,23 @@ const FILL: Readonly<Record<string, number>> = {
   'dl-crates': 0.85,
   // Four round drums in eight boxes: the boxes leave each drum's rounded sides, as a trunk's do.
   'dl-drums': 0.72,
+  // Rogue Harbor's kit (ticket 19). A wall's coping and a car's glasshouse slope where a box can't.
+  'rh-container': 0.85,
+  'rh-container-b': 0.85,
+  'rh-stack': 0.85,
+  'rh-stack-b': 0.85,
+  'rh-office': 0.85,
+  'rh-wall': 0.8,
+  'rh-crates': 0.85,
+  'rh-car': 0.8,
+  'rh-truck': 0.85,
 };
 const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl)-/.test(asset) ? 3 : 100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh)-/.test(asset) ? 3 : 100);
   });
 
   for (const asset of FITTED) {

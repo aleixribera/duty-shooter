@@ -6,6 +6,7 @@ import { placeCover, type CoverPiece } from './zero-island-cover';
 import { soundTraps } from './zero-island-traps';
 import { DL_EXTRA, DL_KIT, DL_PADS, DL_PIECES, DL_PLACED } from './zero-island-dustlands-plan';
 import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
+import { RH_EXTRA, RH_KIT, RH_PADS, RH_PIECES, RH_PLACED } from './zero-island-harbor-plan';
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
@@ -78,25 +79,9 @@ const BLOCKS: Readonly<Record<RegionId, readonly Block[]>> = {
     [0, 32, 16, 16, 12],
     [30, 32, 18, 18, 54],
   ],
-  'rogue-harbor': [
-    // Warehouses, container stacks and a crane's legs.
-    [-26, -24, 24, 14, 8],
-    [20, -28, 20, 12, 8],
-    [-28, 12, 12, 2.5, 5.2],
-    [-28, 18, 12, 2.5, 2.6],
-    [-12, 22, 12, 2.5, 5.2],
-    [12, 8, 2, 2, 22],
-    [26, 8, 2, 2, 22],
-    [26, 30, 12, 2.5, 2.6, 0.5],
-  ],
+  // Built for real (ticket 19): see HARBOR.
+  'rogue-harbor': [],
 };
-
-/** The cargo ship moored south of the Harbor, and its two piers. */
-const SHIP = { x: 115, z: 518, length: 72, beam: 12, height: 9 } as const;
-const PIERS: readonly (readonly [x: number, z0: number, z1: number])[] = [
-  [40, 465, 510],
-  [150, 471, 510],
-];
 
 /** The ground's lowest and highest points under a footprint. */
 function footprint(terrain: Terrain, x: number, z: number, width: number, depth: number, yaw: number): { low: number; high: number } {
@@ -165,8 +150,22 @@ const DUSTLANDS: RegionKit = {
   dress: DL_KIT,
   extra: DL_EXTRA,
 };
+/**
+ * Rogue Harbor's kit (ticket 19): the quay and its cranes, the cargo ship
+ * alongside, the warehouses and the hangar of its plan, the container yard,
+ * and the models the cover pass's pieces there wear.
+ */
+const HARBOR: RegionKit = {
+  region: 'rogue-harbor',
+  url: 'models/harbor.glb',
+  pieces: RH_PIECES,
+  pads: RH_PADS,
+  placed: RH_PLACED,
+  dress: RH_KIT,
+  extra: RH_EXTRA,
+};
 /** The Regions built so far, each with its kit. */
-export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS];
+export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS, HARBOR];
 const KITS = ZERO_ISLAND_KITS;
 
 /** Stands the generator's grey solids on the ground, or on a bridge's deck; returns them all, for the kits to dress. */
@@ -220,13 +219,6 @@ function bridges(b: Builder, terrain: Terrain): void {
       b.turned([px, (ground - 1 + top) / 2, pz], [1.4, top - ground + 1, bridge.width - 1], yaw, 'concrete', 'block');
     }
   }
-}
-
-function harbor(b: Builder, terrain: Terrain): void {
-  const { x, z, length, beam, height } = SHIP;
-  const ground = terrain.heightAt(x, z);
-  b.add([x - length / 2, ground - 1, z - beam / 2], [x + length / 2, height, z + beam / 2], 'metal', { look: 'block' });
-  for (const [px, z0, z1] of PIERS) b.add([px - 3, 1.2, z0], [px + 3, 1.8, z1], 'concrete', { look: 'block' });
 }
 
 /** Player clip along every edge of the Boundary, just outside it. */
@@ -301,7 +293,6 @@ export function buildZeroIsland(): MapDefinition {
   const b = new Builder();
   for (const id of REGION_IDS) coreBlocks(b, terrain, CORES[id], BLOCKS[id]);
   const kits = KITS.map((kit) => ({ kit, ...standPieces(b, terrain, kit) }));
-  harbor(b, terrain);
   const inside = (x: number, z: number) => insidePolygon(outline, x, z);
   const routes = [
     ...ground.railway.map((line) => ({ line, half: 3 })),

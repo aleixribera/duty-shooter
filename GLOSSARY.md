@@ -35,7 +35,7 @@ The Battle Royale's map: about a square kilometre of land on Terrain, with a Bou
 One of Zero Island's six areas: Ground Zero, The Dustlands, Frostbite Peaks, Mutant Jungle, Neon City and Rogue Harbor. Never "Zone", which stays with Outposts.
 
 **Core**:
-A Region's dense, fully detailed place, about the size of Crash. Grey blocks stand in for those not yet built; Ground Zero's and the Dustlands' (the mining camp round the crashed cargo jet, ticket 18) are their Region kits.
+A Region's dense, fully detailed place, about the size of Crash. Grey blocks stand in for those not yet built; Ground Zero's, the Dustlands' (the mining camp round the crashed cargo jet, ticket 18) and Rogue Harbor's (the container port, its quay, cranes and moored cargo ship, ticket 19) are their Region kits.
 
 **Region kit**:
 A Region's own models (`models/<region>.glb`, built by `tools/map/regions/<region>.py`): its Built pieces, and unit models that dress the cover pass's pieces in the Region (walls, sheds, wrecks), all drawn instanced like Plants. Ground Zero's is the first (ticket 17); the steps every Region follows are in `zero-island-region.ts`.
