@@ -2,6 +2,7 @@ import type { Material, TerrainData } from '@duty-shooter/fps-core';
 import { DL_PADS } from './zero-island-dustlands-plan';
 import { GZ_PADS } from './zero-island-ground-zero-plan';
 import { RH_PADS } from './zero-island-harbor-plan';
+import { NC_PADS } from './zero-island-neon-plan';
 import type { Pad } from './zero-island-region';
 
 /**
@@ -454,7 +455,7 @@ function level(heights: Float32Array, core: Core, blend: number): void {
 }
 
 /** Every Region's pads (see `zero-island-region.ts`): ground levelled for what's built on it. */
-const PADS: readonly Pad[] = [...GZ_PADS, ...DL_PADS, ...RH_PADS];
+const PADS: readonly Pad[] = [...GZ_PADS, ...DL_PADS, ...RH_PADS, ...NC_PADS];
 
 /** Metres from (x, z) to a pad's rectangle, 0 inside it. */
 function toPad(pad: Pad, x: number, z: number): number {

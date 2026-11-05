@@ -139,8 +139,8 @@ const CHARACTER: Readonly<Record<RegionId, Mix>> = {
   'frostbite-peaks': { spacing: 26, table: [[42, rocks(3, 5.4, 3.2)], [28, grove(4, 6, 0.9, 10)], [18, corner('rock', 12, 1.4, 3)], [12, shed]] },
   // Forest.
   'mutant-jungle': { spacing: 22, table: [[62, grove(4, 7, 1.8, 13)], [22, rocks(3, 5, 2.8)], [16, corner('wall', 9, 1.2, 3)]] },
-  // Walls, cars and low blocks on the approaches.
-  'neon-city': { spacing: 25, table: [[34, corner('wall', 11, 0.7, 2.6)], [30, single('block', 11, 10, 7)], [16, wreck], [20, crates]] },
+  // Walls, cars and low blocks on the approaches, close-set: a car's model sits lower than a box would (ticket 20).
+  'neon-city': { spacing: 23, table: [[34, corner('wall', 11, 0.7, 2.6)], [30, single('block', 11, 10, 7)], [16, wreck], [20, crates]] },
   // Container yards, sheds and walls.
   'rogue-harbor': { spacing: 25, table: [[44, stacks], [18, shed], [20, corner('wall', 11, 0.8, 2.6)], [18, crates]] },
 };

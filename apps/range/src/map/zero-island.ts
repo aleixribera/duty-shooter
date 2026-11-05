@@ -7,6 +7,7 @@ import { soundTraps } from './zero-island-traps';
 import { DL_EXTRA, DL_KIT, DL_PADS, DL_PIECES, DL_PLACED } from './zero-island-dustlands-plan';
 import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
 import { RH_EXTRA, RH_KIT, RH_PADS, RH_PIECES, RH_PLACED } from './zero-island-harbor-plan';
+import { NC_CLEAR, NC_EXTRA, NC_KIT, NC_PADS, NC_PIECES, NC_PLACED } from './zero-island-neon-plan';
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
@@ -68,17 +69,8 @@ const BLOCKS: Readonly<Record<RegionId, readonly Block[]>> = {
     [30, -20, 3, 3, 6],
     [-14, -32, 8, 2, 3],
   ],
-  'neon-city': [
-    // Streets between towers: the tall ones outer shells, the low ones the enterable blocks to come.
-    [-30, -30, 18, 18, 62],
-    [0, -32, 16, 16, 34],
-    [30, -30, 18, 18, 78],
-    [-32, 2, 16, 20, 18],
-    [32, 2, 16, 20, 22],
-    [-30, 32, 18, 18, 44],
-    [0, 32, 16, 16, 12],
-    [30, 32, 18, 18, 54],
-  ],
+  // Built for real (ticket 20): see NEON_CITY.
+  'neon-city': [],
   // Built for real (ticket 19): see HARBOR.
   'rogue-harbor': [],
 };
@@ -164,8 +156,22 @@ const HARBOR: RegionKit = {
   dress: RH_KIT,
   extra: RH_EXTRA,
 };
+/**
+ * Neon City's kit (ticket 20): the walk-ups and arcades, the elevated highway
+ * and the towers of its plan, the street's cars, barriers and boxes, and the
+ * models the cover pass's pieces there wear.
+ */
+const NEON_CITY: RegionKit = {
+  region: 'neon-city',
+  url: 'models/neon.glb',
+  pieces: NC_PIECES,
+  pads: NC_PADS,
+  placed: NC_PLACED,
+  dress: NC_KIT,
+  extra: NC_EXTRA,
+};
 /** The Regions built so far, each with its kit. */
-export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS, HARBOR];
+export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS, HARBOR, NEON_CITY];
 const KITS = ZERO_ISLAND_KITS;
 
 /** Stands the generator's grey solids on the ground, or on a bridge's deck; returns them all, for the kits to dress. */
@@ -300,7 +306,8 @@ export function buildZeroIsland(): MapDefinition {
     ...ground.trails.map((line) => ({ line, half: 3 })),
     { line: ground.stream, half: 5 },
   ];
-  const clear = spawnPlaces().map(([x, z]) => [x, z, 5] as const);
+  // Spawns, and Neon City's streets: the cover pass and the plants keep off them.
+  const clear = [...spawnPlaces().map(([x, z]) => [x, z, 5] as const), ...NC_CLEAR];
   const runway = [RUNWAY.from, RUNWAY.to, RUNWAY.half] as const;
   const dressed = cover(
     b,

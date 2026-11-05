@@ -309,34 +309,45 @@ describe('Zero Island: moving on it', () => {
   });
 
   it('mantles onto the cover it runs into (ticket 67)', () => {
-    // Single boxes standing on level ground, low enough to climb (a rock's fitted boxes are left out: their bounds aren't their shape).
+    // Single boxes standing on level ground, low enough to climb, square or turned about the vertical (the Regions'
+    // kits turn their cover to the ground's lie). A rock's fitted boxes are left out: their bounds aren't their shape.
     const overlaps = (s: Solid, o: Solid) => o !== s && o.min[0] < s.max[0] && o.max[0] > s.min[0] && o.min[2] < s.max[2] && o.max[2] > s.min[2];
+    /** The box's middle, its half sizes along its own x and z, and its own +z on the ground. */
+    const frame = (s: Solid) => {
+      const o = s.orientation;
+      if (!o) return { c: [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2] as const, hx: (s.max[0] - s.min[0]) / 2, hz: (s.max[2] - s.min[2]) / 2, along: [0, 1] as const };
+      const k = Math.hypot(o.axes[2][0], o.axes[2][2]);
+      return { c: [o.center[0], o.center[2]] as const, hx: o.half[0], hz: o.half[2], along: [o.axes[2][0] / k, o.axes[2][2] / k] as const };
+    };
     const pieces = solids.filter((s) => {
-      if (s.orientation !== null) return false;
-      const [cx, cz] = [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2];
-      const rise = s.max[1] - terrain.heightAt(cx, cz);
-      const [w, d] = [s.max[0] - s.min[0], s.max[2] - s.min[2]];
-      return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && w > 1 && w < 5 && d > 1 && d < 5 && insidePolygon(boundary, cx, cz) && !solids.some((o) => overlaps(s, o));
+      if (s.orientation && (s.orientation.pitch !== 0 || s.orientation.roll !== 0)) return false;
+      const { c, hx, hz } = frame(s);
+      const rise = s.max[1] - terrain.heightAt(c[0], c[1]);
+      return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && hx > 0.5 && hx < 2.5 && hz > 0.5 && hz < 2.5 && insidePolygon(boundary, c[0], c[1]) && !solids.some((o) => overlaps(s, o));
     });
     expect(pieces.length).toBeGreaterThan(20);
     let tried = 0;
     let climbed = 0;
     for (let i = 0; i < pieces.length && tried < 24; i++) {
       const s = pieces[i]!;
-      const [cx, cz] = [(s.min[0] + s.max[0]) / 2, (s.min[2] + s.max[2]) / 2];
-      const from = [cx, s.min[2] - 1.6] as const;
+      const { c, hz, along } = frame(s);
+      const back = (d: number) => [c[0] - along[0] * (hz + d), c[1] - along[1] * (hz + d)] as const;
+      const from = back(1.6);
       const ground = terrain.heightAt(from[0], from[1]);
       // Only a clear, level approach: nothing else in the way, no slope to walk up first.
-      if (Math.abs(ground - terrain.heightAt(cx, s.min[2] - 0.3)) > 0.2 || terrain.steepAt(from[0], from[1])) continue;
-      if (solids.some((o) => o !== s && o.max[1] > ground + 0.3 && o.min[0] < cx + 0.6 && o.max[0] > cx - 0.6 && o.min[2] < s.min[2] && o.max[2] > from[1] - 0.5)) continue;
+      const face = back(0.3);
+      if (Math.abs(ground - terrain.heightAt(face[0], face[1])) > 0.2 || terrain.steepAt(from[0], from[1])) continue;
+      const path = Array.from({ length: 12 }, (_, k) => back(0.1 + (k / 11) * 2.0)).flatMap(([x, z]) => [-0.6, 0, 0.6].map((w) => [x + along[1] * w, z - along[0] * w] as const));
+      if (solids.some((o) => o !== s && o.max[1] > ground + 0.3 && path.some(([x, z]) => x > o.min[0] && x < o.max[0] && z > o.min[2] && z < o.max[2]))) continue;
       tried++;
       // At a point beyond it, so the run doesn't stop short of the piece.
-      const out = run(start([from[0], ground, from[1]]), cx, s.max[2] + 4, 3, tapping);
+      const to = back(-2 * hz - 4);
+      const out = run(start([from[0], ground, from[1]]), to[0], to[1], 3, tapping);
       if (out.some((p) => p.movement === 'mantle') && Math.max(...out.map((p) => p.position[1])) > s.max[1] - 0.1) climbed++;
     }
     expect(tried).toBeGreaterThan(8);
     expect(climbed, `${climbed} of ${tried}`).toBe(tried);
-  }, 30_000);
+  }, 60_000);
 
   it('crosses every bridge dry, its ends level with the ground either side', () => {
     for (const bridge of BRIDGES) {

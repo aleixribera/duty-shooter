@@ -29,14 +29,17 @@ export const padFloor = (terrain: Terrain, pad: Pad) => terrain.heightAt(pad.x, 
 
 /**
  * The kit kind a cover piece wears: a pylon's low base is its footing, a
- * wreck as tall as a lorry is a truck, and a container is one high or a stack
- * of two, in one of two liveries by where it stands.
+ * wreck as tall as a lorry is a truck, a container is one high or a stack
+ * of two, and containers and cars come in one of two liveries by where they
+ * stand (a kit without the `-b` one dresses both alike).
  */
 export function dressKind(p: { kind: string; top: number; ground: number; x: number; z: number }): string {
   const tall = p.top - p.ground;
+  const b = (Math.floor(p.x / 7) + Math.floor(p.z / 7)) & 1 ? '-b' : '';
   if (p.kind === 'pylon' && tall < 3) return 'pylon-base';
   if (p.kind === 'wreck' && tall > 2.2) return 'truck';
-  if (p.kind === 'container') return `${tall > 4 ? 'stack' : 'container'}${(Math.floor(p.x / 7) + Math.floor(p.z / 7)) & 1 ? '-b' : ''}`;
+  if (p.kind === 'wreck') return `wreck${b}`;
+  if (p.kind === 'container') return `${tall > 4 ? 'stack' : 'container'}${b}`;
   return p.kind;
 }
 

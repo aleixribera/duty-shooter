@@ -176,13 +176,19 @@ const FILL: Readonly<Record<string, number>> = {
   'rh-crates': 0.85,
   'rh-car': 0.8,
   'rh-truck': 0.85,
+  // Neon City's kit (ticket 20).
+  'nc-shop': 0.85,
+  'nc-barrier': 0.8,
+  'nc-car': 0.8,
+  'nc-car-b': 0.8,
+  'nc-boxes': 0.85,
 };
 const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh)-/.test(asset) ? 3 : 100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh|nc)-/.test(asset) ? 3 : 100);
   });
 
   for (const asset of FITTED) {

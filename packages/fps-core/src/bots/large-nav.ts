@@ -493,10 +493,14 @@ export function buildLargeNav(world: World, options: LargeNavOptions): LargeNav 
   if (regionsOf) for (let c = 0; c < clusters; c++) clusterRegion[c] = regionsOf.of(positions[clusterNode[c]! * 3]!, positions[clusterNode[c]! * 3 + 2]!);
 
   const between = linkClusters(count, clusters, clusterOf, clusterNode, linkStart, linkTo, linkCost);
+  // A Region's hub is the cluster nearest its Core that the rest of the map reaches and is reached from: the
+  // nearest one alone may be the top of a stack of crates there, which no route enters.
+  const reached = mainClusters(clusters, between);
   const hubs = (regionsOf?.hubs ?? [[positions[0]!, positions[2]!] as const]).map(([x, z]) => {
     let best = 0;
     let far = Infinity;
     for (let c = 0; c < clusters; c++) {
+      if (!reached[c]) continue;
       const n = clusterNode[c]! * 3;
       const d = flat(positions[n]!, positions[n + 2]!, x, z);
       if (d < far) {
@@ -582,6 +586,65 @@ function linkClusters(count: number, clusters: number, clusterOf: Uint32Array, c
     for (const t of touched) dist[t] = Infinity;
   }
   return { start, to, cost };
+}
+
+/**
+ * The clusters on the map's main way round: reached from and reaching the best-linked cluster of the biggest
+ * connected part (every cluster, if there are no links at all).
+ */
+function mainClusters(clusters: number, between: { start: Uint32Array; to: Uint32Array }): Uint8Array {
+  if (clusters === 0) return new Uint8Array(0);
+  const back: number[][] = Array.from({ length: clusters }, () => []);
+  for (let c = 0; c < clusters; c++) for (let l = between.start[c]!; l < between.start[c + 1]!; l++) back[between.to[l]!]!.push(c);
+  // The biggest part, links taken either way.
+  const part = new Int32Array(clusters).fill(-1);
+  let biggest = -1;
+  let size = 0;
+  for (let s = 0; s < clusters; s++) {
+    if (part[s] !== -1) continue;
+    const stack = [s];
+    part[s] = s;
+    let n = 0;
+    while (stack.length) {
+      const c = stack.pop()!;
+      n++;
+      const visit = (o: number) => {
+        if (part[o] === -1) {
+          part[o] = s;
+          stack.push(o);
+        }
+      };
+      for (let l = between.start[c]!; l < between.start[c + 1]!; l++) visit(between.to[l]!);
+      for (const o of back[c]!) visit(o);
+    }
+    if (n > size) {
+      size = n;
+      biggest = s;
+    }
+  }
+  let seed = -1;
+  for (let c = 0; c < clusters; c++) if (part[c] === biggest && (seed < 0 || between.start[c + 1]! - between.start[c]! > between.start[seed + 1]! - between.start[seed]!)) seed = c;
+  const reach = (next: (c: number, visit: (o: number) => void) => void) => {
+    const seen = new Uint8Array(clusters);
+    const stack = [seed];
+    seen[seed] = 1;
+    while (stack.length) {
+      next(stack.pop()!, (o) => {
+        if (!seen[o]) {
+          seen[o] = 1;
+          stack.push(o);
+        }
+      });
+    }
+    return seen;
+  };
+  const from = reach((c, visit) => {
+    for (let l = between.start[c]!; l < between.start[c + 1]!; l++) visit(between.to[l]!);
+  });
+  const to = reach((c, visit) => back[c]!.forEach(visit));
+  const out = new Uint8Array(clusters);
+  for (let c = 0; c < clusters; c++) out[c] = from[c]! & to[c]!;
+  return out;
 }
 
 /** For each pair of Regions, the Regions on the best way between their hubs, by Dijkstra over the clusters. */

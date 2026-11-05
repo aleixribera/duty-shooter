@@ -58,6 +58,8 @@ LAYERS = [
     ("tin", "rusty_corrugated_iron", 2.0, "Rob Tuytel"),
     ("plate", "blue_metal_plate", 3.0, "Rob Tuytel"),
     ("adobe", "clay_plaster", 2.5, "Rob Tuytel"),
+    # Neon City (ticket 20): the walk-ups' and the market's soot-dark brick.
+    ("brick", "dark_brick_wall", 1.05, "Dimitrios Savva, Dario Barresi"),
 ]
 
 

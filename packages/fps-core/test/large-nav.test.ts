@@ -147,6 +147,7 @@ describe('A large map: routes', () => {
     expect(large.index!.regionsBetween(0, 1)).toEqual([0, 1]);
     expect(large.index!.regionsBetween(0, 0)).toEqual([0]);
   });
+
 });
 
 describe('A large map: nearby nodes', () => {
@@ -295,5 +296,25 @@ describe('A large map: a way out of the shallows and the pits (ticket 75)', () =
     expect(kept(nav)).toEqual(kept(plain));
     const loaded = decodeLargeNav(encodeLargeNav(nav));
     expect(loaded.nodes.map((n) => !!n.escape)).toEqual(nav.nodes.map((n) => !!n.escape));
+  });
+});
+
+describe('A large map: Region hubs', () => {
+  // A flat strip in three Regions, west, middle and east, with a crate too tall to climb at the middle of a
+  // west chunk. Its top is the cluster nearest the west hub, but nothing reaches it: you can only jump off.
+  const W = 80;
+  const flat = (): TerrainData => {
+    const [columns, rows] = [2 * W, 32];
+    const heights = new Float32Array((columns + 1) * (rows + 1)).fill(3);
+    return { origin: [-W, -16], cell: 1, columns, rows, heights, water: new Float32Array(heights.length), palette: ['dirt'] };
+  };
+  const CRATE = box({ min: [-49.5, 3, 6.5], max: [-46.5, 5.4, 9.5], material: 'concrete' });
+  const strip = createWorld([CRATE], { terrain: flat() });
+  const regions = { hubs: [[-48, 8], [0, 0], [48, 0]] as [number, number][], of: (x: number) => (x < -32 ? 0 : x > 32 ? 2 : 1) };
+  const nav = buildLargeNav(strip, { area: [[-78, -14], [78, -14], [78, 14], [-78, 14]], shore: SHORE, chunk: 32, wade: { floor: -1, reach: 12 }, regions });
+
+  it('puts a hub on ground every cluster reaches, not on a crate top nobody climbs', () => {
+    expect(nav.index!.regionsBetween(0, 2)).toEqual([0, 1, 2]);
+    expect(nav.index!.regionsBetween(2, 0)).toEqual([0, 1, 2]);
   });
 });

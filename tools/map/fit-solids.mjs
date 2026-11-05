@@ -49,6 +49,11 @@ export const SOURCES = [
     glb: 'apps/range/public/models/harbor.glb',
     assets: { 'rh-container': 4, 'rh-container-b': 4, 'rh-stack': 4, 'rh-stack-b': 4, 'rh-office': 4, 'rh-wall': 4, 'rh-crates': 6, 'rh-car': 6, 'rh-truck': 6 },
   },
+  {
+    // Neon City's kit (ticket 20): corner shops, barrier walls, cars, and pallet-loads of goods in one box to climb onto.
+    glb: 'apps/range/public/models/neon.glb',
+    assets: { 'nc-shop': 4, 'nc-barrier': 4, 'nc-car': 6, 'nc-car-b': 6, 'nc-boxes': 1 },
+  },
 ];
 
 /**
@@ -62,6 +67,7 @@ export const PIECES = [
   { glb: 'apps/range/public/models/ground-zero.glb', plan: 'tools/map/regions/ground-zero.json', most: { rubble: 6, default: 4 } },
   { glb: 'apps/range/public/models/dustlands.glb', plan: 'tools/map/regions/dustlands.json', most: { heap: 6, default: 4 } },
   { glb: 'apps/range/public/models/harbor.glb', plan: 'tools/map/regions/harbor.json', most: { default: 4 } },
+  { glb: 'apps/range/public/models/neon.glb', plan: 'tools/map/regions/neon.json', most: { default: 4 } },
 ];
 
 /** How far (m) a point of a solid may stand out of its model. */

@@ -33,4 +33,5 @@ export const GROUND_LAYERS: readonly GroundLayer[] = [
   { name: 'tin', metres: 2.0, mean: [0.1, 0.0245, 0.0101] }, // Poly Haven rusty_corrugated_iron, CC0, Rob Tuytel
   { name: 'plate', metres: 3.0, mean: [0.0234, 0.0493, 0.0736] }, // Poly Haven blue_metal_plate, CC0, Rob Tuytel
   { name: 'adobe', metres: 2.5, mean: [0.1693, 0.1023, 0.045] }, // Poly Haven clay_plaster, CC0, Rob Tuytel
+  { name: 'brick', metres: 1.05, mean: [0.1242, 0.0856, 0.0526] }, // Poly Haven dark_brick_wall, CC0, Dimitrios Savva, Dario Barresi
 ];
