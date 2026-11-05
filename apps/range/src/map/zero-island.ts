@@ -8,6 +8,7 @@ import { DL_EXTRA, DL_KIT, DL_PADS, DL_PIECES, DL_PLACED } from './zero-island-d
 import { FB_EXTRA, FB_KIT, FB_PADS, FB_PIECES, FB_PLACED } from './zero-island-frostbite-plan';
 import { GZ, GZ_BARRIERS, GZ_KIT, GZ_PADS, GZ_PIECES, GZ_PLACED } from './zero-island-ground-zero-plan';
 import { RH_EXTRA, RH_KIT, RH_PADS, RH_PIECES, RH_PLACED } from './zero-island-harbor-plan';
+import { MJ_EXTRA, MJ_KIT, MJ_PADS, MJ_PIECES, MJ_PLACED } from './zero-island-jungle-plan';
 import { NC_CLEAR, NC_EXTRA, NC_KIT, NC_PADS, NC_PIECES, NC_PLACED } from './zero-island-neon-plan';
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
@@ -54,15 +55,8 @@ const BLOCKS: Readonly<Record<RegionId, readonly Block[]>> = {
   'the-dustlands': [],
   // Built for real (ticket 21): see FROSTBITE.
   'frostbite-peaks': [],
-  'mutant-jungle': [
-    // The giant tree, and the stone ruins in the clearing.
-    [0, 0, 9, 9, 30],
-    [-28, 16, 6, 2, 5, 0.3],
-    [-34, 6, 2, 8, 4, 0.3],
-    [24, 26, 7, 2, 4.5, -0.4],
-    [30, -20, 3, 3, 6],
-    [-14, -32, 8, 2, 3],
-  ],
+  // Built for real (ticket 22): see JUNGLE.
+  'mutant-jungle': [],
   // Built for real (ticket 20): see NEON_CITY.
   'neon-city': [],
   // Built for real (ticket 19): see HARBOR.
@@ -179,8 +173,24 @@ const FROSTBITE: RegionKit = {
   dress: FB_KIT,
   extra: FB_EXTRA,
 };
+/**
+ * Mutant Jungle's kit (ticket 22): the giant glowing tree, the temple, the
+ * gateways and the colonnade, the crystal outcrops and the camp of its plan,
+ * the clearing's ruined walls, crystals, crates and jeeps, and the models the
+ * cover pass's pieces there wear.
+ */
+const JUNGLE: RegionKit = {
+  region: 'mutant-jungle',
+  url: 'models/jungle.glb',
+  pieces: MJ_PIECES,
+  pads: MJ_PADS,
+  placed: MJ_PLACED,
+  dress: MJ_KIT,
+  extra: MJ_EXTRA,
+};
+
 /** The Regions built so far, each with its kit. */
-export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS, HARBOR, NEON_CITY, FROSTBITE];
+export const ZERO_ISLAND_KITS: readonly RegionKit[] = [GROUND_ZERO, DUSTLANDS, HARBOR, NEON_CITY, FROSTBITE, JUNGLE];
 const KITS = ZERO_ISLAND_KITS;
 
 /** Stands the generator's grey solids on the ground, or on a bridge's deck; returns them all, for the kits to dress. */

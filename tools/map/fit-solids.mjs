@@ -59,6 +59,11 @@ export const SOURCES = [
     glb: 'apps/range/public/models/frostbite.glb',
     assets: { 'fb-hut': 4, 'fb-icewall': 6, 'fb-sandbags': 4, 'fb-crates': 4, 'fb-drums': 8, 'fb-snowcat': 8 },
   },
+  {
+    // Mutant Jungle's kit (ticket 22): ruined walls broken along their tops, crystal clusters, crates and overgrown jeeps.
+    glb: 'apps/range/public/models/jungle.glb',
+    assets: { 'mj-ruinwall': 6, 'mj-crystal': 12, 'mj-crates': 4, 'mj-jeep': 8 },
+  },
 ];
 
 /**
@@ -74,6 +79,7 @@ export const PIECES = [
   { glb: 'apps/range/public/models/harbor.glb', plan: 'tools/map/regions/harbor.json', most: { default: 4 } },
   { glb: 'apps/range/public/models/neon.glb', plan: 'tools/map/regions/neon.json', most: { default: 4 } },
   { glb: 'apps/range/public/models/frostbite.glb', plan: 'tools/map/regions/frostbite.json', most: { dome: 6, dish: 6, gable: 6, default: 4 } },
+  { glb: 'apps/range/public/models/jungle.glb', plan: 'tools/map/regions/jungle.json', most: { canopy: 8, root: 6, bough: 6, crystal: 6, rubble: 6, default: 4 } },
 ];
 
 /** How far (m) a point of a solid may stand out of its model. */

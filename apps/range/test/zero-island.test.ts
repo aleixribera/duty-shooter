@@ -325,7 +325,8 @@ describe('Zero Island: moving on it', () => {
       const rise = s.max[1] - terrain.heightAt(c[0], c[1]);
       return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && hx > 0.5 && hx < 2.5 && hz > 0.5 && hz < 2.5 && insidePolygon(boundary, c[0], c[1]) && !solids.some((o) => overlaps(s, o));
     });
-    expect(pieces.length).toBeGreaterThan(20);
+    // A pool to try from: each Region built (tickets 17 to 22) trades its blockout's single boxes for fitted models of several.
+    expect(pieces.length).toBeGreaterThan(15);
     let tried = 0;
     let climbed = 0;
     for (let i = 0; i < pieces.length && tried < 24; i++) {

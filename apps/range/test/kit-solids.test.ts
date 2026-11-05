@@ -189,13 +189,18 @@ const FILL: Readonly<Record<string, number>> = {
   'fb-crates': 0.85,
   'fb-drums': 0.72,
   'fb-snowcat': 0.7 /* open between its tracks */,
+  // Mutant Jungle's kit (ticket 22): a ruined wall's top is broken, crystals come to points and lean out.
+  'mj-ruinwall': 0.75,
+  'mj-crystal': 0.45 /* pointed, leaning out */,
+  'mj-crates': 0.85,
+  'mj-jeep': 0.75,
 };
 const FITTED = Object.keys(FILL);
 
 describe('Kit models’ solids (ticket 63)', () => {
   it('fits every rock and trunk the island wears', () => {
     expect(Object.keys(KIT_SOLIDS).sort()).toEqual([...FITTED].sort());
-    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh|nc|fb)-/.test(asset) ? 3 : 100);
+    for (const asset of FITTED) expect(instances(asset).length, asset).toBeGreaterThan(/^(gz|dl|rh|nc|fb|mj)-/.test(asset) ? 3 : 100);
   });
 
   for (const asset of FITTED) {
@@ -288,7 +293,8 @@ describe('Kit models’ solids (ticket 63)', () => {
       }
       expect(worst, `${name}: ${at}`).toBeLessThanOrEqual(TOLERANCE);
     }
-  }, 120_000);
+    // Six Regions' pieces by now, the jungle's giant tree alone a hundred boxes in its leaves.
+  }, 240_000);
 
   it('keeps a box of every part of every built piece, and stands them all on the map', () => {
     for (const kit of ZERO_ISLAND_KITS) {
