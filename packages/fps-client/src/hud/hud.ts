@@ -654,7 +654,7 @@ export class Hud {
     const aimer = self?.alive ? self : (state.spectatorAim ?? self);
     const w = self?.weapon;
     const aw = aimer?.weapon;
-    const sprinting = aimer?.movement === 'sprint' || aimer?.movement === 'tacticalSprint';
+    const sprinting = aimer?.movement === 'sprint';
     const hide = !aimer || !aimer.alive || aimer.downed !== null || aimer.reviving !== null || (aw?.ads ?? 0) > 0.35 || sprinting || aw?.action === 'inspect';
     this.#style(this.#cross, 'opacity', hide ? '0' : '1');
     this.#allies.update(state.allies ?? []);

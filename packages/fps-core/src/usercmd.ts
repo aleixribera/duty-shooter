@@ -8,12 +8,8 @@ export const Button = {
   Jump: 1 << 5,
   Reload: 1 << 6,
   Melee: 1 << 7,
-  /**
-   * Tactical sprint. Its press starts a tactical sprint (when sprinting is
-   * possible and stamina remains); holding it keeps it going. The client sets
-   * it on a double-tap of the sprint key and holds it while the key is held.
-   */
-  TacticalSprint: 1 << 8,
+  // Bit 8 is reserved: it was tactical sprint, which is gone. Clients don't
+  // send it and the server masks it off (ALL_BUTTONS), so it means nothing.
   /** Its press puts the weapon in hand away and raises the other one. */
   SwitchWeapon: 1 << 9,
   /** Held to cook a grenade, released to throw it. */
@@ -22,8 +18,8 @@ export const Button = {
   Use: 1 << 11,
 } as const;
 
-/** Every button bit. */
-export const ALL_BUTTONS = 0xfff;
+/** Every button bit in use: bit 8 (reserved) is left out, so a usercmd that sets it loses it on the wire. */
+export const ALL_BUTTONS = 0xfff & ~(1 << 8);
 
 export type ButtonName = keyof typeof Button;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATS } from '@duty-shooter/fps-core';
 import { usercmd } from '@duty-shooter/fps-core/harness';
-import { durationWhile, expectStat, hold, holdUntil, horizontalDistance, me, soloMatch, ticks, tolerance } from './support/movement';
+import { durationWhile, expectStat, hold, holdUntil, horizontalDistance, me, measuredSpeed, soloMatch, ticks, tolerance } from './support/movement';
 
 const { movement, slide } = STATS;
 
@@ -84,15 +84,22 @@ describe('slide-cancel', () => {
     expect(after.velocity[1]).toBeGreaterThan(0);
   });
 
-  it('refreshes tactical sprint, as slide-cancelling did in MW2019', () => {
-    const tac = usercmd({ forward: 1, buttons: ['Sprint', 'TacticalSprint'] });
+  it('runs on at the sprint speed after a cancel, with sprint still held (the client keeps its sprint latch through a slide)', () => {
     const match = sprinting();
-    holdUntil(match, tac, (p) => p.movement === 'sprint');
-    hold(match, ticks(open + tol), usercmd({ forward: 1, buttons: ['Sprint', 'TacticalSprint', 'Crouch'] }));
+    hold(match, ticks(open + tol), slideCmd);
 
-    const outputs = hold(match, ticks(movement.tacticalSprintDuration.value + 1), tac);
+    const outputs = hold(match, ticks(2), sprint);
 
-    expect(outputs[0]?.movement).toBe('tacticalSprint');
-    expectStat(durationWhile(outputs, 0, (p) => p.movement === 'tacticalSprint'), movement.tacticalSprintDuration, 'refreshed tactical sprint');
+    expect(outputs.every((p) => p.movement === 'sprint' && p.stance === 'stand')).toBe(true);
+    expectStat(measuredSpeed(outputs.slice(ticks(0.5))), movement.sprintSpeed, 'sprint speed after a slide-cancel');
+  });
+
+  it('sprints again once a full slide ends and crouch is let go, sprint held all along', () => {
+    const match = sprinting();
+    holdUntil(match, slideCmd, (p) => !isSliding(p));
+
+    const outputs = hold(match, ticks(1.5), sprint);
+
+    expect(outputs.at(-1)).toMatchObject({ movement: 'sprint', stance: 'stand' });
   });
 });

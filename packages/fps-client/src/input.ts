@@ -11,10 +11,10 @@ const WHEEL_MS = 180;
 /** Holding the ping key this long (ms) opens the ping wheel; a shorter press is a tap. */
 const WHEEL_HOLD_MS = 250;
 
-/** Two sprint presses within this many milliseconds start a tactical sprint. */
-const DOUBLE_TAP_MS = 300;
-/** Pushing the move stick less than this far forward ends a controller sprint. */
+/** Pushing forward (key plus move stick) less than this far ends a sprint. */
 const SPRINT_RELEASE_FORWARD = 0.5;
+/** A sprint press made before forward is pushed waits this long (ms) for it, so Shift a frame before W still sprints. */
+const SPRINT_ARM_MS = 300;
 /** Stick travel that counts as a menu move, and the delay before a held move repeats (ms). */
 const MENU_STICK = 0.6;
 /** Stick travel that counts as using the controller, well past any drift. */
@@ -57,8 +57,19 @@ export class InputController {
   /** The simulation's recoil and flinch on top of the mouse pitch, for the pitch limits. */
   #pitchOffset = 0;
   #firePresses: number[] = [];
-  #lastSprintDown = -Infinity;
-  #tactical = false;
+  /**
+   * Sprint is a toggle, as MW2019's toggle sprint: a press of the sprint key
+   * or stick click latches it, the next press while standing lets it go, and
+   * it ends by itself when forward stops being pushed, or on firing or
+   * aiming. A press made before forward is pushed waits SPRINT_ARM_MS for
+   * it. A slide keeps the latch: with hold crouch, letting crouch go after
+   * the slide runs on; with toggle crouch you stay crouched, and the next
+   * sprint press stands you up into the sprint.
+   */
+  #sprint = false;
+  /** When the latch was set (ms), and whether forward has been pushed since: until then it is only armed. */
+  #sprintAt = 0;
+  #sprintRunning = false;
   #crouchToggled = false;
   #proneToggled = false;
   #adsToggled = false;
@@ -94,8 +105,6 @@ export class InputController {
   /** The last reading's pressed buttons, for press and release edges. */
   #padPressed: readonly boolean[] = [];
   #padMove: { forward: number; right: number } = { forward: 0, right: 0 };
-  /** A controller sprint lasts after the stick click while the move stick pushes forward, as in MW2019. */
-  #padSprint = false;
   /** When the controller's crouch button went down (ms), while it is held and has not turned into prone. */
   #padCrouchSince: number | null = null;
   #padMenuNav: PadNav | null = null;
@@ -165,7 +174,7 @@ export class InputController {
     this.#enabled = on;
     if (!on) {
       this.#held.clear();
-      this.#padSprint = false;
+      this.#sprint = false;
       this.#padCrouchSince = null;
       this.#pingSince = null;
     }
@@ -206,6 +215,11 @@ export class InputController {
   setAngles(yaw: number, pitch: number): void {
     this.#yaw = yaw;
     this.#pitch = pitch;
+  }
+
+  /** Lets go of a latched sprint: on death and on a (re)spawn, so a new life starts walking. */
+  endSprint(): void {
+    this.#sprint = false;
   }
 
   /** The simulation's view pitch minus the usercmd pitch (recoil and flinch), so looking down still reaches the floor. */
@@ -270,15 +284,20 @@ export class InputController {
     if (this.#is('jump', code)) this.#spectate.push('view');
     if (this.#is('fire', code)) {
       this.#firePresses.push(now);
-      this.#padSprint = false;
+      this.#sprint = false;
     }
     if (this.#is('sprint', code)) {
-      this.#tactical = now - this.#lastSprintDown < DOUBLE_TAP_MS;
-      this.#lastSprintDown = now;
-      if (fromPad) this.#padSprint = true;
-      // Sprinting stands you up.
-      this.#crouchToggled = false;
-      this.#proneToggled = false;
+      // A press while latched and standing lets go; from crouch or prone it stands you up and sprints.
+      const down = this.#proneToggled || (this.#settings.crouchMode === 'toggle' ? this.#crouchToggled : this.#pressed('crouch'));
+      this.#sprint = !this.#sprint || down;
+      if (this.#sprint) {
+        this.#sprintAt = now;
+        this.#sprintRunning = false;
+        this.#crouchToggled = false;
+        this.#proneToggled = false;
+        // Sprinting lowers toggled sights, as a shot or aiming ends the sprint.
+        this.#adsToggled = false;
+      }
     }
     if (this.#is('crouch', code)) {
       if (this.#proneToggled) {
@@ -304,7 +323,7 @@ export class InputController {
     }
     if (this.#is('ads', code)) {
       this.#adsToggled = !this.#adsToggled;
-      this.#padSprint = false;
+      this.#sprint = false;
     }
     // The number keys pick a slot: a switch only when it's the other one.
     if (this.#is('switchWeapon', code) || (code === 'Digit1' && this.#slot !== 0) || (code === 'Digit2' && this.#slot !== 1)) this.#switch = true;
@@ -329,8 +348,6 @@ export class InputController {
       this.#pingSince = null;
     }
     const fromPad = code.startsWith('Pad');
-    // A controller sprint is latched: it ends when the move stick stops pushing forward.
-    if (this.#is('sprint', code) && !fromPad) this.#tactical = false;
     if (this.#is('crouch', code) && fromPad) this.#padCrouchSince = null;
   }
 
@@ -355,7 +372,6 @@ export class InputController {
       this.#padPressed.forEach((was, i) => was && this.#up(`Pad${i}`));
       this.#padPressed = [];
       this.#padMove = { forward: 0, right: 0 };
-      this.#padSprint = false;
       this.#setPadMode(false);
       return;
     }
@@ -392,10 +408,6 @@ export class InputController {
     if (!this.locked) return;
     // Stick up reads negative.
     this.#padMove = { forward: -move[1], right: move[0] };
-    if (this.#padSprint && -move[1] < SPRINT_RELEASE_FORWARD) {
-      this.#padSprint = false;
-      this.#tactical = false;
-    }
     if (this.#padCrouchSince !== null && now - this.#padCrouchSince >= STATS.input.proneHoldTime.value * 1000) {
       this.#padCrouchSince = null;
       this.#proneToggled = true;
@@ -462,13 +474,20 @@ export class InputController {
   sample(start: number, end: number): UserCmd {
     const active = this.#enabled && this.locked;
     const held = (a: Action) => active && this.#pressed(a);
+    const axis = (v: number) => Math.max(-1, Math.min(1, v));
+    const pad = active ? this.#padMove : { forward: 0, right: 0 };
+    const forward = axis((held('forward') ? 1 : 0) - (held('back') ? 1 : 0) + pad.forward);
     let buttons = 0;
-    if (held('fire')) buttons |= Button.Fire;
-    const ads = this.#settings.adsMode === 'toggle' ? this.#adsToggled : held('ads');
-    if (active && ads) buttons |= Button.Ads;
-    const sprint = held('sprint') || (active && this.#padSprint);
-    if (sprint) buttons |= Button.Sprint;
-    if (sprint && this.#tactical) buttons |= Button.TacticalSprint;
+    const firing = held('fire');
+    if (firing) buttons |= Button.Fire;
+    const ads = active && (this.#settings.adsMode === 'toggle' ? this.#adsToggled : held('ads'));
+    if (ads) buttons |= Button.Ads;
+    // The latch ends with forward let go (once it has been pushed, or the arming wait is over), a shot or the sights raised.
+    const pushed = forward >= SPRINT_RELEASE_FORWARD;
+    if (this.#sprint && pushed) this.#sprintRunning = true;
+    const armed = !this.#sprintRunning && start - this.#sprintAt < SPRINT_ARM_MS;
+    if (!active || (!pushed && !armed) || firing || ads) this.#sprint = false;
+    if (this.#sprint && pushed) buttons |= Button.Sprint;
     const crouch = this.#settings.crouchMode === 'toggle' ? this.#crouchToggled : held('crouch');
     if (active && crouch) buttons |= Button.Crouch;
     if (active && this.#proneToggled) buttons |= Button.Prone;
@@ -489,11 +508,9 @@ export class InputController {
     this.#firePresses = later;
     this.#tapped.clear();
 
-    const axis = (v: number) => Math.max(-1, Math.min(1, v));
-    const pad = active ? this.#padMove : { forward: 0, right: 0 };
     return usercmd({
       buttons,
-      forward: axis((held('forward') ? 1 : 0) - (held('back') ? 1 : 0) + pad.forward),
+      forward,
       right: axis((held('right') ? 1 : 0) - (held('left') ? 1 : 0) + pad.right),
       yaw: this.#yaw,
       pitch: this.#pitch,

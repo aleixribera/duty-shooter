@@ -238,8 +238,7 @@ export function wantsFire(cmd: UserCmd): boolean {
 
 /** True when a shot could leave the barrel right now (ready, loaded, not locked by a draw or sprint). */
 export function canFire(state: WeaponState, movement: MovementState): boolean {
-  const sprinting = movement === 'sprint' || movement === 'tacticalSprint';
-  return state.action === 'ready' && state.ammo > 0 && !sprinting && movement !== 'ladder' && state.clock >= state.fireReadyAt - 1e-9;
+  return state.action === 'ready' && state.ammo > 0 && movement !== 'sprint' && movement !== 'ladder' && state.clock >= state.fireReadyAt - 1e-9;
 }
 
 export function emptyEvents(): WeaponEvents {
@@ -258,10 +257,9 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     return events;
   }
 
-  const sprinting = ctx.movement === 'sprint' || ctx.movement === 'tacticalSprint';
+  const sprinting = ctx.movement === 'sprint';
   if (sprinting) {
-    const lock = ctx.movement === 'tacticalSprint' ? h.tacticalSprintToFire.value : h.sprintToFire.value;
-    state.fireReadyAt = Math.max(state.fireReadyAt, t1 + lock);
+    state.fireReadyAt = Math.max(state.fireReadyAt, t1 + h.sprintToFire.value);
     // A reload carries on through a sprint (MW2019 cancelled it); an inspect stops.
     if (state.action === 'inspect') finishAction(state);
   }

@@ -177,8 +177,8 @@ function renderProneStep(rng: Rng, sr: number): Float32Array[] {
 }
 
 const FOOTSTEP_GAIN = {
-  local: { walk: 0.16, sprint: 0.24, tacticalSprint: 0.28, crouch: 0.07, prone: 0.12 },
-  remote: { walk: 0.55, sprint: 0.75, tacticalSprint: 0.85, crouch: 0.22, prone: 0.3 },
+  local: { walk: 0.16, sprint: 0.24, crouch: 0.07, prone: 0.12 },
+  remote: { walk: 0.55, sprint: 0.75, crouch: 0.22, prone: 0.3 },
 } as const;
 
 export function footstepVoice(): Voice & VoiceExtras {
@@ -191,7 +191,7 @@ export function footstepVoice(): Voice & VoiceExtras {
     key(p: VoiceParams) {
       const mv = p.movement ?? 'walk';
       if (mv === 'prone') return 'prone';
-      const hard = mv === 'sprint' || mv === 'tacticalSprint';
+      const hard = mv === 'sprint';
       return `${p.wading ? 'water' : (p.material ?? 'concrete')}/${hard ? 'hard' : 'soft'}`;
     },
     render(key, rng, sr) {
@@ -206,7 +206,7 @@ export function footstepVoice(): Voice & VoiceExtras {
       return table[mv] * (p.intensity === undefined ? 1 : 0.5 + unit(p.intensity, 1) * 0.5);
     },
     rate(p) {
-      return p.movement === 'tacticalSprint' ? 1.04 : p.movement === 'crouch' ? 0.96 : 1;
+      return p.movement === 'crouch' ? 0.96 : 1;
     },
     lowpass(p) {
       return p.movement === 'crouch' ? 2500 : undefined;

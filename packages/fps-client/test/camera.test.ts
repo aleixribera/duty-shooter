@@ -19,10 +19,9 @@ function settledFov(p: PlayerOutput): number {
 }
 
 describe('first-person camera FOV', () => {
-  it('widens a little when sprinting, more in a tactical sprint and a slide', () => {
+  it('widens a little when sprinting, and a little more in a slide', () => {
     const walk = settledFov(player('walk'));
     expect(settledFov(player('sprint')) / walk).toBeCloseTo(1.04, 2);
-    expect(settledFov(player('tacticalSprint')) / walk).toBeCloseTo(1.08, 2);
     expect(settledFov(player('slide')) / walk).toBeCloseTo(1.06, 2);
   });
 

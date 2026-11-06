@@ -7,7 +7,7 @@ export { shotPose } from './surfaces/ending';
 const DEG = Math.PI / 180;
 
 /** Movement FOV, as a multiplier: a touch wider at speed, eased in and out, and never while aiming. */
-const MOVE_FOV: Partial<Record<PlayerOutput['movement'], number>> = { sprint: 1.04, tacticalSprint: 1.08, slide: 1.06 };
+const MOVE_FOV: Partial<Record<PlayerOutput['movement'], number>> = { sprint: 1.04, slide: 1.06 };
 /** Downed, the view lies this far over (degrees), head on the ground. */
 const DOWNED_ROLL = 12;
 

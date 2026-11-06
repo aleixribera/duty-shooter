@@ -45,8 +45,6 @@ export interface DropStation {
 
 export interface GapStation {
   readonly width: number;
-  /** Sprint mode the gap is designed for. */
-  readonly sprint: 'sprint' | 'tacticalSprint';
   /** A run-up start on the near platform, facing the gap. */
   readonly runUp: SpawnPoint;
   /** How far the run-up start is from the gap's near edge. */
@@ -335,17 +333,18 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
   add([10, 0, -18], [16, deck, -12], 'concrete');
   add([6, 0, -18], [10, deck, -12], 'concrete');
   const gaps: GapStation[] = [];
-  // Widths chosen so a walking jump falls short, the first needs a sprint and the second a tactical sprint.
+  // Widths chosen so a walking jump falls short and both need a sprint: the
+  // second only from the edge (a sprint jump clears about 4.3 m). The platform
+  // after it is longer by what the gap lost, so the course past it stays put.
   const gapWidths = [
-    { width: 3.9, sprint: 'sprint' as const },
-    { width: 4.95, sprint: 'tacticalSprint' as const },
+    { width: 3.9, platform: 9 },
+    { width: 4.1, platform: 9.85 },
   ];
   let z = -18;
   for (const g of gapWidths) {
     const runUp = 8;
     gaps.push({
       width: g.width,
-      sprint: g.sprint,
       runUp: { position: [8, deck, z + runUp], yaw: FACING_NEG_Z },
       runUpLength: runUp,
       farEdgeZ: z - g.width,
@@ -353,8 +352,8 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
     });
     labels.push({ text: `${g.width} m`, position: [11, deck + 0.02, z + 0.6], yaw: 0, size: 0.4 });
     z -= g.width;
-    add([6, 0, z - 9], [16, deck, z], 'metal');
-    z -= 9;
+    add([6, 0, z - g.platform], [16, deck, z], 'metal');
+    z -= g.platform;
   }
   // z is now the far end of the last platform. Climb: two high climbs and a waist mantle up to the 6.5 m tower.
   const tower1 = 6.5;

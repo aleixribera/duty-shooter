@@ -20,7 +20,7 @@ const player = (over: Partial<PlayerOutput> = {}): PlayerOutput => ({
   velocity: [6.25, -9.81, 0],
   yaw: 1.2345,
   pitch: -0.4321,
-  movement: 'tacticalSprint',
+  movement: 'sprint',
   mantle: 'waist',
   stance: 'crouch',
   eyeHeight: 1.234,

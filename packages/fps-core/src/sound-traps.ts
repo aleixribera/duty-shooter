@@ -41,7 +41,7 @@ export const TRAP_HEARD = 90;
 /** A body moving loud enough to set a trap off: running, sliding, or landing from a jump. */
 function loud(p: PlayerOutput): boolean {
   if (!p.alive || p.downed || p.kind !== 'player') return false;
-  return p.movement === 'sprint' || p.movement === 'tacticalSprint' || p.movement === 'slide' || p.landing !== null;
+  return p.movement === 'sprint' || p.movement === 'slide' || p.landing !== null;
 }
 
 /** A map's traps through a match: which went off when. */

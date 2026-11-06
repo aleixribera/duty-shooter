@@ -30,7 +30,7 @@ const GRAVEL: SoundTrap = { kind: 'gravel', position: [50, 0.3, 0] };
 
 describe('a sound trap', () => {
   it('goes off for a body running, sliding or landing within reach of it, once, at its own spot', () => {
-    for (const over of [{ movement: 'sprint' }, { movement: 'tacticalSprint' }, { movement: 'slide' }, { movement: 'walk', landing: { at: 1 } }] as Partial<PlayerOutput>[]) {
+    for (const over of [{ movement: 'sprint' }, { movement: 'slide' }, { movement: 'walk', landing: { at: 1 } }] as Partial<PlayerOutput>[]) {
       const traps = new SoundTraps([BIRDS, GRAVEL]);
       expect(traps.step([body('a', [TRAP_REACH - 1, 0, 0], over)], 5)).toEqual([{ type: 'trap', kind: 'birds', position: [0, 6, 0], players: ['a'] }]);
     }

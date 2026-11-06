@@ -20,7 +20,7 @@ const T = STATS.terrain;
 const GROUND_PROBE = 1e-3;
 
 /** What the player is doing, as reported in the match outputs. */
-export type MovementState = 'walk' | 'sprint' | 'tacticalSprint' | 'airborne' | 'mantle' | 'slide' | 'ladder';
+export type MovementState = 'walk' | 'sprint' | 'airborne' | 'mantle' | 'slide' | 'ladder';
 
 export type Stance = 'stand' | 'crouch' | 'prone';
 
@@ -54,8 +54,6 @@ export interface MoveState {
   eyeHeight: number;
   /** Speed of the current eye-height transition (m/s). */
   eyeRate: number;
-  /** Tactical sprint time left, in seconds. */
-  tacticalStamina: number;
   /** Buttons of the previous tick's usercmd, for press detection. */
   prevButtons: number;
   /** Highest feet height since leaving the ground, or null while grounded. */
@@ -87,7 +85,6 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     stanceFrom: 'stand',
     eyeHeight: S.standEyeHeight.value,
     eyeRate: 0,
-    tacticalStamina: M.tacticalSprintDuration.value,
     prevButtons: 0,
     airPeak: null,
     landedFrom: null,
@@ -219,8 +216,8 @@ const SLIDE_DECELERATION = Math.max(
 /**
  * Starts, cancels or ends a slide. A slide starts when crouch is pressed
  * while sprinting on the ground. Once the cancel window is open, releasing
- * crouch or pressing jump cancels it into a standing sprint and refreshes
- * tactical sprint (MW2019 behaviour). Returns a stance to force this tick.
+ * crouch or pressing jump cancels it into a standing sprint (MW2019
+ * behaviour). Returns a stance to force this tick.
  */
 function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undefined {
   const slide = state.slide;
@@ -233,8 +230,7 @@ function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undef
     const windowOpen = elapsed >= STATS.slide.cancelWindowOpen.value - 1e-9;
     if (windowOpen && (releasedNow(state, cmd, 'Crouch') || pressedNow(state, cmd, 'Jump'))) {
       state.slide = null;
-      state.tacticalStamina = M.tacticalSprintDuration.value;
-      state.movement = isPressed(cmd, 'TacticalSprint') ? 'tacticalSprint' : 'sprint';
+      state.movement = 'sprint';
       return 'stand';
     }
     if (elapsed >= STATS.slide.duration.value - 1e-9) {
@@ -243,8 +239,7 @@ function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undef
     }
     return 'crouch';
   }
-  const sprinting = state.movement === 'sprint' || state.movement === 'tacticalSprint';
-  if (state.grounded && sprinting && state.stance === 'stand' && pressedNow(state, cmd, 'Crouch')) {
+  if (state.grounded && state.movement === 'sprint' && state.stance === 'stand' && pressedNow(state, cmd, 'Crouch')) {
     const speed = Math.hypot(state.velocity[0], state.velocity[2]);
     const dir: readonly [number, number] =
       speed > EPSILON ? [state.velocity[0] / speed, state.velocity[2] / speed] : basis(state.yaw).forward;
@@ -254,25 +249,10 @@ function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undef
   return undefined;
 }
 
-/**
- * Chooses walk, sprint or tactical sprint and updates tactical sprint
- * stamina: it drains over the tactical sprint duration and refills from
- * empty over the recharge time.
- */
-function updateSprint(state: MoveState, cmd: UserCmd, dt: number): void {
+/** Chooses walk or sprint: sprint needs the button, standing on the ground, pushing forward and not aiming. */
+function updateSprint(state: MoveState, cmd: UserCmd): void {
   const canSprint = state.grounded && state.stance === 'stand' && cmd.forward > 0 && !isPressed(cmd, 'Ads');
-  const wantsSprint = isPressed(cmd, 'Sprint') || isPressed(cmd, 'TacticalSprint');
-  const wasTac = state.movement === 'tacticalSprint';
-  const tacHeld = canSprint && isPressed(cmd, 'TacticalSprint') && state.tacticalStamina > 0;
-  const tac = tacHeld && (wasTac || pressedNow(state, cmd, 'TacticalSprint'));
-
-  const duration = M.tacticalSprintDuration.value;
-  if (tac) {
-    state.tacticalStamina = Math.max(0, state.tacticalStamina - dt);
-  } else {
-    state.tacticalStamina = Math.min(duration, state.tacticalStamina + (dt * duration) / M.tacticalSprintRecharge.value);
-  }
-  state.movement = tac ? 'tacticalSprint' : canSprint && wantsSprint ? 'sprint' : 'walk';
+  state.movement = canSprint && isPressed(cmd, 'Sprint') ? 'sprint' : 'walk';
 }
 
 function hullFor(stance: Stance): Hull {
@@ -348,7 +328,6 @@ function stanceScale(stance: Stance): number {
 
 /** Top speed for the current movement mode before directional scaling; `scale` is the weapon in hand's speed multiplier. */
 function baseSpeed(state: MoveState, cmd: UserCmd, scale: number): number {
-  if (state.movement === 'tacticalSprint') return M.tacticalSprintSpeed.value * scale;
   if (state.movement === 'sprint') return M.sprintSpeed.value * scale;
   if (inProneTransition(state)) return 0;
   let speed = M.walkSpeed.value * stanceScale(state.stance) * scale;
@@ -535,7 +514,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   }
   const startedGrounded = state.grounded;
 
-  updateSprint(state, cmd, dt);
+  updateSprint(state, cmd);
   const w = wish(cmd, state.yaw, baseSpeed(state, cmd, wading(world, state.position) ? speedScale * T.wadeMultiplier.value : speedScale));
   if (state.slide) {
     // Committed to the slide: speed follows the slide curve (midpoint of this tick), direction is locked.

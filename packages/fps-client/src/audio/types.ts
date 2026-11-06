@@ -69,7 +69,7 @@ export interface SoundParams {
   readonly position?: readonly [number, number, number]; // world metres; omitted = non-positional (UI / your own body)
   readonly local?: boolean; // the sound is made by the listener's own body/gun
   readonly material?: SurfaceMaterial;
-  readonly movement?: 'walk' | 'sprint' | 'tacticalSprint' | 'crouch' | 'prone';
+  readonly movement?: 'walk' | 'sprint' | 'crouch' | 'prone';
   readonly wading?: boolean; // a footstep in water, whatever the ground under it
   readonly intensity?: number; // 0..1
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor

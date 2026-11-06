@@ -50,7 +50,6 @@ export interface WeaponHandling {
   /** ADS magnification: ADS FOV = hipfire FOV / zoom. */
   readonly zoom: Stat<'multiplier'>;
   readonly sprintToFire: Stat<'s'>;
-  readonly tacticalSprintToFire: Stat<'s'>;
   readonly drawTime: Stat<'s'>;
   readonly holsterTime: Stat<'s'>;
   /** Movement speed with this weapon out, relative to the stats file's movement (measured with the M4A1). */
@@ -160,10 +159,9 @@ export const SMG: WeaponRow = {
     adsTime: tuned(0.15, 's', 'well under the M4A1 (0.242 s), so the SMG suits aggressive movement and gets the first shot off in its own band (0.18 s split its 15 m duels with the M4A1 evenly in the balance runs).'),
     zoom: tuned(1.1, 'multiplier', 'iron sights like the M4A1.'),
     sprintToFire: tuned(0.18, 's', 'faster than the M4A1 (0.246 s): a light gun comes up from a sprint quicker.'),
-    tacticalSprintToFire: tuned(0.28, 's', 'the M4A1\'s ratio of tactical to plain sprint-to-fire (1.5) on the SMG\'s 0.18 s.'),
     drawTime: tuned(0.55, 's', 'a light gun raises faster than the M4A1 (0.8 s).'),
     holsterTime: tuned(0.3, 's', 'a little quicker than the M4A1\'s 0.35 s.'),
-    moveSpeed: tuned(1.01, 'multiplier', 'a light gun moves a touch faster than the rifle, but slower than the pistol (1.2). At 1.05 the SMG took over 60 % of all its duels in the balance runs.'),
+    moveSpeed: tuned(1.059, 'multiplier', 'a light gun moves a touch faster than the rifle, but slower than the shotgun and the pistol. Raised from 1.01 when tactical sprint went: at 1.01 it lost its own 15 m band to the M4A1 (46 %) in the balance runs; at 1.059 it takes 48 % there and 59 % of all its duels (it passed 60 % at 1.05 while tactical sprint was in).'),
   },
   reload: {
     tacticalAddAmmo: tuned(1.2, 's', 'a short magazine swap, quicker than the M4A1 (1.39 s).'),
@@ -207,10 +205,9 @@ export const PISTOL: WeaponRow = {
     adsTime: tuned(0.15, 's', 'the quickest to aim of every weapon.'),
     zoom: tuned(1.1, 'multiplier', 'iron sights like the M4A1.'),
     sprintToFire: tuned(0.12, 's', 'half the M4A1\'s 0.246 s: a pistol comes up at once.'),
-    tacticalSprintToFire: tuned(0.2, 's', 'the M4A1\'s ratio of tactical to plain sprint-to-fire (1.5), rounded.'),
     drawTime: tuned(0.4, 's', 'switching from a primary (holster 0.3-0.4 s) to the pistol takes under a second, faster than any primary\'s reload, as the spec asks.'),
     holsterTime: tuned(0.25, 's', 'the quickest to put away.'),
-    moveSpeed: tuned(1.2, 'multiplier', 'faster than with any primary (the shotgun is 1.15), as the spec asks.'),
+    moveSpeed: tuned(1.4, 'multiplier', 'faster than with any primary (the shotgun is 1.35), as the spec asks.'),
   },
   reload: {
     tacticalAddAmmo: tuned(1.05, 's', 'a pistol magazine goes in quicker than a rifle\'s (1.39 s).'),
@@ -253,10 +250,9 @@ export const SHOTGUN: WeaponRow = {
     adsTime: tuned(0.3, 's', 'a little slower than the M4A1 (0.242 s): a long, heavy gun.'),
     zoom: tuned(1.05, 'multiplier', 'a bead sight barely magnifies.'),
     sprintToFire: tuned(0.2, 's', 'quicker than the M4A1 (0.246 s): a shotgun comes in at a run and fires on arrival (the balance runs).'),
-    tacticalSprintToFire: tuned(0.3, 's', 'the ratio of tactical to plain sprint-to-fire on the M4A1 (1.5), on the shotgun\'s 0.2 s.'),
     drawTime: tuned(0.65, 's', 'between the SMG (0.55 s) and the M4A1 (0.8 s).'),
     holsterTime: tuned(0.35, 's', 'as the M4A1.'),
-    moveSpeed: tuned(1.15, 'multiplier', 'the quickest primary to carry, short of the pistol (1.2): the shotgun has to get close, and at the pace of the M4A1 it lost two in three of its fights beyond 5 m in the balance runs (at 1.08 it still took under 40 % of all its duels).'),
+    moveSpeed: tuned(1.35, 'multiplier', 'the quickest primary to carry, short of the pistol (1.4): the shotgun has to get close. A sprint with it (8.4 m/s) is about the pace its tactical sprint had (8.5 m/s at 1.15) before tactical sprint went; at 1.15 without it the shotgun took 37 % of all its duels in the balance runs, at 1.28 39 %, at 1.35 41 % (at the pace of the M4A1 it lost two in three of its fights beyond 5 m).'),
     cycleTime: tuned(0.8, 's', 'working the pump: a miss up close costs most of a second, so the second shot is the risk.'),
   },
   reload: {
@@ -303,7 +299,6 @@ export const SNIPER: WeaponRow = {
     adsTime: tuned(0.35, 's', 'nearly half as slow again as the M4A1 (0.242 s), and the scope sways on top; slower than the SMG takes to aim and kill up close (0.15 + 0.19 s): the sniper is slow to aim, as the spec asks. 0.55 s lost the sniper its own 60 m band in the balance runs, and 0.36 s with a 0.7 deg sway left it under 40 % of all its duels.'),
     zoom: tuned(4, 'multiplier', 'the M24\'s fixed 10x scope would make Switchyard\'s 60-80 m lanes a keyhole; 4x is a low setting of a variable scope.'),
     sprintToFire: tuned(0.42, 's', 'a heavy rifle comes up slowly from a sprint.'),
-    tacticalSprintToFire: tuned(0.55, 's', 'slower still from a tactical sprint.'),
     drawTime: tuned(0.85, 's', 'a little slower than the M4A1 (0.8 s).'),
     holsterTime: tuned(0.4, 's', 'a little slower than the M4A1 (0.35 s).'),
     moveSpeed: tuned(0.92, 'multiplier', 'the heaviest gun moves slowest.'),

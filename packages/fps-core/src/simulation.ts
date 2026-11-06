@@ -619,7 +619,7 @@ export class Simulation {
     let weapon = activeWeapon(player);
     // Firing breaks a sprint (the sprint-to-fire time then applies).
     if (wantsFire(cmd) && weapon.action === 'ready') {
-      cmd = { ...cmd, buttons: cmd.buttons & ~(Button.Sprint | Button.TacticalSprint) };
+      cmd = { ...cmd, buttons: cmd.buttons & ~Button.Sprint };
     }
     const view = this.#viewAngles(player);
     pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS, weaponRow(weapon.id).handling.moveSpeed.value);

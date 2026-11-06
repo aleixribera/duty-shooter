@@ -8,9 +8,8 @@ import { PISTOL, SHOTGUN, SMG, SNIPER, estimate, type WeaponId, type WeaponRow }
  * public measurement is marked `estimated` with the method.
  *
  * Research notes behind this file (collected 2026-10-25): sym.gg has no
- * MW2019 data and TrueGameData no longer serves it. The M4A1 walk, ADS walk,
- * sprint and tactical sprint speeds come from an archived TrueGameData
- * Warzone 1 dataset; most other movement values are estimates from IW-engine
+ * MW2019 data and TrueGameData no longer serves it. The M4A1 walk, ADS walk
+ * and sprint speeds come from an archived TrueGameData Warzone 1 dataset; most other movement values are estimates from IW-engine
  * lineage dvars (CoD4/WaW defaults) and close relatives. They are
  * placeholders to replace with measured values.
  *
@@ -99,7 +98,6 @@ const M4A1_WEAPON = {
   adsTime: sourced(0.242, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field ads: 242 ms. ADS out uses the same time (estimated).'),
   ironSightZoom: sourced(1.1, 'multiplier', TGD_WZ1_M4A1, 0, 'TGD field zoom1: 1.1, read as the iron-sight magnification: ADS FOV = hipfire FOV / 1.1 (interpretation not confirmed).'),
   sprintToFire: sourced(0.246, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field stf: 246 ms.'),
-  tacticalSprintToFire: sourced(0.371, 's', TGD_WZ1_M4A1, 1 / 60, 'TGD field sstf (super sprint to fire): 371 ms.'),
   tacticalReloadAddAmmo: sourced(
     1.39,
     's',
@@ -158,7 +156,6 @@ const M4A1: WeaponRow = {
     adsTime: M4A1_WEAPON.adsTime,
     zoom: M4A1_WEAPON.ironSightZoom,
     sprintToFire: M4A1_WEAPON.sprintToFire,
-    tacticalSprintToFire: M4A1_WEAPON.tacticalSprintToFire,
     drawTime: M4A1_WEAPON.drawTime,
     holsterTime: M4A1_WEAPON.holsterTime,
     moveSpeed: estimate(1, 'multiplier', 'The movement speeds in the stats file were measured with the M4A1.'),
@@ -203,19 +200,6 @@ export const STATS = {
       },
       0,
       'The OTs 9 is the only Warzone (MW2019 engine) weapon whose base sprint exceeds 7 m/s, so the M4A1 base sprint is below this.',
-    ),
-    tacticalSprintSpeed: sourced(7.43, 'm/s', TGD_WZ1_M4A1, 0.05, 'TGD field tac_sprint: 7.43. Replaces the earlier estimate of 7.80 m/s (1.2x sprint).'),
-    tacticalSprintDuration: estimated(
-      2.0,
-      's',
-      '8 s with Double Time and Combat Knife (XclusiveAce pinned comment, https://www.youtube.com/watch?v=nt2wTcpR2V8, seen via search snippet) divided by 2 for Double Time (https://callofduty.fandom.com/wiki/Double_Time) and 2 for the knife (https://upcomer.com/fastest-way-to-move-in-modern-warfare-revealed-in-a-video), assuming the multipliers stack.',
-      0.5,
-    ),
-    tacticalSprintRecharge: estimated(
-      4.0,
-      's',
-      'Placeholder, not measured. Sources only say stamina regenerates over time after each use (https://callofduty.fandom.com/wiki/Tactical_Sprint).',
-      2.0,
     ),
     strafeMultiplier: estimated(
       0.8,

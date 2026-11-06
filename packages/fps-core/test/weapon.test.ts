@@ -100,15 +100,12 @@ describe('ADS', () => {
 });
 
 describe('sprint-to-fire', () => {
-  for (const [label, buttons, stat] of [
-    ['sprint', ['Sprint'], W.sprintToFire],
-    ['tactical sprint', ['Sprint', 'TacticalSprint'], W.tacticalSprintToFire],
-  ] as const) {
+  for (const [label, buttons, stat] of [['sprint', ['Sprint'], W.sprintToFire]] as const) {
     it(`cannot fire out of a ${label} until the ${label}-to-fire time has passed`, () => {
       const match = range();
       drawn(match);
       match.run(ticks(1), () => ({ [SHOOTER]: usercmd({ forward: 1, buttons }) }));
-      expect(playerIn(match.latest, SHOOTER).movement).toBe(label === 'sprint' ? 'sprint' : 'tacticalSprint');
+      expect(playerIn(match.latest, SHOOTER).movement).toBe('sprint');
       const sprintEnd = match.latest.tick * TICK_SECONDS;
 
       // Pressing fire while sprinting stops the sprint; the shot waits out the lock.

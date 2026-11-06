@@ -226,9 +226,9 @@ describe('Switchyard: routes', () => {
 });
 
 describe('Switchyard: containment', () => {
-  const escapes: [string, (i: number) => ('Jump' | 'Sprint' | 'TacticalSprint' | 'Crouch')[]][] = [
+  const escapes: [string, (i: number) => ('Jump' | 'Sprint' | 'Crouch')[]][] = [
     ['sprint-jumps', (i) => (i % 20 === 0 ? ['Sprint', 'Jump'] : ['Sprint'])],
-    ['tactical sprint slides', (i) => (i < 40 ? ['TacticalSprint'] : i % 30 === 0 ? ['Crouch'] : [])],
+    ['sprint slides', (i) => (i < 40 ? ['Sprint'] : i % 30 === 0 ? ['Crouch'] : [])],
     ['mantles', (i) => (i % 10 === 0 ? ['Jump'] : [])],
   ];
 

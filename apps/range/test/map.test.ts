@@ -75,7 +75,7 @@ describe('map: movement course', () => {
   }
 
   for (const gap of map.course.gaps) {
-    const jumpAcross = (buttons: readonly ('Sprint' | 'TacticalSprint')[]) => {
+    const jumpAcross = (buttons: readonly 'Sprint'[]) => {
       const match = standAt(gap.runUp);
       const yaw = gap.runUp.yaw;
       const nearEdge = gap.runUp.position[2] - gap.runUpLength;
@@ -91,9 +91,9 @@ describe('map: movement course', () => {
       return end.position[1] > gap.height - 0.01 && end.position[2] < gap.farEdgeZ;
     };
 
-    it(`the ${gap.width} m gap needs a ${gap.sprint} jump`, () => {
-      expect(jumpAcross(gap.sprint === 'sprint' ? ['Sprint'] : ['Sprint', 'TacticalSprint'])).toBe(true);
-      expect(jumpAcross(gap.sprint === 'sprint' ? [] : ['Sprint'])).toBe(false);
+    it(`the ${gap.width} m gap needs a sprint jump`, () => {
+      expect(jumpAcross(['Sprint'])).toBe(true);
+      expect(jumpAcross([])).toBe(false);
     });
   }
 });

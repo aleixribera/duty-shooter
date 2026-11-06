@@ -304,6 +304,9 @@ const SCOPED_AT = 0.9;
 /** Where the gun sits in view space at hipfire. */
 const HIP = new Vector3(0.13, -0.15, -0.43);
 const HIP_ROT = new Euler(0.02, 0.035, -0.02, 'YXZ');
+/** The sprint pose's offset and tilt (radians, x/y/z) at full sprint: the gun canted and lowered. */
+const SPRINT_OFFSET = new Vector3(-0.04, -0.05, 0.04);
+const SPRINT_TILT: readonly [number, number, number] = [-0.35, 0.65, 0.35];
 /** Distance from the eye to the rear sight when aimed. */
 const EYE_RELIEF = 0.22;
 
@@ -357,7 +360,6 @@ export class Viewmodel {
   #sprint = 0;
   /** How far the gun is swung out of the way for a mantle, eased, 0 to 1. */
   #mantle = 0;
-  #tactical = 0;
   #boltCycle = 1;
   #time = 0;
   #disposed = false;
@@ -533,11 +535,10 @@ export class Viewmodel {
     const kit = id === 'm4a1' ? null : this.#kit(id);
     const row = STATS.weapons[id];
     const ads = ease(Math.min(1, Math.max(0, state.ads)));
-    const sprinting = state.movement === 'sprint' || state.movement === 'tacticalSprint';
+    const sprinting = state.movement === 'sprint';
     const k = (tau: number) => 1 - Math.exp(-dt / tau);
     // A reload carries on through a sprint, so the gun stays in its reload pose rather than the sprint cant.
     this.#sprint += ((sprinting && state.action !== 'melee' && state.action !== 'reload' ? 1 : 0) - this.#sprint) * k(0.09);
-    this.#tactical += ((state.movement === 'tacticalSprint' ? 1 : 0) - this.#tactical) * k(0.1);
     // A mantle: the gun drops away fast as the hands go to the ledge, and comes back up once over.
     const mantling = state.movement === 'mantle';
     this.#mantle += ((mantling ? 1 : 0) - this.#mantle) * k(mantling ? 0.05 : 0.12);
@@ -589,9 +590,9 @@ export class Viewmodel {
     const breathe = Math.sin(this.#time * 1.4) * 0.0015 * calm;
     this.#boltCycle = Math.min(1, this.#boltCycle + dt / (id === 'pistol' ? SLIDE_CYCLE : 60 / W.fireRate.value));
 
-    // Sprint: gun canted and lowered; tactical sprint: held up by the shoulder.
-    const sprintP = new Vector3(-0.04, -0.05, 0.04).lerp(new Vector3(0.0, 0.03, 0.02), this.#tactical);
-    const sprintR = new Euler(-0.35, 0.65, 0.35).toArray().map((v, i) => lerp(v as number, ([1.05, 0.35, 0.9] as number[])[i] as number, this.#tactical));
+    // Sprint: gun canted and lowered.
+    const sprintP = SPRINT_OFFSET;
+    const sprintR = SPRINT_TILT;
 
     const hip = kit ? new Vector3(...kit.rig.hip) : HIP;
     const base = hip.clone().lerp(this.#adsOffset, ads);

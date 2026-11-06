@@ -176,6 +176,12 @@ _Avoid_: banner, dog tag, respawn token
 One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP and 1 frag; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
 _Avoid_: respawn tower, revive station
 
+## Movement
+
+**Sprint**:
+The one fast run, only forward, standing and not aiming. It is a toggle: a press of Shift or L3 starts it and it keeps going until a second press, letting go of forward, a shot or the sights going up. It has no stamina and no faster tier. Crouching during it is a slide, and the sprint carries on through the slide.
+_Avoid_: tactical sprint, super sprint (gone), run (the walk speed)
+
 ## Matches
 
 **Mode**:

@@ -237,7 +237,7 @@ describe('a bot weighing the mode and its situation', () => {
       for (let i = 0; i < ticks(6); i++) {
         m.step({ t: usercmd(heard && i >= 60 && i < 64 ? { pitch: -1.2, buttons: ['Fire'] } : {}) });
         const b = m.self();
-        if (i > 64 && (b.movement === 'sprint' || b.movement === 'tacticalSprint')) n += 1;
+        if (i > 64 && b.movement === 'sprint') n += 1;
       }
       return n;
     };

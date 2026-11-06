@@ -209,7 +209,7 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 const PAD_KEYS: readonly (readonly [string, string])[] = [
   ['R2', 'Fire'],
   ['L2', 'Aim'],
-  ['L3', 'Sprint (double: tactical)'],
+  ['L3', 'Sprint (press again: walk)'],
   ['○', 'Crouch / slide (hold: prone)'],
   ['✕', 'Jump / mantle'],
   ['□', 'Reload (hold: inspect)'],

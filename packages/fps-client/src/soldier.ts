@@ -444,7 +444,7 @@ export class Soldier {
     this.#crouch = ease(this.#crouch, p.stance === 'crouch' ? 1 : 0, 0.08);
     this.#prone = ease(this.#prone, p.stance === 'prone' && p.eyeHeight < STATS.stance.crouchEyeHeight.value ? 1 : 0, 0.12);
     this.#slide = ease(this.#slide, p.movement === 'slide' ? 1 : 0, 0.06);
-    this.#sprint = ease(this.#sprint, p.movement === 'sprint' || p.movement === 'tacticalSprint' ? 1 : 0, 0.1);
+    this.#sprint = ease(this.#sprint, p.movement === 'sprint' ? 1 : 0, 0.1);
     this.#air = ease(this.#air, p.movement === 'airborne' || p.movement === 'mantle' ? 1 : 0, 0.08);
     this.#pitch = ease(this.#pitch, p.pitch, 0.05);
     this.#ads = ease(this.#ads, w?.ads ?? 0, 0.06);

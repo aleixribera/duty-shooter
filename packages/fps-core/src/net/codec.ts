@@ -27,9 +27,9 @@ export type StickyField = (typeof STICKY_FIELDS)[number];
 export const WORDS = [
   // Player state.
   'id', 'team', 'kind', 'player', 'dummy', 'move', 'weapons', 'slot', 'loadout', 'grenades', 'cmdYaw', 'cmdPitch', 'viewYaw', 'viewPitch', 'health', 'lastDamage', 'landing', 'diedAt', 'life', 'spawn', 'grenade', 'phase', 'since', 'time',
-  'position', 'velocity', 'yaw', 'pitch', 'grounded', 'movement', 'stance', 'stanceFrom', 'eyeHeight', 'eyeRate', 'tacticalStamina', 'prevButtons', 'airPeak', 'landedFrom', 'mantle', 'mantleBand', 'slide', 'ladder', 'band', 'from', 'to', 'dir', 'entrySpeed', 'ticks',
+  'position', 'velocity', 'yaw', 'pitch', 'grounded', 'movement', 'stance', 'stanceFrom', 'eyeHeight', 'eyeRate', 'prevButtons', 'airPeak', 'landedFrom', 'mantle', 'mantleBand', 'slide', 'ladder', 'band', 'from', 'to', 'dir', 'entrySpeed', 'ticks',
   'ammo', 'action', 'actionTime', 'reload', 'ammoAdded', 'shellsLoaded', 'meleeResolved', 'ads', 'steady', 'clock', 'nextShot', 'fireReadyAt', 'lastShot', 'shotIndex', 'shotsFired', 'reloadHeld', 'primary', 'secondary',
-  'walk', 'sprint', 'tacticalSprint', 'airborne', 'stand', 'crouch', 'prone', 'lowVault', 'waist', 'highClimb', 'draw', 'ready', 'cycle', 'inspect', 'melee', 'holster', 'tactical', 'empty', 'cook', 'throw', 'drop',
+  'walk', 'sprint', 'airborne', 'stand', 'crouch', 'prone', 'lowVault', 'waist', 'highClimb', 'draw', 'ready', 'cycle', 'inspect', 'melee', 'holster', 'tactical', 'empty', 'cook', 'throw', 'drop',
   'm4a1', 'smg', 'shotgun', 'sniper', 'pistol', 'frag',
   // Events.
   'tick', 'index', 'event', 'type', 'shot', 'hit', 'impact', 'prop', 'kill', 'bounce', 'explosion', 'switch', 'shooter', 'weapon', 'origin', 'direction', 'fraction', 'pellets', 'victim', 'zone', 'damage', 'distance', 'point', 'killed', 'cause', 'normal', 'material', 'side', 'entry', 'exit', 'killer', 'attacker', 'speed', 'thrower', 'bullet', 'fall',

@@ -192,7 +192,7 @@ describe('the slope limit', () => {
     for (const yaw of yaws) {
       const match = onTerrain(hill, [Math.sin(yaw) * 36, 0, Math.cos(yaw) * 36]);
       let peak = 0;
-      for (let i = 0; i < ticks(6); i++) peak = Math.max(peak, me(match.step({ p: usercmd({ forward: 1, yaw, buttons: i % 20 < 2 ? ['Jump', 'TacticalSprint'] : ['TacticalSprint'] }) })).position[1]);
+      for (let i = 0; i < ticks(6); i++) peak = Math.max(peak, me(match.step({ p: usercmd({ forward: 1, yaw, buttons: i % 20 < 2 ? ['Jump', 'Sprint'] : ['Sprint'] }) })).position[1]);
       expect(peak).toBeLessThan(3);
     }
   });

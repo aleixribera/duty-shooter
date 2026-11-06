@@ -162,7 +162,7 @@ const TRAP_SOUNDS: Readonly<Record<TrapKind, SoundEventName>> = { birds: 'trapBi
 /** The guns whose rounds crack past the listener, and how near (m) a miss must pass to be heard cracking. */
 const SUPERSONIC: ReadonlySet<WeaponId> = new Set<WeaponId>(['m4a1', 'sniper']);
 const CRACK_MISS = 5;
-const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, tacticalSprint: 2.0, crouch: 1.1, prone: 0.9 };
+const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, crouch: 1.1, prone: 0.9 };
 
 interface Tracked {
   stepDistance: number;
@@ -1406,6 +1406,8 @@ export class Game {
     // A (re)spawn turns the view to the spawn's facing before this tick's usercmd is built.
     const facing = driver.takeSpawn();
     if (facing) this.input.setAngles(facing.yaw, facing.pitch);
+    // A latched sprint ends with the life: dead or downed, and again at a (re)spawn.
+    if (facing || (this.#cur && (!this.#cur.alive || this.#cur.downed))) this.input.endSprint();
     const sampled = this.input.sample(start, end);
     // A round's freeze holds you where you stand, free to look around (the server does the same).
     const frozen = this.#charge?.phase === 'freeze';
@@ -1469,7 +1471,7 @@ export class Game {
       }
       const grounded = p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'slide' && p.movement !== 'ladder';
       if (!p.alive || !grounded || d > 1) continue;
-      const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? p.movement : 'walk';
+      const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' ? 'sprint' : 'walk';
       t.stepDistance += d;
       const length = (STEP_LENGTH[mode] ?? 1.45) / 2;
       if (t.stepDistance >= length) {

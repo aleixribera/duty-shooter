@@ -784,15 +784,26 @@ describe('Downed on the server', () => {
     const bot = [...m.server.bots.keys()].at(-1)!;
     const at = () => seat(m, bot)!.position;
     const mate = m.server.latest.players.find((p) => p.team === seat(m, bot)!.team && p.id !== bot)!.id;
-    // Near enough to know of, and too far to reach it where it lies.
+    // Near enough to know of, and too far to reach it where it lies. The mate is
+    // held there, so it can't run in and revive first: what moves is the crawl.
     const state = sim.playerState(mate)!;
-    sim.setPlayerState({ ...state, move: { ...state.move, position: [at()[0] + 12, 0, at()[2]] } });
+    const held = { ...state, move: { ...state.move, position: [at()[0] + 12, 0, at()[2]] as Vec3, velocity: [0, 0, 0] as Vec3 } };
+    const hold = (n: number) => {
+      for (let i = 0; i < n; i++) {
+        sim.setPlayerState({ ...sim.playerState(mate)!, move: held.move });
+        m.run(1);
+      }
+    };
+    sim.setPlayerState(held);
     sim.setPlayerState({ ...sim.playerState(bot)!, health: STATS.royale.downedHealth.value, downed: { since: sim.time, by: null, revive: null } });
-    m.run(ticks(0.1));
+    hold(ticks(0.1));
     const from = at();
-    m.run(ticks(5));
+    hold(ticks(5));
     expect(seat(m, bot)!.downed).not.toBeNull();
-    expect(Math.hypot(at()[0] - from[0], at()[2] - from[2])).toBeGreaterThan(1);
+    const to = at();
+    expect(Math.hypot(to[0] - from[0], to[2] - from[2])).toBeGreaterThan(1);
+    // Toward the mate, on the +x side.
+    expect(to[0]).toBeGreaterThan(from[0]);
   });
 });
 

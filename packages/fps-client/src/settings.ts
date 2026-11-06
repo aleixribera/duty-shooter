@@ -31,7 +31,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   right: 'Move right',
   fire: 'Fire',
   ads: 'Aim down sights',
-  sprint: 'Sprint (double-tap: tactical sprint)',
+  sprint: 'Sprint (press to toggle)',
   crouch: 'Crouch / slide',
   prone: 'Prone',
   jump: 'Jump / mantle',

@@ -61,8 +61,6 @@ export interface BotProfile {
   readonly strafeTime: number;
   /** Chance a tick of sprinting turns into a slide. */
   readonly slide: number;
-  /** Chance a long leg is a tactical sprint. */
-  readonly tacticalSprint: number;
   /** Reloads in a quiet moment below this many rounds. */
   readonly reloadBelow: number;
   /** How far (m) it likes to roam each leg. */
@@ -108,7 +106,6 @@ const COMMON: Readonly<Record<Tunable, Range>> = {
   standStill: [0.1, 0.2],
   strafeTime: [0.4, 1],
   slide: [0.002, 0.005],
-  tacticalSprint: [0.15, 0.3],
   reloadBelow: [10, 14],
   roam: [20, 28],
   teamwork: [-14, -10],
@@ -122,19 +119,19 @@ const STYLES: Readonly<Record<BotStyle, Partial<Record<Tunable, Range>>>> = {
   rusher: {
     reaction: [0.26, 0.38], aggression: [0.75, 0.95], fightRange: [5, 9], adsRange: [13, 18], burstRange: [24, 30], burst: [1, 1.4],
     crouch: [0.05, 0.15], hold: [0.02, 0.08], holdTime: [1, 2], standStill: [0.04, 0.1], strafeTime: [0.3, 0.6], slide: [0.006, 0.012],
-    tacticalSprint: [0.4, 0.6], reloadBelow: [6, 10], roam: [26, 32], teamwork: [-14, -8], chase: [6, 8], hunch: [0.2, 0.25],
+    reloadBelow: [6, 10], roam: [26, 32], teamwork: [-14, -8], chase: [6, 8], hunch: [0.2, 0.25],
   },
   // Goes wide, away from the team, to come at fights from the side.
   flanker: {
     aggression: [0.5, 0.7], fightRange: [9, 14], adsRange: [9, 12], crouch: [0.15, 0.25], hold: [0.1, 0.2], holdTime: [1.5, 3],
-    standStill: [0.1, 0.15], strafeTime: [0.5, 1], slide: [0.004, 0.007], tacticalSprint: [0.25, 0.4], reloadBelow: [10, 14],
+    standStill: [0.1, 0.15], strafeTime: [0.5, 1], slide: [0.004, 0.007], reloadBelow: [10, 14],
     roam: [28, 36], teamwork: [-20, -14], chase: [5, 7], hunch: [0.15, 0.22],
   },
   // Holds angles crouched, fights from range, short careful bursts, gives up a chase early.
   anchor: {
     reaction: [0.3, 0.45], aggression: [0.1, 0.3], fightRange: [18, 26], adsRange: [6, 8], burstRange: [16, 20], burst: [0.7, 1],
     crouch: [0.45, 0.65], hold: [0.6, 0.8], holdTime: [3, 7], standStill: [0.3, 0.45], strafeTime: [0.6, 1.2], slide: [0, 0.001],
-    tacticalSprint: [0, 0.1], reloadBelow: [14, 18], roam: [12, 18], teamwork: [-8, -4], chase: [2.5, 4], hunch: [0.1, 0.12],
+    reloadBelow: [14, 18], roam: [12, 18], teamwork: [-8, -4], chase: [2.5, 4], hunch: [0.1, 0.12],
   },
   // Covers the whole map in long loops.
   roamer: {
@@ -143,7 +140,7 @@ const STYLES: Readonly<Record<BotStyle, Partial<Record<Tunable, Range>>>> = {
   // Stays near teammates and covers them.
   support: {
     aggression: [0.3, 0.5], fightRange: [12, 18], crouch: [0.3, 0.45], hold: [0.3, 0.45], holdTime: [2, 4], standStill: [0.15, 0.25],
-    tacticalSprint: [0.1, 0.2], reloadBelow: [14, 18], roam: [16, 22], teamwork: [6, 12], chase: [4, 6], hunch: [0.1, 0.15],
+    reloadBelow: [14, 18], roam: [16, 22], teamwork: [6, 12], chase: [4, 6], hunch: [0.1, 0.15],
   },
 };
 
@@ -167,6 +164,14 @@ function pickPrimary(style: BotStyle, roll: number, not?: WeaponId): WeaponId {
   return weights.at(-1)![0];
 }
 
+/**
+ * The noise slot of each tunable, in COMMON's order. The slot after slide's
+ * was tactical sprint's, now gone: it stays retired so every other trait
+ * draws as it did and each name keeps its character.
+ */
+const RETIRED_SLOT = Object.keys(COMMON).indexOf('slide') + 2;
+const slotOf = (i: number) => (i + 1 < RETIRED_SLOT ? i + 1 : i + 2);
+
 /** The moderate bot's personality for `name`: the same name always plays the same way. */
 export function botProfile(name: string): BotProfile {
   const seed = hashString(name);
@@ -177,7 +182,7 @@ export function botProfile(name: string): BotProfile {
   const values = Object.fromEntries(
     keys.map((k, i) => {
       const [lo, hi] = ranges[k];
-      return [k, lo + (hi - lo) * noise(seed, i + 1)];
+      return [k, lo + (hi - lo) * noise(seed, slotOf(i))];
     }),
   ) as Record<Tunable, number>;
   const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: 'pistol', grenade: 'frag' };

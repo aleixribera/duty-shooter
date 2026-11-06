@@ -100,7 +100,6 @@ describe('the SMG', () => {
     const m4 = row('m4a1').handling;
     expect(smg.adsTime.value).toBeLessThan(m4.adsTime.value);
     expect(smg.sprintToFire.value).toBeLessThan(m4.sprintToFire.value);
-    expect(smg.tacticalSprintToFire.value).toBeLessThan(m4.tacticalSprintToFire.value);
   });
 
   it('bounces: each later shot climbs alternately more and less than the steady kick', () => {

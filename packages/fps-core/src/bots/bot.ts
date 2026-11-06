@@ -424,7 +424,6 @@ export class Bot {
   #holdYaw = 0;
   #holdCrouch = false;
   #slideUntil = 0;
-  #tactical = false;
   #progress: { position: Vec3; time: number } = { position: [0, 0, 0], time: 0 };
   #blocked = 0;
   /** Backing off and sidestepping to get unstuck, until then. */
@@ -758,7 +757,7 @@ export class Bot {
         lookYaw = yawTo(self.position, ahead);
         lookPitch = 0;
       }
-      ads = range > (tactics.ads ?? p.adsRange) && self.movement !== 'sprint' && self.movement !== 'tacticalSprint';
+      ads = range > (tactics.ads ?? p.adsRange) && self.movement !== 'sprint';
       // A scope comes up only once the bot has stopped.
       if (tactics.scoped) ads = speed < STOPPED * 2;
       if (rushing) ads = false;
@@ -940,12 +939,11 @@ export class Bot {
       else if ((rushing || (fighting && tactics.push && target?.visible === false)) && forward > 0.5 && !climbing && !laddering) {
         // Weaving a little on the way in.
         right = 0.35 * Math.sin(time * 2.6 + (this.#seed % 13));
-        buttons.push('Sprint', 'TacticalSprint');
+        buttons.push('Sprint');
       } else if (creeping && !laddering) {
         buttons.push('Crouch');
       } else if (!fighting && long && forward > 0.8 && !climbing && !laddering && !quiet) {
         buttons.push('Sprint');
-        if (this.#tactical) buttons.push('TacticalSprint');
         if (self.movement === 'sprint' && time > this.#slideUntil + 3 && r(16) < this.profile.slide) this.#slideUntil = time + 0.5;
       }
       if (time < this.#slideUntil && !laddering) buttons.push('Crouch');
@@ -1020,7 +1018,6 @@ export class Bot {
     this.#alert = null;
     this.#holdUntil = 0;
     this.#progress = { position: view.self.position, time: view.time };
-    this.#tactical = false;
     this.#blocked = 0;
     this.#unstickUntil = 0;
     this.#slideUntil = 0;
@@ -1594,7 +1591,7 @@ export class Bot {
     const speed = Math.hypot(p.velocity[0], p.velocity[2]);
     if (p.downed || p.stance !== 'stand') rate *= 0.6;
     if (speed < QUIET) rate *= 0.6;
-    else if (p.movement === 'sprint' || p.movement === 'tacticalSprint') rate *= 1.25;
+    else if (p.movement === 'sprint') rate *= 1.25;
     // Muzzle flash and noise give a body away; so does knowing roughly where to look.
     if (time - (this.#loud.get(p.id) ?? -Infinity) < 1.5) rate *= 3;
     const told = this.#memory.get(p.id);
@@ -1936,7 +1933,7 @@ export class Bot {
       if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
       const speed = Math.hypot(p.velocity[0], p.velocity[2]);
       const grounded = p.movement !== 'airborne' && p.movement !== 'mantle';
-      const gait = p.stance !== 'stand' ? FOOTSTEPS.crouch : p.movement === 'sprint' || p.movement === 'tacticalSprint' ? FOOTSTEPS.sprint : FOOTSTEPS.walk;
+      const gait = p.stance !== 'stand' ? FOOTSTEPS.crouch : p.movement === 'sprint' ? FOOTSTEPS.sprint : FOOTSTEPS.walk;
       const reach = thud ? THUD : grounded && speed >= QUIET ? gait : 0;
       if (reach === 0) continue;
       const known = this.#memory.get(p.id);
@@ -2099,7 +2096,6 @@ export class Bot {
     this.#step = this.#target === null && path.length > 1 && !['climb','ladder'].includes(linkKind(this.#nav, path[0]!, path[1]!) ?? '') && onLeg(from, this.#nav.nodes[path[0]!]!.position, this.#nav.nodes[path[1]!]!.position) ? 1 : 0;
     this.#from = from;
     if (fresh) this.#progress = { position: from, time: view.time };
-    this.#tactical = noise(this.#seed, view.tick, 40) < this.profile.tacticalSprint;
   }
 
   /** Moves along the route past nodes already reached; the point to head for now, or null at the end. */

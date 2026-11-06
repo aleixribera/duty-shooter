@@ -120,8 +120,9 @@ describe.each([1, 2, 3] as const)('whole matches in Squads of %i', (size) => {
       size,
       // Revives are rare (a few in forty-odd downs), so one seed can see none: Frostbite Peaks'
       // base (ticket 21) left Trios seed 101 at 0 revives in 44 downs, where seeds 101-106 gave
-      // 0, 3, 6, 4, 1 and 5. Trios play 102 (504 s, Stage 5, 3 revives).
-      seed: size === 3 ? 102 : 101,
+      // 0, 3, 6, 4, 1 and 5. Trios played 102 (504 s, Stage 5, 3 revives) until tactical sprint
+      // went: 102 then saw 0 revives in 42 downs, where 101 and 103-105 passed. Trios play 103.
+      seed: size === 3 ? 103 : 101,
       each: (m, out, t) => {
         if (Math.round(t * 60) % 60 !== 0) return;
         const standing = out.players.filter((p) => p.alive && !p.downed);

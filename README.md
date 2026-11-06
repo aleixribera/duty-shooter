@@ -104,7 +104,7 @@ These are MW2019's defaults, and every one can be rebound in Settings.
 | Action | Key |
 | --- | --- |
 | Move | W A S D |
-| Sprint | Shift (double-tap for tactical sprint) |
+| Sprint | Shift, while moving forward: a press starts it and it keeps going; press again, let go of forward, fire or aim to stop |
 | Crouch, or slide while sprinting | C |
 | Prone | Ctrl |
 | Jump or mantle | Space |
@@ -129,7 +129,7 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 | Action | Button |
 | --- | --- |
 | Move and look | Left stick and right stick |
-| Sprint | L3, while pushing forward (click twice for tactical sprint) |
+| Sprint | L3, while pushing forward: it keeps going until you click again, ease off the stick, fire or aim |
 | Crouch, or slide while sprinting | Circle (hold to go prone) |
 | Jump or mantle | Cross |
 | Fire | R2 |

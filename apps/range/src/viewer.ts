@@ -57,7 +57,6 @@ function clipsFor(id: WeaponId): readonly Clip[] {
     { name: 'Melee', duration: STATS.melee.duration.value + 0.5, state: (t) => ({ action: t < STATS.melee.duration.value ? 'melee' : 'ready', actionTime: t }) },
     { name: 'Walk', duration: 2.5, state: () => ({ movement: 'walk', speed: 4.6 }) },
     { name: 'Sprint', duration: 2.5, state: () => ({ movement: 'sprint', speed: 7.2 }) },
-    { name: 'Tactical sprint', duration: 2.5, state: () => ({ movement: 'tacticalSprint', speed: 8.6 }) },
     { name: 'Sway (turning)', duration: 2.5, state: (t) => ({ lookDelta: { yaw: Math.sin(t * 4) * 0.02, pitch: Math.cos(t * 3) * 0.01 } }) },
   );
   return clips;
