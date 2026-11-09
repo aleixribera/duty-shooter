@@ -47,11 +47,13 @@ const cache = new Map<string, Texture>();
 const loading: Promise<unknown>[] = [];
 const loader = new TextureLoader();
 
-/** A one-pixel tile with no relief: level, and neither high nor low. */
-function flatTile(): HTMLCanvasElement {
+/** A one-pixel tile with no relief: level, and neither high nor low. Null where nothing can be painted (a page with no 2D canvas, as the tests' is). */
+function flatTile(): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
-  const context = canvas.getContext('2d')!;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
   context.fillStyle = 'rgb(128 128 128)';
   context.fillRect(0, 0, 1, 1);
   return canvas;
@@ -70,7 +72,9 @@ function picture(name: string): Texture {
         },
         () => {
           console.error(`Surface tile ${name} failed to load`);
-          texture.image = flatTile();
+          const flat = flatTile();
+          if (!flat) return;
+          texture.image = flat;
           texture.needsUpdate = true;
         },
       ),
