@@ -2104,6 +2104,13 @@ export class Bot {
     while (this.#step < this.#path.length) {
       const n = nodes[this.#path[this.#step]!]!;
       const next = this.#step + 1 < this.#path.length ? linkKind(this.#nav, this.#path[this.#step]!, this.#path[this.#step + 1]!) : null;
+      // Movement can attach from a little outside the precise endpoint. Once
+      // attached, advance to the destination instead of walking back to the
+      // lower node after dismounting and falling off the roof.
+      if (self.movement === 'ladder' && next === 'ladder' && flat(self.position,n.position)<1.1 && Math.abs(self.position[1]-n.position[1])<1.5) {
+        this.#step += 1;
+        continue;
+      }
       const radius = n.precise || next === 'climb' || next === 'ladder' ? 0.3 : 0.9;
       const reached = flat(self.position, n.position) < radius && Math.abs(self.position[1] - n.position[1]) < 0.8 && self.movement !== 'mantle' && self.movement !== 'ladder';
       if (!reached) break;

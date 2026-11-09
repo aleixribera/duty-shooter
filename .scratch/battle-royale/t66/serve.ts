@@ -56,7 +56,7 @@ const control = createServer((req, res) => {
   const n = (k: string) => Number(q(k));
   let body: unknown = 'ok';
   if (url.pathname === '/list') {
-    body = { enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ act: game.bots.get(p.id)?.bot.activity, primary: sim().primary?.(p.id)?.id, id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, bot: game.bots.has(p.id) })) };
+    body = { enemy: enemy(), phase: game.phase, players: game.latest.players.map((p) => ({ weapon: p.weapon, act: game.bots.get(p.id)?.bot.activity, primary: sim().primary?.(p.id)?.id, id: p.id, name: game.names.get(p.id), team: p.team, kind: p.kind, alive: p.alive, position: p.position, velocity: p.velocity, movement: p.movement, yaw: p.yaw, health: p.health, stance: p.stance, downed: p.downed, reviving: p.reviving, bot: game.bots.has(p.id) })) };
   } else if (url.pathname === '/place') {
     const s = sim().playerState(q('id')!)!;
     sim().setPlayerState({ ...s, move: { ...s.move, position: [n('x'), n('y'), n('z')], velocity: [0, 0, 0] } });

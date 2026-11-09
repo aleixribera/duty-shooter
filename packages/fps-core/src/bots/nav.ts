@@ -279,9 +279,14 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
     const bottom = snapHint(world,route.bottom,ceiling), top = snapHint(world,route.landing,ceiling);
     if (!bottom || !top || Math.abs(bottom[1]-route.bottom[1])>0.1 || Math.abs(top[1]-route.landing[1])>0.1) continue;
     if (!traversesLadder(world,route,true) || !traversesLadder(world,route,false)) continue;
-    const bottomIndex = points.length;
-    points.push({p:bottom,hint:true},{p:top,hint:true});
-    ladderLinks.push({bottom:bottomIndex,top:bottomIndex+1,cost:flat(bottom,top)+Math.abs(top[1]-bottom[1])*2.5});
+    const endpoint = (p: Vec3): number => {
+      const existing = points.findIndex(q => flat(q.p,p)<0.001 && Math.abs(q.p[1]-p[1])<0.01);
+      if (existing >= 0) { points[existing] = {p,hint:true}; return existing; }
+      points.push({p,hint:true});
+      return points.length-1;
+    };
+    const bottomIndex=endpoint(bottom), topIndex=endpoint(top);
+    ladderLinks.push({bottom:bottomIndex,top:topIndex,cost:flat(bottom,top)+Math.abs(top[1]-bottom[1])*2.5});
   }
 
   // Neighbours by a coarse bucket on the ground plane.

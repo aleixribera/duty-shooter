@@ -535,10 +535,38 @@ function buildLanes(b: Builder): void {
   b.wall({...wall,along:'z',at:-31,from:-8,to:13,openings:[gap(-2,2),gap(8,11)]});
 }
 
+/** Closed façades on the west side of the backyard, behind the blue building.
+ * The reference establishes the footprint; it does not show an interior. */
+function buildBackyardHouse(b: Builder): void {
+  const r=LANDMARKS.backyardHouse;
+  const body=b.add([r.x0,0,r.z0],[r.x1,6,r.z1],'concrete',{look:'plaster'});
+  // Flush dark windows and a door read from the yard without creating an
+  // unsupported shooting or movement opening in a closed façade.
+  for (const y of [1.55,4.55]) for (const z of [-22.5,-17.5,-12.5]) {
+    if (y<2 && z===-17.5) continue;
+    b.decorate(body,[r.x1+0.005,y,z],[0.02,1.35,1.45],'city.window');
+    b.decorate(body,[r.x1+0.015,y+0.74,z],[0.02,0.12,1.65],'trim');
+    b.decorate(body,[r.x1+0.015,y-0.74,z],[0.02,0.12,1.65],'trim');
+    for (const side of [-1,1]) b.decorate(body,[r.x1+0.015,y,z+side*0.77],[0.02,1.42,0.10],'trim');
+    b.decorate(body,[r.x1+0.018,y,z],[0.02,1.35,0.055],'trim');
+    b.decorate(body,[r.x1+0.018,y,z],[0.02,0.055,1.45],'trim');
+  }
+  b.decorate(body,[r.x1+0.005,1.1,-17.5],[0.02,2.2,1.35],'shutter');
+  for (const z of [-18.23,-16.77]) b.decorate(body,[r.x1+0.015,1.1,z],[0.02,2.2,0.10],'trim');
+  b.decorate(body,[r.x1+0.015,2.25,-17.5],[0.02,0.10,1.56],'trim');
+  b.add([r.x0-0.12,5.82,r.z0-0.12],[r.x1+0.12,6,r.z1+0.12],'concrete',{look:'roof'});
+  const p={thickness:0.25,bottom:6,height:0.55,material:'concrete' as const,look:'plaster'};
+  b.wall({...p,along:'x',at:r.z0,from:r.x0,to:r.x1});
+  b.wall({...p,along:'x',at:r.z1,from:r.x0,to:r.x1});
+  b.wall({...p,along:'z',at:r.x0,from:r.z0,to:r.z1});
+  b.wall({...p,along:'z',at:r.x1,from:r.z0,to:r.z1});
+}
+
 /** Landmark footprints, in metres, laid out against the original overhead. */
 export const LANDMARKS = {
   tower: {x0:-14,x1:-4,z0:-33,z1:-22},
   blue: {x0:-27,x1:-17,z0:-3,z1:10},
+  backyardHouse: {x0:-34,x1:-27,z0:-25,z1:-10},
   main: {x0:3,x1:16,z0:-20,z1:3},
   arcade: {x0:-11,x1:5,z0:13,z1:23},
   shop: {x0:18,x1:31,z0:8,z1:23},
@@ -606,6 +634,7 @@ export function buildCrash(): MapDefinition {
   for (const z of [-31.45,-30.55]) b.add([-3.91,0,z-0.04],[-3.83,10.05,z+0.04],'metal',{look:'roof.metal',blocks:'bullets'});
   for (let y=0.3; y<9.9; y+=0.3) b.add([-3.91,y,-31.45],[-3.83,y+0.06,-30.55],'metal',{look:'roof.metal',blocks:'bullets'});
   buildBlue(b);
+  buildBackyardHouse(b);
   buildMain(b);
   buildAngledArcade(b);
   buildShop(b);
@@ -807,6 +836,7 @@ export function buildCrash(): MapDefinition {
     nav:{area:BOUNDARY,spacing:2,ceiling:12,hints:[
       ...towerHints(),
       ...blueHints(),
+      ...([[-24,0,-7],[-24,0,-12],[-24,0,-19],[-24,0,-26]] as Vec3[]),
       ...mainHints(),
       ...shopHints(),
       ...([[27.55,0,-9],[26.2,3,-9],[24,3,-9]] as Vec3[]),

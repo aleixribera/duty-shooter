@@ -42,12 +42,20 @@ describe('Crash', () => {
   it('places the landmarks around the wreck as in the original overhead', () => {
     const wreck = map.models!.placements.find(p => p.asset === 'helicopter')!;
     expect(LANDMARKS.blue.x1).toBeLessThan(wreck.position[0]);
+    expect(LANDMARKS.backyardHouse.z1).toBeLessThan(LANDMARKS.blue.z0);
     expect(LANDMARKS.main.x0).toBeGreaterThan(wreck.position[0]);
     expect(LANDMARKS.tower.z1).toBeLessThan(wreck.position[2]);
     expect(LANDMARKS.arcade.z0).toBeGreaterThan(wreck.position[2]);
     expect(LANDMARKS.shop.x0).toBeGreaterThan(LANDMARKS.main.x0);
     const middle = map.zones.find(zone => zone.id === 'B')!;
     expect(Math.hypot(middle.center[0]-wreck.position[0],middle.center[2]-wreck.position[2])).toBeLessThan(1);
+  });
+  it('keeps the backyard route open beside the new west façade', () => {
+    expect(raycastWorld(world,[-25,1.5,-17.5],[-30,1.5,-17.5])?.material).toBe('concrete');
+    const m=createHeadlessMatch({solids,players:[{id:'p',team:1,position:[-24,0,-7],yaw:0}]});
+    let out=m.step({p:usercmd({yaw:0})}).players[0]!;
+    for (let i=0;i<600 && out.position[2]>-24;i++) out=m.step({p:usercmd({yaw:0,forward:1})}).players[0]!;
+    expect(out.position[2],String(out.position)).toBeLessThan(-24);
   });
   it('makes the tree trunk solid without giving its leaves invisible collision', () => {
     const trunk = map.models!.placements.find(p => p.asset === 'tree-trunk')!;
@@ -475,7 +483,7 @@ describe('Crash', () => {
       const self=out.players[0]!;
       out=sim.step({b:bot.think({tick:out.tick,time:sim.time,self,players:out.players,events:out.events,isEnemy:()=>false})});
       climbedByLadder ||= out.players[0]!.movement === 'ladder';
-      if (out.players[0]!.position[1]>2.95 && out.players[0]!.position[0]<26.5) { climbed=true; break; }
+      if (out.players[0]!.position[1]>2.95 && out.players[0]!.position[0]<25.3) { climbed=true; break; }
     }
     expect(climbedByLadder).toBe(true);
     expect(climbed,`climb: ${out.players[0]!.position}`).toBe(true);
@@ -487,5 +495,23 @@ describe('Crash', () => {
       if (out.players[0]!.position[1]<0.1 && out.players[0]!.position[0]>27.5) { descended=true; break; }
     }
     expect(descended,`descent: ${out.players[0]!.position}`).toBe(true);
+  },30_000);
+  it('does not return to the ladder foot after attaching before the exact nav node', () => {
+    const {nav}=botMap(map,BOUNDARY);
+    const w=createWorld(solids,{ladders:map.ladders!});
+    const sim=new Simulation(w);
+    sim.addPlayer({id:'b',team:1,position:[27.95,0,-8.9],yaw:Math.PI/2});
+    const bot=new Bot('b',botProfile('Kestrel'),nav,w);
+    let out=sim.output(), attached=false;
+    bot.goTo([24,3,-9]);
+    for (let i=0;i<20/TICK_SECONDS;i++) {
+      const self=out.players[0]!;
+      out=sim.step({b:bot.think({tick:out.tick,time:sim.time,self,players:out.players,events:out.events,isEnemy:()=>false})});
+      attached ||= out.players[0]!.movement==='ladder';
+      if (out.players[0]!.position[1]>2.95 && out.players[0]!.position[0]<25.3) break;
+    }
+    expect(attached).toBe(true);
+    expect(out.players[0]!.position[1],`${out.players[0]!.position} ${out.players[0]!.movement} ${JSON.stringify(bot.route)}`).toBeCloseTo(3,1);
+    expect(out.players[0]!.position[0]).toBeLessThan(25.3);
   },30_000);
 });
