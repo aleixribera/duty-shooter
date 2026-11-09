@@ -26,6 +26,8 @@ export interface Lighting {
   readonly ground: Vec3;
   /** How much the ambient of everything lit by the probes is raised (1 if unset): models, soldiers, props. A probe averages the dark ground in, so under a deep sky they read darker than the baked walls beside them. */
   readonly modelFill?: number;
+  /** How much of the sky is cloud, 0 (clear) to 1 (overcast); 0.45 if unset. Drawn only: the bake and the probes keep the plain sky. */
+  readonly cloudCover?: number;
 }
 
 /**

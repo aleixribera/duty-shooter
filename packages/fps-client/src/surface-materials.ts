@@ -88,6 +88,9 @@ type N4 = Node<'vec4'>;
  * The current map's sun and sky, as uniforms every material reads, so a map
  * with its own light (Switchyard's dusk) relights them all; see useLighting.
  */
+/** The cloud a map's sky has when its light doesn't say. */
+const DEFAULT_CLOUD_COVER = 0.45;
+
 const light = {
   sunDirection: uniform(new Vector3(...LIGHTING.sunDirection)),
   sunColor: uniform(new Vector3(...LIGHTING.sunColor)),
@@ -98,6 +101,8 @@ const light = {
   ground: uniform(new Vector3(...LIGHTING.ground)),
   /** How thick the distance haze is, 1 normally: thinner for a camera high over the island, where the air below is clear. */
   haze: uniform(1),
+  /** How much of the sky is cloud, 0 to 1. */
+  cloudCover: uniform(LIGHTING.cloudCover ?? DEFAULT_CLOUD_COVER),
 };
 let current: Lighting = LIGHTING;
 
@@ -111,6 +116,7 @@ export function useLighting(lighting: Lighting): void {
   light.skyHorizon.value.set(...lighting.skyHorizon);
   light.skyIntensity.value = lighting.skyIntensity;
   light.ground.value.set(...lighting.ground);
+  light.cloudCover.value = lighting.cloudCover ?? DEFAULT_CLOUD_COVER;
 }
 
 /** Thins (below 1) or restores (1) the distance haze for every world material; a uniform, so no shader rebuilds. */
@@ -123,6 +129,8 @@ export function currentLighting(): Lighting {
   return current;
 }
 
+/** How much of the sky is cloud, as a node. */
+export const cloudCover = light.cloudCover as unknown as N;
 /** Toward the sun, as a node. */
 export const sunDir = light.sunDirection as unknown as N3;
 /** The sun's colour times its strength, as a node. */
@@ -530,7 +538,7 @@ export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
       // Where render has come away, the brickwork's relief; its courses are 20% bigger than a brick wall's.
       relief.assign(exposed ? (mix(read, reliefAt('brick', st.mul(1.8 / 2.16) as N2), exposed) as N3) : read);
       // Open ground's stones and cracks are in the relief: dirt lies in the low places, stone stands pale.
-      if (HEX_FAMILIES.has(finish.family)) a.assign(a.mul(mix(float(0.5), float(1.22), smoothstep(float(0.12), float(0.62), read.z))));
+      if (HEX_FAMILIES.has(finish.family)) a.assign(a.mul(mix(float(0.74), float(1.1), smoothstep(float(0.12), float(0.62), read.z))));
     }
     return vec4(a, 1);
   })();

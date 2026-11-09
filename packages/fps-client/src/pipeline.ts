@@ -1,4 +1,4 @@
-import { Fn, Loop, clamp, dot, float, getViewPosition, length, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { Fn, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
 import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
@@ -21,7 +21,7 @@ const MAX_MEGAPIXELS = 3.7;
  * far off, so near things never smear into the distance round their edges.
  * Two extra texture reads a pixel.
  */
-function shimmer(image: TextureNode, depth: TextureNode, camera: PerspectiveCamera): Node<'vec4'> {
+function shimmer(depth: TextureNode, camera: PerspectiveCamera): Node<'vec2'> {
   const projectionInverse = uniform(camera.projectionMatrixInverse);
   const view = uniform(camera.matrixWorldInverse);
   const up = view.mul(vec4(0, 1, 0, 0)).xyz;
@@ -36,7 +36,29 @@ function shimmer(image: TextureNode, depth: TextureNode, camera: PerspectiveCame
   const t = time;
   const wave = vec2(sin(screenUV.y.mul(700).add(t.mul(6))).mul(0.0009), sin(screenUV.x.mul(300).sub(t.mul(4))).mul(0.0004));
   const shifted = screenUV.add(wave.mul(heat(screenUV)));
-  return image.sample(mix(screenUV, shifted, step(float(0.5), heat(shifted)))) as unknown as Node<'vec4'>;
+  return mix(screenUV, shifted, step(float(0.5), heat(shifted))) as unknown as Node<'vec2'>;
+}
+
+/** How much of the difference between a pixel and its neighbours is added back to it. */
+const SHARPEN = 0.5;
+const LUMA = vec3(0.2126, 0.7152, 0.0722);
+
+/**
+ * The frame read at `at`, with the softness temporal AA leaves taken back out:
+ * each pixel is pushed away from the mean of its four neighbours, less where
+ * that mean is bright (the sun's edge, a muzzle flash), so nothing rings.
+ */
+function sharpened(image: TextureNode, at: Node<'vec2'>): Node<'vec3'> {
+  const px = vec2(1, 1).div(screenSize);
+  const here = image.sample(at).rgb;
+  const around = image
+    .sample(at.add(vec2(px.x, 0)))
+    .rgb.add(image.sample(at.sub(vec2(px.x, 0))).rgb)
+    .add(image.sample(at.add(vec2(0, px.y))).rgb)
+    .add(image.sample(at.sub(vec2(0, px.y))).rgb)
+    .mul(0.25);
+  const calm = float(1).div(dot(around, LUMA).add(1));
+  return max(here.add(here.sub(around).mul(calm.mul(SHARPEN))), vec3(0)) as unknown as Node<'vec3'>;
 }
 
 /** The sun shafts' picture (pixels: small, whatever the screen, since they have no edges), and how many reads each of its pixels takes toward the sun. */
@@ -71,14 +93,20 @@ function shafts(image: TextureNode, sun: Node<'vec2'>): Node<'float'> {
 
 /**
  * The film look, on the frame before tone mapping: sun-warmed lights over cool
- * shadows, a little more colour, and the corners falling away.
+ * shadows, the loudest colours reined in so paint and grass sit in the same
+ * light as everything else, the corners falling away, and a grain too fine to
+ * see that keeps the sky's slow gradients from banding.
  */
 function filmLook(c: Node<'vec3'>): Node<'vec3'> {
-  const luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  const tinted = mix(c.mul(vec3(0.97, 0.97, 1.03)), c.mul(vec3(1.1, 1.0, 0.85)), smoothstep(float(0.03), float(0.6), luma));
-  const rich = mix(vec3(luma), tinted, float(1.16));
+  const luma = dot(c, LUMA);
+  const tinted = mix(c.mul(vec3(0.96, 0.99, 1.05)), c.mul(vec3(1.06, 1.0, 0.9)), smoothstep(float(0.03), float(0.7), luma));
+  const top = max(max(tinted.r, tinted.g), tinted.b);
+  const loud = top.sub(min(min(tinted.r, tinted.g), tinted.b)).div(top.add(1e-4));
+  const rich = mix(vec3(luma), tinted, float(1.1).sub(smoothstep(float(0.45), float(1), loud).mul(0.22)));
   const edge = length(screenUV.sub(0.5).mul(vec2(1, 0.7)));
-  return rich.mul(float(1).sub(smoothstep(float(0.38), float(0.78), edge).mul(0.3))) as unknown as Node<'vec3'>;
+  const framed = rich.mul(float(1).sub(smoothstep(float(0.4), float(0.8), edge).mul(0.24)));
+  const grain = interleavedGradientNoise(screenCoordinate.xy.add(float(frameId).mod(8).mul(vec2(47, 17)))).sub(0.5);
+  return max(framed.mul(grain.mul(0.03).add(1)).add(grain.mul(0.0015)), vec3(0)) as unknown as Node<'vec3'>;
 }
 
 /**
@@ -158,7 +186,7 @@ export class GamePipeline {
     this.#owned.push(t);
     // The shimmer goes after the reprojection, so the two don't fight. (The types leave out TRAA's texture node.)
     const image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();
-    const color = shimmer(image, depth, camera);
+    const color = sharpened(image, shimmer(depth, camera));
     // The viewmodel is small and close: under temporal AA, 4x MSAA on its own pass keeps its edges clean.
     const viewPass = pass(view, viewCamera, { samples: 4 });
     this.#owned.push(viewPass);
@@ -169,11 +197,11 @@ export class GamePipeline {
     const vm = viewPass.getTextureNode('output');
     const beams = rtt(clamp(shafts(image, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
     this.#owned.push(beams);
-    const beamed = color.rgb.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH));
+    const beamed = color.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH));
     const over = vec4(mix(beamed, vm.rgb, vm.a), 1);
     // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
     const c = filmLook(over.rgb as never);
-    const luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    const luma = dot(c, LUMA);
     const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
     const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
     const composite = vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);

@@ -110,7 +110,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   deck: { family: 'floor', color: 0x8f6a4a, accent: 0x6c4f37 },
   walk: { family: 'concrete', color: 0xc4bfb4, accent: 0x99948a },
   'garage.floor': { family: 'concrete', color: 0xa6a198, accent: 0x86827a },
-  lawn: { family: 'grass', color: 0x7a9a4c, accent: 0xa4ad58 },
+  lawn: { family: 'grass', color: 0x768a42, accent: 0xa09c5e },
   street: { family: 'asphalt', color: 0x47494c },
   desert: { family: 'sand', color: 0xc9a87c },
   brick: { family: 'brick', color: 0xa4573f, accent: 0xd2c8b8 },

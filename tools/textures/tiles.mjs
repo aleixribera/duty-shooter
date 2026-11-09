@@ -233,27 +233,36 @@ function noise(size) {
 }
 
 /**
- * The sky's cloud (RGB: density, how deep into a bank, unused): heaps of round
- * billows over wide banks, so a cloud has a cauliflower edge and a heavy middle.
+ * The sky's cloud. R: the heaps' density, soft shapes with billowed edges. G:
+ * the weather, where banks gather and where the sky stays open. B: fine
+ * billows, which eat into a cloud's edge and leave its middle alone.
  */
 function clouds(size) {
   const out = new Uint8Array(size * size * 3);
+  const remap = (x, a, b) => clamp((x - a) / (b - a));
+  const billows = (u, v, cells, octaves, seed) => {
+    let sum = 0;
+    let amplitude = 0.5;
+    let total = 0;
+    for (let o = 0; o < octaves; o++) {
+      sum += (1 - clamp(worley(u, v, cells << o, seed + o * 7).f1 * 1.15)) * amplitude;
+      total += amplitude;
+      amplitude *= 0.5;
+    }
+    return sum / total;
+  };
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const [u, v] = [(x + 0.5) / size, (y + 0.5) / size];
-      const bank = fbm(u, v, 3, 4, 201);
-      let billows = 0;
-      let amplitude = 0.5;
-      let total = 0;
-      for (let o = 0; o < 5; o++) {
-        const round = 1 - clamp(worley(u, v, 5 << o, 210 + o * 7).f1);
-        billows += round * round * amplitude;
-        total += amplitude;
-        amplitude *= 0.52;
-      }
-      billows /= total;
-      out[(y * size + x) * 3] = Math.round(clamp(bank * 0.75 + billows * 0.62 - 0.08) * 255);
-      out[(y * size + x) * 3 + 1] = Math.round(clamp((bank - 0.3) * 2.2) * 255);
+      // Bent a little, so no shape follows the lattice it was drawn on.
+      const wu = u + (fbm(u, v, 4, 3, 231) - 0.5) * 0.07;
+      const wv = v + (fbm(u, v, 4, 3, 232) - 0.5) * 0.07;
+      const soft = fbm(wu, wv, 4, 6, 201);
+      const heaped = billows(wu, wv, 6, 4, 210);
+      const i = (y * size + x) * 3;
+      out[i] = Math.round(remap(soft, (1 - heaped) * 0.5, 0.92) * 255);
+      out[i + 1] = Math.round(clamp((fbm(u, v, 2, 3, 240) - 0.5) * 1.7 + 0.5) * 255);
+      out[i + 2] = Math.round(billows(wu, wv, 20, 3, 250) * 255);
     }
   }
   return out;
@@ -442,10 +451,13 @@ export function writeWebp(name, bytes, width, height, { channels = 3, bits = 2 }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  for (const [name, tile] of Object.entries(TILES)) writeWebp(name, relief(tile), SIZE, SIZE);
-  writeWebp('trim', relief({ metres: [1, 1], depth: 0.03, height: trimHeight }), SIZE, SIZE);
-  writeWebp('noise', noise(256), 256, 256, { bits: 1 });
-  writeWebp('clouds', clouds(1024), 1024, 1024, { bits: 2 });
-  writeWebp('rooms', rooms(), ROOM * 4, ROOM * 2, { bits: 3 });
-  writeWebp('grime', grime(), GRIME * 4, GRIME, { bits: 3 });
+  // Names on the command line paint only those pictures; none paints them all.
+  const only = process.argv.slice(2);
+  const wanted = (name) => only.length === 0 || only.includes(name);
+  for (const [name, tile] of Object.entries(TILES)) if (wanted(name)) writeWebp(name, relief(tile), SIZE, SIZE);
+  if (wanted('trim')) writeWebp('trim', relief({ metres: [1, 1], depth: 0.03, height: trimHeight }), SIZE, SIZE);
+  if (wanted('noise')) writeWebp('noise', noise(256), 256, 256, { bits: 1 });
+  if (wanted('clouds')) writeWebp('clouds', clouds(1024), 1024, 1024, { bits: 1 });
+  if (wanted('rooms')) writeWebp('rooms', rooms(), ROOM * 4, ROOM * 2, { bits: 3 });
+  if (wanted('grime')) writeWebp('grime', grime(), GRIME * 4, GRIME, { bits: 3 });
 }
