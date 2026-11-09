@@ -40,7 +40,8 @@ import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
-import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, surfaceMaterial, useLighting } from './surface-materials';
+import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
+import { buildSkyField } from './sky-field';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
@@ -372,6 +373,8 @@ export class WorldView {
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
     useLighting(content.lighting ?? LIGHTING);
+    // A map on terrain has no bake: its sky field lights it instead (far shadows, and how much sky each place sees).
+    useSkyField(content.terrain ? buildSkyField(content.terrain, content.solids, (content.lighting ?? LIGHTING).sunDirection) : null);
     scene.backgroundNode = cloudySky(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     scene.environment = reflections(renderer, content.lighting ?? LIGHTING);
@@ -465,6 +468,7 @@ export class WorldView {
       size.value.set(file.width, file.height);
       baked.ready.value = 1;
       this.probes.load(file);
+      useSkyField(null);
     });
 
     for (const [i, b] of content.solids.entries()) {
@@ -654,6 +658,7 @@ export class WorldView {
     const t = SHADOW_TEXEL;
     const at = x.multiplyScalar(Math.round(p.dot(x) / t) * t).add(y.multiplyScalar(Math.round(p.dot(y) / t) * t)).add(z.clone().multiplyScalar(p.dot(z)));
     this.#shadowCentre.value.set(at.x, at.z);
+    setShadowReach(at.x, at.z, this.#shadowRadius.value);
     this.#sun.target.position.copy(at);
     this.#sun.position.copy(at).addScaledVector(z, 100);
     this.#sun.target.updateMatrixWorld();

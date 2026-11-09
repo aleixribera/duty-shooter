@@ -50,6 +50,9 @@ import {
   DoubleSide,
   Data3DTexture,
   DataTexture,
+  DataUtils,
+  HalfFloatType,
+  Vector2,
   type DirectionalLight,
   LightingModel,
   LinearFilter,
@@ -66,6 +69,7 @@ import {
 import type { Node } from 'three/webgpu';
 import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
 import { roomColor } from './surface-room';
+import type { SkyField } from './sky-field';
 import { CLIFF_LAYER, GROUND_LAYERS, groundLayerIndex, groundTextures } from './ground-layers';
 import { atlasAt, detailNormal, FAMILY_DEPTH, FAMILY_TILE, gradients, HEX_FAMILIES, hexRelief, noiseAt, parallax, reliefAt } from './surface-tiles';
 
@@ -129,6 +133,84 @@ export function setHaze(scale: number): void {
 /** The light the world is drawn in now. */
 export function currentLighting(): Lighting {
   return current;
+}
+
+/**
+ * The map's sky field (see sky-field.ts), for a map on terrain with no bake: where its picture lies, and the
+ * realtime shadow map's reach, inside which the field leaves the near casters to it. Off on any other map.
+ */
+const field = {
+  map: texture(placeholderField()),
+  origin: uniform(new Vector2(0, 0)),
+  size: uniform(new Vector2(1, 1)),
+  cell: uniform(1),
+  on: uniform(0),
+  reachCentre: uniform(new Vector2(0, 0)),
+  reachRadius: uniform(40),
+};
+
+function placeholderField(): DataTexture {
+  const t = new DataTexture(new Uint16Array(4), 1, 1, RGBAFormat, HalfFloatType);
+  // The sampler is set up from this texture and kept when the real one replaces it.
+  t.minFilter = t.magFilter = LinearFilter;
+  t.wrapS = t.wrapT = ClampToEdgeWrapping;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** Lights every world material by `sky` from now on, or by none (a map with a bake, or with no terrain). */
+export function useSkyField(sky: SkyField | null): void {
+  const old = field.map.value;
+  field.on.value = sky ? 1 : 0;
+  if (sky) {
+    const half = new Uint16Array(sky.data.length);
+    for (let i = 0; i < half.length; i++) half[i] = DataUtils.toHalfFloat(sky.data[i]!);
+    const t = new DataTexture(half, sky.columns, sky.rows, RGBAFormat, HalfFloatType);
+    t.minFilter = t.magFilter = LinearFilter;
+    t.wrapS = t.wrapT = ClampToEdgeWrapping;
+    t.generateMipmaps = false;
+    t.flipY = false;
+    t.needsUpdate = true;
+    field.map.value = t;
+    field.origin.value.set(sky.origin[0], sky.origin[1]);
+    field.size.value.set(sky.columns * sky.cell, sky.rows * sky.cell);
+    field.cell.value = sky.cell;
+  } else field.map.value = placeholderField();
+  old.dispose();
+}
+
+/** Where the realtime shadow map reaches now: its centre (x, z) and the radius it fully covers (m). */
+export function setShadowReach(x: number, z: number, radius: number): void {
+  field.reachCentre.value.set(x, z);
+  field.reachRadius.value = radius;
+}
+
+/** How deep under a shadow's top (m) a point is still lit, and over how much more it goes dark: far off, and near the player. */
+const SHADE_FAR = [0.35, 1.2] as const;
+const SHADE_NEAR = [0.25, 1] as const;
+/** The most of the sky's light that what stands close over a point takes, and that the land round about takes; and how far under them (m) it is all taken. */
+const CLOSE_LOSS = 0.5;
+const CLOSE_UNDER = [0.15, 4] as const;
+const WIDE_LOSS = 0.3;
+const WIDE_UNDER = [1.5, 24] as const;
+/** How far out along its normal (field cells) a surface reads the field: a wall reads the air in front of it, not its own solid. */
+const FIELD_PUSH = 1.25;
+
+/**
+ * What the sky field says of the fragment (1 and 1 on a map without one): how much of the sun reaches it past
+ * what the realtime shadow map doesn't hold, and how much of the sky it sees. `n` is the surface's normal, or
+ * null for what has none worth the name (leaves).
+ */
+function skyLight(n: N3 | null): { sun: N; open: N } {
+  const p = positionWorld as unknown as N3;
+  const at = n ? (p.xz.add(n.xz.mul(field.cell.mul(FIELD_PUSH))) as N2) : (p.xz as N2);
+  const v = field.map.sample(at.sub(field.origin).div(field.size) as never) as unknown as N4;
+  const lit = (top: N, [from, over]: readonly [number, number]) => float(1).sub(smoothstep(float(from), float(from + over), top.sub(p.y))) as N;
+  const near = float(1).sub(smoothstep(field.reachRadius.mul(0.8), field.reachRadius, length(p.xz.sub(field.reachCentre))));
+  const sun = mix(lit(v.x, SHADE_FAR), lit(v.w, SHADE_NEAR), near);
+  const under = (top: N, [from, to]: readonly [number, number]) => smoothstep(float(from), float(to), top.sub(p.y)) as N;
+  const open = float(1).sub(under(v.y, CLOSE_UNDER).mul(CLOSE_LOSS)).mul(float(1).sub(under(v.z, WIDE_UNDER).mul(WIDE_LOSS)));
+  return { sun: mix(float(1), sun, field.on) as N, open: mix(float(1), open, field.on) as N };
 }
 
 /** How much of the sky is cloud, as a node. */
@@ -519,11 +601,13 @@ class BakedLightingModel extends LightingModel {
     // Within the shadow map's reach, the realtime shadow alone decides the sun; beyond it, the bake does.
     const reach = this.#baked.shadowRadius;
     const near = float(1).sub(smoothstep(reach.mul(0.8), reach, length(positionWorld.xz.sub(this.#baked.shadowCentre))));
-    const baked = mix(facing, lm.a, ready);
+    // With no bake (a map on terrain), the sky field stands in for it: the far shadows, and how much sky is seen.
+    const field = skyLight(n);
+    const baked = mix(facing, lm.a, ready).mul(field.sun);
     // The bake and the shadow are for the flat face; the relief leans it toward the sun or away, by the ratio of the two.
     const lean = this.#relief ? max(dot(lit, sunDir), float(0)).div(max(facing, float(0.2))) : float(1);
     const sunTerm = mix(baked, facing, near.mul(ready)).mul(this.#mask).mul(lean);
-    const sky = mix(vec3(0.42, 0.44, 0.47), decode(lm.rgb as N3), ready);
+    const sky = mix(vec3(0.42, 0.44, 0.47), decode(lm.rgb as N3), ready).mul(field.open);
     const shaded = this.#relief ? sky.mul(float(1).add(lit.y.sub(n.y).mul(SKY_LEAN))).mul(mix(float(1 - CREVICE), float(1), this.#relief.open)) : sky;
     const diffuse = this.#albedo.mul(shaded.add(sunColor.mul(sunTerm)).add(this.#point));
     const v = normalize(cameraPosition.sub(positionWorld)) as unknown as N3;
@@ -623,8 +707,9 @@ class OpenGroundModel extends LightingModel {
     const context = builder.context as unknown as { outgoingLight: N3 };
     const n = this.#normal;
     const up = n.y.mul(0.5).add(0.5);
-    const sky = mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up);
-    const sun = sunColor.mul(max(dot(n, sunDir), float(0)).mul(this.#mask));
+    const field = skyLight(normalWorld as unknown as N3);
+    const sky = mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up).mul(field.open);
+    const sun = sunColor.mul(max(dot(n, sunDir), float(0)).mul(this.#mask).mul(field.sun));
     const lit = this.#albedo.mul(sky.add(sun).add(this.#point));
     context.outgoingLight.assign(haze((this.#glow ? lit.add(this.#glow) : lit) as N3));
   }
@@ -688,10 +773,11 @@ class FoliageModel extends LightingModel {
     const context = builder.context as unknown as { outgoingLight: N3 };
     const n = this.#normal;
     const up = n.y.mul(0.5).add(0.5);
-    const sky = max(mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up), LEAF_SKY_FLOOR);
+    const field = skyLight(null);
+    const sky = max(mix(vec3(0.16, 0.16, 0.2) as unknown as N3, (light.skyZenith as unknown as N3).mul(1.4).add(0.2), up).mul(field.open), LEAF_SKY_FLOOR);
     const wrapped = max(dot(n, sunDir).add(LEAF_WRAP).div(1 + LEAF_WRAP), float(0));
     const towardSun = pow(max(dot(normalize(positionWorld.sub(cameraPosition)) as unknown as N3, sunDir), float(0)), float(3));
-    const sun = sunColor.mul(wrapped.add(towardSun.mul(LEAF_TRANSLUCENCY)).mul(this.#mask));
+    const sun = sunColor.mul(wrapped.add(towardSun.mul(LEAF_TRANSLUCENCY)).mul(this.#mask).mul(field.sun));
     context.outgoingLight.assign(haze(this.#albedo.mul(sky.add(sun).add(this.#point)) as N3));
   }
 }
@@ -971,6 +1057,8 @@ class ProbeLightingModel extends PhysicalLightingModel {
   readonly #probes: ProbeField;
   readonly #sun: () => DirectionalLight;
   readonly #reach: { centre: N2; radius: N };
+  /** The sky field at the fragment, read once for the sun and the sky both. */
+  #field: { sun: N; open: N } | null = null;
 
   constructor(probes: ProbeField, sun: () => DirectionalLight, reach: { centre: N2; radius: N }) {
     super();
@@ -979,18 +1067,22 @@ class ProbeLightingModel extends PhysicalLightingModel {
     this.#reach = reach;
   }
 
+  get #sky(): { sun: N; open: N } {
+    return (this.#field ??= skyLight(normalWorld as unknown as N3));
+  }
+
   override direct(input: Parameters<PhysicalLightingModel['direct']>[0], builder: NodeBuilder): void {
     const light = (input.lightNode as unknown as { light?: unknown }).light;
     if (light === this.#sun()) {
       const near = float(1).sub(smoothstep(this.#reach.radius.mul(0.8), this.#reach.radius, length(positionWorld.xz.sub(this.#reach.centre))));
-      input = { ...input, lightColor: (input.lightColor as unknown as N3).mul(mix(this.#probes.sun(), float(1), near)) as never };
+      input = { ...input, lightColor: (input.lightColor as unknown as N3).mul(mix(this.#probes.sun(), float(1), near)).mul(this.#sky.sun) as never };
     }
     super.direct(input, builder);
   }
 
   override indirect(builder: NodeBuilder): void {
     const context = builder.context as unknown as { irradiance: N3 };
-    context.irradiance.addAssign(this.#probes.ambient().mul(Math.PI * (currentLighting().modelFill ?? 1)));
+    context.irradiance.addAssign(this.#probes.ambient().mul(this.#sky.open).mul(Math.PI * (currentLighting().modelFill ?? 1)));
     super.indirect(builder);
   }
 
