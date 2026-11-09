@@ -52,8 +52,8 @@ wood_dark = rk.mat("nc.wooddark", (70, 50, 36), "plank", 0.8)
 fabric = rk.mat("nc.fabric", (92, 40, 64), None, 0.95)
 card = rk.mat("nc.card", (156, 120, 82), None, 0.95)
 shutter = rk.mat("nc.shutter", (120, 124, 126), "tin", 0.6, 0.4)
-crate_blue = rk.mat("nc.crateblue", (40, 88, 150), None, 0.6)
-crate_red = rk.mat("nc.cratered", (160, 44, 40), None, 0.6)
+crate_blue = rk.mat("nc.crateblue", (66, 98, 130), None, 0.6)
+crate_red = rk.mat("nc.cratered", (146, 64, 52), None, 0.6)
 hazard = rk.mat("nc.hazard", (214, 170, 40), "plate", 0.6, 0.1)
 
 # Light: windows warm and cold, sodium lamps, and the tubes.
@@ -77,11 +77,11 @@ SCREEN = [
     rk.mat("nc.screenwhite", (230, 230, 240), None, 0.3, glow=(0.8, 0.8, 0.9)),
 ]
 PAINT = [
-    rk.mat("nc.paintred", (150, 40, 40), "steel", 0.5, 0.3),
-    rk.mat("nc.paintblue", (40, 64, 120), "steel", 0.5, 0.3),
+    rk.mat("nc.paintred", (130, 66, 54), "steel", 0.5, 0.3),
+    rk.mat("nc.paintblue", (76, 90, 110), "steel", 0.5, 0.3),
     rk.mat("nc.paintgrey", (150, 150, 146), "steel", 0.5, 0.3),
     rk.mat("nc.paintblack", (36, 36, 40), "steel", 0.5, 0.3),
-    rk.mat("nc.paintyellow", (200, 160, 50), "steel", 0.5, 0.3),
+    rk.mat("nc.paintyellow", (184, 156, 86), "steel", 0.5, 0.3),
 ]
 GRAFFITI = [
     rk.mat("nc.tagpink", (200, 60, 140), None, 0.8),

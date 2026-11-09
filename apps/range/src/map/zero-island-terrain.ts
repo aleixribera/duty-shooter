@@ -301,7 +301,7 @@ const SURFACES = {
   rock: ['dirt', 0x8e5a3a, 'rock'],
   snow: ['dirt', 0xdfe6ee, 'snow'],
   ice: ['gravel', 0x8e9eae, 'ice'],
-  jungle: ['grass', 0x2f5a3b, 'jungle'],
+  jungle: ['grass', 0x4b5a2e, 'jungle'],
   ash: ['dirt', 0x7a7063, 'ash'],
   city: ['asphalt', 0x5c5b66, 'asphalt'],
   dock: ['concrete', 0x77766f, 'dock'],
