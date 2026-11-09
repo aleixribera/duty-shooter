@@ -54,7 +54,7 @@ describe('the Ring wall’s foot glow', () => {
 describe('the Ring wall in front of the sun (ticket 53)', () => {
   // The frame's bloom takes light past 1.6 for a highlight, and the sun shafts take the sky past 2.5 for the sun.
   const BLOOM_FROM = 1.6;
-  // The wall's crackle at its usual brightest (the hot colour's luminance, 0.65, times a filament's 1.4), over its sheet's usual light.
+  // The wall's arcs at their brightest (the hot colour's luminance, 0.65, times an arc's 1.3, and its halo), over the curtain's usual light.
   const DETAIL = 0.91;
   const SHEET = 0.3;
 
@@ -66,7 +66,7 @@ describe('the Ring wall in front of the sun (ticket 53)', () => {
     for (let s = 0; s < 3; s += 0.05) expect(detailOver(s + 0.05)).toBeLessThanOrEqual(detailOver(s));
   });
 
-  it('never lifts the sky behind it into a highlight: the crackle can’t make the sun’s glow flicker', () => {
+  it('never lifts the sky behind it into a highlight: the arcs can’t make the sun’s glow flicker', () => {
     // Wherever the sky and the sheet are short of a highlight, the detail doesn't make one.
     for (let s = 0; s + SHEET < BLOOM_FROM; s += 0.02) expect(s + SHEET + DETAIL * detailOver(s)).toBeLessThan(BLOOM_FROM);
   });
