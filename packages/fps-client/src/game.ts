@@ -323,7 +323,7 @@ export class Game {
     options.renderer.toneMappingExposure = 0.7;
     options.renderer.shadowMap.enabled = true;
     this.#worldView = new WorldView(options.renderer, options.content, options.bake);
-    this.#viewmodel = new Viewmodel(this.#worldView.scene.environment);
+    this.#viewmodel = new Viewmodel(this.#worldView.scene.environment, options.content.lighting);
     this.#effects = new Effects(this.#worldView.scene, options.world, options.content.fires);
     this.#tracers = new Tracers(this.#worldView.scene, options.world);
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });

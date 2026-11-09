@@ -3,6 +3,7 @@ import { DirectionalLight, Euler, Group, HemisphereLight, Object3D, PerspectiveC
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attachAuthoredM4, disposeAuthored } from './authored-m4a1';
 import { Spring } from '../spring';
+import { LIGHTING, type Lighting } from '../surfaces/lighting';
 import { buildArms, type ArmsModel } from './arms';
 import { buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, type M4A1Model } from './m4a1';
@@ -374,9 +375,21 @@ export class Viewmodel {
   #sunLight = 1;
   #ambientLight = 1;
 
-  constructor(environment: Texture | null = null) {
+  /** `lighting` is the map's light: the gun's own lights take its colours, so the gun belongs to the place it is held in. */
+  constructor(environment: Texture | null = null, lighting: Lighting = LIGHTING) {
     this.scene.environment = environment;
     this.scene.environmentIntensity = ENVIRONMENT;
+    // Each colour at full brightness (the strengths are the rig's own), and part-way to white: a gun wholly the colour of an orange sun reads as a filter over the picture.
+    const tint = (c: readonly [number, number, number], by: number): [number, number, number] => {
+      const peak = Math.max(c[0], c[1], c[2], 1e-3);
+      return [1 + (c[0] / peak - 1) * by, 1 + (c[1] / peak - 1) * by, 1 + (c[2] / peak - 1) * by];
+    };
+    const horizon = lighting.skyHorizon;
+    const zenith = lighting.skyZenith;
+    this.#key.color.setRGB(...tint(lighting.sunColor, 0.8));
+    this.#fill.color.setRGB(...tint([horizon[0] + zenith[0], horizon[1] + zenith[1], horizon[2] + zenith[2]], 0.6));
+    this.#fill.groundColor.setRGB(...tint(lighting.ground, 0.7)).multiplyScalar(0.3);
+    this.#rim.color.setRGB(...tint(zenith, 0.5));
     this.scene.add(this.#fill);
     this.#key.position.set(-0.6, 1, 0.4);
     this.#rim.position.set(0.8, 0.3, -1);

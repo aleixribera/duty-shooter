@@ -32,9 +32,11 @@ import {
   pow,
   property,
   reflect,
+  sign,
   sin,
   smoothstep,
   sqrt,
+  step,
   texture,
   texture3D,
   uniform,
@@ -165,13 +167,41 @@ export function skyNode(d: N3): N3 {
   return mix(ground, base.add(glow), smoothstep(float(-0.04), float(0.02), d.y)) as N3;
 }
 
-/** Distance haze: far surfaces fade toward the horizon colour. */
+/** How fast the haze thins with height (per metre): it lies on the ground, so a peak stands clear of it and a camera high up looks down through little. */
+const HAZE_FALLOFF = 0.011;
+
+/**
+ * Distance haze: far things fade toward the horizon colour, by how much air
+ * lies along the look. The air is thickest at the ground (y = 0) and thins
+ * upward, so the sum along a look that climbs is less than along a level one.
+ */
 export function haze(lit: N3): N3 {
-  const dist = length(positionWorld.sub(cameraPosition));
-  const k = float(1).sub(exp(dist.mul(-0.0035).mul(light.haze)));
+  const ray = positionWorld.sub(cameraPosition);
+  const dist = length(ray);
+  const climb = ray.y.mul(HAZE_FALLOFF);
+  // (1 - e^-x) / x, the mean thickness along the climb; 1 on a level look.
+  const steep = max(abs(climb), float(1e-3)).mul(sign(climb).add(step(abs(climb), float(0))));
+  const mean = float(1).sub(exp(steep.negate())).div(steep);
+  const air = dist.mul(0.0035).mul(light.haze).mul(exp(max(cameraPosition.y, float(0)).mul(-HAZE_FALLOFF))).mul(mean);
+  const k = float(1).sub(exp(air.negate()));
   // Dust in the air: thicker, and lit up, looking toward the sun.
-  const toSun = pow(max(dot(normalize(positionWorld.sub(cameraPosition)) as unknown as N3, sunDir), float(0)), float(4));
+  const toSun = pow(max(dot(normalize(ray) as unknown as N3, sunDir), float(0)), float(4));
   return mix(lit, horizonColor.add(sunColor.mul(toSun.mul(0.3))), k.mul(toSun.mul(0.4).add(0.45))) as N3;
+}
+
+/**
+ * The sky a shiny thing reflects: the air from horizon to zenith, the ground
+ * below, and the sun as a soft lobe (a hard one sparkles once it is blurred
+ * for rough metal).
+ */
+export function reflectedSky(d: N3): N3 {
+  const z = light.skyZenith as unknown as N3;
+  const h = light.skyHorizon as unknown as N3;
+  const base = mix(h, z, sqrt(max(d.y, float(0)))).mul(light.skyIntensity);
+  const toSun = max(dot(d, sunDir), float(0));
+  const lobe = sunColor.mul(pow(toSun, float(10)).mul(0.12).add(pow(toSun, float(180)).mul(1.4)));
+  const ground = (light.ground as unknown as N3).mul(0.9);
+  return mix(ground, base.add(lobe), smoothstep(float(-0.06), float(0.04), d.y)) as N3;
 }
 
 /** A 0..1 hash of a cell. */
@@ -962,6 +992,13 @@ class ProbeLightingModel extends PhysicalLightingModel {
     const context = builder.context as unknown as { irradiance: N3 };
     context.irradiance.addAssign(this.#probes.ambient().mul(Math.PI * (currentLighting().modelFill ?? 1)));
     super.indirect(builder);
+  }
+
+  /** Soldiers, models and props stand in the same air as the walls behind them. */
+  override finish(builder: NodeBuilder): void {
+    super.finish(builder as never);
+    const context = builder.context as unknown as { outgoingLight: N3 & { assign(v: Node): void } };
+    context.outgoingLight.assign(haze(context.outgoingLight));
   }
 }
 

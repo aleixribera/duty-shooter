@@ -3,6 +3,7 @@ import type { ChargeSite, Material, Solid, TerrainData, Vec3, Zone } from '@duty
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, positionWorldDirection, select, smoothstep, uniform } from 'three/tsl';
 import { Vector2 } from 'three/webgpu';
 import {
+  BackSide,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -28,7 +29,6 @@ import {
   type WebGPURenderer,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Plants, type Scatter, type SurfaceLayout } from './surfaces';
 import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
@@ -40,7 +40,7 @@ import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
-import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, surfaceMaterial, useLighting } from './surface-materials';
+import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, surfaceMaterial, useLighting } from './surface-materials';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
@@ -315,14 +315,31 @@ function labelMesh(label: WorldLabel): Mesh {
  * moving objects take theirs from its probe grid and the realtime sun, whose
  * shadows only they cast.
  */
-const reflectionMaps = new WeakMap<WebGPURenderer, Texture>();
+const reflectionMaps = new WeakMap<WebGPURenderer, WeakMap<Lighting, Texture>>();
+/** The sky as a room to reflect: one sphere, drawn with whatever light is current. */
+let skyRoom: Scene | null = null;
 
-/** The room every map reflects, the same for all of them, so made once. Slow enough that a page starting up does it on its own. */
-export function reflections(renderer: WebGPURenderer): Texture {
-  let map = reflectionMaps.get(renderer);
+/**
+ * What shiny things reflect under `lighting`: that map's own sky, sun and
+ * ground, blurred for rough metal. Made once for each light. The first is
+ * slow enough (its shaders) that a page starting up makes one on its own.
+ */
+export function reflections(renderer: WebGPURenderer, lighting: Lighting = LIGHTING): Texture {
+  let maps = reflectionMaps.get(renderer);
+  if (!maps) reflectionMaps.set(renderer, (maps = new WeakMap()));
+  let map = maps.get(lighting);
   if (!map) {
-    map = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-    reflectionMaps.set(renderer, map);
+    if (!skyRoom) {
+      const material = new MeshBasicNodeMaterial({ side: BackSide, depthWrite: false });
+      material.colorNode = reflectedSky(positionWorldDirection as never) as never;
+      skyRoom = new Scene();
+      skyRoom.add(new Mesh(new SphereGeometry(50, 32, 16), material));
+    }
+    const before = currentLighting();
+    useLighting(lighting);
+    map = new PMREMGenerator(renderer).fromScene(skyRoom, 0.03).texture;
+    useLighting(before);
+    maps.set(lighting, map);
   }
   return map;
 }
@@ -357,8 +374,8 @@ export class WorldView {
     useLighting(content.lighting ?? LIGHTING);
     scene.backgroundNode = cloudySky(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
-    scene.environment = reflections(renderer);
-    scene.environmentIntensity = 0.2;
+    scene.environment = reflections(renderer, content.lighting ?? LIGHTING);
+    scene.environmentIntensity = 0.3;
 
     this.#sun = this.#makeSun();
     this.follow([0, 0, 0]);
