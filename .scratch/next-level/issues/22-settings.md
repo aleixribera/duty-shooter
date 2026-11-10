@@ -1,6 +1,7 @@
 # Settings and quality tiers
 
-Status: open
+Status: resolved
+Release: v2.155.0
 
 Spec: `../spec.md`
 
@@ -49,3 +50,71 @@ Decisions:
 - **Colour-blind sets** change only the colours and keep each team's mark (◆ ▲ ▼), so meaning never rests on colour alone. The HUD changes at once. Soldiers already in the world change at the next map, and the Settings screen says so.
 - **HUD scale** is disabled on a screen narrower than 1000 px. The phone HUD has its own layout and the touch controls own the edges, and the row says so.
 - **Captions are on by default**: a caption costs nothing to a hearing player and is essential for one who can't hear.
+
+**Measured frame time per tier and map.** These come from the benchmark page's fly-through, run headless at 1920x1080 with dynamic resolution off, two rounds a map, with every tier flown in turn within a round. The machine is this PC: an RTX Blackwell on WebGPU. Scripts: `.scratch/next-level/settings/tiers.mjs`; raw numbers in `.scratch/next-level/settings/tiers/<map>.json`.
+
+While it ran, the PC was also carrying other sessions: about 55 % CPU load and 16 node processes, plus my own scripted browsers part of the time. Treat the averages as noisy. The median frame time (p50) is the steadiest figure. The 1 % lows are not given here: on a shared PC they measure the other sessions, not the tier (they ranged 8–120 ms at random).
+
+Each cell is the p50 frame time (both rounds' p50s averaged), then each round's average, then the GPU p50. Low renders 1344x756 (70 %), Medium 1632x918 (85 %), High and Ultra 1920x1080.
+
+| Map | Low | Medium | High | Ultra |
+|---|---|---|---|---|
+| Practice Range | 3.0 ms (avg 3.7, 3.0; GPU 0.22) | 4.1 ms (avg 4.6, 5.7; GPU 0.59) | 4.3 ms (avg 4.3, 5.0; GPU 1.09) | 4.6 ms (avg 4.4, 5.7; GPU 1.20) |
+| Survival Town | 2.8 ms (avg 3.0, 3.7; GPU 0.32) | 3.8 ms (avg 3.6, 5.7; GPU 0.77) | 5.0 ms (avg 6.0, 6.2; GPU 1.31) | 5.6 ms (avg 8.2, 6.4; GPU 1.52) |
+| Switchyard | 3.1 ms (avg 3.3, 3.7; GPU 0.35) | 4.5 ms (avg 5.6, 6.3; GPU 0.79) | 4.3 ms (avg 5.5, 4.4; GPU 1.40) | 5.3 ms (avg 5.6, 12.9; GPU 1.59) |
+| Crash | 3.0 ms (avg 4.0, 3.6; GPU 0.11) | 4.8 ms (avg 5.7, 6.8; GPU 0.30) | 6.0 ms (avg 6.1, 8.9; GPU 1.02) | 6.6 ms (avg 6.5, 8.8; GPU 1.51) |
+| Zero Island | 4.5 ms (avg 3.7, 6.3; GPU 0.59) | 7.5 ms (avg 7.0, 8.7; GPU 1.09) | 9.4 ms (avg 9.2, 10.3; GPU 1.72) | 10.8 ms (avg 10.2, 11.8; GPU 1.98) |
+
+What it shows:
+
+- **GPU time** roughly doubles at each step from Low to High, then rises another 10–15 % for Ultra. Ultra's 4096 shadow map and 16-sample AO cost little here because the frame is capped at 1080p; on a 4K window Ultra's 8.3 MP cap is what costs.
+- **Frame time** on this card is mostly CPU and submission: GPU time is a fifth of it.
+- **Zero Island** is the heaviest map at every tier.
+- **The tiers' pixel caps and scales** are what will matter on the integrated GPUs the tiers exist for. This PC can't show that; the benchmark page is how an owner's laptop gets measured (ticket 27).
+
+Screens of every tier on a map, side by side at 1920x1080: `.scratch/next-level/settings/tiers-survival-town.png` (the full frames) and `tiers-survival-town-detail.png` (crops: Low's FXAA aliasing on the tower rails and its softer shadow edge, Medium to Ultra's filtering).
+
+Earlier tier measurements: `.scratch/next-level/settings/tiers-first-pass/` holds a first pass from before the benchmark applied each tier's render scale, so every tier there drew at 1920x1080. It is kept for the record, not used above.
+
+Verified in the browser, with scripts under `.scratch/next-level/settings/` and shots alongside:
+
+- **Dynamic resolution under a forced load** (`dynres.mjs`): Ultra at 3x DPR with the pixel cap lifted (3840x2160 drawn) and a stated 144 Hz target. The scale fell from 100 % to 50 % within a second, then tried 55 % and 60 % after waits of about 2.6 s, 6.6 s and then about 15 s (the backoff), and sat at 50–55 % holding 140–170 fps against the 144 target. It never pumped. The FPS counter read "158 FPS · 55% res" (`dynres/fps-crop.png`).
+- **Invert Y** (`effects.mjs invert`): the same mouse move down gave pitch -0.184 rad off and +0.184 rad on.
+- **FOV effects**: sprinting widened the FOV from 58.72° to 61.06° at 100 %, and kept it at 58.72° at 0 %.
+- **Frame-rate cap**, counted as frames drawn a second with a stated 144 Hz display: no cap gave about 165; 30 gave 30.3/29.9/30.3; 60 gave 59.9; 90 gave 89.2–89.8. 120 gave 101–107 on a loaded PC: a frame over two intervals (16.7 ms) restarts the beat instead of bursting to catch up, by design.
+- **HUD scale** 80 % vs 130 % (`effects/hud-pair.png`); crosshair circle/green with a dot, and tee/magenta without one, fixed (`effects/xhair-pair.png`).
+- **Colour vision** tritanopia in a Bot Match (`match/tritanopia-play.png`): the score bar, kill feed and "Enemy spotted" lines took the set's violet-blue and amber; the blue team's soldier wore the set's uniform; enemy markers took its red. Ally tags stay `--ds-signal` teal, which marks your side and is not a team colour.
+- **Captions** (`match/tritanopia-caption-1.png`): "Range Control: Team deathmatch. The range is hot." at the match start.
+- **The Settings screen** at 1920x1080 and 390x844, every section (`screen/desktop-*.png`, `screen/phone-*.png`). The Touch section and the first-match hints row are in place.
+- **Design audit** results are in `audit/2026-11-10.md` (see "Design audit" below).
+
+Observed, not this ticket's: two enemy markers at the same bearing overlap their labels ("EI ENEMY", `match/tritanopia-play.png`).
+
+- **Tests:** `npm run typecheck` is clean, and `npm run test:client` passes all 780 tests in 62 files (2026-11-10).
+
+#### Design audit (`.scratch/next-level/settings/audit/2026-11-10.md`)
+
+The audit covered the Settings screen (all seven sections) and the benchmark page (setup, flying, done) at 1920x1080 and 390x844. It found 45 findings: 5 high, 27 medium, 13 low.
+
+Fixed, each PASS in the after shots (`audit/2026-11-10/compare.html`):
+- The phone opens on the benchmark results first, with readable headers (F04, F05).
+- A verdict and a "Use <Tier> in the game" button (F03).
+- "Auto: measuring" and "Not measured yet" instead of a premature tier (F12, F15).
+- The benchmark intro copy (F17).
+- 32 px sliders (F11, F35).
+- 44 px segments on a phone (F28).
+- A 16 px bold readout while flying (F29, F30, F45).
+- The share caption (F32).
+
+Left, with reasons:
+- F01, F06–F09 and F33 are the main menu home screen, not this ticket.
+- F14, F26 and F40: 13 px is DESIGN.md's `--ds-type-small` token.
+- F21 and F16 (the Ping counter and ADS FOV labels) predate this work.
+- F22: the slider already reads as disabled.
+- F20: the preview does follow the options.
+- F02: the flying plate is already compact.
+- F19 and F23 (richer previews), and F13, F18, F24, F25, F27, F31, F34, F36–F39 and F41–F44 are polish, left for a later pass.
+
+One contrast fail remains on benchmark-done@phone. It is a text run scrolled under the opaque footer, so it is not visible.
+
+The audit's capture step needed the vite-hmr stub, so the skill's `capture.mjs` gained an `initScript` config key. That is outside the repo.

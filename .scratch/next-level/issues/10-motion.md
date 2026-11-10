@@ -1,6 +1,7 @@
 # Viewmodel and camera motion
 
-Status: open
+Status: resolved
+Release: v2.155.0
 
 Spec: `../spec.md`
 

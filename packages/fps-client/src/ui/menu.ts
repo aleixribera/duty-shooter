@@ -129,7 +129,7 @@ export const MENU_CSS = `
 .ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-signal); }
 .ds-row > label { font-size: var(--ds-type-body); }
 .ds-slider { display: flex; align-items: center; gap: 12px; }
-.ds-slider input { flex: 1; min-width: 0; height: 20px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.ds-slider input { flex: 1; min-width: 0; height: 32px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .ds-slider input::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
 .ds-slider input::-moz-range-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
 .ds-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 20px; margin-top: -8px; background: var(--ds-text); border: 0; border-radius: 0; box-shadow: 0 0 0 3px rgb(7 9 13 / 0.6); }
@@ -1351,7 +1351,7 @@ export class Menu {
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
-      section('Benchmark', 'A fly-through of each map at the tier you pick: average and 1% low frame time, the render scale it settled on, and a line to copy.');
+      section('Benchmark', 'How smoothly this machine runs each map: a fly-through at the tier you pick, with a verdict, the frame times and a line to copy.');
       const bench = h('a', 'Open the benchmark', 'ds-btn') as HTMLAnchorElement;
       // The same backend as this page, where it was forced.
       bench.href = `${location.pathname}?benchmark${new URLSearchParams(location.search).has('webgl') ? '&webgl' : ''}`;

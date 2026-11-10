@@ -68,11 +68,19 @@ export function tierShown(settings: Pick<Settings, 'quality' | 'autoTier'>, stat
   return status?.tier ?? settings.autoTier;
 }
 
+/** The preview's heading: the tier, Auto's pick, or that Auto has yet to pick one. */
+export function tierHeading(settings: Pick<Settings, 'quality' | 'autoTier'>, status: VideoStatus | null): string {
+  const tier = tierShown(settings, status);
+  if (settings.quality !== 'auto') return QUALITY[settings.quality].name;
+  if (status?.searching) return 'Auto: measuring';
+  return tier ? `Auto: ${QUALITY[tier].name}` : 'Not measured yet';
+}
+
 /** The line under the tier's name: where it came from. */
 export function tierLine(settings: Pick<Settings, 'quality' | 'autoTier'>, status: VideoStatus | null): string {
   if (settings.quality !== 'auto') return 'Picked by hand. Auto would measure this machine and choose for it.';
   if (!status) return settings.autoTier ? 'What Auto measured on this machine last time.' : 'Auto measures this machine once the map is drawn, and remembers what it finds.';
-  if (status.searching) return 'Auto is measuring: it tries a tier for a couple of seconds and keeps the highest one that holds the frame rate.';
+  if (status.searching) return `Trying ${QUALITY[status.tier].name} now. Auto draws each tier for a couple of seconds and keeps the highest one that holds the frame rate; below is what ${QUALITY[status.tier].name} turns on.`;
   return `Auto measured this machine and chose it${status.adapter ? ` for ${status.adapter}` : ''}.`;
 }
 
@@ -91,8 +99,7 @@ export function videoPreview(h: El, read: () => { settings: Settings; status: Vi
     const { settings, status } = read();
     const tier = tierShown(settings, status);
     root.replaceChildren();
-    const name = tier ? QUALITY[tier].name : 'Not measured yet';
-    root.append(h('h3', settings.quality === 'auto' && tier ? `Auto: ${name}` : name), h('p', tierLine(settings, status), 'ds-sub'));
+    root.append(h('h3', tierHeading(settings, status)), h('p', tierLine(settings, status), 'ds-sub'));
     if (tier) {
       const list = h('dl', '', 'ds-tier');
       for (const [label, value] of tierFacts(QUALITY[tier], settings.dynamicResolution)) {

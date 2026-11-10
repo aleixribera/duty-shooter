@@ -1080,6 +1080,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
           release();
           page.done(null, '', 'Stopped before the last map: nothing was kept.');
         },
+        // The tier flown becomes the game's own: the next visit draws at it.
+        use: (tier) => {
+          settings = { ...loadSettings(), quality: tier };
+          saveSettings(settings);
+        },
       },
       // `&tier=` and `&dynres=on|off` set what the page opens on; `&run` starts it without the click.
       { tier: tierParam ?? governing.tier, dynamicResolution: params.has('dynres') ? params.get('dynres') !== 'off' : settings.dynamicResolution, home: location.pathname },

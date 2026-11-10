@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FRAME_CAPS, QUALITY, QUALITY_TIERS } from '../src/quality';
-import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, sectionOrder, tierFacts, tierLine, tierShown, type VideoStatus } from '../src/ui/settings-screen';
+import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, sectionOrder, tierFacts, tierHeading, tierLine, tierShown, type VideoStatus } from '../src/ui/settings-screen';
+import { benchmarkVerdict } from '../src/ui/benchmark-page';
 
 const status = (over: Partial<VideoStatus> = {}): VideoStatus => ({ backend: 'WebGPU', adapter: 'nvidia rtx 4070', tier: 'high', searching: false, refreshHz: 60, ...over });
 
@@ -46,7 +47,7 @@ describe('what the Video section says of a tier', () => {
     expect(tierLine({ quality: 'high', autoTier: null }, status())).toMatch(/^Picked by hand/);
     expect(tierLine({ quality: 'auto', autoTier: null }, null)).toMatch(/measures this machine once the map is drawn/);
     expect(tierLine({ quality: 'auto', autoTier: 'low' }, null)).toMatch(/last time/);
-    expect(tierLine({ quality: 'auto', autoTier: null }, status({ searching: true }))).toMatch(/^Auto is measuring/);
+    expect(tierLine({ quality: 'auto', autoTier: null }, status({ searching: true }))).toMatch(/^Trying High now/);
     expect(tierLine({ quality: 'auto', autoTier: 'high' }, status())).toBe('Auto measured this machine and chose it for nvidia rtx 4070.');
     expect(tierLine({ quality: 'auto', autoTier: 'high' }, status({ adapter: '' }))).toBe('Auto measured this machine and chose it.');
   });
@@ -68,5 +69,33 @@ describe("the Settings screen's styles", () => {
     const narrow = SETTINGS_SCREEN_CSS.slice(SETTINGS_SCREEN_CSS.indexOf('@media (max-width: 960px)'));
     expect(narrow).toMatch(/\.ds-preview \{[^}]*order: -1/);
     expect(narrow).toMatch(/\.ds-preview\.after \{[^}]*order: 0/);
+  });
+});
+
+describe("the Video preview's heading", () => {
+  it("names the tier picked by hand, Auto's pick once it has one, and says so while Auto is still measuring", () => {
+    expect(tierHeading({ quality: 'low', autoTier: null }, status())).toBe('Low');
+    expect(tierHeading({ quality: 'auto', autoTier: null }, null)).toBe('Not measured yet');
+    expect(tierHeading({ quality: 'auto', autoTier: 'medium' }, null)).toBe('Auto: Medium');
+    expect(tierHeading({ quality: 'auto', autoTier: null }, status({ searching: true, tier: 'high' }))).toBe('Auto: measuring');
+    expect(tierLine({ quality: 'auto', autoTier: null }, status({ searching: true, tier: 'high' }))).toMatch(/^Trying High now/);
+    expect(tierHeading({ quality: 'auto', autoTier: null }, status({ tier: 'ultra' }))).toBe('Auto: Ultra');
+  });
+});
+
+describe("the benchmark's verdict", () => {
+  const row = (map: string, meanMs: number, low1Ms: number, scale: number | null = null) => ({ map, meanMs, low1Ms, scale });
+  it('says a tier runs smoothly when every map holds 60 fps and its stutters stay over 30', () => {
+    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 12, 30)], 'high')).toMatch(/^High runs smoothly/);
+  });
+  it('names the slowest map and the tier below when the average misses 60 fps', () => {
+    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Zero Island', 21, 40)], 'high')).toBe('High averages under 60 fps on Zero Island: try Medium.');
+    expect(benchmarkVerdict([row('Zero Island', 21, 40)], 'low')).toBe('Low averages under 60 fps on Zero Island.');
+  });
+  it('names the map whose stutters drop under 30 fps', () => {
+    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Crash', 10, 50)], 'ultra')).toMatch(/^Ultra holds 60 fps on average, but stutters on Crash drop under 30 fps: High may smooth them/);
+  });
+  it('says when it held the rate only by drawing smaller', () => {
+    expect(benchmarkVerdict([row('Switchyard', 15, 25, 0.7)], 'ultra')).toMatch(/drawing smaller/);
   });
 });
