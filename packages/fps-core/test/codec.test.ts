@@ -30,6 +30,7 @@ const player = (over: Partial<PlayerOutput> = {}): PlayerOutput => ({
   weapon: { id: 'm4a1', slot: 1, action: 'reload', actionTime: 1.234, reload: 'empty', ammo: 17, ads: 0.25, spread: 1.75, canFire: false, shotIndex: 4, sway: [0, 0] },
   loadout: { primary: 'smg', secondary: 'pistol', grenade: 'frag' },
   grenades: 1,
+  tacticals: 1,
   grenade: { phase: 'cook', time: 0.5 },
   downed: null,
   reviving: null,

@@ -176,9 +176,9 @@ describe('the Play Online tile', () => {
 describe('the loadout screen', () => {
   const bar = (id: Parameters<typeof weaponCard>[0], key: string) => weaponCard(id).bars.find((b) => b.key === key)!;
 
-  it('offers every primary, every sidearm and the frag (or none), all unlocked', () => {
+  it('offers every primary, every sidearm, the frag, each tactical and each perk (or none), all unlocked', () => {
     const inSlot = (slot: 'primary' | 'secondary') => WEAPON_IDS.filter((id) => STATS.weapons[id].traits.slot === slot);
-    expect(loadoutOptions()).toEqual({ primary: inSlot('primary'), secondary: inSlot('secondary'), grenade: ['frag', null] });
+    expect(loadoutOptions()).toEqual({ primary: inSlot('primary'), secondary: inSlot('secondary'), grenade: ['frag', null], tactical: ['smoke', 'flash', null], perk: ['fastHands', 'softSoles', 'blastVest', null] });
     expect(inSlot('primary').length + inSlot('secondary').length).toBe(WEAPON_IDS.length);
   });
 
@@ -314,7 +314,7 @@ describe("the pause screen's Controls list", () => {
   });
 
   it('lists the rest of the bound keys in every mode', () => {
-    expect(pauseActions('tdm')).toEqual(['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard']);
+    expect(pauseActions('tdm')).toEqual(['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'tactical', 'use', 'scoreboard']);
   });
 });
 

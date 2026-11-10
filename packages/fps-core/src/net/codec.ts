@@ -1,5 +1,6 @@
 import type { GrenadeOutput } from '../combat/grenade';
 import type { PlayerOutput } from '../simulation';
+import type { ThrowableId } from '../weapon/loadout';
 import type { StampedEvent, WireSnapshot } from './protocol';
 
 /**
@@ -377,6 +378,7 @@ export function packPlayer(p: PlayerOutput): Uint8Array {
   out.varuint(w.shotIndex);
   writeValue(p.loadout, false);
   out.varuint(p.grenades);
+  out.varuint(p.tacticals);
   if (p.mantle) writeString(p.mantle);
   if (w.reload) writeString(w.reload);
   if (p.landing) {
@@ -386,6 +388,7 @@ export function packPlayer(p: PlayerOutput): Uint8Array {
   if (p.grenade) {
     writeString(p.grenade.phase);
     out.float(p.grenade.time);
+    writeString(p.grenade.kind ?? 'frag');
   }
   if (p.downed || p.reviving !== null) {
     out.byte((p.downed ? IS_DOWNED : 0) | (p.reviving !== null ? IS_REVIVING : 0));
@@ -420,10 +423,11 @@ function readPlayer(r: Reader): PlayerOutput {
   const shotIndex = r.varuint();
   const loadout = readValue(r) as PlayerOutput['loadout'];
   const grenades = r.varuint();
+  const tacticals = r.varuint();
   const mantle = flags & HAS_MANTLE ? (readValue(r) as PlayerOutput['mantle']) : null;
   const reload = flags & HAS_RELOAD ? (readValue(r) as PlayerOutput['weapon']['reload']) : null;
   const landing = flags & HAS_LANDING ? { fallHeight: r.float(), damage: r.float() } : null;
-  const grenade = flags & HAS_GRENADE ? { phase: readValue(r) as 'cook' | 'throw', time: r.float() } : null;
+  const grenade = flags & HAS_GRENADE ? readHeld(r) : null;
   const reviveState = flags & HAS_REVIVE_STATE ? r.byte() : 0;
   const downed = reviveState & IS_DOWNED ? { bleedOut: r.byte() / BLEED_UNITS, revive: r.byte() / SHARE_UNITS } : null;
   const reviving = reviveState & IS_REVIVING ? r.byte() / SHARE_UNITS : null;
@@ -446,10 +450,19 @@ function readPlayer(r: Reader): PlayerOutput {
     weapon: { id: weaponId, slot, action, actionTime, reload, ammo, ads, spread, canFire: (flags & CAN_FIRE) !== 0, shotIndex, sway: [0, 0] },
     loadout,
     grenades,
+    tacticals,
     grenade,
     downed,
     reviving,
   };
+}
+
+/** A grenade or tactical in hand: its phase, how long in it, and what it is (a frag travels as nothing, as before tacticals). */
+function readHeld(r: Reader): NonNullable<PlayerOutput['grenade']> {
+  const phase = readValue(r) as 'cook' | 'throw';
+  const time = r.float();
+  const kind = readValue(r) as ThrowableId;
+  return kind === 'frag' ? { phase, time } : { phase, time, kind };
 }
 
 /** An event with its stamp; only drawn and heard, so its fractions needn't be exact. */

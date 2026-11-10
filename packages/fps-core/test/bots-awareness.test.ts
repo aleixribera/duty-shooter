@@ -70,6 +70,20 @@ describe('a bot and soft cover', () => {
   });
 });
 
+describe('a bot and a flash (ticket 20)', () => {
+  it('sees nobody while it is blinded, and fights again once it wears off', () => {
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0], yaw: 0 }, { id: 't', team: 2, at: [0, 0, -12], yaw: 0 }], 'Vandal', { objective: STAY([0, 0, 0]) });
+    const flashed: SimEvent = { type: 'flashed', player: 'b', by: 't', grenade: 1, strength: 1, duration: 2.5 };
+    let blind = 0;
+    for (let i = 0; i < ticks(2.3); i++) blind += m.step({}, i === 0 ? [flashed] : []).events.filter((e) => e.type === 'shot').length;
+    expect(blind).toBe(0);
+    expect(m.bot.target).toBeNull();
+    let after = 0;
+    for (let i = 0; i < ticks(3); i++) after += m.step().events.filter((e) => e.type === 'shot').length;
+    expect(after).toBeGreaterThan(0);
+  });
+});
+
 describe('a bot listening', () => {
   it('hears a sprinting enemy beyond a wall and turns to look; walking or standing there it goes unheard', () => {
     // The bot faces away from the wall; the enemy is 10 m off beyond it, crossing toward -x.
@@ -227,6 +241,24 @@ describe('a bot weighing the mode and its situation', () => {
     // It stayed until healed, then got back to it.
     expect(m.self().health).toBeGreaterThanOrEqual(95);
     expect(m.bot.activity).not.toBe('cover');
+  });
+
+  it('breaking off with a smoke on it, throws the cloud between itself and the enemy (ticket 20)', () => {
+    // The break-off above; the bot's loadout carries the default smoke.
+    const m = match(walled, walledNav, [{ id: 'b', team: 1, at: [1.5, 0, -3], yaw: Math.PI }, { id: 't', team: 2, at: [1.5, 0, 12], yaw: 0 }], 'Juniper', { lives: 'round' });
+    const hurt = m.sim.playerState('b')!;
+    expect(hurt.loadout.tactical).toBe('smoke');
+    m.sim.setPlayerState({ ...hurt, health: 30, lastDamage: 0 });
+    let pop: Vec3 | null = null;
+    for (let i = 0; i < ticks(4) && !pop; i++) {
+      const e = m.step({ t: usercmd({ yaw: 0 }) }).events.find((x) => x.type === 'pop' && x.thrower === 'b');
+      if (e?.type === 'pop' && e.kind === 'smoke') pop = e.point;
+    }
+    expect(pop, 'threw a smoke').not.toBeNull();
+    // It stands toward the enemy from where the bot broke off, within half a cloud of the line between them.
+    expect(pop![2]).toBeGreaterThan(-3);
+    expect(Math.abs(pop![0] - 1.5)).toBeLessThan(3.5);
+    expect(pop![2]).toBeLessThan(12);
   });
 
   it('goes quietly near an enemy it has heard when careful, and sprints its long legs otherwise', () => {

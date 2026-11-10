@@ -1,6 +1,7 @@
 import { dot, type Vec3 } from '../math';
 import { STATS } from '../stats';
 import type { Solid, World } from '../world';
+import type { ThrowableId } from '../weapon/loadout';
 import { segmentSolid, solidNormal } from './projectiles';
 
 /**
@@ -18,18 +19,22 @@ const REST_SPEED = 0.15;
 /** Share of the speed along the surface an impact keeps. */
 const IMPACT_GRIP = 0.8;
 
-/** A live grenade. Plain, JSON-safe data. */
+/** A live grenade, or a tactical (ticket 20). Plain, JSON-safe data. */
 export interface Grenade {
   readonly id: number;
+  /** What it is: a frag, a smoke or a flash. Absent is a frag (a grenade from before tacticals). */
+  readonly kind?: ThrowableId;
   /** Who threw it: a kill counts for them even after they die. */
   readonly thrower: string;
   /** The thrower's team when it left their hand (friendly fire stays off). */
   readonly team: number;
   position: Vec3;
   velocity: Vec3;
-  /** Simulation time (s) it explodes. */
+  /** Simulation time (s) it explodes: a smoke pops then, and lies smoking until its cloud is gone. */
   readonly explodeAt: number;
   resting: boolean;
+  /** A smoke that has popped: when (s). Its cloud stands over it until the smoke's life is out. */
+  popped?: number;
 }
 
 /** A grenade as the outputs report it. */

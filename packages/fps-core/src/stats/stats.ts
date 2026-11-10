@@ -370,6 +370,7 @@ export const STATS = {
       cooldown: estimate(120, 's', 'A Beacon rests this long after a Reboot (Fortnite v8.30, lead of ticket 70).'),
       health: estimate(50, 'HP', 'A rebooted seat comes back with half health (lead, ticket 70), and heals as anyone does.'),
       frags: estimate(1, 'rounds', 'Frags a rebooted seat comes back with (lead, ticket 70).'),
+      tacticals: estimate(1, 'rounds', 'Tacticals a rebooted seat comes back with, if its loadout carries one (ticket 20): one, as the frag, not the match\'s two again.'),
       lastStages: estimate(2, 'level', 'No Reboot once this many Stages are left (lead, ticket 70): Stages 5 and 6 are the end game.'),
       cardReach: estimate(1.5, 'm', 'Walking this near the Card of a squadmate picks it up (lead, ticket 70).'),
       beaconReach: estimate(3, 'm', 'How near a Beacon its carrier must stand to reboot: the Beacon is 1.4 m across, plus a step.'),
@@ -404,6 +405,42 @@ export const STATS = {
     rollFriction: estimate(2.5, '1/s', 'Game value for Duty Shooter v2: a rolling grenade stops within a couple of metres.'),
     bodyRadius: estimate(0.05, 'm', 'About the size of a real fragmentation grenade.'),
     warningRadius: estimate(10, 'm', 'Game value for Duty Shooter v2: the HUD indicator shows for a live frag this close, a little past the damage radius.'),
+  },
+
+  /**
+   * Tacticals (ticket 20): a second throwable beside the frag, thrown the same
+   * way (held, released) but on a fuse lit at the release, so it is never
+   * cooked and never goes off in the hand. Game values, tuned for this game's
+   * lanes: none are measured from another game.
+   */
+  tactical: {
+    perLife: estimate(1, 'rounds', 'One a life, as the frag: a tool for one push, not a screen kept up all match.'),
+    royale: estimate(2, 'rounds', 'A Battle Royale seat carries two, not refilled: a smoke to cross open ground or revive in, twice a match.'),
+    smoke: {
+      fuse: estimate(1.2, 's', 'From the release to the first smoke: about where a 20 m throw lands.'),
+      width: estimate(7, 'm', 'How wide the cloud stands, across: a Switchyard lane or a street of Survival Town closed from side to side, with room to walk in it unseen.'),
+      height: estimate(3.4, 'm', 'How high it stands over the canister: over a standing head and a jump, under a roof.'),
+      rise: estimate(2.2, 's', 'From the pop to the cloud at its full size: long enough to see it coming and to be shot while it grows.'),
+      life: estimate(15, 's', 'From the pop until the cloud is gone: one push through it, and a retreat.'),
+      fade: estimate(3.5, 's', 'The last seconds of its life it thins out to nothing.'),
+    },
+    flash: {
+      fuse: estimate(1.1, 's', 'From the release: thrown round a corner, it goes off before the room can turn from it.'),
+      range: estimate(20, 'm', 'From this far it does nothing, and nearer it weakens with the distance: a room and the door to it, not a lane.'),
+      longest: estimate(3.6, 's', 'Blinded this long at most, looking straight at it from close by: a push into the room is over by then.'),
+      shortest: estimate(0.6, 's', 'The least a flash that reaches the eye at all does: a moment\'s white.'),
+    },
+  },
+
+  /**
+   * Perks (ticket 20): one a loadout, each an answer to something else in the
+   * game, so a pick is a guess at what the other side will do.
+   */
+  perks: {
+    fastHands: estimate(1.35, 'multiplier', 'Reloads, draws and putting a gun away run this much faster: an answer to being caught empty.'),
+    softSoles: estimate(0.5, 'multiplier', 'Footsteps carry this share of their usual distance: an answer to bots and players who listen.'),
+    blastVest: estimate(0.6, 'multiplier', 'Frag damage taken is this share of the usual: a 3 m frag no longer kills from full health.'),
+    blastVestFlash: estimate(0.45, 'multiplier', 'Blinded this share of the usual time by a flash.'),
   },
 
   /** Quick melee (gun butt). */

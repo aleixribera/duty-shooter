@@ -41,6 +41,8 @@ export class ArsenalView {
   readonly #glintGeometry = new PlaneGeometry(1, 1);
   readonly #glintMaterial: MeshBasicNodeMaterial;
   #template: Object3D | null = null;
+  /** The tacticals' canisters (ticket 20), by kind. */
+  readonly #canisters = new Map<'smoke' | 'flash', Object3D>();
   #disposed = false;
   /** Settles once the frag model is in (or failed to load). */
   readonly loaded: Promise<void>;
@@ -56,6 +58,15 @@ export class ArsenalView {
     }).catch((error: unknown) => {
       console.warn('Unable to load the frag model:', error);
     });
+    const canisters = { smoke: new URL('./viewmodel/assets/smoke.glb', import.meta.url).href, flash: new URL('./viewmodel/assets/flash.glb', import.meta.url).href };
+    for (const [kind, url] of Object.entries(canisters) as ['smoke' | 'flash', string][]) {
+      new GLTFLoader().loadAsync(url).then(({ scene: model }) => {
+        if (this.#disposed) return disposeAuthored(model);
+        this.#canisters.set(kind, model);
+      }).catch((error: unknown) => {
+        console.warn(`Unable to load the ${kind} model:`, error);
+      });
+    }
   }
 
   /** Draws the live grenades `alpha` of a tick past the latest one. */
@@ -65,8 +76,9 @@ export class ArsenalView {
       live.add(g.id);
       let mesh = this.#frags.get(g.id);
       if (!mesh) {
-        if (!this.#template) continue;
-        mesh = this.#template.clone();
+        const template = g.kind === 'smoke' || g.kind === 'flash' ? this.#canisters.get(g.kind) : this.#template;
+        if (!template) continue;
+        mesh = template.clone();
         mesh.traverse((o) => {
           o.castShadow = true;
         });
@@ -149,6 +161,7 @@ export class ArsenalView {
     this.#disposed = true;
     this.#root.removeFromParent();
     if (this.#template) disposeAuthored(this.#template);
+    for (const c of this.#canisters.values()) disposeAuthored(c);
     this.#glintGeometry.dispose();
     this.#glintMaterial.map?.dispose();
     this.#glintMaterial.dispose();

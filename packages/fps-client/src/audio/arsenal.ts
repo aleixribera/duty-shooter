@@ -1,5 +1,5 @@
 /** Handling sounds of the v2 weapons and the frag: pump, bolt, shells, a feed cover, a cylinder, the pin, the throw, bounces and the blast. */
-import { buffer, finish, lp, modes, noiseBurst, saturate, shape, thump, white } from './dsp';
+import { bp, buffer, finish, hp, lp, modes, noiseBurst, saturate, shape, thump, white } from './dsp';
 import { clack, clink, cloth, scrape, thud, whoosh } from './parts';
 import { synthVoice } from './synth-voice';
 import { oneShot } from './weapon';
@@ -189,6 +189,61 @@ export const grenadeBounceVoice = (): Voice & VoiceExtras =>
     },
     { local: 0.6, remote: 0.8, variants: 5 },
   );
+
+const SMOKE_SECONDS = 4.5;
+
+/** A smoke canister going: a dull pop as the cap blows, then a long breathy hiss that rises and dies away as it empties. */
+export const smokePopVoice = (): Voice & VoiceExtras =>
+  synthVoice({
+    id: 'smokePop',
+    variants: 2,
+    keys: ['smokePop'],
+    key: () => 'smokePop',
+    render(_key, rng, sr) {
+      const out = buffer(sr, SMOKE_SECONDS);
+      thud(out, sr, rng, 0, { freq: rng.range(180, 230), gain: 0.9, tau: 0.03 });
+      noiseBurst(out, sr, rng, { at: 0, attack: 0.0005, tau: 0.02, gain: 0.7, mode: 'bandpass', freq: 900, q: 0.8, length: 0.12 });
+      const hiss = white(sr, SMOKE_SECONDS, rng);
+      bp(hiss, sr, (t) => 2600 + 1400 * Math.exp(-t / 0.8) - 500 * Math.min(1, t / SMOKE_SECONDS), 0.6);
+      hp(hiss, sr, 900);
+      // In over a breath, full for a couple of seconds with a sputter in it, then out as the canister empties.
+      shape(hiss, sr, (t) => {
+        const swell = Math.min(1, t / 0.25);
+        const tail = t < 2.4 ? 1 : Math.exp(-(t - 2.4) / 0.6);
+        return 0.32 * swell * tail * (0.85 + 0.15 * Math.sin(t * 37 + Math.sin(t * 11) * 2));
+      });
+      for (let i = 0; i < out.length; i++) out[i] = (out[i] ?? 0) + (hiss[i] ?? 0);
+      return [finish(out, sr, 0.45, 60)];
+    },
+    gain: (p) => (p.local === true || p.position === undefined ? 0.7 : 0.85),
+    rateJitter: 0.05,
+    gainJitterDb: 1,
+    duration: SMOKE_SECONDS,
+  });
+
+const FLASH_SECONDS = 1.8;
+
+/** A flash going off: a crack harder and brighter than a frag's, little body under it, and a slap back off the walls. */
+export const flashBangVoice = (): Voice & VoiceExtras =>
+  synthVoice({
+    id: 'flashBang',
+    variants: 2,
+    keys: ['flashBang'],
+    key: () => 'flashBang',
+    render(_key, rng, sr) {
+      const out = buffer(sr, FLASH_SECONDS);
+      noiseBurst(out, sr, rng, { at: 0, attack: 0.0001, tau: 0.006, gain: 1.8, mode: 'highpass', freq: 2000, length: 0.05 });
+      noiseBurst(out, sr, rng, { at: 0, attack: 0.0002, tau: 0.03, gain: 1.2, mode: 'bandpass', freq: rng.range(1100, 1500), q: 0.9, length: 0.25 });
+      thump(out, sr, { at: 0.001, f0: rng.range(140, 170), f1: 60, glideTau: 0.03, attack: 0.001, tau: 0.08, gain: 0.8 });
+      noiseBurst(out, sr, rng, { at: rng.range(0.12, 0.2), attack: 0.01, tau: 0.3, gain: 0.3, mode: 'lowpass', freq: 1400, length: 1.2 });
+      saturate(out, 2.2);
+      return [finish(out, sr, 0.65, 60)];
+    },
+    gain: (p) => (p.local === true || p.position === undefined ? 0.9 : 1),
+    rateJitter: 0.04,
+    gainJitterDb: 1,
+    duration: FLASH_SECONDS,
+  });
 
 const BLAST_SECONDS = 2.6;
 

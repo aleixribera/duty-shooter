@@ -8,6 +8,7 @@ import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '.
 import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
+import type { ThrowableId } from '../weapon/loadout';
 import { coverBits, coverNear } from './cover-spots';
 import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, startNode, type NavGraph } from './nav';
 import { longSightlines, navMiddle, nodesNear } from './nav-queries';
@@ -329,6 +330,11 @@ const THROW_MISS = 3;
 const THROW_MIN = STATS.grenade.radius.value + 1;
 /** Seconds a frag is cooked before it leaves the hand, and between throws. */
 const COOK = 1.2;
+/** A flash goes to an enemy this near (m) and no nearer, so its thrower isn't caught in it (ticket 20). */
+const FLASH_RANGE = 16;
+const FLASH_MIN = 5;
+/** A smoke thrown to cover a retreat leaves the hand this far under level (rad): it lands a few metres toward the threat. */
+const SMOKE_PITCH = -0.6;
 const THROW_PAUSE = 6;
 /** A live frag this near (m) and in sight sends a bot running. */
 const FLEE_RANGE = STATS.grenade.radius.value;
@@ -463,7 +469,10 @@ export class Bot {
   /** No weapon switch before then (one press at a time). */
   #switchAt = 0;
   /** A frag being cooked: where to throw it, and when it leaves the hand. */
-  #throw: { yaw: number; pitch: number; release: number; started: number } | null = null;
+  /** A throw under way: where to, when to let go, and what (a frag, or a tactical: ticket 20). */
+  #throw: { yaw: number; pitch: number; release: number; started: number; kind: ThrowableId } | null = null;
+  /** What the arc being solved is for. */
+  #aimingKind: ThrowableId = 'frag';
   #nextThrow = 0;
   /** A throw being aimed, a few arcs a tick. */
   #aiming: ThrowSolve | null = null;
@@ -504,6 +513,8 @@ export class Bot {
   /** How far along noticing each enemy in view it is (1 is noticed), and when it last looked. */
   readonly #spotting = new Map<PlayerId, number>();
   #lookedAt = 0;
+  /** Blinded by a flash until this simulation time (s): it sees nobody meanwhile (ticket 20). */
+  #blindUntil = -Infinity;
   /** When each enemy was last heard or seen firing: gunfire gives a body away. */
   readonly #loud = new Map<PlayerId, number>();
   /** Seats the feed (which every player sees) has shown going Down, not since Revived or out. */
@@ -630,6 +641,7 @@ export class Bot {
     this.#unheardTraps = [];
     this.#seats = heard.seats ?? new SeatIndex(heard.players);
     this.#readFeed(heard.events);
+    for (const e of heard.events) if (e.type === 'flashed' && e.player === sees.self.id) this.#blindUntil = Math.max(this.#blindUntil, sees.time + e.duration);
     const view = heard.ground ? this.#groundJob(this.#reviveChoice(heard)) : heard;
     const seconds = ticks * TICK_SECONDS;
     const { self, time } = view;
@@ -744,6 +756,10 @@ export class Bot {
       // Eyes on whoever is coming, if anyone; otherwise level.
       if (target && tp) lookYaw = yawTo(self.position, tp.position);
       lookPitch = -0.05;
+    } else if (this.#throw?.kind === 'smoke') {
+      // A smoke to cover the way out: a glance back at the threat to lob it, then on (ticket 20).
+      lookYaw = this.#throw.yaw;
+      lookPitch = this.#throw.pitch;
     } else if (retreating || (ground?.hurry && !(fighting && target?.visible && range < RUN_FIGHT))) {
       // Running for cover, or from the wall: eyes on the way.
       const ahead = this.#lookAhead(self.position);
@@ -870,8 +886,8 @@ export class Bot {
       buttons.push('Use');
     } else if (this.#flee) {
       move = this.#fleeStep(view);
-    } else if (this.#throw || this.#aiming) {
-      // Standing still to aim and throw.
+    } else if ((this.#throw && this.#throw.kind !== 'smoke') || this.#aiming) {
+      // Standing still to aim and throw (a smoke thrown to cover a retreat goes on the move).
     } else if (retreating) {
       move = this.#advance(self, this.#nav.nodes[this.#recover!.node]!.position);
     } else if (ground?.hurry && !(fighting && target?.visible && range < RUN_FIGHT)) {
@@ -1003,7 +1019,8 @@ export class Bot {
     // Reload in a quiet moment, or when empty, or once in cover (whatever is left in the magazine).
     const covered = this.#recover?.arrived === true && !(fighting && target?.visible) && w.ammo < this.profile.reloadBelow * 2;
     if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0 || covered) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
-    if (!using && this.#cooking(view)) buttons.push('Grenade');
+    const holding = using ? null : this.#cooking(view);
+    if (holding) buttons.push(holding === 'frag' ? 'Grenade' : 'Tactical');
 
     // Finish the current ladder even if combat or a new objective changes
     // the route mid-climb; jumping or stopping here would strand the bot.
@@ -1077,27 +1094,47 @@ export class Bot {
    */
   #considerThrow(view: BotView, eye: Vec3): void {
     const { self, time } = view;
-    if (self.grenades <= 0 || self.grenade !== null || time < this.#nextThrow || self.movement === 'mantle') return;
+    const flash = self.loadout.tactical === 'flash' && self.tacticals > 0;
+    if ((self.grenades <= 0 && !flash) || self.grenade !== null || time < this.#nextThrow || self.movement === 'mantle') return;
     for (const [id, m] of this.#memory) {
       const d = flat(self.position, m.position);
-      if (!m.seen || time - m.time > THROW_MEMORY || d > THROW_RANGE || d < THROW_MIN) continue;
+      // A flash (ticket 20) for one close by, before a push: a bold bot reaches for it first, and any bot when out of frags.
+      const flashing = flash && d <= FLASH_RANGE && d >= FLASH_MIN && (self.grenades <= 0 || this.profile.aggression >= 0.5);
+      if (!m.seen || time - m.time > THROW_MEMORY || d > THROW_RANGE || (d < THROW_MIN && !flashing)) continue;
+      if (!flashing && self.grenades <= 0) continue;
       const p = this.#seats.get(id);
       if (!p?.alive) continue;
       const body: Vec3 = [m.position[0], m.position[1] + 1, m.position[2]];
       if (!sightBlocked(this.#world, eye, body)) continue;
       // Tried either way: no fresh look for a moment.
       this.#nextThrow = time + 2;
-      this.#aiming = new ThrowSolve(this.#world, eye, m.position, STATS.grenade.fuse.value - COOK);
+      this.#aimingKind = flashing ? 'flash' : 'frag';
+      // A flash is aimed to go off over them, as it gets there; a frag to land by them as its cooked fuse runs out.
+      this.#aiming = new ThrowSolve(this.#world, eye, flashing ? body : m.position, flashing ? STATS.tactical.flash.fuse.value : STATS.grenade.fuse.value - COOK);
       this.#aim(view);
       return;
     }
+  }
+
+  /**
+   * A smoke (ticket 20) between it and `threat` as it breaks off to heal: a
+   * short throw low toward them, so the cloud stands across the way they'd
+   * see it go.
+   */
+  #smokeOff(view: BotView, threat: Vec3): void {
+    const { self, time } = view;
+    if (self.loadout.tactical !== 'smoke' || self.tacticals <= 0 || self.grenade !== null || this.#throw || self.movement === 'mantle') return;
+    const yaw = Math.atan2(-(threat[0] - self.position[0]), -(threat[2] - self.position[2]));
+    this.#aiming = null;
+    this.#throw = { yaw, pitch: SMOKE_PITCH, release: time + 0.1, started: time, kind: 'smoke' };
   }
 
   /** Aims the throw a few more arcs; once found, one that lands close enough is cooked and thrown. */
   #aim(view: BotView): void {
     const solve = this.#aiming!;
     const { self, time } = view;
-    if (self.grenades <= 0 || self.grenade !== null || self.movement === 'mantle') {
+    const kind = this.#aimingKind;
+    if ((kind === 'frag' ? self.grenades : self.tacticals) <= 0 || self.grenade !== null || self.movement === 'mantle') {
       this.#aiming = null;
       return;
     }
@@ -1107,28 +1144,29 @@ export class Bot {
     this.#aiming = null;
     const arc = solve.best;
     if (arc.miss > THROW_MISS) return;
-    this.#throw = { yaw: arc.yaw, pitch: arc.pitch, release: time + COOK, started: time };
+    this.#throw = { yaw: arc.yaw, pitch: arc.pitch, release: time + (kind === 'frag' ? COOK : 0.1), started: time, kind };
     this.#holdUntil = 0;
   }
 
-  /** Whether to hold the grenade button this tick: through the cook, until the view is on the arc. */
-  #cooking(view: BotView): boolean {
+  /** What to hold the throw button for this tick (null: nothing): through the cook, until the view is on the arc. */
+  #cooking(view: BotView): ThrowableId | null {
     const t = this.#throw;
-    if (!t) return false;
+    if (!t) return null;
     const { self, time } = view;
     // The press didn't take (the weapon was busy): give up.
     if (time > t.started + 0.3 && self.grenade === null) {
       this.#throw = null;
-      return false;
+      return null;
     }
     const aimed = Math.abs(angleDelta(self.yaw, t.yaw)) < 0.6 * DEG && Math.abs(self.pitch - t.pitch) < 0.6 * DEG;
-    const late = time - t.started > STATS.grenade.fuse.value - 0.8;
+    // A frag cooked too long goes off in the hand; a tactical only waits so long on the aim.
+    const late = time - t.started > (t.kind === 'frag' ? STATS.grenade.fuse.value - 0.8 : 1.5);
     if (self.grenade?.phase === 'cook' && ((time >= t.release && aimed) || late)) {
       this.#throw = null;
-      this.#nextThrow = time + THROW_PAUSE;
-      return false;
+      if (t.kind !== 'smoke') this.#nextThrow = time + THROW_PAUSE;
+      return null;
     }
-    return true;
+    return t.kind;
   }
 
   /** A live frag near and in sight: run for the spot nearby that is out of its reach or behind cover. */
@@ -1140,7 +1178,8 @@ export class Bot {
       this.#path = [];
     }
     for (const g of view.grenades ?? []) {
-      if (this.#flee?.grenade === g.id) continue;
+      // A frag is run from; a smoke or a flash isn't worth the run.
+      if (this.#flee?.grenade === g.id || (g.kind !== undefined && g.kind !== 'frag')) continue;
       const at: Vec3 = [g.position[0], g.position[1] + 0.2, g.position[2]];
       if (flat(self.position, g.position) > FLEE_RANGE || Math.abs(g.position[1] - self.position[1]) > 3 || sightBlocked(this.#world, eye, at)) continue;
       const node = this.#cover(self.position, at);
@@ -1227,9 +1266,11 @@ export class Bot {
     const looked = Math.max(0, Math.min(0.5, time - this.#lookedAt));
     this.#lookedAt = time;
     const noticing = ground ? new Set<PlayerId>() : null;
+    // Blinded by a flash: nobody is seen, and the fight goes on from memory (it may still fire where it last saw them).
+    const blind = time < this.#blindUntil;
     for (const i of this.#seats.near(self.position, SIGHT_RANGE)) {
       const p = view.players[i]!;
-      if (p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
+      if (blind || p.id === self.id || !p.alive || !view.isEnemy(p)) continue;
       const d = flat(self.position, p.position);
       if (d > SIGHT_RANGE) continue;
       const off = Math.abs(angleDelta(self.yaw, yawTo(eye, eyeOf(p))));
@@ -1516,6 +1557,7 @@ export class Bot {
       return;
     }
     this.#recover = { node, threat, until: time + RECOVER_MAX, arrived: false };
+    this.#smokeOff(view, threat);
     this.#holdUntil = 0;
     this.#search = null;
     this.#chasing = null;
@@ -1959,7 +2001,9 @@ export class Bot {
       const speed = Math.hypot(p.velocity[0], p.velocity[2]);
       const grounded = p.movement !== 'airborne' && p.movement !== 'mantle';
       const gait = p.stance !== 'stand' ? FOOTSTEPS.crouch : p.movement === 'sprint' ? FOOTSTEPS.sprint : FOOTSTEPS.walk;
-      const reach = thud ? THUD : grounded && speed >= QUIET ? gait : 0;
+      // Soft Soles (ticket 20): their steps and landings carry half as far.
+      const soft = p.loadout.perk === 'softSoles' ? STATS.perks.softSoles.value : 1;
+      const reach = (thud ? THUD : grounded && speed >= QUIET ? gait : 0) * soft;
       if (reach === 0) continue;
       const known = this.#memory.get(p.id);
       // Seen just now: the eyes already said it all.

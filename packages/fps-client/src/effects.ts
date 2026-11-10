@@ -1,4 +1,4 @@
-import { raycastWorld, type Material, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import { abs, attribute, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AdditiveBlending,
@@ -161,10 +161,16 @@ class ParticleLayer {
   readonly #kind: Kind;
   /** What the quality tier's share of particles owes this layer: an emission is drawn each time it reaches one. */
   #owed = 1;
+  /** Drawn in full on every tier: what it shows decides a fight (a smoke cloud). */
+  readonly #essential: boolean;
+  /** Holds its alpha through its life and fades only at the end, instead of fading from the start. */
+  readonly #steady: boolean;
 
-  constructor(max: number, kind: Kind) {
+  constructor(max: number, kind: Kind, options: { essential?: boolean; steady?: boolean } = {}) {
     this.#max = max;
     this.#kind = kind;
+    this.#essential = options.essential === true;
+    this.#steady = options.steady === true;
     const geometry = new PlaneGeometry(1, 1);
     this.#data = new InstancedBufferAttribute(new Float32Array(max * 4), 4);
     this.#color = new InstancedBufferAttribute(new Float32Array(max * 3), 3);
@@ -184,7 +190,7 @@ class ParticleLayer {
 
   emit(p: Partial<Particle> & { p: Vector3 }): void {
     // A lower tier draws a share of the particles: every nth emission, so a burst thins evenly and a lone puff still shows.
-    const share = currentQuality().particles;
+    const share = this.#essential ? 1 : currentQuality().particles;
     if (share < 1) {
       this.#owed += share;
       if (this.#owed < 1) return;
@@ -253,7 +259,8 @@ class ParticleLayer {
       tmp.updateMatrix();
       this.mesh.setMatrixAt(i, tmp.matrix);
       // Quick fade in, long fade out.
-      this.#data.setXYZW(i, q.alpha * Math.min(1, t * 12) * (1 - t) * (1 - t), roll, t, q.sun);
+      const fade = this.#steady ? Math.min(1, t * 5) * (1 - t * t * t) : Math.min(1, t * 12) * (1 - t) * (1 - t);
+      this.#data.setXYZW(i, q.alpha * fade, roll, t, q.sun);
       this.#color.setXYZ(i, q.color.r, q.color.g, q.color.b);
       this.#seed.setX(i, q.seed);
     }
@@ -419,6 +426,13 @@ const DUST: Partial<Record<Material, number>> = {
 };
 
 const BLAST_COLOR = 0xffa860;
+/** A flash's light: white with a cold edge. */
+const FLASH_COLOR = 0xeef4ff;
+/** Puffs a smoke cloud keeps standing at full size, and how long each lasts (s). */
+const CLOUD_PUFFS = 46;
+const CLOUD_PUFF_LIFE = 4;
+/** A cloud thinned to this hides nothing (smokeHides), and is no longer fed. */
+const CLOUD_FEED_FLOOR = 0.35;
 /** The Preparation's key light: a soft warm white, bright enough to lift a Squad out of the dusk from a few metres. */
 const KEY_COLOR = 0xffe6cc;
 const KEY_INTENSITY = 26;
@@ -443,6 +457,14 @@ export class Effects {
   readonly #blood = new ParticleLayer(60, 'puff');
   readonly #flames = new ParticleLayer(40, 'flame');
   readonly #rings = new ParticleLayer(6, 'ring');
+  /** The smoke tacticals' clouds (ticket 20): drawn in full on every tier, since they decide who sees whom. */
+  readonly #cloud = new ParticleLayer(CLOUD_PUFFS * 12, 'puff', { essential: true, steady: true });
+  /** Each standing cloud's puffs owed (emitted as they reach one), by canister id. */
+  readonly #clouds = new Map<number, { owed: number }>();
+  /** The blast light now: a frag's orange, or a flash's brighter, shorter white. */
+  #blastHex = BLAST_COLOR;
+  #blastPeak = 80;
+  #blastFor = 0.25;
   readonly #fires: readonly Vec3[];
   readonly #fire: ParticleLayer | null;
   readonly #fireSmoke: ParticleLayer | null;
@@ -498,7 +520,7 @@ export class Effects {
 
   /** Every particle pool there is. */
   #layers(): ParticleLayer[] {
-    const combat = [this.#sparks, this.#dust, this.#chips, this.#smoke, this.#blood, this.#flames, this.#rings];
+    const combat = [this.#sparks, this.#dust, this.#chips, this.#smoke, this.#cloud, this.#blood, this.#flames, this.#rings];
     return this.#fire && this.#fireSmoke ? [...combat, this.#fire, this.#fireSmoke] : combat;
   }
 
@@ -670,6 +692,9 @@ export class Effects {
     const p = new Vector3(point[0], point[1] + 0.1, point[2]);
     this.#blastLight.position.copy(p).add(new Vector3(0, 0.6, 0));
     this.#blastAge = 0;
+    this.#blastHex = BLAST_COLOR;
+    this.#blastPeak = 80;
+    this.#blastFor = 0.25;
     const sun = this.#sunlit(new Vector3(point[0], point[1] + 0.8, point[2]));
     const dir = () => {
       const u = Math.random() * Math.PI * 2;
@@ -727,6 +752,120 @@ export class Effects {
     }
     const ground = raycastWorld(this.#world, [point[0], point[1] + 0.3, point[2]], [point[0], point[1] - 1, point[2]]);
     if (ground) this.#splats.add(ground.point, ground.normal, 1.8 + Math.random() * 0.5, new Color(0.06, 0.055, 0.05));
+  }
+
+  /**
+   * A flash going off at `point` (ticket 20): a white light far brighter and
+   * shorter than a frag's, a hard white star and ring, a spray of white
+   * sparks, and a little grey smoke where the canister lies. No fire, no scorch.
+   */
+  flashPop(point: Vec3): void {
+    const p = new Vector3(point[0], point[1] + 0.12, point[2]);
+    this.#blastLight.position.copy(p).add(new Vector3(0, 0.4, 0));
+    this.#blastAge = 0;
+    this.#blastHex = FLASH_COLOR;
+    this.#blastPeak = 220;
+    this.#blastFor = 0.14;
+    const sun = this.#sunlit(p);
+    const dir = () => {
+      const u = Math.random() * Math.PI * 2;
+      const up = Math.random() * 1.3 - 0.3;
+      const r = Math.sqrt(Math.max(0, 1 - up * up));
+      return new Vector3(Math.cos(u) * r, up, Math.sin(u) * r);
+    };
+    this.#flames.emit({ p: p.clone(), life: 0.07, size: 1.6, grow: 22, alpha: 1, rot: 0, color: new Color(1, 1, 1) });
+    this.#rings.emit({ p: p.clone(), life: 0.14, size: 0.6, grow: 40, alpha: 0.5, rot: 0, color: new Color(0.95, 0.97, 1) });
+    for (let i = 0; i < 30; i++) {
+      this.#sparks.emit({ p: p.clone(), v: dir().multiplyScalar(6 + Math.random() * 10), life: 0.12 + Math.random() * 0.2, size: 0.016 + Math.random() * 0.01, gravity: 6, drag: 2, color: new Color(1, 0.98, 0.92) });
+    }
+    for (let i = 0; i < 6; i++) {
+      this.#smoke.emit({
+        p: p.clone().add(dir().multiplyScalar(0.25)),
+        v: dir().multiplyScalar(0.6 + Math.random() * 0.8).add(new Vector3(0, 0.6, 0)),
+        life: 1.8 + Math.random() * 1.2,
+        size: 0.5,
+        grow: 0.6,
+        spin: (Math.random() - 0.5) * 0.6,
+        alpha: 0.4,
+        drag: 2.2,
+        gravity: -0.2,
+        sun,
+        color: new Color(0x8e8c88),
+      });
+    }
+  }
+
+  /**
+   * The smoke clouds standing at `time` (ticket 20), stepped by `dt`: each is
+   * kept full of slow, heavy, steady puffs inside the shape the simulation
+   * hides by, so what you see hides what a bot can't see. A cloud first met
+   * already standing (a late join, a respawn) is filled at once. Once a cloud
+   * has thinned past the point it hides anything it is no longer fed, and its
+   * last puffs last only that long, so it clears when the game says it has.
+   */
+  smokeClouds(clouds: readonly SmokeCloud[], time: number, dt: number): void {
+    const S = STATS.tactical.smoke;
+    const live = new Set<number>();
+    for (const c of clouds) {
+      live.add(c.id);
+      const amount = smokeAmount(c, time);
+      const age = time - c.popped;
+      let state = this.#clouds.get(c.id);
+      if (!state) {
+        state = { owed: 0 };
+        this.#clouds.set(c.id, state);
+        // Met already risen: filled at once, its puffs at every age.
+        if (age > S.rise.value * 0.5 && amount > CLOUD_FEED_FLOOR) {
+          for (let i = 0; i < Math.round(CLOUD_PUFFS * amount); i++) this.#cloudPuff(c, amount, time, Math.random());
+        }
+      }
+      if (age < 0 || (amount <= CLOUD_FEED_FLOOR && age > S.rise.value)) continue;
+      // Pours out fast while it swells, then only tops itself up.
+      const rate = age < S.rise.value ? (CLOUD_PUFFS * 1.4) / S.rise.value : CLOUD_PUFFS / CLOUD_PUFF_LIFE;
+      // However slow the frame, it is fed for all of it (a slow frame must not let it drain), up to one full cloud at once.
+      state.owed = Math.min(CLOUD_PUFFS, state.owed + rate * Math.max(0, dt));
+      while (state.owed >= 1) {
+        state.owed -= 1;
+        this.#cloudPuff(c, amount, time, 0);
+      }
+    }
+    for (const id of [...this.#clouds.keys()]) if (!live.has(id)) this.#clouds.delete(id);
+  }
+
+  /** One puff of `cloud`, `along` (0..1) of the way through its life already. */
+  #cloudPuff(cloud: SmokeCloud, amount: number, time: number, along: number): void {
+    const S = STATS.tactical.smoke;
+    const age = time - cloud.popped;
+    const c = smokeCentre(cloud);
+    // Where in the cloud's full shape it belongs, weighted toward the middle.
+    const u = Math.random() * Math.PI * 2;
+    const y = Math.random() * 2 - 1;
+    const r = Math.cbrt(Math.random()) * 0.92;
+    const across = Math.sqrt(1 - y * y) * r;
+    const rx = S.width.value / 2;
+    const ry = S.height.value / 2;
+    const place = new Vector3(c[0] + Math.cos(u) * across * rx, c[1] + y * r * ry, c[2] + Math.sin(u) * across * rx);
+    // Still swelling: born at the canister and carried out to its place (drag 1.5 stops it about 1/1.5 of its speed on).
+    const rising = age < S.rise.value;
+    const at = rising ? new Vector3(cloud.at[0], cloud.at[1] + 0.25, cloud.at[2]) : place;
+    const v = rising ? place.clone().sub(at).multiplyScalar(1.5) : new Vector3((Math.random() - 0.5) * 0.12, 0.03 + Math.random() * 0.05, (Math.random() - 0.5) * 0.12);
+    // Its last puffs last only as long as it hides anything.
+    const hides = S.life.value - age - S.fade.value * CLOUD_FEED_FLOOR;
+    const life = Math.max(0.6, Math.min(CLOUD_PUFF_LIFE, hides + 0.5));
+    const shade = 0.82 + Math.random() * 0.14;
+    this.#cloud.emit({
+      p: at,
+      v,
+      age: along * life,
+      life,
+      size: 1.2 + 0.8 * Math.max(0.3, amount),
+      grow: 0.12,
+      spin: (Math.random() - 0.5) * 0.25,
+      alpha: 0.92,
+      drag: rising ? 1.5 : 0.4,
+      sun: this.#sunlit(new Vector3(c[0], c[1] + 1, c[2])),
+      color: new Color(0xc9c7c1).multiplyScalar(shade),
+    });
   }
 
   /** A hit on a player or dummy at `point`, travelling along `direction`. */
@@ -799,8 +938,8 @@ export class Effects {
       this.#blastLight.color.setHex(KEY_COLOR);
       this.#blastLight.intensity = KEY_INTENSITY;
     } else {
-      if (this.#blastLight.color.getHex() !== BLAST_COLOR) this.#blastLight.color.setHex(BLAST_COLOR);
-      this.#blastLight.intensity = this.#blastAge < 0.25 ? 80 * (1 - this.#blastAge / 0.25) ** 2 : 0;
+      if (this.#blastLight.color.getHex() !== this.#blastHex) this.#blastLight.color.setHex(this.#blastHex);
+      this.#blastLight.intensity = this.#blastAge < this.#blastFor ? this.#blastPeak * (1 - this.#blastAge / this.#blastFor) ** 2 : 0;
     }
     for (let i = this.#flashes.length - 1; i >= 0; i--) {
       const f = this.#flashes[i]!;

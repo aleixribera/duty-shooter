@@ -183,7 +183,7 @@ export class Reboot {
             const turn = (i / back.length) * Math.PI * 2 + 0.6;
             const at: Vec3 = [b.position[0] + Math.cos(turn) * AROUND, b.position[1] + 0.05, b.position[2] + Math.sin(turn) * AROUND];
             this.#back.add(c.owner);
-            ctx.act?.respawn?.(c.owner, at, Math.atan2(at[0] - b.position[0], at[2] - b.position[2]), { health: R.health.value, frags: R.frags.value });
+            ctx.act?.respawn?.(c.owner, at, Math.atan2(at[0] - b.position[0], at[2] - b.position[2]), { health: R.health.value, frags: R.frags.value, tacticals: R.tacticals.value });
           });
           out.push(this.#reboot('done', b, nameOf, back.map((c) => c.owner)));
           b.channel = null;

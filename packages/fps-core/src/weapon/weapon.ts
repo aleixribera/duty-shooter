@@ -135,6 +135,8 @@ export interface WeaponContext {
   readonly alive: boolean;
   /** Per-player seed for the spread sequence. */
   readonly seed: number;
+  /** How much faster than usual reloads, draws and putting the gun away run (Fast Hands, ticket 20); 1 when absent. */
+  readonly hands?: number;
 }
 
 export interface WeaponEvents {
@@ -298,7 +300,9 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     state.meleeResolved = false;
   }
 
-  state.actionTime += dt;
+  // Fast Hands: what the hands do (a reload, a draw, putting the gun away) runs faster; firing and melee don't.
+  const handy = state.action === 'reload' || state.action === 'draw' || state.action === 'holster';
+  state.actionTime += handy ? dt * (ctx.hands ?? 1) : dt;
   switch (state.action) {
     case 'draw':
       if (state.actionTime >= h.drawTime.value - 1e-9) finishAction(state);

@@ -1,4 +1,4 @@
-import { boltCloseVoice, boltOpenVoice, coverOpenVoice, coverShutVoice, cylinderLoadVoice, cylinderOpenVoice, cylinderShutVoice, explosionVoice, grenadeBounceVoice, grenadePinVoice, grenadeThrowVoice, pumpRackVoice, shellInsertVoice } from './arsenal';
+import { boltCloseVoice, boltOpenVoice, coverOpenVoice, coverShutVoice, cylinderLoadVoice, cylinderOpenVoice, cylinderShutVoice, explosionVoice, flashBangVoice, grenadeBounceVoice, grenadePinVoice, grenadeThrowVoice, pumpRackVoice, shellInsertVoice, smokePopVoice } from './arsenal';
 import { crouchVoice, footstepVoice, jumpVoice, landVoice, mantleVoice, proneVoice, slideVoice } from './foley';
 import { gunshotVoice } from './gunshot';
 import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
@@ -63,6 +63,8 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     grenadeThrow: grenadeThrowVoice(),
     grenadeBounce: grenadeBounceVoice(),
     explosion: explosionVoice(),
+    smokePop: smokePopVoice(),
+    flashBang: flashBangVoice(),
     impact: impactVoice(),
     casing: casingVoice(),
     bulletCrack: bulletCrackVoice(),

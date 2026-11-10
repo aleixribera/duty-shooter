@@ -550,7 +550,19 @@ export class Viewmodel {
   readonly #adsOffset: Vector3;
   readonly #kits = new Map<KitId, KitGun>();
   /** The frag in hand, built the first time one is cooked. */
-  #frag: ReturnType<typeof buildFrag> | null = null;
+  /** The frag, smoke and flash for the hand, each built the first time it is needed. */
+  readonly #throwables = new Map<'frag' | 'smoke' | 'flash', ReturnType<typeof buildFrag>>();
+
+  #throwable(kind: 'frag' | 'smoke' | 'flash'): ReturnType<typeof buildFrag> {
+    let t = this.#throwables.get(kind);
+    if (!t) {
+      t = buildFrag(kind);
+      t.root.visible = false;
+      this.root.add(t.root);
+      this.#throwables.set(kind, t);
+    }
+    return t;
+  }
   /** Follow the gun in hand, so effects parented to them move with a switch. */
   readonly #muzzle = new Object3D();
   readonly #ejectionPort = new Object3D();
@@ -690,12 +702,8 @@ export class Viewmodel {
   /** Builds every weapon and the frag now, settling once their models are in: a first switch then has nothing to fetch. */
   prepare(): Promise<void> {
     for (const id of WEAPON_IDS) if (id !== 'm4a1') this.#kit(id);
-    if (!this.#frag) {
-      this.#frag = buildFrag();
-      this.#frag.root.visible = false;
-      this.root.add(this.#frag.root);
-    }
-    return Promise.all([this.#authored, this.#frag.loaded, ...[...this.#kits.values()].map((k) => k.loaded)]).then(() => undefined);
+    const throwables = (['frag', 'smoke', 'flash'] as const).map((k) => this.#throwable(k).loaded);
+    return Promise.all([this.#authored, ...throwables, ...[...this.#kits.values()].map((k) => k.loaded)]).then(() => undefined);
   }
 
   /**
@@ -704,7 +712,7 @@ export class Viewmodel {
    * through); returns what puts them back.
    */
   showAll(): () => void {
-    const shown = [this.root, this.gun.root, ...[...this.#kits.values()].map((k) => k.root), ...(this.#frag ? [this.#frag.root] : [])];
+    const shown = [this.root, this.gun.root, ...[...this.#kits.values()].map((k) => k.root), ...[...this.#throwables.values()].map((t) => t.root)];
     const was = shown.map((o) => o.visible);
     const scale = this.root.scale.x;
     for (const o of shown) o.visible = true;
@@ -873,17 +881,16 @@ export class Viewmodel {
       const w = g.phase === 'cook' ? lowered : 1 - ease(Math.min(1, Math.max(0, (g.time - FRAG_LETGO) / 0.15)));
       target.position.lerp(hold, w);
       target.quaternion.slerp(FRAG_PALM, w);
-      if (!this.#frag) {
-        this.#frag = buildFrag();
-        this.root.add(this.#frag.root);
-      }
-      this.#frag.root.visible = g.phase === 'cook' || g.time < FRAG_LETGO;
+      const kind = g.kind ?? 'frag';
+      for (const [k, t] of this.#throwables) if (k !== kind) t.root.visible = false;
+      const held = this.#throwable(kind);
+      held.root.visible = g.phase === 'cook' || g.time < FRAG_LETGO;
       target.updateMatrixWorld(true);
-      this.#frag.root.position.copy(target.localToWorld(FRAG_IN_PALM.clone()));
-      this.#frag.root.quaternion.identity();
+      held.root.position.copy(target.localToWorld(FRAG_IN_PALM.clone()));
+      held.root.quaternion.identity();
       if (w > 0.5) this.arms.setGrip(1, 0.85);
-    } else if (this.#frag) {
-      this.#frag.root.visible = false;
+    } else {
+      for (const t of this.#throwables.values()) t.root.visible = false;
     }
     target.updateMatrixWorld(true);
     this.arms.solve(right, target);
@@ -992,7 +999,7 @@ export class Viewmodel {
     this.#disposeAuthored = null;
     this.gun.dispose();
     for (const kit of this.#kits.values()) kit.dispose();
-    this.#frag?.dispose();
+    for (const t of this.#throwables.values()) t.dispose();
     this.arms.dispose();
   }
 }

@@ -89,6 +89,8 @@ const PROFILES: Record<SoundEventName, Profile> = {
   grenadeBounce: { cap: 6, ref: 3, rolloff: 1.2, send: 0.1, indoorSend: 0.2 },
   // A frag carries like a gunshot and rings off the surroundings.
   explosion: { cap: 4, ref: 10, rolloff: 0.8, send: 0.9, indoorSend: 0.8 },
+  smokePop: { cap: 4, ref: 4, rolloff: 1.1, send: 0.3, indoorSend: 0.5 },
+  flashBang: { cap: 3, ref: 10, rolloff: 0.8, send: 0.9, indoorSend: 0.9 },
   impact: { cap: 16, ref: 4, rolloff: 1, send: 0.25, indoorSend: 0.3 },
   casing: { cap: 12, ref: 1.5, rolloff: 1.4, send: 0.03, indoorSend: 0.08, level: 0.6 },
   bulletCrack: { cap: 8, ref: 5, rolloff: 1, send: 0.35, indoorSend: 0.3 },
@@ -475,7 +477,7 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
     }
 
     const input = c.createGain();
-    input.gain.value = (profile.level ?? 1) * (positional && params.muffled ? MUFFLE_GAIN : 1);
+    input.gain.value = (profile.level ?? 1) * (positional && params.muffled ? MUFFLE_GAIN : 1) * Math.min(1, Math.max(0, params.quieter ?? 1));
     const nodes: AudioNode[] = [input];
     let sendFrom: AudioNode = input;
     if (positional && pos && distance !== undefined) {
@@ -567,9 +569,12 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
    * Ringing ears: a high tone that fades over a second and a half, and the world dropped and
    * dulled under it, coming back as the tone goes. The blast's own bang gets out first.
    */
-  function ring(c: AudioContext, g: Graph, k: number): void {
+  function ring(c: AudioContext, g: Graph, k: number, seconds?: number): void {
     const t = c.currentTime + 0.09;
-    const hold = 0.25 + 0.35 * k;
+    // A flash holds the world under for most of the time it blinds; a blast for a breath.
+    const long = seconds !== undefined && seconds > 0 ? seconds : null;
+    const hold = long === null ? 0.25 + 0.35 * k : long * 0.6;
+    const ringing = long === null ? TINNITUS.seconds : long + 0.8;
     // A second blast while the first still rings takes each from where it has got to: dropped mid-ramp, it would jump back and click.
     const takeUp = (param: AudioParam): void => {
       if (typeof param.cancelAndHoldAtTime === 'function') param.cancelAndHoldAtTime(t);
@@ -593,9 +598,9 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
     const out = c.createGain();
     out.gain.setValueAtTime(0, t - 0.04);
     out.gain.linearRampToValueAtTime(TINNITUS.gain * k, t);
-    out.gain.setTargetAtTime(0, t + 0.12, TINNITUS.seconds / 4.6);
+    out.gain.setTargetAtTime(0, t + 0.12, ringing / 4.6);
     out.connect(g.buses.effects);
-    const end = t + TINNITUS.seconds + 0.3;
+    const end = t + ringing + 0.3;
     TINNITUS.tones.forEach((freq, i) => {
       const osc = c.createOscillator();
       osc.type = 'sine';
@@ -765,12 +770,12 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
       for (const beat of heart.update(lowHealth, t)) system.play('heartbeat', { intensity: beat.intensity, when: beat.when });
     },
 
-    tinnitus(strength) {
+    tinnitus(strength, seconds) {
       const k = Math.min(1, Math.max(0, finiteOr(strength, 0)));
       if (k < 0.05 || !ctx || !graph || !running()) return;
       rung++;
       try {
-        ring(ctx, graph, k);
+        ring(ctx, graph, k, seconds);
       } catch (err) {
         if (!warned) {
           warned = true;

@@ -24,15 +24,16 @@ function raise(m: HeadlessMatch): void {
 }
 
 describe('loadouts', () => {
-  it('spawns a player without a loadout carrying the M4A1, the pistol and one frag, the M4A1 in hand', () => {
+  it('spawns a player without a loadout carrying the M4A1, the pistol, one frag and one smoke, the M4A1 in hand', () => {
     const m = armed();
     m.step();
     const me = playerIn(m.latest, SHOOTER);
 
     expect(me.loadout).toEqual(DEFAULT_LOADOUT);
-    expect(DEFAULT_LOADOUT).toEqual({ primary: 'm4a1', secondary: 'pistol', grenade: 'frag' });
+    expect(DEFAULT_LOADOUT).toEqual({ primary: 'm4a1', secondary: 'pistol', grenade: 'frag', tactical: 'smoke', perk: null });
     expect(me.weapon).toMatchObject({ id: 'm4a1', slot: 0, action: 'draw', ammo: STATS.weapon.magazineSize.value });
     expect(me.grenades).toBe(STATS.grenade.perLife.value);
+    expect(me.tacticals).toBe(STATS.tactical.perLife.value);
   });
 
   it('spawns with the chosen primary in hand, its magazine full and its draw time before the first shot', () => {
@@ -50,7 +51,7 @@ describe('loadouts', () => {
   });
 
   it('accepts only loadouts that put each weapon in its own slot', () => {
-    expect(parseLoadout({ primary: 'smg', secondary: 'pistol', grenade: 'frag' })).toEqual({ primary: 'smg', secondary: 'pistol', grenade: 'frag' });
+    expect(parseLoadout({ primary: 'smg', secondary: 'pistol', grenade: 'frag' })).toEqual({ primary: 'smg', secondary: 'pistol', grenade: 'frag', tactical: null, perk: null });
     expect(parseLoadout({ primary: 'sniper', secondary: 'pistol', grenade: null })).not.toBeNull();
     expect(parseLoadout({ primary: 'pistol', secondary: 'pistol', grenade: 'frag' })).toBeNull();
     expect(parseLoadout({ primary: 'm4a1', secondary: 'smg', grenade: 'frag' })).toBeNull();

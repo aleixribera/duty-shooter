@@ -40,6 +40,9 @@ export interface TouchContext {
   readonly mapOpen: boolean;
   /** Grenades in hand: none dims the button. */
   readonly grenades: number;
+  /** The tactical carried and how many are left (ticket 20): none carried hides its button, none left dims it. */
+  readonly tactical?: 'smoke' | 'flash' | null;
+  readonly tacticals?: number;
 }
 
 /** Which toggles are on, for the buttons that light. */
@@ -61,6 +64,7 @@ export const TOUCH_GLYPHS = {
   reload: svg('<path d="M19 12a7 7 0 1 1-2.6-5.4"/><path d="M19 4v4.5h-4.5"/>'),
   switchWeapon: svg('<path d="M4 8h14l-3-3M20 16H6l3 3"/>'),
   grenade: svg('<circle cx="12" cy="14.5" r="5.5"/><path d="M10 9V5.5h4V9M14 5.5h3.5V9"/>'),
+  tactical: svg('<rect x="9" y="10" width="6" height="10" rx="1"/><path d="M9 13h6M11 10V8h2v2"/><path d="M13 6.5c0-1.5 1.5-2.5 3-2 1-1.5 4-1 4 1.2"/>'),
   melee: svg('<path d="M4 20l3.5-3.5M6 15l2.5 2.5M8 16.5L19 4c.6 3.6-.4 6.6-3 9.2l-5.5 5.3z"/>'),
   ping: svg('<path d="M12 21s-6-6.3-6-11a6 6 0 0 1 12 0c0 4.7-6 11-6 11z"/><circle cx="12" cy="10" r="2"/>'),
   scoreboard: svg('<path d="M4 6h16M4 12h16M4 18h16M9 6v12"/>'),
@@ -84,6 +88,7 @@ export const TOUCH_NAMES: Readonly<Record<string, string>> = {
   reload: 'Reload',
   switchWeapon: 'Swap weapon',
   grenade: 'Grenade',
+  tactical: 'Tactical',
   melee: 'Melee',
   use: 'Use',
   ping: 'Ping',
@@ -121,7 +126,7 @@ export const TOUCH_CSS = `
 .ds-tc .tb.none { opacity: 0.45; }
 .ds-tc .tb.top { display: flex; width: 44px; height: 44px; }
 .ds-tc .tb[hidden] { display: none; }
-.ds-tc[data-state="fight"] .tb.f, .ds-tc[data-state="spectate"] .tb.s, .ds-tc:not([data-state="over"]) .tb.u:not([hidden]) { display: flex; }
+.ds-tc[data-state="fight"] .tb.f:not([hidden]), .ds-tc[data-state="spectate"] .tb.s:not([hidden]), .ds-tc:not([data-state="over"]) .tb.u:not([hidden]) { display: flex; }
 .ds-tc.mapped .tb.f, .ds-tc.mapped .tb.s, .ds-tc.mapped .tb.u { display: none; }
 /* The scoreboard open: it has the screen, and a finger on it scrolls it. Only its own button and Pause stay. */
 .ds-tc.boarded .tb.f, .ds-tc.boarded .tb.s, .ds-tc.boarded .tb.u, .ds-tc.boarded .tb.ping, .ds-tc.boarded .tb.map, .ds-tc.boarded .stickui { display: none; }
@@ -137,6 +142,7 @@ export const TOUCH_CSS = `
 .ds-tc .reload { right: calc(var(--ds-safe-r) + 112px); bottom: calc(var(--ds-safe-b) + 104px); }
 .ds-tc .switchWeapon { right: calc(var(--ds-safe-r) + 84px); bottom: calc(var(--ds-safe-b) + 168px); }
 .ds-tc .grenade { right: calc(var(--ds-safe-r) + 180px); bottom: calc(var(--ds-safe-b) + 72px); }
+.ds-tc .tactical { right: calc(var(--ds-safe-r) + 156px); bottom: calc(var(--ds-safe-b) + 212px); }
 .ds-tc .melee { right: calc(var(--ds-safe-r) + 184px); bottom: calc(var(--ds-safe-b) + 12px); }
 .ds-tc .use { width: 60px; height: 60px; right: calc(var(--ds-safe-r) + 176px); bottom: calc(var(--ds-safe-b) + 136px); border-color: var(--ds-signal); color: var(--ds-signal); }
 .ds-tc .prev { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 148px); bottom: calc(var(--ds-safe-b) + 20px); }
@@ -165,7 +171,7 @@ export const TOUCH_CSS = `
 }
 `;
 
-const FIGHT: readonly Action[] = ['fire', 'ads', 'jump', 'crouch', 'reload', 'switchWeapon', 'grenade', 'melee'];
+const FIGHT: readonly Action[] = ['fire', 'ads', 'jump', 'crouch', 'reload', 'switchWeapon', 'grenade', 'tactical', 'melee'];
 
 type Control = string;
 
@@ -277,7 +283,7 @@ export class TouchControls {
   context(ctx: TouchContext): void {
     const was = this.#ctx;
     this.#ctx = ctx;
-    if (was && was.state === ctx.state && was.use === ctx.use && was.board === ctx.board && was.ping === ctx.ping && was.map === ctx.map && was.mapOpen === ctx.mapOpen && (was.grenades > 0) === (ctx.grenades > 0)) return;
+    if (was && was.state === ctx.state && was.use === ctx.use && was.board === ctx.board && was.ping === ctx.ping && was.map === ctx.map && was.mapOpen === ctx.mapOpen && (was.grenades > 0) === (ctx.grenades > 0) && was.tactical === ctx.tactical && ((was.tacticals ?? 0) > 0) === ((ctx.tacticals ?? 0) > 0)) return;
     // Out of the fight, or a board that is gone: nothing stays held or open behind the change.
     if (was && was.state !== ctx.state) this.reset();
     if (!ctx.board) this.#board = false;
@@ -314,6 +320,8 @@ export class TouchControls {
     light('scoreboard', this.#board);
     light('map', ctx?.mapOpen === true);
     this.#buttons.get('grenade')?.classList.toggle('none', ctx !== null && ctx.grenades <= 0);
+    show('tactical', (ctx?.tactical ?? null) !== null);
+    this.#buttons.get('tactical')?.classList.toggle('none', ctx !== null && (ctx.tacticals ?? 0) <= 0);
     this.#paintStick();
   }
 

@@ -1,6 +1,7 @@
 import { hitBody, partCentres, zoneCentre, type HitPose, type HitZone } from './combat/hitboxes';
 import { bulletDamage } from './combat/damage';
 import { blastDamage, moveGrenade, type Grenade, type GrenadeOutput } from './combat/grenade';
+import { smokeAmount, type SmokeCloud } from './combat/smoke';
 import { advance, raycastWorld, solidNormal, solidSpan, type Projectile } from './combat/projectiles';
 import { PointGrid } from './grid';
 import { fallDamage } from './health';
@@ -10,7 +11,7 @@ import { createMoveState, lunge, pmove, type MoveState, type MovementState, type
 import { hashString, noise } from './random';
 import { STATS, type WeaponId } from './stats';
 import { Button, usercmd, type UserCmd } from './usercmd';
-import { DEFAULT_LOADOUT, type Loadout } from './weapon/loadout';
+import { DEFAULT_LOADOUT, hasPerk, type Loadout, type ThrowableId } from './weapon/loadout';
 import {
   canFire,
   createWeaponState,
@@ -75,6 +76,7 @@ export type EntityKind = 'player' | 'dummy';
 export interface RespawnOptions {
   readonly health?: number;
   readonly frags?: number;
+  readonly tacticals?: number;
 }
 
 /** A weapon as it changes hands (a Supply Drop's sniper, one lying on the ground): which, and the rounds it carries. */
@@ -139,8 +141,10 @@ export interface PlayerOutput {
   readonly loadout: Loadout;
   /** Grenades left this life. */
   readonly grenades: number;
-  /** A grenade in hand: cooking, or just thrown, and for how long (s); null otherwise. */
-  readonly grenade: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;
+  /** Tacticals left this life (ticket 20). */
+  readonly tacticals: number;
+  /** A grenade or tactical in hand: cooking (held), or just thrown, and for how long (s); null otherwise. `kind` absent is a frag. */
+  readonly grenade: { readonly phase: 'cook' | 'throw'; readonly time: number; readonly kind?: ThrowableId } | null;
   /** Downed: seconds to Bleed-out, and how far a Revive is, 0 to 1. Null while standing or dead. */
   readonly downed: { readonly bleedOut: number; readonly revive: number } | null;
   /** How far this seat has Revived a squadmate, 0 to 1; null while it isn't. */
@@ -207,10 +211,14 @@ export type SimEvent =
   | { readonly type: 'melee'; readonly attacker: PlayerId; readonly victim: PlayerId | null }
   | { readonly type: 'reload'; readonly player: PlayerId; readonly phase: 'start' | 'addAmmo' | 'cancel'; readonly kind: ReloadKind | null }
   /** A grenade: the pin pulled (cook), thrown, or dropped by a player who died cooking it. */
-  | { readonly type: 'grenade'; readonly player: PlayerId; readonly phase: 'cook' | 'throw' | 'drop' }
+  | { readonly type: 'grenade'; readonly player: PlayerId; readonly phase: 'cook' | 'throw' | 'drop'; readonly kind?: ThrowableId }
   /** A grenade hit a surface hard enough to hear. */
   | { readonly type: 'bounce'; readonly grenade: number; readonly point: Vec3; readonly speed: number }
   | { readonly type: 'explosion'; readonly grenade: number; readonly thrower: PlayerId; readonly point: Vec3 }
+  /** A tactical went off (ticket 20): a smoke's first puff, or a flash's bang. */
+  | { readonly type: 'pop'; readonly grenade: number; readonly thrower: PlayerId; readonly point: Vec3; readonly kind: 'smoke' | 'flash' }
+  /** A flash reached `player`'s eyes: blinded for `duration` (s), `strength` 0 to 1 by how squarely they looked at it and how near. */
+  | { readonly type: 'flashed'; readonly player: PlayerId; readonly by: PlayerId; readonly grenade: number; readonly strength: number; readonly duration: number }
   /** A weapon switch: the player started putting `from` away for `to`. */
   | { readonly type: 'switch'; readonly player: PlayerId; readonly from: WeaponId; readonly to: WeaponId };
 
@@ -249,6 +257,8 @@ export interface SimulationOptions {
   readonly hazard?: (position: Vec3) => number;
   /** Frags a fresh set of weapons comes with; the usual allowance by default. */
   readonly frags?: () => number;
+  /** Tacticals a fresh set of weapons comes with; the usual allowance by default. */
+  readonly tacticals?: () => number;
   /** Whether `victim` may go Downed at 0 health (Battle Royale with Squads). Defaults to never. */
   readonly downs?: (victim: PlayerInfo) => boolean;
   /**
@@ -279,6 +289,7 @@ export interface PlayerState {
   slot: number;
   loadout: Loadout;
   grenades: number;
+  tacticals: number;
   /** Raw usercmd view angles of the last processed usercmd. */
   cmdYaw: number;
   cmdPitch: number;
@@ -302,7 +313,7 @@ export interface PlayerState {
   readonly spawn: { readonly position: Vec3; readonly yaw: number };
   readonly dummy: DummyOptions | null;
   /** A grenade in hand: cooking since the weapon clock time `since`, or thrown at `since` while the weapon comes back up. */
-  grenade: { phase: 'cook' | 'throw'; since: number } | null;
+  grenade: { phase: 'cook' | 'throw'; since: number; kind?: ThrowableId } | null;
   /** Downed since `since` by `by`, who is credited if it never gets up; `revive` is the squadmate at it, and since when. Health is the Downed pool meanwhile. */
   downed: { since: number; by: PlayerId | null; revive: { by: PlayerId; since: number } | null } | null;
   /** The Downed squadmate this seat is Reviving, and since when. */
@@ -337,14 +348,25 @@ function cmdList(sent: UserCmd | readonly UserCmd[] | undefined): readonly (User
   return Array.isArray(sent) ? sent : [sent as UserCmd];
 }
 
-/** A fresh set of weapons for `loadout`: the primary in hand and drawing, the secondary put away, grenades full. */
-function arms(loadout: Loadout, frags: number): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades'> {
+/** A fresh set of weapons for `loadout`: the primary in hand and drawing, the secondary put away, grenades and tacticals full. */
+function arms(loadout: Loadout, frags: number, tacticals: number): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades' | 'tacticals'> {
   return {
     weapons: [createWeaponState(loadout.primary), createWeaponState(loadout.secondary)],
     slot: 0,
     loadout,
     grenades: loadout.grenade ? frags : 0,
+    tacticals: loadout.tactical ? tacticals : 0,
   };
+}
+
+/** How much faster a player's hands are (reloads, draws, putting a gun away): 1, or more with Fast Hands. */
+function handSpeed(p: PlayerState): number {
+  return hasPerk(p.loadout, 'fastHands') ? STATS.perks.fastHands.value : 1;
+}
+
+/** The button a thrown thing in hand is held on: the frag's, or the tactical's. */
+function throwButton(kind: ThrowableId | undefined): number {
+  return kind === 'smoke' || kind === 'flash' ? Button.Tactical : Button.Grenade;
 }
 
 /** The weapon in the player's hand. */
@@ -400,6 +422,7 @@ export class Simulation {
   readonly #canDamage: (attacker: PlayerInfo, victim: PlayerInfo) => boolean;
   readonly #hazard: ((position: Vec3) => number) | null;
   readonly #fragsOption: (() => number) | null;
+  readonly #tacticalsOption: (() => number) | null;
   readonly #downs: (victim: PlayerInfo) => boolean;
 
   constructor(world: World, options: SimulationOptions = {}) {
@@ -408,6 +431,7 @@ export class Simulation {
     this.#selfDamage = options.selfDamage ?? (() => true);
     this.#hazard = options.hazard ?? null;
     this.#fragsOption = options.frags ?? null;
+    this.#tacticalsOption = options.tacticals ?? null;
     this.#downs = options.downs ?? (() => false);
     this.#predictOnly = options.predictOnly ?? false;
   }
@@ -447,7 +471,7 @@ export class Simulation {
       team: spawn.team,
       kind: spawn.dummy ? 'dummy' : 'player',
       move: createMoveState(spawn.position, yaw),
-      ...arms(spawn.loadout ?? DEFAULT_LOADOUT, this.#frags()),
+      ...arms(spawn.loadout ?? DEFAULT_LOADOUT, this.#frags(), this.#tacticals()),
       cmdYaw: yaw,
       cmdPitch: pitch,
       viewYaw: 0,
@@ -493,7 +517,7 @@ export class Simulation {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
     p.move = createMoveState(position, yaw);
-    Object.assign(p, arms(loadout ?? p.loadout, options.frags ?? this.#frags()));
+    Object.assign(p, arms(loadout ?? p.loadout, options.frags ?? this.#frags(), options.tacticals ?? this.#tacticals()));
     p.grenade = null;
     this.#stopRevive(p);
     p.downed = null;
@@ -515,7 +539,7 @@ export class Simulation {
   equip(id: PlayerId, loadout: Loadout): void {
     const p = this.#players.get(id);
     if (!p) throw new Error(`No player ${id}`);
-    Object.assign(p, arms(loadout, this.#frags()));
+    Object.assign(p, arms(loadout, this.#frags(), this.#tacticals()));
     p.grenade = null;
     this.#output = null;
   }
@@ -658,11 +682,18 @@ export class Simulation {
     const other = player.weapons[1 - player.slot];
     const switchPress = (cmd.buttons & Button.SwitchWeapon) !== 0 && (weapon.prevButtons & Button.SwitchWeapon) === 0;
     const grenadePress = (cmd.buttons & Button.Grenade) !== 0 && (weapon.prevButtons & Button.Grenade) === 0;
+    const tacticalPress = (cmd.buttons & Button.Tactical) !== 0 && (weapon.prevButtons & Button.Tactical) === 0;
     const free = player.health > 0 && !player.downed && weapon.action !== 'holster' && weapon.action !== 'melee' && weapon.action !== 'grenade' && player.move.movement !== 'mantle' && player.move.movement !== 'ladder';
+    const tactical = player.loadout.tactical ?? null;
     if (grenadePress && free && player.grenades > 0 && player.grenade === null) {
       lowerForGrenade(weapon, events);
       player.grenade = { phase: 'cook', since: weapon.clock };
       this.#events.push({ type: 'grenade', player: player.id, phase: 'cook' });
+    } else if (tacticalPress && free && tactical && player.tacticals > 0 && player.grenade === null) {
+      // A tactical comes out as a frag does, but its fuse is lit only as it leaves the hand.
+      lowerForGrenade(weapon, events);
+      player.grenade = { phase: 'cook', since: weapon.clock, kind: tactical };
+      this.#events.push({ type: 'grenade', player: player.id, phase: 'cook', kind: tactical });
     } else if (switchPress && other && free) {
       startHolster(weapon, events);
       this.#events.push({ type: 'switch', player: player.id, from: weapon.id, to: other.id });
@@ -676,6 +707,7 @@ export class Simulation {
         // A weapon in the hand of a Downed seat stops where it is, as a dead one's does.
         alive: player.health > 0 && !player.downed,
         seed: hashString(player.id) + player.slot,
+        hands: handSpeed(player),
       },
       TICK_SECONDS,
       events,
@@ -752,9 +784,10 @@ export class Simulation {
     if (!g) return;
     const held = weapon.clock - g.since;
     if (g.phase === 'cook') {
-      if (held >= STATS.grenade.fuse.value - 1e-9) this.#release(player, 'drop');
-      else if ((cmd.buttons & Button.Grenade) === 0) this.#release(player, 'throw');
-    } else if (held >= STATS.grenade.throwTime.value - 1e-9) {
+      // A frag cooked to the end of its fuse goes off in the hand; a tactical's fuse isn't lit until it's thrown.
+      if (g.kind === undefined && held >= STATS.grenade.fuse.value - 1e-9) this.#release(player, 'drop');
+      else if ((cmd.buttons & throwButton(g.kind)) === 0) this.#release(player, 'throw');
+    } else if (held >= STATS.grenade.throwTime.value / handSpeed(player) - 1e-9) {
       player.grenade = null;
       raiseAfterGrenade(weapon);
     }
@@ -765,11 +798,13 @@ export class Simulation {
     const g = player.grenade;
     if (!g || g.phase !== 'cook') return;
     const weapon = activeWeapon(player);
-    const cooked = weapon.clock - g.since;
-    player.grenades -= 1;
-    player.grenade = { phase: 'throw', since: weapon.clock };
+    const kind = g.kind;
+    const fuse = kind === 'smoke' ? STATS.tactical.smoke.fuse.value : kind === 'flash' ? STATS.tactical.flash.fuse.value : Math.max(0, STATS.grenade.fuse.value - (weapon.clock - g.since));
+    if (kind) player.tacticals -= 1;
+    else player.grenades -= 1;
+    player.grenade = kind ? { phase: 'throw', since: weapon.clock, kind } : { phase: 'throw', since: weapon.clock };
     if (how === 'drop' && (player.health <= 0 || player.downed)) player.grenade = null;
-    this.#events.push({ type: 'grenade', player: player.id, phase: how });
+    this.#events.push(kind ? { type: 'grenade', player: player.id, phase: how, kind } : { type: 'grenade', player: player.id, phase: how });
     if (this.#replaying || this.#predictOnly) return;
     const eye: Vec3 = [player.move.position[0], player.move.position[1] + player.move.eyeHeight, player.move.position[2]];
     const view = this.#viewAngles(player);
@@ -778,20 +813,36 @@ export class Simulation {
     const v = player.move.velocity;
     this.#grenades.push({
       id: this.#nextGrenade++,
+      ...(kind ? { kind } : {}),
       thrower: player.id,
       team: player.team,
       position: how === 'throw' ? eye : [player.move.position[0], player.move.position[1] + 0.1, player.move.position[2]],
       velocity: [d[0] * speed + v[0], d[1] * speed + Math.max(0, v[1]), d[2] * speed + v[2]],
-      explodeAt: this.time + Math.max(0, STATS.grenade.fuse.value - cooked),
+      explodeAt: this.time + fuse,
       resting: false,
     });
   }
 
   #stepGrenades(): void {
     const live: Grenade[] = [];
+    const clouds: SmokeCloud[] = [];
     for (const g of this.#grenades) {
+      if (g.popped !== undefined) {
+        // A smoke lying smoking: it rolls on to rest, its cloud over it, and goes when the cloud has.
+        if (this.time > g.popped && smokeAmount({ popped: g.popped }, this.time) <= 0) continue;
+        moveGrenade(g, this.world, TICK_SECONDS);
+        live.push(g);
+        clouds.push({ id: g.id, at: g.position, popped: g.popped });
+        continue;
+      }
       if (this.time >= g.explodeAt - 1e-9) {
-        this.#explode(g);
+        if (g.kind === 'smoke') {
+          g.popped = this.time;
+          this.#events.push({ type: 'pop', grenade: g.id, thrower: g.thrower, point: g.position, kind: 'smoke' });
+          live.push(g);
+          clouds.push({ id: g.id, at: g.position, popped: g.popped });
+        } else if (g.kind === 'flash') this.#flash(g);
+        else this.#explode(g);
         continue;
       }
       const impact = moveGrenade(g, this.world, TICK_SECONDS);
@@ -799,6 +850,40 @@ export class Simulation {
       live.push(g);
     }
     this.#grenades = live;
+    // The world's smoke is what bots see by: only the simulation that runs the grenades keeps it (a page's prediction has none).
+    if (!this.#predictOnly) this.world.smoke?.set(clouds, this.time);
+  }
+
+  /**
+   * A flash goes off (ticket 20): everyone it may hurt, and its thrower, whose
+   * eyes it reaches within its range (no wall or smoke between) is blinded, the
+   * longer the more squarely they looked at it and the nearer they stood. A
+   * Blast Vest shortens it. The simulation only says who and how long: a page
+   * whites out its own view, a bot stops seeing.
+   */
+  #flash(g: Grenade): void {
+    const F = STATS.tactical.flash;
+    const point: Vec3 = [g.position[0], g.position[1] + 0.05, g.position[2]];
+    this.#events.push({ type: 'pop', grenade: g.id, thrower: g.thrower, point, kind: 'flash' });
+    const thrower: PlayerInfo = { id: g.thrower, team: g.team, kind: 'player' };
+    for (const p of this.#players.values()) {
+      if (p.health <= 0 || p.dummy) continue;
+      if (p.id !== g.thrower && !this.#canDamage(thrower, p)) continue;
+      const eye: Vec3 = [p.move.position[0], p.move.position[1] + p.move.eyeHeight, p.move.position[2]];
+      const to = sub(point, eye);
+      const d = length(to);
+      if (d >= F.range.value || raycastWorld(this.world, point, eye) || this.world.smoke?.hides(point, eye)) continue;
+      const aim = this.#viewAngles(p);
+      const facing = d > 1e-6 ? dot(viewDirection(aim.yaw, aim.pitch), [to[0] / d, to[1] / d, to[2] / d]) : 1;
+      // Looked at, it fills the eye; from the side it still dazzles; behind, only the glare off what's in front.
+      const t = Math.max(0, Math.min(1, (facing + 0.4) / 1.15));
+      const look = 0.2 + 0.8 * t * t * (3 - 2 * t);
+      const strength = look * (1 - (d / F.range.value) ** 2);
+      if (strength < 0.05) continue;
+      const vest = hasPerk(p.loadout, 'blastVest') ? STATS.perks.blastVestFlash.value : 1;
+      const duration = (F.shortest.value + (F.longest.value - F.shortest.value) * strength) * vest;
+      this.#events.push({ type: 'flashed', player: p.id, by: g.thrower, grenade: g.id, strength, duration });
+    }
   }
 
   /**
@@ -830,7 +915,8 @@ export class Simulation {
         if (!nearest || d < nearest.distance) nearest = { zone, distance: d, centre };
       }
       if (!nearest) continue;
-      const damage = blastDamage(nearest.distance) * (exposed / whole);
+      const vest = hasPerk(victim.loadout, 'blastVest') ? STATS.perks.blastVest.value : 1;
+      const damage = blastDamage(nearest.distance) * (exposed / whole) * vest;
       const landed = this.#landed(victim, damage);
       const killed = this.#damage(victim, damage, g.thrower, 'grenade', nearest.zone, 'frag');
       this.#events.push({ type: 'hit', shooter: g.thrower, victim: victim.id, zone: nearest.zone, damage: landed, distance: nearest.distance, point: nearest.centre, killed, cause: 'grenade', weapon: 'frag', pellets: 1 });
@@ -884,6 +970,11 @@ export class Simulation {
   /** Frags a fresh set of weapons comes with. */
   #frags(): number {
     return this.#fragsOption?.() ?? STATS.grenade.perLife.value;
+  }
+
+  /** Tacticals a fresh set of weapons comes with. */
+  #tacticals(): number {
+    return this.#tacticalsOption?.() ?? STATS.tactical.perLife.value;
   }
 
   /** Health regenerates to full over the regen duration, starting the regen delay after the last damage. */
@@ -1310,7 +1401,8 @@ export class Simulation {
       },
       loadout: p.loadout,
       grenades: p.grenades,
-      grenade: p.grenade ? { phase: p.grenade.phase, time: w.clock - p.grenade.since } : null,
+      tacticals: p.tacticals,
+      grenade: p.grenade ? { phase: p.grenade.phase, time: w.clock - p.grenade.since, ...(p.grenade.kind ? { kind: p.grenade.kind } : {}) } : null,
       downed: p.downed ? { bleedOut: Math.max(0, p.downed.since + R.bleedOut.value - this.time), revive: p.downed.revive ? this.#reviveShare(p.downed.revive.since) : 0 } : null,
       reviving: p.reviving ? this.#reviveShare(p.reviving.since) : null,
     };

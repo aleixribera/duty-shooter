@@ -1,5 +1,5 @@
 import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type PingKind, type UserCmd } from '@duty-shooter/fps-core';
-import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
+import { PAD, PAD_KEPT_IN_PLAY, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 import { wheelPick } from './ui/pings';
 import { TouchControls, fillScreen, type TouchContext, type TouchSink } from './touch/controls';
@@ -349,7 +349,7 @@ export class InputController {
     }
     if (!this.#enabled || !this.locked) return;
     // Mouse1 (the wheel button) would start the browser's autoscroll.
-    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC' || code === 'KeyQ' || code === 'KeyG' || code === 'KeyF' || code === 'Mouse1') e?.preventDefault();
+    if (code === 'Tab' || code === 'Space' || code.startsWith('Control') || code === 'KeyR' || code === 'KeyC' || code === 'KeyQ' || code === 'KeyG' || code === 'KeyE' || code === 'KeyF' || code === 'Mouse1') e?.preventDefault();
     if (this.#held.has(code)) return; // key repeat
     this.#held.add(code);
     this.#tapped.add(code);
@@ -523,7 +523,7 @@ export class InputController {
       if (pad.pressed[i] === was) continue;
       if (!pad.pressed[i]) this.#up(`Pad${i}`);
       else if (i === PAD.options) options = true;
-      else if (i === PAD.left || i === PAD.right) this.onPadVote?.(i === PAD.left ? 'left' : 'right');
+      else if (PAD_KEPT_IN_PLAY.includes(i)) this.onPadVote?.(i === PAD.left ? 'left' : 'right');
       else this.#down(`Pad${i}`);
     }
     if (options) {
@@ -634,6 +634,7 @@ export class InputController {
     if (held('reload')) buttons |= Button.Reload;
     if (held('melee')) buttons |= Button.Melee;
     if (held('grenade')) buttons |= Button.Grenade;
+    if (held('tactical')) buttons |= Button.Tactical;
     if (held('use')) buttons |= Button.Use;
     if (active && this.#switch) buttons |= Button.SwitchWeapon;
     this.#switch = false;

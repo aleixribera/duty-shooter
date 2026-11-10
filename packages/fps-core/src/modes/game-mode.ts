@@ -357,6 +357,8 @@ export interface GameMode {
   readonly fixedSeats?: number;
   /** Frags a seat starts with, in place of the usual allowance. */
   readonly frags?: number;
+  /** Tacticals a seat starts with, in place of the usual allowance (ticket 20). */
+  readonly tacticals?: number;
   /** HP a second the mode's own hazard takes from a seat at `position`, `matchTime` seconds in. */
   hazardAt?(position: Vec3, matchTime: number): number;
   /** Whether seats go Downed at 0 health rather than dying. Never, when absent. */

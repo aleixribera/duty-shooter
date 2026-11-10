@@ -29,5 +29,5 @@ export interface ViewmodelState {
   readonly motion?: number;
   readonly alive: boolean;
   /** A grenade in hand: cooking, or just thrown, and for how long (s). */
-  readonly grenade?: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;
+  readonly grenade?: { readonly phase: 'cook' | 'throw'; readonly time: number; readonly kind?: 'frag' | 'smoke' | 'flash' } | null;
 }

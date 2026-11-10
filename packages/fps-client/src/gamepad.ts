@@ -35,9 +35,12 @@ export type PadLayout = 'default' | 'tactical';
  * prone is a hold of the crouch button and Options opens the menu.
  */
 export const PAD_LAYOUTS: Readonly<Record<PadLayout, Readonly<Partial<Record<Action, PadButton>>>>> = {
-  default: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'circle', jump: 'cross', reload: 'square', melee: 'r3', switchWeapon: 'triangle', grenade: 'r1', use: 'l1', scoreboard: 'touchpad', map: 'share', ping: 'up' },
-  tactical: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'r3', jump: 'cross', reload: 'square', melee: 'circle', switchWeapon: 'triangle', grenade: 'r1', use: 'l1', scoreboard: 'touchpad', map: 'share', ping: 'up' },
+  default: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'circle', jump: 'cross', reload: 'square', melee: 'r3', switchWeapon: 'triangle', grenade: 'r1', tactical: 'down', use: 'l1', scoreboard: 'touchpad', map: 'share', ping: 'up' },
+  tactical: { fire: 'r2', ads: 'l2', sprint: 'l3', crouch: 'r3', jump: 'cross', reload: 'square', melee: 'circle', switchWeapon: 'triangle', grenade: 'r1', tactical: 'down', use: 'l1', scoreboard: 'touchpad', map: 'share', ping: 'up' },
 };
+
+/** The buttons play keeps for itself, so no action is bound to them: Options opens the menu, d-pad left and right vote for the next mode. */
+export const PAD_KEPT_IN_PLAY: readonly number[] = [PAD.options, PAD.left, PAD.right];
 
 /** Menu navigation from the pad. */
 export type PadNav = 'up' | 'down' | 'left' | 'right' | 'accept' | 'back' | 'start';

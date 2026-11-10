@@ -1,7 +1,7 @@
 import { DEG } from '../math';
 import { hashString, noise } from '../random';
 import { STATS, type WeaponId } from '../stats';
-import type { Loadout } from '../weapon/loadout';
+import type { Loadout, PerkId, TacticalId } from '../weapon/loadout';
 
 /** How a bot likes to play. */
 export type BotStyle = 'rusher' | 'flanker' | 'anchor' | 'roamer' | 'support';
@@ -18,7 +18,7 @@ export const BOT_STYLES: readonly BotStyle[] = ['rusher', 'flanker', 'anchor', '
 export interface BotProfile {
   readonly name: string;
   readonly style: BotStyle;
-  /** What it carries: a primary picked by its style's weights, the pistol (or, for about one in three, the revolver) and a frag. */
+  /** What it carries: a primary picked by its style's weights, the pistol (or, for about one in three, the revolver), a frag, and its style's tactical and perk. */
   readonly loadout: Loadout;
   /** Seconds from first seeing an enemy to starting to aim at them. */
   readonly reaction: number;
@@ -182,6 +182,19 @@ const RETIRED_SLOT = Object.keys(COMMON).indexOf('slide') + 2;
 const slotOf = (i: number) => (i + 1 < RETIRED_SLOT ? i + 1 : i + 2);
 
 /** The moderate bot's personality for `name`: the same name always plays the same way. */
+/**
+ * What each style carries beside its guns (ticket 20): the ones who go in
+ * first throw a flash ahead of them, the ones who hold or roam a smoke to
+ * get out under; the perk fits how each plays.
+ */
+const KIT: Readonly<Record<BotStyle, { readonly tactical: TacticalId; readonly perk: PerkId }>> = {
+  rusher: { tactical: 'flash', perk: 'fastHands' },
+  flanker: { tactical: 'flash', perk: 'softSoles' },
+  anchor: { tactical: 'smoke', perk: 'blastVest' },
+  roamer: { tactical: 'smoke', perk: 'softSoles' },
+  support: { tactical: 'smoke', perk: 'blastVest' },
+};
+
 export function botProfile(name: string): BotProfile {
   const seed = hashString(name);
   // The listed names take the styles in turn, so any handful of them is a mix; other names by their hash.
@@ -194,7 +207,10 @@ export function botProfile(name: string): BotProfile {
       return [k, lo + (hi - lo) * noise(seed, slotOf(i))];
     }),
   ) as Record<Tunable, number>;
-  const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: noise(seed, 98) < REVOLVER_SHARE ? 'revolver' : 'pistol', grenade: 'frag' };
+  const kit = KIT[style];
+  // One in four takes the other tactical: a lobby of rushers isn't all flashes.
+  const tactical: TacticalId = noise(seed, 97) < 0.25 ? (kit.tactical === 'flash' ? 'smoke' : 'flash') : kit.tactical;
+  const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: noise(seed, 98) < REVOLVER_SHARE ? 'revolver' : 'pistol', grenade: 'frag', tactical, perk: kit.perk };
   return { name, style, loadout, ...values, reloadBelow: Math.round(values.reloadBelow) };
 }
 

@@ -48,7 +48,7 @@ describe('gun game', () => {
   it('starts everyone on the first gun with no grenade, and only free-for-all', () => {
     const mode = gungame();
     const [first] = mode.guns;
-    expect(mode.loadoutOf('a')).toEqual({ primary: first, secondary: first, grenade: null });
+    expect(mode.loadoutOf('a')).toEqual({ primary: first, secondary: first, grenade: null, tactical: null, perk: null });
     expect(mode.objective()).toEqual({ kind: 'gungame', guns: mode.guns });
     expect(mode.loadoutOf('nobody')).toBeNull();
     expect(mode.canDamage({ id: 'a', team: 1, kind: 'player' }, { id: 'b', team: 2, kind: 'player' })).toBe(true);
@@ -197,7 +197,7 @@ describe('gun game on the server', () => {
     const objective = m.server.mode.objective();
     const guns = objective?.kind === 'gungame' ? objective.guns : [];
     expect(guns.slice(0, 2)).toEqual(['m4a1', 'smg']);
-    expect(weaponOf(m, a).loadout).toEqual({ primary: guns[0], secondary: guns[0], grenade: null });
+    expect(weaponOf(m, a).loadout).toEqual({ primary: guns[0], secondary: guns[0], grenade: null, tactical: null, perk: null });
     expect(weaponOf(m, a).grenades).toBe(0);
     // The last kill on the first gun moves a on to the second, in hand at once.
     for (let k = 1; k <= GUN_GAME_KILLS_PER_GUN; k++) {

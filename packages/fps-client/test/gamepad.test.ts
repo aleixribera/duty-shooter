@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PAD, readPad } from '../src/gamepad';
+import { PAD, PAD_KEPT_IN_PLAY, PAD_LAYOUTS, readPad } from '../src/gamepad';
 
 /** A DualShock 4 with R2 (fire) held and the left stick pushed: someone using it. */
 function busyPad(): Gamepad {
@@ -35,5 +35,16 @@ describe('reading the controller', () => {
   it('ignores the pad while the game is hidden', () => {
     page(true, true);
     expect(readPad()).toBeNull();
+  });
+});
+
+describe('the pad layouts', () => {
+  // Ticket 20's tactical first went on d-pad left, which play keeps for the mode vote: it could never be thrown from a pad.
+  it('bind every action to a button play hands on, each to its own', () => {
+    for (const [name, layout] of Object.entries(PAD_LAYOUTS)) {
+      const buttons = Object.values(layout).map((b) => PAD[b]);
+      expect(buttons.filter((b) => PAD_KEPT_IN_PLAY.includes(b)), name).toEqual([]);
+      expect(new Set(buttons).size, name).toBe(buttons.length);
+    }
   });
 });

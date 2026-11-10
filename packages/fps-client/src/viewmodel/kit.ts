@@ -308,12 +308,13 @@ export function buildKitGun(id: KitId): KitGun {
   };
 }
 
-/** The frag in the hand: loaded once, shown while cooking. */
-export function buildFrag(): { readonly root: Group; readonly loaded: Promise<void>; dispose(): void } {
+/** A frag, smoke or flash in the hand (ticket 20 added the tacticals): loaded once, shown while cooking. */
+export function buildFrag(kind: 'frag' | 'smoke' | 'flash' = 'frag'): { readonly root: Group; readonly loaded: Promise<void>; dispose(): void } {
   const root = new Group();
   let model: Object3D | null = null;
   let disposed = false;
-  const loaded = new GLTFLoader().loadAsync(asset('frag')).then(({ scene }) => {
+  const url = kind === 'smoke' ? new URL('./assets/smoke.glb', import.meta.url).href : kind === 'flash' ? new URL('./assets/flash.glb', import.meta.url).href : asset('frag');
+  const loaded = new GLTFLoader().loadAsync(url).then(({ scene }) => {
     if (disposed) return disposeAuthored(scene);
     model = scene;
     scene.traverse((o) => {
@@ -321,7 +322,7 @@ export function buildFrag(): { readonly root: Group; readonly loaded: Promise<vo
     });
     root.add(scene);
   }).catch((error: unknown) => {
-    console.warn('Unable to load the frag model:', error);
+    console.warn(`Unable to load the ${kind} model:`, error);
   });
   return {
     root,

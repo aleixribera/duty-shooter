@@ -143,7 +143,7 @@ One gun with its row in the stats file: the M4A1, the Wasp 9 SMG, the Harrow 12 
 _Avoid_: gun (fine in player-facing text), item
 
 **Loadout**:
-What a player carries into a life: a primary, a secondary and a grenade (or none). A change applies at the next spawn; offline, at once.
+What a player carries into a life: a primary, a secondary, a grenade, a Tactical and a Perk (each of the last three may be none). A change applies at the next spawn; offline, at once. A loadout saved before Tacticals existed gets the Smoke.
 _Avoid_: class, kit
 
 **Primary**:
@@ -159,6 +159,32 @@ _Avoid_: volley, salvo
 **Frag**:
 The fragmentation grenade: cooked by holding the grenade button, thrown on release, one a life.
 _Avoid_: nade (fine in player-facing text)
+
+**Tactical**:
+The loadout's second throwable, beside the frag: a Smoke, a Flash or none. Held on its own button (E, the pad's d-pad down) and thrown on release, but its fuse is lit at the release, so it is never cooked and never goes off in the hand. One a life; two for a Battle Royale, not refilled (a Reboot brings one back). Bots carry one by their profile and use it.
+_Avoid_: utility, equipment, lethal/non-lethal
+
+**Smoke**:
+The Tactical that pops 1.2 s after the throw into a cloud 7 m across and 3.4 m high. It grows for 2.2 s, stands for 15 s in all and thins out over its last 3.5 s. Nobody sees through it, people or bots; bullets still go through it.
+_Avoid_: smoke grenade (fine in player-facing text), smoke screen, Smoke trail (that's the sniper round's)
+
+**Flash**:
+The Tactical that goes off 1.1 s after the throw and whites out each enemy who can see it, and its thrower, never their teammates: for up to 3.6 s looking straight at it from close by, at least 0.6 s if it reaches the eye at all, weaker with distance and nothing from 20 m. Facing away cuts it down; a wall or a Smoke between stops it. A blinded bot sees nobody until it wears off. Its blast does no damage.
+_Avoid_: flashbang, stun
+
+**Perk**:
+The one passive the loadout carries, or none: Fast Hands, Soft Soles or Blast Vest. Each answers something else in the game, so a pick is a guess at what the other side will do.
+_Avoid_: ability, skill, upgrade
+
+**Fast Hands**:
+The Perk that makes reloads, drawing and putting away a gun, and the throw all run 35 % faster.
+
+**Soft Soles**:
+The Perk that makes your footsteps carry half their usual distance, to players' ears and to bots'.
+
+**Blast Vest**:
+The Perk that takes 40 % off the frag damage you take and makes a Flash blind you for 45 % as long.
+_Avoid_: flak jacket
 
 **Tracer**:
 The short bright streak drawn along a bullet's flight, for every shot by anyone: it leaves the muzzle as drawn, joins the path the simulation flies from the eye within 20 m, and ends where that bullet struck. Client-side only; the server sends nothing extra for it.
@@ -181,7 +207,7 @@ What a seat leaves where it goes out in a Duos or Trios Battle Royale while a sq
 _Avoid_: banner, dog tag, respawn token
 
 **Reboot Beacon**:
-One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP and 1 frag; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
+One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP, 1 frag and 1 Tactical; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
 _Avoid_: respawn tower, revive station
 
 **Grenade indicator**:

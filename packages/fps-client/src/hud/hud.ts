@@ -31,6 +31,7 @@ const CSS = `
 .ds-hit.shielded i { width: 6px; left: -3px; height: 1.6px; top: -0.8px; background: var(--ds-text-2); }
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid color-mix(in srgb, var(--ds-alert) 85%, transparent); filter: blur(0.6px); transform-origin: 70px 230px; }
+.ds-blind { position: absolute; inset: 0; background: var(--ds-text); opacity: 0; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, var(--ds-blood) 100%); opacity: 0; }
 /* A plate is one flat surface over the world: no outline, no rounding. */
 .ds-plate { background: var(--ds-plate); border: 0; border-radius: 0; text-shadow: none; }
@@ -45,6 +46,7 @@ const CSS = `
 .ds-ammo .nade .ds-icon { width: 18px; height: 18px; stroke-width: 2; }
 .ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.45; }
 .ds-ammo .nade.cook { color: var(--ds-alert); }
+.ds-ammo .nade.tac.cook { color: var(--ds-signal); }
 .ds-scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent 38vmin, var(--ds-shadow) 38.3vmin, var(--ds-black) 39vmin); }
 .ds-scope i { position: absolute; background: var(--ds-black); }
 .ds-scope i.h { left: calc(50% - 38vmin); right: calc(50% - 38vmin); top: calc(50% - 1px); height: 2px; }
@@ -313,6 +315,10 @@ export interface HudState {
   readonly action?: { readonly label: string; readonly share: number } | null;
   /** The pings standing, where they show on the screen, and the ping wheel while it is open (ticket 66). */
   readonly pingMarks?: { readonly marks: readonly PingScreenMark[]; readonly wheel: { readonly pick: PingKind | null } | null };
+  /** How white a flash has turned the view, 0 to 1 (ticket 20). */
+  readonly blinded?: number;
+  /** The tactical this life's loadout carries (ticket 20); none hides its slot. */
+  readonly tactical?: 'smoke' | 'flash' | null;
   /** The live grenades near enough to warn you of (ticket 12). */
   readonly grenades?: readonly GrenadeWarning[];
   readonly dt: number;
@@ -439,12 +445,16 @@ export class Hud {
   readonly #dmg: HTMLDivElement;
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
+  /** A flash's white-out over the world (the HUD stays over it). */
+  readonly #blind: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
   /** The spare rounds: infinite, except a sniper from a Supply Drop. */
   readonly #res: HTMLSpanElement;
   readonly #gun: HTMLElement;
   readonly #nade: HTMLElement;
   readonly #nadeCount: HTMLElement;
+  readonly #tac: HTMLElement;
+  #tacKind: string | null = 'smoke';
   readonly #hint: HTMLElement;
   readonly #scope: HTMLDivElement;
   readonly #health: HTMLDivElement;
@@ -515,6 +525,7 @@ export class Hud {
     this.root = el('div', 'ds-hud ds-ui', parent);
     this.#scope = el('div', 'ds-scope', this.root, '<i class="h"></i><i class="v"></i><i class="h thick"></i><i class="h thick r"></i><i class="v thick"></i>');
     this.#vignette = el('div', 'ds-vignette', this.root);
+    this.#blind = el('div', 'ds-blind', this.root);
     this.#allies = new AllyTagsView(this.root);
     this.#grenades = new GrenadeWarningsView(this.root);
     this.#spectator = new SpectatorPanel(this.root);
@@ -531,12 +542,13 @@ export class Hud {
     this.#healthLabel = this.#health.querySelector('.ds-label') as HTMLElement;
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
-    const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, `<div class="gun">M4A1</div><span class="nade" aria-label="Grenades">${icon('grenade')}<b>1</b></span><span class="mag">30</span>` + '<span class="res">/ ∞</span><div class="bar"><i></i></div>'));
+    const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, `<div class="gun">M4A1</div><span class="nade tac" aria-label="Tactical">${icon('smoke')}<b>1</b></span><span class="nade frag" aria-label="Grenades">${icon('grenade')}<b>1</b></span><span class="mag">30</span>` + '<span class="res">/ ∞</span><div class="bar"><i></i></div>'));
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
     this.#res = ammo.querySelector('.res') as HTMLSpanElement;
     this.#gun = ammo.querySelector('.gun') as HTMLElement;
-    this.#nade = ammo.querySelector('.nade') as HTMLElement;
-    this.#nadeCount = ammo.querySelector('.nade b') as HTMLElement;
+    this.#nade = ammo.querySelector('.nade.frag') as HTMLElement;
+    this.#nadeCount = ammo.querySelector('.nade.frag b') as HTMLElement;
+    this.#tac = ammo.querySelector('.nade.tac') as HTMLElement;
     this.#bar = ammo.querySelector('.bar i') as HTMLElement;
     this.#feed = el('div', 'ds-feed', this.root);
     this.#stats = el('div', 'ds-stats', this.root);
@@ -757,6 +769,7 @@ export class Hud {
     while (this.#indicators[0] && this.#indicators[0].age > 1.6) this.#indicators.shift()?.el.remove();
     this.#flash = Math.max(0, this.#flash - dt * 2.5);
     const hurt = self ? 1 - self.health / 100 : 0;
+    this.#style(this.#blind, 'opacity', fixed(state.blinded ?? 0));
     this.#style(this.#vignette, 'opacity', fixed(Math.min(1, hurt * 0.9 + this.#flash * 0.35)));
 
     const health = self ? Math.max(0, Math.round(self.health)) : 0;
@@ -778,10 +791,25 @@ export class Hud {
       this.#res.classList.toggle('low', w.reserve === 0);
       this.#mag.classList.toggle('low', w.ammo <= Math.max(1, Math.floor(size / 5)));
       this.#style(this.#bar, 'transform', `scaleX(${fixed(w.ammo / size)})`);
-      const cooking = self.grenade?.phase === 'cook';
+      // A frag in the hand counts its fuse down; a tactical's isn't lit until it leaves the hand.
+      const kind = self.grenade?.kind;
+      const cooking = self.grenade?.phase === 'cook' && kind === undefined;
       this.#text(this.#nadeCount, cooking ? Math.max(0, STATS.grenade.fuse.value - (self.grenade?.time ?? 0)).toFixed(1) : String(self.grenades));
-      const nade = `nade${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
+      const nade = `nade frag${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
       if (this.#nade.className !== nade) this.#nade.className = nade;
+      const tactical = state.tactical ?? null;
+      if (tactical !== this.#tacKind) {
+        this.#tacKind = tactical;
+        if (tactical) this.#set(this.#tac, `${icon(tactical)}<b>${self.tacticals}</b>`);
+        this.#tac.setAttribute('aria-label', tactical === 'flash' ? 'Flash' : 'Smoke');
+      }
+      this.#style(this.#tac, 'display', tactical ? '' : 'none');
+      if (tactical) {
+        const count = this.#tac.querySelector('b') as HTMLElement;
+        this.#text(count, String(self.tacticals));
+        const tac = `nade tac${self.grenade?.phase === 'cook' && kind !== undefined ? ' cook' : self.tacticals === 0 ? ' none' : ''}`;
+        if (this.#tac.className !== tac) this.#tac.className = tac;
+      }
     }
     // The scope: the view through the glass once aimed (the viewmodel steps aside at the same point).
     this.#style(this.#scope, 'display', self?.alive && w && STATS.weapons[w.id].traits.sight === 'scope' && w.ads >= 0.9 ? 'block' : 'none');

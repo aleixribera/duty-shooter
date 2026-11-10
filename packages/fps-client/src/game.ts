@@ -32,6 +32,9 @@ import {
   type WeaponId,
   type World,
   type Zone,
+  type GrenadeOutput,
+  type SmokeCloud,
+  hasPerk,
 } from '@duty-shooter/fps-core';
 import { DEFUSE_RANGE, standProps } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
@@ -225,6 +228,13 @@ const MOOD_RATES = { drain: 3, dreadIn: 4, dreadOut: 0.5 } as const;
  * or online), the camera, viewmodel, other players, effects, sound and HUD,
  * all fed from the simulation's output and events.
  */
+/** The smoke clouds standing among `grenades`: each smoke that has popped (ticket 20). */
+function smokeCloudsOf(grenades: readonly GrenadeOutput[]): SmokeCloud[] {
+  const out: SmokeCloud[] = [];
+  for (const g of grenades) if (g.kind === 'smoke' && g.popped !== undefined) out.push({ id: g.id, at: g.position, popped: g.popped });
+  return out;
+}
+
 export class Game {
   readonly input: InputController;
   readonly hud: Hud;
@@ -240,6 +250,8 @@ export class Game {
   readonly #arsenal: ArsenalView;
   /** Explosions already shown (the server repeats important events in case a snapshot is lost). */
   readonly #explosions = new Set<number>();
+  /** A flash in your eyes (ticket 20): when (s, page clock), for how long, and how hard; null when you can see. */
+  #blind: { at: number; duration: number; strength: number } | null = null;
   readonly #effects: Effects;
   /** Every bullet's tracer, and the sniper's smoke trail. */
   readonly #tracers: Tracers;
@@ -895,6 +907,7 @@ export class Game {
       this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom);
       this.#worldView.zoom(zoom);
       this.#arsenal.grenades(driver.grenades(), alpha);
+      this.#effects.smokeClouds(smokeCloudsOf(driver.grenades()), driver.serverTime, dt);
       this.#arsenal.glints(this.#others, eye, this.#camera.camera);
       this.#supplyDrops?.update(this.#royale, driver.serverTime, this.#camera.camera, dt);
       this.#rebootView?.update(this.#royale, driver.serverTime, dt);
@@ -1010,6 +1023,8 @@ export class Game {
       map: this.#royale !== null,
       mapOpen: this.input.mapOpen,
       grenades: this.#cur?.grenades ?? 0,
+      tactical: this.#cur?.loadout.tactical ?? null,
+      tacticals: this.#cur?.tacticals ?? 0,
     };
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
@@ -1057,10 +1072,26 @@ export class Game {
       gain: this.#keeper.gain,
       recap: this.#royale && this.#cur?.alive && this.#cur.downed ? this.#log.recap : null,
       pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
+      tactical: this.#cur?.loadout.tactical ?? null,
+      blinded: this.#blindness(),
       grenades: grenadeWarnings(this.#cur, driver.grenades(), driver.serverTime, match !== null && match !== undefined && (teamMode(match.mode) || match.mode === 'battle-royale')),
       action,
       dt,
     });
+  }
+
+  /** How white a flash has turned your view (0 to 1): white out through most of the first half, then clearing. */
+  #blindness(): number {
+    const b = this.#blind;
+    if (!b) return 0;
+    const t = performance.now() / 1000 - b.at;
+    if (t >= b.duration || !this.#cur?.alive) {
+      this.#blind = null;
+      return 0;
+    }
+    const hold = b.duration * 0.45;
+    const clear = t < hold ? 1 : Math.pow(1 - (t - hold) / (b.duration - hold), 1.4);
+    return clear * Math.min(1, 0.55 + 0.6 * b.strength);
   }
 
   /** The crates landed and the Beacons as solids, in the world drawn and in prediction's, so you walk round them as the server has you do. */
@@ -2011,6 +2042,8 @@ export class Game {
           material: this.#materialUnder(p.position),
           movement: mode,
           intensity: Math.min(1, Math.hypot(p.velocity[0], p.velocity[2]) / 6),
+          // Soft Soles (ticket 20): someone else's steps carry half as far.
+          ...(!own && hasPerk(p.loadout, 'softSoles') ? { quieter: STATS.perks.softSoles.value } : {}),
           ...(wading(this.#world, p.position) ? { wading: true } : {}),
         });
       }
@@ -2186,6 +2219,28 @@ export class Game {
         const at = own ? { local: true } : { position: this.#eyeOf(e.player) ?? [0, 0, 0] as Vec3 };
         if (e.phase === 'cook') this.#play('grenadePin', at);
         else if (e.phase === 'throw') this.#play('grenadeThrow', at);
+        break;
+      }
+      case 'pop': {
+        if (this.#explosions.has(e.grenade)) break;
+        this.#explosions.add(e.grenade);
+        if (this.#explosions.size > 64) this.#explosions.delete(this.#explosions.values().next().value as number);
+        if (e.kind === 'flash') {
+          this.#effects.flashPop(e.point);
+          this.#play('flashBang', { position: e.point });
+        } else {
+          this.#play('smokePop', { position: e.point });
+        }
+        break;
+      }
+      case 'flashed': {
+        if (e.player !== selfId) break;
+        // The same flash told twice (a resent tick) blinds once.
+        const key = -1 - e.grenade;
+        if (this.#explosions.has(key)) break;
+        this.#explosions.add(key);
+        this.#blind = { at: performance.now() / 1000, duration: e.duration, strength: e.strength };
+        this.#sound.tinnitus(0.45 + 0.55 * e.strength, e.duration);
         break;
       }
       case 'bounce':

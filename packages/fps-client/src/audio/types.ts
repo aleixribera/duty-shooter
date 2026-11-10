@@ -35,6 +35,8 @@ export type SoundEventName =
   | 'grenadeThrow' // the spoon flying off and the throw
   | 'grenadeBounce' // a frag landing or bouncing (params.intensity)
   | 'explosion' // a frag going off
+  | 'smokePop' // a smoke canister popping and hissing out its cloud
+  | 'flashBang' // a flash going off: a hard bright crack
   | 'impact' // bullet hitting a surface: params.material
   | 'casing' // shell casing bounce: params.material
   | 'bulletCrack' // supersonic crack of a bullet passing near the listener
@@ -90,6 +92,7 @@ export interface SoundParams {
   readonly movement?: 'walk' | 'sprint' | 'crouch' | 'prone';
   readonly wading?: boolean; // a footstep in water, whatever the ground under it
   readonly intensity?: number; // 0..1
+  readonly quieter?: number; // a gain (0..1] on top of everything: Soft Soles' footsteps carry half as far at 0.5
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor
   readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter
   readonly when?: number; // seconds from now (>= 0) for sub-frame scheduling, default 0
@@ -136,7 +139,7 @@ export interface SoundSystem {
    * A blast close enough to hurt: the ears ring for a second and a half and the world drops
    * away under it, then comes back. `strength` 0..1 (see tinnitusStrength).
    */
-  tinnitus(strength: number): void;
+  tinnitus(strength: number, seconds?: number): void;
   /** The announcer is saying a line `seconds` long: everything but the UI makes room for it. */
   duckForVoice(seconds: number): void;
   /** Fades out, over `fade` s (a click's length unless given), every voice of `events` that is sounding or waiting to. */

@@ -21,12 +21,13 @@ export type Action =
   | 'melee'
   | 'switchWeapon'
   | 'grenade'
+  | 'tactical'
   | 'use'
   | 'scoreboard'
   | 'map'
   | 'ping';
 
-export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard', 'map', 'ping'];
+export const ACTIONS: readonly Action[] = ['forward', 'back', 'left', 'right', 'fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'tactical', 'use', 'scoreboard', 'map', 'ping'];
 
 export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   forward: 'Move forward',
@@ -43,6 +44,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   melee: 'Melee',
   switchWeapon: 'Switch weapon (also 1 / 2, mouse wheel)',
   grenade: 'Grenade (hold to cook)',
+  tactical: 'Tactical: smoke or flash (hold, release to throw)',
   use: 'Use (hold: plant / defuse / Revive)',
   scoreboard: 'Scoreboard',
   map: 'Island map (Battle Royale)',
@@ -137,6 +139,7 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
   melee: 'KeyV',
   switchWeapon: 'KeyQ',
   grenade: 'KeyG',
+  tactical: 'KeyE',
   use: 'KeyF',
   scoreboard: 'Tab',
   map: 'KeyM',
@@ -303,7 +306,7 @@ export function parseSettings(raw: unknown): Settings {
     voiceVolume: clamp(r['voiceVolume'], 0, 1, d.voiceVolume),
     uiVolume: clamp(r['uiVolume'], 0, 1, d.uiVolume),
     name: str(r['name'], d.name, 16),
-    loadout: parseLoadout(r['loadout']) ?? d.loadout,
+    loadout: savedLoadout(r['loadout']) ?? d.loadout,
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
     // Everything from here on came with the Settings screen's sections: a save from before them has none, and gets the defaults.
@@ -388,4 +391,11 @@ export function radiansPerCount(settings: Settings): number {
  */
 export function stickTurnRate(sensitivity: number): number {
   return STATS.input.stickTurnRate.value * (sensitivity / STATS.input.stickSensitivity.value) * RAD;
+}
+
+/** A loadout saved in this browser; one saved before tacticals (ticket 20) gets the default tactical rather than none. */
+function savedLoadout(value: unknown): Loadout | null {
+  const loadout = parseLoadout(value);
+  if (!loadout) return null;
+  return 'tactical' in (value as Record<string, unknown>) ? loadout : { ...loadout, tactical: DEFAULT_LOADOUT.tactical ?? null };
 }

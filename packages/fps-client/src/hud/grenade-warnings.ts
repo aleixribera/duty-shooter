@@ -49,6 +49,8 @@ export function grenadeWarnings(self: WarnedPlayer | null, grenades: readonly Gr
   let parts: readonly Vec3[] | null = null;
   const out: GrenadeWarning[] = [];
   for (const g of grenades) {
+    // A smoke or a flash does no harm: only a frag is marked.
+    if (g.kind !== undefined && g.kind !== 'frag') continue;
     if (allies && g.thrower !== self.id && g.team === self.team) continue;
     const dx = g.position[0] - self.position[0];
     const dy = g.position[1] - (self.position[1] + BODY_MIDDLE);

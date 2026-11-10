@@ -2,6 +2,7 @@ import type { Vec3 } from './math';
 import { SolidIndex } from './grid';
 import { Terrain, type TerrainData } from './terrain';
 import type { SoundTrap } from './sound-traps';
+import { SmokeField } from './combat/smoke';
 
 /**
  * Surface material carried by every solid. Drives impact effects, footstep
@@ -168,6 +169,8 @@ export interface World {
   readonly traps: readonly SoundTrap[];
   /** Solids that come and go in a match (a landed Supply Drop, a Beacon): they follow the map's own in `solids` while they stand. */
   readonly props: WorldProps;
+  /** Smoke standing in the world now (ticket 20): it hides a body from a bot as soft cover does, and stops no bullet. The simulation keeps it; a world built by hand may have none. */
+  readonly smoke?: SmokeField;
 }
 
 /** How many props a world holds at once: a Battle Royale's Beacons and its crates, with room to spare. */
@@ -240,5 +243,6 @@ export function createWorld(solids: readonly Solid[], options: WorldOptions = {}
     concealment: options.concealment ?? null,
     traps: options.traps ?? [],
     props,
+    smoke: new SmokeField(),
   };
 }

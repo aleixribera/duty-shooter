@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type Medal, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, PERK_IDS, STATS, TACTICAL_IDS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type PerkId, type TacticalId, type MatchResult, type Medal, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 import type { Action } from '../settings';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
@@ -407,8 +407,35 @@ export function matchSize(mode: ModeId, perTeam: number): string {
 }
 
 /** What the loadout screen offers in each slot. Everything is unlocked from the start. */
-export function loadoutOptions(): { readonly primary: readonly WeaponId[]; readonly secondary: readonly WeaponId[]; readonly grenade: readonly (GrenadeId | null)[] } {
-  return { primary: slotWeapons('primary'), secondary: slotWeapons('secondary'), grenade: ['frag', null] };
+export function loadoutOptions(): {
+  readonly primary: readonly WeaponId[];
+  readonly secondary: readonly WeaponId[];
+  readonly grenade: readonly (GrenadeId | null)[];
+  readonly tactical: readonly (TacticalId | null)[];
+  readonly perk: readonly (PerkId | null)[];
+} {
+  return { primary: slotWeapons('primary'), secondary: slotWeapons('secondary'), grenade: ['frag', null], tactical: [...TACTICAL_IDS, null], perk: [...PERK_IDS, null] };
+}
+
+/** A tactical's or a perk's name, its tile's short line, and what it does in a sentence, its numbers read from STATS (ticket 20). */
+export function kitCard(id: TacticalId | PerkId | null, slot: 'tactical' | 'perk'): { readonly name: string; readonly short: string; readonly text: string } {
+  const T = STATS.tactical;
+  const P = STATS.perks;
+  const percent = (k: number) => `${Math.round(k * 100)}%`;
+  switch (id) {
+    case 'smoke':
+      return { name: 'Smoke', short: `${T.perLife.value} a life`, text: `Pops ${T.smoke.fuse.value} s after it leaves your hand into a cloud ${T.smoke.width.value} m across that stands for ${T.smoke.life.value} s. Nobody sees through it, bots included; bullets still go through.` };
+    case 'flash':
+      return { name: 'Flash', short: `${T.perLife.value} a life`, text: `Goes off ${T.flash.fuse.value} s after the throw and whites out every enemy who can see it, for up to ${T.flash.longest.value} s looking straight at it close up. Turning away cuts it short; a wall or a smoke stops it; from ${T.flash.range.value} m it does nothing. It blinds you too, never your team.` };
+    case 'fastHands':
+      return { name: 'Fast Hands', short: 'reload, swap, throw', text: `Reloads, weapon swaps and the recovery after a throw all go ${percent(P.fastHands.value - 1)} faster.` };
+    case 'softSoles':
+      return { name: 'Soft Soles', short: 'quiet footsteps', text: `Your footsteps carry ${percent(P.softSoles.value)} as far: players and bots hear you coming much later.` };
+    case 'blastVest':
+      return { name: 'Blast Vest', short: 'frags and flashes', text: `Frags do ${percent(1 - P.blastVest.value)} less to you, and a flash blinds you for ${percent(P.blastVestFlash.value)} as long.` };
+    default:
+      return slot === 'tactical' ? { name: 'None', short: 'hands free', text: 'No tactical this life.' } : { name: 'None', short: 'no perk', text: 'No perk this life.' };
+  }
 }
 
 export interface StatBar {
@@ -481,7 +508,7 @@ export function weaponCard(id: WeaponId): WeaponCard {
  * has one.
  */
 export function pauseActions(mode: ModeId | null): readonly PauseAction[] {
-  const keys: PauseAction[] = ['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'use', 'scoreboard'];
+  const keys: PauseAction[] = ['fire', 'ads', 'sprint', 'crouch', 'prone', 'jump', 'reload', 'melee', 'switchWeapon', 'grenade', 'tactical', 'use', 'scoreboard'];
   return mode === 'battle-royale' ? [...keys, 'map'] : keys;
 }
 

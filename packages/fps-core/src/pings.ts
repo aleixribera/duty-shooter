@@ -117,7 +117,7 @@ export class Pings {
     if (req.kind === 'enemy' && req.target !== undefined) {
       const t = w.players.find((p) => p.id === req.target);
       if (t && t.alive && t.kind === 'player' && w.enemies(by, t) && flat(by.position, t.position) <= P.enemyReach.value) {
-        const seen = ahead(by, t.position) && [zoneCentre(pose(t), 'upperTorso'), zoneCentre(pose(t), 'head')].some((to) => !sightBlocked(w.world, eye, to) && !w.world.concealment?.hides(eye, to));
+        const seen = ahead(by, t.position) && [zoneCentre(pose(t), 'upperTorso'), zoneCentre(pose(t), 'head')].some((to) => !sightBlocked(w.world, eye, to) && !w.world.concealment?.hides(eye, to) && !w.world.smoke?.hides(eye, to));
         if (seen) return { kind: 'enemy', position: t.position, target: t.id };
       }
     }

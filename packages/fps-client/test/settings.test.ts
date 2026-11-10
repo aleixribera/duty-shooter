@@ -24,7 +24,9 @@ describe('settings', () => {
   it('remembers the loadout, and starts from the M4A1, the pistol and a frag otherwise', () => {
     expect(DEFAULT_SETTINGS.loadout).toEqual(DEFAULT_LOADOUT);
     expect(parseSettings({ name: 'x' }).loadout).toEqual(DEFAULT_LOADOUT);
-    expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: null } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: null });
+    // A save from before tacticals (ticket 20) gets the default smoke and no perk; one that chose none keeps none.
+    expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: null } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: null, tactical: 'smoke', perk: null });
+    expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: 'frag', tactical: null, perk: 'softSoles' } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: 'frag', tactical: null, perk: 'softSoles' });
     expect(parseSettings({ loadout: { primary: 'pistol', secondary: 'pistol', grenade: 'frag' } }).loadout).toEqual(DEFAULT_LOADOUT);
   });
 

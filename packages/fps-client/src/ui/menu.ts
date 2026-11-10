@@ -1,4 +1,4 @@
-import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, restoreDefaults, type Action, type Settings, type SettingsSection } from '../settings';
 import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
@@ -6,7 +6,7 @@ import { HUD_SCALE_LIMITS } from '../hud/scale';
 import { QUALITY, QUALITY_CHOICES, type QualityChoice } from '../quality';
 import { COLOUR_VISIONS, COLOUR_VISION_NAMES } from '../team-colours';
 import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, sectionOrder, teamPreview, videoPreview, type VideoStatus } from './settings-screen';
-import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
+import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, hint, icon, installTheme } from './theme';
 import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
@@ -1096,21 +1096,29 @@ export class Menu {
       const bars = c.bars.map((b) => `<span class="k">${escapeHtml(b.label)}</span><span class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></span><span class="v">${escapeHtml(b.text)}</span>`);
       card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p><div class="ds-bars">${bars.join('')}</div>`;
     };
-    const row = <T extends WeaponId | GrenadeId | null>(title: string, slot: keyof Loadout, choices: readonly T[], label: (c: T) => [string, string]) => {
+    const showKit = (id: TacticalId | PerkId | null, slot: 'tactical' | 'perk') => {
+      const c = kitCard(id, slot);
+      card.innerHTML = `<div class="ds-label">${(this.#settings.loadout[slot] ?? null) === id ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.text)}</p>`;
+    };
+    const preview = (slot: keyof Loadout, choice: WeaponId | GrenadeId | TacticalId | PerkId | null) => {
+      if (slot === 'tactical' || slot === 'perk') showKit(choice as TacticalId | PerkId | null, slot);
+      else if (slot !== 'grenade') showCard(choice as WeaponId);
+    };
+    const row = <T extends WeaponId | GrenadeId | TacticalId | PerkId | null>(title: string, slot: keyof Loadout, choices: readonly T[], label: (c: T) => [string, string]) => {
       left.append(h('h2', title, 'ds-h2'));
       const tiles = h('div', '', 'ds-kit');
       for (const choice of choices) {
-        const b = h('button', '', `ds-mode${this.#settings.loadout[slot] === choice ? ' on' : ''}`) as HTMLButtonElement;
+        const b = h('button', '', `ds-mode${(this.#settings.loadout[slot] ?? null) === choice ? ' on' : ''}`) as HTMLButtonElement;
         b.type = 'button';
         const [name, detail] = label(choice);
         b.innerHTML = `<b>${escapeHtml(name)}</b><span>${escapeHtml(detail)}</span>`;
         b.addEventListener('click', () => {
           this.#change({ loadout: { ...this.#settings.loadout, [slot]: choice } });
           for (const t of tiles.children) t.classList.toggle('on', t === b);
-          if (slot !== 'grenade') showCard(choice as WeaponId);
+          preview(slot, choice);
         });
         if (slot !== 'grenade') {
-          const show = () => showCard(choice as WeaponId);
+          const show = () => preview(slot, choice);
           b.addEventListener('focus', show);
           b.addEventListener('mouseenter', show);
         }
@@ -1125,10 +1133,16 @@ export class Menu {
     row('Primary', 'primary', options.primary, weapon);
     row('Secondary', 'secondary', options.secondary, weapon);
     row('Grenade', 'grenade', options.grenade, (g) => (g ? ['Frag', `${STATS.grenade.perLife.value} a life`] : ['None', 'hands free']));
+    const kit = (slot: 'tactical' | 'perk') => (id: TacticalId | PerkId | null): [string, string] => {
+      const c = kitCard(id, slot);
+      return [c.name, c.short];
+    };
+    row('Tactical', 'tactical', options.tactical, kit('tactical'));
+    row('Perk', 'perk', options.perk, kit('perk'));
     showCard(this.#settings.loadout.primary);
     // Back to the equipped weapon once the pointer leaves the tiles, not on every gap between two of them.
     left.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
-    right.append(h('h2', 'Weapon', 'ds-h2'), card);
+    right.append(h('h2', 'Details', 'ds-h2'), card);
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip'), hint('Esc', '○', 'Done')));
     const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');
     done.dataset['back'] = '';

@@ -59,6 +59,7 @@ export class BattleRoyale implements GameMode {
   readonly timeLimit: number;
   readonly fixedSeats = WIDE_SCALE.seats;
   readonly frags = STATS.royale.frags.value;
+  readonly tacticals = STATS.tactical.royale.value;
   /** Seats a Squad; the lobby's host may change it between matches. */
   squadSize: SquadSize;
   readonly #seed: number | null;

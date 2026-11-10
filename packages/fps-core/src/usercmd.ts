@@ -16,10 +16,12 @@ export const Button = {
   Grenade: 1 << 10,
   /** Held to plant or defuse. */
   Use: 1 << 11,
+  /** Held to ready a tactical (a smoke or a flash), released to throw it (ticket 20). */
+  Tactical: 1 << 12,
 } as const;
 
 /** Every button bit in use: bit 8 (reserved) is left out, so a usercmd that sets it loses it on the wire. */
-export const ALL_BUTTONS = 0xfff & ~(1 << 8);
+export const ALL_BUTTONS = 0x1fff & ~(1 << 8);
 
 export type ButtonName = keyof typeof Button;
 

@@ -487,6 +487,7 @@ export class GameServer {
       selfDamage: () => this.#phase === 'playing',
       hazard: (position) => this.#hazardAt(position),
       frags: () => this.#mode.frags ?? STATS.grenade.perLife.value,
+      tacticals: () => this.#mode.tacticals ?? STATS.tactical.perLife.value,
       downs: () => this.#mode.downs?.() ?? false,
     });
     for (const dummy of options.dummies ?? []) this.simulation.addPlayer(dummy);

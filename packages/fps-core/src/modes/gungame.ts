@@ -85,7 +85,7 @@ export class GunGame implements GameMode {
     const progress = this.#progress.get(id);
     if (progress === undefined) return null;
     const weapon = this.#guns[gunGameLevel(progress)]!;
-    return { primary: weapon, secondary: weapon, grenade: null };
+    return { primary: weapon, secondary: weapon, grenade: null, tactical: null, perk: null };
   }
 
   join(id: PlayerId, name: string): TeamId {
