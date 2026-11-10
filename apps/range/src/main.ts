@@ -1,4 +1,4 @@
-import { BOT_MAPS, LobbyPage, Menu, PreparationPage, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -15,6 +15,8 @@ if (!canvas || !status) throw new Error('index.html is missing #view or #status'
 const params = new URLSearchParams(location.search);
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
+  // This browser's Profile: the game banks a finished match in it, the menu shows it.
+  const profile = new ProfileStore();
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
   // `?stats`: each second, this frame's draw calls, triangles and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
@@ -114,6 +116,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       thirdPersonWeapon: () => engine!.buildM4A1({ detail: 'low' }).root,
       loadoutStation: map.loadoutStation,
       rangeLanesWestOf: map.rangeLanesWestOf,
+      profile,
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
@@ -332,7 +335,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => engineReady.then(() => game.input.captureNext()),
     },
-    { lobby, version, padName: () => game?.input.padName ?? null },
+    { lobby, version, padName: () => game?.input.padName ?? null, profile },
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
@@ -978,6 +981,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const backdrop = (menu.open || lobbyPage.open || royalePage.open) && !fixedCamera;
     const drawBackdrop = !backdrop || time - lastMenuFrame >= 50;
     if (backdrop && drawBackdrop) lastMenuFrame = time;
+    // The score: with no game running the menus have their theme; a match's scenes are the game's own.
+    if (!game.driver) sound.music.setScene(backdrop ? 'menu' : 'silence');
     // No session needs ticking behind the main menu; with an online session,
     // keep simulation and input running even between backdrop renders.
     if (backdrop && !game.driver && !drawBackdrop) return;

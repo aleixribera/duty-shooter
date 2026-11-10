@@ -1,4 +1,6 @@
 import type { Material, WeaponId } from '@duty-shooter/fps-core';
+import type { MixLevels } from './mix';
+import type { Music, MusicState } from './music/player';
 export type SoundEventName =
   | 'gunshot' // a gun firing (params.weapon, the M4A1 when absent). params.local=true for your own gun (non-positional, full detail)
   | 'dryFire'
@@ -33,6 +35,10 @@ export type SoundEventName =
   | 'hitMarker'
   | 'killMarker'
   | 'headshotMarker'
+  | 'headshotKill' // the kill confirm for a kill through the head (not placed in the world)
+  | 'medal' // a Medal earned (not placed in the world)
+  | 'rankUp' // a Rank crossed, on the end screen (not placed in the world)
+  | 'challengeDone' // a daily Challenge completed, on the end screen (not placed in the world)
   | 'damageTaken'
   | 'nukeSiren' // the town's air-raid siren before the end-of-match nuke
   | 'nukeBlast' // the nuke's blast, from ground zero (arrives after the flash, by distance)
@@ -60,7 +66,11 @@ export type SoundEventName =
   | 'trapMetal' // loose sheet metal rattling as someone runs past (a sound trap)
   | 'trapGravel' // loose gravel sliding as someone runs past (a sound trap)
   | 'prepDrone' // one segment of the Preparation's drone (intensity: how near the drop; not placed in the world)
-  | 'heartbeat'; // one beat of the Preparation's heartbeat (intensity: how near the drop; not placed in the world)
+  | 'heartbeat' // one beat of a heart: the Preparation's, and your own under 30 health (intensity: how hard; not placed in the world)
+  | 'countdownSirenRise' // the last minute's air-raid siren winding up, far off at the map's edge
+  | 'countdownSirenHold' // one segment of that siren held at its top note
+  | 'countdownSirenFall' // the siren winding down as the clock runs out
+  | 'geigerTick'; // one tick of the counter that chatters through the last minute (not placed in the world)
 
 /** Every world material has its own footsteps, impacts and casing bounces. */
 export type SurfaceMaterial = Material;
@@ -75,7 +85,7 @@ export interface SoundParams {
   readonly environment?: 'outdoor' | 'indoor'; // reverb tail choice; default outdoor
   readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter
   readonly when?: number; // seconds from now (>= 0) for sub-frame scheduling, default 0
-  readonly weapon?: WeaponId; // which gun a gunshot is
+  readonly weapon?: WeaponId; // which gun a gunshot is, or whose action a reload, bolt or draw is (the M4A1 when absent)
 }
 
 /** One synthesized or sampled sound. Swapping a voice for a recorded sample means registering a different Voice. */
@@ -103,8 +113,47 @@ export interface SoundSystem {
   /** Replace the voice for an event (e.g. a recorded sample later). */
   register(event: SoundEventName, voice: Voice): void;
   setVolume(master: number): void;
+  /** The mix's volumes (each 0..1): the master, and one each for music, effects, the announcer's voice and the UI. */
+  setMix(mix: Partial<MixLevels>): void;
+  /** The score: which scene the game is in, and its stings. */
+  readonly music: Music;
+  /**
+   * The local player's health each frame (null: none, or dead). Under 30 the heart is heard,
+   * quicker as health drops, and the world goes dull behind a low-pass; both lift as it comes back.
+   */
+  setHealth(health: number | null): void;
+  /**
+   * A blast close enough to hurt: the ears ring for a second and a half and the world drops
+   * away under it, then comes back. `strength` 0..1 (see tinnitusStrength).
+   */
+  tinnitus(strength: number): void;
+  /** The announcer is saying a line `seconds` long: everything but the UI makes room for it. */
+  duckForVoice(seconds: number): void;
+  /** Fades out, over `fade` s (a click's length unless given), every voice of `events` that is sounding or waiting to. */
+  stop(events: readonly SoundEventName[], fade?: number): void;
+  /** What the system is doing right now, for scripts and debugging. */
+  readonly state: SoundState;
   /** Every play() call, newest last, capped at the last 200, for tests and debugging. Logged even before unlock. */
   readonly log: readonly SoundLogEntry[];
+}
+
+/** A snapshot of the sound system. */
+export interface SoundState {
+  readonly unlocked: boolean;
+  /** Voices sounding now, the most there have been at once, and the cap they are held under. */
+  readonly voices: number;
+  readonly peakVoices: number;
+  readonly voiceCap: number;
+  readonly mix: MixLevels;
+  /** Where each duck stands (1: not ducked): the music under gunfire, and everything but the UI under the announcer. */
+  readonly musicDuck: number;
+  readonly voiceDuck: number;
+  /** The low-pass over the world (Hz; 20000 when open) and the health it follows (null above 30). */
+  readonly worldCutoff: number;
+  readonly lowHealth: number | null;
+  /** Times the ears have rung. */
+  readonly tinnitus: number;
+  readonly music: MusicState;
 }
 
 /**

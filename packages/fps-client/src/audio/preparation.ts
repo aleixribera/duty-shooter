@@ -41,7 +41,10 @@ export function heartbeat(sr: number, rng: Rng): Float32Array {
   const tilt = 1 + (rng.next() - 0.5) * 0.06;
   thump(out, sr, { at: 0.005, f0: 70 * tilt, f1: 42, glideTau: 0.03, attack: 0.008, tau: 0.045, gain: 1 });
   thump(out, sr, { at: 0.2, f0: 62 * tilt, f1: 40, glideTau: 0.03, attack: 0.008, tau: 0.04, gain: 0.65 });
-  lp(out, sr, 220);
+  // The knock of each: an octave and more above the thump, short, so the beat is still there on a laptop or a phone, which play next to nothing under 100 Hz.
+  thump(out, sr, { at: 0.005, f0: 190 * tilt, f1: 118, glideTau: 0.02, attack: 0.004, tau: 0.022, gain: 0.6 });
+  thump(out, sr, { at: 0.2, f0: 170 * tilt, f1: 108, glideTau: 0.02, attack: 0.004, tau: 0.02, gain: 0.4 });
+  lp(out, sr, 260);
   return finish(out, sr, 0.7, 25);
 }
 

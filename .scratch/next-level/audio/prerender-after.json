@@ -1,0 +1,138 @@
+{
+  "label": "after",
+  "totalMs": {
+    "min": 2450.699999999255,
+    "all": [
+      2816,
+      2769,
+      2451
+    ]
+  },
+  "workerMs": [
+    {
+      "ok": true,
+      "ms": 4582.700000001118
+    },
+    {
+      "ok": true,
+      "ms": 5683.5999999996275
+    },
+    {
+      "ok": true,
+      "ms": 3477.300000000745
+    }
+  ],
+  "banks": 595,
+  "channelSeconds": 392.91033333333326,
+  "megabytes": 75.438784,
+  "perEventMs": {
+    "gunshot": 340.4,
+    "footstep": 308.3,
+    "ringHum": 154.7,
+    "ambientRadio": 130.6,
+    "prepDrone": 115.6,
+    "ambientHorn": 106.5,
+    "casing": 104.9,
+    "trapBirds": 83.2,
+    "impact": 72.6,
+    "explosion": 63.4,
+    "ambientHum": 59.5,
+    "ambientBirds": 50.5,
+    "ambientWind": 47.6,
+    "trainHorn": 44.3,
+    "countdownSirenRise": 44,
+    "ambientCouplings": 43.8,
+    "nukeSiren": 37.2,
+    "countdownSirenFall": 36.4,
+    "countdownSirenHold": 34.8,
+    "ringCrackle": 31.7,
+    "(reverbs)": 31.5,
+    "trainRumble": 29.2,
+    "slide": 27,
+    "weaponRaise": 26.8,
+    "nukeBlast": 25.6,
+    "trapGravel": 25,
+    "land": 23.7,
+    "reloadMagOut": 22.9,
+    "ambientCreak": 17.2,
+    "trapMetal": 15.2,
+    "prone": 14.4,
+    "inspectRattle": 13.6,
+    "meleeSwing": 11.3,
+    "jump": 10.2,
+    "ringShift": 10,
+    "mantle": 8.9,
+    "reloadMagIn": 8.7,
+    "dryFire": 8.3,
+    "grenadeThrow": 8.3,
+    "trainClack": 8.2,
+    "rankUp": 7.2,
+    "reloadChargingHandle": 6.6,
+    "reloadBoltRelease": 6.2,
+    "adsIn": 6.2,
+    "crouch": 5.7,
+    "grenadePin": 5.6,
+    "pumpRack": 5.5,
+    "adsOut": 5.3,
+    "meleeHit": 4.8,
+    "heartbeat": 4.4,
+    "grenadeBounce": 4.2,
+    "chargeDisarmed": 4.2,
+    "damageTaken": 4.1,
+    "chargeKey": 3.9,
+    "bulletCrack": 3.7,
+    "boltOpen": 2.9,
+    "boltClose": 2.9,
+    "medal": 2.9,
+    "shellInsert": 2.1,
+    "challengeDone": 2,
+    "chargeArmed": 1.9,
+    "headshotMarker": 1.8,
+    "headshotKill": 1.8,
+    "killMarker": 1.6,
+    "chargeTool": 1.6,
+    "ping": 1.6,
+    "pingEnemy": 1.5,
+    "chargeBeep": 0.4,
+    "geigerTick": 0.4,
+    "hitMarker": 0.2
+  },
+  "music": {
+    "totalMs": {
+      "min": 1093.2999999988824,
+      "all": [
+        1220,
+        1093,
+        1208
+      ]
+    },
+    "workerMs": [
+      {
+        "ok": true,
+        "ms": 1642.0999999996275
+      },
+      {
+        "ok": true,
+        "ms": 1594.0999999996275
+      },
+      {
+        "ok": true,
+        "ms": 1491.5
+      }
+    ],
+    "channelSeconds": 195.79999999999998,
+    "megabytes": 18.7968,
+    "perStemMs": {
+      "pad": 267.9,
+      "leadA": 187.2,
+      "leadB": 184.4,
+      "siren": 69.6,
+      "bed": 200.9,
+      "riser": 79.2,
+      "matchStart": 12.4,
+      "ringClosing": 15.2,
+      "victory": 25.4,
+      "defeat": 51.1
+    }
+  }
+}

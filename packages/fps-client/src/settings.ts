@@ -1,4 +1,5 @@
 import { DEFAULT_LOADOUT, STATS, parseLoadout, type Loadout } from '@duty-shooter/fps-core';
+import { DEFAULT_MIX, type MixLevels } from './audio/mix';
 import type { PadLayout } from './gamepad';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
@@ -71,7 +72,13 @@ export interface Settings {
   readonly showFps: boolean;
   readonly showPing: boolean;
   readonly showRangeOverlay: boolean;
+  /** The master volume, over everything (0..1). It was the only volume once, and keeps its name so a save from then keeps its level. */
   readonly volume: number;
+  /** One volume per bus under the master (0..1): the score, the world and your own gun, the announcer, and the interface's own sounds. */
+  readonly musicVolume: number;
+  readonly effectsVolume: number;
+  readonly voiceVolume: number;
+  readonly uiVolume: number;
   readonly name: string;
   /** What to carry, applied from the next spawn. */
   readonly loadout: Loadout;
@@ -119,7 +126,11 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: false,
   showPing: true,
   showRangeOverlay: true,
-  volume: 0.8,
+  volume: DEFAULT_MIX.master,
+  musicVolume: DEFAULT_MIX.music,
+  effectsVolume: DEFAULT_MIX.effects,
+  voiceVolume: DEFAULT_MIX.voice,
+  uiVolume: DEFAULT_MIX.ui,
   name: '',
   loadout: DEFAULT_LOADOUT,
   passphrase: '',
@@ -187,12 +198,22 @@ export function parseSettings(raw: unknown): Settings {
     showFps: bool(r['showFps'], d.showFps),
     showPing: bool(r['showPing'], d.showPing),
     showRangeOverlay: bool(r['showRangeOverlay'], d.showRangeOverlay),
+    // A save from before the mix has only `volume`: it stays the master, and each bus starts at its default under it.
     volume: clamp(r['volume'], 0, 1, d.volume),
+    musicVolume: clamp(r['musicVolume'], 0, 1, d.musicVolume),
+    effectsVolume: clamp(r['effectsVolume'], 0, 1, d.effectsVolume),
+    voiceVolume: clamp(r['voiceVolume'], 0, 1, d.voiceVolume),
+    uiVolume: clamp(r['uiVolume'], 0, 1, d.uiVolume),
     name: str(r['name'], d.name, 16),
     loadout: parseLoadout(r['loadout']) ?? d.loadout,
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
   };
+}
+
+/** The mix these settings ask for: the master and a level for each bus. */
+export function mixOf(settings: Settings): MixLevels {
+  return { master: settings.volume, music: settings.musicVolume, effects: settings.effectsVolume, voice: settings.voiceVolume, ui: settings.uiVolume };
 }
 
 export function loadSettings(): Settings {

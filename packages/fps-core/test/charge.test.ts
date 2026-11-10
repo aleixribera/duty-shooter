@@ -366,8 +366,17 @@ describe('Charge match', () => {
     m.live();
     const carrier = m.state().carrier!;
     m.plant();
-    const row = m.mode.scores().find((s) => s.id === carrier)!;
-    expect(row.score).toBeGreaterThan(0);
+    const row = (id: string) => m.mode.scores().find((s) => s.id === id)!;
+    expect(row(carrier).score).toBeGreaterThan(0);
+    // The points table: 200 for the plant, told to the planter; 300 for the defuse.
+    expect(row(carrier).score).toBe(200);
+    expect(m.events.filter((e) => e.type === 'score')).toEqual([{ type: 'score', player: carrier, lines: [{ reason: 'plant', points: 200 }] }]);
+    m.move('o1', SITE_A);
+    m.hold('o1');
+    m.run(DEFUSE_TIME + 0.05);
+    expect(m.roundEnds().at(-1)).toMatchObject({ reason: 'defused' });
+    expect(row('o1').score).toBe(300);
+    expect(m.events.filter((e) => e.type === 'score').at(-1)).toEqual({ type: 'score', player: 'o1', lines: [{ reason: 'defuse', points: 300 }] });
   });
 });
 

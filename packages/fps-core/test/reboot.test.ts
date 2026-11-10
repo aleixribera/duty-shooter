@@ -112,6 +112,9 @@ describe('a Reboot', () => {
     // The Beacon rests.
     expect(r.state().beacons![3]!.ready).toBeCloseTo(r.at() + R.cooldown.value, 0);
     expect(r.events).toEqual(['card drop p1', `card take p1 ${mate}`, `reboot start ${mate} p1`, `reboot done ${mate} p1`]);
+    // The points table: a Reboot pays whoever did it 150.
+    expect(r.mode.scores().find((s) => s.id === mate)).toMatchObject({ score: STATS.score.reboot.value, kills: 0 });
+    expect(STATS.score.reboot.value).toBe(150);
   });
 
   it('breaks off when use is let go, and a resting Beacon starts none', () => {

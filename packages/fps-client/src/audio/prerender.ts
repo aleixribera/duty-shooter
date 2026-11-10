@@ -32,8 +32,17 @@ function expectedSampleRate(): number {
   }
 }
 
-/** Settles when every bank is in; false if it could not be done in a worker (the page renders them instead). */
-export function startPrerender(): Promise<boolean> {
+/** What a prerender worker renders: every effect's banks, or the score's stems (a worker of its own, so the music never holds the guns up). */
+export type PrerenderSet = 'effects' | 'music';
+
+/** What the worker is told: the output rate to render for, and which set. */
+export interface PrerenderOrder {
+  readonly sampleRate: number;
+  readonly set: PrerenderSet;
+}
+
+/** Settles when every bank of `set` is in; false if it could not be done in a worker (the page renders them instead). */
+export function startPrerender(set: PrerenderSet = 'effects'): Promise<boolean> {
   if (typeof Worker === 'undefined') return Promise.resolve(false);
   return new Promise((done) => {
     try {
@@ -47,7 +56,8 @@ export function startPrerender(): Promise<boolean> {
         worker.terminate();
         done(false);
       };
-      worker.postMessage(expectedSampleRate());
+      const order: PrerenderOrder = { sampleRate: expectedSampleRate(), set };
+      worker.postMessage(order);
     } catch {
       done(false);
     }

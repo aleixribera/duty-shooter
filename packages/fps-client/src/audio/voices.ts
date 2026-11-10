@@ -5,13 +5,14 @@ import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
 import { nukeBlastVoice, nukeSirenVoice } from './nuke';
 import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice, windVoice } from './ambience';
 import { chargeArmedVoice, chargeBeepVoice, chargeDisarmedVoice, chargeKeyVoice, chargeToolVoice } from './charge';
+import { geigerTickVoice, sirenFallVoice, sirenHoldVoice, sirenRiseVoice } from './countdown';
 import { ringCrackleVoice, ringHumVoice, ringShiftVoice } from './ring';
 import { heartbeatVoice, prepDroneVoice } from './preparation';
 import { trapBirdsVoice, trapGravelVoice, trapMetalVoice } from './traps';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
-import { damageTakenVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice, pingEnemyVoice, pingVoice } from './ui';
+import { challengeDoneVoice, damageTakenVoice, headshotKillVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice, medalVoice, pingEnemyVoice, pingVoice, rankUpVoice } from './ui';
 import {
   adsInVoice,
   adsOutVoice,
@@ -62,6 +63,10 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     hitMarker: hitMarkerVoice(),
     killMarker: killMarkerVoice(),
     headshotMarker: headshotMarkerVoice(),
+    headshotKill: headshotKillVoice(),
+    medal: medalVoice(),
+    rankUp: rankUpVoice(),
+    challengeDone: challengeDoneVoice(),
     damageTaken: damageTakenVoice(),
     nukeSiren: nukeSirenVoice(),
     nukeBlast: nukeBlastVoice(),
@@ -90,6 +95,10 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     trapGravel: trapGravelVoice(),
     prepDrone: prepDroneVoice(),
     heartbeat: heartbeatVoice(),
+    countdownSirenRise: sirenRiseVoice(),
+    countdownSirenHold: sirenHoldVoice(),
+    countdownSirenFall: sirenFallVoice(),
+    geigerTick: geigerTickVoice(),
   };
 }
 

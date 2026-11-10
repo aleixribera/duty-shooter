@@ -19,10 +19,12 @@ import {
   type BattleRoyaleState,
   type ChargeState,
   type KillWeapon,
+  type MatchStatus,
   type Material,
   type ModeId,
   type PlayerId,
   type PlayerOutput,
+  type Score,
   type UserCmd,
   type Vec3,
   type TrapKind,
@@ -34,11 +36,16 @@ import { DEFUSE_RANGE, standProps } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
+import { tinnitusStrength } from './audio/danger';
+import { speechSeconds, speechVolume } from './audio/mix';
+import { matchScene } from './audio/music/scene';
+import { SIREN_OVERLAP } from './audio/countdown';
+import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds';
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
 import { Tracers } from './tracers';
 import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
-import { TEAMS, chargeRoster, winVerb } from './ui/model';
+import { TEAMS, chargeRoster } from './ui/model';
 import { InputController } from './input';
 import { FixedTickLoop } from './loop';
 import { ChargeSounds } from './charge-sounds';
@@ -50,7 +57,7 @@ import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
 import type { GameDriver, PresentedEvent } from './session';
 import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
-import { bindingLabel, verticalFov, type Settings } from './settings';
+import { bindingLabel, mixOf, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
 import { ZoneRings } from './zone-rings';
@@ -63,12 +70,15 @@ import { PreparationSounds } from './preparation-sounds';
 import { Spectator, withRoster, type SpectateView } from './spectate';
 import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel';
 import type { MatchCardState } from './hud/match-card';
+import { GAIN_RANK_UP_AT } from './hud/match-gain';
+import { scoreFeedEntry } from './hud/score-feed';
+import { MatchKeeper, type ProfileStore } from './profile';
 import { MatchLog, type RecapLookup } from './ui/recap';
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
-import { heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedParts, victoryCard, type RingPhase } from './ui/royale';
+import { RING_STAGES, heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedParts, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
 import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
@@ -112,6 +122,8 @@ export interface GameOptions {
   readonly loadoutStation?: { readonly position: Vec3; readonly radius: number } | null;
   /** The range's firing lanes, west of this x, where the TTK overlay shows; null (the default) on a map without them. */
   readonly rangeLanesWestOf?: number | null;
+  /** This browser's Profile: a match played to its end is banked in it. Without one, nothing is kept. */
+  readonly profile?: ProfileStore | null;
 }
 
 /** Per-action timings for the weapon's foley, in seconds into the action. */
@@ -130,7 +142,9 @@ function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventNa
       [0.32, 'reloadMagOut'],
       [add - (empty ? 0.55 : 0.22), 'reloadMagIn'],
     ];
-    if (empty) cues.push([add - 0.08, w.id === 'm4a1' || w.id === 'pistol' ? 'reloadBoltRelease' : 'reloadChargingHandle']);
+    // An empty gun is made ready its own way: the .308's bolt worked by hand, a catch or slide stop let go, a handle racked.
+    if (empty && w.id === 'sniper') cues.push([add - 0.34, 'boltOpen'], [add - 0.08, 'boltClose']);
+    else if (empty) cues.push([add - 0.08, w.id === 'm4a1' || w.id === 'pistol' ? 'reloadBoltRelease' : 'reloadChargingHandle']);
     return cues;
   }
   if (w.action === 'cycle') {
@@ -265,6 +279,10 @@ export class Game {
   /** The announcer (ticket 72), and the Squads left when it last looked (null outside a Battle Royale). */
   readonly #announcer = new Announcer(browserSpeaker());
   #squadsLeft: number | null = null;
+  /** The last minute's siren and counter (ticket 24), where the siren stands on this map, and whether the match was under way a frame ago (null: no match). */
+  readonly #countdownSounds = new CountdownSounds();
+  #sirenAt: Vec3 | null = null;
+  #matchLive: boolean | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
   readonly #prepSounds = new PreparationSounds();
   #prepShot: PreparationShot | null = null;
@@ -298,6 +316,10 @@ export class Game {
   /** The ending's shot is on screen instead of the player's view (no crosshair or weapon HUD). */
   #inShot = false;
   readonly #chargeSounds = new ChargeSounds();
+  /** Your own match on its way into the Profile; what it gave, once banked, is on the end panel and the match card. */
+  readonly #keeper: MatchKeeper;
+  /** Seconds the gain has been on screen, for the sounds that go with it. */
+  #gainShown = 0;
   readonly #onVoteKey = (e: KeyboardEvent) => {
     if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
@@ -314,6 +336,7 @@ export class Game {
     this.#endingShot = this.#nukeAt?.shot ?? options.content.train?.shot ?? null;
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#rangeLanesWestOf = options.rangeLanesWestOf ?? null;
+    this.#keeper = new MatchKeeper(options.profile ?? null);
     this.#indoorZones = options.content.indoorZones;
     this.#zones = options.content.zones ?? [];
     this.#sites = options.content.sites ?? [];
@@ -406,6 +429,7 @@ export class Game {
     this.#tracked.clear();
     this.#engagements.clear();
     this.#loop.reset();
+    this.#newMatch();
     this.hud.visible = driver !== null;
   }
 
@@ -426,8 +450,10 @@ export class Game {
   applySettings(settings: Settings): void {
     this.#settings = settings;
     this.input.settings = settings;
-    this.#sound.setVolume(settings.volume);
-    this.#announcer.volume = settings.volume;
+    const mix = mixOf(settings);
+    this.#sound.setMix(mix);
+    // The announcer speaks outside the audio graph: its bus's level and the master reach it as one volume.
+    this.#announcer.volume = speechVolume(mix);
   }
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
@@ -490,9 +516,9 @@ export class Game {
   /**
    * Gets the first moments of a match ready behind the loading screen: every
    * weapon (first-person and third-person) and the frag fetched, then one frame
-   * drawn with all of them, soldiers in every look and the pieces a ragdoll
-   * throws on show, so their shaders compile now rather than in the first
-   * frames of play or at a first weapon switch or kill. Settles within a few
+   * drawn with all of them and soldiers in every look on show, so their
+   * shaders compile now rather than in the first frames of play or at a
+   * first weapon switch or kill. Settles within a few
    * seconds even if no frame is drawn (a hidden tab), then waits for those
    * shaders (see `#gpuDone`). The map's shaders go first, in small pieces with
    * nothing drawn until they are in, so that menus stay live throughout. Done
@@ -765,6 +791,7 @@ export class Game {
     for (const c of this.#chargeSounds.update(objective?.kind === 'charge' ? objective : null, performance.now() / 1000, (id) => this.#playerById(id)?.position ?? null)) this.#play(c.event, c.params);
     this.#zoneRings.update(driver?.match?.phase === 'playing' && objective?.kind === 'outposts' ? objective.zones : null, performance.now() / 1000);
     this.#updateRing(driver, eye);
+    this.#updateScore(driver);
     this.#effects.update(dt, this.#camera.camera);
     this.#tracers.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
@@ -844,6 +871,7 @@ export class Game {
     this.#log.sample(dt, inFight ? this.#cur!.position : null);
     const match = driver.match;
     if (!match || match.phase === 'playing') this.#myVote = null;
+    this.#keepProfile(dt, driver);
     // The population sign: everyone in the lobby (at least you) and this match's kills.
     this.#worldView.setPopulation(Math.max(driver.scores.length, this.#cur ? 1 : 0), driver.scores.reduce((n, s) => n + s.kills, 0));
     const cam = this.#camera.camera;
@@ -893,6 +921,7 @@ export class Game {
       royale: this.#royaleHud(forward),
       victory: victoryTime(driver.match, driver.serverTime) === null ? null : victoryCard(driver.match?.result, driver.scores, driver.selfId),
       matchCard: this.#matchCard(),
+      gain: this.#keeper.gain,
       recap: this.#royale && this.#cur?.alive && this.#cur.downed ? this.#log.recap : null,
       pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
       action,
@@ -1171,13 +1200,82 @@ export class Game {
     const phase = state && driver ? ringStatus(state, driver.serverTime, null).phase : null;
     if (phase === 'closing' && this.#ringPhase === 'hold') {
       this.#play('ringShift');
+      this.#sound.music.sting('ringClosing');
       this.hud.toast('The Ring is closing.', 3);
-      this.#announcer.say('Ring closing');
+      this.#say('Ring closing');
     }
     this.#ringPhase = phase;
     const left = state ? leftLine(this.#squadsLeft, state.squads, state.squadSize === 1) : null;
-    if (left) this.#announcer.say(left);
+    if (left) this.#say(left);
     this.#squadsLeft = state ? state.squads : null;
+  }
+
+  /** The announcer says a line, and everything but the UI makes room under it. */
+  #say(line: string): void {
+    if (this.#announcer.volume <= 0) return;
+    this.#announcer.say(line);
+    this.#sound.duckForVoice(speechSeconds(line));
+  }
+
+  /**
+   * The score, the countdown and the danger state follow the match (tickets 12, 15 and 24):
+   * its phase and clock choose the music's scene, its last minute brings the siren and the
+   * counter, and your own health the heartbeat. With no game running the menus own the scene
+   * (the app's frame loop).
+   */
+  #updateScore(driver: GameDriver | null): void {
+    const self = this.#cur;
+    const match = driver?.match ?? null;
+    // A clock that stands still (a Bot Match paused) holds the sounds that run on it.
+    const frozen = driver !== null && this.#paused && driver.pausesWithGame === true;
+    // The heart and the dulled world belong to the fight: not to the scoreboard, the vote or a paused game.
+    const fighting = driver !== null && !frozen && !this.#inShot && (match === null || match.phase === 'playing');
+    this.#sound.setHealth(fighting && self?.alive ? self.health : null);
+    const kind = match?.objective?.kind;
+    // One clock to run out: Charge is played in rounds, and a Battle Royale ends with its last Squad.
+    const timeLeft =
+      driver && match && match.phase === 'playing' && match.timeLimit !== null && match.phaseEnds !== null && kind !== 'charge' && kind !== 'battle-royale'
+        ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
+        : null;
+    if (!driver || frozen) {
+      // Left, or paused: no siren over the menu, and none winding on against a clock that isn't running.
+      if (this.#countdownSounds.hush(frozen)) this.#sound.stop(COUNTDOWN_VOICES, 0.2);
+    } else {
+      // Where the siren stands is worked out when a clock first needs it: most modes' matches never do.
+      const sirenAt = timeLeft !== null ? (this.#sirenAt ??= sirenSpot(this.#world.solids)) : (this.#sirenAt ?? ([0, 0, 0] as const));
+      for (const c of this.#countdownSounds.update(timeLeft, performance.now() / 1000, sirenAt)) {
+        if (c.cut) this.#sound.stop(c.cut, SIREN_OVERLAP);
+        this.#play(c.event, c.params);
+      }
+    }
+    if (!driver) {
+      this.#matchLive = null;
+      return;
+    }
+    // The opening countdown running out is the match's first note; joining a match already under way is not.
+    const live = match !== null && match.phase === 'playing' && !(match.countdownEnds !== null && match.countdownEnds > driver.serverTime);
+    const opened = live && this.#matchLive === false;
+    this.#matchLive = match ? live : null;
+    const royale = this.#royale;
+    this.#sound.music.setScene(matchScene({ phase: match?.phase ?? null, timeLeft, finalStage: royale !== null && royale.stage >= RING_STAGES, won: this.#won(driver) }), timeLeft);
+    // After the scene is set: a sting asked of a score that is still silent is dropped.
+    if (opened) this.#sound.music.sting('matchStart');
+  }
+
+  /** How the match ended for you: won or lost; null while it is played, on a draw, or when you only watched. */
+  #won(driver: GameDriver): boolean | null {
+    const match = driver.match;
+    const me = driver.scores.find((s) => s.id === driver.selfId);
+    if (!match || !me || (match.phase !== 'nuke' && match.phase !== 'vote')) return null;
+    return this.#wonBy(match, me, driver.selfId);
+  }
+
+  /** Whether the seat of row `me` won `match` as it stands: a Battle Royale by its place, anything else by the result; null with neither yet, or on a draw. */
+  #wonBy(match: MatchStatus, me: Score, selfId: PlayerId | null): boolean | null {
+    if (match.mode === 'battle-royale') return me.place === undefined ? null : me.place === 1;
+    const result = match.result;
+    if (!result || result.draw || result.winner === null) return null;
+    return teamMode(match.mode) ? me.team === result.winner : result.winner === selfId;
   }
 
   /** What the log looks up as it records: names, bots, the seats as last sent, weapon names. */
@@ -1190,6 +1288,39 @@ export class Game {
     },
     weaponName: (cause, weapon) => killedWith(cause, weapon as KillWeapon | null) || null,
   };
+
+  /** A match begins, or the game is left: nothing of the last one is carried over. */
+  #newMatch(): void {
+    this.#keeper.begin();
+    this.#gainShown = 0;
+    this.hud.clearScore();
+  }
+
+  /**
+   * The Profile's side of a match (ticket 17): its time counts while you are
+   * in it, and it is banked once, when it ends, or in a Battle Royale as soon
+   * as your Squad has its place. Only what the server scored is kept: the
+   * Practice Range and a map walked alone bank nothing, nor does a match this
+   * page joined after its end or left before it.
+   */
+  #keepProfile(dt: number, driver: GameDriver): void {
+    const match = driver.match;
+    const me = driver.scores.find((s) => s.id === driver.selfId);
+    if (!driver.online || !match || !me) return;
+    const over = match.phase === 'nuke' || match.phase === 'vote';
+    this.#keeper.update(dt, {
+      playing: match.phase === 'playing' && me.place === undefined,
+      over: me.place !== undefined || (over && match.result !== null && match.result !== undefined),
+      about: () => ({ mode: match.mode, won: this.#wonBy(match, me, driver.selfId) === true, place: me.place ?? null, row: me }),
+    });
+    // The strip's sounds, timed to its Rank bar: they wait for the end panel or the card to be up.
+    const gain = this.#keeper.gain;
+    if (!gain || !over || victoryTime(match, driver.serverTime) !== null) return;
+    const before = this.#gainShown;
+    const now = (this.#gainShown += dt);
+    if (before < 0.5 && now >= 0.5 && gain.challenges.some((c) => c.completed)) this.#play('challengeDone');
+    if (before < GAIN_RANK_UP_AT && now >= GAIN_RANK_UP_AT && gain.rankUp) this.#play('rankUp');
+  }
 
   /** Your own match on one card, at a Battle Royale's end, after the victory beat (ticket 73). */
   #matchCard(): MatchCardState | null {
@@ -1206,6 +1337,8 @@ export class Game {
       winners: winners?.names ?? null,
       yours: winners?.yours ?? false,
       next: match.lobby ? `Back to the lobby in ${Math.ceil(left)} s` : `Next match in ${Math.ceil(left)} s`,
+      score: me?.score ?? 0,
+      gain: this.#keeper.gain,
     };
   }
 
@@ -1420,20 +1553,21 @@ export class Game {
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;
     this.#cur = self;
+    const firePressed = cmd.firePresses.length > 0 || ((cmd.buttons & Button.Fire) !== 0 && ((this.#cmd?.buttons ?? 0) & Button.Fire) === 0);
     this.#cmd = cmd;
     const use = (cmd.buttons & Button.Use) !== 0;
     // Out of a Battle Royale there is no next life to change the loadout for.
     const respawns = driver.match?.mode !== 'battle-royale';
     if (use && !this.#useHeld && self && ((!self.alive && respawns) || this.#atStation(self) || frozen)) this.onLoadout?.(self.alive ? 'station' : 'death');
     this.#useHeld = use;
-    if (self && before) this.#selfFoley(before, self, cmd);
+    if (self && before) this.#selfFoley(before, self, firePressed);
     for (const e of result.events) this.#present(e, start);
     if (driver.popped) this.#worldView.hideProps(driver.popped);
     this.#footsteps();
   }
 
   /** Sounds and camera reactions to the local player's own movement and weapon. */
-  #selfFoley(before: PlayerOutput, self: PlayerOutput, cmd: UserCmd): void {
+  #selfFoley(before: PlayerOutput, self: PlayerOutput, firePressed: boolean): void {
     const local = { local: true } as const;
     if (self.landing && self.alive) {
       this.#play('land', { ...local, material: this.#materialUnder(self.position), intensity: Math.min(1, self.landing.fallHeight / 6) });
@@ -1449,10 +1583,12 @@ export class Game {
     const pw = before.weapon;
     if (w.ads > pw.ads && pw.ads === 0) this.#play('adsIn', local);
     if (w.ads < pw.ads && pw.ads === 1) this.#play('adsOut', local);
+    // A fresh pull of the trigger on an empty gun falls on nothing; a trigger held as the magazine runs out is not a pull.
+    if (firePressed && self.alive && before.alive && pw.ammo === 0 && pw.action === 'ready' && pw.id === w.id) this.#play('dryFire', { ...local, weapon: w.id });
     // Weapon foley at fixed points of each action.
     const sameAction = pw.action === w.action && w.actionTime >= pw.actionTime;
     const from = sameAction ? pw.actionTime : -1;
-    for (const [t, event] of foleyCues(self)) if (t > from && t <= w.actionTime) this.#play(event, local);
+    for (const [t, event] of foleyCues(self)) if (t > from && t <= w.actionTime) this.#play(event, { ...local, weapon: w.id });
     if (!self.alive) this.#viewmodel.root.visible = false;
   }
 
@@ -1502,7 +1638,7 @@ export class Game {
     const pw = before.weapon;
     const sameAction = pw.action === w.action && w.actionTime >= pw.actionTime;
     const from = sameAction ? pw.actionTime : -1;
-    for (const [t, event] of foleyCues(p)) if (t > from && t <= w.actionTime) this.#play(event, at);
+    for (const [t, event] of foleyCues(p)) if (t > from && t <= w.actionTime) this.#play(event, { ...at, weapon: w.id });
   }
 
   /** Seconds from now until a moment inside the tick that started at `start` (ms), keeping sub-tick spacing. */
@@ -1587,7 +1723,7 @@ export class Game {
           const head = e.zone === 'head';
           const kind = hitKind(e.killed, head, e.damage);
           this.hud.hitMarker(kind);
-          if (kind !== 'shielded') this.#play(e.killed ? 'killMarker' : head ? 'headshotMarker' : 'hitMarker');
+          if (kind !== 'shielded') this.#play(e.killed ? (head ? 'headshotKill' : 'killMarker') : head ? 'headshotMarker' : 'hitMarker');
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
           this.hud.setLastHit(e.damage, e.zone, e.distance);
           if (e.victim.startsWith('dummy')) this.#damageNumber(e.point, e.damage, e.zone === 'head', e.distance, e.pellets, e.weapon);
@@ -1610,6 +1746,8 @@ export class Game {
             this.hud.damage(yaw);
           }
           this.#play('damageTaken', { local: true, intensity: Math.min(1, e.damage / 40) });
+          // A blast that hurt and was survived leaves the ears ringing (a grenade's hit carries its distance from the blast).
+          if (e.cause === 'grenade' && !e.killed) this.#sound.tinnitus(tinnitusStrength(e.distance, e.damage));
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
         }
         break;
@@ -1625,7 +1763,7 @@ export class Game {
       case 'killFeed':
         if (e.victim === selfId && !e.down) this.#killer = e.killer === selfId ? null : e.killer;
         if (!e.down) this.#outBy.set(e.victim, e.killer === null || e.killer === e.victim ? null : e.killer === selfId ? 'You' : e.killerName);
-        if (e.killer === selfId && e.victim !== selfId) this.hud.eliminated(e.victimName, e.headshot, e.down);
+        if (e.victim === selfId && !e.down) this.#keeper.died();
         this.hud.killFeed(
           e.killer === null || e.killer === e.victim ? null : e.killerName,
           e.victimName,
@@ -1771,13 +1909,23 @@ export class Game {
         else if (last && !e.demoted) this.hud.objectiveFeed(`${driver?.nameOf(e.player) ?? 'Someone'} is on the last gun`, 0, false);
         break;
       }
+      case 'score': {
+        // Score you earned (the server tells only you): the stack beside the crosshair, and the match's tally for the Profile.
+        if (e.player !== selfId) break;
+        this.#keeper.score(e.lines);
+        const entry = scoreFeedEntry(e.lines, (id) => driver.nameOf(id));
+        this.hud.score(entry);
+        if (entry.medal !== null) this.#play('medal');
+        // A seat put Downed is confirmed as a kill is: the hit that did it was not a killing one.
+        if (e.lines.some((line) => line.reason === 'down')) this.#play('killMarker');
+        break;
+      }
       case 'matchEnd':
-        // A Battle Royale's victory beat says who won, big; the toast would say it twice.
-        if (victoryCard(e, [], null) && this.#driver?.match?.mode === 'battle-royale') break;
-        this.hud.toast(e.winnerName ? `${e.winnerName} ${winVerb(e)} the match.` : 'Match over.');
+        // Nothing to say here: the end panel's headline (a Battle Royale's victory beat) already says who won, big. A toast said it twice, and showed through the scoreboard on a phone.
         break;
       case 'matchStart':
         this.#log.reset(selfId);
+        this.#newMatch();
         this.#cardMade = null;
         this.#killer = null;
         this.#outBy.clear();

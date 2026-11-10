@@ -146,6 +146,8 @@ describe('Outposts scoring', () => {
     expect(row('b1').score).toBeGreaterThan(0);
     expect(row('b1').score).toBe(row('b2').score);
     expect(row('b3').score).toBe(0);
+    // The points table: 150 each.
+    expect(row('b1').score).toBe(150);
   });
 
   it('ends when a team reaches the score limit', () => {

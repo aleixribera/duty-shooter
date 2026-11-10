@@ -4,7 +4,8 @@
  * for the audio context that keeps plain samples.
  */
 import { kitFor } from './kit';
-import type { PrerenderedBank } from './prerender';
+import { STEM_RENDER, STEMS, stemId } from './music/score';
+import type { PrerenderedBank, PrerenderOrder } from './prerender';
 import { createDefaultVoices } from './voices';
 
 interface Samples {
@@ -12,10 +13,12 @@ interface Samples {
   getChannelData(channel: number): Float32Array;
 }
 
-const scope = globalThis as unknown as { onmessage: ((e: MessageEvent<number>) => void) | null; postMessage(message: unknown, transfer?: Transferable[]): void };
+const scope = globalThis as unknown as { onmessage: ((e: MessageEvent<PrerenderOrder>) => void) | null; postMessage(message: unknown, transfer?: Transferable[]): void };
 
 scope.onmessage = (e) => {
-  const sampleRate = e.data;
+  // The score is rendered at half the output rate (nothing in it reaches that high) and the browser resamples it.
+  const music = e.data.set === 'music';
+  const sampleRate = music ? e.data.sampleRate / 2 : e.data.sampleRate;
   const context = {
     sampleRate,
     createBuffer(channels: number, length: number): Samples {
@@ -29,12 +32,18 @@ scope.onmessage = (e) => {
     const bank: PrerenderedBank = { id, sampleRate, variants };
     scope.postMessage(bank, variants.flat().map((c) => c.buffer as ArrayBuffer));
   };
-  const irs = kit.impulseResponses();
-  post('ir/outdoor', [irs.outdoor]);
-  post('ir/indoor', [irs.indoor]);
-  const voices = createDefaultVoices();
-  // Guns first: they are what a match is likely to hear first.
-  const tasks = [...(voices.gunshot.warmTasks?.(context) ?? []), ...Object.entries(voices).flatMap(([event, voice]) => (event === 'gunshot' ? [] : (voice.warmTasks?.(context) ?? (voice.warm ? [() => voice.warm?.(context)] : []))))];
+  let tasks: Array<() => void>;
+  if (music) {
+    // In the order the game asks for them: the menu theme first.
+    tasks = STEMS.map((stem) => () => void kit.bank(stemId(stem), 1, STEM_RENDER[stem], { keepLength: true }));
+  } else {
+    const irs = kit.impulseResponses();
+    post('ir/outdoor', [irs.outdoor]);
+    post('ir/indoor', [irs.indoor]);
+    const voices = createDefaultVoices();
+    // Guns first: they are what a match is likely to hear first.
+    tasks = [...(voices.gunshot.warmTasks?.(context) ?? []), ...Object.entries(voices).flatMap(([event, voice]) => (event === 'gunshot' ? [] : (voice.warmTasks?.(context) ?? (voice.warm ? [() => voice.warm?.(context)] : []))))];
+  }
   const sent = new Set<string>();
   for (const task of tasks) {
     try {

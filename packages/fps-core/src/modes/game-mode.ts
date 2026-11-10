@@ -6,6 +6,7 @@ import type { World } from '../world';
 import type { PlayGround } from './ground';
 import type { PingEvent } from '../pings';
 import type { TrapEvent } from '../sound-traps';
+import type { Medal, ScoreLine } from './score';
 
 /** A place players can spawn. */
 export interface SpawnPoint {
@@ -237,7 +238,14 @@ export interface Score {
   readonly name: string;
   readonly kills: number;
   readonly deaths: number;
+  /** Their Score for the match, from the points table (`STATS.score`): it ranks the scoreboard and never decides a match. */
   readonly score: number;
+  /** Kills by someone else that they dealt real damage towards. */
+  readonly assists: number;
+  /** The best Medal they have earned this match. */
+  readonly medal?: Medal;
+  /** Gun game: their kills up the ladder, less what melee kills took. */
+  readonly progress?: number;
   /** Set for a bot, so it is shown with a BOT tag. */
   readonly bot?: boolean;
   /** Where their Squad finished, once it has gone out or won; Battle Royale only. */
@@ -305,6 +313,8 @@ export type ModeEvent =
   | { readonly type: 'killLeader'; readonly player: PlayerId; readonly name: string; readonly team: TeamId; readonly kills: number }
   /** Battle Royale: `player` began, broke off or finished a Reboot at Beacon `beacon`, for `seats`. */
   | { readonly type: 'reboot'; readonly action: 'start' | 'stop' | 'done'; readonly player: PlayerId; readonly playerName: string; readonly beacon: number; readonly seats: readonly PlayerId[]; readonly names: readonly string[]; readonly position: Vec3 }
+  /** `player` earned Score: each reason and what it paid, in order. Told to that seat's client alone. */
+  | { readonly type: 'score'; readonly player: PlayerId; readonly lines: readonly ScoreLine[] }
   /** A ping, for the pinger's Squad or team only. */
   | PingEvent
   /** A sound trap went off (ticket 72): heard by everyone near, people and bots. */

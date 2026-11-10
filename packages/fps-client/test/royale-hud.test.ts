@@ -94,7 +94,7 @@ describe('the compass', () => {
   });
 });
 
-const score = (id: string, team: number, place?: number): Score => ({ id, team, name: id, kills: 0, deaths: 0, score: 0, ...(place === undefined ? {} : { place }) });
+const score = (id: string, team: number, place?: number): Score => ({ id, team, name: id, kills: 0, deaths: 0, score: 0, assists: 0, ...(place === undefined ? {} : { place }) });
 
 describe('placement', () => {
   it("is your Squad's place out of the Squads that started", () => {

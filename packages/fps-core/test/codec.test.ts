@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_VERSION, type Connection, type ServerMessage, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch } from '@duty-shooter/fps-core/harness';
-import { decodeSnapshot, encodeSnapshot, MOST_WORDS, packValue, unpackValue, WORDS } from '../src/net/codec';
+import { decodeSnapshot, encodeSnapshot, MORE_WORDS, MOST_WORDS, packValue, unpackValue, WORDS } from '../src/net/codec';
 import { decodeServer, type WireSnapshot } from '../src/net/protocol';
 import type { PlayerOutput } from '../src/simulation';
 import { Button, usercmd } from '../src/usercmd';
@@ -64,6 +64,17 @@ describe('packed values', () => {
     expect(packValue('shooter').length).toBe(1);
     expect(new Set(WORDS).size).toBe(WORDS.length);
     expect(WORDS.length).toBeLessThanOrEqual(MOST_WORDS);
+  });
+
+  it('spends two bytes on a word that came after the single bytes ran out, and reads every word back', () => {
+    expect(packValue('recoilPitch').length).toBe(2);
+    expect(new Set([...WORDS, ...MORE_WORDS]).size).toBe(WORDS.length + MORE_WORDS.length);
+    expect(MORE_WORDS.length).toBeLessThanOrEqual(256);
+    const all = [...WORDS, ...MORE_WORDS];
+    expect(unpackValue(packValue(all))).toEqual(all);
+    expect(unpackValue(packValue({ recoilYaw: 0.25, lines: [{ reason: 'streak10', points: 250 }] }))).toEqual({ recoilYaw: 0.25, lines: [{ reason: 'streak10', points: 250 }] });
+    // A byte that names no word is refused, not read as something else.
+    expect(() => unpackValue(new Uint8Array([10, MORE_WORDS.length]))).toThrow(RangeError);
   });
 });
 

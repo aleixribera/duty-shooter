@@ -1,0 +1,311 @@
+{
+  "siren": [
+    {
+      "event": "countdownSirenRise",
+      "distance": 150,
+      "environment": "outdoor",
+      "lufsM": -26.929832812146884,
+      "peakDb": -22.225772895541105,
+      "centroid": 457.52972307958487,
+      "pitchStart": 226,
+      "pitchEnd": 520,
+      "length": 9.292479166666666
+    },
+    {
+      "event": "countdownSirenHold",
+      "distance": 150,
+      "environment": "outdoor",
+      "lufsM": -27.07727354767763,
+      "peakDb": -22.2623468099724,
+      "centroid": 529.7946148962442,
+      "pitchStart": 522,
+      "pitchEnd": 518,
+      "length": 4.3475
+    },
+    {
+      "event": "countdownSirenFall",
+      "distance": 150,
+      "environment": "outdoor",
+      "lufsM": -27.21322510897044,
+      "peakDb": -22.081340185483533,
+      "centroid": 274.8092261246209,
+      "pitchStart": 424,
+      "pitchEnd": 154,
+      "length": 6.816291666666666
+    },
+    {
+      "event": "countdownSirenRise",
+      "distance": 250,
+      "environment": "outdoor",
+      "lufsM": -30.215422234444624,
+      "peakDb": -25.30252406578505,
+      "centroid": 457.62553460977944,
+      "pitchStart": 226,
+      "pitchEnd": 520,
+      "length": 9.297395833333333
+    },
+    {
+      "event": "countdownSirenHold",
+      "distance": 250,
+      "environment": "outdoor",
+      "lufsM": -30.185762266082975,
+      "peakDb": -25.311747181255182,
+      "centroid": 529.91621464344,
+      "pitchStart": 522,
+      "pitchEnd": 518,
+      "length": 4.608020833333334
+    },
+    {
+      "event": "countdownSirenFall",
+      "distance": 250,
+      "environment": "outdoor",
+      "lufsM": -30.494845689273554,
+      "peakDb": -25.075342084914585,
+      "centroid": 275.16102772222735,
+      "pitchStart": 424,
+      "pitchEnd": 154,
+      "length": 6.8160625
+    },
+    {
+      "event": "countdownSirenRise",
+      "distance": 400,
+      "environment": "outdoor",
+      "lufsM": -33.58595018980915,
+      "peakDb": -28.3876980666688,
+      "centroid": 457.85565127963474,
+      "pitchStart": 226,
+      "pitchEnd": 520,
+      "length": 9.472354166666667
+    },
+    {
+      "event": "countdownSirenHold",
+      "distance": 400,
+      "environment": "outdoor",
+      "lufsM": -33.34467964151276,
+      "peakDb": -28.365222259566085,
+      "centroid": 530.1342663053788,
+      "pitchStart": 522,
+      "pitchEnd": 518,
+      "length": 4.642979166666667
+    },
+    {
+      "event": "countdownSirenFall",
+      "distance": 400,
+      "environment": "outdoor",
+      "lufsM": -33.81892131144049,
+      "peakDb": -28.072620878273007,
+      "centroid": 275.66666477811026,
+      "pitchStart": 424,
+      "pitchEnd": 154,
+      "length": 6.811833333333333
+    },
+    {
+      "event": "countdownSirenRise",
+      "distance": 250,
+      "environment": "indoor",
+      "lufsM": -30.461660311532302,
+      "peakDb": -26.227680608458567,
+      "centroid": 458.3038046742827,
+      "pitchStart": 234,
+      "pitchEnd": 520,
+      "length": 8.8913125
+    },
+    {
+      "event": "countdownSirenHold",
+      "distance": 250,
+      "environment": "indoor",
+      "lufsM": -31.09346267330093,
+      "peakDb": -27.15252336371382,
+      "centroid": 528.0303042100932,
+      "pitchStart": 522,
+      "pitchEnd": 518,
+      "length": 3.8914583333333335
+    },
+    {
+      "event": "countdownSirenFall",
+      "distance": 250,
+      "environment": "indoor",
+      "lufsM": -30.82148617285723,
+      "peakDb": -26.060314739295997,
+      "centroid": 272.7758733656394,
+      "pitchStart": 416,
+      "pitchEnd": 154,
+      "length": 6.829625
+    }
+  ],
+  "ticks": [
+    {
+      "intensity": 0.45,
+      "lufsM": -43.61589638960358,
+      "peakDb": -16.950393620889372,
+      "centroid": 5133.427143665571,
+      "lengthMs": 20.979166666666668
+    },
+    {
+      "intensity": 1,
+      "lufsM": -40.82265588360514,
+      "peakDb": -14.15715666774954,
+      "centroid": 5133.426679838116,
+      "lengthMs": 20.979166666666668
+    }
+  ],
+  "minute": {
+    "siren": {
+      "lufsI": -31.501909838219294,
+      "lufsM": -30.185733239879486,
+      "peakDb": -25.26030121179133,
+      "overKnee": 0,
+      "cues": 19,
+      "windows": [
+        {
+          "left": 60,
+          "rms": -37.276157484274364,
+          "centroid": 464.81199780675
+        },
+        {
+          "left": 50,
+          "rms": -37.00272238750224,
+          "centroid": 528.288109118445
+        },
+        {
+          "left": 40,
+          "rms": -37.13719530023891,
+          "centroid": 529.7821514446099
+        },
+        {
+          "left": 30,
+          "rms": -37.04743157460002,
+          "centroid": 529.5006739946389
+        },
+        {
+          "left": 20,
+          "rms": -37.1513191880626,
+          "centroid": 529.4806685187026
+        },
+        {
+          "left": 10,
+          "rms": -37.1581711206695,
+          "centroid": 529.0179606960197
+        }
+      ],
+      "peakVoices": 2,
+      "hold": {
+        "median": -37.32690229527658,
+        "lowest": -41.914160846373946,
+        "highest": -34.77380493177206
+      },
+      "after": [
+        -37.2415809711609,
+        -38.33157019409386,
+        -62.972583228660795
+      ]
+    },
+    "counter": {
+      "lufsI": -34.69652385727308,
+      "lufsM": -27.83973568134788,
+      "peakDb": -10.659803761325147,
+      "overKnee": 0,
+      "cues": 192,
+      "windows": [
+        {
+          "left": 60,
+          "rms": -61.307743847022806,
+          "centroid": 4297.832972793996
+        },
+        {
+          "left": 50,
+          "rms": -50.640013564144375,
+          "centroid": 4676.260927463888
+        },
+        {
+          "left": 40,
+          "rms": -50.22318743649369,
+          "centroid": 4408.3481663058
+        },
+        {
+          "left": 30,
+          "rms": -47.3519539216272,
+          "centroid": 3954.4875376672526
+        },
+        {
+          "left": 20,
+          "rms": -45.39933591569395,
+          "centroid": 4332.871952025403
+        },
+        {
+          "left": 10,
+          "rms": -37.919538842786,
+          "centroid": 4344.851155121357
+        }
+      ],
+      "peakVoices": 3,
+      "ticksPerSecond": [
+        {
+          "left": 60,
+          "rate": 0.1
+        },
+        {
+          "left": 50,
+          "rate": 0.6
+        },
+        {
+          "left": 40,
+          "rate": 0.7
+        },
+        {
+          "left": 30,
+          "rate": 1.4
+        },
+        {
+          "left": 20,
+          "rate": 2.5
+        },
+        {
+          "left": 10,
+          "rate": 12.3
+        }
+      ],
+      "lastTwoSeconds": 23
+    },
+    "both": {
+      "lufsI": -30.638056231086185,
+      "lufsM": -26.34711954881497,
+      "peakDb": -9.484439843222006,
+      "overKnee": 0,
+      "cues": 229,
+      "windows": [
+        {
+          "left": 60,
+          "rms": -37.23905015944213,
+          "centroid": 513.4266659526754
+        },
+        {
+          "left": 50,
+          "rms": -36.5684452683322,
+          "centroid": 843.9996533820613
+        },
+        {
+          "left": 40,
+          "rms": -36.732826132849546,
+          "centroid": 893.9910501535935
+        },
+        {
+          "left": 30,
+          "rms": -36.3561729762538,
+          "centroid": 1256.5825210166843
+        },
+        {
+          "left": 20,
+          "rms": -36.44690818950228,
+          "centroid": 1245.2158541699146
+        },
+        {
+          "left": 10,
+          "rms": -34.61063891844704,
+          "centroid": 2129.5707236551148
+        }
+      ],
+      "peakVoices": 5
+    }
+  }
+}

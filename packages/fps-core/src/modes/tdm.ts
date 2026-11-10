@@ -67,14 +67,15 @@ export class TeamDeathmatch implements GameMode {
     return this.#roster.start(entrants);
   }
 
-  onEvents(events: readonly SimEvent[]): ModeEvent[] {
+  onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
     const scoring = this.#result === null;
-    const { feed, killers } = this.#roster.recordKills(events, scoring);
+    const { feed, killers } = this.#roster.recordKills(events, scoring, ctx);
     for (const killer of killers) {
       if (this.#result === null && this.killLimit !== null && this.#teamScore(killer.team) >= this.killLimit) {
         this.#result = { winner: killer.team, winnerName: TEAM_NAMES[killer.team] ?? null, draw: false, reason: 'killLimit' };
       }
     }
+    feed.push(...this.#roster.score.events());
     return feed;
   }
 

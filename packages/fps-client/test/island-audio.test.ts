@@ -53,10 +53,22 @@ describe('a far gunshot', () => {
     expect(rms(sniper, 0.06, 0.2)).toBeGreaterThan(rms(sniper, 0.02, 0.05) * 3);
   });
 
-  it('holds its voice slot only as long as it rings: a near shot briefly, a far sniper for its long tail', () => {
+  it('holds its voice slot only as long as it rings: a pistol briefly, the .308 for its long tail, near or far', () => {
     const v = gunshotVoice();
-    expect(v.lengthOf!({ local: true })).toBe(0.75);
-    expect(v.lengthOf!({ distance: 20, weapon: 'sniper' })).toBe(0.75);
+    // Each gun's tail is its own, so each shot's slot is: the pistol's is free in a third of a second, the .308's rolls for nearly two.
+    const own = (weapon: keyof typeof FAR_FAMILY, environment: 'outdoor' | 'indoor' = 'outdoor') => v.lengthOf!({ local: true, weapon, environment });
+    expect(own('pistol')).toBeLessThan(0.35);
+    expect(own('pistol')).toBeLessThan(own('smg'));
+    expect(own('smg')).toBeLessThan(own('m4a1'));
+    expect(own('m4a1')).toBeLessThan(own('shotgun'));
+    expect(own('shotgun')).toBeLessThan(own('sniper'));
+    expect(own('sniper')).toBeGreaterThan(1.5);
+    // A room gives the .308 back sooner than the open does.
+    expect(own('sniper', 'indoor')).toBeLessThan(own('sniper'));
+    expect(v.lengthOf!({ local: true })).toBe(own('m4a1'));
+    expect(v.lengthOf!({ distance: 20, weapon: 'sniper' })).toBe(own('sniper'));
+    // Where the near shot is giving way to the far one, the slot is held for whichever rings longer.
+    expect(v.lengthOf!({ distance: 75, weapon: 'pistol' })).toBe(v.lengthOf!({ distance: 200, weapon: 'pistol' }));
     expect(v.lengthOf!({ distance: 200, weapon: 'sniper' })).toBeGreaterThan(1.4);
     expect(v.lengthOf!({ distance: 200, weapon: 'pistol' })).toBeLessThan(v.lengthOf!({ distance: 200, weapon: 'm4a1' }));
     expect(v.lengthOf!({ distance: 200, weapon: 'sniper' })).toBeLessThanOrEqual(v.duration!);

@@ -15,20 +15,25 @@ export class Kit {
 
   constructor(readonly ctx: BaseAudioContext) {}
 
-  /** The `count` rendered variants of a sound, rendering them on first request. */
-  bank(id: string, count: number, render: Render): AudioBuffer[] {
+  /**
+   * The `count` rendered variants of a sound, rendering them on first request. `keepLength`
+   * leaves trailing silence on (a loop must keep its exact length); `sampleRate` renders at
+   * another rate than the context's (dull, long sounds at half rate: the browser resamples).
+   */
+  bank(id: string, count: number, render: Render, o?: { keepLength?: boolean; sampleRate?: number }): AudioBuffer[] {
     let bank = this.banks.get(id);
     if (!bank) {
       bank = [];
       const ready = takePrerendered(id);
-      const sr = this.ctx.sampleRate;
+      const sr = o?.sampleRate ?? this.ctx.sampleRate;
       if (ready) for (const channels of ready.variants) bank.push(this.toBuffer(channels, true, ready.sampleRate));
       else
         for (let v = 0; v < count; v++) {
           const rng = createRng(hashString(id) ^ Math.imul(v + 1, 0x85ebca6b));
-          bank.push(this.toBuffer(render(rng, sr, v)));
+          bank.push(this.toBuffer(render(rng, sr, v), o?.keepLength === true, sr));
         }
       this.banks.set(id, bank);
+      made.add(id);
     }
     return bank;
   }
@@ -89,10 +94,12 @@ export class Kit {
 
 const kits = new WeakMap<BaseAudioContext, Kit>();
 const prerendered = new Map<string, PrerenderedBank>();
+/** The banks a kit has already made: one offered after that would only be kept, never used. */
+const made = new Set<string>();
 
 /** A bank rendered ahead of time, for the kit to use instead of rendering it. */
 export function offerPrerendered(bank: PrerenderedBank): void {
-  prerendered.set(bank.id, bank);
+  if (!made.has(bank.id)) prerendered.set(bank.id, bank);
 }
 
 function takePrerendered(id: string): PrerenderedBank | undefined {

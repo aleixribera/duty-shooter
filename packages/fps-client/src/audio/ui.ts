@@ -1,4 +1,4 @@
-/** Non-positional UI feedback: hit / kill / headshot markers and the damage-taken thump. */
+/** Non-positional UI feedback: hit / kill / headshot markers, the kill confirm and its Medal, Rank and Challenge stings, and the damage-taken thump. */
 import { buffer, finish, lp, modes, noiseBurst, thump, type Rng } from './dsp';
 import { synthVoice } from './synth-voice';
 import type { Voice, VoiceExtras } from './types';
@@ -32,7 +32,53 @@ function marker(id: string, seconds: number, gain: number, draw: (dst: Float32Ar
 
 export const hitMarkerVoice = (): Voice & VoiceExtras => marker('hitMarker', 0.035, 0.32, (d, sr, rng) => tick(d, sr, rng, false));
 
-export const killMarkerVoice = (): Voice & VoiceExtras => marker('killMarker', 0.07, 0.42, (d, sr, rng) => tick(d, sr, rng, true));
+/**
+ * The kill confirm, in two parts: the heavy tick the moment the shot lands,
+ * then a short bright ping a few hundredths later that says it was a kill.
+ * Dry and brief, so a second kill's confirm is heard apart from the first's.
+ */
+export const killMarkerVoice = (): Voice & VoiceExtras =>
+  marker('killMarker', 0.3, 0.42, (d, sr, rng) => {
+    tick(d, sr, rng, true);
+    const f = rng.range(1740, 1780);
+    modes(d, sr, 0.045, [f, f * 2, f * 3.01], [1, 0.32, 0.1], [0.07, 0.04, 0.02], 0.5, 0.0006);
+  });
+
+/**
+ * A kill through the head: the same two parts a fifth higher, the tick the
+ * light one, and the ping a struck bar with a crisp top over it.
+ */
+export const headshotKillVoice = (): Voice & VoiceExtras =>
+  marker('headshotKill', 0.45, 0.42, (d, sr, rng) => {
+    tick(d, sr, rng, false);
+    const b = rng.range(2610, 2660);
+    // The top: a breath of air above 7 kHz on the ping's attack.
+    noiseBurst(d, sr, rng, { at: 0.04, attack: 0.0002, tau: 0.006, gain: 0.5, mode: 'highpass', freq: 7000, length: 0.03 });
+    modes(d, sr, 0.04, [b, b * 1.006, b * 2.76, b * 5.4], [1, 0.55, 0.35, 0.16], [0.16, 0.13, 0.07, 0.03], 0.55, 0.0004);
+  });
+
+/** A Medal earned: three quick notes rising through a major chord, the last one left to ring. */
+export const medalVoice = (): Voice & VoiceExtras =>
+  marker('medal', 0.75, 0.36, (d, sr) => {
+    modes(d, sr, 0, [880, 1760], [1, 0.3], [0.06, 0.03], 0.7, 0.001);
+    modes(d, sr, 0.07, [1108.7, 2217.5], [1, 0.3], [0.06, 0.03], 0.7, 0.001);
+    modes(d, sr, 0.14, [1318.5, 2637, 3955.5], [1, 0.35, 0.12], [0.2, 0.1, 0.05], 0.8, 0.001);
+  });
+
+/** A Rank crossed: four notes up an octave and a half, landing on an open fifth that holds. */
+export const rankUpVoice = (): Voice & VoiceExtras =>
+  marker('rankUp', 1.5, 0.4, (d, sr) => {
+    const notes = [587.3, 784, 880, 1174.7];
+    notes.forEach((f, i) => modes(d, sr, i * 0.09, [f, f * 2], [1, 0.3], [0.09, 0.04], 0.6, 0.002));
+    modes(d, sr, 0.38, [1174.7, 1760, 2349.3, 3520], [1, 0.7, 0.3, 0.12], [0.42, 0.36, 0.2, 0.1], 0.75, 0.003);
+  });
+
+/** A Challenge completed: two notes a fourth apart, low then high, like a box being ticked. */
+export const challengeDoneVoice = (): Voice & VoiceExtras =>
+  marker('challengeDone', 0.6, 0.34, (d, sr) => {
+    modes(d, sr, 0, [1174.7, 2349.3], [1, 0.25], [0.08, 0.03], 0.7, 0.002);
+    modes(d, sr, 0.11, [1568, 3136], [1, 0.25], [0.18, 0.06], 0.8, 0.002);
+  });
 
 export const headshotMarkerVoice = (): Voice & VoiceExtras =>
   marker('headshotMarker', 0.4, 0.4, (d, sr, rng) => {

@@ -1,5 +1,6 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
 import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type Score, type SpawnPoint, type TeamScore } from './game-mode';
+import { ScoreKeeper } from './score';
 import { RecentSpawns, scoredSpawn } from './spawns';
 
 export interface FreeForAllOptions {
@@ -39,6 +40,7 @@ export class FreeForAll implements GameMode {
   /** Players who have spawned since the match started. */
   readonly #spawned = new Set<PlayerId>();
   readonly #random: () => number;
+  readonly #score = new ScoreKeeper();
 
   constructor(options: FreeForAllOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 30 : options.killLimit;
@@ -49,6 +51,7 @@ export class FreeForAll implements GameMode {
   join(id: PlayerId, name: string): TeamId {
     const team = this.#nextTeam++;
     this.#entries.set(id, { id, name, team, kills: 0, deaths: 0 });
+    this.#score.join(id);
     return team;
   }
 
@@ -56,10 +59,12 @@ export class FreeForAll implements GameMode {
     this.#entries.delete(id);
     this.#recent.forget(id);
     this.#spawned.delete(id);
+    this.#score.leave(id);
   }
 
   rejoin(score: Score): void {
     this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths });
+    this.#score.rejoin(score);
     this.#spawned.add(score.id);
   }
 
@@ -90,13 +95,15 @@ export class FreeForAll implements GameMode {
     this.#recent.clear();
     this.#spawned.clear();
     this.#result = null;
+    this.#score.start();
     const teams = new Map<PlayerId, TeamId>();
     for (const e of entrants) teams.set(e.id, this.join(e.id, e.name));
     return teams;
   }
 
-  onEvents(events: readonly SimEvent[]): ModeEvent[] {
+  onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
     const out: ModeEvent[] = [];
+    this.#score.read(events, { time: ctx.time, scoring: this.#result === null, team: (id) => this.#entries.get(id)?.team });
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
@@ -122,12 +129,14 @@ export class FreeForAll implements GameMode {
         this.#result = { winner: killer.id, winnerName: killer.name, draw: false, reason: 'killLimit' };
       }
     }
+    out.push(...this.#score.events());
     return out;
   }
 
   result(ctx: ModeContext): MatchResult | null {
     if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
-      const [first, second] = this.scores();
+      // Kills win it, whatever the Score says.
+      const [first, second] = this.scores().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const draw = !first || (second !== undefined && second.kills === first.kills);
       this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
@@ -136,8 +145,8 @@ export class FreeForAll implements GameMode {
 
   scores(): Score[] {
     return [...this.#entries.values()]
-      .map((e) => ({ id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, score: e.kills }))
-      .sort((a, b) => b.score - a.score || a.deaths - b.deaths);
+      .map((e): Score => ({ id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, ...this.#score.of(e.id) }))
+      .sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths);
   }
 
   teamScores(): readonly TeamScore[] | null {

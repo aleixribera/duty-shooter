@@ -34,8 +34,6 @@ const RATE_PER_PLAYER = 0.5;
 export const MAX_CAPTURE_RATE = 2;
 /** Points a held zone scores its team each second. */
 export const ZONE_POINTS_PER_SECOND = 1;
-/** Scoreboard points each player in a zone gets when it is captured. */
-export const CAPTURE_POINTS = 5;
 /** Spawns this far (m) beyond a held zone's edge count as near it. */
 const NEAR_HELD = 20;
 
@@ -121,7 +119,7 @@ export class Outposts implements GameMode {
 
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
     const scoring = this.#result === null;
-    const out: ModeEvent[] = this.#roster.recordKills(events, scoring).feed;
+    const out: ModeEvent[] = this.#roster.recordKills(events, scoring, ctx, ctx.zones).feed;
     if (!scoring) return out;
     this.#layout = ctx.zones;
     for (const zone of ctx.zones) {
@@ -138,6 +136,7 @@ export class Outposts implements GameMode {
       const sb = this.#teamScore(b);
       if (Math.max(sa, sb) >= this.scoreLimit) this.#result = this.#decided(sa, sb, 'scoreLimit');
     }
+    out.push(...this.#roster.score.events());
     return out;
   }
 
@@ -177,7 +176,7 @@ export class Outposts implements GameMode {
     run.progress = 0;
     for (const p of inside) {
       const entry = this.#roster.get(p.id);
-      if (entry && entry.team === team) entry.points += CAPTURE_POINTS;
+      if (entry && entry.team === team) this.#roster.score.give(p.id, 'capture');
     }
     return { type: 'capture', zone: zone.id, team, previous };
   }

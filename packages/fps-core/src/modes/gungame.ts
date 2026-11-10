@@ -90,7 +90,7 @@ export class GunGame implements GameMode {
   }
 
   rejoin(score: Score): void {
-    this.#progress.set(score.id, Math.max(0, Math.min(this.killLimit - 1, score.score)));
+    this.#progress.set(score.id, Math.max(0, Math.min(this.killLimit - 1, score.progress ?? 0)));
     this.#ffa.rejoin(score);
   }
 
@@ -121,7 +121,7 @@ export class GunGame implements GameMode {
 
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
     const scoring = this.#result === null;
-    const out = this.#ffa.onEvents(events);
+    const out = this.#ffa.onEvents(events, ctx);
     if (!scoring) return out;
     for (const e of events) {
       if (e.type !== 'kill' || e.killer === null || e.killer === e.victim) continue;
@@ -149,19 +149,24 @@ export class GunGame implements GameMode {
 
   result(ctx: ModeContext): MatchResult | null {
     if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
-      const [first, second] = this.scores();
-      const draw = !first || (second !== undefined && second.score === first.score && second.kills === first.kills && second.deaths === first.deaths);
+      const [first, second] = this.#ranked();
+      const draw = !first || (second !== undefined && second.progress === first.progress && second.kills === first.kills && second.deaths === first.deaths);
       this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
     return this.#result;
   }
 
-  /** Free-for-all's rows with `score` the player's kills up the ladder, furthest first, then most kills. */
+  /** Free-for-all's rows with `progress`, the player's kills up the ladder: the best Score first, as on every scoreboard. */
   scores(): Score[] {
+    return this.#ffa.scores().map((s) => ({ ...s, progress: this.#progress.get(s.id) ?? 0 }));
+  }
+
+  /** The rows as the ladder ranks them: furthest up first, then most kills, then fewest deaths. */
+  #ranked(): (Score & { readonly progress: number })[] {
     return this.#ffa
       .scores()
-      .map((s) => ({ ...s, score: this.#progress.get(s.id) ?? 0 }))
-      .sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths);
+      .map((s) => ({ ...s, progress: this.#progress.get(s.id) ?? 0 }))
+      .sort((a, b) => b.progress - a.progress || b.kills - a.kills || a.deaths - b.deaths);
   }
 
   teamScores(): readonly TeamScore[] | null {

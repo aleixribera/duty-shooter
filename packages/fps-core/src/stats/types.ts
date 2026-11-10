@@ -15,7 +15,8 @@ export type Unit =
   | 'rounds'
   | 'multiplier'
   | 'budget'
-  | 'budget/m';
+  | 'budget/m'
+  | 'points';
 
 /** Where a measured number came from. */
 export interface Source {

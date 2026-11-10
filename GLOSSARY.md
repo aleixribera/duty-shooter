@@ -428,3 +428,40 @@ A server tick of 8 ms or more (`SLOW_TICK_MS`), which the server logs with what 
 **Stall**:
 A slow tick whose thread spent most of it off the CPU: the machine (a CPU cap, another process) held it up, whatever the game was doing.
 _Avoid_: lag spike
+
+## Score and Profile
+
+**Score**:
+What a seat has earned in a match, in points, kept by the server for people and bots alike from one points table (`STATS.score`): a kill is 100, and a headshot, an Assist, a Medal or the objective add to it. The scoreboard sorts by it and the MVP is its highest, but it never decides a match: each Mode still wins on its own counters.
+_Avoid_: points (the unit, not the total), XP (what a Profile keeps)
+
+**Assist**:
+Score for having dealt 30 damage or more, in the 8 s before, to an enemy another seat then killed or Downed. Counted on the scoreboard beside kills and deaths.
+
+**Medal**:
+A line of Score with a name worth calling out: long shot, revenge, first blood, double kill, triple kill, multi kill, and the streaks at 3, 5, 7 and 10 kills without dying. The crosshair stack names it larger than the other lines, and a scoreboard row keeps the best one its seat earned in the match.
+_Avoid_: badge, award, accolade
+
+**Profile**:
+What one browser remembers of its player, in local storage: XP and Rank, lifetime numbers, each weapon's kills and Mastery, and today's Challenges. Only a match played to its end is banked in it (online, a Bot Match, a Battle Royale once your Squad has its place); the Practice Range and walking a map alone bank nothing. It belongs to the browser, not to a name or an account.
+_Avoid_: account, save, career
+
+**XP**:
+What a Profile gains from a match: the match's Score, a quarter more for a win, and what a completed Challenge pays.
+_Avoid_: experience points, score (a match's own)
+
+**Rank**:
+Where a Profile's XP stands, 1 to 50, each band of five Ranks under one title (Observer to Test Director). Shown under the name on the main menu.
+_Avoid_: level (a gun game step, or a Mastery step)
+
+**Mastery**:
+A weapon's standing in a Profile, 0 to 5, by the kills made with it: 25, 75, 150, 300 and 500.
+_Avoid_: weapon level, weapon rank
+
+**Challenge**:
+One of three tasks a Profile is given each day, the same three for everyone on that date, each paying XP once when done. They change at the browser's midnight.
+_Avoid_: mission, quest, contract
+
+**MVP**:
+The seat with the highest Score when a match ends, person or bot, named on the match's end with their Score, kills and best Medal. A match where nobody scored has none.
+_Avoid_: best player, top fragger

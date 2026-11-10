@@ -1,5 +1,6 @@
 import type { PlayerId, SimEvent, TeamId } from '../simulation';
-import type { MatchEntrant, ModeContext, ModeEvent, Score, SpawnPoint } from './game-mode';
+import type { MatchEntrant, ModeContext, ModeEvent, Score, SpawnPoint, Zone } from './game-mode';
+import { ScoreKeeper } from './score';
 import { RecentSpawns, distinctSpawns, overrun, scoredSpawn, shuffledOrder } from './spawns';
 
 /** The two teams: blue, then orange. */
@@ -13,8 +14,6 @@ export interface TeamEntry {
   team: TeamId;
   kills: number;
   deaths: number;
-  /** Points the mode gives beyond kills (captures, plants, ...). */
-  points: number;
   /** Join order, so ties are settled the same way every time. */
   readonly order: number;
   /** Placed on a side that balancing never moves them from (humans vs bots). */
@@ -41,6 +40,8 @@ export class TeamRoster {
   readonly #firstOrder = new Map<TeamId, readonly number[]>();
   readonly #recent = new RecentSpawns();
   readonly #random: () => number;
+  /** Everyone's Score: the kills are read in {@link recordKills}, and the mode adds its own awards. */
+  readonly score = new ScoreKeeper();
 
   /** `random` (0 to 1, like `Math.random`, its default) draws where players spawn. */
   constructor(random: () => number = Math.random) {
@@ -64,7 +65,8 @@ export class TeamRoster {
     const [a, b] = TEAMS;
     const size = (t: TeamId) => this.members(t).length;
     const team = side ?? (size(a) !== size(b) ? (size(a) < size(b) ? a : b) : standing(a) <= standing(b) ? a : b);
-    this.#entries.set(id, { id, name, team, kills: 0, deaths: 0, points: 0, order: this.#order++, fixed: side !== undefined });
+    this.#entries.set(id, { id, name, team, kills: 0, deaths: 0, order: this.#order++, fixed: side !== undefined });
+    this.score.join(id);
     return team;
   }
 
@@ -72,11 +74,13 @@ export class TeamRoster {
     this.#entries.delete(id);
     this.#spawned.delete(id);
     this.#recent.forget(id);
+    this.score.leave(id);
   }
 
   /** A player back from a drop: their row as they left it, already spawned. */
   rejoin(score: Score): void {
-    this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths, points: score.score - score.kills, order: this.#order++ });
+    this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths, order: this.#order++ });
+    this.score.rejoin(score);
     this.#spawned.add(score.id);
   }
 
@@ -88,7 +92,8 @@ export class TeamRoster {
     this.#firstOrder.clear();
     this.#recent.clear();
     const [a, b] = TEAMS;
-    const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, points: 0, order: this.#order++, fixed: e.side !== undefined });
+    const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, order: this.#order++, fixed: e.side !== undefined });
+    this.score.start(entrants.map((e) => e.id));
     // Players with a side take it; the rest keep their team where they had one, then fill the smaller team.
     const unplaced: MatchEntrant[] = [];
     for (const e of entrants) {
@@ -148,8 +153,17 @@ export class TeamRoster {
     return this.#recent.add(id, spawn);
   }
 
-  /** Kills and deaths from a tick's kill events (counted only while `scoring`), and the kill feed. */
-  recordKills(events: readonly SimEvent[], scoring: boolean): { feed: ModeEvent[]; killers: TeamEntry[] } {
+  /**
+   * Kills and deaths from a tick's kill events (counted only while `scoring`), their Score, and the kill feed.
+   * With `zones`, a kill made from inside one, or of someone standing in one, pays the zone-kill bonus.
+   */
+  recordKills(events: readonly SimEvent[], scoring: boolean, ctx: ModeContext, zones?: readonly Zone[]): { feed: ModeEvent[]; killers: TeamEntry[] } {
+    this.score.read(events, {
+      time: ctx.time,
+      scoring,
+      team: (id) => this.#entries.get(id)?.team,
+      ...(zones ? { zones, position: (id: PlayerId) => ctx.players.find((p) => p.id === id)?.position } : {}),
+    });
     const feed: ModeEvent[] = [];
     const killers: TeamEntry[] = [];
     const headshots = new Set<PlayerId>();
@@ -178,10 +192,10 @@ export class TeamRoster {
     return { feed, killers };
   }
 
-  /** The scoreboard: each row's score is its kills plus its points, grouped by team, best first. */
+  /** The scoreboard, grouped by team, the best Score first. */
   scores(): Score[] {
     return this.entries()
-      .map((e) => ({ id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, score: e.kills + e.points }))
-      .sort((x, y) => x.team - y.team || y.score - x.score || x.deaths - y.deaths);
+      .map((e): Score => ({ id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, ...this.score.of(e.id) }))
+      .sort((x, y) => x.team - y.team || y.score - x.score || y.kills - x.kills || x.deaths - y.deaths);
   }
 }

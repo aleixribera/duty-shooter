@@ -3,6 +3,8 @@ import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
 import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, hint, icon, installTheme } from './theme';
+import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
+import type { ProfileStore } from '../profile/store';
 
 export type { LobbyInfo } from './model';
 
@@ -251,14 +253,14 @@ export interface MenuCallbacks {
  */
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
-type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout';
+type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile';
 
 type El = (tag: string, text?: string, cls?: string) => HTMLElement;
 
 /**
  * Every screen outside play: the main menu over the map's fly-through,
  * Play Online, loading and connecting with their progress, the connection
- * errors, pause, loadout and settings. Plain DOM built on the theme's page
+ * errors, pause, loadout, settings and the Profile. Plain DOM built on the theme's page
  * shell (Bot Match's setup is the lobby page); the range app decides what
  * each choice does. Mouse, keyboard (Esc goes back) and controller reach
  * every control, and every screen is built at once, with nothing to load.
@@ -291,21 +293,26 @@ export class Menu {
   #loadoutNote = '';
   #matchMode: ModeId | null = null;
   readonly #padName: () => string | null;
+  /** This browser's Profile: the main menu's Rank line and the Profile screen read it. Null where none is kept. */
+  readonly #profile: ProfileStore | null;
+  /** The Profile screen is asking whether to erase it. */
+  #askReset = false;
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
   #redrawAfterPress = false;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null; profile?: ProfileStore | null }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
     this.#lobby = options.lobby;
     this.#version = options.version;
     this.#padName = options.padName ?? (() => null);
+    this.#profile = options.profile ?? null;
     installTheme();
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
       style.id = 'ds-menu-css';
-      style.textContent = MENU_CSS;
+      style.textContent = MENU_CSS + PROFILE_SCREEN_CSS;
       document.head.append(style);
     }
     this.#root = document.createElement('div');
@@ -651,6 +658,9 @@ export class Menu {
       case 'settings':
         this.#renderSettings(screen, h, button);
         break;
+      case 'profile':
+        this.#renderProfile(screen, h, button);
+        break;
     }
     // Keep the controller's focus on screen: the first control of a new screen.
     // Queued last, after any focus a screen sets itself.
@@ -706,6 +716,17 @@ export class Menu {
     name.addEventListener('change', () => this.#change({ name: name.value.trim().slice(0, 16) }));
     label.append(name);
     nameBox.append(h('div', 'Name', 'ds-label'), label);
+    // Under the name, the Rank it has earned in this browser: the way into the Profile.
+    if (this.#profile) {
+      const rank = h('button', '', 'ds-rankline') as HTMLButtonElement;
+      rank.type = 'button';
+      rank.innerHTML = rankLineHtml(this.#profile.profile);
+      rank.addEventListener('click', () => {
+        this.#askReset = false;
+        this.show('profile');
+      });
+      nameBox.append(rank);
+    }
     top.append(nameBox);
     home.append(top);
 
@@ -986,6 +1007,37 @@ export class Menu {
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus({ preventScroll: true }));
   }
 
+  /**
+   * The Profile: Rank and XP, the lifetime strip, today's Challenges and the
+   * weapons with their Mastery, all read from this browser's store. Erasing it
+   * is asked twice, in the footer, with the way out focused.
+   */
+  #renderProfile(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
+    const store = this.#profile;
+    const { body, footer } = this.#page(screen, h, 'Main menu', 'Profile');
+    if (!store) return;
+    const view = h('div', '', 'ds-prof');
+    view.innerHTML = profileHtml(store.profile, store.today);
+    body.append(view);
+    const again = (ask: boolean) => {
+      this.#askReset = ask;
+      this.#render();
+    };
+    button(footer, 'Back', () => this.show('main'), 'back', 'back');
+    if (this.#askReset) {
+      footer.append(h('span', 'Erase your Rank, your numbers and today\'s Challenges? It can\'t be undone.', 'ds-ask'));
+      const keep = button(footer, 'Keep it', () => again(false));
+      button(footer, 'Erase profile', () => {
+        store.reset();
+        again(false);
+      }).classList.add('danger');
+      queueMicrotask(() => keep.focus({ preventScroll: true }));
+    } else {
+      footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select'), hint('Esc', '○', 'Back')));
+      button(footer, 'Reset profile', () => again(true));
+    }
+  }
+
   /** Marks the focused control for the controller's focus ring (the page may not have window focus, so :focus is not enough). */
   #markFocus(): void {
     for (const e of this.#root.querySelectorAll('[data-pad-focus]')) e.removeAttribute('data-pad-focus');
@@ -1112,8 +1164,13 @@ export class Menu {
       toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));
       toggle('Ping counter', s.showPing, (v) => this.#change({ showPing: v }));
       toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
-      section('Audio', 'Everything the game plays.');
-      slider('Volume', s.volume, 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`, (v) => this.#change({ volume: v }));
+      section('Audio', 'The master sets everything. Under it, the score, the world, the announcer and the menus each have their own level.');
+      const percent = (v: number) => `${Math.round(v * 100)}%`;
+      slider('Master volume', s.volume, 0, 1, 0.01, percent, (v) => this.#change({ volume: v }));
+      slider('Music', s.musicVolume, 0, 1, 0.01, percent, (v) => this.#change({ musicVolume: v }));
+      slider('Effects', s.effectsVolume, 0, 1, 0.01, percent, (v) => this.#change({ effectsVolume: v }));
+      slider('Announcer', s.voiceVolume, 0, 1, 0.01, percent, (v) => this.#change({ voiceVolume: v }));
+      slider('Interface sounds', s.uiVolume, 0, 1, 0.01, percent, (v) => this.#change({ uiVolume: v }));
     }
     button(footer, 'Back', () => (this.#back === 'close' ? this.hide() : this.show(this.#back)), 'back', 'back');
     if (this.#tab === 'bindings') {

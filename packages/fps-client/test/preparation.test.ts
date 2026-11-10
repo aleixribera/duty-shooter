@@ -129,6 +129,33 @@ describe('the Preparation’s sound', () => {
       expect(Math.max(...b.map(Math.abs))).toBeGreaterThan(0.1);
     }
   });
+
+  it('beats a heart a small speaker still carries: a knock above 100 Hz over the thump under it', () => {
+    const sr = 12000;
+    const beat = heartbeat(sr, createRng(2));
+    /** The beat's energy between two frequencies, by a plain Fourier sum every 2 Hz. */
+    const energy = (from: number, to: number) => {
+      let sum = 0;
+      for (let f = from; f < to; f += 2) {
+        let re = 0;
+        let im = 0;
+        for (let i = 0; i < beat.length; i++) {
+          re += beat[i]! * Math.cos((2 * Math.PI * f * i) / sr);
+          im -= beat[i]! * Math.sin((2 * Math.PI * f * i) / sr);
+        }
+        sum += re * re + im * im;
+      }
+      return sum;
+    };
+    const all = energy(20, 600);
+    const low = energy(20, 100);
+    const knock = energy(100, 300);
+    // A laptop or a phone plays next to nothing under 100 Hz: a seventh of the beat or more has to sit above it.
+    expect(knock / all).toBeGreaterThan(0.14);
+    // And it is still a heart, not a tap: most of it stays low, and nothing bright.
+    expect(low / all).toBeGreaterThan(0.6);
+    expect(energy(300, 600) / all).toBeLessThan(0.03);
+  });
 });
 
 describe('the Preparation’s one action', () => {

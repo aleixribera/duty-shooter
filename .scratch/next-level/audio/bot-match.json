@@ -1,0 +1,244 @@
+{
+  "match": 75,
+  "checks": [
+    {
+      "name": "silent until audio is allowed",
+      "ok": true,
+      "detail": "unlocked false, asked for 'menu', sounding 'silence', 0 sources (page visible)"
+    },
+    {
+      "name": "audio starts on the first press",
+      "ok": true,
+      "detail": "running 3822 ms after the press"
+    },
+    {
+      "name": "the stems come in",
+      "ok": true,
+      "detail": "the score is ready 3876 ms after the press (rendered off the main thread)"
+    },
+    {
+      "name": "the menu has its theme",
+      "ok": true,
+      "detail": "sounding 'menu', 5 sources, cycle 1"
+    },
+    {
+      "name": "a hidden page plays nothing",
+      "ok": true,
+      "detail": "hidden: sounding 'silence', 0 sources"
+    },
+    {
+      "name": "back in view the theme starts again",
+      "ok": true,
+      "detail": "shown: sounding 'menu', 3 sources"
+    },
+    {
+      "name": "the menu theme stops for the match",
+      "ok": true,
+      "detail": "scene 'match' 74.9 s from the end"
+    },
+    {
+      "name": "the match opens with its sting",
+      "ok": true,
+      "detail": "matchStart at 21.8 s (74.9 s on the clock)"
+    },
+    {
+      "name": "the bed starts with the last minute",
+      "ok": true,
+      "detail": "'lastMinute' first seen with 59.93 s left"
+    },
+    {
+      "name": "the riser starts with the final ten",
+      "ok": true,
+      "detail": "'final10' first seen with 9.95 s left"
+    },
+    {
+      "name": "the match ends on its sting",
+      "ok": true,
+      "detail": "victory at 96.8 s (phase nuke); result {\"winner\":1,\"winnerName\":\"Blue\",\"draw\":false,\"reason\":\"timeLimit\"}"
+    },
+    {
+      "name": "the siren winds up as the last minute begins",
+      "ok": true,
+      "detail": "1 wind-up, seen with 59.93 s left"
+    },
+    {
+      "name": "the siren holds to the end and winds down once",
+      "ok": true,
+      "detail": "17 held segments 3.10 s apart, 1 wind-down"
+    },
+    {
+      "name": "the counter ticks faster and faster",
+      "ok": true,
+      "detail": "ticks seen per ten seconds, 60 s to 0: 4, 5, 14, 26, 24, 127"
+    },
+    {
+      "name": "voices stay under the cap",
+      "ok": true,
+      "detail": "most at once 55 of 64 (largest seen in a sample 54); the score's sources at most 8"
+    },
+    {
+      "name": "the per-frame audio calls and the score cost next to nothing",
+      "ok": true,
+      "detail": "over 119 s: 68450 per-frame calls (scene, health, listener) in 303.4 ms, 0.255 % of the time (mean 4.4 us, worst 3.00 ms); of that the score's own scheduling 11 calls, 3.80 ms, worst 1.50 ms"
+    },
+    {
+      "name": "no sound takes a frame to start",
+      "ok": true,
+      "detail": "2765 sounds started in 1206.6 ms, 1.013 % of the time (mean 436 us, worst 9.40 ms); lowest fps while playing 21 (the PC was busy with other work)"
+    },
+    {
+      "name": "the page logs no errors",
+      "ok": true,
+      "detail": "none"
+    }
+  ],
+  "transitions": [
+    {
+      "at": 0.076,
+      "phase": null,
+      "live": null,
+      "left": null,
+      "asked": "menu",
+      "sounding": "menu",
+      "sources": 3
+    },
+    {
+      "at": 16.304,
+      "phase": null,
+      "live": null,
+      "left": null,
+      "asked": "match",
+      "sounding": "match",
+      "sources": 2
+    },
+    {
+      "at": 16.791,
+      "phase": "playing",
+      "live": false,
+      "left": 75,
+      "asked": "match",
+      "sounding": "match",
+      "sources": 7
+    },
+    {
+      "at": 21.764,
+      "phase": "playing",
+      "live": true,
+      "left": 74.88333333333333,
+      "asked": "match",
+      "sounding": "match",
+      "sources": 1
+    },
+    {
+      "at": 21.764,
+      "sting": "matchStart",
+      "phase": "playing",
+      "left": 74.88333333333333
+    },
+    {
+      "at": 36.775,
+      "phase": "playing",
+      "live": true,
+      "left": 59.93333333333333,
+      "asked": "lastMinute",
+      "sounding": "lastMinute",
+      "sources": 1
+    },
+    {
+      "at": 86.911,
+      "phase": "playing",
+      "live": true,
+      "left": 9.950000000000003,
+      "asked": "final10",
+      "sounding": "final10",
+      "sources": 2
+    },
+    {
+      "at": 96.85,
+      "phase": "nuke",
+      "live": true,
+      "left": null,
+      "asked": "victory",
+      "sounding": "victory",
+      "sources": 3
+    },
+    {
+      "at": 96.85,
+      "sting": "victory",
+      "phase": "nuke",
+      "left": null
+    },
+    {
+      "at": 102.997,
+      "phase": "vote",
+      "live": true,
+      "left": null,
+      "asked": "victory",
+      "sounding": "victory",
+      "sources": 1
+    },
+    {
+      "at": 112.925,
+      "phase": "lobby",
+      "live": true,
+      "left": null,
+      "asked": "menu",
+      "sounding": "menu",
+      "sources": 8
+    }
+  ],
+  "cues": {
+    "rise": 1,
+    "holds": 17,
+    "fall": 1,
+    "ticks": 201,
+    "riseLeft": 59.93333333333333,
+    "holdGap": 3.09975,
+    "ticksByTen": [
+      4,
+      5,
+      14,
+      26,
+      24,
+      127
+    ],
+    "heartbeats": 0
+  },
+  "errors": [],
+  "unlockMs": 3822,
+  "stemsReadyMs": 3876,
+  "result": {
+    "winner": 1,
+    "winnerName": "Blue",
+    "draw": false,
+    "reason": "timeLimit"
+  },
+  "cost": {
+    "play": {
+      "calls": 2765,
+      "ms": 1206.599999986589,
+      "worst": 9.399999998509884
+    },
+    "frame": {
+      "calls": 68450,
+      "ms": 303.399999961257,
+      "worst": 3
+    },
+    "slow": [
+      {
+        "call": "play",
+        "what": "footstep",
+        "weapon": "",
+        "ms": 9.4,
+        "at": 73.935
+      }
+    ],
+    "music": {
+      "calls": 11,
+      "ms": 3.799999998882413,
+      "worst": 1.5
+    },
+    "seconds": 119.061,
+    "minFps": 21
+  }
+}

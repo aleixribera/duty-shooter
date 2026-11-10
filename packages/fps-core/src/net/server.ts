@@ -243,7 +243,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots (lost packets still reach the feed); the rest (shots, impacts, reloads) are cosmetic and sent once. */
-export const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping', 'squadOut', 'killLeader']);
+export const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping', 'squadOut', 'killLeader', 'score']);
 
 interface Client {
   readonly connection: Connection;
@@ -344,6 +344,8 @@ interface LoggedEvent {
   readonly reach: EventReach | null;
   /** A ping's: only its team hears of it. */
   readonly team?: TeamId;
+  /** A score event's: only that seat's client hears of it. */
+  readonly to?: PlayerId;
 }
 
 interface BotSeat {
@@ -1419,13 +1421,15 @@ export class GameServer {
     this.#last = this.simulation.output();
     const seats = (this.#seatIndex = new SeatIndex(this.#last.players));
     const relevant = this.#net.relevance !== null;
-    const logged = [...out.events, ...modeEvents].map(
+    // A bot's Score has no client to hear of it.
+    const told = modeEvents.some((e) => e.type === 'score') ? modeEvents.filter((e) => e.type !== 'score' || this.#heldByClient(e.player)) : modeEvents;
+    const logged = [...out.events, ...told].map(
       (event, index): LoggedEvent => ({
         tick,
         type: event.type,
         bytes: packEvent({ tick, index, event }),
         reach: relevant ? eventReach(event, (id) => seats.get(id)?.position) : null,
-        ...(event.type === 'ping' ? { team: event.team } : {}),
+        ...(event.type === 'ping' ? { team: event.team } : event.type === 'score' ? { to: event.player } : {}),
       }),
     );
     // Cosmetic events go out once; the ones that matter are repeated for a while in case a snapshot is lost.
@@ -1440,6 +1444,12 @@ export class GameServer {
       probe.end(this.#factsOf(out, modeEvents));
     }
     return this.#last;
+  }
+
+  /** Whether a client holds seat `id`. */
+  #heldByClient(id: PlayerId): boolean {
+    for (const c of this.#clients) if (c.id === id) return true;
+    return false;
   }
 
   /** The tick just run, for the probe. */
@@ -1870,6 +1880,8 @@ export class GameServer {
     let from = reliable ? log.length : 0;
     while (reliable && from > 0 && (log[from - 1] as LoggedEvent).tick > client.sentTick) from -= 1;
     let events = log.slice(from);
+    // A seat's Score is told to its own client alone.
+    if (events.some((e) => e.to !== undefined)) events = events.filter((e) => e.to === undefined || e.to === client.id);
     // Pings are for their side only: a spectator without a seat hears none.
     if (events.some((e) => e.team !== undefined)) {
       const team = this.#seatIndex.get(client.id as PlayerId)?.team;

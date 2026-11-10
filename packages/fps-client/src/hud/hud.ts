@@ -2,8 +2,11 @@ import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutp
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
 import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
+import { MATCH_GAIN_CSS, matchGainHtml } from './match-gain';
+import { SCORE_FEED_CSS, ScoreFeed, type ScoreFeedEntry } from './score-feed';
+import { figure, medalName, type MatchGain } from '../profile/model';
 import { RECAP_CSS, recapHtml, type Recap } from '../ui/recap';
-import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
+import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, mvpOf, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, installTheme } from '../ui/theme';
 import { placement, type VictoryCard } from '../ui/royale';
 import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
@@ -22,10 +25,6 @@ const CSS = `
 .ds-hit.kill i { background: var(--ds-alert); }
 .ds-hit.head i { width: 15px; left: -7.5px; height: 3px; }
 .ds-hit.shielded i { width: 6px; left: -3px; height: 1.6px; top: -0.8px; background: var(--ds-text-2); }
-.ds-elim { position: absolute; left: 50%; top: calc(50% + 64px); transform: translateX(-50%); text-align: center; opacity: 0; white-space: nowrap; }
-.ds-elim .what { font-size: var(--ds-type-small); font-weight: 700; color: var(--ds-alert); }
-.ds-elim .what.head { color: var(--ds-signal); }
-.ds-elim .who { font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .ds-dmg div { position: absolute; left: -70px; top: -230px; width: 140px; height: 40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgb(255 97 89 / 0.85); filter: blur(0.6px); transform-origin: 70px 230px; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgb(140 0 0 / 0.75) 100%); opacity: 0; }
@@ -170,7 +169,8 @@ const CSS = `
 .ds-board > header b { font-size: var(--ds-type-heading); letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-board > header span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-board .cols { padding: 14px 20px 18px; }
-.ds-board.end { top: auto; bottom: 56px; }
+/* At a match's end the board stands under the end panel, in the room that panel leaves it. */
+.ds-board.end { top: auto; bottom: 56px; max-height: max(120px, calc(100vh - var(--ds-end-foot, 360px) - 68px)); }
 .ds-board .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .ds-board .cols.one { grid-template-columns: 1fr; }
 /* A phone: the board starts under the Battle Royale stack and runs to just over the health and ammo. One column. */
@@ -183,18 +183,27 @@ const CSS = `
 .ds-board th { text-align: right; font-size: var(--ds-type-small); font-weight: 400; color: var(--ds-text-2); padding: 4px 8px; }
 .ds-board th:nth-child(-n+2), .ds-board td:nth-child(-n+2) { text-align: left; }
 .ds-board td { padding: 7px 8px; border-top: 1px solid var(--ds-line); text-align: right; font-size: var(--ds-type-body); }
-.ds-board td:nth-child(2) { font-weight: 700; }
+.ds-board td:nth-child(2) { font-weight: 700; width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-board td.place { color: var(--ds-text-2); width: 36px; }
+.ds-board td.score { font-weight: 700; }
+/* Column heads in full, or their initials where the table is narrow. */
+.ds-board th .n { display: none; }
+@media (max-width: 1100px) { .ds-board th .w { display: none; } .ds-board th .n { display: inline; } .ds-board th, .ds-board td { padding-left: 6px; padding-right: 6px; } }
 .ds-board tr.you td { background: var(--ds-raised); }
 .ds-board tr.you td:first-child { box-shadow: inset 4px 0 0 var(--ds-text); }
 .ds-board .ping { color: var(--ds-text-2); }
 .ds-end { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); text-align: center; display: none; animation: ds-in 160ms ease-out; }
 .ds-end .result { font-size: var(--ds-type-heading); font-weight: 700; color: var(--ds-text-2); text-shadow: 0 1px 6px rgb(0 0 0 / 0.8); }
 .ds-end h2 { margin: 4px 0 14px; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px rgb(0 0 0 / 0.6); }
-.ds-end .mystats { display: flex; justify-content: center; gap: 0; margin: 0 auto 14px; width: fit-content; }
-.ds-end .mystats > div { padding: 8px 20px; border-left: 1px solid var(--ds-line); }
-.ds-end .mystats > div:first-child { border-left: 0; }
-.ds-end .mystats b { display: block; font-size: var(--ds-type-heading); }
+/* The MVP: one line on its own plate, set on top of yours. */
+.ds-end .mvp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 auto 1px; width: min(840px, 100%); padding: 9px 14px; text-align: left; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
+.ds-end .mvp b { color: var(--ds-text); font-weight: 700; }
+.ds-end .mvp .who { font-size: var(--ds-type-heading); line-height: 1; text-transform: uppercase; letter-spacing: 0.03em; }
+/* Your match: your numbers, the XP they paid and the Rank bar, as one plate. */
+.ds-end .mine { margin: 0 auto 14px; width: min(840px, 100%); padding: 12px 14px; }
+.ds-end .mine:empty { display: none; }
+.ds-end .mine > .ds-label { display: block; margin-bottom: -2px; text-align: left; }
+@media (max-width: 640px) { .ds-end { top: 16px; width: calc(100vw - 24px); } .ds-end h2 { font-size: 32px; margin-bottom: 10px; } .ds-end .mvp { padding: 8px 10px; gap: 2px 12px; font-size: 14px; } .ds-end .mvp .who { font-size: 18px; } .ds-end .mine { padding: 10px; margin-bottom: 10px; } }
 .ds-end .vote { margin: 0 auto; width: min(560px, 100%); padding: 12px 14px; text-align: left; }
 .ds-end .vote header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .ds-end .vote .clock { font-size: var(--ds-type-heading); font-weight: 700; color: var(--ds-text); }
@@ -208,7 +217,8 @@ const CSS = `
 .ds-votes button .tally { height: 4px; background: rgb(243 241 234 / 0.12); overflow: hidden; }
 .ds-votes button .tally i { display: block; height: 100%; background: var(--ds-signal); transition: width 200ms ease-out; }
 .ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: 22px; font-weight: 700; }
-.ds-end .next { margin-top: 8px; font-size: 13px; color: var(--ds-text-2); }
+.ds-end .next { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--ds-scrim-soft); font-size: 13px; color: var(--ds-text); }
+.ds-end .vote .next { display: block; padding: 0; background: none; color: var(--ds-text-2); }
 .ds-recap { position: absolute; left: 32px; bottom: 156px; min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; background: var(--ds-scrim-soft); border-left: 3px solid var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
 @media (max-width: 640px) { .ds-recap { left: 12px; bottom: 206px; min-width: 0; padding: 8px 12px; } .ds-recap .who b { font-size: 18px; } .ds-recap .nums b { font-size: 17px; } }
 .ds-toast { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; background: rgb(12 15 21 / 0.92); box-shadow: inset 4px 0 0 var(--ds-text); padding: 10px 16px 10px 20px; font-size: var(--ds-type-body); line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
@@ -218,6 +228,8 @@ const CSS = `
 
 export interface HudState {
   readonly self: PlayerOutput | null;
+  /** What the match just played gave your Profile, once it is banked: the end panel's XP, Rank bar and Challenges. Null before then, and where nothing is kept. */
+  readonly gain?: MatchGain | null;
   /** A tag over each ally (ticket 52): teammates, or your Squad in a Battle Royale. */
   readonly allies?: readonly AllyTag[];
   /** Out of the fight: the spectator's panel (ticket 32), or null. */
@@ -383,8 +395,7 @@ export class Hud {
   readonly #hit: HTMLDivElement;
   #hitAge = 1;
   #hitLife = 0.28;
-  readonly #elim: HTMLDivElement;
-  #elimAge = 10;
+  readonly #score: ScoreFeed;
   readonly #dmg: HTMLDivElement;
   readonly #indicators: Indicator[] = [];
   readonly #vignette: HTMLDivElement;
@@ -413,6 +424,11 @@ export class Hud {
   readonly #board: HTMLDivElement;
   readonly #match: HTMLDivElement;
   readonly #end: HTMLDivElement;
+  /** The end panel's three parts: who won, your match (drawn once, so its Rank bar fills once), and what comes next with its clock. */
+  readonly #endHead: HTMLDivElement;
+  readonly #endMine: HTMLDivElement;
+  readonly #endNext: HTMLDivElement;
+  #endFoot = -1;
   readonly #zones: HTMLDivElement;
   readonly #markers = new Map<string, HTMLDivElement>();
   readonly #charge: HTMLDivElement;
@@ -442,7 +458,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS + MATCH_GAIN_CSS + SCORE_FEED_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -464,7 +480,7 @@ export class Hud {
       const a = 45 + n * 90;
       (i as HTMLElement).style.transform = `rotate(${a}deg) translateX(12px)`;
     });
-    this.#elim = el('div', 'ds-elim', this.root);
+    this.#score = new ScoreFeed(this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
     this.#health = el('div', 'ds-health', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
     this.#healthLabel = this.#health.querySelector('.ds-label') as HTMLElement;
@@ -499,6 +515,9 @@ export class Hud {
     this.#revive = el('div', 'ds-action ds-plate', this.root);
     this.#round = el('div', 'ds-round', this.root);
     this.#end = el('div', 'ds-end', this.root);
+    this.#endHead = el('div', 'head', this.#end);
+    this.#endMine = el('div', 'mine ds-plate ds-gain', this.#end);
+    this.#endNext = el('div', 'after', this.#end);
     this.#end.addEventListener('click', (e) => {
       const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
       if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
@@ -526,11 +545,19 @@ export class Hud {
     this.#hitLife = kill ? 0.5 : 0.28;
   }
 
-  /** The callout under the crosshair for a kill you made, or a seat you put Downed. */
-  eliminated(victim: string, headshot: boolean, down = false): void {
-    const what = down ? 'Downed' : headshot ? 'Headshot' : 'Eliminated';
-    this.#elim.innerHTML = `<div class="what${headshot && !down ? ' head' : ''}">${what}</div><div class="who">${escape(victim)}</div>`;
-    this.#elimAge = 0;
+  /** A kill where nothing is scored (the Practice Range's dummies): the score stack's line, without points. */
+  eliminated(victim: string, headshot: boolean): void {
+    this.#score.add({ lines: [{ points: 0, label: headshot ? 'Headshot' : 'Eliminated', note: victim }], medal: null, points: 0 });
+  }
+
+  /** Score you just earned: its lines, the running total and any Medal, beside the crosshair. */
+  score(entry: ScoreFeedEntry): void {
+    this.#score.add(entry);
+  }
+
+  /** A new match: the score lines of the last one go. */
+  clearScore(): void {
+    this.#score.clear();
   }
 
   /** A hit taken from an attacker at world yaw `worldYaw` (the direction from you to them). */
@@ -672,8 +699,7 @@ export class Hud {
     this.#style(this.#hit, 'opacity', fixed(Math.max(0, 1 - this.#hitAge / this.#hitLife)));
     // The marker pops out and settles over its first moments.
     this.#style(this.#hit, 'transform', `scale(${fixed(1 + Math.max(0, 0.12 - this.#hitAge) * 2.5)})`);
-    this.#elimAge += dt;
-    this.#style(this.#elim, 'opacity', fixed(Math.max(0, Math.min(1, this.#elimAge / 0.06, (1.6 - this.#elimAge) / 0.4))));
+    this.#score.update(dt);
 
     // Damage indicators point at the attacker relative to where you are looking now.
     for (const ind of this.#indicators) {
@@ -754,8 +780,8 @@ export class Hud {
     const board = (state.showScoreboard || (voting && !state.matchCard)) && state.scores.length > 0;
     this.#style(this.#board, 'display', board ? 'block' : 'none');
     this.#board.classList.toggle('end', voting);
-    // The held board has the screen: the feed and a toast step back rather than show through or under it.
-    this.root.classList.toggle('boarded', board && !voting);
+    // The held board has the screen, and so does a Battle Royale's card: the feed steps back rather than show through or under it.
+    this.root.classList.toggle('boarded', (board && !voting) || Boolean(state.matchCard));
     // The island map or the held board open, nothing else speaks over it.
     this.#style(this.#toast, 'visibility', royale?.mapOpen || (board && !voting) ? 'hidden' : 'visible');
     if (board) this.#set(this.#board, boardHtml(state));
@@ -954,15 +980,24 @@ export class Hud {
               : `${escape(h.name)} ${h.verb}`
             : 'Match over';
     const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result ? END_REASONS[s.result.reason] : 'over'}`;
-    let html = `<div class="result">${sub}</div><h2>${headline}</h2>`;
-    const place = s.mode === 'battle-royale' ? placement(state.scores, state.selfId) : null;
-    if (place && end.you) {
-      // A Battle Royale's result is the place: it leads, big.
-      html += `<div class="mystats ds-plate"><div><span class="ds-label">Place</span><b>${ordinal(place.place)}<small> / ${place.of} Squads</small></b></div><div><span class="ds-label">Kills</span><b>${end.you.kills}</b></div></div>`;
-    } else if (end.you) {
-      const y = end.you;
-      html += `<div class="mystats ds-plate"><div><span class="ds-label">Kills</span><b>${y.kills}</b></div><div><span class="ds-label">Deaths</span><b>${y.deaths}</b></div><div><span class="ds-label">K/D</span><b>${y.ratio}</b></div><div><span class="ds-label">Place</span><b>${ordinal(y.place)}<small> / ${y.of}</small></b></div></div>`;
+    let head = `<div class="result">${sub}</div><h2>${headline}</h2>`;
+    // The MVP: the highest Score of the match, with their kills and best Medal.
+    const mvp = mvpOf(state.scores, state.selfId);
+    if (mvp) {
+      head += `<div class="mvp ds-plate"><span>MVP</span><b class="who">${mvp.you ? 'You' : playerName(mvp.name, mvp.bot)}</b><span><b>${figure(mvp.score)}</b> score</span><span><b>${mvp.kills}</b> kills</span>${mvp.medal ? `<span>Best Medal <b>${escape(medalName(mvp.medal))}</b></span>` : ''}</div>`;
     }
+    let changed = this.#set(this.#endHead, head);
+    // Your match: your numbers and, once the match is banked, what it paid.
+    const place = s.mode === 'battle-royale' ? placement(state.scores, state.selfId) : null;
+    const y = end.you;
+    const cells: (readonly [string, string])[] = !y
+      ? []
+      : place
+        ? // A Battle Royale's result is the place: it leads.
+          [['Place', `${ordinal(place.place)}<small> / ${place.of} Squads</small>`], ['Score', figure(y.score)], ['Kills', String(y.kills)]]
+        : [['Score', figure(y.score)], ['Kills', String(y.kills)], ['Deaths', String(y.deaths)], ['Assists', String(y.assists)], ['Place', `${ordinal(y.place)}<small> / ${y.of}</small>`]];
+    changed = this.#set(this.#endMine, cells.length > 0 ? `<span class="ds-label">Your match</span>${matchGainHtml(cells, state.gain ?? null)}` : '') || changed;
+    let html = '';
     if (s.phase === 'nuke') html += `<div class="next">Scoreboard in ${left}</div>`;
     else if (s.lobby) html += `<div class="next">Back to the lobby in ${left}</div>`;
     else if (s.phase === 'vote') {
@@ -973,17 +1008,23 @@ export class Hud {
       }
       html += `</div><div class="next">Next match: ${MODE_NAMES[s.next]}${s.votes.tdm + s.votes.ffa === 0 ? ' (no votes: the mode stays)' : ''}</div></div>`;
     }
-    this.#set(this.#end, html);
+    changed = this.#set(this.#endNext, html) || changed;
+    // How far down the end panel comes, for the board that stands under it: measured when the panel changed (its
+    // countdown, once a second), and until it has a size at all.
+    if (!changed && this.#endFoot > 0) return;
+    const foot = Math.round(this.#end.getBoundingClientRect().bottom);
+    if (foot > 0 && foot !== this.#endFoot) this.root.style.setProperty('--ds-end-foot', `${(this.#endFoot = foot)}px`);
   }
 
   /**
    * Replaces an element's markup only when it changed: rebuilt every frame,
    * the vote buttons would be swapped out between a mouse press and its release.
    */
-  #set(el: HTMLElement, html: string): void {
-    if (this.#html.get(el) === html) return;
+  #set(el: HTMLElement, html: string): boolean {
+    if (this.#html.get(el) === html) return false;
     this.#html.set(el, html);
     el.innerHTML = html;
+    return true;
   }
 
   dispose(): void {
@@ -1058,16 +1099,19 @@ function playerName(name: string, bot: boolean, team?: number): string {
   return team === undefined || !TEAMS[team] ? html : `<span class="ds-t${team}">${html}</span>`;
 }
 
-/** The held scoreboard: both teams side by side, or the free-for-all ranking, with kills, deaths and ping. */
+/** A column's head: the word, and the initial a narrow board shows in its place. */
+const colHead = (word: string) => `<th><span class="w">${word}</span><span class="n" title="${word}">${word[0]}</span></th>`;
+
+/** The held scoreboard: both teams side by side, or the free-for-all ranking; each row its Score, kills, deaths, assists and ping, the highest Score first. */
 function boardHtml(state: HudState): string {
   const mode: ModeId = state.match?.status.mode ?? 'ffa';
   const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
   const levels = board.kind === 'ffa' && board.levels;
   const table = (rows: readonly BoardRow[]) =>
-    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>K</th><th>D</th><th>Ping</th></tr>${rows
+    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>Score</th>${colHead('Kills')}${colHead('Deaths')}${colHead('Assists')}<th>Ping</th></tr>${rows
       .map(
         (r) =>
-          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td>${r.kills}</td><td>${r.deaths}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td class="score">${figure(r.score)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.assists}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
       )
       .join('')}</table>`;
   const header = `<header><b>${escape(MODE_NAMES[mode] ?? mode)}</b><span class="ds-label">${state.scores.length} players</span></header>`;

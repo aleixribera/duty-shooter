@@ -6,17 +6,15 @@ export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, GunGame, dealLadder, gu
 export type { GunGameOptions } from './gungame';
 export { TEAMS, TeamDeathmatch } from './tdm';
 export type { TeamDeathmatchOptions } from './tdm';
-export { CAPTURE_POINTS, CAPTURE_TIME, FLIP_FACTOR, MAX_CAPTURE_RATE, Outposts, ZONE_POINTS_PER_SECOND, captureRate } from './outposts';
+export { CAPTURE_TIME, FLIP_FACTOR, MAX_CAPTURE_RATE, Outposts, ZONE_POINTS_PER_SECOND, captureRate } from './outposts';
 export type { OutpostsOptions } from './outposts';
 export {
   Charge,
-  DEFUSE_POINTS,
   DEFUSE_RANGE,
   DEFUSE_TIME,
   FREEZE_TIME,
   FUSE_TIME,
   PICKUP_RANGE,
-  PLANT_POINTS,
   PLANT_TIME,
   ROUND_END_TIME,
   ROUND_TIME,
@@ -25,6 +23,8 @@ export {
 } from './charge';
 export type { ChargeOptions } from './charge';
 export { LOBBY_MODES, MODE_IDS, inSite, inZone, siteCentre, teamMode } from './game-mode';
+export { MEDALS, SCORE_POINTS, ScoreKeeper, betterMedal, isMedal } from './score';
+export type { Medal, ScoreLine, ScoreReason, ScoreTick } from './score';
 export { PlayGround, playGround } from './ground';
 export { DROP_WEAPON, dropSniper, planDrops, roomForDrop, royaleLoadout, SupplyDrops } from './supply-drops';
 export { planBeacons, Reboot } from './reboot';

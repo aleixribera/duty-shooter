@@ -34,7 +34,7 @@ function gungame(timeLimit: number | null = 600): GunGame {
 }
 
 function progressOf(mode: GunGame, id: string): number {
-  return mode.scores().find((s) => s.id === id)!.score;
+  return mode.scores().find((s) => s.id === id)!.progress!;
 }
 
 const K = GUN_GAME_KILLS_PER_GUN;
@@ -92,7 +92,7 @@ describe('gun game', () => {
     expect(kills(mode, 'a', 'b', 1)).toContainEqual<ModeEvent>({ type: 'level', player: 'a', level: 1, weapon: guns[1]!, demoted: false });
     expect(mode.loadoutOf('a')?.primary).toBe(guns[1]);
     expect(mode.loadoutOf('b')?.primary).toBe(guns[0]);
-    expect(mode.scores()[0]).toMatchObject({ id: 'a', kills: K, score: K });
+    expect(mode.scores()[0]).toMatchObject({ id: 'a', kills: K, progress: K });
   });
 
   it("a melee kill knocks the victim back a gun's worth of kills; falls and suicides move nobody", () => {
@@ -199,6 +199,6 @@ describe('gun game on the server', () => {
       expect(weaponOf(m, a).weapon.id).toBe(k < GUN_GAME_KILLS_PER_GUN ? guns[0] : guns[1]);
     }
     expect(weaponOf(m, a).alive).toBe(true);
-    expect(m.server.mode.scores().find((s) => s.id === a.client.id)).toMatchObject({ kills: GUN_GAME_KILLS_PER_GUN, score: GUN_GAME_KILLS_PER_GUN });
+    expect(m.server.mode.scores().find((s) => s.id === a.client.id)).toMatchObject({ kills: GUN_GAME_KILLS_PER_GUN, progress: GUN_GAME_KILLS_PER_GUN });
   });
 });

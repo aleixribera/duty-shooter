@@ -1,13 +1,25 @@
 /**
- * The sound system: owns the AudioContext, the master bus (compressor -> limiter -> soft clip),
- * the shared environment reverbs, spatialisation, voice caps and voice stealing. Voices only
+ * The sound system: owns the AudioContext, the mix (a bus each for music, effects, the
+ * announcer's voice and the UI, then the master: compressor -> limiter -> soft clip), the
+ * shared environment reverbs, spatialisation, voice caps and voice stealing. Voices only
  * ever see an input node; everything after it (distance filtering, panning, reverb send,
  * fade-out on steal, node cleanup) is done here, so a recorded sample registered later gets the
  * same treatment as the procedural voice it replaces.
+ *
+ *   the score -> music duck (under gunfire) -> music bus ------------.
+ *   placed sounds -> panner -.                                       |
+ *   reverb returns ----------+-> world -> low-health low-pass        +-> under the announcer -> master
+ *                                 -> blast low-pass -> blast duck -. |
+ *   your own gun and body -> local --------------------------------+-> effects bus
+ *   UI sounds -> UI bus ----------------------------------------------------------------------> master
  */
+import { Heartbeat, TINNITUS, WORLD_OPEN_HZ, dangerCutoff, dangerLevel } from './danger';
 import { kitFor } from './kit';
+import { DEFAULT_MIX, DUCK, DuckEnvelope, VOICE_DUCK_DB, dbToLinear, mergeMix, musicDuck, type BusName, type MixLevels } from './mix';
+import { createMusicPlayer, renderStems, type Music, type MusicPlayer, type MusicState } from './music/player';
+import type { MusicScene } from './music/scene';
 import { rememberSampleRate, startPrerender } from './prerender';
-import type { SoundEventName, SoundLogEntry, SoundParams, SoundSystem, Voice, VoiceExtras, VoiceParams } from './types';
+import type { SoundEventName, SoundLogEntry, SoundParams, SoundState, SoundSystem, Voice, VoiceExtras, VoiceParams } from './types';
 import { createDefaultVoices } from './voices';
 
 type Vec3 = readonly [number, number, number];
@@ -24,6 +36,8 @@ interface Profile {
   readonly indoorSend: number;
   /** Always non-positional, never reverberated. */
   readonly ui?: boolean;
+  /** Which bus it plays on: the UI's for a `ui` sound unless said otherwise, effects for everything else. */
+  readonly bus?: BusName;
   /** The event's place in the mix, as a gain on the voice (default 1). */
   readonly level?: number;
 }
@@ -39,7 +53,8 @@ const ui: Profile = { cap: 4, ref: 1, rolloff: 1, send: 0, indoorSend: 0, ui: tr
  * about 15 m); hit and kill markers; reload and handling; ambience.
  */
 const PROFILES: Record<SoundEventName, Profile> = {
-  gunshot: { cap: 16, ref: 6, rolloff: 1, send: 1, indoorSend: 0.85 },
+  // A gun's tail is its own, baked per weapon and per place (gunshot.ts): the shared reverb only adds a faint bloom.
+  gunshot: { cap: 16, ref: 6, rolloff: 1, send: 0.03, indoorSend: 0.05 },
   dryFire: { ...handling, cap: 3 },
   footstep: { cap: 16, ref: 2.5, rolloff: 1.2, send: 0.04, indoorSend: 0.12 },
   jump: body,
@@ -73,7 +88,12 @@ const PROFILES: Record<SoundEventName, Profile> = {
   hitMarker: { ...ui, level: 1.75 },
   killMarker: { ...ui, level: 1.15 },
   headshotMarker: { ...ui, cap: 3, level: 0.72 },
-  damageTaken: { ...ui, cap: 3, level: 0.5 },
+  headshotKill: { ...ui, cap: 3, level: 0.95 },
+  // A Medal speaks over the kill confirm it came with; the end screen's two have the floor to themselves.
+  medal: { ...ui, cap: 2, level: 0.9 },
+  rankUp: { ...ui, cap: 1 },
+  challengeDone: { ...ui, cap: 2, level: 0.9 },
+  damageTaken: { ...ui, cap: 3, level: 0.5, bus: 'effects' },
   // Heard across the whole town and far beyond: barely fades with distance, and rings off the desert.
   nukeSiren: { cap: 1, ref: 40, rolloff: 0.5, send: 0.5, indoorSend: 0.3, level: 0.5 },
   nukeBlast: { cap: 1, ref: 600, rolloff: 0.2, send: 0.6, indoorSend: 0.4 },
@@ -107,9 +127,20 @@ const PROFILES: Record<SoundEventName, Profile> = {
   trapMetal: { cap: 2, ref: 8, rolloff: 0.8, send: 0.3, indoorSend: 0.3 },
   trapGravel: { cap: 2, ref: 6, rolloff: 0.9, send: 0.2, indoorSend: 0.3 },
   // The Preparation: the moment's own sound, not the island's.
-  prepDrone: ui,
-  heartbeat: ui,
+  prepDrone: { ...ui, bus: 'effects' },
+  heartbeat: { ...ui, bus: 'effects' },
+  // The last minute: the siren carries in from the map's edge like the town's own; the counter is in your hand.
+  countdownSirenRise: { cap: 1, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
+  countdownSirenHold: { cap: 2, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
+  countdownSirenFall: { cap: 1, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
+  geigerTick: { ...ui, cap: 12, level: 0.7, bus: 'effects' },
 };
+
+/** The bus an event plays on. */
+export function busOf(event: SoundEventName): BusName {
+  const p = PROFILES[event];
+  return p.bus ?? (p.ui ? 'ui' : 'effects');
+}
 
 /**
  * How much of an event's direct sound reaches a listener `distance` m away
@@ -164,9 +195,20 @@ interface ActiveVoice {
 
 interface Graph {
   readonly master: GainNode;
+  /** Sounds placed in the world, and the reverbs' returns. */
   readonly world: GainNode;
+  /** Your own gun and body: effects that the low-health filter leaves alone. */
   readonly local: GainNode;
   readonly reverbIn: Record<Environment, GainNode>;
+  readonly buses: Record<BusName, GainNode>;
+  /** Where the score plays in: ducked under gunfire before its bus. */
+  readonly musicDuck: GainNode;
+  /** Music and effects on their way to the master: ducked under the announcer. */
+  readonly underVoice: GainNode;
+  /** Over the world: the low-pass that follows low health, and the low-pass and duck after a close blast. */
+  readonly dangerFilter: BiquadFilterNode;
+  readonly blastFilter: BiquadFilterNode;
+  readonly blastDuck: GainNode;
 }
 
 function now(): number {
@@ -181,17 +223,47 @@ function finiteOr(v: number | undefined, fallback: number): number {
 /** How long (ms) a first press's sound waits for the worker before rendering on the page instead. */
 const WORKER_WAIT_MS = 2000;
 
-export function createSoundSystem(options?: { volume?: number }): SoundSystem {
-  let ctx: AudioContext | null = null;
+export interface SoundSystemOptions {
+  /** The master volume (0..1); the same as `mix.master`. */
+  readonly volume?: number;
+  readonly mix?: Partial<MixLevels>;
+  /**
+   * Run on this context instead of opening one: an OfflineAudioContext, to render what the
+   * system would play (measuring, tests in a browser). Ready at once, renders its sounds as
+   * they are first played, and starts no workers or timers.
+   */
+  readonly context?: BaseAudioContext;
+  /** Leave the master's compressor, limiter and clipper out, to measure what goes into them. */
+  readonly bareMaster?: boolean;
+}
+
+const NO_MUSIC: MusicState = { scene: 'silence', sounding: 'silence', ready: false, hidden: false, sources: 0, cycle: 0, stings: [], scheduling: { calls: 0, ms: 0, worst: 0 } };
+
+export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
+  const offline = options?.context !== undefined;
+  let ctx: AudioContext | null = (options?.context as AudioContext | undefined) ?? null;
   let graph: Graph | null = null;
-  let volume = Math.max(0, finiteOr(options?.volume, 0.8));
+  let mix = mergeMix(mergeMix(DEFAULT_MIX, options?.volume === undefined ? {} : { master: options.volume }), options?.mix ?? {});
   let warned = false;
   const listener = { position: [0, 0, 0] as Vec3, forward: [0, 0, -1] as Vec3, up: [0, 1, 0] as Vec3 };
   const log: SoundLogEntry[] = [];
   const defaults = createDefaultVoices();
   const overrides = new Map<SoundEventName, Voice>();
   const active: ActiveVoice[] = [];
-  const prerendering = startPrerender();
+  let peakVoices = 0;
+  const prerendering = offline ? Promise.resolve(false) : startPrerender();
+  const musicRendering = offline ? Promise.resolve(false) : startPrerender('music');
+  let player: MusicPlayer | null = null;
+  let scene: { scene: MusicScene; timeLeft: number | null } = { scene: 'silence', timeLeft: null };
+  const musicEnvelope = new DuckEnvelope();
+  const voiceEnvelope = new DuckEnvelope();
+  const heart = new Heartbeat();
+  let lowHealth: number | null = null;
+  let worldCutoff = WORLD_OPEN_HZ;
+  let rung = 0;
+
+  /** Whether sound can be made now: the context is running (an offline one always counts). */
+  const running = (): boolean => ctx !== null && graph !== null && (offline || ctx.state === 'running');
 
   const voiceFor = (event: SoundEventName): Voice => overrides.get(event) ?? defaults[event];
 
@@ -204,7 +276,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     // Glue compressor: gentle, slow enough to let the transient through (punch), then a
     // fast brick-wall-ish limiter, then a soft clipper that only touches the last ~1 dB.
     const master = c.createGain();
-    master.gain.value = volume;
+    master.gain.value = mix.master;
     const comp = c.createDynamicsCompressor();
     comp.threshold.value = -12;
     comp.knee.value = 8;
@@ -226,12 +298,37 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       curve[i] = Math.sign(x) * (a < 0.85 ? a : 0.85 + 0.15 * Math.tanh((a - 0.85) / 0.15));
     }
     clip.curve = curve;
-    master.connect(comp).connect(limiter).connect(clip).connect(c.destination);
+    if (options?.bareMaster) master.connect(c.destination);
+    else master.connect(comp).connect(limiter).connect(clip).connect(c.destination);
 
-    const world = c.createGain();
-    const local = c.createGain();
-    world.connect(master);
-    local.connect(master);
+    const gain = (value: number, to: AudioNode): GainNode => {
+      const g = c.createGain();
+      g.gain.value = value;
+      g.connect(to);
+      return g;
+    };
+    const underVoice = gain(1, master);
+    const buses: Record<BusName, GainNode> = {
+      music: gain(mix.music, underVoice),
+      effects: gain(mix.effects, underVoice),
+      // Nothing plays here yet (the announcer is the browser's own speech): a recorded voice's place.
+      voice: gain(mix.voice, master),
+      ui: gain(mix.ui, master),
+    };
+    const musicDuck = gain(1, buses.music);
+    const blastDuck = gain(1, buses.effects);
+    const lowpass = (to: AudioNode): BiquadFilterNode => {
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = WORLD_OPEN_HZ;
+      f.Q.value = 0.6;
+      f.connect(to);
+      return f;
+    };
+    const blastFilter = lowpass(blastDuck);
+    const dangerFilter = lowpass(blastFilter);
+    const world = gain(1, dangerFilter);
+    const local = gain(1, buses.effects);
 
     const irs = kitFor(c).impulseResponses();
     const makeReverb = (ir: AudioBuffer): GainNode => {
@@ -239,10 +336,22 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       const conv = c.createConvolver();
       conv.normalize = false;
       conv.buffer = ir;
-      input.connect(conv).connect(master);
+      input.connect(conv).connect(world);
       return input;
     };
-    return { master, world, local, reverbIn: { outdoor: makeReverb(irs.outdoor), indoor: makeReverb(irs.indoor) } };
+    return { master, world, local, reverbIn: { outdoor: makeReverb(irs.outdoor), indoor: makeReverb(irs.indoor) }, buses, musicDuck, underVoice, dangerFilter, blastFilter, blastDuck };
+  }
+
+  /** The score's player, made with the graph: it starts the scene the game is already in once its stems are rendered. */
+  function startMusic(c: AudioContext, g: Graph): void {
+    const kit = kitFor(c);
+    const p = createMusicPlayer(c, g.musicDuck, kit, offline ? { sync: true, timers: false, lookahead: (c as unknown as OfflineAudioContext).length / c.sampleRate } : {});
+    player = p;
+    p.setScene(scene.scene, scene.timeLeft);
+    if (offline) return;
+    // Each stem becomes a buffer between frames (a copy of what the worker rendered, or the render itself where there is
+    // no worker), so that no scene's first bar has it to do: the last minute starts in the middle of a fight.
+    void musicRendering.then((rendered) => renderStems(c, kit, (fn) => setTimeout(fn, rendered ? 4 : 30), () => p.ready()));
   }
 
   /** The listener pose last written to `ctx` (position, forward, up), or null before the first. */
@@ -286,8 +395,8 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     if (i >= 0) active.splice(i, 1);
   }
 
-  function steal(c: AudioContext, v: ActiveVoice): void {
-    const t = c.currentTime;
+  function steal(c: AudioContext, v: ActiveVoice, at = c.currentTime): void {
+    const t = at;
     const g = v.input.gain;
     g.cancelScheduledValues(t);
     g.setValueAtTime(g.value, t);
@@ -295,14 +404,18 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     v.end = t + 0.03;
     const i = active.indexOf(v);
     if (i >= 0) active.splice(i, 1);
-    setTimeout(() => release(v), 60);
+    if (!offline) setTimeout(() => release(v), 60);
   }
 
-  function makeRoom(c: AudioContext, event: SoundEventName): void {
-    const t = c.currentTime;
+  /** Frees a slot for a voice of `event` starting at `at`: an offline render has no clock yet, so it goes by when the new voice starts. */
+  function makeRoom(c: AudioContext, event: SoundEventName, at: number): void {
+    const t = offline ? at : c.currentTime;
     for (let i = active.length - 1; i >= 0; i--) {
       const v = active[i];
-      if (v && v.end < t) release(v);
+      if (!v || v.end >= t) continue;
+      // Nothing has been rendered yet offline: a voice that will be over by then keeps its nodes, and only gives up its slot.
+      if (offline) active.splice(i, 1);
+      else release(v);
     }
     const cap = PROFILES[event].cap;
     let count = 0;
@@ -310,13 +423,13 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     while (count >= cap) {
       const oldest = active.find((v) => v.event === event);
       if (!oldest) break;
-      steal(c, oldest);
+      steal(c, oldest, t);
       count--;
     }
     while (active.length >= GLOBAL_CAP) {
       const oldest = active[0];
       if (!oldest) break;
-      steal(c, oldest);
+      steal(c, oldest, t);
     }
   }
 
@@ -339,7 +452,17 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     }
     const startTime = t0 + when + (distance ?? 0) / SPEED_OF_SOUND;
 
-    makeRoom(c, event);
+    makeRoom(c, event, startTime);
+
+    // Gunfire and blasts push the music down, by how much of them reaches you.
+    const duck = musicDuck(event, distanceGain(event, distance ?? null) * (positional && params.muffled ? MUFFLE_GAIN : 1));
+    if (duck) {
+      const { floor, releaseAt } = musicEnvelope.trigger(startTime, dbToLinear(-duck.depth), duck.hold);
+      const level = g.musicDuck.gain;
+      level.cancelScheduledValues(startTime);
+      level.setTargetAtTime(floor, startTime, DUCK.attack);
+      level.setTargetAtTime(1, releaseAt, DUCK.release);
+    }
 
     const input = c.createGain();
     input.gain.value = (profile.level ?? 1) * (positional && params.muffled ? MUFFLE_GAIN : 1);
@@ -374,7 +497,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
       nodes.push(panner);
       sendFrom = node;
     } else {
-      input.connect(g.local);
+      input.connect(busOf(event) === 'ui' ? g.buses.ui : g.local);
     }
 
     const sendLevel = reverbSend(event, env, distance ?? null);
@@ -390,7 +513,8 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     const life = length !== undefined && Number.isFinite(length) && length > 0 ? Math.min(length, lifeOf(voice)) : lifeOf(voice);
     const entry: ActiveVoice = { event, input, nodes, end: startTime + life, released: false };
     active.push(entry);
-    setTimeout(() => release(entry), (startTime + life - t0) * 1000 + 100);
+    if (active.length > peakVoices) peakVoices = active.length;
+    if (!offline) setTimeout(() => release(entry), (startTime + life - t0) * 1000 + 100);
 
     voice.play(c, input, vp, startTime);
   }
@@ -429,8 +553,89 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     void prerendering.then(() => schedule(step));
   }
 
+  /**
+   * Ringing ears: a high tone that fades over a second and a half, and the world dropped and
+   * dulled under it, coming back as the tone goes. The blast's own bang gets out first.
+   */
+  function ring(c: AudioContext, g: Graph, k: number): void {
+    const t = c.currentTime + 0.09;
+    const hold = 0.25 + 0.35 * k;
+    // A second blast while the first still rings takes each from where it has got to: dropped mid-ramp, it would jump back and click.
+    const takeUp = (param: AudioParam): void => {
+      if (typeof param.cancelAndHoldAtTime === 'function') param.cancelAndHoldAtTime(t);
+      else {
+        param.cancelScheduledValues(t);
+        param.setValueAtTime(param.value, t);
+      }
+    };
+    const level = g.blastDuck.gain;
+    takeUp(level);
+    level.setTargetAtTime(1 - (1 - TINNITUS.worldGain) * k, t, 0.03);
+    level.setTargetAtTime(1, t + hold, TINNITUS.recover);
+    const cutoff = WORLD_OPEN_HZ * Math.pow(TINNITUS.worldCutoff / WORLD_OPEN_HZ, k);
+    const f = g.blastFilter.frequency;
+    takeUp(f);
+    f.setTargetAtTime(cutoff, t, 0.03);
+    // Opened an octave at a time rather than a hertz at a time, or it would be open again in a blink.
+    f.setValueAtTime(cutoff, t + hold);
+    f.exponentialRampToValueAtTime(WORLD_OPEN_HZ, t + hold + TINNITUS.recover * 2.4);
+
+    const out = c.createGain();
+    out.gain.setValueAtTime(0, t - 0.04);
+    out.gain.linearRampToValueAtTime(TINNITUS.gain * k, t);
+    out.gain.setTargetAtTime(0, t + 0.12, TINNITUS.seconds / 4.6);
+    out.connect(g.buses.effects);
+    const end = t + TINNITUS.seconds + 0.3;
+    TINNITUS.tones.forEach((freq, i) => {
+      const osc = c.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const part = c.createGain();
+      part.gain.value = i === 0 ? 1 : 0.35;
+      osc.connect(part).connect(out);
+      osc.start(t - 0.04);
+      osc.stop(end);
+      osc.onended = () => {
+        osc.onended = null;
+        osc.disconnect();
+        part.disconnect();
+        if (i === 0) out.disconnect();
+      };
+    });
+  }
+
+  /** The score failing (a stem that will not render) costs the music, never a frame of the game. */
+  const score = (play: (p: MusicPlayer) => void): void => {
+    if (!player || !running()) return;
+    try {
+      play(player);
+    } catch (err) {
+      if (!warned) {
+        warned = true;
+        console.warn('[audio] the score failed', err);
+      }
+    }
+  };
+
+  const music: Music = {
+    setScene(next, timeLeft = null) {
+      scene = { scene: next, timeLeft };
+      score((p) => p.setScene(next, timeLeft));
+    },
+    sting(sting) {
+      score((p) => p.sting(sting));
+    },
+    get scene() {
+      return scene.scene;
+    },
+    get state() {
+      return player?.state ?? { ...NO_MUSIC, scene: scene.scene };
+    },
+  };
+
   const system: SoundSystem = {
     async unlock() {
+      if (offline) return;
       if (!ctx) {
         const Ctor =
           (globalThis as { AudioContext?: typeof AudioContext }).AudioContext ??
@@ -454,6 +659,7 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
               applied = null;
               applyListener();
               warmAll(c);
+              startMusic(c, graph);
             } catch (err) {
               graph = null;
               console.warn('[audio] failed to build the audio graph', err);
@@ -472,13 +678,13 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     },
 
     get unlocked() {
-      return ctx !== null && graph !== null && ctx.state === 'running';
+      return running();
     },
 
     play(event, params = {}) {
       log.push({ event, params, time: ctx ? ctx.currentTime : now() });
       if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP);
-      if (!ctx || !graph || ctx.state !== 'running') return;
+      if (!ctx || !graph || !running()) return;
       try {
         start(ctx, graph, event, params);
       } catch (err) {
@@ -512,13 +718,103 @@ export function createSoundSystem(options?: { volume?: number }): SoundSystem {
     },
 
     setVolume(master) {
-      volume = Math.max(0, finiteOr(master, volume));
-      if (ctx && graph) graph.master.gain.setTargetAtTime(volume, ctx.currentTime, 0.02);
+      system.setMix({ master });
+    },
+
+    setMix(next) {
+      const before = mix;
+      mix = mergeMix(mix, next);
+      if (!ctx || !graph) return;
+      const t = ctx.currentTime;
+      if (mix.master !== before.master) graph.master.gain.setTargetAtTime(mix.master, t, 0.02);
+      for (const bus of ['music', 'effects', 'voice', 'ui'] as const) if (mix[bus] !== before[bus]) graph.buses[bus].gain.setTargetAtTime(mix[bus], t, 0.02);
+    },
+
+    music,
+
+    setHealth(health) {
+      lowHealth = dangerLevel(health) > 0 ? health : null;
+      if (!ctx || !graph || !running()) return;
+      const t = ctx.currentTime;
+      const cutoff = dangerCutoff(lowHealth);
+      if (Math.abs(cutoff - worldCutoff) > worldCutoff * 0.01) {
+        // The world closes in with the hit and opens again slowly as health comes back.
+        graph.dangerFilter.frequency.setTargetAtTime(cutoff, t, cutoff < worldCutoff ? 0.12 : 0.5);
+        worldCutoff = cutoff;
+      }
+      for (const beat of heart.update(lowHealth, t)) system.play('heartbeat', { intensity: beat.intensity, when: beat.when });
+    },
+
+    tinnitus(strength) {
+      const k = Math.min(1, Math.max(0, finiteOr(strength, 0)));
+      if (k < 0.05 || !ctx || !graph || !running()) return;
+      rung++;
+      try {
+        ring(ctx, graph, k);
+      } catch (err) {
+        if (!warned) {
+          warned = true;
+          console.warn('[audio] failed to ring', err);
+        }
+      }
+    },
+
+    duckForVoice(seconds) {
+      if (!ctx || !graph || !running() || !(seconds > 0)) return;
+      const t = ctx.currentTime;
+      const { floor, releaseAt } = voiceEnvelope.trigger(t, dbToLinear(-VOICE_DUCK_DB), seconds);
+      const level = graph.underVoice.gain;
+      level.cancelScheduledValues(t);
+      level.setTargetAtTime(floor, t, 0.04);
+      level.setTargetAtTime(1, releaseAt, 0.25);
+    },
+
+    stop(events, fade = 0.015) {
+      if (!ctx) return;
+      const t = ctx.currentTime;
+      const over = Math.max(0.005, finiteOr(fade, 0.015));
+      for (let i = active.length - 1; i >= 0; i--) {
+        const v = active[i]!;
+        if (!events.includes(v.event)) continue;
+        // Its input closes for good, so a voice still waiting for its start is never heard either.
+        const g = v.input.gain;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(g.value, t);
+        g.linearRampToValueAtTime(0, t + over);
+        v.end = t + over;
+        active.splice(i, 1);
+        if (!offline) setTimeout(() => release(v), over * 1000 + 60);
+      }
+    },
+
+    get state(): SoundState {
+      const t = ctx ? ctx.currentTime : 0;
+      let voices = 0;
+      for (const v of active) if (v.end >= t) voices++;
+      return {
+        unlocked: running(),
+        voices,
+        peakVoices,
+        voiceCap: GLOBAL_CAP,
+        mix,
+        musicDuck: musicEnvelope.valueAt(t),
+        voiceDuck: voiceEnvelope.valueAt(t),
+        worldCutoff,
+        lowHealth,
+        tinnitus: rung,
+        music: music.state,
+      };
     },
 
     get log() {
       return log;
     },
   };
+
+  if (offline && ctx) {
+    graph = buildGraph(ctx);
+    applyListener();
+    startMusic(ctx, graph);
+  }
   return system;
 }

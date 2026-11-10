@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, LOBBY_MODES, STATS, WEAPON_IDS, hvbBots, rangeDamage, slotWeapons, teamMode, type GrenadeId, type LobbyState, type MatchResult, type Medal, type ModeId, type ObjectiveState, type Phase, type PlayerId, type Score, type TeamScore, type WeaponId, gunGameLevel } from '@duty-shooter/fps-core';
 import type { Action } from '../settings';
 
 /** What the lobby status endpoint reports, shown on the Play Online tile. */
@@ -47,11 +47,14 @@ export interface BoardRow {
   readonly name: string;
   /** Played by the server, shown with a BOT tag. */
   readonly bot: boolean;
+  /** Their Score: the points of the match. */
+  readonly score: number;
   readonly kills: number;
   readonly deaths: number;
+  readonly assists: number;
   /** Round trip in ms, or null when the server has not heard it yet. */
   readonly ping: number | null;
-  /** 1 for the best; players level on kills and deaths share a place. */
+  /** 1 for the best; players level on everything the order goes by share a place. */
   readonly place: number;
   /** Gun game: the level they are on, from 1; null in other modes. */
   readonly level: number | null;
@@ -61,21 +64,27 @@ export type Board =
   | { readonly kind: 'ffa'; readonly rows: readonly BoardRow[]; readonly levels: boolean }
   | { readonly kind: 'tdm'; readonly teams: readonly { readonly team: number; readonly score: number; readonly rows: readonly BoardRow[] }[] };
 
-/** Gun game's level as shown: the gun a player is on, from 1 (their score is their kills up the ladder). */
+/** Gun game's level as shown: the gun a player is on, from 1 (their progress is their kills up the ladder). */
 function level(s: Score): number {
-  return gunGameLevel(s.score) + 1;
+  return gunGameLevel(s.progress ?? 0) + 1;
 }
 
-/** Most kills first, then fewest deaths; in gun game the highest level first. */
-function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null): BoardRow[] {
+/**
+ * The seats in order. `by` 'score' is the scoreboard's order: the highest
+ * Score first, then most kills, then fewest deaths. 'kills' is the race a
+ * free-for-all is won by, for the match bar. Gun game puts the furthest up
+ * the ladder first either way.
+ */
+function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null, by: 'score' | 'kills' = 'score'): BoardRow[] {
   const levels = mode === 'gungame';
-  const key = (s: Score) => (levels ? s.score : 0);
-  const sorted = [...scores].sort((a, b) => key(b) - key(a) || b.kills - a.kills || a.deaths - b.deaths);
-  const same = (a: Score, b: Score) => key(a) === key(b) && a.kills === b.kills && a.deaths === b.deaths;
+  const key = (s: Score) => (levels ? (s.progress ?? 0) : 0);
+  const points = (s: Score) => (by === 'score' ? s.score : 0);
+  const sorted = [...scores].sort((a, b) => key(b) - key(a) || points(b) - points(a) || b.kills - a.kills || a.deaths - b.deaths);
+  const same = (a: Score, b: Score) => key(a) === key(b) && points(a) === points(b) && a.kills === b.kills && a.deaths === b.deaths;
   return sorted.map((s, i) => {
     let place = i + 1;
     while (place > 1 && same(sorted[place - 2]!, s)) place--;
-    return { id: s.id, name: s.name, bot: s.bot === true, kills: s.kills, deaths: s.deaths, ping: pings[s.id] ?? null, place, level: levels ? level(s) : null };
+    return { id: s.id, name: s.name, bot: s.bot === true, score: s.score, kills: s.kills, deaths: s.deaths, assists: s.assists, ping: pings[s.id] ?? null, place, level: levels ? level(s) : null };
   });
 }
 
@@ -118,7 +127,7 @@ export function matchBar(
   if (teamMode(status.mode)) {
     return { kind: 'tdm', teams: [1, 2].map((t) => ({ team: t, score: status.teamScores?.find((s) => s.team === t)?.score ?? 0, mine: t === team })), limit: status.killLimit ?? status.scoreLimit ?? null };
   }
-  const rows = ranked(scores, {}, status.mode);
+  const rows = ranked(scores, {}, status.mode, 'kills');
   const top = rows[0];
   const me = rows.find((r) => r.id === selfId);
   if (status.mode === 'gungame') {
@@ -127,8 +136,9 @@ export function matchBar(
     const mine = scores.find((s) => s.id === selfId);
     const you = (() => {
       if (!me || !mine) return null;
-      const at = gunGameLevel(mine.score);
-      const toNext = Math.max(0, (at + 1) * GUN_GAME_KILLS_PER_GUN - mine.score);
+      const progress = mine.progress ?? 0;
+      const at = gunGameLevel(progress);
+      const toNext = Math.max(0, (at + 1) * GUN_GAME_KILLS_PER_GUN - progress);
       return { level: at + 1, place: me.place, weapon: guns[at] ?? null, next: at + 1 < GUN_GAME_LADDER_LENGTH ? (guns[at + 1] ?? null) : null, toNext };
     })();
     return { kind: 'gungame', leader: top ? { name: top.name, level: top.level ?? 1 } : null, you, limit: GUN_GAME_LADDER_LENGTH };
@@ -184,9 +194,28 @@ export function chargeRoster(
   }));
 }
 
+/** The MVP of a match: the seat with the highest Score. */
+export interface Mvp {
+  readonly id: PlayerId;
+  readonly name: string;
+  readonly bot: boolean;
+  readonly you: boolean;
+  readonly score: number;
+  readonly kills: number;
+  /** The best Medal they earned, or null. */
+  readonly medal: Medal | null;
+}
+
+/** The MVP: the highest Score, then the most kills, then the fewest deaths. Null while nobody has scored. */
+export function mvpOf(scores: readonly Score[], selfId: PlayerId | null): Mvp | null {
+  const top = [...scores].sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths)[0];
+  if (!top || top.score <= 0) return null;
+  return { id: top.id, name: top.name, bot: top.bot === true, you: top.id === selfId, score: top.score, kills: top.kills, medal: top.medal ?? null };
+}
+
 export interface EndSummary {
   readonly headline: { readonly kind: 'draw' } | { readonly kind: 'team'; readonly team: number; readonly won: boolean } | { readonly kind: 'player'; readonly name: string; readonly you: boolean; readonly verb: 'win' | 'wins' } | { readonly kind: 'unknown' };
-  readonly you: { readonly kills: number; readonly deaths: number; readonly ratio: string; readonly place: number; readonly of: number } | null;
+  readonly you: { readonly score: number; readonly kills: number; readonly deaths: number; readonly assists: number; readonly ratio: string; readonly place: number; readonly of: number } | null;
 }
 
 /** "Ada wins", but "Ada and Mate win": a winning Squad of two or three is named in full, and the verb agrees. */
@@ -199,7 +228,7 @@ export function endSummary(result: MatchResult | null, mode: ModeId, scores: rea
   const rows = ranked(scores, {}, mode);
   const me = scores.find((s) => s.id === selfId);
   const row = rows.find((r) => r.id === selfId);
-  const you = me && row ? { kills: me.kills, deaths: me.deaths, ratio: (me.kills / Math.max(1, me.deaths)).toFixed(2), place: row.place, of: rows.length } : null;
+  const you = me && row ? { score: me.score, kills: me.kills, deaths: me.deaths, assists: me.assists, ratio: (me.kills / Math.max(1, me.deaths)).toFixed(2), place: row.place, of: rows.length } : null;
   let headline: EndSummary['headline'];
   if (!result) headline = { kind: 'unknown' };
   // A Battle Royale's winner is a Squad, and one that ends for want of people has none.

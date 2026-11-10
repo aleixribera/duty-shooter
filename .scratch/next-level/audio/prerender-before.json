@@ -1,0 +1,93 @@
+{
+  "label": "before",
+  "totalMs": {
+    "min": 1675.800000000745,
+    "all": [
+      1946,
+      1676,
+      1706
+    ]
+  },
+  "workerMs": [
+    {
+      "ok": true,
+      "ms": 3139
+    },
+    {
+      "ok": true,
+      "ms": 4278.5
+    },
+    {
+      "ok": true,
+      "ms": 3504.5
+    }
+  ],
+  "banks": 488,
+  "channelSeconds": 299.57062499999984,
+  "megabytes": 57.51756,
+  "perEventMs": {
+    "footstep": 226.7,
+    "ringHum": 124.3,
+    "gunshot": 122.2,
+    "ambientRadio": 108.8,
+    "prepDrone": 93.2,
+    "ambientHorn": 90.4,
+    "casing": 84.6,
+    "trapBirds": 67.3,
+    "impact": 66.5,
+    "explosion": 55,
+    "ambientHum": 53.5,
+    "ambientBirds": 46.8,
+    "ambientCouplings": 45.5,
+    "trainHorn": 41.4,
+    "ambientWind": 34.7,
+    "trainRumble": 31.8,
+    "ringCrackle": 28.6,
+    "nukeSiren": 23.1,
+    "(reverbs)": 22.4,
+    "land": 21.3,
+    "trapGravel": 20.9,
+    "slide": 19,
+    "nukeBlast": 19,
+    "ambientCreak": 15.5,
+    "prone": 13.4,
+    "trapMetal": 12.2,
+    "trainClack": 10.8,
+    "inspectRattle": 10.6,
+    "ringShift": 8,
+    "jump": 7.6,
+    "meleeSwing": 7.5,
+    "mantle": 7.1,
+    "reloadMagOut": 6.8,
+    "weaponRaise": 6.4,
+    "heartbeat": 6.2,
+    "grenadeThrow": 6,
+    "reloadBoltRelease": 5.6,
+    "adsIn": 5.6,
+    "meleeHit": 5.6,
+    "damageTaken": 4.8,
+    "pumpRack": 4.4,
+    "grenadeBounce": 4.1,
+    "crouch": 4,
+    "adsOut": 3.8,
+    "grenadePin": 3.4,
+    "reloadChargingHandle": 3.2,
+    "chargeDisarmed": 3.2,
+    "reloadMagIn": 3.1,
+    "bulletCrack": 2.9,
+    "boltOpen": 2.6,
+    "boltClose": 2.3,
+    "chargeKey": 2.1,
+    "shellInsert": 1.9,
+    "chargeArmed": 1.3,
+    "pingEnemy": 1.3,
+    "chargeTool": 1.2,
+    "headshotMarker": 1.2,
+    "ping": 1,
+    "killMarker": 0.8,
+    "dryFire": 0.6,
+    "hitMarker": 0.2,
+    "chargeBeep": 0.2
+  },
+  "music": null
+}

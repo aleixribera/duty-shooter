@@ -1,5 +1,6 @@
 import type { Material } from '../world';
 import type { Estimated, Source, Stat, Unit } from './types';
+import { SCORE } from './score';
 import { PISTOL, SHOTGUN, SMG, SNIPER, estimate, type WeaponId, type WeaponRow } from './weapons';
 
 /**
@@ -473,6 +474,9 @@ export const STATS = {
     objectReach: estimate(5, 'm', 'A ping this near a crate, a Card or a Beacon marks it rather than the ground.'),
     botEvery: estimate(8, 's', 'A bot pings an enemy it has just spotted at most this often, and not one a squadmate pinged in the last few seconds.'),
   },
+
+  /** The points table: what a seat's Score is made of (ticket 11). */
+  score: SCORE,
 
   /** Mouse sensitivity and field of view. */
   input: {

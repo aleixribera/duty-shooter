@@ -254,12 +254,21 @@ export function thump(
   const n = Math.min(dst.length - off, Math.round((o.attack + o.tau * 7) * sr));
   let phase = 0;
   const aN = Math.max(1, o.attack * sr);
+  // Both exponentials by recurrence (a multiply a sample, not a call): the low layers are long and there are many of them.
+  const glideStep = Math.exp(-1 / (o.glideTau * sr));
+  const decayStep = Math.exp(-1 / (o.tau * sr));
+  let glide = 1;
+  let decay = Math.exp(-(Math.ceil(aN) - aN) / (o.tau * sr));
   for (let i = 0; i < n; i++) {
-    const t = i / sr;
-    let f = o.f1 + (o.f0 - o.f1) * Math.exp(-t / o.glideTau);
-    if (o.vibrato) f *= 1 + o.vibrato.depth * Math.sin(2 * Math.PI * o.vibrato.rate * t);
+    let f = o.f1 + (o.f0 - o.f1) * glide;
+    glide *= glideStep;
+    if (o.vibrato) f *= 1 + o.vibrato.depth * Math.sin((2 * Math.PI * o.vibrato.rate * i) / sr);
     phase += (2 * Math.PI * f) / sr;
-    const e = i < aN ? i / aN : Math.exp(-(i - aN) / (o.tau * sr));
+    let e = i / aN;
+    if (i >= aN) {
+      e = decay;
+      decay *= decayStep;
+    }
     const idx = off + i;
     if (idx >= 0) dst[idx] = (dst[idx] ?? 0) + o.gain * e * Math.sin(phase);
   }

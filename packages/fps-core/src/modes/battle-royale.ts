@@ -7,6 +7,7 @@ import { groundFromSpawns, squadSpots } from './ground';
 import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
 import { Reboot, planBeacons } from './reboot';
+import { ScoreKeeper } from './score';
 import { SupplyDrops } from './supply-drops';
 
 /** Seats a Squad: Solos, Duos or Trios. */
@@ -91,6 +92,8 @@ export class BattleRoyale implements GameMode {
   readonly #lastBy = new Map<TeamId, string | null>();
   /** The Squad this match introduces as champions: the last match's winners, or else its Kill Leader's. */
   #champion: RoyaleChampion | null = null;
+  /** Everyone's Score: a Down scores as the kill, and placement is no part of it. */
+  readonly #score = new ScoreKeeper();
 
   constructor(options: BattleRoyaleOptions = {}) {
     this.squadSize = options.squadSize ?? 1;
@@ -108,15 +111,18 @@ export class BattleRoyale implements GameMode {
   join(id: PlayerId, name: string): TeamId {
     const team = Math.max(0, ...[...this.#entries.values()].map((e) => e.team)) + 1;
     this.#entries.set(id, { id, name, team, kills: 0, deaths: 0 });
+    this.#score.join(id);
     return team;
   }
 
   leave(id: PlayerId): void {
     this.#entries.delete(id);
+    this.#score.leave(id);
   }
 
   rejoin(score: Score): void {
     this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths });
+    this.#score.rejoin(score);
   }
 
   canDamage(attacker: PlayerInfo, victim: PlayerInfo): boolean {
@@ -157,6 +163,7 @@ export class BattleRoyale implements GameMode {
     this.#peopled = false;
     const teams = squadTeams(entrants, this.squadSize);
     for (const e of entrants) this.#entries.set(e.id, { id: e.id, name: e.name, team: teams.get(e.id)!, kills: 0, deaths: 0 });
+    this.#score.start(entrants.map((e) => e.id));
     this.#squads = new Set(teams.values()).size;
     this.#champion = this.#crown(winners, leader);
     this.#squadsAlive = this.#squads;
@@ -187,7 +194,12 @@ export class BattleRoyale implements GameMode {
     const revives = (p: PlayerOutput) =>
       this.squadSize > 1 && ctx.players.some((o) => o.id !== p.id && o.team === p.team && o.alive && o.downed !== null && Math.hypot(o.position[0] - p.position[0], o.position[2] - p.position[2]) <= reach && Math.abs(o.position[1] - p.position[1]) <= reach);
     out.push(...this.#drops.step(events, ctx, (p) => this.#reboot.claims(p) || revives(p)));
-    out.push(...this.#reboot.step(events, ctx, this.#stage + 1, (id) => this.#entries.get(id)?.team, (id) => this.#entries.get(id)?.name ?? id));
+    const scoring = this.#result === null;
+    for (const e of this.#reboot.step(events, ctx, this.#stage + 1, (id) => this.#entries.get(id)?.team, (id) => this.#entries.get(id)?.name ?? id)) {
+      out.push(e);
+      if (scoring && e.type === 'reboot' && e.action === 'done') this.#score.give(e.player, 'reboot');
+    }
+    this.#score.read(events, { time: ctx.time, scoring, team: (id) => this.#entries.get(id)?.team });
     const headshots = new Set<PlayerId>();
     for (const e of events) if (e.type === 'hit' && e.killed && e.zone === 'head') headshots.add(e.victim);
     for (const e of events) {
@@ -210,6 +222,7 @@ export class BattleRoyale implements GameMode {
       }
     }
     out.push(...this.#wiped(ctx));
+    out.push(...this.#score.events());
     return out;
   }
 
@@ -298,7 +311,7 @@ export class BattleRoyale implements GameMode {
     return [...this.#entries.values()]
       .map((e): Score => {
         const place = this.#places.get(e.team);
-        return { id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, score: e.kills, ...(place === undefined ? {} : { place }) };
+        return { id: e.id, team: e.team, name: e.name, kills: e.kills, deaths: e.deaths, ...this.#score.of(e.id), ...(place === undefined ? {} : { place }) };
       })
       .sort((a, b) => (a.place ?? 0) - (b.place ?? 0) || b.score - a.score);
   }

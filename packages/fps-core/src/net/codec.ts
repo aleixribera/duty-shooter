@@ -40,9 +40,24 @@ export const WORDS = [
   'playing', 'nuke', 'vote', 'tdm', 'ffa', 'outposts', 'gungame', 'winnerName', 'zones', 'guns', 'progress', 'owner', 'contested', 'capturing', 'remaining', 'carrier', 'dropped', 'planted', 'outcome', 'freeze', 'live', 'over', 'plant', 'defuse',
   // Downed and Revive.
   'downed', 'reviving', 'revive', 'by', 'target', 'down', 'reviver',
+  // Score: on every scoreboard row. The last word a single byte can name.
+  'assists',
+] as const satisfies readonly string[];
+
+/**
+ * Words that came after the single bytes ran out: two bytes each (a tag, then
+ * which word). New words go at the end of this list, and the same rule holds:
+ * the order is part of the protocol.
+ */
+export const MORE_WORDS = [
+  // Recoil return (protocol 26): the recoil a seat is still owed back, in its own state.
+  'recoilYaw', 'recoilPitch',
+  // Score (protocol 26): a row's Medal, a score event's lines, and the reasons a line can have.
+  'medal', 'lines', 'points', 'metres', 'finish', 'assist', 'longShot', 'firstBlood', 'revenge', 'doubleKill', 'tripleKill', 'multiKill', 'streak3', 'streak5', 'streak7', 'streak10', 'zoneKill', 'reboot',
 ] as const satisfies readonly string[];
 
 const WORD_INDEX: ReadonlyMap<string, number> = new Map(WORDS.map((word, i) => [word, i]));
+const MORE_WORD_INDEX: ReadonlyMap<string, number> = new Map(MORE_WORDS.map((word, i) => [word, i]));
 
 // A packed value starts with one of these bytes; from SMALL on, the byte is the value.
 const NULL = 0;
@@ -55,6 +70,8 @@ const STRING = 6;
 const ARRAY = 7;
 const OBJECT = 8;
 const UNDEFINED = 9;
+/** A word of {@link MORE_WORDS}: this tag, then a byte for which. */
+const MORE = 10;
 const SMALL = 16;
 const SMALL_COUNT = 16;
 const WORD = SMALL + SMALL_COUNT;
@@ -219,6 +236,12 @@ function writeString(text: string): void {
     out.byte(WORD + word);
     return;
   }
+  const more = MORE_WORD_INDEX.get(text);
+  if (more !== undefined) {
+    out.byte(MORE);
+    out.byte(more);
+    return;
+  }
   const bytes = encoder.encode(text);
   out.byte(STRING);
   out.varuint(bytes.length);
@@ -289,6 +312,11 @@ function readValue(reader: Reader): unknown {
       return reader.varint();
     case STRING:
       return reader.text(reader.varuint());
+    case MORE: {
+      const word = MORE_WORDS[reader.byte()];
+      if (word === undefined) throw new RangeError('Not a word');
+      return word;
+    }
     case ARRAY: {
       const list: unknown[] = [];
       for (let n = reader.varuint(); n > 0; n--) list.push(readValue(reader));

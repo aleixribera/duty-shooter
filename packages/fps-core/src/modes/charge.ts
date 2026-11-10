@@ -48,9 +48,6 @@ export const DEFUSE_RANGE = 1.5;
 export const PICKUP_RANGE = 1.2;
 /** Moving this far (m) from where a plant or defuse began cancels it. */
 const STILL = 0.3;
-/** Scoreboard points for a plant and for a defuse. */
-export const PLANT_POINTS = 3;
-export const DEFUSE_POINTS = 3;
 
 interface Action {
   readonly player: PlayerId;
@@ -179,7 +176,7 @@ export class Charge implements GameMode {
 
   onEvents(events: readonly SimEvent[], ctx: ModeContext): ModeEvent[] {
     const scoring = this.#result === null;
-    const out: ModeEvent[] = [...this.#pending, ...this.#roster.recordKills(events, scoring).feed];
+    const out: ModeEvent[] = [...this.#pending, ...this.#roster.recordKills(events, scoring, ctx).feed];
     this.#pending = [];
     if (!scoring) return out;
     this.#now = ctx.matchTime;
@@ -202,6 +199,7 @@ export class Charge implements GameMode {
     }
     this.#act(events, ctx, players, out);
     this.#clock(players, out);
+    out.push(...this.#roster.score.events());
     return out;
   }
 
@@ -250,17 +248,16 @@ export class Charge implements GameMode {
     a.held += TICK_SECONDS;
     if (a.held < (a.kind === 'plant' ? PLANT_TIME : DEFUSE_TIME) - 1e-9) return;
     this.#action = null;
-    const entry = this.#roster.get(a.player);
     const p = players.find((q) => q.id === a.player)!;
     if (a.kind === 'plant') {
-      if (entry) entry.points += PLANT_POINTS;
+      this.#roster.score.give(a.player, 'plant');
       this.#planted = { site: a.site!, position: p.position };
       this.#carrier = null;
       this.#phase = 'planted';
       this.#phaseEnds = this.#now + FUSE_TIME;
       out.push({ type: 'charge', action: 'plant', player: a.player, team: p.team, site: a.site, position: p.position });
     } else {
-      if (entry) entry.points += DEFUSE_POINTS;
+      this.#roster.score.give(a.player, 'defuse');
       out.push({ type: 'charge', action: 'defuse', player: a.player, team: p.team, site: this.#planted!.site, position: this.#planted!.position });
       this.#endRound(p.team, 'defused', out);
     }

@@ -23,7 +23,7 @@ describe('random lobby picks', () => {
   });
 });
 
-const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills });
+const score = (id: string, team: number, kills: number, deaths: number, name = id): Score => ({ id, team, name, kills, deaths, score: kills * 100, assists: 0 });
 
 describe('the scoreboard', () => {
   const scores = [score('a', 1, 3, 4), score('b', 2, 9, 1), score('c', 1, 7, 2), score('d', 2, 2, 2)];
@@ -123,7 +123,7 @@ describe('the end of the match', () => {
   it("names the winning team and gives your stats and place", () => {
     const end = endSummary({ winner: 2, winnerName: 'Orange', draw: false, reason: 'killLimit' }, 'tdm', [score('me', 2, 6, 3), score('x', 1, 9, 6)], 'me');
     expect(end.headline).toEqual({ kind: 'team', team: 2, won: true });
-    expect(end.you).toEqual({ kills: 6, deaths: 3, ratio: '2.00', place: 2, of: 2 });
+    expect(end.you).toEqual({ score: 600, kills: 6, deaths: 3, assists: 0, ratio: '2.00', place: 2, of: 2 });
   });
 
   it('says draw on a tie, and who won in free-for-all', () => {

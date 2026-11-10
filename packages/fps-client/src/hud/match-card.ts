@@ -1,7 +1,9 @@
+import { figure, type MatchGain } from '../profile/model';
 import { mapPoint, type MapBounds } from '../ui/island-map';
 import { ordinal } from '../ui/model';
 import { clockOf, type MatchCard } from '../ui/recap';
 import { escapeHtml as escape } from '../ui/theme';
+import { matchGainHtml } from './match-gain';
 
 /**
  * The match card (ticket 73): at a Battle Royale's end, before the Battle
@@ -9,6 +11,8 @@ import { escapeHtml as escape } from '../ui/theme';
  * numbers as one strip of readouts, and the island with the way you went,
  * where you fought and where you fell. It stands where the end panel does
  * and takes its place in a Battle Royale; the island is drawn once a card.
+ * Once the match is banked in the Profile, the card also carries what it paid:
+ * the Score, the XP and the Rank bar (ticket 25).
  */
 
 export interface MatchCardState {
@@ -18,6 +22,9 @@ export interface MatchCardState {
   readonly yours: boolean;
   /** The line under it: what comes next and when. */
   readonly next: string;
+  /** Your Score in the match and what it gave your Profile, once banked; absent where nothing is kept. */
+  readonly score?: number;
+  readonly gain?: MatchGain | null;
 }
 
 /** The island under the route, and the square of ground it shows. */
@@ -30,6 +37,10 @@ export const MATCH_CARD_CSS = `
 .ds-card { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); width: min(980px, calc(100vw - 112px)); display: none; grid-template-columns: minmax(0, 1fr) auto; gap: 0; background: var(--ds-scrim); border: 1px solid var(--ds-line); animation: ds-in var(--ds-slow) var(--ds-ease); font-variant-numeric: tabular-nums; }
 .ds-card.on { display: grid; }
 .ds-card .facts { display: flex; flex-direction: column; gap: 18px; padding: 28px 32px; min-width: 0; }
+/* The facts proper lay out as the column's own rows; the XP strip and the line with the clock are drawn apart from them. */
+.ds-card .top { display: contents; }
+.ds-card .ds-gain:empty { display: none; }
+.ds-card .ds-gain { padding-top: 16px; border-top: 1px solid var(--ds-line); }
 .ds-card .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-card .what.won { color: var(--ds-signal); }
 .ds-card .place { display: flex; align-items: baseline; gap: 14px; }
@@ -58,6 +69,8 @@ export const MATCH_CARD_CSS = `
   .ds-card .map { padding: 0 16px 16px; border-left: 0; }
   .ds-card canvas { width: min(calc(100vw - 58px), calc(100vh - 470px)); height: min(calc(100vw - 58px), calc(100vh - 470px)); min-width: 180px; min-height: 180px; }
   .ds-card .next { order: 9; }
+  .ds-card .ds-gain { padding-top: 10px; }
+  .ds-card.gained canvas { width: min(calc(100vw - 58px), calc(100vh - 610px)); height: min(calc(100vw - 58px), calc(100vh - 610px)); min-width: 150px; min-height: 150px; }
 }
 `;
 
@@ -69,14 +82,22 @@ export function matchCardFactsHtml(s: MatchCardState): string {
     `<div class="what${won ? ' won' : ''}">${won ? 'Victory' : 'Your match'}</div>` +
     `<div class="place"><b>${c.place === null ? '–' : ordinal(c.place)}</b>${c.of === null ? '' : `<span>of ${c.of} Squads</span>`}</div>` +
     (s.winners && !s.yours ? `<div class="winners">Won by <b>${escape(s.winners)}</b></div>` : '') +
-    `<div class="ds-readouts">${r('Eliminations', c.eliminations)}${r('Downs', c.downs)}${r('Damage', c.damage)}${r('Revives', c.revives)}${r('Reboots', c.reboots)}${r('Time alive', clockOf(c.alive))}</div>` +
-    `<div class="next">${escape(s.next)}</div>`
+    `<div class="ds-readouts">${r('Eliminations', c.eliminations)}${r('Downs', c.downs)}${r('Damage', c.damage)}${r('Revives', c.revives)}${r('Reboots', c.reboots)}${r('Time alive', clockOf(c.alive))}</div>`
   );
+}
+
+/** What the match paid, under the facts: the Score, the XP, the Rank bar and the Challenges it moved. Empty until the match is banked. */
+export function matchCardGainHtml(s: MatchCardState): string {
+  return s.gain ? matchGainHtml([['Score', figure(s.score ?? s.gain.score)]], s.gain) : '';
 }
 
 export class MatchCardView {
   readonly #root: HTMLDivElement;
   readonly #facts: HTMLDivElement;
+  /** The XP strip and the line with the clock, each its own element: the clock ticking does not start the Rank bar's fill again. */
+  readonly #gain: HTMLDivElement;
+  readonly #next: HTMLDivElement;
+  #gainHtml = '';
   readonly #canvas: HTMLCanvasElement;
   readonly #island: () => CardIsland | null;
   #html = '';
@@ -88,8 +109,15 @@ export class MatchCardView {
     this.#island = island;
     this.#root = document.createElement('div');
     this.#root.className = 'ds-card';
+    const facts = document.createElement('div');
+    facts.className = 'facts';
     this.#facts = document.createElement('div');
-    this.#facts.className = 'facts';
+    this.#facts.className = 'top';
+    this.#gain = document.createElement('div');
+    this.#gain.className = 'ds-gain';
+    this.#next = document.createElement('div');
+    this.#next.className = 'next';
+    facts.append(this.#facts, this.#gain, this.#next);
     const map = document.createElement('div');
     map.className = 'map';
     this.#canvas = document.createElement('canvas');
@@ -97,7 +125,7 @@ export class MatchCardView {
     key.className = 'key';
     key.innerHTML = '<span><i class="route"></i>Your route</span><span><i class="fight"></i>Fights</span><span><i class="fell"></i>Where you fell</span>';
     map.append(this.#canvas, key);
-    this.#root.append(this.#facts, map);
+    this.#root.append(facts, map);
     parent.append(this.#root);
   }
 
@@ -113,6 +141,12 @@ export class MatchCardView {
     }
     const html = matchCardFactsHtml(s);
     if (html !== this.#html) this.#facts.innerHTML = this.#html = html;
+    const gain = matchCardGainHtml(s);
+    if (gain !== this.#gainHtml) {
+      this.#gain.innerHTML = this.#gainHtml = gain;
+      this.#root.classList.toggle('gained', gain !== '');
+    }
+    if (this.#next.textContent !== s.next) this.#next.textContent = s.next;
     const wide = this.#canvas.clientWidth;
     if ((this.#drawn !== s.card || wide !== this.#width) && wide > 0) this.#draw(s.card, wide);
   }
