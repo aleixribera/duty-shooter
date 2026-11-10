@@ -1,4 +1,4 @@
-import { raycastWorld, type Material, type Vec3, type World } from '@duty-shooter/fps-core';
+import { raycastWorld, type Material, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import { abs, attribute, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AdditiveBlending,
@@ -28,6 +28,27 @@ import {
 import { currentLighting, haze, horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
 import { cloudAt } from './surface-tiles';
 import { currentQuality } from './quality';
+
+/**
+ * How each gun's shot reads at the muzzle, against the M4A1's 1: the flash's
+ * size and the light it throws, and the smoke it leaves. A 9 mm barely
+ * flashes and leaves a thread of smoke; a 12-gauge or a full-power rifle
+ * round throws a big flash and a plume. A handgun's muzzle sits near the
+ * middle of the view, so the Magnum's flash is kept to a rifle's size there
+ * however hard it kicks.
+ */
+export const MUZZLE: Readonly<Record<WeaponId, { readonly flash: number; readonly smoke: number }>> = {
+  m4a1: { flash: 1, smoke: 1 },
+  burst: { flash: 0.95, smoke: 0.95 },
+  smg: { flash: 0.7, smoke: 0.7 },
+  pistol: { flash: 0.7, smoke: 0.6 },
+  revolver: { flash: 0.8, smoke: 1.2 },
+  shotgun: { flash: 1.5, smoke: 1.8 },
+  sniper: { flash: 1.45, smoke: 1.6 },
+  dmr: { flash: 1.25, smoke: 1.3 },
+  lmg: { flash: 1.1, smoke: 1.1 },
+};
+const PLAIN_MUZZLE = MUZZLE.m4a1;
 
 type N = Node<'float'>;
 type N3 = Node<'vec3'>;
@@ -412,6 +433,8 @@ export class Effects {
   readonly #root = new Group();
   readonly #lights: PointLight[] = [];
   readonly #lightAge: number[] = [];
+  /** Each shot light's strength, by the gun that fired it. */
+  readonly #lightPower: number[] = [];
   #nextLight = 0;
   readonly #sparks = new ParticleLayer(280, 'spark');
   readonly #dust = new ParticleLayer(260, 'puff');
@@ -429,6 +452,7 @@ export class Effects {
   readonly #splats: DecalLayer;
   readonly #casingMesh: InstancedMesh;
   readonly #casings: Casing[] = [];
+  /** Flashes on show, by age (s); a new one is -1 until the frame that first draws it, so a slow frame can't hide it unseen. */
   readonly #flashes: { mesh: Mesh; age: number }[] = [];
   readonly #falling: { mesh: Mesh; v: Vector3; spin: Vector3; age: number; resting: boolean }[] = [];
   readonly #flashMaterial: MeshBasicNodeMaterial;
@@ -455,6 +479,7 @@ export class Effects {
       const light = new PointLight(0xffb468, 0, 9, 1.6);
       this.#lights.push(light);
       this.#lightAge.push(1);
+      this.#lightPower.push(1);
       this.#root.add(light);
     }
     this.#holes = new DecalLayer(220, holeTexture());
@@ -491,14 +516,14 @@ export class Effects {
     return mesh;
   }
 
-  /** Shows a flash mesh for one or two frames with a random twist and size. */
-  flash(mesh: Mesh): void {
+  /** Shows a flash mesh for one or two frames with a random twist and size, sized for `weapon`'s round. */
+  flash(mesh: Mesh, weapon?: WeaponId): void {
     mesh.visible = true;
     mesh.rotation.z = Math.random() * Math.PI * 2;
-    mesh.scale.setScalar(0.8 + Math.random() * 0.5);
+    mesh.scale.setScalar((0.8 + Math.random() * 0.5) * (weapon ? MUZZLE[weapon] : PLAIN_MUZZLE).flash);
     const existing = this.#flashes.find((f) => f.mesh === mesh);
-    if (existing) existing.age = 0;
-    else this.#flashes.push({ mesh, age: 0 });
+    if (existing) existing.age = -1;
+    else this.#flashes.push({ mesh, age: -1 });
   }
 
   /** How much direct sun reaches `p`, 0 or 1: what a puff thrown up there is lit by. */
@@ -508,27 +533,31 @@ export class Effects {
     return raycastWorld(this.#world, from, [p.x + d[0] * 60, p.y + d[1] * 60, p.z + d[2] * 60]) ? 0 : 1;
   }
 
-  /** A shot fired at `origin` (world) toward `direction`: lights the scene and builds up smoke on sustained fire. */
-  shot(origin: Vec3, direction: Vec3): void {
+  /** A shot fired at `origin` (world) toward `direction` by `weapon`: lights the scene and builds up smoke on sustained fire. */
+  shot(origin: Vec3, direction: Vec3, weapon?: WeaponId): void {
+    const look = weapon ? MUZZLE[weapon] : PLAIN_MUZZLE;
     const i = this.#nextLight;
     this.#nextLight = (i + 1) % this.#lights.length;
     const light = this.#lights[i] as PointLight;
     light.position.set(origin[0] + direction[0] * 0.6, origin[1] + direction[1] * 0.6, origin[2] + direction[2] * 0.6);
-    this.#lightAge[i] = 0;
+    // Fresh until the next update: that frame draws it at full strength however long the frame took.
+    this.#lightAge[i] = -1;
+    this.#lightPower[i] = look.flash;
     this.#recentShots.push(this.#time);
     while ((this.#recentShots[0] ?? Infinity) < this.#time - 1.2) this.#recentShots.shift();
     const heat = this.#recentShots.length;
     const at = new Vector3(origin[0] + direction[0] * 0.75, origin[1] + direction[1] * 0.75 - 0.05, origin[2] + direction[2] * 0.75);
     // Every shot leaves a wisp at the muzzle; a long burst leaves a haze that hangs.
-    const n = heat >= 12 ? 2 : heat >= 5 ? 1 : 0;
+    // A big round's smoke builds a haze sooner.
+    const n = heat * look.smoke >= 12 ? 2 : heat * look.smoke >= 5 ? 1 : 0;
     const sun = this.#sunlit(at);
     this.#smoke.emit({
       p: at.clone(),
       v: new Vector3(direction[0] * 1.6, 0.15, direction[2] * 1.6),
-      life: 0.35 + Math.random() * 0.2,
-      size: 0.08,
+      life: (0.35 + Math.random() * 0.2) * Math.sqrt(look.smoke),
+      size: 0.08 * look.smoke,
       grow: 0.9,
-      alpha: 0.16,
+      alpha: Math.min(0.3, 0.16 * look.smoke),
       drag: 5,
       sun,
       color: new Color(0xb4b6b8),
@@ -538,7 +567,7 @@ export class Effects {
         p: at.clone(),
         v: new Vector3(direction[0] * 0.4 + (Math.random() - 0.5) * 0.15, 0.35 + Math.random() * 0.2, direction[2] * 0.4 + (Math.random() - 0.5) * 0.15),
         life: 1.6 + Math.random() * 0.8,
-        size: 0.12,
+        size: 0.12 * Math.sqrt(look.smoke),
         grow: 0.32,
         spin: (Math.random() - 0.5) * 0.8,
         alpha: 0.2,
@@ -757,10 +786,11 @@ export class Effects {
       }
     }
     for (let i = 0; i < this.#lights.length; i++) {
-      const age = (this.#lightAge[i] ?? 1) + dt;
+      const before = this.#lightAge[i] ?? 1;
+      const age = before < 0 ? 0 : before + dt;
       this.#lightAge[i] = age;
       const light = this.#lights[i] as PointLight;
-      light.intensity = age < 0.05 ? 14 * (1 - age / 0.05) + 4 : 0;
+      light.intensity = age < 0.05 ? (14 * (1 - age / 0.05) + 4) * (this.#lightPower[i] ?? 1) : 0;
     }
     this.#blastAge += dt;
     const key = this.#key;
@@ -774,7 +804,8 @@ export class Effects {
     }
     for (let i = this.#flashes.length - 1; i >= 0; i--) {
       const f = this.#flashes[i]!;
-      f.age += dt;
+      // Shown since the last frame: drawn once at least, then aged.
+      f.age = f.age < 0 ? 0 : f.age + dt;
       if (f.age > 0.035) {
         f.mesh.visible = false;
         this.#flashes.splice(i, 1);
@@ -825,7 +856,7 @@ export class Effects {
 
   /** The muzzle-flash light's current strength, 0 to 1 (drives the bloom boost). */
   get flashStrength(): number {
-    return Math.max(0, ...this.#lightAge.map((a) => (a < 0.05 ? 1 - a / 0.05 : 0)));
+    return Math.max(0, ...this.#lightAge.map((a) => (a < 0 ? 1 : a < 0.05 ? 1 - a / 0.05 : 0)));
   }
 
   #updateCasings(dt: number): void {

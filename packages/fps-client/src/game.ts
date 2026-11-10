@@ -2051,18 +2051,18 @@ export class Game {
           // Through their eyes, their shot is fired from your hands.
           this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
-          this.#effects.flash(this.#viewFlash);
+          this.#effects.flash(this.#viewFlash, e.weapon);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction);
+          this.#effects.shot(muzzle, e.direction, e.weapon);
           this.#tracer(e, muzzle);
         } else if (own) {
           this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
-          this.#effects.flash(this.#viewFlash);
+          this.#effects.flash(this.#viewFlash, e.weapon);
           const kick = CAMERA_KICK[e.weapon];
           this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction);
+          this.#effects.shot(muzzle, e.direction, e.weapon);
           this.#tracer(e, muzzle);
           const cam = this.#camera.camera;
           const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
@@ -2076,12 +2076,12 @@ export class Game {
           for (const eng of this.#engagements.values()) eng.shots += 1;
         } else {
           this.#play('gunshot', { position: e.origin, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
-          this.#effects.shot(e.origin, e.direction);
+          this.#effects.shot(e.origin, e.direction, e.weapon);
           const flash = this.#worldFlashes[this.#nextWorldFlash] as Mesh;
           this.#nextWorldFlash = (this.#nextWorldFlash + 1) % this.#worldFlashes.length;
           flash.position.set(e.origin[0] + e.direction[0] * 0.9, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
           flash.quaternion.copy(this.#camera.camera.quaternion);
-          this.#effects.flash(flash);
+          this.#effects.flash(flash, e.weapon);
           this.#tracer(e, [flash.position.x, flash.position.y, flash.position.z]);
           this.#crack(e.origin, e.direction, e.weapon);
         }

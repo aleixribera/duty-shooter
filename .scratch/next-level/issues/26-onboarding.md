@@ -1,6 +1,7 @@
 # Onboarding and open audit failures
 
-Status: open
+Status: resolved
+Release: v2.153.0
 
 Spec: `../spec.md`
 
@@ -22,3 +23,4 @@ Built by the touch sub-agent on top of v2.151.0 (uncommitted; the owning session
 - **Literal colours in `hud/hud.ts`.** All CSS and canvas colours read theme tokens (the damage trace reads them from the computed style). What is left as literals is the portrait drawing's own palette, which is a picture, not chrome.
 - **The WebGPU badge is gone.** Which backend drew the frame is no news to a player; scripts read it from `document.body.dataset.backend`, and Settings > Video shows it where it means something.
 - **Short landscape pages.** Under 520 px of height the page shell's header is one line and its footer one row (see ticket 23).
+- 2026-11-10, owner: shipped in v2.153.0 (checked in that tag). Verified with Chrome's touch emulation only; a real phone, iOS Safari above all, is still to be tried by a person.

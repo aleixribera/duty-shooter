@@ -1,6 +1,7 @@
 # Touch controls
 
-Status: open
+Status: resolved
+Release: v2.153.0
 
 Spec: `../spec.md`
 
@@ -34,3 +35,4 @@ Verified (scripts and pictures in `.scratch/next-level/touch/`, all through `lau
 - Unit tests: `test/touch-logic.test.ts`, `test/touch-input.test.ts`, `test/hud-corners.test.ts`.
 
 Not verified: no real phone was used. Chrome's touch emulation stands in for one, so iOS Safari's behaviour (fullscreen refusal, the rubber band, the home bar's gesture area) is reasoned, not seen.
+- 2026-11-10, owner: shipped in v2.153.0 (checked in that tag). Verified with Chrome's touch emulation only; a real phone, iOS Safari above all, is still to be tried by a person.
