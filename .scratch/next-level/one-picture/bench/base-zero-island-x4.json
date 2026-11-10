@@ -1,0 +1,1 @@
+{"map":"zero-island","backend":"WebGPU","adapter":"nvidia blackwell","resolution":[1920,1080],"loadMs":3161,"frames":1608,"frameMs":{"p50":31.4,"p95":61.7,"p99":109.7,"max":5220.1},"meanMs":39.781,"low1Ms":548.019,"gpuMs":{"p50":1.682,"p95":2.202,"p99":4.43,"max":4.759},"drawCalls":{"mean":132,"max":173},"triangles":{"mean":998045,"max":1201218}}

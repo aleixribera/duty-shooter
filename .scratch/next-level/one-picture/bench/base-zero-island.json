@@ -1,0 +1,35 @@
+{
+ "map": "zero-island",
+ "backend": "WebGPU",
+ "adapter": "nvidia blackwell",
+ "resolution": [
+  1920,
+  1080
+ ],
+ "loadMs": 3522,
+ "frames": 8962,
+ "frameMs": {
+  "p50": 6.6,
+  "p95": 10.4,
+  "p99": 14.1,
+  "max": 1405.8
+ },
+ "meanMs": 7.111,
+ "low1Ms": 42.714,
+ "gpuMs": {
+  "p50": 1.757,
+  "p95": 3.205,
+  "p99": 4.669,
+  "max": 5.24
+ },
+ "drawCalls": {
+  "mean": 128,
+  "max": 174
+ },
+ "triangles": {
+  "mean": 970566,
+  "max": 1200717
+ },
+ "browser": "Chrome (headless)",
+ "consoleErrors": []
+}

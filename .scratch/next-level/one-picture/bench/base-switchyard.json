@@ -1,0 +1,35 @@
+{
+ "map": "switchyard",
+ "backend": "WebGPU",
+ "adapter": "nvidia blackwell",
+ "resolution": [
+  1920,
+  1080
+ ],
+ "loadMs": 3391,
+ "frames": 10259,
+ "frameMs": {
+  "p50": 4.1,
+  "p95": 6.8,
+  "p99": 10,
+  "max": 39.7
+ },
+ "meanMs": 4.388,
+ "low1Ms": 13.222,
+ "gpuMs": {
+  "p50": 1.432,
+  "p95": 3.018,
+  "p99": 4.36,
+  "max": 4.61
+ },
+ "drawCalls": {
+  "mean": 65,
+  "max": 100
+ },
+ "triangles": {
+  "mean": 210943,
+  "max": 364677
+ },
+ "browser": "Chrome (headless)",
+ "consoleErrors": []
+}

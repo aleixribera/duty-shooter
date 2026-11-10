@@ -1,0 +1,35 @@
+{
+ "map": "survival-town",
+ "backend": "WebGPU",
+ "adapter": "nvidia blackwell",
+ "resolution": [
+  1920,
+  1080
+ ],
+ "loadMs": 3941,
+ "frames": 8102,
+ "frameMs": {
+  "p50": 4.7,
+  "p95": 8.9,
+  "p99": 12.7,
+  "max": 108.9
+ },
+ "meanMs": 5.099,
+ "low1Ms": 18.074,
+ "gpuMs": {
+  "p50": 1.541,
+  "p95": 4.141,
+  "p99": 5.773,
+  "max": 8.404
+ },
+ "drawCalls": {
+  "mean": 73,
+  "max": 126
+ },
+ "triangles": {
+  "mean": 214577,
+  "max": 388551
+ },
+ "browser": "Chrome (headless)",
+ "consoleErrors": []
+}

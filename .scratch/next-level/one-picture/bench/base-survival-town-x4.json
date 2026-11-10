@@ -1,0 +1,1 @@
+{"map":"survival-town","backend":"WebGPU","adapter":"nvidia blackwell","resolution":[1920,1080],"loadMs":2129,"frames":1985,"frameMs":{"p50":19.9,"p95":37.9,"p99":46.4,"max":78.8},"meanMs":20.909,"low1Ms":53.94,"gpuMs":{"p50":1.345,"p95":1.745,"p99":2.255,"max":4.073},"drawCalls":{"mean":109,"max":126},"triangles":{"mean":343992,"max":388551}}

@@ -1,0 +1,35 @@
+{
+ "map": "station-nine",
+ "backend": "WebGPU",
+ "adapter": "nvidia blackwell",
+ "resolution": [
+  1920,
+  1080
+ ],
+ "loadMs": 2716,
+ "frames": 6737,
+ "frameMs": {
+  "p50": 4,
+  "p95": 5.8,
+  "p99": 8.9,
+  "max": 25.1
+ },
+ "meanMs": 4.124,
+ "low1Ms": 11.44,
+ "gpuMs": {
+  "p50": 1.335,
+  "p95": 3.106,
+  "p99": 3.736,
+  "max": 4.117
+ },
+ "drawCalls": {
+  "mean": 62,
+  "max": 95
+ },
+ "triangles": {
+  "mean": 238252,
+  "max": 431065
+ },
+ "browser": "Chrome (headless)",
+ "consoleErrors": []
+}
