@@ -38,37 +38,37 @@ Two moderate bots, one primary each plus the pistol and a frag, start in sight o
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 26 % | 29 % | 41 % |
-| smg | 74 % |  | 48 % | 65 % |
-| m4a1 | 71 % | 52 % |  | 55 % |
+| shotgun |  | 25 % | 29 % | 41 % |
+| smg | 75 % |  | 47 % | 65 % |
+| m4a1 | 71 % | 53 % |  | 55 % |
 | sniper | 59 % | 35 % | 45 % |  |
 
 **30 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 17 % | 23 % | 33 % |
-| smg | 83 % |  | 47 % | 48 % |
-| m4a1 | 77 % | 53 % |  | 60 % |
-| sniper | 67 % | 52 % | 40 % |  |
+| shotgun |  | 18 % | 23 % | 33 % |
+| smg | 82 % |  | 46 % | 48 % |
+| m4a1 | 78 % | 54 % |  | 57 % |
+| sniper | 67 % | 52 % | 43 % |  |
 
 **60 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 26 % | 32 % | 40 % |
-| smg | 74 % |  | 44 % | 29 % |
-| m4a1 | 68 % | 56 % |  | 34 % |
-| sniper | 60 % | 71 % | 66 % |  |
+| shotgun |  | 28 % | 33 % | 39 % |
+| smg | 72 % |  | 42 % | 27 % |
+| m4a1 | 67 % | 58 % |  | 37 % |
+| sniper | 61 % | 73 % | 63 % |  |
 
 ### Each primary in its own band and overall
 
 | Weapon | Band | Worst win rate in its band | Over all distances, per opponent | Overall |
 | --- | --- | --- | --- | --- |
 | shotgun | 5 m | 65 % | smg 34 %, m4a1 39 %, sniper 52 % | 41 % |
-| smg | 15 m | 48 % | shotgun 66 %, m4a1 51 %, sniper 59 % | 59 % |
-| m4a1 | 30 m | 53 % | shotgun 61 %, smg 49 %, sniper 60 % | 57 % |
-| sniper | 60 m | 60 % | shotgun 48 %, smg 41 %, m4a1 40 % | 43 % |
+| smg | 15 m | 47 % | shotgun 66 %, m4a1 50 %, sniper 59 % | 58 % |
+| m4a1 | 30 m | 54 % | shotgun 61 %, smg 50 %, sniper 60 % | 57 % |
+| sniper | 60 m | 61 % | shotgun 48 %, smg 41 %, m4a1 40 % | 43 % |
 
 ### The primaries without a band
 
@@ -76,18 +76,18 @@ The light machine gun, the marksman rifle and the burst rifle own no distance: e
 
 | Weapon | Against | 5 m | 15 m | 30 m | 60 m | In the owner's band | Over all distances |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| lmg | shotgun | 10 % | 50 % | 75 % | 67 % | 10 % | 51 % |
-| lmg | smg | 23 % | 19 % | 33 % | 60 % | 19 % | 34 % |
-| lmg | m4a1 | 35 % | 31 % | 35 % | 50 % | 35 % | 38 % |
-| lmg | sniper | 81 % | 48 % | 50 % | 34 % | 34 % | 53 % |
-| lmg | all four | 38 % | 37 % | 48 % | 53 % | | 44 % |
-| dmr | shotgun | 2 % | 60 % | 78 % | 61 % | 2 % | 51 % |
-| dmr | smg | 4 % | 23 % | 54 % | 57 % | 23 % | 35 % |
-| dmr | m4a1 | 8 % | 35 % | 55 % | 59 % | 55 % | 40 % |
-| dmr | sniper | 56 % | 44 % | 58 % | 52 % | 52 % | 53 % |
-| dmr | all four | 18 % | 41 % | 61 % | 58 % | | 44 % |
-| burst | shotgun | 13 % | 52 % | 79 % | 75 % | 13 % | 55 % |
-| burst | smg | 27 % | 31 % | 60 % | 67 % | 31 % | 46 % |
-| burst | m4a1 | 38 % | 31 % | 43 % | 63 % | 43 % | 43 % |
-| burst | sniper | 79 % | 55 % | 54 % | 44 % | 44 % | 58 % |
-| burst | all four | 39 % | 42 % | 59 % | 62 % | | 51 % |
+| lmg | shotgun | 10 % | 50 % | 75 % | 66 % | 10 % | 50 % |
+| lmg | smg | 23 % | 19 % | 38 % | 59 % | 19 % | 35 % |
+| lmg | m4a1 | 35 % | 31 % | 38 % | 49 % | 38 % | 38 % |
+| lmg | sniper | 81 % | 48 % | 46 % | 33 % | 33 % | 52 % |
+| lmg | all four | 38 % | 37 % | 49 % | 52 % | | 44 % |
+| dmr | shotgun | 2 % | 60 % | 82 % | 65 % | 2 % | 52 % |
+| dmr | smg | 4 % | 23 % | 58 % | 61 % | 23 % | 37 % |
+| dmr | m4a1 | 8 % | 35 % | 47 % | 60 % | 47 % | 38 % |
+| dmr | sniper | 56 % | 44 % | 50 % | 50 % | 50 % | 50 % |
+| dmr | all four | 18 % | 41 % | 59 % | 59 % | | 44 % |
+| burst | shotgun | 13 % | 52 % | 75 % | 71 % | 13 % | 53 % |
+| burst | smg | 27 % | 31 % | 60 % | 64 % | 31 % | 46 % |
+| burst | m4a1 | 38 % | 31 % | 45 % | 60 % | 45 % | 43 % |
+| burst | sniper | 79 % | 55 % | 58 % | 45 % | 45 % | 59 % |
+| burst | all four | 39 % | 42 % | 60 % | 60 % | | 50 % |
