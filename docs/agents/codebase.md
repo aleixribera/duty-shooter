@@ -36,7 +36,7 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
   - `test:range:island-nav`: `zero-island-nav.test.ts` alone, about 150 s warm. It builds the island's nav at import, and it is the one file that can't be split. On 2026-11-06 it didn't finish in 25 minutes, both in a fresh server workspace and on HEAD. Look at the nav generator's cost before blaming the shard.
   - `test:range:royale`: `zero-island-royale.test.ts` alone, about 300 s. Its whole matches in Squads of 3 take about 190 s on their own.
   - `test:range:island`: every other `zero-island*` file except the bot soaks: the island, Regions, cover, plants, sightlines and the pace probe. About 2 minutes with the island's nav cached; without the cache, sightlines and cover build it first.
-  - `test:range:bots`: the island bot soaks plus every `crash*` and `survival-town*` file, 396 s with another job on the server.
+  - `test:range:bots`: the island bot soaks plus every `survival-town*` file, 396 s with another job on the server.
   - `test:range:rest`: everything else in range (`switchyard*`, `kit-solids`, `local-royale`, `bot-match`, the small ones), about 290 s. `kit-solids` is its long pole at about 170 s.
   - These times come from the home server under `remote-test`'s CPU cap, which every job on the server shares. A second job running at the same time can double them.
 - Shared test helpers live in each package's `test/support/` (bot soaks and nav reachability in `apps/range/test/support/bots.ts`).

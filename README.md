@@ -3,9 +3,9 @@
 A browser FPS built to feel like Call of Duty: Modern Warfare (2019), on an authoritative 60 Hz server.
 
 - **Arsenal:** seven primaries (the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun, the Ridgeline .308 sniper rifle, the Bulwark 5.56 light machine gun, the Vantage 7.62 marksman rifle and the Trident 5.56 burst rifle), two secondaries (the Warden 9 pistol and the Marshal .357 revolver), and a frag. Players pick a loadout between lives.
-- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; **Switchyard**, a freight yard at dusk; and **Crash**, a recreation of the desert-town map from Call of Duty 4 that is still being refined. Survival Town ends each match with a nuke; Switchyard ends it with a freight train.
+- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; and **Switchyard**, a freight yard at dusk. Survival Town ends each match with a nuke; Switchyard ends it with a freight train.
 - **Modes:** team deathmatch (75 kills or 10 minutes), free-for-all (30 kills or 10 minutes), Outposts (hold three zones; 200 points), Charge (plant or defuse; first to 4 rounds, no respawns within a round) and gun game (free-for-all up a ladder of seven of the nine guns dealt at random each match, 3 kills each before the next; the first to finish the last gun wins, or whoever is furthest up after 10 minutes). Any team mode can be played **humans vs bots**: every person on one team against a bot team sized to the group.
-- **Online**, the first person in is the host: in the lobby they pick the map, mode, bots on or off and humans vs bots, and press Start. The Random button picks a map and mode while keeping the sides setting; humans vs bots draws from team modes. Bot Match has the same button. Bots fill each side to the map's team size: 6v6 on Switchyard, 4v4 on Survival Town and Crash (`TEAM_SIZES` in `apps/range/src/map/maps.ts`). The host can change it with the hidden **+** and **-** keys in the lobby, until the map or mode changes. Up to 12 seats, with bots filling them.
+- **Online**, the first person in is the host: in the lobby they pick the map, mode, bots on or off and humans vs bots, and press Start. The Random button picks a map and mode while keeping the sides setting; humans vs bots draws from team modes. Bot Match has the same button. Bots fill each side to the map's team size: 6v6 on Switchyard, 4v4 on Survival Town (`TEAM_SIZES` in `apps/range/src/map/maps.ts`). The host can change it with the hidden **+** and **-** keys in the lobby, until the map or mode changes. Up to 12 seats, with bots filling them.
 - **Offline**, **Bot Match** plays the match maps in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course.
 
 TypeScript, Three.js (WebGPU, with a WebGL2 fallback), Vite, Node 24.
@@ -40,7 +40,7 @@ To play online locally:
    | Variable | Default | |
    | --- | --- | --- |
    | `PASSPHRASE` | empty | Required to join; empty is a public lobby. |
-   | `MAP` | `survival-town` | `survival-town`, `switchyard`, `crash`, `range` or `zero-island` (with bots it reads its nav from the built app in `STATIC_DIR`). |
+   | `MAP` | `survival-town` | `survival-town`, `switchyard`, `range` or `zero-island` (with bots it reads its nav from the built app in `STATIC_DIR`). |
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge`, `gungame` or `battle-royale` (which plays only on `zero-island`, so `MAP` defaults to it, and needs its nav from `STATIC_DIR`). |
    | `SQUADS` | `1` | Seats a Squad in `battle-royale`: `1`, `2` or `3`. |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
@@ -62,8 +62,8 @@ To play online locally:
 
 Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 
-- `?map=<map>` (`range`, `survival-town`, `switchyard`, `crash`, `zero-island`) starts with that map behind the menu.
-- `?explore=<map>` (`survival-town`, `switchyard`, `crash`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
+- `?map=<map>` (`range`, `survival-town`, `switchyard`, `zero-island`) starts with that map behind the menu.
+- `?explore=<map>` (`survival-town`, `switchyard`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
 - `?bench` flies the benchmark path and reports frame times, draw calls and triangles, at the High tier with the render scale fixed; `&tier=<tier>` flies another tier and `&dynres` lets dynamic resolution move the scale.
 - `?benchmark` opens the benchmark page, the one Settings > Video links to: it flies every map at a chosen tier and shows each map's average and 1% low frame time, the render scale dynamic resolution settled on, the adapter and the backend, and one line to copy. `&maps=<map>,<map>` flies only those maps, `&tier=<tier>` and `&dynres=on|off` set what it opens on, and `&run` starts it without the click. A script reads the reports from `globalThis.duty.benchmark` once `document.body.dataset.benchmark` is `done`.
@@ -75,7 +75,6 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?plants=off` draws a map without its plants (their soft cover still hides from bots; rocks and trunks show as their plain solids), to measure what the plants cost.
 - `?seed=<n>` plays every Local bots match on the same spawns and circles.
 - `?stats` writes each second's mean draw calls and triangles and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
-- *dev* `?botmap=crash` selects Crash in Bot Match when it opens.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`, `/royale/`); a production build always does.

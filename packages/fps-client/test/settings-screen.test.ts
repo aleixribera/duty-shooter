@@ -93,7 +93,7 @@ describe("the benchmark's verdict", () => {
     expect(benchmarkVerdict([row('Zero Island', 21, 40)], 'low')).toBe('Low averages under 60 fps on Zero Island.');
   });
   it('names the map whose stutters drop under 30 fps', () => {
-    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Crash', 10, 50)], 'ultra')).toMatch(/^Ultra holds 60 fps on average, but stutters on Crash drop under 30 fps: High may smooth them/);
+    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 10, 50)], 'ultra')).toMatch(/^Ultra holds 60 fps on average, but stutters on Survival Town drop under 30 fps: High may smooth them/);
   });
   it('says when it held the rate only by drawing smaller', () => {
     expect(benchmarkVerdict([row('Switchyard', 15, 25, 0.7)], 'ultra')).toMatch(/drawing smaller/);

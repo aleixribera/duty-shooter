@@ -80,7 +80,7 @@ describe('Zero Island: the Regions', () => {
     }
   });
 
-  it('gives each Core the size of Crash, on land', () => {
+  it('gives each Core 6,000 to 10,000 m², on land', () => {
     for (const id of REGION_IDS) {
       const { x, z, radius } = CORES[id];
       const area = Math.PI * radius * radius;

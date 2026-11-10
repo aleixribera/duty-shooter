@@ -23,7 +23,7 @@ export const REGION_IDS: readonly RegionId[] = ['ground-zero', 'the-dustlands', 
 
 type P = readonly [x: number, z: number];
 
-/** A Region's dense place, a disc of about Crash's size. */
+/** A Region's dense place, a disc of 6,000 to 10,000 m² (a radius of about 44 to 56 m). */
 export interface Core {
   readonly name: string;
   readonly x: number;

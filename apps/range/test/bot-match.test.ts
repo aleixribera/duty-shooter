@@ -4,17 +4,6 @@ import { BotMatchDriver } from '@duty-shooter/fps-client/session';
 import { buildMapById, mapSolids } from '../src/map/maps';
 
 describe('Bot Match', () => {
-  it('starts a Crash bot match with the ladder-enabled map', () => {
-    const map = buildMapById('crash');
-    const driver = new BotMatchDriver({ map:map.id, solids:mapSolids(map), ladders:map.ladders!, spawns:map.spawns, zones:map.zones, sites:map.sites, nav:map.nav!, mode:'tdm', botsPerTeam:2, name:'You' });
-    try {
-      for (let i=0;i<120;i++) driver.tick(usercmd());
-      expect(driver.match).toMatchObject({ map:'crash', mode:'tdm', phase:'playing' });
-      expect(driver.scores).toHaveLength(4);
-      expect(driver.client.self).not.toBeNull();
-    } finally { driver.dispose(); }
-  }, 30_000);
-
   it('plays on Switchyard, humans vs bots: you on Blue against four bots', () => {
     const map = buildMapById('switchyard');
     const driver = new BotMatchDriver({ map: map.id, solids: mapSolids(map), spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav!, mode: 'outposts', botsPerTeam: 3, hvb: true, name: 'You' });
@@ -54,7 +43,7 @@ describe('Bot Match', () => {
     afterEach(() => vi.restoreAllMocks());
 
     /** Your place (x, z, to the decimetre) at the start of each of `matches` Bot Matches, and the team you were on. */
-    function firstSpawns(mapId: 'survival-town' | 'switchyard' | 'crash', mode: ModeId, matches: number): { at: string; team: number }[] {
+    function firstSpawns(mapId: 'survival-town' | 'switchyard', mode: ModeId, matches: number): { at: string; team: number }[] {
       const map = buildMapById(mapId);
       const out: { at: string; team: number }[] = [];
       for (let n = 0; n < matches; n++) {

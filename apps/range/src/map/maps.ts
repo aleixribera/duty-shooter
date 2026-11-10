@@ -4,7 +4,6 @@ import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
 import { buildSwitchyard } from './switchyard';
-import { buildCrash } from './crash';
 import { buildZeroIsland } from './zero-island';
 
 /** The range keeps its measuring grid: every material in a grid finish (base tint, line colour). */
@@ -96,12 +95,12 @@ export function buildRange(): MapDefinition {
   };
 }
 
-export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'crash', 'range', 'zero-island'];
+export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range', 'zero-island'];
 
 /** `id` as a map id, or undefined when it names no map. */
 export const asMapId = (id: string | null | undefined): MapId | undefined => MAP_IDS.find((m) => m === id);
 /** The maps an online lobby plays: those built for matches (not the Practice Range). */
-export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard', 'crash'];
+export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
 
 /**
  * The team size each map plays at, by mode: with bots on, a lobby fills to
@@ -113,12 +112,11 @@ export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard', 'cra
 export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
   'survival-town': { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
-  crash: { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   range: {},
   'zero-island': { 'battle-royale': 30 },
 };
 
-const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, crash: buildCrash, range: buildRange, 'zero-island': buildZeroIsland };
+const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange, 'zero-island': buildZeroIsland };
 
 /** Builds a map by id. Each call builds afresh. */
 export function buildMapById(id: MapId): MapDefinition {

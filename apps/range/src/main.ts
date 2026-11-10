@@ -714,9 +714,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
    * + and - keys) until the map or mode changes.
    */
   const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
-  // Keep the original development link selecting Crash for existing testers.
-  const devBotCrash = import.meta.env.DEV && params.get('botmap') === 'crash';
-  const initialBotMap = devBotCrash ? 'crash' : BOT_MAPS[0]!;
+  const initialBotMap = BOT_MAPS[0]!;
   let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: initialBotMap, squadSize: 1, squads: {} };
   let botLobbyOpen = false;
   /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
@@ -1032,7 +1030,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   if (benchmarkPage) {
     // `&maps=a,b`: only those maps; every map otherwise, the small ones first.
     const asked = (params.get('maps') ?? '').split(',').map((m) => asMapId(m)).filter((m): m is MapId => m !== undefined);
-    const maps: readonly MapId[] = asked.length ? asked : ['range', 'survival-town', 'switchyard', 'crash', 'zero-island'];
+    const maps: readonly MapId[] = asked.length ? asked : ['range', 'survival-town', 'switchyard', 'zero-island'];
     const nameOf = (id: string) => (asMapId(id) ? load(asMapId(id)!).map.name : id);
     /** The run under way: a stop, or a new run, leaves the old one behind. */
     let run = 0;
@@ -1194,7 +1192,7 @@ function nextPaint(): Promise<void> {
 const SEAT_KEY = 'duty-shooter.seat';
 
 /** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
-const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'crash', 'zero-island']);
+const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'zero-island']);
 /** The map a Battle Royale plays on. */
 const ROYALE_MAP: MapId = 'zero-island';
 

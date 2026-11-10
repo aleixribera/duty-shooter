@@ -4,13 +4,13 @@ import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, las
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
-    const picks = Array.from({ length: 15 }, (_, i) => {
-      const values = [(Math.floor(i / 5) + 0.5) / 3, ((i % 5) + 0.5) / 5];
+    const picks = Array.from({ length: 10 }, (_, i) => {
+      const values = [(Math.floor(i / 5) + 0.5) / 2, ((i % 5) + 0.5) / 5];
       return randomLobbyPick({ maps: BOT_MAPS, hvb: false }, () => values.shift()!);
     });
     expect(new Set(picks.map((pick) => pick?.map))).toEqual(new Set(BOT_MAPS));
     expect(new Set(picks.map((pick) => pick?.mode))).toEqual(new Set(['tdm', 'ffa', 'outposts', 'charge', 'gungame']));
-    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(15);
+    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(10);
   });
 
   it('only picks team modes for humans vs bots and leaves the setting out of the change', () => {
@@ -18,7 +18,7 @@ describe('random lobby picks', () => {
       const values = [0.99, (i + 0.5) / 3];
       return randomLobbyPick({ maps: BOT_MAPS, hvb: true }, () => values.shift()!);
     });
-    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: 'crash', mode })));
+    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: 'switchyard', mode })));
     expect(randomLobbyPick({ maps: [], hvb: true })).toBeNull();
   });
 });
@@ -158,8 +158,6 @@ describe('the Play Online tile', () => {
     expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
     expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true })).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
     expect(lobbyTile({ map: 'zero-island', mode: 'battle-royale', players: 2, capacity: 60, phase: 'playing' })).toMatchObject({ map: 'Zero Island', mode: 'Battle Royale' });
-    expect(BOT_MAPS).toContain('crash');
-    expect(lobbyTile({ map:'crash', mode:'tdm', players:1, capacity:8, phase:'playing' }).map).toBe('Crash');
     expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
     // With a lobby the host picks the mode there, not the join form.
     expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }).pickMode).toBe(false);

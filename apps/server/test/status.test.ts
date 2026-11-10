@@ -45,7 +45,7 @@ describe('server bots setting', () => {
       // Survival Town's own team size (4 a side) rather than the server's default.
       expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 4, maxBotsPerTeam: 4 });
       // Every lobby map is held, for the host to pick between matches.
-      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard', 'crash'], map: 'survival-town' });
+      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard'], map: 'survival-town' });
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t: 'join', name: 'alice', passphrase: '', protocol: PROTOCOL_VERSION }));
@@ -66,7 +66,7 @@ describe('server bots setting', () => {
 });
 
 describe('server map setting', () => {
-  it('lets a host and friend play Crash together with its ladder', async () => {
+  it('lets a host and friend play Switchyard together, the map and mode picked in one go', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'duty-static-'));
     const server = await startServer({ port: 0, host: '127.0.0.1', passphrase: '', maxPlayers: 8, staticDir, version: 'test', mode: 'tdm', map: 'survival-town', maxBotsPerTeam: 4 });
     try {
@@ -89,17 +89,16 @@ describe('server map setting', () => {
       ws.send(JSON.stringify({ t:'lobby', hvb:true }));
       for (let i=0; i<250 && !server.game.matchStatus().lobby?.hvb; i++) await new Promise((done) => setTimeout(done,20));
       // The random button sends both concrete picks together and leaves the side setting untouched.
-      ws.send(JSON.stringify({ t:'lobby', map:'crash', mode:'outposts' }));
-      for (let i=0; i<250 && !snapshots.some(s => s.match?.lobby?.map === 'crash' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb); i++) await new Promise((done) => setTimeout(done,20));
-      expect(server.game.matchStatus().lobby).toMatchObject({ map:'crash', mode:'outposts', hvb:true });
-      expect(snapshots.some(s => s.match?.lobby?.map === 'crash' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb)).toBe(true);
+      ws.send(JSON.stringify({ t:'lobby', map:'switchyard', mode:'outposts' }));
+      for (let i=0; i<250 && !snapshots.some(s => s.match?.lobby?.map === 'switchyard' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb); i++) await new Promise((done) => setTimeout(done,20));
+      expect(server.game.matchStatus().lobby).toMatchObject({ map:'switchyard', mode:'outposts', hvb:true });
+      expect(snapshots.some(s => s.match?.lobby?.map === 'switchyard' && s.match.lobby.mode === 'outposts' && s.match.lobby.hvb)).toBe(true);
       ws.send(JSON.stringify({ t:'start' }));
       for (let i=0; i<250 && server.game.phase !== 'playing'; i++) await new Promise((done) => setTimeout(done,20));
-      expect(server.game.matchStatus()).toMatchObject({ map:'crash', mode:'outposts', phase:'playing' });
-      expect(server.game.simulation.world.ladders).toHaveLength(2);
-      for (let i=0; i<250 && !snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend')); i++)
+      expect(server.game.matchStatus()).toMatchObject({ map:'switchyard', mode:'outposts', phase:'playing' });
+      for (let i=0; i<250 && !snapshots.some(s => s.match?.map === 'switchyard' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend')); i++)
         await new Promise((done) => setTimeout(done,20));
-      expect(snapshots.some(s => s.match?.map === 'crash' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend'))).toBe(true);
+      expect(snapshots.some(s => s.match?.map === 'switchyard' && s.match.phase === 'playing' && Object.values(s.names ?? {}).includes('host') && Object.values(s.names ?? {}).includes('friend'))).toBe(true);
       ws.close();
       friend.close();
     } finally {

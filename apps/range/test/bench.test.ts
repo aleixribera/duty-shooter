@@ -111,8 +111,8 @@ describe('benchmark run', () => {
   it('writes the run as one line to paste', () => {
     const report = (map: string, meanMs: number, low1Ms: number, settled: number | null): BenchReport =>
       ({ map, tier: 'High', backend: 'WebGPU', adapter: 'nvidia rtx 4070', resolution: [1920, 1080], meanMs, low1Ms, renderScale: settled === null ? null : { settled, min: settled } }) as unknown as BenchReport;
-    expect(benchLine('v2.152.0', [report('range', 5.04, 9.26, null), report('crash', 16.7, 31, 0.85)], (m) => m.toUpperCase())).toBe(
-      'Duty Shooter v2.152.0 | High | WebGPU | nvidia rtx 4070 | drawn at 1920x1080 | RANGE 5.0 ms avg, 9.3 ms 1% low | CRASH 16.7 ms avg, 31.0 ms 1% low, scale 85%',
+    expect(benchLine('v2.152.0', [report('range', 5.04, 9.26, null), report('switchyard', 16.7, 31, 0.85)], (m) => m.toUpperCase())).toBe(
+      'Duty Shooter v2.152.0 | High | WebGPU | nvidia rtx 4070 | drawn at 1920x1080 | RANGE 5.0 ms avg, 9.3 ms 1% low | SWITCHYARD 16.7 ms avg, 31.0 ms 1% low, scale 85%',
     );
     expect(benchLine('dev', [])).toBe('');
     expect(benchLine('dev', [{ ...report('range', 5, 9, null), adapter: '' }])).toContain('| adapter not named |');

@@ -30,9 +30,9 @@ export interface LobbyInfo {
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game', 'battle-royale': 'Battle Royale' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit', lastSquad: 'last squad standing', noHumans: 'no players left' };
-export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', crash: 'Crash', 'zero-island': 'Zero Island' };
+export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'zero-island': 'Zero Island' };
 /** The maps Bot Match plays on. */
-export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard', 'crash'];
+export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard'];
 /** Teams always appear with their mark and name, never by colour alone. */
 export const TEAMS: Readonly<Record<number, { readonly name: string; readonly mark: string }>> = { 1: { name: 'Blue', mark: '◆' }, 2: { name: 'Orange', mark: '▲' } };
 
