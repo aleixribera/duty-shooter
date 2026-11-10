@@ -1,58 +1,8 @@
-import { MAX_PITCH, STATS, Simulation, box, createWorld, usercmd, type ButtonName, type Connection, type PlayerOutput, type UserCmd, type WeaponId } from '@duty-shooter/fps-core';
-import { createHeadlessMatch, createNetworkedMatch, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
+import { MAX_PITCH, Simulation, createWorld, usercmd, type Connection, type PlayerOutput } from '@duty-shooter/fps-core';
+import { createHeadlessMatch, createNetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { describe, expect, it } from 'vitest';
 import { lookPitch } from '../src/input';
-
-const DEG = Math.PI / 180;
-const FLOOR = box({ min: [-50, -1, -50], max: [50, 0, 50], material: 'concrete' });
-const minutes = (m: number) => Math.round(m * 60 * 60);
-
-/**
- * The mouse as the game drives it: a spawn's facing first, then each frame's
- * movement kept inside the limits lookPitch sets from the last view and usercmd.
- */
-function hand(client: NetworkedClient) {
-  let yaw = 0;
-  let pitch = 0;
-  let sent = usercmd();
-  return {
-    cmd(dy: number, buttons: ButtonName[] = []): UserCmd {
-      const facing = client.client.takeSpawn();
-      if (facing) ({ yaw, pitch } = facing);
-      const self = client.latest?.self;
-      pitch = lookPitch(pitch, dy, self ? self.pitch - sent.pitch : 0);
-      sent = usercmd({ yaw, pitch, buttons });
-      return sent;
-    },
-    /** The mouse pitch, the usercmd's. */
-    get pitch() {
-      return pitch;
-    },
-  };
-}
-
-const seat = (m: NetworkedMatch, c: NetworkedClient) => m.server.latest.players.find((p) => p.id === c.client.id) as PlayerOutput;
-
-/** Long and short bursts, a swap to the pistol and back now and then, a reload when dry; the mouse holds the aim level against the kick all along. */
-function fireHoldingLevel(m: NetworkedMatch, c: NetworkedClient, mouse: ReturnType<typeof hand>, ticks: number): void {
-  for (let t = 0; t < ticks; t++) {
-    const self = c.latest?.self;
-    const view = self?.pitch ?? 0;
-    const auto = self ? STATS.weapons[self.weapon.id].traits.fireMode === 'auto' : true;
-    const cycle = t % 600;
-    const burst = cycle < 50 || (cycle >= 120 && cycle < 300) || (cycle >= 360 && cycle < 380);
-    const buttons: ButtonName[] = [];
-    if (burst && (auto || t % 4 < 2)) buttons.push('Fire');
-    if (self && self.weapon.ammo === 0 && t % 30 === 0) buttons.push('Reload');
-    if (t % 1800 === 1500 || t % 1800 === 1700) buttons.push('SwitchWeapon');
-    m.step({ [c.name]: mouse.cmd(-Math.max(-2 * DEG, Math.min(2 * DEG, view * 0.3)), buttons) });
-  }
-}
-
-/** Pulls the mouse hard down for a second. */
-function pullDown(m: NetworkedMatch, c: NetworkedClient, mouse: ReturnType<typeof hand>): void {
-  for (let i = 0; i < 60; i++) m.step({ [c.name]: mouse.cmd(-5 * DEG) });
-}
+import { DEG, FLOOR, fireHoldingLevel, hand, minutes, pullDown, seat } from './helpers/look';
 
 describe('mouse look pitch limits', () => {
   it('still reaches the floor after a spray has kicked the view up', () => {
@@ -83,20 +33,6 @@ describe('mouse look pitch limits', () => {
     // Recoil never wears off, so holding the aim level moves the mouse pitch down by every kick: a whole life's worth of it.
     expect(lookPitch(-300 * DEG, -5 * DEG, 400 * DEG)).toBeCloseTo(-305 * DEG);
     expect(lookPitch(-300 * DEG, -200 * DEG, 400 * DEG)).toBeCloseTo(-MAX_PITCH - 400 * DEG);
-  });
-
-  // Every primary for a long life online: the real server (and its wire checks) and the client's prediction.
-  it.each(['m4a1', 'smg', 'shotgun', 'sniper'] satisfies WeaponId[])('after minutes of %s bursts held level online, the floor is in reach on the server and in prediction', (primary) => {
-    const m = createNetworkedMatch({ solids: [FLOOR], spawns: [{ position: [0, 0, 0], yaw: 0 }], latency: 0.04 });
-    const c = m.join('ann', { loadout: { primary, secondary: 'pistol', grenade: null } });
-    const mouse = hand(c);
-    fireHoldingLevel(m, c, mouse, minutes(4));
-    // Held level, with far more than half a turn of kicks pulled against.
-    expect(Math.abs(c.latest!.self!.pitch)).toBeLessThan(10 * DEG);
-    expect(mouse.pitch).toBeLessThan(-180 * DEG);
-    pullDown(m, c, mouse);
-    expect(seat(m, c).pitch).toBeCloseTo(-MAX_PITCH, 5);
-    expect(c.latest!.self!.pitch).toBeCloseTo(-MAX_PITCH, 5);
   });
 
   it('back in its seat after a dropped connection, the view stays where it was and still reaches the floor', () => {

@@ -56,69 +56,91 @@ function triangles(path: string): Map<string, Tri[]> {
   return out;
 }
 
-/** True when (x, y, z) is inside the mesh: more faces looking down than up below it (overlapping blocks are their union; a mesh open below, inside from its foot). */
-function inside(tris: readonly Tri[], x: number, y: number, z: number): boolean {
-  let below = 0;
-  let above = 0;
+/** Where the vertical line through (x, z) crosses the mesh: each face's height, and whether it looks down (a way in). */
+function column(tris: readonly Tri[], x: number, z: number): [number, boolean][] {
+  const out: [number, boolean][] = [];
   for (const [ax, ay, az, bx, by, bz, cx, cy, cz] of tris) {
     const d = (bx - ax) * (cz - az) - (cx - ax) * (bz - az);
     if (d === 0) continue;
     const u = ((x - ax) * (cz - az) - (cx - ax) * (z - az)) / d;
     const v = ((bx - ax) * (z - az) - (x - ax) * (bz - az)) / d;
     if (u < 0 || v < 0 || u + v > 1) continue;
-    const h = ay + u * (by - ay) + v * (cy - ay);
-    // A face looking down (d > 0) is a way in, one looking up a way out.
-    if (h > y) above += d > 0 ? -1 : 1;
-    else below += d > 0 ? 1 : -1;
+    out.push([ay + u * (by - ay) + v * (cy - ay), d > 0]);
+  }
+  return out;
+}
+
+/** True when height y of a column is inside the mesh: more faces looking down than up below it (overlapping blocks are their union; a mesh open below, inside from its foot). */
+function insideColumn(hits: readonly [number, boolean][], y: number): boolean {
+  let below = 0;
+  let above = 0;
+  for (const [h, down] of hits) {
+    // A face looking down is a way in, one looking up a way out.
+    if (h > y) above += down ? -1 : 1;
+    else below += down ? 1 : -1;
   }
   // Open below (a trunk): the faces above say more than those below.
   return Math.max(below, above) > 0;
 }
 
-/** How far a point is from a triangle. */
+/** How far a point is from a triangle, in plain numbers (it runs millions of times). */
 function toTriangle(p: readonly number[], t: Tri): number {
-  const a = [t[0], t[1], t[2]];
-  const b = [t[3], t[4], t[5]];
-  const c = [t[6], t[7], t[8]];
-  const sub = (u: number[], v: readonly number[]) => u.map((x, i) => x - v[i]!);
-  const dot = (u: number[], v: number[]) => u[0]! * v[0]! + u[1]! * v[1]! + u[2]! * v[2]!;
-  const ab = sub(b, a);
-  const ac = sub(c, a);
+  const [px, py, pz] = p as [number, number, number];
+  const [ax, ay, az, bx, by, bz, cx, cy, cz] = t;
+  const abx = bx - ax, aby = by - ay, abz = bz - az;
+  const acx = cx - ax, acy = cy - ay, acz = cz - az;
+  const at = (qx: number, qy: number, qz: number) => Math.hypot(px - qx, py - qy, pz - qz);
   // Closest point on the triangle, by the regions of its plane (Ericson, Real-Time Collision Detection 5.1.5).
-  const ap = sub(p as number[], a);
-  const d1 = dot(ab, ap);
-  const d2 = dot(ac, ap);
-  const at = (q: number[]) => Math.hypot(...sub(p as number[], q));
-  if (d1 <= 0 && d2 <= 0) return at(a);
-  const bp = sub(p as number[], b);
-  const d3 = dot(ab, bp);
-  const d4 = dot(ac, bp);
-  if (d3 >= 0 && d4 <= d3) return at(b);
+  const apx = px - ax, apy = py - ay, apz = pz - az;
+  const d1 = abx * apx + aby * apy + abz * apz;
+  const d2 = acx * apx + acy * apy + acz * apz;
+  if (d1 <= 0 && d2 <= 0) return at(ax, ay, az);
+  const bpx = px - bx, bpy = py - by, bpz = pz - bz;
+  const d3 = abx * bpx + aby * bpy + abz * bpz;
+  const d4 = acx * bpx + acy * bpy + acz * bpz;
+  if (d3 >= 0 && d4 <= d3) return at(bx, by, bz);
   const vc = d1 * d4 - d3 * d2;
-  if (vc <= 0 && d1 >= 0 && d3 <= 0) return at(a.map((x, i) => x + ab[i]! * (d1 / (d1 - d3))));
-  const cp = sub(p as number[], c);
-  const d5 = dot(ab, cp);
-  const d6 = dot(ac, cp);
-  if (d6 >= 0 && d5 <= d6) return at(c);
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+    const v = d1 / (d1 - d3);
+    return at(ax + abx * v, ay + aby * v, az + abz * v);
+  }
+  const cpx = px - cx, cpy = py - cy, cpz = pz - cz;
+  const d5 = abx * cpx + aby * cpy + abz * cpz;
+  const d6 = acx * cpx + acy * cpy + acz * cpz;
+  if (d6 >= 0 && d5 <= d6) return at(cx, cy, cz);
   const vb = d5 * d2 - d1 * d6;
-  if (vb <= 0 && d2 >= 0 && d6 <= 0) return at(a.map((x, i) => x + ac[i]! * (d2 / (d2 - d6))));
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+    const w = d2 / (d2 - d6);
+    return at(ax + acx * w, ay + acy * w, az + acz * w);
+  }
   const va = d3 * d6 - d5 * d4;
   if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
     const w = (d4 - d3) / (d4 - d3 + (d5 - d6));
-    return at(b.map((x, i) => x + (c[i]! - x) * w));
+    return at(bx + (cx - bx) * w, by + (cy - by) * w, bz + (cz - bz) * w);
   }
   const denom = 1 / (va + vb + vc);
   const v = vb * denom;
   const w = vc * denom;
-  return at(a.map((x, i) => x + ab[i]! * v + ac[i]! * w));
+  return at(ax + abx * v + acx * w, ay + aby * v + acy * w, az + abz * v + acz * w);
 }
 
-/** Points over a box's faces, edges and corners, and through it: `n` a side. */
+/** How far a point is from the nearest of `tris`, exactly when that is past `enough`; at or under it, any distance at or under it. */
+function nearest(p: readonly number[], tris: readonly Tri[], enough: number): number {
+  let best = Infinity;
+  for (const t of tris) {
+    const d = toTriangle(p, t);
+    if (d < best) best = d;
+    if (best <= enough) return best;
+  }
+  return best;
+}
+
+/** Points over a box's faces, edges and corners, and through it: `n` a side, a column at a time (the heights of each x and z together). */
 function samples(box: KitBox, n: number): [number, number, number][] {
   const out: [number, number, number][] = [];
   for (let i = 0; i <= n; i++) {
-    for (let j = 0; j <= n; j++) {
-      for (let k = 0; k <= n; k++) {
+    for (let k = 0; k <= n; k++) {
+      for (let j = 0; j <= n; j++) {
         const f = [i / n - 0.5, j / n - 0.5, k / n - 0.5];
         out.push([box.c[0] + f[0]! * box.s[0], box.c[1] + f[1]! * box.s[1], box.c[2] + f[2]! * box.s[2]]);
       }
@@ -213,10 +235,13 @@ describe('Kit models’ solids (ticket 63)', () => {
       let worst = 0;
       let at = '';
       for (const box of KIT_SOLIDS[asset]!) {
-        for (const p of samples(box, 8)) {
-          if (inside(tris, p[0], p[1], p[2])) continue;
+        let hits: [number, boolean][] = [];
+        for (const [n, p] of samples(box, 8).entries()) {
+          // One pass over the triangles answers a column's nine heights.
+          if (n % 9 === 0) hits = column(tris, p[0], p[2]);
+          if (insideColumn(hits, p[1])) continue;
           const q = p.map((v, i) => v * scale[i]!);
-          const d = Math.min(...scaled.map((t) => toTriangle(q, t)));
+          const d = nearest(q, scaled, TOLERANCE);
           if (d > worst) [worst, at] = [d, p.map((v) => v.toFixed(3)).join(', ')];
         }
       }
@@ -230,8 +255,9 @@ describe('Kit models’ solids (ticket 63)', () => {
       let filled = 0;
       for (let x = -0.49; x < 0.5; x += 0.04) {
         for (let z = -0.49; z < 0.5; z += 0.04) {
+          const hits = column(tris, x, z);
           for (let y = 0.01; y < 1; y += 0.04) {
-            if (!inside(tris, x, y, z)) continue;
+            if (!insideColumn(hits, y)) continue;
             solid++;
             if (boxes.some((b) => [x, y, z].every((v, i) => Math.abs(v - b.c[i]!) <= b.s[i]! / 2))) filled++;
           }
@@ -283,18 +309,29 @@ describe('Kit models’ solids (ticket 63)', () => {
         const r = Math.hypot(box.s[0], box.s[2]) / 2 + 0.1;
         // The triangles round the box, so a piece's hundred boxes don't each search all of it.
         const local = tris.filter((t) => Math.min(t[0], t[3], t[6]) < box.c[0] + r && Math.max(t[0], t[3], t[6]) > box.c[0] - r && Math.min(t[2], t[5], t[8]) < box.c[2] + r && Math.max(t[2], t[5], t[8]) > box.c[2] - r);
-        for (const [u, v, w] of samples({ c: [0, box.c[1], 0], s: box.s }, 6)) {
-          // Into the piece's frame: the box's +x looks along (cos yaw, 0, -sin yaw).
-          const p = [box.c[0] + u * c + w * s + 3.1e-6, v, box.c[2] - u * s + w * c + 2.7e-6] as const;
-          if (inside(local, p[0], p[1], p[2])) continue;
-          const d = Math.min(...local.map((t) => toTriangle(p, t)));
-          if (d > worst) [worst, at] = [d, `${box.part} at ${p.map((x) => x.toFixed(2)).join(', ')}`];
+        // The box's samples a column at a time: one pass over the triangles answers every height in it.
+        const N = 6;
+        for (let i = 0; i <= N; i++) {
+          for (let k = 0; k <= N; k++) {
+            const [u, w] = [(i / N - 0.5) * box.s[0], (k / N - 0.5) * box.s[2]];
+            // Into the piece's frame: the box's +x looks along (cos yaw, 0, -sin yaw).
+            const [x, z] = [box.c[0] + u * c + w * s + 3.1e-6, box.c[2] - u * s + w * c + 2.7e-6];
+            const hits = column(local, x, z);
+            for (let j = 0; j <= N; j++) {
+              const y = box.c[1] + (j / N - 0.5) * box.s[1];
+              if (insideColumn(hits, y)) continue;
+              // Only a point past the tolerance needs its exact distance: the search stops at the first triangle within it.
+              const p = [x, y, z] as const;
+              const d = nearest(p, local, TOLERANCE);
+              if (d > worst) [worst, at] = [d, `${box.part} at ${p.map((q) => q.toFixed(2)).join(', ')}`];
+            }
+          }
         }
       }
       expect(worst, `${name}: ${at}`).toBeLessThanOrEqual(TOLERANCE);
     }
     // Six Regions' pieces by now, the jungle's giant tree alone a hundred boxes in its leaves.
-  }, 240_000);
+  });
 
   it('keeps a box of every part of every built piece, and stands them all on the map', () => {
     for (const kit of ZERO_ISLAND_KITS) {

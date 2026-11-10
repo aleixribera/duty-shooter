@@ -151,8 +151,10 @@ describe('the event log', () => {
       ws.send(JSON.stringify({ t: 'join', name: 'smoke', passphrase: '', protocol: health.protocol, script: true }));
       await new Promise((done) => ws.addEventListener('message', done));
       ws.close();
-      for (let i = 0; i < 250 && server.game.playerCount > 0; i++) await new Promise((done) => setTimeout(done, 20));
-      const lines = readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      // Until the leave is written, however busy the machine: a count of short sleeps ran out under load before it was.
+      const read = () => readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+      for (const until = Date.now() + 20_000; Date.now() < until && !read().some((l) => l.event === 'leave'); ) await new Promise((done) => setTimeout(done, 20));
+      const lines = read();
       expect(lines.map((l) => l.event)).toEqual(['serverStart', 'join', 'matchStart', 'leave']);
       expect(lines[1]).toMatchObject({ name: 'smoke', bot: false, script: true });
       expect(lines.every((l) => typeof l.time === 'string')).toBe(true);

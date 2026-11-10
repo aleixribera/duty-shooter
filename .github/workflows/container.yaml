@@ -38,7 +38,7 @@ jobs:
       - name: Typecheck and test
         run: |
           npm run typecheck
-          npm test
+          npm run test:all
           docker compose config --quiet
       - name: Image name
         id: image

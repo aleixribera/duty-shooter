@@ -319,11 +319,32 @@ describe('Zero Island: moving on it', () => {
       const k = Math.hypot(o.axes[2][0], o.axes[2][2]);
       return { c: [o.center[0], o.center[2]] as const, hx: o.half[0], hz: o.half[2], along: [o.axes[2][0] / k, o.axes[2][2] / k] as const };
     };
+    // The island's solids by 8 m square, so each piece is checked against its neighbours rather than all 56,000.
+    const CELL = 8;
+    const grid = new Map<string, Solid[]>();
+    for (const o of solids) {
+      for (let i = Math.floor(o.min[0] / CELL); i <= Math.floor(o.max[0] / CELL); i++) {
+        for (let j = Math.floor(o.min[2] / CELL); j <= Math.floor(o.max[2] / CELL); j++) {
+          const key = `${i},${j}`;
+          const cell = grid.get(key);
+          if (cell) cell.push(o);
+          else grid.set(key, [o]);
+        }
+      }
+    }
+    /** The solids whose ground footprint comes within `margin` of the box's. */
+    const near = (s: Solid, margin: number): Solid[] => {
+      const found = new Set<Solid>();
+      for (let i = Math.floor((s.min[0] - margin) / CELL); i <= Math.floor((s.max[0] + margin) / CELL); i++) {
+        for (let j = Math.floor((s.min[2] - margin) / CELL); j <= Math.floor((s.max[2] + margin) / CELL); j++) for (const o of grid.get(`${i},${j}`) ?? []) found.add(o);
+      }
+      return [...found];
+    };
     const pieces = solids.filter((s) => {
       if (s.orientation && (s.orientation.pitch !== 0 || s.orientation.roll !== 0)) return false;
       const { c, hx, hz } = frame(s);
       const rise = s.max[1] - terrain.heightAt(c[0], c[1]);
-      return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && hx > 0.5 && hx < 2.5 && hz > 0.5 && hz < 2.5 && insidePolygon(boundary, c[0], c[1]) && !solids.some((o) => overlaps(s, o));
+      return s.blocks !== 'bullets' && s.prop === null && rise > 0.7 && rise < 1.9 && hx > 0.5 && hx < 2.5 && hz > 0.5 && hz < 2.5 && insidePolygon(boundary, c[0], c[1]) && !near(s, 0).some((o) => overlaps(s, o));
     });
     // A pool to try from: each Region built (tickets 17 to 22) trades its blockout's single boxes for fitted models of several.
     expect(pieces.length).toBeGreaterThan(15);
@@ -339,7 +360,7 @@ describe('Zero Island: moving on it', () => {
       const face = back(0.3);
       if (Math.abs(ground - terrain.heightAt(face[0], face[1])) > 0.2 || terrain.steepAt(from[0], from[1])) continue;
       const path = Array.from({ length: 12 }, (_, k) => back(0.1 + (k / 11) * 2.0)).flatMap(([x, z]) => [-0.6, 0, 0.6].map((w) => [x + along[1] * w, z - along[0] * w] as const));
-      if (solids.some((o) => o !== s && o.max[1] > ground + 0.3 && path.some(([x, z]) => x > o.min[0] && x < o.max[0] && z > o.min[2] && z < o.max[2]))) continue;
+      if (near(s, 2.5).some((o) => o !== s && o.max[1] > ground + 0.3 && path.some(([x, z]) => x > o.min[0] && x < o.max[0] && z > o.min[2] && z < o.max[2]))) continue;
       tried++;
       // At a point beyond it, so the run doesn't stop short of the piece.
       const to = back(-2 * hz - 4);
