@@ -30,7 +30,7 @@ import { buffer, fadeEdges, hp, lp, mix, modes, noiseBurst, peak, saturate, scat
 import { kitFor } from './kit';
 import { upsample } from './nuke';
 import { dbToGain, jit, cleanupOnEnd } from './synth-voice';
-import { WIDE_MAP, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WIDE_MAP, type MuzzleId, type WeaponId } from '@duty-shooter/fps-core';
 import type { SoundParams, Voice, VoiceExtras, VoiceParams } from './types';
 
 type Environment = 'outdoor' | 'indoor';
@@ -670,6 +670,17 @@ const SLOWEST = 0.98;
 /** How long a near shot of `w` rings in `e` (s): the longest of its layers. */
 const nearLength = (w: WeaponId, e: Environment): number => Math.max(RECIPES[w].seconds, RECIPES[w].mech.seconds, RECIPES[w].tail[e].seconds) / SLOWEST;
 
+/**
+ * What a muzzle device does to a shot (ticket 19), heard by everyone: a
+ * suppressor takes the crack off (a low-pass), drops the shot, and its far
+ * report fades at half the distance, as bots hear it; a compensator throws
+ * the blast sideways, harsher and louder, carrying a quarter farther.
+ */
+const DEVICE: Readonly<Record<MuzzleId, { readonly gain: number; readonly reach: number; readonly cutoff: number | null; readonly shelf: number }>> = {
+  suppressor: { gain: 0.42, reach: STATS.attachments.suppressor.hearing.value, cutoff: 2400, shelf: 0 },
+  compensator: { gain: 1.22, reach: STATS.attachments.compensator.hearing.value, cutoff: null, shelf: 3 },
+};
+
 export function gunshotVoice(): Voice & VoiceExtras {
   return {
     /** The longest any shot rings: the .308's tail outdoors, or the far sniper's. */
@@ -712,16 +723,24 @@ export function gunshotVoice(): Voice & VoiceExtras {
       const e: Environment = p.environment === 'indoor' ? 'indoor' : 'outdoor';
       // Per-shot jitter shared by every layer of this shot so they stay phase-locked.
       const rate = 1 + jit(0.02);
-      const shotGain = dbToGain(jit(1));
+      const device = p.muzzle ? DEVICE[p.muzzle] : null;
+      const shotGain = dbToGain(jit(1)) * (device?.gain ?? 1);
 
       // One tone filter per shot: random high-shelf tilt so consecutive shots differ in colour.
       const tone = ctx.createBiquadFilter();
       tone.type = 'highshelf';
       tone.frequency.value = 2800;
-      tone.gain.value = -1.75 + Math.random() * 3.5;
+      tone.gain.value = -1.75 + Math.random() * 3.5 + (device?.shelf ?? 0);
       const bus = ctx.createGain();
       bus.gain.value = shotGain;
-      tone.connect(bus).connect(out);
+      // A suppressor's shot through a low-pass: a thud and a hiss, not a crack.
+      const dull = device?.cutoff ? ctx.createBiquadFilter() : null;
+      if (dull) {
+        dull.type = 'lowpass';
+        dull.frequency.value = device!.cutoff!;
+        dull.Q.value = 0.5;
+        tone.connect(dull).connect(bus).connect(out);
+      } else tone.connect(bus).connect(out);
 
       const layers: Array<{ buffer: AudioBuffer; gain: number; delay: number }> = [];
       const local = p.local === true || p.distance === undefined;
@@ -730,7 +749,8 @@ export function gunshotVoice(): Voice & VoiceExtras {
         layers.push({ buffer: kit.pick(id.mech(w), MECH_VARIANTS, render.mech(w)), gain: r.gain.local * r.mech.gain, delay: Math.random() * 0.003 });
         layers.push({ buffer: kit.pick(id.tail(w, e), TAIL_VARIANTS, render.tail(w, e)), gain: r.gain.local * r.tailGain[e], delay: 0 });
       } else {
-        const d = p.distance ?? 0;
+        // A device moves where the shot fades: a suppressed shot 100 m off sounds as a plain one 200 m off.
+        const d = (p.distance ?? 0) / (device?.reach ?? 1);
         const far = Math.min(1, Math.max(0, (d - FAR_START) / (FAR_FULL - FAR_START)));
         const nearGain = Math.cos((far * Math.PI) / 2);
         const farGain = Math.sin((far * Math.PI) / 2) * edgeFade(d);
@@ -749,6 +769,7 @@ export function gunshotVoice(): Voice & VoiceExtras {
         remaining--;
         if (remaining <= 0) {
           tone.disconnect();
+          dull?.disconnect();
           bus.disconnect();
         }
       };

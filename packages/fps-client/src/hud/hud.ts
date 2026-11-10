@@ -1,4 +1,4 @@
-import { STATS, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
+import { STATS, heldRow, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
 import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
@@ -783,7 +783,7 @@ export class Hud {
 
     this.#style(this.#ammo, 'display', bars ? '' : 'none');
     if (w && self) {
-      const row = STATS.weapons[w.id];
+      const row = heldRow(self);
       const size = row.handling.magazineSize.value;
       this.#set(this.#gun, `${escape(row.traits.name)}<small>${row.traits.sight === 'scope' ? 'scoped' : row.traits.fireMode}</small>`);
       this.#text(this.#mag, String(w.ammo));

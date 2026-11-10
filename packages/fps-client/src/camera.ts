@@ -1,4 +1,4 @@
-import { STATS, mantleDuration, type MantleBand, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, heldRow, mantleDuration, type MantleBand, type PlayerOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { PerspectiveCamera } from 'three/webgpu';
 import { Stride, fallSpeed, gaitOf, onFoot, strafeSpeed } from './motion';
 import { adsFovDeg, verticalFov, type Settings } from './settings';
@@ -177,7 +177,7 @@ export class FirstPersonCamera {
     cam.rotation.set(pitch + this.#shakePitch.value, yaw + this.#shakeYaw.value, (this.#roll + lean + (mantle?.roll ?? 0)) * motion + this.#shakeRoll.value);
 
     const hip = verticalFov(settings.fov);
-    const aimed = verticalFov(adsFovDeg(settings, STATS.weapons[cur.weapon.id].handling.zoom.value));
+    const aimed = verticalFov(adsFovDeg(settings, heldRow(cur).handling.zoom.value));
     const moveTarget = 1 + ((MOVE_FOV[cur.movement] ?? 1) - 1) * (1 - eased) * this.#effects;
     this.#fovScale += (moveTarget - this.#fovScale) * (1 - Math.exp(-dt / 0.15));
     const fov = (hip + (aimed - hip) * eased) * this.#fovScale;

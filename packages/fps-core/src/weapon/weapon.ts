@@ -3,6 +3,7 @@ import type { MovementState } from '../movement/pmove';
 import { noise } from '../random';
 import { STATS, isShellReload, type WeaponId, type WeaponRow } from '../stats';
 import { Button, isPressed, type UserCmd } from '../usercmd';
+import { isStock, moddedRow, type Attachments } from './attachments';
 
 /**
  * The weapon state machine, driven by the weapon's row in the stats table:
@@ -23,6 +24,8 @@ export type ReloadKind = 'tactical' | 'empty';
 
 export interface WeaponState {
   readonly id: WeaponId;
+  /** What is on the gun (ticket 19); absent, it is stock. */
+  readonly attachments?: Attachments;
   /** Rounds in the magazine. */
   ammo: number;
   /** Rounds left to reload from (a Supply Drop's sniper); absent, the reserve is unlimited and a reload always fills the magazine. */
@@ -61,10 +64,16 @@ export function weaponRow(id: WeaponId): WeaponRow {
   return STATS.weapons[id];
 }
 
-export function createWeaponState(id: WeaponId = 'm4a1', reserve?: number): WeaponState {
-  const row = weaponRow(id);
+/** The row a weapon in hand works by: its gun's, changed by what is on it. */
+export function rowOf(state: Pick<WeaponState, 'id' | 'attachments'>): WeaponRow {
+  return moddedRow(state.id, state.attachments);
+}
+
+export function createWeaponState(id: WeaponId = 'm4a1', reserve?: number, attachments?: Attachments): WeaponState {
+  const row = moddedRow(id, attachments);
   return {
     id,
+    ...(attachments && !isStock(attachments) ? { attachments } : {}),
     ammo: row.handling.magazineSize.value,
     ...(reserve === undefined ? {} : { reserve }),
     action: 'draw',
@@ -108,7 +117,7 @@ export function drawWeapon(state: WeaponState, clock: number, buttons: number): 
   state.reloadHeld = 0;
   state.nextShot = Math.min(state.nextShot, clock);
   state.lastShot = Math.min(state.lastShot, clock);
-  state.fireReadyAt = clock + weaponRow(state.id).handling.drawTime.value;
+  state.fireReadyAt = clock + rowOf(state).handling.drawTime.value;
   state.prevButtons = buttons;
 }
 
@@ -151,8 +160,8 @@ export interface WeaponEvents {
 }
 
 /** Vertical and horizontal kick of the shot at `index` in a weapon's recoil pattern (degrees). */
-export function recoilKick(index: number, id: WeaponId = 'm4a1'): { pitch: number; yaw: number } {
-  const row = weaponRow(id);
+export function recoilKick(index: number, id: WeaponId = 'm4a1', attachments?: Attachments): { pitch: number; yaw: number } {
+  const row = moddedRow(id, attachments);
   const a = row.accuracy;
   const bounce = a.kickBounce?.value ?? 0;
   // A machine gun settles: the share of its early kick left at this shot, from 1 at the second to 0 by `settleShots`.
@@ -165,15 +174,16 @@ export function recoilKick(index: number, id: WeaponId = 'm4a1'): { pitch: numbe
   // small fixed wobble per shot so the pattern has texture but repeats exactly.
   // A belt drifts as a 30-round magazine does, over and over: not one slow
   // lean to the side across a hundred rounds.
-  const drift = Math.sin((index / (row.traits.reload === 'belt' ? 30 : row.handling.magazineSize.value)) * Math.PI * 2 + 0.6);
+  // The cycle is the stock magazine's: a bigger or smaller magazine keeps the gun's own pattern.
+  const drift = Math.sin((index / (row.traits.reload === 'belt' ? 30 : STATS.weapons[id].handling.magazineSize.value)) * Math.PI * 2 + 0.6);
   const wobble = (noise(index, 0x4d34) - 0.5) * 0.8;
   const side = a.settledKick ? a.horizontalKick.value * (settled / a.verticalKick.value + (1 - settled / a.verticalKick.value) * unsettled) : a.horizontalKick.value;
   return { pitch, yaw: -side * (drift + wobble) };
 }
 
 /** Hipfire spread half-angle (degrees) for the movement state, before ADS. */
-export function hipSpread(movement: MovementState, horizontalSpeed: number, id: WeaponId = 'm4a1'): number {
-  const a = weaponRow(id).accuracy;
+export function hipSpread(movement: MovementState, horizontalSpeed: number, id: WeaponId = 'm4a1', attachments?: Attachments): number {
+  const a = moddedRow(id, attachments).accuracy;
   if (movement === 'airborne' || movement === 'mantle') return a.hipSpreadAirborne.value;
   const f = Math.min(1, horizontalSpeed / STATS.movement.walkSpeed.value);
   return a.hipSpreadStill.value + (a.hipSpreadMoving.value - a.hipSpreadStill.value) * f;
@@ -181,8 +191,8 @@ export function hipSpread(movement: MovementState, horizontalSpeed: number, id: 
 
 /** Current spread half-angle (degrees): hipfire spread blended toward the aimed spread (0, or a shotgun's cone) by ADS. */
 export function currentSpread(state: WeaponState, movement: MovementState, horizontalSpeed: number): number {
-  const aimed = weaponRow(state.id).accuracy.aimedSpread?.value ?? 0;
-  return hipSpread(movement, horizontalSpeed, state.id) * (1 - state.ads) + aimed * state.ads;
+  const aimed = rowOf(state).accuracy.aimedSpread?.value ?? 0;
+  return hipSpread(movement, horizontalSpeed, state.id, state.attachments) * (1 - state.ads) + aimed * state.ads;
 }
 
 /** Share of the scope sway left after standing still and aimed for the settle time. */
@@ -195,7 +205,7 @@ export const SWAY_SETTLED = 0.2;
  * without a scope.
  */
 export function swayOffset(state: WeaponState): { yaw: number; pitch: number } {
-  const a = weaponRow(state.id).accuracy;
+  const a = rowOf(state).accuracy;
   if (!a.sway || !a.swaySettle || state.ads <= 0) return { yaw: 0, pitch: 0 };
   const settle = Math.min(1, state.steady / a.swaySettle.value);
   const amplitude = a.sway.value * DEG * state.ads * (1 - (1 - SWAY_SETTLED) * settle);
@@ -260,7 +270,7 @@ export function emptyEvents(): WeaponEvents {
 
 /** Advances the weapon by one tick of `dt` seconds and reports what happened. */
 export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContext, dt: number, events: WeaponEvents = emptyEvents()): WeaponEvents {
-  const row = weaponRow(state.id);
+  const row = rowOf(state);
   const h = row.handling;
   const t0 = state.clock;
   const t1 = t0 + dt;
@@ -408,7 +418,7 @@ function fireShots(state: WeaponState, row: WeaponRow, cmd: UserCmd, ctx: Weapon
     const centre = spreadPoint(ctx.seed, state.shotsFired, 1, spread);
     const pellets = row.damage.pellets?.value ?? 1;
     const projectiles = pellets === 1 ? [centre] : pelletPattern(ctx.seed, state.shotsFired, pellets, spread);
-    const kick = recoilKick(state.shotIndex, state.id);
+    const kick = recoilKick(state.shotIndex, state.id, state.attachments);
     events.shots.push({
       fraction: (time - t0) / dt,
       index: state.shotIndex,

@@ -53,4 +53,34 @@ describe('a muzzle flash', () => {
     expect(size('m4a1')).toBeLessThan(size('shotgun'));
     effects.dispose();
   });
+
+  // Ticket 19: what a muzzle device shows is what everyone sees, so a compensator's steadier gun is paid for in sight.
+  it('shows nothing from a suppressor and more from a compensator', () => {
+    const scene = new Scene();
+    const effects = new Effects(scene, createWorld([]));
+    const camera = new PerspectiveCamera();
+    const fire = (device?: 'suppressor' | 'compensator') => {
+      const flash = effects.createFlash();
+      let size = 0;
+      let shown = false;
+      for (let i = 0; i < 200; i++) {
+        effects.flash(flash, 'm4a1', device);
+        shown ||= flash.visible;
+        size += flash.scale.x;
+      }
+      effects.shot([0, 1.6, 0], [0, 0, -1], 'm4a1', device);
+      effects.update(1 / 60, camera);
+      const light = shotLight(scene);
+      for (let t = 0; t < 0.2; t += 1 / 60) effects.update(1 / 60, camera);
+      return { shown, size: size / 200, light };
+    };
+    const plain = fire();
+    const quiet = fire('suppressor');
+    const loud = fire('compensator');
+    expect(quiet.shown).toBe(false);
+    expect(quiet.light).toBeLessThan(plain.light * 0.2);
+    expect(loud.size).toBeGreaterThan(plain.size * 1.3);
+    expect(loud.light).toBeGreaterThan(plain.light);
+    effects.dispose();
+  });
 });

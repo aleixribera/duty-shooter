@@ -14,7 +14,11 @@ export const DROP_WEAPON: WeaponId = 'sniper';
 
 /** A Battle Royale loadout: the sniper comes only from a Supply Drop, so a pick of it starts with the M4A1. */
 export function royaleLoadout(loadout: Loadout): Loadout {
-  return loadout.primary === DROP_WEAPON ? { ...loadout, primary: 'm4a1' } : loadout;
+  if (loadout.primary !== DROP_WEAPON) return loadout;
+  // The sniper's build was made for the sniper: the M4A1 that stands in for it goes stock.
+  const { attachments, ...rest } = loadout;
+  const secondary = attachments?.secondary;
+  return { ...rest, primary: 'm4a1', ...(secondary ? { attachments: { secondary } } : {}) };
 }
 
 /** The most weapons that lie on the ground at once; past it the oldest that isn't a sniper goes. */

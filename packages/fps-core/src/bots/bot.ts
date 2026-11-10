@@ -8,7 +8,8 @@ import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '.
 import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
-import type { ThrowableId } from '../weapon/loadout';
+import { moddedRow, shotLoudness } from '../weapon/attachments';
+import { kitInHand, type ThrowableId } from '../weapon/loadout';
 import { coverBits, coverNear } from './cover-spots';
 import { LONG_SIGHTLINE, findPath, linkKind, nearestNode, startNode, type NavGraph } from './nav';
 import { longSightlines, navMiddle, nodesNear } from './nav-queries';
@@ -770,14 +771,15 @@ export class Bot {
       const last = this.#memory.get(tp.id)?.position ?? tp.position;
       // Aim where the target was a moment ago, carried on the way it was moving then: a person's eye and hand
       // lag behind what moves and follow its motion, so they keep up with a steady strafe and fall behind when it turns.
-      const flight = range / STATS.weapons[self.weapon.id].handling.muzzleVelocity.value;
+      const row = moddedRow(self.weapon.id, kitInHand(self.loadout, self.weapon));
+      const flight = range / row.handling.muzzleVelocity.value;
       const seen = this.#perceived(target, tp, time, flight);
       const point: Vec3 = target.visible ? zoneCentre(seen, target.zone) : [last[0], last[1] + 1.4, last[2]];
       const aim = anglesOf([point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]]);
       const settle = Math.exp(-seconds / SETTLE);
       const p = this.profile;
       // A scope magnifies the picture, so the same unsteady hand is off by less of an angle.
-      const magnified = 1 + (STATS.weapons[self.weapon.id].handling.zoom.value - 1) * self.weapon.ads;
+      const magnified = 1 + (row.handling.zoom.value - 1) * self.weapon.ads;
       const wobble = (p.aimError * p.wobble) / magnified;
       target.errYaw = target.errYaw * settle + wobble * Math.sin(time * p.wobbleRate + (this.#seed % 7)) * (1 - settle);
       target.errPitch = target.errPitch * settle + (wobble * 0.6 * Math.sin(time * p.wobbleRate * 1.3 + (this.#seed % 5)) + p.aimBias / magnified) * (1 - settle);
@@ -1384,12 +1386,14 @@ export class Bot {
       const r = (n: number) => noise(this.#seed, view.tick, 100 + k * 8 + n);
       if (e.type === 'shot' && e.shooter !== self.id) {
         const ground = view.ground ?? null;
+        // A suppressor carries half as far, a compensator farther (ticket 19).
+        const loud = shotLoudness(e.muzzle);
         const d = flat(self.position, e.origin);
-        if (d > (ground ? FAR_HEARING : HEARING)) continue;
+        if (d > (ground ? FAR_HEARING : HEARING) * loud) continue;
         const shooter = this.#seats.get(e.shooter);
         if (!shooter || !view.isEnemy(shooter)) continue;
         const muffled = d > SENSE && sightBlocked(this.#world, eye, e.origin);
-        if (d > (ground ? (muffled ? FAR_MUFFLED : FAR_HEARING) : muffled ? MUFFLED_HEARING : HEARING)) continue;
+        if (d > (ground ? (muffled ? FAR_MUFFLED : FAR_HEARING) : muffled ? MUFFLED_HEARING : HEARING) * loud) continue;
         this.#loud.set(e.shooter, time);
         const known = this.#memory.get(e.shooter);
         // Near, it's placed as before; farther off on the island, only roughly: a bearing and about how far.

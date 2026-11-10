@@ -444,6 +444,50 @@ export const STATS = {
     blastVestFlash: estimate(0.45, 'multiplier', 'Blinded this share of the usual time by a flash.'),
   },
 
+  /**
+   * Attachments (ticket 19): each one buys a thing and pays for it with
+   * another, so an unlock is a choice of style and never a plain gain. The
+   * unlocks live in the page's own storage, which the server can't check: a
+   * forged save gets nothing a stock gun can't answer. Multipliers apply to
+   * the gun's own row; game values, to tune by play.
+   */
+  attachments: {
+    reflex: {
+      adsTime: estimate(1, 'multiplier', 'A clear dot in place of the irons: the sight picture is the gain, and it costs nothing in time.'),
+    },
+    prism: {
+      zoom: estimate(2, 'multiplier', 'A 2x prism sight: sees a head at 50 m, but the view (and the turn, which follows the zoom) narrows. Under the Vantage\'s 2.2x.'),
+      adsTime: estimate(1.18, 'multiplier', 'Heavier, and the eye has to find the reticle: slower into the sights.'),
+    },
+    suppressor: {
+      range: estimate(0.85, 'multiplier', 'Each damage band ends this much nearer: a gun quiet enough to flank with kills less far.'),
+      velocity: estimate(0.85, 'multiplier', 'A slower round: more lead on a mover far off. The cost on a gun whose damage never falls off (the sniper).'),
+      hearing: estimate(0.5, 'multiplier', 'Bots hear the shot from this share of the usual distance, and nobody sees a flash.'),
+    },
+    compensator: {
+      horizontalKick: estimate(0.75, 'multiplier', 'Ports that throw the gas up and to the sides: the drift sideways is cut most.'),
+      verticalKick: estimate(0.9, 'multiplier', 'And the climb a little.'),
+      hearing: estimate(1.25, 'multiplier', 'Louder and brighter: bots hear the shot this much farther.'),
+    },
+    extended: {
+      magazine: estimate(1.5, 'multiplier', 'Half again as many rounds (rounded).'),
+      reload: estimate(1.25, 'multiplier', 'A longer magazine is slower to seat: every reload time is this much longer.'),
+      adsTime: estimate(1.08, 'multiplier', 'The weight hangs under the gun: a touch slower into the sights.'),
+    },
+    speed: {
+      magazine: estimate(0.8, 'multiplier', 'A short magazine with a pull tab: a fifth fewer rounds (rounded).'),
+      reload: estimate(0.7, 'multiplier', 'Out and in quicker: every reload time is this share of the usual.'),
+    },
+    vertical: {
+      verticalKick: estimate(0.8, 'multiplier', 'A grip to pull down on: the climb of every shot is this share.'),
+      adsTime: estimate(1.1, 'multiplier', 'Held out at arm\'s length: slower into the sights.'),
+    },
+    angled: {
+      adsTime: estimate(0.85, 'multiplier', 'Pushed up into the shoulder quickly: faster into the sights.'),
+      hipSpread: estimate(1.25, 'multiplier', 'Held loosely from the hip: every hipfire spread is this much wider.'),
+    },
+  },
+
   /** Quick melee (gun butt). */
   melee: {
     damage: estimated(55, 'HP', 'Not found. MW2019 quick melee is a two-hit kill at full health.'),

@@ -6,6 +6,7 @@ import { STATS } from '../stats';
 import type { PlayerId, SimEvent, TeamId } from '../simulation';
 import { NoiseGrid } from './noise-grid';
 import { SquadIntel } from './squad-intel';
+import { shotLoudness } from '../weapon/attachments';
 
 /**
  * Battle Royale's ground for each bot: where it chooses to be, worked out for
@@ -211,7 +212,7 @@ export class SquadPlanner {
    */
   hear(events: readonly SimEvent[], where: (id: PlayerId) => { readonly team: TeamId; readonly position: Vec3 } | undefined, time: number): void {
     for (const e of events) {
-      if (e.type === 'shot') this.noise.add(e.origin, time);
+      if (e.type === 'shot') this.noise.add(e.origin, time, shotLoudness(e.muzzle));
       else if (e.type === 'hit' || e.type === 'down') {
         const victim = where(e.victim);
         if (victim) this.intel(victim.team).contact = time;

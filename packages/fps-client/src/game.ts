@@ -2,6 +2,10 @@ import {
   GUN_GAME_LADDER_LENGTH,
   GUN_GAME_KILLS_PER_GUN,
   STATS,
+  heldRow,
+  kitInHand,
+  moddedRow,
+  reloadPace,
   TICK_SECONDS,
   Button,
   angleDelta,
@@ -27,6 +31,7 @@ import {
   type Score,
   type TeamId,
   type UserCmd,
+  type MuzzleId,
   type Vec3,
   type TrapKind,
   type WeaponId,
@@ -145,10 +150,20 @@ export interface GameOptions {
   readonly course?: CourseGates | null;
 }
 
+/**
+ * How far into its action a player's weapon is, for the animation: a reload
+ * with an extended or speed magazine runs slower or faster than the stock
+ * one, so its hands play the stock track at that pace.
+ */
+function animTime(p: PlayerOutput, alpha: number): number {
+  const t = p.weapon.actionTime + alpha * TICK_SECONDS;
+  return p.weapon.action === 'reload' ? t / reloadPace(kitInHand(p.loadout, p.weapon)) : t;
+}
+
 /** Per-action timings for the weapon's foley, in seconds into the action. */
 function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventName])[] {
   const w = self.weapon;
-  const row = STATS.weapons[w.id];
+  const row = heldRow(self);
   if (w.action === 'reload') {
     const r = row.reload;
     if (isShellReload(r)) {
@@ -775,7 +790,7 @@ export class Game {
       forward = viewDirection(pose.yaw, pose.pitch);
       this.input.aiming = self.weapon.ads > 0.5;
       this.input.pitchOffset = self.pitch - this.#cmd.pitch;
-      this.input.setWeapon(self.weapon.slot, STATS.weapons[self.weapon.id].handling.zoom.value);
+      this.input.setWeapon(self.weapon.slot, heldRow(self).handling.zoom.value);
       const speed = Math.hypot(self.velocity[0], self.velocity[2]);
       const lookDelta = { yaw: angleDelta(this.#lastLook.yaw, look.yaw), pitch: look.pitch - this.#lastLook.pitch };
       this.#viewmodel.root.visible = self.alive;
@@ -784,7 +799,7 @@ export class Game {
           weapon: self.weapon.id,
           grenade: self.grenade,
           action: self.weapon.action,
-          actionTime: self.weapon.actionTime + alpha * TICK_SECONDS,
+          actionTime: animTime(self, alpha),
           reload: self.weapon.reload,
           ammo: self.weapon.ammo,
           ads: self.weapon.ads,
@@ -1270,7 +1285,7 @@ export class Game {
         weapon: p.weapon.id,
         grenade: p.grenade,
         action: p.weapon.action,
-        actionTime: p.weapon.actionTime + alpha * TICK_SECONDS,
+        actionTime: animTime(p, alpha),
         reload: p.weapon.reload,
         ammo: p.weapon.ammo,
         ads: p.weapon.ads,
@@ -1824,7 +1839,7 @@ export class Game {
     const held = this.#paused || this.#inShot || !playing || this.#counting() || (match?.preparation ?? null) !== null || this.#charge?.phase === 'freeze';
     const fighting = !held && self !== null && self.alive && !self.downed;
     const w = self?.weapon;
-    const size = w ? STATS.weapons[w.id]?.handling.magazineSize.value : undefined;
+    const size = self && w ? heldRow(self).handling.magazineSize.value : undefined;
     const before = this.#hints.memory;
     this.#hints = stepHints(
       this.#hints,
@@ -1940,7 +1955,7 @@ export class Game {
     if (pad) input.padAssist(aimSlowdown(aim));
     if (!touch) return;
     const w = self.weapon;
-    const row = STATS.weapons[w.id];
+    const row = heldRow(self);
     const range = autoFireRange(Object.values(row.damage.bands).map((band) => band.range?.value));
     // A scoped rifle from the hip hits nothing: auto-fire waits for the glass.
     const sighted = row.traits.sight !== 'scope' || w.ads >= 0.9;
@@ -2100,23 +2115,25 @@ export class Game {
       case 'shot': {
         this.#log.shot(e.shooter, e.origin);
         const own = e.shooter === selfId;
+        // The gun's muzzle device, heard and seen by everyone (ticket 19).
+        const device = e.muzzle ? { muzzle: e.muzzle } : {};
         if (!own && this.#follow?.eyes && this.#follow.id === e.shooter) {
           // Through their eyes, their shot is fired from your hands.
-          this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
+          this.#play('gunshot', { local: true, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
-          this.#effects.flash(this.#viewFlash, e.weapon);
+          this.#effects.flash(this.#viewFlash, e.weapon, e.muzzle);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction, e.weapon);
+          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle);
           this.#tracer(e, muzzle);
         } else if (own) {
-          this.#play('gunshot', { local: true, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
+          this.#play('gunshot', { local: true, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
           this.#viewmodel.fire();
-          this.#effects.flash(this.#viewFlash, e.weapon);
+          this.#effects.flash(this.#viewFlash, e.weapon, e.muzzle);
           const kick = CAMERA_KICK[e.weapon];
           this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
           this.#rumble(shotRumble(kick));
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction, e.weapon);
+          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle);
           this.#tracer(e, muzzle);
           const cam = this.#camera.camera;
           const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
@@ -2129,15 +2146,15 @@ export class Game {
           this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
           for (const eng of this.#engagements.values()) eng.shots += 1;
         } else {
-          this.#play('gunshot', { position: e.origin, weapon: e.weapon, when: this.#when(tickStart, e.fraction) });
-          this.#effects.shot(e.origin, e.direction, e.weapon);
+          this.#play('gunshot', { position: e.origin, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
+          this.#effects.shot(e.origin, e.direction, e.weapon, e.muzzle);
           const flash = this.#worldFlashes[this.#nextWorldFlash] as Mesh;
           this.#nextWorldFlash = (this.#nextWorldFlash + 1) % this.#worldFlashes.length;
           flash.position.set(e.origin[0] + e.direction[0] * 0.9, e.origin[1] + e.direction[1] * 0.9 - 0.12, e.origin[2] + e.direction[2] * 0.9);
           flash.quaternion.copy(this.#camera.camera.quaternion);
-          this.#effects.flash(flash, e.weapon);
+          this.#effects.flash(flash, e.weapon, e.muzzle);
           this.#tracer(e, [flash.position.x, flash.position.y, flash.position.z]);
-          this.#crack(e.origin, e.direction, e.weapon);
+          this.#crack(e.origin, e.direction, e.weapon, e.muzzle);
         }
         break;
       }
@@ -2426,12 +2443,12 @@ export class Game {
     const mode = this.#driver?.match?.mode ?? 'ffa';
     const team = mode === 'ffa' || mode === 'gungame' ? null : (this.#playerById(e.shooter)?.team ?? null);
     const self = this.#cur && this.#driver?.selfId !== e.shooter ? this.#cur : null;
-    if (e.pellets) for (const d of e.pellets) this.#tracers.fire(e.shooter, e.weapon, e.origin, d, muzzle, this.#others, team, self);
-    else this.#tracers.fire(e.shooter, e.weapon, e.origin, e.direction, muzzle, this.#others, team, self);
+    if (e.pellets) for (const d of e.pellets) this.#tracers.fire(e.shooter, e.weapon, e.origin, d, muzzle, this.#others, team, self, e.muzzle);
+    else this.#tracers.fire(e.shooter, e.weapon, e.origin, e.direction, muzzle, this.#others, team, self, e.muzzle);
   }
 
   /** A supersonic crack when someone else's rifle round passes close to the listener (the slower guns' rounds don't crack). */
-  #crack(origin: Vec3, direction: Vec3, weapon: WeaponId | undefined): void {
+  #crack(origin: Vec3, direction: Vec3, weapon: WeaponId | undefined, device?: MuzzleId): void {
     if (!SUPERSONIC.has(weapon ?? 'm4a1')) return;
     const self = this.#cur;
     if (!self || !self.alive) return;
@@ -2441,7 +2458,7 @@ export class Game {
     if (along < 8) return;
     const closest: Vec3 = [origin[0] + direction[0] * along, origin[1] + direction[1] * along, origin[2] + direction[2] * along];
     const miss = Math.hypot(closest[0] - eye[0], closest[1] - eye[1], closest[2] - eye[2]);
-    if (miss < CRACK_MISS) this.#play('bulletCrack', { position: closest, intensity: 1 - miss / CRACK_MISS, when: along / STATS.weapons[weapon ?? 'm4a1'].handling.muzzleVelocity.value });
+    if (miss < CRACK_MISS) this.#play('bulletCrack', { position: closest, intensity: 1 - miss / CRACK_MISS, when: along / moddedRow(weapon ?? 'm4a1', device ? { muzzle: device } : undefined).handling.muzzleVelocity.value });
   }
 
   /**

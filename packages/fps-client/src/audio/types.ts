@@ -1,4 +1,4 @@
-import type { Material, WeaponId } from '@duty-shooter/fps-core';
+import type { Material, MuzzleId, WeaponId } from '@duty-shooter/fps-core';
 import type { MixLevels } from './mix';
 import type { Music, MusicState } from './music/player';
 import type { Speech, SpeechState } from './speech';
@@ -97,6 +97,7 @@ export interface SoundParams {
   readonly muffled?: boolean; // walls between the source and the listener: dulled and quieter
   readonly when?: number; // seconds from now (>= 0) for sub-frame scheduling, default 0
   readonly weapon?: WeaponId; // which gun a gunshot is, or whose action a reload, bolt or draw is (the M4A1 when absent)
+  readonly muzzle?: MuzzleId; // a gunshot's muzzle device: a suppressor dulls it and carries half as far, a compensator is harsher and carries farther
 }
 
 /** One synthesized or sampled sound. Swapping a voice for a recorded sample means registering a different Voice. */

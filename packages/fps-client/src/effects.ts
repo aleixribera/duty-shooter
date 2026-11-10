@@ -1,4 +1,4 @@
-import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import { abs, attribute, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AdditiveBlending,
@@ -49,6 +49,17 @@ export const MUZZLE: Readonly<Record<WeaponId, { readonly flash: number; readonl
   lmg: { flash: 1.1, smoke: 1.1 },
 };
 const PLAIN_MUZZLE = MUZZLE.m4a1;
+
+/**
+ * A muzzle device's flash (ticket 19): a suppressor shows none and barely
+ * lights the scene, and wisps a little more smoke out of its can; a
+ * compensator throws a bigger, brighter flash out of its ports. Both are what
+ * every player sees, so the compensator's steadier gun is paid for in sight.
+ */
+export const DEVICE_FLASH: Readonly<Record<MuzzleId, { readonly flash: number; readonly light: number; readonly smoke: number }>> = {
+  suppressor: { flash: 0, light: 0.12, smoke: 1.25 },
+  compensator: { flash: 1.45, light: 1.35, smoke: 1 },
+};
 
 type N = Node<'float'>;
 type N3 = Node<'vec3'>;
@@ -539,10 +550,12 @@ export class Effects {
   }
 
   /** Shows a flash mesh for one or two frames with a random twist and size, sized for `weapon`'s round. */
-  flash(mesh: Mesh, weapon?: WeaponId): void {
+  flash(mesh: Mesh, weapon?: WeaponId, device?: MuzzleId): void {
+    const size = (weapon ? MUZZLE[weapon] : PLAIN_MUZZLE).flash * (device ? DEVICE_FLASH[device].flash : 1);
+    if (size <= 0) return;
     mesh.visible = true;
     mesh.rotation.z = Math.random() * Math.PI * 2;
-    mesh.scale.setScalar((0.8 + Math.random() * 0.5) * (weapon ? MUZZLE[weapon] : PLAIN_MUZZLE).flash);
+    mesh.scale.setScalar((0.8 + Math.random() * 0.5) * size);
     const existing = this.#flashes.find((f) => f.mesh === mesh);
     if (existing) existing.age = -1;
     else this.#flashes.push({ mesh, age: -1 });
@@ -556,8 +569,10 @@ export class Effects {
   }
 
   /** A shot fired at `origin` (world) toward `direction` by `weapon`: lights the scene and builds up smoke on sustained fire. */
-  shot(origin: Vec3, direction: Vec3, weapon?: WeaponId): void {
-    const look = weapon ? MUZZLE[weapon] : PLAIN_MUZZLE;
+  shot(origin: Vec3, direction: Vec3, weapon?: WeaponId, device?: MuzzleId): void {
+    const plain = weapon ? MUZZLE[weapon] : PLAIN_MUZZLE;
+    const fx = device ? DEVICE_FLASH[device] : null;
+    const look = fx ? { flash: plain.flash * fx.light, smoke: plain.smoke * fx.smoke } : plain;
     const i = this.#nextLight;
     this.#nextLight = (i + 1) % this.#lights.length;
     const light = this.#lights[i] as PointLight;

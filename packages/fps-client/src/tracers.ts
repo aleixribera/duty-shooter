@@ -1,4 +1,4 @@
-import { STATS, hitBody, raycastWorld, type HitPose, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { STATS, hitBody, moddedRow, raycastWorld, type HitPose, type MuzzleId, type TeamId, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import { attribute, cameraPosition, clamp, dot, float, max, min, mx_noise_float, positionWorld, uv, vec2, vec3 } from 'three/tsl';
 import { horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
 import { AdditiveBlending, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, MeshBasicNodeMaterial, NormalBlending, PlaneGeometry, type Camera, type Scene } from 'three/webgpu';
@@ -372,9 +372,10 @@ export class Tracers {
    * A bullet leaving `muzzle` (what you see) on the path the simulation flies
    * from `eye` along `direction`. `bodies` are the soldiers as drawn; the
    * shooter's team keeps it from stopping in a teammate (null without teams).
+   * `device` is the gun's muzzle device: a suppressed round flies slower.
    */
-  fire(shooter: string, weapon: WeaponId, eye: Vec3, direction: Vec3, muzzle: Vec3, bodies: readonly TracerBody[], team: TeamId | null, extra: TracerBody | null = null): void {
-    const speed = STATS.weapons[weapon].handling.muzzleVelocity.value;
+  fire(shooter: string, weapon: WeaponId, eye: Vec3, direction: Vec3, muzzle: Vec3, bodies: readonly TracerBody[], team: TeamId | null, extra: TracerBody | null = null, device?: MuzzleId): void {
+    const speed = moddedRow(weapon, device ? { muzzle: device } : undefined).handling.muzzleVelocity.value;
     const who = this.#shooterScratch;
     who.id = shooter;
     who.team = team;

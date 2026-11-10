@@ -1,4 +1,4 @@
-import { DEFAULT_LOADOUT, STATS, parseLoadout, type Loadout } from '@duty-shooter/fps-core';
+import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, isStock, parseAttachments, parseLoadout, type Attachments, type Loadout, type WeaponId } from '@duty-shooter/fps-core';
 import { DEFAULT_MIX, type MixLevels } from './audio/mix';
 import type { PadLayout } from './gamepad';
 import { CROSSHAIR_COLOURS, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, DEFAULT_CROSSHAIR, type CrosshairColour, type CrosshairOptions } from './hud/crosshair';
@@ -101,6 +101,8 @@ export interface Settings {
   readonly name: string;
   /** What to carry, applied from the next spawn. */
   readonly loadout: Loadout;
+  /** Each gun's own build in the gunsmith (ticket 19), kept when another gun is carried; the loadout takes the build of the guns it carries. */
+  readonly builds: Readonly<Partial<Record<WeaponId, Attachments>>>;
   readonly passphrase: string;
   readonly firefoxTipShown: boolean;
   /** Picture quality: a tier, or Auto, which measures once and remembers what it found. */
@@ -183,6 +185,7 @@ export const DEFAULT_SETTINGS: Settings = {
   uiVolume: DEFAULT_MIX.ui,
   name: '',
   loadout: DEFAULT_LOADOUT,
+  builds: {},
   passphrase: '',
   firefoxTipShown: false,
   quality: 'auto',
@@ -315,6 +318,7 @@ export function parseSettings(raw: unknown): Settings {
     uiVolume: clamp(r['uiVolume'], 0, 1, d.uiVolume),
     name: str(r['name'], d.name, 16),
     loadout: savedLoadout(r['loadout']) ?? d.loadout,
+    builds: savedBuilds(r['builds']),
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
     // Everything from here on came with the Settings screen's sections: a save from before them has none, and gets the defaults.
@@ -399,6 +403,17 @@ export function radiansPerCount(settings: Settings): number {
  */
 export function stickTurnRate(sensitivity: number): number {
   return STATS.input.stickTurnRate.value * (sensitivity / STATS.input.stickSensitivity.value) * RAD;
+}
+
+/** The gunsmith's builds saved in this browser: each gun's, kept to what it takes. */
+function savedBuilds(value: unknown): Partial<Record<WeaponId, Attachments>> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Partial<Record<WeaponId, Attachments>> = {};
+  for (const id of WEAPON_IDS) {
+    const kit = parseAttachments(id, (value as Record<string, unknown>)[id]);
+    if (kit && !isStock(kit)) out[id] = kit;
+  }
+  return out;
 }
 
 /** A loadout saved in this browser; one saved before tacticals (ticket 20) gets the default tactical rather than none. */

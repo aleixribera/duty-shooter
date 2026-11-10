@@ -57,6 +57,8 @@ export const MORE_WORDS = [
   'medal', 'lines', 'points', 'metres', 'finish', 'assist', 'longShot', 'firstBlood', 'revenge', 'doubleKill', 'tripleKill', 'multiKill', 'streak3', 'streak5', 'streak7', 'streak10', 'zoneKill', 'reboot',
   // The arsenal (protocol 27): four more weapon ids ('burst' is also its fire mode's name) and the rounds a burst still owes.
   'lmg', 'dmr', 'burst', 'revolver', 'burstLeft',
+  // Attachments (protocol 29): a loadout's and a gun's, their slots, the choices ('speed' is already a word), and a shot's muzzle.
+  'attachments', 'optic', 'muzzle', 'magazine', 'grip', 'reflex', 'prism', 'suppressor', 'compensator', 'extended', 'vertical', 'angled',
 ] as const satisfies readonly string[];
 
 const WORD_INDEX: ReadonlyMap<string, number> = new Map(WORDS.map((word, i) => [word, i]));

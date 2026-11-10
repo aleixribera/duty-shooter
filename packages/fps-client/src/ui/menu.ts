@@ -7,6 +7,7 @@ import { QUALITY, QUALITY_CHOICES, type QualityChoice } from '../quality';
 import { COLOUR_VISIONS, COLOUR_VISION_NAMES } from '../team-colours';
 import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, sectionOrder, teamPreview, videoPreview, type VideoStatus } from './settings-screen';
 import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
+import { buildEffects, gunsmithRows, openKit, rebuild, slotLock, withBuilds, type BuildEffects, type GunsmithChoice } from './gunsmith';
 import { escapeHtml, hint, icon, installTheme } from './theme';
 import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
@@ -160,6 +161,21 @@ export const MENU_CSS = `
 .ds-bars .bar { height: 6px; background: rgb(255 255 255 / 0.08); overflow: hidden; }
 .ds-bars .bar i { display: block; height: 100%; background: var(--ds-signal); transition: width 160ms var(--ds-ease); }
 .ds-bars .v { text-align: right; font-weight: 700; color: var(--ds-text); }
+/* The gunsmith (ticket 19): under a gun's tiles, one row per slot it takes, the slot's name and its three choices. */
+.ds-smith { display: grid; gap: 8px; margin: -12px 0 24px; }
+.ds-smith-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; }
+/* Over the page's scrim, not a solid panel: the second text colour. */
+.ds-smith-row > .ds-label { margin: 0; color: var(--ds-text-2); }
+.ds-kit.ds-smith-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
+.ds-kit.ds-smith-tiles .ds-mode { min-height: 56px; padding: 8px 12px; }
+.ds-mode.locked { cursor: not-allowed; background: var(--ds-ink); }
+.ds-mode.locked b { color: var(--ds-text-2); }
+.ds-mode.locked:hover { background: var(--ds-ink); }
+/* What a build gives and what it costs, the gun's own figures, two columns under the bars. */
+.ds-fx { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.ds-fx ul { margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--ds-type-body); color: var(--ds-text); font-variant-numeric: tabular-nums; }
+.ds-fx li { padding: 6px 0; border-top: 1px solid var(--ds-line); }
+.ds-fx li.none { color: var(--ds-text-2); }
 
 /* Pause: a column of actions over the paused game, and the controls beside it. */
 .ds-pause { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(300px, 440px) minmax(0, 1fr); gap: 56px; padding: 56px;
@@ -226,6 +242,8 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
   .ds-panel .figure b { font-size: var(--ds-type-display); }
   .ds-btns .ds-btn { flex: 1 1 140px; min-width: 0; }
   .ds-kit { grid-template-columns: repeat(2, 1fr); }
+  .ds-smith-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .ds-fx { grid-template-columns: minmax(0, 1fr); }
   .ds-tabs { order: 3; flex-basis: 100%; overflow-x: auto; }
   .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: var(--ds-type-small); letter-spacing: 0.08em; }
   .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; background: var(--ds-scrim); }
@@ -242,6 +260,8 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
   .ds-keys dl { grid-template-columns: max-content 1fr max-content 1fr; }
 }
 /* An upright phone: the tabs wrap onto rows; a strip that scrolls sideways hid the last ones with no sign of them. */
+/* A phone: the stock tile gives room to the two names, set in the small size (COMPENSATOR is the longest word). */
+@media (max-width: 640px) { .ds-kit.ds-smith-tiles { grid-template-columns: minmax(0, 0.8fr) repeat(2, minmax(0, 1.1fr)); gap: 6px; } .ds-kit.ds-smith-tiles .ds-mode { padding: 8px 10px; } .ds-kit.ds-smith-tiles .ds-mode b { font-size: var(--ds-type-small); letter-spacing: 0.02em; } }
 @media (max-width: 640px) { .ds-ui .ds-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 4px; } .ds-ui .ds-tabs button { flex: 0 1 auto; } }
 /* Neighbours a thumb could mix up stand 8px apart. */
 html.ds-touch .ds-tabs { gap: 8px; }
@@ -1091,10 +1111,62 @@ export class Menu {
     cols.append(left, right);
     const options = loadoutOptions();
     const card = h('div', '', 'ds-gun ds-box');
+    const kills = (id: WeaponId) => this.#profile?.profile.weapons[id]?.kills ?? 0;
+    const effects = (fx: BuildEffects) => {
+      const list = (lines: readonly string[]) => `<ul>${lines.length ? lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('') : '<li class="none">Nothing</li>'}</ul>`;
+      return `<div class="ds-fx"><div><div class="ds-label">Gives</div>${list(fx.gains)}</div><div><div class="ds-label">Costs</div>${list(fx.costs)}</div></div>`;
+    };
     const showCard = (id: WeaponId) => {
       const c = weaponCard(id);
       const bars = c.bars.map((b) => `<span class="k">${escapeHtml(b.label)}</span><span class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></span><span class="v">${escapeHtml(b.text)}</span>`);
-      card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p><div class="ds-bars">${bars.join('')}</div>`;
+      // Its build, as the loadout would carry it: what is on it and open.
+      const kit = openKit(id, this.#settings.builds[id], kills(id));
+      const build = Object.keys(kit).length ? effects(buildEffects(id, kit)) : '';
+      card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p><div class="ds-bars">${bars.join('')}</div>${build}`;
+    };
+    /** One choice of the gunsmith: what it is on this gun, what it gives and costs, or what it waits for. */
+    const showChoice = (id: WeaponId, slot: Parameters<typeof slotLock>[0], name: string, c: GunsmithChoice) => {
+      const on = (this.#settings.builds[id]?.[slot] ?? null) === c.id;
+      const head = `<div class="ds-label">${escapeHtml(`${STATS.weapons[id].traits.name} · ${name}`)}</div><div class="name">${escapeHtml(c.name)}</div>`;
+      if (c.locked) card.innerHTML = `${head}<p class="role">${escapeHtml(slotLock(slot))}</p>`;
+      else if (c.id === null) card.innerHTML = `${head}<p class="role">${escapeHtml(on ? 'Fitted: the gun as issued.' : 'The gun as issued.')}</p>`;
+      else card.innerHTML = `${head}<p class="role">${on ? 'Fitted.' : 'Every attachment gives something and costs something.'}</p>${effects(buildEffects(id, { [slot]: c.id }))}`;
+    };
+    /** The gunsmith of the gun in `gun`'s slot: a row per attachment slot it takes, filled again when the gun or a choice changes. */
+    const smiths = { primary: h('div', '', 'ds-smith'), secondary: h('div', '', 'ds-smith') };
+    const smith = (gun: 'primary' | 'secondary') => {
+      const box = smiths[gun];
+      const id = this.#settings.loadout[gun];
+      box.replaceChildren();
+      for (const r of gunsmithRows(id, this.#settings.builds[id], kills(id))) {
+        const line = h('div', '', 'ds-smith-row');
+        const tiles = h('div', '', 'ds-kit ds-smith-tiles');
+        tiles.setAttribute('role', 'group');
+        tiles.setAttribute('aria-label', `${STATS.weapons[id].traits.name} ${r.name.toLowerCase()}`);
+        line.append(h('span', r.name, 'ds-label'), tiles);
+        for (const c of r.choices) {
+          const b = h('button', '', `ds-mode${c.on ? ' on' : ''}${c.locked ? ' locked' : ''}`) as HTMLButtonElement;
+          b.type = 'button';
+          b.setAttribute('aria-pressed', String(c.on));
+          if (c.locked) b.setAttribute('aria-disabled', 'true');
+          b.innerHTML = `<b>${escapeHtml(c.name)}</b><span>${escapeHtml(c.detail)}</span>`;
+          b.addEventListener('click', () => {
+            if (c.locked) return;
+            const builds = rebuild(this.#settings.builds, id, r.slot, c.id);
+            this.#change({ builds, loadout: withBuilds(this.#settings.loadout, builds, kills) });
+            for (const t of tiles.children) {
+              t.classList.toggle('on', t === b);
+              t.setAttribute('aria-pressed', String(t === b));
+            }
+            showChoice(id, r.slot, r.name, { ...c, on: true });
+          });
+          const show = () => showChoice(id, r.slot, r.name, c);
+          b.addEventListener('focus', show);
+          b.addEventListener('mouseenter', show);
+          tiles.append(b);
+        }
+        box.append(line);
+      }
     };
     const showKit = (id: TacticalId | PerkId | null, slot: 'tactical' | 'perk') => {
       const c = kitCard(id, slot);
@@ -1113,8 +1185,11 @@ export class Menu {
         const [name, detail] = label(choice);
         b.innerHTML = `<b>${escapeHtml(name)}</b><span>${escapeHtml(detail)}</span>`;
         b.addEventListener('click', () => {
-          this.#change({ loadout: { ...this.#settings.loadout, [slot]: choice } });
+          // A gun carries its own build from the gunsmith.
+          const loadout = { ...this.#settings.loadout, [slot]: choice };
+          this.#change({ loadout: slot === 'primary' || slot === 'secondary' ? withBuilds(loadout, this.#settings.builds, kills) : loadout });
           for (const t of tiles.children) t.classList.toggle('on', t === b);
+          if (slot === 'primary' || slot === 'secondary') smith(slot);
           preview(slot, choice);
         });
         if (slot !== 'grenade') {
@@ -1125,6 +1200,10 @@ export class Menu {
         tiles.append(b);
       }
       left.append(tiles);
+      if (slot === 'primary' || slot === 'secondary') {
+        left.append(smiths[slot]);
+        smith(slot);
+      }
     };
     const weapon = (id: WeaponId): [string, string] => {
       const t = STATS.weapons[id].traits;

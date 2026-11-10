@@ -39,9 +39,11 @@ export { SmokeField, smokeAmount, smokeCentre, smokeHides, type SmokeCloud } fro
 export type { TimeToKill } from './combat/ttk';
 export { TERRAIN_HIT, raycastWorld, segmentSolid, sightBlocked, solidNormal } from './combat/projectiles';
 export type { WorldHit } from './combat/projectiles';
-export { SWAY_SETTLED, recoilKick, weaponRow } from './weapon/weapon';
-export { DEFAULT_LOADOUT, PERK_IDS, TACTICAL_IDS, hasPerk, parseLoadout, slotWeapons } from './weapon/loadout';
-export type { GrenadeId, Loadout, PerkId, TacticalId, ThrowableId } from './weapon/loadout';
+export { SWAY_SETTLED, recoilKick, rowOf, weaponRow } from './weapon/weapon';
+export { DEFAULT_LOADOUT, PERK_IDS, TACTICAL_IDS, hasPerk, heldRow, kitInHand, kitOf, parseLoadout, slotWeapons } from './weapon/loadout';
+export type { GrenadeId, Loadout, LoadoutAttachments, PerkId, TacticalId, ThrowableId } from './weapon/loadout';
+export { ATTACHMENT_NAMES, ATTACHMENT_SLOTS, SLOT_CHOICES, SLOT_MASTERY, bandReach, isStock, moddedRow, parseAttachments, reloadPace, shotLoudness, slotsOf } from './weapon/attachments';
+export type { AttachmentId, AttachmentSlot, Attachments, GripId, MagazineId, MuzzleId, OpticId } from './weapon/attachments';
 export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildLargeNav, botSees, buildNavGraph, coverBits, coverNear, coverOf, coveredFrom, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, startNode, SquadPlanner, SquadIntel, NoiseGrid, planCharge, planOutposts, royaleProfile, targetSite, wallAt } from './bots';
 export type { BotObjective, BotProfile, BotStyle, BotView, CoverSpot, GroundOrder, LargeNav, LargeNavOptions, NavGraph, NavIndex, NavLink, NavLinkKind, NavNode, NavOptions, PlannedSeat, SquadSituation } from './bots';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';

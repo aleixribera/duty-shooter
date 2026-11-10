@@ -22,6 +22,8 @@ export interface Projectile {
   budget: number;
   /** Product of the damage multipliers of every solid passed through so far. */
   damageScale: number;
+  /** The share of each damage band's reach the gun keeps (a suppressor's, ticket 19); 1 when absent. */
+  readonly reach?: number;
   /** Solids already passed through (or props already hit), never met again. */
   readonly passed: number[];
 }

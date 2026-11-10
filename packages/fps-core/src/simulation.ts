@@ -11,7 +11,8 @@ import { createMoveState, lunge, pmove, type MoveState, type MovementState, type
 import { hashString, noise } from './random';
 import { STATS, type WeaponId } from './stats';
 import { Button, usercmd, type UserCmd } from './usercmd';
-import { DEFAULT_LOADOUT, hasPerk, type Loadout, type ThrowableId } from './weapon/loadout';
+import { bandReach, isStock, type Attachments, type MuzzleId } from './weapon/attachments';
+import { DEFAULT_LOADOUT, hasPerk, kitOf, type Loadout, type ThrowableId } from './weapon/loadout';
 import {
   canFire,
   createWeaponState,
@@ -24,7 +25,7 @@ import {
   swayOffset,
   updateWeapon,
   wantsFire,
-  weaponRow,
+  rowOf,
   type ReloadKind,
   type WeaponAction,
   type WeaponState,
@@ -86,6 +87,8 @@ export interface HeldWeapon {
   readonly ammo: number;
   /** Rounds left to reload from; absent, unlimited. */
   readonly reserve?: number;
+  /** What is on it (ticket 19): a gun keeps its attachments when it changes hands. Absent, stock. */
+  readonly attachments?: Attachments;
 }
 
 /** What the weapon is doing, as reported in the match outputs. */
@@ -168,6 +171,8 @@ export type SimEvent =
       readonly fraction: number;
       /** Direction of every pellet of a shotgun blast; absent for a bullet. */
       readonly pellets?: readonly Vec3[];
+      /** The muzzle device on the gun (ticket 19): a suppressed shot is heard nearer and shows no flash, a compensated one carries farther. */
+      readonly muzzle?: MuzzleId;
     }
   | {
       readonly type: 'hit';
@@ -351,12 +356,17 @@ function cmdList(sent: UserCmd | readonly UserCmd[] | undefined): readonly (User
 /** A fresh set of weapons for `loadout`: the primary in hand and drawing, the secondary put away, grenades and tacticals full. */
 function arms(loadout: Loadout, frags: number, tacticals: number): Pick<PlayerState, 'weapons' | 'slot' | 'loadout' | 'grenades' | 'tacticals'> {
   return {
-    weapons: [createWeaponState(loadout.primary), createWeaponState(loadout.secondary)],
+    weapons: [createWeaponState(loadout.primary, undefined, kitOf(loadout, 'primary')), createWeaponState(loadout.secondary, undefined, kitOf(loadout, 'secondary'))],
     slot: 0,
     loadout,
     grenades: loadout.grenade ? frags : 0,
     tacticals: loadout.tactical ? tacticals : 0,
   };
+}
+
+/** A weapon in hand as it changes hands: its rounds and what is on it. */
+function held(w: WeaponState): HeldWeapon {
+  return { id: w.id, ammo: w.ammo, ...(w.reserve === undefined ? {} : { reserve: w.reserve }), ...(w.attachments ? { attachments: w.attachments } : {}) };
 }
 
 /** How much faster a player's hands are (reloads, draws, putting a gun away): 1, or more with Fast Hands. */
@@ -553,22 +563,24 @@ export class Simulation {
     const p = this.#players.get(id);
     if (!p) return null;
     const old = p.weapons[0]!;
-    const fresh = createWeaponState(weapon.id, weapon.reserve);
+    const fresh = createWeaponState(weapon.id, weapon.reserve, weapon.attachments);
     fresh.ammo = Math.min(weapon.ammo, fresh.ammo);
     const clock = activeWeapon(p).clock;
     drawWeapon(fresh, clock, activeWeapon(p).prevButtons);
     p.weapons[0] = fresh;
     if (p.slot !== 0) p.slot = 0;
     p.grenade = null;
-    p.loadout = { ...p.loadout, primary: weapon.id };
+    const { primary: _, ...secondary } = p.loadout.attachments ?? {};
+    const attachments = isStock(weapon.attachments) ? secondary : { ...secondary, primary: weapon.attachments! };
+    p.loadout = { ...p.loadout, primary: weapon.id, attachments };
     this.#output = null;
-    return { id: old.id, ammo: old.ammo, ...(old.reserve === undefined ? {} : { reserve: old.reserve }) };
+    return held(old);
   }
 
   /** A player's primary as it is now, or null for no such player. */
   primary(id: PlayerId): HeldWeapon | null {
     const w = this.#players.get(id)?.weapons[0];
-    return w ? { id: w.id, ammo: w.ammo, ...(w.reserve === undefined ? {} : { reserve: w.reserve }) } : null;
+    return w ? held(w) : null;
   }
 
   /** The full state of a player, deep-copied, for client prediction. */
@@ -669,7 +681,7 @@ export class Simulation {
       cmd = { ...cmd, buttons: cmd.buttons & ~Button.Sprint };
     }
     const view = this.#viewAngles(player);
-    pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS, weaponRow(weapon.id).handling.moveSpeed.value);
+    pmove(player.move, { ...cmd, yaw: view.yaw, pitch: view.pitch }, this.world, TICK_SECONDS, rowOf(weapon).handling.moveSpeed.value);
     const fell = player.move.landedFrom;
     if (fell !== null) {
       const damage = alive && !player.downed ? fallDamage(fell) : 0;
@@ -725,7 +737,9 @@ export class Simulation {
     const rewind = cmd.viewTick === undefined ? 0 : Math.min(LAG_WINDOW_TICKS, Math.max(0, this.#tick - cmd.viewTick));
     if (w.melee) melees.push({ attacker: player, rewind });
     const eye: Vec3 = [player.move.position[0], player.move.position[1] + player.move.eyeHeight, player.move.position[2]];
-    const row = weaponRow(weapon.id);
+    const row = rowOf(weapon);
+    const muzzle = weapon.attachments?.muzzle;
+    const reach = bandReach(muzzle);
     for (const shot of w.shots) {
       const aim = this.#viewAngles(player);
       const direction = viewDirection(aim.yaw + shot.spreadYaw, aim.pitch + shot.spreadPitch);
@@ -744,11 +758,12 @@ export class Simulation {
           pending: (1 - shot.fraction) * TICK_SECONDS,
           budget: STATS.penetration.budget.value * row.damage.penetration.value,
           damageScale: 1,
+          ...(reach === 1 ? {} : { reach }),
           passed: [],
         });
       }
       const pellets = group === null ? {} : { pellets: shot.projectiles.map(([yaw, pitch]) => viewDirection(aim.yaw + yaw, aim.pitch + pitch)) };
-      this.#events.push({ type: 'shot', shooter: player.id, weapon: weapon.id, origin: eye, direction, index: shot.index, fraction: shot.fraction, ...pellets });
+      this.#events.push({ type: 'shot', shooter: player.id, weapon: weapon.id, origin: eye, direction, index: shot.index, fraction: shot.fraction, ...pellets, ...(muzzle ? { muzzle } : {}) });
       // Recoil kicks the view after the shot leaves.
       player.viewYaw += shot.kickYaw;
       player.viewPitch += shot.kickPitch;
@@ -767,7 +782,7 @@ export class Simulation {
     if (player.recoilYaw === 0 && player.recoilPitch === 0) return;
     player.recoilYaw = paid(player.recoilYaw, pulledYaw);
     player.recoilPitch = paid(player.recoilPitch, pulledPitch);
-    const a = weaponRow(weapon.id).accuracy;
+    const a = rowOf(weapon).accuracy;
     if (weapon.clock - weapon.lastShot < a.recoilReturnDelay.value - 1e-9) return;
     const share = 1 - Math.exp(-TICK_SECONDS / a.recoilReturnTime.value);
     const yaw = Math.abs(player.recoilYaw) < RECOIL_SETTLED ? player.recoilYaw : player.recoilYaw * share;
@@ -1071,7 +1086,8 @@ export class Simulation {
       if (body && (stopped === null || body.t <= stopped)) {
         const point = lerpVec(from, to, body.t);
         const dist = distance(p.origin, point);
-        const damage = bulletDamage(dist, body.zone, p.weapon) * p.damageScale;
+        // A suppressed gun's bands end nearer: a hit at `dist` does what a stock one does `dist / reach` away.
+        const damage = bulletDamage(dist / (p.reach ?? 1), body.zone, p.weapon) * p.damageScale;
         if (p.group !== null) {
           // A pellet: summed with the blast's other pellets on this player, dealt once the tick's projectiles have moved.
           const key = `${p.group}:${body.victim.id}`;
