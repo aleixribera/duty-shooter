@@ -186,6 +186,10 @@ The Perk that makes your footsteps carry half their usual distance, to players' 
 The Perk that takes 40 % off the frag damage you take and makes a Flash blind you for 45 % as long.
 _Avoid_: flak jacket
 
+**Aim Slowdown**:
+The help a thumb gets on touch and on a controller, never on a mouse: the view turns slower, down to 55 %, while the crosshair is on or just beside an enemy the player can see (not one behind a wall, in soft cover or in a Smoke). It only scales the player's own drag or stick and never moves the view, so it is allowed online. A setting turns it off for each input.
+_Avoid_: aim assist (fine in player-facing text), magnetism, aimbot
+
 **Tracer**:
 The short bright streak drawn along a bullet's flight, for every shot by anyone: it leaves the muzzle as drawn, joins the path the simulation flies from the eye within 20 m, and ends where that bullet struck. Client-side only; the server sends nothing extra for it.
 _Avoid_: bullet trail, projectile (the simulation's bullet is not a rendered object)

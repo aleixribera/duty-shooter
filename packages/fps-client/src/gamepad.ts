@@ -1,4 +1,5 @@
 import type { Action } from './settings';
+import type { Actuator } from './rumble';
 
 /**
  * Button indices of the W3C "standard" gamepad mapping, named for a
@@ -72,6 +73,18 @@ export function readPad(): PadReading | null {
       return Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
     };
     return { id: pad.id, pressed, leftStick: [axis(0), axis(1)], rightStick: [axis(2), axis(3)] };
+  }
+  return null;
+}
+
+/** The rumble motors of the pad `readPad` reads, or null (none connected, none that rumbles, or the page not in focus). */
+export function padActuator(): Actuator | null {
+  if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) return null;
+  const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const pad of pads) {
+    if (!pad || !pad.connected) continue;
+    const actuator = (pad as Gamepad & { vibrationActuator?: Actuator | null }).vibrationActuator;
+    return actuator && typeof actuator.playEffect === 'function' ? actuator : null;
   }
   return null;
 }

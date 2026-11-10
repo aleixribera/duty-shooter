@@ -128,7 +128,7 @@ To use a ladder, walk toward it from either end. Keep moving forward to climb, m
 
 ### Controller
 
-A PS4 controller (or any pad the browser reports with the standard mapping) works for menus and play, with no aim assist. The layout follows MW2019's Default preset:
+A PS4 controller (or any pad the browser reports with the standard mapping) works for menus and play. The stick turns slower over an enemy you can see (aim slowdown, never a pull toward one), and the pad rumbles to your shots, hits, hurts, blasts and hard landings. The layout follows MW2019's Default preset:
 
 | Action | Button |
 | --- | --- |
@@ -149,7 +149,7 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 | Island map (Battle Royale) | Share |
 | Menu | Options |
 
-The Tactical preset puts crouch on R3 and melee on Circle. Settings → Controls has the layout, stick sensitivity, ADS multiplier, deadzone and invert Y. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
+The Tactical preset puts crouch on R3 and melee on Circle. Settings → Mouse and pad has the layout, stick sensitivity, ADS multiplier, deadzone, invert Y, aim slowdown and vibration strength. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
 
 ### Changes from MW2019
 

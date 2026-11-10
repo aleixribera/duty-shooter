@@ -72,6 +72,10 @@ export interface Settings {
   readonly padInvertY: boolean;
   /** Stick deadzone, as a fraction of full travel. */
   readonly padDeadzone: number;
+  /** Controller only: the look stick turns slower while the crosshair is on or beside an enemy (ticket 13). */
+  readonly padAimAssist: boolean;
+  /** How hard the controller rumbles, 0 (off) to 1 (ticket 13). */
+  readonly padRumble: number;
   /** Touch look sensitivity, on the controller's 1-20 scale: how far a drag on the glass turns the view. */
   readonly touchSensitivity: number;
   /** Touch ADS sensitivity multiplier. */
@@ -160,6 +164,8 @@ export const DEFAULT_SETTINGS: Settings = {
   padAdsMultiplier: STATS.input.stickAdsMultiplier.value,
   padInvertY: false,
   padDeadzone: STATS.input.stickDeadzone.value,
+  padAimAssist: true,
+  padRumble: 1,
   // A thumb's swipe across half a phone turns about a right angle at 10; see touch/logic.ts for the rate.
   touchSensitivity: 10,
   touchAdsMultiplier: 1,
@@ -197,7 +203,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export type SettingsSection = 'controls' | 'mouse' | 'touch' | 'video' | 'audio' | 'hud' | 'accessibility';
 export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof Settings)[]>> = {
   controls: ['bindings', 'adsMode', 'crouchMode', 'sprintMode'],
-  mouse: ['sensitivity', 'adsMultiplier', 'invertY', 'padLayout', 'padSensitivityX', 'padSensitivityY', 'padAdsMultiplier', 'padInvertY', 'padDeadzone'],
+  mouse: ['sensitivity', 'adsMultiplier', 'invertY', 'padLayout', 'padSensitivityX', 'padSensitivityY', 'padAdsMultiplier', 'padInvertY', 'padDeadzone', 'padAimAssist', 'padRumble'],
   touch: ['touchSensitivity', 'touchAdsMultiplier', 'touchAutoFire', 'touchAimAssist'],
   video: ['quality', 'dynamicResolution', 'fpsCap', 'fov', 'adsFov', 'showFps'],
   audio: ['volume', 'musicVolume', 'effectsVolume', 'voiceVolume', 'uiVolume'],
@@ -290,6 +296,8 @@ export function parseSettings(raw: unknown): Settings {
     padAdsMultiplier: clamp(r['padAdsMultiplier'], 0.1, 3, d.padAdsMultiplier),
     padInvertY: bool(r['padInvertY'], d.padInvertY),
     padDeadzone: clamp(r['padDeadzone'], 0, 0.5, d.padDeadzone),
+    padAimAssist: bool(r['padAimAssist'], d.padAimAssist),
+    padRumble: clamp(r['padRumble'], 0, 1, d.padRumble),
     touchSensitivity: clamp(r['touchSensitivity'], 1, 20, d.touchSensitivity),
     touchAdsMultiplier: clamp(r['touchAdsMultiplier'], 0.1, 3, d.touchAdsMultiplier),
     touchAutoFire: bool(r['touchAutoFire'], d.touchAutoFire),

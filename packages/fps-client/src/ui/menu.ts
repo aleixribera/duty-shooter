@@ -1331,6 +1331,8 @@ export class Menu {
       slider('Controller aim-down-sights sensitivity', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
       slider('Stick deadzone', s.padDeadzone, 0, 0.3, 0.01, (v) => v.toFixed(2), (v) => this.#change({ padDeadzone: v }));
       toggle('Invert vertical look', s.padInvertY, (v) => this.#change({ padInvertY: v }));
+      toggle('Aim slowdown over enemies', s.padAimAssist, (v) => this.#change({ padAimAssist: v }), 'The stick turns slower with the crosshair on or beside an enemy you can see. It never moves your aim for you.');
+      slider('Vibration', s.padRumble, 0, 1, 0.1, percent, (v) => this.#change({ padRumble: v }));
     } else if (tab === 'touch') {
       touchRows();
     } else if (tab === 'video') {

@@ -68,7 +68,9 @@ import { useColourVision } from './team-colours';
 import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
 import type { GameDriver, PresentedEvent } from './session';
-import { PAD_LAYOUTS, padButtonLabel } from './gamepad';
+import { PAD_LAYOUTS, padActuator, padButtonLabel } from './gamepad';
+import { aimSees } from './aim-sight';
+import { Rumbler, blastRumble, hitRumble, hurtRumble, landRumble, shotRumble, type Rumble } from './rumble';
 import { bindingLabel, mixOf, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
@@ -285,6 +287,8 @@ export class Game {
   readonly #engagements = new Map<PlayerId, Engagement>();
   #burstStart = -1;
   #paused = true;
+  /** The pad's motors (ticket 13). */
+  readonly #rumbler = new Rumbler(padActuator);
   #message: string | null = null;
   readonly #loadoutStation: GameOptions['loadoutStation'];
   readonly #rangeLanesWestOf: number | null;
@@ -516,6 +520,12 @@ export class Game {
   set paused(on: boolean) {
     this.#paused = on;
     this.input.enabled = !on;
+    if (on) this.#rumbler.stop();
+  }
+
+  /** Feels `r` on the pad, if the pad is the input in use and the player's play is live. */
+  #rumble(r: Rumble | null): void {
+    if (this.input.padMode && !this.#paused && !this.#inShot) this.#rumbler.play(r, this.#settings.padRumble);
   }
 
   get paused(): boolean {
@@ -1012,7 +1022,8 @@ export class Game {
     const action = this.#action();
     // While a crate opens or a Reboot runs, its bar says so in the prompt's place.
     const prompt = action ? null : this.#prompt();
-    this.#touchHelp(eye, forward);
+    this.#aimHelp(eye, forward);
+    this.#rumbler.update();
     const hint = this.#hint(dt);
     const playing = !match || match.phase === 'playing';
     this.input.touchContext = {
@@ -1888,38 +1899,46 @@ export class Game {
   }
 
   /**
-   * Touch's two helps (ticket 23), from where the view points this frame: a
-   * drag slows while the crosshair is on or beside an enemy, and the trigger
-   * pulls itself once it has rested on one inside the weapon's range. Both
-   * are the player's own client: the view only ever turns by their drag, and
-   * what the simulation gets is the fire button, as from a mouse. Off for
-   * every other input.
+   * The aim helps, from where the view points this frame. Touch has two
+   * (ticket 23): a drag slows while the crosshair is on or beside an enemy,
+   * and the trigger pulls itself once it has rested on one inside the
+   * weapon's range. The pad has the first (ticket 13): the look stick slows
+   * the same way. All are the player's own client: the view only ever turns
+   * by their own drag or stick, and what the simulation gets is a view angle
+   * and the fire button, as from a mouse, so they are fair online too. The
+   * mouse gets none.
    */
-  #touchHelp(eye: Vec3, forward: Vec3): void {
+  #aimHelp(eye: Vec3, forward: Vec3): void {
     const input = this.input;
     const self = this.#cur;
     const s = this.#settings;
     const match = this.#driver?.match;
-    const on = input.touchMode && (s.touchAutoFire || s.touchAimAssist) && self !== null && self.alive && !self.downed && !this.#inShot && !this.#paused && (!match || match.phase === 'playing');
-    if (!on || !self) {
+    const live = self !== null && self.alive && !self.downed && !this.#inShot && !this.#paused && (!match || match.phase === 'playing');
+    const touch = live && input.touchMode && (s.touchAutoFire || s.touchAimAssist);
+    const pad = live && input.padMode && s.padAimAssist;
+    if (!touch) {
       input.touchAssist(1, false, false);
       this.#autoFire = AUTO_FIRE_IDLE;
-      return;
     }
+    if (!pad) input.padAssist(1);
+    if ((!touch && !pad) || !self) return;
     // Enemies: everyone else, less your own side where there are sides. Downed seats are left to the player's own trigger.
     const sided = match ? teamMode(match.mode) || match.mode === 'battle-royale' : false;
+    // The enemy nearest the crosshair that the helps may know of. One behind a wall, in a bush or inside a smoke is
+    // no target (the sight line to its chest decides), and it leaves the help to a seen one beside it. Only those
+    // near enough the crosshair to matter are looked for.
+    const driver = this.#driver;
+    let clouds: SmokeCloud[] | null = null;
     let aim: AimRead | null = null;
-    let target: PlayerOutput | null = null;
     for (const p of this.#others) {
       if (!p.alive || p.downed || (sided && p.kind === 'player' && p.team === self.team)) continue;
       const read = aimAt(eye, forward, p.position, p.eyeHeight);
-      if (read && (!aim || read.miss < aim.miss)) {
-        aim = read;
-        target = p;
-      }
+      if (!read || aimSlowdown(read) >= 1 || (aim && read.miss >= aim.miss)) continue;
+      clouds ??= driver ? smokeCloudsOf(driver.grenades()) : [];
+      if (aimSees(this.#world, clouds, driver?.serverTime ?? 0, eye, [p.position[0], p.position[1] + p.eyeHeight * 0.75, p.position[2]])) aim = read;
     }
-    // An enemy behind a wall is no target: the sight line to its chest decides.
-    if (aim && target && aimSlowdown(aim) < 1 && sightBlocked(this.#world, eye, [target.position[0], target.position[1] + target.eyeHeight * 0.75, target.position[2]])) aim = null;
+    if (pad) input.padAssist(aimSlowdown(aim));
+    if (!touch) return;
     const w = self.weapon;
     const row = STATS.weapons[w.id];
     const range = autoFireRange(Object.values(row.damage.bands).map((band) => band.range?.value));
@@ -1992,6 +2011,7 @@ export class Game {
       this.#play('land', { ...local, material: this.#materialUnder(self.position), intensity: Math.min(1, self.landing.fallHeight / 6) });
       this.#camera.land(self.landing.fallHeight);
       this.#viewmodel.land(self.landing.fallHeight);
+      this.#rumble(landRumble(self.landing.fallHeight));
     }
     if (before.movement !== 'airborne' && self.movement === 'airborne' && self.velocity[1] > 1) this.#play('jump', local);
     if (before.movement !== 'slide' && self.movement === 'slide') this.#play('slide', { ...local, material: this.#materialUnder(self.position) });
@@ -2094,6 +2114,7 @@ export class Game {
           this.#effects.flash(this.#viewFlash, e.weapon);
           const kick = CAMERA_KICK[e.weapon];
           this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
+          this.#rumble(shotRumble(kick));
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
           this.#effects.shot(muzzle, e.direction, e.weapon);
           this.#tracer(e, muzzle);
@@ -2151,6 +2172,7 @@ export class Game {
           const head = e.zone === 'head';
           const kind = hitKind(e.killed, head, e.damage);
           this.hud.hitMarker(kind);
+          this.#rumble(hitRumble(kind));
           if (kind !== 'shielded') this.#play(e.killed ? (head ? 'headshotKill' : 'killMarker') : head ? 'headshotMarker' : 'hitMarker');
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
           this.hud.setLastHit(e.damage, e.zone, e.distance);
@@ -2174,6 +2196,7 @@ export class Game {
             this.hud.damage(yaw);
           }
           this.#play('damageTaken', { local: true, intensity: Math.min(1, e.damage / 40) });
+          this.#rumble(hurtRumble(e.damage));
           // A blast that hurt and was survived leaves the ears ringing (a grenade's hit carries its distance from the blast).
           if (e.cause === 'grenade' && !e.killed) this.#sound.tinnitus(tinnitusStrength(e.distance, e.damage));
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
@@ -2228,6 +2251,8 @@ export class Game {
         if (e.kind === 'flash') {
           this.#effects.flashPop(e.point);
           this.#play('flashBang', { position: e.point });
+          const me = this.#cur;
+          if (me?.alive) this.#rumble(blastRumble(Math.hypot(me.position[0] - e.point[0], me.position[1] - e.point[1], me.position[2] - e.point[2]), 12));
         } else {
           this.#play('smokePop', { position: e.point });
         }
@@ -2257,6 +2282,7 @@ export class Game {
           // Close blasts shake the view.
           const d = Math.hypot(self.position[0] - e.point[0], self.position[1] - e.point[1], self.position[2] - e.point[2]);
           const shake = Math.max(0, 1 - d / 20);
+          this.#rumble(blastRumble(d));
           if (shake > 0) this.#camera.kick(2.5 * shake, (Math.random() - 0.5) * 3 * shake, (Math.random() - 0.5) * 4 * shake);
         }
         break;

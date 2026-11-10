@@ -126,6 +126,8 @@ export class InputController {
   #touch: TouchControls | null = null;
   /** What a touch drag is scaled by: the aim slowdown over a target (1 = none). */
   #touchSlow = 1;
+  /** The pad's aim slowdown (ticket 13): what the look stick is scaled by with an enemy at the crosshair. */
+  #padSlow = 1;
   /** Whether the stick was asking to run at the last tick, for the push that stands you up. */
   #touchRan = false;
   /** What the touch controls drive: their buttons become held codes and their drags the view angles, as every other input's do. */
@@ -205,6 +207,11 @@ export class InputController {
   /** What the game is doing, for which touch controls show. */
   set touchContext(ctx: TouchContext) {
     this.#touch?.context(ctx);
+  }
+
+  /** The pad's aim slowdown for the frame: 1 for none, lower with an enemy at the crosshair. */
+  padAssist(slow: number): void {
+    this.#padSlow = slow;
   }
 
   /**
@@ -551,7 +558,7 @@ export class InputController {
     const m = Math.hypot(lx, ly);
     const curve = Math.pow(m, STATS.input.stickResponseExponent.value) / m;
     const s = this.#settings;
-    const scale = curve * dt * (this.#aiming ? adsSensitivityScale(s, s.padAdsMultiplier, this.#zoom) : 1);
+    const scale = curve * dt * (this.#aiming ? adsSensitivityScale(s, s.padAdsMultiplier, this.#zoom) : 1) * this.#padSlow;
     this.#yaw -= lx * stickTurnRate(s.padSensitivityX) * scale;
     const pitch = ly * stickTurnRate(s.padSensitivityY) * scale * (s.padInvertY ? -1 : 1);
     this.#pitch = lookPitch(this.#pitch, -pitch, this.#pitchOffset);
