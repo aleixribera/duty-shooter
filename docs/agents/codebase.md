@@ -35,13 +35,15 @@ The suite has two tiers (`vitest.config.ts` names them as projects):
 
 - **fast** (`npm test`): every rule the game keeps, a few minutes on this PC. Files are `*.test.ts`.
 - **soak** (`npm run test:soak`): whole matches played out by bots, minutes of simulated play each: the bot soaks for each map and mode, the Battle Royale played through, Bot Match from start to lobby, a long life of fire online. Files are `*.soak.test.ts`. A soak catches what only shows over a whole match, so a change to bots, a mode, a map's layout or nav, or the match flow runs the soaks for what it touched, not all of them.
-- CI (`.github/workflows/container.yaml`) runs both tiers on every push (`npm run test:all`, about 12 minutes there). Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
+- CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main` (`npm run test:all`, about 12 minutes there; a version tag's run only builds and smoke-tests the image). Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
 
 How to test a change, in order:
 
 1. While working: the tests that import what you changed, `npx vitest related --run <changed files>`, or one file (`npx vitest run <file>`). Seconds to a minute.
 2. Before committing: `npm run typecheck` and `npm test`. Add `npx vitest run --project soak <files>` for the soaks a gameplay change touches (`apps/range/test/<map>-bots-<mode>.soak.test.ts`, `zero-island-*.soak.test.ts` for the island and Battle Royale).
 3. Don't rerun the whole suite to check a docs, UI-copy or test-only change: run what it touches.
+
+A push that sends code runs `.githooks/pre-push` (on in this checkout through `git config core.hooksPath .githooks`; run that once in a new clone): the typecheck and the whole soak tier, about 90 s. Every commit on `main` goes live, and soaks skipped before pushing were what failed CI's release runs most often (a smoke grenade that left one team never taking a zone, bots stuck on a ledge). It plays the working tree, so a failure in a file you didn't touch may be another session's unfinished edit: run that file alone. Don't push with `--no-verify`.
 
 A test that only times out while the PC is busy is load, not a failure: run that file alone before blaming the change. A new test belongs in the fast tier unless it plays a whole match or minutes of play; then it goes in a `*.soak.test.ts` beside the file it came from, and a long check in a fast file is first made cheaper (an index instead of a scan of every solid, fewer seeds) before it is moved.
 
@@ -79,4 +81,4 @@ A scripted client that keeps time with `setInterval(…, 1000 / 60)` runs at 62.
 
 ## Releases
 
-Every commit gets the next version tag above the highest one (`git tag --sort=-v:refname | head -1`): a patch for fixes and tidying, a minor for features. CI publishes `:vX.Y.Z` for a tag and moves `:latest` from `main`; the live lobby follows `:latest` unless the stack's `.env` pins `DUTY_IMAGE` (`docs/deploy.md`).
+Every commit gets the next version tag above the highest one (`git tag --sort=-v:refname | head -1`): a patch for fixes and tidying, a minor for features. CI publishes `:vX.Y.Z` for a tag and moves `:latest` from `main` (only `main`'s run tests); the live lobby follows `:latest` unless the stack's `.env` pins `DUTY_IMAGE` (`docs/deploy.md`).

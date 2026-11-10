@@ -14,6 +14,8 @@ Nothing secret lives in this repository. The player cap (and a passphrase, if yo
 2. Builds the image, runs it read-only with all capabilities dropped and checks it with `apps/server/scripts/smoke.mjs`. It runs two containers: one as a public lobby and one with a passphrase. The smoke test covers the page, `/healthz`, a join to the public lobby, a join with the passphrase, a rejected wrong passphrase, a refused cross-site socket and the passphrase lockout.
 3. Publishes the image for amd64 and arm64: a push to `main` as `:latest`, a version tag `vX.Y.Z` as `:vX.Y.Z`, and both as `:sha-<commit>`. Only `main` moves `:latest`, so a release that pushes a commit and its tag together restarts the lobby once.
 
+A tag's run skips step 1: its commit is pushed to `main` with it, and that run tests it, so a broken commit fails one run (one email), not two.
+
 The smoke test joins with the protocol `/healthz` reports. From v1.3.1 to v1.3.8 it sent a hard-coded protocol number that the protocol bump had left behind, every release failed the smoke step, and the live lobby stayed on v1.3.0 while main moved on.
 
 The first time, make the package public (or log the server in to GHCR): GitHub → your profile → Packages → `duty-shooter` → Package settings → Change visibility.

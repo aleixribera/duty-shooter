@@ -1,0 +1,41 @@
+#!/bin/sh
+# Before code reaches main: the typecheck and the soaks (whole matches played out by bots), the checks
+# CI's release run makes that a session's own pass skips most often. Every push to main is live, so a
+# commit that fails them used to publish a broken page and fail the container build, mailing the owner.
+# Turned on per checkout with `git config core.hooksPath .githooks`. About a minute and a half.
+remote="$1"
+zero=0000000000000000000000000000000000000000
+files=""
+pushed=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  case "$local_ref" in refs/heads/*) pushed="$local_sha" ;; esac
+  # The commits this push sends that the remote doesn't have; a tag on a commit already pushed sends none.
+  files="$files
+$(git log --format= --name-only "$local_sha" --not --remotes="$remote" 2>/dev/null)"
+done
+if ! printf '%s\n' "$files" | grep -qE '^(packages|apps)/|^(package(-lock)?\.json|tsconfig[^/]*\.json|vitest\.config\.ts)$'; then
+  exit 0
+fi
+# The checks play the working tree, not the commit. Code that is here but not in what you push (a file
+# staged by path and missed) passes them and fails CI, so name it; another session's edits show up too.
+if [ -n "$pushed" ]; then
+  differ=$( { git diff --name-only "$pushed" -- packages apps; git ls-files --others --exclude-standard -- packages apps; } | grep -E '\.(ts|tsx|mjs|js|json)$' | head -15)
+  if [ -n "$differ" ]; then
+    echo "pre-push: these code files differ from the commit you push; if yours needs any of them, commit it first:" >&2
+    printf '  %s\n' $differ >&2
+  fi
+fi
+log="${TMPDIR:-/tmp}/duty-pre-push-$$.log"
+echo "pre-push: typecheck and soaks (about 90 s)..." >&2
+if ! npm run typecheck > "$log" 2>&1; then
+  tail -30 "$log" >&2
+  echo "pre-push: the typecheck fails on the working tree. If the error is in a file your commits don't touch, it may be another session's unfinished edit." >&2
+  exit 1
+fi
+if ! npm run test:soak > "$log" 2>&1; then
+  grep -E 'FAIL|Error|expected' "$log" | head -30 >&2
+  echo "pre-push: a soak fails (full log: $log). It plays the working tree: if the failing file isn't yours, run it alone (npx vitest run --project soak <file>) before blaming your change." >&2
+  exit 1
+fi
+rm -f "$log"
