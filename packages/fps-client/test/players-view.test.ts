@@ -1,7 +1,9 @@
-import { createWorld, type PlayerOutput } from '@duty-shooter/fps-core';
+import { createWorld, type PlayerOutput, type Solid, type Vec3 } from '@duty-shooter/fps-core';
+import { box } from '@duty-shooter/fps-core/harness';
 import { Box3, Mesh, Scene, Vector3, type Object3D } from 'three/webgpu';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { BODIES, PlayersView } from '../src/players-view';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { BODIES, PlayersView, SOLDIER_LEVELS } from '../src/players-view';
+import { Soldier } from '../src/soldier';
 import { loadTestSoldier } from './helpers/soldier';
 
 beforeAll(loadTestSoldier);
@@ -44,18 +46,114 @@ describe('player presentation', () => {
     expect(soldiers()).toHaveLength(2);
     for (let t = 0; t < BODIES.lies + BODIES.sinks; t += 1 / 30) view.update([player()], 1 / 30);
     expect(soldiers()).toHaveLength(1);
-    expect(view.chest('p1')).not.toBeNull();
     view.dispose();
   });
 
-  it('keeps no more bodies than it allows, the oldest going first', () => {
+  it('keeps no more bodies than it allows: the oldest sink away at once instead of vanishing', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);
     const ids = Array.from({ length: BODIES.most + 4 }, (_, i) => `p${i}`);
+    const dead = ids.map((id) => ({ ...player('player', id), alive: false }));
     view.update(ids.map((id) => player('player', id)), 1 / 60);
-    view.update(ids.map((id) => ({ ...player('player', id), alive: false })), 1 / 60);
-    view.update(ids.map((id) => ({ ...player('player', id), alive: false })), 1 / 60);
-    expect(scene.children[0]!.children).toHaveLength(BODIES.most);
+    view.update(dead, 1 / 60);
+    view.update(dead, 1 / 60);
+    const bodies = scene.children[0]!.children;
+    expect(bodies).toHaveLength(BODIES.most + 4);
+    for (let t = 0; t < BODIES.sinks / 2; t += 1 / 60) view.update(dead, 1 / 60);
+    // The four oldest are on their way down, the rest lie where they fell.
+    expect(bodies.filter((body) => body.position.y < -0.05)).toHaveLength(4);
+    for (let t = 0; t < BODIES.sinks / 2 + 0.1; t += 1 / 60) view.update(dead, 1 / 60);
+    expect(bodies).toHaveLength(BODIES.most);
+    view.dispose();
+  });
+
+  describe('where a body falls', () => {
+    const FLOOR = box({ min: [-30, -1, -30], max: [30, 0, 30], material: 'concrete' });
+    /** Kills a soldier standing at the origin facing -Z, shot from the front `after` seconds after the hit, and returns its body's bounds once it lies. */
+    const shot = (solids: readonly Solid[], after = 0, push: Vec3 = [0, 0, 1]) => {
+      const scene = new Scene();
+      const view = new PlayersView(scene, createWorld(solids), null);
+      view.update([player()], 1 / 60);
+      view.hit('p1', push, 30);
+      for (let t = 0; t < after; t += 1 / 60) view.update([player()], 1 / 60);
+      const dead = { ...player(), alive: false };
+      for (let i = 0; i < 150; i++) view.update([dead], 1 / 60);
+      scene.updateMatrixWorld(true);
+      const lying = new Box3().setFromObject(scene);
+      view.dispose();
+      return lying;
+    };
+
+    it('throws it onto its back by the shot that killed it', () => {
+      expect(shot([FLOOR]).max.z).toBeGreaterThan(1.3);
+    });
+
+    it('folds it where it stood when the last hit was a while ago: something else killed it', () => {
+      const lying = shot([FLOOR], 2);
+      expect(lying.max.z).toBeLessThan(1);
+      expect(lying.min.z).toBeGreaterThan(-1);
+    });
+
+    it('folds it short of a wall behind it, at knee height or lower', () => {
+      for (const height of [3, 0.35]) {
+        const lying = shot([FLOOR, box({ min: [-5, 0, 1.2], max: [5, height, 1.5], material: 'concrete' })]);
+        expect(lying.max.z, `a wall ${height} m high`).toBeLessThan(1.2);
+      }
+    });
+
+    it('folds it short of a drop behind it, and does not slide it over the edge', () => {
+      const lying = shot([box({ min: [-30, -1, -30], max: [30, 0, 1], material: 'concrete' })]);
+      expect(lying.max.z).toBeLessThan(1);
+      expect(lying.min.y).toBeGreaterThan(-0.1);
+    });
+  });
+
+  it('shows the body of a soldier who dies on the frame it stops being a far stand-in', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const viewer: Vec3 = [0, 1.6, 0];
+    const at = (z: number, alive: boolean) => [{ ...player(), position: [0, 0, z], alive }] as unknown as PlayerOutput[];
+    view.update(at(SOLDIER_LEVELS.far + 30, true), 1 / 60, undefined, viewer);
+    expect(scene.children[0]!.children[0]!.visible).toBe(false);
+    view.update(at(SOLDIER_LEVELS.far - SOLDIER_LEVELS.margin - 2, false), 1 / 60, undefined, viewer);
+    view.update(at(SOLDIER_LEVELS.far - SOLDIER_LEVELS.margin - 2, false), 1 / 60, undefined, viewer);
+    expect(scene.children[0]!.children).toHaveLength(1);
+    expect(scene.children[0]!.children[0]!.visible).toBe(true);
+    view.dispose();
+  });
+
+  it('draws a body like the soldier it was: its shadow near, and nothing at all where a soldier is a stand-in', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const dead = [{ ...player(), alive: false }];
+    view.update([player()], 1 / 60, undefined, [0, 1.6, 5]);
+    view.update(dead, 1 / 60, undefined, [0, 1.6, 5]);
+    const body = scene.children[0]!.children[0]!;
+    const casts = () => {
+      let any = false;
+      body.traverseVisible((o) => (any ||= (o as Mesh).isMesh && o.castShadow));
+      return any;
+    };
+    view.update(dead, 1 / 60, undefined, [0, 1.6, 5]);
+    expect([body.visible, casts()]).toEqual([true, true]);
+    view.update(dead, 1 / 60, undefined, [0, 1.6, (SOLDIER_LEVELS.near + SOLDIER_LEVELS.far) / 2]);
+    expect([body.visible, casts()]).toEqual([true, false]);
+    view.update(dead, 1 / 60, undefined, [0, 1.6, SOLDIER_LEVELS.far + 30]);
+    expect(body.visible).toBe(false);
+    view.dispose();
+  });
+
+  it('lets go of a soldier whose side changes while it is dead, once', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const viewer: Vec3 = [0, 1.6, SOLDIER_LEVELS.far + 30];
+    // Dead as a far stand-in, it leaves no body: its soldier waits for it to come back.
+    view.update([player('player', 'p1', 1)], 1 / 60, { teams: true, self: 1 }, viewer);
+    view.update([{ ...player('player', 'p1', 1), alive: false }], 1 / 60, { teams: true, self: 1 }, viewer);
+    const disposed = vi.spyOn(Soldier.prototype, 'dispose');
+    for (let i = 0; i < 5; i++) view.update([{ ...player('player', 'p1', 2), alive: false }], 1 / 60, { teams: true, self: 1 }, viewer);
+    expect(disposed).toHaveBeenCalledTimes(1);
+    disposed.mockRestore();
     view.dispose();
   });
 

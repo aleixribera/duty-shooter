@@ -294,6 +294,60 @@ describe('the third-person soldier holding each weapon', () => {
         expect(fallen(soldier, 'prone').z).toBeLessThan(-0.6);
       }
     });
+
+    const STATES: Record<string, State> = {
+      standing: {},
+      crouched: { stance: 'crouch', eyeHeight: 1 },
+      sprinting: { speed: 6, movement: 'sprint' },
+      sliding: { stance: 'crouch', movement: 'slide', speed: 7, eyeHeight: 1 },
+      prone: { stance: 'prone', eyeHeight: 0.4 },
+      Downed: { stance: 'prone', eyeHeight: 0.4, downed: { bleedOut: 20, revive: 0 } as PlayerOutput['downed'] },
+    };
+    const PUSHES: Record<string, [number, number, number]> = { 'the front': [0, 0, 2.5], behind: [0, 0, -2.5], 'the right': [2.5, 0, 0], 'the left': [-2.5, 0, 0], nowhere: [0, 0, 0] };
+    const LIMBS = ['hips', 'neck', 'elbowL', 'elbowR', 'wristL', 'wristR', 'kneeL', 'kneeR', 'ankleL', 'ankleR'];
+    const joints = (soldier: Soldier) => {
+      soldier.root.updateMatrixWorld(true);
+      return LIMBS.map((name) => soldier.root.getObjectByName(name)!.getWorldPosition(new Vector3()));
+    };
+
+    it('falls in one motion from any pose and any shot: no joint jumps from one frame to the next', () => {
+      for (const rate of [60, 144]) {
+        for (const [pose, state] of Object.entries(STATES)) {
+          for (const [from, push] of Object.entries(PUSHES)) {
+            const soldier = settled(state);
+            let before = joints(soldier);
+            soldier.die(push);
+            let fastest = 0;
+            let which = '';
+            for (let i = 0; i < 2 * rate; i++) {
+              soldier.fall(1 / rate);
+              const now = joints(soldier);
+              now.forEach((at, j) => {
+                const speed = at.distanceTo(before[j]!) * rate;
+                if (speed > fastest) [fastest, which] = [speed, `${LIMBS[j]} at frame ${i}`];
+              });
+              before = now;
+            }
+            // A body falling its own height tops out near 6 m/s, and a slide's legs unfolding into the fall, the fastest
+            // thing a death does, near 14 at either rate. A limb snapping to the other side of the body was 17 to 68 at
+            // 60 Hz, and more the shorter the frame.
+            expect(fastest, `${pose}, shot from ${from}, at ${rate} Hz: ${which}`).toBeLessThan(15);
+          }
+        }
+      }
+    });
+
+    it('dies where it lies when it is already down: the body is not dragged along the ground', () => {
+      for (const pose of ['prone', 'Downed']) {
+        const soldier = settled(STATES[pose]);
+        const hips = () => soldier.root.getObjectByName('hips')!.getWorldPosition(new Vector3());
+        const was = hips();
+        soldier.die([0, 0, 2.5]);
+        for (let i = 0; i < 120; i++) soldier.fall(1 / 60);
+        const now = hips();
+        expect(Math.hypot(now.x - was.x, now.z - was.z), pose).toBeLessThan(0.12);
+      }
+    });
   });
 
   describe('Mantling (ticket 67)', () => {

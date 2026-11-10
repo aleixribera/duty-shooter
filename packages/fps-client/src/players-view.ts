@@ -19,7 +19,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { hasDistanceDetail } from './detail';
 import { KIT_RIGS } from './viewmodel/kit';
-import { loadSoldierModel, Soldier, soldierModel, type Look } from './soldier';
+import { loadSoldierModel, pieceShade, Soldier, soldierModel, type Look } from './soldier';
 
 /** Free-for-all: nobody's side, in olive drab. */
 const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xa9836a, helmet: 0x4b5139, boots: 0x2a2622, accent: 0x5d6447 };
@@ -198,9 +198,11 @@ function standIn(model: Object3D, look: Look, stance: FarStance): BufferGeometry
     box.translate(centre.x, centre.y, centre.z);
     box.applyMatrix4(piece.matrixWorld);
     const c = (piece.material as MeshStandardNodeMaterial).color;
+    // As dark as the piece's baked shade makes it up close, so a soldier doesn't brighten when it becomes a stand-in.
+    const shade = pieceShade(piece.geometry);
     const n = box.getAttribute('position').count;
     const colour = new Float32Array(n * 3);
-    for (let v = 0; v < n; v++) colour.set([c.r, c.g, c.b], v * 3);
+    for (let v = 0; v < n; v++) colour.set([c.r * shade, c.g * shade, c.b * shade], v * 3);
     box.setAttribute('color', new BufferAttribute(colour, 3));
     boxes.push(box);
   }
@@ -298,6 +300,11 @@ export const BODIES = { lies: 10, sinks: 1.6, most: 12 } as const;
 const BODY_CARRY = 0.4;
 const BODY_PUSH = 0.35;
 const BODY_DRAG = 5;
+/** How long (s) a hit's push is the push of the death that follows it: longer ago, something else killed the soldier. */
+const PUSH_LASTS = 0.5;
+/** The heights (m) over the ground a body needs clear to lie somewhere, and how far the ground there may step up or down. */
+const LIE_CLEAR = [0.45, 0.25] as const;
+const LIE_STEP = 0.3;
 
 /**
  * A dead soldier: the Soldier it was, now falling by its death clip (soldier.ts), carried a little by its own
@@ -312,6 +319,8 @@ class Body {
   readonly #lain = new Quaternion();
   #floor: number;
   age = 0;
+  /** The soldier level it was last drawn at (PlayersView's). */
+  level: Level | undefined;
 
   constructor(soldier: Soldier, velocity: Vec3, push: Vec3, world: World) {
     this.soldier = soldier;
@@ -319,20 +328,33 @@ class Body {
     const root = soldier.root;
     const yaw = root.rotation.y;
     const at = root.position;
-    // Whether the body may come to lie `right` m to its right and `back` m behind it: nothing in the way at knee height.
-    const room = (right: number, back: number) => {
-      const x = at.x + right * Math.cos(yaw) + back * Math.sin(yaw);
-      const z = at.z - right * Math.sin(yaw) + back * Math.cos(yaw);
-      return raycastWorld(world, [at.x, at.y + 0.45, at.z], [x, at.y + 0.45, z]) === null;
+    // The ground it stands on (or will come down on), taken as a plane: a body lies along a slope, not level.
+    const below = raycastWorld(world, [at.x, at.y + 0.5, at.z], [at.x, at.y - 40, at.z]);
+    const floor = below ? below.point[1] : at.y;
+    const slope: Vec3 = below && below.normal[1] > 0.8 ? below.normal : [0, 1, 0];
+    // Whether the body may reach `dx`, `dz` (m, world) from where it is: nothing in the way at knee or shin height, and
+    // ground there to lie on, with no ledge, step or kerb between here and there.
+    const clear = (dx: number, dz: number) => {
+      const y = floor - (slope[0] * dx + slope[2] * dz) / slope[1];
+      for (const h of LIE_CLEAR) if (raycastWorld(world, [at.x, floor + h, at.z], [at.x + dx, y + h, at.z + dz])) return false;
+      // (With no ground under the body either, there is none to compare.)
+      if (!below) return true;
+      // (With no ground under the body either, there is none to compare.)
+      if (!below) return true;
+      const ground = raycastWorld(world, [at.x + dx, y + 0.5, at.z + dz], [at.x + dx, y - 0.5, at.z + dz]);
+      return ground !== null && Math.abs(ground.point[1] - y) < LIE_STEP;
     };
-    soldier.die(push, room);
+    // `right` m to the soldier's right and `back` m behind it, as a way in the world.
+    const across = (right: number, back: number): [number, number] => [right * Math.cos(yaw) + back * Math.sin(yaw), -right * Math.sin(yaw) + back * Math.cos(yaw)];
+    const reach = soldier.die(push, (right, back) => clear(...across(right, back)));
+    const lies = across(reach.right, reach.back);
     this.#v = new Vector3(velocity[0] * BODY_CARRY + push[0] * BODY_PUSH, Math.min(0, velocity[1]), velocity[2] * BODY_CARRY + push[2] * BODY_PUSH);
-    // It would slide this far in all: not into a wall.
-    const reach = this.#v.clone().setY(0).multiplyScalar(1 / BODY_DRAG);
-    const far = reach.length();
+    // It would slide this far in all, and lie that much further: not into a wall, and not out over an edge.
+    const slide = this.#v.clone().setY(0).multiplyScalar(1 / BODY_DRAG);
+    const far = slide.length();
     if (far > 0.01) {
-      reach.multiplyScalar((far + 0.4) / far);
-      if (raycastWorld(world, [at.x, at.y + 0.45, at.z], [at.x + reach.x, at.y + 0.45, at.z + reach.z])) this.#v.setX(0).setZ(0);
+      const past = (far + 0.4) / far;
+      if (!clear(slide.x * past, slide.z * past) || !clear(slide.x + lies[0], slide.z + lies[1])) this.#v.setX(0).setZ(0);
     }
     this.#stood.copy(root.quaternion);
     this.#lain.copy(root.quaternion);
@@ -389,7 +411,9 @@ export class PlayersView {
   readonly #soldiers = new Map<PlayerId, Soldier>();
   readonly #alive = new Map<PlayerId, boolean>();
   readonly #bodies: Body[] = [];
-  readonly #lastPush = new Map<PlayerId, Vec3>();
+  /** The last hit each soldier took and when (`#time`): the push that throws its body, if it dies of it. */
+  readonly #lastPush = new Map<PlayerId, { readonly push: Vec3; readonly at: number }>();
+  #time = 0;
   readonly #guns: GunModels | null;
   /** The look each soldier was built in, so a team change rebuilds it. */
   readonly #looks = new Map<PlayerId, Look>();
@@ -458,15 +482,7 @@ export class PlayersView {
   hit(victim: PlayerId, direction: Vec3, damage: number): void {
     this.#soldiers.get(victim)?.hitFlash();
     const k = Math.min(3, damage / 12);
-    this.#lastPush.set(victim, [direction[0] * k, direction[1] * k, direction[2] * k]);
-  }
-
-  /** Where a player's chest is right now, for effects and the damage indicator. */
-  chest(id: PlayerId): Vec3 | null {
-    const s = this.#soldiers.get(id);
-    if (!s || !this.#alive.get(id)) return null;
-    const p = s.root.position;
-    return [p.x, p.y + 1.2, p.z];
+    this.#lastPush.set(victim, { push: [direction[0] * k, direction[1] * k, direction[2] * k], at: this.#time });
   }
 
   /**
@@ -483,6 +499,10 @@ export class PlayersView {
       return;
     }
     const seen = new Set<PlayerId>();
+    this.#time += dt;
+    // How far something is drawn from: a scope brings it nearer.
+    const distance = (x: number, y: number, z: number) => (viewer ? Math.hypot(x - viewer[0], y - viewer[1], z - viewer[2]) / Math.max(1, zoom) : 0);
+    const byDistance = viewer !== null && hasDistanceDetail();
     this.#far.begin();
     for (const p of players) {
       seen.add(p.id);
@@ -492,6 +512,7 @@ export class PlayersView {
         // Changed sides (or teams came on or off between matches): rebuild in the new uniform.
         soldier.root.removeFromParent();
         soldier.dispose();
+        this.#forget(p.id);
         soldier = undefined;
       }
       if (!soldier) {
@@ -509,18 +530,26 @@ export class PlayersView {
         const gun = this.#guns.mesh(p.weapon.id);
         if (gun) soldier.hold(p.weapon.id, gun);
       }
-      const level = forced ?? (viewer && hasDistanceDetail() ? levelAt(Math.hypot(p.position[0] - viewer[0], p.position[1] - viewer[1], p.position[2] - viewer[2]) / Math.max(1, zoom), this.#levels.get(p.id)) : NEAR);
+      const level = forced ?? (byDistance ? levelAt(distance(p.position[0], p.position[1], p.position[2]), this.#levels.get(p.id)) : NEAR);
       this.#levels.set(p.id, level);
       const wasAlive = this.#alive.get(p.id) ?? p.alive;
       // Far away, a soldier who falls is simply gone: a body there would be a few pixels.
       if (wasAlive && !p.alive && level !== FAR) {
         soldier.update(p, 0);
         soldier.castShadows(level === NEAR);
-        this.#bodies.push(new Body(soldier, p.velocity, this.#lastPush.get(p.id) ?? [0, 0, 0], this.#world));
+        // A soldier that was a far stand-in a frame ago was hidden.
+        soldier.root.visible = true;
+        const hit = this.#lastPush.get(p.id);
+        const body = new Body(soldier, p.velocity, hit && this.#time - hit.at <= PUSH_LASTS ? hit.push : [0, 0, 0], this.#world);
+        body.level = level;
+        this.#bodies.push(body);
         this.#forget(p.id);
+        this.#lastPush.delete(p.id);
         this.#alive.set(p.id, false);
         continue;
       }
+      // Whatever hit a soldier in its last life has nothing to do with the next.
+      if (!p.alive) this.#lastPush.delete(p.id);
       this.#alive.set(p.id, p.alive);
       soldier.root.visible = p.alive && level !== FAR;
       if (!p.alive) continue;
@@ -548,10 +577,20 @@ export class PlayersView {
       this.#alive.delete(id);
     }
     for (const id of this.#alive.keys()) if (!seen.has(id)) this.#alive.delete(id);
-    // The oldest bodies go first when too many lie about.
+    for (const id of this.#lastPush.keys()) if (!seen.has(id)) this.#lastPush.delete(id);
     for (let i = this.#bodies.length - 1; i >= 0; i--) {
       const body = this.#bodies[i]!;
-      if (body.update(dt) && this.#bodies.length - i <= BODIES.most) continue;
+      // The oldest go first when too many lie about, sinking away like the rest.
+      if (this.#bodies.length - i > BODIES.most) body.age = Math.max(body.age, BODIES.lies);
+      if (body.update(dt)) {
+        // A body is drawn like the soldier it was: its shadow near, and nothing at all where a soldier is a stand-in.
+        const root = body.soldier.root;
+        const level = forced ?? (byDistance ? levelAt(distance(root.position.x, root.position.y, root.position.z), body.level) : NEAR);
+        body.level = level;
+        root.visible = level !== FAR;
+        body.soldier.castShadows(level === NEAR);
+        continue;
+      }
       body.soldier.root.removeFromParent();
       body.soldier.dispose();
       this.#bodies.splice(i, 1);

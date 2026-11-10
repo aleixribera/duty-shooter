@@ -180,6 +180,8 @@ type Death = 'fallBack' | 'fallFront' | 'crumple';
 const DEATH_BLEND = 0.16;
 /** A push (the killing shot's, see PlayersView.hit) below this throws nobody anywhere. */
 const DEATH_PUSH = 0.4;
+/** Where in its clip (0 to 1) a death is when `done` of its time has gone: a fall gathers speed, and the clip's keys are even, so its early ones are held longer. */
+const deathClock = (done: number) => Math.pow(done, 1.35) * MANTLE_END;
 /** Metres a body needs clear to fall its length, and to fold onto its side. */
 const DEATH_LENGTH = 1.5;
 const DEATH_WIDTH = 0.9;
@@ -190,6 +192,15 @@ const DEATH_WIDTH = 0.9;
 const LIES = { hips: 0.13, shoulder: 0.11, head: 0.13, elbow: 0.055, wrist: 0.05, hand: 0.03, knee: 0.09, ankle: 0.08, sole: 0.012 } as const;
 const HEAD = new Vector3(0, 0.14, 0);
 const FINGERS = new Vector3(0, -0.03, -0.1);
+/**
+ * A limb lifted out of the ground keeps its length and goes up the way it leans. But a limb pointing nearly
+ * straight down leans no way in particular, and its lean flips as it swings through the vertical: lifted far, the
+ * whole leg would jump to the other side of the body in a frame. So each limb keeps the way it was lifted, and
+ * follows its lean only as fast as moves the lifted joint this many m/s (at once, when the two are close).
+ */
+const LIFT_SPEED = 2.5;
+/** The limbs and ends `#restOnGround` lifts on each side, each with a way of its own. */
+const LIFTS = 7;
 const HEEL = new Vector3(0, -0.068, 0.07);
 const TOE = new Vector3(0, -0.068, -0.17);
 const ORIGIN = new Vector3();
@@ -233,6 +244,18 @@ function bodyMaterial(): MeshStandardNodeMaterial {
   material.roughnessNode = finish.y.add(blotch.mul(camo).mul(0.04));
   return material;
 }
+
+/** How dark the model's baked shade leaves a piece on the whole, 0 to 1 (1 with none baked): what the far stand-in's box of it is darkened by. */
+export function pieceShade(geometry: BufferGeometry): number {
+  const shadeAt = geometry.getAttribute('color');
+  if (!shadeAt || shadeAt.count === 0) return 1;
+  let sum = 0;
+  for (let v = 0; v < shadeAt.count; v++) sum += shadeAt.getX(v);
+  return 1 - SHADE + (SHADE * sum) / shadeAt.count;
+}
+
+/** The merged body of each look, made once for a model and shared by every soldier in that look: building one takes about 17 ms, a dropped frame at every respawn. */
+const skins = new WeakMap<Object3D, WeakMap<Look, BufferGeometry>>();
 
 let model: Object3D | null = null;
 let clips: Clips = new Map();
@@ -357,7 +380,19 @@ export class Soldier {
   #mantle = 0;
   #dt = 0;
   /** The death under way or done: its clip, where in it the body is and joined it (s), mirrored or not, and the pose it took the body from. */
-  #death: { clip: Clip; time: number; start: number; mirror: boolean; from: { q: Quaternion; at: Vector3 }[] } | null = null;
+  #death: {
+    clip: Clip;
+    time: number;
+    start: number;
+    mirror: boolean;
+    from: { q: Quaternion; at: Vector3 }[];
+    /** Where the clip has the hips at the moment the body joins it: the body is carried on from where it is, by how far the clip moves from here. */
+    origin: Vector3;
+    /** The way each limb was last lifted (`LIFT_SPEED`): its heading about the vertical (rad), NaN before the first. */
+    ways: Float32Array;
+    /** Lying still: the last pose is in the bones and nothing moves them again. */
+    still: boolean;
+  } | null = null;
   /** The support palm, eased, in gun space. */
   readonly #left = { pos: new Vector3(), q: new Quaternion(), set: false };
   /** How far each wrist ended from its grip after the last pose (m): left, right. */
@@ -407,17 +442,41 @@ export class Soldier {
     if (!hips?.parent) throw new Error('The soldier model has no hips');
     copy(hips.parent, this.root);
     this.root.add(this.#gunMount);
-    this.#skin();
+    this.#skin(template, look);
   }
 
   /**
    * Draws the whole soldier as one skinned mesh: each piece rides its joint
    * as a rigidly weighted bone, in its slot's colour under the model's baked
-   * shade. One draw call (two with its shadow).
+   * shade. One draw call (two with its shadow). The mesh itself is the look's, shared (`skins`).
    */
-  #skin(): void {
+  #skin(template: Object3D, look: Look): void {
     const bones = JOINTS.map((j) => this.#bones[j]);
     this.root.updateMatrixWorld(true);
+    let looks = skins.get(template);
+    if (!looks) skins.set(template, (looks = new WeakMap()));
+    let merged = looks.get(look) ?? null;
+    if (!merged) {
+      merged = this.#merge(bones);
+      if (merged) looks.set(look, merged);
+    }
+    if (!merged) return;
+    const material = bodyMaterial();
+    this.#materials.push(material);
+    const body = new SkinnedMesh(merged, material);
+    body.name = 'body';
+    body.castShadow = true;
+    this.root.add(body);
+    body.updateMatrixWorld(true);
+    body.bind(new Skeleton(bones));
+    // Posed, a soldier reaches about a metre and a half from its feet (prone, rifle forward; fallen, laid out).
+    body.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.7);
+    this.#body = body;
+    for (const piece of this.parts.values()) piece.visible = false;
+  }
+
+  /** Every piece as one geometry in the root's frame, each vertex weighted to its piece's joint and coloured as its slot under the baked shade. */
+  #merge(bones: readonly Bone[]): BufferGeometry | null {
     const geometries: BufferGeometry[] = [];
     for (const piece of this.parts.values()) {
       const index = bones.indexOf(piece.parent as Bone);
@@ -437,8 +496,11 @@ export class Soldier {
       const skinWeight = new Float32Array(n * 4);
       for (let v = 0; v < n; v++) {
         const k = shadeAt ? 1 - SHADE + SHADE * shadeAt.getX(v) : 1;
-        colour.set([c.r * k, c.g * k, c.b * k], v * 3);
-        finish.set([camo, roughness], v * 2);
+        colour[v * 3] = c.r * k;
+        colour[v * 3 + 1] = c.g * k;
+        colour[v * 3 + 2] = c.b * k;
+        finish[v * 2] = camo;
+        finish[v * 2 + 1] = roughness;
         skinIndex[v * 4] = index;
         skinWeight[v * 4] = 1;
       }
@@ -451,19 +513,7 @@ export class Soldier {
     }
     const merged = mergeGeometries(geometries);
     for (const g of geometries) g.dispose();
-    if (!merged) return;
-    const material = bodyMaterial();
-    this.#materials.push(material);
-    const body = new SkinnedMesh(merged, material);
-    body.name = 'body';
-    body.castShadow = true;
-    this.root.add(body);
-    body.updateMatrixWorld(true);
-    body.bind(new Skeleton(bones));
-    // Posed, a soldier reaches about a metre and a half from its feet (prone, rifle forward; fallen, laid out).
-    body.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.7);
-    this.#body = body;
-    for (const piece of this.parts.values()) piece.visible = false;
+    return merged;
   }
 
   hitFlash(): void {
@@ -608,9 +658,10 @@ export class Soldier {
    * the front it throws the body onto its back, from behind onto its chest, and from the side, or with no push to
    * speak of, the body folds onto its side where it stood. `room(right, back)` says whether the body may come to
    * lie that far (m) to the soldier's right and behind it: with a wall there it folds up short of it instead.
-   * `fall` plays the death from then on; `update` is over for this soldier.
+   * `fall` plays the death from then on; `update` is over for this soldier. Returns how far the body will reach
+   * from where it stands once it lies, to its right and behind it (m).
    */
-  die(push: Vec3, room: (right: number, back: number) => boolean = () => true): void {
+  die(push: Vec3, room: (right: number, back: number) => boolean = () => true): { readonly right: number; readonly back: number } {
     const b = this.#bones;
     const yaw = this.root.rotation.y;
     // The soldier faces -Z turned by its yaw; its right is +X turned the same.
@@ -625,31 +676,38 @@ export class Soldier {
     if (name === 'crumple' && !room(mirror ? -DEATH_WIDTH : DEATH_WIDTH, 0) && room(mirror ? DEATH_WIDTH : -DEATH_WIDTH, 0)) mirror = !mirror;
     const clip = clips.get(name);
     this.#gunMount.visible = false;
-    if (!clip) return;
+    const lies = name === 'crumple' ? { right: mirror ? -DEATH_WIDTH : DEATH_WIDTH, back: 0 } : { right: 0, back: name === 'fallBack' ? DEATH_LENGTH : -DEATH_LENGTH };
+    if (!clip) return lies;
     // A body already low joins the fall part-way down.
     const start = Math.min(0.8, Math.max(0, 1 - b.hips.position.y / 0.8)) * clip.duration;
-    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })) };
+    const hips = clip.joints.find((j) => j.joint === 'hips')?.at;
+    const origin = hips ? new Vector3().fromArray(hips.evaluate(deathClock(start / clip.duration) * clip.duration)) : b.hips.position.clone();
+    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })), origin, ways: new Float32Array(LIFTS * 2).fill(Number.NaN), still: false };
+    return lies;
   }
 
   /** Carries the death on by `dt` seconds. Returns how far through its fall the body is, 0 to 1 (1: lying still). */
   fall(dt: number): number {
     const d = this.#death;
-    this.#flash = Math.max(0, this.#flash - dt * 6);
-    const glow = _glow.setRGB(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
-    for (const m of this.#materials) m.emissive.copy(glow);
-    if (!d) return 1;
+    if (this.#flash > 0) {
+      this.#flash = Math.max(0, this.#flash - dt * 6);
+      const glow = _glow.setRGB(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
+      for (const m of this.#materials) m.emissive.copy(glow);
+    }
+    // Lying still, a body costs nothing more.
+    if (!d || d.still) return 1;
     d.time = Math.min(d.clip.duration, d.time + dt);
     const done = d.time / d.clip.duration;
-    // A fall gathers speed: the clip's keys are even, so its early ones are held longer.
-    const t = Math.pow(done, 1.35) * d.clip.duration * MANTLE_END;
+    const t = deathClock(done) * d.clip.duration;
     const w = smooth((d.time - d.start) / DEATH_BLEND);
-    JOINTS.forEach((joint, i) => {
+    for (let i = 0; i < JOINTS.length; i++) {
+      const joint = JOINTS[i]!;
       const bone = this.#bones[joint];
       const from = d.from[i]!;
       bone.quaternion.copy(from.q);
       // Whatever the gun's hold had slid (a shoulder reaching) goes back where it belongs.
       bone.position.lerpVectors(from.at, this.#rest[joint], joint === 'hips' ? 0 : w);
-    });
+    }
     for (const { joint, turn, at } of d.clip.joints) {
       const bone = this.#bones[d.mirror ? MIRRORED[joint] : joint];
       _q.fromArray(turn.evaluate(t));
@@ -657,11 +715,17 @@ export class Soldier {
       bone.quaternion.slerp(_q, w);
       if (at) {
         _a.fromArray(at.evaluate(t));
+        // The hips go down to the clip's height, and along the ground by as far as the clip moves them from where the
+        // body joined it: a body that dies already lying down (it joins near the clip's end) is not dragged to where
+        // the clip, made for a standing soldier, has it land.
+        if (joint === 'hips') _a.set(_a.x - d.origin.x, _a.y, _a.z - d.origin.z);
         if (d.mirror) _a.x = -_a.x;
+        if (joint === 'hips') _a.set(_a.x + bone.position.x, _a.y, _a.z + bone.position.z);
         bone.position.lerp(_a, w);
       }
     }
-    this.#restOnGround();
+    this.#restOnGround(dt);
+    d.still = d.time >= d.clip.duration;
     return done;
   }
 
@@ -671,22 +735,28 @@ export class Soldier {
    * onto whatever it would rest on, then each limb is swung up from its shoulder or hip until its joints clear,
    * and the hands and toes after them.
    */
-  #restOnGround(): void {
+  #restOnGround(dt: number): void {
     const b = this.#bones;
+    const ways = this.#death?.ways;
+    if (!ways) return;
     let lack = LIES.hips - b.hips.position.y;
-    for (const s of ['L', 'R'] as const) lack = Math.max(lack, LIES.shoulder - this.#inRoot(b.spine, this.#rest[`shoulder${s}`], _a).y);
+    lack = Math.max(lack, LIES.shoulder - this.#inRoot(b.spine, this.#rest.shoulderL, _a).y, LIES.shoulder - this.#inRoot(b.spine, this.#rest.shoulderR, _a).y);
     lack = Math.max(lack, LIES.head - this.#inRoot(b.neck, HEAD, _a).y);
     if (lack > 0) b.hips.position.y += lack;
-    // Twice: lifting a limb's far joint can dip its near one again.
+    // Each joint is lifted about the one above it, so lifting a wrist or an ankle leaves the elbow or the knee where it
+    // was put. Twice, for the feet: lifting a heel can dip its toe. Only the first pass moves time on.
     for (let pass = 0; pass < 2; pass++) {
-      for (const s of ['L', 'R'] as const) {
-        this.#clear(b[`shoulder${s}`], b[`elbow${s}`], ORIGIN, LIES.elbow);
-        this.#clear(b[`shoulder${s}`], b[`wrist${s}`], ORIGIN, LIES.wrist);
-        this.#clear(b[`wrist${s}`], b[`wrist${s}`], FINGERS, LIES.hand);
-        this.#clear(b[`hip${s}`], b[`knee${s}`], ORIGIN, LIES.knee);
-        this.#clear(b[`hip${s}`], b[`ankle${s}`], ORIGIN, LIES.ankle);
-        this.#clear(b[`ankle${s}`], b[`ankle${s}`], HEEL, LIES.sole);
-        this.#clear(b[`ankle${s}`], b[`ankle${s}`], TOE, LIES.sole);
+      const time = pass === 0 ? dt : 0;
+      for (let side = 0; side < 2; side++) {
+        const s = side === 0 ? 'L' : 'R';
+        const at = side * LIFTS;
+        this.#clear(ways, at, time, b[`shoulder${s}`], b[`elbow${s}`], ORIGIN, LIES.elbow);
+        this.#clear(ways, at + 1, time, b[`elbow${s}`], b[`wrist${s}`], ORIGIN, LIES.wrist);
+        this.#clear(ways, at + 2, time, b[`wrist${s}`], b[`wrist${s}`], FINGERS, LIES.hand);
+        this.#clear(ways, at + 3, time, b[`hip${s}`], b[`knee${s}`], ORIGIN, LIES.knee);
+        this.#clear(ways, at + 4, time, b[`knee${s}`], b[`ankle${s}`], ORIGIN, LIES.ankle);
+        this.#clear(ways, at + 5, time, b[`ankle${s}`], b[`ankle${s}`], HEEL, LIES.sole);
+        this.#clear(ways, at + 6, time, b[`ankle${s}`], b[`ankle${s}`], TOE, LIES.sole);
       }
     }
   }
@@ -698,17 +768,37 @@ export class Soldier {
     return out;
   }
 
-  /** Swings `bone` up about a level axis through itself, just far enough that the point `at` of `end`'s frame is `radius` clear of the ground under the root. */
-  #clear(bone: Bone, end: Object3D, at: Vector3, radius: number): void {
+  /**
+   * Swings `bone` about itself until the point `at` of `end`'s frame is `radius` clear of the ground under the
+   * root, the limb keeping its length. `kept[slot]` is the way this limb was last lifted (`LIFT_SPEED`), given
+   * `dt` seconds to come round to the way the limb leans now.
+   */
+  #clear(kept: Float32Array, slot: number, dt: number, bone: Bone, end: Object3D, at: Vector3, radius: number): void {
     const point = this.#inRoot(end, at, _a);
-    const lack = radius - point.y;
-    if (lack <= 0) return;
+    const lack = Math.max(0, radius - point.y);
     const reach = point.sub(this.#inRoot(bone, ORIGIN, _b));
     const length = reach.length();
     if (length < 1e-4) return;
-    const rise = Math.asin(Math.min(1, (reach.y + lack) / length)) - Math.asin(Math.max(-1, reach.y / length));
     const level = Math.hypot(reach.x, reach.z);
-    _q.setFromAxisAngle(level > 1e-4 ? _c.set(-reach.z / level, 0, reach.x / level) : _c.set(1, 0, 0), rise);
+    // Where the point goes: up by what it lacks, and out from the bone by what that leaves of the limb's length.
+    const height = Math.max(-length, Math.min(length, reach.y + lack));
+    const out = Math.sqrt(Math.max(0, length * length - height * height));
+    const leans = level > 1e-4 ? Math.atan2(reach.x, reach.z) : null;
+    let way = leans ?? 0;
+    const was = kept[slot]!;
+    if (!Number.isNaN(was)) {
+      way = was;
+      if (leans !== null) {
+        // The short way round from the way kept to the lean, and no more of it than the point may travel.
+        const round = Math.atan2(Math.sin(leans - was), Math.cos(leans - was));
+        const most = out > 1e-4 ? (LIFT_SPEED * dt) / out : Math.PI;
+        way = Math.abs(round) <= most ? leans : was + Math.sign(round) * most;
+      }
+    }
+    kept[slot] = way;
+    if (lack === 0 && way === leans) return;
+    _c.set(Math.sin(way) * out, height, Math.cos(way) * out).divideScalar(length);
+    _q.setFromUnitVectors(reach.divideScalar(length), _c);
     // The swing is in the root's frame: carried into that of the bone's parent.
     const parent = _q2.identity();
     for (let o = bone.parent; o && o !== this.root; o = o.parent) parent.premultiply(o.quaternion);
@@ -939,9 +1029,9 @@ export class Soldier {
   }
 
   dispose(): void {
-    // The pieces' geometry belongs to the shared model; only the merged body is this soldier's.
+    // The pieces' geometry belongs to the shared model and the merged body to its look (`skins`): the materials and the skeleton are this soldier's.
     this.#gun?.removeFromParent();
-    this.#body?.geometry.dispose();
+    this.#body?.skeleton.dispose();
     for (const m of this.#materials) m.dispose();
   }
 }
