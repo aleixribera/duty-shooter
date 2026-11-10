@@ -13,9 +13,23 @@ export function shotsToKill(weapon: WeaponId, distance: number, zone: HitZone = 
   return perShot > 0 ? Math.ceil(STATS.health.max.value / perShot - 1e-9) : Infinity;
 }
 
-/** Seconds from the first shot to the killing shot at the weapon's fastest rate (a pump or bolt cycling in between). */
+/**
+ * Seconds from a weapon's first shot to its shot number `shot` (1 is the
+ * first) at its fastest rate: a pump or bolt cycling in between, a burst
+ * weapon waiting out its delay after every burst.
+ */
+export function timeOfShot(weapon: WeaponId, shot: number): number {
+  const h = STATS.weapons[weapon].handling;
+  const interval = 60 / h.fireRate.value;
+  const burst = h.burstRounds?.value;
+  if (!burst || !Number.isFinite(shot)) return (shot - 1) * interval;
+  const bursts = Math.floor((shot - 1) / burst);
+  return bursts * ((burst - 1) * interval + (h.burstDelay?.value ?? interval)) + ((shot - 1) % burst) * interval;
+}
+
+/** Seconds from the first shot to the killing shot at the weapon's fastest rate (a pump or bolt cycling in between, a burst rifle waiting between bursts). */
 export function timeToKill(weapon: WeaponId, distance: number, zone: HitZone = 'upperTorso', pelletsHit?: number): number {
-  return (shotsToKill(weapon, distance, zone, pelletsHit) - 1) * (60 / STATS.weapons[weapon].handling.fireRate.value);
+  return timeOfShot(weapon, shotsToKill(weapon, distance, zone, pelletsHit));
 }
 
 export interface TimeToKill {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerOutput } from '@duty-shooter/fps-core';
-import { AllySight, NAME_RANGE, allyTag, alliesOf, type AllySeen } from '../src/hud/ally-tags';
+import { AllySight, NAME_RANGE, allyTag, allyTags, alliesOf, type AllySeen } from '../src/hud/ally-tags';
+import { cornerHeight } from '../src/hud/markers';
 
 const W = 1920;
 const H = 1080;
@@ -30,7 +31,8 @@ describe('an ally tag (ticket 52)', () => {
   it('off screen to the right, the chevron holds the right edge and points out', () => {
     const t = allyTag(ally({ x: W + 600, y: H / 2 }), W, H);
     expect(t.edge).toBe(true);
-    expect(t.name).toBeNull();
+    // At the edge the mark is labelled: a bare chevron says nothing of who it points at.
+    expect(t.name).toBe('Bea');
     expect(t.x).toBeLessThan(W);
     expect(t.x).toBeGreaterThan(W - 60);
     // 0 points down; to the right is a quarter turn back.
@@ -62,6 +64,49 @@ describe('an ally tag (ticket 52)', () => {
     expect(near.name).toBe('Bea');
     expect(near.label).toBe('Revive');
     expect(allyTag(ally(), W, H).label).toBeNull();
+  });
+});
+
+describe('tags that would lie on each other (design audit 2026-11-10)', () => {
+  it('two allies behind you at the same spot: the second tag steps up the edge instead of lying on the first', () => {
+    const tags = allyTags([ally({ id: 'a', name: 'Rook', x: 20, y: 900, behind: true }), ally({ id: 'b', name: 'Ember', x: 24, y: 900, behind: true })], W, H);
+    expect(tags.map((t) => t.edge)).toEqual([true, true]);
+    expect(Math.abs(tags[0]!.y - tags[1]!.y)).toBeGreaterThanOrEqual(42);
+    expect(tags[1]!.y).toBeLessThan(tags[0]!.y);
+    // Three: each on its own step.
+    const three = allyTags(['a', 'b', 'c'].map((id) => ally({ id, x: -50, y: 500 })), W, H);
+    expect(new Set(three.map((t) => t.y)).size).toBe(3);
+  });
+
+  it('edge tags apart from each other stay where they are', () => {
+    const tags = allyTags([ally({ id: 'a', x: -50, y: 300 }), ally({ id: 'b', x: -50, y: 600 }), ally({ id: 'c', x: W + 50, y: 300 })], W, H);
+    expect(tags.map((t) => t.y)).toEqual([300, 600, 300]);
+  });
+
+  it('an edge tag stands clear over the health and the ammo, foot and all', () => {
+    for (const x of [-50, 20, 200, W - 200, W + 50]) {
+      const t = allyTag(ally({ x, y: H - 10 }), W, H);
+      // The tag reaches 20px under its centre: that foot is at the corner's top or over it.
+      expect(t.y + 20).toBeLessThanOrEqual(H - cornerHeight(W));
+    }
+    // Mid-height on a side, nothing moves it.
+    expect(allyTag(ally({ x: -50, y: 400 }), W, H).y).toBe(400);
+  });
+
+  it('two names over heads that overlap: the nearer ally keeps the name, the other is down to its chevron', () => {
+    const tags = allyTags([ally({ id: 'far', name: 'Briar', distance: 30, x: 700, y: 300 }), ally({ id: 'near', name: 'Ember', distance: 8, x: 740, y: 310 })], W, H);
+    expect(tags.map((t) => t.name)).toEqual([null, 'Ember']);
+    // Apart, both keep theirs.
+    expect(allyTags([ally({ id: 'a', x: 500, y: 300 }), ally({ id: 'b', x: 700, y: 300 })], W, H).map((t) => t.name)).toEqual(['Bea', 'Bea']);
+  });
+
+  it('on touch a tag that steps up the left edge goes round the Pause and scoreboard column', () => {
+    const tags = allyTags(['a', 'b', 'c', 'd'].map((id) => ally({ id, x: -50, y: 250 })), 844, 390, true);
+    // As a single tag does: it is the tag's foot that the column is measured against.
+    expect(tags.some((t) => t.y + 20 <= 176)).toBe(true);
+    for (const t of tags) if (t.y + 20 <= 176) expect(t.x).toBeGreaterThanOrEqual(104);
+    const spots = tags.map((t) => `${t.x},${t.y}`);
+    expect(new Set(spots).size).toBe(4);
   });
 });
 

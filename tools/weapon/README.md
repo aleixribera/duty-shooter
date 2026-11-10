@@ -51,6 +51,18 @@ renders a quick flat-shaded sheet without baking. The rig numbers in
 `packages/fps-client/src/viewmodel/kit.ts` follow the landmarks at the top of
 each generator; check idle, aim, reload and inspect in the viewer after editing.
 
+`check_model.py` reads a generator's `.blend` too: every piece must be a closed
+solid with a material. Flat lettering, the open ring of a muzzle crown and slits
+under a millimetre pass; it prints the pieces that have them.
+
+```text
+blender --background tools/weapon/pistol.blend --python tools/weapon/check_model.py
+```
+
+A slab with a `taper` has side faces that are not flat. Split them into
+triangles before cutting into it (see the shell in `burst.py`), or the cut can
+leave a slit.
+
 - `pistol.py`: the Warden 9 (slide and magazine pivots match the rig).
 - `smg.py`: the Wasp 9 (the bolt in the port is the `slide` part; the magazine
   runs through the grip).
@@ -59,6 +71,18 @@ each generator; check idle, aim, reload and inspect in the viewer after editing.
 - `sniper.py`: the Ridgeline .308 (the bolt rotates up about the bore, then
   pulls back; the client puts the right palm under its knob, so keep
   `BOLT_KNOB` in `viewmodel.ts` on the knob's centre).
+- `lmg.py`: the Bulwark 5.56 (the feed `cover` hinges up at its rear; the `mag`
+  is the ammo box with the end of its belt, which lies under the cover, so the
+  cover opens before the box leaves; the `slide` is the bolt with its charging
+  handle on the left). At 54,000 triangles it is the heaviest of them: the
+  belt's links and rounds.
+- `dmr.py`: the Vantage 7.62 (the optic's tube is open and the reticle sits in
+  it: the rig's sight point is on the tube's axis at its rear rim).
+- `burst.py`: the Trident 5.56 (a bullpup: the `mag` and the port are behind
+  the grip, so the support hand reaches back for the magazine).
+- `revolver.py`: the Marshal .357 (the `crane` swings the `cylinder` out to the
+  left; the six `rounds` and the speedloader, `loader`, slide along the
+  cylinder's axis from its rear face; the `hammer` turns about its pin).
 - `frag.py`: the frag grenade (origin at the body's centre; the lever is the
   `spoon` part and the pin with its pull ring the `ring` part).
 - `arms.py`: the first-person arms (sleeve and tactical glove), skinned to the

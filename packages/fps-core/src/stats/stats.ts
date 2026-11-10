@@ -1,7 +1,7 @@
 import type { Material } from '../world';
 import type { Estimated, Source, Stat, Unit } from './types';
 import { SCORE } from './score';
-import { PISTOL, SHOTGUN, SMG, SNIPER, estimate, type WeaponId, type WeaponRow } from './weapons';
+import { BURST, DMR, LMG, PISTOL, REVOLVER, SHOTGUN, SMG, SNIPER, estimate, type WeaponId, type WeaponRow } from './weapons';
 
 /**
  * The stats file: every MW2019 movement and weapon number the simulation
@@ -246,7 +246,7 @@ export const STATS = {
     groundFriction: estimated(5.5, '1/s', `IW lineage friction 5.5, Quake-style (${WAW_DVAR_DUMP}).`, 1),
     stopSpeed: estimated(100 * IW_UNIT, 'm/s', `IW lineage stopspeed 100 u/s (${WAW_DVAR_DUMP}).`, 20 * IW_UNIT),
     groundAcceleration: estimated(10, '1/s', 'Quake III pm_accelerate 10, which IW pmove descends from; IW dumps do not expose it. Tune so 0 to walk speed takes about 0.2-0.3 s.'),
-    airAcceleration: estimated(1, '1/s', 'Quake III pm_airaccelerate 1.0; IW has weak air control. Tune by feel.'),
+    airAcceleration: estimated(1.4, '1/s', 'Game value for Duty Shooter. Quake III pm_airaccelerate is 1.0 and IW has weak air control; a little more here, so a standing jump picks up most of a walk before it lands and a jump can be bent round a corner. It never adds to a speed above a walk, so it is steering, not a way to go faster.'),
   },
 
   /** Eye heights and stance transition times. */
@@ -278,7 +278,10 @@ export const STATS = {
   /** Slide from sprint and slide-cancel. */
   slide: {
     duration: estimated(0.9, 's', 'Placeholder; measure by frame count.', 0.15),
-    distance: estimated(180 * IW_UNIT, 'm', 'About the integral of an exponential-ish decay from slide entry speed to crouch speed over the slide duration, 180 u.', 0.75),
+    distance: estimated(5, 'm', 'Game value for Duty Shooter: how far a slide out of a full sprint carries, kick included. With the duration it sets how fast the slide loses its speed; the slide ends at about 4 m/s, between a crouched walk and a walk.', 0.25),
+    kick: estimated(1.15, 'multiplier', 'Game value for Duty Shooter, not measured from any game: a slide out of a full sprint starts this much faster than the sprint. Enough to feel and to carry into a jump, not enough to make sliding the way to cross a map.'),
+    runUp: estimated(0.6, 's', 'Game value for Duty Shooter: how long a sprint has to have lasted, unbroken, for the slide out of it to have its kick. It is what keeps the kick from being had by hammering the crouch key.'),
+    landSpeed: estimated(5.2, 'm/s', 'Game value for Duty Shooter: a landing taken crouched at this speed or more (a running jump, not a walking one) becomes a slide, at the speed it landed with and without a kick.'),
     cameraRoll: estimated(5, 'deg', 'Visual guess.', 3),
     cancelWindowOpen: estimated(
       0.15,
@@ -331,7 +334,7 @@ export const STATS = {
    * Every weapon a loadout can carry, keyed by id (see weapons.ts for the
    * time-to-kill targets the new rows are tuned to).
    */
-  weapons: { m4a1: M4A1, smg: SMG, shotgun: SHOTGUN, sniper: SNIPER, pistol: PISTOL } satisfies Record<WeaponId, WeaponRow>,
+  weapons: { m4a1: M4A1, smg: SMG, shotgun: SHOTGUN, sniper: SNIPER, pistol: PISTOL, lmg: LMG, dmr: DMR, burst: BURST, revolver: REVOLVER } satisfies Record<WeaponId, WeaponRow>,
 
   /**
    * The frag grenade (v2 spec): held to cook, released to throw. A game

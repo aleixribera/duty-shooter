@@ -1,4 +1,5 @@
 import { WebGPURenderer } from 'three/webgpu';
+import type { AdapterHints } from './quality';
 
 /** Which GPU API the renderer ended up on. */
 export type RenderBackend = 'webgpu' | 'webgl2';
@@ -13,6 +14,31 @@ export interface CreateRendererOptions {
 export interface GameRenderer {
   readonly renderer: WebGPURenderer;
   readonly backend: RenderBackend;
+  /** What the adapter says of itself, for Auto quality's first guess and the benchmark's report. */
+  readonly hints: AdapterHints;
+}
+
+/** What the browser tells of the GPU behind a renderer: WebGPU's adapter info, or WebGL's unmasked renderer string. */
+export function adapterHints(renderer: WebGPURenderer, backend: RenderBackend): AdapterHints {
+  let adapter = '';
+  let software = false;
+  try {
+    if (backend === 'webgpu') {
+      const device = (renderer.backend as { device?: { adapterInfo?: { vendor?: string; architecture?: string; device?: string; description?: string; isFallbackAdapter?: boolean } } }).device;
+      const info = device?.adapterInfo;
+      adapter = [info?.vendor, info?.architecture, info?.device, info?.description].filter((part) => part).join(' ');
+      software = info?.isFallbackAdapter === true;
+    } else {
+      const gl = renderer.getContext() as unknown as WebGL2RenderingContext;
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      adapter = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    }
+  } catch {
+    // A browser that hides it: the hints say nothing, and Auto starts in the middle.
+  }
+  const nav = (globalThis as { navigator?: { userAgent?: string; maxTouchPoints?: number; userAgentData?: { mobile?: boolean } } }).navigator;
+  const mobile = nav?.userAgentData?.mobile ?? /Android|iPhone|iPad|iPod|Mobile/i.test(nav?.userAgent ?? '');
+  return { backend, adapter, software, mobile };
 }
 
 /**
@@ -34,7 +60,8 @@ export async function createRenderer(
   await renderer.init();
   const isWebGPU = 'isWebGPUBackend' in renderer.backend && renderer.backend.isWebGPUBackend === true;
   if (isWebGPU) compileInBackground(renderer);
-  return { renderer, backend: isWebGPU ? 'webgpu' : 'webgl2' };
+  const backend: RenderBackend = isWebGPU ? 'webgpu' : 'webgl2';
+  return { renderer, backend, hints: adapterHints(renderer, backend) };
 }
 
 /** The parts of three.js's WebGPU backend that draw and that make pipelines. */

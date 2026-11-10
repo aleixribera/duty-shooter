@@ -61,7 +61,7 @@ describe('stats file', () => {
 
   it("gives every weapon the M4A1's row shape, and the M4A1 its existing stats", () => {
     const { weapons, weapon, damage } = STATS;
-    expect(Object.keys(weapons)).toEqual(['m4a1', 'smg', 'shotgun', 'sniper', 'pistol']);
+    expect(Object.keys(weapons)).toEqual(['m4a1', 'smg', 'shotgun', 'sniper', 'pistol', 'lmg', 'dmr', 'burst', 'revolver']);
     expect(weapons.m4a1.handling.fireRate).toBe(weapon.fireRate);
     expect(weapons.m4a1.damage.bands['close']?.damage).toBe(damage.closeDamage);
     for (const row of Object.values(weapons)) {

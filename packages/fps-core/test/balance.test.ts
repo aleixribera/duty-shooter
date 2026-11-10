@@ -1,10 +1,17 @@
 import { writeFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { STATS, WEAPON_IDS, shotsToKill, timeToKill, timeToKillTable, type WeaponId } from '@duty-shooter/fps-core';
-import { DUEL_DISTANCES, DUEL_WEAPONS, balanceRuns, winRate, type DuelCell } from '@duty-shooter/fps-core/harness';
+import { CHALLENGER_WEAPONS, DUEL_DISTANCES, DUEL_WEAPONS, balanceRuns, challengerRuns, winRate, type DuelCell } from '@duty-shooter/fps-core/harness';
 
 /** Seeded duels per pair, distance and side: 240 duels a cell, enough that one more win or loss moves a cell by under half a point. */
 const ROUNDS = 120;
+/**
+ * Seeded duels per side for a primary that owns no band (the light machine
+ * gun, the marksman rifle, the burst rifle) against each of the four that do:
+ * 48 duels a cell and 768 a gun, enough to place its overall share within two
+ * points, at two fifths of what the four-by-four costs.
+ */
+const CHALLENGER_ROUNDS = 24;
 /** `BALANCE_REPORT=docs/balance.md npx vitest run packages/fps-core/test/balance.test.ts` writes the tables there. */
 const REPORT = process.env.BALANCE_REPORT;
 
@@ -18,6 +25,8 @@ const M4A1 = STATS.weapons.m4a1.damage.bands;
  * turned on which seeds the 240 happened to be.
  */
 const SAMPLING_ERROR = Math.sqrt(0.25 / (ROUNDS * 2));
+/** The same for a challenger's 48-duel cell (0.072). */
+const CHALLENGER_ERROR = Math.sqrt(0.25 / (CHALLENGER_ROUNDS * 2));
 
 /** "About" a time target: within a fifth of it. */
 const about = (target: number) => [target * 0.8, target * 1.2] as const;
@@ -80,12 +89,20 @@ function overall(cells: readonly DuelCell[], x: WeaponId): number {
 /** The band each primary is meant to own: the duel distances in the order of the primaries. */
 const band = (w: WeaponId) => DUEL_DISTANCES[DUEL_WEAPONS.indexOf(w)]!;
 
+/** A challenger's share of every duel it fought against the four primaries with a band, at every distance. */
+function challengerOverall(cells: readonly DuelCell[], x: WeaponId): number {
+  return DUEL_WEAPONS.reduce((n, y) => n + DUEL_DISTANCES.reduce((m, d) => m + rate(cells, x, y, d), 0), 0) / (DUEL_WEAPONS.length * DUEL_DISTANCES.length);
+}
+
+let cells: DuelCell[] = [];
+let challengers: DuelCell[] = [];
+beforeAll(() => {
+  cells = balanceRuns(ROUNDS);
+  challengers = challengerRuns(CHALLENGER_ROUNDS);
+  if (REPORT) writeFileSync(REPORT, report(cells, challengers));
+}, 1_500_000);
+
 describe('bot-vs-bot balance runs', () => {
-  let cells: DuelCell[] = [];
-  beforeAll(() => {
-    cells = balanceRuns(ROUNDS);
-    if (REPORT) writeFileSync(REPORT, report(cells));
-  }, 600_000);
 
   it.each(DUEL_WEAPONS)('the %s wins its own band against every other primary', (w) => {
     for (const other of DUEL_WEAPONS) if (other !== w) expect(rate(cells, w, other, band(w)), `against the ${other} at ${band(w)} m`).toBeGreaterThan(0.5 - SAMPLING_ERROR);
@@ -97,11 +114,28 @@ describe('bot-vs-bot balance runs', () => {
   });
 });
 
+describe('the primaries without a band of their own, against the four that have one', () => {
+  it.each(CHALLENGER_WEAPONS)('the %s wins 40 to 60 percent of all its duels with them', (w) => {
+    expect(challengerOverall(challengers, w)).toBeGreaterThanOrEqual(0.4);
+    expect(challengerOverall(challengers, w)).toBeLessThanOrEqual(0.6);
+  });
+
+  it.each(CHALLENGER_WEAPONS)('the %s takes no band from the primary that owns it', (w) => {
+    // Two standard errors of a 48-duel cell above a half: a gun that wins an owner's band outright shows past it.
+    for (const owner of DUEL_WEAPONS) expect(rate(challengers, w, owner, band(owner)), `against the ${owner} at ${band(owner)} m`).toBeLessThan(0.5 + 2 * CHALLENGER_ERROR);
+  });
+
+  it.each(CHALLENGER_WEAPONS)('the %s is a gun for range: it loses to the shotgun at 5 m and beats it at 60 m', (w) => {
+    expect(rate(challengers, w, 'shotgun', 5)).toBeLessThan(0.5);
+    expect(rate(challengers, w, 'shotgun', 60)).toBeGreaterThan(0.5);
+  });
+});
+
 const pct = (x: number) => `${Math.round(x * 100)} %`;
 const ms = (s: number) => (s === 0 ? '0' : `${Math.round(s * 1000)}`);
 
 /** The balance report: the time-to-kill table and the duel tables, as Markdown. */
-function report(cells: readonly DuelCell[]): string {
+function report(cells: readonly DuelCell[], challengers: readonly DuelCell[]): string {
   const ttkDistances = [5, 10, 15, 25, 40, 60];
   const ttk = timeToKillTable(ttkDistances);
   const lines = [
@@ -145,6 +179,17 @@ function report(cells: readonly DuelCell[]): string {
       const pairs = others.map((y) => `${y} ${pct(DUEL_DISTANCES.reduce((n, d) => n + rate(cells, w, y, d), 0) / DUEL_DISTANCES.length)}`).join(', ');
       return `| ${w} | ${band(w)} m | ${pct(worst)} | ${pairs} | ${pct(overall(cells, w))} |`;
     }),
+    '',
+    '### The primaries without a band',
+    '',
+    `The light machine gun, the marksman rifle and the burst rifle own no distance: each is measured against the four above, ${CHALLENGER_ROUNDS * 2} duels a cell (one standard error is ${Math.round(CHALLENGER_ERROR * 100)} points). The band column is the owner's own distance, where the challenger must not win outright.`,
+    '',
+    `| Weapon | Against | ${DUEL_DISTANCES.map((d) => `${d} m`).join(' | ')} | In the owner's band | Over all distances |`,
+    `| --- | --- | ${DUEL_DISTANCES.map(() => '---').join(' | ')} | --- | --- |`,
+    ...CHALLENGER_WEAPONS.flatMap((w) => [
+      ...DUEL_WEAPONS.map((y) => `| ${w} | ${y} | ${DUEL_DISTANCES.map((d) => pct(rate(challengers, w, y, d))).join(' | ')} | ${pct(rate(challengers, w, y, band(y)))} | ${pct(DUEL_DISTANCES.reduce((n, d) => n + rate(challengers, w, y, d), 0) / DUEL_DISTANCES.length)} |`),
+      `| ${w} | all four | ${DUEL_DISTANCES.map((d) => pct(DUEL_WEAPONS.reduce((n, y) => n + rate(challengers, w, y, d), 0) / DUEL_WEAPONS.length)).join(' | ')} | | ${pct(challengerOverall(challengers, w))} |`,
+    ]),
     '',
   ];
   return lines.join('\n');

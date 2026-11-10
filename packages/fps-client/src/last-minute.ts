@@ -1,5 +1,6 @@
 import { LAST_MINUTE, LAST_TEN } from './hud/match-clock';
 import { LOW_HEALTH } from './audio/danger';
+import type { VoiceLineId } from './voice-lines';
 
 /**
  * The last minute away from the HUD (ticket 24): the light the picture takes
@@ -32,7 +33,7 @@ export interface CountdownCall {
   /** Seconds left at which it is called. */
   readonly at: number;
   /** What the announcer says. */
-  readonly say: string;
+  readonly line: VoiceLineId;
   /** What the HUD writes, or null where the clock itself says it. */
   readonly show: string | null;
 }
@@ -46,19 +47,44 @@ const ENDING_LINES: Readonly<Record<NonNullable<MapEnding>, string>> = {
   train: 'Clear the main line.',
 };
 
+/** The first call as it is said on a map with an ending of its own: the same words the HUD writes. */
+const ENDING_VOICES: Readonly<Record<NonNullable<MapEnding>, VoiceLineId>> = { nuke: 't60Nuke', train: 't60Train' };
+
+/** The calls, from the first down. The last five seconds are counted out one by one, each said as the clock turns to it. */
 export const COUNTDOWN_CALLS: readonly CountdownCall[] = [
-  { at: 60, say: 'T minus sixty seconds', show: 'T-minus 60 seconds.' },
-  { at: 30, say: 'Thirty seconds', show: null },
-  { at: 10, say: 'Ten seconds', show: null },
+  { at: 60, line: 't60', show: 'T-minus 60 seconds.' },
+  { at: 30, line: 't30', show: null },
+  { at: 10, line: 't10', show: null },
+  { at: 5, line: 'five', show: null },
+  { at: 4, line: 'four', show: null },
+  { at: 3, line: 'three', show: null },
+  { at: 2, line: 'two', show: null },
+  { at: 1, line: 'one', show: null },
 ];
+
+/** How long before a call nothing else is started (s): the longest other line Range Control has, and a breath. */
+const CALL_ROOM = 3;
+
+/** From here down (s) the clock has the voice to itself: ten, the count, and the end. */
+const CLOCK_ONLY = 13;
+
+/**
+ * Whether the clock is speaking or about to with `secondsLeft` on it, so that nothing else should be started: a line
+ * begun now would push a call off its second, or be cut by the count. False with no clock.
+ */
+export function clockSpeaks(secondsLeft: number | null): boolean {
+  if (secondsLeft === null) return false;
+  if (secondsLeft <= CLOCK_ONLY) return true;
+  return COUNTDOWN_CALLS.some((c) => secondsLeft > c.at && secondsLeft - c.at <= CALL_ROOM);
+}
 
 /** A clock that moved more than this between two frames (s) was set, not run: nothing is called for what it skipped. */
 const CLOCK_RUNS = 2;
 
-/** The call the clock passed between two frames, or null. A clock first seen, set or standing still passes none. */
+/** The call the clock passed between two frames (the later of two, in a frame long enough to pass both), or null. A clock first seen, set or standing still passes none. */
 export function countdownCall(before: number | null, now: number | null): CountdownCall | null {
   if (before === null || now === null || !(now < before) || before - now > CLOCK_RUNS) return null;
-  return COUNTDOWN_CALLS.find((c) => before > c.at && now <= c.at) ?? null;
+  return COUNTDOWN_CALLS.findLast((c) => before > c.at && now <= c.at) ?? null;
 }
 
 /**
@@ -71,6 +97,11 @@ export function countdownCall(before: number | null, now: number | null): Countd
 export function clockRan(before: number | null, now: number | null): number | null {
   if (before === null || now === null) return now;
   return now > before && now - before <= CLOCK_RUNS ? before : now;
+}
+
+/** What the announcer says for `call` on a map that ends in `ending`. */
+export function countdownVoice(call: CountdownCall, ending: MapEnding): VoiceLineId {
+  return call.line === 't60' && ending ? ENDING_VOICES[ending] : call.line;
 }
 
 /** What the HUD writes for `call` on a map that ends in `ending`, or null where the clock itself says it. */

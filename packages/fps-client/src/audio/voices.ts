@@ -1,4 +1,4 @@
-import { boltCloseVoice, boltOpenVoice, explosionVoice, grenadeBounceVoice, grenadePinVoice, grenadeThrowVoice, pumpRackVoice, shellInsertVoice } from './arsenal';
+import { boltCloseVoice, boltOpenVoice, coverOpenVoice, coverShutVoice, cylinderLoadVoice, cylinderOpenVoice, cylinderShutVoice, explosionVoice, grenadeBounceVoice, grenadePinVoice, grenadeThrowVoice, pumpRackVoice, shellInsertVoice } from './arsenal';
 import { crouchVoice, footstepVoice, jumpVoice, landVoice, mantleVoice, proneVoice, slideVoice } from './foley';
 import { gunshotVoice } from './gunshot';
 import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
@@ -12,6 +12,7 @@ import { trapBirdsVoice, trapGravelVoice, trapMetalVoice } from './traps';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
 import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
+import { deathVoice, painVoice } from './soldier-voice';
 import { challengeDoneVoice, damageTakenVoice, headshotKillVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice, medalVoice, pingEnemyVoice, pingVoice, rankUpVoice } from './ui';
 import {
   adsInVoice,
@@ -53,6 +54,11 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     boltOpen: boltOpenVoice(),
     boltClose: boltCloseVoice(),
     shellInsert: shellInsertVoice(),
+    coverOpen: coverOpenVoice(),
+    coverShut: coverShutVoice(),
+    cylinderOpen: cylinderOpenVoice(),
+    cylinderLoad: cylinderLoadVoice(),
+    cylinderShut: cylinderShutVoice(),
     grenadePin: grenadePinVoice(),
     grenadeThrow: grenadeThrowVoice(),
     grenadeBounce: grenadeBounceVoice(),
@@ -68,6 +74,8 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     rankUp: rankUpVoice(),
     challengeDone: challengeDoneVoice(),
     damageTaken: damageTakenVoice(),
+    pain: painVoice(),
+    death: deathVoice(),
     nukeSiren: nukeSirenVoice(),
     nukeBlast: nukeBlastVoice(),
     ambientWind: windVoice(),

@@ -52,6 +52,8 @@ export interface Profile {
   readonly stats: Lifetime;
   readonly weapons: Readonly<Partial<Record<WeaponId, WeaponRecord>>>;
   readonly daily: Daily;
+  /** The best time (s) through the Practice Range's Course, or null before a first finish. */
+  readonly courseBest: number | null;
 }
 
 export function emptyProfile(): Profile {
@@ -61,6 +63,7 @@ export function emptyProfile(): Profile {
     stats: { matches: 0, wins: 0, kills: 0, deaths: 0, headshots: 0, assists: 0, score: 0, seconds: 0, bestStreak: 0, royaleWins: 0, royaleBest: null, modes: {} },
     weapons: {},
     daily: { date: '', progress: {} },
+    courseBest: null,
   };
 }
 
@@ -202,6 +205,10 @@ export const CHALLENGES: readonly Challenge[] = [
   withWeapon('shotgun', 15, 1000),
   withWeapon('sniper', 10, 1200),
   withWeapon('pistol', 8, 1000),
+  withWeapon('lmg', 30, 1000),
+  withWeapon('dmr', 20, 1100),
+  withWeapon('burst', 30, 1000),
+  withWeapon('revolver', 8, 1200),
   { id: 'headshots-match', text: '5 headshots in one match', target: 5, xp: 800, scope: 'match', group: 'general', count: (m) => m.headshots },
   { id: 'headshots', text: '15 headshots', target: 15, xp: 1000, scope: 'day', group: 'general', count: (m) => m.headshots },
   { id: 'wins', text: 'Win 2 matches', target: 2, xp: 1000, scope: 'day', group: 'general', count: (m) => (m.won ? 1 : 0) },
@@ -332,6 +339,7 @@ export function applyMatch(profile: Profile, match: MatchRecord, date: string): 
   }
   const next: Profile = {
     version: PROFILE_VERSION,
+    courseBest: profile.courseBest,
     xp: profile.xp + xp,
     stats: {
       matches: s.matches + 1,
@@ -390,8 +398,10 @@ export function parseProfile(raw: unknown): Profile {
     }
   }
   const best = count(s['royaleBest']);
+  const course = r['courseBest'];
   return {
     version: PROFILE_VERSION,
+    courseBest: typeof course === 'number' && Number.isFinite(course) && course > 0 ? course : null,
     xp: count(r['xp']),
     stats: {
       matches: count(s['matches']),
@@ -410,6 +420,11 @@ export function parseProfile(raw: unknown): Profile {
     weapons,
     daily: { date, progress },
   };
+}
+
+/** `profile` with a Course run of `seconds` taken in: its best time if it beats the one held. */
+export function applyCourse(profile: Profile, seconds: number): Profile {
+  return profile.courseBest !== null && profile.courseBest <= seconds ? profile : { ...profile, courseBest: seconds };
 }
 
 /** A Profile from the text storage holds: unreadable text is a new Profile. */

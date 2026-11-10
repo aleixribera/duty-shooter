@@ -120,7 +120,7 @@ const SMOKE_LIFE_JITTER = 0.4;
 /** The air the smoke drifts on (m/s): a dusk breeze, and the warm trail rising. */
 const WIND: Vec3 = [0.32, 0.16, 0.14];
 /** How bright each kind of shot's tracer is: shotgun pellets dimmer, many at once. */
-const BRIGHT: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.85, shotgun: 0.45, sniper: 1, pistol: 0.75 };
+const BRIGHT: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.85, shotgun: 0.45, sniper: 1, pistol: 0.75, lmg: 1, dmr: 1, burst: 1, revolver: 0.85 };
 
 /** The quad's columns from tail `t` to head `h`, turned to face the camera, `w` wide. */
 function writeQuad(m: Float32Array, o: number, h: Vec3, t: Vec3, w: number, cx: number, cy: number, cz: number): void {

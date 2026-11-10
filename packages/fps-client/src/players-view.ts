@@ -18,22 +18,43 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { hasDistanceDetail } from './detail';
-import { KIT_RIGS } from './viewmodel/kit';
+import { KIT_RIGS, RELOAD_ONLY_PARTS } from './viewmodel/kit';
 import { loadSoldierModel, pieceShade, Soldier, soldierModel, type Look } from './soldier';
+import { TEAM_PALETTES, colourVision, hexNumber, type ColourVision } from './team-colours';
 
 /** Free-for-all: nobody's side, in olive drab. */
 const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xa9836a, helmet: 0x4b5139, boots: 0x2a2622, accent: 0x5d6447 };
-/** The two teams, in the UI's team colours (blue #3D8BFF, orange #FF9A3C) on the pads and toned-down versions on the cloth. */
-const TEAM_LOOKS: Readonly<Record<number, Look>> = {
-  1: { uniform: 0x40577a, vest: 0x26364d, skin: 0xb08c72, helmet: 0x2f4362, boots: 0x22252b, accent: 0x3d8bff },
-  2: { uniform: 0x8a6544, vest: 0x5b412c, skin: 0x94705a, helmet: 0x6e4c30, boots: 0x2a2420, accent: 0xff9a3c },
-};
+/** What of a team's look is not its colours. */
+const TEAM_BODIES: Readonly<Record<1 | 2, Pick<Look, 'skin' | 'boots'>>> = { 1: { skin: 0xb08c72, boots: 0x22252b }, 2: { skin: 0x94705a, boots: 0x2a2420 } };
+const TEAM_LOOKS = new Map<ColourVision, Readonly<Record<number, Look>>>();
+/**
+ * The two teams, in the UI's team colours on the pads and toned-down versions
+ * on the cloth: `team-colours.ts`'s, as the colour-vision setting has them
+ * now. One object per look and setting, so a look can be told by identity.
+ */
+function teamLooks(): Readonly<Record<number, Look>> {
+  const vision = colourVision();
+  let looks = TEAM_LOOKS.get(vision);
+  if (!looks) {
+    const of = (team: 1 | 2): Look => {
+      const c = TEAM_PALETTES[vision].teams[team];
+      return { uniform: hexNumber(c.uniform), vest: hexNumber(c.vest), helmet: hexNumber(c.helmet), accent: hexNumber(c.colour), ...TEAM_BODIES[team] };
+    };
+    TEAM_LOOKS.set(vision, (looks = { 1: of(1), 2: of(2) }));
+  }
+  return looks;
+}
 /** The third-person rifle's one colour. */
 const GUNMETAL = new Color(0x2b2d31);
 const DUMMY: Look = { uniform: 0xd9d2c3, vest: 0xe07a2e, skin: 0xe8e2d6, helmet: 0xe07a2e, boots: 0x6e6a62, accent: 0xe07a2e, glove: 0xe8e2d6, lens: 0x1c1e20 };
 
-/** Every look, in a fixed order, for the far stand-ins' keys. */
-const FAR_LOOKS: readonly Look[] = [SOLDIER, ...Object.values(TEAM_LOOKS), DUMMY];
+/** A number for each look met, for the far stand-ins' keys. */
+const FAR_LOOKS = new Map<Look, number>();
+function farLook(look: Look): number {
+  let n = FAR_LOOKS.get(look);
+  if (n === undefined) FAR_LOOKS.set(look, (n = FAR_LOOKS.size));
+  return n;
+}
 
 /** A small stable number from a player id, to spread the mid-range soldiers' poses over frames. */
 function hashId(id: PlayerId): number {
@@ -52,7 +73,7 @@ const NO_TEAMS: Allegiance = { teams: false, self: null };
 
 function lookFor(p: PlayerOutput, allegiance: Allegiance): Look {
   if (p.kind === 'dummy') return DUMMY;
-  return (allegiance.teams && TEAM_LOOKS[p.team]) || SOLDIER;
+  return (allegiance.teams && teamLooks()[p.team]) || SOLDIER;
 }
 
 /**
@@ -108,7 +129,7 @@ class GunModels {
     const geometries: BufferGeometry[] = [];
     root.traverse((o) => {
       const mesh = o as Mesh;
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || RELOAD_ONLY_PARTS.includes(mesh.name) || RELOAD_ONLY_PARTS.includes(mesh.parent?.name ?? '')) return;
       const source = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
       const g = new BufferGeometry();
       g.setAttribute('position', source.getAttribute('position'));
@@ -237,7 +258,7 @@ class FarSoldiers {
   /** Draws `p` this frame, in `look`. */
   add(model: Object3D, look: Look, p: PlayerOutput): void {
     const stance = farStance(p);
-    const key = `${FAR_LOOKS.indexOf(look)} ${stance}`;
+    const key = `${farLook(look)} ${stance}`;
     let mesh = this.#meshes.get(key);
     const used = (mesh && this.#used.get(mesh)) ?? 0;
     if (!mesh || used >= mesh.instanceMatrix.count) {
@@ -454,7 +475,7 @@ export class PlayersView {
   showSamples(camera: Camera): () => void {
     const model = soldierModel();
     if (this.#samples.length === 0 && model) {
-      const looks = [SOLDIER, ...Object.values(TEAM_LOOKS), DUMMY];
+      const looks = [SOLDIER, ...Object.values(teamLooks()), DUMMY];
       const count = Math.max(looks.length, WEAPON_IDS.length + 1);
       for (let i = 0; i < count; i++) {
         const look = looks[i % looks.length]!;

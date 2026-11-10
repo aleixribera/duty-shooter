@@ -75,9 +75,16 @@ describe('bots with the arsenal', () => {
       return of.filter((p) => weapons.includes(p.loadout.primary)).length / of.length;
     };
     expect(share('rusher', ['smg', 'shotgun'])).toBeGreaterThanOrEqual(0.75);
-    expect(share('anchor', ['sniper', 'm4a1'])).toBeGreaterThanOrEqual(0.75);
+    // An anchor holds an angle: the guns that are aimed from where they stand.
+    expect(share('anchor', ['sniper', 'm4a1', 'lmg', 'dmr'])).toBeGreaterThanOrEqual(0.75);
     expect(share('anchor', ['sniper'])).toBeGreaterThan(0);
-    for (const w of ['m4a1', 'smg', 'shotgun', 'sniper'] as const) expect(profiles.filter((p) => p.loadout.primary === w).length, w).toBeGreaterThanOrEqual(2);
+    for (const w of ['m4a1', 'smg', 'shotgun', 'sniper', 'lmg', 'dmr', 'burst'] as const) expect(profiles.filter((p) => p.loadout.primary === w).length, w).toBeGreaterThanOrEqual(2);
+    // Both sidearms are carried, the pistol by most.
+    const revolvers = profiles.filter((p) => p.loadout.secondary === 'revolver').length;
+    expect(revolvers).toBeGreaterThanOrEqual(2);
+    expect(revolvers).toBeLessThan(profiles.length / 2);
+    // The belt is an anchor's or a support's gun, never a rusher's.
+    expect(share('rusher', ['lmg', 'dmr'])).toBe(0);
     expect(botProfile('Kestrel').loadout).toEqual(botProfile('Kestrel').loadout);
   });
 
@@ -163,5 +170,77 @@ describe('bots with the arsenal', () => {
       expect(flat(b.position, frag) >= STATS.grenade.radius.value || sightBlocked(open, frag, eye), `tick ${o.tick}`).toBe(true);
     }
     expect(d.self().alive).toBe(true);
+  });
+});
+
+describe('bots with the four newer guns', () => {
+  /** The bot's shots up to the kill, as simulation times. */
+  const shotTimes = (d: Duel, k: number) => shotsOf(d.outputs.slice(0, k + 1)).map(({ i, e }) => (e.type === 'shot' ? (i + e.fraction) / 60 : 0));
+
+  it('kills with the light machine gun from where it stands, in longer runs of fire than with the M4A1', () => {
+    const longest = (primary: WeaponId) => {
+      const d = duel(open, openNav, { bot: [0, 0, 0], target: [0, 0, -34] }, armed(primary), 'Rook');
+      const k = fight(d, 20);
+      expect(k, primary).toBeGreaterThan(0);
+      const times = shotTimes(d, k);
+      const rate = 60 / STATS.weapons[primary].handling.fireRate.value;
+      let run = 1;
+      let best = 1;
+      for (let i = 1; i < times.length; i++) {
+        run = times[i]! - times[i - 1]! < rate * 1.5 ? run + 1 : 1;
+        best = Math.max(best, run);
+      }
+      return { best, d, k };
+    };
+    const lmg = longest('lmg');
+    expect(lmg.best).toBeGreaterThan(longest('m4a1').best);
+    // It fights from range: it never closes to a rusher's distance.
+    for (const o of lmg.d.outputs.slice(0, lmg.k + 1)) expect(flat(o.players.find((p) => p.id === 'b')!.position, [0, 0, -34])).toBeGreaterThan(12);
+  });
+
+  it('places the marksman rifle\'s rounds one at a time at range, aimed, and kills with them', () => {
+    const d = duel(open, openNav, { bot: [0, 0, 0], target: [0, 0, -50] }, armed('dmr'), 'Rook');
+    const k = fight(d, 20);
+    expect(k).toBeGreaterThan(0);
+    const shots = shotsOf(d.outputs.slice(0, k + 1));
+    expect(shots.length).toBeGreaterThanOrEqual(2);
+    for (const { i } of shots) expect(d.outputs[Math.max(0, i - 1)]!.players.find((p) => p.id === 'b')!.weapon.ads, 'aimed').toBeGreaterThan(0.85);
+    // Paced: slower than the rifle's own rate allows.
+    const times = shotTimes(d, k);
+    const fastest = 60 / STATS.weapons.dmr.handling.fireRate.value;
+    for (let i = 1; i < times.length; i++) expect(times[i]! - times[i - 1]!).toBeGreaterThan(fastest * 1.2);
+  });
+
+  it('fires the burst rifle in whole bursts and kills inside the one-burst band', () => {
+    const d = duel(open, openNav, { bot: [0, 0, 0], target: [0, 0, -18] }, armed('burst'), 'Rook');
+    const k = fight(d, 15);
+    expect(k).toBeGreaterThan(0);
+    const before = shotsOf(d.outputs.slice(0, k + 1));
+    expect(before.every(({ e }) => e.type === 'shot' && e.weapon === 'burst')).toBe(true);
+    // Every burst before the last is whole: the wait only ever follows a third round.
+    const times = shotTimes(d, k);
+    const h = STATS.weapons.burst.handling;
+    let inBurst = 1;
+    for (let i = 1; i < times.length; i++) {
+      if (times[i]! - times[i - 1]! > (60 / h.fireRate.value) * 1.5) {
+        expect(inBurst, `burst ending at shot ${i}`).toBe(h.burstRounds!.value);
+        inBurst = 1;
+      } else inBurst += 1;
+    }
+  });
+
+  it('draws the revolver when the primary runs dry up close, and kills with it', () => {
+    const d = duel(open, openNav, { bot: [0, 0, 0], target: [150, 0, 150] }, { primary: 'm4a1', secondary: 'revolver', grenade: null });
+    for (let i = 0; i < ticks(1.5); i++) d.step();
+    const state = d.sim.playerState('b')!;
+    state.weapons[0]!.ammo = 0;
+    d.sim.setPlayerState(state);
+    const b = d.self();
+    const dir = viewDirection(b.yaw, 0);
+    d.sim.respawn('t', [b.position[0] + dir[0] * 6, 0, b.position[2] + dir[2] * 6], b.yaw + Math.PI);
+    const k = fight(d, 8);
+    expect(k).toBeGreaterThan(0);
+    const kill = d.outputs[k]!.events.find((e) => e.type === 'kill');
+    expect(kill).toMatchObject({ weapon: 'revolver' });
   });
 });

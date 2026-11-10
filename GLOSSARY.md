@@ -106,7 +106,7 @@ _Avoid_: rail yard, train map
 A freight car on Switchyard with a door in each side and pallet steps up to it, so players run through it between the lanes. A closed boxcar has no doors; crates beside some of them climb to the roof.
 
 **Practice Range**:
-The offline range map: firing lanes, dummies, the sniping lane, the loadout station and the movement course.
+The offline range map: firing lanes, dummies, the sniping lane, the loadout station and the movement course with its timed Course.
 _Avoid_: the range app (that's the `apps/range` package, which hosts both maps)
 
 **Sniping lane**:
@@ -135,7 +135,7 @@ _Avoid_: imposter (the stand-ins are boxes, not pictures)
 ## Weapons
 
 **Weapon**:
-One gun with its row in the stats file: the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun, the Ridgeline .308 sniper rifle or the Warden 9 pistol.
+One gun with its row in the stats file: the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun, the Ridgeline .308 sniper rifle, the Bulwark 5.56 light machine gun, the Vantage 7.62 marksman rifle, the Trident 5.56 burst rifle, the Warden 9 pistol or the Marshal .357 revolver.
 _Avoid_: gun (fine in player-facing text), item
 
 **Loadout**:
@@ -143,10 +143,14 @@ What a player carries into a life: a primary, a secondary and a grenade (or none
 _Avoid_: class, kit
 
 **Primary**:
-The loadout's main weapon, in slot 1: the M4A1, the SMG, the shotgun or the sniper rifle.
+The loadout's main weapon, in slot 1: the M4A1, the SMG, the shotgun, the sniper rifle, the light machine gun, the marksman rifle or the burst rifle.
 
 **Secondary**:
-The loadout's sidearm, in slot 2: the pistol.
+The loadout's sidearm, in slot 2: the pistol or the revolver.
+
+**Burst**:
+The Trident's three rounds on one press of the trigger. A burst once started finishes though the trigger is let go; the next can't start until the delay after its last round has passed, and a held trigger starts it then. A reload, a sprint, a ladder or a switch of weapon ends a burst short.
+_Avoid_: volley, salvo
 
 **Frag**:
 The fragmentation grenade: cooked by holding the grenade button, thrown on release, one a life.
@@ -183,8 +187,20 @@ _Avoid_: grenade warning arrow, danger marker
 ## Movement
 
 **Sprint**:
-The one fast run, only forward, standing and not aiming. It is a toggle: a press of Shift or L3 starts it and it keeps going until a second press, letting go of forward, a shot or the sights going up. It has no stamina and no faster tier. Crouching during it is a slide, and the sprint carries on through the slide.
+The one fast run, only forward, standing and not aiming. By default it is a toggle: a press of Shift or L3 starts it and it keeps going until a second press, letting go of forward, a shot or the sights going up. Settings can make it a hold instead: the run lasts while the button is down. It has no stamina and no faster tier. Crouching during it is a slide, and the sprint carries on through the slide.
 _Avoid_: tactical sprint, super sprint (gone), run (the walk speed)
+
+**Slide**:
+Crouching out of a Sprint: the body goes down and along the ground the way it was running, slowing all the way, for 0.9 s. After its first 0.15 s, letting go of crouch or jumping ends it. A landing taken crouched at a run is a slide too.
+_Avoid_: dive, dolphin dive (there is none)
+
+**Kick**:
+What a Slide out of a Sprint of 0.6 s or more starts with: 15 % more speed than the Sprint. It is the only speed above a Sprint in the game, and it is kept until the feet give it back: a jump out of the Slide carries it through the air. A Slide begun any other way (a Sprint just started, a landing) has none.
+_Avoid_: slide boost, slide cancel speed
+
+**Course**:
+The Practice Range's timed run: from the start pad at the foot of the stairs, up to the deck, over both gaps, and up the climbs to the top of the 10 m tower. The clock starts as you leave the pad up the stairs (a run from behind the pad is a flying start), stops on the tower's top, and is off if you step back on the pad or die. A run earns Gold, Silver or Bronze against fixed times, and the best time is kept in the Profile. It runs only while no match is on.
+_Avoid_: obstacle course, parkour run, time trial
 
 ## Matches
 
@@ -301,11 +317,11 @@ The 1 s after a seat goes Downed in which nothing damages it, so the burst that 
 _Avoid_: invulnerability, i-frames
 
 **Gun game**:
-The free-for-all mode played on a ladder of weapons: five different guns drawn at random from the whole arsenal, in a random order, dealt afresh at each match's start (`GUN_GAME_LADDER_LENGTH`), one level each. While the arsenal has five guns that is all of them, shuffled. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 4 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 20 kills in all. A melee kill also knocks the victim back 4 kills. The first to finish the last gun wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
+The free-for-all mode played on a ladder of weapons: seven different guns drawn at random from the nine of the arsenal, in a random order, dealt afresh at each match's start (`GUN_GAME_LADDER_LENGTH`), one level each. Everyone starts on the first gun, in both slots and with no grenade, whatever their loadout; every 3 kills (`GUN_GAME_KILLS_PER_GUN`) move the killer up a level and put the next gun in their hands where they stand, 21 kills in all. A melee kill also knocks the victim back 3 kills. The first to finish the last gun wins; at the time limit the most kills up the ladder win. The kills a gun go down as the arsenal grows, so a match stays about as long.
 _Avoid_: arms race, ladder (on its own)
 
 **Level**:
-A player's gun on the gun game ladder, from 1 to 5, shown as gun 3/5 on the match bar (with the kills still to make on it) and in the scoreboard's Gun column.
+A player's gun on the gun game ladder, from 1 to 7, shown as gun 3/7 on the match bar (with the kills still to make on it) and in the scoreboard's Gun column.
 _Avoid_: rank, tier
 
 **Outposts**:
@@ -340,8 +356,12 @@ The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: eve
 _Avoid_: warm-up, pre-game
 
 **Last minute**:
-A timed match's final 60 s, played as an act of its own: the match clock reads T-minus over a burning fuse, the siren and the counter start, the announcer calls sixty, thirty and ten, and the picture moves to a warning lamp's light. It runs out on the map's ending. A Charge round's clock is not one, and Battle Royale has none.
+A timed match's final 60 s, played as an act of its own: the match clock reads T-minus over a burning fuse, the siren and the counter start, Range Control calls sixty, thirty and ten and counts the last five seconds out, and the picture moves to a warning lamp's light. It runs out on the map's ending. A Charge round's clock is not one, and Battle Royale has none.
 _Avoid_: overtime, sudden death (nothing about the rules changes), countdown (that is the match's opening)
+
+**Range Control**:
+The announcer: the voice on the site's loudspeakers. It opens a match by its mode ("The range is hot"), calls the lead as it changes hands, gives each side its job in a Charge round and says when the charge is planted or defused, counts the last minute down, closes a match stopped early ("Cease fire"), and in a Battle Royale calls the Ring, a Supply Drop and how many are left. Its lines are recorded (one voice, through a loudspeaker), written in one table (`voice-lines.ts`) and shown as captions; it speaks one line at a time with one waiting, and only the last five seconds cut in.
+_Avoid_: commentator, narrator, operator
 
 **Preparation**:
 A Battle Royale's Countdown: 20 s (`PREPARATION`) over the live scene, with the island from above while the Ring ignites, then your Squad at its spawn beside the loadout picker, then the dive to your eyes in the last 5 s, when the loadout locks and control is yours at 0. It ends early, with the dive, once every person has pressed Ready. A page still loading at the dive holds it (the load gate) for up to 10 s, then a bot plays that seat until the page has loaded. A person who leaves on purpose before the dive has their seat held (a bot plays it) until the dive begins, and takes it back if they rejoin before then; nobody left in it doesn't end it early.

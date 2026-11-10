@@ -15,8 +15,8 @@ const CSS = `
 .ds-royale .body { display: grid; grid-template-columns: minmax(0, 640px) minmax(380px, 1fr); gap: 64px; align-content: start; }
 .ds-royale .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-content: start; }
 .ds-royale .controls .ds-seg { max-width: 520px; }
-.ds-royale .ds-seg button { min-height: 48px; font-size: 14px; }
-.ds-royale .ds-seg button small { display: block; margin-top: 2px; font-size: 12px; letter-spacing: 0.12em; color: var(--ds-text-2); }
+.ds-royale .ds-seg button { min-height: 48px; font-size: var(--ds-type-body); }
+.ds-royale .ds-seg button small { display: block; margin-top: 2px; font-size: var(--ds-type-small); letter-spacing: 0.12em; color: var(--ds-text-2); }
 .ds-royale .ds-field-label { color: var(--ds-text-2); }
 .ds-royale .why { margin: 10px 0 0; font-size: var(--ds-type-small); color: var(--ds-text-2); max-width: 60ch; }
 .ds-royale h2 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -37,7 +37,7 @@ const CSS = `
 .ds-royale .squad .n { width: 72px; flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-royale .squad .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-body); }
 .ds-royale .squad .who i { font-style: normal; color: var(--ds-text-2); }
-.ds-royale .squad .ds-btn { min-height: 40px; padding: 0 18px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+.ds-royale .squad .ds-btn { min-height: 40px; padding: 0 18px; font-size: var(--ds-type-small); letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-royale .new { margin-top: 10px; }
 /* The island, its numbers, and where the connection is. */
 .ds-royale .island { display: grid; gap: 0; }
@@ -52,7 +52,7 @@ const CSS = `
 .ds-royale .steps li.now::before { background: var(--ds-signal); }
 .ds-royale .steps li.done::before { background: var(--ds-text-2); }
 .ds-royale .ds-field { margin: 0; }
-.ds-royale .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 18px var(--ds-font); letter-spacing: 0.02em; }
+.ds-royale .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; }
 .ds-royale .ds-field input:focus { border-color: var(--ds-signal); outline: none; }
 .ds-royale .error { color: var(--ds-alert); }
 .ds-royale .last { padding: 14px 16px; background: var(--ds-panel); border: 1px solid var(--ds-line); }
@@ -73,9 +73,9 @@ const CSS = `
   .ds-royale .sec-source { order: 6; }
   .ds-royale .island { order: 7; }
   .ds-royale .slot { min-height: 84px; padding: 10px 12px; }
-  .ds-royale .slot b { font-size: 18px; }
+  .ds-royale .slot b { font-size: var(--ds-type-body); }
   .ds-royale .island .ds-readouts > div { padding: 10px 12px; }
-  .ds-royale .island .ds-readouts b { font-size: 18px; }
+  .ds-royale .island .ds-readouts b { font-size: var(--ds-type-body); }
   .ds-royale footer .note { display: none; }
   .ds-royale footer .ds-btn:not(.big) { flex: 1; min-width: 0; padding: 0 10px; }
 }

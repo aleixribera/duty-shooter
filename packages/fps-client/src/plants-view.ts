@@ -23,6 +23,7 @@ import {
 import { groundLayerIndex, GROUND_LAYERS, groundTextures } from './ground-layers';
 import { foliageLit, openGroundLit } from './surface-materials';
 import { PLANT_STRIDE, type PlantKind, type Plants } from './surfaces';
+import { currentQuality, filterByQuality, keeps } from './quality';
 
 /**
  * A map's vegetation and rocks (ticket 29), drawn instanced: each model of
@@ -231,7 +232,7 @@ async function loadAtlas(url: string): Promise<Texture> {
   const t = await new TextureLoader().loadAsync(url);
   t.flipY = false;
   t.colorSpace = SRGBColorSpace;
-  t.anisotropy = 4;
+  filterByQuality(t, 4);
   t.needsUpdate = true;
   return t;
 }
@@ -304,16 +305,23 @@ export class KindView {
   readonly #refill: number;
   #at: readonly [number, number, number] | null = null;
   #zoom = 1;
+  /** How far this kind draws, as a share of its own distance (the quality tier's). */
+  readonly #reach: number;
 
   constructor(kind: PlantKind, geometry: (name: string) => BufferGeometry, material: (kind: PlantKind) => Material) {
     this.#kind = kind;
     this.#refill = refillOf(kind);
     const count = kind.instances.length / PLANT_STRIDE;
+    // The quality tier thins and shortens only blades and fronds: a rock, a trunk or a bush is cover (and often a solid), and is drawn for everyone, at least as far as it always was.
+    const quality = currentQuality();
+    const density = kind.thin ? quality.scatterDensity : 1;
+    this.#reach = kind.thin ? quality.scatterDistance : Math.max(1, quality.scatterDistance);
     // Hard cover and bushes cast shadows near; blades and fronds don't (cheaper, and they'd only speckle the ground).
     const shadow = !kind.thin;
     this.near = new Level(geometry(kind.asset), material(kind), count, shadow);
     this.lod = kind.lod ? new Level(geometry(kind.lod), material(kind), count, false) : null;
     for (let p = 0; p < count; p++) {
+      if (!keeps(p, density)) continue;
       const key = KindView.key(kind.instances[p * PLANT_STRIDE]!, kind.instances[p * PLANT_STRIDE + 2]!);
       const list = this.#tiles.get(key);
       if (list) list.push(p);
@@ -340,8 +348,8 @@ export class KindView {
    */
   fill(x: number, y: number, z: number, zoom = 1): void {
     const { instances, sway } = this.#kind;
-    const far = this.#kind.far * zoom;
-    const near = this.#kind.near * zoom;
+    const far = this.#kind.far * zoom * this.#reach;
+    const near = this.#kind.near * zoom * this.#reach;
     let nears = 0;
     let lods = 0;
     const visit = (list: readonly number[]) => {

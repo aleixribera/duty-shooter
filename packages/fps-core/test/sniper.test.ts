@@ -96,10 +96,11 @@ describe('the scope', () => {
 });
 
 describe('sniper handling', () => {
-  it('is the slowest to aim and the worst from the hip', () => {
+  it('is the slowest to aim but for the belt-fed machine gun, and the worst from the hip', () => {
     for (const id of WEAPON_IDS) {
       if (id === 'sniper') continue;
-      expect(R.handling.adsTime.value, id).toBeGreaterThan(STATS.weapons[id].handling.adsTime.value);
+      // Only the light machine gun takes longer to bring up: the weight of a belt.
+      if (id !== 'lmg') expect(R.handling.adsTime.value, id).toBeGreaterThan(STATS.weapons[id].handling.adsTime.value);
       expect(R.accuracy.hipSpreadStill.value, id).toBeGreaterThan(STATS.weapons[id].accuracy.hipSpreadStill.value);
     }
     const m = holding('sniper');

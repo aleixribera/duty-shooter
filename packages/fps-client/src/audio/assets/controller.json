@@ -1,0 +1,207 @@
+{
+ "voice": "en_US-joe-medium",
+ "sampleRate": 22050,
+ "lines": {
+  "liveTdm": {
+   "text": "Team deathmatch. The range is hot.",
+   "spoken": "Team deathmatch. The range is hot.",
+   "start": 0.27,
+   "seconds": 2.8824
+  },
+  "liveFfa": {
+   "text": "Free for all. The range is hot.",
+   "spoken": "Free for all. The range is hot.",
+   "start": 3.3324,
+   "seconds": 2.6938
+  },
+  "liveOutposts": {
+   "text": "Outposts. Take them and hold them. The range is hot.",
+   "spoken": "Out posts. Take them and hold them. The range is hot.",
+   "start": 6.2061,
+   "seconds": 4.321
+  },
+  "liveGunGame": {
+   "text": "This is Gun Game. The range is hot.",
+   "spoken": "This is Gun Game. The range is hot.",
+   "start": 10.7072,
+   "seconds": 2.9447
+  },
+  "roundAttack": {
+   "text": "Attackers. Plant the charge.",
+   "spoken": "Attackers. Plant the charge.",
+   "start": 13.8319,
+   "seconds": 2.6593
+  },
+  "roundDefend": {
+   "text": "Defenders, keep them off the sites.",
+   "spoken": "Defenders, keep them off the sites.",
+   "start": 16.6712,
+   "seconds": 2.664
+  },
+  "chargePlanted": {
+   "text": "Charge planted.",
+   "spoken": "Charge planted.",
+   "start": 19.5152,
+   "seconds": 1.3356
+  },
+  "chargeDefused": {
+   "text": "Charge defused.",
+   "spoken": "Charge defused.",
+   "start": 21.0309,
+   "seconds": 1.4827
+  },
+  "leadOurs": {
+   "text": "Your team has taken the lead.",
+   "spoken": "Your team has taken the lead.",
+   "start": 22.6935,
+   "seconds": 1.9617
+  },
+  "leadTheirs": {
+   "text": "Enemy team has taken the lead.",
+   "spoken": "Enemy team has taken the lead.",
+   "start": 24.8352,
+   "seconds": 2.2453
+  },
+  "leadYou": {
+   "text": "You have taken the lead.",
+   "spoken": "You have taken the lead.",
+   "start": 27.2605,
+   "seconds": 1.5291
+  },
+  "leadLost": {
+   "text": "You have lost the lead.",
+   "spoken": "You have lost the lead.",
+   "start": 28.9696,
+   "seconds": 1.6576
+  },
+  "t60": {
+   "text": "T minus sixty seconds.",
+   "spoken": "T minus sixty seconds.",
+   "start": 30.8071,
+   "seconds": 2.1619
+  },
+  "t60Nuke": {
+   "text": "T minus sixty seconds. This site will be destroyed.",
+   "spoken": "T minus sixty seconds. This site will be destroyed.",
+   "start": 33.149,
+   "seconds": 4.2493
+  },
+  "t60Train": {
+   "text": "T minus sixty seconds. Clear the main line.",
+   "spoken": "T minus sixty seconds. Clear the main line.",
+   "start": 37.5783,
+   "seconds": 3.7243
+  },
+  "t30": {
+   "text": "Thirty seconds.",
+   "spoken": "Thirty seconds.",
+   "start": 41.4826,
+   "seconds": 1.3654
+  },
+  "t10": {
+   "text": "Ten seconds.",
+   "spoken": "Ten seconds.",
+   "start": 43.0279,
+   "seconds": 1.2423
+  },
+  "five": {
+   "text": "Five.",
+   "spoken": "Five.",
+   "start": 44.4502,
+   "seconds": 0.8051
+  },
+  "four": {
+   "text": "Four.",
+   "spoken": "Four.",
+   "start": 45.4354,
+   "seconds": 0.8122
+  },
+  "three": {
+   "text": "Three.",
+   "spoken": "Three.",
+   "start": 46.4275,
+   "seconds": 0.7541
+  },
+  "two": {
+   "text": "Two.",
+   "spoken": "Two.",
+   "start": 47.3617,
+   "seconds": 0.6889
+  },
+  "one": {
+   "text": "One.",
+   "spoken": "One.",
+   "start": 48.2305,
+   "seconds": 0.6881
+  },
+  "ceaseFire": {
+   "text": "Cease fire. Cease fire.",
+   "spoken": "Cease fire. Cease fire.",
+   "start": 49.0987,
+   "seconds": 2.322
+  },
+  "ringClosing": {
+   "text": "The Ring is closing.",
+   "spoken": "The Ring is closing.",
+   "start": 51.6007,
+   "seconds": 1.5485
+  },
+  "supplyDrop": {
+   "text": "Supply drop incoming.",
+   "spoken": "Supply drop incoming.",
+   "start": 53.3292,
+   "seconds": 1.8094
+  },
+  "squads10": {
+   "text": "Ten squads left.",
+   "spoken": "Ten squads left.",
+   "start": 55.3187,
+   "seconds": 1.6227
+  },
+  "squads5": {
+   "text": "Five squads left.",
+   "spoken": "Five squads left.",
+   "start": 57.1214,
+   "seconds": 1.4632
+  },
+  "squads3": {
+   "text": "Three squads left.",
+   "spoken": "Three squads left.",
+   "start": 58.7646,
+   "seconds": 1.5907
+  },
+  "squads2": {
+   "text": "Two squads left.",
+   "spoken": "Two squads left.",
+   "start": 60.5353,
+   "seconds": 1.5451
+  },
+  "players10": {
+   "text": "Ten players left.",
+   "spoken": "Ten players left.",
+   "start": 62.2604,
+   "seconds": 1.3094
+  },
+  "players5": {
+   "text": "Five players left.",
+   "spoken": "Five players left.",
+   "start": 63.7498,
+   "seconds": 1.5191
+  },
+  "players3": {
+   "text": "Three players left.",
+   "spoken": "Three players left.",
+   "start": 65.449,
+   "seconds": 1.5171
+  },
+  "players2": {
+   "text": "Two players left.",
+   "spoken": "Two players left.",
+   "start": 67.1461,
+   "seconds": 1.3854
+  }
+ },
+ "seconds": 68.741,
+ "bytes": 413041,
+ "sha256": "c87288d262d92719de369bbcf03292bb2036bb5c2e8e7ee5a7d0f3f2cae24686"
+}

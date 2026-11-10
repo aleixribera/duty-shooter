@@ -14,6 +14,10 @@ Upper-torso hits against 100 HP at the fastest rate the weapon fires (every pell
 | Harrow 12 (shotgun) | 1 / 0 | 1 / 0 | 2 / 800 | 5 / 3200 | 5 / 3200 | 5 / 3200 |
 | Ridgeline .308 (sniper) | 1 / 0 | 1 / 0 | 1 / 0 | 1 / 0 | 1 / 0 | 1 / 0 |
 | Warden 9 (pistol) | 4 / 450 | 4 / 450 | 5 / 600 | 5 / 600 | 6 / 750 | 6 / 750 |
+| Bulwark 5.56 (lmg) | 4 / 265 | 4 / 265 | 4 / 265 | 4 / 265 | 4 / 265 | 5 / 353 |
+| Vantage 7.62 (dmr) | 2 / 250 | 2 / 250 | 2 / 250 | 2 / 250 | 3 / 500 | 3 / 500 |
+| Trident 5.56 (burst) | 3 / 150 | 3 / 150 | 3 / 150 | 3 / 150 | 4 / 490 | 4 / 490 |
+| Marshal .357 (revolver) | 2 / 400 | 2 / 400 | 3 / 800 | 3 / 800 | 4 / 1200 | 4 / 1200 |
 
 ## Duels
 
@@ -25,43 +29,65 @@ Two moderate bots, one primary each plus the pistol and a frag, start in sight o
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 66 % | 70 % | 93 % |
-| smg | 34 % |  | 65 % | 95 % |
-| m4a1 | 30 % | 35 % |  | 91 % |
-| sniper | 7 % | 5 % | 9 % |  |
+| shotgun |  | 65 % | 70 % | 93 % |
+| smg | 35 % |  | 64 % | 95 % |
+| m4a1 | 30 % | 36 % |  | 92 % |
+| sniper | 7 % | 5 % | 8 % |  |
 
 **15 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 26 % | 28 % | 41 % |
-| smg | 74 % |  | 48 % | 66 % |
-| m4a1 | 73 % | 52 % |  | 59 % |
-| sniper | 59 % | 34 % | 41 % |  |
+| shotgun |  | 26 % | 29 % | 41 % |
+| smg | 74 % |  | 48 % | 65 % |
+| m4a1 | 71 % | 52 % |  | 55 % |
+| sniper | 59 % | 35 % | 45 % |  |
 
 **30 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
 | shotgun |  | 17 % | 23 % | 33 % |
-| smg | 83 % |  | 46 % | 49 % |
-| m4a1 | 77 % | 54 % |  | 62 % |
-| sniper | 67 % | 51 % | 38 % |  |
+| smg | 83 % |  | 47 % | 48 % |
+| m4a1 | 77 % | 53 % |  | 60 % |
+| sniper | 67 % | 52 % | 40 % |  |
 
 **60 m**
 
 | | shotgun | smg | m4a1 | sniper |
 | --- | --- | --- | --- | --- |
-| shotgun |  | 25 % | 32 % | 41 % |
-| smg | 75 % |  | 44 % | 28 % |
-| m4a1 | 68 % | 56 % |  | 35 % |
-| sniper | 59 % | 72 % | 65 % |  |
+| shotgun |  | 26 % | 32 % | 40 % |
+| smg | 74 % |  | 44 % | 29 % |
+| m4a1 | 68 % | 56 % |  | 34 % |
+| sniper | 60 % | 71 % | 66 % |  |
 
 ### Each primary in its own band and overall
 
 | Weapon | Band | Worst win rate in its band | Over all distances, per opponent | Overall |
 | --- | --- | --- | --- | --- |
-| shotgun | 5 m | 66 % | smg 33 %, m4a1 38 %, sniper 52 % | 41 % |
-| smg | 15 m | 48 % | shotgun 67 %, m4a1 51 %, sniper 60 % | 59 % |
-| m4a1 | 30 m | 54 % | shotgun 62 %, smg 49 %, sniper 62 % | 58 % |
-| sniper | 60 m | 59 % | shotgun 48 %, smg 40 %, m4a1 38 % | 42 % |
+| shotgun | 5 m | 65 % | smg 34 %, m4a1 39 %, sniper 52 % | 41 % |
+| smg | 15 m | 48 % | shotgun 66 %, m4a1 51 %, sniper 59 % | 59 % |
+| m4a1 | 30 m | 53 % | shotgun 61 %, smg 49 %, sniper 60 % | 57 % |
+| sniper | 60 m | 60 % | shotgun 48 %, smg 41 %, m4a1 40 % | 43 % |
+
+### The primaries without a band
+
+The light machine gun, the marksman rifle and the burst rifle own no distance: each is measured against the four above, 48 duels a cell (one standard error is 7 points). The band column is the owner's own distance, where the challenger must not win outright.
+
+| Weapon | Against | 5 m | 15 m | 30 m | 60 m | In the owner's band | Over all distances |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| lmg | shotgun | 10 % | 50 % | 75 % | 67 % | 10 % | 51 % |
+| lmg | smg | 23 % | 19 % | 33 % | 60 % | 19 % | 34 % |
+| lmg | m4a1 | 35 % | 31 % | 35 % | 50 % | 35 % | 38 % |
+| lmg | sniper | 81 % | 48 % | 50 % | 34 % | 34 % | 53 % |
+| lmg | all four | 38 % | 37 % | 48 % | 53 % | | 44 % |
+| dmr | shotgun | 2 % | 60 % | 78 % | 61 % | 2 % | 51 % |
+| dmr | smg | 4 % | 23 % | 54 % | 57 % | 23 % | 35 % |
+| dmr | m4a1 | 8 % | 35 % | 55 % | 59 % | 55 % | 40 % |
+| dmr | sniper | 56 % | 44 % | 58 % | 52 % | 52 % | 53 % |
+| dmr | all four | 18 % | 41 % | 61 % | 58 % | | 44 % |
+| burst | shotgun | 13 % | 52 % | 79 % | 75 % | 13 % | 55 % |
+| burst | smg | 27 % | 31 % | 60 % | 67 % | 31 % | 46 % |
+| burst | m4a1 | 38 % | 31 % | 43 % | 63 % | 43 % | 43 % |
+| burst | sniper | 79 % | 55 % | 54 % | 44 % | 44 % | 58 % |
+| burst | all four | 39 % | 42 % | 59 % | 62 % | | 51 % |

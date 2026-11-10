@@ -15,101 +15,101 @@ import { escapeHtml as escape } from '../ui/theme';
  */
 
 const CSS = `
-.ds-br-top { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; width: min(640px, calc(100vw - 32px)); }
+.ds-br-top { position: absolute; left: 50%; top: calc(18px + var(--ds-safe-t)); transform: translateX(-50%); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; width: min(640px, calc(100vw - 32px)); }
 .ds-br-top .count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 4px 10px; }
-.ds-br-top .count b { font-size: 26px; font-weight: 700; line-height: 1; }
-.ds-br-top .count span { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); margin-top: 3px; }
+.ds-br-top .count b { font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
+.ds-br-top .count span { font-size: var(--ds-type-small); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); margin-top: 3px; }
 .ds-compass { position: relative; height: 46px; overflow: hidden; border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); }
 .ds-compass i { position: absolute; top: 0; width: 1px; height: 7px; background: var(--ds-text-2); }
 .ds-compass i.pt { height: 11px; width: 2px; background: var(--ds-text); }
-.ds-compass em { position: absolute; top: 12px; transform: translateX(-50%); font-style: normal; font-size: 11px; letter-spacing: 0.06em; color: var(--ds-text-2); }
-.ds-compass em.pt { font-size: 14px; font-weight: 700; color: var(--ds-text); top: 13px; }
-.ds-compass .hd { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 11px; font-weight: 700; padding: 0 4px; background: var(--ds-ink); color: var(--ds-text); z-index: 1; }
+.ds-compass em { position: absolute; top: 12px; transform: translateX(-50%); font-style: normal; font-size: var(--ds-type-small); letter-spacing: 0.06em; color: var(--ds-text-2); }
+.ds-compass em.pt { font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); top: 13px; }
+.ds-compass .hd { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: var(--ds-type-small); font-weight: 700; padding: 0 4px; background: var(--ds-ink); color: var(--ds-text); z-index: 1; }
 .ds-compass .caret { position: absolute; left: 50%; top: 0; width: 0; height: 0; border: 5px solid transparent; border-top-color: var(--ds-text); transform: translateX(-50%); }
-.ds-compass .mk { position: absolute; bottom: 6px; transform: translateX(-50%); font-size: 12px; line-height: 1; }
-.ds-compass .mk.safe { color: var(--ds-hazard); font-size: 14px; }
-.ds-compass .mk.mate { color: var(--ds-text); font-size: 10px; }
+.ds-compass .mk { position: absolute; bottom: 6px; transform: translateX(-50%); font-size: var(--ds-type-small); line-height: 1; }
+.ds-compass .mk.safe { color: var(--ds-hazard); font-size: var(--ds-type-body); }
+.ds-compass .mk.mate { color: var(--ds-text); font-size: var(--ds-type-small); }
 .ds-compass .mk.pinned { opacity: 0.75; }
-.ds-compass .mk.drop { color: var(--ds-signal); font-size: 13px; }
+.ds-compass .mk.drop { color: var(--ds-signal); font-size: var(--ds-type-small); }
 .ds-compass .mk.drop { white-space: nowrap; }
-.ds-compass .mk.reboot { color: var(--ds-signal); font-size: 13px; white-space: nowrap; }
-.ds-compass .mk.reboot small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
+.ds-compass .mk.reboot { color: var(--ds-signal); font-size: var(--ds-type-small); white-space: nowrap; }
+.ds-compass .mk.reboot small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-signal); transform: rotate(45deg); background: var(--ds-ink); }
 .ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-signal); }
 .ds-map aside .key i.foe { width: 12px; height: 0; border: 0; font-style: normal; }
-.ds-map aside .key i.foe::before { content: '✕'; display: block; margin-top: -8px; font-size: 14px; font-weight: 700; color: var(--ds-alert); }
-.ds-watch .card { font-size: 13px; letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
-.ds-compass .mk.ping { color: var(--ds-signal); font-size: 12px; white-space: nowrap; }
-.ds-compass .mk.ping.enemy { color: var(--ds-alert); }
-.ds-compass .mk.ping small { margin-left: 3px; font-size: 10px; font-weight: 700; color: var(--ds-text); }
-.ds-compass .mk.drop small { margin-left: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
+.ds-map aside .key i.foe::before { content: '✕'; display: block; margin-top: -8px; font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-alert); }
+.ds-watch .card { font-size: var(--ds-type-small); letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
+.ds-compass .mk.ping { color: var(--ds-signal); font-size: var(--ds-type-small); white-space: nowrap; }
+.ds-compass .mk.ping.enemy { color: var(--ds-enemy); }
+.ds-compass .mk.ping small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; color: var(--ds-text); }
+.ds-compass .mk.drop small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
 /* Under the compass, one under another: the Ring's line, the Kill Leader, then outside or the way to the next circle. */
 .ds-brstack { position: absolute; left: 50%; top: 74px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-.ds-ringline { display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.ds-ringline { display: flex; align-items: center; gap: 10px; padding: 5px 12px; white-space: nowrap; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .ds-ringline .stage { color: var(--ds-text-2); }
-.ds-ringline .t { font-size: 15px; letter-spacing: 0.04em; }
+.ds-ringline .t { font-size: var(--ds-type-body); letter-spacing: 0.04em; }
 .ds-ringline.closing { border-left: 3px solid var(--ds-hazard); }
 .ds-ringline.closing .what, .ds-ringline.closing .t { color: var(--ds-hazard); }
-.ds-ringline .key { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--ds-line-2); color: var(--ds-text-2); font-size: 11px; }
+.ds-ringline .key { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--ds-line-2); color: var(--ds-text-2); font-size: var(--ds-type-small); }
 .ds-ringline kbd { font: inherit; padding: 0 5px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 5px; }
 .ds-ringline .bar { width: 70px; height: 3px; background: var(--ds-line-2); }
 .ds-ringline .bar i { display: block; height: 100%; background: var(--ds-hazard); transform-origin: 0 50%; }
 .ds-outside { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 12px; border: 1px solid var(--ds-hazard); background: var(--ds-glass); white-space: nowrap; text-shadow: none; }
-.ds-outside .arrow { width: 22px; height: 22px; display: grid; place-items: center; color: var(--ds-hazard); font-size: 18px; line-height: 1; }
-.ds-outside b { display: block; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-hazard); }
-.ds-outside small { display: block; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text); margin-top: 2px; }
-.ds-nextline { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
-.ds-nextline .arrow { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ds-text); font-size: 12px; line-height: 1; }
+.ds-outside .arrow { width: 22px; height: 22px; display: grid; place-items: center; color: var(--ds-hazard); font-size: var(--ds-type-body); line-height: 1; }
+.ds-outside b { display: block; font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-hazard); }
+.ds-outside small { display: block; font-size: var(--ds-type-small); letter-spacing: 0.08em; color: var(--ds-text); margin-top: 2px; }
+.ds-nextline { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px; white-space: nowrap; font-size: var(--ds-type-small); letter-spacing: 0.08em; color: var(--ds-text-2); }
+.ds-nextline .arrow { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ds-text); font-size: var(--ds-type-small); line-height: 1; }
 .ds-nextline b { color: var(--ds-text); font-variant-numeric: tabular-nums; }
-.ds-leader { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; white-space: nowrap; font-size: 12px; letter-spacing: 0.08em; color: var(--ds-text-2); }
-.ds-leader .k { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-leader { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; white-space: nowrap; font-size: var(--ds-type-small); letter-spacing: 0.08em; color: var(--ds-text-2); }
+.ds-leader .k { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-signal); }
 .ds-leader b { color: var(--ds-text); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
 .ds-leader .n { color: var(--ds-text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-victory { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 12px 28px 14px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
-.ds-victory .what { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
-.ds-victory .place { margin-top: 4px; font-size: 76px; font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
-.ds-victory .who { margin-top: 6px; font-size: 34px; font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
-.ds-victory .of { margin-top: 4px; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
+.ds-victory .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-victory .place { margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
+.ds-victory .who { margin-top: 6px; font-size: var(--ds-type-title); font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
+.ds-victory .of { margin-top: 4px; font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
 .ds-hazardedge { position: absolute; inset: 0; box-shadow: inset 0 0 90px 20px color-mix(in srgb, var(--ds-hazard) 50%, transparent); opacity: 0; transition: opacity 300ms linear; }
 .ds-out { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 10px 22px 12px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
-.ds-out .what { font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-alert); }
-.ds-out .place { margin-top: 4px; font-size: 76px; font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
-.ds-out .of { font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
-.ds-watch { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 14px; white-space: nowrap; }
-.ds-watch .who { font-size: 18px; font-weight: 700; letter-spacing: 0.04em; }
-.ds-watch .k { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-out .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-alert); }
+.ds-out .place { margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
+.ds-out .of { font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
+.ds-watch { position: absolute; left: 50%; bottom: calc(28px + var(--ds-safe-b)); transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 14px; white-space: nowrap; }
+.ds-watch .who { font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.04em; }
+.ds-watch .k { font-size: var(--ds-type-small); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-watch kbd { font: inherit; font-weight: 700; padding: 1px 6px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 6px; }
 .ds-map { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 24px; background: var(--ds-scrim); text-shadow: none; pointer-events: none; z-index: 5; }
 .ds-map.open { display: flex; }
 .ds-map canvas { width: min(86vh, 64vw); height: min(86vh, 64vw); border: 1px solid var(--ds-line-2); background: var(--ds-ink); }
 .ds-map aside { width: 220px; display: flex; flex-direction: column; gap: 14px; }
-.ds-map aside h2 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+.ds-map aside h2 { margin: 0; font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
 .ds-map aside .row { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--ds-line); }
-.ds-map aside .row b { font-size: 20px; }
+.ds-map aside .row b { font-size: var(--ds-type-heading); }
 .ds-map aside .row.hz b { color: var(--ds-hazard); }
-.ds-map aside .key { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-map aside .key { display: flex; align-items: center; gap: 10px; font-size: var(--ds-type-small); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .key i { width: 22px; height: 0; border-top: 2px solid var(--ds-hazard); }
 .ds-map aside .key i.next { border-top: 2px dashed var(--ds-text); }
 .ds-map aside .key i.drop { width: 10px; height: 10px; border: 2px solid var(--ds-signal); background: var(--ds-ink); }
 .ds-map aside .key i.you { width: 0; height: 0; border: 6px solid transparent; border-bottom: 11px solid var(--ds-signal); border-top: 0; }
-.ds-map aside .close { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-map aside .close { font-size: var(--ds-type-small); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .close kbd { font: inherit; font-weight: 700; padding: 1px 6px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 6px; }
 @media (max-width: 760px) {
   .ds-br-top .count { min-width: 58px; padding: 4px 6px; }
-  .ds-br-top .count b { font-size: 20px; }
-  .ds-brstack { top: 70px; }
-  .ds-ringline { font-size: 11px; }
-  .ds-victory .place { font-size: 56px; }
-  .ds-victory .who { font-size: 24px; }
-  .ds-out .place { font-size: 56px; }
-  .ds-watch { bottom: 8px; width: calc(100vw - 24px); box-sizing: border-box; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 12px; white-space: normal; }
+  .ds-br-top .count b { font-size: var(--ds-type-heading); }
+  .ds-brstack { top: calc(70px + var(--ds-safe-t)); }
+  .ds-ringline { font-size: var(--ds-type-small); }
+  .ds-victory .place { font-size: var(--ds-type-display); }
+  .ds-victory .who { font-size: var(--ds-type-heading); }
+  .ds-out .place { font-size: var(--ds-type-display); }
+  .ds-watch { bottom: calc(8px + var(--ds-safe-b)); width: calc(100vw - 24px); box-sizing: border-box; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 12px; white-space: normal; }
   .ds-watch .card { flex-basis: 100%; text-align: center; }
 }
 @media (max-aspect-ratio: 1/1) {
   .ds-map { flex-direction: column; }
   .ds-map canvas { width: min(92vw, 70vh); height: min(92vw, 70vh); }
   .ds-map aside { width: min(92vw, 70vh); flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
-  .ds-map aside h2 { width: 100%; font-size: 22px; }
+  .ds-map aside h2 { width: 100%; font-size: var(--ds-type-heading); }
 }
 @media (max-height: 480px) { .ds-map canvas { width: min(90vh, 60vw); height: min(90vh, 60vw); } .ds-map aside { gap: 8px; } }
 `;
@@ -305,7 +305,7 @@ export class RoyaleHud {
     this.#ringline.classList.toggle('closing', closing);
     const t = st.seconds === null ? '' : clock(st.seconds);
     const what = st.phase === 'hold' ? 'Ring closes in' : closing ? 'Ring closing' : 'Final circle';
-    this.#set(this.#ringline, `<span class="stage">Stage ${st.stage}/${st.stages}</span><span class="what">${what}</span>${t ? `<span class="t">${t}</span>` : ''}${s.out ? '' : `<span class="key"><kbd>${escape(s.mapKey)}</kbd>Map</span>`}`);
+    this.#set(this.#ringline, `<span class="stage">Stage ${st.stage}/${st.stages}</span><span class="what">${what}</span>${t ? `<span class="t">${t}</span>` : ''}${s.out || !s.mapKey ? '' : `<span class="key"><kbd>${escape(s.mapKey)}</kbd>Map</span>`}`);
     // Outside: a plate that says it, which way is safe and what it costs, and the screen's edge in the hazard colour.
     const outside = st.outside && !s.out;
     this.#outside.style.display = outside ? '' : 'none';
@@ -344,7 +344,7 @@ export class RoyaleHud {
     if (s.out) {
       this.#set(
         this.#watch,
-        `${s.card ? `<span class="card">${escape(s.card)}</span>` : ''}${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? '' : '<span class="k">Spectating</span>'}<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span><span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>`,
+        `${s.card ? `<span class="card">${escape(s.card)}</span>` : ''}${place ? `<span class="who">${ordinal(place.place)}</span><span class="k">of ${place.of}</span>` : ''}${s.watching ? '' : '<span class="k">Spectating</span>'}${s.menuKey ? `<span class="k"><kbd>${escape(s.menuKey)}</kbd>Menu</span>` : ''}${s.mapKey ? `<span class="k"><kbd>${escape(s.mapKey)}</kbd>Map</span>` : ''}`,
       );
     }
     this.#map.classList.toggle('open', s.mapOpen);
@@ -569,7 +569,7 @@ export class RoyaleHud {
       const [x, y] = at(p.x, p.z);
       ctx.lineWidth = 2 * k;
       ctx.strokeStyle = tok.ink;
-      ctx.fillStyle = p.kind === 'enemy' ? tok.alert : tok.signal;
+      ctx.fillStyle = p.kind === 'enemy' ? css.getPropertyValue('--ds-enemy').trim() || tok.alert : tok.signal;
       ctx.beginPath();
       if (p.kind === 'enemy') {
         ctx.moveTo(x - 6 * k, y - 5 * k);

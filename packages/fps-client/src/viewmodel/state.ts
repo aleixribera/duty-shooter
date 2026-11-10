@@ -1,4 +1,4 @@
-import type { MovementState, ReloadKind, Stance, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
+import type { MovementState, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
 
 /**
  * Everything the first-person viewmodel needs from the game, per rendered
@@ -22,6 +22,11 @@ export interface ViewmodelState {
   readonly grounded: boolean;
   /** How far the view turned this frame (radians), for sway and turn inertia. */
   readonly lookDelta: { readonly yaw: number; readonly pitch: number };
+  /** The holder's velocity (m/s, world) and the view's yaw: the gun tilts into a strafe and hangs back through a jump and a fall. Still without them. */
+  readonly velocity?: Vec3;
+  readonly yaw?: number;
+  /** The camera-motion setting, 0 to 1: how much of the gun's motion with the body is shown. All of it when absent. */
+  readonly motion?: number;
   readonly alive: boolean;
   /** A grenade in hand: cooking, or just thrown, and for how long (s). */
   readonly grenade?: { readonly phase: 'cook' | 'throw'; readonly time: number } | null;

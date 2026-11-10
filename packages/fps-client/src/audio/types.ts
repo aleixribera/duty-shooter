@@ -1,6 +1,7 @@
 import type { Material, WeaponId } from '@duty-shooter/fps-core';
 import type { MixLevels } from './mix';
 import type { Music, MusicState } from './music/player';
+import type { Speech, SpeechState } from './speech';
 export type SoundEventName =
   | 'gunshot' // a gun firing (params.weapon, the M4A1 when absent). params.local=true for your own gun (non-positional, full detail)
   | 'dryFire'
@@ -25,6 +26,11 @@ export type SoundEventName =
   | 'boltOpen' // a bolt lifted and drawn back
   | 'boltClose' // a bolt run home and locked
   | 'shellInsert' // one shell pushed into a shotgun's tube
+  | 'coverOpen' // a belt-fed gun's feed cover unlatched and lifted
+  | 'coverShut' // the feed cover slapped shut on the belt
+  | 'cylinderOpen' // a revolver's cylinder swung out and its six cases struck out
+  | 'cylinderLoad' // six rounds dropped in off a speedloader
+  | 'cylinderShut' // the cylinder pushed shut
   | 'grenadePin' // a frag's pin pulled
   | 'grenadeThrow' // the spoon flying off and the throw
   | 'grenadeBounce' // a frag landing or bouncing (params.intensity)
@@ -40,6 +46,8 @@ export type SoundEventName =
   | 'rankUp' // a Rank crossed, on the end screen (not placed in the world)
   | 'challengeDone' // a daily Challenge completed, on the end screen (not placed in the world)
   | 'damageTaken'
+  | 'pain' // a soldier's grunt as a hit lands (params.local for your own; intensity: how hard the hit)
+  | 'death' // the breath a soldier lets go as they die
   | 'nukeSiren' // the town's air-raid siren before the end-of-match nuke
   | 'nukeBlast' // the nuke's blast, from ground zero (arrives after the flash, by distance)
   | 'ambientWind' // the map's wind bed, all round you (intensity: 1 outdoors, lower indoors)
@@ -117,6 +125,8 @@ export interface SoundSystem {
   setMix(mix: Partial<MixLevels>): void;
   /** The score: which scene the game is in, and its stings. */
   readonly music: Music;
+  /** The recorded voice: a line said by its id, on the voice bus, with everything else ducked under it. */
+  readonly speech: Speech;
   /**
    * The local player's health each frame (null: none, or dead). Under 30 the heart is heard,
    * quicker as health drops, and the world goes dull behind a low-pass; both lift as it comes back.
@@ -154,6 +164,7 @@ export interface SoundState {
   /** Times the ears have rung. */
   readonly tinnitus: number;
   readonly music: MusicState;
+  readonly speech: SpeechState;
 }
 
 /**

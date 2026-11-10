@@ -1,5 +1,5 @@
 import { STATS, box, orientedBox, playerClip, type Material, type MantleBand, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
-import type { ModelPlacement } from '@duty-shooter/fps-client/surfaces';
+import type { CourseGates, ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 
 /**
  * The one original map: a firing range (10/25/50 m lanes, static and rail
@@ -97,6 +97,8 @@ export interface GameMap {
     /** Bottom of the stairs, facing up them, and the top height. */
     readonly stairs: { readonly start: SpawnPoint; readonly top: number };
     readonly ramp: { readonly start: SpawnPoint; readonly top: number };
+    /** The timed run: from the pad at the foot of the stairs, over both gaps, up to the top of the 10 m tower. */
+    readonly run: CourseGates;
   };
   readonly penetration: PenetrationStation;
   readonly sniping: SnipingLane;
@@ -373,6 +375,21 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
   labels.push({ text: `${tower1} m DROP`, position: [1.95, tower1 - 0.6, z - 6], yaw: FACING_NEG_X, size: 0.45 });
   labels.push({ text: `${tower2} m LETHAL`, position: [1.95, tower2 - 0.6, z - 14.5], yaw: FACING_NEG_X, size: 0.45 });
 
+  // The timed run: a start pad at the foot of the stairs (the clock starts as
+  // you leave it up them) and the finish on top of the 10 m tower, a straight
+  // line along -Z that asks for every skill on the way: the gaps at a sprint,
+  // two climbs, and a slide-jump's kept speed for the best times.
+  add([6, 0, -1.6], [10, 0.02, 1.6], 'metal');
+  labels.push({ text: 'START', position: [8, 0.02, 1.7], yaw: 0, size: 0.5 });
+  labels.push({ text: 'FINISH', position: [9, tower2 + 0.02, z - 12.6], yaw: 0, size: 0.6 });
+  const run: CourseGates = {
+    start: { min: [6, -0.1, -1.6], max: [10, 2.5, 1.6] },
+    toward: [0, -1],
+    finish: { min: [2, tower2 - 0.1, z - 17], max: [16, tower2 + 2.5, z - 12] },
+    // A scripted runner with clean timing makes 13.7 s (apps/range/test/course-run.test.ts); a sloppy one 16.5.
+    par: { gold: 14, silver: 16.5, bronze: 21 },
+  };
+
   // Slide lane: wood strip with a stripe every metre.
   add([20, 0, -50], [26, 0.02, 6], 'wood');
   for (let d = 0; d <= 50; d += 5) {
@@ -396,6 +413,7 @@ function buildCourse(add: Add, hidden: Solid[], ramps: Ramp[], labels: Label[]):
     gaps,
     stairs: { start: { position: [8, 0, -1], yaw: FACING_NEG_Z }, top: deck },
     ramp: { start: { position: [14, 0, -1], yaw: FACING_NEG_Z }, top: deck },
+    run,
   };
 }
 

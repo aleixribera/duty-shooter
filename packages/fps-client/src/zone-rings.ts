@@ -24,10 +24,14 @@ import {
   viewportDepthTexture,
 } from 'three/tsl';
 import { BackSide, Color, CylinderGeometry, Mesh, MeshBasicNodeMaterial, type Scene } from 'three/webgpu';
+import { hexNumber, teamColours } from './team-colours';
 
-/** The ring's colours: the HUD's team colours (`--ds-blue`, `--ds-orange`), and a light grey while nobody holds it. */
+/** The ring's colours: the HUD's team colours (`--ds-blue`, `--ds-orange`, as the colour-vision setting has them), and a light grey while nobody holds it. */
 const NEUTRAL = 0xc9ccd1;
-const TEAM_COLORS: Readonly<Record<number, number>> = { 1: 0x3d8bff, 2: 0xff9a3c };
+const teamColor = (team: number): number => {
+  const colours = teamColours(team);
+  return colours ? hexNumber(colours.colour) : NEUTRAL;
+};
 /** The bright band round the edge (m), and how opaque it and the faint fill inside are (at the centre, and at the band). */
 const BAND = 0.22;
 const BAND_ALPHA = 0.85;
@@ -95,7 +99,7 @@ export class ZoneRings {
 
 /** How a zone's ring looks: the holder's colour (grey while neutral), and the taking team's colour swept round it as far as its capture has got. */
 export function ringLook(s: ZoneState): { owner: number; taker: number; progress: number } {
-  return { owner: TEAM_COLORS[s.owner] ?? NEUTRAL, taker: TEAM_COLORS[s.capturing] ?? NEUTRAL, progress: s.capturing ? s.progress : 0 };
+  return { owner: teamColor(s.owner), taker: teamColor(s.capturing), progress: s.capturing ? s.progress : 0 };
 }
 
 /** One zone's ring: its mesh, and the uniforms its colours, sweep and pulse are drawn from. */

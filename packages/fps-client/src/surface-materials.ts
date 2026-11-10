@@ -139,8 +139,14 @@ export function currentLighting(): Lighting {
  * The map's sky field (see sky-field.ts), for a map on terrain with no bake: where its picture lies, and the
  * realtime shadow map's reach, inside which the field leaves the near casters to it. Off on any other map.
  */
+/**
+ * What stands in for the sky field on a map without one. One texture for good, never disposed: every map without a
+ * field says so twice (as it is built, and again when its bake arrives), and a new stand-in each time destroyed the
+ * old one under shaders still being built with it, whose every frame the GPU then refused.
+ */
+const NO_FIELD = placeholderField();
 const field = {
-  map: texture(placeholderField()),
+  map: texture(NO_FIELD),
   origin: uniform(new Vector2(0, 0)),
   size: uniform(new Vector2(1, 1)),
   cell: uniform(1),
@@ -175,8 +181,8 @@ export function useSkyField(sky: SkyField | null): void {
     field.origin.value.set(sky.origin[0], sky.origin[1]);
     field.size.value.set(sky.columns * sky.cell, sky.rows * sky.cell);
     field.cell.value = sky.cell;
-  } else field.map.value = placeholderField();
-  old.dispose();
+  } else field.map.value = NO_FIELD;
+  if (old !== NO_FIELD) old.dispose();
 }
 
 /** Where the realtime shadow map reaches now: its centre (x, z) and the radius it fully covers (m). */

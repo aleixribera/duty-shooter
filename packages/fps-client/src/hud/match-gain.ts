@@ -47,7 +47,7 @@ export const MATCH_GAIN_CSS = `
 @media (max-width: 640px) {
   .ds-gain { gap: 8px; }
   .ds-gain .ds-readouts > div { padding: 6px 10px; }
-  .ds-gain .ds-readouts b { font-size: 18px; }
+  .ds-gain .ds-readouts b { font-size: var(--ds-type-body); }
   .ds-gain .rank { grid-template-columns: minmax(0, 1fr) auto; }
   .ds-gain .rank .bar { grid-column: 1 / -1; grid-row: 2; }
   .ds-gain .tasks { flex-direction: column; gap: 3px; }

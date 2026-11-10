@@ -1,6 +1,9 @@
 import { DEFAULT_LOADOUT, STATS, parseLoadout, type Loadout } from '@duty-shooter/fps-core';
 import { DEFAULT_MIX, type MixLevels } from './audio/mix';
 import type { PadLayout } from './gamepad';
+import { CROSSHAIR_COLOURS, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, DEFAULT_CROSSHAIR, type CrosshairColour, type CrosshairOptions } from './hud/crosshair';
+import { FRAME_CAPS, QUALITY_CHOICES, QUALITY_TIERS, type QualityChoice, type QualityTier } from './quality';
+import { COLOUR_VISIONS, type ColourVision } from './team-colours';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
 export type Action =
@@ -32,7 +35,7 @@ export const ACTION_LABELS: Readonly<Record<Action, string>> = {
   right: 'Move right',
   fire: 'Fire',
   ads: 'Aim down sights',
-  sprint: 'Sprint (press to toggle)',
+  sprint: 'Sprint',
   crouch: 'Crouch / slide',
   prone: 'Prone',
   jump: 'Jump / mantle',
@@ -51,6 +54,8 @@ export interface Settings {
   readonly bindings: Readonly<Record<Action, string>>;
   readonly adsMode: 'hold' | 'toggle';
   readonly crouchMode: 'hold' | 'toggle';
+  /** Toggle (the default): a press runs until you stop, aim or fire. Hold: you run while the key is down. */
+  readonly sprintMode: 'hold' | 'toggle';
   /** MW2019's mouse sensitivity scale: degrees per count = sensitivity x 0.0066. */
   readonly sensitivity: number;
   /** ADS sensitivity multiplier (low zoom). */
@@ -65,6 +70,14 @@ export interface Settings {
   readonly padInvertY: boolean;
   /** Stick deadzone, as a fraction of full travel. */
   readonly padDeadzone: number;
+  /** Touch look sensitivity, on the controller's 1-20 scale: how far a drag on the glass turns the view. */
+  readonly touchSensitivity: number;
+  /** Touch ADS sensitivity multiplier. */
+  readonly touchAdsMultiplier: number;
+  /** Touch only: the trigger pulls itself once the crosshair rests on an enemy in the weapon's range. */
+  readonly touchAutoFire: boolean;
+  /** Touch only: a drag turns slower while the crosshair is on or beside an enemy. */
+  readonly touchAimAssist: boolean;
   /** MW2019's "ADS Field of View": affected by the FOV slider, or independent of it. */
   readonly adsFov: 'affected' | 'independent';
   /** Horizontal field of view at 16:9, in degrees. */
@@ -84,6 +97,28 @@ export interface Settings {
   readonly loadout: Loadout;
   readonly passphrase: string;
   readonly firefoxTipShown: boolean;
+  /** Picture quality: a tier, or Auto, which measures once and remembers what it found. */
+  readonly quality: QualityChoice;
+  /** The tier Auto found, and the adapter it found it on (a different one measures again); null until it has measured. */
+  readonly autoTier: QualityTier | null;
+  readonly autoAdapter: string;
+  /** Moves the render scale to hold the frame rate. */
+  readonly dynamicResolution: boolean;
+  /** Frames a second at most, or 0 for the display's own rate. */
+  readonly fpsCap: number;
+  /** Mouse look, up and down swapped. */
+  readonly invertY: boolean;
+  /** How much the camera and the weapon move with the body (bob, roll, landing dip, sway), 0..1. At 0 the view only turns where you turn it. */
+  readonly cameraMotion: number;
+  /** How much the view reacts to speed and to blasts (the sprint's wider FOV, damage and explosion shake), 0..1. */
+  readonly fovEffects: number;
+  /** Team colours and the enemy marker in a set that stays apart under a colour-vision deficiency. */
+  readonly colourVision: ColourVision;
+  /** The HUD's size, 0.8..1.3. */
+  readonly hudScale: number;
+  /** The announcer's lines as text. */
+  readonly captions: boolean;
+  readonly crosshair: CrosshairOptions;
 }
 
 /** MW2019's default bindings. */
@@ -112,6 +147,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: DEFAULT_BINDINGS,
   adsMode: 'hold',
   crouchMode: 'toggle',
+  sprintMode: 'toggle',
   // Twice MW2019's defaults (5 and 6/6), which felt slow in the browser; FOV 90 instead of 80.
   sensitivity: 10,
   adsMultiplier: STATS.input.adsSensitivityMultiplier.value,
@@ -121,6 +157,11 @@ export const DEFAULT_SETTINGS: Settings = {
   padAdsMultiplier: STATS.input.stickAdsMultiplier.value,
   padInvertY: false,
   padDeadzone: STATS.input.stickDeadzone.value,
+  // A thumb's swipe across half a phone turns about a right angle at 10; see touch/logic.ts for the rate.
+  touchSensitivity: 10,
+  touchAdsMultiplier: 1,
+  touchAutoFire: true,
+  touchAimAssist: true,
   adsFov: 'affected',
   fov: 90,
   showFps: false,
@@ -135,7 +176,43 @@ export const DEFAULT_SETTINGS: Settings = {
   loadout: DEFAULT_LOADOUT,
   passphrase: '',
   firefoxTipShown: false,
+  quality: 'auto',
+  autoTier: null,
+  autoAdapter: '',
+  dynamicResolution: true,
+  fpsCap: 0,
+  invertY: false,
+  cameraMotion: 1,
+  fovEffects: 1,
+  colourVision: 'off',
+  hudScale: 1,
+  captions: true,
+  crosshair: DEFAULT_CROSSHAIR,
 };
+
+/** The Settings screen's sections, and the settings each one holds: what "Restore defaults" puts back. */
+export type SettingsSection = 'controls' | 'mouse' | 'touch' | 'video' | 'audio' | 'hud' | 'accessibility';
+export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof Settings)[]>> = {
+  controls: ['bindings', 'adsMode', 'crouchMode', 'sprintMode'],
+  mouse: ['sensitivity', 'adsMultiplier', 'invertY', 'padLayout', 'padSensitivityX', 'padSensitivityY', 'padAdsMultiplier', 'padInvertY', 'padDeadzone'],
+  touch: ['touchSensitivity', 'touchAdsMultiplier', 'touchAutoFire', 'touchAimAssist'],
+  video: ['quality', 'dynamicResolution', 'fpsCap', 'fov', 'adsFov', 'showFps'],
+  audio: ['volume', 'musicVolume', 'effectsVolume', 'voiceVolume', 'uiVolume'],
+  hud: ['hudScale', 'showPing', 'showRangeOverlay', 'crosshair'],
+  accessibility: ['cameraMotion', 'fovEffects', 'colourVision', 'captions'],
+};
+
+/** `settings` with one section back at its defaults; everything else, and what Auto measured, as it was. */
+export function restoreDefaults(settings: Settings, section: SettingsSection): Settings {
+  const patch: Partial<Record<keyof Settings, unknown>> = {};
+  for (const key of SECTION_SETTINGS[section]) patch[key] = DEFAULT_SETTINGS[key];
+  return { ...settings, ...(patch as Partial<Settings>) };
+}
+
+/** Whether a section is as it comes: nothing for "Restore defaults" to do. */
+export function atDefaults(settings: Settings, section: SettingsSection): boolean {
+  return SECTION_SETTINGS[section].every((key) => JSON.stringify(settings[key]) === JSON.stringify(DEFAULT_SETTINGS[key]));
+}
 
 const KEY = 'duty-shooter.settings.v1';
 
@@ -171,6 +248,22 @@ const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T)
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
 const str = (v: unknown, fallback: string, max = 64) => (typeof v === 'string' ? v.slice(0, max) : fallback);
 
+/** A stored crosshair over the default one, part by part. */
+function parseCrosshair(raw: unknown): CrosshairOptions {
+  const d = DEFAULT_CROSSHAIR;
+  if (raw === null || typeof raw !== 'object') return d;
+  const r = raw as Record<string, unknown>;
+  return {
+    shape: oneOf(r['shape'], CROSSHAIR_SHAPES, d.shape),
+    size: clamp(r['size'], CROSSHAIR_LIMITS.size[0], CROSSHAIR_LIMITS.size[1], d.size),
+    gap: clamp(r['gap'], CROSSHAIR_LIMITS.gap[0], CROSSHAIR_LIMITS.gap[1], d.gap),
+    thickness: clamp(r['thickness'], CROSSHAIR_LIMITS.thickness[0], CROSSHAIR_LIMITS.thickness[1], d.thickness),
+    colour: oneOf(r['colour'], Object.keys(CROSSHAIR_COLOURS) as CrosshairColour[], d.colour),
+    dot: bool(r['dot'], d.dot),
+    dynamic: bool(r['dynamic'], d.dynamic),
+  };
+}
+
 /** Merges stored values over the defaults, dropping anything malformed. */
 export function parseSettings(raw: unknown): Settings {
   const d = DEFAULT_SETTINGS;
@@ -185,6 +278,7 @@ export function parseSettings(raw: unknown): Settings {
     bindings,
     adsMode: oneOf(r['adsMode'], ['hold', 'toggle'], d.adsMode),
     crouchMode: oneOf(r['crouchMode'], ['hold', 'toggle'], d.crouchMode),
+    sprintMode: oneOf(r['sprintMode'], ['hold', 'toggle'], d.sprintMode),
     sensitivity: clamp(r['sensitivity'], 0.1, 50, d.sensitivity),
     adsMultiplier: clamp(r['adsMultiplier'], 0.1, 3, d.adsMultiplier),
     padLayout: oneOf(r['padLayout'], ['default', 'tactical'], d.padLayout),
@@ -193,6 +287,10 @@ export function parseSettings(raw: unknown): Settings {
     padAdsMultiplier: clamp(r['padAdsMultiplier'], 0.1, 3, d.padAdsMultiplier),
     padInvertY: bool(r['padInvertY'], d.padInvertY),
     padDeadzone: clamp(r['padDeadzone'], 0, 0.5, d.padDeadzone),
+    touchSensitivity: clamp(r['touchSensitivity'], 1, 20, d.touchSensitivity),
+    touchAdsMultiplier: clamp(r['touchAdsMultiplier'], 0.1, 3, d.touchAdsMultiplier),
+    touchAutoFire: bool(r['touchAutoFire'], d.touchAutoFire),
+    touchAimAssist: bool(r['touchAimAssist'], d.touchAimAssist),
     adsFov: oneOf(r['adsFov'], ['affected', 'independent'], d.adsFov),
     fov: clamp(r['fov'], STATS.input.minFov.value, STATS.input.maxFov.value, d.fov),
     showFps: bool(r['showFps'], d.showFps),
@@ -208,6 +306,19 @@ export function parseSettings(raw: unknown): Settings {
     loadout: parseLoadout(r['loadout']) ?? d.loadout,
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
+    // Everything from here on came with the Settings screen's sections: a save from before them has none, and gets the defaults.
+    quality: oneOf(r['quality'], QUALITY_CHOICES, d.quality),
+    autoTier: QUALITY_TIERS.includes(r['autoTier'] as QualityTier) ? (r['autoTier'] as QualityTier) : null,
+    autoAdapter: str(r['autoAdapter'], d.autoAdapter, 160),
+    dynamicResolution: bool(r['dynamicResolution'], d.dynamicResolution),
+    fpsCap: (FRAME_CAPS as readonly number[]).includes(r['fpsCap'] as number) ? (r['fpsCap'] as number) : d.fpsCap,
+    invertY: bool(r['invertY'], d.invertY),
+    cameraMotion: clamp(r['cameraMotion'], 0, 1, d.cameraMotion),
+    fovEffects: clamp(r['fovEffects'], 0, 1, d.fovEffects),
+    colourVision: oneOf(r['colourVision'], COLOUR_VISIONS, d.colourVision),
+    hudScale: clamp(r['hudScale'], 0.8, 1.3, d.hudScale),
+    captions: bool(r['captions'], d.captions),
+    crosshair: parseCrosshair(r['crosshair']),
   };
 }
 

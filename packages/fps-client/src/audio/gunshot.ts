@@ -4,7 +4,9 @@
  *
  *   mechanism  the action, different in kind per gun: the M4A1's bolt carrier and buffer spring,
  *              the Wasp 9's light blowback clatter, the Warden 9's slide, the Harrow 12's
- *              receiver thunk and tube rattle, the Ridgeline's striker and ringing barrel.
+ *              receiver thunk and tube rattle, the Ridgeline's striker and ringing barrel, the
+ *              Bulwark's heavy bolt and belt links, the Vantage's operating rod, the Trident's
+ *              carrier knocking in its shell, the Marshal's hammer and cylinder gap.
  *              Heard on your own gun and from a shooter a few metres off.
  *   crack      the muzzle blast's front: an N-wave, a high-passed snap and a presence band.
  *              It is the shot's peak, added after the body is saturated, so the attack stays
@@ -191,6 +193,64 @@ function mechSniper(m: Float32Array, sr: number, rng: Rng): void {
   thump(m, sr, { at: 0.002, f0: rng.range(250, 280), f1: 200, glideTau: 0.015, attack: 0.0006, tau: 0.015, gain: 0.35 });
 }
 
+/** Bulwark 5.56: an open bolt twice the carbine's weight slamming home on every round, the pawl dragging the belt a link on, and loose links ringing against the box. */
+function mechLmg(m: Float32Array, sr: number, rng: Rng): void {
+  const t1 = rng.range(0.008, 0.012);
+  noiseBurst(m, sr, rng, { at: t1, attack: 0.0001, tau: 0.0016, gain: 0.8, mode: 'bandpass', freq: rng.range(1900, 2400), q: 1.1, length: 0.014 });
+  const b1 = rng.range(1300, 1600);
+  modes(m, sr, t1, [b1, b1 * 1.49, b1 * 2.17, b1 * 2.9], [1, 0.6, 0.45, 0.3], [0.014, 0.01, 0.007, 0.005], 0.5);
+  const t2 = rng.range(0.05, 0.06);
+  noiseBurst(m, sr, rng, { at: t2, attack: 0.0001, tau: 0.0026, gain: 1, mode: 'bandpass', freq: rng.range(1100, 1400), q: 0.9, length: 0.024 });
+  const b2 = rng.range(820, 980);
+  modes(m, sr, t2, [b2, b2 * 1.55, b2 * 2.3, b2 * 3.2], [1, 0.6, 0.4, 0.22], [0.02, 0.013, 0.008, 0.005], 0.55);
+  thump(m, sr, { at: t2, f0: 260, f1: 210, glideTau: 0.012, attack: 0.0004, tau: 0.009, gain: 0.45 });
+  // The belt: links pulled across the tray, and the spent ones falling on the box.
+  for (const t of scatter(rng, 4, 0.016, 0.085)) noiseBurst(m, sr, rng, { at: t, attack: 0.0001, tau: 0.0011, gain: rng.range(0.16, 0.3), mode: 'bandpass', freq: rng.range(5200, 7400), q: 2.2, length: 0.007 });
+  const link = rng.range(4300, 5200);
+  modes(m, sr, t1 + 0.004, [link, link * 1.34, link * 1.81], [1, 0.6, 0.35], [0.012, 0.009, 0.006], 0.14);
+}
+
+/** Vantage 7.62: a long operating rod driven back by the gas and a heavy bolt turning out of its lugs, home a beat later than a carbine's, and a walnut stock knocking where a buffer tube would sing. */
+function mechDmr(m: Float32Array, sr: number, rng: Rng): void {
+  const t1 = rng.range(0.01, 0.014);
+  noiseBurst(m, sr, rng, { at: t1, attack: 0.0001, tau: 0.0016, gain: 0.75, mode: 'bandpass', freq: rng.range(2300, 2800), q: 1.2, length: 0.014 });
+  const b1 = rng.range(1650, 1950);
+  modes(m, sr, t1, [b1, b1 * 1.44, b1 * 2.12, b1 * 2.8], [1, 0.6, 0.45, 0.3], [0.013, 0.009, 0.007, 0.004], 0.45);
+  const t2 = rng.range(0.074, 0.088);
+  noiseBurst(m, sr, rng, { at: t2, attack: 0.0001, tau: 0.0024, gain: 1, mode: 'bandpass', freq: rng.range(1300, 1600), q: 0.9, length: 0.022 });
+  const b2 = rng.range(980, 1180);
+  modes(m, sr, t2, [b2, b2 * 1.5, b2 * 2.26, b2 * 3.0], [1, 0.6, 0.4, 0.25], [0.018, 0.012, 0.008, 0.005], 0.55);
+  thump(m, sr, { at: t2, f0: 300, f1: 220, glideTau: 0.014, attack: 0.0005, tau: 0.012, gain: 0.5 });
+  // The rod: a thin bar, ringing between the two.
+  const rod = rng.range(2500, 2900);
+  modes(m, sr, t1, [rod, rod * 2.76], [1, 0.4], [0.05, 0.028], 0.16);
+}
+
+/** Trident 5.56: the action is in the stock, under the cheek: a short carrier knocking in a hollow polymer shell, both strokes close together, with no spring to sing. */
+function mechBurst(m: Float32Array, sr: number, rng: Rng): void {
+  const t1 = rng.range(0.005, 0.008);
+  noiseBurst(m, sr, rng, { at: t1, attack: 0.0001, tau: 0.0012, gain: 0.8, mode: 'bandpass', freq: rng.range(3000, 3700), q: 1.3, length: 0.01 });
+  const b1 = rng.range(2300, 2700);
+  modes(m, sr, t1, [b1, b1 * 1.46, b1 * 2.1], [1, 0.55, 0.35], [0.006, 0.004, 0.003], 0.4);
+  const t2 = rng.range(0.034, 0.041);
+  noiseBurst(m, sr, rng, { at: t2, attack: 0.0001, tau: 0.0018, gain: 1, mode: 'bandpass', freq: rng.range(1900, 2300), q: 1, length: 0.014 });
+  const b2 = rng.range(1500, 1800);
+  modes(m, sr, t2, [b2, b2 * 1.5, b2 * 2.2], [1, 0.5, 0.3], [0.008, 0.005, 0.004], 0.45);
+  // The shell is a box: its knock is low, hollow and short.
+  const shell = rng.range(620, 720);
+  modes(m, sr, t1, [shell, shell * 1.62, shell * 2.45], [1, 0.5, 0.25], [0.014, 0.009, 0.006], 0.4);
+  modes(m, sr, t2, [shell * 0.92, shell * 1.5], [1, 0.45], [0.016, 0.01], 0.45);
+}
+
+/** Marshal .357: nothing cycles. The hammer falls, the blast spits sideways out of the gap between cylinder and barrel, and a solid steel frame rings. */
+function mechRevolver(m: Float32Array, sr: number, rng: Rng): void {
+  noiseBurst(m, sr, rng, { at: 0, attack: 0.0001, tau: 0.0009, gain: 0.7, mode: 'bandpass', freq: rng.range(3400, 4000), q: 1.4, length: 0.008 });
+  noiseBurst(m, sr, rng, { at: 0.0006, attack: 0.0004, tau: 0.006, gain: 0.55, mode: 'highpass', freq: rng.range(4200, 5200), length: 0.04 });
+  const frame = rng.range(1450, 1700);
+  modes(m, sr, 0.001, [frame, frame * 1.58, frame * 2.41, frame * 3.3], [1, 0.55, 0.35, 0.2], [0.045, 0.03, 0.018, 0.01], 0.4);
+  thump(m, sr, { at: 0.002, f0: rng.range(330, 370), f1: 270, glideTau: 0.012, attack: 0.0005, tau: 0.012, gain: 0.3 });
+}
+
 // ---------------------------------------------------------------------------------------------
 // The recipes
 // ---------------------------------------------------------------------------------------------
@@ -320,6 +380,106 @@ const RECIPES: Readonly<Record<WeaponId, Recipe>> = {
     tailGain: { outdoor: 0.38, indoor: 0.36 },
     gain: { local: 1.03, near: 1.03, far: 1.59 },
   },
+  // 5.56 from a long, heavy barrel off an open bolt: the carbine's crack with more chest under it, made to be heard as a row of them.
+  lmg: {
+    seconds: 0.4,
+    front: { ms: [0.3, 0.4], gain: 1.5 },
+    snap: { hz: [2100, 2700], tau: [0.0022, 0.0032], gain: 1 },
+    crack: { hz: [2600, 3200], q: 0.8, tau: [0.008, 0.011], gain: 0.85 },
+    body: [
+      { hz: [560, 720], q: 0.8, tau: [0.02, 0.026], gain: 1.1 },
+      { hz: [1250, 1550], q: 1, tau: [0.011, 0.015], gain: 0.7 },
+    ],
+    ring: { f0: [210, 240], f1: [150, 172], tau: 0.024, gain: 0.22 },
+    low: { f0: [138, 152], f1: [70, 80], glide: 0.026, tau: 0.055, gain: 0.55, boomHz: 180, boomTau: 0.06, boom: 0.3 },
+    sub: { f0: 62, f1: 40, tau: 0.08, gain: 0.16, carry: 0.15 },
+    drive: 2.2,
+    bodyLevel: 0.75,
+    squash: 1,
+    hp: 28,
+    mech: { seconds: 0.13, draw: mechLmg, gain: 0.36 },
+    tail: {
+      outdoor: { seconds: 0.6, tau: 0.08, bright: [5000, 800, 0.14], hp: 140, slaps: 4, window: [0.03, 0.24], slapGain: 0.5, slapHz: [1500, 3400], boom: { hz: 150, gain: 0.15 }, roll: 0.35 },
+      indoor: { seconds: 0.6, tau: 0.085, bright: [5500, 750, 0.1], hp: 75, slaps: 16, window: [0.003, 0.05], slapGain: 0.45, slapHz: [2200, 5600], boom: { hz: 230, gain: 0.65 }, roll: 0.15 },
+    },
+    tailGain: { outdoor: 0.4, indoor: 0.42 },
+    gain: { local: 1.16, near: 1.51, far: 3.21 },
+  },
+  // 7.62 from a 20 in barrel: under the .308 bolt gun and over the carbine: a slower, rounder crack, a real thump, and an echo that goes on.
+  dmr: {
+    seconds: 0.55,
+    front: { ms: [0.34, 0.44], gain: 1.45, away: 1.45 },
+    snap: { hz: [2000, 2600], tau: [0.0026, 0.0034], gain: 1 },
+    crack: { hz: [2500, 3100], q: 0.8, tau: [0.008, 0.011], gain: 0.9 },
+    body: [
+      { hz: [660, 830], q: 0.8, tau: [0.023, 0.029], gain: 1.1 },
+      { hz: [1350, 1700], q: 0.95, tau: [0.012, 0.016], gain: 0.7 },
+    ],
+    ring: { f0: [215, 245], f1: [158, 178], tau: 0.024, gain: 0.22 },
+    low: { f0: [135, 150], f1: [64, 72], glide: 0.032, tau: 0.08, gain: 0.65, boomHz: 180, boomTau: 0.09, boom: 0.38 },
+    sub: { f0: 60, f1: 36, tau: 0.11, gain: 0.22, carry: 0.25 },
+    drive: 2.2,
+    bodyLevel: 0.62,
+    squash: 1,
+    hp: 26,
+    mech: { seconds: 0.2, draw: mechDmr, gain: 0.26 },
+    tail: {
+      outdoor: { seconds: 1.2, tau: 0.2, bright: [5000, 600, 0.3], hp: 100, slaps: 5, window: [0.04, 0.5], slapGain: 0.52, slapHz: [1200, 3000], boom: { hz: 150, gain: 0.25 }, roll: 0.42 },
+      indoor: { seconds: 0.8, tau: 0.12, bright: [5500, 700, 0.12], hp: 65, slaps: 17, window: [0.003, 0.055], slapGain: 0.45, slapHz: [2000, 5400], boom: { hz: 215, gain: 0.6 }, roll: 0.15 },
+    },
+    tailGain: { outdoor: 0.4, indoor: 0.5 },
+    gain: { local: 1.02, near: 1.21, far: 3.36 },
+  },
+  // 5.56 from a bullpup's barrel at 800 a minute: the carbine's crack, drier and higher, each shot over before the next, so three are heard as three.
+  burst: {
+    seconds: 0.26,
+    front: { ms: [0.24, 0.32], gain: 1.2 },
+    snap: { hz: [2800, 3500], tau: [0.0017, 0.0024], gain: 1 },
+    crack: { hz: [3300, 4000], q: 0.85, tau: [0.0055, 0.0075], gain: 0.9 },
+    body: [
+      { hz: [900, 1120], q: 0.85, tau: [0.014, 0.018], gain: 1 },
+      { hz: [1800, 2250], q: 1, tau: [0.007, 0.01], gain: 0.7 },
+    ],
+    ring: { f0: [290, 330], f1: [210, 240], tau: 0.012, gain: 0.12 },
+    low: { f0: [165, 185], f1: [88, 100], glide: 0.018, tau: 0.028, gain: 0.36, boomHz: 215, boomTau: 0.032, boom: 0.18 },
+    sub: { f0: 76, f1: 52, tau: 0.05, gain: 0.1, carry: 0 },
+    drive: 2,
+    bodyLevel: 0.92,
+    squash: 1,
+    hp: 40,
+    mech: { seconds: 0.1, draw: mechBurst, gain: 0.34 },
+    tail: {
+      outdoor: { seconds: 0.42, tau: 0.052, bright: [6200, 1100, 0.1], hp: 180, slaps: 3, window: [0.025, 0.16], slapGain: 0.5, slapHz: [2000, 4200], roll: 0.32 },
+      indoor: { seconds: 0.46, tau: 0.06, bright: [6500, 900, 0.09], hp: 95, slaps: 15, window: [0.003, 0.045], slapGain: 0.45, slapHz: [2700, 6500], boom: { hz: 260, gain: 0.5 }, roll: 0.15 },
+    },
+    tailGain: { outdoor: 0.36, indoor: 0.4 },
+    gain: { local: 1.1, near: 1.18, far: 3.03 },
+  },
+  // .357 Magnum from a four-inch barrel: a pistol's size and a rifle's blast: a boom in the low mids with a hard edge, and a tail no 9 mm has.
+  revolver: {
+    seconds: 0.38,
+    front: { ms: [0.4, 0.52], gain: 1.55 },
+    snap: { hz: [2100, 2700], tau: [0.002, 0.0028], gain: 0.9 },
+    crack: { hz: [2400, 3000], q: 0.8, tau: [0.007, 0.0095], gain: 0.75 },
+    body: [
+      { hz: [520, 680], q: 0.8, tau: [0.024, 0.03], gain: 1.2 },
+      { hz: [1150, 1450], q: 0.95, tau: [0.012, 0.016], gain: 0.75 },
+    ],
+    ring: { f0: [330, 370], f1: [250, 280], tau: 0.02, gain: 0.2 },
+    low: { f0: [150, 168], f1: [78, 88], glide: 0.026, tau: 0.055, gain: 0.6, boomHz: 220, boomTau: 0.06, boom: 0.35 },
+    sub: { f0: 74, f1: 46, tau: 0.08, gain: 0.14, carry: 0.15 },
+    drive: 2.2,
+    bodyLevel: 0.68,
+    squash: 1,
+    hp: 40,
+    mech: { seconds: 0.2, draw: mechRevolver, gain: 0.24 },
+    tail: {
+      outdoor: { seconds: 0.7, tau: 0.1, bright: [4200, 800, 0.16], hp: 150, slaps: 4, window: [0.03, 0.26], slapGain: 0.5, slapHz: [1200, 2800], mid: { hz: 600, gain: 0.3 }, roll: 0.36 },
+      indoor: { seconds: 0.6, tau: 0.085, bright: [5000, 800, 0.1], hp: 90, slaps: 15, window: [0.003, 0.05], slapGain: 0.42, slapHz: [1800, 5000], boom: { hz: 260, gain: 0.55 }, roll: 0.15 },
+    },
+    tailGain: { outdoor: 0.4, indoor: 0.42 },
+    gain: { local: 1.15, near: 0.94, far: 1.94 },
+  },
 };
 
 const WEAPONS = Object.keys(RECIPES) as WeaponId[];
@@ -434,7 +594,7 @@ function renderTail(rng: Rng, fullRate: number, t: TailShape): Float32Array[] {
  */
 export type FarFamily = 'rifle' | 'sniper' | 'shotgun' | 'light';
 
-export const FAR_FAMILY: Readonly<Record<WeaponId, FarFamily>> = { m4a1: 'rifle', sniper: 'sniper', shotgun: 'shotgun', smg: 'light', pistol: 'light' };
+export const FAR_FAMILY: Readonly<Record<WeaponId, FarFamily>> = { m4a1: 'rifle', sniper: 'sniper', shotgun: 'shotgun', smg: 'light', pistol: 'light', lmg: 'rifle', dmr: 'rifle', burst: 'rifle', revolver: 'light' };
 
 const FAR_SHAPE: Readonly<Record<FarFamily, { seconds: number; front: number; crack: number; band: number; bang: number; thump: number; roll: number; echoes: number; spread: number; dark: number }>> = {
   rifle: { seconds: 1.0, front: 0.8, crack: 0, band: 420, bang: 1, thump: 80, roll: 0.16, echoes: 4, spread: 0.35, dark: 2200 },

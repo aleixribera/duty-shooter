@@ -6,8 +6,8 @@ import { Button, isPressed, type UserCmd } from '../usercmd';
 
 /**
  * The weapon state machine, driven by the weapon's row in the stats table:
- * draw, ready (idle or firing), cycle (working a pump or bolt), reload
- * (a magazine, or shells one at a time, with add-ammo points), inspect,
+ * draw, ready (idle or firing, a burst running to its end), cycle (working a
+ * pump or bolt), reload (a magazine, or shells one at a time, with add-ammo points), inspect,
  * melee and holster, plus ADS, scope sway and the sprint-to-fire lock. It
  * decides when shots happen (to the sub-tick) and the spread and recoil of
  * each; the simulation turns shots into projectiles.
@@ -51,6 +51,8 @@ export interface WeaponState {
   shotIndex: number;
   /** Shots fired in this life, for the spread sequence. */
   shotsFired: number;
+  /** Rounds the burst under way still owes (a burst weapon): they leave at the fire rate whether or not the trigger is still held. */
+  burstLeft: number;
   reloadHeld: number;
   prevButtons: number;
 }
@@ -80,6 +82,7 @@ export function createWeaponState(id: WeaponId = 'm4a1', reserve?: number): Weap
     lastShot: -1e9,
     shotIndex: 0,
     shotsFired: 0,
+    burstLeft: 0,
     reloadHeld: 0,
     prevButtons: 0,
   };
@@ -101,6 +104,7 @@ export function drawWeapon(state: WeaponState, clock: number, buttons: number): 
   state.ads = 0;
   state.steady = 0;
   state.shotIndex = 0;
+  state.burstLeft = 0;
   state.reloadHeld = 0;
   state.nextShot = Math.min(state.nextShot, clock);
   state.lastShot = Math.min(state.lastShot, clock);
@@ -149,13 +153,20 @@ export function recoilKick(index: number, id: WeaponId = 'm4a1'): { pitch: numbe
   const row = weaponRow(id);
   const a = row.accuracy;
   const bounce = a.kickBounce?.value ?? 0;
+  // A machine gun settles: the share of its early kick left at this shot, from 1 at the second to 0 by `settleShots`.
+  const unsettled = a.settledKick && a.settleShots ? Math.max(0, 1 - (index - 1) / Math.max(1, a.settleShots.value - 2)) : 1;
+  const settled = a.settledKick?.value ?? a.verticalKick.value;
+  const climb = settled + (a.verticalKick.value - settled) * unsettled;
   // An SMG's climb alternates up and down around the vertical kick.
-  const pitch = index === 0 ? a.firstShotKick.value : a.verticalKick.value * (1 + (index % 2 === 1 ? bounce : -bounce));
+  const pitch = index === 0 ? a.firstShotKick.value : climb * (1 + (index % 2 === 1 ? bounce : -bounce));
   // Drifts right over the first third of a magazine, then back left, with a
   // small fixed wobble per shot so the pattern has texture but repeats exactly.
-  const drift = Math.sin((index / row.handling.magazineSize.value) * Math.PI * 2 + 0.6);
+  // A belt drifts as a 30-round magazine does, over and over: not one slow
+  // lean to the side across a hundred rounds.
+  const drift = Math.sin((index / (row.traits.reload === 'belt' ? 30 : row.handling.magazineSize.value)) * Math.PI * 2 + 0.6);
   const wobble = (noise(index, 0x4d34) - 0.5) * 0.8;
-  return { pitch, yaw: -a.horizontalKick.value * (drift + wobble) };
+  const side = a.settledKick ? a.horizontalKick.value * (settled / a.verticalKick.value + (1 - settled / a.verticalKick.value) * unsettled) : a.horizontalKick.value;
+  return { pitch, yaw: -side * (drift + wobble) };
 }
 
 /** Hipfire spread half-angle (degrees) for the movement state, before ADS. */
@@ -326,7 +337,9 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     state.actionTime = 0;
   }
 
-  if (state.action === 'ready' && fire && !sprinting && ctx.movement !== 'ladder') fireShots(state, row, cmd, ctx, t0, t1, events);
+  // A burst runs to its end without the trigger; anything that takes the weapon out of the shoulder ends it.
+  if (state.action !== 'ready' || sprinting || ctx.movement === 'ladder') state.burstLeft = 0;
+  else if (fire || state.burstLeft > 0) fireShots(state, row, cmd, ctx, t0, t1, events);
   state.prevButtons = cmd.buttons;
   return events;
 }
@@ -372,7 +385,10 @@ function advanceReload(state: WeaponState, row: WeaponRow, fire: boolean, events
  * Fires every shot due in [t0, t1). Full auto fires at the fire rate while
  * the trigger is held, from the sub-tick press time. Semi-automatic, pump
  * and bolt weapons fire once per press, no faster than the fire rate (a
- * pump or bolt then cycles before the next).
+ * pump or bolt then cycles before the next). A burst weapon fires its
+ * burst at the fire rate from one press, held or not, then waits out its
+ * burst delay; a trigger still held then starts the next burst, so the
+ * wait is the gun's rhythm and not a press that came too soon and was lost.
  */
 function fireShots(state: WeaponState, row: WeaponRow, cmd: UserCmd, ctx: WeaponContext, t0: number, t1: number, events: WeaponEvents): void {
   const dt = t1 - t0;
@@ -404,6 +420,25 @@ function fireShots(state: WeaponState, row: WeaponRow, cmd: UserCmd, ctx: Weapon
     state.lastShot = time;
     state.nextShot = time + interval;
   };
+
+  if (mode === 'burst') {
+    const rounds = row.handling.burstRounds?.value ?? 1;
+    const pressTime = t0 + (cmd.firePresses[0] ?? 0) * dt;
+    let time = state.burstLeft > 0 ? Math.max(t0, state.nextShot) : Math.max(newPress ? pressTime : t0, state.nextShot, state.fireReadyAt);
+    while (time < t1 - 1e-12 && state.ammo > 0) {
+      // A new burst needs the trigger: a press, or a hold through the delay.
+      if (state.burstLeft === 0) {
+        if (!held && !(newPress && events.shots.length === 0)) break;
+        state.burstLeft = rounds;
+      }
+      shoot(time);
+      state.burstLeft -= 1;
+      if (state.burstLeft === 0) state.nextShot = time + (row.handling.burstDelay?.value ?? interval);
+      time = state.nextShot;
+    }
+    if (state.ammo === 0) state.burstLeft = 0;
+    return;
+  }
 
   if (mode === 'auto') {
     const pressTime = t0 + (cmd.firePresses[0] ?? 0) * dt;

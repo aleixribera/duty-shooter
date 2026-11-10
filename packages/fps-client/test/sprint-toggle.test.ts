@@ -255,3 +255,24 @@ describe('toggle sprint on the controller', () => {
     expect(sprinting(p.cmd())).toBe(false);
   });
 });
+
+describe('hold sprint', () => {
+  it('runs while the key is down and stops the tick it comes up', () => {
+    const { down, up, cmd } = playing({ ...DEFAULT_SETTINGS, sprintMode: 'hold' });
+    down('KeyW');
+    down('ShiftLeft');
+    expect(sprinting(cmd())).toBe(true);
+    expect(sprinting(cmd())).toBe(true);
+    up('ShiftLeft');
+    expect(sprinting(cmd())).toBe(false);
+    expect(sprinting(cmd())).toBe(false);
+  });
+
+  it('a tap within one tick still runs that tick, and only that one', () => {
+    const { down, tap, cmd } = playing({ ...DEFAULT_SETTINGS, sprintMode: 'hold' });
+    down('KeyW');
+    tap('ShiftLeft');
+    expect(sprinting(cmd())).toBe(true);
+    expect(sprinting(cmd())).toBe(false);
+  });
+});

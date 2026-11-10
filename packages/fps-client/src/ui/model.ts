@@ -255,6 +255,30 @@ export const MODE_BLURBS: Readonly<Record<string, string>> = {
   charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
 };
 
+/**
+ * What wins the match, in one line, for its opening countdown (the audit's
+ * F24: "TDM · 75" said nothing). Where the match has a clock, the line says
+ * what its running out means: the match ends with it, and whoever leads has
+ * won. Charge's line is the side's job this round.
+ */
+export function goalLine(status: { readonly mode: ModeId; readonly killLimit: number | null; readonly scoreLimit?: number | null; readonly timeLimit?: number | null }, attacking: boolean | null = null): string {
+  const clock = status.timeLimit !== null && status.timeLimit !== undefined;
+  switch (status.mode) {
+    case 'tdm':
+      return `First team to ${status.killLimit ?? '?'} kills${clock ? ', or ahead when the clock runs out' : ''}`;
+    case 'ffa':
+      return `First to ${status.killLimit ?? '?'} kills${clock ? ', or in the lead when the clock runs out' : ''}`;
+    case 'outposts':
+      return `Hold the zones: first team to ${status.scoreLimit ?? '?'} points${clock ? ', or ahead when the clock runs out' : ''}`;
+    case 'gungame':
+      return `Kills move you up ${GUN_GAME_LADDER_LENGTH} guns: first through them all wins${clock ? ', or the furthest when the clock runs out' : ''}`;
+    case 'charge':
+      return attacking === null ? 'Plant the charge at A or B, or stop it' : attacking ? 'Plant the charge at A or B and guard it' : 'Keep the charge off A and B, or defuse it';
+    case 'battle-royale':
+      return 'Last Squad alive wins';
+  }
+}
+
 /** How a round trip reads: quick, fair or slow. */
 export function pingTone(ms: number): 'good' | 'fair' | 'poor' {
   return ms < 100 ? 'good' : ms < 200 ? 'fair' : 'poor';

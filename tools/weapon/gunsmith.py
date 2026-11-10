@@ -57,6 +57,9 @@ FINISHES = {
     # Glass-filled polymer: frames, grips, magazines bodies.
     "polymer": dict(base=(0.026, 0.026, 0.028), rough=0.6, metal=0.0, wear=(0.06, 0.06, 0.062), wear_rough=0.42,
                     wear_amount=0.6, grain=0.3, bump=0.35, speckle=0.12),
+    # Sand-coloured polymer: the burst rifle's shell.
+    "sand": dict(base=(0.2, 0.15, 0.088), rough=0.62, metal=0.0, wear=(0.3, 0.24, 0.16), wear_rough=0.45,
+                 wear_amount=0.5, grain=0.3, bump=0.35, speckle=0.05),
     # Aggressive stipple on polymer grip panels.
     "stipple": dict(base=(0.022, 0.022, 0.024), rough=0.78, metal=0.0, wear=(0.05, 0.05, 0.052), wear_rough=0.55,
                     wear_amount=0.4, grain=0.3, bump=0.3, stipple=1.0),
@@ -66,6 +69,9 @@ FINISHES = {
     # Oiled walnut with a lacquer coat.
     "walnut": dict(base=(0.12, 0.05, 0.022), rough=0.34, metal=0.0, wear=(0.3, 0.15, 0.07), wear_rough=0.55,
                    wear_amount=0.45, grain=0.2, bump=0.15, wood=True),
+    # Walnut where the lacquer does not reach: the walls of a hole cut through a stock.
+    "walnut_raw": dict(base=(0.1, 0.042, 0.02), rough=0.7, metal=0.0, wear=(0.22, 0.11, 0.05), wear_rough=0.72,
+                       wear_amount=0.3, grain=0.25, bump=0.2, wood=True),
     # Walnut with cut checkering.
     "checkered": dict(base=(0.1, 0.042, 0.018), rough=0.55, metal=0.0, wear=(0.22, 0.11, 0.05), wear_rough=0.6,
                       wear_amount=0.3, grain=0.2, bump=0.15, wood=True, checker=1.0),

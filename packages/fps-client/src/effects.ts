@@ -27,6 +27,7 @@ import {
 } from 'three/webgpu';
 import { currentLighting, haze, horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
 import { cloudAt } from './surface-tiles';
+import { currentQuality } from './quality';
 
 type N = Node<'float'>;
 type N3 = Node<'vec3'>;
@@ -137,6 +138,8 @@ class ParticleLayer {
   readonly #particles: Particle[] = [];
   readonly #max: number;
   readonly #kind: Kind;
+  /** What the quality tier's share of particles owes this layer: an emission is drawn each time it reaches one. */
+  #owed = 1;
 
   constructor(max: number, kind: Kind) {
     this.#max = max;
@@ -159,6 +162,13 @@ class ParticleLayer {
   }
 
   emit(p: Partial<Particle> & { p: Vector3 }): void {
+    // A lower tier draws a share of the particles: every nth emission, so a burst thins evenly and a lone puff still shows.
+    const share = currentQuality().particles;
+    if (share < 1) {
+      this.#owed += share;
+      if (this.#owed < 1) return;
+      this.#owed -= 1;
+    }
     if (this.#particles.length >= this.#max) this.#particles.shift();
     this.#particles.push({
       v: new Vector3(),

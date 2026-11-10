@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, blastDamage, type GrenadeOutput } from '@duty-shooter/fps-core';
 import { LAST_MINUTE, LAST_TEN, MatchClockView, clockClass, clockFace, fuseDrawn, matchClockHtml } from '../src/hud/match-clock';
-import { COUNTDOWN_CALLS, clockRan, colourDrain, countdownCall, countdownLine, eased, lastMinuteLight, lastTenBeat } from '../src/last-minute';
+import { COUNTDOWN_CALLS, clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastTenBeat } from '../src/last-minute';
 import { GRENADE_WARNINGS_MOST, fuseBlink, grenadeWarnings, type WarnedPlayer } from '../src/hud/grenade-warnings';
 
 describe('the match clock', () => {
@@ -144,20 +144,28 @@ describe('the calls on the way down', () => {
     let before: number | null = null;
     for (let t = from; t >= to; t -= step) {
       const call = countdownCall(before, t);
-      if (call) said.push(call.say);
+      if (call) said.push(call.line);
       before = t;
     }
     return said;
   };
 
   it('says each line once as the clock passes it', () => {
-    expect(run(75, 0)).toEqual(COUNTDOWN_CALLS.map((c) => c.say));
-    expect(run(75, 0, 1 / 20)).toEqual(COUNTDOWN_CALLS.map((c) => c.say));
+    expect(run(75, 0)).toEqual(['t60', 't30', 't10', 'five', 'four', 'three', 'two', 'one']);
+    expect(run(75, 0, 1 / 20)).toEqual(COUNTDOWN_CALLS.map((c) => c.line));
+  });
+
+  it('counts the last five seconds out, each as the clock turns to it, and says the later of two a long frame passes', () => {
+    expect(countdownCall(5.01, 4.99)?.line).toBe('five');
+    expect(countdownCall(1.01, 0.99)?.line).toBe('one');
+    expect(countdownCall(0.99, 0.5)).toBeNull();
+    // A frame that takes a second and a half: "four" is already late, "three" is not.
+    expect(countdownCall(4.2, 2.7)?.line).toBe('three');
   });
 
   it('says nothing for what a match joined late, or a clock that was set, has already passed', () => {
     // Joined with 20 s left: the minute and the half are behind you.
-    expect(run(20, 0)).toEqual(['Ten seconds']);
+    expect(run(20, 6)).toEqual(['t10']);
     expect(countdownCall(null, 45)).toBeNull();
     expect(countdownCall(600, 45)).toBeNull();
     expect(countdownCall(30, 30)).toBeNull();
@@ -172,10 +180,10 @@ describe('the calls on the way down', () => {
     const said: string[] = [];
     for (const now of readings) {
       const call = countdownCall(was, now);
-      if (call) said.push(call.say);
+      if (call) said.push(call.line);
       was = clockRan(was, now);
     }
-    expect(said).toEqual(['T minus sixty seconds']);
+    expect(said).toEqual(['t60']);
     expect(was).toBe(59.5);
     // A clock that is set, or goes, is followed at once: the next match's marks are its own.
     expect(clockRan(3, 600)).toBe(600);
@@ -194,6 +202,33 @@ describe('the calls on the way down', () => {
     expect(countdownLine(minute!, 'train')).toBe('T-minus 60 seconds. Clear the main line.');
     expect(countdownLine(minute!, null)).toBe('T-minus 60 seconds.');
     expect(countdownLine(half!, 'nuke')).toBeNull();
+    // The voice says what the HUD writes.
+    expect(countdownVoice(minute!, 'nuke')).toBe('t60Nuke');
+    expect(countdownVoice(minute!, 'train')).toBe('t60Train');
+    expect(countdownVoice(minute!, null)).toBe('t60');
+    expect(countdownVoice(half!, 'nuke')).toBe('t30');
+  });
+});
+
+describe('the clock having the voice to itself', () => {
+  it('keeps everything else quiet for three seconds before a call, so the call is on its second', () => {
+    expect(clockSpeaks(64)).toBe(false);
+    expect(clockSpeaks(62.9)).toBe(true);
+    expect(clockSpeaks(60.01)).toBe(true);
+    // Sixty has been called: another line may wait behind it.
+    expect(clockSpeaks(60)).toBe(false);
+    expect(clockSpeaks(45)).toBe(false);
+    expect(clockSpeaks(32)).toBe(true);
+    expect(clockSpeaks(29)).toBe(false);
+    expect(clockSpeaks(13.5)).toBe(false);
+  });
+
+  it('keeps it from just before ten to the end: ten, the count, and nothing over the last second', () => {
+    for (const left of [12.9, 10, 8, 5, 2.5, 0.4, 0, -1]) expect(clockSpeaks(left), String(left)).toBe(true);
+  });
+
+  it('is never in the way of a match with no clock', () => {
+    expect(clockSpeaks(null)).toBe(false);
   });
 });
 

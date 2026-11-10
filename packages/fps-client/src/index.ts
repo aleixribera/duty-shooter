@@ -36,3 +36,5 @@ export { buildM4A1, M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL } from './view
 export type { M4A1Model } from './viewmodel/m4a1';
 export { buildArms } from './viewmodel/arms';
 export type { ArmsModel } from './viewmodel/arms';
+export { COURSE_LIMIT, CourseRun, courseDelta, courseGrade, courseTime } from './course-run';
+export type { CourseBox, CourseEvent, CourseGates, CourseGrade, CoursePar } from './course-run';

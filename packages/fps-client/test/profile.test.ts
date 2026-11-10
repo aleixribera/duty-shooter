@@ -252,6 +252,19 @@ describe('the Profile store', () => {
     expect(todaysChallenges(again.profile, again.today)).toEqual(todaysChallenges(store.profile, store.today));
   });
 
+  it("keeps the Course's best time: only a faster run replaces it, a match leaves it be, and an old save reads as none", () => {
+    const storage = memory();
+    const store = new ProfileStore(storage, at);
+    expect(store.bankCourse(15.2)).toBeNull();
+    expect(store.bankCourse(16)).toBe(15.2);
+    expect(store.profile.courseBest).toBe(15.2);
+    expect(store.bankCourse(13.9)).toBe(15.2);
+    store.bank(match({ score: 100 }));
+    expect(new ProfileStore(storage, at).profile.courseBest).toBe(13.9);
+    expect(parseProfile({ ...emptyProfile(), courseBest: undefined }).courseBest).toBeNull();
+    expect(parseProfile({ ...emptyProfile(), courseBest: -3 }).courseBest).toBeNull();
+  });
+
   it('builds on a match another tab banked meanwhile', () => {
     const storage = memory();
     const a = new ProfileStore(storage, at);

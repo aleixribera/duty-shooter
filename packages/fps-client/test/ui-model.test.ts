@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Score } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, type Score } from '@duty-shooter/fps-core';
 import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
 
 describe('random lobby picks', () => {
@@ -178,12 +178,14 @@ describe('the Play Online tile', () => {
 describe('the loadout screen', () => {
   const bar = (id: Parameters<typeof weaponCard>[0], key: string) => weaponCard(id).bars.find((b) => b.key === key)!;
 
-  it('offers every primary, the pistol and the frag (or none), all unlocked', () => {
-    expect(loadoutOptions()).toEqual({ primary: ['m4a1', 'smg', 'shotgun', 'sniper'], secondary: ['pistol'], grenade: ['frag', null] });
+  it('offers every primary, every sidearm and the frag (or none), all unlocked', () => {
+    const inSlot = (slot: 'primary' | 'secondary') => WEAPON_IDS.filter((id) => STATS.weapons[id].traits.slot === slot);
+    expect(loadoutOptions()).toEqual({ primary: inSlot('primary'), secondary: inSlot('secondary'), grenade: ['frag', null] });
+    expect(inSlot('primary').length + inSlot('secondary').length).toBe(WEAPON_IDS.length);
   });
 
   it("shows each weapon's name, role and four bars between empty and full", () => {
-    for (const id of ['m4a1', 'smg', 'shotgun', 'sniper', 'pistol'] as const) {
+    for (const id of WEAPON_IDS) {
       const card = weaponCard(id);
       expect(card.name.length).toBeGreaterThan(0);
       expect(card.role.length).toBeGreaterThan(0);
@@ -207,6 +209,23 @@ describe('the loadout screen', () => {
     expect(bar('smg', 'range').value).toBeGreaterThan(bar('shotgun', 'range').value);
     expect(bar('pistol', 'handling').value).toBe(1);
     expect(bar('sniper', 'handling').value).toBeLessThan(bar('m4a1', 'handling').value);
+  });
+
+  it('ranks the four newer guns by their roles', () => {
+    // The machine gun is the slowest of the automatics to bring to bear.
+    expect(bar('lmg', 'handling').value).toBeLessThan(bar('m4a1', 'handling').value);
+    expect(bar('lmg', 'handling').value).toBeLessThan(bar('burst', 'handling').value);
+    // The marksman rifle sits between the M4A1 and the sniper rifle, in what a round does and how far.
+    expect(bar('dmr', 'damage').value).toBeGreaterThan(bar('m4a1', 'damage').value);
+    expect(bar('dmr', 'damage').value).toBeLessThan(bar('sniper', 'damage').value);
+    expect(bar('dmr', 'range').value).toBeGreaterThan(bar('m4a1', 'range').value);
+    expect(bar('dmr', 'rate').value).toBeLessThan(bar('m4a1', 'rate').value);
+    // A round of the burst rifle's hits harder than the M4A1's: three of them have to be enough.
+    expect(bar('burst', 'damage').value).toBeGreaterThan(bar('m4a1', 'damage').value);
+    // The revolver against the pistol: heavier, slower.
+    expect(bar('revolver', 'damage').value).toBeGreaterThan(bar('pistol', 'damage').value);
+    expect(bar('revolver', 'rate').value).toBeLessThan(bar('pistol', 'rate').value);
+    expect(bar('revolver', 'handling').value).toBeLessThan(bar('pistol', 'handling').value);
   });
 
   it('writes the figure behind each bar', () => {

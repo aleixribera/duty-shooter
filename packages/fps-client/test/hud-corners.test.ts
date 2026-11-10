@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { barsShown } from '../src/hud/hud';
-import { cornerHeight, pinMarker } from '../src/hud/markers';
+import { cornerHeight, pinMarker, TOUCH_GROUND } from '../src/hud/markers';
 
 describe('the Bottom bars', () => {
   it('show while you are in play, Downed included, and go once you are out (ticket 46)', () => {
@@ -41,5 +41,48 @@ describe('an edge marker', () => {
       expect(m.y).toBe(844 - cornerHeight(390));
     }
     expect(cornerHeight(390)).toBeGreaterThan(cornerHeight(W));
+  });
+
+  describe('with the touch controls on the glass (ticket 23)', () => {
+    const TW = 844;
+    const TH = 390;
+    const g = TOUCH_GROUND;
+
+    it('behind you and to the right, sits over the fire cluster, not on it', () => {
+      const m = pinMarker(TW + 200, 0, true, TW, TH, true);
+      expect(m).toEqual({ x: TW - 32, y: TH - g.cluster.height });
+    });
+
+    it('behind you and to the left, sits over the stick', () => {
+      expect(pinMarker(-300, 0, true, TW, TH, true)).toEqual({ x: 32, y: TH - g.stick.height });
+    });
+
+    it('behind you in the middle, sits over the health and the ammo', () => {
+      expect(pinMarker(TW / 2, 0, true, TW, TH, true)).toEqual({ x: TW / 2, y: TH - g.plates });
+    });
+
+    it('at the top corners, moves in from Pause and from Ping', () => {
+      expect(pinMarker(-50, 20, false, TW, TH, true)).toEqual({ x: g.menu.width, y: 56 });
+      expect(pinMarker(TW + 50, 20, false, TW, TH, true)).toEqual({ x: TW - g.ping.width, y: 56 });
+    });
+
+    it('in view between the thumbs, stays where it is', () => {
+      expect(pinMarker(420, 150, false, TW, TH, true)).toEqual({ x: 420, y: 150 });
+    });
+
+    it('is never under a control, wherever the point is', () => {
+      for (let x = -100; x <= TW + 100; x += 37) {
+        for (let y = -100; y <= TH + 100; y += 29) {
+          for (const behind of [false, true]) {
+            const m = pinMarker(x, y, behind, TW, TH, true);
+            const inCluster = m.x >= TW - g.cluster.width && m.y > TH - g.cluster.height;
+            const inStick = m.x <= g.stick.width && m.y > TH - g.stick.height;
+            const inMenu = m.x < g.menu.width && m.y <= g.menu.height;
+            const inPing = m.x > TW - g.ping.width && m.y <= g.ping.height;
+            expect(inCluster || inStick || inMenu || inPing || m.y > TH - g.plates).toBe(false);
+          }
+        }
+      }
+    });
   });
 });

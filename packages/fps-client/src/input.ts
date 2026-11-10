@@ -2,6 +2,9 @@ import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type PingKind, type
 import { PAD, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 import { wheelPick } from './ui/pings';
+import { TouchControls, fillScreen, type TouchContext, type TouchSink } from './touch/controls';
+import { lookTurn } from './touch/logic';
+import { inputSeen, installTouchMode, onTouchMode, touchMode } from './touch/mode';
 
 /** What a spectator's presses ask for: the next or previous player, or the other view. */
 export type SpectateInput = 'next' | 'prev' | 'view';
@@ -113,6 +116,32 @@ export class InputController {
   /** Playing on the controller: no pointer lock is needed, and the mouse cursor is hidden over the game. */
   #padMode = false;
   #padName: string | null = null;
+  /**
+   * Touch is the input in use (the last input was a touch): its controls
+   * stand over the game and no pointer lock is needed, as on the controller.
+   * Their buttons are held and tapped under the codes `Touch:<action>`, and
+   * auto-fire's trigger under `Auto:fire`.
+   */
+  #touchMode = false;
+  #touch: TouchControls | null = null;
+  /** What a touch drag is scaled by: the aim slowdown over a target (1 = none). */
+  #touchSlow = 1;
+  /** Whether the stick was asking to run at the last tick, for the push that stands you up. */
+  #touchRan = false;
+  /** What the touch controls drive: their buttons become held codes and their drags the view angles, as every other input's do. */
+  readonly touchSink: TouchSink = {
+    press: (action) => this.#down(`Touch:${action}`),
+    release: (action) => this.#up(`Touch:${action}`),
+    look: (dx, dy, dtMs) => this.#touchLook(dx, dy, dtMs),
+    wheel: (dx, dy) => {
+      if (this.#pingSince !== null) this.#wheelPush = [this.#wheelPush[0] + dx, this.#wheelPush[1] + dy];
+    },
+    pause: () => {
+      this.#held.clear();
+      this.onUnlock?.();
+    },
+  };
+  readonly #offTouch: () => void;
 
   constructor(element: HTMLElement, settings: Settings) {
     this.#element = element;
@@ -131,8 +160,8 @@ export class InputController {
       if (this.locked) e.preventDefault();
     });
     on(document, 'pointerlockchange', () => {
-      // Losing the real pointer lock (Escape) opens the menu, controller or not.
-      if (!this.#pointerLocked) {
+      // Losing the real pointer lock (Escape) opens the menu, controller or not; a touch that took over just lets it go.
+      if (!this.#pointerLocked && !this.#touchMode) {
         this.#held.clear();
         this.onUnlock?.();
       }
@@ -141,6 +170,9 @@ export class InputController {
       this.#held.clear();
       this.#pingSince = null;
     });
+    installTouchMode();
+    this.#touchMode = touchMode();
+    this.#offTouch = onTouchMode((touch) => this.#setTouchMode(touch));
   }
 
   set settings(settings: Settings) {
@@ -148,7 +180,7 @@ export class InputController {
   }
 
   get locked(): boolean {
-    return this.lockFree || this.#padMode || this.#pointerLocked;
+    return this.lockFree || this.#padMode || this.#touchMode || this.#pointerLocked;
   }
 
   get #pointerLocked(): boolean {
@@ -158,6 +190,39 @@ export class InputController {
   /** True while the controller is the input in use: entering the game then needs no pointer lock. */
   get padMode(): boolean {
     return this.#padMode;
+  }
+
+  /** The Fire control under a thumb: the player's own pull, not auto-fire's. */
+  get touchFiring(): boolean {
+    return this.#held.has('Touch:fire');
+  }
+
+  /** True while touch is the input in use: entering the game needs no pointer lock, and prompts name its buttons. */
+  get touchMode(): boolean {
+    return this.#touchMode;
+  }
+
+  /** What the game is doing, for which touch controls show. */
+  set touchContext(ctx: TouchContext) {
+    this.#touch?.context(ctx);
+  }
+
+  /**
+   * Touch's two helps, worked out by the game each frame: how much a drag
+   * slows over a target (1 = not at all), and auto-fire's trigger (held for
+   * a full-auto weapon, pressed once per shot for the others). Both stay on
+   * this side of the usercmd: what is sent is a view angle and the fire
+   * button, as from any other input.
+   */
+  touchAssist(slow: number, hold: boolean, press: boolean): void {
+    this.#touchSlow = slow;
+    const held = this.#held.has('Auto:fire');
+    if (hold && !held) this.#down('Auto:fire');
+    else if (!hold && held) this.#up('Auto:fire');
+    if (press && !hold) {
+      this.#down('Auto:fire');
+      this.#up('Auto:fire');
+    }
   }
 
   /** The connected controller's name as the browser reports it, or null when none has been seen. */
@@ -179,6 +244,7 @@ export class InputController {
       this.#padCrouchSince = null;
       this.#pingSince = null;
     }
+    this.#syncTouch();
     this.#updateCursor();
   }
 
@@ -188,6 +254,11 @@ export class InputController {
    */
   async lock(): Promise<boolean> {
     if (this.lockFree) return false;
+    if (this.#touchMode) {
+      // No pointer to lock; the press that starts play asks a phone for the whole screen, on its side.
+      fillScreen();
+      return false;
+    }
     try {
       const request = this.#element.requestPointerLock as (options?: { unadjustedMovement?: boolean }) => Promise<void> | void;
       await request.call(this.#element, { unadjustedMovement: true });
@@ -246,16 +317,19 @@ export class InputController {
   }
 
   #is(action: Action, code: string): boolean {
-    return this.#settings.bindings[action] === code || this.#padCode(action) === code;
+    return this.#settings.bindings[action] === code || this.#padCode(action) === code || code === `Touch:${action}` || (action === 'fire' && code === 'Auto:fire');
   }
 
   #pressed(action: Action): boolean {
-    const codes = [this.#settings.bindings[action], this.#padCode(action)];
+    const codes = [this.#settings.bindings[action], this.#padCode(action), `Touch:${action}`, action === 'fire' ? 'Auto:fire' : null];
     return codes.some((c) => c !== null && (this.#held.has(c) || this.#tapped.has(c)));
   }
 
   #down(code: string, e?: Event): void {
     const fromPad = code.startsWith('Pad');
+    const fromTouch = code.startsWith('Touch:') || code === 'Auto:fire';
+    // The browser's own late mouse click for a tap is not a mouse: a real one has already ended touch mode.
+    if (this.#touchMode && code.startsWith('Mouse')) return;
     if (!fromPad && this.#padMode) {
       // Keyboard and mouse are in use again: resuming takes the pointer.
       this.#setPadMode(false);
@@ -280,7 +354,7 @@ export class InputController {
     this.#held.add(code);
     this.#tapped.add(code);
     const now = performance.now();
-    if (this.#is('fire', code)) this.#spectate.push('next');
+    if (this.#is('fire', code) && code !== 'Auto:fire') this.#spectate.push('next');
     if (this.#is('ads', code)) this.#spectate.push('prev');
     if (this.#is('jump', code)) this.#spectate.push('view');
     if (this.#is('fire', code)) {
@@ -305,8 +379,8 @@ export class InputController {
         this.#proneToggled = false;
         this.#crouchToggled = true;
       } else this.#crouchToggled = !this.#crouchToggled;
-      // On the controller, holding crouch goes on to prone.
-      if (fromPad) this.#padCrouchSince = now;
+      // On the controller and on touch, holding crouch goes on to prone.
+      if (fromPad || fromTouch) this.#padCrouchSince = now;
     }
     if (this.#is('prone', code)) {
       this.#proneToggled = !this.#proneToggled;
@@ -348,8 +422,48 @@ export class InputController {
       }
       this.#pingSince = null;
     }
-    const fromPad = code.startsWith('Pad');
+    const fromPad = code.startsWith('Pad') || code.startsWith('Touch:');
     if (this.#is('crouch', code) && fromPad) this.#padCrouchSince = null;
+  }
+
+  /** Touch became, or stopped being, the input in use. */
+  #setTouchMode(on: boolean): void {
+    if (on === this.#touchMode) return;
+    this.#touchMode = on;
+    // Nothing held, tapped or half fired crosses from one input to the other.
+    this.#held.clear();
+    this.#tapped.clear();
+    this.#firePresses = [];
+    this.#pingSince = null;
+    this.#touchSlow = 1;
+    // Each press toggles the sights whatever the mode; touch reads the toggle, so it starts lowered.
+    this.#adsToggled = false;
+    if (on) {
+      this.#setPadMode(false);
+      // The pointer lock is the mouse's: touch plays without it.
+      if (this.#pointerLocked) document.exitPointerLock();
+    } else if (this.#enabled && !this.lockFree && !this.#padMode && !this.#pointerLocked) {
+      // Keyboard and mouse are in use again: they hand over through the pause menu, which takes the pointer.
+      this.onUnlock?.();
+    }
+    this.#syncTouch();
+  }
+
+  /** The touch controls stand over the game while touch is in use and the game takes input; built on first need. */
+  #syncTouch(): void {
+    const on = this.#touchMode && this.#enabled;
+    if (on && !this.#touch && typeof document.createElement === 'function') this.#touch = new TouchControls(document.body, this.touchSink);
+    if (this.#touch) this.#touch.shown = on;
+  }
+
+  /** A drag on the look area: the view turns with it, faster for a flick, slower in the sights and over a target. */
+  #touchLook(dx: number, dy: number, dtMs: number): void {
+    if (!this.#enabled || !this.locked || this.#wheelOpen) return;
+    const s = this.#settings;
+    const scale = (this.#aiming ? adsSensitivityScale(s, s.touchAdsMultiplier, this.#zoom) : 1) * this.#touchSlow;
+    const turn = lookTurn(dx, dy, dtMs, s.touchSensitivity, scale);
+    this.#yaw += turn.yaw;
+    this.#pitch = lookPitch(this.#pitch, turn.pitch, this.#pitchOffset);
   }
 
   #setPadMode(on: boolean): void {
@@ -368,6 +482,15 @@ export class InputController {
    * prone, and menu navigation while a menu is open.
    */
   poll(now: number, dt: number): void {
+    if (this.#touchMode && this.#enabled) {
+      // Holding the crouch button goes on to prone, as on the controller.
+      if (this.#padCrouchSince !== null && now - this.#padCrouchSince >= STATS.input.proneHoldTime.value * 1000) {
+        this.#padCrouchSince = null;
+        this.#proneToggled = true;
+        this.#crouchToggled = false;
+      }
+      this.#touch?.lit({ ads: this.#adsToggled, crouch: this.#crouchToggled, prone: this.#proneToggled });
+    }
     const pad = readPad();
     if (!pad) {
       this.#padPressed.forEach((was, i) => was && this.#up(`Pad${i}`));
@@ -383,7 +506,10 @@ export class InputController {
     // A button press or a deliberate stick push (not drift) makes the controller the input in use.
     const pressedAny = pad.pressed.some((p, i) => p && !this.#padPressed[i]);
     const pushed = Math.hypot(...pad.leftStick) > PAD_ACTIVE_STICK || Math.hypot(...pad.rightStick) > PAD_ACTIVE_STICK;
-    if (pressedAny || pushed) this.#setPadMode(true);
+    if (pressedAny || pushed) {
+      this.#setPadMode(true);
+      inputSeen({ kind: 'pad' });
+    }
 
     if (this.#enabled) this.#padGame(pad, now, dt, move, look);
     else this.#padMenu(pad, now);
@@ -464,7 +590,7 @@ export class InputController {
     }
     const scale = radiansPerCount(this.#settings) * (this.#aiming ? adsSensitivityScale(this.#settings, this.#settings.adsMultiplier, this.#zoom) : 1);
     this.#yaw -= e.movementX * scale;
-    this.#pitch = lookPitch(this.#pitch, -e.movementY * scale, this.#pitchOffset);
+    this.#pitch = lookPitch(this.#pitch, -e.movementY * scale * (this.#settings.invertY ? -1 : 1), this.#pitchOffset);
   }
 
   /**
@@ -477,19 +603,31 @@ export class InputController {
     const held = (a: Action) => active && this.#pressed(a);
     const axis = (v: number) => Math.max(-1, Math.min(1, v));
     const pad = active ? this.#padMove : { forward: 0, right: 0 };
-    const forward = axis((held('forward') ? 1 : 0) - (held('back') ? 1 : 0) + pad.forward);
+    const stick = active && this.#touch ? this.#touch.move : { forward: 0, right: 0, sprint: false };
+    const forward = axis((held('forward') ? 1 : 0) - (held('back') ? 1 : 0) + pad.forward + stick.forward);
     let buttons = 0;
     const firing = held('fire');
     if (firing) buttons |= Button.Fire;
-    const ads = active && (this.#settings.adsMode === 'toggle' ? this.#adsToggled : held('ads'));
+    // On touch the sights and the crouch are toggles whatever the setting: a thumb cannot hold one and aim.
+    const toggles = this.#touchMode;
+    const ads = active && (this.#settings.adsMode === 'toggle' || toggles ? this.#adsToggled : held('ads'));
     if (ads) buttons |= Button.Ads;
     // The latch ends with forward let go (once it has been pushed, or the arming wait is over), a shot or the sights raised.
     const pushed = forward >= SPRINT_RELEASE_FORWARD;
+    // Hold sprint: the run lasts as long as the key does.
+    if (this.#settings.sprintMode === 'hold' && !this.#pressed('sprint')) this.#sprint = false;
     if (this.#sprint && pushed) this.#sprintRunning = true;
     const armed = !this.#sprintRunning && start - this.#sprintAt < SPRINT_ARM_MS;
     if (!active || (!pushed && !armed) || firing || ads) this.#sprint = false;
-    if (this.#sprint && pushed) buttons |= Button.Sprint;
-    const crouch = this.#settings.crouchMode === 'toggle' ? this.#crouchToggled : held('crouch');
+    // The stick pushed all the way forward (or its sprint lock) runs, and the push that starts a run stands you up.
+    const run = stick.sprint && pushed && !firing && !ads;
+    if (run && !this.#touchRan) {
+      this.#crouchToggled = false;
+      this.#proneToggled = false;
+    }
+    this.#touchRan = run;
+    if ((this.#sprint && pushed) || run) buttons |= Button.Sprint;
+    const crouch = this.#settings.crouchMode === 'toggle' || toggles ? this.#crouchToggled : held('crouch');
     if (active && crouch) buttons |= Button.Crouch;
     if (active && this.#proneToggled) buttons |= Button.Prone;
     if (held('jump')) buttons |= Button.Jump;
@@ -512,7 +650,7 @@ export class InputController {
     return usercmd({
       buttons,
       forward,
-      right: axis((held('right') ? 1 : 0) - (held('left') ? 1 : 0) + pad.right),
+      right: axis((held('right') ? 1 : 0) - (held('left') ? 1 : 0) + pad.right + stick.right),
       yaw: this.#yaw,
       pitch: this.#pitch,
       firePresses: active ? presses : [],
@@ -554,7 +692,7 @@ export class InputController {
   /** True while the scoreboard key is held. */
   get scoreboard(): boolean {
     const pad = this.#padCode('scoreboard');
-    return this.#enabled && (this.#held.has(this.#settings.bindings.scoreboard) || (pad !== null && this.#held.has(pad)));
+    return this.#enabled && (this.#held.has(this.#settings.bindings.scoreboard) || (pad !== null && this.#held.has(pad)) || this.#touch?.scoreboard === true);
   }
 
   /** Captures the next key or mouse button (for rebinding). Resolves to its code, or null on Escape. */
@@ -576,6 +714,8 @@ export class InputController {
 
   dispose(): void {
     for (const [target, type, fn] of this.#listeners) target.removeEventListener(type, fn);
+    this.#offTouch();
+    this.#touch?.dispose();
     this.#element.style.cursor = '';
   }
 }

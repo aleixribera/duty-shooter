@@ -1,4 +1,4 @@
-import { PROFILE_KEY, applyMatch, dateKey, emptyProfile, readProfile, type MatchGain, type MatchRecord, type Profile } from './model';
+import { PROFILE_KEY, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, type MatchGain, type MatchRecord, type Profile } from './model';
 
 /** Where a Profile is kept: browser storage, or anything that reads and writes one string. */
 export interface ProfileStorage {
@@ -43,6 +43,15 @@ export class ProfileStore {
     this.#profile = profile;
     this.#write();
     return gain;
+  }
+
+  /** Takes a finished Course run: the best time held before it (null for a first finish), and the run is saved if it beats it. */
+  bankCourse(seconds: number): number | null {
+    const stored = this.#unsaved ? null : this.#read();
+    const before = stored ?? this.#profile;
+    this.#profile = applyCourse(before, seconds);
+    if (this.#profile !== before || stored === null) this.#write();
+    return before.courseBest;
   }
 
   /** Back to nothing: Rank 1, no numbers, and no progress on today's Challenges. */

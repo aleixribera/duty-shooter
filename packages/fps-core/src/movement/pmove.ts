@@ -65,6 +65,8 @@ export interface MoveState {
   mantleBand: MantleBand | null;
   slide: SlideProgress | null;
   ladder: LadderProgress | null;
+  /** Ticks of unbroken sprint behind the player, up to {@link RUN_MOST}: the run-up a slide's kick asks for. */
+  run: number;
 }
 
 /** A slide in progress: direction locked at entry, speed falling from the entry speed. */
@@ -92,8 +94,12 @@ export function createMoveState(position: Vec3, yaw: number): MoveState {
     mantleBand: null,
     slide: null,
     ladder: null,
+    run: 0,
   };
 }
+
+/** As far as the run-up is counted (ticks): past the longest one asked for, it says nothing more. */
+const RUN_MOST = 255;
 
 /** Ladder movement is deliberately slow; collision still stops the player's
  * hull at a ceiling or obstructed landing. */
@@ -210,16 +216,24 @@ function releasedNow(state: MoveState, cmd: UserCmd, button: ButtonName): boolea
  */
 const SLIDE_DECELERATION = Math.max(
   0,
-  (2 * (M.sprintSpeed.value * STATS.slide.duration.value - STATS.slide.distance.value)) / STATS.slide.duration.value ** 2,
+  (2 * (M.sprintSpeed.value * STATS.slide.kick.value * STATS.slide.duration.value - STATS.slide.distance.value)) / STATS.slide.duration.value ** 2,
 );
+
+/** A slide begun now at `entrySpeed`, the way the player is going at `speed` along the ground. */
+function slideFrom(state: MoveState, speed: number, entrySpeed: number): SlideProgress {
+  const dir: readonly [number, number] = speed > EPSILON ? [state.velocity[0] / speed, state.velocity[2] / speed] : basis(state.yaw).forward;
+  return { dir, entrySpeed, ticks: 0 };
+}
 
 /**
  * Starts, cancels or ends a slide. A slide starts when crouch is pressed
  * while sprinting on the ground. Once the cancel window is open, releasing
  * crouch or pressing jump cancels it into a standing sprint (MW2019
- * behaviour). Returns a stance to force this tick.
+ * behaviour). A slide out of a sprint that has lasted its run-up starts with
+ * a kick: faster than the sprint, never faster than this weapon's sprint
+ * kicked (`speedScale`). Returns a stance to force this tick.
  */
-function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undefined {
+function updateSlide(state: MoveState, cmd: UserCmd, dt: number, speedScale: number): Stance | undefined {
   const slide = state.slide;
   if (slide) {
     const elapsed = slide.ticks * dt;
@@ -241,9 +255,9 @@ function updateSlide(state: MoveState, cmd: UserCmd, dt: number): Stance | undef
   }
   if (state.grounded && state.movement === 'sprint' && state.stance === 'stand' && pressedNow(state, cmd, 'Crouch')) {
     const speed = Math.hypot(state.velocity[0], state.velocity[2]);
-    const dir: readonly [number, number] =
-      speed > EPSILON ? [state.velocity[0] / speed, state.velocity[2] / speed] : basis(state.yaw).forward;
-    state.slide = { dir, entrySpeed: speed, ticks: 0 };
+    const kick = STATS.slide.kick.value;
+    const ranUp = state.run * dt >= STATS.slide.runUp.value - 1e-9;
+    state.slide = slideFrom(state, speed, ranUp ? Math.max(speed, Math.min(speed * kick, M.sprintSpeed.value * speedScale * kick)) : speed);
     return 'crouch';
   }
   return undefined;
@@ -470,12 +484,14 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   if (state.mantle) {
     advanceMantle(state, state.mantle, dt);
     state.prevButtons = cmd.buttons;
+    state.run = 0;
     return;
   }
   state.mantleBand = null;
   if (state.ladder) {
     advanceLadder(state,cmd,world,dt);
     state.prevButtons = cmd.buttons;
+    state.run = 0;
     return;
   }
   // Nothing but a spawn or a lunge puts feet under the ground, and they come straight up.
@@ -484,13 +500,14 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
     if (ground > state.position[1]) state.position = [state.position[0], ground, state.position[2]];
   }
   state.grounded = onGround(world, state.position, hullFor(state.stance));
-  updateStance(state, cmd, world, dt, updateSlide(state, cmd, dt));
+  updateStance(state, cmd, world, dt, updateSlide(state, cmd, dt, speedScale));
   const hull = hullFor(state.stance);
 
   enterLadder(state,cmd,world);
   if (state.ladder) {
     advanceLadder(state,cmd,world,dt);
     state.prevButtons = cmd.buttons;
+    state.run = 0;
     return;
   }
 
@@ -502,6 +519,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
       state.mantle = m;
       advanceMantle(state, m, dt);
       state.prevButtons = cmd.buttons;
+      state.run = 0;
       return;
     }
   }
@@ -565,7 +583,12 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   }
 
   if (state.grounded) {
-    if (state.airPeak !== null) state.landedFrom = Math.max(0, state.airPeak - pos[1]);
+    if (state.airPeak !== null) {
+      state.landedFrom = Math.max(0, state.airPeak - pos[1]);
+      // Landed crouched at a run: the speed goes into a slide instead of into the knees. No kick; it keeps what it has.
+      const speed = Math.hypot(state.velocity[0], state.velocity[2]);
+      if (!state.slide && state.stance === 'crouch' && isPressed(cmd, 'Crouch') && speed >= STATS.slide.landSpeed.value) state.slide = slideFrom(state, speed, speed);
+    }
     state.airPeak = null;
   } else {
     state.movement = 'airborne';
@@ -578,6 +601,7 @@ export function pmove(state: MoveState, cmd: UserCmd, world: World, dt: number, 
   }
   state.position = pos;
   state.prevButtons = cmd.buttons;
+  state.run = state.movement === 'sprint' ? Math.min(RUN_MOST, state.run + 1) : 0;
 }
 
 /** Moves the player horizontally toward `target` (a melee lunge), stopping at solids. */

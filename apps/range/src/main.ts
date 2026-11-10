@@ -1,10 +1,10 @@
-import { BOT_MAPS, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, BenchmarkPage, LobbyPage, Menu, PreparationPage, ProfileStore, QUALITY, QUALITY_TIERS, QualityGovernor, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, forcePixelCap, tierFromHints, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type GovernorSettings, type QualityTier, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
 import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamMode, type Connection, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
-import { Benchmark, CameraPath, type BenchReport } from './bench';
+import { Benchmark, CameraPath, benchLine, type BenchReport } from './bench';
 import { LoadReport } from './load-report';
 import { TEAM_SIZES, asMapId, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
@@ -15,10 +15,35 @@ if (!canvas || !status) throw new Error('index.html is missing #view or #status'
 const params = new URLSearchParams(location.search);
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
+  // The menus draw the team colours too, before the engine is there to set them.
+  useColourVision(settings.colourVision);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
+  // `?benchmark`: the benchmark page a player opens from Settings > Video (ticket 27).
+  const benchmarkPage = params.has('benchmark') && !benching;
+  // `?tier=<low|medium|high|ultra>`: that quality tier for this visit, without saving it.
+  let tierParam: QualityTier | null = QUALITY_TIERS.find((t) => t === params.get('tier')) ?? null;
+  // What a benchmark draws at while it owns the picture: `?bench` at High unless told, the render scale fixed unless `&dynres` is given.
+  let benchQuality: GovernorSettings | null = benching ? { quality: tierParam ?? 'high', autoTier: null, autoAdapter: '', dynamicResolution: params.has('dynres'), fpsCap: 0 } : null;
+  /** Where the adapter's hints would start Auto: what the benchmark page opens on where Auto has nothing remembered. */
+  let hinted: QualityTier = 'medium';
+  /** The settings as the frame governor reads them. */
+  const governed = (s: Settings): GovernorSettings => {
+    if (benchQuality) return benchQuality;
+    if (tierParam) return { ...s, quality: tierParam };
+    // The benchmark page flies what it is asked to: it never measures this machine's tier for Auto, and so never saves one.
+    if (benchmarkPage && s.quality === 'auto') return { ...s, quality: s.autoTier && s.autoAdapter === adapterName ? s.autoTier : hinted };
+    return s;
+  };
+  // The tier, the render scale and the frame-rate cap (ticket 22); there once the renderer says what it runs on.
+  let governor: QualityGovernor | null = null;
+  let backendName = '';
+  let adapterName = '';
+  const videoStatus = (): VideoStatus | null => (governor ? { backend: backendName, adapter: adapterName, tier: governor.tier, searching: governor.searching, refreshHz: governor.refreshHz } : null);
+  // `?megapixels=<n>`: every tier's pixel cap set to n million, so a large window loads the GPU (to watch dynamic resolution hold its target).
+  if (Number(params.get('megapixels')) > 0) forcePixelCap(Number(params.get('megapixels')));
   // `?stats`: each second, this frame's draw calls, triangles and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
   const renderStats = params.has('stats');
   // The menus go up first, and take clicks while three.js and the map arrive behind them.
@@ -116,6 +141,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       thirdPersonWeapon: () => engine!.buildM4A1({ detail: 'low' }).root,
       loadoutStation: map.loadoutStation,
       rangeLanesWestOf: map.rangeLanesWestOf,
+      course: map.course ?? null,
       profile,
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
@@ -164,8 +190,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Practice Range, kept ready behind the menus (see `keepRangeReady`). */
   let spare: Game | null = null;
-  const useMap = (id: MapId) => {
-    if (id === mapId) return;
+  /** `fresh` builds the map again even where it is the one on show: the benchmark's, whose grass and scatter are its tier's. */
+  const useMap = (id: MapId, fresh = false) => {
+    if (id === mapId && !fresh) return;
     hurried = true;
     const old = game;
     old.input.onUnlock = null;
@@ -173,7 +200,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     old.paused = true;
     old.hud.visible = false;
     mapId = id;
-    game = id === 'range' && spare ? spare : createGame(id);
+    game = id === 'range' && spare && !fresh ? spare : createGame(id);
     if (game === spare) {
       spare = null;
       game.applySettings(settings);
@@ -194,6 +221,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (spare || mapId === 'range' || game.driver || !menu.open) return;
     hurried = false;
     spare = createGame('range');
+    // At the tier and the scale on show: it draws its warm-up frames to the same renderer.
+    governor?.apply(spare);
     void spare.prepare(restMoment, breath);
   };
   let lobby: Lobby | null = null;
@@ -231,6 +260,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       if (!sound.unlocked) void sound.unlock();
     });
   document.addEventListener('pointerdown', retrySound, true);
+  // A finger's press only counts for the browser once it lifts.
+  document.addEventListener('pointerup', retrySound, true);
   document.addEventListener('keydown', retrySound, true);
   /** First entry shows the one-time Firefox tip about raw mouse input. */
   let driver: GameDriver | null = null;
@@ -330,12 +361,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         if (next.loadout !== settings.loadout) game?.driver?.setLoadout(next.loadout);
         settings = next;
         saveSettings(next);
+        useColourVision(next.colourVision);
+        governor?.use(governed(next));
         game?.applySettings(next);
         menu.settings = next;
       },
       captureKey: () => engineReady.then(() => game.input.captureNext()),
     },
-    { lobby, version, padName: () => game?.input.padName ?? null, profile },
+    { lobby, version, padName: () => game?.input.padName ?? null, profile, video: videoStatus },
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
@@ -871,7 +904,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
   const explore = asMapId(params.get('explore'));
   const spotName = params.get('spot');
-  if (explore || spotName !== null || benching) menu.hide();
+  if (explore || spotName !== null || benching || benchmarkPage) menu.hide();
   // The Play Online tile keeps up with the server while the main menu is open.
   setInterval(() => {
     if (lobby?.kind === 'server' && menu.open && menu.screen === 'main' && !game?.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
@@ -887,7 +920,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // `?lod=off`: a large map drawn without its distance detail, to measure what it saves.
   if (params.get('lod') === 'off') engine.useDistanceDetail(false);
   await nextPaint();
-  const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching });
+  const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching || benchmarkPage });
   renderer = created.renderer;
   // The GPU device (or the WebGL context) gone: nothing more can be drawn, so the page says so and offers a reload, which takes an online seat back (ticket 61).
   const loseGraphics = renderer.onDeviceLost.bind(renderer);
@@ -906,8 +939,24 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   const { backend } = created;
   document.body.dataset['backend'] = backend;
-  status.textContent = backend === 'webgpu' ? 'WebGPU' : 'WebGL2';
-  setTimeout(() => (status.hidden = true), 4000);
+  backendName = backend === 'webgpu' ? 'WebGPU' : 'WebGL 2';
+  adapterName = created.hints.adapter;
+  hinted = tierFromHints(created.hints).start;
+  // Before the first game is built: what a tier thins (grass, scatter, texture filtering) is read as each map goes up.
+  // `?hz=<n>`: the display's refresh rate, stated for a scripted browser, whose frames are not paced by one.
+  const statedHz = Number(params.get('hz'));
+  const governing = (governor = new QualityGovernor(created.hints, governed(settings), statedHz > 0 ? statedHz : null));
+  // Auto settled on a tier: remembered with the adapter it was measured on, so it is not measured again.
+  governing.onFound = (tier, adapter) => {
+    settings = { ...settings, autoTier: tier, autoAdapter: adapter };
+    saveSettings(settings);
+    menu.settings = settings;
+    governing.use(governed(settings));
+    menu.videoChanged();
+  };
+  menu.videoChanged();
+  // The line that said "Starting renderer" has done its job. Which backend drew the frame is no news to a player; scripts read it from `body.dataset.backend`.
+  status.hidden = true;
   sound = engine.createSoundSystem();
   // For scripted browsers: the last sounds played (the sound system's own log), as `duty.sounds()`.
   Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), sounds: () => sound.log } });
@@ -942,6 +991,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         renderer,
         sound,
         menu,
+        /** The frame governor (its tier, scale and target), and a tier for this visit as `?tier=` gives one (null for the settings' own). */
+        governor: governing,
+        setTier(tier: QualityTier | null) {
+          tierParam = tier;
+          governing.use(governed(settings));
+        },
         get driver() {
           return driver;
         },
@@ -959,27 +1014,103 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Measure the finished look: wait for the baked lighting.
     await load(mapId).bake;
   }
-  const bench = benching ? startBenchmarkOn(game, renderer, load(mapId).map, backend) : null;
+  let bench: ((time: number) => boolean) | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName, governor: governing }) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
+  /** The menu's map and the range behind it are built: frames behind the menu say what the machine holds. */
+  let settled = false;
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
-    void game.prepare(restMoment, breath).then(keepRangeReady);
+    void game
+      .prepare(restMoment, breath)
+      .then(keepRangeReady)
+      .then(() => spare?.prepare())
+      .finally(() => (settled = true));
+  }
+  if (benchmarkPage) {
+    // `&maps=a,b`: only those maps; every map otherwise, the small ones first.
+    const asked = (params.get('maps') ?? '').split(',').map((m) => asMapId(m)).filter((m): m is MapId => m !== undefined);
+    const maps: readonly MapId[] = asked.length ? asked : ['range', 'survival-town', 'switchyard', 'crash', 'zero-island'];
+    const nameOf = (id: string) => (asMapId(id) ? load(asMapId(id)!).map.name : id);
+    /** The run under way: a stop, or a new run, leaves the old one behind. */
+    let run = 0;
+    const release = () => {
+      bench = null;
+      benchQuality = null;
+      governing.use(governed(settings));
+    };
+    const fly = async (tier: QualityTier, dynamicResolution: boolean) => {
+      const mine = ++run;
+      const reports: BenchReport[] = [];
+      delete document.body.dataset['benchmark'];
+      benchQuality = { quality: tier, autoTier: null, autoAdapter: '', dynamicResolution, fpsCap: 0 };
+      governing.use(benchQuality);
+      for (const [i, id] of maps.entries()) {
+        page.flying(load(id).map.name, i, maps.length);
+        page.progress(-1, 0, i, maps.length);
+        useMap(id, true);
+        // The finished look: the map ready, its baked lighting in.
+        await ready();
+        await load(id).bake;
+        if (mine !== run) return;
+        const report = await new Promise<BenchReport>((done) => {
+          bench = startBenchmarkOn(game, renderer, load(id).map, { backend: backendName, adapter: adapterName, governor: governing, quiet: true, done, progress: (f, rate) => page.progress(f, rate, i, maps.length) });
+        });
+        if (mine !== run) return;
+        bench = null;
+        reports.push(report);
+      }
+      release();
+      page.done(
+        reports.map((r) => ({ map: nameOf(r.map), meanMs: r.meanMs, low1Ms: r.low1Ms, scale: r.renderScale?.settled ?? null })),
+        benchLine(version, reports, nameOf),
+      );
+      // For a script: the reports, and the mark `npm run bench` waits for.
+      Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), benchmark: reports } });
+      document.body.dataset['benchmark'] = 'done';
+    };
+    const page = new BenchmarkPage(
+      document.body,
+      {
+        run: (tier, dynamicResolution) => void fly(tier, dynamicResolution),
+        stop: () => {
+          run++;
+          release();
+          page.done(null, '', 'Stopped before the last map: nothing was kept.');
+        },
+      },
+      // `&tier=` and `&dynres=on|off` set what the page opens on; `&run` starts it without the click.
+      { tier: tierParam ?? governing.tier, dynamicResolution: params.has('dynres') ? params.get('dynres') !== 'off' : settings.dynamicResolution, home: location.pathname },
+    );
+    page.ready({
+      backend: backendName,
+      adapter: adapterName,
+      resolution: [Math.round(innerWidth * devicePixelRatio), Math.round(innerHeight * devicePixelRatio)],
+      maps: maps.map(nameOf),
+      seconds: maps.reduce((sum, id) => sum + new Benchmark(load(id).map.benchmarkPath).seconds, 0),
+    });
+    if (params.has('run')) void fly(page.tier, page.dynamicResolution);
   }
   if (renderStats) renderer.info.autoReset = false;
   await renderer.setAnimationLoop((time) => {
     if (graphicsLost) return;
     if (bench) {
-      bench(time);
+      governing.tick(time);
+      governing.apply(game);
+      governing.drawn(time, bench(time));
       return;
     }
+    // The frame-rate cap: a tick it passes over draws nothing and steps nothing, as on a slower display.
+    if (!governing.tick(time)) return;
     if (!updatePreparation()) updateLobby();
     // The map is only a backdrop while the main menu is open. Limit its GPU
     // work, but keep polling controllers and immediately resume on play.
     const backdrop = (menu.open || lobbyPage.open || royalePage.open) && !fixedCamera;
-    const drawBackdrop = !backdrop || time - lastMenuFrame >= 50;
+    // Auto looking for its tier draws the backdrop at full rate, once nothing is being built behind it: that is its measurement.
+    const measuring = backdrop && governing.searching && settled && game.drawing && !game.driver && !spare?.warming;
+    const drawBackdrop = !backdrop || measuring || time - lastMenuFrame >= 50;
     if (backdrop && drawBackdrop) lastMenuFrame = time;
     // The score: with no game running the menus have their theme; a match's scenes are the game's own.
     if (!game.driver) sound.music.setScene(backdrop ? 'menu' : 'silence');
@@ -996,6 +1127,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (renderStats) renderer.info.reset();
     game.frame(time, drawBackdrop);
     if (renderStats) countFrame(renderer, time);
+    // Only a run of frames at full rate says what the machine holds: play, or the backdrop while Auto measures. Not a map still building its shaders, which draws nothing.
+    governing.drawn(time, game.drawing && (!backdrop || measuring));
+    governing.apply(game);
+    game.shownScale = settings.dynamicResolution && !governing.searching ? governing.scale : null;
     // An online session that ended (rejected, kicked, a server gone for good) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {
@@ -1071,19 +1206,39 @@ function flyPath(map: MapDefinition): CameraPath | null {
  * benchmark path. The report goes to an on-screen panel, to the console as
  * JSON and to `window.duty.benchmark`.
  */
-function startBenchmarkOn(game: Game, renderer: WebGPURenderer, map: MapDefinition, backend: string): (time: number) => void {
+function startBenchmarkOn(
+  game: Game,
+  renderer: WebGPURenderer,
+  map: MapDefinition,
+  about: {
+    backend: string;
+    adapter: string;
+    governor: QualityGovernor;
+    /** The benchmark page's run: no panel of its own, `done` gets the report and `progress` how far along it is. */
+    quiet?: boolean;
+    done?: (report: BenchReport) => void;
+    progress?: (fraction: number, frameRate: number) => void;
+  },
+): (time: number) => boolean {
   const bench = new Benchmark(map.benchmarkPath);
   const loadMs = Math.round(performance.now());
   const panel = document.createElement('pre');
   panel.style.cssText = 'position:fixed;left:12px;top:12px;margin:0;padding:10px 12px;background:rgb(10 12 14 / 0.8);color:#e8e6e1;font:12px/1.4 ui-monospace,monospace;z-index:10;white-space:pre;';
-  document.body.append(panel);
+  if (!about.quiet) document.body.append(panel);
   renderer.info.autoReset = false;
+  const { governor } = about;
+  const tier = QUALITY[governor.tier].name;
+  /** The size drawn, at the tier's own render scale: before dynamic resolution moves it. */
+  let resolution: readonly [number, number] | null = null;
   let pendingGpu = false;
   let finished = false;
+  // Dynamic resolution judges the flight alone, from the tier's own scale: not the load before it, nor the warm-up.
+  governor.restart();
+  /** Draws the flight's frame at `time`; whether it was one of the measured ones. */
   return (time) => {
     if (finished) {
       game.frame(time);
-      return;
+      return false;
     }
     const f = bench.frame(time);
     if (!f) {
@@ -1091,23 +1246,30 @@ function startBenchmarkOn(game: Game, renderer: WebGPURenderer, map: MapDefiniti
       renderer.info.autoReset = true;
       const report: BenchReport = {
         map: map.id,
-        backend,
-        resolution: [renderer.domElement.width, renderer.domElement.height],
+        tier,
+        backend: about.backend,
+        adapter: about.adapter,
+        resolution: resolution ?? [renderer.domElement.width, renderer.domElement.height],
         loadMs,
         ...bench.result!,
       };
+      about.done?.(report);
+      if (about.quiet) return false;
       panel.textContent = `BENCHMARK ${map.name}
 ${JSON.stringify(report, null, 1)}`;
       console.log(`BENCHMARK ${JSON.stringify(report)}`);
       Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), benchmark: report } });
       document.body.dataset['benchmark'] = 'done';
-      return;
+      return false;
     }
     game.overview = f;
     renderer.info.reset();
+    // Dynamic resolution resizes the canvas: the size reported is the one before it has, the tier's own.
+    resolution ??= [renderer.domElement.width, renderer.domElement.height];
     game.frame(time);
-    bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles });
-    panel.textContent = `BENCHMARK ${map.name} · ${game.fps.toFixed(0)} fps`;
+    bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles }, governor.dynamic ? governor.scale : undefined);
+    if (about.quiet) about.progress?.(bench.progress(time), game.fps);
+    else panel.textContent = `BENCHMARK ${map.name} · ${tier} · ${game.fps.toFixed(0)} fps`;
     // GPU time: Three.js keeps the latest frame's queries per pass, so each resolve reads one frame.
     if (!pendingGpu) {
       pendingGpu = true;
@@ -1118,6 +1280,7 @@ ${JSON.stringify(report, null, 1)}`;
         })
         .finally(() => (pendingGpu = false));
     }
+    return bench.measuring(time);
   };
 }
 

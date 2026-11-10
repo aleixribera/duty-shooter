@@ -86,27 +86,31 @@ describe('a far gunshot', () => {
 
 describe('the announcer', () => {
   it('calls the Squads left on the way down past 10, 5, 3 and 2, players in Solos', () => {
-    expect(leftLine(11, 10, false)).toBe('10 squads left');
+    expect(leftLine(11, 10, false)).toBe('squads10');
     expect(leftLine(10, 9, false)).toBeNull();
-    expect(leftLine(7, 4, false)).toBe('4 squads left');
-    expect(leftLine(4, 3, true)).toBe('3 players left');
-    expect(leftLine(3, 2, false)).toBe('2 squads left');
+    expect(leftLine(6, 5, false)).toBe('squads5');
+    expect(leftLine(4, 3, true)).toBe('players3');
+    expect(leftLine(3, 2, false)).toBe('squads2');
     expect(leftLine(2, 1, false)).toBeNull();
+    // Two Squads gone in the same moment step over the five: "four left" is not a line, and "five" would be wrong.
+    expect(leftLine(7, 4, false)).toBeNull();
     // Joining mid-match, or a count going up, says nothing.
     expect(leftLine(null, 5, false)).toBeNull();
     expect(leftLine(4, 5, false)).toBeNull();
   });
 
-  it('speaks at the game volume, and not at all when it is off', () => {
+  it('with no recording to be had, the stand-in speaks at the game volume, and not at all when it is off', () => {
     const said: [string, number][] = [];
+    const ducked: number[] = [];
     const speaker: Speaker = { speak: (text, volume) => said.push([text, volume]), cancel: () => said.push(['(quiet)', 0]) };
-    const a = new Announcer(speaker);
+    const a = new Announcer(null, speaker, (seconds) => ducked.push(seconds));
     a.volume = 0.6;
-    a.say('Ring closing');
+    a.say('ringClosing');
     a.volume = 0;
-    a.say('5 squads left');
+    a.say('squads5');
     a.stop();
-    expect(said).toEqual([['Ring closing', 0.6], ['(quiet)', 0]]);
-    expect(() => new Announcer(null).say('Ring closing')).not.toThrow();
+    expect(said).toEqual([['The Ring is closing.', 0.6], ['(quiet)', 0]]);
+    expect(ducked).toHaveLength(1);
+    expect(() => new Announcer(null, null).say('ringClosing')).not.toThrow();
   });
 });

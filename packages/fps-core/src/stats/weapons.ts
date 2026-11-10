@@ -20,13 +20,23 @@ import type { Estimated, Source, Stat, Unit } from './types';
  *
  * None of them are taken from any other game's weapon tables. Display names
  * are original and avoid manufacturer trademarks.
+ *
+ * The four of next-level ticket 18 each take a place the first five left open
+ * (same 100 HP, torso hits; the full table is in docs/balance.md):
+ *
+ * | Weapon        | Its place                                                                  |
+ * | ------------- | -------------------------------------------------------------------------- |
+ * | Bulwark 5.56  | 100 rounds and a recoil that settles: slower than the M4A1 close, level with it far, slow to do anything else |
+ * | Vantage 7.62  | two hits within 30 m; past it two only when one is the head, else three: between the M4A1 and the sniper |
+ * | Trident 5.56  | one three-round burst kills within 26 m when all three land; a miss waits out the gap to the next burst |
+ * | Marshal .357  | a secondary: two hits or one to the head within 12 m, six rounds, a slow trigger and a slow reload |
  */
 
-export type WeaponId = 'm4a1' | 'smg' | 'shotgun' | 'sniper' | 'pistol';
-export const WEAPON_IDS: readonly WeaponId[] = ['m4a1', 'smg', 'shotgun', 'sniper', 'pistol'];
+export type WeaponId = 'm4a1' | 'smg' | 'shotgun' | 'sniper' | 'pistol' | 'lmg' | 'dmr' | 'burst' | 'revolver';
+export const WEAPON_IDS: readonly WeaponId[] = ['m4a1', 'smg', 'shotgun', 'sniper', 'pistol', 'lmg', 'dmr', 'burst', 'revolver'];
 
-/** How the trigger works: held for full auto, one press per shot, or a pump or bolt worked between shots. */
-export type FireMode = 'auto' | 'semi' | 'pump' | 'bolt';
+/** How the trigger works: held for full auto, one press per shot, a burst of a few rounds per press, or a pump or bolt worked between shots. */
+export type FireMode = 'auto' | 'semi' | 'burst' | 'pump' | 'bolt';
 
 /** The words of a row: what the loadout screen and the presentation need to know. */
 export interface WeaponTraits {
@@ -36,14 +46,23 @@ export interface WeaponTraits {
   readonly role: string;
   readonly slot: 'primary' | 'secondary';
   readonly fireMode: FireMode;
-  /** A magazine swapped whole, or shells loaded one at a time. */
-  readonly reload: 'magazine' | 'shell';
-  readonly sight: 'iron' | 'scope';
+  /**
+   * A magazine swapped whole, shells loaded one at a time, a belt laid in
+   * under a feed cover, or a cylinder swung out and filled. A belt and a
+   * cylinder go in all at once, so their times are a {@link MagazineReload}'s;
+   * the word picks the hands and the sounds.
+   */
+  readonly reload: 'magazine' | 'shell' | 'belt' | 'cylinder';
+  /** Open sights, a low-power optic on the gun that is looked through like them, or a scope that fills the screen. */
+  readonly sight: 'iron' | 'optic' | 'scope';
 }
 
 export interface WeaponHandling {
-  /** Cyclic rate (auto), the fastest rate presses are accepted at (semi), or 60 / cycle time (pump, bolt). */
+  /** Cyclic rate (auto, and inside a burst), the fastest rate presses are accepted at (semi), or 60 / cycle time (pump, bolt). */
   readonly fireRate: Stat<'rpm'>;
+  /** Rounds one press fires (burst weapons), and the wait from a burst's last round to the next burst's first. */
+  readonly burstRounds?: Stat<'rounds'>;
+  readonly burstDelay?: Stat<'s'>;
   readonly magazineSize: Stat<'rounds'>;
   readonly muzzleVelocity: Stat<'m/s'>;
   readonly adsTime: Stat<'s'>;
@@ -110,6 +129,14 @@ export interface WeaponAccuracy {
   readonly horizontalKick: Stat<'deg'>;
   /** How much each later shot's climb alternates up and down (an SMG's bounce); 0 when absent. */
   readonly kickBounce?: Stat<'multiplier'>;
+  /**
+   * A gun that settles as it fires (a machine gun leaned into): the climb per
+   * shot falls from `verticalKick` at the second shot to `settledKick` by shot
+   * `settleShots`, and the side drift shrinks by the same share. Absent, every
+   * later shot climbs by `verticalKick`.
+   */
+  readonly settledKick?: Stat<'deg'>;
+  readonly settleShots?: Stat<'rounds'>;
   readonly recoilResetTime: Stat<'s'>;
   /** The share of each kick that comes back to the view once the gun is quiet (0: none; 1: all of it). */
   readonly recoilReturn: Stat<'multiplier'>;
@@ -350,5 +377,199 @@ export const SNIPER: WeaponRow = {
     recoilReturnTime: tuned(0.3, 's', 'the slowest back: the scope is on the target again as the bolt closes.'),
     sway: tuned(0.4, 'deg', 'scope sway on first aiming: at 50 m it moves the aim point 0.35 m, so a quick scope across the map is a gamble. 0.5 and more kept the sniper under its share in the balance runs.'),
     swaySettle: tuned(1.5, 's', 'standing still this long settles the sway to a fifth, as the spec asks ("settles over about 1.5 s").'),
+  },
+};
+
+/** The light machine gun: belt-fed from a 100-round box, heavy in every way but the last ninety rounds of a burst. */
+export const LMG: WeaponRow = {
+  traits: { name: 'Bulwark 5.56', role: 'A hundred rounds that settle as they go: holds a lane, slow to do anything else.', slot: 'primary', fireMode: 'auto', reload: 'belt', sight: 'iron' },
+  handling: {
+    fireRate: tuned(680, 'rpm', 'slower than the M4A1 (809): four hits take 265 ms against its 223 ms, so the rifle wins a meeting up close and the machine gun has to be aimed already.'),
+    magazineSize: tuned(100, 'rounds', 'a belt in a box: nine seconds of fire, three times the M4A1\'s magazine, which is what holding a lane takes.'),
+    muzzleVelocity: tuned(915, 'm/s', 'a longer barrel than the M4A1\'s for the same round.'),
+    adsTime: tuned(0.42, 's', 'the slowest to aim of every weapon (the sniper is 0.35 s): caught unaimed, it loses to anything.'),
+    zoom: tuned(1.2, 'multiplier', 'iron sights, a touch tighter than the M4A1\'s 1.1 for the lanes it watches.'),
+    sprintToFire: tuned(0.4, 's', 'about the sniper\'s 0.42 s: it does not come out of a run shooting.'),
+    drawTime: tuned(1.25, 's', 'the slowest to raise by far (the sniper is 0.85 s): switching to it in a fight is a mistake.'),
+    holsterTime: tuned(0.5, 's', 'the slowest to put away.'),
+    moveSpeed: tuned(0.88, 'multiplier', 'the heaviest gun moves slowest, under the sniper (0.92).'),
+  },
+  reload: {
+    tacticalAddAmmo: tuned(4.3, 's', 'cover up, old belt out, box off, box on, belt laid in: twice as long as any magazine before the rounds count.'),
+    tacticalDuration: tuned(5.2, 's', 'the cover shut and the gun back in the shoulder: the longest reload of any weapon, the price of a hundred rounds.'),
+    emptyAddAmmo: tuned(4.3, 's', 'the same hands as a tactical reload.'),
+    emptyDuration: tuned(5.7, 's', 'tactical plus half a second on the charging handle.'),
+  },
+  damage: {
+    bands: {
+      close: { range: tuned(40, 'm', 'past the M4A1\'s close band (27 m): between 27 and 40 m the machine gun\'s four hits (265 ms) beat the rifle\'s five (297 ms).'), damage: tuned(26, 'HP', 'four torso hits kill, like the M4A1 up close, at a slower rate.') },
+      long: { damage: tuned(21, 'HP', 'five torso hits kill at any range (353 ms), level with the M4A1\'s six past 50 m (371 ms): it does not fall off further.') },
+    },
+    headMultiplier: tuned(1.4, 'multiplier', 'the rifle\'s head bonus: the same round.'),
+    neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage, as on the M4A1.'),
+    upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
+    lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage, as on the M4A1.'),
+    armMultiplier: tuned(1, 'multiplier', 'as on the M4A1.'),
+    legMultiplier: tuned(0.9, 'multiplier', 'as on the M4A1.'),
+    penetration: tuned(1.3, 'multiplier', 'more than the M4A1: a machine gun is what shoots through the cover someone ran behind.'),
+  },
+  accuracy: {
+    hipSpreadStill: tuned(3.2, 'deg', 'well outside the M4A1 (2.0): fired from the hip it sprays.'),
+    hipSpreadMoving: tuned(5.5, 'deg', 'worse on the move than any gun but the sniper and the marksman rifle.'),
+    hipSpreadAirborne: tuned(9, 'deg', 'hopeless in the air.'),
+    firstShotKick: tuned(0.8, 'deg', 'the gun jumps as it starts (the M4A1 is 0.55).'),
+    verticalKick: tuned(0.55, 'deg', 'the second shot climbs half as much again as an M4A1\'s (0.38): its first five shots climb 2.7 deg against the rifle\'s 2.1.'),
+    horizontalKick: tuned(0.3, 'deg', 'twice the M4A1\'s side drift while the gun is still moving about.'),
+    settledKick: tuned(0.16, 'deg', 'under half the M4A1\'s climb per shot once the weight is behind it: a long burst gets easier to hold, the opposite of every other automatic.'),
+    settleShots: tuned(10, 'rounds', 'settled by the tenth round, under a second of fire: thirty rounds climb about 7.5 deg against the M4A1 magazine\'s 11.6.'),
+    recoilResetTime: tuned(0.35, 's', 'longer than the M4A1 (0.25 s): let go for a moment and the gun is still settled; stop for longer and it has to settle again.'),
+    recoilReturn: tuned(0.5, 'multiplier', 'the least of any weapon: a heavy gun stays where the burst walked it, so half the climb is the player\'s to bring down.'),
+    recoilReturnDelay: tuned(0.14, 's', 'longer than the gap between its shots (0.09 s).'),
+    recoilReturnTime: tuned(0.3, 's', 'as slow back as the sniper: the weight that steadies it also brings it back late.'),
+  },
+};
+
+/** The marksman rifle: a semi-automatic in 7.62 mm under a 2x prism optic. */
+export const DMR: WeaponRow = {
+  traits: { name: 'Vantage 7.62', role: 'Two aimed shots: any two up to 30 m, one of them the head past it.', slot: 'primary', fireMode: 'semi', reload: 'magazine', sight: 'optic' },
+  handling: {
+    fireRate: tuned(240, 'rpm', 'the fastest rate presses are accepted at: two hits 250 ms apart, a little slower than the M4A1\'s four up close (223 ms) and quicker than anything but the sniper far off.'),
+    magazineSize: tuned(12, 'rounds', 'six kills at best, four when every one takes three: enough for a fight, not for a spray.'),
+    muzzleVelocity: tuned(820, 'm/s', 'a full-power rifle round from a mid-length barrel, a little quicker than the sniper\'s heavy load (790).'),
+    adsTime: tuned(0.3, 's', 'between the M4A1 (0.242 s) and the sniper (0.35 s).'),
+    zoom: tuned(2.2, 'multiplier', 'a low-power optic: enough to pick a head at 60 m, not enough to lose the street around it (the sniper\'s scope is 4x).'),
+    sprintToFire: tuned(0.3, 's', 'between the M4A1 (0.246 s) and the sniper (0.42 s).'),
+    drawTime: tuned(0.9, 's', 'a little slower than the sniper (0.85 s): longer than the M4A1, with glass on top.'),
+    holsterTime: tuned(0.4, 's', 'as the sniper.'),
+    moveSpeed: tuned(0.96, 'multiplier', 'between the M4A1 (1) and the sniper (0.92).'),
+  },
+  reload: {
+    tacticalAddAmmo: tuned(1.7, 's', 'a bigger magazine to seat than the M4A1\'s (1.39 s).'),
+    tacticalDuration: tuned(2.5, 's', 'add-ammo plus bringing the optic back up.'),
+    emptyAddAmmo: tuned(2.05, 's', 'tactical plus 0.35 s before the bolt is let go.'),
+    emptyDuration: tuned(2.95, 's', 'tactical duration plus 0.45 s for the bolt.'),
+  },
+  damage: {
+    bands: {
+      close: { range: tuned(30, 'm', 'a little past the M4A1\'s close band (27 m): inside it the marksman rifle is a two-shot gun anywhere on the torso. At 45 m bots carrying it beat the M4A1 in the carbine\'s own 30 m band (54 % of 200 duels).'), damage: tuned(52, 'HP', 'two torso hits kill (104); one never does.') },
+      long: { damage: tuned(44, 'HP', 'two torso hits leave 12 HP; a head and a torso (66 + 44) kill, and three torso hits always do: far off it pays for the head.') },
+    },
+    headMultiplier: tuned(1.5, 'multiplier', 'a head shot never kills by itself (78 up close, 66 far): that is the sniper\'s. It makes the second shot a kill at any range.'),
+    neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
+    lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    armMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    legMultiplier: tuned(0.9, 'multiplier', 'two leg hits leave 6 HP up close: aim matters.'),
+    penetration: tuned(1.4, 'multiplier', 'a full-power round, a little under the sniper\'s 1.6.'),
+  },
+  accuracy: {
+    hipSpreadStill: tuned(5, 'deg', 'poor from the hip, between the M4A1 (2) and the sniper (9): it is an aimed gun.'),
+    hipSpreadMoving: tuned(7, 'deg', 'worse on the move.'),
+    hipSpreadAirborne: tuned(11, 'deg', 'hopeless in the air.'),
+    firstShotKick: tuned(1.7, 'deg', 'three times an M4A1 round\'s jump: the optic leaves the target on every shot.'),
+    verticalKick: tuned(1.7, 'deg', 'every shot kicks the same.'),
+    horizontalKick: tuned(0.35, 'deg', 'a little side kick.'),
+    recoilResetTime: tuned(0.45, 's', 'longer than the gap between two presses at its fastest (0.25 s).'),
+    recoilReturn: tuned(0.9, 'multiplier', 'a shouldered rifle comes back nearly to where it was aimed, as the sniper does.'),
+    recoilReturnDelay: tuned(0.07, 's', 'the optic jumps and starts back at once.'),
+    recoilReturnTime: tuned(0.11, 's', 'at the fastest press (0.25 s) four fifths of the return is done, so a second shot fired flat out lands about half a degree high, 0.4 m at 50 m: fast is for close, a breath between shots is for far.'),
+  },
+};
+
+/** The burst rifle: three rounds a press. */
+export const BURST: WeaponRow = {
+  traits: { name: 'Trident 5.56', role: 'Three rounds a press: one burst kills within 26 m if all three land.', slot: 'primary', fireMode: 'burst', reload: 'magazine', sight: 'iron' },
+  handling: {
+    fireRate: tuned(800, 'rpm', 'the rate inside a burst, about the M4A1\'s (809): three rounds leave in 150 ms.'),
+    burstRounds: tuned(3, 'rounds', 'the burst the ticket asks for.'),
+    burstDelay: tuned(0.34, 's', 'from a burst\'s last round to the next burst\'s first: a burst that leaves its target standing costs 490 ms from first round to first round, more than twice an M4A1 kill.'),
+    magazineSize: tuned(30, 'rounds', 'ten bursts, the M4A1\'s magazine.'),
+    muzzleVelocity: tuned(930, 'm/s', 'a full-length barrel for the M4A1\'s round.'),
+    adsTime: tuned(0.26, 's', 'a little slower than the M4A1 (0.242 s): a longer rifle.'),
+    zoom: tuned(1.2, 'multiplier', 'iron sights, a touch tighter than the M4A1\'s 1.1: it is aimed burst by burst.'),
+    sprintToFire: tuned(0.26, 's', 'about the M4A1\'s 0.246 s.'),
+    drawTime: tuned(0.8, 's', 'as the M4A1.'),
+    holsterTime: tuned(0.35, 's', 'as the M4A1.'),
+    moveSpeed: tuned(1, 'multiplier', 'as the M4A1.'),
+  },
+  reload: {
+    tacticalAddAmmo: tuned(1.45, 's', 'about the M4A1\'s 1.39 s: the same magazine into a longer rifle.'),
+    tacticalDuration: tuned(2.3, 's', 'about the M4A1\'s.'),
+    emptyAddAmmo: tuned(1.75, 's', 'tactical plus 0.3 s before the bolt is let go.'),
+    emptyDuration: tuned(2.8, 's', 'tactical duration plus half a second for the bolt.'),
+  },
+  damage: {
+    bands: {
+      close: { range: tuned(26, 'm', 'the one-burst band, just short of the M4A1\'s close band (27 m): where the carbine starts to need a fifth round, a burst stops killing alone. At 38 m bots carrying it beat the M4A1 in the carbine\'s own 30 m band (57 % of 200 duels).'), damage: tuned(34, 'HP', 'three torso hits kill (102), two never do: a burst kills only whole. 150 ms, the quickest kill of any gun that needs more than one hit, and 490 ms when one round of it misses.') },
+      medium: { range: tuned(70, 'm', 'the two-burst band.'), damage: tuned(26, 'HP', 'four torso hits kill: a burst and the first round of the next, 490 ms, against the M4A1\'s 297-371 ms.') },
+      long: { damage: tuned(21, 'HP', 'five torso hits kill: 565 ms, well behind the M4A1 (371 ms).') },
+    },
+    headMultiplier: tuned(1.4, 'multiplier', 'the rifle\'s head bonus: the same round.'),
+    neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage, as on the M4A1.'),
+    upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
+    lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage, as on the M4A1.'),
+    armMultiplier: tuned(1, 'multiplier', 'as on the M4A1.'),
+    legMultiplier: tuned(0.9, 'multiplier', 'a burst into the legs leaves 8 HP.'),
+    penetration: tuned(1, 'multiplier', 'the M4A1\'s round.'),
+  },
+  accuracy: {
+    hipSpreadStill: tuned(2.6, 'deg', 'outside the M4A1 (2.0): from the hip a burst rarely lands whole past a few metres.'),
+    hipSpreadMoving: tuned(4.2, 'deg', 'worse on the move than the M4A1 (3.5).'),
+    hipSpreadAirborne: tuned(8, 'deg', 'worse than the M4A1 (7).'),
+    firstShotKick: tuned(0.32, 'deg', 'the second round leaves 0.32 deg above the first: 0.15 m at 26 m.'),
+    verticalKick: tuned(0.36, 'deg', 'the third leaves 0.68 deg above the first, 0.3 m at 26 m: aimed at the belt, a burst walks up the torso; aimed at the chest far off, its last round goes over the shoulder.'),
+    horizontalKick: tuned(0.1, 'deg', 'a burst climbs straight.'),
+    recoilResetTime: tuned(0.25, 's', 'shorter than the wait between bursts, so every burst is the same three kicks.'),
+    recoilReturn: tuned(0.95, 'multiplier', 'nearly all of a burst comes back: the next starts where this one did.'),
+    recoilReturnDelay: tuned(0.09, 's', 'longer than the gap between a burst\'s rounds (0.075 s), so nothing comes back inside one.'),
+    recoilReturnTime: tuned(0.08, 's', 'the sights are back on the target before the next burst is allowed.'),
+  },
+};
+
+/** The revolver: six rounds of .357, the second secondary. */
+export const REVOLVER: WeaponRow = {
+  traits: { name: 'Marshal .357', role: 'Six heavy rounds: two hits, or one to the head, inside 12 m.', slot: 'secondary', fireMode: 'semi', reload: 'cylinder', sight: 'iron' },
+  handling: {
+    fireRate: tuned(150, 'rpm', 'the fastest rate presses are accepted at: a long double-action pull, 400 ms between shots. Two hits kill in 400 ms against the pistol\'s four in 450 ms; a miss costs 400 ms more against the pistol\'s 150.'),
+    magazineSize: tuned(6, 'rounds', 'a six-shot cylinder, as the ticket asks: three kills at best before the slowest sidearm reload.'),
+    muzzleVelocity: tuned(440, 'm/s', 'a .357 load from a 4 inch barrel, quicker than the pistol\'s 9 mm (360).'),
+    adsTime: tuned(0.2, 's', 'slower than the pistol (0.15 s): a heavier gun to level.'),
+    zoom: tuned(1.1, 'multiplier', 'iron sights like the pistol.'),
+    sprintToFire: tuned(0.16, 's', 'a little slower than the pistol (0.12 s).'),
+    drawTime: tuned(0.5, 's', 'a little slower than the pistol (0.4 s), still quicker than any primary.'),
+    holsterTime: tuned(0.3, 's', 'a little slower than the pistol (0.25 s).'),
+    moveSpeed: tuned(1.3, 'multiplier', 'a sidearm\'s pace, a little under the pistol (1.4) for the weight.'),
+  },
+  reload: {
+    tacticalAddAmmo: tuned(2, 's', 'cylinder out, cases dumped, six rounds in off a speedloader: nearly twice the pistol\'s magazine (1.05 s).'),
+    tacticalDuration: tuned(2.6, 's', 'the cylinder shut and the gun back up: longer than the M4A1\'s reload (2.23 s) for a fifth of the rounds.'),
+    emptyAddAmmo: tuned(2, 's', 'the same hands: a revolver has nothing to chamber.'),
+    emptyDuration: tuned(2.6, 's', 'the same as with rounds left.'),
+  },
+  damage: {
+    bands: {
+      close: { range: tuned(12, 'm', 'a little past the pistol\'s close band (10 m): a sidearm\'s reach.'), damage: tuned(52, 'HP', 'two torso hits kill, where the M4A1 takes four: it hits like a rifle and a half up close.') },
+      medium: { range: tuned(30, 'm', 'the three-shot band.'), damage: tuned(36, 'HP', 'three torso hits kill, 800 ms: slower than the pistol\'s five (600 ms).') },
+      long: { damage: tuned(26, 'HP', 'four torso hits kill, 1.2 s: no gun for a long shot.') },
+    },
+    headMultiplier: tuned(2, 'multiplier', 'one head shot kills inside 12 m (104) and nowhere else (72): the reason to carry it instead of the pistol.'),
+    neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
+    lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    armMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
+    legMultiplier: tuned(0.9, 'multiplier', 'two leg hits leave 6 HP.'),
+    penetration: tuned(1.1, 'multiplier', 'a heavier bullet than the pistol\'s goes through a little more than the M4A1\'s.'),
+  },
+  accuracy: {
+    hipSpreadStill: tuned(1.8, 'deg', 'a little wider than the pistol (1.4): the long pull moves the muzzle.'),
+    hipSpreadMoving: tuned(3, 'deg', 'wider than the pistol (2.4).'),
+    hipSpreadAirborne: tuned(6, 'deg', 'wider than the pistol (5).'),
+    firstShotKick: tuned(3.4, 'deg', 'the hardest flip of anything but the sniper: the sights leave the target on every shot.'),
+    verticalKick: tuned(3.4, 'deg', 'every shot flips the same.'),
+    horizontalKick: tuned(0.7, 'deg', 'it twists in the hand.'),
+    recoilResetTime: tuned(0.5, 's', 'longer than the gap between two presses (0.4 s).'),
+    recoilReturn: tuned(0.9, 'multiplier', 'the flip comes back down as the hammer comes back.'),
+    recoilReturnDelay: tuned(0.1, 's', 'the muzzle hangs at the top a moment.'),
+    recoilReturnTime: tuned(0.16, 's', 'back on the target well inside the 0.4 s between shots.'),
   },
 };

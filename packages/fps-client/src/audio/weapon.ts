@@ -129,11 +129,52 @@ export const dryFireVoice = (): Voice & VoiceExtras =>
           thump(dst, sr, { at: t, f0: spring, f1: spring, glideTau: 1, attack: 0.002, tau: 0.035, gain: 0.16, vibrato: { rate: 34, depth: 0.025 } });
         },
       },
+      lmg: {
+        seconds: 0.16,
+        level: 1.2,
+        draw(dst, sr, rng) {
+          // An open bolt let go on an empty tray: the whole heavy carrier runs forward and stops on nothing.
+          clink(dst, sr, rng, 0, rng.range(2100, 2400), 0.3, 0.005);
+          scrape(dst, sr, rng, 0.004, 0.024, 0.35, 1900, 1200);
+          clack(dst, sr, rng, rng.range(0.028, 0.034), { noiseFreq: 1400, base: rng.range(820, 940), gain: 1, tau: 0.022, body: 190 });
+        },
+      },
+      dmr: {
+        seconds: 0.12,
+        level: 1.05,
+        draw(dst, sr, rng) {
+          // A two-stage trigger breaking, and a hammer on a long firing pin in a steel receiver set in wood.
+          clink(dst, sr, rng, 0, rng.range(2600, 3000), 0.4, 0.004);
+          clack(dst, sr, rng, rng.range(0.008, 0.011), { noiseFreq: 2200, base: rng.range(1500, 1700), gain: 1, tau: 0.01, body: 240 });
+          thud(dst, sr, rng, 0.011, { freq: 480, gain: 0.25, tau: 0.006 });
+        },
+      },
+      burst: {
+        seconds: 0.09,
+        level: 0.9,
+        draw(dst, sr, rng) {
+          // The hammer is a long linkage away from the trigger, inside the stock: a click and a hollow knock.
+          clink(dst, sr, rng, 0, rng.range(3200, 3700), 0.5, 0.003);
+          clack(dst, sr, rng, rng.range(0.006, 0.009), { noiseFreq: 2700, base: rng.range(1900, 2150), gain: 0.9, tau: 0.006 });
+          const shell = rng.range(640, 720);
+          thump(dst, sr, { at: 0.008, f0: shell, f1: shell * 0.94, glideTau: 0.01, attack: 0.0006, tau: 0.012, gain: 0.3 });
+        },
+      },
+      revolver: {
+        seconds: 0.12,
+        level: 0.95,
+        draw(dst, sr, rng) {
+          // The cylinder turns to a spent case, the bolt drops into its notch, and the hammer falls on a dead primer.
+          clink(dst, sr, rng, 0, rng.range(3000, 3400), 0.45, 0.004);
+          clink(dst, sr, rng, rng.range(0.018, 0.024), rng.range(2400, 2700), 0.4, 0.005);
+          clack(dst, sr, rng, rng.range(0.036, 0.042), { noiseFreq: 2400, base: rng.range(1550, 1750), gain: 1, tau: 0.012, body: 300 });
+        },
+      },
     },
     { local: 0.32, remote: 0.4, variants: 3 },
   );
 
-/** The magazine leaving the gun: an alloy rifle magazine, a long thin stick, a pistol's dropping from the grip, a steel box off its lever. */
+/** The magazine leaving the gun: an alloy rifle magazine, a long thin stick, a pistol's dropping from the grip, a steel box off its lever, a belt box off its hook. */
 export const magOutVoice = (): Voice & VoiceExtras =>
   perWeapon(
     'reloadMagOut',
@@ -184,6 +225,42 @@ export const magOutVoice = (): Voice & VoiceExtras =>
           clack(dst, sr, rng, t, { noiseFreq: 1400, base: rng.range(900, 1050), gain: 0.6, tau: 0.03 });
           thud(dst, sr, rng, t, { freq: 260, gain: 0.3, tau: 0.01 });
           cloth(dst, sr, rng, 0.08, 0.3, 0.2, 1000);
+        },
+      },
+      lmg: {
+        seconds: 0.5,
+        level: 1.15,
+        draw(dst, sr, rng) {
+          // A hundred-round box off its hook: sheet steel, half a belt of loose links in it, drawn out to the side.
+          clack(dst, sr, rng, 0, { noiseFreq: 1700, base: rng.range(900, 1050), gain: 0.8, tau: 0.02, body: 200 });
+          scrape(dst, sr, rng, 0.02, 0.14, 0.5, 900, 650);
+          rattle(dst, sr, rng, 0.03, 0.3, 9, 0.4, 3600, 6200);
+          thud(dst, sr, rng, rng.range(0.2, 0.24), { freq: 240, gain: 0.35, tau: 0.012 });
+          cloth(dst, sr, rng, 0.1, 0.3, 0.2, 1000);
+        },
+      },
+      dmr: {
+        seconds: 0.4,
+        level: 1.05,
+        draw(dst, sr, rng) {
+          // The paddle pushed forward and a steel magazine rocked off its rear latch, forward and down.
+          clack(dst, sr, rng, 0, { noiseFreq: 2400, base: rng.range(1600, 1800), gain: 0.85, tau: 0.01, body: 240 });
+          scrape(dst, sr, rng, 0.02, 0.07, 0.4, 1200, 850);
+          const t = rng.range(0.1, 0.12);
+          clack(dst, sr, rng, t, { noiseFreq: 1600, base: rng.range(1000, 1150), gain: 0.55, tau: 0.022 });
+          clink(dst, sr, rng, t + rng.range(0.03, 0.05), rng.range(1500, 1800), 0.3, 0.012);
+          cloth(dst, sr, rng, 0.08, 0.26, 0.2, 1100);
+        },
+      },
+      burst: {
+        seconds: 0.36,
+        level: 0.95,
+        draw(dst, sr, rng) {
+          // A lever behind the well, and a polymer magazine drawn down out of the stock: a duller slide, no ring to it.
+          clack(dst, sr, rng, 0, { noiseFreq: 3000, base: rng.range(2100, 2400), gain: 0.7, tau: 0.005 });
+          scrape(dst, sr, rng, 0.012, 0.15, 0.6, 1300, 900);
+          thud(dst, sr, rng, rng.range(0.16, 0.19), { freq: 520, gain: 0.35, tau: 0.008 });
+          cloth(dst, sr, rng, 0.03, 0.26, 0.3, 1250);
         },
       },
     },
@@ -243,11 +320,49 @@ export const magInVoice = (): Voice & VoiceExtras =>
           clack(dst, sr, rng, t + rng.range(0.03, 0.04), { noiseFreq: 2600, base: rng.range(1700, 1900), gain: 0.45, tau: 0.009 });
         },
       },
+      lmg: {
+        seconds: 0.6,
+        level: 1.15,
+        draw(dst, sr, rng) {
+          // A full box hung on its hook, and the first links of the belt laid across the feed tray.
+          scrape(dst, sr, rng, 0, 0.09, 0.4, 700, 950);
+          const t = rng.range(0.09, 0.105);
+          clack(dst, sr, rng, t, { noiseFreq: 1300, base: rng.range(700, 800), gain: 1, tau: 0.03, body: 180 });
+          thud(dst, sr, rng, t, { freq: 210, gain: 0.5, tau: 0.014 });
+          rattle(dst, sr, rng, t + 0.1, 0.3, 8, 0.45, 3800, 6400);
+          clink(dst, sr, rng, t + rng.range(0.36, 0.42), rng.range(2900, 3300), 0.4, 0.008);
+        },
+      },
+      dmr: {
+        seconds: 0.45,
+        level: 1.05,
+        draw(dst, sr, rng) {
+          // The front lip hooked in, then the magazine rocked back until the latch snaps over it.
+          clack(dst, sr, rng, 0, { noiseFreq: 2000, base: rng.range(1250, 1400), gain: 0.5, tau: 0.012 });
+          scrape(dst, sr, rng, 0.015, 0.07, 0.3, 900, 1300);
+          const t = rng.range(0.085, 0.1);
+          clack(dst, sr, rng, t, { noiseFreq: 1300, base: rng.range(760, 860), gain: 1, tau: 0.028, body: 210 });
+          thud(dst, sr, rng, t, { freq: 260, gain: 0.45, tau: 0.01 });
+          clack(dst, sr, rng, t + rng.range(0.018, 0.026), { noiseFreq: 3000, base: rng.range(2000, 2300), gain: 0.5, tau: 0.008 });
+        },
+      },
+      burst: {
+        seconds: 0.32,
+        level: 0.95,
+        draw(dst, sr, rng) {
+          // Up into the stock behind the hand and home with a palm: polymer in polymer, a flat knock and a small catch.
+          scrape(dst, sr, rng, 0, 0.075, 0.5, 1000, 1500);
+          const t = rng.range(0.075, 0.085);
+          thud(dst, sr, rng, t, { freq: 560, gain: 0.5, tau: 0.008 });
+          clack(dst, sr, rng, t + 0.002, { noiseFreq: 1900, base: rng.range(1200, 1350), gain: 0.8, tau: 0.01 });
+          clack(dst, sr, rng, t + rng.range(0.016, 0.022), { noiseFreq: 3400, base: rng.range(2400, 2700), gain: 0.45, tau: 0.005 });
+        },
+      },
     },
     { local: 0.4, remote: 0.55 },
   );
 
-/** What lets the action run forward on a fresh magazine: the rifle's bolt catch, the pistol's slide stop. */
+/** What lets the action run forward on a fresh magazine: the rifle's bolt catch, the pistol's slide stop, a handle let go. */
 export const boltReleaseVoice = (): Voice & VoiceExtras =>
   perWeapon(
     'reloadBoltRelease',
@@ -282,6 +397,39 @@ export const boltReleaseVoice = (): Voice & VoiceExtras =>
           thump(dst, sr, { at: shut, f0: 420, f1: 350, glideTau: 0.006, attack: 0.0003, tau: 0.008, gain: 0.35 });
           const spring = rng.range(1150, 1300);
           thump(dst, sr, { at: shut, f0: spring, f1: spring, glideTau: 1, attack: 0.002, tau: 0.025, gain: 0.08, vibrato: { rate: 45, depth: 0.02 } });
+        },
+      },
+      dmr: {
+        seconds: 0.4,
+        level: 1.1,
+        draw(dst, sr, rng) {
+          // The handle drawn the last of the way and let go: a long bolt and its rod thrown home by a spring under the barrel.
+          scrape(dst, sr, rng, 0, 0.03, 0.4, 1400, 2000);
+          const t = rng.range(0.034, 0.04);
+          scrape(dst, sr, rng, t, 0.03, 0.4, 2200, 1300);
+          const shut = t + 0.03;
+          noiseBurst(dst, sr, rng, { at: shut, attack: 0.0001, tau: 0.0028, gain: 1.2, mode: 'bandpass', freq: rng.range(1600, 1900), q: 0.8, length: 0.03 });
+          const b = rng.range(880, 1000);
+          modes(dst, sr, shut, [b, b * 1.5, b * 2.26, b * 3.0, b * 3.9], [1, 0.65, 0.45, 0.3, 0.18], [0.045, 0.032, 0.022, 0.014, 0.01], 0.55);
+          thump(dst, sr, { at: shut, f0: 250, f1: 200, glideTau: 0.012, attack: 0.0004, tau: 0.018, gain: 0.5 });
+          const rod = rng.range(2500, 2900);
+          modes(dst, sr, shut, [rod, rod * 2.76], [1, 0.4], [0.06, 0.03], 0.1);
+        },
+      },
+      burst: {
+        seconds: 0.3,
+        level: 0.95,
+        draw(dst, sr, rng) {
+          // The knob on the left tapped off its notch: a short carrier shut inside the shell, a knock more than a ring.
+          clink(dst, sr, rng, 0, rng.range(3200, 3600), 0.35, 0.003);
+          const t = rng.range(0.01, 0.014);
+          scrape(dst, sr, rng, t, 0.02, 0.35, 2600, 1700);
+          const shut = t + 0.02;
+          noiseBurst(dst, sr, rng, { at: shut, attack: 0.0001, tau: 0.002, gain: 1.1, mode: 'bandpass', freq: rng.range(2300, 2700), q: 0.8, length: 0.022 });
+          const b = rng.range(1400, 1600);
+          modes(dst, sr, shut, [b, b * 1.5, b * 2.2, b * 2.9], [1, 0.55, 0.35, 0.2], [0.014, 0.01, 0.007, 0.005], 0.45);
+          const shell = rng.range(620, 700);
+          modes(dst, sr, shut, [shell, shell * 1.62], [1, 0.5], [0.02, 0.012], 0.4);
         },
       },
     },
@@ -319,6 +467,19 @@ export const chargingHandleVoice = (): Voice & VoiceExtras =>
           clack(dst, sr, rng, r + 0.02, { noiseFreq: 2700, base: rng.range(1500, 1700), gain: 1, tau: 0.016, body: 320 });
           const spring = rng.range(950, 1050);
           thump(dst, sr, { at: r + 0.02, f0: spring, f1: spring, glideTau: 1, attack: 0.003, tau: 0.04, gain: 0.12, vibrato: { rate: 38, depth: 0.03 } });
+        },
+      },
+      lmg: {
+        seconds: 0.62,
+        level: 1.2,
+        draw(dst, sr, rng) {
+          // A long pull against two springs until the sear takes the bolt, then the handle shoved forward again.
+          clink(dst, sr, rng, 0, rng.range(2000, 2300), 0.4, 0.006);
+          scrape(dst, sr, rng, 0.006, 0.18, 0.65, 700, 1700);
+          clack(dst, sr, rng, rng.range(0.185, 0.2), { noiseFreq: 1300, base: rng.range(760, 860), gain: 1, tau: 0.03, body: 180 });
+          const r = rng.range(0.3, 0.33);
+          scrape(dst, sr, rng, r, 0.09, 0.4, 1500, 900);
+          clack(dst, sr, rng, r + 0.095, { noiseFreq: 1900, base: rng.range(1200, 1350), gain: 0.75, tau: 0.016 });
         },
       },
     },
@@ -379,6 +540,53 @@ export const weaponRaiseVoice = (): Voice & VoiceExtras =>
           rattle(dst, sr, rng, 0.03, 0.34, 5, 0.4, 1400, 2600);
           thud(dst, sr, rng, rng.range(0.28, 0.33), { freq: 240, gain: 0.6, tau: 0.014 });
           clink(dst, sr, rng, rng.range(0.36, 0.4), rng.range(1100, 1300), 0.2, 0.012);
+        },
+      },
+      lmg: {
+        seconds: 0.7,
+        level: 1.2,
+        draw(dst, sr, rng) {
+          // Ten kilos and a belt: hauled up slowly, the links chattering in the box, the bipod knocking, a heavy settle.
+          cloth(dst, sr, rng, 0, 0.55, 0.8, 850);
+          rattle(dst, sr, rng, 0.04, 0.45, 10, 0.45, 3600, 6200);
+          clack(dst, sr, rng, rng.range(0.14, 0.2), { noiseFreq: 1200, base: rng.range(640, 720), gain: 0.45, tau: 0.02 });
+          thud(dst, sr, rng, rng.range(0.4, 0.46), { freq: 210, gain: 0.7, tau: 0.016 });
+          clink(dst, sr, rng, rng.range(0.5, 0.55), rng.range(1000, 1200), 0.2, 0.014);
+        },
+      },
+      dmr: {
+        seconds: 0.5,
+        level: 1.05,
+        draw(dst, sr, rng) {
+          // A long rifle in wood: little to rattle but the sling swivels, and a dull knock as the stock finds the shoulder.
+          cloth(dst, sr, rng, 0, 0.38, 0.8, 950);
+          rattle(dst, sr, rng, 0.04, 0.26, 3, 0.35, 1300, 2200);
+          thud(dst, sr, rng, rng.range(0.25, 0.3), { freq: 270, gain: 0.6, tau: 0.013 });
+          thud(dst, sr, rng, rng.range(0.32, 0.36), { freq: 520, gain: 0.2, tau: 0.006 });
+        },
+      },
+      burst: {
+        seconds: 0.36,
+        level: 0.9,
+        draw(dst, sr, rng) {
+          // Short and all of a piece: turned in against the chest, a hollow tap on the shell, nothing loose.
+          cloth(dst, sr, rng, 0, 0.26, 0.85, 1350);
+          rattle(dst, sr, rng, 0.02, 0.16, 2, 0.25, 2000, 3200);
+          const shell = rng.range(600, 680);
+          thump(dst, sr, { at: rng.range(0.15, 0.19), f0: shell, f1: shell * 0.9, glideTau: 0.012, attack: 0.001, tau: 0.016, gain: 0.3 });
+          thud(dst, sr, rng, rng.range(0.2, 0.23), { freq: 430, gain: 0.3, tau: 0.008 });
+        },
+      },
+      revolver: {
+        seconds: 0.3,
+        level: 0.8,
+        draw(dst, sr, rng) {
+          // Out of leather: a strap thumbed off, a long barrel dragged clear, and the cylinder ticking a little on its hand.
+          clack(dst, sr, rng, 0, { noiseFreq: 1800, base: rng.range(1100, 1250), gain: 0.4, tau: 0.006 });
+          scrape(dst, sr, rng, 0.012, 0.11, 0.6, 900, 1700);
+          cloth(dst, sr, rng, 0.02, 0.18, 0.5, 1100);
+          clink(dst, sr, rng, rng.range(0.14, 0.17), rng.range(2500, 2800), 0.25, 0.005);
+          thud(dst, sr, rng, rng.range(0.17, 0.2), { freq: 520, gain: 0.25, tau: 0.006 });
         },
       },
     },

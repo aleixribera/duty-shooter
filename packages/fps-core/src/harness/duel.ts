@@ -154,21 +154,42 @@ export function balanceRuns(rounds = 12, weapons: readonly WeaponId[] = DUEL_WEA
   const cells: DuelCell[] = [];
   for (const [i, a] of weapons.entries()) {
     for (const b of weapons.slice(i + 1)) {
-      for (const distance of distances) {
-        let winsA = 0;
-        let winsB = 0;
-        for (let r = 0; r < rounds; r++) {
-          const seed = r * 7919 + distance * 31 + i;
-          const first = BOT_NAMES[(r * 2) % BOT_NAMES.length]!;
-          const second = BOT_NAMES[(r * 2 + 1) % BOT_NAMES.length]!;
-          for (const [na, nb, swap] of [[first, second, false], [second, first, true]] as const) {
-            const { winner } = botDuel({ a: { weapon: a, name: na }, b: { weapon: b, name: nb }, distance, seed, swap });
-            if (winner === 'a') winsA++;
-            else if (winner === 'b') winsB++;
-          }
-        }
-        cells.push({ a, b, distance, duels: rounds * 2, winsA, winsB });
-      }
+      for (const distance of distances) cells.push(duelCell(a, b, distance, rounds, i));
+    }
+  }
+  return cells;
+}
+
+/** One cell: `rounds` seeded duels of `a` against `b` at `distance`, each fought both ways round. */
+function duelCell(a: WeaponId, b: WeaponId, distance: number, rounds: number, salt: number): DuelCell {
+  let winsA = 0;
+  let winsB = 0;
+  for (let r = 0; r < rounds; r++) {
+    const seed = r * 7919 + distance * 31 + salt;
+    const first = BOT_NAMES[(r * 2) % BOT_NAMES.length]!;
+    const second = BOT_NAMES[(r * 2 + 1) % BOT_NAMES.length]!;
+    for (const [na, nb, swap] of [[first, second, false], [second, first, true]] as const) {
+      const { winner } = botDuel({ a: { weapon: a, name: na }, b: { weapon: b, name: nb }, distance, seed, swap });
+      if (winner === 'a') winsA++;
+      else if (winner === 'b') winsB++;
+    }
+  }
+  return { a, b, distance, duels: rounds * 2, winsA, winsB };
+}
+
+/**
+ * The primaries that came after the four and own no band of their own: the
+ * machine gun, the marksman rifle and the burst rifle. Each has to hold its
+ * place among the four without taking a band from its owner.
+ */
+export const CHALLENGER_WEAPONS: readonly WeaponId[] = ['lmg', 'dmr', 'burst'];
+
+/** Every challenger against every one of the four at every distance: `a` is the challenger. */
+export function challengerRuns(rounds = 12, challengers: readonly WeaponId[] = CHALLENGER_WEAPONS, against: readonly WeaponId[] = DUEL_WEAPONS, distances: readonly number[] = DUEL_DISTANCES): DuelCell[] {
+  const cells: DuelCell[] = [];
+  for (const [i, a] of challengers.entries()) {
+    for (const b of against) {
+      for (const distance of distances) cells.push(duelCell(a, b, distance, rounds, against.length + i));
     }
   }
   return cells;

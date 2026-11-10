@@ -17,6 +17,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { chunkStep, TERRAIN_CHUNK, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh, type TerrainMesh } from './surfaces';
 import { seabedMaterial, terrainMaterial } from './surface-materials';
 import { hasDistanceDetail } from './detail';
+import { filterByQuality } from './quality';
 import { groundLayerIndex } from './ground-layers';
 
 /** The coarsest step: every chunk has it from the start, so nothing is ever a hole. */
@@ -97,7 +98,7 @@ export class TerrainView {
     t.magFilter = LinearFilter;
     t.minFilter = LinearMipmapLinearFilter;
     t.generateMipmaps = true;
-    t.anisotropy = 4;
+    filterByQuality(t, 4);
     t.needsUpdate = true;
     this.#colors = t;
     const width = data.columns * data.cell;

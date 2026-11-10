@@ -11,6 +11,7 @@
  *   reverb returns ----------+-> world -> low-health low-pass        +-> under the announcer -> master
  *                                 -> blast low-pass -> blast duck -. |
  *   your own gun and body -> local --------------------------------+-> effects bus
+ *   the recorded voice -> voice bus ----------------------------------------------------------> master
  *   UI sounds -> UI bus ----------------------------------------------------------------------> master
  */
 import { Heartbeat, TINNITUS, WORLD_OPEN_HZ, dangerCutoff, dangerLevel } from './danger';
@@ -19,6 +20,7 @@ import { DEFAULT_MIX, DUCK, DuckEnvelope, VOICE_DUCK_DB, dbToLinear, mergeMix, m
 import { createMusicPlayer, renderStems, type Music, type MusicPlayer, type MusicState } from './music/player';
 import type { MusicScene } from './music/scene';
 import { rememberSampleRate, startPrerender } from './prerender';
+import { createSpeech } from './speech';
 import type { SoundEventName, SoundLogEntry, SoundParams, SoundState, SoundSystem, Voice, VoiceExtras, VoiceParams } from './types';
 import { createDefaultVoices } from './voices';
 
@@ -77,6 +79,11 @@ const PROFILES: Record<SoundEventName, Profile> = {
   boltOpen: handling,
   boltClose: handling,
   shellInsert: handling,
+  coverOpen: handling,
+  coverShut: handling,
+  cylinderOpen: handling,
+  cylinderLoad: handling,
+  cylinderShut: handling,
   grenadePin: handling,
   grenadeThrow: handling,
   grenadeBounce: { cap: 6, ref: 3, rolloff: 1.2, send: 0.1, indoorSend: 0.2 },
@@ -94,6 +101,9 @@ const PROFILES: Record<SoundEventName, Profile> = {
   rankUp: { ...ui, cap: 1 },
   challengeDone: { ...ui, cap: 2, level: 0.9 },
   damageTaken: { ...ui, cap: 3, level: 0.5, bus: 'effects' },
+  // A voice carries less far than the gun that caused it: close work is heard, a firefight across the map is not a chorus.
+  pain: { cap: 4, ref: 2.5, rolloff: 1.3, send: 0.06, indoorSend: 0.14, level: 0.8 },
+  death: { cap: 3, ref: 3, rolloff: 1.2, send: 0.08, indoorSend: 0.16, level: 0.85 },
   // Heard across the whole town and far beyond: barely fades with distance, and rings off the desert.
   nukeSiren: { cap: 1, ref: 40, rolloff: 0.5, send: 0.5, indoorSend: 0.3, level: 0.5 },
   nukeBlast: { cap: 1, ref: 600, rolloff: 0.2, send: 0.6, indoorSend: 0.4 },
@@ -311,7 +321,7 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
     const buses: Record<BusName, GainNode> = {
       music: gain(mix.music, underVoice),
       effects: gain(mix.effects, underVoice),
-      // Nothing plays here yet (the announcer is the browser's own speech): a recorded voice's place.
+      // The recorded voice (speech.ts): over the duck it asks of everything else.
       voice: gain(mix.voice, master),
       ui: gain(mix.ui, master),
     };
@@ -617,6 +627,13 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
     }
   };
 
+  const speech = createSpeech({
+    context: () => ctx,
+    out: () => graph?.buses.voice ?? null,
+    running,
+    duck: (seconds) => system.duckForVoice(seconds),
+  });
+
   const music: Music = {
     setScene(next, timeLeft = null) {
       scene = { scene: next, timeLeft };
@@ -648,6 +665,7 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
           return;
         }
         rememberSampleRate(ctx.sampleRate);
+        speech.attach();
         const resumed = ctx.state === 'running' ? Promise.resolve() : ctx.resume().catch(() => undefined);
         // The context has to start inside the press, but rendering here would hold that press up: with the worker's samples in, the rest is copies.
         const c = ctx;
@@ -732,6 +750,8 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
 
     music,
 
+    speech,
+
     setHealth(health) {
       lowHealth = dangerLevel(health) > 0 ? health : null;
       if (!ctx || !graph || !running()) return;
@@ -803,6 +823,7 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
         lowHealth,
         tinnitus: rung,
         music: music.state,
+        speech: speech.state,
       };
     },
 

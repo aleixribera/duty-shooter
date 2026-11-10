@@ -34,7 +34,7 @@ export interface CardIsland {
 }
 
 export const MATCH_CARD_CSS = `
-.ds-card { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); width: min(980px, calc(100vw - 112px)); display: none; grid-template-columns: minmax(0, 1fr) auto; gap: 0; background: var(--ds-scrim); border: 1px solid var(--ds-line); animation: ds-in var(--ds-slow) var(--ds-ease); font-variant-numeric: tabular-nums; }
+.ds-card { position: absolute; left: 50%; top: calc(48px + var(--ds-safe-t)); transform: translateX(-50%); width: min(980px, calc(100vw - 112px)); display: none; grid-template-columns: minmax(0, 1fr) auto; gap: 0; background: var(--ds-scrim); border: 1px solid var(--ds-line); animation: ds-in var(--ds-slow) var(--ds-ease); font-variant-numeric: tabular-nums; }
 .ds-card.on { display: grid; }
 .ds-card .facts { display: flex; flex-direction: column; gap: 18px; padding: 28px 32px; min-width: 0; }
 /* The facts proper lay out as the column's own rows; the XP strip and the line with the clock are drawn apart from them. */
@@ -44,7 +44,7 @@ export const MATCH_CARD_CSS = `
 .ds-card .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-card .what.won { color: var(--ds-signal); }
 .ds-card .place { display: flex; align-items: baseline; gap: 14px; }
-.ds-card .place b { font-size: 96px; line-height: 0.9; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
+.ds-card .place b { font-size: var(--ds-type-display); line-height: 0.9; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
 .ds-card .place span { font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-card .winners { font-size: var(--ds-type-body); color: var(--ds-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-card .winners b { color: var(--ds-text); font-weight: 700; }
@@ -53,19 +53,19 @@ export const MATCH_CARD_CSS = `
 .ds-card .next { margin-top: auto; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-card .map { position: relative; padding: 20px; border-left: 1px solid var(--ds-line); display: flex; flex-direction: column; gap: 10px; }
 .ds-card canvas { display: block; width: 380px; height: 380px; background: var(--ds-ink); border: 1px solid var(--ds-line-2); }
-.ds-card .key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--ds-text-2); }
+.ds-card .key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-card .key span { display: inline-flex; align-items: center; gap: 6px; }
 .ds-card .key i { display: inline-block; }
 .ds-card .key i.route { width: 18px; height: 0; border-top: 2px solid var(--ds-text); }
 .ds-card .key i.fight { width: 9px; height: 9px; border: 2px solid var(--ds-text); transform: rotate(45deg); }
-.ds-card .key i.fell { width: 10px; height: 10px; color: var(--ds-alert); font-style: normal; font-weight: 700; line-height: 10px; font-size: 13px; }
+.ds-card .key i.fell { width: 10px; height: 10px; color: var(--ds-alert); font-style: normal; font-weight: 700; line-height: 10px; font-size: var(--ds-type-small); }
 .ds-card .key i.fell::before { content: '✕'; }
 @media (max-width: 860px) {
-  .ds-card { top: 12px; width: calc(100vw - 24px); grid-template-columns: minmax(0, 1fr); max-height: calc(100vh - 24px); overflow: hidden; }
+  .ds-card { top: calc(12px + var(--ds-safe-t)); width: calc(100vw - 24px); grid-template-columns: minmax(0, 1fr); max-height: calc(100vh - 24px); overflow: hidden; }
   .ds-card .facts { padding: 16px 16px 12px; gap: 12px; }
-  .ds-card .place b { font-size: 64px; }
+  .ds-card .place b { font-size: var(--ds-type-display); }
   .ds-card .ds-readouts > div { padding: 8px 10px; }
-  .ds-card .ds-readouts b { font-size: 18px; }
+  .ds-card .ds-readouts b { font-size: var(--ds-type-body); }
   .ds-card .map { padding: 0 16px 16px; border-left: 0; }
   .ds-card canvas { width: min(calc(100vw - 58px), calc(100vh - 470px)); height: min(calc(100vw - 58px), calc(100vh - 470px)); min-width: 180px; min-height: 180px; }
   .ds-card .next { order: 9; }

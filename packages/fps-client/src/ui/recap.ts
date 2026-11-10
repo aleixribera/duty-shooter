@@ -316,8 +316,8 @@ export const RECAP_CSS = `
 .ds-recap-in .nums { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; margin-top: 4px; }
 .ds-recap-in .nums > div { display: flex; flex-direction: column; padding: 0 14px; border-left: 1px solid var(--ds-line-2); }
 .ds-recap-in .nums > div:first-child { padding-left: 0; border-left: 0; }
-.ds-recap-in .nums span { font-size: 11px; color: var(--ds-text-2); white-space: nowrap; }
-.ds-recap-in .nums b { font-size: 20px; line-height: 1.1; }
+.ds-recap-in .nums span { font-size: var(--ds-type-small); color: var(--ds-text-2); white-space: nowrap; }
+.ds-recap-in .nums b { font-size: var(--ds-type-heading); line-height: 1.1; }
 .ds-recap-in .nums .low b { color: var(--ds-alert); }
 `;
 

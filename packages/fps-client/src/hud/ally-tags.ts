@@ -1,5 +1,5 @@
 import { teamMode, type ModeId, type PlayerOutput, type TeamId } from '@duty-shooter/fps-core';
-import { pinMarker } from './markers';
+import { offTouchCorners, pinMarker } from './markers';
 
 /** How far (m) an ally's name shows over their head; past it, and through walls, only the chevron (ticket 52). */
 export const NAME_RANGE = 40;
@@ -11,6 +11,11 @@ export const NAME_RANGE = 40;
 const COVER = { half: 80, up: 64, down: 16 };
 /** How near an edge (px) a tag counts as off screen and pins to it. */
 const INSET = 24;
+/** An edge tag (a name over a chevron, centred on its pin): half its height, and the box two of them may not share (px). */
+const EDGE_HALF = 20;
+const EDGE_BOX = { width: 104, height: 42 };
+/** How near (px) two names over heads lie on each other. */
+const NAME_BOX = { width: 110, height: 24 };
 
 /** An ally as the game sees them this frame: where the point over their head projects, and what you can see of them. */
 export interface AllySeen {
@@ -32,7 +37,7 @@ export interface AllySeen {
 /** What one ally's tag shows, and where. */
 export interface AllyTag {
   readonly id: string;
-  /** The name over their head, or null when only the mark shows. */
+  /** The name over their head, or beside the mark at the screen's edge (a bare chevron there says nothing of who it points at); null when only the mark shows. */
   readonly name: string | null;
   readonly mark: 'chevron' | 'downed';
   /** Under the mark: how far a Downed ally is, or "Revive" in reach; null otherwise. */
@@ -58,7 +63,7 @@ export function alliesOf(players: readonly PlayerOutput[], view: string | null, 
 }
 
 /** Lays out one ally's tag: name near and in sight, a chevron always, held to the screen's edge when off it. */
-export function allyTag(a: AllySeen, width: number, height: number): AllyTag {
+export function allyTag(a: AllySeen, width: number, height: number, touch = false): AllyTag {
   const onScreen = !a.behind && a.x >= INSET && a.x <= width - INSET && a.y >= INSET && a.y <= height - INSET;
   const name = onScreen && a.seen && a.distance <= NAME_RANGE ? a.name : null;
   const label = a.downed ? (a.inReach ? 'Revive' : `${Math.round(a.distance)} m`) : null;
@@ -69,10 +74,46 @@ export function allyTag(a: AllySeen, width: number, height: number): AllyTag {
     const faded = Math.abs(a.x - cx) < COVER.half && cy > a.y - COVER.up && cy < a.y + COVER.down;
     return { id: a.id, name, mark, label, x: a.x, y: a.y, edge: false, angle: 0, faded };
   }
-  const pin = pinMarker(a.x, a.y, a.behind, width, height);
+  // The tag centres on its pin, so it is its foot that keeps off the readouts' corners and the touch controls.
+  const foot = pinMarker(a.x, a.y + EDGE_HALF, a.behind, width, height, touch);
+  const pin = { x: foot.x, y: foot.y - EDGE_HALF };
   // Toward the ally from the screen's centre; straight down when they're behind you.
   const angle = a.behind ? 0 : (Math.atan2(a.y - height / 2, a.x - width / 2) * 180) / Math.PI - 90;
-  return { id: a.id, name: null, mark, label, x: pin.x, y: pin.y, edge: true, angle: Math.round(angle), faded: false };
+  return { id: a.id, name: a.name, mark, label, x: pin.x, y: pin.y, edge: true, angle: Math.round(angle), faded: false };
+}
+
+/**
+ * Every ally's tag, parted where two would lie on each other (design audit 2026-11-10): of two names
+ * over heads that overlap, the nearer ally keeps theirs and the other is down to its chevron; of two
+ * tags held to the same stretch of an edge, the later one steps up the edge (sideways, at the top).
+ */
+export function allyTags(allies: readonly AllySeen[], width: number, height: number, touch = false): AllyTag[] {
+  const tags = allies.map((a) => allyTag(a, width, height, touch));
+  const named: AllyTag[] = [];
+  const nearestFirst = allies.map((_, i) => i).sort((i, j) => allies[i]!.distance - allies[j]!.distance);
+  for (const i of nearestFirst) {
+    const t = tags[i]!;
+    if (t.edge || t.name === null) continue;
+    if (named.some((n) => Math.abs(n.x - t.x) < NAME_BOX.width && Math.abs(n.y - t.y) < NAME_BOX.height)) tags[i] = { ...t, name: null };
+    else named.push(t);
+  }
+  const placed: { x: number; y: number }[] = [];
+  const taken = (x: number, y: number) => placed.some((p) => Math.abs(p.x - x) < EDGE_BOX.width && Math.abs(p.y - y) < EDGE_BOX.height);
+  for (let i = 0; i < tags.length; i++) {
+    const t = tags[i]!;
+    if (!t.edge) continue;
+    let { x, y } = t;
+    for (let k = 1; taken(x, y) && k <= tags.length; k++) {
+      const up = t.y - k * EDGE_BOX.height;
+      // Up the edge while there is screen left; from the top, in toward the middle.
+      if (up >= EDGE_HALF + 16) y = up;
+      else x = t.x + (t.x < width / 2 ? k : -k) * EDGE_BOX.width;
+      if (touch) x = offTouchCorners(x, y + EDGE_HALF, width);
+    }
+    placed.push({ x, y });
+    if (x !== t.x || y !== t.y) tags[i] = { ...t, x, y };
+  }
+  return tags;
 }
 
 const CHEVRON = '<svg viewBox="0 0 24 15" width="24" height="15" aria-hidden="true"><path class="o" d="M3 3 12 12 21 3"/><path class="i" d="M3 3 12 12 21 3"/></svg>';
@@ -83,13 +124,14 @@ export const ALLY_TAGS_CSS = `
 .ds-ally { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; transition: opacity var(--ds-fast) var(--ds-ease); }
 .ds-ally.faded { opacity: 0.3; }
 .ds-ally .name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; padding: 1px 7px 2px; background: var(--ds-scrim-soft); color: var(--ds-signal); font-size: var(--ds-type-small); font-weight: 700; line-height: 1.25; }
+.ds-ally.edge .name { max-width: 96px; }
 .ds-ally svg { display: block; overflow: visible; }
 .ds-ally svg path { fill: none; stroke-linecap: square; }
 .ds-ally svg .o { stroke: var(--ds-ink); stroke-width: 6.5; stroke-opacity: 0.85; }
 .ds-ally svg .i { stroke: var(--ds-signal); stroke-width: 3; }
 .ds-ally.downed svg .o { stroke-width: 8; }
 .ds-ally.downed svg .i { stroke: var(--ds-alert); stroke-width: 4; }
-.ds-ally .label { padding: 0 6px 1px; background: var(--ds-scrim-soft); color: var(--ds-text); font-size: 12px; line-height: 1.3; }
+.ds-ally .label { padding: 0 6px 1px; background: var(--ds-scrim-soft); color: var(--ds-text); font-size: var(--ds-type-small); line-height: 1.3; }
 .ds-ally .label.reach { color: var(--ds-signal); font-weight: 700; }
 `;
 

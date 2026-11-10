@@ -25,6 +25,7 @@ import {
   type PlayerId,
   type PlayerOutput,
   type Score,
+  type TeamId,
   type UserCmd,
   type Vec3,
   type TrapKind,
@@ -37,10 +38,10 @@ import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURe
 import { ArsenalView } from './arsenal-view';
 import type { SoundEventName, SoundParams, SoundSystem } from './audio';
 import { tinnitusStrength } from './audio/danger';
-import { speechSeconds, speechVolume } from './audio/mix';
+import { speechVolume } from './audio/mix';
 import { matchScene } from './audio/music/scene';
 import { SIREN_OVERLAP } from './audio/countdown';
-import { clockRan, colourDrain, countdownCall, countdownLine, eased, lastMinuteLight, lastTenBeat, type MapEnding } from './last-minute';
+import { clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastTenBeat, type MapEnding } from './last-minute';
 import { grenadeWarnings } from './hud/grenade-warnings';
 import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds';
 import { FirstPersonCamera, shotPose } from './camera';
@@ -49,12 +50,18 @@ import { Tracers } from './tracers';
 import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
 import { TEAMS, chargeRoster } from './ui/model';
 import { InputController } from './input';
+import { AUTO_FIRE_IDLE, BODY_RADIUS, aimAt, aimSlowdown, autoFire, autoFireRange, type AimRead, type AutoFireState } from './touch/logic';
+import { hintLine, hintState, stepHints, type HintLine, type HintNames } from './hints';
+import { hintMemory, hintMemoryCleared, saveHintMemory } from './hint-store';
 import { FixedTickLoop } from './loop';
 import { ChargeSounds } from './charge-sounds';
 import { DETONATION, Nuke, nukeFrame, sinceMatchEnd, victoryTime } from './nuke';
 import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline } from './pipeline';
+import { STEP_LENGTH } from './motion';
+import type { QualityProfile } from './quality';
+import { useColourVision } from './team-colours';
 import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
 import type { GameDriver, PresentedEvent } from './session';
@@ -75,11 +82,13 @@ import type { MatchCardState } from './hud/match-card';
 import { GAIN_RANK_UP_AT } from './hud/match-gain';
 import { scoreFeedEntry } from './hud/score-feed';
 import { MatchKeeper, type ProfileStore } from './profile';
+import { CourseRun, courseGrade, type CourseGates } from './course-run';
+import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-clock';
 import { MatchLog, type RecapLookup } from './ui/recap';
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
-import { AllySight, alliesOf, allyTag, type AllyTag } from './hud/ally-tags';
+import { AllySight, alliesOf, allyTags, type AllySeen, type AllyTag } from './hud/ally-tags';
 import { RING_STAGES, heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedParts, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
 import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
@@ -89,7 +98,8 @@ import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
-import { Announcer, browserSpeaker, leftLine } from './announcer';
+import { Announcer, LeadCalls, browserSpeaker, closesRange, leadOf, leftLine, liveLine, loadRangeControl } from './announcer';
+import { VOICE_LINES, VOICE_ON_THE_SECOND, type VoiceLineId } from './voice-lines';
 
 /** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
 const OPEN_AMBIENT = 0.4;
@@ -126,6 +136,8 @@ export interface GameOptions {
   readonly rangeLanesWestOf?: number | null;
   /** This browser's Profile: a match played to its end is banked in it. Without one, nothing is kept. */
   readonly profile?: ProfileStore | null;
+  /** The map's timed movement Course (the Practice Range's), clocked while no match is on; null (the default) for none. */
+  readonly course?: CourseGates | null;
 }
 
 /** Per-action timings for the weapon's foley, in seconds into the action. */
@@ -140,13 +152,21 @@ function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventNa
     }
     const empty = w.reload === 'empty';
     const add = empty ? r.emptyAddAmmo.value : r.tacticalAddAmmo.value;
+    // A belt and a cylinder are reloads of their own; these are the times of their hands (the tracks in viewmodel.ts).
+    if (row.traits.reload === 'belt') {
+      const shut = add - (empty ? 0.62 : 0.06);
+      const belt: [number, SoundEventName][] = [[0.5, 'coverOpen'], [1.32, 'reloadMagOut'], [shut * 0.79 - 0.09, 'reloadMagIn'], [shut - 0.09, 'coverShut']];
+      if (empty) belt.push([shut + 0.26, 'reloadChargingHandle']);
+      return belt;
+    }
+    if (row.traits.reload === 'cylinder') return [[0.16 * (add / 2), 'cylinderOpen'], [(1.56 * add) / 2 - 0.15, 'cylinderLoad'], [add - 0.035, 'cylinderShut']];
     const cues: [number, SoundEventName][] = [
       [0.32, 'reloadMagOut'],
       [add - (empty ? 0.55 : 0.22), 'reloadMagIn'],
     ];
     // An empty gun is made ready its own way: the .308's bolt worked by hand, a catch or slide stop let go, a handle racked.
     if (empty && w.id === 'sniper') cues.push([add - 0.34, 'boltOpen'], [add - 0.08, 'boltClose']);
-    else if (empty) cues.push([add - 0.08, w.id === 'm4a1' || w.id === 'pistol' ? 'reloadBoltRelease' : 'reloadChargingHandle']);
+    else if (empty) cues.push([add - 0.08, w.id === 'm4a1' || w.id === 'pistol' || w.id === 'dmr' || w.id === 'burst' ? 'reloadBoltRelease' : 'reloadChargingHandle']);
     return cues;
   }
   if (w.action === 'cycle') {
@@ -171,14 +191,13 @@ function killedWith(cause: string, weapon: KillWeapon | null): string {
 }
 
 /** How hard each gun kicks the camera, against the M4A1's 1. */
-const CAMERA_KICK: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.7, pistol: 0.9, shotgun: 2.6, sniper: 3 };
+const CAMERA_KICK: Readonly<Record<WeaponId, number>> = { m4a1: 1, smg: 0.7, pistol: 0.9, shotgun: 2.6, sniper: 3, lmg: 0.85, dmr: 1.8, burst: 0.8, revolver: 2 };
 
 /** Each sound trap's sound (ticket 72). */
 const TRAP_SOUNDS: Readonly<Record<TrapKind, SoundEventName>> = { birds: 'trapBirds', metal: 'trapMetal', gravel: 'trapGravel' };
 /** The guns whose rounds crack past the listener, and how near (m) a miss must pass to be heard cracking. */
-const SUPERSONIC: ReadonlySet<WeaponId> = new Set<WeaponId>(['m4a1', 'sniper']);
+const SUPERSONIC: ReadonlySet<WeaponId> = new Set<WeaponId>(['m4a1', 'sniper', 'lmg', 'dmr', 'burst']);
 const CRACK_MISS = 5;
-const STEP_LENGTH: Readonly<Record<string, number>> = { walk: 1.45, sprint: 1.75, crouch: 1.1, prone: 0.9 };
 
 interface Tracked {
   stepDistance: number;
@@ -192,6 +211,11 @@ interface Engagement {
   shots: number;
   hits: number;
 }
+
+/** The least time between one soldier's grunts (s): another's, and your own; and the damage one hit has to do before your own body says anything. */
+const GRUNT_EVERY = 0.7;
+const OWN_GRUNT_EVERY = 1.4;
+const OWN_GRUNT_FROM = 25;
 
 /** How fast the picture's moods move, a second: the colour drains and returns in a third of one, the last minute's light follows its clock and leaves over two. */
 const MOOD_RATES = { drain: 3, dreadIn: 4, dreadOut: 0.5 } as const;
@@ -221,7 +245,7 @@ export class Game {
   readonly #tracers: Tracers;
   /** The circles on the ground at the Outposts zones. */
   readonly #zoneRings: ZoneRings;
-  readonly #pipeline: GamePipeline;
+  #pipeline: GamePipeline;
   readonly #loop = new FixedTickLoop();
   readonly #sound: SoundSystem;
   #overview: GameOptions['overview'];
@@ -234,6 +258,12 @@ export class Game {
   #cur: PlayerOutput | null = null;
   #cmd: UserCmd | null = null;
   #others: readonly PlayerOutput[] = [];
+  /** Touch's auto-fire: how long the crosshair has rested on an enemy, and whether its trigger is down. */
+  #autoFire: AutoFireState = AUTO_FIRE_IDLE;
+  /** The first-match hints (ticket 26): their state, the clear of the memory it was built on, and whether the loadout screen opened since the last frame. */
+  #hints = hintState(hintMemory());
+  #hintsCleared = hintMemoryCleared();
+  #loadoutOpened = false;
   #lastFrame: number | null = null;
   #frameStart = 0;
   #fps = 60;
@@ -246,6 +276,12 @@ export class Game {
   #message: string | null = null;
   readonly #loadoutStation: GameOptions['loadoutStation'];
   readonly #rangeLanesWestOf: number | null;
+  readonly #course: { readonly gates: CourseGates; readonly run: CourseRun; readonly clock: CourseClockView } | null;
+  readonly #profileStore: ProfileStore | null;
+  /** The Course's best time as this session knows it (the Profile's, or the session's own without one). */
+  #courseBest: number | null = null;
+  /** A finished run's result while it is held up, and the sim time it goes. */
+  #courseResult: { readonly face: CourseFace; readonly until: number } | null = null;
   /** The map's Outposts zones, for their markers. */
   readonly #zones: readonly Zone[];
   /** The map's Charge sites, for their markers. */
@@ -282,7 +318,10 @@ export class Game {
   readonly #ringSounds = new RingSounds();
   #ringPhase: RingPhase | null = null;
   /** The announcer (ticket 72), and the Squads left when it last looked (null outside a Battle Royale). */
-  readonly #announcer = new Announcer(browserSpeaker());
+  readonly #announcer: Announcer;
+  readonly #leadCalls = new LeadCalls();
+  /** When each soldier last grunted (s). */
+  readonly #grunted = new Map<PlayerId, number>();
   #squadsLeft: number | null = null;
   /** The last minute's siren and counter (ticket 24), where the siren stands on this map, and whether the match was under way a frame ago (null: no match). */
   readonly #countdownSounds = new CountdownSounds();
@@ -343,6 +382,8 @@ export class Game {
     this.#settings = options.settings;
     this.#world = options.world;
     this.#sound = options.sound;
+    loadRangeControl(this.#sound.speech);
+    this.#announcer = new Announcer(this.#sound.speech, browserSpeaker(), (seconds) => this.#sound.duckForVoice(seconds));
     this.#overview = options.overview;
     this.#nukeAt = options.content.nuke ?? null;
     this.#endingShot = this.#nukeAt?.shot ?? options.content.train?.shot ?? null;
@@ -350,6 +391,8 @@ export class Game {
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#rangeLanesWestOf = options.rangeLanesWestOf ?? null;
     this.#keeper = new MatchKeeper(options.profile ?? null);
+    this.#profileStore = options.profile ?? null;
+    this.#courseBest = this.#profileStore?.profile.courseBest ?? null;
     this.#indoorZones = options.content.indoorZones;
     this.#zones = options.content.zones ?? [];
     this.#sites = options.content.sites ?? [];
@@ -383,6 +426,7 @@ export class Game {
     this.#nuke = this.#nukeAt ? new Nuke(this.#worldView.scene, this.#nukeAt.groundZero) : null;
     this.input = new InputController(options.canvas, options.settings);
     this.hud = new Hud(document.body);
+    this.#course = options.course ? { gates: options.course, run: new CourseRun(options.course), clock: new CourseClockView(this.hud.root) } : null;
     if (options.content.places && options.content.terrain) this.hud.setIsland({ terrain: options.content.terrain, colors: options.content.terrainColors ?? [0x808080], places: options.content.places });
     this.hud.visible = false;
     this.hud.onVote = (mode) => this.#vote(mode);
@@ -448,6 +492,11 @@ export class Game {
     this.#dread = 0;
     this.#clockWas = null;
     this.#pipeline.setMood(0, 0, 0);
+    // Range Control was talking to the game that was left: it stops mid-word, and the next game's first frame is not this one's last.
+    this.#announcer.stop();
+    this.#matchLive = null;
+    this.#leadCalls.reset();
+    this.#grunted.clear();
     this.hud.visible = driver !== null;
   }
 
@@ -470,9 +519,51 @@ export class Game {
     this.input.settings = settings;
     const mix = mixOf(settings);
     this.#sound.setMix(mix);
-    // The announcer speaks outside the audio graph: its bus's level and the master reach it as one volume.
+    // The recorded voice has its bus; the stand-in speaks outside the audio graph, and takes the bus's level and the master as one volume.
     this.#announcer.volume = speechVolume(mix);
+    // The team colours and the enemy marker's: the HUD follows at once, the world as its soldiers and rings are next built.
+    useColourVision(settings.colourVision);
+    this.hud.crosshair = settings.crosshair;
+    this.hud.scale = settings.hudScale;
+    if (!settings.captions) this.hud.caption(null);
   }
+
+  /**
+   * Draws the match at another quality tier (ticket 22). The frame is put
+   * together again for it (one hitch while its shaders build), the shadows
+   * change where they are; what a tier thins as the map is built (grass,
+   * scatter, dust) is as it was until the next map.
+   */
+  setQuality(quality: QualityProfile): void {
+    if (quality === this.#pipeline.quality) return;
+    this.#worldView.setQuality(quality);
+    this.#pipeline.dispose();
+    this.#pipeline = new GamePipeline(this.#renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera, quality);
+    this.#resize();
+  }
+
+  /** The tier the match is drawn at. */
+  get quality(): QualityProfile {
+    return this.#pipeline.quality;
+  }
+
+  /** The view as last drawn (vertical FOV in degrees, angles in radians): for scripts checking what the motion settings do. */
+  get view(): { readonly fov: number; readonly pitch: number; readonly roll: number; readonly y: number } {
+    const cam = this.#camera.camera;
+    return { fov: cam.fov, pitch: cam.rotation.x, roll: cam.rotation.z, y: cam.position.y };
+  }
+
+  /** The render scale (see `GamePipeline.renderScale`): dynamic resolution moves it, and the FPS counter shows it when told to. */
+  get renderScale(): number {
+    return this.#pipeline.renderScale;
+  }
+
+  set renderScale(scale: number) {
+    this.#pipeline.renderScale = scale;
+  }
+
+  /** The render scale to show beside the FPS counter, or null to show none (dynamic resolution off). */
+  shownScale: number | null = null;
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
   preload(): Promise<void> {
@@ -552,6 +643,11 @@ export class Game {
   /** `prepare` is waiting for a frame to draw; a game kept ready off screen gets one from `frame` then. */
   get warming(): boolean {
     return this.#warmUp !== null;
+  }
+
+  /** `frame` draws: not while `prepare` builds shaders, when a frame's time says nothing of the picture's cost. */
+  get drawing(): boolean {
+    return !this.#holding;
   }
 
   #prepared: Promise<void> | null = null;
@@ -675,6 +771,9 @@ export class Game {
           speed,
           grounded: self.movement !== 'airborne' && self.movement !== 'mantle' && self.movement !== 'ladder',
           lookDelta,
+          velocity: self.velocity,
+          yaw: pose.yaw,
+          motion: this.#settings.cameraMotion,
           // Downed or Reviving, the hands are on neither gun nor frag.
           alive: self.alive && !self.downed && self.reviving === null,
         },
@@ -890,6 +989,7 @@ export class Game {
     const match = driver.match;
     if (!match || match.phase === 'playing') this.#myVote = null;
     this.#keepProfile(dt, driver);
+    this.#course?.clock.paint(this.#courseFace());
     // The population sign: everyone in the lobby (at least you) and this match's kills.
     this.#worldView.setPopulation(Math.max(driver.scores.length, this.#cur ? 1 : 0), driver.scores.reduce((n, s) => n + s.kills, 0));
     const cam = this.#camera.camera;
@@ -897,6 +997,20 @@ export class Game {
     const status = driver.status;
     const showOverlay = this.#settings.showRangeOverlay && this.#inRange();
     const action = this.#action();
+    // While a crate opens or a Reboot runs, its bar says so in the prompt's place.
+    const prompt = action ? null : this.#prompt();
+    this.#touchHelp(eye, forward);
+    const hint = this.#hint(dt);
+    const playing = !match || match.phase === 'playing';
+    this.input.touchContext = {
+      state: !playing || this.#inShot ? 'over' : this.#cur?.alive ? 'fight' : this.#lastPanel ? 'spectate' : 'wait',
+      use: prompt !== null || action !== null,
+      board: driver.online && driver.scores.length > 0,
+      ping: match !== null && match !== undefined && playing && (teamMode(match.mode) || match.mode === 'battle-royale'),
+      map: this.#royale !== null,
+      mapOpen: this.input.mapOpen,
+      grenades: this.#cur?.grenades ?? 0,
+    };
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
       allies: this.#allyTags(eye),
@@ -906,6 +1020,7 @@ export class Game {
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,
       showFps: this.#settings.showFps,
+      renderScale: this.shownScale,
       showPing: this.#settings.showPing,
       showOverlay,
       targetDistance: showOverlay ? this.#targetDistance(eye, forward) : null,
@@ -931,8 +1046,8 @@ export class Game {
           }
         : null,
       respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,
-      // While a crate opens or a Reboot runs, its bar says so in the prompt's place.
-      prompt: action ? null : this.#prompt(),
+      prompt,
+      hint,
       message: this.#message ?? (status === 'playing' ? null : status === 'connecting' ? 'Connecting…' : status === 'reconnecting' ? 'Reconnecting…' : status),
       zones: this.#zoneMarkers(eye),
       charge: this.#chargeHud(eye),
@@ -1017,7 +1132,7 @@ export class Game {
     const now = performance.now();
     const reach = STATS.royale.reviveReach.value;
     const canRevive = self.alive && !self.downed;
-    return allies.map((p) => {
+    const seenAllies = allies.map((p): AllySeen => {
       const top = p.position[1] + p.eyeHeight;
       const seen = this.#allySight.seen(p.id, now, () => !sightBlocked(this.#world, eye, [p.position[0], top, p.position[2]]));
       const v = new Vector3(p.position[0], top + 0.55, p.position[2]).project(cam);
@@ -1025,12 +1140,9 @@ export class Game {
       const behind = v.z > 1;
       const flat = Math.hypot(p.position[0] - view.position[0], p.position[2] - view.position[2]);
       const inReach = p.downed !== null && canRevive && flat <= reach && Math.abs(p.position[1] - self.position[1]) <= reach;
-      return allyTag(
-        { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind },
-        w,
-        h,
-      );
+      return { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind };
     });
+    return allyTags(seenAllies, w, h, this.input.touchMode);
   }
 
   /** The Charge round, while one is on. */
@@ -1046,7 +1158,7 @@ export class Game {
     if (!self || (match && match.phase !== 'playing')) return null;
     const charge = this.#charge;
     if (!self.alive && match?.mode === 'battle-royale') return null;
-    if (!self.alive || this.#atStation(self) || charge?.phase === 'freeze') return `${this.#useLabel()}  Loadout`;
+    if (!self.alive || this.#atStation(self) || charge?.phase === 'freeze' || this.#counting()) return `${this.#useLabel()}  Loadout`;
     if (charge && !charge.action) {
       if (charge.phase === 'live' && charge.carrier === self.id && this.#sites.some((s) => inSite(s, self.position))) return `Hold ${this.#useLabel()}  Plant`;
       const p = charge.planted?.position;
@@ -1125,6 +1237,9 @@ export class Game {
         speed: Math.hypot(p.velocity[0], p.velocity[2]),
         grounded: p.movement !== 'airborne' && p.movement !== 'mantle' && p.movement !== 'ladder',
         lookDelta,
+        velocity: p.velocity,
+        yaw,
+        motion: this.#settings.cameraMotion,
         alive: p.alive && !p.downed && p.reviving === null,
       },
       dt,
@@ -1173,7 +1288,8 @@ export class Game {
       of: order.length,
       view: this.#spectateView,
       notice,
-      keys: pad ? { prev: 'LT', next: 'RT', view: 'A' } : { prev: shortKey(b.ads), next: shortKey(b.fire), view: shortKey(b.jump) },
+      // On touch the three are buttons on the glass, named by what is drawn on them.
+      keys: this.input.touchMode ? { prev: '\u2039', next: '\u203a', view: '\u25c9' } : pad ? { prev: 'LT', next: 'RT', view: 'A' } : { prev: shortKey(b.ads), next: shortKey(b.fire), view: shortKey(b.jump) },
     });
   }
 
@@ -1221,7 +1337,7 @@ export class Game {
       this.#play('ringShift');
       this.#sound.music.sting('ringClosing');
       this.hud.toast('The Ring is closing.', 3);
-      this.#say('Ring closing');
+      this.#say('ringClosing', true);
     }
     this.#ringPhase = phase;
     const left = state ? leftLine(this.#squadsLeft, state.squads, state.squadSize === 1) : null;
@@ -1229,11 +1345,50 @@ export class Game {
     this.#squadsLeft = state ? state.squads : null;
   }
 
-  /** The announcer says a line, and everything but the UI makes room under it. */
-  #say(line: string): void {
-    if (this.#announcer.volume <= 0) return;
-    this.#announcer.say(line);
-    this.#sound.duckForVoice(speechSeconds(line));
+  /**
+   * What a hit forces out of whoever took it: a grunt, or the last breath. A kill through the head makes no sound at
+   * all, a target dummy has no voice, and one soldier does not grunt at every round of a burst.
+   */
+  #voice(victim: PlayerId, own: boolean, killed: boolean, head: boolean, damage: number, point: Vec3): void {
+    if (victim.startsWith('dummy')) return;
+    const at = own ? { local: true } : { position: point };
+    if (killed) {
+      this.#grunted.delete(victim);
+      if (!head) this.#play('death', at);
+      return;
+    }
+    const now = performance.now() / 1000;
+    if (now - (this.#grunted.get(victim) ?? -Infinity) < (own ? OWN_GRUNT_EVERY : GRUNT_EVERY)) return;
+    // Your own body's hits are already felt (the thump, the red, the flinch): it speaks up only for the heavy ones.
+    if (own && damage < OWN_GRUNT_FROM) return;
+    this.#grunted.set(victim, now);
+    if (this.#grunted.size > 64) this.#grunted.delete(this.#grunted.keys().next().value as PlayerId);
+    this.#play('pain', { ...at, intensity: Math.min(1, damage / 50) });
+  }
+
+  /**
+   * Range Control says a line, and everything but the UI makes room under it. `written`: the HUD is writing the same
+   * words as it speaks (a toast), so no caption repeats them.
+   */
+  /** A Charge round opens: which side you are on this time. Someone with no side is told nothing. */
+  #round(round: number, attackers: TeamId): void {
+    const team = this.#driver ? this.#team(this.#driver) : null;
+    if (team === null) return;
+    const attack = team === attackers;
+    this.hud.toast(`Round ${round}: you ${attack ? 'attack' : 'defend'}.`, 4);
+    this.#say(attack ? 'roundAttack' : 'roundDefend');
+  }
+
+  /** Your team in the match, or null with none (every player for themselves, or only watching). */
+  #team(driver: GameDriver): TeamId | null {
+    return driver.scores.find((s) => s.id === driver.selfId)?.team ?? null;
+  }
+
+  #say(line: VoiceLineId, written = false): void {
+    const seconds = this.#announcer.say(line);
+    // The caption does not wait on the voice: it is there for whoever cannot hear it, or has it turned down. The last
+    // five seconds are counted on the clock itself.
+    if (this.#settings.captions && !written && !VOICE_ON_THE_SECOND.includes(line)) this.hud.caption(VOICE_LINES[line], seconds);
   }
 
   /**
@@ -1262,12 +1417,12 @@ export class Game {
     const light = lastMinuteLight(timeLeft);
     this.#dread = eased(this.#dread, light, light > this.#dread ? MOOD_RATES.dreadIn : MOOD_RATES.dreadOut, dt);
     this.#pipeline.setMood(this.#drain, this.#dread, frozen ? 0 : lastTenBeat(timeLeft));
-    // What the announcer says on the way down: at a minute, at half of one, at ten seconds.
+    // What the announcer says on the way down: at a minute, at half of one, at ten seconds, then each of the last five.
     const call = frozen ? null : countdownCall(this.#clockWas, timeLeft);
     this.#clockWas = clockRan(this.#clockWas, timeLeft);
     if (call) {
-      this.#say(call.say);
       const line = countdownLine(call, this.#ending);
+      this.#say(countdownVoice(call, this.#ending), line !== null);
       if (line) this.hud.toast(line, 4);
     }
     if (!driver || frozen) {
@@ -1283,12 +1438,30 @@ export class Game {
     }
     if (!driver) {
       this.#matchLive = null;
+      this.#leadCalls.reset();
       return;
     }
     // The opening countdown running out is the match's first note; joining a match already under way is not.
     const live = match !== null && match.phase === 'playing' && !(match.countdownEnds !== null && match.countdownEnds > driver.serverTime);
     const opened = live && this.#matchLive === false;
+    // Stopped with time still on the clock (a limit reached, the last round won): Range Control closes the range. A
+    // clock that ran out needs no telling, and a Battle Royale ends on its own beat.
+    const stopped = this.#matchLive === true && match !== null && (match.phase === 'nuke' || match.phase === 'vote') && closesRange(match.mode, match.result?.reason ?? null);
     this.#matchLive = match ? live : null;
+    if (opened && match) {
+      const line = liveLine(match.mode);
+      if (line) this.#say(line);
+      // Charge opens round by round, and the mode only announces the rounds after the first.
+      else if (match.objective?.kind === 'charge') this.#round(match.objective.round, match.objective.attackers);
+    }
+    if (stopped) this.#say('ceaseFire');
+    // Who is ahead, as it changes hands.
+    if (!live || !match) this.#leadCalls.reset();
+    else if (!frozen && !clockSpeaks(timeLeft)) {
+      const team = this.#team(driver);
+      const lead = this.#leadCalls.update(leadOf(match.mode, match.teamScores, driver.scores, driver.selfId, team), driver.serverTime);
+      if (lead) this.#say(lead);
+    }
     const royale = this.#royale;
     this.#sound.music.setScene(matchScene({ phase: match?.phase ?? null, timeLeft, finalStage: royale !== null && royale.stage >= RING_STAGES, won: this.#won(driver) }), timeLeft);
     // After the scene is set: a sting asked of a score that is still silent is dropped.
@@ -1324,6 +1497,8 @@ export class Game {
 
   /** A match begins, or the game is left: nothing of the last one is carried over. */
   #newMatch(): void {
+    this.#course?.run.reset();
+    this.#courseResult = null;
     this.#keeper.begin();
     this.#gainShown = 0;
     this.hud.clearScore();
@@ -1428,8 +1603,9 @@ export class Game {
       out: !self?.alive,
       seated: driver.scores.some((s) => s.id === driver.selfId),
       watching: watched ? driver.nameOf(watched.id) : null,
-      mapKey: bindingLabel(this.#settings.bindings.map),
-      menuKey: 'Esc',
+      // On touch the map and the menu are buttons on the glass: no key to name.
+      mapKey: this.input.touchMode ? '' : bindingLabel(this.#settings.bindings.map),
+      menuKey: this.input.touchMode ? '' : 'Esc',
       mapOpen: this.input.mapOpen,
       pings: this.#pingBoard.live(driver.serverTime).map((m) => ({ kind: m.kind, x: m.position[0], z: m.position[2] })),
       leader: state.leader ? { name: state.leader.name, kills: state.leader.kills, you: state.leader.id === driver.selfId } : null,
@@ -1485,7 +1661,7 @@ export class Game {
     const h = this.#canvas.clientHeight;
     const p = new Vector3(at[0], at[1], at[2]).project(cam);
     const behind = p.z > 1;
-    const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h);
+    const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode);
     return { x, y, distance: Math.hypot(at[0] - eye[0], at[2] - eye[2]) };
   }
 
@@ -1504,7 +1680,7 @@ export class Game {
       const p = new Vector3(top[0], top[1], top[2]).project(cam);
       // Behind the camera the projection mirrors: flip it, and pin the marker to the bottom edge.
       const behind = p.z > 1;
-      const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h);
+      const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode);
       const distance = Math.hypot(zone.center[0] - eye[0], zone.center[2] - eye[2]);
       const inside = this.#cur?.alive === true && inZone(zone, this.#cur.position);
       return [{ id: zone.id, owner: s.owner, capturing: s.capturing, progress: s.progress, contested: s.contested, x, y, distance, inside }];
@@ -1521,6 +1697,37 @@ export class Game {
     const fill = 0.18 * Math.min(1, Math.max(0, (0.35 - luma) / 0.33));
     const ambient = Math.min(1.2, (luma + fill) / OPEN_AMBIENT);
     this.#viewmodel.setLighting(sun, ambient, dt);
+  }
+
+  /** The Course's clock, a tick at a time: only with no match on, and only for a living body. */
+  #timeCourse(driver: GameDriver, self: PlayerOutput | null): void {
+    const course = this.#course;
+    if (!course) return;
+    if (driver.match) {
+      course.run.reset();
+      return;
+    }
+    const event = course.run.update(self?.alive ? self.position : null, this.#simTime);
+    if (event?.type !== 'finish') return;
+    const before = this.#profileStore ? this.#profileStore.bankCourse(event.seconds) : this.#courseBest;
+    if (before === null || event.seconds < before) this.#courseBest = event.seconds;
+    const grade = courseGrade(event.seconds, course.gates.par);
+    this.#courseResult = { face: { kind: 'result', seconds: event.seconds, grade, before }, until: this.#simTime + RESULT_SECONDS };
+    this.#play(before === null || event.seconds < before ? 'medal' : 'hitMarker');
+  }
+
+  /** What the Course clock shows now: a result while it is held, the run under way, or ready on the start pad. */
+  #courseFace(): CourseFace | null {
+    const course = this.#course;
+    if (!course || this.#driver?.match || this.#inShot) return null;
+    if (this.#courseResult && this.#simTime < this.#courseResult.until) return this.#courseResult.face;
+    this.#courseResult = null;
+    const seconds = course.run.elapsed(this.#simTime);
+    if (seconds !== null) return { kind: 'running', seconds, best: this.#courseBest };
+    const p = this.#cur?.alive ? this.#cur.position : null;
+    const pad = course.gates.start;
+    if (p && p[0] >= pad.min[0] && p[0] <= pad.max[0] && p[1] >= pad.min[1] && p[1] <= pad.max[1] && p[2] >= pad.min[2] && p[2] <= pad.max[2]) return { kind: 'ready', best: this.#courseBest, par: course.gates.par };
+    return null;
   }
 
   /** The range overlay shows on the firing range and the sniping lane (west of the course), on the Practice Range only. */
@@ -1545,10 +1752,153 @@ export class Game {
     this.hud.damageNumber(x, y, Math.round(damage), head, detail);
   }
 
+  /** In a match's opening Countdown: held at the spawn, free to change the loadout (a Battle Royale's Preparation has its own picker). */
+  #counting(): boolean {
+    const driver = this.#driver;
+    const match = driver?.match;
+    return !!driver && !!match && match.phase === 'playing' && match.mode !== 'battle-royale' && match.countdownEnds !== null && match.countdownEnds !== undefined && match.countdownEnds > driver.serverTime;
+  }
+
+  /**
+   * The first-match hint to show this frame (`hints.ts`), or null. The facts
+   * are read off the same state the HUD draws; what the browser has learned
+   * is saved the moment it changes, and Settings' "Show them again" starts
+   * the state over.
+   */
+  #hint(dt: number): HintLine | null {
+    const driver = this.#driver;
+    const input = this.input;
+    if (hintMemoryCleared() !== this.#hintsCleared) {
+      this.#hintsCleared = hintMemoryCleared();
+      this.#hints = hintState(hintMemory());
+    }
+    const opened = this.#loadoutOpened;
+    this.#loadoutOpened = false;
+    if (!driver) return null;
+    const self = this.#cur;
+    const match = driver.match;
+    const playing = !match || match.phase === 'playing';
+    const royale = match?.mode === 'battle-royale';
+    const held = this.#paused || this.#inShot || !playing || this.#counting() || (match?.preparation ?? null) !== null || this.#charge?.phase === 'freeze';
+    const fighting = !held && self !== null && self.alive && !self.downed;
+    const w = self?.weapon;
+    const size = w ? STATS.weapons[w.id]?.handling.magazineSize.value : undefined;
+    const before = this.#hints.memory;
+    this.#hints = stepHints(
+      this.#hints,
+      {
+        fighting,
+        // The loadout can be changed while dead wherever there is a next life; the range has no deaths, and no hint for it.
+        waiting: !this.#paused && !this.#inShot && playing && self !== null && !self.alive && !royale,
+        moving: self !== null && Math.hypot(self.velocity[0], self.velocity[2]) > 2,
+        sprinting: self?.movement === 'sprint' || self?.movement === 'slide',
+        aiming: (w?.ads ?? 0) > 0.5,
+        reloading: w?.action === 'reload',
+        magazine: w && size ? w.ammo / size : 1,
+        weapon: w?.id ?? '',
+        grenades: self?.grenades ?? 0,
+        throwing: self !== null && (self.grenade ?? null) !== null,
+        loadoutOpened: opened,
+        board: driver.online && driver.scores.length > 0,
+        scoreboard: input.scoreboard,
+        thumbs: input.touchMode,
+        firing: input.touchFiring,
+      },
+      dt,
+    );
+    if (this.#hints.memory !== before) saveHintMemory(this.#hints.memory);
+    const id = this.#hints.current;
+    if (id === null) return null;
+    return hintLine(id, input.touchMode ? 'touch' : input.padMode ? 'pad' : 'keys', this.#hintNames(), this.#settings.touchAutoFire);
+  }
+
+  /** What this player's keys, or their pad's buttons, are called in a hint. */
+  #hintNames(): HintNames {
+    const b = this.#settings.bindings;
+    const key = (code: string) => shortKey(code).replace(/ (Left|Right)$/, '');
+    if (this.input.padMode) {
+      const pad = PAD_LAYOUTS[this.#settings.padLayout];
+      const name = (action: keyof typeof pad, fallback: string) => (pad[action] ? padButtonLabel(pad[action]!) : key(fallback));
+      return {
+        move: ['Left stick'],
+        fire: name('fire', b.fire),
+        ads: name('ads', b.ads),
+        sprint: name('sprint', b.sprint),
+        crouch: name('crouch', b.crouch),
+        reload: name('reload', b.reload),
+        switchWeapon: name('switchWeapon', b.switchWeapon),
+        grenade: name('grenade', b.grenade),
+        use: name('use', b.use),
+        scoreboard: name('scoreboard', b.scoreboard),
+      };
+    }
+    const move = [b.forward, b.left, b.back, b.right].map(key);
+    return {
+      // Four letters read as one cap ("WASD"); anything longer keeps its own.
+      move: move.every((k) => k.length === 1) ? [move.join('')] : move,
+      fire: key(b.fire),
+      ads: key(b.ads),
+      sprint: key(b.sprint),
+      crouch: key(b.crouch),
+      reload: key(b.reload),
+      switchWeapon: key(b.switchWeapon),
+      grenade: key(b.grenade),
+      use: key(b.use),
+      scoreboard: key(b.scoreboard),
+    };
+  }
+
   /** How the Use button is written in prompts: the pad's button in pad mode, else the key. */
   #useLabel(): string {
+    // On touch it is the button that says Use, lit while there is something to use.
+    if (this.input.touchMode) return 'Use';
     const pad = PAD_LAYOUTS[this.#settings.padLayout].use;
     return this.input.padMode && pad ? padButtonLabel(pad) : bindingLabel(this.#settings.bindings.use);
+  }
+
+  /**
+   * Touch's two helps (ticket 23), from where the view points this frame: a
+   * drag slows while the crosshair is on or beside an enemy, and the trigger
+   * pulls itself once it has rested on one inside the weapon's range. Both
+   * are the player's own client: the view only ever turns by their drag, and
+   * what the simulation gets is the fire button, as from a mouse. Off for
+   * every other input.
+   */
+  #touchHelp(eye: Vec3, forward: Vec3): void {
+    const input = this.input;
+    const self = this.#cur;
+    const s = this.#settings;
+    const match = this.#driver?.match;
+    const on = input.touchMode && (s.touchAutoFire || s.touchAimAssist) && self !== null && self.alive && !self.downed && !this.#inShot && !this.#paused && (!match || match.phase === 'playing');
+    if (!on || !self) {
+      input.touchAssist(1, false, false);
+      this.#autoFire = AUTO_FIRE_IDLE;
+      return;
+    }
+    // Enemies: everyone else, less your own side where there are sides. Downed seats are left to the player's own trigger.
+    const sided = match ? teamMode(match.mode) || match.mode === 'battle-royale' : false;
+    let aim: AimRead | null = null;
+    let target: PlayerOutput | null = null;
+    for (const p of this.#others) {
+      if (!p.alive || p.downed || (sided && p.kind === 'player' && p.team === self.team)) continue;
+      const read = aimAt(eye, forward, p.position, p.eyeHeight);
+      if (read && (!aim || read.miss < aim.miss)) {
+        aim = read;
+        target = p;
+      }
+    }
+    // An enemy behind a wall is no target: the sight line to its chest decides.
+    if (aim && target && aimSlowdown(aim) < 1 && sightBlocked(this.#world, eye, [target.position[0], target.position[1] + target.eyeHeight * 0.75, target.position[2]])) aim = null;
+    const w = self.weapon;
+    const row = STATS.weapons[w.id];
+    const range = autoFireRange(Object.values(row.damage.bands).map((band) => band.range?.value));
+    // A scoped rifle from the hip hits nothing: auto-fire waits for the glass.
+    const sighted = row.traits.sight !== 'scope' || w.ads >= 0.9;
+    const onTarget = aim !== null && aim.miss <= BODY_RADIUS && aim.along <= range && sighted;
+    const ready = s.touchAutoFire && w.ammo > 0 && (w.action === 'ready' || w.action === 'cycle') && self.grenade === null && self.reviving === null && self.movement !== 'mantle' && self.movement !== 'ladder';
+    const out = autoFire(this.#autoFire, { now: performance.now(), onTarget, ready, auto: row.traits.fireMode === 'auto', interval: 60000 / row.handling.fireRate.value });
+    this.#autoFire = out.state;
+    input.touchAssist(s.touchAimAssist ? aimSlowdown(aim) : 1, out.hold, out.press);
   }
 
   #targetDistance(eye: Vec3, forward: Vec3): number | null {
@@ -1586,12 +1936,17 @@ export class Game {
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;
     this.#cur = self;
+    this.#timeCourse(driver, self);
     const firePressed = cmd.firePresses.length > 0 || ((cmd.buttons & Button.Fire) !== 0 && ((this.#cmd?.buttons ?? 0) & Button.Fire) === 0);
     this.#cmd = cmd;
     const use = (cmd.buttons & Button.Use) !== 0;
     // Out of a Battle Royale there is no next life to change the loadout for.
     const respawns = driver.match?.mode !== 'battle-royale';
-    if (use && !this.#useHeld && self && ((!self.alive && respawns) || this.#atStation(self) || frozen)) this.onLoadout?.(self.alive ? 'station' : 'death');
+    // The opening Countdown is the same offer as a round's freeze: held at the spawn, the loadout a press away.
+    if (use && !this.#useHeld && self && ((!self.alive && respawns) || this.#atStation(self) || frozen || this.#counting())) {
+      this.#loadoutOpened = true;
+      this.onLoadout?.(self.alive ? 'station' : 'death');
+    }
     this.#useHeld = use;
     if (self && before) this.#selfFoley(before, self, firePressed);
     for (const e of result.events) this.#present(e, start);
@@ -1642,10 +1997,15 @@ export class Game {
       if (!p.alive || !grounded || d > 1) continue;
       const mode = p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : p.movement === 'sprint' ? 'sprint' : 'walk';
       t.stepDistance += d;
-      const length = (STEP_LENGTH[mode] ?? 1.45) / 2;
+      const length = STEP_LENGTH[mode] / 2;
       if (t.stepDistance >= length) {
         t.stepDistance = 0;
         const own = p.id === selfId;
+        if (own) {
+          // The bob lands with the sound.
+          this.#camera.footfall();
+          this.#viewmodel.footfall();
+        }
         this.#play('footstep', {
           ...(own ? { local: true } : { position: p.position }),
           material: this.#materialUnder(p.position),
@@ -1708,7 +2068,8 @@ export class Game {
           const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
           const up = new Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
           const v = this.#cur?.velocity ?? [0, 0, 0];
-          this.#effects.eject(this.#viewToWorld(this.#viewmodel.ejectionPort), [right.x, right.y, right.z], [up.x, up.y, up.z], v);
+          // A revolver keeps its spent cases until the cylinder is emptied by hand (the reload shows them fall).
+          if (STATS.weapons[e.weapon].traits.reload !== 'cylinder') this.#effects.eject(this.#viewToWorld(this.#viewmodel.ejectionPort), [right.x, right.y, right.z], [up.x, up.y, up.z], v);
           const [yaw, pitch] = [Math.atan2(-e.direction[0], -e.direction[2]), Math.asin(Math.max(-1, Math.min(1, e.direction[1])))];
           this.hud.recordShot(yaw, pitch, e.index === 0 || this.#burstStart < 0);
           this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
@@ -1752,6 +2113,7 @@ export class Game {
           this.#effects.blood(e.point, dir, e.zone === 'head');
           this.#players.hit(e.victim, dir, e.damage);
         }
+        if (landed) this.#voice(e.victim, e.victim === selfId, e.killed, e.zone === 'head', e.damage, e.point);
         if (e.shooter === selfId && e.victim !== selfId) {
           const head = e.zone === 'head';
           const kind = hitKind(e.killed, head, e.damage);
@@ -1854,7 +2216,10 @@ export class Game {
         const state = this.#royale;
         const lands = state?.drops?.find((d) => d.stage === e.stage)?.lands;
         const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
-        if (e.action === 'announce') this.hud.toast(dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - driver.serverTime), 6);
+        if (e.action === 'announce') {
+          this.hud.toast(dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - driver.serverTime), 6);
+          this.#say('supplyDrop', true);
+        }
         else if (e.action === 'open' && e.player !== null) {
           const mine = e.player === selfId;
           const team = driver.scores.find((s) => s.id === e.player)?.team ?? 0;
@@ -1907,11 +2272,9 @@ export class Game {
       case 'loose':
         if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
         break;
-      case 'roundStart': {
-        const attack = this.#cur?.team === e.attackers;
-        this.hud.toast(`Round ${e.round}: you ${attack ? 'attack' : 'defend'}.`, 4);
+      case 'roundStart':
+        this.#round(e.round, e.attackers);
         break;
-      }
       case 'charge': {
         const driver = this.#driver;
         const who = e.player === null ? null : e.player === driver?.selfId ? 'You' : (driver?.nameOf(e.player) ?? 'Someone');
@@ -1928,6 +2291,8 @@ export class Game {
                   : `The charge detonated at ${e.site}`;
         // Where the charge lies is the attackers' to know: defenders hear only of the plant and what follows.
         if (mine || e.action === 'plant' || e.action === 'defuse' || e.action === 'detonate') this.hud.objectiveFeed(text, e.team, e.player === driver?.selfId);
+        if (e.action === 'plant') this.#say('chargePlanted');
+        else if (e.action === 'defuse') this.#say('chargeDefused');
         if (e.action === 'detonate') {
           this.#effects.explosion(e.position);
           this.#play('explosion', { position: e.position });
@@ -2012,10 +2377,10 @@ export class Game {
 
   dispose(): void {
     removeEventListener('keydown', this.#onVoteKey);
-    this.#announcer.stop();
     this.setDriver(null);
     this.#resizeObserver.disconnect();
     this.input.dispose();
+    this.#course?.clock.dispose();
     this.hud.dispose();
     this.#pipeline.dispose();
     this.#effects.dispose();

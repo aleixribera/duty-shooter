@@ -47,9 +47,10 @@ describe('determinism', () => {
       const armed = players.map((p) => ({ ...p, loadout: { primary, secondary: 'pistol' as const, grenade: 'frag' as const } }));
       const busy: CmdScript = (tick) => {
         const cmds = script(tick);
-        const switching = tick % 150 === 75 ? ['SwitchWeapon' as const] : [];
+        // The first switch comes after the slowest gun to raise (the light machine gun, 1.25 s) has had its shots.
+        const switching = tick % 150 === 85 ? ['SwitchWeapon' as const] : [];
         const reloading = tick % 200 === 199 ? ['Reload' as const] : [];
-        const cooking = tick > 100 && tick < 140 ? ['Grenade' as const] : [];
+        const cooking = tick > 130 && tick < 170 ? ['Grenade' as const] : [];
         return { ...cmds, a: usercmd({ ...cmds['a'], buttons: [...switching, ...reloading, ...cooking, ...(tick % 120 < 50 ? (['Ads'] as const) : [])] }) };
       };
       const first = createHeadlessMatch({ solids, players: armed }).run(600, busy);

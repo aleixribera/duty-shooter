@@ -53,7 +53,7 @@ export const SCORE_FEED_CSS = `
 .ds-score { position: absolute; left: calc(50% + 124px); top: calc(50% + 16px); width: 300px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
 /* Text over the world stands on a scrim: each row carries its own, running out to the right, and takes it along when it fades. */
 .ds-score .medal, .ds-score .total, .ds-score .lines div { padding: 0 12px; background: linear-gradient(90deg, var(--ds-scrim-soft) 35%, transparent); }
-.ds-score .medal { height: 40px; font-size: 30px; line-height: 40px; font-weight: 700; font-stretch: condensed; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; opacity: 0; }
+.ds-score .medal { height: 40px; font-size: var(--ds-type-heading); line-height: 40px; font-weight: 700; font-stretch: condensed; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; opacity: 0; }
 .ds-score .medal.on { animation: ds-score-medal ${SCORE_MEDAL_LIFE}s var(--ds-ease) forwards; }
 .ds-score .total { height: 30px; font-size: var(--ds-type-heading); line-height: 30px; font-weight: 700; opacity: 0; transition: opacity var(--ds-slow) linear; }
 .ds-score .total.on { opacity: 1; transition-duration: 60ms; }
@@ -67,8 +67,8 @@ export const SCORE_FEED_CSS = `
   .ds-score { left: 50%; top: calc(50% + 84px); width: min(300px, calc(100vw - 32px)); transform: translateX(-50%); text-align: center; }
   .ds-score .medal, .ds-score .total, .ds-score .lines div { background: linear-gradient(90deg, transparent, var(--ds-scrim-soft) 25%, var(--ds-scrim-soft) 75%, transparent); }
   .ds-score .medal { height: 30px; font-size: var(--ds-type-heading); line-height: 30px; }
-  .ds-score .total { height: 24px; font-size: 18px; line-height: 24px; }
-  .ds-score .lines div { justify-content: center; height: 20px; font-size: 14px; line-height: 20px; }
+  .ds-score .total { height: 24px; font-size: var(--ds-type-body); line-height: 24px; }
+  .ds-score .lines div { justify-content: center; height: 20px; font-size: var(--ds-type-body); line-height: 20px; }
   .ds-score .lines b { min-width: 0; }
   .ds-score .lines div:nth-child(n+4) { display: none; }
 }

@@ -1,5 +1,5 @@
 import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SoundTrap, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
-import type { Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
+import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
@@ -124,6 +124,8 @@ export interface MapDefinition {
   readonly dummies: readonly PlayerSpawn[];
   /** Where the Use button opens the loadout screen (the range's station), or null. */
   readonly loadoutStation: { readonly position: Vec3; readonly radius: number } | null;
+  /** A timed movement Course (the Practice Range's), or none. */
+  readonly course?: CourseGates | null;
   /** The range's firing lanes, west of this x, where the TTK overlay shows; null on a map without them. */
   readonly rangeLanesWestOf: number | null;
   readonly indoorZones: readonly IndoorZone[];

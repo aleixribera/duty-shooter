@@ -6,6 +6,8 @@ import { DEFAULT_FINISHES, type Finish, type SurfaceSpec } from './types';
 
 export { ATLAS_BORDER, ATLAS_WIDTH, atlasUv, packAtlas, texelSize } from './atlas';
 export type { Atlas, AtlasRect } from './atlas';
+// A map's timed Course: plain data a map file (and the server) can name without the client's DOM.
+export type { CourseBox, CourseGates, CoursePar } from '../course-run';
 export { Baker } from './bake';
 export type { BakeInput, ProbeGrid } from './bake';
 export { readBakeFile, writeBakeFile } from './file';

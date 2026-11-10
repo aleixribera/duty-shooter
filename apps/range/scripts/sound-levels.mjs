@@ -49,6 +49,10 @@ const CASES = [
   ['headshot marker', 'headshotMarker', {}, [null]],
   ['kill marker', 'killMarker', {}, [null]],
   ['damage taken', 'damageTaken', {}, [null]],
+  ['own grunt', 'pain', { local: true, intensity: 0.8 }, [null]],
+  ['enemy grunt', 'pain', { intensity: 0.8 }, FAR],
+  ['own last breath', 'death', { local: true }, [null]],
+  ['enemy last breath', 'death', {}, FAR],
   ['nuke siren', 'nukeSiren', {}, [40, 150]],
   ['nuke blast', 'nukeBlast', {}, [100, 300]],
   ['wind', 'ambientWind', { intensity: 1 }, [null]],
@@ -103,6 +107,26 @@ const measure = async (audio, cases) => {
       }
       rows.push({ label, distance, peak: db(peak), rms: db(rms) });
     }
+  }
+  // Range Control's recording, as it reaches the voice bus: every line's peak and loudest 50 ms.
+  const { SPEECH_LEVEL } = await import(`/@fs/${audio}speech.ts`);
+  const index = await (await fetch(`/@fs/${audio}assets/controller.json`)).json();
+  const ctx = new OfflineAudioContext(1, rate, rate);
+  const data = (await ctx.decodeAudioData(await (await fetch(`/@fs/${audio}assets/controller.mp3`)).arrayBuffer())).getChannelData(0);
+  const win = Math.round(rate * 0.05);
+  for (const [id, line] of Object.entries(index.lines)) {
+    const from = Math.round(line.start * rate);
+    const to = Math.min(data.length, from + Math.round(line.seconds * rate));
+    let peak = 0;
+    let rms = 0;
+    let sum = 0;
+    for (let i = from; i < to; i++) {
+      peak = Math.max(peak, Math.abs(data[i]));
+      sum += data[i] * data[i];
+      if (i - from >= win) sum -= data[i - win] * data[i - win];
+      if (i - from >= win - 1) rms = Math.max(rms, Math.sqrt(Math.max(0, sum) / win));
+    }
+    rows.push({ label: `voice: ${id}`, distance: null, peak: db(peak * SPEECH_LEVEL), rms: db(rms * SPEECH_LEVEL) });
   }
   return rows;
 };

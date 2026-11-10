@@ -164,7 +164,10 @@ const EASE = 16;
  * `scoped`: stops to aim, fires only scoped in, and holds long lanes.
  * `hold`: with the target in view, closes in only beyond this (m); null for
  * just beyond the preferred distance. `juke`: near its preferred distance, strafes all the time, changing
- * direction this much more often.
+ * direction this much more often. `burst`: an automatic's bursts run this many
+ * times as long as the profile's (a machine gun settles as it fires, so its
+ * bursts are long). `pace`: beyond the first (m), a round a press is placed
+ * with care and the next waits the second (s), for the sights to come back.
  */
 interface Tactics {
   readonly range: readonly [number, number] | null;
@@ -175,15 +178,27 @@ interface Tactics {
   readonly hold: number | null;
   readonly scoped: boolean;
   readonly juke: number;
+  readonly burst: number;
+  readonly pace: readonly [beyond: number, seconds: number] | null;
 }
 
 const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
-  m4a1: { range: null, ads: null, reach: Infinity, push: false, rush: null, hold: 35, scoped: false, juke: 1 },
-  smg: { range: [9, 13], ads: 10, reach: 45, push: false, rush: null, hold: 22, scoped: false, juke: 2 },
-  shotgun: { range: [2.5, 4], ads: 6, reach: 10, push: true, rush: 8, hold: null, scoped: false, juke: 1 },
-  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, rush: null, hold: null, scoped: true, juke: 1 },
-  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1 },
+  m4a1: { range: null, ads: null, reach: Infinity, push: false, rush: null, hold: 35, scoped: false, juke: 1, burst: 1, pace: null },
+  smg: { range: [9, 13], ads: 10, reach: 45, push: false, rush: null, hold: 22, scoped: false, juke: 2, burst: 1, pace: null },
+  shotgun: { range: [2.5, 4], ads: 6, reach: 10, push: true, rush: 8, hold: null, scoped: false, juke: 1, burst: 1, pace: null },
+  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, rush: null, hold: null, scoped: true, juke: 1, burst: 1, pace: null },
+  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1, burst: 1, pace: null },
+  // Past the M4A1's close band, where its four hits beat the rifle's five; aimed nearly always (the hip sprays), and it stays put with a target in view.
+  lmg: { range: [20, 30], ads: 5, reach: Infinity, push: false, rush: null, hold: 50, scoped: false, juke: 1, burst: 2.6, pace: null },
+  // Inside its two-shot band but out of an SMG's; always through the optic, and far off each round waits for the last one's kick to come back.
+  dmr: { range: [24, 38], ads: 0, reach: Infinity, push: false, rush: null, hold: 60, scoped: false, juke: 1, burst: 1, pace: [28, 0.36] },
+  // Well inside the one-burst band, and aimed: from the hip a burst rarely lands whole.
+  burst: { range: [14, 24], ads: 6, reach: Infinity, push: false, rush: null, hold: 36, scoped: false, juke: 1, burst: 1, pace: null },
+  // Inside its two-shot band (12 m); every round placed, since a miss costs 0.4 s and there are six.
+  revolver: { range: [5, 10], ads: 5, reach: 35, push: false, rush: null, hold: 12, scoped: false, juke: 1, burst: 1, pace: [0, 0.4] },
 };
+/** A gun's long bursts (`burst` above 1) only this near (m): farther off, the climb a long burst walks up takes it off the body before the weight settles it. */
+const LONG_BURSTS_WITHIN = 36;
 /** The profiles' fight ranges run from about this close to this far (m): a weapon's band is placed along it. */
 const FIGHT_RANGES: readonly [number, number] = [5, 26];
 /** A followed goal that has moved this far (m) gets a new route. */
@@ -266,7 +281,7 @@ const PING_REACH = 100;
 /** An enemy it saw before within this long (s) is no news to ping. */
 const PING_NEWS = 4;
 /** How far (m) each gun has a real shot at someone, for opening a fight on the ground (before a bot's boldness). */
-const OPENS_AT: Readonly<Record<WeaponId, number>> = { m4a1: 55, smg: 35, shotgun: 15, sniper: 70, pistol: 25 };
+const OPENS_AT: Readonly<Record<WeaponId, number>> = { m4a1: 55, smg: 35, shotgun: 15, sniper: 70, pistol: 25, lmg: 60, dmr: 65, burst: 50, revolver: 20 };
 /** How far (m) a bot on the ground chases what it last saw or heard: the boldest farther. */
 const CHASE_REACH: readonly [number, number] = [25, 70];
 /** A Downed bot lies still with a mate this near (m); makes for one this near; and looks for new ground this often (s). */
@@ -440,6 +455,8 @@ export class Bot {
   /** The tick's seats, for everything below. */
   #seats = new SeatIndex([]);
   #meleeAt = 0;
+  /** A paced weapon's next press comes no sooner than this. */
+  #pressAt = 0;
   #lastTime = 0;
   /** No weapon switch before then (one press at a time). */
   #switchAt = 0;
@@ -769,8 +786,10 @@ export class Bot {
         // (but point blank, where the cone covers the body anyway); a rifle round inside the torso, not at its edge.
         const mode = STATS.weapons[self.weapon.id].traits.fireMode;
         const careful = mode === 'bolt' || (mode === 'pump' && range > POINT_BLANK);
-        const width = careful ? 0.2 : 0.32;
-        const tolerance = Math.atan2(width, Math.max(range, 1)) + (ads ? (careful ? 0.1 : 0.4) : 1.2) * DEG;
+        // A round a press that pays for where it lands (a marksman rifle far off, a revolver's six): inside the torso too, without the wait for a steady target.
+        const paced = tactics.pace !== null && range > tactics.pace[0];
+        const width = careful || paced ? 0.2 : 0.32;
+        const tolerance = Math.atan2(width, Math.max(range, 1)) + (ads ? (careful ? 0.1 : paced ? 0.2 : 0.4) : 1.2) * DEG;
         // Sight is checked a few times a second; a shot checks it again, so a target that just stepped behind cover isn't shot through it.
         const clear = () => botSees(this.#world, eye, zoneCentre(pose(tp), 'head')) || botSees(this.#world, eye, zoneCentre(pose(tp), 'upperTorso'));
         // And only once the aim has settled on the body and the target has moved steadily for a moment, so the lead is right.
@@ -781,11 +800,12 @@ export class Bot {
         const ready = steady && sighted && (!tactics.scoped || (self.weapon.ads >= SCOPED_IN && speed < STOPPED));
         if (off < tolerance && self.weapon.ammo > 0 && range <= tactics.reach && ready && clear()) {
           if (mode !== 'auto') {
-            // One round a press: release, then press again.
-            fire = !(this.#lastButtons & Button.Fire);
+            // One round (or one burst) a press: release, then press again, a paced one once its wait is over.
+            fire = !(this.#lastButtons & Button.Fire) && time >= this.#pressAt;
+            if (fire && paced) this.#pressAt = time + tactics.pace![1];
           } else if (range > this.profile.burstRange) {
             if (time >= target.pauseUntil && time >= target.burstUntil) {
-              target.burstUntil = time + (0.22 + 0.25 * r(11)) * this.profile.burst;
+              target.burstUntil = time + (0.22 + 0.25 * r(11)) * this.profile.burst * (range <= LONG_BURSTS_WITHIN ? tactics.burst : 1);
               target.pauseUntil = target.burstUntil + 0.18 + 0.2 * r(12);
             }
             fire = time < target.burstUntil;

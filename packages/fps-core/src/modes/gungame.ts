@@ -4,11 +4,20 @@ import type { Loadout } from '../weapon/loadout';
 import { FreeForAll } from './ffa';
 import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type ObjectiveState, type Score, type SpawnPoint, type TeamScore } from './game-mode';
 
-/** Guns on a gun game ladder: drawn at random from the whole arsenal, in a random order, for each match. */
-export const GUN_GAME_LADDER_LENGTH = 5;
+/**
+ * Guns on a gun game ladder: drawn at random from the whole arsenal, in a
+ * random order, for each match. Seven of the nine: most of the arsenal is
+ * climbed every match, and the two left out make the next match a different
+ * climb.
+ */
+export const GUN_GAME_LADDER_LENGTH = 7;
 
-/** Kills that move a player on from each gun: the last gun's last kill wins. Lower it as the arsenal grows, so a match stays about as long. */
-export const GUN_GAME_KILLS_PER_GUN = 4;
+/**
+ * Kills that move a player on from each gun: the last gun's last kill wins.
+ * Lower it as the arsenal grows, so a match stays about as long: seven guns
+ * at three kills is 21 kills to win, where five guns at four was 20.
+ */
+export const GUN_GAME_KILLS_PER_GUN = 3;
 
 /** The level (an index into the ladder) that `progress` kills up the ladder stand on. */
 export function gunGameLevel(progress: number): number {

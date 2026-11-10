@@ -18,7 +18,7 @@ export const BOT_STYLES: readonly BotStyle[] = ['rusher', 'flanker', 'anchor', '
 export interface BotProfile {
   readonly name: string;
   readonly style: BotStyle;
-  /** What it carries: a primary picked by its style's weights, the pistol and a frag. */
+  /** What it carries: a primary picked by its style's weights, the pistol (or, for about one in three, the revolver) and a frag. */
   readonly loadout: Loadout;
   /** Seconds from first seeing an enemy to starting to aim at them. */
   readonly reaction: number;
@@ -144,14 +144,23 @@ const STYLES: Readonly<Record<BotStyle, Partial<Record<Tunable, Range>>>> = {
   },
 };
 
-/** How likely each style is to carry each primary: a rusher always brings something for close range, an anchor mostly something for long. */
+/**
+ * How likely each style is to carry each primary: a rusher always brings
+ * something for close range, an anchor mostly something that holds a lane
+ * (the sniper, the machine gun, the marksman rifle), a support the machine
+ * gun more than anyone, and the burst rifle goes to those who fight from the
+ * middle.
+ */
 const PRIMARY_WEIGHTS: Readonly<Record<BotStyle, Readonly<Partial<Record<WeaponId, number>>>>> = {
   rusher: { smg: 5, shotgun: 4 },
-  flanker: { smg: 4, m4a1: 3, shotgun: 2, sniper: 1 },
-  anchor: { sniper: 5, m4a1: 4, smg: 1 },
-  roamer: { m4a1: 4, smg: 3, sniper: 2, shotgun: 1 },
-  support: { m4a1: 6, smg: 2, sniper: 2 },
+  flanker: { smg: 4, m4a1: 3, burst: 2, shotgun: 2, sniper: 1 },
+  anchor: { sniper: 4, m4a1: 3, lmg: 3, dmr: 3, smg: 1 },
+  roamer: { m4a1: 4, burst: 3, smg: 3, dmr: 2, sniper: 1, shotgun: 1 },
+  support: { m4a1: 5, burst: 2, lmg: 3, smg: 1, dmr: 1, sniper: 1 },
 };
+
+/** The share of bots that carry the revolver instead of the pistol. */
+const REVOLVER_SHARE = 0.35;
 
 /** A primary for `style`, picked by its weights with `roll` (0 to 1), leaving out `not`. */
 function pickPrimary(style: BotStyle, roll: number, not?: WeaponId): WeaponId {
@@ -185,7 +194,7 @@ export function botProfile(name: string): BotProfile {
       return [k, lo + (hi - lo) * noise(seed, slotOf(i))];
     }),
   ) as Record<Tunable, number>;
-  const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: 'pistol', grenade: 'frag' };
+  const loadout: Loadout = { primary: pickPrimary(style, noise(seed, 99)), secondary: noise(seed, 98) < REVOLVER_SHARE ? 'revolver' : 'pistol', grenade: 'frag' };
   return { name, style, loadout, ...values, reloadBelow: Math.round(values.reloadBelow) };
 }
 

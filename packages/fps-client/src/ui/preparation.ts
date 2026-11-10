@@ -2,7 +2,7 @@ import { DROP_WEAPON, royaleLoadout, STATS, type GrenadeId, type Loadout, type R
 import { nameList } from '@duty-shooter/fps-core/modes';
 import type { PadNav } from '../gamepad';
 import type { PreparationStage } from '../preparation-shot';
-import { loadoutOptions } from './model';
+import { goalLine, loadoutOptions } from './model';
 import { escapeHtml, hint, installTheme, patchHtml } from './theme';
 
 /**
@@ -88,6 +88,7 @@ const CSS = `
 .ds-prep .card > * { max-width: 470px; }
 .ds-prep .ds-crumb { color: var(--ds-text-2); }
 .ds-prep h1 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-prep .goal { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-prep .clock { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
 .ds-prep .clock b { font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; letter-spacing: 0.01em; min-width: 2ch; }
 .ds-prep .clock span { font-size: var(--ds-type-small); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
@@ -96,11 +97,11 @@ const CSS = `
 .ds-prep .ds-field-label { margin-bottom: 6px; color: var(--ds-text-2); }
 .ds-prep .kit { display: grid; gap: 14px; }
 .ds-prep .kit .drop-note { margin-top: -8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-prep .ds-seg button { min-height: 44px; font-size: 14px; }
+.ds-prep .ds-seg button { min-height: 44px; font-size: var(--ds-type-body); }
 .ds-prep .ds-seg button:disabled:not(.on) { color: var(--ds-text-3); }
 .ds-prep .mates { display: grid; gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
 .ds-prep .mate { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 14px; background: rgb(18 22 29 / 0.92); }
-.ds-prep .mate b { min-width: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-prep .mate b { min-width: 0; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-prep .mate span { flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-prep .mate.you { box-shadow: inset 4px 0 0 var(--ds-text); }
 .ds-prep .mate.on span { color: var(--ds-text); }
@@ -119,20 +120,20 @@ const CSS = `
 /* At the dive, under the field: the Squad to beat. */
 .ds-prep .champ { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; text-align: right; animation: ds-in 300ms var(--ds-ease) both; }
 .ds-prep .champ span { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
-.ds-prep .champ b { margin-top: 4px; max-width: min(420px, 60vw); font-size: 28px; line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
+.ds-prep .champ b { margin-top: 4px; max-width: min(420px, 60vw); font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
 .ds-prep .champ small { margin-top: 4px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 @media (max-width: 760px) {
   .ds-prep .card { top: auto; width: 100%; max-height: 76vh; gap: 14px; padding: 48px var(--ds-gutter) 18px; background: linear-gradient(0deg, rgb(7 9 13 / 0.96) 0%, rgb(7 9 13 / 0.9) 84%, rgb(7 9 13 / 0) 100%); }
   .ds-prep .card > * { max-width: none; }
-  .ds-prep h1 { font-size: 30px; }
-  .ds-prep .clock b, .ds-prep .alive b { font-size: 56px; }
+  .ds-prep h1 { font-size: var(--ds-type-title); }
+  .ds-prep .clock b, .ds-prep .alive b { font-size: var(--ds-type-display); }
   .ds-prep .alive { top: 18px; }
   .ds-prep .champ { margin-top: 14px; }
-  .ds-prep .champ b { font-size: 20px; }
-  .ds-prep .ds-seg button { font-size: 13px; letter-spacing: 0.08em; }
+  .ds-prep .champ b { font-size: var(--ds-type-heading); }
+  .ds-prep .ds-seg button { font-size: var(--ds-type-small); letter-spacing: 0.08em; }
   .ds-prep .mates { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .ds-prep .mate { flex-direction: column; gap: 0; padding: 6px 10px; }
-  .ds-prep .mate b { font-size: 15px; max-width: 100%; }
+  .ds-prep .mate b { font-size: var(--ds-type-body); max-width: 100%; }
   .ds-prep .ds-hints { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .ds-prep .veil { animation-duration: 1ms; } }
@@ -269,7 +270,7 @@ export class PreparationPage {
     const c = v.stage === 'dive' && !v.play ? v.champion : null;
     const champ = c ? `<div class="champ"><span>${escapeHtml(c.title)}</span><b>${escapeHtml(c.names)}</b><small>${escapeHtml(c.why)}</small></div>` : '';
     return `<div class="card" role="region" aria-label="Preparation">
-<div><div class="ds-crumb">Battle Royale · Zero Island</div><h1>Preparation</h1></div>
+<div><div class="ds-crumb">Battle Royale · Zero Island</div><h1>Preparation</h1><p class="goal">${escapeHtml(goalLine({ mode: 'battle-royale', killLimit: null }))}. Stay inside the Ring.</p></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
 <div class="kit">${seg('primary', 'Primary', primaries, weaponName)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}

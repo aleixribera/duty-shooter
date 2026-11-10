@@ -116,6 +116,41 @@ export const HOLDS: Readonly<Record<WeaponId, Hold>> = {
     pump: 0,
     slack: 0,
   },
+  lmg: {
+    right: KIT_RIGS.lmg.right,
+    left: KIT_RIGS.lmg.left,
+    stock: [0, -0.01, 0.352],
+    // Under the ammo box, from its left.
+    mag: { pos: [-0.045, -0.1, -0.136], normal: [1, 0, 0], wrist: [-0.4, -0.5, 0.6] },
+    pump: 0,
+    slack: 0.12,
+  },
+  dmr: {
+    right: KIT_RIGS.dmr.right,
+    left: KIT_RIGS.dmr.left,
+    stock: [0, -0.035, 0.362],
+    mag: { pos: [-0.016, -0.085, -0.083], normal: [1, 0, 0], wrist: [-0.4, -0.5, 0.6] },
+    pump: 0,
+    slack: 0.12,
+  },
+  burst: {
+    right: KIT_RIGS.burst.right,
+    left: KIT_RIGS.burst.left,
+    stock: [0, 0.007, 0.337],
+    // Behind the grip: the support hand comes back under the stock.
+    mag: { pos: [-0.016, -0.13, 0.125], normal: [1, 0, 0], wrist: [-0.4, -0.5, 0.6] },
+    pump: 0,
+    slack: 0.03,
+  },
+  revolver: {
+    right: KIT_RIGS.revolver.right,
+    left: KIT_RIGS.revolver.left,
+    stock: null,
+    // The cylinder's left side.
+    mag: { pos: [-0.0245, 0.0212, -0.0225], normal: [1, 0, 0], wrist: [-0.4, -0.6, 0.5] },
+    pump: 0,
+    slack: 0,
+  },
 };
 
 // --- The rig (tools/soldier/soldier.py) ---------------------------------------
@@ -985,7 +1020,8 @@ export class Soldier {
   /**
    * Two-bone IK: the arm reaches so its palm lands on `palmPos` turned `palmQ`
    * (both world space), the elbow bending toward `pole`. A target past full
-   * reach slides the shoulder up to 10 cm toward it. Returns how far the wrist
+   * reach slides the shoulder up to 10 cm toward it, and one nearer than the
+   * folded arm can come up to 3 cm away from it. Returns how far the wrist
    * ended from where it needed to be.
    */
   #reach(s: 'L' | 'R', palmPos: Vector3, palmQ: Quaternion, pole: Vector3): number {
@@ -998,12 +1034,17 @@ export class Soldier {
     shoulder.position.copy(this.#rest[`shoulder${s}`]);
     const S = spine.localToWorld(shoulder.position.clone());
     const full = (L1 + L2) * 0.995;
+    const folded = Math.abs(L1 - L2) + 0.02;
     const far = want.distanceTo(S);
     if (far > full) {
       S.addScaledVector(_b.copy(want).sub(S).normalize(), Math.min(far - full, 0.1));
       shoulder.position.copy(spine.worldToLocal(S.clone()));
+    } else if (far < folded && far > 1e-6) {
+      // A hand passing closer than the folded arm allows (a short gun's support hand winding back for a throw).
+      S.addScaledVector(_b.copy(S).sub(want).normalize(), Math.min(folded - far, 0.03));
+      shoulder.position.copy(spine.worldToLocal(S.clone()));
     }
-    const d = Math.min(full, Math.max(Math.abs(L1 - L2) + 0.02, want.distanceTo(S)));
+    const d = Math.min(full, Math.max(folded, want.distanceTo(S)));
     const dir = want.clone().sub(S).normalize();
     const cosA = (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d);
     const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));

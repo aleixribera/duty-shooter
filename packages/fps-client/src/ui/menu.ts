@@ -1,16 +1,24 @@
 import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
-import { ACTIONS, ACTION_LABELS, DEFAULT_SETTINGS, bindingLabel, type Action, type Settings } from '../settings';
+import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, restoreDefaults, type Action, type Settings, type SettingsSection } from '../settings';
+import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
+import { HUD_SCALE_LIMITS } from '../hud/scale';
+import { QUALITY, QUALITY_CHOICES, type QualityChoice } from '../quality';
+import { COLOUR_VISIONS, COLOUR_VISION_NAMES } from '../team-colours';
+import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, sectionOrder, teamPreview, videoPreview, type VideoStatus } from './settings-screen';
 import { MODE_NAMES, connectionError, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { escapeHtml, hint, icon, installTheme } from './theme';
 import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
+import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
+import { touchMode } from '../touch/mode';
+import { clearHintMemory, hintsSeen } from '../hint-store';
 import type { ProfileStore } from '../profile/store';
 
 export type { LobbyInfo } from './model';
 
 /** The menus' stylesheet. */
 export const MENU_CSS = `
-.ds-menu { position: fixed; inset: 0; z-index: 20; font: 400 15px/1.4 var(--ds-font); color: var(--ds-text); }
+.ds-menu { position: fixed; inset: 0; z-index: 20; font: 400 var(--ds-type-body)/1.4 var(--ds-font); color: var(--ds-text); }
 .ds-menu[hidden] { display: none; }
 .ds-screen { position: absolute; inset: 0; }
 /* The same screen drawn again (a tab, a new key, the server's status) does not fade in again. */
@@ -24,7 +32,7 @@ export const MENU_CSS = `
 .ds-name { width: 270px; }
 .ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; margin-top: 6px; background: var(--ds-scrim-soft); border: 1px solid var(--ds-line-2); transition: border-color var(--ds-fast); }
 .ds-name label:focus-within { border-color: var(--ds-signal); }
-.ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 19px var(--ds-font); letter-spacing: 0.02em; outline: none; }
+.ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; outline: none; }
 .ds-name .ds-icon { color: var(--ds-text-2); flex: none; }
 .ds-name .ds-label { color: var(--ds-text); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 /* Destinations: display type, a readout under each, the lit one marked by a signal bar at its left edge. */
@@ -62,10 +70,23 @@ export const MENU_CSS = `
     background: linear-gradient(0deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 55%, rgb(7 9 13 / 0.45) 100%); }
   .ds-home .top { flex-direction: column; gap: 14px; }
   .ds-name { width: min(270px, 100%); }
-  .ds-dests { margin: auto 0 0; }
+  .ds-dests { margin: auto 0 0; align-self: flex-start; }
   .ds-dest { padding: 8px 0 10px 18px; }
-  .ds-dest .readout { font-size: 14px; }
+  .ds-dest .readout { font-size: var(--ds-type-body); }
   .ds-home footer .ds-hints { display: none; }
+}
+/* A phone on its side (ticket 26): the name and the Rank stand right of the list, as on a desktop, so the list starts under the title and four destinations show at once. */
+@media (max-height: 520px) and (min-width: 641px) {
+  .ds-home { display: grid; grid-template-columns: minmax(0, 1fr) min(270px, 36%); grid-template-rows: auto auto auto; align-content: start; gap: 8px 24px; padding: 14px var(--ds-gutter) 12px; }
+  .ds-home .top { display: contents; }
+  .ds-brand { grid-column: 1; grid-row: 1; }
+  .ds-name { grid-column: 2; grid-row: 1 / span 2; width: auto; }
+  .ds-dests { grid-column: 1; grid-row: 2; align-self: start; margin: 0; width: 100%; }
+  .ds-home footer { grid-column: 1 / -1; grid-row: 3; }
+  .ds-dest { padding: 3px 0 5px 18px; }
+  .ds-dest .readout { margin-top: 2px; }
+  .ds-dest.minor { margin-top: 6px; padding-top: 10px; min-height: 44px; }
+  .ds-dest.minor::before { top: 12px; }
 }
 
 /* Page content: columns, cards, facts and fields. */
@@ -77,21 +98,22 @@ export const MENU_CSS = `
 .ds-facts span:last-child { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; overflow-wrap: anywhere; }
 .ds-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .ds-mode { padding: 12px 14px; text-align: left; background: var(--ds-panel); border: 1px solid var(--ds-line); transition: border-color var(--ds-fast), background-color var(--ds-fast); }
-.ds-mode b { display: block; font-size: 18px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.03em; }
+.ds-mode b { display: block; font-size: var(--ds-type-body); line-height: 1.1; text-transform: uppercase; letter-spacing: 0.03em; }
 .ds-mode span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-mode:hover { background: var(--ds-raised); }
 .ds-mode.on { border-color: var(--ds-signal); box-shadow: inset 4px 0 0 var(--ds-signal); }
 .ds-mode:focus-visible, .ds-mode[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
 .ds-field { display: block; margin: 0 0 16px; }
-.ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 18px var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
+.ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
 .ds-field input:focus { border-color: var(--ds-signal); outline: none; }
-.ds-error { color: var(--ds-alert); min-height: 20px; font-size: 14px; }
+.ds-field-note { display: block; margin-top: 6px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-error { color: var(--ds-alert); min-height: 20px; font-size: var(--ds-type-body); }
 .ds-sub { margin: 6px 0 0; color: var(--ds-text-2); }
 .ds-gap { height: 20px; }
 
 /* Settings: tabs in the header, rows of label and control. */
 .ds-tabs { display: flex; gap: 2px; }
-.ds-tabs button { position: relative; height: 44px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-2); font-size: 14px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
+.ds-tabs button { position: relative; height: 44px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-2); font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
 .ds-tabs button::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--ds-signal); transform: scaleX(0); transition: transform 140ms var(--ds-ease); }
 .ds-tabs button:hover { color: var(--ds-text); background: rgb(243 241 234 / 0.04); }
 .ds-tabs button.on { color: var(--ds-text); }
@@ -116,8 +138,8 @@ export const MENU_CSS = `
 @media (pointer: coarse) { .ds-slider input { height: 44px; } .ds-slider input::-webkit-slider-thumb { width: 22px; height: 30px; margin-top: -13px; } .ds-row select, .ds-bind { min-height: 44px; } }
 .ds-slider input:focus { outline: none; }
 .ds-slider input:focus-visible::-webkit-slider-thumb, .ds-slider input[data-pad-focus]::-webkit-slider-thumb { background: var(--ds-signal); }
-.ds-slider .val { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: var(--ds-ink); border: 1px solid var(--ds-line); font-size: 14px; font-weight: 700; color: var(--ds-text); }
-.ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 14px var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
+.ds-slider .val { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: var(--ds-ink); border: 1px solid var(--ds-line); font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); }
+.ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
 .ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238fe3c8' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
 .ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-signal); outline: none; }
@@ -129,12 +151,12 @@ export const MENU_CSS = `
 /* Loadout: weapon tiles by slot, and the focused weapon's card. */
 .ds-kit { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 24px; }
 .ds-kit .ds-mode { min-height: 74px; display: flex; flex-direction: column; justify-content: flex-end; }
-.ds-kit .ds-mode b { font-size: 19px; }
-.ds-kit .ds-mode span { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-card .name { font-size: 34px; line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-.ds-card .role { margin: 8px 0 18px; color: var(--ds-text-2); font-size: 15px; }
-.ds-bars { display: grid; grid-template-columns: 110px 1fr 82px; gap: 12px 12px; align-items: center; font-size: 13px; }
-.ds-bars .k { color: var(--ds-text-3); text-transform: uppercase; font-size: 11px; letter-spacing: 0.14em; }
+.ds-kit .ds-mode b { font-size: var(--ds-type-body); }
+.ds-kit .ds-mode span { display: block; margin-top: 2px; font-size: var(--ds-type-small); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
+.ds-gun .name { font-size: var(--ds-type-title); line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.ds-gun .role { margin: 8px 0 18px; color: var(--ds-text-2); font-size: var(--ds-type-body); }
+.ds-bars { display: grid; grid-template-columns: 110px 1fr 82px; gap: 12px 12px; align-items: center; font-size: var(--ds-type-small); }
+.ds-bars .k { color: var(--ds-text-3); text-transform: uppercase; font-size: var(--ds-type-small); letter-spacing: 0.14em; }
 .ds-bars .bar { height: 6px; background: rgb(255 255 255 / 0.08); overflow: hidden; }
 .ds-bars .bar i { display: block; height: 100%; background: var(--ds-signal); transition: width 160ms var(--ds-ease); }
 .ds-bars .v { text-align: right; font-weight: 700; color: var(--ds-text); }
@@ -157,11 +179,17 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { color: var(--ds-signal-hi); }
 .ds-pause .ds-error { margin: -12px 0 12px; }
 .ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.86); }
-.ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: 13px; color: var(--ds-text-2); }
+.ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-keys dt { justify-self: start; }
 .ds-keys dd { margin: 0; }
 .ds-keys .pad-list { display: none; }
 .pad .ds-keys .key-list { display: none; } .pad .ds-keys .pad-list { display: grid; }
+/* On touch the list names the controls on the glass, each by the mark drawn on it. */
+.ds-keys .touch-list { display: none; }
+html.ds-touch .ds-keys .key-list, html.ds-touch .ds-keys .pad-list, html.ds-touch .ds-keys h2 small { display: none; }
+html.ds-touch .ds-keys .touch-list { display: grid; }
+.ds-tg { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border: 1px solid var(--ds-line-2); border-radius: 13px; font-size: var(--ds-type-small); font-style: normal; font-weight: 700; color: var(--ds-text); }
+.ds-tg svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ds-pause footer { grid-column: 1 / -1; align-self: end; }
 
 /* Dialogs: loading, connecting, errors, tips. Set like a title card at the lower left over the world, as the main menu is, the scrim heavy where the words are. */
@@ -192,20 +220,51 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 @media (max-width: 960px) {
   .ds-cols { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .ds-row { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px 12px 16px; }
-  .ds-facts span:last-child { font-size: 18px; }
+  .ds-facts span:last-child { font-size: var(--ds-type-body); }
   .ds-dim { background: var(--ds-scrim); }
   .ds-panel { bottom: 32px; }
-  .ds-panel .figure b { font-size: 64px; }
+  .ds-panel .figure b { font-size: var(--ds-type-display); }
   .ds-btns .ds-btn { flex: 1 1 140px; min-width: 0; }
   .ds-kit { grid-template-columns: repeat(2, 1fr); }
   .ds-tabs { order: 3; flex-basis: 100%; overflow-x: auto; }
-  .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: 13px; letter-spacing: 0.08em; }
+  .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: var(--ds-type-small); letter-spacing: 0.08em; }
   .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; background: var(--ds-scrim); }
-  .ds-pause h1 { font-size: 40px; } .ds-pause .ds-item { min-height: 54px; }
+  .ds-pause h1 { font-size: var(--ds-type-title); } .ds-pause .ds-item { min-height: 54px; }
   .ds-keys { justify-self: stretch; }
   .ds-keys dl { grid-template-columns: max-content 1fr; }
 }
+/* A phone on its side: the controls stand beside the actions, as on a desktop, instead of under the fold. */
+@media (max-height: 520px) and (min-width: 641px) {
+  .ds-pause { grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 20px; padding: 12px 16px; }
+  .ds-pause h1 { margin: 4px 0 8px; }
+  .ds-pause .ds-item { min-height: 48px; }
+  .ds-keys { align-self: start; padding: 12px 14px; }
+  .ds-keys dl { grid-template-columns: max-content 1fr max-content 1fr; }
+}
+/* An upright phone: the tabs wrap onto rows; a strip that scrolls sideways hid the last ones with no sign of them. */
+@media (max-width: 640px) { .ds-ui .ds-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 4px; } .ds-ui .ds-tabs button { flex: 0 1 auto; } }
+/* Neighbours a thumb could mix up stand 8px apart. */
+html.ds-touch .ds-tabs { gap: 8px; }
+html.ds-touch .ds-pause .col { gap: 8px; }
 `;
+
+/** The touch controls for the pause screen's reference: the mark on each, then what it does. */
+const TOUCH_KEYS: readonly (readonly [TouchGlyph | 'use', string])[] = [
+  ['stick', 'Move: left thumb (all the way up: sprint)'],
+  ['drag', 'Look: drag the right half'],
+  ['fire', 'Fire (drag it to aim)'],
+  ['ads', 'Aim'],
+  ['jump', 'Jump / mantle'],
+  ['crouch', 'Crouch / slide (hold: prone)'],
+  ['reload', 'Reload'],
+  ['switchWeapon', 'Switch weapon'],
+  ['grenade', 'Grenade'],
+  ['melee', 'Melee'],
+  ['use', 'Shows when there is something to use'],
+  ['ping', 'Ping (hold and drag: the wheel)'],
+  ['scoreboard', 'Scores'],
+  ['pause', 'Menu'],
+];
 
 /** The controller's actions for the pause screen's reference, in the Default layout. */
 const PAD_KEYS: readonly (readonly [string, string])[] = [
@@ -257,6 +316,11 @@ type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' |
 
 type El = (tag: string, text?: string, cls?: string) => HTMLElement;
 
+/** What names a control on its screen: its label, or what it says. The focus finds it again by this after the screen is rebuilt. */
+function controlName(e: Element | null): string {
+  return e ? (e.getAttribute('aria-label') ?? e.textContent ?? '').trim() : '';
+}
+
 /**
  * Every screen outside play: the main menu over the map's fly-through,
  * Play Online, loading and connecting with their progress, the connection
@@ -272,7 +336,12 @@ export class Menu {
   #screen: Screen = 'main';
   /** Where the settings screen's Back goes; `close` hides the menu (over the lobby). */
   #back: Screen | 'close' = 'main';
-  #tab: 'controls' | 'bindings' | 'video' | 'interface' = 'controls';
+  /** The Settings section showing; null until the screen first opens (Touch where a finger plays, Controls elsewhere). */
+  #tab: SettingsSection | null = null;
+  /** What the page knows of the picture, for Settings > Video. */
+  readonly #video: () => VideoStatus | null;
+  /** Redraws what a changed setting shows beside its row (a preview, the Restore button); null off the Settings screen. */
+  #afterChange: (() => void) | null = null;
   #error = '';
   /** The connection failure being shown: the driver's status, or null for a server that did not answer. */
   #failure: string | null = null;
@@ -300,19 +369,24 @@ export class Menu {
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
   #redrawAfterPress = false;
+  /** The control that had the focus on each screen when another opened over it: coming back lands on it. */
+  readonly #left = new Map<Screen, string>();
+  /** What had the focus outside the menu when it opened (a lobby button): it gets the focus back when the menu closes. */
+  #opener: HTMLElement | null = null;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null; profile?: ProfileStore | null }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null; profile?: ProfileStore | null; video?: () => VideoStatus | null }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
     this.#lobby = options.lobby;
     this.#version = options.version;
     this.#padName = options.padName ?? (() => null);
     this.#profile = options.profile ?? null;
+    this.#video = options.video ?? (() => null);
     installTheme();
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
       style.id = 'ds-menu-css';
-      style.textContent = MENU_CSS + PROFILE_SCREEN_CSS;
+      style.textContent = MENU_CSS + PROFILE_SCREEN_CSS + SETTINGS_SCREEN_CSS;
       document.head.append(style);
     }
     this.#root = document.createElement('div');
@@ -353,15 +427,58 @@ export class Menu {
     this.#settings = settings;
   }
 
+  /** The picture changed under the Settings screen (Auto settled on a tier, the engine came up): Video shows it. */
+  videoChanged(): void {
+    if (this.open && this.#screen === 'settings') this.#afterChange?.();
+  }
+
   show(screen: Screen, error = ''): void {
+    const from = this.open ? this.#screen : null;
+    const active = document.activeElement;
+    if (from === null) this.#opener = active instanceof HTMLElement && active !== document.body && !this.#root.contains(active) ? active : null;
+    else if (from !== screen) this.#left.set(from, controlName(this.#root.contains(active) ? active : null));
+    // The main menu as the page opens takes no focus: nothing asked for it yet.
+    const first = screen === 'main' && !this.#entered;
     this.#screen = screen;
     this.#error = error;
     this.#root.hidden = false;
     this.#render();
+    if (from !== screen && !first) this.#focusOpened(screen);
   }
 
   hide(): void {
+    const held = this.open && this.#root.contains(document.activeElement);
     this.#root.hidden = true;
+    this.#left.clear();
+    const opener = this.#opener;
+    this.#opener = null;
+    // Closed over a page (the lobby's Loadout or Settings): the button that opened the menu has the focus again.
+    if (held && opener?.isConnected && opener.offsetParent !== null) opener.focus({ preventScroll: true });
+  }
+
+  /**
+   * The focus on a screen that just opened: back on the control that led away
+   * from it, or on what the screen put it on itself, or else on its way on
+   * (the chosen tab, the primary button, the first control). Queued after the
+   * screen's own focus, which is queued the same way.
+   */
+  #focusOpened(screen: Screen): void {
+    const back = this.#left.get(screen);
+    this.#left.delete(screen);
+    queueMicrotask(() => {
+      if (!this.open || this.#screen !== screen) return;
+      const controls = this.#controls();
+      const returned = back ? controls.find((c) => controlName(c) === back) : undefined;
+      if (returned) returned.focus();
+      else if (!this.#root.contains(document.activeElement) || document.activeElement === document.body) {
+        // On touch never a field: the focus there brings the keyboard up over the page before anyone asked to type.
+        const touch = document.documentElement.classList.contains('ds-touch');
+        const typed = (c: HTMLElement) => c instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button'].includes(c.type);
+        const way = this.#root.querySelector<HTMLElement>('.ds-tabs button.on') ?? this.#root.querySelector<HTMLElement>('.ds-btn.primary:not(:disabled), .ds-item.primary:not(:disabled)') ?? (touch ? controls.find((c) => !typed(c)) : controls[0]);
+        way?.focus({ preventScroll: true });
+      }
+      if (this.#root.classList.contains('pad')) this.#markFocus();
+    });
   }
 
   /** The loading screen, or its progress (0-1; null while unknown). */
@@ -543,10 +660,12 @@ export class Menu {
   #change(patch: Partial<Settings>): void {
     this.#settings = { ...this.#settings, ...patch };
     this.#callbacks.changeSettings(this.#settings);
+    this.#afterChange?.();
   }
 
   #render(): void {
     const root = this.#root;
+    this.#afterChange = null;
     root.replaceChildren();
     const screen = document.createElement('div');
     screen.className = 'ds-screen';
@@ -870,17 +989,23 @@ export class Menu {
     pass.value = this.#settings.passphrase;
     pass.autocomplete = 'current-password';
     field('Name', name);
-    if (!open) field('Passphrase', pass);
+    if (!open) {
+      field('Passphrase', pass);
+      pass.after(h('span', 'Whoever runs this server gives it out.', 'ds-field-note'));
+    }
     box.append(h('div', this.#error, 'ds-error'));
     button(footer, 'Back', () => this.show('main'), 'back', 'back');
-    if (!t.online) button(footer, 'Check again', () => this.#openOnline());
-    footer.append(this.#hints(h, hint('Enter', '✕', 'Join'), hint('Esc', '○', 'Back')));
-    const go = h('button', t.online ? 'Join' : 'Server offline', 'ds-btn primary big') as HTMLButtonElement;
+    footer.append(t.online ? this.#hints(h, hint('Enter', '✕', 'Join'), hint('Esc', '○', 'Back')) : this.#hints(h, hint('Esc', '○', 'Back')));
+    const go = h('button', 'Join', 'ds-btn primary big') as HTMLButtonElement;
     go.type = 'submit';
     go.disabled = t.full || !t.online;
-    footer.append(go);
+    // With no server the one thing that works has the primary slot: a dead Join there read as the way forward.
+    if (t.online) footer.append(go);
+    else button(footer, 'Check again', () => this.#openOnline(), 'big');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      // With no server Enter does what the footer's button does: it looks again.
+      if (!t.online) return this.#openOnline();
       const n = name.value.trim().slice(0, 16);
       if (!n) {
         name.focus();
@@ -889,7 +1014,8 @@ export class Menu {
       this.#change(open ? { name: n } : { name: n, passphrase: pass.value });
       this.#callbacks.playOnline(n, open ? '' : pass.value, t.pickMode ? this.#mode : null, t.pickMode && t.maxBotsPerTeam > 0 ? this.#onlineBots : null);
     });
-    if (!this.#root.classList.contains('pad')) queueMicrotask(() => (name.value && !open ? pass : name).focus());
+    // Not on a phone: a field with the focus brings the keyboard up over the page before anyone asked to type.
+    if (!this.#root.classList.contains('pad') && !document.documentElement.classList.contains('ds-touch')) queueMicrotask(() => (name.value && !open ? pass : name).focus());
   }
 
   /** A segmented row picking one of `values`, `current` lit; `set` hears each pick. */
@@ -940,7 +1066,9 @@ export class Menu {
       ...pauseActions(this.#matchMode).map((a) => [bindingLabel(b[a]), ACTION_LABELS[a].replace(/ \(.*\)$/, '')] as const),
       ['Esc', 'Menu'],
     ];
-    keys.innerHTML = `<h2 class="ds-h2">Controls <small class="ds-label">Rebind in Settings</small></h2>${list('key-list', keyRows)}${list('pad-list', PAD_KEYS)}`;
+    const touchRows = [...TOUCH_KEYS, ...(this.#matchMode === 'battle-royale' ? ([['map', 'Map']] as const) : [])];
+    const touchList = `<dl class="touch-list">${touchRows.map(([g, v]) => `<dt><i class="ds-tg">${g === 'use' ? 'Use' : TOUCH_GLYPHS[g]}</i></dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>`;
+    keys.innerHTML = `<h2 class="ds-h2">Controls <small class="ds-label">Rebind in Settings</small></h2>${list('key-list', keyRows)}${list('pad-list', PAD_KEYS)}${touchList}`;
     wrap.append(keys);
     const footer = h('footer');
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select'), `<span><i class="ds-kbd pad">○</i><i class="ds-kbd key">Click</i>Resume</span>`));
@@ -962,7 +1090,7 @@ export class Menu {
     const right = h('section');
     cols.append(left, right);
     const options = loadoutOptions();
-    const card = h('div', '', 'ds-card ds-box');
+    const card = h('div', '', 'ds-gun ds-box');
     const showCard = (id: WeaponId) => {
       const c = weaponCard(id);
       const bars = c.bars.map((b) => `<span class="k">${escapeHtml(b.label)}</span><span class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></span><span class="v">${escapeHtml(b.text)}</span>`);
@@ -1049,15 +1177,12 @@ export class Menu {
     const s = this.#settings;
     const crumb = this.#back === 'pause' ? 'Paused' : this.#back === 'close' ? 'Lobby' : 'Main menu';
     const { aside, body, footer } = this.#page(screen, h, crumb, 'Settings');
+    const order = sectionOrder(touchMode());
+    const tab = (this.#tab ??= order[0]!);
     const tabs = h('div', '', 'ds-tabs');
     tabs.setAttribute('role', 'tablist');
-    for (const [id, label] of [
-      ['controls', 'Controls'],
-      ['bindings', 'Keys'],
-      ['video', 'Video'],
-      ['interface', 'Interface'],
-    ] as const) {
-      const b = h('button', label, this.#tab === id ? 'on' : '') as HTMLButtonElement;
+    for (const id of order) {
+      const b = h('button', SECTION_NAMES[id], this.#tab === id ? 'on' : '') as HTMLButtonElement;
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(this.#tab === id));
@@ -1071,12 +1196,34 @@ export class Menu {
       tabs.append(b);
     }
     aside.append(tabs);
+    // The rows on the left; what they change, shown, on the right (ticket 22).
+    const set = h('div', '', 'ds-set solo');
     const rows = h('div', '', 'ds-rows');
-    body.append(rows);
+    set.append(rows);
+    body.append(set);
+    const preview = (el: HTMLElement, after = false) => {
+      set.classList.remove('solo');
+      if (after) el.classList.add('after');
+      set.append(el);
+    };
+    /** Draws the screen again with the same control in hand: for a choice that changes which rows can be used. */
+    const redraw = (label: string) => {
+      this.#render();
+      this.#root.querySelector<HTMLElement>(`[aria-label="${label}"]`)?.focus();
+    };
     let list = h('div', '', 'list');
-    const row = (label: string, control: HTMLElement) => {
+    /** A row: its label (with `note` under it in small type), and its control. */
+    let notes = 0;
+    const row = (label: string, control: HTMLElement, note = '') => {
       const r = h('div', '', 'ds-row');
       const l = h('label', label);
+      if (note) {
+        // The control is named by its own label; the note (or why it is off) is read out after it.
+        const small = h('small', note);
+        small.id = `ds-row-note-${++notes}`;
+        l.append(small);
+        (control.matches('input, select, button, a') ? control : control.querySelector('input, select, button'))?.setAttribute('aria-describedby', small.id);
+      }
       r.append(l, control);
       list.append(r);
     };
@@ -1087,7 +1234,8 @@ export class Menu {
       block.append(h('h3', title), h('p', sub, 'ds-sub'), list);
       rows.append(block);
     };
-    const slider = (label: string, value: number, min: number, max: number, step: number, format: (v: number) => string, set: (v: number) => void) => {
+    /** `off`, where given, is why the control cannot be used: it is disabled and its label says so. */
+    const slider = (label: string, value: number, min: number, max: number, step: number, format: (v: number) => string, set: (v: number) => void, note = '', off = '') => {
       const wrap = h('div', '', 'ds-slider');
       const input = h('input') as HTMLInputElement;
       input.type = 'range';
@@ -1106,11 +1254,13 @@ export class Menu {
         set(v);
       });
       wrap.append(input, val);
-      row(label, wrap);
+      input.disabled = off !== '';
+      row(label, wrap, off || note);
     };
-    const select = <T extends string>(label: string, value: T, options: readonly (readonly [T, string])[], set: (v: T) => void) => {
+    const select = <T extends string>(label: string, value: T, options: readonly (readonly [T, string])[], set: (v: T) => void, note = '', off = '') => {
       const el = h('select') as HTMLSelectElement;
       el.setAttribute('aria-label', label);
+      el.disabled = off !== '';
       for (const [v, text] of options) {
         const o = h('option', text) as HTMLOptionElement;
         o.value = v;
@@ -1118,18 +1268,25 @@ export class Menu {
         el.append(o);
       }
       el.addEventListener('change', () => set(el.value as T));
-      row(label, el);
+      row(label, el, off || note);
     };
-    const toggle = (label: string, value: boolean, set: (v: boolean) => void) =>
+    const toggle = (label: string, value: boolean, set: (v: boolean) => void, note = '', off = '') =>
       select(label, value ? 'on' : 'off', [
         ['on', 'On'],
         ['off', 'Off'],
-      ], (v) => set(v === 'on'));
+      ], (v) => set(v === 'on'), note, off);
+    const percent = (v: number) => `${Math.round(v * 100)}%`;
 
-    if (this.#tab === 'controls') {
-      section('Mouse', 'How far a mouse move turns you, and how aiming and crouching answer the button.');
-      slider('Mouse sensitivity', s.sensitivity, 0.5, 20, 0.05, (v) => v.toFixed(2), (v) => this.#change({ sensitivity: v }));
-      slider('Aim-down-sights sensitivity', s.adsMultiplier, 0.1, 2, 0.01, (v) => v.toFixed(2), (v) => this.#change({ adsMultiplier: v }));
+    /** The touch controls' own settings (ticket 23): first on a phone, last everywhere else. */
+    const touchRows = () => {
+      section('Touch', 'For a phone or a tablet: how far a drag turns you, and the two helps a thumb gets. Aim and Crouch are always taps here.');
+      slider('Touch sensitivity', s.touchSensitivity, 1, 20, 0.5, (v) => v.toFixed(1), (v) => this.#change({ touchSensitivity: v }));
+      slider('Touch aim-down-sights sensitivity', s.touchAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ touchAdsMultiplier: v }));
+      toggle('Auto-fire (fires when the crosshair rests on an enemy)', s.touchAutoFire, (v) => this.#change({ touchAutoFire: v }));
+      toggle('Aim slowdown over enemies', s.touchAimAssist, (v) => this.#change({ touchAimAssist: v }));
+    };
+    if (tab === 'controls') {
+      section('Aim, crouch and sprint', 'Whether each button is held down or pressed once, on the keyboard, the mouse and a controller.');
       select('Aim down sights', s.adsMode, [
         ['hold', 'Hold'],
         ['toggle', 'Toggle'],
@@ -1138,6 +1295,17 @@ export class Menu {
         ['toggle', 'Toggle'],
         ['hold', 'Hold'],
       ], (v) => this.#change({ crouchMode: v }));
+      select('Sprint', s.sprintMode, [
+        ['toggle', 'Toggle'],
+        ['hold', 'Hold'],
+      ], (v) => this.#change({ sprintMode: v }));
+      section('Keyboard and mouse', 'Click an action, then press the key or mouse button for it. Esc cancels. A key already in use swaps over.');
+      for (const action of ACTIONS) row(ACTION_LABELS[action], this.#bindButton(action, h));
+    } else if (tab === 'mouse') {
+      section('Mouse', 'How far a mouse move turns you, from the hip and down the sights.');
+      slider('Mouse sensitivity', s.sensitivity, 0.5, 20, 0.05, (v) => v.toFixed(2), (v) => this.#change({ sensitivity: v }));
+      slider('Aim-down-sights sensitivity', s.adsMultiplier, 0.1, 2, 0.01, (v) => v.toFixed(2), (v) => this.#change({ adsMultiplier: v }));
+      toggle('Invert vertical mouse look', s.invertY, (v) => this.#change({ invertY: v }));
       const pad = this.#padName();
       section('Controller', pad ? `Connected: ${padName(pad)}.` : 'None detected. Connect a controller and press any button.');
       select('Button layout', s.padLayout, [
@@ -1149,38 +1317,137 @@ export class Menu {
       slider('Controller aim-down-sights sensitivity', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
       slider('Stick deadzone', s.padDeadzone, 0, 0.3, 0.01, (v) => v.toFixed(2), (v) => this.#change({ padDeadzone: v }));
       toggle('Invert vertical look', s.padInvertY, (v) => this.#change({ padInvertY: v }));
-    } else if (this.#tab === 'bindings') {
-      section('Keyboard and mouse', 'Click an action, then press the key or mouse button for it. Esc cancels. A key already in use swaps over.');
-      for (const action of ACTIONS) row(ACTION_LABELS[action], this.#bindButton(action, h));
-    } else if (this.#tab === 'video') {
+    } else if (tab === 'touch') {
+      touchRows();
+    } else if (tab === 'video') {
+      section('Quality', 'How much the picture spends. Auto measures this machine once and keeps the highest tier that holds the frame rate. A new tier takes a moment to build; grass and scatter follow at the next map.');
+      select('Quality', s.quality, QUALITY_CHOICES.map((c) => [c, c === 'auto' ? 'Auto' : QUALITY[c].name] as const), (v: QualityChoice) => {
+        this.#change({ quality: v });
+        redraw('Quality');
+      });
+      const again = h('button', '', 'ds-btn') as HTMLButtonElement;
+      again.type = 'button';
+      const measurable = () => {
+        const status = this.#video();
+        // Behind the main menu the map is the measurement; with a match or a lobby behind this screen, it waits for play.
+        const measuring = this.#back === 'main' ? 'Measuring now' : 'Measures once you are back in play';
+        const why = this.#settings.quality !== 'auto' ? 'Quality is picked by hand' : !status ? 'The map is still loading' : status.searching ? measuring : '';
+        again.textContent = why || 'Measure again';
+        again.disabled = why !== '';
+      };
+      measurable();
+      again.addEventListener('click', () => {
+        this.#change({ autoTier: null, autoAdapter: '' });
+        redraw('Quality');
+      });
+      row("Auto's measurement", again);
+      section('Frame rate', 'The browser draws in step with the display: V-sync is its to decide, and cannot be turned off from here. A cap draws fewer frames than the display shows.');
+      toggle('Dynamic resolution', s.dynamicResolution, (v) => this.#change({ dynamicResolution: v }), 'Renders smaller when frames run long, and back up when there is room. The HUD stays sharp.');
+      select('Frame-rate cap', String(s.fpsCap), capChoices(), (v) => this.#change({ fpsCap: Number(v) }));
+      toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }), 'With the render scale beside it while dynamic resolution is on.');
       section('View', 'How wide you see, and whether aiming narrows it with your field of view.');
       slider('Field of view', s.fov, STATS.input.minFov.value, STATS.input.maxFov.value, 1, (v) => `${v}°`, (v) => this.#change({ fov: v }));
       select('Aim-down-sights field of view', s.adsFov, [
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
-    } else {
-      section('HUD', 'The readouts drawn over play.');
-      toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));
-      toggle('Ping counter', s.showPing, (v) => this.#change({ showPing: v }));
-      toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
+      section('Benchmark', 'A fly-through of each map at the tier you pick: average and 1% low frame time, the render scale it settled on, and a line to copy.');
+      const bench = h('a', 'Open the benchmark', 'ds-btn') as HTMLAnchorElement;
+      // The same backend as this page, where it was forced.
+      bench.href = `${location.pathname}?benchmark${new URLSearchParams(location.search).has('webgl') ? '&webgl' : ''}`;
+      bench.target = '_blank';
+      bench.rel = 'noopener';
+      row('Benchmark', bench, 'Opens in a new tab.');
+      const shown = videoPreview(h, () => ({ settings: this.#settings, status: this.#video() }));
+      preview(shown.root, true);
+      this.#afterChange = () => {
+        shown.refresh();
+        measurable();
+        restorable();
+      };
+    } else if (tab === 'audio') {
       section('Audio', 'The master sets everything. Under it, the score, the world, the announcer and the menus each have their own level.');
-      const percent = (v: number) => `${Math.round(v * 100)}%`;
       slider('Master volume', s.volume, 0, 1, 0.01, percent, (v) => this.#change({ volume: v }));
       slider('Music', s.musicVolume, 0, 1, 0.01, percent, (v) => this.#change({ musicVolume: v }));
       slider('Effects', s.effectsVolume, 0, 1, 0.01, percent, (v) => this.#change({ effectsVolume: v }));
       slider('Announcer', s.voiceVolume, 0, 1, 0.01, percent, (v) => this.#change({ voiceVolume: v }));
       slider('Interface sounds', s.uiVolume, 0, 1, 0.01, percent, (v) => this.#change({ uiVolume: v }));
+    } else if (tab === 'hud') {
+      section('HUD', 'The readouts drawn over play, and how large they stand.');
+      // A narrow screen has its own HUD layout, sized for a thumb: the scale is for the desktop one.
+      const narrow = matchMedia('(max-width: 1000px)').matches;
+      slider('HUD size', s.hudScale, HUD_SCALE_LIMITS[0], HUD_SCALE_LIMITS[1], 0.05, percent, (v) => this.#change({ hudScale: v }), 'Health, ammo, the feed, the match bar and the prompts. The crosshair keeps its own size.', narrow ? 'A screen this narrow keeps its own layout.' : '');
+      toggle('Ping counter', s.showPing, (v) => this.#change({ showPing: v }));
+      toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
+      // The first-match hints (ticket 26) keep their own memory, not a setting: this forgets it.
+      const again = h('button', 'Show them again', 'ds-btn') as HTMLButtonElement;
+      again.type = 'button';
+      again.disabled = !hintsSeen();
+      const forgotten = 'They will show again from your next spawn.';
+      again.addEventListener('click', () => {
+        clearHintMemory();
+        again.disabled = true;
+        again.closest('.ds-row')?.querySelector('small')?.replaceChildren(forgotten);
+      });
+      row('First-match hints', again, hintsSeen() ? 'One line at a time on how to move, aim, reload and the rest, each until you have done it once.' : 'Nothing learned yet: they show as you play.');
+      section('Crosshair', 'Its shape, its colour and its size, in screen pixels.');
+      const cross = (patch: Partial<CrosshairOptions>) => this.#change({ crosshair: { ...this.#settings.crosshair, ...patch } });
+      const c = s.crosshair;
+      const px = (v: number) => `${v} px`;
+      select('Crosshair shape', c.shape, CROSSHAIR_SHAPES.map((v) => [v, CROSSHAIR_SHAPE_NAMES[v]] as const), (v) => {
+        cross({ shape: v });
+        redraw('Crosshair shape');
+      });
+      select('Crosshair colour', c.colour, (Object.keys(CROSSHAIR_COLOUR_NAMES) as CrosshairColour[]).map((v) => [v, CROSSHAIR_COLOUR_NAMES[v]] as const), (v) => cross({ colour: v }));
+      const armless = c.shape === 'circle' ? 'A circle has no arms.' : c.shape === 'dot' ? 'A dot has no arms.' : '';
+      const dotted = c.shape === 'dot';
+      slider('Arm length', c.size, CROSSHAIR_LIMITS.size[0], CROSSHAIR_LIMITS.size[1], 1, px, (v) => cross({ size: v }), '', armless);
+      slider('Gap', c.gap, CROSSHAIR_LIMITS.gap[0], CROSSHAIR_LIMITS.gap[1], 1, px, (v) => cross({ gap: v }), 'From the centre to where it starts.', dotted ? 'A dot has no gap.' : '');
+      slider('Thickness', c.thickness, CROSSHAIR_LIMITS.thickness[0], CROSSHAIR_LIMITS.thickness[1], 0.5, px, (v) => cross({ thickness: v }));
+      toggle('Centre dot', c.dot, (v) => cross({ dot: v }), '', dotted ? 'The dot is the crosshair.' : '');
+      toggle('Opens with movement and fire', c.dynamic, (v) => cross({ dynamic: v }), 'Off, it keeps its gap whatever you do.', dotted ? 'A dot does not open.' : '');
+      const shown = crosshairPreview(h, c);
+      shown.root.classList.add('pinned');
+      preview(shown.root);
+      this.#afterChange = () => {
+        shown.refresh(this.#settings.crosshair);
+        restorable();
+      };
+    } else {
+      section('Motion', 'How much the view and the weapon move with your body. At 0% the view stays level and still: nothing bobs, leans, dips or shakes.');
+      slider('Camera motion', s.cameraMotion, 0, 1, 0.05, percent, (v) => this.#change({ cameraMotion: v }), 'The bob of a walk, the lean of a strafe, the dip of a landing, the sway of the weapon.');
+      slider('Shake and FOV kick', s.fovEffects, 0, 1, 0.05, percent, (v) => this.#change({ fovEffects: v }), 'The shake of a shot, a hit and a blast, and the wider view of a sprint.');
+      section('Colour', 'The two team colours and the enemy marker, in a set that stays apart for your eyes. The teams keep their names.');
+      select('Colour vision', s.colourVision, COLOUR_VISIONS.map((v) => [v, v === 'off' ? 'Standard' : COLOUR_VISION_NAMES[v]] as const), (v) => this.#change({ colourVision: v }));
+      section('Captions', "The announcer's lines as text, whatever the voice's volume.");
+      toggle('Announcer captions', s.captions, (v) => this.#change({ captions: v }));
+      const shown = teamPreview(h, s.colourVision);
+      preview(shown.root);
+      this.#afterChange = () => {
+        shown.refresh(this.#settings.colourVision);
+        restorable();
+      };
     }
     button(footer, 'Back', () => (this.#back === 'close' ? this.hide() : this.show(this.#back)), 'back', 'back');
-    if (this.#tab === 'bindings') {
-      button(footer, 'Reset keys to defaults', () => {
-        this.#change({ bindings: DEFAULT_SETTINGS.bindings });
-        this.#render();
-      });
-    }
+    // One section back as it came. With nothing changed there is nothing to press, and the button says so.
+    const restore = button(footer, '', () => {
+      this.#change(restoreDefaults(this.#settings, tab));
+      this.#render();
+      this.#root.querySelector<HTMLElement>('.ds-tabs button.on')?.focus();
+    });
+    const restorable = () => {
+      restore.disabled = atDefaults(this.#settings, tab);
+      // A phone's footer has no room for the section's name, which the tab above already carries.
+      const [wide, narrow] = restore.disabled ? [`${SECTION_NAMES[tab]}: all at defaults`, 'All at defaults'] : [`Restore ${SECTION_NAMES[tab]} defaults`, 'Restore defaults'];
+      restore.replaceChildren(h('span', wide, 'wide'), h('span', narrow, 'narrow'));
+      restore.setAttribute('aria-label', wide);
+    };
+    restorable();
+    this.#afterChange ??= restorable;
+    tabs.querySelector('.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('←→', '✥', 'Adjust'), hint('Esc', '○', 'Back')));
     footer.append(h('span', 'Changes save as you make them', 'ds-saved'));
+    footer.classList.add('ds-set-foot');
   }
 
   #bindButton(action: Action, h: El): HTMLElement {

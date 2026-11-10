@@ -14,7 +14,7 @@ const CSS = `
 .ds-lobby .seat { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 6px 16px 6px 14px; background: var(--ds-panel); border: 1px solid transparent; }
 .ds-lobby .seat .n { width: 22px; flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .seat .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ds-lobby .seat .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px; line-height: 1.1; font-weight: 700; letter-spacing: 0.02em; }
+.ds-lobby .seat .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.02em; }
 .ds-lobby .seat .role { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .seat .ping { flex: none; font-size: var(--ds-type-small); font-weight: 700; }
 .ds-lobby .seat .ping.good { color: var(--ds-good); } .ds-lobby .seat .ping.fair { color: var(--ds-fair); } .ds-lobby .seat .ping.poor { color: var(--ds-poor); }
@@ -53,7 +53,7 @@ const CSS = `
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
 .ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
 .ds-lobby .invite { display: flex; }
-.ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: 15px; color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
+.ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
 .ds-lobby .invite .ds-btn { border-radius: 0; }
 .ds-lobby footer .ds-btn:not(.big) { min-width: 120px; }
 @media (max-width: 960px) {
@@ -63,11 +63,11 @@ const CSS = `
   .ds-lobby .match { order: -1; }
   .ds-lobby .seats { grid-template-columns: 1fr; grid-auto-flow: row; }
   .ds-lobby .seat { min-height: 46px; }
-  .ds-lobby .seat .name { font-size: 18px; }
+  .ds-lobby .seat .name { font-size: var(--ds-type-body); }
   .ds-lobby .maps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ds-lobby .maps button { height: 96px; }
   .ds-lobby .match .ds-readouts > div { padding: 10px 12px; }
-  .ds-lobby .match .ds-readouts b { font-size: 17px; white-space: normal; overflow-wrap: anywhere; }
+  .ds-lobby .match .ds-readouts b { font-size: var(--ds-type-body); white-space: normal; overflow-wrap: anywhere; }
   .ds-lobby footer .ds-btn:not(.big) { flex: 1; min-width: 0; padding: 0 10px; }
 }
 `;
@@ -166,13 +166,15 @@ export class LobbyPage {
     const html = this.#render(view);
     // Each time the page opens it starts at its top: your seat, not where Bot Match was last scrolled to.
     if (opening) this.#root.querySelector('.body')?.scrollTo(0, 0);
-    if (html === this.#html) return;
+    if (html === this.#html && !opening) return;
     const focused = this.#root.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['key'] : undefined;
     this.#html = html;
     // Patched in place, not rebuilt: pings change every second online, and a rebuild between press and release lost the click.
     patchHtml(this.#root, html);
     // The same control keeps the focus where a control was replaced.
     if (focused && document.activeElement?.getAttribute('data-key') !== focused) this.#root.querySelector<HTMLElement>(`[data-key="${focused}"]`)?.focus();
+    // Opening, the way on has the focus (Start, or Join), or the first control while it waits: Enter and a controller's Cross do what the lit button says.
+    if (opening && !this.#root.contains(document.activeElement)) (this.#root.querySelector<HTMLElement>('[data-key="start"]:not(:disabled)') ?? this.#root.querySelector<HTMLElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
     this.#markFocus();
   }
 

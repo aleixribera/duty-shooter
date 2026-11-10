@@ -2,11 +2,13 @@ import { STATS, WEAPON_IDS, isShellReload, type WeaponId, type WeaponRow } from 
 import { DirectionalLight, Euler, Group, HemisphereLight, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, type Texture } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attachAuthoredM4, disposeAuthored } from './authored-m4a1';
+import { strafeSpeed } from '../motion';
 import { Spring } from '../spring';
 import { LIGHTING, type Lighting } from '../surfaces/lighting';
 import { buildArms, type ArmsModel } from './arms';
 import { buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, type M4A1Model } from './m4a1';
+import { WeaponMotion } from './motion';
 import type { ViewmodelState } from './state';
 
 const W = STATS.weapon;
@@ -41,6 +43,18 @@ interface Key {
   readonly boltPull?: number;
   /** 0 = right hand on the grip, 1 = on the bolt handle. */
   readonly right?: number;
+  /** A feed cover lifted or a cylinder swung out, 0..1. */
+  readonly open?: number;
+  /** 0..1: the support hand on the cover's edge or the cylinder's side (the rig's `reach`). */
+  readonly reach?: number;
+  /** 0..1: the support hand on the charging handle (the rig's `rack`), which `charge` then draws. */
+  readonly rack?: number;
+  /** The magazine rocked about its pivot, bottom forward (radians). */
+  readonly magTilt?: number;
+  /** A cylinder emptied: the rounds pushed out and falling away by 1. */
+  readonly eject?: number;
+  /** A speedloader: 0 away, coming in with six rounds to 1 (seated), then leaving without them by 2. */
+  readonly loader?: number;
 }
 
 const ease = (x: number) => x * x * (3 - 2 * x);
@@ -77,6 +91,12 @@ function sample(track: readonly Key[], t: number) {
     boltLift: ch((k) => k.boltLift, 0),
     boltPull: ch((k) => k.boltPull, 0),
     right: ch((k) => k.right, 0),
+    open: ch((k) => k.open, 0),
+    reach: ch((k) => k.reach, 0),
+    rack: ch((k) => k.rack, 0),
+    magTilt: ch((k) => k.magTilt, 0),
+    eject: ch((k) => k.eject, 0),
+    loader: ch((k) => k.loader, 0),
   };
 }
 
@@ -123,6 +143,177 @@ function reloadTrack(
   keys.push({ t: end, pose: ZERO, hand: 0, bolt: 0, catchPress: 0 });
   return keys;
 }
+
+/** When a reload's rounds count and when it is over (s), from the weapon's row. */
+interface ReloadTiming {
+  readonly add: number;
+  readonly end: number;
+}
+
+/** Carries every channel a key leaves out on from the key before it, so a track writes only what changes. */
+function held(keys: readonly Key[]): Key[] {
+  let last: Key = keys[0] as Key;
+  return keys.map((k) => (last = { ...last, ...k }));
+}
+
+/**
+ * The Bulwark's belt: the support hand lifts the feed cover, unhooks the box
+ * and brings a full one up from below, and slaps the cover shut on the new
+ * belt as the rounds count. Empty, it draws the charging handle after that.
+ */
+function beltReloadTrack(empty: boolean, { add, end }: ReloadTiming): Key[] {
+  const shut = add - (empty ? 0.62 : 0.06);
+  const low = pose([-0.035, 0.035, 0.03], [-0.2, 0.3, 0.3]);
+  const work = pose([-0.035, 0.03, 0.035], [-0.24, 0.32, 0.36]);
+  // Up and rolled the other way for the box: its left side and its belly to the eye.
+  const swap = pose([-0.03, 0.1, 0.02], [0.1, 0.42, -0.3]);
+  const keys: Key[] = [
+    { t: 0, pose: ZERO, hand: 0, reach: 0, rack: 0, open: 0, charge: 0, mag: [0, 0, 0], bolt: empty ? 1 : 0 },
+    { t: 0.38, pose: low, reach: 1 },
+    { t: 0.5, pose: low },
+    { t: 0.85, pose: work, open: 1 },
+    { t: 1.02, pose: work, reach: 1, hand: 0 },
+    { t: 1.32, pose: swap, reach: 0, hand: 1, mag: [0, 0, 0] },
+    // The box off its hook: out to the left, then down and away.
+    { t: 1.56, pose: pose([-0.03, 0.105, 0.02], [0.12, 0.44, -0.34]), mag: [-0.035, -0.02, 0] },
+    { t: shut * 0.5, pose: swap, mag: [-0.07, -0.36, 0.1] },
+    // A full one comes up and hooks on, its belt laid on the tray.
+    { t: shut * 0.68, pose: swap, mag: [-0.05, -0.13, 0.03] },
+    { t: shut * 0.79, pose: swap, mag: [-0.035, -0.016, 0] },
+    { t: shut * 0.84, pose: pose([-0.026, 0.106, 0.02], [0.13, 0.41, -0.27]), mag: [0, 0, 0] },
+    { t: shut * 0.84 + 0.14, pose: swap, hand: 1, reach: 0 },
+    { t: shut - 0.36, pose: work, hand: 0, reach: 1 },
+    { t: shut - 0.13, pose: work, open: 1 },
+    // Slapped shut.
+    { t: shut, pose: pose([-0.03, 0.012, 0.035], [-0.3, 0.3, 0.3]), open: 0, reach: 1, rack: 0 },
+  ];
+  if (empty) {
+    keys.push({ t: shut + 0.2, pose: pose([-0.02, 0.025, 0.03], [-0.1, 0.34, 0.2]), reach: 0, rack: 1, charge: 0, bolt: 1 });
+    keys.push({ t: add - 0.16, pose: pose([-0.02, 0.025, 0.045], [-0.08, 0.38, 0.22]), charge: 1, bolt: 1 });
+    keys.push({ t: add, pose: pose([-0.02, 0.022, 0.02], [-0.1, 0.3, 0.18]), charge: 0, bolt: 0, rack: 1 });
+  }
+  keys.push({ t: add + (end - add) * 0.5, pose: pose([-0.005, -0.008, 0.01], [-0.05, 0.08, 0.08]), reach: 0, rack: 0, bolt: 0 });
+  keys.push({ t: end, pose: ZERO });
+  return held(keys);
+}
+
+/**
+ * The Vantage's magazine rocks: bottom forward off its latch and away, the
+ * full one hooked at the front and rocked back until it catches.
+ */
+function rockReloadTrack(empty: boolean, { add, end }: ReloadTiming): Key[] {
+  const tilt = pose([-0.03, 0.085, 0.02], [0.14, 0.4, -0.32]);
+  const seat = add - (empty ? 0.5 : 0.14);
+  const keys: Key[] = [
+    { t: 0, pose: ZERO, hand: 0, mag: [0, 0, 0], magTilt: 0, bolt: empty ? 1 : 0 },
+    { t: 0.24, pose: tilt, hand: 0.6 },
+    { t: 0.34, pose: tilt, hand: 1 },
+    { t: 0.5, pose: pose([-0.03, 0.089, 0.015], [0.17, 0.41, -0.35]), mag: [0, -0.014, -0.014], magTilt: 0.42 },
+    { t: seat * 0.5, pose: tilt, mag: [0.03, -0.34, 0.08], magTilt: 0.42 },
+    { t: seat * 0.76, pose: tilt, mag: [0, -0.1, -0.02], magTilt: 0.5 },
+    { t: seat - 0.16, pose: tilt, mag: [0, -0.015, -0.014], magTilt: 0.42 },
+    { t: seat, pose: pose([-0.03, 0.097, 0.025], [0.18, 0.41, -0.3]), mag: [0, 0, 0], magTilt: 0 },
+  ];
+  // Empty, the bolt is let go as the hand leaves the magazine.
+  if (empty) keys.push({ t: add - 0.2, pose: pose([-0.03, 0.085, 0.02], [0.12, 0.42, -0.26]), hand: 1, bolt: 1 }, { t: add, pose: pose([-0.025, 0.07, 0.012], [0.12, 0.36, -0.2]), hand: 0.7, bolt: 0 });
+  else keys.push({ t: add, pose: tilt, hand: 1 });
+  keys.push({ t: add + (end - add) * 0.45, pose: pose([-0.008, 0.02, 0.005], [0.04, 0.1, -0.06]), hand: 0.15, bolt: 0 });
+  keys.push({ t: end, pose: ZERO, hand: 0 });
+  return held(keys);
+}
+
+/**
+ * The Trident's magazine is behind the grip: the gun comes up and rolls over
+ * so the well shows, and the support hand works under the stock.
+ */
+function bullpupReloadTrack(empty: boolean, { add, end }: ReloadTiming): Key[] {
+  const show = pose([-0.12, 0.13, -0.22], [0.42, 0.35, -0.3]);
+  const seat = add - (empty ? 0.42 : 0.12);
+  const keys: Key[] = [
+    { t: 0, pose: ZERO, hand: 0, mag: [0, 0, 0], bolt: empty ? 1 : 0 },
+    { t: 0.22, pose: show, hand: 0.5 },
+    { t: 0.32, pose: show, hand: 1 },
+    { t: 0.44, pose: pose([-0.12, 0.134, -0.22], [0.44, 0.36, -0.33]), mag: [0, -0.07, 0.005] },
+    { t: seat * 0.5, pose: show, mag: [-0.02, -0.34, 0.06] },
+    { t: seat * 0.78, pose: show, mag: [0, -0.1, 0.01] },
+    { t: seat, pose: pose([-0.12, 0.142, -0.22], [0.45, 0.35, -0.3]), mag: [0, 0, 0] },
+  ];
+  if (empty) keys.push({ t: add - 0.18, pose: show, hand: 1, bolt: 1 }, { t: add, pose: pose([-0.08, 0.08, -0.15], [0.3, 0.3, -0.2]), hand: 0.7, bolt: 0 });
+  else keys.push({ t: add, pose: show, hand: 1 });
+  keys.push({ t: add + (end - add) * 0.5, pose: pose([-0.03, 0.025, -0.05], [0.1, 0.1, -0.06]), hand: 0.15, bolt: 0 });
+  keys.push({ t: end, pose: ZERO, hand: 0 });
+  return held(keys);
+}
+
+/**
+ * The Marshal's cylinder: swung out to the left, muzzle up and the six
+ * pushed out together, muzzle down and six more off a speedloader, then
+ * shut as the rounds count. The same either way: there is no round to keep.
+ */
+function cylinderReloadTrack({ add, end }: ReloadTiming): Key[] {
+  const f = add / 2;
+  const out = pose([-0.03, 0.03, 0.02], [0.1, 0.12, -0.3]);
+  const up = pose([-0.045, 0.045, 0.04], [0.95, 0.16, -0.26]);
+  const down = pose([-0.05, 0.075, 0], [-0.22, -0.55, -0.2]);
+  return held([
+    { t: 0, pose: ZERO, hand: 0, reach: 0, open: 0, eject: 0, loader: 0 },
+    { t: 0.18 * f, pose: out, reach: 1 },
+    { t: 0.34 * f, pose: out, open: 1 },
+    { t: 0.54 * f, pose: up, eject: 0 },
+    { t: 0.64 * f, pose: pose([-0.045, 0.036, 0.045], [0.98, 0.16, -0.26]), eject: 0.4 },
+    { t: 0.9 * f, pose: up, eject: 1, reach: 1, hand: 0 },
+    { t: 1.12 * f, pose: down, reach: 0, hand: 1, loader: 0.02 },
+    { t: 1.56 * f, pose: down, loader: 1 },
+    { t: 1.62 * f, pose: pose([-0.046, 0.073, -0.004], [-0.24, -0.58, -0.2]), loader: 1 },
+    { t: 1.78 * f, pose: down, loader: 2, hand: 1, reach: 0 },
+    { t: 1.9 * f, pose: pose([-0.035, 0.035, 0.02], [-0.12, 0.14, -0.32]), hand: 0, reach: 1, open: 1 },
+    // Shut.
+    { t: add, pose: pose([-0.02, 0.024, 0.015], [0.06, 0.1, -0.16]), open: 0, reach: 1 },
+    { t: add + (end - add) * 0.5, pose: pose([-0.005, 0.008, 0.005], [0.03, 0.03, -0.05]), reach: 0 },
+    { t: end, pose: ZERO },
+  ]);
+}
+
+/** The reloads that are a weapon's own; the rest swap a magazine the common way. */
+const RELOADS: Partial<Record<KitId, (empty: boolean, timing: ReloadTiming) => Key[]>> = {
+  lmg: beltReloadTrack,
+  dmr: rockReloadTrack,
+  burst: bullpupReloadTrack,
+  revolver: (_empty, timing) => cylinderReloadTrack(timing),
+};
+
+/**
+ * How each of these comes up when it is drawn (the rest use drawTrack): the
+ * machine gun heaved up and settling under its weight, the marksman rifle
+ * brought down onto the target from muzzle-high, the bullpup turned in from
+ * across the chest, the revolver flicked up and steadied.
+ */
+const RAISES: Partial<Record<KitId, (d: number) => Key[]>> = {
+  lmg: (d) => [
+    { t: 0, pose: pose([0.06, -0.3, 0.1], [-0.75, 0.35, 0.4]) },
+    { t: d * 0.5, pose: pose([0.03, -0.09, 0.05], [-0.26, 0.16, 0.2]) },
+    { t: d * 0.74, pose: pose([0.004, 0.014, 0.012], [0.07, -0.02, -0.05]) },
+    { t: d * 0.9, pose: pose([0, -0.006, 0.003], [-0.02, 0, 0.01]) },
+    { t: d, pose: ZERO },
+  ],
+  dmr: (d) => [
+    { t: 0, pose: pose([0.07, -0.24, 0.16], [1.05, 0.3, 0.35]) },
+    { t: d * 0.62, pose: pose([0.012, 0.012, 0.03], [0.16, 0.04, 0.06]) },
+    { t: d * 0.86, pose: pose([0, -0.004, 0.005], [-0.02, 0, 0]) },
+    { t: d, pose: ZERO },
+  ],
+  burst: (d) => [
+    { t: 0, pose: pose([-0.1, -0.26, 0.1], [-0.35, 0.85, 0.75]) },
+    { t: d * 0.7, pose: pose([-0.006, -0.004, 0.01], [0.02, 0.06, 0.07]) },
+    { t: d, pose: ZERO },
+  ],
+  revolver: (d) => [
+    { t: 0, pose: pose([0.09, -0.26, 0.06], [-1.05, -0.2, -0.4]) },
+    { t: d * 0.58, pose: pose([0, 0.014, -0.01], [0.16, 0.02, 0.03]) },
+    { t: d * 0.82, pose: pose([0, -0.003, 0], [-0.025, 0, 0]) },
+    { t: d, pose: ZERO },
+  ],
+};
 
 function inspectTrack(charge = 0.45): Key[] {
   const d = W.inspectDuration.value;
@@ -217,17 +408,18 @@ const TRACKS: Tracks = {
 };
 
 /** A weapon's tracks, timed from its row. Shell reloads are worked out per frame (see shellReload). */
-function kitTracks(row: WeaponRow): Tracks {
+function kitTracks(id: KitId, row: WeaponRow): Tracks {
   const h = row.handling;
   const r = row.reload;
   const mag = isShellReload(r) ? null : r;
   const cycle = h.cycleTime?.value ?? 0;
   const still: Key[] = [{ t: 0, pose: ZERO }];
+  const reload = RELOADS[id] ?? ((empty: boolean, timing: ReloadTiming) => reloadTrack(empty, timing, false));
   return {
-    tactical: mag ? reloadTrack(false, { add: mag.tacticalAddAmmo.value, end: mag.tacticalDuration.value }, false) : still,
-    empty: mag ? reloadTrack(true, { add: mag.emptyAddAmmo.value, end: mag.emptyDuration.value }, false) : still,
+    tactical: mag ? reload(false, { add: mag.tacticalAddAmmo.value, end: mag.tacticalDuration.value }) : still,
+    empty: mag ? reload(true, { add: mag.emptyAddAmmo.value, end: mag.emptyDuration.value }) : still,
     inspect: inspectTrack(0),
-    draw: drawTrack(h.drawTime.value),
+    draw: (RAISES[id] ?? drawTrack)(h.drawTime.value),
     holster: holsterTrack(h.holsterTime.value),
     melee: meleeTrack(),
     cycle: row.traits.fireMode === 'pump' ? pumpTrack(cycle) : row.traits.fireMode === 'bolt' ? boltTrack(cycle) : null,
@@ -238,7 +430,7 @@ const KIT_TRACKS = new Map<KitId, Tracks>();
 function tracksFor(id: WeaponId): Tracks {
   if (id === 'm4a1') return TRACKS;
   let t = KIT_TRACKS.get(id);
-  if (!t) KIT_TRACKS.set(id, (t = kitTracks(STATS.weapons[id])));
+  if (!t) KIT_TRACKS.set(id, (t = kitTracks(id, STATS.weapons[id])));
   return t;
 }
 
@@ -320,6 +512,20 @@ const ENVIRONMENT = 0.8;
 /** A pistol slide's run back and forward after a shot (s). */
 const SLIDE_CYCLE = 0.07;
 
+/** How far a feed cover lifts and a revolver's crane swings out (radians), and where a hammer stands at its furthest. */
+const COVER_OPEN = 1.15;
+const CRANE_OPEN = 1.66;
+const HAMMER_BACK = 0.7;
+/** One chamber on. */
+const CHAMBER_TURN = Math.PI / 3;
+/** How far the ejector pushes the rounds out of a cylinder (m), and how far they have fallen by the time they are gone. */
+const EJECTOR_THROW = 0.036;
+const EJECTED_FALL = 0.3;
+/** Where a speedloader comes from and goes back to, from its seat on the cylinder, in the swung-out cylinder's own space (m): behind the gun, to its left and below. */
+const LOADER_AWAY = new Vector3(-0.028, 0.0225, 0.11);
+const AXIS_X = new Vector3(1, 0, 0);
+const AXIS_Z = new Vector3(0, 0, 1);
+
 /**
  * The first-person weapon and arms: keyframed actions driven by the weapon
  * state, layered with sway, turn inertia, movement bob, a spring recoil kick
@@ -350,15 +556,11 @@ export class Viewmodel {
   readonly #ejectionPort = new Object3D();
   #weapon: WeaponId = 'm4a1';
   // Procedural layers.
-  readonly #swayX = new Spring(90, 12);
-  readonly #swayY = new Spring(90, 12);
   readonly #kickZ = new Spring(320, 20);
   readonly #kickPitch = new Spring(260, 16);
   readonly #kickYaw = new Spring(260, 18);
-  readonly #dip = new Spring(120, 11);
-  #bobPhase = 0;
-  #bobAmount = 0;
-  #sprint = 0;
+  /** How the gun moves with the body (ticket 10): one offset on the pivot, so every gun hung from it has it. */
+  readonly #motion = new WeaponMotion();
   /** How far the gun is swung out of the way for a mantle, eased, 0 to 1. */
   #mantle = 0;
   #boltCycle = 1;
@@ -454,7 +656,12 @@ export class Viewmodel {
   }
 
   land(fallHeight: number): void {
-    this.#dip.velocity -= Math.min(1.6, 0.4 + fallHeight * 0.25);
+    this.#motion.land(fallHeight);
+  }
+
+  /** The holder's footstep sounded: the bob lands with it. */
+  footfall(): void {
+    this.#motion.footfall();
   }
 
   resize(aspect: number): void {
@@ -548,10 +755,7 @@ export class Viewmodel {
     const kit = id === 'm4a1' ? null : this.#kit(id);
     const row = STATS.weapons[id];
     const ads = ease(Math.min(1, Math.max(0, state.ads)));
-    const sprinting = state.movement === 'sprint';
     const k = (tau: number) => 1 - Math.exp(-dt / tau);
-    // A reload carries on through a sprint, so the gun stays in its reload pose rather than the sprint cant.
-    this.#sprint += ((sprinting && state.action !== 'melee' && state.action !== 'reload' ? 1 : 0) - this.#sprint) * k(0.09);
     // A mantle: the gun drops away fast as the hands go to the ledge, and comes back up once over.
     const mantling = state.movement === 'mantle';
     this.#mantle += ((mantling ? 1 : 0) - this.#mantle) * k(mantling ? 0.05 : 0.12);
@@ -587,21 +791,26 @@ export class Viewmodel {
     const lowered = !g ? 0 : g.phase === 'cook' ? ease(Math.min(1, g.time / 0.18)) : 1 - ease(Math.min(1, Math.max(0, (g.time - FRAG_LETGO) / (throwTime - FRAG_LETGO))));
 
     // Procedural layers.
-    const calm = 1 - ads * 0.85;
-    this.#swayX.update(dt, Math.max(-0.05, Math.min(0.05, -state.lookDelta.yaw * 0.9)));
-    this.#swayY.update(dt, Math.max(-0.04, Math.min(0.04, state.lookDelta.pitch * 0.9)));
     this.#kickZ.update(dt);
     this.#kickPitch.update(dt);
     this.#kickYaw.update(dt);
-    this.#dip.update(dt);
-    const moving = state.grounded ? Math.min(1, state.speed / 7) : 0;
-    this.#bobAmount += (moving - this.#bobAmount) * k(0.12);
-    this.#bobPhase += dt * (5.2 + state.speed * 0.95);
-    const bob = this.#bobAmount * calm * (1 + this.#sprint * 0.8);
-    const bobX = Math.sin(this.#bobPhase) * 0.012 * bob;
-    const bobY = -Math.abs(Math.cos(this.#bobPhase)) * 0.014 * bob;
-    const breathe = Math.sin(this.#time * 1.4) * 0.0015 * calm;
-    this.#boltCycle = Math.min(1, this.#boltCycle + dt / (id === 'pistol' ? SLIDE_CYCLE : 60 / W.fireRate.value));
+    // The body's motion in the gun: nothing aimed but the breath, and all of it the camera-motion setting's to scale.
+    const m = this.#motion.update({
+      dt,
+      amount: state.motion ?? 1,
+      ads,
+      movement: state.movement,
+      stance: state.stance,
+      speed: state.grounded ? state.speed : 0,
+      strafe: state.velocity ? strafeSpeed(state.velocity, state.yaw ?? 0) : 0,
+      rise: state.velocity?.[1] ?? 0,
+      lookDelta: state.lookDelta,
+      weight: row.handling.adsTime.value / STATS.weapons.m4a1.handling.adsTime.value,
+      // A reload carries on through a sprint, so the gun stays in its reload pose rather than the sprint cant.
+      carries: state.action !== 'melee' && state.action !== 'reload',
+    });
+    const sprint = m.sprint;
+    this.#boltCycle = Math.min(1, this.#boltCycle + dt / (id === 'pistol' ? SLIDE_CYCLE : (kit?.rig.cycle ?? 60 / W.fireRate.value)));
 
     // Sprint: gun canted and lowered.
     const sprintP = SPRINT_OFFSET;
@@ -614,15 +823,15 @@ export class Viewmodel {
     const r = s.pose.r.map((v, i) => lerp(lerp(v, GRENADE_LOWERED.r[i] as number, lowered), MANTLE_AWAY.r[i] as number, away));
     const actionWeight = 1 - ads * 0.6;
     this.#pivot.position.set(
-      base.x + (p[0] ?? 0) * actionWeight + sprintP.x * this.#sprint + bobX + this.#swayX.value * 0.6 * calm,
-      base.y + (p[1] ?? 0) * actionWeight + sprintP.y * this.#sprint + bobY + breathe + this.#swayY.value * 0.5 * calm + this.#dip.value * 0.03,
-      base.z + (p[2] ?? 0) * actionWeight + sprintP.z * this.#sprint + this.#kickZ.value * 0.025 * (1 - ads * 0.4),
+      base.x + (p[0] ?? 0) * actionWeight + sprintP.x * sprint + m.p[0],
+      base.y + (p[1] ?? 0) * actionWeight + sprintP.y * sprint + m.p[1],
+      base.z + (p[2] ?? 0) * actionWeight + sprintP.z * sprint + m.p[2] + this.#kickZ.value * 0.025 * (1 - ads * 0.4),
     );
     const hipRot = 1 - ads;
     this.#pivot.rotation.set(
-      HIP_ROT.x * hipRot + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * this.#sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + this.#swayY.value * 0.6,
-      HIP_ROT.y * hipRot + (r[1] ?? 0) * actionWeight + (sprintR[1] ?? 0) * this.#sprint + this.#kickYaw.value * 0.01 + this.#swayX.value * 0.8,
-      HIP_ROT.z * hipRot + (r[2] ?? 0) * actionWeight + (sprintR[2] ?? 0) * this.#sprint + bobX * 2 + this.#swayX.value * 1.2 * calm,
+      HIP_ROT.x * hipRot + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + m.r[0],
+      HIP_ROT.y * hipRot + (r[1] ?? 0) * actionWeight + (sprintR[1] ?? 0) * sprint + this.#kickYaw.value * 0.01 + m.r[1],
+      HIP_ROT.z * hipRot + (r[2] ?? 0) * actionWeight + (sprintR[2] ?? 0) * sprint + m.r[2],
       'YXZ',
     );
 
@@ -690,9 +899,36 @@ export class Viewmodel {
     if (mag) {
       mag.node.position.set(mag.position.x + s.mag[0], mag.position.y + s.mag[1], mag.position.z + s.mag[2]);
       mag.node.visible = !(state.action === 'reload' && s.mag[1] < -0.25);
+      mag.node.quaternion.copy(mag.quaternion).multiply(new Quaternion().setFromAxisAngle(AXIS_X, s.magTilt));
     }
     const slide = kit.part('slide');
-    if (slide) slide.node.position.set(slide.position.x, slide.position.y, slide.position.z + travel * Math.max(slideLocked, cycle));
+    if (slide) slide.node.position.set(slide.position.x, slide.position.y, slide.position.z + Math.max(travel * Math.max(slideLocked, cycle), (rig.chargeTravel ?? travel) * s.charge));
+    // A feed cover lifts at its rear; a revolver's crane swings the cylinder out to the left.
+    const cover = kit.part('cover');
+    if (cover) cover.node.quaternion.copy(cover.quaternion).multiply(new Quaternion().setFromAxisAngle(AXIS_X, -COVER_OPEN * s.open));
+    const crane = kit.part('crane');
+    if (crane) crane.node.quaternion.copy(crane.quaternion).multiply(new Quaternion().setFromAxisAngle(AXIS_Z, CRANE_OPEN * s.open));
+    // After a shot the hammer comes back and falls, and the cylinder turns the next chamber up.
+    const shot = this.#boltCycle;
+    const cylinder = kit.part('cylinder');
+    if (cylinder) cylinder.node.quaternion.copy(cylinder.quaternion).multiply(new Quaternion().setFromAxisAngle(AXIS_Z, shot < 1 ? CHAMBER_TURN * ease(shot) : 0));
+    const hammer = kit.part('hammer');
+    if (hammer) hammer.node.quaternion.copy(hammer.quaternion).multiply(new Quaternion().setFromAxisAngle(AXIS_X, HAMMER_BACK * cycle));
+    // The six in the cylinder: pushed out and falling away, then the next six coming in on the loader, which leaves without them.
+    const loading = Math.min(1, s.loader);
+    const rounds = kit.part('rounds');
+    if (rounds) {
+      const fall = Math.max(0, (s.eject - 0.4) / 0.6);
+      const out = loading > 0 ? 0 : Math.min(1, s.eject / 0.4) * EJECTOR_THROW + fall * fall * EJECTED_FALL;
+      rounds.node.position.copy(rounds.position).addScaledVector(LOADER_AWAY, loading > 0 ? 1 - loading : 0);
+      rounds.node.position.z += out;
+      rounds.node.visible = loading > 0 || s.eject < 0.97;
+    }
+    const loader = kit.part('loader');
+    if (loader) {
+      loader.node.position.copy(loader.position).addScaledVector(LOADER_AWAY, s.loader <= 1 ? 1 - loading : s.loader - 1);
+      loader.node.visible = state.action === 'reload' && s.loader > 0.01 && s.loader < 1.97;
+    }
     const pump = kit.part('pump');
     if (pump) pump.node.position.set(pump.position.x, pump.position.y, pump.position.z + travel * s.pump);
     const bolt = kit.part('bolt');
@@ -708,7 +944,19 @@ export class Viewmodel {
     const support = kit.sockets.support;
     target.position.copy(support.getWorldPosition(new Vector3()));
     target.quaternion.copy(support.getWorldQuaternion(new Quaternion()));
-    if (s.hand > 0) {
+    // To a feed cover's edge or a cylinder's side, following it as it opens.
+    const edge = kit.sockets.reach;
+    if (edge && s.reach > 0) {
+      target.position.lerp(edge.getWorldPosition(new Vector3()), s.reach);
+      target.quaternion.slerp(edge.getWorldQuaternion(new Quaternion()), s.reach);
+    }
+    const knob = kit.sockets.carry;
+    if (s.hand > 0 && loader && knob && rig.carry) {
+      // With a speedloader, held by its knob: the palm keeps to the gun while the loader comes in with the cylinder.
+      const gunQ = kit.root.getWorldQuaternion(new Quaternion());
+      target.position.lerp(loader.node.getWorldPosition(new Vector3()).add(new Vector3(...rig.carry.pos).applyQuaternion(gunQ)), s.hand);
+      target.quaternion.slerp(knob.getWorldQuaternion(new Quaternion()), s.hand);
+    } else if (s.hand > 0) {
       // To the magazine for a swap, or to the loading port with a shell.
       const reach = mag && rig.magGrab ? mag.node.localToWorld(new Vector3(...rig.magGrab)) : rig.loadingPort ? kit.root.localToWorld(new Vector3(...rig.loadingPort)) : null;
       if (reach) {
@@ -717,7 +965,14 @@ export class Viewmodel {
         target.quaternion.slerp(q, s.hand);
       }
     }
-    this.arms.setGrip(s.right > 0.5 ? 0.85 : 1, s.hand > 0.3 && s.hand < 0.95 ? 0.5 : 1);
+    // To a charging handle the support hand works, and back with it.
+    const handle = kit.sockets.rack;
+    if (handle && s.rack > 0) {
+      target.position.lerp(handle.getWorldPosition(new Vector3()), s.rack);
+      target.quaternion.slerp(handle.getWorldQuaternion(new Quaternion()), s.rack);
+    }
+    // Fingers round a speedloader's knob, half open on a magazine, a cover or a cylinder.
+    this.arms.setGrip(s.right > 0.5 ? 0.85 : 1, s.hand > 0.3 && loader && !mag ? 0.8 : (s.hand > 0.3 && s.hand < 0.95) || s.reach > 0.5 ? 0.5 : 1);
 
     // On a bolt gun the right hand leaves the grip for the handle.
     const grip = kit.sockets.rightGrip;

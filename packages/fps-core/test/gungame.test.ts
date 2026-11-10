@@ -55,22 +55,30 @@ describe('gun game', () => {
     expect(mode.killLimit).toBe(GUN_GAME_LADDER_LENGTH * K);
   });
 
-  it('deals 5 different guns from the arsenal in a random order, 3 to 5 kills a gun', () => {
-    expect(GUN_GAME_LADDER_LENGTH).toBe(5);
+  it('deals most of the arsenal as different guns in a random order, 3 to 5 kills a gun', () => {
+    // Most of the arsenal is climbed, and some is left out so the next match is another climb.
+    expect(GUN_GAME_LADDER_LENGTH).toBeGreaterThan(WEAPON_IDS.length / 2);
+    expect(GUN_GAME_LADDER_LENGTH).toBeLessThan(WEAPON_IDS.length);
     expect(K).toBeGreaterThanOrEqual(3);
     expect(K).toBeLessThanOrEqual(5);
     const orders = new Set<string>();
+    const dealt = new Set<string>();
     for (let seed = 1; seed <= 40; seed++) {
       const guns = dealLadder(seeded(seed));
-      expect(guns).toHaveLength(5);
-      expect(new Set(guns).size).toBe(5);
-      for (const g of guns) expect(WEAPON_IDS).toContain(g);
+      expect(guns).toHaveLength(GUN_GAME_LADDER_LENGTH);
+      expect(new Set(guns).size).toBe(GUN_GAME_LADDER_LENGTH);
+      for (const g of guns) {
+        expect(WEAPON_IDS).toContain(g);
+        dealt.add(g);
+      }
       orders.add(guns.join());
     }
     expect(orders.size).toBeGreaterThan(10);
-    // A bigger arsenal: still 5, drawn from all of it.
-    const pool = ['m4a1', 'smg', 'shotgun', 'sniper', 'pistol', 'm4a1', 'smg'] as const;
-    expect(dealLadder(seeded(3), pool)).toHaveLength(5);
+    // Every gun of the arsenal turns up on some ladder.
+    expect([...dealt].sort()).toEqual([...WEAPON_IDS].sort());
+    // A bigger arsenal: the same length, drawn from all of it.
+    const pool = [...WEAPON_IDS, ...WEAPON_IDS];
+    expect(dealLadder(seeded(3), pool)).toHaveLength(GUN_GAME_LADDER_LENGTH);
   });
 
   it('deals a new ladder at every match start', () => {
@@ -113,7 +121,7 @@ describe('gun game', () => {
   it('finishing the last gun wins, and nothing scores after', () => {
     const mode = gungame();
     kills(mode, 'a', 'b', mode.killLimit - 1);
-    expect(mode.loadoutOf('a')?.primary).toBe(mode.guns[4]);
+    expect(mode.loadoutOf('a')?.primary).toBe(mode.guns.at(-1));
     expect(mode.result(ctx())).toBeNull();
     mode.onEvents([killed('a', 'c')], ctx());
     expect(mode.result(ctx())).toEqual({ winner: 'a', winnerName: 'a', draw: false, reason: 'killLimit' });
