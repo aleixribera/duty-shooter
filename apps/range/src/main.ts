@@ -28,7 +28,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let backendName = '';
   let adapterName = '';
   const videoStatus = (): VideoStatus | null => (pacer ? { backend: backendName, adapter: adapterName, refreshHz: pacer.refreshHz } : null);
-  // `?stats`: each second, this frame's draw calls, triangles and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
+  // `?stats`: each second, this frame's draw calls, triangles, GPU time and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
   const renderStats = params.has('stats');
   // The menus go up first, and take clicks while three.js and the map arrive behind them.
   const engineLoading = import('./engine');
@@ -900,7 +900,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // `?lod=off`: a large map drawn without its distance detail, to measure what it saves.
   if (params.get('lod') === 'off') engine.useDistanceDetail(false);
   await nextPaint();
-  const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching || benchmarkPage });
+  const created = await engine.createRenderer(canvas, { forceWebGL, trackTimestamp: benching || benchmarkPage || renderStats });
   renderer = created.renderer;
   // The GPU device (or the WebGL context) gone: nothing more can be drawn, so the page says so and offers a reload, which takes an online seat back (ticket 61).
   const loseGraphics = renderer.onDeviceLost.bind(renderer);
@@ -1121,8 +1121,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   });
 }
 
-const counted = { since: 0, frames: 0, draws: 0, triangles: 0, maxDraws: 0 };
-/** `?stats`: adds up the frame just drawn and, each second, writes the mean draw calls and triangles and the renderer's memory to the page. */
+const counted = { since: 0, frames: 0, draws: 0, triangles: 0, maxDraws: 0, gpuMs: 0, gpuFrames: 0, gpuPending: false };
+/**
+ * `?stats`: adds up the frame just drawn and, each second, writes the mean draw
+ * calls, triangles and GPU time (ms a frame, where the browser measures it) and
+ * the renderer's memory to the page.
+ */
 function countFrame(renderer: WebGPURenderer, time: number): void {
   const { drawCalls, triangles } = renderer.info.render;
   if (drawCalls === 0) return;
@@ -1130,10 +1134,23 @@ function countFrame(renderer: WebGPURenderer, time: number): void {
   counted.draws += drawCalls;
   counted.triangles += triangles;
   counted.maxDraws = Math.max(counted.maxDraws, drawCalls);
+  // Three.js keeps the latest frame's queries per pass, so each resolve reads one frame.
+  if (!counted.gpuPending) {
+    counted.gpuPending = true;
+    void renderer
+      .resolveTimestampsAsync('render')
+      .then((ms) => {
+        if (typeof ms !== 'number' || ms <= 0) return;
+        counted.gpuMs += ms;
+        counted.gpuFrames++;
+      })
+      .finally(() => (counted.gpuPending = false));
+  }
   if (time - counted.since < 1000) return;
   const { geometries, textures } = renderer.info.memory;
-  document.body.dataset['render'] = JSON.stringify({ frames: counted.frames, draws: Math.round(counted.draws / counted.frames), maxDraws: counted.maxDraws, triangles: Math.round(counted.triangles / counted.frames), geometries, textures });
-  Object.assign(counted, { since: time, frames: 0, draws: 0, triangles: 0, maxDraws: 0 });
+  const gpu = counted.gpuFrames > 0 ? Math.round((counted.gpuMs / counted.gpuFrames) * 1000) / 1000 : null;
+  document.body.dataset['render'] = JSON.stringify({ frames: counted.frames, draws: Math.round(counted.draws / counted.frames), maxDraws: counted.maxDraws, triangles: Math.round(counted.triangles / counted.frames), gpu, geometries, textures });
+  Object.assign(counted, { since: time, frames: 0, draws: 0, triangles: 0, maxDraws: 0, gpuMs: 0, gpuFrames: 0 });
 }
 
 /** How long (ms) without input counts as the player resting. */

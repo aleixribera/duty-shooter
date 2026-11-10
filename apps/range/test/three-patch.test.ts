@@ -6,7 +6,7 @@ import { THREE_PATCHES, patchThree } from '../three-patch/plugin.ts';
 
 const build = (file: string) => readFileSync(join(dirname(createRequire(import.meta.url).resolve('three')), file), 'utf8');
 
-// Next-level ticket 35: the instanced-mesh fixes find their code in the three.js this repo installs.
+// Next-level ticket 35: every fix finds its code in the three.js this repo installs.
 describe('the three.js patch', () => {
   for (const file of ['three.webgpu.js', 'three.webgpu.nodes.js']) {
     it(`applies every fix to ${file}, once each`, () => {

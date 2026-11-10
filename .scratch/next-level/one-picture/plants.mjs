@@ -19,8 +19,8 @@ try {
   function report(root) {
     if (!root) return 'no plants root';
     const mats = new Map();
-    const rows = root.children.map((m) => { mats.set(m.material.uuid, (mats.get(m.material.uuid) ?? 0) + 1); return [m.visible ? m.count : 0, m.instanceMatrix.count, m.castShadow, m.geometry.index.count / 3, m.material.uuid.slice(0, 4)].join(' '); });
-    return JSON.stringify({ meshes: root.children.length, visible: root.children.filter((m) => m.visible).length, materials: [...mats.values()], rows }, null, 0);
+    const built = root.children.find((m) => m.name === 'built'); const cells = built ? built.children.filter((m) => m.visible).length + ' of ' + built.children.length : 'none'; const rows = root.children.filter((m) => m.isInstancedMesh).map((m) => { mats.set(m.material.uuid, (mats.get(m.material.uuid) ?? 0) + 1); return [m.visible ? m.count : 0, m.instanceMatrix.count, m.castShadow, m.geometry.index.count / 3, m.material.uuid.slice(0, 4)].join(' '); });
+    return JSON.stringify({ cells, meshes: root.children.length, visible: root.children.filter((m) => m.visible).length, materials: [...mats.values()], rows }, null, 0);
   }
   })`);
   console.log(out);

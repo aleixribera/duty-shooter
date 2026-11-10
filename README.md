@@ -72,7 +72,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?lod=off` draws a large map without its distance detail (soldier levels, far ground in blocks, far surfaces), to measure what that detail saves.
 - `?plants=off` draws a map without its plants (their soft cover still hides from bots; rocks and trunks show as their plain solids), to measure what the plants cost.
 - `?seed=<n>` plays every Local bots match on the same spawns and circles.
-- `?stats` writes each second's mean draw calls and triangles and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
+- `?stats` writes each second's mean draw calls, triangles and GPU time (ms a frame, `gpu`, null where the browser doesn't measure it) and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`, `/royale/`); a production build always does.

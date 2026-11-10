@@ -1,9 +1,8 @@
 import type { Plugin } from 'vite';
 
 /**
- * Two fixes to three.js's WebGPU build (0.186), applied as it is bundled
- * (next-level ticket 35): what an instanced mesh costs the processor each
- * frame, once temporal AA's velocity is drawn.
+ * Fixes to three.js's WebGPU build (0.186), applied as it is bundled
+ * (next-level ticket 35), each making the same picture cheaper.
  *
  * - An instanced mesh of up to 1024 instances keeps its matrices in a uniform
  *   buffer that three uploads again for every pass of every frame, whether a
@@ -14,6 +13,12 @@ import type { Plugin } from 'vite';
  * - With velocity drawn, each instanced mesh copies its whole matrix array to
  *   last frame's after every pass. It now copies only when the matrices
  *   changed since the last copy: until they do, last frame's are the same.
+ * - The scene's background (the game's sky, clouds and sun) was drawn first,
+ *   with no depth test, so every pixel of the screen ran the sky's shader and
+ *   the world then covered most of them. It is now drawn after the opaque
+ *   world and before what is see-through, tested against the depth the world
+ *   left: it sits on the far plane, so it fills only the pixels nothing else
+ *   did, and glass, smoke and particles still blend over it.
  *
  * A pattern that is missing (three changed) fails the build: the fix is
  * checked against the new code, never silently dropped. The dev server keeps
@@ -43,6 +48,14 @@ class NodeUniformBuffer extends UniformBuffer {
 
 	}
 `,
+  ],
+  [
+    "\t\t\t\tnodeMaterial.name = 'Background.material';\n\t\t\t\tnodeMaterial.side = BackSide;\n\t\t\t\tnodeMaterial.depthTest = false;",
+    "\t\t\t\tnodeMaterial.name = 'Background.material';\n\t\t\t\tnodeMaterial.side = BackSide;\n\t\t\t\tnodeMaterial.depthTest = true;",
+  ],
+  [
+    'renderList.unshift( backgroundMesh, backgroundMesh.geometry, backgroundMesh.material, 0, 0, null, null );',
+    'renderList.push( backgroundMesh, backgroundMesh.geometry, backgroundMesh.material, 0, 0, null, null );',
   ],
   [
     `			previousInstanceMatrix.array.set( matrices.array );

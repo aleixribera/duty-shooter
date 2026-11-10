@@ -8,7 +8,7 @@ const SERVER = process.env['DUTY_SERVER'] ?? 'http://localhost:3000';
 
 export default defineConfig({
   // Each map's lighting, baked on the CPU at build time (served as bake/<map>.bin).
-  // three.js's instanced meshes, patched to upload and copy their matrices only when they move (three-patch/plugin.ts).
+  // three.js, patched for the same picture at less cost: instanced matrices sent only when they move, the sky drawn only where nothing covers it (three-patch/plugin.ts).
   plugins: [threePatch(), bakeLighting(['survival-town', 'switchyard', 'station-nine', 'range']), largeMapNav()],
   // The dev server bundles three ahead of the page, outside the plugins above: the patch goes there too.
   optimizeDeps: { rolldownOptions: { plugins: [threePatch()] } },
