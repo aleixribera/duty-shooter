@@ -3,7 +3,7 @@ import { color, float, positionLocal, smoothstep, uv, vec4 } from 'three/tsl';
 import { AdditiveBlending, ConeGeometry, DoubleSide, Group, Mesh, MeshBasicNodeMaterial, PlaneGeometry, Sprite, SpriteNodeMaterial, type Object3D } from 'three/webgpu';
 import type { SoundEventName, SoundParams } from './audio';
 import { RUMBLE_OVERLAP, RUMBLE_SECONDS } from './audio/train';
-import { loadMapModels } from './map-models';
+import { isDepthTwin, loadMapModels } from './map-models';
 import type { Finish, FreightTrain } from './surfaces';
 
 /** One sound of the train to play now. */
@@ -163,6 +163,7 @@ export class Train {
   dispose(): void {
     this.root.traverse((o) => {
       const mesh = o as Mesh;
+      if (isDepthTwin(o)) return;
       if (mesh.isMesh) mesh.geometry.dispose();
       if (mesh.isMesh || (o as Sprite).isSprite) (mesh.material as MeshBasicNodeMaterial).dispose();
     });

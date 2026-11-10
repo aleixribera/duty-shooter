@@ -1,7 +1,7 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attribute, float, mix } from 'three/tsl';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BufferAttribute, BufferGeometry, Color, Group, Matrix4, Mesh, MeshStandardNodeMaterial, Quaternion, Vector3, type Material, type Object3D } from 'three/webgpu';
+import { BufferAttribute, BufferGeometry, Color, Group, Matrix4, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, Quaternion, Vector3, type Material, type Object3D } from 'three/webgpu';
 import { lampMaterial, roomMaterial } from './surface-materials';
 import type { Family, Finish, MapModels, ModelPlacement } from './surfaces';
 
@@ -68,6 +68,35 @@ function finishGeometry(source: BufferGeometry, finish: Finish): BufferGeometry 
   return g;
 }
 
+/**
+ * Depth alone, drawn before the rest of the opaque world (see `depthFirst`). A hair farther than the model itself, so the model's own
+ * pixels always pass against it whatever rounding its fuller shader does.
+ */
+let depthOnly: Material | null = null;
+
+/**
+ * A twin of a mesh that writes only its depth, first of the opaque world. Lit
+ * shading is most of a frame on a weak GPU, and a merged mesh (a map's models
+ * in a square, a finish's walls across the map) has no order of its own: a bus
+ * would light every seat behind its sides before the sides covered them. With
+ * the depth already down, each pixel is lit once, by what shows there. The
+ * twin rides on its mesh, so it moves, hides and culls with it, and casts no
+ * shadow (the mesh does). At 4K this took 0.6 to 1.8 ms off the world pass at
+ * the reference spots measured (next-level ticket 35).
+ */
+export function depthFirst(model: Mesh): Mesh {
+  depthOnly ??= new MeshBasicNodeMaterial({ colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  const twin = new Mesh(model.geometry, depthOnly);
+  twin.name = 'depth-first';
+  twin.renderOrder = -1;
+  return twin;
+}
+
+/** A twin from `depthFirst`: its geometry is its mesh's and its material is shared by every world, so freeing a world leaves both alone. */
+export function isDepthTwin(o: Object3D): boolean {
+  return o instanceof Mesh && o.material === depthOnly;
+}
+
 /** The triangles of `geometry` a material group draws (all of it without groups), as their own geometry. */
 function groupGeometry(geometry: BufferGeometry, start: number, count: number): BufferGeometry {
   const g = geometry.clone();
@@ -94,7 +123,8 @@ export function placementMatrix(p: ModelPlacement): Matrix4 {
  * of the map (see `CELL`) for every finish together (see `finishMaterial`),
  * and one per lamp or room finish: a street of cars, crates and poles costs a draw
  * call or two. Each part's material is named after the map finish it wears.
- * Everything casts and takes shadows like the static surfaces.
+ * Everything casts and takes shadows like the static surfaces, and the lit
+ * finishes put their depth down first (see `depthFirst`).
  */
 export async function loadMapModels(models: MapModels, finishes: Readonly<Record<string, Finish>>): Promise<Group> {
   const { scene } = await new GLTFLoader().loadAsync(models.url);
@@ -155,6 +185,7 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
       const mesh = new Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      if (material === shared) mesh.add(depthFirst(mesh));
       out.add(mesh);
     }
     if (merged && geometries.length > 1) for (const g of geometries) g.dispose();

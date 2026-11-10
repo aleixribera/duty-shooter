@@ -19,6 +19,8 @@ try {
   if (!(await chrome.waitFor('globalThis.duty?.game', 180_000))) throw new Error('no game');
   await chrome.waitFor('document.body.dataset.bake', 180_000);
   await sleep(8000);
+  // PRE_JS: a snippet run in the page before measuring (e.g. hiding something to compare against).
+  if (process.env.PRE_JS) console.log('pre:', await chrome.evaluate(process.env.PRE_JS));
   if (rate > 1) await chrome.send('Emulation.setCPUThrottlingRate', { rate });
   await sleep(2000);
   const out = await chrome.evaluate(`new Promise((done) => {

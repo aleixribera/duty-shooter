@@ -2,7 +2,12 @@
 // `period` ms and adding up each pass's GPU time by the state it was drawn in. Doing both in the same
 // page keeps the GPU's clocks and the PC's other load out of the difference, which separate runs do not.
 //   node .scratch/next-level/one-picture/gpu-toggle.mjs <what> [map] [spot] [dpr=2] [cycles=8] [period=2500]
-// what: `sky` (the scene's background drawn or not), `lights` (the point lights shown or not).
+// what: `sky` (the scene's background drawn or not), `lights` (the point lights shown or not), `env` (the
+// reflections' environment map), `sunshadow` (the sun casting shadows), `models` (meshes with a standard
+// material hidden), `modelsflat` (their shading swapped for an unlit copy of colour and texture), `modelsrecv`
+// (models receiving the sun's shadow), `modelsplain` (their material without the game's probe lighting), `prepass` (the big model
+// meshes' depth drawn first, so their lighting runs once a pixel), `prepassall` (every opaque mesh's),
+// `depthfirst` (the game's own depth-first twins, see map-models.ts), `plants`. Some change the picture: they measure a part's cost, not a fix.
 import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
 
 const BASE = process.env.BASE ?? 'http://localhost:5173/';
@@ -32,6 +37,7 @@ try {
       if (o.isScene && o.children.length >= 10) { world = o; r._renderObjectDirect = realDirect; }
       return realDirect.apply(this, arguments);
     };
+    import('/node_modules/.vite/deps/three_webgpu.js').then((t) => { globalThis.__Basic = t.MeshBasicNodeMaterial; });
     let on = true;
     let counting = false;
     let sky = null;
@@ -40,6 +46,39 @@ try {
       if (!world) return;
       if ('${what}' === 'sky') { sky ??= world.backgroundNode; world.backgroundNode = v ? sky : null; }
       if ('${what}' === 'lights') world.traverse((x) => { if (x.isPointLight) x.visible = v; });
+      if ('${what}' === 'env') { sky ??= world.environment; world.environment = v ? sky : null; }
+      if ('${what}' === 'sunshadow') world.traverse((x) => { if (x.isDirectionalLight) x.castShadow = v; });
+      if ('${what}' === 'models') world.traverse((x) => { if (x.isMesh && x.material?.isMeshStandardNodeMaterial) x.visible = v; });
+      if ('${what}' === 'modelsflat') world.traverse((x) => {
+        if (!x.isMesh) return;
+        x.userData.realMat ??= x.material;
+        const m = x.userData.realMat;
+        if (!m?.isMeshStandardNodeMaterial) return;
+        x.userData.flatMat ??= new globalThis.__Basic({ color: m.color, map: m.map, alphaTest: m.alphaTest, side: m.side, transparent: m.transparent });
+        x.material = v ? m : x.userData.flatMat;
+      });
+      if ('${what}' === 'modelsrecv') world.traverse((x) => { if (x.isMesh && x.material?.isMeshStandardNodeMaterial) x.receiveShadow = v; });
+      if ('${what}' === 'modelsplain') world.traverse((x) => {
+        if (!x.isMesh) return;
+        x.userData.realMat ??= x.material;
+        const m = x.userData.realMat;
+        if (!m?.isMeshStandardNodeMaterial) return;
+        x.userData.plainMat ??= m.clone();
+        x.material = v ? m : x.userData.plainMat;
+      });
+      if ('${what}' === 'prepass' || '${what}' === 'prepassall') {
+        if (!globalThis.__pre) {
+          globalThis.__pre = [];
+          const depthOnly = new globalThis.__Basic({ colorWrite: false });
+          const all = '${what}' === 'prepassall';
+          const meshes = []; world.traverse((x) => { const m = x.material; if (!x.isMesh || x.isInstancedMesh || !m || Array.isArray(m) || m.transparent || m.alphaTest > 0 || !x.visible) return; if (all ? x.geometry.attributes.position.count > 100 : (m.isMeshStandardNodeMaterial && x.geometry.index && x.geometry.index.count > 3000)) meshes.push(x); });
+          console.log('prepass meshes', meshes.length);
+          for (const x of meshes) { const c = new x.constructor(x.geometry, depthOnly); c.renderOrder = -1; c.matrixAutoUpdate = false; c.matrix = x.matrix; c.matrixWorld = x.matrixWorld; c.frustumCulled = x.frustumCulled; x.parent.add(c); globalThis.__pre.push(c); }
+        }
+        for (const c of globalThis.__pre) c.visible = v;
+      }
+      if ('${what}' === 'depthfirst') world.traverse((x) => { if (x.name === 'depth-first') x.visible = v; });
+      if ('${what}' === 'plants') { const p = world.getObjectByName('plants'); if (p) p.visible = v; }
     };
     const names = new Map();
     const stateOf = new Map();
@@ -73,7 +112,7 @@ try {
     const tick = () => {
       step++;
       counting = false;
-      set(!on);
+      try { set(!on); } catch (e) { done('switch failed: ' + e); return; }
       if (step > 2 * ${cycles} + 2) {
         backend.beginRender = realBegin;
         const keys = [...new Set([...sums.on.keys(), ...sums.off.keys()])];

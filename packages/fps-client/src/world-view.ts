@@ -36,7 +36,7 @@ import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
 import { hasDistanceDetail } from './detail';
 import { PICTURE, keeps, type QualityProfile } from './quality';
 import { Train } from './train';
-import { loadMapModels } from './map-models';
+import { depthFirst, isDepthTwin, loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
@@ -399,6 +399,10 @@ export class WorldView {
         // Everything near casts into the realtime shadow map: near the player it lights static surfaces more crisply than the bake, and it keeps the sun off soldiers indoors.
         mesh.castShadow = castShadow;
         mesh.receiveShadow = true;
+        // One mesh per finish across the map draws in no useful order: its depth goes down first, so walls light only what shows.
+        // Glass is see-through and a lamp's glow costs nothing to draw twice.
+        const family = layout.finishes[key]!.family;
+        if (family !== 'glass' && family !== 'lamp') mesh.add(depthFirst(mesh));
         return mesh;
       });
     if (content.terrain && hasDistanceDetail()) {
@@ -614,7 +618,7 @@ export class WorldView {
   /** Frees the GPU resources this view made (switching maps builds a new one). */
   dispose(): void {
     this.scene.traverse((o) => {
-      if (!(o instanceof Mesh)) return;
+      if (!(o instanceof Mesh) || isDepthTwin(o)) return;
       o.geometry.dispose();
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         (m as { map?: { dispose(): void } | null }).map?.dispose();
