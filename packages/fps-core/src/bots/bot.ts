@@ -78,6 +78,8 @@ export interface BotObjective {
   readonly urgent?: boolean;
   /** The clock is running out: no holding back. */
   readonly hurry?: boolean;
+  /** A place its team doesn't hold, taken by standing in it: it keeps walking in while it fights, whatever distance its gun likes to hold at (a scoped rifle excepted, which shoots standing). */
+  readonly take?: boolean;
 }
 
 /** How near (m) a crate a bot stands to open it: inside the opening reach. */
@@ -887,8 +889,11 @@ export class Bot {
       const reloading = (this.#reloading.get(tp.id) ?? -Infinity) > time && this.profile.aggression > 0.45 && !tactics.scoped;
       // In cover to heal, it fights whoever comes from there, and goes nowhere.
       const closeIn = !this.#recover && (rushing || reloading || !target.visible || (!tactics.scoped && range > holdAt));
+      // Sent to take a zone: a lane held from outside it never takes it, so on in while fighting.
+      const taking = order?.take === true && !tactics.scoped && !this.#recover && flat(self.position, order.position) > order.radius * 0.7;
+      if (taking) move = this.#follow(view, order.position, OBJECTIVE_KEY);
       // Closing in to fight up close: by the way the target can't see.
-      if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id, tactics.push ? eyeOf(tp) : null);
+      else if (closeIn) move = this.#follow(view, this.#memory.get(tp.id)?.position ?? tp.position, tp.id, tactics.push ? eyeOf(tp) : null);
       if (time >= this.#strafeUntil) {
         // Jukes only near its own fighting distance; farther out it fights like anyone.
         const juke = range < want + JUKE_REACH ? tactics.juke : 1;

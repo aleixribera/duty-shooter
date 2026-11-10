@@ -1503,7 +1503,7 @@ export class GameServer {
       if (zones.length === 0) return;
       for (const team of new Set(bots.map((p) => p.team))) {
         const plan = planOutposts(team, bots.filter((p) => p.team === team), zones, objective.zones);
-        for (const [id, zone] of plan) this.#orders.set(id, { position: zone.center, radius: zone.radius });
+        for (const [id, zone] of plan) this.#orders.set(id, { position: zone.center, radius: zone.radius, take: objective.zones.find((z) => z.id === zone.id)?.owner !== team });
       }
     } else if (objective?.kind === 'charge') {
       const sites = this.#map.sites ?? [];
