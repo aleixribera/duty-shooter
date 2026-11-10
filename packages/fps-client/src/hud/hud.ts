@@ -208,7 +208,6 @@ const CSS = `
 /* The result heads the panel on its plate: over the sky and the cloud it measured 1.2:1. */
 .ds-end .head { margin: 0 auto 1px; width: min(840px, 100%); padding-top: 12px; background: var(--ds-plate); }
 .ds-end .head .mvp.ds-plate { margin-bottom: 0; background: none; border-top: 1px solid var(--ds-line); }
-.ds-end .result { font-size: var(--ds-type-heading); font-weight: 700; color: var(--ds-text-2); text-shadow: 0 1px 6px var(--ds-shadow-hi); }
 .ds-end h2 { margin: 4px 0 14px; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
 /* The MVP: one line on its own plate, set on top of yours. */
 .ds-end .mvp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 auto 1px; width: min(840px, 100%); padding: 9px 14px; text-align: left; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
@@ -1052,18 +1051,22 @@ export class Hud {
     }
     const end = endSummary(s.result, s.mode, state.scores, state.selfId);
     const h = end.headline;
-    const headline =
+    // One line: your result where you had a side, else who won; how it ended only when that isn't the usual limit. The scoreboard under it names the mode.
+    const reason = s.result ? END_REASONS[s.result.reason] : '';
+    const result =
       h.kind === 'draw'
         ? 'Draw'
         : h.kind === 'team'
-          ? `<span class="ds-t${h.team}">${TEAMS[h.team]?.mark ?? ''} ${TEAMS[h.team]?.name ?? 'Team'} wins</span>`
+          ? view.team !== null
+            ? h.won ? `<span class="ds-t${h.team}">Victory</span>` : 'Defeat'
+            : `<span class="ds-t${h.team}">${TEAMS[h.team]?.mark ?? ''} ${TEAMS[h.team]?.name ?? 'Team'} wins</span>`
           : h.kind === 'player'
             ? h.you
               ? 'You win'
               : `${escape(h.name)} ${h.verb}`
-            : 'Match over';
-    const sub = h.kind === 'team' && view.team !== null ? (h.won ? 'Victory' : 'Defeat') : `${MODE_NAMES[s.mode]} · ${s.result ? END_REASONS[s.result.reason] : 'over'}`;
-    let head = `<div class="result">${sub}</div><h2>${headline}</h2>`;
+            : reason ? reason.charAt(0).toUpperCase() + reason.slice(1) : 'Match over';
+    const headline = h.kind !== 'unknown' && s.result?.reason === 'forfeit' ? `${result} by forfeit` : result;
+    let head = `<h2>${headline}</h2>`;
     // The MVP: the highest Score of the match, with their kills and best Medal.
     const mvp = mvpOf(state.scores, state.selfId);
     if (mvp) {

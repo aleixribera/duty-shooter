@@ -2395,7 +2395,6 @@ export class Game {
         this.#spectateNotice = null;
         this.#allySight.clear();
         this.#pingBoard.clear();
-        this.hud.toast('New match.', 3);
         this.#worldView.restoreProps();
         break;
     }

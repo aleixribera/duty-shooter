@@ -1,4 +1,4 @@
-import { MASTERY_KILLS, figure, playedFor, rankOf, ratio, todaysChallenges, weaponRows, type Profile } from '../profile/model';
+import { figure, playedFor, rankOf, ratio, todaysChallenges, weaponRows, type Profile } from '../profile/model';
 import { escapeHtml as escape } from './theme';
 
 /**
@@ -113,8 +113,8 @@ export function profileHtml(profile: Profile, today: string): string {
   // A Battle Royale's two figures, once one has been played.
   if ((s.modes['battle-royale'] ?? 0) > 0) cells.push(cell('Royale wins', figure(s.royaleWins)), cell('Best place', s.royaleBest === null ? '–' : `#${s.royaleBest}`));
   const lifetime =
-    `<section><h2 class="ds-h2">Lifetime<small>Matches played to their end</small></h2><div class="ds-readouts" style="--n:${cells.length / 2}">${cells.join('')}</div>` +
-    (s.matches === 0 ? '<p class="none">Nothing banked yet. A match played to its end counts here, online, in a Bot Match or in a Battle Royale. The Practice Range keeps no score.</p>' : '') +
+    `<section><h2 class="ds-h2">Lifetime</h2><div class="ds-readouts" style="--n:${cells.length / 2}">${cells.join('')}</div>` +
+    (s.matches === 0 ? '<p class="none">Finish a match to start counting. The Practice Range keeps no score.</p>' : '') +
     '</section>';
 
   const tasks = todaysChallenges(profile, today)
@@ -123,7 +123,7 @@ export function profileHtml(profile: Profile, today: string): string {
       return `<div class="task${c.done ? ' done' : ''}"><span class="what">${escape(c.text)}</span><span class="amt">${amount}</span><span class="pay">${c.done ? `${figure(c.xp)} XP paid` : `+${figure(c.xp)} XP`}</span>${bar(c.done ? 1 : c.progress / c.target, `${c.progress} of ${c.target}`)}</div>`;
     })
     .join('');
-  const challenges = `<section><h2 class="ds-h2">Today's Challenges<small>Three a day, new at midnight</small></h2><div class="list">${tasks}</div></section>`;
+  const challenges = `<section><h2 class="ds-h2">Today's Challenges<small>New at midnight</small></h2><div class="list">${tasks}</div></section>`;
 
   const guns = weaponRows(profile)
     .map((w) => {
@@ -137,7 +137,7 @@ export function profileHtml(profile: Profile, today: string): string {
       );
     })
     .join('');
-  const weapons = `<section><h2 class="ds-h2">Weapons<small>Mastery at ${MASTERY_KILLS.slice(0, -1).join(', ')} and ${MASTERY_KILLS[MASTERY_KILLS.length - 1]} kills</small></h2><div class="list">${guns}</div></section>`;
+  const weapons = `<section><h2 class="ds-h2">Weapons</h2><div class="list">${guns}</div></section>`;
 
   return `<div>${rank}${lifetime}${challenges}</div><div>${weapons}</div>`;
 }

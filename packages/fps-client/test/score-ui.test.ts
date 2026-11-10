@@ -116,7 +116,7 @@ describe('the Profile screen', () => {
     expect(html).toContain('<b class="n">1</b>');
     expect(html).toContain('Observer');
     expect(html).toContain('<span>Matches</span><b>0</b>');
-    expect(html).toContain('Nothing banked yet');
+    expect(html).toContain('Finish a match to start counting');
     expect(html).toContain('No kills yet');
     // Three Challenges, none of them begun.
     expect(html.match(/class="task"/g)).toHaveLength(3);
@@ -132,7 +132,7 @@ describe('the Profile screen', () => {
     expect(html).toContain('4 headshots · longest 41 m');
     expect(html).toContain('Mastery 1 / 5');
     expect(html).toContain('45 to level 2');
-    expect(html).not.toContain('Nothing banked yet');
+    expect(html).not.toContain('Finish a match to start counting');
     // The most used weapon leads the list.
     expect(html.indexOf('M4A1')).toBeLessThan(html.indexOf('No kills yet'));
   });

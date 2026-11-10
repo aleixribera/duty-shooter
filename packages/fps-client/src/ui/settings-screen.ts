@@ -63,7 +63,7 @@ export function videoPreview(h: El, read: () => VideoStatus | null): { root: HTM
   const refresh = () => {
     const status = read();
     root.replaceChildren();
-    root.append(h('h3', 'The picture'), h('p', "One look on every machine, every effect on, drawn at your screen's own resolution.", 'ds-sub'));
+    root.append(h('h3', 'The picture'));
     const list = h('dl', '', 'ds-tier');
     for (const [label, value] of pictureFacts()) {
       const row = h('div');
@@ -95,13 +95,14 @@ export function crosshairPreview(h: El, options: CrosshairOptions): { root: HTML
     return new CrosshairView(el);
   });
   const note = h('p', '', 'ds-note');
-  root.append(h('h3', 'Crosshair'), h('p', 'As it is drawn in play, over a bright, a mid and a dark backdrop.', 'ds-sub'), bands, note);
+  root.append(h('h3', 'Crosshair'), bands, note);
   const refresh = (next: CrosshairOptions) => {
     for (const view of views) {
       view.options = next;
       view.update(PREVIEW_SPREAD);
     }
-    note.textContent = next.shape === 'dot' ? 'A dot alone: nothing opens or closes.' : next.dynamic ? 'Shown standing still with a rifle. Moving and firing open it.' : 'Fixed: it keeps this gap whatever you do.';
+    // Only a crosshair that moves needs a word: the preview shows it at rest.
+    note.textContent = next.shape !== 'dot' && next.dynamic ? 'At rest. Moving and firing open it.' : '';
   };
   refresh(options);
   return { root, refresh };
@@ -112,7 +113,8 @@ export function teamPreview(h: El, vision: ColourVision): { root: HTMLElement; r
   const root = h('aside', '', 'ds-preview');
   root.setAttribute('aria-label', 'Team colours preview');
   const list = h('div', '', 'ds-swatches');
-  root.append(h('h3', 'Team colours'), h('p', 'Each team keeps its mark as well as its colour. Soldiers already in the world change at the next map.', 'ds-sub'), list);
+  // The one thing the swatches can't show: soldiers already in the world keep their colours until the map changes.
+  root.append(h('h3', 'Team colours'), list, h('p', 'Soldiers already on the map change at the next one.', 'ds-note'));
   const refresh = (next: ColourVision) => {
     const palette = TEAM_PALETTES[next];
     list.replaceChildren();
@@ -142,8 +144,8 @@ export const SETTINGS_SCREEN_CSS = `
 .ds-set { display: grid; grid-template-columns: minmax(0, 980px) minmax(280px, 400px); gap: 40px; align-items: start; }
 .ds-set.solo { grid-template-columns: minmax(0, 980px); }
 .ds-preview { position: sticky; top: 0; padding: 0 0 4px; }
-.ds-preview h3 { margin: 0 0 6px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
-.ds-preview .ds-sub { margin: 0 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-preview h3 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
+.ds-preview .ds-note:empty { display: none; }
 .ds-preview .ds-note { margin: 12px 0 0; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-tier { display: grid; gap: 1px; margin: 0; background: var(--ds-line); }
 .ds-tier > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-height: 36px; padding: 8px 14px; background: var(--ds-panel); }
@@ -165,7 +167,6 @@ export const SETTINGS_SCREEN_CSS = `
 .ds-row a.ds-btn { display: flex; align-items: center; justify-content: center; box-sizing: border-box; color: var(--ds-text); text-decoration: none; }
 .ds-row > label small { display: block; margin-top: 2px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-row select:disabled, .ds-slider input:disabled { opacity: 0.5; cursor: default; }
-.ds-set-foot .narrow { display: none; }
 @media (max-width: 1280px) {
   .ds-set { grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 24px; }
 }
@@ -177,12 +178,10 @@ export const SETTINGS_SCREEN_CSS = `
   .ds-xbands { height: 96px; }
   /* The crosshair's preview stays in sight over its rows: only the picture, on the page's ink. */
   .ds-preview.pinned { position: sticky; top: -20px; z-index: 2; margin: -20px calc(-1 * var(--ds-gutter)) 0; padding: 12px var(--ds-gutter); background: var(--ds-ink); border-bottom: 1px solid var(--ds-line); }
-  .ds-preview.pinned h3, .ds-preview.pinned .ds-sub, .ds-preview.pinned .ds-note { display: none; }
-  /* One row of two buttons; what the wide footer says in words, the tab above says here. */
+  .ds-preview.pinned h3, .ds-preview.pinned .ds-note { display: none; }
+  /* One row of two buttons. */
   .ds-page > footer.ds-set-foot { flex-wrap: nowrap; gap: 8px; }
   .ds-set-foot .ds-btn { flex: 1 1 0; min-width: 0; padding: 0 12px; }
-  .ds-set-foot .wide, .ds-set-foot .ds-saved { display: none; }
-  .ds-set-foot .narrow { display: inline; }
   /* The tabs scroll sideways under a finger, with no bar drawn under them. */
   .ds-page > header .aside:has(.ds-tabs) { flex: 1 1 100%; min-width: 0; }
   .ds-tabs { min-width: 0; scrollbar-width: none; }

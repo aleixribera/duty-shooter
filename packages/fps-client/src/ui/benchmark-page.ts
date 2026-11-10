@@ -191,21 +191,20 @@ export class BenchmarkPage {
     const machine = facts
       ? `<div class="ds-readouts"><div><span>Backend</span><b>${escapeHtml(facts.backend)}</b></div><div><span>Graphics adapter</span><b>${escapeHtml(facts.adapter || 'Not named by the browser')}</b></div><div><span>Window</span><b>${facts.resolution[0]} x ${facts.resolution[1]} px</b></div></div>`
       : '';
-    const flown = facts ? `${facts.maps.join(', ')}. About ${Math.round(facts.seconds / 5) * 5} seconds, plus each map's loading.` : '';
+    const flown = facts ? `The benchmark flies through ${facts.maps.join(', ')}: about ${Math.round(facts.seconds / 5) * 5} seconds, plus loading.` : '';
     let results = '';
     if (this.#rows) {
       const body = this.#rows.map((r) => `<tr><td>${escapeHtml(r.map)}</td><td>${ms(r.meanMs)}<small>${fps(r.meanMs)}</small></td><td>${ms(r.low1Ms)}<small>${fps(r.low1Ms)}</small></td></tr>`).join('');
-      results = `<section><h2>Results</h2><p class="verdict" role="status">${escapeHtml(benchmarkVerdict(this.#rows))}</p><p>The average frame time, and the average of the slowest 1% of frames: what a stutter costs.</p>
+      results = `<section><h2>Results</h2><p class="verdict" role="status">${escapeHtml(benchmarkVerdict(this.#rows))}</p>
 <table><thead><tr><th scope="col">Map</th><th scope="col">Average</th><th scope="col">1% low</th></tr></thead><tbody>${body}</tbody></table></section>
-<section><h2>To share</h2><p>The same numbers as one line: paste it when you report slow play or compare machines.</p><textarea class="line" readonly rows="4" aria-label="The results as one line">${escapeHtml(this.#line)}</textarea>
+<section><h2>To share</h2><textarea class="line" readonly rows="4" aria-label="The results as one line">${escapeHtml(this.#line)}</textarea>
 <div class="copy"><button type="button" class="ds-btn" data-act="copy">Copy the line</button><span data-copied role="status"></span></div></section>`;
     } else if (this.#note) results = `<section><h2>Results</h2><p>${escapeHtml(this.#note)}</p></section>`;
-    else results = `<section><h2>Results</h2><p>Nothing measured yet. The numbers show here once the last map has been flown.</p></section>`;
+    else results = `<section><h2>Results</h2><p>Nothing measured yet.</p></section>`;
     this.#root.innerHTML = `<div class="ds-page">
-<header><div class="heading"><div class="ds-crumb">Settings · Video</div><h1>Benchmark</h1></div></header>
+<header><div class="heading"><h1>Benchmark</h1></div></header>
 <div class="body"><div class="cols${this.#rows ? ' measured' : ''}">
 <div>
-<section><h2>The picture</h2><p>Every map is drawn as you play it: the one look, every effect on, at this window's own resolution.</p></section>
 <section><h2>This machine</h2><p>${facts ? escapeHtml(flown) : 'The engine is still loading.'}</p>${machine}</section>
 </div>
 <div>${results}</div>

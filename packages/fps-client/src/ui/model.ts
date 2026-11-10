@@ -248,11 +248,11 @@ export function randomLobbyPick(lobby: Pick<LobbyState, 'maps' | 'hvb'>, random:
 
 /** What each mode is, in a line or two, for the lobby. */
 export const MODE_BLURBS: Readonly<Record<string, string>> = {
-  tdm: 'Two teams, blue against orange. First team to 75 kills wins, or the team ahead after 10 minutes.',
-  ffa: 'Everyone for themselves. First to 30 kills wins, or whoever leads after 10 minutes.',
-  outposts: 'Two teams fight over the zones: stand in one to take it, and every zone you hold scores a point a second. First to 200.',
-  gungame: `Everyone for themselves on a ladder of weapons: every ${GUN_GAME_KILLS_PER_GUN} kills move you on to the next of ${GUN_GAME_LADDER_LENGTH} guns, dealt at random each match, and a melee kill knocks your victim back ${GUN_GAME_KILLS_PER_GUN} kills. The first to finish the last gun wins.`,
-  charge: 'Attackers carry a charge to one of two sites and plant it; defenders stop them or defuse it. No respawns within a round. First to 4 rounds.',
+  tdm: 'Blue against orange. First team to 75 kills, or ahead after 10 minutes.',
+  ffa: 'Everyone for themselves. First to 30 kills, or ahead after 10 minutes.',
+  outposts: 'Stand in a zone to take it. Every zone your team holds scores a point a second. First to 200.',
+  gungame: `Everyone for themselves. Every ${GUN_GAME_KILLS_PER_GUN} kills move you to the next of ${GUN_GAME_LADDER_LENGTH} guns. A melee kill sets your victim back. First through the last gun wins.`,
+  charge: 'Attackers plant a charge at one of two sites; defenders stop or defuse it. No respawns in a round. First to 4 rounds.',
 };
 
 /**
@@ -339,19 +339,19 @@ export const GRAPHICS_LOST = 'Graphics lost.';
 /** A failed join or a dropped connection, as the error screen explains it. `status` is the driver's status line, or null when the server did not answer. */
 export function connectionError(status: string | null): ConnectionError {
   if (status === GRAPHICS_LOST) {
-    return { kind: 'gpu', title: 'Graphics stopped', body: 'The graphics card stopped drawing the game: its driver reset, or it ran short of memory. Reload to carry on; in an online match you take your seat back.' };
+    return { kind: 'gpu', title: 'Graphics stopped', body: 'The graphics driver reset or ran out of memory. Reload to carry on: an online match keeps your seat.' };
   }
   if (status === 'Disconnected: idle.') {
-    return { kind: 'idle', title: 'Left the match', body: 'The game was in the background for over a minute, so the server let you go. Join again within a few minutes to carry on where you left off.' };
+    return { kind: 'idle', title: 'Left the match', body: 'The game sat in the background for over a minute. Join again within a few minutes to pick up where you left off.' };
   }
   if (status === null || status.startsWith('Disconnected') || status === 'down') {
-    const detail = status && status !== 'down' ? ` (${status.replace(/^Disconnected: /, '').replace(/\.$/, '')})` : '';
-    return { kind: 'down', title: 'Server unreachable', body: `The game server did not answer${detail}. It may be restarting: try again in a minute, or play a Bot Match meanwhile.` };
+    const reason = status && status !== 'down' ? status.replace(/^Disconnected: /, '').replace(/\.$/, '') : '';
+    return { kind: 'down', title: 'Server unreachable', body: `${reason ? `The connection dropped (${reason}). ` : ''}It may be restarting. Try again in a minute, or play a Bot Match.` };
   }
-  if (/full/i.test(status)) return { kind: 'full', title: 'Server full', body: 'Every slot is taken. Try again in a moment; a slot frees up whenever someone leaves.' };
-  if (/updated|reload/i.test(status)) return { kind: 'version', title: 'Update needed', body: 'The server runs a newer version of the game than this page. Reload to get it.' };
-  if (/passphrase/i.test(status)) return { kind: 'passphrase', title: 'Wrong passphrase', body: 'The server did not accept that passphrase. Check it and try again.' };
-  if (/name/i.test(status)) return { kind: 'name', title: 'Pick another name', body: 'That name is taken or not allowed. Choose another on the main menu.' };
+  if (/full/i.test(status)) return { kind: 'full', title: 'Server full', body: 'A seat frees up when someone leaves: try again in a moment.' };
+  if (/updated|reload/i.test(status)) return { kind: 'version', title: 'Update needed', body: 'The server runs a newer version. Reload to get it.' };
+  if (/passphrase/i.test(status)) return { kind: 'passphrase', title: 'Wrong passphrase', body: 'Check it and try again.' };
+  if (/name/i.test(status)) return { kind: 'name', title: 'Pick another name', body: 'That one is taken or not allowed. Change it on the main menu.' };
   return { kind: 'other', title: 'Could not join', body: status };
 }
 
@@ -521,7 +521,7 @@ export type PauseAction = Exclude<Action, 'forward' | 'back' | 'left' | 'right'>
  * pick after that waits for the next match (ticket 59).
  */
 export function loadoutNote(game: { readonly online: boolean; readonly mode: ModeId | null; readonly phase: Phase | null; readonly preparing: boolean }): string {
-  if (!game.online) return 'Applies at once.';
-  if (game.mode !== 'battle-royale') return 'Applies from your next spawn.';
-  return game.phase === 'playing' && !game.preparing ? 'Locked for this match. Applies from the next one.' : 'Applies when you drop.';
+  if (!game.online) return 'Applies at once';
+  if (game.mode !== 'battle-royale') return 'Applies at your next spawn';
+  return game.phase === 'playing' && !game.preparing ? 'Locked until the next match' : 'Applies when you drop';
 }

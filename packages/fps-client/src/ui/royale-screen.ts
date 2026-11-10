@@ -273,11 +273,11 @@ export class RoyalePage {
   #slots(squad: SquadView, mine: boolean, local: boolean): string {
     const tiles = squad.slots
       .map((s, i) => {
-        if (s.id === null) return `<div class="slot bot"><b>Bot fills this seat</b><span>${local ? 'A bot plays it' : 'Until a friend takes it'}</span></div>`;
+        if (s.id === null) return local ? `<div class="slot bot"><b>Bot</b></div>` : `<div class="slot bot"><b>Open seat</b><span>A bot, until a friend joins</span></div>`;
         const key = `${squad.squad}:${s.id}`;
         const fresh = mine && !s.you && !this.#seen.has(key);
         this.#seen.add(key);
-        return `<div class="slot${s.you ? ' you' : ''}${fresh && i > 0 ? ' fresh' : ''}"><b>${escapeHtml(s.name)}</b><span>${escapeHtml(s.role)}</span></div>`;
+        return `<div class="slot${s.you ? ' you' : ''}${fresh && i > 0 ? ' fresh' : ''}"><b>${escapeHtml(s.name)}</b>${s.role ? `<span>${escapeHtml(s.role)}</span>` : ''}</div>`;
       })
       .join('');
     return `<div class="slots">${tiles}</div>`;
@@ -295,7 +295,8 @@ export class RoyalePage {
     // Before joining, an empty server's size is yours to pick (you open its lobby); in it, the host's alone.
     const sizeFree = joined ? joined.picks : v.joining === null && server.join && free;
     const seg = SIZES.map(([n, label]) => `<button type="button" data-act="squads" data-value="${n}" data-key="squads-${n}" class="${n === size ? 'on' : ''}"${sizeFree ? '' : ' disabled'}>${label}</button>`).join('');
-    const sizeWhy = s?.reconnecting ? 'The size waits for the connection.' : sizeFree ? (s ? 'You are the host: the size is yours to pick.' : 'You open the lobby, so the size is yours.') : s ? 'The host picks the Squad size.' : 'The lobby’s host picks the Squad size.';
+    // A word only when the picker is shut because someone else holds it; a server that can't be joined says so in its own line.
+    const sizeWhy = s?.reconnecting ? 'The size waits for the connection.' : sizeFree || v.joining !== null || !(s || server.join) ? '' : 'The host picks the size.';
 
     let squadsHtml: string;
     let footNote: string;
@@ -310,13 +311,13 @@ export class RoyalePage {
         })
         .join('');
       const leaveSquad = view.newSquad !== null && !underway && !s.reconnecting ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
-      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${underway && !s.seated ? 'For the next match' : s.lobby.squadSize === 1 ? 'Solos: everyone plays alone' : `Squad ${view.mine?.squad ?? ''}`}</small></h2>${view.mine ? this.#slots(view.mine, true, local) : ''}${leaveSquad}</section>
-${others ? `<section class="sec-others"><h2>Other Squads<small>${view.others.length} with people in them</small></h2><div class="squads">${others}</div></section>` : ''}`;
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad${underway && !s.seated ? '<small>For the next match</small>' : s.lobby.squadSize === 1 ? '' : `<small>Squad ${view.mine?.squad ?? ''}</small>`}</h2>${view.mine ? this.#slots(view.mine, true, local) : ''}${leaveSquad}</section>
+${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads">${others}</div></section>` : ''}`;
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
     } else {
       // Before joining: your own seat, and the seats friends take when they join, bots otherwise.
-      const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: v.name ? 'You' : 'Type your name to join', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
-      squadsHtml = `<section class="sec-squad"><h2>Your Squad<small>${local ? 'Bots take the other seats' : 'Friends who join take these seats'}</small></h2>${this.#slots(mine, false, local)}</section>`;
+      const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: !v.name && server.join ? 'Type your name to join' : v.name ? 'You' : '', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad</h2>${this.#slots(mine, false, local)}</section>`;
       footNote = '';
     }
     const last = s ? lastMatch(s.result, s.mode, s.teamScores, s.place ?? null) : null;
@@ -329,11 +330,12 @@ ${others ? `<section class="sec-others"><h2>Other Squads<small>${view.others.len
     } else if (v.joining !== null) {
       conn = `<ol class="steps">${royaleSteps(v.source).map((label, i) => `<li class="${i < v.joining! ? 'done' : i === v.joining ? 'now' : ''}">${label}</li>`).join('')}</ol>`;
     } else if (v.status === undefined && !local) {
-      conn = `<p class="ds-state wait">Asking the server…</p>`;
+      // The button says it is checking: nothing to add here.
+      conn = '';
     } else {
-      conn = `<p class="ds-state ${server.tone}">${escapeHtml(server.line)}</p>${v.error ? `<p class="error">${escapeHtml(v.error)}</p>` : ''}
-<label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>
-${v.passphrase && !local ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" data-key="passphrase"></label>` : ''}`;
+      conn = `${server.line ? `<p class="ds-state ${server.tone}">${escapeHtml(server.line)}</p>` : ''}${v.error ? `<p class="error">${escapeHtml(v.error)}</p>` : ''}
+${server.join ? `<label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>` : ''}
+${v.passphrase && !local && server.join ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" data-key="passphrase"></label>` : ''}`;
     }
 
     let go: string;
@@ -351,16 +353,16 @@ ${v.passphrase && !local ? `<label class="ds-field"><span class="ds-field-label"
     const sourceSeg = (['server', 'local'] as const)
       .map((src) => `<button type="button" data-act="source" data-value="${src}" data-key="source-${src}" class="${v.source === src ? 'on' : ''}" aria-pressed="${v.source === src}"${s || v.joining !== null ? ' disabled' : ''}>${src === 'local' ? 'Local bots' : 'Server'}</button>`)
       .join('');
-    const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${s ? '' : hint('Esc', '○', 'Back')}</div>`;
+    const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
     const extras = s ? `<button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>` : '';
 
     return `<form class="ds-page" novalidate>
-<header><div class="heading"><div class="ds-crumb">${s ? (local ? 'Local bots · Lobby' : 'Online · Lobby') : 'Play'}</div><h1>Battle Royale</h1></div></header>
+<header><div class="heading"><h1>Battle Royale</h1></div></header>
 <div class="body">
 <div class="controls">
 <section class="sec-source"><span class="ds-field-label">Play on</span><div class="ds-seg">${sourceSeg}</div>
-<p class="why">${local ? `All ${WIDE_SCALE.seats - 1} bots run on this machine, on a thread of their own so they never slow your frames. Only you play: friends join on the server.` : 'Friends join you on the server, and bots fill every empty seat.'}</p></section>
-<section class="sec-size"><span class="ds-field-label">Squads</span><div class="ds-seg">${seg}</div><p class="why">${sizeWhy}</p></section>
+<p class="why">${local ? `Just you and ${WIDE_SCALE.seats - 1} bots, on this machine.` : 'Friends can join; bots fill the empty seats.'}</p></section>
+<section class="sec-size"><span class="ds-field-label">Squads</span><div class="ds-seg">${seg}</div>${sizeWhy ? `<p class="why">${sizeWhy}</p>` : ''}</section>
 ${squadsHtml}
 ${lastHtml}
 </div>

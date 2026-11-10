@@ -51,15 +51,13 @@ const CSS = `
 .ds-title { font-weight: 700; font-stretch: condensed; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-t1 { color: var(--ds-blue); } .ds-t2 { color: var(--ds-orange); }
 
-/* The page shell: a header with the breadcrumb and title, a body that scrolls on its own, and a footer that always shows the actions. */
+/* The page shell: a header with the title, a body that scrolls on its own, and a footer that always shows the actions. */
 .ds-page { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
   padding: var(--ds-safe-t) var(--ds-safe-r) var(--ds-safe-b) var(--ds-safe-l);
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.8) 55%, rgb(7 9 13 / 0.9) 100%); }
 .ds-page > header { display: flex; align-items: flex-end; gap: 24px; padding: 28px var(--ds-gutter) 18px; border-bottom: 1px solid var(--ds-line); }
 .ds-page > header .heading { flex: 1; min-width: 0; }
-.ds-crumb { display: flex; align-items: center; gap: 10px; font-size: var(--ds-type-small); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-crumb::before { content: ''; width: 18px; height: 2px; background: var(--ds-signal); }
-.ds-page > header h1 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-page > header h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ds-page > header .aside { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 4px; }
 .ds-page > .body { overflow-y: auto; overscroll-behavior: contain; padding: 28px var(--ds-gutter) 32px; scrollbar-width: thin; scrollbar-color: var(--ds-line-2) transparent; }
 .ds-page > footer { display: flex; align-items: center; gap: 12px; padding: 14px var(--ds-gutter); background: var(--ds-scrim-soft); border-top: 1px solid var(--ds-line); }
@@ -150,8 +148,7 @@ html.ds-touch .ds-seg button.on { box-shadow: none; }
   .ds-page > header { flex-wrap: nowrap; align-items: center; gap: 16px; padding: 10px var(--ds-gutter) 8px; }
   /* The title alone says where this is; what stands beside it (the tabs) takes the rest of the line and scrolls sideways. */
   .ds-ui .ds-page > header .heading { flex: 0 0 auto; max-width: 50%; }
-  .ds-page > header .ds-crumb { display: none; }
-  .ds-page > header h1 { margin-top: 0; font-size: var(--ds-type-heading); line-height: 1.2; }
+  .ds-page > header h1 { font-size: var(--ds-type-heading); line-height: 1.2; }
   .ds-ui .ds-page > header .aside { flex: 1 1 0; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; padding-bottom: 0; }
   .ds-ui .ds-page > header .aside:has(.ds-tabs) { justify-content: flex-start; }
   .ds-ui .ds-page > header .ds-tabs { order: 0; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }

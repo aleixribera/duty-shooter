@@ -28,27 +28,22 @@ const CSS = `
 .ds-lobby .last .result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; padding: 14px 16px; background: var(--ds-panel); }
 .ds-lobby .last .result b { font-size: var(--ds-type-heading); line-height: 1.1; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-lobby .last .result span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-/* The match: what is set (a strip of readouts), the maps as pictures, the mode's line, the picks. */
+/* The match: the maps as pictures, the mode's line, the picks. What is picked shows lit, so nothing repeats it. */
 .ds-lobby .match { display: grid; gap: 18px; }
-.ds-lobby .match .ds-readouts { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr); }
-.ds-lobby .match .ds-readouts > div { background: var(--ds-ink); min-width: 0; }
-.ds-lobby .match .ds-readouts b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-lobby .blurb { margin: -4px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-lobby .picks { display: grid; gap: 18px; }
 /* Five modes wrap two or three a row, the last row's buttons sharing its width: no empty cell. */
 .ds-lobby .picks .modes { display: flex; flex-wrap: wrap; }
 .ds-lobby .picks .modes button { flex: 1 1 150px; }
 .ds-lobby .picks .ds-seg button { min-height: 44px; }
-/* The maps as pictures: the picked one framed in signal with the mode under its name. Name first in the markup (scripts click by it), shown under the kicker. */
+/* The maps as pictures, the picked one framed in signal. */
 .ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 128px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: var(--ds-raised) center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color var(--ds-fast), opacity var(--ds-fast); }
 /* The scrim behind the name, from the bottom edge. */
 .ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
-.ds-lobby .maps button b, .ds-lobby .maps button small { position: relative; z-index: 1; }
+.ds-lobby .maps button b { position: relative; z-index: 1; }
 .ds-lobby .maps button b { font-size: var(--ds-type-heading); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
-.ds-lobby .maps button small { margin-bottom: 4px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .maps button.on { border-color: var(--ds-signal); box-shadow: inset 0 0 0 1px var(--ds-signal); }
-.ds-lobby .maps button.on small { color: var(--ds-text); }
 .ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
 .ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
@@ -66,8 +61,6 @@ const CSS = `
   .ds-lobby .seat .name { font-size: var(--ds-type-body); }
   .ds-lobby .maps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ds-lobby .maps button { height: 96px; }
-  .ds-lobby .match .ds-readouts > div { padding: 10px 12px; }
-  .ds-lobby .match .ds-readouts b { font-size: var(--ds-type-body); white-space: normal; overflow-wrap: anywhere; }
   .ds-lobby footer .ds-btn:not(.big) { flex: 1; min-width: 0; padding: 0 10px; }
 }
 `;
@@ -247,8 +240,6 @@ export class LobbyPage {
     const l = v.lobby;
     const offline = v.offline === true;
     const host = l.host !== null && l.host === v.selfId;
-    const map = this.#map(l.map);
-    const modeName = MODE_NAMES[l.mode] ?? l.mode;
     const people = l.players.length;
     const underway = v.phase !== 'lobby';
     const reconnecting = v.reconnecting === true && !offline;
@@ -309,12 +300,12 @@ export class LobbyPage {
       .map((id) => {
         const m = this.#map(id);
         const on = id === l.map;
-        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${on ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}" aria-pressed="${on}"${lock}><b>${escapeHtml(m.name)}</b><small>${on ? 'Picked' : 'Map'}</small></button>`;
+        return `<button type="button" data-act="map" data-value="${id}" data-key="map-${id}" class="${on ? 'on' : ''}" style="${m.image ? `background-image:url('${m.image}')` : ''}" aria-pressed="${on}"${lock}><b>${escapeHtml(m.name)}</b></button>`;
       })
       .join('');
     const copied = performance.now() < this.#copiedUntil;
     const invite = this.invite && !offline
-      ? `<div><span class="ds-field-label">Invite link: anyone with it can join</span><div class="invite"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy" aria-live="polite">${copied ? 'Copied' : 'Copy'}</button></div></div>`
+      ? `<div><span class="ds-field-label">Invite link</span><div class="invite"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy" aria-live="polite">${copied ? 'Copied' : 'Copy'}</button></div></div>`
       : '';
     const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
     const start = reconnecting
@@ -327,19 +318,19 @@ export class LobbyPage {
         ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start</button>`
         : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
     // The connection line: a dot for the state and what it means for you.
-    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? `Offline: you and ${bots} ${bots === 1 ? 'bot' : 'bots'}` : underway ? 'The match has started: join it now' : host ? 'You are the host: the picks and Start are yours' : hostName ? `${escapeHtml(hostName)} is the host and picks the match` : 'Waiting for a host';
+    // Offline there is no connection to speak of: the roster says who plays.
+    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? '' : underway ? 'The match has started: join it now' : host ? 'You are the host: the picks and Start are yours' : hostName ? `${escapeHtml(hostName)} is the host and picks the match` : 'Waiting for a host';
     const state = reconnecting ? 'busy' : offline || host || underway ? 'up' : 'wait';
-    const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}. The match pauses with the game.` : lobbyFill(l);
-    const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}${offline ? hint('Esc', '○', 'Back') : ''}</div>`;
+    const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}.` : lobbyFill(l);
+    const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
 
     return `<div class="ds-page">
-<header><div class="heading"><div class="ds-crumb">${offline ? 'Offline · Play' : 'Online · Play'}</div><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
-<div class="aside"><span class="ds-state ${state}" role="status">${who}</span></div></header>
+<header><div class="heading"><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
+<div class="aside">${who ? `<span class="ds-state ${state}" role="status">${who}</span>` : ''}</div></header>
 <div class="body">
-<section><h2 class="ds-h2">Players <small>${offline ? `You + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : `${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats`}</small></h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
+<section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
 <aside class="match">
-<h2 class="ds-h2" style="margin:0">Match <small>${host ? (underway ? 'Under way' : 'Your pick') : 'The host picks'}</small></h2>
-<div class="ds-readouts"><div><span>Mode</span><b>${escapeHtml(modeName)}</b></div><div><span>Map</span><b>${escapeHtml(map.name)}</b></div>${offline ? `<div><span>Players</span><b>${people + bots}</b></div>` : `<div><span>Seats</span><b>${people + bots} / ${l.capacity}</b></div>`}</div>
+<h2 class="ds-h2" style="margin:0">Match${underway ? ' <small>Under way</small>' : ''}</h2>
 <div class="maps${picking ? '' : ' locked'}">${maps}</div>
 <button type="button" class="ds-btn random" data-act="random" data-key="random"${picking && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
 <div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div><p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>${versus}${size}${invite}</div>

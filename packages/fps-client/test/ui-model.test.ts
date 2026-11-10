@@ -295,14 +295,14 @@ describe('the lobby', () => {
 
 describe('when a loadout change applies, as the loadout screen says it', () => {
   it('at once offline, from the next spawn online', () => {
-    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at once.');
-    expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies from your next spawn.');
+    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at once');
+    expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at your next spawn');
   });
 
   it('in a Battle Royale, at the drop until the Preparation ends, then from the next match (ticket 59)', () => {
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop.');
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop.');
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked for this match. Applies from the next one.');
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop');
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop');
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked until the next match');
   });
 });
 

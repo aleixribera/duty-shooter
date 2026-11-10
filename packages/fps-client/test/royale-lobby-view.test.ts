@@ -71,11 +71,11 @@ describe('the Battle Royale screen’s server line', () => {
   });
 
   it('opens a lobby on an empty server, as its host', () => {
-    expect(royaleServer(status)).toEqual({ tone: 'up', join: true, line: 'The server is free: you open the Battle Royale lobby and pick the Squad size.' });
+    expect(royaleServer(status)).toEqual({ tone: 'up', join: true, line: 'The server is free: you open the lobby.' });
   });
 
   it('joins a Battle Royale lobby with people in it', () => {
-    expect(royaleServer({ ...status, players: 2, lobbyMode: 'battle-royale' })).toEqual({ tone: 'up', join: true, line: '2 players in the Battle Royale lobby. Join them.' });
+    expect(royaleServer({ ...status, players: 2, lobbyMode: 'battle-royale' })).toEqual({ tone: 'up', join: true, line: '2 players in the lobby.' });
   });
 
   it('can’t open one while the server plays a team mode with people', () => {
@@ -106,7 +106,7 @@ describe('the Battle Royale screen’s server line', () => {
 
 describe('the Battle Royale screen on Local bots (ticket 15)', () => {
   it('always opens a lobby of your own, its size yours to pick, with every other seat a bot', () => {
-    expect(royaleLocal()).toEqual({ tone: 'up', join: true, line: 'You open a lobby on this machine and pick the Squad size. 59 bots take every other seat.' });
+    expect(royaleLocal()).toEqual({ tone: 'up', join: true, line: '' });
   });
 
   it('names its own steps: the bots start before the island is built', () => {
@@ -119,14 +119,14 @@ describe('the Battle Royale screen once joined', () => {
   const session = (over: Partial<RoyaleSessionState>): RoyaleSessionState => ({ host: true, hostName: 'Aleix', phase: 'lobby', loading: null, seated: false, out: false, reconnecting: false, ...over });
 
   it('lets the host start, and has everyone else wait for them', () => {
-    expect(royaleSession(session({}))).toEqual({ tone: 'up', line: 'In the lobby. You are the host: start when your Squad is ready.', go: { label: 'Start match', act: 'start' }, picks: true });
-    expect(royaleSession(session({ host: false }))).toEqual({ tone: 'up', line: 'In the lobby. Aleix starts the match.', go: { label: 'Waiting for host', act: null }, picks: false });
+    expect(royaleSession(session({}))).toEqual({ tone: 'up', line: 'You are the host.', go: { label: 'Start match', act: 'start' }, picks: true });
+    expect(royaleSession(session({ host: false }))).toEqual({ tone: 'up', line: 'Aleix is the host.', go: { label: 'Waiting for host', act: null }, picks: false });
   });
 
   it('says the connection is coming back, and holds Start and the picks, while it reconnects (ticket 38)', () => {
     const host = royaleSession(session({ reconnecting: true }));
     expect(host.tone).toBe('busy');
-    expect(host.line).toBe('Lost the connection to the server. Reconnecting: the match waits until it’s back.');
+    expect(host.line).toBe('Lost the connection. The match waits for you.');
     expect(host.go).toEqual({ label: 'Reconnecting…', act: null });
     expect(host.picks).toBe(false);
     expect(royaleSession(session({ reconnecting: true, phase: 'playing', seated: true })).go.act).toBeNull();
@@ -134,7 +134,7 @@ describe('the Battle Royale screen once joined', () => {
 
   it('offers the match under way once the island is built', () => {
     expect(royaleSession(session({ phase: 'playing', seated: true }))).toMatchObject({ tone: 'busy', go: { label: 'Join the match', act: 'enter' }, picks: false });
-    expect(royaleSession(session({ phase: 'playing', loading: 'Zero Island' }))).toMatchObject({ line: 'The match has started. Building Zero Island first.', go: { label: 'Building the island…', act: null } });
+    expect(royaleSession(session({ phase: 'playing', loading: 'Zero Island' }))).toMatchObject({ line: 'The match has started.', go: { label: 'Building the island…', act: null } });
     expect(royaleSession(session({ phase: 'playing' })).go.label).toBe('Watch the match');
   });
 

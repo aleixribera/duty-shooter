@@ -86,8 +86,7 @@ const CSS = `
 .ds-prep .card { position: absolute; left: 0; top: 0; bottom: 0; width: min(640px, 52vw); display: flex; flex-direction: column; gap: 22px; padding: 40px var(--ds-gutter) 32px;
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.84) 68%, rgb(7 9 13 / 0) 100%); overflow-y: auto; scrollbar-width: none; }
 .ds-prep .card > * { max-width: 470px; }
-.ds-prep .ds-crumb { color: var(--ds-text-2); }
-.ds-prep h1 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-prep h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-prep .goal { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-prep .clock { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
 .ds-prep .clock b { font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; letter-spacing: 0.01em; min-width: 2ch; }
@@ -270,7 +269,7 @@ export class PreparationPage {
     const c = v.stage === 'dive' && !v.play ? v.champion : null;
     const champ = c ? `<div class="champ"><span>${escapeHtml(c.title)}</span><b>${escapeHtml(c.names)}</b><small>${escapeHtml(c.why)}</small></div>` : '';
     return `<div class="card" role="region" aria-label="Preparation">
-<div><div class="ds-crumb">Battle Royale · Zero Island</div><h1>Preparation</h1><p class="goal">${escapeHtml(goalLine({ mode: 'battle-royale', killLimit: null }))}. Stay inside the Ring.</p></div>
+<div><h1>Preparation</h1><p class="goal">${escapeHtml(goalLine({ mode: 'battle-royale', killLimit: null }))}. Stay inside the Ring.</p></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
 <div class="kit">${seg('primary', 'Primary', primaries, weaponName)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}

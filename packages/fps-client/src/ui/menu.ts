@@ -30,11 +30,10 @@ export const MENU_CSS = `
 .ds-brand h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.9; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .ds-brand p { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-name { width: 270px; }
-.ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; margin-top: 6px; background: var(--ds-scrim-soft); border: 1px solid var(--ds-line-2); transition: border-color var(--ds-fast); }
+.ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; background: var(--ds-scrim-soft); border: 1px solid var(--ds-line-2); transition: border-color var(--ds-fast); }
 .ds-name label:focus-within { border-color: var(--ds-signal); }
 .ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; outline: none; }
 .ds-name .ds-icon { color: var(--ds-text-2); flex: none; }
-.ds-name .ds-label { color: var(--ds-text); text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
 /* Destinations: display type, a readout under each, the lit one marked by a signal bar at its left edge. */
 .ds-dests { align-self: end; display: flex; flex-direction: column; width: min(720px, 100%); margin-bottom: 22px; }
 .ds-dest { position: relative; display: block; padding: 10px 0 12px 22px; text-align: left; background: none; border: 0; color: var(--ds-text); }
@@ -79,7 +78,7 @@ export const MENU_CSS = `
 @media (max-height: 520px) and (min-width: 641px) {
   .ds-home { display: grid; grid-template-columns: minmax(0, 1fr) min(270px, 36%); grid-template-rows: auto auto auto; align-content: start; gap: 8px 24px; padding: 14px var(--ds-gutter) 12px; }
   .ds-home .top { display: contents; }
-  .ds-brand { grid-column: 1; grid-row: 1; }
+  .ds-brand { grid-column: 1; grid-row: 1; margin-bottom: 8px; }
   .ds-name { grid-column: 2; grid-row: 1 / span 2; width: auto; }
   .ds-dests { grid-column: 1; grid-row: 2; align-self: start; margin: 0; width: 100%; }
   .ds-home footer { grid-column: 1 / -1; grid-row: 3; }
@@ -106,9 +105,10 @@ export const MENU_CSS = `
 .ds-field { display: block; margin: 0 0 16px; }
 .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
 .ds-field input:focus { border-color: var(--ds-signal); outline: none; }
-.ds-field-note { display: block; margin-top: 6px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-error { color: var(--ds-alert); min-height: 20px; font-size: var(--ds-type-body); }
 .ds-sub { margin: 6px 0 0; color: var(--ds-text-2); }
+/* The one line a page has to say, where it has nothing else to show (a server that doesn't answer). */
+.ds-lead { margin: 0; max-width: 46ch; font-size: var(--ds-type-heading); line-height: 1.35; color: var(--ds-text); }
 .ds-gap { height: 20px; }
 
 /* Settings: tabs in the header, rows of label and control. */
@@ -119,11 +119,11 @@ export const MENU_CSS = `
 .ds-tabs button.on { color: var(--ds-text); }
 .ds-tabs button.on::after { transform: none; }
 .ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: -2px; }
-/* Settings: a block a section, its name at heading size with a line on what it covers, then a row a setting, the control on the right. */
+/* Settings: a block a section, its name at heading size (a live state under it, where it has one), then a row a setting, the control on the right. */
 .ds-rows { max-width: 980px; }
 .ds-rows section + section { margin-top: 36px; }
-.ds-rows h3 { margin: 0 0 6px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
-.ds-rows .ds-sub { margin: 0 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
+.ds-rows h3 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
+.ds-rows .ds-sub { margin: -4px 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-rows .list { display: grid; gap: 1px; background: var(--ds-line); }
 .ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: center; min-height: 56px; padding: 6px 16px 6px 20px; background: var(--ds-panel); transition: background-color var(--ds-fast), box-shadow var(--ds-fast); }
 .ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-signal); }
@@ -144,7 +144,6 @@ export const MENU_CSS = `
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
 .ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-signal); outline: none; }
 .ds-bind { padding-right: 12px; cursor: pointer; }
-.ds-saved { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-bind:hover { border-color: var(--ds-signal); }
 .ds-bind.wait { border-color: var(--ds-signal); color: var(--ds-signal); background: var(--ds-signal-dim); }
 
@@ -182,7 +181,7 @@ export const MENU_CSS = `
 /* The HUD under it goes: its readouts would sit behind the actions and the key hints. */
 body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .col { display: flex; flex-direction: column; gap: 6px; }
-.ds-pause h1 { margin: 6px 0 24px; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-pause h1 { margin: 0 0 24px; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 /* Its actions are the main menu's destinations at display size: a 4px bar at the left, lit in signal for Resume and for the one under the pointer or the pad. */
 .ds-pause .ds-item { position: relative; display: grid; align-items: center; min-height: 64px; padding: 8px 0 8px 22px; text-align: left; color: var(--ds-text); background: none; border: 0; cursor: pointer; }
 .ds-pause .ds-item::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
@@ -201,7 +200,7 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .pad .ds-keys .key-list { display: none; } .pad .ds-keys .pad-list { display: grid; }
 /* On touch the list names the controls on the glass, each by the mark drawn on it. */
 .ds-keys .touch-list { display: none; }
-html.ds-touch .ds-keys .key-list, html.ds-touch .ds-keys .pad-list, html.ds-touch .ds-keys h2 small { display: none; }
+html.ds-touch .ds-keys .key-list, html.ds-touch .ds-keys .pad-list { display: none; }
 html.ds-touch .ds-keys .touch-list { display: grid; }
 .ds-tg { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border: 1px solid var(--ds-line-2); border-radius: 13px; font-size: var(--ds-type-small); font-style: normal; font-weight: 700; color: var(--ds-text); }
 .ds-tg svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -253,7 +252,7 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
 /* A phone on its side: the controls stand beside the actions, as on a desktop, instead of under the fold. */
 @media (max-height: 520px) and (min-width: 641px) {
   .ds-pause { grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 20px; padding: 12px 16px; }
-  .ds-pause h1 { margin: 4px 0 8px; }
+  .ds-pause h1 { margin: 0 0 8px; }
   .ds-pause .ds-item { min-height: 48px; }
   .ds-keys { align-self: start; padding: 12px 14px; }
   .ds-keys dl { grid-template-columns: max-content 1fr max-content 1fr; }
@@ -725,7 +724,7 @@ export class Menu {
         const p = panel(this.#loading.title);
         // The screen's one figure: how much of the map is in, or a quiet line while that is unknown.
         const figure = h('div', '', 'figure');
-        figure.innerHTML = `<b>${this.#loading.progress === null ? '…' : `${Math.round(this.#loading.progress * 100)}%`}</b><span>Building the map and its baked lighting</span>`;
+        figure.innerHTML = `<b>${this.#loading.progress === null ? '…' : `${Math.round(this.#loading.progress * 100)}%`}</b><span>Building the map…</span>`;
         p.append(figure);
         const bar = h('div', '', `ds-progress${this.#loading.progress === null ? ' busy' : ''}`);
         const fill = h('i');
@@ -776,7 +775,7 @@ export class Menu {
         p.append(
           h(
             'p',
-            'Firefox cannot give the game raw mouse input, so Windows mouse acceleration applies. For consistent aim, turn off "Enhance pointer precision" in Windows mouse settings, or play in Chrome or Edge.',
+            'Firefox can\'t give the game raw mouse input, so Windows mouse acceleration applies. Turn off "Enhance pointer precision" in Windows, or play in Chrome or Edge.',
           ),
         );
         const row = h('div', '', 'ds-btns');
@@ -810,12 +809,12 @@ export class Menu {
     }
   }
 
-  /** The theme's page shell: breadcrumb and title (with `aside` beside it), a scrolling body and a footer for the actions. */
-  #page(screen: HTMLElement, h: El, crumb: string, title: string, tag: 'div' | 'form' = 'div'): { page: HTMLElement; aside: HTMLElement; body: HTMLElement; footer: HTMLElement } {
+  /** The theme's page shell: the title (with `aside` beside it), a scrolling body and a footer for the actions. */
+  #page(screen: HTMLElement, h: El, title: string, tag: 'div' | 'form' = 'div'): { page: HTMLElement; aside: HTMLElement; body: HTMLElement; footer: HTMLElement } {
     const page = h(tag, '', 'ds-page');
     const header = h('header');
     const heading = h('div', '', 'heading');
-    heading.append(h('div', crumb, 'ds-crumb'), h('h1', title));
+    heading.append(h('h1', title));
     const aside = h('div', '', 'aside');
     header.append(heading, aside);
     const body = h('div', '', 'body');
@@ -846,14 +845,14 @@ export class Menu {
     label.innerHTML = icon('user');
     const name = h('input') as HTMLInputElement;
     name.maxLength = 16;
-    name.placeholder = 'Your name…';
+    name.placeholder = 'Your name';
     name.value = this.#settings.name;
     name.setAttribute('aria-label', 'Name');
     name.setAttribute('autocomplete', 'nickname');
     name.spellcheck = false;
     name.addEventListener('change', () => this.#change({ name: name.value.trim().slice(0, 16) }));
     label.append(name);
-    nameBox.append(h('div', 'Name', 'ds-label'), label);
+    nameBox.append(label);
     // Under the name, the Rank it has earned in this browser: the way into the Profile.
     if (this.#profile) {
       const rank = h('button', '', 'ds-rankline') as HTMLButtonElement;
@@ -900,14 +899,14 @@ export class Menu {
     const onlineReadout = link
       ? '<span class="ds-dot up">Public lobby, on its own page</span>'
       : !server
-        ? '<span class="ds-dot">No game server answers this page</span>'
+        ? '<span class="ds-dot">No server</span>'
         : t.online
           ? `<span class="ds-dot up">${t.full ? 'Full' : 'Online'}</span><span><em>${escapeHtml(t.players)}</em> players${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span><span>${escapeHtml(t.mode)}${t.hvb ? ' vs bots' : ''} on ${escapeHtml(t.map)}</span>`
-          : '<span class="ds-dot">Server offline</span><span>Try again in a minute</span>';
+          : '<span class="ds-dot">Server offline</span>';
     dest('Play Online', onlineReadout, playOnline, server);
     dest('Battle Royale', `<span><em>${WIDE_SCALE.seats}</em> seats</span><span>Zero Island</span><span>Solos, Duos or Trios</span>`, () => this.#callbacks.battleRoyale());
-    dest('Bot Match', '<span>Your own lobby against bots: any map, any mode</span><span>Offline</span>', () => this.#callbacks.botMatch(), !server);
-    dest('Practice Range', '<span>Lanes, dummies and the movement course</span><span>Offline</span>', () => this.#callbacks.practiceRange());
+    dest('Bot Match', '<span>Any map, any mode, against bots</span>', () => this.#callbacks.botMatch(), !server);
+    dest('Practice Range', '<span>Lanes, dummies and a movement course</span>', () => this.#callbacks.practiceRange());
     dest(
       'Settings',
       '',
@@ -944,7 +943,7 @@ export class Menu {
     const lobby = this.#lobby;
     const open = lobby?.kind === 'server' && lobby.public;
     const t = lobbyTile(lobby?.kind === 'server' ? (lobby.status ?? null) : null);
-    const { page, aside, body, footer } = this.#page(screen, h, 'Online · Play', 'Play Online', 'form');
+    const { page, aside, body, footer } = this.#page(screen, h, 'Play Online', 'form');
     const form = page as HTMLFormElement;
     const chip = h('span', '', 'ds-chip');
     chip.append(h('span', t.online ? (t.full ? 'Server full' : 'Server online') : 'Server not answering', `ds-dot${t.online ? ' up' : ''}`));
@@ -954,10 +953,13 @@ export class Menu {
     const left = h('section');
     const right = h('section');
     cols.append(left, right);
-    left.append(h('h2', 'The server', 'ds-h2'));
-    const facts = h('div', '', 'ds-facts');
-    facts.innerHTML = `<div><span class="ds-label">Players</span><span>${t.players}${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div>`;
-    left.append(facts);
+    // A server that doesn't answer has no players, mode or map to show: the chip says so, one line says what to do instead.
+    if (t.online) {
+      left.append(h('h2', 'The server', 'ds-h2'));
+      const facts = h('div', '', 'ds-facts');
+      facts.innerHTML = `<div><span class="ds-label">Players</span><span>${t.players}${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span></div><div><span class="ds-label">Mode</span><span>${escapeHtml(t.mode)}${t.hvb ? ' · vs bots' : ''}</span></div><div><span class="ds-label">Map</span><span>${escapeHtml(t.map)}</span></div>`;
+      left.append(facts);
+    }
     if (t.pickMode) {
       left.append(h('span', 'The server is empty: pick the mode', 'ds-field-label'));
       const modes = h('div', '', 'ds-modes');
@@ -984,11 +986,11 @@ export class Menu {
         const sizes = [0, ...Array.from({ length: t.maxBotsPerTeam }, (_, i) => i + 1)];
         left.append(this.#choices(h, sizes, chosen, (n) => (n === 0 ? 'No bots' : `Up to ${n}v${n}`), (n) => (this.#onlineBots = n)));
       }
-    } else if (t.online) {
-      left.append(h('p', open ? 'Join and you go straight into the match or its lobby.' : 'Join with the passphrase you were given.', 'ds-sub'));
-    } else {
-      left.append(h('p', 'The game server is not answering. It may be restarting: check again in a moment. Bot Match and the Practice Range work offline meanwhile.', 'ds-sub'));
+    } else if (!t.online) {
+      left.append(h('p', 'The server may be restarting. Bot Match and the Practice Range play without it.', 'ds-lead'));
     }
+    // Nothing to join, so nothing to fill in.
+    if (!t.online) right.remove();
     right.append(h('h2', 'Your details', 'ds-h2'));
     const box = h('div', '', 'ds-box');
     right.append(box);
@@ -1010,11 +1012,10 @@ export class Menu {
     field('Name', name);
     if (!open) {
       field('Passphrase', pass);
-      pass.after(h('span', 'Whoever runs this server gives it out.', 'ds-field-note'));
     }
     box.append(h('div', this.#error, 'ds-error'));
     button(footer, 'Back', () => this.show('main'), 'back', 'back');
-    footer.append(t.online ? this.#hints(h, hint('Enter', '✕', 'Join'), hint('Esc', '○', 'Back')) : this.#hints(h, hint('Esc', '○', 'Back')));
+    footer.append(h('div', '', 'grow'));
     const go = h('button', 'Join', 'ds-btn primary big') as HTMLButtonElement;
     go.type = 'submit';
     go.disabled = t.full || !t.online;
@@ -1057,7 +1058,7 @@ export class Menu {
     const wrap = h('div', '', 'ds-pause');
     screen.append(wrap);
     const col = h('div', '', 'col');
-    col.append(h('div', 'Match', 'ds-crumb'), h('h1', 'Paused'));
+    col.append(h('h1', 'Paused'));
     if (this.#error) col.append(h('div', this.#error, 'ds-error'));
     const item = (title: string, onClick: () => void, primary = false) => {
       const b = h('button', '', `ds-item${primary ? ' primary' : ''}`) as HTMLButtonElement;
@@ -1087,7 +1088,7 @@ export class Menu {
     ];
     const touchRows = [...TOUCH_KEYS, ...(this.#matchMode === 'battle-royale' ? ([['map', 'Map']] as const) : [])];
     const touchList = `<dl class="touch-list">${touchRows.map(([g, v]) => `<dt><i class="ds-tg">${g === 'use' ? 'Use' : TOUCH_GLYPHS[g]}</i></dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>`;
-    keys.innerHTML = `<h2 class="ds-h2">Controls <small class="ds-label">Rebind in Settings</small></h2>${list('key-list', keyRows)}${list('pad-list', PAD_KEYS)}${touchList}`;
+    keys.innerHTML = `<h2 class="ds-h2">Controls</h2>${list('key-list', keyRows)}${list('pad-list', PAD_KEYS)}${touchList}`;
     wrap.append(keys);
     const footer = h('footer');
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select'), `<span><i class="ds-kbd pad">○</i><i class="ds-kbd key">Click</i>Resume</span>`));
@@ -1100,9 +1101,8 @@ export class Menu {
    * focused (or chosen) weapon's role and bars. A choice is kept at once.
    */
   #renderLoadout(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
-    const crumb = this.#loadoutBack === 'pause' ? 'Paused' : this.#loadoutBack === 'lobby' ? 'Lobby' : 'Match';
-    const { aside, body, footer } = this.#page(screen, h, crumb, 'Loadout');
-    aside.append(h('span', this.#loadoutNote || 'Applies from your next spawn.', 'ds-chip'));
+    const { aside, body, footer } = this.#page(screen, h, 'Loadout');
+    aside.append(h('span', this.#loadoutNote || 'Applies at your next spawn', 'ds-chip'));
     const cols = h('div', '', 'ds-cols');
     body.append(cols);
     const left = h('section');
@@ -1129,7 +1129,7 @@ export class Menu {
       const head = `<div class="ds-label">${escapeHtml(`${STATS.weapons[id].traits.name} · ${name}`)}</div><div class="name">${escapeHtml(c.name)}</div>`;
       if (c.locked) card.innerHTML = `${head}<p class="role">${escapeHtml(slotLock(slot))}</p>`;
       else if (c.id === null) card.innerHTML = `${head}<p class="role">${escapeHtml(on ? 'Fitted: the gun as issued.' : 'The gun as issued.')}</p>`;
-      else card.innerHTML = `${head}<p class="role">${on ? 'Fitted.' : 'Every attachment gives something and costs something.'}</p>${effects(buildEffects(id, { [slot]: c.id }))}`;
+      else card.innerHTML = `${head}${on ? '<p class="role">Fitted.</p>' : ''}${effects(buildEffects(id, { [slot]: c.id }))}`;
     };
     /** The gunsmith of the gun in `gun`'s slot: a row per attachment slot it takes, filled again when the gun or a choice changes. */
     const smiths = { primary: h('div', '', 'ds-smith'), secondary: h('div', '', 'ds-smith') };
@@ -1221,7 +1221,7 @@ export class Menu {
     // Back to the equipped weapon once the pointer leaves the tiles, not on every gap between two of them.
     left.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
     right.append(h('h2', 'Details', 'ds-h2'), card);
-    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip'), hint('Esc', '○', 'Done')));
+    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip')));
     const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');
     done.dataset['back'] = '';
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus({ preventScroll: true }));
@@ -1234,7 +1234,7 @@ export class Menu {
    */
   #renderProfile(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
     const store = this.#profile;
-    const { body, footer } = this.#page(screen, h, 'Main menu', 'Profile');
+    const { body, footer } = this.#page(screen, h, 'Profile');
     if (!store) return;
     const view = h('div', '', 'ds-prof');
     view.innerHTML = profileHtml(store.profile, store.today);
@@ -1253,7 +1253,7 @@ export class Menu {
       }).classList.add('danger');
       queueMicrotask(() => keep.focus({ preventScroll: true }));
     } else {
-      footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select'), hint('Esc', '○', 'Back')));
+      footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')));
       button(footer, 'Reset profile', () => again(true));
     }
   }
@@ -1267,8 +1267,7 @@ export class Menu {
 
   #renderSettings(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
     const s = this.#settings;
-    const crumb = this.#back === 'pause' ? 'Paused' : this.#back === 'close' ? 'Lobby' : 'Main menu';
-    const { aside, body, footer } = this.#page(screen, h, crumb, 'Settings');
+    const { aside, body, footer } = this.#page(screen, h, 'Settings');
     const order = sectionOrder(touchMode());
     const tab = (this.#tab ??= order[0]!);
     const tabs = h('div', '', 'ds-tabs');
@@ -1319,11 +1318,13 @@ export class Menu {
       r.append(l, control);
       list.append(r);
     };
-    /** A block of settings: its name, a line on what it covers, then its rows. */
-    const section = (title: string, sub: string) => {
+    /** A block of settings: its name, a live state under it where there is one (a controller connected or not), then its rows. */
+    const section = (title: string, state = '') => {
       const block = h('section');
       list = h('div', '', 'list');
-      block.append(h('h3', title), h('p', sub, 'ds-sub'), list);
+      block.append(h('h3', title));
+      if (state) block.append(h('p', state, 'ds-sub'));
+      block.append(list);
       rows.append(block);
     };
     /** `off`, where given, is why the control cannot be used: it is disabled and its label says so. */
@@ -1371,14 +1372,14 @@ export class Menu {
 
     /** The touch controls' own settings (ticket 23): first on a phone, last everywhere else. */
     const touchRows = () => {
-      section('Touch', 'For a phone or a tablet: how far a drag turns you, and the two helps a thumb gets. Aim and Crouch are always taps here.');
+      section('Touch');
       slider('Touch sensitivity', s.touchSensitivity, 1, 20, 0.5, (v) => v.toFixed(1), (v) => this.#change({ touchSensitivity: v }));
       slider('Touch aim-down-sights sensitivity', s.touchAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ touchAdsMultiplier: v }));
-      toggle('Auto-fire (fires when the crosshair rests on an enemy)', s.touchAutoFire, (v) => this.#change({ touchAutoFire: v }));
+      toggle('Auto-fire on enemies', s.touchAutoFire, (v) => this.#change({ touchAutoFire: v }));
       toggle('Aim slowdown over enemies', s.touchAimAssist, (v) => this.#change({ touchAimAssist: v }));
     };
     if (tab === 'controls') {
-      section('Aim, crouch and sprint', 'Whether each button is held down or pressed once, on the keyboard, the mouse and a controller.');
+      section('Aim, crouch and sprint');
       select('Aim down sights', s.adsMode, [
         ['hold', 'Hold'],
         ['toggle', 'Toggle'],
@@ -1391,15 +1392,15 @@ export class Menu {
         ['toggle', 'Toggle'],
         ['hold', 'Hold'],
       ], (v) => this.#change({ sprintMode: v }));
-      section('Keyboard and mouse', 'Click an action, then press the key or mouse button for it. Esc cancels. A key already in use swaps over.');
+      section('Keyboard and mouse');
       for (const action of ACTIONS) row(ACTION_LABELS[action], this.#bindButton(action, h));
     } else if (tab === 'mouse') {
-      section('Mouse', 'How far a mouse move turns you, from the hip and down the sights.');
+      section('Mouse');
       slider('Mouse sensitivity', s.sensitivity, 0.5, 20, 0.05, (v) => v.toFixed(2), (v) => this.#change({ sensitivity: v }));
       slider('Aim-down-sights sensitivity', s.adsMultiplier, 0.1, 2, 0.01, (v) => v.toFixed(2), (v) => this.#change({ adsMultiplier: v }));
       toggle('Invert vertical mouse look', s.invertY, (v) => this.#change({ invertY: v }));
       const pad = this.#padName();
-      section('Controller', pad ? `Connected: ${padName(pad)}.` : 'None detected. Connect a controller and press any button.');
+      section('Controller', pad ? `Connected: ${padName(pad)}` : 'None connected. Plug one in and press any button.');
       select('Button layout', s.padLayout, [
         ['default', 'Default'],
         ['tactical', 'Tactical (crouch on R3, melee on ○)'],
@@ -1409,27 +1410,27 @@ export class Menu {
       slider('Controller aim-down-sights sensitivity', s.padAdsMultiplier, 0.1, 2, 0.05, (v) => v.toFixed(2), (v) => this.#change({ padAdsMultiplier: v }));
       slider('Stick deadzone', s.padDeadzone, 0, 0.3, 0.01, (v) => v.toFixed(2), (v) => this.#change({ padDeadzone: v }));
       toggle('Invert vertical look', s.padInvertY, (v) => this.#change({ padInvertY: v }));
-      toggle('Aim slowdown over enemies', s.padAimAssist, (v) => this.#change({ padAimAssist: v }), 'The stick turns slower with the crosshair on or beside an enemy you can see. It never moves your aim for you.');
+      toggle('Aim slowdown over enemies', s.padAimAssist, (v) => this.#change({ padAimAssist: v }), 'It never moves your aim for you.');
       slider('Vibration', s.padRumble, 0, 1, 0.1, percent, (v) => this.#change({ padRumble: v }));
     } else if (tab === 'touch') {
       touchRows();
     } else if (tab === 'video') {
-      section('Frame rate', 'The browser draws in step with the display: V-sync is its to decide, and cannot be turned off from here. A cap draws fewer frames than the display shows.');
+      section('Frame rate');
       select('Frame-rate cap', String(s.fpsCap), capChoices(), (v) => this.#change({ fpsCap: Number(v) }));
       toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));
-      section('View', 'How wide you see, and whether aiming narrows it with your field of view.');
+      section('View');
       slider('Field of view', s.fov, STATS.input.minFov.value, STATS.input.maxFov.value, 1, (v) => `${v}°`, (v) => this.#change({ fov: v }));
       select('Aim-down-sights field of view', s.adsFov, [
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
-      section('Benchmark', 'How smoothly this machine runs each map: a fly-through with a verdict, the frame times and a line to copy.');
-      const bench = h('a', 'Open the benchmark', 'ds-btn') as HTMLAnchorElement;
+      section('Benchmark');
+      const bench = h('a', 'Open in a new tab', 'ds-btn') as HTMLAnchorElement;
       // The same backend as this page, where it was forced.
       bench.href = `${location.pathname}?benchmark${new URLSearchParams(location.search).has('webgl') ? '&webgl' : ''}`;
       bench.target = '_blank';
       bench.rel = 'noopener';
-      row('Benchmark', bench, 'Opens in a new tab.');
+      row('Fly through every map', bench);
       const shown = videoPreview(h, () => this.#video());
       preview(shown.root, true);
       this.#afterChange = () => {
@@ -1437,31 +1438,34 @@ export class Menu {
         restorable();
       };
     } else if (tab === 'audio') {
-      section('Audio', 'The master sets everything. Under it, the score, the world, the announcer and the menus each have their own level.');
+      section('Audio');
       slider('Master volume', s.volume, 0, 1, 0.01, percent, (v) => this.#change({ volume: v }));
       slider('Music', s.musicVolume, 0, 1, 0.01, percent, (v) => this.#change({ musicVolume: v }));
       slider('Effects', s.effectsVolume, 0, 1, 0.01, percent, (v) => this.#change({ effectsVolume: v }));
       slider('Announcer', s.voiceVolume, 0, 1, 0.01, percent, (v) => this.#change({ voiceVolume: v }));
       slider('Interface sounds', s.uiVolume, 0, 1, 0.01, percent, (v) => this.#change({ uiVolume: v }));
     } else if (tab === 'hud') {
-      section('HUD', 'The readouts drawn over play, and how large they stand.');
+      section('HUD');
       // A narrow screen has its own HUD layout, sized for a thumb: the scale is for the desktop one.
       const narrow = matchMedia('(max-width: 1000px)').matches;
-      slider('HUD size', s.hudScale, HUD_SCALE_LIMITS[0], HUD_SCALE_LIMITS[1], 0.05, percent, (v) => this.#change({ hudScale: v }), 'Health, ammo, the feed, the match bar and the prompts. The crosshair keeps its own size.', narrow ? 'A screen this narrow keeps its own layout.' : '');
+      slider('HUD size', s.hudScale, HUD_SCALE_LIMITS[0], HUD_SCALE_LIMITS[1], 0.05, percent, (v) => this.#change({ hudScale: v }), 'The crosshair keeps its own size.', narrow ? 'A screen this narrow keeps its own layout.' : '');
       toggle('Ping counter', s.showPing, (v) => this.#change({ showPing: v }));
       toggle('Range overlay', s.showRangeOverlay, (v) => this.#change({ showRangeOverlay: v }));
       // The first-match hints (ticket 26) keep their own memory, not a setting: this forgets it.
       const again = h('button', 'Show them again', 'ds-btn') as HTMLButtonElement;
       again.type = 'button';
       again.disabled = !hintsSeen();
-      const forgotten = 'They will show again from your next spawn.';
+      const forgotten = 'They show again from your next spawn.';
       again.addEventListener('click', () => {
         clearHintMemory();
         again.disabled = true;
-        again.closest('.ds-row')?.querySelector('small')?.replaceChildren(forgotten);
+        // The row has no note while there were hints to bring back: the confirmation makes one.
+        const label = again.closest('.ds-row')?.querySelector('label');
+        const small = label?.querySelector('small') ?? label?.appendChild(h('small'));
+        small?.replaceChildren(forgotten);
       });
-      row('First-match hints', again, hintsSeen() ? 'One line at a time on how to move, aim, reload and the rest, each until you have done it once.' : 'Nothing learned yet: they show as you play.');
-      section('Crosshair', 'Its shape, its colour and its size, in screen pixels.');
+      row('First-match hints', again, hintsSeen() ? '' : 'None learned yet.');
+      section('Crosshair');
       const cross = (patch: Partial<CrosshairOptions>) => this.#change({ crosshair: { ...this.#settings.crosshair, ...patch } });
       const c = s.crosshair;
       const px = (v: number) => `${v} px`;
@@ -1473,10 +1477,10 @@ export class Menu {
       const armless = c.shape === 'circle' ? 'A circle has no arms.' : c.shape === 'dot' ? 'A dot has no arms.' : '';
       const dotted = c.shape === 'dot';
       slider('Arm length', c.size, CROSSHAIR_LIMITS.size[0], CROSSHAIR_LIMITS.size[1], 1, px, (v) => cross({ size: v }), '', armless);
-      slider('Gap', c.gap, CROSSHAIR_LIMITS.gap[0], CROSSHAIR_LIMITS.gap[1], 1, px, (v) => cross({ gap: v }), 'From the centre to where it starts.', dotted ? 'A dot has no gap.' : '');
+      slider('Gap', c.gap, CROSSHAIR_LIMITS.gap[0], CROSSHAIR_LIMITS.gap[1], 1, px, (v) => cross({ gap: v }), '', dotted ? 'A dot has no gap.' : '');
       slider('Thickness', c.thickness, CROSSHAIR_LIMITS.thickness[0], CROSSHAIR_LIMITS.thickness[1], 0.5, px, (v) => cross({ thickness: v }));
       toggle('Centre dot', c.dot, (v) => cross({ dot: v }), '', dotted ? 'The dot is the crosshair.' : '');
-      toggle('Opens with movement and fire', c.dynamic, (v) => cross({ dynamic: v }), 'Off, it keeps its gap whatever you do.', dotted ? 'A dot does not open.' : '');
+      toggle('Opens with movement and fire', c.dynamic, (v) => cross({ dynamic: v }), '', dotted ? 'A dot does not open.' : '');
       const shown = crosshairPreview(h, c);
       shown.root.classList.add('pinned');
       preview(shown.root);
@@ -1485,12 +1489,12 @@ export class Menu {
         restorable();
       };
     } else {
-      section('Motion', 'How much the view and the weapon move with your body. At 0% the view stays level and still: nothing bobs, leans, dips or shakes.');
-      slider('Camera motion', s.cameraMotion, 0, 1, 0.05, percent, (v) => this.#change({ cameraMotion: v }), 'The bob of a walk, the lean of a strafe, the dip of a landing, the sway of the weapon.');
-      slider('Shake and FOV kick', s.fovEffects, 0, 1, 0.05, percent, (v) => this.#change({ fovEffects: v }), 'The shake of a shot, a hit and a blast, and the wider view of a sprint.');
-      section('Colour', 'The two team colours and the enemy marker, in a set that stays apart for your eyes. The teams keep their names.');
+      section('Motion');
+      slider('Camera motion', s.cameraMotion, 0, 1, 0.05, percent, (v) => this.#change({ cameraMotion: v }), 'Bob, lean, landing dip and weapon sway.');
+      slider('Shake and FOV kick', s.fovEffects, 0, 1, 0.05, percent, (v) => this.#change({ fovEffects: v }), 'Shots, hits, blasts and the sprint view.');
+      section('Colour');
       select('Colour vision', s.colourVision, COLOUR_VISIONS.map((v) => [v, v === 'off' ? 'Standard' : COLOUR_VISION_NAMES[v]] as const), (v) => this.#change({ colourVision: v }));
-      section('Captions', "The announcer's lines as text, whatever the voice's volume.");
+      section('Captions');
       toggle('Announcer captions', s.captions, (v) => this.#change({ captions: v }));
       const shown = teamPreview(h, s.colourVision);
       preview(shown.root);
@@ -1509,15 +1513,14 @@ export class Menu {
     const restorable = () => {
       restore.disabled = atDefaults(this.#settings, tab);
       // A phone's footer has no room for the section's name, which the tab above already carries.
-      const [wide, narrow] = restore.disabled ? [`${SECTION_NAMES[tab]}: all at defaults`, 'All at defaults'] : [`Restore ${SECTION_NAMES[tab]} defaults`, 'Restore defaults'];
-      restore.replaceChildren(h('span', wide, 'wide'), h('span', narrow, 'narrow'));
-      restore.setAttribute('aria-label', wide);
+      // The tab above names the section, so the button needn't.
+      restore.textContent = restore.disabled ? 'All at defaults' : 'Restore defaults';
+      restore.setAttribute('aria-label', restore.disabled ? `${SECTION_NAMES[tab]}: all at defaults` : `Restore ${SECTION_NAMES[tab]} defaults`);
     };
     restorable();
     this.#afterChange ??= restorable;
     tabs.querySelector('.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('←→', '✥', 'Adjust'), hint('Esc', '○', 'Back')));
-    footer.append(h('span', 'Changes save as you make them', 'ds-saved'));
+    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('←→', '✥', 'Adjust')));
     footer.classList.add('ds-set-foot');
   }
 
@@ -1527,7 +1530,7 @@ export class Menu {
     b.dataset['action'] = action;
     b.addEventListener('click', async (e) => {
       e.stopPropagation();
-      b.textContent = 'Press a key…';
+      b.textContent = 'Press a key · Esc cancels';
       b.classList.add('wait');
       // Let this click finish before listening, or it would bind itself.
       await new Promise((r) => setTimeout(r, 0));

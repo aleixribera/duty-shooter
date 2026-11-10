@@ -48,7 +48,7 @@ Five sizes do the work. Big things are very big and small things small; nothing 
 | Small | `--ds-type-small` | 13 px | Labels, key hints, meta |
 
 - Display and title: bold, uppercase, condensed, 0.01-0.03em tracking, leading 0.9-0.95.
-- Buttons, segmented choices, crumbs and key hints: uppercase, 0.12-0.18em tracking. The tracking is what makes them feel machined, so it stays on controls and nowhere else.
+- Buttons, segmented choices, chips and key hints: uppercase, 0.12-0.18em tracking. The tracking is what makes them feel machined, so it stays on controls and nowhere else.
 - Descriptions, readouts and labels over values: sentence case, regular weight. No tracked caps on running text.
 - Numbers use tabular figures (`font-variant-numeric: tabular-nums`), so scores, timers and counts don't jitter.
 - One colour per headline: no accent word, no gradient text.
@@ -65,8 +65,8 @@ Five sizes do the work. Big things are very big and small things small; nothing 
 - One pair of outer margins per width (`--ds-gutter`: 56 px on desktop, 16 px on a phone).
 - Every outer edge adds the device's inset (`--ds-safe-t`, `--ds-safe-r`, `--ds-safe-b`, `--ds-safe-l`): pages through the `.ds-ui` root's padding, the HUD and the touch controls in each corner's own offset. Nothing reads the `env()` values directly.
 - Content holds the left edge; the world stays visible to the right. Asymmetry lives inside that frame: a block on the left is answered on the right by the picture or the readouts, never by nothing.
-- Every page uses the `.ds-page` shell: header with crumb and title, a body that scrolls on its own, and a footer that always shows the action.
-- A phone held sideways has width and no height (under 520 px tall): the header is one line (the title at heading size, no crumb, the tabs beside it scrolling sideways) and the footer one row, so the body keeps the screen. The main menu puts the name and the Rank right of the list, and Pause its controls beside its actions, so the way to play and what each button does show without a scroll.
+- Every page uses the `.ds-page` shell: header with the title, a body that scrolls on its own, and a footer that always shows the action.
+- A phone held sideways has width and no height (under 520 px tall): the header is one line (the title at heading size, the tabs beside it scrolling sideways) and the footer one row, so the body keeps the screen. The main menu puts the name and the Rank right of the list, and Pause its controls beside its actions, so the way to play and what each button does show without a scroll.
 - An upright phone has height and no width: tabs wrap onto more rows instead of scrolling out of sight, so every section's name shows.
 - On touch every control is 44 px or more on its short side with 8 px or more to its neighbour, and a text field never takes the focus by itself (that would raise the keyboard over the page).
 - Pickers are `.ds-seg` segmented controls with one choice lit.
@@ -76,13 +76,13 @@ Five sizes do the work. Big things are very big and small things small; nothing 
 
 - **Destination list** (main menu): each destination is one row of display type with its readout under it in body type. No icons, no card box: the scrim carries legibility. The lit row has a 4 px signal bar at its left edge; hover and focus grow the bar and slide the title 10 px. Settings sits below the destinations at heading size, as it is not a place to play.
 - **Readout**: a small label over a value in heading or display size, tabular. A row of readouts is one strip split by 1px lines, never cards.
-- **Squad slot**: one tile per seat of a Squad. A person's slot shows their name at heading size and their role under it ("You", "Host", "Friend"). A seat bots will fill is a dashed frame reading "Bot fills this seat" in `--ds-text-2`. A slot never shows a placeholder person.
+- **Squad slot**: one tile per seat of a Squad. A person's slot shows their name at heading size and their role under it ("You", "Host", "Friend"). A seat bots will fill is a dashed frame in `--ds-text-2`: "Bot" offline, "Open seat" online, where a friend may still take it. A slot never shows a placeholder person.
 - **Lobby seat**: one panel row per seat, its number, the name at heading size and its role under it ("You · Host") in small type, ping in ms coloured by quality. Your own seat is a raised step with a 4 px bar in text colour: signal is kept for what you pick. An open seat is the dashed frame; offline there are none, as nobody can take them.
-- **Settings section**: the section's name at heading size with one body-size line on what it covers, then its rows as one list split by 1px lines. A row lights on hover or focus with a raised step and the 4 px signal bar.
+- **Settings section**: the section's name at heading size (a live state under it where there is one, such as the controller connected), then its rows as one list split by 1px lines. A row's note is a few small words, only where the label and the control can't say it ("The crosshair keeps its own size"). A row lights on hover or focus with a raised step and the 4 px signal bar.
 - **Dialog** (loading, connecting, errors, tips): a title card at the lower left over the world, not a centred box. Its title at title size, one body paragraph, the buttons in a row with the way on focused. A loading dialog shows its percent at display size. An error carries a 4 px alert bar at its left edge.
 - **Pause**: the destination list again, over a scrim: the actions at display size with the 4 px bar (signal on Resume and on the one under the pointer or pad), the controls on a flat surface at the right. The HUD fades out under it.
 - **Scoreboard**: one flat panel, no outer line. Each team's name at heading size with a 4 px bar in its colour and its mark. Column heads in sentence case. Your row is a raised step with a 4 px bar in text colour. On a phone the teams stack in one column. The feed, toasts and round banner hide while it is up. Its header names the mode and, beside it, the match's goal in one line: the scoreboard is where a player looks to ask "what are we doing". On touch it is opaque and has the screen: the match bar, captions, hints, ally tags and pings hide under it.
-- **Match end panel**: the result ("Victory", who wins) heads the panel on its plate, never on the sky; then the MVP, your match as readouts, and the Rank bar. On a phone held sideways the panel is the whole screen's worth: the scoreboard comes only when its button is held on, in the panel's place, and the kill feed goes.
+- **Match end panel**: the result in one line ("Victory", "Defeat", "Draw", who wins) heads the panel on its plate, never on the sky; then the MVP, your match as readouts, and the Rank bar. On a phone held sideways the panel is the whole screen's worth: the scoreboard comes only when its button is held on, in the panel's place, and the kill feed goes.
 - **HUD plates and toasts**: a flat ink surface or a scrim from the bottom edge, never both a line and a surface. A toast is one body-size line with a 4 px bar in text colour; on a phone it runs full width above the readouts. On touch that slot has one speaker at a time, at body size: a caption or toast first, the hint line when it is quiet. A bot is marked by the word "bot" in small text after the name, not by a boxed tag.
 - **Connection line**: a status dot (signal for up, alert for down, fair for busy) followed by one sentence that says what the state means for the player and what happens next.
 - Key hints: keyboard caps, the controller's glyphs once a pad drives the screen, or the touch control's own glyph once a finger does. Which one shows follows the last input used, never the browser's name.
@@ -107,6 +107,13 @@ Five sizes do the work. Big things are very big and small things small; nothing 
 - A count's glyph is the thing counted: the grenade count wears a grenade, not a dot.
 - An ally's marker held to the screen's edge carries their name; the chevron alone is for one in view. Tags never lie on each other: of two names that would overlap the nearer ally keeps theirs, and edge tags that meet step along the edge (`allyTags` in `hud/ally-tags.ts`).
 - Figures that change in place (ammo, health, scores, the clock) are tabular, so a digit changing never shifts the line.
+
+## Words
+
+- A title stands alone: no eyebrow or breadcrumb above it, no explanatory line under it. The layout and the Back button say where you are.
+- Say a fact once per screen. A state shown in a chip isn't repeated in a sentence; a picker's lit choice isn't repeated in a readout; a button never sits beside a key hint naming the same action (no "Esc Back" next to Back).
+- Add a line only when it tells the player something they need that the screen doesn't show: why a control is shut, what a choice means when its name doesn't say, what to do when something failed. Then one short sentence.
+- Labels are one to three words. Notes under a row are a few words, never a paragraph.
 
 ## Do
 

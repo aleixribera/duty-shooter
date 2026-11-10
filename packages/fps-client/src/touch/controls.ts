@@ -161,7 +161,6 @@ export const TOUCH_CSS = `
 .ds-tc .stickui.locked { opacity: 0.85; }
 /* Portrait: the game plays in landscape, and says so plainly instead of offering controls that cannot work. */
 .ds-tc .turn { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: flex-end; gap: 10px; padding: calc(var(--ds-safe-t) + 24px) calc(var(--ds-safe-r) + 20px) calc(var(--ds-safe-b) + 28px) calc(var(--ds-safe-l) + 20px); background: var(--ds-ink); pointer-events: auto; }
-.ds-tc .turn .ds-crumb { margin-bottom: 2px; }
 .ds-tc .turn h2 { margin: 0; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-tc .turn p { margin: 0 0 10px; max-width: 34ch; font-size: var(--ds-type-body); line-height: 1.4; color: var(--ds-text-2); }
 .ds-tc .turn .ds-btn { align-self: flex-start; }
@@ -219,7 +218,7 @@ export class TouchControls {
       button('use', 'u', 'Use') +
       (['prev', 'next', 'view'] as const).map((a) => button(a, 's', glyph(a))).join('') +
       (['pause', 'scoreboard', 'map', 'ping'] as const).map((a) => button(a, 'top', glyph(a))).join('') +
-      `<div class="turn"><span class="ds-crumb">Touch controls</span><h2>Turn your phone</h2><p>Duty Shooter plays in landscape: the stick under your left thumb, aim and fire under your right.</p><button type="button" class="ds-btn" data-c="pause">Menu</button></div>`;
+      `<div class="turn"><h2>Turn your phone</h2><p>Duty Shooter plays in landscape.</p><button type="button" class="ds-btn" data-c="pause">Menu</button></div>`;
     for (const b of root.querySelectorAll<HTMLButtonElement>('.tb')) this.#buttons.set(b.dataset['c']!, b);
     this.#stickZone = root.querySelector('.zone.stick') as HTMLElement;
     this.#stickUi = root.querySelector('.stickui') as HTMLElement;
