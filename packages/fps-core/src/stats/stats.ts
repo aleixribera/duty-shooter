@@ -423,6 +423,7 @@ export const STATS = {
       rise: estimate(2.2, 's', 'From the pop to the cloud at its full size: long enough to see it coming and to be shot while it grows.'),
       life: estimate(15, 's', 'From the pop until the cloud is gone: one push through it, and a retreat.'),
       fade: estimate(3.5, 's', 'The last seconds of its life it thins out to nothing.'),
+      near: estimate(2.5, 'm', 'Nearer than this a body shows through the thickest of it, as a shape an arm and a step away: two men inside one cloud find each other, and a zone smoked by its holders can still be fought for.'),
     },
     flash: {
       fuse: estimate(1.1, 's', 'From the release: thrown round a corner, it goes off before the room can turn from it.'),

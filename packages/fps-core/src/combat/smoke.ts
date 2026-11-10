@@ -37,11 +37,13 @@ export function smokeCentre(cloud: SmokeCloud): Vec3 {
  * Whether the cloud stands between `a` and `b` at `time`: the segment passes
  * through its thick middle (the inner 80% of its size as it is now), or
  * starts or ends inside it. A thin edge, or a cloud still swelling past a
- * line, hides nothing yet.
+ * line, hides nothing yet, and nor does any cloud between two points closer
+ * than `near`.
  */
 export function smokeHides(cloud: SmokeCloud, a: Vec3, b: Vec3, time: number): boolean {
   const amount = smokeAmount(cloud, time);
   if (amount < 0.35) return false;
+  if (Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) < S.near.value) return false;
   const c = smokeCentre(cloud);
   // In the cloud's own space, where it is a ball of radius 1.
   const rx = (S.width.value / 2) * amount * 0.8;

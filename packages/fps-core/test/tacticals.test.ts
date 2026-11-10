@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, Simulation, TICK_SECONDS, createWorld, parseLoadout, smokeAmount, type Loadout, type PerkId, type PlayerSpawn, type Solid, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { STATS, Simulation, TICK_SECONDS, createWorld, parseLoadout, smokeAmount, smokeHides, type Loadout, type PerkId, type PlayerSpawn, type Solid, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { box, usercmd } from '@duty-shooter/fps-core/harness';
 import { botSees } from '../src/bots/sight';
 import { decodeSnapshot, encodeSnapshot } from '../src/net/codec';
@@ -72,6 +72,19 @@ describe('a smoke', () => {
     expect(smokeAmount({ popped: 10 }, 10 + T.smoke.rise.value)).toBe(1);
     expect(smokeAmount({ popped: 10 }, 10 + T.smoke.life.value - T.smoke.fade.value / 2)).toBeCloseTo(0.5, 5);
     expect(smokeAmount({ popped: 10 }, 10 + T.smoke.life.value)).toBe(0);
+  });
+
+  it('hides a body across it and from inside it, but never one an arm and a step away', () => {
+    // A full cloud at the origin; two men stand in it, and a third watches from 10 m out.
+    const cloud = { id: 1, at: [0, 0, 0] as Vec3, popped: 0 };
+    const time = T.smoke.rise.value + 1;
+    const chest = (x: number, z: number): Vec3 => [x, 1.3, z];
+    expect(smokeHides(cloud, chest(-10, 0), chest(10, 0), time)).toBe(true);
+    expect(smokeHides(cloud, chest(-10, 0), chest(0, 0), time)).toBe(true);
+    expect(smokeHides(cloud, chest(-1.5, 0), chest(1.5, 0), time)).toBe(true);
+    // Nearer than `near`, inside the thickest of it, the shape shows (ticket 20): a smoked zone can still be fought for.
+    expect(smokeHides(cloud, chest(-1, 0), chest(1, 0), time)).toBe(false);
+    expect(T.smoke.near.value).toBeGreaterThan(2);
   });
 
   it('never goes off in the hand, however long it is held', () => {

@@ -165,7 +165,7 @@ The loadout's second throwable, beside the frag: a Smoke, a Flash or none. Held 
 _Avoid_: utility, equipment, lethal/non-lethal
 
 **Smoke**:
-The Tactical that pops 1.2 s after the throw into a cloud 7 m across and 3.4 m high. It grows for 2.2 s, stands for 15 s in all and thins out over its last 3.5 s. Nobody sees through it, people or bots; bullets still go through it.
+The Tactical that pops 1.2 s after the throw into a cloud 7 m across and 3.4 m high. It grows for 2.2 s, stands for 15 s in all and thins out over its last 3.5 s. Nobody sees through it, people or bots, though a bot (and touch's and the pad's aim helps) still makes out a body nearer than 2.5 m; bullets still go through it.
 _Avoid_: smoke grenade (fine in player-facing text), smoke screen, Smoke trail (that's the sniper round's)
 
 **Flash**:
