@@ -234,6 +234,68 @@ describe('the third-person soldier holding each weapon', () => {
       }
     });
   });
+  describe('Dying', () => {
+    /** A soldier facing -Z, settled in `state`. */
+    const settled = (state: State = {}) => {
+      const soldier = new Soldier(soldierModel()!, LOOKS[0]!);
+      soldier.hold('m4a1', new Mesh());
+      for (let i = 0; i < 60; i++) soldier.update({ ...output('m4a1', state, i / 60), yaw: 0 }, 1 / 60);
+      return soldier;
+    };
+    /** Plays the death out, checking on the way that nothing goes through the ground. Returns where the head ends up. */
+    const fallen = (soldier: Soldier, name: string) => {
+      for (let i = 0; i < 120; i++) {
+        soldier.fall(1 / 60);
+        soldier.root.updateMatrixWorld(true);
+        for (const piece of soldier.parts.values()) {
+          expect(new Box3().setFromObject(piece, true).min.y, `${name}: ${piece.name}`).toBeGreaterThan(-0.07);
+        }
+      }
+      expect(soldier.fall(1 / 60)).toBe(1);
+      for (const piece of soldier.parts.values()) {
+        expect(new Box3().setFromObject(piece, true).max.y, `${name}: ${piece.name}`).toBeLessThan(0.75);
+      }
+      return soldier.root.getObjectByName('neck')!.getWorldPosition(new Vector3());
+    };
+
+    it('is thrown onto its back by a shot from the front, and onto its chest by one from behind', () => {
+      const front = settled();
+      front.die([0, 0, 2.5]);
+      expect(front.dead).toBe(true);
+      expect(front.gunMount.visible).toBe(false);
+      expect(fallen(front, 'from the front').z).toBeGreaterThan(0.6);
+      const behind = settled({ speed: 6, movement: 'sprint' });
+      behind.die([0, 0, -2.5]);
+      expect(fallen(behind, 'from behind').z).toBeLessThan(-0.6);
+    });
+
+    it('folds onto the side the shot pushed it to', () => {
+      for (const side of [1, -1]) {
+        const soldier = settled({ stance: 'crouch', eyeHeight: 1 });
+        soldier.die([side * 2.5, 0, 0]);
+        const head = fallen(soldier, `pushed ${side}`);
+        expect(head.x * side).toBeGreaterThan(0.3);
+        expect(Math.abs(head.z)).toBeLessThan(0.5);
+      }
+    });
+
+    it('folds up where it stands with no room to fall its length', () => {
+      const soldier = settled();
+      soldier.die([0, 0, 2.5], (right, back) => back === 0 && right > 0);
+      const head = fallen(soldier, 'against a wall');
+      expect(head.x).toBeGreaterThan(0.3);
+      expect(Math.abs(head.z)).toBeLessThan(0.5);
+    });
+
+    it('stays on its chest when it dies prone or Downed', () => {
+      for (const state of [{ stance: 'prone', eyeHeight: 0.4 }, { stance: 'prone', eyeHeight: 0.4, downed: { bleedOut: 20, revive: 0 } }] as State[]) {
+        const soldier = settled(state);
+        soldier.die([0, 0, 2.5]);
+        expect(fallen(soldier, 'prone').z).toBeLessThan(-0.6);
+      }
+    });
+  });
+
   describe('Mantling (ticket 67)', () => {
     const jointAt = (soldier: Soldier, name: string) => {
       soldier.root.updateMatrixWorld(true);

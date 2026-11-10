@@ -1,4 +1,4 @@
-import { STATS, isShellReload, mantleDuration, type PlayerOutput, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, isShellReload, mantleDuration, type PlayerOutput, type Vec3, type WeaponId } from '@duty-shooter/fps-core';
 import {
   type AnimationClip,
   Bone,
@@ -19,6 +19,7 @@ import {
   Sphere,
   Vector3,
 } from 'three/webgpu';
+import { attribute, float, mix, mx_noise_float, positionGeometry, smoothstep } from 'three/tsl';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KIT_RIGS } from './viewmodel/kit';
@@ -31,7 +32,8 @@ import { LEFT_PALM, RIGHT_PALM, palmFrame } from './viewmodel/m4a1';
  * its barrel along the aim, then both arms reach its grip points with
  * two-bone IK, so every weapon sits in the hands in every pose. The two poses
  * with no gun in them, the Downed crawl and the Revive, are clips authored in
- * the same generator and laid over all of that.
+ * the same generator and laid over all of that; so are the deaths, which take
+ * the body over from whatever pose it died in (`die`, then `fall`).
  */
 
 export interface Look {
@@ -137,7 +139,7 @@ const PISTOL_ADS = new Vector3(0.03, 0.43, -0.45);
 const VEST_POUCH = new Vector3(-0.085, 0.14, -0.2);
 const BELT_SHELLS = new Vector3(-0.16, 0.07, -0.1);
 
-/** The clips the model carries, by name: `crawl`, `revive`, and the mantles' `climb` and `vault`. */
+/** The clips the model carries, by name: `crawl`, `revive`, the mantles' `climb` and `vault`, and the deaths. */
 type Clips = ReadonlyMap<string, Clip>;
 /** A clip's joints, each with where it turns and sits at any moment. */
 interface Clip {
@@ -169,6 +171,68 @@ const MANTLE_END = 0.999;
 const MANTLE_AGAIN = 0.05;
 /** The clip is up over the gun pose from about here: the gun goes away out of sight of the pose it left. */
 const GUN_AWAY = 0.5;
+
+/**
+ * The deaths: thrown onto the back by a shot from the front, pitched onto the chest by one from behind, or folding
+ * onto one side where it stood. A body takes this long (s) to leave the pose it died in for the clip's.
+ */
+type Death = 'fallBack' | 'fallFront' | 'crumple';
+const DEATH_BLEND = 0.16;
+/** A push (the killing shot's, see PlayersView.hit) below this throws nobody anywhere. */
+const DEATH_PUSH = 0.4;
+/** Metres a body needs clear to fall its length, and to fold onto its side. */
+const DEATH_LENGTH = 1.5;
+const DEATH_WIDTH = 0.9;
+/**
+ * What a body rests on (m): the thickness about the hips, the shoulders, the head (a point in the neck's frame),
+ * and about each limb's joints and ends (points in the wrist's and the ankle's frames).
+ */
+const LIES = { hips: 0.13, shoulder: 0.11, head: 0.13, elbow: 0.055, wrist: 0.05, hand: 0.03, knee: 0.09, ankle: 0.08, sole: 0.012 } as const;
+const HEAD = new Vector3(0, 0.14, 0);
+const FINGERS = new Vector3(0, -0.03, -0.1);
+const HEEL = new Vector3(0, -0.068, 0.07);
+const TOE = new Vector3(0, -0.068, -0.17);
+const ORIGIN = new Vector3();
+/** A clip's joint on the other side of the body, for playing it mirrored. */
+const MIRRORED = Object.fromEntries(JOINTS.map((j) => [j, (j.endsWith('L') ? `${j.slice(0, -1)}R` : j.endsWith('R') ? `${j.slice(0, -1)}L` : j) as Joint])) as Record<Joint, Joint>;
+
+/** How much camouflage each slot's cloth takes, and how rough it is. */
+const SLOT_FINISH: Readonly<Record<string, readonly [number, number]>> = {
+  uniform: [1, 0.92],
+  trousers: [1, 0.92],
+  vest: [0.45, 0.8],
+  pouch: [0.45, 0.8],
+  strap: [0, 0.75],
+  skin: [0, 0.62],
+  helmet: [0.6, 0.66],
+  boots: [0, 0.58],
+  sole: [0, 0.8],
+  accent: [0, 0.7],
+  lens: [0, 0.18],
+  glove: [0, 0.74],
+};
+/** The baked shade (the model's colour attribute) is this strong: 0 would ignore it. */
+const SHADE = 0.85;
+
+/**
+ * The body's material: each vertex's colour is its slot's, already darkened by the model's baked shade; over it,
+ * in the body's own space so it stays put as the soldier moves, a camouflage of darker blotches and paler flecks
+ * on the cloth and a fine weave everywhere, and each slot's own roughness. The shoulder pads take none of it:
+ * they are the team's colour and have to read as one flat mark.
+ */
+function bodyMaterial(): MeshStandardNodeMaterial {
+  const material = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+  const finish = attribute('finish', 'vec2');
+  const camo = finish.x;
+  const blotch = smoothstep(0.02, 0.1, mx_noise_float(positionGeometry.mul(7.5)));
+  const fleck = smoothstep(0.16, 0.24, mx_noise_float(positionGeometry.mul(13).add(11.3)));
+  const weave = mx_noise_float(positionGeometry.mul(170)).mul(0.05).add(1);
+  const cloth = mix(float(1), float(0.7), blotch.mul(camo)).mul(mix(float(1), float(1.26), fleck.mul(camo))).mul(camo.mul(0.08).add(1));
+  // Over the vertex colours, which the material multiplies in itself.
+  material.colorNode = cloth.mul(weave);
+  material.roughnessNode = finish.y.add(blotch.mul(camo).mul(0.04));
+  return material;
+}
 
 let model: Object3D | null = null;
 let clips: Clips = new Map();
@@ -252,12 +316,14 @@ const _b = new Vector3();
 const _c = new Vector3();
 const _q = new Quaternion();
 const _q2 = new Quaternion();
+const _q3 = new Quaternion();
 const _e = new Euler();
 const _m = new Matrix4();
+const _glow = new Color();
 
 export class Soldier {
   readonly root = new Group();
-  /** The pieces the soldier is drawn from (hidden; the ragdoll throws them), by part name. */
+  /** The pieces the soldier is drawn from (hidden: the far stand-in is boxed from them), by part name. */
   readonly parts = new Map<string, Mesh>();
   readonly #bones = {} as Record<Joint, Bone>;
   readonly #rest = {} as Record<Joint, Vector3>;
@@ -290,6 +356,8 @@ export class Soldier {
   #mantling = false;
   #mantle = 0;
   #dt = 0;
+  /** The death under way or done: its clip, where in it the body is and joined it (s), mirrored or not, and the pose it took the body from. */
+  #death: { clip: Clip; time: number; start: number; mirror: boolean; from: { q: Quaternion; at: Vector3 }[] } | null = null;
   /** The support palm, eased, in gun space. */
   readonly #left = { pos: new Vector3(), q: new Quaternion(), set: false };
   /** How far each wrist ended from its grip after the last pose (m): left, right. */
@@ -344,8 +412,8 @@ export class Soldier {
 
   /**
    * Draws the whole soldier as one skinned mesh: each piece rides its joint
-   * as a rigidly weighted bone, in its slot's colour. One draw call (two with
-   * its shadow); the pieces stay, hidden, for the ragdoll to throw.
+   * as a rigidly weighted bone, in its slot's colour under the model's baked
+   * shade. One draw call (two with its shadow).
    */
   #skin(): void {
     const bones = JOINTS.map((j) => this.#bones[j]);
@@ -358,19 +426,25 @@ export class Soldier {
       g.setAttribute('position', source.getAttribute('position').clone());
       if (source.getAttribute('normal')) g.setAttribute('normal', source.getAttribute('normal').clone());
       else g.computeVertexNormals();
-      if (source !== piece.geometry) source.dispose();
       g.applyMatrix4(piece.matrixWorld);
+      const shadeAt = source.getAttribute('color');
       const c = (piece.material as MeshStandardNodeMaterial).color;
+      const [camo, roughness] = SLOT_FINISH[(piece.material as MeshStandardNodeMaterial).name] ?? [0, 0.8];
       const n = g.getAttribute('position').count;
       const colour = new Float32Array(n * 3);
+      const finish = new Float32Array(n * 2);
       const skinIndex = new Uint16Array(n * 4);
       const skinWeight = new Float32Array(n * 4);
       for (let v = 0; v < n; v++) {
-        colour.set([c.r, c.g, c.b], v * 3);
+        const k = shadeAt ? 1 - SHADE + SHADE * shadeAt.getX(v) : 1;
+        colour.set([c.r * k, c.g * k, c.b * k], v * 3);
+        finish.set([camo, roughness], v * 2);
         skinIndex[v * 4] = index;
         skinWeight[v * 4] = 1;
       }
+      if (source !== piece.geometry) source.dispose();
       g.setAttribute('color', new BufferAttribute(colour, 3));
+      g.setAttribute('finish', new BufferAttribute(finish, 2));
       g.setAttribute('skinIndex', new BufferAttribute(skinIndex, 4));
       g.setAttribute('skinWeight', new BufferAttribute(skinWeight, 4));
       geometries.push(g);
@@ -378,7 +452,7 @@ export class Soldier {
     const merged = mergeGeometries(geometries);
     for (const g of geometries) g.dispose();
     if (!merged) return;
-    const material = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+    const material = bodyMaterial();
     this.#materials.push(material);
     const body = new SkinnedMesh(merged, material);
     body.name = 'body';
@@ -386,8 +460,8 @@ export class Soldier {
     this.root.add(body);
     body.updateMatrixWorld(true);
     body.bind(new Skeleton(bones));
-    // Posed, a soldier reaches about a metre and a half from its feet (prone, rifle forward).
-    body.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.6);
+    // Posed, a soldier reaches about a metre and a half from its feet (prone, rifle forward; fallen, laid out).
+    body.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.7);
     this.#body = body;
     for (const piece of this.parts.values()) piece.visible = false;
   }
@@ -522,6 +596,123 @@ export class Soldier {
     this.#flash = Math.max(0, this.#flash - dt * 6);
     const glow = new Color(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
     for (const m of this.#materials) m.emissive.copy(glow);
+  }
+
+  /** Whether the soldier has been killed (`die`): it is a body from then on, moved by `fall`. */
+  get dead(): boolean {
+    return this.#death !== null;
+  }
+
+  /**
+   * Kills the soldier in the pose it is in. `push` is the killing shot's (world space, see PlayersView.hit): from
+   * the front it throws the body onto its back, from behind onto its chest, and from the side, or with no push to
+   * speak of, the body folds onto its side where it stood. `room(right, back)` says whether the body may come to
+   * lie that far (m) to the soldier's right and behind it: with a wall there it folds up short of it instead.
+   * `fall` plays the death from then on; `update` is over for this soldier.
+   */
+  die(push: Vec3, room: (right: number, back: number) => boolean = () => true): void {
+    const b = this.#bones;
+    const yaw = this.root.rotation.y;
+    // The soldier faces -Z turned by its yaw; its right is +X turned the same.
+    const back = push[0] * Math.sin(yaw) + push[2] * Math.cos(yaw);
+    const right = push[0] * Math.cos(yaw) - push[2] * Math.sin(yaw);
+    const size = Math.hypot(back, right);
+    const low = this.#prone > 0.5 || this.#crawl > 0.5;
+    let name: Death = low ? 'fallFront' : size < DEATH_PUSH || Math.abs(back) < size * 0.5 ? 'crumple' : back > 0 ? 'fallBack' : 'fallFront';
+    if (!low && name !== 'crumple' && !room(0, name === 'fallBack' ? DEATH_LENGTH : -DEATH_LENGTH)) name = 'crumple';
+    // The fold lands on the right side: mirrored, on the left, the way the push went or wherever there is room.
+    let mirror = name === 'crumple' && (size < DEATH_PUSH ? Math.random() < 0.5 : right < 0);
+    if (name === 'crumple' && !room(mirror ? -DEATH_WIDTH : DEATH_WIDTH, 0) && room(mirror ? DEATH_WIDTH : -DEATH_WIDTH, 0)) mirror = !mirror;
+    const clip = clips.get(name);
+    this.#gunMount.visible = false;
+    if (!clip) return;
+    // A body already low joins the fall part-way down.
+    const start = Math.min(0.8, Math.max(0, 1 - b.hips.position.y / 0.8)) * clip.duration;
+    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })) };
+  }
+
+  /** Carries the death on by `dt` seconds. Returns how far through its fall the body is, 0 to 1 (1: lying still). */
+  fall(dt: number): number {
+    const d = this.#death;
+    this.#flash = Math.max(0, this.#flash - dt * 6);
+    const glow = _glow.setRGB(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
+    for (const m of this.#materials) m.emissive.copy(glow);
+    if (!d) return 1;
+    d.time = Math.min(d.clip.duration, d.time + dt);
+    const done = d.time / d.clip.duration;
+    // A fall gathers speed: the clip's keys are even, so its early ones are held longer.
+    const t = Math.pow(done, 1.35) * d.clip.duration * MANTLE_END;
+    const w = smooth((d.time - d.start) / DEATH_BLEND);
+    JOINTS.forEach((joint, i) => {
+      const bone = this.#bones[joint];
+      const from = d.from[i]!;
+      bone.quaternion.copy(from.q);
+      // Whatever the gun's hold had slid (a shoulder reaching) goes back where it belongs.
+      bone.position.lerpVectors(from.at, this.#rest[joint], joint === 'hips' ? 0 : w);
+    });
+    for (const { joint, turn, at } of d.clip.joints) {
+      const bone = this.#bones[d.mirror ? MIRRORED[joint] : joint];
+      _q.fromArray(turn.evaluate(t));
+      if (d.mirror) _q.set(_q.x, -_q.y, -_q.z, _q.w);
+      bone.quaternion.slerp(_q, w);
+      if (at) {
+        _a.fromArray(at.evaluate(t));
+        if (d.mirror) _a.x = -_a.x;
+        bone.position.lerp(_a, w);
+      }
+    }
+    this.#restOnGround();
+    return done;
+  }
+
+  /**
+   * Keeps a falling body out of the ground it falls on (the root's own level: PlayersView lays the root along
+   * a slope). The clips were made for one starting pose and are joined from any, so first the trunk is lifted
+   * onto whatever it would rest on, then each limb is swung up from its shoulder or hip until its joints clear,
+   * and the hands and toes after them.
+   */
+  #restOnGround(): void {
+    const b = this.#bones;
+    let lack = LIES.hips - b.hips.position.y;
+    for (const s of ['L', 'R'] as const) lack = Math.max(lack, LIES.shoulder - this.#inRoot(b.spine, this.#rest[`shoulder${s}`], _a).y);
+    lack = Math.max(lack, LIES.head - this.#inRoot(b.neck, HEAD, _a).y);
+    if (lack > 0) b.hips.position.y += lack;
+    // Twice: lifting a limb's far joint can dip its near one again.
+    for (let pass = 0; pass < 2; pass++) {
+      for (const s of ['L', 'R'] as const) {
+        this.#clear(b[`shoulder${s}`], b[`elbow${s}`], ORIGIN, LIES.elbow);
+        this.#clear(b[`shoulder${s}`], b[`wrist${s}`], ORIGIN, LIES.wrist);
+        this.#clear(b[`wrist${s}`], b[`wrist${s}`], FINGERS, LIES.hand);
+        this.#clear(b[`hip${s}`], b[`knee${s}`], ORIGIN, LIES.knee);
+        this.#clear(b[`hip${s}`], b[`ankle${s}`], ORIGIN, LIES.ankle);
+        this.#clear(b[`ankle${s}`], b[`ankle${s}`], HEEL, LIES.sole);
+        this.#clear(b[`ankle${s}`], b[`ankle${s}`], TOE, LIES.sole);
+      }
+    }
+  }
+
+  /** Where `at`, a point in `bone`'s frame, is in the root's. */
+  #inRoot(bone: Object3D, at: Vector3, out: Vector3): Vector3 {
+    out.copy(at);
+    for (let o: Object3D | null = bone; o && o !== this.root; o = o.parent) out.applyQuaternion(o.quaternion).add(o.position);
+    return out;
+  }
+
+  /** Swings `bone` up about a level axis through itself, just far enough that the point `at` of `end`'s frame is `radius` clear of the ground under the root. */
+  #clear(bone: Bone, end: Object3D, at: Vector3, radius: number): void {
+    const point = this.#inRoot(end, at, _a);
+    const lack = radius - point.y;
+    if (lack <= 0) return;
+    const reach = point.sub(this.#inRoot(bone, ORIGIN, _b));
+    const length = reach.length();
+    if (length < 1e-4) return;
+    const rise = Math.asin(Math.min(1, (reach.y + lack) / length)) - Math.asin(Math.max(-1, reach.y / length));
+    const level = Math.hypot(reach.x, reach.z);
+    _q.setFromAxisAngle(level > 1e-4 ? _c.set(-reach.z / level, 0, reach.x / level) : _c.set(1, 0, 0), rise);
+    // The swing is in the root's frame: carried into that of the bone's parent.
+    const parent = _q2.identity();
+    for (let o = bone.parent; o && o !== this.root; o = o.parent) parent.premultiply(o.quaternion);
+    bone.quaternion.premultiply(_q.premultiply(_q3.copy(parent).invert()).multiply(parent));
   }
 
   /** Lays the crawl, the Revive or a mantle over the pose worked out so far, and puts the gun away under them. */

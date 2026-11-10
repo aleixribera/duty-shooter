@@ -14,7 +14,6 @@ import {
   type Camera,
   type Object3D,
   type Scene,
-  type SkinnedMesh,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -23,11 +22,11 @@ import { KIT_RIGS } from './viewmodel/kit';
 import { loadSoldierModel, Soldier, soldierModel, type Look } from './soldier';
 
 /** Free-for-all: nobody's side, in olive drab. */
-const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xc08f6a, helmet: 0x4b5139, boots: 0x2a2622, accent: 0x5d6447 };
+const SOLDIER: Look = { uniform: 0x5d6447, vest: 0x3d4232, skin: 0xa9836a, helmet: 0x4b5139, boots: 0x2a2622, accent: 0x5d6447 };
 /** The two teams, in the UI's team colours (blue #3D8BFF, orange #FF9A3C) on the pads and toned-down versions on the cloth. */
 const TEAM_LOOKS: Readonly<Record<number, Look>> = {
-  1: { uniform: 0x40577a, vest: 0x26364d, skin: 0xc08f6a, helmet: 0x2f4362, boots: 0x22252b, accent: 0x3d8bff },
-  2: { uniform: 0x8a6544, vest: 0x5b412c, skin: 0xb98563, helmet: 0x6e4c30, boots: 0x2a2420, accent: 0xff9a3c },
+  1: { uniform: 0x40577a, vest: 0x26364d, skin: 0xb08c72, helmet: 0x2f4362, boots: 0x22252b, accent: 0x3d8bff },
+  2: { uniform: 0x8a6544, vest: 0x5b412c, skin: 0x94705a, helmet: 0x6e4c30, boots: 0x2a2420, accent: 0xff9a3c },
 };
 /** The third-person rifle's one colour. */
 const GUNMETAL = new Color(0x2b2d31);
@@ -293,80 +292,103 @@ class FarSoldiers {
   }
 }
 
-interface RagPart {
-  mesh: Mesh;
-  v: Vector3;
-  w: Vector3;
-  floor: number;
-  half: number;
-}
+/** How long a body lies where it fell (s), how long it then takes to sink away, and how many lie at once. */
+export const BODIES = { lies: 10, sinks: 1.6, most: 12 } as const;
+/** How much of the soldier's own speed and of the killing shot's push a body keeps, and how fast it loses them (1/s). */
+const BODY_CARRY = 0.4;
+const BODY_PUSH = 0.35;
+const BODY_DRAG = 5;
 
-/** A cosmetic ragdoll: the soldier's parts, thrown with the killing shot's push, tumble and settle. */
-class Ragdoll {
-  readonly root = new Group();
-  readonly #parts: RagPart[] = [];
+/**
+ * A dead soldier: the Soldier it was, now falling by its death clip (soldier.ts), carried a little by its own
+ * speed and the shot that killed it, dropped onto the ground under it and laid along its slope. It sinks away
+ * after a while. Cosmetic only: the simulation has no bodies.
+ */
+class Body {
+  readonly soldier: Soldier;
+  readonly #world: World;
+  readonly #v: Vector3;
+  readonly #stood = new Quaternion();
+  readonly #lain = new Quaternion();
+  #floor: number;
   age = 0;
 
   constructor(soldier: Soldier, velocity: Vec3, push: Vec3, world: World) {
-    soldier.root.updateMatrixWorld(true);
-    const centre = new Vector3();
-    soldier.root.getWorldPosition(centre);
-    // The pieces the soldier is drawn from, not the skinned body that draws them.
-    for (const mesh of soldier.root.getObjectsByProperty('isMesh', true) as Mesh[]) {
-      if ((mesh as SkinnedMesh).isSkinnedMesh) continue;
-      const m = new Mesh(mesh.geometry, mesh.material);
-      mesh.matrixWorld.decompose(m.position, m.quaternion, m.scale);
-      m.castShadow = true;
-      this.root.add(m);
-      const below = raycastWorld(world, [m.position.x, m.position.y + 0.2, m.position.z], [m.position.x, m.position.y - 3, m.position.z]);
-      const height = m.position.y - centre.y;
-      const v = new Vector3(velocity[0] + push[0] * (0.6 + height), velocity[1] + 0.6 + push[1], velocity[2] + push[2] * (0.6 + height));
-      v.add(new Vector3((Math.random() - 0.5) * 0.6, Math.random() * 0.4, (Math.random() - 0.5) * 0.6));
-      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
-      const size = mesh.geometry.boundingBox?.getSize(new Vector3());
-      this.#parts.push({
-        mesh: m,
-        v,
-        w: new Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 6),
-        floor: below ? below.point[1] : centre.y,
-        half: size ? Math.min(size.x * Math.abs(m.scale.x), size.y * Math.abs(m.scale.y), size.z * Math.abs(m.scale.z)) / 2 : 0.05,
-      });
+    this.soldier = soldier;
+    this.#world = world;
+    const root = soldier.root;
+    const yaw = root.rotation.y;
+    const at = root.position;
+    // Whether the body may come to lie `right` m to its right and `back` m behind it: nothing in the way at knee height.
+    const room = (right: number, back: number) => {
+      const x = at.x + right * Math.cos(yaw) + back * Math.sin(yaw);
+      const z = at.z - right * Math.sin(yaw) + back * Math.cos(yaw);
+      return raycastWorld(world, [at.x, at.y + 0.45, at.z], [x, at.y + 0.45, z]) === null;
+    };
+    soldier.die(push, room);
+    this.#v = new Vector3(velocity[0] * BODY_CARRY + push[0] * BODY_PUSH, Math.min(0, velocity[1]), velocity[2] * BODY_CARRY + push[2] * BODY_PUSH);
+    // It would slide this far in all: not into a wall.
+    const reach = this.#v.clone().setY(0).multiplyScalar(1 / BODY_DRAG);
+    const far = reach.length();
+    if (far > 0.01) {
+      reach.multiplyScalar((far + 0.4) / far);
+      if (raycastWorld(world, [at.x, at.y + 0.45, at.z], [at.x + reach.x, at.y + 0.45, at.z + reach.z])) this.#v.setX(0).setZ(0);
     }
+    this.#stood.copy(root.quaternion);
+    this.#lain.copy(root.quaternion);
+    this.#floor = at.y;
+    this.#ground();
   }
 
+  /** Finds the ground under the body, and how the body lies along it. */
+  #ground(): void {
+    const at = this.soldier.root.position;
+    const below = raycastWorld(this.#world, [at.x, at.y + 0.5, at.z], [at.x, at.y - 40, at.z]);
+    if (!below) return;
+    this.#floor = below.point[1];
+    // Up to about a 35 degree slope; steeper, the hit was a wall's edge.
+    if (below.normal[1] > 0.8) this.#lain.setFromUnitVectors(UP, _place.set(below.normal[0], below.normal[1], below.normal[2])).multiply(this.#stood);
+  }
+
+  /** Moves the body on by `dt` seconds. False once it has sunk away. */
   update(dt: number): boolean {
     this.age += dt;
-    const q = new Quaternion();
-    for (const p of this.#parts) {
-      p.v.y -= 9.81 * dt;
-      p.mesh.position.addScaledVector(p.v, dt);
-      const ground = p.floor + p.half;
-      if (p.mesh.position.y < ground) {
-        p.mesh.position.y = ground;
-        if (p.v.y < 0) p.v.y *= -0.2;
-        p.v.x *= Math.exp(-8 * dt);
-        p.v.z *= Math.exp(-8 * dt);
-        p.w.multiplyScalar(Math.exp(-6 * dt));
-      }
-      const w = p.w.length();
-      if (w > 1e-3) p.mesh.quaternion.premultiply(q.setFromAxisAngle(p.w.clone().divideScalar(w), w * dt));
+    const root = this.soldier.root;
+    const fallen = this.soldier.fall(dt);
+    const moving = this.#v.x * this.#v.x + this.#v.z * this.#v.z > 0.0004;
+    if (moving || root.position.y > this.#floor) {
+      root.position.x += this.#v.x * dt;
+      root.position.z += this.#v.z * dt;
+      const drag = Math.exp(-BODY_DRAG * dt);
+      this.#v.x *= drag;
+      this.#v.z *= drag;
+      if (moving) this.#ground();
+      // Killed in the air, it comes down first; on a slope it follows the ground.
+      this.#v.y -= 9.81 * dt;
+      root.position.y = Math.max(this.#floor, root.position.y + this.#v.y * dt);
+      if (root.position.y === this.#floor) this.#v.y = 0;
     }
-    // Sink into the floor at the end instead of popping out.
-    if (this.age > 5) this.root.position.y = -(this.age - 5) * 0.4;
-    return this.age < 6.5;
+    if (this.age < BODIES.lies) {
+      root.position.y = Math.max(root.position.y, this.#floor);
+      root.quaternion.slerpQuaternions(this.#stood, this.#lain, fallen * fallen);
+      return true;
+    }
+    // Sink into the ground at the end instead of popping out.
+    root.position.y = this.#floor - ((this.age - BODIES.lies) / BODIES.sinks) * 0.5;
+    return this.age < BODIES.lies + BODIES.sinks;
   }
 }
 
 /**
  * Everyone but the local player: soldiers and range dummies, posed from the
- * interpolated simulation output, flashing on hits and leaving a ragdoll on death.
+ * interpolated simulation output, flashing on hits and leaving a body where they die.
  */
 export class PlayersView {
   readonly #world: World;
   readonly #root = new Group();
   readonly #soldiers = new Map<PlayerId, Soldier>();
   readonly #alive = new Map<PlayerId, boolean>();
-  readonly #ragdolls: Ragdoll[] = [];
+  readonly #bodies: Body[] = [];
   readonly #lastPush = new Map<PlayerId, Vec3>();
   readonly #guns: GunModels | null;
   /** The look each soldier was built in, so a team change rebuilds it. */
@@ -400,7 +422,7 @@ export class PlayersView {
 
   /**
    * Shows, for one frame, a soldier in every look holding each weapon in
-   * turn, with the pieces a ragdoll throws and a far stand-in, a few metres in
+   * turn, and a far stand-in, a few metres in
    * front of `camera`: drawing them compiles their shaders before a match
    * needs them. They are drawn a thousandth of their size, so nothing shows
    * through the loading screen. Returns what hides them again.
@@ -423,8 +445,6 @@ export class PlayersView {
     this.#samples.forEach((soldier, i) => {
       soldier.root.position.copy(ahead).add(new Vector3((i - this.#samples.length / 2) * 0.001, 0, 0));
       soldier.root.scale.setScalar(0.001);
-      // The skinned body and the hidden pieces the ragdoll draws.
-      soldier.root.traverse((o) => (o.visible = true));
       this.#root.add(soldier.root);
     });
     const farSample = model ? this.#far.sample(model, ahead) : null;
@@ -434,7 +454,7 @@ export class PlayersView {
     };
   }
 
-  /** A hit landed on `victim`, travelling along `direction`: flashes it and remembers the push for its ragdoll. */
+  /** A hit landed on `victim`, travelling along `direction`: flashes it and remembers the push, which throws its body if it dies. */
   hit(victim: PlayerId, direction: Vec3, damage: number): void {
     this.#soldiers.get(victim)?.hitFlash();
     const k = Math.min(3, damage / 12);
@@ -475,6 +495,11 @@ export class PlayersView {
         soldier = undefined;
       }
       if (!soldier) {
+        // The dead have no soldier until they are back: theirs became the body lying where they fell.
+        if (!p.alive) {
+          this.#alive.set(p.id, false);
+          continue;
+        }
         soldier = new Soldier(model, look);
         this.#soldiers.set(p.id, soldier);
         this.#looks.set(p.id, look);
@@ -487,12 +512,14 @@ export class PlayersView {
       const level = forced ?? (viewer && hasDistanceDetail() ? levelAt(Math.hypot(p.position[0] - viewer[0], p.position[1] - viewer[1], p.position[2] - viewer[2]) / Math.max(1, zoom), this.#levels.get(p.id)) : NEAR);
       this.#levels.set(p.id, level);
       const wasAlive = this.#alive.get(p.id) ?? p.alive;
-      // Far away, a soldier who falls is simply gone: a ragdoll there would be a few pixels.
+      // Far away, a soldier who falls is simply gone: a body there would be a few pixels.
       if (wasAlive && !p.alive && level !== FAR) {
         soldier.update(p, 0);
-        const rag = new Ragdoll(soldier, p.velocity, this.#lastPush.get(p.id) ?? [0, 0, 0], this.#world);
-        this.#ragdolls.push(rag);
-        this.#root.add(rag.root);
+        soldier.castShadows(level === NEAR);
+        this.#bodies.push(new Body(soldier, p.velocity, this.#lastPush.get(p.id) ?? [0, 0, 0], this.#world));
+        this.#forget(p.id);
+        this.#alive.set(p.id, false);
+        continue;
       }
       this.#alive.set(p.id, p.alive);
       soldier.root.visible = p.alive && level !== FAR;
@@ -517,23 +544,31 @@ export class PlayersView {
       if (seen.has(id)) continue;
       soldier.root.removeFromParent();
       soldier.dispose();
-      this.#soldiers.delete(id);
-      this.#looks.delete(id);
+      this.#forget(id);
       this.#alive.delete(id);
-      this.#levels.delete(id);
-      this.#unposed.delete(id);
     }
-    for (let i = this.#ragdolls.length - 1; i >= 0; i--) {
-      const rag = this.#ragdolls[i]!;
-      if (!rag.update(dt)) {
-        rag.root.removeFromParent();
-        this.#ragdolls.splice(i, 1);
-      }
+    for (const id of this.#alive.keys()) if (!seen.has(id)) this.#alive.delete(id);
+    // The oldest bodies go first when too many lie about.
+    for (let i = this.#bodies.length - 1; i >= 0; i--) {
+      const body = this.#bodies[i]!;
+      if (body.update(dt) && this.#bodies.length - i <= BODIES.most) continue;
+      body.soldier.root.removeFromParent();
+      body.soldier.dispose();
+      this.#bodies.splice(i, 1);
     }
+  }
+
+  /** Lets go of a player's soldier (it is disposed of, or has become a body). */
+  #forget(id: PlayerId): void {
+    this.#soldiers.delete(id);
+    this.#looks.delete(id);
+    this.#levels.delete(id);
+    this.#unposed.delete(id);
   }
 
   dispose(): void {
     for (const s of this.#soldiers.values()) s.dispose();
+    for (const b of this.#bodies) b.soldier.dispose();
     for (const s of this.#samples) s.dispose();
     this.#guns?.dispose();
     this.#far.dispose();

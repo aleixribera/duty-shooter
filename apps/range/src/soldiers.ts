@@ -8,7 +8,9 @@ import { Color, DirectionalLight, HemisphereLight, PerspectiveCamera, Scene, Vec
  * through the poses and actions the game uses (columns), drawn by the game's
  * own PlayersView. `?weapon=<id>` picks the weapon, `?view=front|side|back`
  * turns the soldiers, `?rows=0,2` and `?cols=0,3` (indices) pick some of
- * them, and `?t=<s>` holds every clip at one moment for screenshots.
+ * them, and `?t=<s>` holds every clip at one moment for screenshots. The last
+ * columns are the deaths: shot from the front, from behind while sprinting,
+ * from the side while crouched, and dying prone.
  */
 
 type State = {
@@ -24,6 +26,8 @@ type State = {
   readonly grenade?: PlayerOutput['grenade'];
   readonly downed?: PlayerOutput['downed'];
   readonly reviving?: number;
+  /** Killed, by a shot from this side (or by nothing that pushes). */
+  readonly dead?: 'front' | 'back' | 'side' | 'none';
 };
 
 interface Column {
@@ -43,6 +47,12 @@ function columns(id: WeaponId): Column[] {
     duration: mantleDuration(band) + 0.6,
     state: (t) => (t < mantleDuration(band) ? { movement: 'mantle', mantle: band } : {}),
   });
+  // Alive for a moment, then killed; long enough that the body is gone before the next one falls.
+  const death = (name: string, dead: NonNullable<State['dead']>, before: State): Column => ({
+    name,
+    duration: 13,
+    state: (t) => (t < 0.6 ? before : { ...before, dead }),
+  });
   return [
     { name: 'Idle', duration: 2, state: () => ({}) },
     { name: 'Aim', duration: 2, state: () => ({ ads: 1 }) },
@@ -58,6 +68,10 @@ function columns(id: WeaponId): Column[] {
     { name: 'Revive', duration: 2, state: (t) => ({ stance: 'crouch', eyeHeight: crouch, reviving: t / 2 }) },
     mantle('Climb', 'highClimb'),
     mantle('Vault', 'lowVault'),
+    death('Shot front', 'front', {}),
+    death('Shot back', 'back', { speed: 5, movement: 'sprint' }),
+    death('Shot side', 'side', { stance: 'crouch', eyeHeight: crouch }),
+    death('Dies prone', 'none', { stance: 'prone', eyeHeight: 0.4 }),
   ];
 }
 
@@ -68,7 +82,7 @@ const ROW = 2.4;
 function output(id: string, team: number, position: [number, number, number], yaw: number, weapon: WeaponId, s: State, t: number): PlayerOutput {
   const v = s.speed ?? 0;
   return {
-    id, team, kind: 'player', alive: true, position, velocity: [-Math.sin(yaw) * v, 0, -Math.cos(yaw) * v], yaw, pitch: s.pitch ?? 0,
+    id, team, kind: 'player', alive: !s.dead, position, velocity: [-Math.sin(yaw) * v, 0, -Math.cos(yaw) * v], yaw, pitch: s.pitch ?? 0,
     movement: s.movement ?? 'walk', mantle: s.mantle ?? null, stance: s.stance ?? 'stand', eyeHeight: s.eyeHeight ?? 1.6, health: 100, landing: null,
     weapon: { id: weapon, slot: 0, action: s.action ?? 'ready', actionTime: t, reload: s.reload ?? null, ammo: 10, ads: s.ads ?? 0, spread: 0, canFire: true, shotIndex: 0, sway: [0, 0] },
     loadout: { primary: weapon, secondary: 'pistol' },
@@ -121,7 +135,11 @@ const frame = (time: number, dt: number) => {
   teams.forEach((team, row) => {
     cols.forEach((col, i) => {
       const t = time % col.duration;
-      list.push(output(`${row}-${i}`, team, [width - i * SPACING, (teams.length - 1 - row) * ROW, 0], yaw, weapon, col.state(t), t));
+      const state = col.state(t);
+      // The killing shot, from in front of the soldier (it faces -Z turned by its yaw), behind it or its left.
+      const from = state.dead === 'front' ? 0 : state.dead === 'back' ? Math.PI : Math.PI / 2;
+      if (state.dead && state.dead !== 'none') players.hit(`${row}-${i}`, [Math.sin(yaw + from), 0, Math.cos(yaw + from)], 30);
+      list.push(output(`${row}-${i}`, team, [width - i * SPACING, (teams.length - 1 - row) * ROW, 0], yaw, weapon, state, t));
     });
   });
   players.update(list, dt, { teams: true, self: null });

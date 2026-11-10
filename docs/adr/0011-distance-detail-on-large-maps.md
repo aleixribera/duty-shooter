@@ -28,5 +28,5 @@ Rejected:
 ## Consequences
 
 - Same seeds, `?lod=off` against on: the Preparation's draw calls went from 372 to 400 down to 116 to 128, and play from 150 to 194 down to 97 to 121. Frame time went from 2.58 to 3.20 ms down to 2.21 to 2.39 ms, and main-thread time from 2.54 to 3.17 ms down to 2.18 to 2.35 ms a frame. The renderer's live geometries went from about 680 down to about 530. The JS heap is unchanged at 32 MB after a collection.
-- A soldier at mid range moves its limbs at about 20 Hz, and a far one doesn't move its limbs at all. A far soldier who dies just disappears: there is no ragdoll that far out.
+- A soldier at mid range moves its limbs at about 20 Hz, and a far one doesn't move its limbs at all. A far soldier who dies just disappears: no body is left lying that far out.
 - The lighting bake isn't per chunk yet. The island's surfaces alone are 24.5 M texels in a 2048 x 17492 atlas, which is past any GPU's texture limit, and they would take about 72 CPU-minutes to bake. That work is ticket 55.

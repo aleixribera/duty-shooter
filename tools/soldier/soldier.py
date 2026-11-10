@@ -13,10 +13,11 @@ the client's bones (packages/fps-client/src/soldier.ts), at rest with no
 rotation, and the pieces hang from it as child meshes, one per material.
 Limbs hang straight down (-Y) from their joints. The client recolours each
 piece by its material's name (the look's slot) and merges the soldier into one
-rigidly skinned mesh; the pieces themselves are what a ragdoll throws.
+rigidly skinned mesh. Each piece also carries a baked shade in its colour
+attribute (`bake_shade`): how open that spot is to the sky.
 
 Most of the soldier's poses are worked out by the client. The two that have no
-gun in them, the Downed crawl and the Revive, are authored here (`CLIPS`) and
+gun in them, the Downed crawl, the Revive and the deaths, are authored here (`CLIPS`) and
 exported as glTF animations on the joints: `crawl`, which the client plays by
 distance crawled, and `revive`, which it loops. Each key is a whole body, in
 the Euler angles soldier.ts uses (game space, XYZ order unless a key names
@@ -176,6 +177,69 @@ def vault_keys():
     )
 
 
+def body(hips, at, spine, neck, arm_l, arm_r, leg_l, leg_r):
+    """A whole-body key: the hips' turn and place, the spine's and neck's turns, and for each arm
+    (shoulder turn, elbow bend) and each leg (hip turn, knee bend). Wrists and ankles hang loose."""
+    return {
+        "hips": (hips, at), "spine": (spine, None), "neck": (neck, None),
+        "shoulderL": (arm_l[0], None), "elbowL": ((arm_l[1], 0, 0), None), "wristL": ((-0.2, 0, 0), None),
+        "shoulderR": (arm_r[0], None), "elbowR": ((arm_r[1], 0, 0), None), "wristR": ((-0.2, 0, 0), None),
+        "hipL": (leg_l[0], None), "kneeL": ((leg_l[1], 0, 0), None), "ankleL": ((0.25, 0, 0), None),
+        "hipR": (leg_r[0], None), "kneeR": ((leg_r[1], 0, 0), None), "ankleR": ((0.25, 0, 0), None),
+    }
+
+
+def fall_back_keys():
+    """Shot from the front: the chest is thrown back, the knees go, and the body lands on its back, an arm flung
+    out each side and one knee left up."""
+    return (
+        body((0.12, 0, 0), (0, 0.85, 0.02), (0.2, 0, 0), (-0.2, 0, 0),
+             ((0.5, 0, -0.5), 0.9), ((0.4, 0, 0.6), 0.7), ((0.25, 0, 0), -0.5), ((0.05, 0, 0), -0.3)),
+        body((0.55, 0, 0), (0, 0.66, 0.2), (0.3, 0, 0), (0.1, 0, 0),
+             ((1.2, 0, -0.9), 0.6), ((1.0, 0, 1.0), 0.6), ((0.9, 0, 0), -1.5), ((0.5, 0, 0), -1.2)),
+        body((1.15, 0, 0), (0, 0.32, 0.5), (0.15, 0, 0), (-0.35, 0, 0),
+             ((0.9, 0, -1.2), 0.5), ((0.8, 0, 1.25), 0.5), ((1.0, 0, 0), -1.3), ((0.6, 0, 0), -0.9)),
+        body((1.56, 0, 0.04), (0, 0.2, 0.66), (-0.08, 0, 0), (0.2, 0, 0),
+             ((0.1, 0, -1.9), 0.9), ((0.05, 0, 0.95), 0.5), ((0.6, 0, 0), -1.1), ((0.15, 0, 0.12), -0.25)),
+        body((1.5, 0, 0.05), (0, 0.19, 0.68), (0.0, 0, 0.05), (0.05, 0.5, 0),
+             ((-0.05, 0, -2.15), 0.75), ((0.0, 0, 0.7), 0.35), ((0.5, 0, -0.1), -0.95), ((0.05, 0, 0.16), -0.1)),
+    )
+
+
+def fall_front_keys():
+    """Shot from behind: pitched forward onto the knees and then the chest, one arm reaching past the head and
+    the other folded under, the face turned aside."""
+    return (
+        body((-0.15, 0, 0), (0, 0.84, -0.03), (-0.25, 0, 0), (0.3, 0, 0),
+             ((0.3, 0, -0.3), 0.8), ((0.3, 0, 0.3), 0.8), ((0.2, 0, 0), -0.4), ((-0.1, 0, 0), -0.2)),
+        body((-0.45, 0, 0), (0, 0.62, -0.18), (-0.3, 0, 0), (0.2, 0, 0),
+             ((1.0, 0, -0.4), 1.0), ((1.0, 0, 0.4), 1.0), ((0.9, 0, 0), -1.6), ((0.6, 0, 0), -1.5)),
+        body((-1.0, 0, 0), (0, 0.36, -0.42), (-0.2, 0, 0), (0.5, 0, 0),
+             ((1.9, 0, -0.5), 1.2), ((1.9, 0, 0.5), 1.2), ((0.5, 0, 0), -1.2), ((0.3, 0, 0), -1.0)),
+        body((-1.52, 0, 0.05), (0, 0.17, -0.62), (0.06, 0, 0), (0.35, 0.6, 0),
+             ((2.4, 0, -0.5), 0.5), ((1.2, 0, 0.7), 1.6), (((0.05, 1.2, -0.45), "XZY"), -0.6), ((0.02, 0, 0.15), -0.3)),
+        body((-1.5, 0, 0.06), (0, 0.16, -0.64), (0.1, 0, -0.06), (0.3, 0.75, 0),
+             ((2.5, 0, -0.45), 0.35), ((1.0, 0, 0.75), 1.7), (((0.05, math.pi / 2, -0.6), "XZY"), -0.85), ((0.02, 0, 0.16), -0.12)),
+    )
+
+
+def crumple_keys():
+    """No push to speak of: the legs fold, the body sits down onto its knees and tips over onto its right side,
+    curled."""
+    return (
+        body((-0.1, 0, 0.05), (0, 0.82, 0), (-0.2, 0, 0.1), (0.2, 0, 0.15),
+             ((0.1, 0, -0.15), 0.4), ((0.1, 0, 0.15), 0.4), ((0.4, 0, 0), -0.8), ((0.4, 0, 0), -0.8)),
+        body((-0.15, 0, 0.1), (0, 0.5, 0.02), (-0.35, 0, 0.15), (-0.3, 0, 0),
+             ((0.15, 0, -0.2), 0.3), ((0.15, 0, 0.2), 0.3), ((0.5, 0, 0), -2.0), ((0.45, 0, 0), -2.0)),
+        body((-0.2, 0, -0.7), (0.18, 0.34, 0.02), (-0.3, 0, -0.2), (-0.2, 0, -0.3),
+             ((0.4, 0, -0.1), 0.5), ((0.3, 0, 0.5), 0.6), ((0.7, 0, 0), -1.9), ((0.6, 0, 0), -1.9)),
+        body((-0.15, 0.25, -1.5), (0.42, 0.2, 0.04), (-0.25, 0, -0.05), (-0.15, 0, -0.2),
+             ((0.6, 0, -0.2), 0.7), ((0.9, 0, 0.2), 0.9), ((0.9, 0, 0), -1.5), ((0.5, 0, 0), -1.2)),
+        body((-0.12, 0.3, -1.52), (0.45, 0.19, 0.05), (-0.3, 0, -0.03), (-0.1, 0, -0.25),
+             ((0.7, 0, -0.25), 0.8), ((1.0, 0, 0.15), 1.0), ((1.0, 0, 0), -1.4), ((0.45, 0, 0), -1.1)),
+    )
+
+
 # Clip: (seconds, its keys evenly through it). The loops (crawl, revive) end on their first key; the mantles
 # (climb, vault) are played once, by how far the mantle is through, and key only the joints they move.
 CLIPS = {
@@ -183,12 +247,16 @@ CLIPS = {
     "revive": (0.8, (revive_key(0), revive_key(1), revive_key(0))),
     "climb": (1.2, climb_keys()),
     "vault": (0.45, vault_keys()),
+    # The deaths, each played once from the pose the soldier died in (soldier.ts picks one by the killing shot).
+    "fallBack": (0.8, fall_back_keys()),
+    "fallFront": (0.8, fall_front_keys()),
+    "crumple": (0.95, crumple_keys()),
 }
 
 # Slot colours (sRGB) as the free-for-all look wears them; the client recolours by slot.
 SLOTS = {
     "uniform": 0x5D6447, "trousers": 0x535A40, "vest": 0x3D4232, "pouch": 0x353A2B, "strap": 0x262920,
-    "skin": 0xC08F6A, "helmet": 0x4B5139, "boots": 0x2A2622, "sole": 0x161412, "accent": 0x5D6447,
+    "skin": 0xA9836A, "helmet": 0x4B5139, "boots": 0x2A2622, "sole": 0x161412, "accent": 0x5D6447,
     "lens": 0x172128, "glove": 0x2B2A27,
 }
 
@@ -362,6 +430,9 @@ nk = world("neck")
 lathe("neck", "skin", nk + Vector((0, -0.04, 0.01)), nk + Vector((0, 0.08, 0.01)), [(0, 0.055), (1, 0.05)], seg=10)
 ellipsoid("neck", "skin", (0.17, 0.23, 0.2), nk + Vector((0, 0.15, -0.005)), part="head")
 box("neck", "skin", (0.035, 0.05, 0.04), nk + Vector((0, 0.15, -0.105)), bevel=0.012)  # nose
+# A neck gaiter pulled up over the chin and mouth: cloth where most of the bare skin was.
+lathe("neck", "uniform", nk + Vector((0, -0.045, 0.004)), nk + Vector((0, 0.128, -0.004)),
+      [(0, 0.064), (0.3, 0.07), (0.62, 0.1), (1, 0.107)], seg=12, flat=0.88)
 ellipsoid("neck", "helmet", (0.25, 0.22, 0.27), nk + Vector((0, 0.2, 0.0)), cut=-0.05, seg=16, rings=9)
 box("neck", "helmet", (0.2, 0.025, 0.03), nk + Vector((0, 0.197, -0.122)), bevel=0.008)  # brim
 box("neck", "strap", (0.06, 0.05, 0.03), nk + Vector((0, 0.27, -0.13)), bevel=0.01)  # NVG mount
@@ -407,8 +478,12 @@ for s, side in (("L", -1), ("R", 1)):
           [(0, 0), (0.06, 0.062), (0.3, 0.064), (0.85, 0.05), (1, 0)], part="shin" + s, seg=10)
     box("knee" + s, "vest", (0.1, 0.12, 0.05), kn + Vector((0, -0.01, -0.065)), taper=(0.9, 1), bevel=0.015)  # knee pad
     box("knee" + s, "strap", (0.13, 0.025, 0.13), kn + Vector((0, -0.05, -0.0)), bevel=0.006)
-    box("ankle" + s, "boots", (0.11, 0.14, 0.13), an + Vector((0, 0.02, 0.0)), part="foot" + s, bevel=0.025)
-    box("ankle" + s, "boots", (0.105, 0.075, 0.17), an + Vector((0, -0.03, -0.075)), bevel=0.025)  # toe
+    # The boot: a cuff up over the trouser leg, and a rounded toe along the ground.
+    lathe("ankle" + s, "boots", an + Vector((0, 0.15, 0.004)), an + Vector((0, -0.05, 0)),
+          [(0, 0.055), (0.1, 0.062), (0.7, 0.06), (1, 0.063)], part="foot" + s, seg=10)
+    lathe("ankle" + s, "boots", an + Vector((0, -0.012, 0.055)), an + Vector((0, -0.024, -0.185)),
+          [(0, 0), (0.08, 0.05), (0.45, 0.057), (0.8, 0.053), (0.95, 0.036), (1, 0)], seg=10, flat=0.74, up=(1, 0, 0))
+    box("ankle" + s, "strap", (0.128, 0.018, 0.128), an + Vector((0, 0.115, 0.004)), bevel=0.005)  # the cuff's strap
     box("ankle" + s, "sole", (0.115, 0.03, 0.26), an + Vector((0, -0.065, -0.05)), bevel=0.008)
 
 # ---------------------------------------------------------------------------
@@ -457,6 +532,64 @@ for o in meshes:  # bake the parent inverse into the mesh, so each piece sits at
     o.data.transform(o.matrix_parent_inverse)
     o.matrix_parent_inverse = Matrix()
     o.data.update()
+
+
+def bake_shade(obs, rays=48, reach=0.16):
+    """Paints each piece with how open it is to the sky (its colour attribute, exported as COLOR_0): dark where
+    another piece stands close in front of it (under the vest's edge, between the pouches, inside the collar),
+    and a little darker toward the boots, where the dust is. The client multiplies the look's colours by it.
+    Pieces run into one another (a thigh into the pelvis), and a vertex buried there would drag its darkness
+    down the whole limb: a ray leaving the inside of a piece passes through, so only what faces it shades it."""
+    from mathutils.bvhtree import BVHTree
+    verts, polys = [], []
+    for o in obs:
+        base = len(verts)
+        verts += [o.matrix_world @ v.co for v in o.data.vertices]
+        polys += [[base + i for i in poly.vertices] for poly in o.data.polygons]
+    tree = BVHTree.FromPolygons(verts, polys, epsilon=0.0)
+    # Directions spread evenly over a hemisphere about +Z (a golden-angle spiral).
+    dirs = []
+    for i in range(rays):
+        z = (i + 0.5) / rays
+        r = math.sqrt(1 - z * z)
+        a = i * math.pi * (3 - math.sqrt(5))
+        dirs.append(Vector((math.cos(a) * r, math.sin(a) * r, z)))
+    for o in obs:
+        me = o.data
+        attr = me.color_attributes.get("Color") or me.color_attributes.new("Color", "FLOAT_COLOR", "CORNER")
+        me.color_attributes.active_color = attr
+        me.color_attributes.render_color_index = list(me.color_attributes).index(attr)
+        turn = o.matrix_world.to_3x3()
+        seen = {}
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                vi = me.loops[li].vertex_index
+                normal = me.vertices[vi].normal if poly.use_smooth else poly.normal
+                key = (vi, round(normal.x, 2), round(normal.y, 2), round(normal.z, 2))
+                if key not in seen:
+                    n = (turn @ normal).normalized()
+                    at = o.matrix_world @ me.vertices[vi].co + n * 0.004
+                    frame = n.to_track_quat("Z", "Y")
+                    shut = 0.0
+                    for d in dirs:
+                        way = frame @ d
+                        start, gone = at, 0.0
+                        for _ in range(6):
+                            hit = tree.ray_cast(start, way, reach - gone)
+                            if hit[0] is None:
+                                break
+                            gone += hit[3]
+                            if hit[1].dot(way) < 0:  # a face turned toward the vertex
+                                shut += (1 - gone / reach) * d.z
+                                break
+                            start = hit[0] + way * 0.0005
+                            gone += 0.0005
+                    open_ = 1 - min(1.0, shut / (rays * 0.5) * 1.25)
+                    height = at.z  # Blender Z is up; the feet are at 0
+                    dust = 0.88 + 0.12 * min(1.0, height / 0.4)
+                    seen[key] = max(0.3, open_) * dust
+                k = seen[key]
+                attr.data[li].color = (k, k, k, 1)
 
 
 def game_turn(euler):
@@ -511,6 +644,8 @@ def author_clips():
     bpy.context.scene.frame_set(0)
 
 
+bpy.context.view_layer.update()
+bake_shade(meshes)
 tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
 result = {"meshes": len(meshes), "tris": tris, "joints": len(empties)}
 
@@ -522,13 +657,17 @@ if not globals().get("ARGS", {}).get("no_export"):
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=GLB, export_format="GLB", use_selection=True, export_apply=True,
                               export_yup=True, export_normals=True, export_texcoords=False, export_materials="EXPORT",
+                              export_vertex_color="ACTIVE", export_active_vertex_color_when_no_material=True,
                               export_animations=True, export_animation_mode="NLA_TRACKS", export_force_sampling=False,
                               export_optimize_animation_size=False, export_optimize_animation_keep_anim_object=True)
     result["glb_bytes"] = os.path.getsize(GLB)
+    rest_pose()  # the export leaves the joints wherever its last clip ended
+    bpy.context.scene.frame_set(0)
 
     # The editable source, then a preview sheet with the arms down (the hands turned fingers-down, palms in).
     bpy.ops.wm.save_as_mainfile(filepath=BLEND)
     for s, side in (("L", -1), ("R", 1)):
+        empties["wrist" + s].rotation_mode = empties["shoulder" + s].rotation_mode = "XYZ"
         empties["wrist" + s].rotation_euler = (math.radians(-90), 0, math.radians(90 * -side))
         empties["shoulder" + s].rotation_euler = (0, 0.12 * -side, 0)
     bpy.context.view_layer.update()
