@@ -19,3 +19,9 @@ __pycache__/
 
 # The soldier generator's preview sheets
 tools/soldier/previews/
+
+# Design audits keep their report and findings; the screenshots and contact sheets stay local
+docs/design-audit/*/captures/
+docs/design-audit/*/after/
+docs/design-audit/*/*.html
+docs/design-audit/*/*.png

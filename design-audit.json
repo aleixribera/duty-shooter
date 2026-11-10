@@ -1,0 +1,149 @@
+{
+  "name": "duty-shooter",
+  "url": "http://localhost:5173/?nolock",
+  "launch": {
+    "command": "npm run dev -w @duty-shooter/range -- --port 5173 --strictPort",
+    "readyUrl": "http://localhost:5173/",
+    "timeoutMs": 90000
+  },
+  "browser": {
+    "channel": "chrome",
+    "args": [
+      "--enable-unsafe-webgpu",
+      "--disable-gpu-vsync",
+      "--disable-frame-rate-limit"
+    ]
+  },
+  "defaultViewports": [
+    "desktop",
+    "phone"
+  ],
+  "settleMs": 800,
+  "screens": [
+    {
+      "id": "main-menu",
+      "title": "Main menu",
+      "steps": [
+        {
+          "waitForJs": "globalThis.duty?.game && globalThis.duty?.menu?.open",
+          "timeoutMs": 90000
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "from": "main-menu",
+      "steps": [
+        {
+          "clickText": "Settings"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "bot-lobby",
+      "title": "Bot Match lobby",
+      "from": "main-menu",
+      "steps": [
+        {
+          "clickText": "Bot Match"
+        },
+        {
+          "wait": 1000
+        }
+      ]
+    },
+    {
+      "id": "loading",
+      "title": "Loading a map",
+      "from": "main-menu",
+      "steps": [
+        {
+          "eval": "duty.menu.loading('Survival Town', 0.42)"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "error",
+      "title": "Connection failed",
+      "from": "main-menu",
+      "steps": [
+        {
+          "eval": "duty.menu.failed(null)"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    },
+    {
+      "id": "range-hud",
+      "title": "Practice Range, first spawn",
+      "from": "main-menu",
+      "steps": [
+        {
+          "clickText": "Practice Range"
+        },
+        {
+          "waitForJs": "globalThis.duty?.game?.player && !globalThis.duty.menu.open",
+          "timeoutMs": 120000
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "id": "match-hud",
+      "title": "Bot Match in play",
+      "from": "bot-lobby",
+      "steps": [
+        {
+          "clickText": "Start"
+        },
+        {
+          "waitForJs": "globalThis.duty?.driver?.match?.phase === 'playing'",
+          "timeoutMs": 180000
+        },
+        {
+          "wait": 3000
+        }
+      ]
+    },
+    {
+      "id": "scoreboard",
+      "title": "Scoreboard (Tab held)",
+      "from": "match-hud",
+      "steps": [
+        {
+          "keyDown": "Tab"
+        },
+        {
+          "wait": 600
+        }
+      ]
+    },
+    {
+      "id": "pause",
+      "title": "Pause menu",
+      "from": "match-hud",
+      "steps": [
+        {
+          "press": "Escape"
+        },
+        {
+          "wait": 800
+        }
+      ]
+    }
+  ]
+}

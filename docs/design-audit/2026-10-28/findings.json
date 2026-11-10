@@ -1,0 +1,636 @@
+{
+  "project": "duty-shooter",
+  "date": "2026-10-28",
+  "commit": "112d9f3",
+  "dirty": true,
+  "findings": [
+    {
+      "id": "F01",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "high",
+      "lenses": [
+        "accessibility",
+        "rules",
+        "hierarchy",
+        "hud"
+      ],
+      "title": "Health and ammo readouts wash out over bright grass and sky",
+      "detail": "The bottom-corner HUD has only a faint text shadow and no plate, so over the light-green lawn of Survival Town the HEALTH and AUTO labels effectively disappear and the big 100 / 30 numbers lose their edge. A player checking ammo or health mid-fight has to look twice. The same thing happens on the scoreboard shot (identical numbers) and in the practice range over the sand floor (Health 2.27:1, 100 at p10 2.82:1).",
+      "fix": "Put a soft dark gradient scrim behind both bottom corners (e.g. a linear-gradient from rgba(8,10,14,0.55) at the bottom edge to transparent, ~140 px tall), add a 1-2 px dark outline or a tighter, stronger text-shadow (0 0 3px rgba(0,0,0,0.8)) to all HUD text, and raise the secondary labels from #B4BAC5 to near-white. Re-measure until labels reach 4.5:1 and the numbers 3:1 at p10 on this shot.",
+      "evidence": "contrast.json match-hud@desktop, real pixels: 'Health' 12px p50 1.09 / p10 1.03 (needs 4.5); 'auto' 10px bold p50 1.06; 'M4A1' 15px bold p50 1.64; '/ ∞' 20px p50 1.78; '100' 48px bold p50 2.52 / p10 1.81 and '30' 54px bold p50 2.66 / p10 1.76 (need 3:1). Zoomed crop confirms grey #B4BAC5 'HEALTH' over pale green is barely visible. Ammo cluster box [1746,969,142,72]. · contrast.md match-hud@desktop p10: 'Health' 1.03 (needs 4.5), '100' 1.81 and '30' 1.76 (need 3 at 48/54 px bold), 'M4A1' 1.60, '/ ∞' 1.47, 'auto' 1.03. Only a text shadow, no backing plate. The ammo cluster sits at [1746,969,142,72].",
+      "box": [
+        28,
+        972,
+        84,
+        72
+      ],
+      "alsoNoted": [
+        "rules: Health and ammo readouts wash out over the bright grass and sky",
+        "hierarchy (match-hud@desktop): The health and ammo corners have no backing, so their labels vanish and the big numbers wash out over bright grass and sky"
+      ]
+    },
+    {
+      "id": "F02",
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hud",
+        "rules",
+        "hierarchy"
+      ],
+      "title": "First spawn in the range shows no controls, no task, and an empty stats panel as the biggest HUD block",
+      "detail": "A newcomer drops into the Practice Range with a rifle and nothing telling them how to move, aim down sights, reload or what to try first. The full key list exists, but only on the pause screen, and nothing on the HUD says Esc opens it. The match HUD's first spawn has the same gap. The stats panel's lower half is an empty dark box, so it reads as broken or not loaded rather than as a place for guidance.",
+      "fix": "On first spawn, show a dismissible hint card (in the empty panel area or bottom centre): \"WASD move · Mouse aim · LMB fire · RMB aim · R reload · Esc controls & menu\", plus a one-line task such as \"Shoot the 25 m dummy, then try the SPRINT/WALK course\". Switch the glyphs when a gamepad is active. Drop the empty box or fill it with that hint.",
+      "evidence": "HUD text is only \"TTK\", \"DISTANCE 25.0 m\", \"SHOTS / HITS\", \"LAST HIT\", \"HEALTH 100\", \"M4A1 AUTO 30 / ∞\"; empty panel below; controls only appear under \"CONTROLS\" in the pause menu",
+      "box": [
+        37,
+        808,
+        181,
+        149
+      ],
+      "alsoNoted": [
+        "hud (range-hud@desktop): First spawn shows no controls hint and no goal",
+        "hierarchy (range-hud@desktop): An empty stats graph is the biggest HUD block at first spawn, stacked straight onto the health readout",
+        "rules (range-hud@phone): Range stats panel carries a large empty box that takes up HUD space"
+      ]
+    },
+    {
+      "id": "F03",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hierarchy",
+        "rules"
+      ],
+      "title": "The top menu option is unavailable but looks as clickable as the rest",
+      "detail": "The first and most prominent option, PLAY ONLINE, is the one a newcomer reaches for. It is styled like the working options, and the only warning is a small red dot and a technical sentence. A player is likely to click it, hit a dead end, and only then try Bot Match, which already has focus but doesn't otherwise stand out.",
+      "fix": "Dim the Play Online card as disabled (lower opacity, no hover) with plain wording such as \"Online play is unavailable right now\", or move it below Bot Match while offline. Give the recommended option (Bot Match, or Practice Range for a first launch) a filled primary style.",
+      "evidence": "\"PLAY ONLINE / No game server answers this page right now. / ● OFFLINE\" in the same card style as \"BOT MATCH\", \"PRACTICE RANGE\", \"SETTINGS\" · Four tiles 480 px wide with identical 28 px/700 off-white titles (243,241,234) and the same dark fill. Play Online's only offline cue is a 12 px 'OFFLINE' label with a red dot at [144,718,60,12] under the description 'No game server answers this page right now.' The Bot Match tile [56,751,480,95] differs only by its left accent bar.",
+      "box": [
+        56,
+        644,
+        480,
+        100
+      ],
+      "alsoNoted": [
+        "hierarchy: The unavailable Play Online tile is the first and loudest item; the real next step is only marked by a thin bar",
+        "rules (main-menu@desktop): No dominant Play button; the largest slot goes to an unavailable Play Online"
+      ]
+    },
+    {
+      "id": "F04",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The section tabs are parked far from the settings they switch, so KEYS, VIDEO and INTERFACE are easy to miss",
+      "detail": "All the content sits in a 920 px column on the left, while the only way to reach the other three pages is a row of 13 px tabs in the top-right corner, about 500 px from the content's right edge. Players scanning down the left column never pass them. On phone the row overflows and 'INTERFACE' is cut off at the screen edge.",
+      "fix": "Move the tab row under the SETTINGS title, left-aligned with the content column at x 56, and bump it to 15 to 16 px. On narrow screens let the tabs wrap or scroll with a visible fade.",
+      "evidence": "The tabs CONTROLS/KEYS/VIDEO/INTERFACE are at [1463,50,401,40], text 13 px bold, inactive ones grey (142,150,163). The settings rows span x 56 to 976. The rest of the screen is empty scene. On phone the INTERFACE tab box is [296,79,121,40], which ends at x 417 in a 390 px viewport.",
+      "box": [
+        1463,
+        50,
+        401,
+        40
+      ]
+    },
+    {
+      "id": "F05",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "rules"
+      ],
+      "title": "Menus open with nothing focused although the footer offers arrow-key navigation, and the focus marker is a thin edge",
+      "detail": "The footer advertises '↑↓ MOVE  ←→ ADJUST  ESC BACK', but no row, slider or tab is highlighted when the screen opens, so a keyboard or gamepad player does not know which setting the arrows will change. The bot lobby has the same gap: nothing is marked as focused (the teal 'You' row is identity, the filled START is the primary button), while its footer offers '↑↓ MOVE  ENTER SELECT'.",
+      "fix": "On open, focus the first row (Mouse sensitivity) and draw the same focus treatment the pause menu uses (teal left bar plus tinted row fill), visible for both keyboard and gamepad; in the lobby, focus START or the first player slot.",
+      "evidence": "settings@desktop.dom.json and settings@phone.dom.json: \"focused\": null; screenshot shows all ten rows in the same #12151B style, only the CONTROLS tab underlined (active tab, not focus). bot-lobby@desktop.dom.json: \"focused\": null. By contrast pause@desktop shows a clear focused RESUME (teal bar, tinted fill, arrow). · Footer \"↑↓ MOVE  ←→ ADJUST  ESC BACK\"; all rows from \"Mouse sensitivity\" to \"Invert vertical look\" share the same flat background",
+      "box": [
+        56,
+        165,
+        920,
+        615
+      ],
+      "alsoNoted": [
+        "first-time: Footer advertises arrow-key navigation but no setting row looks focused",
+        "rules (bot-lobby@desktop): Menus open with nothing focused, though the footer promises arrow-key navigation",
+        "accessibility (main-menu@desktop): Main-menu focus marker is a thin teal edge that is easy to miss"
+      ]
+    },
+    {
+      "id": "F06",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Slider hit areas are 20 px tall and tabs sit 2 px apart",
+      "detail": "All six sensitivity and deadzone sliders have a 20 px tall hit area, below the ~32 px mouse minimum, so a slightly-off click misses or grabs the wrong row. The tabs are only 2 px apart. In the lobby, the Mode and Sides segmented buttons are 1 px apart. On the phone the same screen has 11 targets under 44 px (tabs 40 px, selects 38 px, sliders 20 px).",
+      "fix": "Make each range input at least 32 px tall (keep the thin track visual and enlarge the hit area with padding or height), let the whole row forward clicks to the slider, and put 8 px gaps between tabs and segmented options (or merge each segmented group into one control with arrow-key switching).",
+      "evidence": "Controls 'Mouse sensitivity', 'ADS sensitivity multiplier', 'Horizontal/Vertical stick sensitivity', 'Controller ADS multiplier', 'Stick deadzone': input 270x20. Tabs CONTROLS [1463,50,117,40] to KEYS [1582,50,75,40]: 2 px gap. Lobby TEAM DEATHMATCH [1384,437,114,51] to FREE-FOR-ALL [1499,...]: 1 px gap.",
+      "box": [
+        620,
+        182,
+        270,
+        529
+      ]
+    },
+    {
+      "id": "F07",
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "The INTERFACE settings tab runs off the right edge of the phone screen",
+      "detail": "New idea: a tab row that does not fit must wrap, shrink or show a scroll cue. The fourth tab is cut to 'INTERFAC' at the screen edge with no arrow or fade hinting at more, so a phone player may never find the interface options.",
+      "fix": "On narrow screens let the tabs share the width (flex: 1, smaller letter-spacing) or wrap to two rows; if the row must scroll, add an edge fade and chevron.",
+      "evidence": "settings@phone.dom.json: 'INTERFACE' button box [296,79,121,40] ends at x=417 on a 390 px viewport; screenshot shows 'INTERFAC' clipped at the right edge.",
+      "box": [
+        296,
+        79,
+        94,
+        40
+      ]
+    },
+    {
+      "id": "F08",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "The two map cards don't make clear which map is picked",
+      "detail": "New idea: a selected option's label should say what it is, the same way as its unselected siblings. The left card's small label shows the mode name with a tick, while the right card's says \"MAP\". A newcomer can read this as 'Survival Town is the mode, Switchyard is the map', and the header \"YOUR PICK\" doesn't settle it. Only the outline and the header chips show that Survival Town is the selected map.",
+      "fix": "Label both cards \"MAP\" and mark the selected one with \"✓ SELECTED\" (or a filled badge). Keep the mode name out of the map card, and rename \"YOUR PICK\" to \"MAP\".",
+      "evidence": "Left card \"✓ TEAM DEATHMATCH / SURVIVAL TOWN\", right card \"MAP / SWITCHYARD\", section label \"YOUR PICK\" · Kicker '✓ Team deathmatch' 11 px bold teal at [1379,272,144,11] above 'SURVIVAL TOWN'. Kicker 'Map' 11 px grey at [1633,272,28,11] above 'SWITCHYARD'. The mode is chosen separately in the MODE segmented control below at [1384,437,460,51]. The kicker over the map thumbnail also measures p10 2.53:1.",
+      "box": [
+        1364,
+        191,
+        500,
+        136
+      ],
+      "alsoNoted": [
+        "hierarchy: The selected map card is labelled with the mode name, so map and mode read as the same choice"
+      ]
+    },
+    {
+      "id": "F09",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy",
+        "first-time"
+      ],
+      "title": "On a narrow screen the map and mode pickers sit below twelve player rows, out of sight above a pinned START",
+      "detail": "The first screen is entirely the roster of identical BOT rows, with START pinned below them. Nothing hints that map, mode and sides can be changed further down, so a player starts with the defaults without knowing there was a choice. This is a stretch-test viewport, but the same ordering will hurt any short desktop window.",
+      "fix": "In the single-column layout put the Match panel (map, mode, sides) above the Players list, or collapse the eight bot rows into one line such as 'You + 7 bots, 4 open seats'. Optionally make the top chips tappable shortcuts to the pickers.",
+      "evidence": "Player rows run from y 248 to 802 (12 rows at a 50 px pitch). The footer's BACK/LOADOUT/SETTINGS buttons at [16,718,358,44] and START at [16,774,358,58] cover the bottom. No Mode, Sides or map text appears in the phone DOM sample, only the read-only chips 'TEAM DEATHMATCH' and 'SURVIVAL TOWN' at y 87.",
+      "box": [
+        16,
+        189,
+        358,
+        529
+      ],
+      "alsoNoted": [
+        "first-time (bot-lobby@phone): On phone the mode and map pickers are off-screen, and the chips above look like buttons but aren't"
+      ]
+    },
+    {
+      "id": "F10",
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "rules"
+      ],
+      "title": "The range's headline stat is the unexplained abbreviation \"TTK\"",
+      "detail": "The first row of the only data panel a newcomer sees is an insider abbreviation (time to kill), with nothing on screen to explain it. Next to it, \"SHOTS / HITS\" and \"LAST HIT\" show only dashes before the first shot, so the panel doesn't explain itself until the player has already fired.",
+      "fix": "Spell it out (\"TIME TO KILL\") or add a sub-label (\"TTK · time to kill\"). Before the first shot, replace the dashes with \"Shoot a dummy to see stats\".",
+      "evidence": "\"TTK  –\", \"SHOTS / HITS  –\", \"LAST HIT  –\" at 11 px",
+      "box": [
+        37,
+        732,
+        130,
+        13
+      ],
+      "alsoNoted": [
+        "rules (range-hud@desktop): Range stats use unexplained jargon (TTK) and an unlabelled ◆ icon"
+      ]
+    },
+    {
+      "id": "F11",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy",
+        "hud",
+        "accessibility",
+        "rules"
+      ],
+      "title": "Which team you're on and what the score limit is are carried only by 11 px grey captions in the scoreline",
+      "detail": "The score bar reads well at a glance (two coloured digits and the clock), but the captions that say 'you are Blue' and 'first to 75' are 11 px, grey and translucent over sky, so in play they are unreadable. A new player sees 0 | 9:56 | 0 without knowing their side or the target.",
+      "fix": "Raise the captions to 12-13 px uppercase in off-white, make the backing plate opaque, and show your own side more strongly (a 'YOU' tab or a brighter frame on the Blue cell). Spell out the limit as 'TDM · FIRST TO 75'.",
+      "evidence": "'◆ Blue · you' [819,64,88,11], 'TDM · 75' [941,62,55,11] and '▲ Orange' [1031,64,70,11], all 11 px weight 400 grey (142,150,163), with p10 contrast 1.82, 3.13 and 2.26:1. The scores themselves are 30 px and the clock 22 px. · '◆ Blue · you' 11 px, p10 1.82; 'TDM · 75' 11 px, p10 3.13; '▲ Orange' 11 px, p10 2.26 (all colour rgb 142,150,163; need 4.5:1, and 11 px is under the 12 px floor). The Blue score '0' (30 px) is p10 2.48.",
+      "box": [
+        805,
+        24,
+        310,
+        58
+      ],
+      "alsoNoted": [
+        "hud: Score bar sub-labels are tiny grey text that fails contrast even on its plate",
+        "accessibility (match-hud@desktop): Score-bar team labels and the match goal are 11 px grey on a see-through plate"
+      ]
+    },
+    {
+      "id": "F12",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "medium",
+      "lenses": [
+        "hud",
+        "rules"
+      ],
+      "title": "Clock, ammo and health use proportional digits",
+      "detail": "None of the changing numbers use tabular figures, so the clock and the ammo counter shift sideways as they count, which draws the eye to the corner during a firefight.",
+      "fix": "Add font-variant-numeric: tabular-nums to .hp, .mag, .res, .clock, .score and the scoreboard K/D/total cells.",
+      "evidence": "DOM: 'tabular: false' on hp '100', mag '30', clock and both team scores. The clock box is 41 px wide at '9:56' and 42 px at '9:55' (scoreboard@desktop), so it already moves by 1 px between seconds. · Every text has tabular:false. Clock '9:56' width 41 px (match-hud) vs '9:55' width 42 px (scoreboard). At 15 px a '1' is 5 px wide and a '0' 8 px (scoreboard place/K/D). In the lobby '11' is 8 px wide and '08' 13 px.",
+      "box": [
+        948,
+        35,
+        41,
+        22
+      ],
+      "alsoNoted": [
+        "rules: Clock, ammo and score digits are proportional and change width as they count"
+      ]
+    },
+    {
+      "id": "F13",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hud"
+      ],
+      "title": "The match goal is reduced to a cryptic \"TDM · 75\"",
+      "detail": "Once the match starts, nothing in play says what wins. The only hint is an 11 px abbreviation under the timer, which a newcomer won't read as 'first team to 75 kills'. The scoreboard (Tab) has only \"TEAM DEATHMATCH\" as its title and doesn't restate the goal either. The lobby explains it, but in small body text that's easy to skip on the way to Start.",
+      "fix": "Show a 3-second spawn banner, \"Team Deathmatch: first team to 75 kills wins\". Change the strip label to \"FIRST TO 75\" (or \"75 KILLS TO WIN\"), and add the same line under the scoreboard title.",
+      "evidence": "Score strip: \"0 ◆ BLUE · YOU | 9:56 TDM · 75 | 0 ▲ ORANGE\"; scoreboard header \"TEAM DEATHMATCH  8 PLAYERS\"",
+      "box": [
+        941,
+        62,
+        55,
+        11
+      ],
+      "alsoNoted": [
+        "hud (scoreboard@desktop): The win condition only appears as a bare '75'"
+      ]
+    },
+    {
+      "id": "F14",
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy",
+        "hud"
+      ],
+      "title": "On narrow screens the health bar and the ammo bar join into one line",
+      "detail": "The segmented health bar runs straight into the ammo bar at the same height with no gap, so the bottom edge reads as one long health bar that is about 30% segmented. A player can misjudge their health, or not realise the right part tracks the magazine. The same happens on range-hud and scoreboard at phone width.",
+      "fix": "Cap each bar at its own block's width (health under '100', ammo under '30 / ∞') with at least a 24 px gap between them, or give the bars different heights or colours so they can't merge.",
+      "evidence": "In match-hud@phone.png the segmented bar runs from about x 32 to 135 CSS px at y ≈ 815, and the solid ammo bar continues from there to x 358 on the same baseline. On desktop the two bars are separate: health about x 32-268, ammo about x 1668-1888. · Screenshot at y ≈ 815 CSS px: the segmented bar runs from x 32 to about 125, then a continuous white line runs to x 358. On desktop the health bar is 32-268 and the ammo bar is 1668-1888, with no overlap. The same happens on range-hud@phone and scoreboard@phone.",
+      "box": [
+        32,
+        810,
+        326,
+        10
+      ],
+      "alsoNoted": [
+        "hud: Health bar and ammo bar overlap into one line on the phone"
+      ]
+    },
+    {
+      "id": "F15",
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "rules"
+      ],
+      "title": "BOT tags at 9 px and table headers at 11 px are below the minimum size",
+      "detail": "Telling bots from humans and finding the K / D columns relies on labels smaller than anything else in the game, which at couch or arm's-length distance turn into grey specks. The same sub-12 px pattern repeats elsewhere: the 'AUTO' fire-mode tag is 10 px bold on every HUD shot, the 'YOU' badge in the bot lobby is 10 px bold, and the practice-range stats labels (TTK, DISTANCE, SHOTS / HITS, LAST HIT) are 11 px.",
+      "fix": "Set a floor of 12 px for uppercase tags (BOT, AUTO, YOU) and 13-14 px for column headers and stat labels; give the BOT tag a lighter colour (#B4BAC5) since it no longer needs to be tiny to look secondary.",
+      "evidence": "scoreboard@desktop.dom.json: 'BOT' tags 9px bold #8E96A3, e.g. box [608,327,18,9]; headers '#', 'Player', 'K', 'D', 'Ping' 11px regular at y=265. contrast.md lists 21 size fails on this shot. Also 'auto' [1852,973,30,10] 10px, bot-lobby 'YOU' [635,208,22,10] 10px, range-hud 'TTK' [37,733,24,11] 11px. · scoreboard@desktop: 'BOT' 9 px bold (8 instances), headers '#','Player','K','D','Ping' 11 px. contrast.md: 21 size fails on this shot; size fails on every screen (e.g. pause@desktop 21, range-hud 5).",
+      "box": [
+        522,
+        262,
+        420,
+        142
+      ],
+      "alsoNoted": [
+        "rules: Scoreboard BOT tags at 9 px and column headers at 11 px"
+      ]
+    },
+    {
+      "id": "F16",
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "hierarchy",
+        "hud",
+        "rules"
+      ],
+      "title": "Orange team columns are cut off on a phone, so their kills and deaths cannot be read",
+      "detail": "New idea: tables and panels must reflow (stack the two teams) rather than overflow the viewport. At 390 px the two team tables stay side by side; the Orange header is clipped to 'ORANG' and its K, D and Ping columns fall outside the panel, so the enemy team's score lines are simply missing.",
+      "fix": "Below ~700 px width, stack the Blue and Orange tables vertically at full panel width (or drop the Ping column) so every column fits inside the panel.",
+      "evidence": "scoreboard@phone.dom.json: Orange 'K' at [359,265,9,11], 'D' at [384,265,9,11] and the K/D '0' values at x=360 and x=385, past the panel edge at about x=357; '▲ Orange' header [274,223,98,17] runs to x=372. contrast.json measures those cells at p50 1.47 because they sit over the sky; the screenshot shows nothing there. · Header reads \"▲ ORANG\"; orange \"K\" at x 359 and \"D\" at x 384 sit outside the panel edge; no Ping column visible · '▲ Orange' header at [274,223,98,17] ends at x 372. Its 'K' and 'D' headers are at [359,265,9,11] and [384,265,9,11], and the values at x 360 and 385, all past the visible panel edge at about x 357 in a 390 px viewport (p10 contrast 1.47:1 where the text is drawn). No Ping column is in the sample. · Screenshot: 'ORANG' header cut at the panel edge (about x 357). DOM: the Orange 'K' is at x 359 and 'D' at [384,265,9,11], which ends at 393 px, past the 390 px viewport; there is no Orange 'Ping' text. The K/D headers measure p10 1.47 where they spill over the scene. · scoreboard@phone: Orange 'K' [359,265,9,11] and 'D' [384,265,9,11] reach 393 px on a 390 px viewport. The panel ends near x=358, and the D cells measure 1.45 contrast where they spill. settings@phone: 'Interface' [314,92,85,13] ends at 399 px. match-hud@phone: score '0' at y=31.",
+      "box": [
+        262,
+        210,
+        128,
+        265
+      ],
+      "alsoNoted": [
+        "first-time: The enemy team's column is cut off at the right edge",
+        "hierarchy: Orange's K, D and Ping columns are pushed off the panel, so half the scoreboard can't be read",
+        "hud: Orange team table is cut off at the panel edge",
+        "rules: Orange team's K/D columns and header spill past the panel and the screen edge"
+      ]
+    },
+    {
+      "id": "F17",
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "lenses": [
+        "hud"
+      ],
+      "title": "Pause overlay collides with the HUD and runs off the bottom",
+      "detail": "On the phone the 'PAUSED' title is drawn on top of the score bar, and the controls list sits over the dimmed health and ammo readout before running off the bottom of the screen. The 'Tab · Scoreboard' row is cut in half and the 'Esc · Menu' row, the one that tells you how to get back, is not visible at all.",
+      "fix": "Hide the in-play HUD (score bar, health and ammo) while paused, or at least on narrow viewports. Make the pause column scroll inside the safe area, or fold the controls list behind a 'Controls' button on small screens.",
+      "evidence": "DOM: 'Paused' [16,48,155,40] overlaps the score bar (about 39,24,312,58). 'Tab' is at [44,834,18,11], so it ends at 845 px, past the 844 px viewport, and 'Esc'/'Menu' are missing from the phone DOM sample (they are present on desktop). The ghosted '100' and '30' show through the controls panel at about y 750-800.",
+      "box": [
+        16,
+        730,
+        358,
+        114
+      ],
+      "alsoNoted": [
+        "hud (pause@desktop): Pause footer hints are printed over the health readout"
+      ]
+    },
+    {
+      "id": "F18",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "The NAME label over the sky is nearly invisible",
+      "detail": "The label above the name field is grey on a grey sky gradient, so it reads as empty space; the placeholder inside the field carries the meaning, which keeps this low. On phone the 'TACTICAL ARENA SHOOTER' tagline has the same grey-on-gradient problem.",
+      "fix": "Extend the left-side dark vignette to the top-right corner (or put the label inside the field's plate) and use #C9CED8 for the label.",
+      "evidence": "contrast.json main-menu@desktop: 'Name' 12px p50 1.55 / p10 1.44 (need 4.5; declared 6.19 assumes a dark background that is not there). Zoomed crop confirms #8E96A3 on a ~#7A7D83 sky. main-menu@phone: 'Tactical arena shooter' 12px p50 3.48 / p10 1.66.",
+      "box": [
+        1594,
+        46,
+        40,
+        12
+      ]
+    },
+    {
+      "id": "F19",
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "Settings use shooter jargon (\"ADS\", \"deadzone\") without explanation",
+      "detail": "The second setting a newcomer sees is \"ADS sensitivity multiplier\". \"Aim down sights\" appears in the next row, but nothing connects it to ADS. \"Controller ADS multiplier\" and \"Stick deadzone\" further down get no explanation either.",
+      "fix": "Rename to \"Aiming sensitivity (aim down sights)\" or add a one-line helper under the row on focus, for example \"Stick deadzone: how far the stick moves before the view turns\".",
+      "evidence": "\"ADS sensitivity multiplier\", \"Controller ADS multiplier\", \"Stick deadzone\"",
+      "box": [
+        75,
+        238,
+        181,
+        16
+      ]
+    },
+    {
+      "id": "F20",
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Sliders, dropdowns and tabs are under the 44 px touch-target minimum on phone",
+      "detail": "On a touchscreen the sensitivity sliders are thin strips that are easy to miss or drag by accident. On desktop the same sliders are 20 px tall, below the ~32 px mouse guideline.",
+      "fix": "Give range inputs a 44 px tall hit area (padding around the track, with a larger 24-28 px thumb), and set tabs and selects to min-height 44 px on touch (pointer: coarse).",
+      "evidence": "contrast.md small targets, settings@phone: sliders 'Mouse sensitivity' 261x20, 'ADS sensitivity multiplier' 261x20, stick sliders 261x20; selects 331x38; tabs CONTROLS 117x40, KEYS 75x40, VIDEO 82x40, INTERFACE 121x40. settings@desktop: six sliders 270x20.",
+      "box": [
+        31,
+        227,
+        331,
+        286
+      ]
+    },
+    {
+      "id": "F21",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The same match summary is printed three or four times, which spreads attention across duplicate chips",
+      "detail": "Headers, chips and footer all repeat the same facts, so nothing gets to be the summary. The eye bounces between the top-right chips, the Players header and the footer before it reaches the actual controls. NEW idea: each fact appears once per screen, unless it is the label right next to the control that changes it.",
+      "fix": "Drop the top-right chip row on desktop (the Match panel already shows those states) and keep a single summary line next to START, such as 'TDM · Survival Town · You + 7 bots'.",
+      "evidence": "'YOU + 7 BOTS' appears as a chip at [1756,69,95,12], again as the Players header aside at [1231,148,93,13], and again as '7 bots · offline' next to Start at [1468,1031,125,12]. The chips 'TEAM DEATHMATCH' and 'SURVIVAL TOWN' at [1435,69,283,12] repeat the selected states of the Mode control and map card about 120 px below them.",
+      "box": [
+        1422,
+        60,
+        442,
+        30
+      ]
+    },
+    {
+      "id": "F22",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "lenses": [
+        "hierarchy",
+        "rules"
+      ],
+      "title": "Eleven near-identical font sizes flatten the lobby's hierarchy",
+      "detail": "Headers, names and labels are so close in size that weight and colour do all the work. The 'You' row name is bigger than the section headers, and the map names are bigger than START. Pause and the scoreboard show the same spread (13 sizes each, from 9 to 56 px).",
+      "fix": "Collapse to about 5 steps: 46 (title), 24 (section headers, map names, START), 16 (row names, buttons), 13 (labels, kickers, key caps), 12 (uppercase meta). Make START the largest interactive text on screen.",
+      "evidence": "contrast.md lists the sizes 10, 11, 12, 13, 14, 15, 18, 19, 24, 26 and 46 px. Section header 'Players' is 18 px while the 'You' row name is 19 px. Map names are 26 px while the 'Start' label is 24 px. The small labels split into 10, 11, 12 and 13 px variants (the YOU tag, the kickers, the seat numbers and the mode buttons).",
+      "box": [
+        56,
+        144,
+        1808,
+        427
+      ],
+      "alsoNoted": [
+        "rules (bot-lobby@desktop): Eleven font sizes on one screen, many only 1 px apart"
+      ]
+    },
+    {
+      "id": "F23",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "\"Outposts\" and \"Charge\" give no hint of what they are",
+      "detail": "Only the selected mode gets a description line. Two of the four mode buttons are made-up names that tell a newcomer nothing, so the only way to learn what they do is to click each one and read the paragraph above.",
+      "fix": "Add a 2-4 word sub-label under each mode button (for example \"Hold zones\" for Outposts, \"Attack / defend\" for Charge), or show the description on hover/focus, not only on selection.",
+      "evidence": "MODE buttons \"TEAM DEATHMATCH\", \"FREE-FOR-ALL\", \"OUTPOSTS\", \"CHARGE\"; only TDM's text shown: \"Two teams, blue against orange. First team to 75 kills wins…\"",
+      "box": [
+        1615,
+        437,
+        229,
+        51
+      ]
+    },
+    {
+      "id": "F24",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "hud"
+      ],
+      "title": "Teammate nameplates show up as cut-off fragments through gaps",
+      "detail": "A teammate's floating name tag is clipped by the window frame, so the player sees a stray 'Em' (and 'riar' in the scoreboard shot) hanging in the scene with no context. New idea: overhead nameplates should either show in full (drawn on top of the scene or clamped) or be hidden, never partly clipped by the world.",
+      "fix": "Render nameplates as screen-space HUD elements: draw them unoccluded within a short range, or hide them entirely when the owner is occluded, instead of letting world geometry cut them.",
+      "evidence": "match-hud@desktop: the fragment 'Em' with a blue edge bar is visible inside the window at about x 512-552, y 492-522. scoreboard@desktop shows 'riar' in the same window.",
+      "box": [
+        512,
+        492,
+        42,
+        30
+      ]
+    },
+    {
+      "id": "F25",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time",
+        "hud"
+      ],
+      "title": "Unlabelled \"◆ 1\" badge next to the ammo count",
+      "detail": "Beside the ammo there's a small diamond with a 1. A newcomer can't tell whether it's grenades, lives, kills or a team marker, especially since ◆ is also the Blue team's symbol in the score strip. It appears the same way on the range HUD, scoreboard and pause screens.",
+      "fix": "Use a grenade icon instead of ◆ (keep ◆ for Blue only), and show its key next to it (\"G\") so the badge explains itself.",
+      "evidence": "\"◆ 1\" boxed beside \"30 / ∞\"; score strip uses \"◆ BLUE · YOU\" · DOM: nade '◆ 1' [1746,1010,22,13] at 13 px; score bar '◆ Blue · you' [819,64,88,11]; scoreboard '◆ Blue' [534,223,69,17].",
+      "box": [
+        1738,
+        1005,
+        40,
+        23
+      ],
+      "alsoNoted": [
+        "hud: Grenade count reuses the Blue team's diamond icon"
+      ]
+    },
+    {
+      "id": "F26",
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Key caps and footer key hints are 11 px, below the 12 px floor",
+      "detail": "The pause controls card is where players learn the bindings, but its key caps ('WASD', 'Control Left', 'R') are 11 px, smaller than the 13 px action names beside them; the footer hints on every menu ('ENTER', 'ESC', '↑↓', 'CLICK') use the same 11 px caps. Contrast is excellent, so this is size only.",
+      "fix": "Raise key caps and footer hint caps to 12-13 px bold (and the action names to 14 px), widening the caps' padding to match.",
+      "evidence": "contrast.md pause@desktop: 'WASD' [1332,470,31,11] 11px bold, 'Control Left' [1599,530,64,11], 'R' [1600,560,8,11], 'Click' [285,1007,32,11], all 'fail' on size with 13-15:1 contrast; 21 size fails on this shot. Same 11px footer caps on main-menu, settings and bot-lobby.",
+      "box": [
+        1325,
+        465,
+        450,
+        200
+      ]
+    },
+    {
+      "id": "F27",
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "The \"PAUSED\" title sits on top of the score strip",
+      "detail": "New idea: when an overlay opens, HUD elements it covers should be hidden. On phone the 40 px \"PAUSED\" heading and its \"MATCH\" label overlap the dimmed score strip, so the title and the timer and score digits read as one jumble. The player has to look twice to see which screen they are on.",
+      "fix": "Hide the score strip while paused, or push the pause header below it (top offset at least 90 px on narrow viewports).",
+      "evidence": "\"MATCH / PAUSED\" drawn over \"9:57 TDM · 75 | 0 ▲ ORANGE\" · Phone: 'Paused' 40 px at [16,48,155,40] overlaps the scoreline at about [39,24,312,58] (score '0' at [90,31,17,30], p10 2.65). Desktop: the '↑↓' key cap at [63,1007,12,11] and 'Move' at [90,1007,38,12] overlap '100' at [32,993,68,48].",
+      "box": [
+        16,
+        22,
+        335,
+        66
+      ],
+      "alsoNoted": [
+        "hierarchy: The dimmed HUD stays drawn under the pause overlay and collides with the pause UI"
+      ]
+    }
+  ]
+}

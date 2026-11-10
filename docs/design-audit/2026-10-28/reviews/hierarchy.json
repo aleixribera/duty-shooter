@@ -1,0 +1,137 @@
+{
+  "lens": "hierarchy",
+  "findings": [
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "The unavailable Play Online tile is the first and loudest item; the real next step is only marked by a thin bar",
+      "detail": "The eye lands on PLAY ONLINE first: it is top of the stack and styled exactly like the working modes, so a new player clicks it and gets nothing. Bot Match, the de facto default while offline, is only set apart by a 3 px teal edge and a teal icon. The phone layout has the same order and weight.",
+      "evidence": "Four tiles 480 px wide with identical 28 px/700 off-white titles (243,241,234) and the same dark fill. Play Online's only offline cue is a 12 px 'OFFLINE' label with a red dot at [144,718,60,12] under the description 'No game server answers this page right now.' The Bot Match tile [56,751,480,95] differs only by its left accent bar.",
+      "fix": "While no server answers, dim the Play Online tile (title in the muted grey, no hover fill, or move it below Practice Range) and give Bot Match the filled or brighter primary treatment, so exactly one tile dominates.",
+      "box": [56, 644, 480, 202]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The selected map card is labelled with the mode name, so map and mode read as the same choice",
+      "detail": "The two map cards should read 'map: Survival Town' and 'map: Switchyard', but the selected one carries '✓ TEAM DEATHMATCH' as its kicker while the other says 'MAP'. A player scanning the Match panel can take the left card for a mode tile, or think Survival Town only supports TDM. NEW idea: a card's kicker label should name what the card is (MAP) on every card, and selection should be shown by a separate mark.",
+      "evidence": "Kicker '✓ Team deathmatch' 11 px bold teal at [1379,272,144,11] above 'SURVIVAL TOWN'. Kicker 'Map' 11 px grey at [1633,272,28,11] above 'SWITCHYARD'. The mode is chosen separately in the MODE segmented control below at [1384,437,460,51]. The kicker over the map thumbnail also measures p10 2.53:1.",
+      "fix": "Give both cards the kicker 'MAP' and show the selection with the existing teal outline plus a check badge. If the card needs to say which modes the map supports, put that in a separate line, not in the kicker slot.",
+      "box": [1364, 191, 500, 136]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The same match summary is printed three or four times, which spreads attention across duplicate chips",
+      "detail": "Headers, chips and footer all repeat the same facts, so nothing gets to be the summary. The eye bounces between the top-right chips, the Players header and the footer before it reaches the actual controls. NEW idea: each fact appears once per screen, unless it is the label right next to the control that changes it.",
+      "evidence": "'YOU + 7 BOTS' appears as a chip at [1756,69,95,12], again as the Players header aside at [1231,148,93,13], and again as '7 bots · offline' next to Start at [1468,1031,125,12]. The chips 'TEAM DEATHMATCH' and 'SURVIVAL TOWN' at [1435,69,283,12] repeat the selected states of the Mode control and map card about 120 px below them.",
+      "fix": "Drop the top-right chip row on desktop (the Match panel already shows those states) and keep a single summary line next to START, such as 'TDM · Survival Town · You + 7 bots'.",
+      "box": [1422, 60, 442, 30]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "On a narrow screen the map and mode pickers sit below twelve player rows, out of sight above a pinned START",
+      "detail": "The first screen is entirely the roster of identical BOT rows, with START pinned below them. Nothing hints that map, mode and sides can be changed further down, so a player starts with the defaults without knowing there was a choice. This is a stretch-test viewport, but the same ordering will hurt any short desktop window.",
+      "evidence": "Player rows run from y 248 to 802 (12 rows at a 50 px pitch). The footer's BACK/LOADOUT/SETTINGS buttons at [16,718,358,44] and START at [16,774,358,58] cover the bottom. No Mode, Sides or map text appears in the phone DOM sample, only the read-only chips 'TEAM DEATHMATCH' and 'SURVIVAL TOWN' at y 87.",
+      "fix": "In the single-column layout put the Match panel (map, mode, sides) above the Players list, or collapse the eight bot rows into one line such as 'You + 7 bots, 4 open seats'. Optionally make the top chips tappable shortcuts to the pickers.",
+      "box": [16, 189, 358, 529]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "title": "Eleven near-identical font sizes flatten the lobby's hierarchy",
+      "detail": "Headers, names and labels are so close in size that weight and colour do all the work. The 'You' row name is bigger than the section headers, and the map names are bigger than START. Pause and the scoreboard show the same spread (13 sizes each, from 9 to 56 px).",
+      "evidence": "contrast.md lists the sizes 10, 11, 12, 13, 14, 15, 18, 19, 24, 26 and 46 px. Section header 'Players' is 18 px while the 'You' row name is 19 px. Map names are 26 px while the 'Start' label is 24 px. The small labels split into 10, 11, 12 and 13 px variants (the YOU tag, the kickers, the seat numbers and the mode buttons).",
+      "fix": "Collapse to about 5 steps: 46 (title), 24 (section headers, map names, START), 16 (row names, buttons), 13 (labels, kickers, key caps), 12 (uppercase meta). Make START the largest interactive text on screen.",
+      "box": [56, 144, 1808, 427]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "title": "The section tabs are parked far from the settings they switch, so KEYS, VIDEO and INTERFACE are easy to miss",
+      "detail": "All the content sits in a 920 px column on the left, while the only way to reach the other three pages is a row of 13 px tabs in the top-right corner, about 500 px from the content's right edge. Players scanning down the left column never pass them. On phone the row overflows and 'INTERFACE' is cut off at the screen edge.",
+      "evidence": "The tabs CONTROLS/KEYS/VIDEO/INTERFACE are at [1463,50,401,40], text 13 px bold, inactive ones grey (142,150,163). The settings rows span x 56 to 976. The rest of the screen is empty scene. On phone the INTERFACE tab box is [296,79,121,40], which ends at x 417 in a 390 px viewport.",
+      "fix": "Move the tab row under the SETTINGS title, left-aligned with the content column at x 56, and bump it to 15 to 16 px. On narrow screens let the tabs wrap or scroll with a visible fade.",
+      "box": [1463, 50, 401, 40]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "An empty stats graph is the biggest HUD block at first spawn, stacked straight onto the health readout",
+      "detail": "On spawn the eye goes to a large dark rectangle at the left that holds nothing. The four stats above it all read '–', and the panel ends 9 px above the HEALTH label, so the health block looks like the panel's caption instead of its own corner element. The phone shot shows the same panel covering a quarter of the lane.",
+      "evidence": "The stats panel spans about [24,720,206,247]. Its graph canvas [37,807,180,150] is blank. TTK, Shots/hits and Last hit all show '–' (13 px). Panel bottom at about y 967, 'Health' label at [53,976,55,12]. The stat labels are 11 px (size fail in contrast.md). Phone canvas: [37,571,180,150].",
+      "fix": "Hide the graph (or the whole stats panel) until the first shot lands, then show it. Leave at least 24 px between the stats panel and the health block, or move the stats to the upper left so the bottom-left corner holds health only.",
+      "box": [24, 720, 206, 247]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The health and ammo corners have no backing, so their labels vanish and the big numbers wash out over bright grass and sky",
+      "detail": "Over a sunny lawn the HEALTH label and the AUTO fire-mode tag are effectively invisible, and the 100 and 30 values lose most of their weight. The most-glanced numbers in the game become the hardest to read on the brightest maps. The same happens on the range (sand floor) and on phone.",
+      "evidence": "Measured p10 contrast in match-hud@desktop: 'Health' 1.03:1, 'auto' 1.03:1, 'M4A1' 1.60:1, '100' 1.81:1 (needs 3), '30' 1.76:1 (needs 3), '/ ∞' 1.47:1. range-hud@desktop: '100' 2.82:1 and '30' 2.51:1. The text has only a soft shadow.",
+      "fix": "Put a dark gradient plate (about 55-65% black, fading out) behind each bottom corner, or give the numbers a 2 px dark outline, and lift the labels from grey (180,186,197) to the off-white used by the values.",
+      "box": [32, 969, 1856, 72]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "Which team you're on and what the score limit is are carried only by 11 px grey captions in the scoreline",
+      "detail": "The score bar reads well at a glance (two coloured digits and the clock), but the captions that say 'you are Blue' and 'first to 75' are 11 px, grey and translucent over sky, so in play they are unreadable. A new player sees 0 | 9:56 | 0 without knowing their side or the target.",
+      "evidence": "'◆ Blue · you' [819,64,88,11], 'TDM · 75' [941,62,55,11] and '▲ Orange' [1031,64,70,11], all 11 px weight 400 grey (142,150,163), with p10 contrast 1.82, 3.13 and 2.26:1. The scores themselves are 30 px and the clock 22 px.",
+      "fix": "Raise the captions to 12-13 px uppercase in off-white, make the backing plate opaque, and show your own side more strongly (a 'YOU' tab or a brighter frame on the Blue cell). Spell out the limit as 'TDM · FIRST TO 75'.",
+      "box": [805, 24, 310, 58]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "On narrow screens the health bar and the ammo bar join into one line",
+      "detail": "The segmented health bar runs straight into the ammo bar at the same height with no gap, so the bottom edge reads as one long health bar that is about 30% segmented. A player can misjudge their health, or not realise the right part tracks the magazine. The same happens on range-hud and scoreboard at phone width.",
+      "evidence": "In match-hud@phone.png the segmented bar runs from about x 32 to 135 CSS px at y ≈ 815, and the solid ammo bar continues from there to x 358 on the same baseline. On desktop the two bars are separate: health about x 32-268, ammo about x 1668-1888.",
+      "fix": "Cap each bar at its own block's width (health under '100', ammo under '30 / ∞') with at least a 24 px gap between them, or give the bars different heights or colours so they can't merge.",
+      "box": [32, 810, 326, 10]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The dimmed HUD stays drawn under the pause overlay and collides with the pause UI",
+      "detail": "The PAUSED title is printed on top of the ghosted score bar, so the blue score digit and the 9:57 clock show through behind the letters. On desktop the MOVE/SELECT hint row sits on top of the dimmed '100' health value. NEW idea: a modal overlay hides, or blurs to illegibility, any HUD text it overlaps, so ghost text never competes with the overlay's own type.",
+      "evidence": "Phone: 'Paused' 40 px at [16,48,155,40] overlaps the scoreline at about [39,24,312,58] (score '0' at [90,31,17,30], p10 2.65). Desktop: the '↑↓' key cap at [63,1007,12,11] and 'Move' at [90,1007,38,12] overlap '100' at [32,993,68,48].",
+      "fix": "Hide the HUD layer (or set it to opacity 0.15 with a blur) while paused, or shift the pause title and hint row so they clear the scoreline and the health block.",
+      "box": [16, 24, 335, 64]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Orange's K, D and Ping columns are pushed off the panel, so half the scoreboard can't be read",
+      "detail": "At phone width the two team tables stay side by side and the Orange table spills past the panel edge: its header reads 'ORANG' and the kill and death columns are clipped away, leaving names only. Holding Tab to compare teams shows only your own side's numbers. NEW idea: a scoreboard that can't fit both tables stacks them instead of clipping.",
+      "evidence": "'▲ Orange' header at [274,223,98,17] ends at x 372. Its 'K' and 'D' headers are at [359,265,9,11] and [384,265,9,11], and the values at x 360 and 385, all past the visible panel edge at about x 357 in a 390 px viewport (p10 contrast 1.47:1 where the text is drawn). No Ping column is in the sample.",
+      "fix": "Below about 700 px wide, stack the Blue and Orange tables vertically at full width (or switch them with tabs), and keep the K, D and Ping columns right-aligned inside the panel.",
+      "box": [261, 210, 129, 260]
+    }
+  ]
+}

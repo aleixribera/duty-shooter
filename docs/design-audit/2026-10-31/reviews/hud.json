@@ -1,0 +1,137 @@
+{
+  "lens": "hud",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "high",
+      "title": "The phone HUD has no touch controls, so a phone player can't move, aim, fire or open a menu",
+      "detail": "A phone player lands in the match with nothing to press: no stick, no fire button, no reload, no pause, no scoreboard button. Everything on screen is a readout, so the match can only be watched. The same holds on range-hud. The HUD also keeps a portrait layout with no prompt to rotate.",
+      "evidence": "\"controls\": [] in match-hud@phone.dom.json and range-hud@phone.dom.json, captured with hasTouch: true and isMobile: true. No touch input and no orientation handling in packages/fps-client/src; the only 'touch' matches are the gamepad touchpad and code comments. In-play bindings are keyboard, mouse or gamepad, with Tab for the scoreboard and Esc for the menu.",
+      "fix": "Add a touch layer on coarse-pointer devices: a left-thumb move stick, right-side drag to aim, and buttons for fire, ADS, reload, jump, crouch, grenade and use, plus scoreboard and pause buttons in the top corners, each at least 44x44 px and clear of the HUD readouts. Until that exists, tell phone players plainly on the menu that a keyboard or controller is required instead of dropping them into a match.",
+      "box": [0, 420, 390, 424]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "high",
+      "title": "The health and ammo bars overlap on phone and read as one long bar",
+      "detail": "The two fixed-width bars don't fit side by side, so the ammo bar sits on top of the second half of the health bar in the same off-white. A player sees one bar across the screen and can't tell health from ammo; health loss stays hidden under the ammo bar until health is below about 45%. Same on range-hud, and the ammo bar drains over it as the magazine empties, which reads as losing health.",
+      "evidence": "CSS sets the health bar to 236 px wide from x=32 (32-268) and the ammo bar to 220 px wide ending at x=358 (138-358), with no media query, so they overlap for 130 px, 55% of the health bar. Screenshot crop at y=813-818: five health segments from x=32 to x=138, then one unbroken bar to x=358. Both fills are rgb(243,241,234).",
+      "fix": "Below about 700 px wide, shrink each bar to its own half with a gap of at least 16 px (for example health 32-180, ammo 210-358), and give ammo a different look from health, such as a thinner bar, or drop the ammo bar on phone because the magazine number already says it.",
+      "box": [32, 813, 326, 5]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "The Orange team's score, kills, deaths and ping are cut off by the scoreboard panel",
+      "detail": "New idea: a data table must fit its panel or scroll visibly, never clip silently. On phone the two team tables sit side by side and the second overflows the panel, so the player sees Orange's names but none of their numbers, and the header reads \"ORANG\" with no team score. There is no scroll cue, so nothing suggests more data exists.",
+      "evidence": "Panel right edge is at x=358. Orange K header box starts at x=359 and D at x=384, so both fall outside it, as do all their row values (x=360, 385). \"▲ Orange\" box runs 274-372. The Orange total and Ping header aren't in the DOM sample at all, while Blue's total is at [214,218,17,28]. The contrast sheet's K and D at 1.47:1 are that clipped text measured against the scene.",
+      "fix": "Stack the teams vertically on phone, each at full panel width, sorted so the player's team is first, and drop the Ping and # columns there to make room; the panel can scroll within the viewport height if needed.",
+      "box": [261, 210, 97, 270]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-01",
+      "severity": "medium",
+      "title": "The range stats panel covers the lower-left view and enters the centre box on phone",
+      "detail": "The stats block keeps its desktop size, so on a phone it fills more than half the screen width just below the aim point, hiding the lane in front of the player. Most of it is a blank dark chart until the first shot, and the numbers it holds aren't needed to play.",
+      "evidence": "Panel is about [24,484,206,248], 53% of the viewport width and 29% of its height (desktop: 11% and 23%). The HUD-01 centre box on 390x844 is x 156-234, y 338-506, so the panel overlaps it by 74 x 22 px. Its chart canvas [37,571,180,150] is empty at first spawn, and three of the four values read \"–\".",
+      "fix": "On phone, collapse the panel to one compact line (TTK and hits) in the top-left under the safe area, hide the chart behind pause or a tap, and on all viewports hide the chart until the first shot gives it data.",
+      "box": [24, 484, 206, 248]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Corner HUD text fades into bright ground because its only backing is a faint gradient",
+      "detail": "On a sunny lawn, the normal outdoor view, the grey HEALTH label and AUTO tag almost vanish into the grass, and the big numbers lose their edge. The player has to look harder at the two values they check most. The scoreboard strip has the same problem: small grey labels on a see-through plate.",
+      "evidence": "Measured p50 / p10 contrast: HEALTH 1.09 / 1.03, AUTO 1.06 / 1.03 at 10 px, M4A1 1.64 / 1.60, / ∞ 1.78 / 1.47, 100 2.52 / 1.81, 30 2.66 / 1.76, all below target. Strip labels at 11 px: ◆ Blue · you 2.68 / 1.82, TDM · 75 3.44 / 3.13, ▲ Orange 3.34 / 2.26. Blue score 0 is 3.09 / 2.48. Range-hud fails the same way, with HEALTH at 2.24 / 1.53.",
+      "fix": "Put a solid-enough plate behind each corner group, around rgb(7 9 13 / 0.6) with a defined edge, instead of the radial fade, and raise the strip's plate opacity to match. Use the primary text colour for HEALTH and AUTO and raise them to at least 12 px.",
+      "box": [32, 969, 236, 86]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "title": "The win condition appears only as the code \"TDM · 75\"",
+      "detail": "A new player is told the mode's name but never that the goal is to reach 75 kills as a team; the only trace of it is a tiny abbreviation under the clock. The Team Deathmatch scoreboard doesn't state it either. The grenade count has the same shorthand problem: \"◆ 1\" has no label or key, and its diamond is the same mark as Blue team.",
+      "evidence": "Strip sub-label \"TDM · 75\" at [941,62,55,11], 11 px, p50 3.44. The banner reads \"Team deathmatch · change your loadout now\" with no goal. The scoreboard's title block has \"Team deathmatch\" and \"8 players\" only. Grenade chip \"◆ 1\" at [1746,1010,22,13] uses the same glyph as \"◆ Blue · you\".",
+      "fix": "During the countdown, show the goal as a line of its own: \"First team to 75 kills wins\". Add \"First to 75\" to the scoreboard header and change the strip label to \"First to 75\". Give the grenade chip a grenade icon and its key (G), and keep ◆ for Blue only.",
+      "box": [941, 62, 55, 11]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "\"Change your loadout now\" gives an order with no way to carry it out",
+      "detail": "The banner tells the player to act during a countdown that is already at 2, but doesn't say how. Loadout is one level down in the pause menu, and no key is shown, so a new player will likely miss the window.",
+      "evidence": "Banner text \"Team deathmatch · change your loadout now\" at [766,291,388,13], 13 px bold, p50 1.91, above the countdown \"2\". No key hint anywhere in match-hud@desktop.dom.json. The LOADOUT button exists only on the pause screen, opened with Esc.",
+      "fix": "Replace it with an action and a key, such as \"Esc · Change loadout\" using the player's current binding, split the mode name onto its own line, and raise the size to at least 14 px on a backing plate.",
+      "box": [766, 291, 388, 13]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "The HUD ignores the phone's safe areas at the top, bottom and sides",
+      "detail": "On a notched phone the clock and scores sit in the notch zone, the bars sit in the home-bar zone, and the start banner runs from bezel to bezel with its first and last letters almost cut. Desktop is tight as well, with the corner groups closer to the edge than the rule allows.",
+      "evidence": "Rule limits on 390x844: 47 px top, 34 px bottom. Strip plate starts at y=24, score text at y=31 and clock at y=35. Bars at y=813-818, inside the bottom 34 px (y>810). Banner box [1,220,388,13] leaves 1 px each side, and at 41 uppercase characters it also breaks TYP-04. No safe-area-inset in the source. Desktop: 100 at x=32 and / ∞ ending at x=1888 give 32 px, against 58 px (3% of 1920).",
+      "fix": "Offset the HUD by env(safe-area-inset-*) with viewport-fit=cover, using at least 16 px at the sides, let the banner wrap to two centred lines on phone, and widen desktop corner padding to at least 58 px.",
+      "box": [39, 24, 312, 59]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The first spawn shows no controls, goal or way out",
+      "detail": "Practice Range is where a new player learns the game, yet nothing on screen says how to move, shoot, reload or leave, or what to try. The biggest element is a stats panel with nothing in it yet. The controls list appears only if the player happens to press Esc.",
+      "evidence": "All 15 text runs in range-hud@desktop.dom.json are readouts: health, weapon, ammo and four stats. None is a key hint or instruction. Three of the four stats read \"–\" and the panel's chart is empty. The key list exists only on the pause screen.",
+      "fix": "On first spawn, show a short key strip, such as \"WASD Move · Click Fire · R Reload · Esc Menu\", fading after the first few actions and using the current bindings, with one line of purpose such as \"Shoot the targets to see your stats\" in place of the empty chart.",
+      "box": [24, 721, 206, 247]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "In-play layers show through overlays and collide with their text",
+      "detail": "The start banner runs behind the scoreboard and sticks out on both sides as \"TEA\" and \"NOW\", with its ghost and the crosshair visible under the rows. Pause does the same: on phone the PAUSED title lands on the scoreboard strip and the banner shows through the LOADOUT row, and on desktop the dim 100 sits under the footer's ↑↓ hint. Overlays look unfinished and the text under them is harder to read.",
+      "evidence": "Banner [1,220,388,13] crosses the panel at about [32,142,326,362]. Scoreboard desktop shows the same ghost through the \"You\" row at y=291; rank \"1\" there has declared contrast 4.78 but p10 1.99. Pause phone: \"Match\" [44,22,50,12] and \"Paused\" [16,48,155,40] overlap the strip [39,24,312,59]. Pause desktop: \"↑↓\" [63,1007,12,11] falls inside \"100\" [32,993,68,48].",
+      "fix": "Hide the start banner and countdown while the scoreboard is open, and raise the panel to about 0.92 opacity. On pause, hide the in-play HUD entirely, or at least the strip, banner and corner groups, so the menu has a clean layer.",
+      "box": [0, 220, 390, 13]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The phone pause screen lists keyboard keys and runs off the bottom of the screen",
+      "detail": "The Controls panel takes more than half of a phone's pause screen to list Left mouse, Shift Left and Tab, none of which a phone player has. It also runs past the bottom edge with no sign of more, cutting the Scoreboard row and leaving the last row out of view.",
+      "evidence": "Panel starts at y=400 and passes the 844 px viewport. The Tab row at y=834-845 is clipped by the viewport edge. The DOM sample has 13 key rows on phone against 14 on desktop, with Esc / Menu missing. Keycaps are 11 px, a size fail in contrast.md.",
+      "fix": "Show bindings for the current input device. With touch, replace the panel with a short gesture list or hide it behind a Controls button so the four actions have the screen; fit any remaining list in the viewport or show a clear scroll cue.",
+      "box": [16, 400, 358, 444]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "low",
+      "title": "Changing HUD numbers use proportional digits and will shift as they count",
+      "detail": "The countdown, clock, ammo, health and scores can shift sideways as digits change, which adds a small flicker in the player's side vision, most of all in the clock ticking every second.",
+      "evidence": "At 46 px the countdown's \"1\" is 17 px wide at [951,312,17,46] and its \"2\" is 26 px wide at [947,312,26,46]. tabular is false for hp, mag, clock and score in the DOM sample. tabular-nums is set only on .ds-ui and .ds-dmgnum, not on .ds-hud.",
+      "fix": "Set font-variant-numeric: tabular-nums on .ds-hud, and if Bahnschrift doesn't honour it there, fix each digit's width by using a font with tabular figures for the clock, ammo and countdown.",
+      "box": [947, 312, 26, 46]
+    }
+  ]
+}

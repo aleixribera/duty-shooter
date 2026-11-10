@@ -29,7 +29,8 @@ try {
     speech.say = (id, cuts) => { const r = say(id, cuts); globalThis.__said.push({ id, left: left(), phase: duty.driver?.match?.phase ?? null, said: r !== null, wait: r ? Math.round(r.wait * 100) / 100 : null, seconds: r?.seconds ?? null, cuts: !!cuts }); setTimeout(() => { const row = globalThis.__said.find((x) => x.id === id && x.caption === undefined); if (row) { const c = document.querySelector('.ds-caption.on'); row.caption = c ? c.innerText : null; row.duck = Math.round(duty.sound.state.voiceDuck * 100) / 100; } }, 250); return r; };
   })()`);
   // The recording as this browser decodes it: is each line's window silent at both ends (nothing cut, nothing of a neighbour)?
-  const windows = JSON.parse(await chrome.evaluate(`(async () => {
+  let windows = null;
+  try { windows = JSON.parse(await chrome.evaluate(`(async () => {
     const audio = '/@fs/C:/Users/Aleix/Documents/CLAUDE/duty-shooter/packages/fps-client/src/audio/assets/';
     const index = await (await fetch(audio + 'controller.json')).json();
     const ctx = new OfflineAudioContext(1, 48000, 48000);
@@ -38,7 +39,7 @@ try {
     const loud = (a, b) => { let m = 0; for (let i = Math.max(0, a); i < Math.min(data.length, b); i++) m = Math.max(m, Math.abs(data[i])); return m; };
     const rows = Object.entries(index.lines).map(([id, l]) => { const a = Math.round(l.start * 48000), b = a + Math.round(l.seconds * 48000); return { id, head: loud(a, a + edge), tail: loud(b - edge, b), peak: loud(a, b) }; });
     return JSON.stringify({ lines: rows.length, seconds: data.length / 48000, indexSeconds: index.seconds, loudEdges: rows.filter((r) => r.head > 0.03 || r.tail > 0.03), quietest: Math.min(...rows.map((r) => r.peak)), loudest: Math.max(...rows.map((r) => r.peak)) });
-  })()`));
+  })()`)); } catch { windows = 'unavailable on this server'; }
   for (const p of ['Bot Match', process.env.MAP ?? 'Survival Town', MODE, 'Start']) {
     if (!(await click(chrome, p))) throw new Error(`no "${p}" button`);
     await sleep(400);

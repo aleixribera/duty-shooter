@@ -1,0 +1,126 @@
+{
+  "lens": "hud",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "On the phone the hint line and the announcer toast are drawn on the same line, one through the other",
+      "detail": "At first spawn a phone player gets the first-match hint and the announcer's opening line in the same slot above the readouts: the hint plate lies on top and the announcer's words ghost through it, so the announcer line is lost and the hint looks dirty. NEW: two HUD messages never share ground; each transient layer has its own slot or waits its turn. On desktop the two stack correctly (toast at y 877, hint at y 923).",
+      "evidence": "Hint text box [287,290,309,13] and announcer caption [357,294,205,13] with its label [284,294,63,13] intersect; in the screenshot \"Announcer  Team deathmatch. The range is hot.\" shows through the plate behind \"Move with your left thumb. Drag the right side to look\".",
+      "fix": "Give the phone one message slot with an order: while a hint line is up, the toast stacks on its own row above it (about y 240-270), or the hint waits until the toast has cleared. Never position both from the same bottom offset.",
+      "box": [237, 278, 371, 38]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-01",
+      "severity": "medium",
+      "title": "Ally markers pile onto each other, the crosshair and other HUD plates with no decluttering",
+      "detail": "When two teammates stand in the same direction their name plates overlap into an unreadable \"BriaEmber\" a few pixels off the aim point, and their chevrons sit on the crosshair's own arms. The same markers also run under or over other HUD: in score-lines@phone a chevron covers the \"M\" of \"LONG SHOT 62 M\" and two sit on the crosshair's top arm, in countdown@phone \"Briar\" is half buried under the goal plate, and in countdown@desktop two edge markers (Rook, Ember) collapse onto one spot right on top of the Health label so two allies read as one.",
+      "evidence": "match-hud@phone: \"Briar\" and \"Ember\" plates overlap by about 18 px at x 456-510, y 147-163, inside the centre box (338-506 x 156-234). countdown@desktop: \"Rook\" [17,940,29,13] and \"Ember\" [13,940,39,13] share one position, 11 px above \"Health\" [56,964,39,13]. countdown@phone: \"Briar\" [291,132,30,13] under the goal plate (y 134-165).",
+      "fix": "Add a declutter pass to ally markers: inside the centre box drop the name plate and dim the chevron; when two markers land within a plate's width, offset them vertically or merge them (\"Ember +1\"); draw markers under HUD plates and score lines; clamp edge markers out of the health and ammo corners as they already keep off the touch controls' ground.",
+      "box": [454, 146, 58, 37]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "The range readout panel sits on top of the Health label and is mostly an empty black box",
+      "detail": "On the Practice Range the TTK panel is stacked directly on the health readout: its bottom edge slices the top off the word \"Health\", and below its four 13 px rows it carries a 180x150 blank ink rectangle before any shot is fired. The lower-left corner reads as a broken overlay rather than two instruments.",
+      "evidence": "Panel spans about x 56-260, y 722-967; \"Health\" label box is [56,964,39,13] and is visibly clipped in the screenshot. Empty canvas at [68,808,180,150]. Rows \"TTK / Distance / Shots / hits / Last hit\" are 13 px.",
+      "fix": "Anchor the panel's bottom at least 16 px above the Health label (or move it to the top left as the phone layout does), and collapse the graph canvas until there is data to plot so the panel is four rows tall at rest.",
+      "box": [56, 722, 204, 256]
+    },
+    {
+      "screen": "end-panel",
+      "viewport": "phone",
+      "rule": "FB-03",
+      "severity": "medium",
+      "title": "\"Scoreboard in 0:02\" counts down to a scoreboard the phone never shows",
+      "detail": "At match end the phone tells the player a scoreboard is coming, then the line simply turns into \"Back to the lobby in...\" (end-vote@phone) with no board on screen. The board is only behind the small scoreboard button at the top left, and nothing points to it, so a player waits for something that does not happen and may leave without seeing the final table.",
+      "evidence": "end-panel@phone: \"Scoreboard in 0:02\" [368,215,108,13], 13 px. end-vote@phone: same slot reads \"Back to the lobby in 0:05\" [351,215,141,13], no board below the panel; Scoreboard button [12,60,44,44] unlit and unlabelled.",
+      "fix": "On touch say what will really happen: show \"Back to the lobby in 0:10\" from the start and make the board reachable from the line itself, e.g. the scoreboard glyph plus \"Scoreboard\" as a 44 px tappable plate next to it, with the top-left button lit in signal as the one thing to press now.",
+      "box": [358, 210, 128, 23]
+    },
+    {
+      "screen": "end-vote",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The verdict (\"Defeat\", \"Orange wins\") is set straight on the sky with only a shadow",
+      "detail": "The most important words of the match end sit above the panel on the bare scene: grey \"Defeat\" and orange \"Orange wins\" over a pale sky, while every lesser number below them gets a solid plate. The same treatment makes the opening countdown's mode name and number faint over bright cloud (countdown@desktop). The desktop end panel has the same layout (\"Victory\" [926,58,69,22]).",
+      "evidence": "end-vote@phone (after the flash): \"Defeat\" 22 px bold #b4bac5 measures 1.50:1 (p10 1.46), \"Orange wins\" 32 px 1.47:1 (p10 1.23); need 3:1. countdown@desktop: \"Team deathmatch\" 16 px 1.81:1, the countdown number 2.03:1.",
+      "fix": "Move the verdict onto ink: make it the panel's head row above MVP (team mark + \"ORANGE WINS\" at title size, \"Defeat\" beside it in --ds-text), or give it the same plate the goal line uses. Put the countdown's mode name and number on that plate too.",
+      "box": [250, 6, 344, 32]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The spotted-enemy label is red text with no plate and disappears into the scene",
+      "detail": "A ping's \"ENEMY 54 m\" mark is the one piece of world information a player acts on immediately, and its label is thin red capitals laid directly over walls and grass; the second mark at the right edge of the house all but merges with the wall. Ally names in the same layer get an ink plate, the enemy label does not.",
+      "evidence": "\"Enemy\" [966,480,47,13], 13 px bold #ff6159: measured 1.88:1 (p10 1.68) against a declared 6.25; \"54 m\" 4.51:1. Second mark at about [1292,498,48,56].",
+      "fix": "Set the label and distance on the same small ink plate ally names use (rgb 10,12,16), with the red triangle kept as the mark above it; or keep red for the triangle only and write \"Enemy 54 m\" in --ds-text on the plate.",
+      "box": [962, 452, 56, 58]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "A toast and ping marks stay alive under the scoreboard and are sliced by its edge",
+      "detail": "With the board up on the phone, the announcer toast is still drawn and the board's bottom edge cuts its text in half; three \"ENEMY\" ping labels also ghost through the panel between the team columns. NEW: an overlay that takes the screen hides the transient layers beneath it, nothing is cut by a panel edge. DESIGN.md already says the feed, toasts and banner hide while the board is up; the same leak shows at match end, where a fading \"Rook: Enemy spotted\" feed line crosses the end panel's MVP row (end-panel@phone, [653,70,167,16]).",
+      "evidence": "Board bottom at about y 298; toast \"Announcer  Your team has taken the lead.\" at y 294-307 (label [300,294,63,13]) with its upper half hidden. \"Enemy\" labels at [397,171,47,13], [407,171,47,13], [413,171,47,13] lie inside the board.",
+      "fix": "While the scoreboard or the end panel is up, set toasts, the ping feed and world ping marks to hidden (not just the feed), and restore them when it closes.",
+      "box": [286, 287, 272, 29]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "low",
+      "title": "Ammo, health and team scores are not in tabular figures, only the clock is",
+      "detail": "The magazine count is the fastest-changing number on screen and its digits have different widths, so the right-hand readout shuffles sideways as it counts down through the teens; health and the match bar's team scores do the same. DESIGN.md asks for tabular figures on all scores, timers and counts.",
+      "evidence": "DOM sample: `tabular: false` on .hp, .mag, .res, the grenade count and both .score cells on every in-play shot at both viewports; only .clock is tabular. At 60 px \"100\" is 85 px wide and \"30\" is 66 px, so a \"1\" takes about 19 px against 33 px for other digits.",
+      "fix": "Apply `font-variant-numeric: tabular-nums` at the HUD root (or to .hp, .mag, .res, .score and the grenade count), and give the magazine a fixed two-digit width so the grenade count beside it never moves.",
+      "box": [1716, 982, 150, 60]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "HUD-01",
+      "severity": "low",
+      "title": "On the phone the goal plate and the Use prompt clamp the crosshair from above and below",
+      "detail": "During the opening countdown the phone's centre column is solid HUD from top to bottom: match bar, mode name, number, a 424 px wide goal plate, the crosshair, a \"USE LOADOUT\" plate, a toast and the readouts. The two plates leave about 10 px of air either side of the crosshair, so the first look at the map is through a letterbox.",
+      "evidence": "Goal plate about y 134-165 (text [225,141,395,16]); crosshair arms about y 174-216; prompt plate about y 227-257 (text [359,233,126,16]); toast at y 286-316; readouts from y 324. Centre box is 338-506 x 156-234.",
+      "fix": "On touch, move the goal line out of the middle (directly under the match bar in place of the \"Team deathmatch\" label, or into the toast slot above the readouts) and drop the centre \"USE LOADOUT\" plate: the lit USE button can carry the word, e.g. \"Loadout\" as a small label beside it.",
+      "box": [210, 134, 424, 123]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "TYP-01",
+      "severity": "low",
+      "title": "The phone's hint line and toasts drop to 13 px, the smallest step, for full sentences",
+      "detail": "The one instruction a new phone player must read while already moving is set smaller than on desktop, on the smaller screen. The announcer toast and the range rows are 13 px too. DESIGN.md specifies the hint line and a toast as body size (16 px).",
+      "evidence": "\"Move with your left thumb. Drag the right side to look\" [287,290,309,13] is 13 px (desktop \"Move. The mouse looks\" is 16 px); announcer caption 13 px on phone vs 16 px on desktop (match-hud); contrast.md marks them size-warn. Rule floor for phone body text is 14 px.",
+      "fix": "Keep --ds-type-body (16 px) for the hint line and toasts on the phone and buy the width with shorter copy (\"Left thumb moves. Right side looks\"), so the plate still ends clear of the Grenade button at x 616.",
+      "box": [237, 278, 371, 38]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "low",
+      "title": "The scoreboard spends a column on Ping that is a dash on every row of a Bot Match",
+      "detail": "In a Bot Match every seat's ping is \"-\", so each team table carries a column with no information, on the phone at the cost of name and score width. The \"#\" column likewise reads 1, 1, 1, 1 until someone scores (scoreboard@desktop). The same dead column is on the desktop board and the end board (end-vote@desktop).",
+      "evidence": "\"Ping\" heads at [380,125,26,13] and [724,125,26,13] with 8 of 8 rows showing \"-\" in scoreboard@phone, scoreboard@desktop and end-vote@desktop; scoreboard@desktop \"#\" column is \"1\" on all eight rows.",
+      "fix": "Leave the Ping column out when no seat has a measured ping (offline and bot-only matches) and give its width to the name; show a rank number only once a team's scores differ, or a dash for a tie at zero.",
+      "box": [374, 120, 38, 156]
+    }
+  ]
+}

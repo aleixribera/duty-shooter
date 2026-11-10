@@ -1,0 +1,150 @@
+{
+  "lens": "rules",
+  "findings": [
+    {
+      "screen": "end-vote",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "high",
+      "title": "The match result (\"Defeat\", \"Orange wins\") is drawn on bright sky with only a shadow and measures about 1.5:1",
+      "detail": "When the match ends the player looks up for who won and finds grey and orange words that melt into the sky. The same headline has the same problem on end-vote@desktop (\"Victory\", \"Blue wins\"), and the opening countdown's mode name and number are set the same way (countdown@desktop and countdown@phone).",
+      "evidence": "end-vote@phone: \"Defeat\" 22 px, rgb(180,186,197), p50 1.5 / p10 1.46 (needs 3); \"▲ Orange wins\" 32 px, p50 1.47 / p10 1.23 (needs 3). countdown@desktop: \"Team deathmatch\" 16 px p50 1.81 (needs 4.5), the number \"2\" p50 2.03 (needs 3). countdown@phone: 3.9 / 1.79 and 3.34 / 2.82.",
+      "fix": "Put the result line and the countdown block on the same ink plate or bottom-edge scrim the goal line already uses (DESIGN.md: over the map, text sits on a scrim), instead of a text shadow.",
+      "box": [250, 6, 344, 32]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The red \"Enemy\" spotted label has no plate and drops to 1.7:1 over the map",
+      "detail": "A spotted enemy's label and distance are red 13 px text with a shadow only. Over the pale walls of the map the word nearly disappears, so the player sees a chevron and cannot read what it marks or how far it is. A second marker on the mint wall to the right is in the same state.",
+      "evidence": "\"Enemy\" 13 px bold rgb(255,97,89): p50 1.88, p10 1.68 (needs 4.5; the token is declared at 6.25 on ink). \"54 m\" under it: p50 4.51, p10 4.21. Second marker \"ENEMY 61 m\" at about x 1292, y 524.",
+      "fix": "Give world markers' text a flat ink plate (as HUD plates have), or draw the label in --ds-text on the plate and keep the alert red for the chevron.",
+      "box": [966, 480, 47, 28]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "medium",
+      "title": "Health, magazine, grenade count and team scores use proportional digits",
+      "detail": "The numbers a player watches most shift sideways as they change: the magazine count is right-aligned at the edge, so every shot moves its left digit, and the team scores change width beside their marks. Only the match clock, the score lines and the end panel are tabular. The scoreboard's score and place columns have the same problem (scoreboard@desktop, scoreboard@phone), and the phone HUD plates too.",
+      "evidence": "DOM tabular:false on .hp \"100\" [56,982,85,60], .mag \"30\" [1760,982,66,60], grenade count \"1\" [1737,1002,5,16], both match-bar .score [860,32,12,22] / [1051,32,12,22], scoreboard td.score and td.place. Measured widths: match-bar \"1\" 7 px vs \"0\" 12 px; scoreboard \"1\" 5 px vs \"0\" 9 px, \"200\" 26 px vs \"150\" 23 px; phone magazine \"30\" 24 px vs \"23\" 23 px. Clock \"9:57\" is tabular:true.",
+      "fix": "Add font-variant-numeric: tabular-nums to .hp, .mag, the grenade count, the match bar's .score and the scoreboard's numeric cells (DESIGN.md already asks for it), ideally once on a shared numeric class.",
+      "box": [1760, 982, 66, 60]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "desktop",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "Ally name tags held to the screen edge sit 13-17 px from the bezel and stack on top of each other",
+      "detail": "The names of allies out of view are pinned almost on the left edge, well outside the safe area, and two of them land on the same spot so only one name can be read. The bottom one also touches the \"Health\" label. The same tag sits about 10 px from the edge in match-hud@desktop.",
+      "evidence": "\"Briar\" [17,40,30,13], \"Rook\" [17,940,29,13], \"Ember\" [13,940,39,13]: x 13-17 px, safe area on 1920 px is about 57.6 px. Rook and Ember share y 940 and overlap; the Health label starts at [56,964]. turn-notice@phone-upright DOM also carries three tags at x 339-343, y 596 on one spot.",
+      "fix": "Clamp edge markers to the HUD gutter (--ds-gutter plus the safe inset) instead of the viewport, keep them off the readouts' corners, and spread tags that resolve to the same edge point along the edge.",
+      "box": [8, 936, 50, 40]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The first-match control hint and the announcer caption are drawn on the same row",
+      "detail": "On a phone the first hint a new player gets (\"Move with your left thumb. Drag the right side to look\") shares its line with the announcer's caption, and the caption's words show through the hint's plate. Neither sentence reads cleanly at the one moment the hint matters. On desktop the two stack correctly.",
+      "evidence": "Hint text box [287,290,309,13]; caption \"Announcer\" [284,294,63,13] and \"Team deathmatch. The range is hot.\" [357,294,205,13]: 4 px apart vertically, fully overlapping horizontally. Desktop: caption y 877, hint y 923.",
+      "fix": "Give the hint line and the announcer caption separate slots above the phone readouts (stack them as on desktop), or hold the caption back while a hint line is showing.",
+      "box": [237, 278, 371, 38]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "Running text in play is 13 px on a phone: hint line, announcer caption and range overlay",
+      "detail": "The sentences a player has to read while moving are a step smaller on the phone than on desktop, under the 14 px floor for phone body text. The hint line is the one that teaches the controls. Also on match-hud@phone, score-lines@phone and scoreboard@phone (caption).",
+      "evidence": "Hint line [287,290,309,13] at 13 px (16 px on desktop; DESIGN.md says \"one body-size line\"). Announcer caption 13 px on phone, e.g. scoreboard@phone [374,294,172,13] (16 px on desktop). Range overlay rows 13 px, sentence case.",
+      "fix": "Keep the hint line and the caption at --ds-type-body (16 px) on the phone, wrapping to two lines if needed, and leave the 13 px step to short labels.",
+      "box": [287, 290, 309, 13]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "The range overlay panel runs into the health readout and covers part of its label",
+      "detail": "In the Practice Range the overlay panel is parked directly above the health block and its bottom edge cuts through the \"Health\" label, so two unrelated groups read as one damaged block. A large part of the panel is an empty dark rectangle that only hides the world.",
+      "evidence": "Overlay panel about [56,722,204,246], bottom edge at y 968; \"Health\" label [56,964,39,13]: 4 px of overlap. Empty block inside the panel about [68,808,180,150].",
+      "fix": "Size the overlay to its rows and anchor it clear of the health readout (a body-size gap above the label, or the top-left corner), so each group keeps its own ground.",
+      "box": [56, 940, 204, 40]
+    },
+    {
+      "screen": "settings-hud",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "title": "Sentences a player has to read are set at the 13 px small step on desktop",
+      "detail": "The rule allows text under 14 px only for short uppercase labels, but section descriptions, the pause screen's controls list and the scoreboard's column heads are 13 px in sentence case. They are readable up close and thin from a sofa. Also on pause@desktop, scoreboard@desktop, profile@desktop and bot-lobby@desktop.",
+      "evidence": "\"Health, ammo, the feed, the match bar and the prompts. The crosshair keeps its own size.\" [76,242,519,13] at 13 px. contrast.md size warnings: settings-hud@desktop 6, pause@desktop 29 (e.g. \"Aim down sights\" [1432,513,96,13]), scoreboard@desktop 29, profile@desktop 53, bot-lobby@desktop 18.",
+      "fix": "Set descriptions and list rows at --ds-type-body (DESIGN.md already asks for a body-size line under a settings section), and either raise --ds-type-small to 14 px or keep it for uppercase labels and key hints only.",
+      "box": [76, 242, 519, 13]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "\"TTK\" in the range overlay is never spelled out",
+      "detail": "The Practice Range is where a new player goes to learn, and its overlay leads with an abbreviation only shooter regulars know. Nothing on the screen or in Settings (\"Range overlay\") says it means time to kill. Same on range-hud@phone.",
+      "evidence": "\"TTK\" [68,733,22,13] on desktop, [78,51,22,13] on phone; no expansion in the overlay, the hint line or the HUD and crosshair settings tab.",
+      "fix": "Label the row \"Time to kill\" (it fits the panel's width), or expand it the first time the overlay shows.",
+      "box": [68, 733, 22, 13]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "title": "Pause actions are 6 px apart, and the settings tabs 2 px, under the 8 px minimum between touch targets",
+      "detail": "Resume and Leave are in one tight column, so a thumb landing on a seam can pick the neighbour, and Leave ends the match. The settings tabs on a phone are 44 px tall with 2 px between them (settings@phone, settings-touch@phone, settings-hud@phone). On desktop four sliders are 20 px tall, under the ~32 px mouse minimum.",
+      "evidence": "RESUME [16,111,812,54], LOADOUT [16,171,812,54], SETTINGS [16,231,812,54], LEAVE [16,291,812,54]: 6 px gaps (desktop also 6 px: [56,165,440,73] to [56,244,440,73]). Phone tabs e.g. TOUCH [136,10,69,44] to CONTROLS [207,10,96,44]: 2 px. settings-hud@desktop sliders 284x20 (HUD size [660,227,284,20], Arm length, Gap, Thickness); main-menu Name input 206x21 on all three viewports.",
+      "fix": "Raise the pause list's row gap to 8 px, set the tabs' gap to 8 px on touch, and give range inputs and the name field a 44 px (touch) or 32 px (mouse) hit box.",
+      "box": [16, 165, 812, 66]
+    },
+    {
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "low",
+      "title": "The disabled \"Server offline\" button is written in the signal colour that means \"press this\"",
+      "detail": "Mint is the game's one colour for what can be acted on, but here it labels a button that cannot be pressed and only reports a state. The footer still shows the Enter key hint for joining beside it. Same on online@phone and online@phone-upright.",
+      "evidence": "\"SERVER OFFLINE\" text [1653,1029,162,16] in --ds-signal on --ds-signal-dim, button [1604,1008,260,58] disabled:true; phone text [497,352,162,16]; upright [114,802,162,16]. DESIGN.md: \"Don't use --ds-signal for status text that can't be acted on\".",
+      "fix": "Draw a disabled primary in --ds-text-2 on a raised step (no signal), and hide the Enter hint while the action is unavailable.",
+      "box": [1604, 1008, 260, 58]
+    }
+  ],
+  "coverage": {
+    "HUD-01": "pass",
+    "HUD-02": "fail",
+    "HUD-03": "fail",
+    "HUD-04": "pass",
+    "HUD-05": "n/a",
+    "MENU-01": "pass",
+    "MENU-02": "pass",
+    "MENU-03": "fail",
+    "MENU-04": "pass",
+    "TYP-01": "fail",
+    "TYP-02": "pass",
+    "TYP-03": "fail",
+    "TYP-04": "pass",
+    "COL-01": "fail",
+    "COL-02": "pass",
+    "COL-03": "fail",
+    "FB-01": "pass",
+    "FB-02": "n/a",
+    "FB-03": "pass",
+    "ONB-01": "fail",
+    "ONB-02": "pass",
+    "ONB-03": "fail"
+  }
+}

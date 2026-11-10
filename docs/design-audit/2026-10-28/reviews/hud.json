@@ -1,0 +1,137 @@
+{
+  "lens": "hud",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Health and ammo corners wash out over a bright map",
+      "detail": "On the sunny grass of the TDM map the bottom corners have no backing, so the 'HEALTH' and 'AUTO' labels all but vanish and the big numbers only hold up because of their drop shadow. The same text measured 2-4x better over the darker range floor, so how readable the HUD is depends on where you are standing. Scoreboard and phone shots show the same values.",
+      "evidence": "contrast.md match-hud@desktop, p10: 'Health' 1.03, 'auto' 1.03, 'M4A1' 1.60, '/ ∞' 1.47, '100' (48 px) 1.81, '30' (54 px) 1.76. On range-hud@desktop the same '100' is 2.82 and 'Health' 1.53.",
+      "fix": "Put a soft dark gradient plate (about rgba(10,12,16,0.55), fading out toward the centre) behind each bottom corner group, sized to the group, so the p10 of the labels reaches 4.5:1 and the numbers reach 3:1 over any scene.",
+      "box": [24, 966, 1872, 90]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Score bar sub-labels are tiny grey text that fails contrast even on its plate",
+      "detail": "The labels under the scores, which say which side is you and what the mode is, are 11 px mid-grey on a see-through plate over the sky. A player glancing up gets the two coloured numbers but has to squint to tell which side is theirs.",
+      "evidence": "'◆ Blue · you' 11 px, p10 1.82; 'TDM · 75' 11 px, p10 3.13; '▲ Orange' 11 px, p10 2.26 (all colour rgb 142,150,163; need 4.5:1, and 11 px is under the 12 px floor). The Blue score '0' (30 px) is p10 2.48.",
+      "fix": "Raise the sub-labels to 12-13 px uppercase in a lighter grey (about rgb 190,196,206) and make the score bar plate more opaque (alpha 0.85 or higher), so they reach 4.5:1 over the sky.",
+      "box": [804, 24, 312, 58]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "title": "The win condition only appears as a bare '75'",
+      "detail": "Nothing in play says 'first team to 75 kills wins'. The only clue is 'TDM · 75' in 11 px grey on the score bar, and the scoreboard header just says 'Team deathmatch' with the team totals, so a new player can't tell how far their team is from winning.",
+      "evidence": "Scoreboard header text: 'Team deathmatch' and '8 players'; team totals '0' and '0' with no target. Score bar: 'TDM · 75' [941,62,55,11], 11 px.",
+      "fix": "State the target on the scoreboard header ('Team deathmatch · first to 75 kills') and show the totals as '0 / 75'. On the score bar, write the limit as 'TO 75' or show it as a progress tick.",
+      "box": [521, 161, 878, 20]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Orange team table is cut off at the panel edge",
+      "detail": "At 390 px wide the two team tables stay side by side, so the Orange header reads 'ORANG' and its K and D columns run past the panel edge, while its Ping column is missing completely. Bot tags also wrap onto a second line under every name. New idea: a two-column scoreboard should stack its teams vertically when it is narrower than both tables need, rather than clip.",
+      "evidence": "Screenshot: 'ORANG' header cut at the panel edge (about x 357). DOM: the Orange 'K' is at x 359 and 'D' at [384,265,9,11], which ends at 393 px, past the 390 px viewport; there is no Orange 'Ping' text. The K/D headers measure p10 1.47 where they spill over the scene.",
+      "fix": "Below roughly 700 px wide, stack the Blue and Orange tables vertically (or switch them with tabs), and keep the 'BOT' tag on the same line as the name.",
+      "box": [261, 210, 129, 270]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "Pause overlay collides with the HUD and runs off the bottom",
+      "detail": "On the phone the 'PAUSED' title is drawn on top of the score bar, and the controls list sits over the dimmed health and ammo readout before running off the bottom of the screen. The 'Tab · Scoreboard' row is cut in half and the 'Esc · Menu' row, the one that tells you how to get back, is not visible at all.",
+      "evidence": "DOM: 'Paused' [16,48,155,40] overlaps the score bar (about 39,24,312,58). 'Tab' is at [44,834,18,11], so it ends at 845 px, past the 844 px viewport, and 'Esc'/'Menu' are missing from the phone DOM sample (they are present on desktop). The ghosted '100' and '30' show through the controls panel at about y 750-800.",
+      "fix": "Hide the in-play HUD (score bar, health and ammo) while paused, or at least on narrow viewports. Make the pause column scroll inside the safe area, or fold the controls list behind a 'Controls' button on small screens.",
+      "box": [16, 730, 358, 114]
+    },
+    {
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "low",
+      "title": "Pause footer hints are printed over the health readout",
+      "detail": "The key-hint footer ('↑↓ Move · Enter Select · Click Resume') sits on top of the dimmed health number and bar, so the ghost of '100' shows through behind the ↑↓ keycap and the footer looks muddled. The footer also offers 'Click' to resume but doesn't list Esc, which is the key players will try.",
+      "evidence": "DOM: the footer '↑↓' is at [63,1007,12,11] and the footer runs to x 389; the HUD '100' is at [32,993,68,48] and 'Health' at [53,976,55,12], all still rendered under the pause scrim.",
+      "fix": "Hide the health and ammo HUD while the pause menu is open, or move the footer hints above it (for example y ≈ 940). Add 'Esc Resume' to the footer.",
+      "box": [32, 976, 357, 65]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "Range stats panel is mostly an empty dark box on spawn",
+      "detail": "The first thing in the lower-left on the range is a 205x247 dark panel whose four stats all read '–' and whose lower 60% is a blank canvas. It crowds the health readout and puts a large dead area in the player's peripheral view before they have fired a shot. Its 11 px labels are also below the size floor.",
+      "evidence": "DOM: empty canvas [37,807,180,150] inside the panel. 'TTK', 'Shots / hits' and 'Last hit' values are all '–'; only 'Distance' shows '25.0 m'. Labels are 11 px (TYP-01 size fail ×4 in contrast.md). The panel sits about 10 px above the 'Health' label (y 976).",
+      "fix": "Collapse the panel to just the stat rows until the first hit lands, then expand the hit-pattern canvas. Raise the labels to 12-13 px and leave at least 24 px of gap above the health group.",
+      "box": [25, 720, 205, 247]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "First spawn shows no controls hint and no goal",
+      "detail": "The practice range is where new players land, but the first in-play frame has no key hints, no 'shoot the targets' line and no 'Esc for controls' prompt. The full controls list exists, but only on the pause screen, which a player has to know to open. The bot match HUD is the same.",
+      "evidence": "range-hud@desktop DOM has 15 text runs: health, ammo and range stats only. There is no key hint and no objective text. The controls list ('WASD Move', 'R Reload', 'Tab Scoreboard'…) appears only in pause@desktop.",
+      "fix": "On first spawn show a short-lived hint strip near the bottom centre (for example 'LMB Fire · R Reload · Shift Sprint · Esc Controls') that fades after a few seconds or after the first shot. Keep a small 'Esc · Menu' hint along an edge.",
+      "box": [660, 900, 600, 60]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "low",
+      "title": "Health bar and ammo bar overlap into one line on the phone",
+      "detail": "At 390 px the 236 px health bar and the ammo bar sit on the same baseline and overlap, so only 5 of the 10 health segments are visible and they flow straight into the ammo bar. They read as a single bar, and you can't tell where health ends.",
+      "evidence": "Screenshot at y ≈ 815 CSS px: the segmented bar runs from x 32 to about 125, then a continuous white line runs to x 358. On desktop the health bar is 32-268 and the ammo bar is 1668-1888, with no overlap. The same happens on range-hud@phone and scoreboard@phone.",
+      "fix": "Scale both bars with the corner groups (for example max-width: 40vw each) and keep at least 16 px between them, or stack the ammo bar under the ammo count on narrow viewports.",
+      "box": [32, 812, 326, 6]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "low",
+      "title": "Clock, ammo and health use proportional digits",
+      "detail": "None of the changing numbers use tabular figures, so the clock and the ammo counter shift sideways as they count, which draws the eye to the corner during a firefight.",
+      "evidence": "DOM: 'tabular: false' on hp '100', mag '30', clock and both team scores. The clock box is 41 px wide at '9:56' and 42 px at '9:55' (scoreboard@desktop), so it already moves by 1 px between seconds.",
+      "fix": "Add font-variant-numeric: tabular-nums to .hp, .mag, .res, .clock, .score and the scoreboard K/D/total cells.",
+      "box": [948, 35, 41, 22]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "low",
+      "title": "Grenade count reuses the Blue team's diamond icon",
+      "detail": "The grenade counter is shown as '◆ 1', the same diamond glyph that marks the Blue team on the score bar and scoreboard ('◆ Blue · you'). A player can read it as a team or 'you' marker rather than a grenade count.",
+      "evidence": "DOM: nade '◆ 1' [1746,1010,22,13] at 13 px; score bar '◆ Blue · you' [819,64,88,11]; scoreboard '◆ Blue' [534,223,69,17].",
+      "fix": "Use a grenade-shaped icon (or a 'G' keycap with the count) for the grenade counter, and keep the diamond only for Blue.",
+      "box": [1737, 1004, 40, 26]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "Teammate nameplates show up as cut-off fragments through gaps",
+      "detail": "A teammate's floating name tag is clipped by the window frame, so the player sees a stray 'Em' (and 'riar' in the scoreboard shot) hanging in the scene with no context. New idea: overhead nameplates should either show in full (drawn on top of the scene or clamped) or be hidden, never partly clipped by the world.",
+      "evidence": "match-hud@desktop: the fragment 'Em' with a blue edge bar is visible inside the window at about x 512-552, y 492-522. scoreboard@desktop shows 'riar' in the same window.",
+      "fix": "Render nameplates as screen-space HUD elements: draw them unoccluded within a short range, or hide them entirely when the owner is occluded, instead of letting world geometry cut them.",
+      "box": [512, 492, 42, 30]
+    }
+  ]
+}

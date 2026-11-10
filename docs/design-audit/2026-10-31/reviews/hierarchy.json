@@ -1,0 +1,137 @@
+{
+  "lens": "hierarchy",
+  "findings": [
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "The Orange team's columns run off the scoreboard panel, so its stats can't be read",
+      "detail": "On a phone the two team tables stay side by side in a panel too narrow for them. The player sees Orange's names but not their kills, deaths or ping, and the team header is cut to 'ORANG' with no team score. New rule idea: a table must reflow or stack, never clip, when its container shrinks.",
+      "evidence": "The panel's right edge is about x=358. Orange's 'K' sits at [359,265,9,11] and 'D' at [384,265,9,11]; both measure p50 1.47 because they are cut away. The Orange header [274,223,98,17] ends at x=372. The sample has no Orange 'Ping' at all, while Blue shows K, D and Ping.",
+      "fix": "At phone width, stack Blue above Orange at full panel width, with rank and ping dropped first if rows need room. Keep each 'BOT' tag on the name line so rows stay one line tall.",
+      "box": [262, 210, 128, 262]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The roster fills the first screen and the map and mode choices are nowhere in view",
+      "detail": "The screen's real decisions are map, mode and sides, but a phone player sees a long list of identical 'BOT' and 'OPEN SEAT' rows they can't act on. Nothing on screen says more options sit further down, and the summary chips above look like buttons but aren't controls. Desktop has the same imbalance: the roster takes 1268 px of width with no controls, while all 11 match controls share a 500 px column and the area below y=644 stays empty. New rule idea: screen space follows the decisions, not the data.",
+      "evidence": "The roster runs from y=236 to the footer at about y=705, and the 'OPEN SEAT' row at [65,802,79,12] is sampled behind the footer. The phone sample's controls are only BACK, LOADOUT, SETTINGS and START. Desktop: 'You + 7 bots' appears three times ([1743,60,121,30] chip, [1231,148,93,13] header, and '7 bots · offline' at [1468,1031,125,12]).",
+      "fix": "On phone, put Match (map, mode, sides) first and collapse the roster to one summary line such as 'You + 7 bots, 4 open', expandable on tap. On desktop, give Match the wider column and shrink the roster to compact rows. Remove the duplicate counts.",
+      "box": [16, 236, 358, 469]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Map and mode labels are clipped mid-word in their boxes",
+      "detail": "The map reads 'SWITCHYAR' and the selected mode reads 'DEATHMATC', cut hard at the box edge. This is the main choice screen, so it looks broken, and the clipped mode label is the one currently selected. New rule idea: labels never clip their container.",
+      "evidence": "'Switchyard' at 26 px is 161 wide [1548,288,161,26] and starts 15 px inside a card that ends at x=1694, so it overruns by 15 px. 'Team deathmatch' [1390,501,96,31] ends at x=1486 inside a button that ends at x=1475, an 11 px overrun.",
+      "fix": "Drop map names to about 20 px or let them wrap on every card. Give the mode control two rows, or fit the labels to the 91 px buttons with 'Team DM' style text or less letter spacing.",
+      "box": [1533, 264, 161, 62]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The selected map card stacks four lines of text over the bright part of its photo",
+      "detail": "Selecting a card adds a two-line '✓ TEAM DEATHMATCH' tag and the name wraps to two lines, so text climbs into the pale sky of the thumbnail. The tag that confirms the selection is the hardest text on the card to read, and the selected card no longer lines up with its neighbours. The 'MAP' tag on the Crash card has the same issue.",
+      "evidence": "'✓ Team deathmatch' [1379,232,88,26] is 11 px with p50 2.23, p10 1.46. 'Map' on Crash [1718,272,28,11] is p50 4.88, p10 3.23. Selected name block [1379,264,122,51] against one-line names at y=288 on the other cards.",
+      "fix": "Put a solid dark scrim behind the bottom 60% of every card. Move the selected mode out of the card into the description line below, and mark selection with the border and check alone.",
+      "box": [1364, 191, 161, 136]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Four equal rows, and the loudest position goes to a mode that is offline",
+      "detail": "Nothing tells a new player what to press. All four rows have the same dark plate and the same bright heading, and the first and tallest row is Play Online, which can't be played right now. The only sign of the working default is a thin accent bar and a teal icon on Bot Match, so the eye lands on the title and the 3D scene before any action. The phone layout has the same problem.",
+      "evidence": "All four headings are 28 px / 700 in the same colour [243,241,234]. Play Online's button [56,644,480,100] is taller than Practice Range [56,852,480,76]. Its only offline cue is a 12 px 'Offline' at [144,718,60,12] beside a small red dot.",
+      "fix": "Give one row a filled accent plate: Bot Match while offline, Play Online when a server answers. Dim the offline row's heading and icon, and move it below the playable modes or collapse it to one line with a status.",
+      "box": [56, 644, 480, 366]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Menu descriptions and the tagline sit on see-through plates over the busiest part of the scene",
+      "detail": "The phone layout places the rows on top of the bus, road and houses, and the translucent plates let all that detail through, so the small grey descriptions fray where they cross bright pixels. The tagline sits directly on the pale sky. On desktop, the 'NAME' label has the same problem and nearly vanishes.",
+      "evidence": "'No game server answers…' [87,466,219,34] p10 2.86. 'Your own lobby…' [87,581,204,34] p10 3.2. 'Tactical arena shooter' [54,68,212,12] p50 3.73, p10 1.78. Desktop 'Name' [1594,46,40,12] p50 1.56.",
+      "fix": "Raise the row plates to about 90% opacity, or run a dark gradient behind the whole menu column. Extend the top scrim to cover the tagline and the 'NAME' label.",
+      "box": [16, 429, 358, 361]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "HUD secondary text disappears over bright ground: weapon, fire mode, grenades, Health",
+      "detail": "The big '100' and '30' hold up, but everything beside them fades on the sunlit grass. The player can't confirm the weapon or fire mode at a glance, and the grenade count, a number they act on, is the faintest item in the block. 'HEALTH' on the left is close to invisible, and the same happens in the Practice Range and on phone.",
+      "evidence": "On match-hud@desktop: 'auto' p50 1.06, 'Health' 1.09, 'M4A1' 1.64, '/ ∞' 1.78, '◆ 1' 2.19. The 'auto' tag is 10 px.",
+      "fix": "Extend the bottom-corner dark gradient up to y≈960 behind the whole weapon and health blocks, or use a compact dark plate. Raise 'auto' to 12 px and the grenade count to 15 px or more.",
+      "box": [1737, 966, 151, 68]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "In the score strip, the kill target and team labels are the weakest text and the timer wins the eye",
+      "detail": "What decides a match is the score against the target, yet the white timer is the strongest element, the saturated blue score is dim on the grey plate, and the '75' target is tiny. A new player won't see what they are playing to.",
+      "evidence": "'10:00' is 22 px white. Blue '0' [855,31,17,30] declared 5.57, p50 3.09, p10 2.48. 'TDM · 75' [941,62,55,11] is 11 px, p50 3.44. '◆ Blue · you' [819,64,88,11] is 11 px, p50 2.68. '▲ Orange' [1031,64,70,11] is 11 px, p50 3.34.",
+      "fix": "Make the plate nearly opaque, lighten the blue numeral, raise the labels to 12–13 px, and show the target as a clearer label such as 'First to 75'.",
+      "box": [804, 24, 312, 59]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The pre-match instruction is thin, edge to edge, and weaker than its own countdown",
+      "detail": "The one line telling the player they can change loadout is a 41-character uppercase run in white on pale sky, and on a phone it touches both screen edges. The eye goes to the big digit, so the instruction may be missed before the countdown ends. The same weak contrast shows on desktop.",
+      "evidence": "'Team deathmatch · change your loadout now' [1,220,388,13] is 13 px on a 390 px screen, with 1 px margins. p50 1.88, p10 1.84, shadow only. Countdown digit [186,241,17,46] is 46 px, p50 1.97. Desktop [766,291,388,13] p50 1.91. TYP-04 flags uppercase runs over about 30 characters.",
+      "fix": "Put line and digit on one dark plate. Split it into two short lines, 'Team deathmatch' and 'Change loadout', at 15 px or more, with a side margin of at least 16 px.",
+      "box": [1, 220, 388, 67]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "The range stats panel is a large dark block, mostly empty, over the player's view",
+      "detail": "On arrival, the heaviest object on screen is a dark slab that covers more than half the width and shows four dashes and a blank box. It sits 8 px above 'HEALTH', so it reads as part of the health block, and it hides the lane floor next to the target. On desktop it is the same 206x248 size, proportionally smaller but still mostly empty.",
+      "evidence": "Panel box about [24,484,206,248], which is 53% of the 390 px width. An empty canvas [37,571,180,150] takes up 60% of its height until shots land. Three of the four values are '–'. Labels are 11 px ('TTK' [37,497,24,11]).",
+      "fix": "Show only the four stat rows until the first shot, and reveal the plot once there is data. On phone, shrink the panel to a one- or two-line strip against the edge, or move it to the pause screen.",
+      "box": [24, 484, 206, 248]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The HUD stays behind the pause menu, so the title collides with the score strip",
+      "detail": "'PAUSED' is printed across the dimmed score bar, so the screen's title and the '0' behind it merge, and the ghosted loadout line runs through the Loadout row. The Tab scoreboard has the same issue: the countdown line shows through the panel on row 1, between K and D on desktop, and pokes out both sides on phone. New rule idea: an overlay either hides the layer below or fully covers it.",
+      "evidence": "'Paused' [16,48,155,40] overlaps the score strip at about [39,24,312,59], with '10:00' [179,35,49,22] right beside it. Ghost line [1,220,388,13] crosses the Loadout button [16,183,358,60]. Dim '100' and '30' also show through the Controls panel. Scoreboard@desktop: ghost line [766,291,388,13] sits behind the 'You' row.",
+      "fix": "Hide the HUD layer and the countdown prompt while pause or the scoreboard is open. If they must stay, reserve a clear top band on phone so the title starts below y=90.",
+      "box": [16, 22, 341, 66]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "title": "Section headings are smaller than the rows they head, in a scale of near-identical sizes",
+      "detail": "'MOUSE' and 'CONTROLLER' are smaller than the labels beneath them, so the page reads as one long list and the groups don't stand out when scanning. The lobby heads its sections at 18 px, so the two menu screens also disagree.",
+      "evidence": "Headings 'Mouse' [56,143,51,12] and 'Controller' [56,408,98,12] are 12 px; row labels are 16 px. Six sizes sit between 11 and 16 (11, 12, 13, 14, 15, 16) before jumping to 46. Lobby 'Players' [56,144,95,18] is 18 px.",
+      "fix": "Set section headings to 18 px bold like the lobby, and reduce the screen to about four sizes: 12, 14, 18, 46.",
+      "box": [56, 143, 400, 62]
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "lens": "hierarchy",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The hint line and the announcer toast are drawn in the same slot, one on top of the other",
+      "detail": "On a phone the first seconds of a match put two messages in one place: the touch hint covers the announcer's line, which shows through as ghost text behind it and cannot be read. Two transient messages must never share a slot (no rule covers this). Both are also set at 13 px although DESIGN.md calls each 'one body-size line'; the same 13 px hint appears on score-lines@phone and range-hud@phone.",
+      "evidence": "Hint 'Move with your left thumb. Drag the right side to look' at [287,290,309,13]; toast 'Announcer' [284,294,63,13] + 'Team deathmatch. The range is hot.' [357,294,205,13]: same y within 4 px, x ranges overlap fully. On desktop they stack (toast y 880, hint y 924). Both 13 px; the goal line on the same phone is 16 px.",
+      "fix": "Give the phone HUD one message slot with a queue (the hint waits until the toast has gone, or the toast moves to its 'full width above the readouts' row and the hint sits above it), and set both to --ds-type-body (16 px).",
+      "box": [237, 278, 371, 38]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "A toast and the enemy markers stay up with the scoreboard and show through and under its panel",
+      "detail": "With the scoreboard open the announcer toast is half hidden under the panel's bottom edge, and three enemy markers ghost through the middle of the tables between the two teams, next to the rows a player is trying to read. DESIGN.md says the feed, toasts and round banner hide while the scoreboard is up; here they do not, and the world markers are not covered either.",
+      "evidence": "Panel bottom edge at y 298; toast plate [286,287,272,30] with 'Your team has taken the lead.' at [374,294,172,13], cut through its text line. 'ENEMY' labels at [397,171,47,13], [407,171,47,13], [413,171,47,13] with '50 m / 55 m / 57 m' under them, visible between the Blue and Orange tables beside the 'Comet' row.",
+      "fix": "Hide toasts, feed and world markers (enemy, ally, ping) while the scoreboard is up, and make the scoreboard panel fully opaque on a phone so nothing from the world reads through the rows.",
+      "box": [286, 287, 272, 30]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The opening count and the mode name are bare white text over bright sky, and the count is smaller than the health number",
+      "detail": "For the three seconds before a match the screen's one figure is the count, yet it is the hardest thing on screen to read: white with only a shadow over pale cloud, while the goal line right under it sits on a plate and reads well. The eye lands on Health '100' and ammo '30' instead, which are larger and plated.",
+      "evidence": "'2' [946,290,29,52] 51.84 px bold: contrast p50 2.03, p10 1.89 (needs 3). 'Team deathmatch' [897,267,126,16] 16 px bold: 1.81 / 1.62 (needs 4.5). Health and ammo figures are 60 px. On countdown@phone: '2' 3.34 / 2.82, 'Team deathmatch' 3.9 / 1.79.",
+      "fix": "Put the mode name and the count on the same flat plate as the goal line (one block: mode, count, goal), and set the count at the top of the display step so it is the largest thing on screen while it is up.",
+      "box": [897, 267, 126, 75]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Ally name tags are drawn on top of each other and on top of the Health readout",
+      "detail": "Two teammates held to the same screen edge get their tags at the same point, so only one name can be read and a player sees one ally where there are two; the pile sits directly above the Health label and reads as part of that block. Labels of the same kind must never stack on one another (no rule covers this). Seen too on match-hud@phone (tags read 'BriaEmber' above the crosshair), countdown@phone ('Briar' hidden under the goal-line plate) and turn-notice@phone-upright (three tags at one point).",
+      "evidence": "'Rook' [17,940,29,13] and 'Ember' [13,940,39,13] share the same spot; only 'Ember' is readable. The 'Health' label starts at [56,964,39,13], 11 px below and 4 px right of the tag's chevron. match-hud@phone: two tags overlap at about [455,146,56,34].",
+      "fix": "Spread edge-held ally markers apart (stack them along the edge with a 4 px gap, or merge to one tag reading 'Rook, Ember'), keep them off the readout corners the way TOUCH_GROUND keeps them off the controls, and hide them under HUD plates.",
+      "box": [6, 936, 54, 40]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "The Practice Range panel covers the Health label and is mostly an empty dark box",
+      "detail": "In the range the bottom-left corner holds two things at once: the range stats panel sits over the top of the health readout and clips its label, and more than half of the panel is a blank dark rectangle. The four stat rows a player came for are small-step text squeezed at the top, three of them showing only a dash.",
+      "evidence": "Panel about [56,722,204,246], bottom edge y 968; 'Health' label [56,964,39,13] is cut by it. Empty inner box about [68,808,180,150]. Rows 'TTK', 'Distance', 'Shots / hits', 'Last hit' at y 733-798, all 13 px; values '–', '25.0 m', '–', '–'.",
+      "fix": "Anchor the range panel to its own edge (top left under the crumb, or the right edge) clear of the health and ammo corners; collapse the empty chart area until there is data; set the values at body or heading size as a readout strip with the labels small.",
+      "box": [56, 722, 204, 246]
+    },
+    {
+      "screen": "end-vote",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "The match result is unplated over bright sky, and the player's own outcome is the faintest word on the screen",
+      "detail": "The end of a match should open on 'did I win': here 'Defeat' is small grey text on pale sky to the left of a much larger team-colour headline, and both fall well under the contrast floor while everything below them sits on a solid panel. The only line that says what happens next, 'Back to the lobby in 0:05', is a 13 px line. Same arrangement on end-panel@phone and on desktop ('Victory' 22 px above '◆ Blue wins' 51.84 px).",
+      "evidence": "'Defeat' [250,14,64,22] 22 px, colour rgb(180,186,197): contrast 1.5 / 1.46. '▲ Orange wins' [327,6,267,32] 32 px team orange: 1.47 / 1.23 (needs 3). 'Back to the lobby in 0:05' [351,215,141,13] 13 px.",
+      "fix": "Bring the result inside the end panel's solid surface (or give it the bottom-edge scrim), lead with the player's outcome ('Defeat' / 'Victory') at title size in --ds-text and set the winning team under it at heading size with its mark; raise the lobby countdown to body size next to the footer action.",
+      "box": [250, 6, 344, 32]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "On a phone the destination list is shifted off the left edge and the one playable destination is cut by the fold",
+      "detail": "The title, name field and rank hold the 16 px gutter but the destinations start 92 px further right, so the screen has two left edges. The name and rank rows take the top third, which leaves room for only the two online destinations (both dead when no server answers); the lit choice, Bot Match, is sliced by the bottom of the screen and Practice Range and Settings are out of sight with nothing saying the list scrolls. The page title and the destinations are also 2 px apart in size.",
+      "evidence": "Destination rows are 720 px wide at x 108 ([108,201,720,74]); title, name field and rank at x 16. 'Bot Match' title at [126,355,160,30] in a 390 px tall viewport, its readout below the fold. 'Duty Shooter' 32 px vs destinations 30 px.",
+      "fix": "Start the destination list at the gutter (x 16) and move the name field and rank to the right half beside it, as the world/readout side, so four destinations fit in 390 px with the lit one fully visible; in the short-phone header use the heading-size title DESIGN.md already asks for.",
+      "box": [108, 201, 720, 189]
+    },
+    {
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "With the server down the primary slot holds a dead button and the one working action is a grey button at the far corner",
+      "detail": "The eye goes to the big bottom-right button, which reads 'Server offline' and cannot be pressed; the only thing that helps, 'Check again', is a secondary 1400 px away at the left. The same state is said three times (chip, sentence, button) while nothing dominant says what to do. Battle Royale in the same state already makes 'Check again' the primary. Same on online@phone and online@phone-upright.",
+      "evidence": "Disabled primary 'SERVER OFFLINE' [1604,1008,260,58]; 'CHECK AGAIN' [193,1015,171,44] secondary; chip 'Server not answering' [1662,74,189,13]; sentence at [56,293,1002,16]. royale@desktop: 'CHECK AGAIN' is the primary at [1604,1008,260,58].",
+      "fix": "When no server answers, make 'Check again' the .ds-btn.primary.big in the footer's primary slot as the Battle Royale screen does, keep the reason in the connection line only, and drop the chip or the disabled button so the state is said once.",
+      "box": [1604, 1008, 260, 58]
+    },
+    {
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The name field and the connection line sit under the island picture, far from the slot that asks for the name",
+      "detail": "The left column's own slot says 'Type your name to join', but the field it means is a 1104 px wide input in the opposite column, below the picture and below a status line. A prompt and the control it points to should be one group (no rule covers grouping). A player reads top-left to bottom-left and finds no field there; the phone layout already puts the name first.",
+      "evidence": "'You' / 'Type your name to join' at [73,489]-[73,518,131,13]; 'Name' label [760,788,34,13] and input [760,812,1104,46], about 700 px to the right and 300 px lower; status line [779,736,538,16] between the picture and the field.",
+      "fix": "Move the name field into the 'You' slot (or directly under the squad slots in the left column) at a field's normal width, and keep the connection line with the footer action it explains.",
+      "box": [760, 736, 1104, 122]
+    },
+    {
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "The destructive 'Reset profile' sits in the slot where every other page has its main action",
+      "detail": "On every other page the bottom-right corner is Start, Done or Check again, so a player's hand goes there to move on; on Profile that corner erases their progress. On profile@phone it is the wider of two buttons and sits 8 px from Back.",
+      "evidence": "'RESET PROFILE' [1675,1022,189,44] at the footer's right end; primary actions elsewhere at [1604,1008,260,58]. Phone: 'RESET PROFILE' [149,338,189,44] next to 'BACK' [16,338,125,44].",
+      "fix": "Take Reset out of the footer: put it at the end of the page body as a quiet text button with its one-line consequence, and leave the footer with Back only (or Back in the primary slot).",
+      "box": [1675, 1022, 189, 44]
+    },
+    {
+      "screen": "loadout",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "A 'Weapon' heading stands over an empty quarter of the screen",
+      "detail": "The right column opens with a heading and then nothing: no stats, no picture, no description for the highlighted gun, while the tiles on the left carry only a name and 'Auto' or 'Semi'. DESIGN.md asks that a block on the left be answered on the right 'by the picture or the readouts, never by nothing'; here the answer is an empty heading, and the player has no way to compare weapons.",
+      "evidence": "'Weapon' heading [1444,147,94,22] with no text below it in a column about 420 px wide down to the footer; tiles show a 16 px name and a 13 px fire mode only; focus opens on DONE.",
+      "fix": "Fill the column with the focused weapon's readouts on open (damage, rate of fire, range, magazine as a readout strip, plus its model or silhouette), defaulting to the equipped weapon so it is never empty; otherwise remove the heading and let the tiles take the width.",
+      "box": [1444, 147, 420, 440]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "TYP-02",
+      "severity": "low",
+      "title": "The title and display steps land 2 px apart on a phone, so the page title and the actions read as one size",
+      "detail": "The scale is meant to have nothing in between, but on a short phone the two fluid steps meet: 'Paused' and 'Resume' are almost the same size and weight, so neither reads as the heading of the other. Same on main-menu@phone ('Duty Shooter' 32 px over 30 px destinations); on desktop the order is the other way round (title 51.84 px, destinations 60 px).",
+      "evidence": "'Paused' [16,49,124,32] 32 px bold uppercase; 'Resume' [38,122,120,30] 30 px bold uppercase. main-menu@phone: 32 px vs 30 px. Desktop: 51.84 px vs 60 px.",
+      "fix": "On a phone held sideways drop overlay and page titles to the heading step (22 px), as DESIGN.md already says for the .ds-page header, so the display-size actions are the only large type.",
+      "box": [16, 49, 142, 103]
+    }
+  ]
+}

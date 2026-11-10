@@ -1,0 +1,137 @@
+{
+  "lens": "accessibility",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "A phone player gets no touch controls, so the match cannot be played",
+      "detail": "New idea: every input a mode needs must exist on every viewport the game offers. On a phone the HUD has nothing to move, aim, fire, reload or pause with, so a match starts and the player can only watch. The same holds on range-hud and scoreboard (held with Tab, which a phone lacks), and pause@phone then lists only keyboard and mouse bindings (WASD, Left mouse, Control Left) with the list running off the bottom: Tab sits at y 834 of 844 and Esc is off screen.",
+      "evidence": "match-hud@phone.dom.json, range-hud@phone.dom.json and scoreboard@phone.dom.json all have \"controls\": [] and a single canvas [0,0,390,844]. A source search outside docs/ finds no touchstart, touch-action, TouchEvent or pointerType handling; packages/fps-client/src/input.ts uses requestPointerLock and a mousedown listener. pause@phone: \"Tab\" box [44,834,18,11].",
+      "fix": "Add a touch layer on coarse pointers: left-thumb move stick, right-side drag to aim, Fire, ADS, Reload, Jump and a Pause button, each at least 44x44 CSS px and above the 34 px bottom inset, plus a tap target for the scoreboard. Swap the pause panel to touch hints. If phones are not supported, say so on the main menu instead of starting a match.",
+      "box": [0, 420, 390, 424]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "Orange team's K, D and Ping columns are cut off at the panel edge",
+      "detail": "New idea: a data table must fit its panel or scroll with a visible cue. On a phone the enemy kills and deaths cannot be seen at all, and the team header reads \"ORANG\". Half of what the scoreboard exists to show is missing, with no sign that more is there.",
+      "evidence": "The panel's right edge is at about x 357 (714 px in the 2x shot). Orange \"K\" is at [359,265,9,11] and \"D\" at [384,265,9,11]; the kill and death cells sit at x 360 and x 385, and D ends at x 393 on a 390 px viewport. No Orange Ping column is in the DOM sample at all. \"▲ Orange\" box [274,223,98,17] ends at x 372. contrast.md's K 1.47 and D 1.47 are measured on the scene outside the panel, because the text itself is clipped.",
+      "fix": "At narrow widths stack the two teams vertically so each table gets the full 326 px, and let the panel scroll if it exceeds the height.",
+      "box": [338, 210, 52, 262]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "high",
+      "title": "Score strip labels fail contrast, including the only kill target shown in play",
+      "detail": "The grey labels under the scores are too small and faint to read at a glance, so \"TDM · 75\" (kills to win) and \"BLUE · YOU\" (which side you are on) are effectively lost during play. The plate is translucent, so the sky lifts it towards the text. The same values appear at phone width; they only pass under the pause dim.",
+      "evidence": "All at 11 px, colour (142,150,163): \"◆ Blue · you\" declared 6.19, measured p50 2.68 / p10 1.82; \"▲ Orange\" p50 3.34 / p10 2.26; \"TDM · 75\" p50 3.44 / p10 3.13. All three fail both contrast and size in contrast.md. The blue score \"0\" (30 px bold, needs 3) is p50 3.09 / p10 2.48.",
+      "fix": "Make the strip plate opaque (or at least 92% alpha) so the declared ratio holds, raise the label colour to the secondary text colour (180,186,197), and set the labels to 12 px minimum.",
+      "box": [819, 62, 282, 13]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "high",
+      "title": "Weapon, fire mode and grenade readouts wash out over bright ground",
+      "detail": "On a sunlit lawn at spawn, AUTO almost disappears and the grenade count and reserve fade, so a player has to stop and look to confirm fire mode or whether a grenade is left. The text shadow is doing all the work, and the bottom scrim is too weak to help. Range-hud shows the same over the tan floor: \"auto\" p50 1.38, \"M4A1\" p50 2.5.",
+      "evidence": "\"auto\" 10 px bold, p50 1.06 / p10 1.03; \"M4A1\" 15 px bold, p50 1.64 / p10 1.6; \"/ ∞\" 20 px, p50 1.78 / p10 1.47; \"◆ 1\" 13 px bold, p50 2.19 / p10 1.92; \"30\" 54 px bold (needs 3), p50 2.66 / p10 1.76. At phone width \"30\" is p50 2.83 / p10 1.89. All flagged \"warn (shadow)\"; \"auto\" also fails on size.",
+      "fix": "Put the ammo cluster on a dark plate (about 70% alpha) or strengthen the corner scrim until the worst-case background gives 4.5:1 for the labels and 3:1 for the digits. Raise \"auto\" to 12 px.",
+      "box": [1746, 969, 142, 72]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Health label and value fall below contrast over bright ground",
+      "detail": "The HEALTH label is grey on a lit background and nearly blends in. The large 100 stays legible only through its shadow, so a quick glance in a bright area takes longer than it should. The 10-segment bar underneath is pale on pale too.",
+      "evidence": "\"Health\" 12 px, p50 1.09 / p10 1.03 (declared 9.47); \"100\" 48 px bold (needs 3), p50 2.52 / p10 1.81. On range-hud: \"Health\" p50 2.24 / p10 1.53. At phone width \"100\" reaches p50 14.25 over the sleeve but p10 2.09, so it varies with the scene. All flagged \"warn (shadow)\".",
+      "fix": "Give the health group the same dark plate as the ammo cluster, and add a dark outline to the bar so it holds on pale ground.",
+      "box": [32, 976, 236, 79]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Pre-match countdown banner is low contrast and runs edge to edge",
+      "detail": "The instruction to change loadout appears over open sky in thin 13 px uppercase, for only a few seconds, so a player may miss the one moment it applies. On a phone the 41-character line fills the whole width and leaves 1 px at each side. It also sits inside the upper-centre play area on desktop.",
+      "evidence": "\"Team deathmatch · change your loadout now\" 13 px bold, box [1,220,388,13], p50 1.88 / p10 1.84 (desktop p50 1.91 / p10 1.84), size warn. Countdown digit 46 px bold (needs 3), p50 1.97 / p10 1.8. Both flagged \"warn (shadow)\".",
+      "fix": "Put the banner and digit on a dark plate, shorten the line (\"Change loadout now\"), set it to 14 px or more and keep it inside the safe margins, wrapping to two lines on a phone.",
+      "box": [1, 220, 388, 67]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "NAME label blends into the sky behind it",
+      "detail": "The label above the name field is close to invisible because grey text sits on grey sky outside any plate. The field still works through its placeholder, but the label adds nothing. The phone menu shares the cause: its tagline \"Tactical arena shooter\" and its menu descriptions sit on the scene too.",
+      "evidence": "\"Name\" 12 px, declared 6.19, measured p50 1.56 / p10 1.46, contrast fail. Phone: \"Tactical arena shooter\" 12 px p50 3.73 / p10 1.78 (fail); \"No game server answers this page right now.\" 14 px p50 7.71 / p10 2.86 where the row crosses the yellow bus. The placeholder itself passes: I measured 3.42:1 at 19 px bold.",
+      "fix": "Move the label inside the dark field plate, or extend the top scrim across the right side so the label sits on a dark background. Raise the menu row plates to about 90% alpha on phone.",
+      "box": [1594, 46, 40, 12]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "title": "Menus open with nothing focused while the stripe on Bot Match looks like focus",
+      "detail": "The footer offers arrow keys and Enter, and Bot Match looks selected, but it is not: the real keyboard focus is nowhere. A keyboard player cannot tell where they are until they press a key. Settings and the bot lobby also open unfocused despite the same footer hints, and only pause opens with a clear focused item.",
+      "evidence": "\"focused\": null in main-menu, settings and bot-lobby DOM samples on both viewports; pause has focused RESUME [64,168,440,60]. The Bot Match stripe and teal icon come from .ds-item.primary (menu.ts:41-42), the same left border colour that .ds-item:focus-visible uses (menu.ts:36). Focus is only set on open in gamepad mode (menu.ts:610, classList contains 'pad').",
+      "fix": "Focus a sensible control on every screen open for keyboard too: Bot Match here, the first row in settings, START in the lobby. Use a primary style that differs from focus, and apply the pause treatment (tinted fill, arrow, teal bar) as the single focus style.",
+      "box": [56, 751, 480, 95]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The INTERFACE tab is cut off with no sign the row scrolls",
+      "detail": "New idea: a tab row that does not fit must wrap, shrink or show a scroll cue. The fourth tab is clipped to \"INTERFAC\" at the screen edge, so a phone player can miss a whole settings page or see it as a rendering fault.",
+      "evidence": "settings@phone.dom.json: INTERFACE button [296,79,121,40] ends at x 417 on a 390 px viewport, so 27 px is off screen.",
+      "fix": "Make the four tabs share the width evenly with smaller padding, or wrap to a 2x2 grid, or add a fade with an arrow at the right edge.",
+      "box": [296, 79, 94, 40]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "title": "Sliders, dropdowns and tabs are under the 44 px touch minimum",
+      "detail": "Sliders are hard to grab on a touch screen, and because they sit in a scrolling list a swipe can land on one and change a value. Tabs sit only 2 px apart, so a slip selects the wrong page. The same 20 px slider height also misses the 32 px mouse minimum on desktop, on six sliders.",
+      "evidence": "contrast.md lists 11 small targets on phone: sliders \"Mouse sensitivity\" 261x20, \"ADS sensitivity multiplier\" 261x20; selects 331x38; tabs 117x40, 75x40, 82x40, 121x40. Tab gap: CONTROLS ends at x 133, KEYS starts at x 135. Desktop: six sliders at 270x20 (need 32 tall). Lobby Mode buttons have a 1 px gap on desktop: [1384,491,91,51] and [1476,491,91,51].",
+      "fix": "Under pointer: coarse give sliders a 44 px hit area with a 28 px thumb, and set tabs and selects to min-height 44 px. Widen slider hit areas to 32 px on desktop, and keep at least 8 px between neighbouring targets.",
+      "box": [31, 227, 261, 20]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "Scoreboard labels are 9 to 11 px, below the 12 px floor",
+      "detail": "The BOT tag and the column headers are the smallest text in the game, and they are read during a quick Tab press. The same floor is broken on the pause controls list, the one in-game reference for bindings, whose key caps are 11 px, and by the 11 px key caps in every menu footer.",
+      "evidence": "scoreboard@desktop: 21 size fails. \"BOT\" 9 px bold at [608,327,18,9], [608,360,18,9], [618,393,18,9]; headers \"#\", \"Player\", \"K\", \"D\", \"Ping\" 11 px at y 265, p10 down to 4.1 on the Blue side. Rank \"1\" on the You row, declared 4.78, is p50 4.1 / p10 1.99 (fail). pause@desktop: 21 size fails, 16 warns; \"WASD\", \"Control Left\", \"R\" 11 px bold, action names 13 px. Footers: \"Enter\", \"Esc\", \"↑↓\" 11 px bold.",
+      "fix": "Set the floor at 12 px for tags and headers and 14 px for anything read as content (action names). Set key caps to 12 px bold, and lift the rank number colour on the You row.",
+      "box": [521, 262, 429, 142]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Map card labels sit on the photo with no backing, and picker text is clipped",
+      "detail": "The selected card's mint \"✓ TEAM DEATHMATCH\" line sits on the busy picture and is hard to read, which is the only place the card states the chosen mode. Nearby, labels are cut off: \"TEAM DEATHMATC\" in the Mode control and \"SWITCHYAR\" on the map card, so a player has to guess the ends of the words.",
+      "evidence": "\"✓ Team deathmatch\" 11 px bold, box [1379,232,88,26], declared 9.57, p50 2.23 / p10 1.46, size fail. \"Map\" on the Crash card, 11 px bold, p50 4.88 / p10 3.23, size fail. Mode button [1384,491,91,51] holds \"Team deathmatch\" text box [1390,501,96,31], which is 5 px wider than the button. Screenshot shows \"SWITCHYAR\" clipped by the 161 px card.",
+      "fix": "Extend the card's bottom scrim up behind the label so it reaches 4.5:1, set the label to 12 px, and shorten \"Team deathmatch\" to \"TDM\" or \"Teams\" in the Mode control. Size map names to the longest name, so SWITCHYARD fits.",
+      "box": [1379, 232, 88, 26]
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+{
+  "lens": "rules",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "high",
+      "title": "Phone play shows no touch controls and lists mouse and keyboard keys instead",
+      "detail": "A phone player lands in a match with nothing to press: no move stick, fire, aim, jump or reload button anywhere on screen, in the match or in the Practice Range. The only controls help is the pause panel, and it lists WASD, Left mouse and Shift Left, which a phone does not have.",
+      "evidence": "Captured with isMobile and hasTouch on. match-hud@phone.dom.json and range-hud@phone.dom.json have an empty controls list. pause@phone lists \"WASD\", \"Left mouse\", \"Right mouse\", \"Shift Left\", \"Control Left\". A case-insensitive search for \"touch\" in apps/*/src and packages/*/src finds nothing.",
+      "fix": "Add touch controls on touch devices: a left-thumb move stick, right-side look, and fire, aim, jump, reload and grenade buttons of at least 44 px. Show touch labels in the pause panel. If phones are not supported, say so on the main menu instead of starting a match.",
+      "box": [0, 480, 390, 364]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "high",
+      "title": "The Orange half of the scoreboard is cut off, hiding its kills, deaths and ping",
+      "detail": "On a phone the scoreboard is wider than its panel, so the player can read Blue's numbers but never Orange's K, D or Ping, and the team name reads \"ORANG\". Proposed rule: no content is clipped at a supported viewport; a table reflows or scrolls with a visible cue.",
+      "evidence": "Panel right edge is at x=358 (716 px in the 2x image). Orange headers sit at K x=359 and D x=384, and every Orange 0 at x=360 and x=385, all past the edge. \"▲ Orange\" spans 274 to 372. Orange's Ping column has no text run in the sample. The banner \"Team deathmatch · change your loadout now\" also ghosts through the Blue header and pokes out both sides of the panel at x=1 and x=358.",
+      "fix": "Under 960 px stack the two teams vertically at full panel width, and keep BOT inline beside the name so rows stay one line. Hide the centre banner while the scoreboard is open.",
+      "box": [261, 210, 97, 270]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "high",
+      "title": "Health, weapon and ammo text fade into bright ground",
+      "detail": "On a sunny grass spawn the HEALTH label and the AUTO tag almost disappear, and the health and ammo numbers lose their edge in a fight. The white centre banner on pale sky is also weak. The same HUD on the phone falls to p10 1.04 at the bottom corners.",
+      "evidence": "Measured p50 / p10 against the need of 4.5:1 (3:1 for large): \"Health\" 1.09 / 1.03, \"auto\" 1.06 / 1.03, \"M4A1\" 1.64 / 1.60, \"/ ∞\" 1.78 / 1.47, \"100\" 2.52 / 1.81, \"30\" 2.66 / 1.76, banner 1.91 / 1.84. Declared values of 9.47 to 16.34 are against a dark plate that is not there on this background.",
+      "fix": "Put a real backing plate behind both bottom corners, at least rgb(11 14 19 / 0.6), or strengthen the bottom gradient until these values reach 4.5:1 and 3:1 over grass and sand. Give the centre banner a plate as well, and lift label text to the primary text colour.",
+      "box": [32, 974, 236, 82]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "Health bar and ammo bar run into each other as one line",
+      "detail": "On a phone the two bars overlap, so the bottom of the HUD reads as one long bar with five notches at the left. A player can't tell where health ends, and either bar changing looks like the same bar changing. The match HUD on the phone has the same overlap.",
+      "evidence": "Health bar spans x=32 to 268 and ammo bar x=138 to 358 on a 390 px screen, a 130 px overlap at y=813. On desktop the same bars sit apart at 32 to 268 and 1668 to 1888. hud.ts has no narrow-screen rules.",
+      "fix": "On narrow screens cap each bar to its own half, for example health 32 to 183 and ammo 207 to 358, or move the ammo bar directly under the ammo number.",
+      "box": [32, 812, 326, 6]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "\"Change your loadout now\" gives a seconds-long countdown and no key",
+      "detail": "The player is told to act during a short countdown but not how, so most will miss the window. The Practice Range first spawn is worse: no key hints and no goal line at all, so the Range also fails ONB-02. The prompt is 41 uppercase characters, past the TYP-04 limit of about 30.",
+      "evidence": "\"Team deathmatch · change your loadout now\" with countdown \"2\", box 766,291,388,67, and no key text in the run. range-hud@desktop.dom.json has only HUD values and range stats: no \"WASD\", no \"Fire\", no objective. Keys appear only in the pause panel.",
+      "fix": "Show the key in the prompt, for example [Esc] LOADOUT · 2. On first spawn show a short strip with the core keys. In the Range add one line such as \"Shoot the dummies. Walk the course to the right.\"",
+      "box": [766, 291, 388, 67]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "Score strip sits in the notch zone and the banner touches the screen edges",
+      "detail": "On a notched phone the score strip's numbers and clock fall under the status area, and the centre banner runs edge to edge so rounded corners can eat its first and last letters. Desktop HUD corners are also tight, at 32 px where the rule asks about 58 px.",
+      "evidence": "Score text starts at y=31 and the strip at y=24, against the 47 px top limit. Banner box is x=1, w=388 on a 390 px screen. Desktop: \"100\" x=32, \"/ ∞\" ends at 1888, score text y=31, against 3% of width = 58 px.",
+      "fix": "Offset the strip by max(47px, env(safe-area-inset-top)), let the banner wrap inside 16 px side margins, and move desktop HUD corners to about 58 px from the edge.",
+      "box": [39, 24, 312, 59]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Map and mode names are cut off in their own buttons",
+      "detail": "The player picks from \"SWITCHYAR\" and \"TEAM DEATHMATC\", which reads as a bug on the screen that sets up the match. The phone settings tabs do the same with \"INTERFAC\". Proposed rule: labels fit their control at every supported viewport. Related: the selected map's \"✓ TEAM DEATHMATCH\" eyebrow is 11 px on the photo at p50 2.23 / p10 1.46.",
+      "evidence": "\"Switchyard\" box runs 1548 to 1709 in a card ending at 1694. \"Team deathmatch\" runs 1390 to 1486 in a button ending at 1475. On settings@phone the \"Interface\" text runs 314 to 399 on a 390 px screen.",
+      "fix": "Drop map names to about 22 px or let them wrap to two lines. Give the mode row more room, for example three columns on two rows. Make the phone tabs a scroller with a fade, or fit four equal tabs by reducing letter spacing.",
+      "box": [1384, 288, 325, 244]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "No menu row stands out, and the dead Play Online row is on top at full strength",
+      "detail": "A new player sees four near-identical dark rows and has to read them. The first and largest one is Play Online, which is offline and leads nowhere useful. The settings screen also has no dominant control.",
+      "evidence": "Rows share 480 px width, the same 28 px bold title and the same fill. Bot Match differs only by a thin mint bar and mint icon. Play Online is 100 px tall, the tallest row, with disabled=false while showing \"No game server answers this page right now\" and \"OFFLINE\". Page focus is null.",
+      "fix": "Give the recommended action a filled mint row, as START has in the lobby. While offline, dim Play Online and move it below Bot Match and Practice Range, or mark it disabled.",
+      "box": [56, 644, 480, 202]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "title": "Sliders, tabs and dropdowns are under the 44 px touch size",
+      "detail": "Thin sliders are fiddly with a thumb, and scrolling the page can change sensitivity by accident. Tabs sit almost touching, so a thumb can open the wrong one. On desktop the sliders are also below 32 px and the lobby mode buttons sit 1 px apart.",
+      "evidence": "Sliders 261x20, tabs 117x40, 75x40, 82x40, 121x40 with 2 px gaps, selects 331x38. Desktop sliders 270x20. Lobby mode buttons run 1384 to 1475 then 1476, a 1 px gap against the 8 px rule.",
+      "fix": "Raise tabs and selects to 44 px with 8 px gaps. Give sliders a 44 px hit area and a thumb of at least 28 px, keeping the visible track thin.",
+      "box": [16, 79, 374, 40]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "HUD and scoreboard labels fall below the 12 px floor",
+      "detail": "The team names and the \"TDM · 75\" goal under the score are tiny and low contrast, so the player can't confirm their team or the target at a glance, and \"TDM\" is never explained (ONB-03). Sizes also crowd each other, with six steps 1 px apart between 10 and 15 px in the lobby (TYP-02).",
+      "evidence": "\"◆ Blue · you\", \"TDM · 75\", \"▲ Orange\" are 11 px at p50 2.68, 3.44, 3.34. \"auto\" is 10 px. Scoreboard headers # Player K D Ping are 11 px and BOT tags 9 px. Range stat labels are 11 px, lobby YOU tag 10 px, key caps 11 px. Lobby sizes: 10, 11, 12, 13, 14, 15, 18, 19, 24, 26, 46.",
+      "fix": "Raise all of these to at least 12 px uppercase and 14 px where they are read in play, spell out \"First to 75\", and collapse the 10 to 15 px range to two steps, 12 and 14 or 15.",
+      "box": [819, 62, 282, 13]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "Range stats panel covers a large part of the view, most of it an empty box",
+      "detail": "On a phone the stats panel takes over half the width just above the health readout, hiding the lane and the hands, and most of it is a blank dark rectangle. It looks unfinished until a shot is fired. On desktop it sits 9 px above HEALTH, so the two blocks crowd each other.",
+      "evidence": "Panel is about 206x248 at x=24, y=484, which is 53% of the width. Its four stat rows end at y=561, leaving an empty inner box for the lower 190 px. TTK, Shots / hits and Last hit all read \"–\". Labels are 11 px with p10 down to 4.26.",
+      "fix": "Collapse the panel to the four stat rows until there is data for the lower box, and on phones show a single line of stats or tuck it behind a tap.",
+      "box": [24, 484, 206, 248]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "low",
+      "title": "Clock and ammo digits are proportional, so they shift as they count",
+      "detail": "The match clock and magazine count change width with each digit, so the numbers jitter in the player's side vision. The scoreboard columns and lobby seat numbers show the same uneven widths.",
+      "evidence": "Every text run in every DOM sample reports tabular=false, though theme.ts sets tabular-nums on .ds-ui. Rendered widths differ: at 15 px \"1\" is 5 px wide and \"0\" is 8 px. Lobby seat \"11\" is 8 px wide and \"08\" is 13 px.",
+      "fix": "Bahnschrift's digits are not rendering tabular here, so use a font with a working tnum feature for numbers, or set each digit in a fixed-width cell for the clock, score and ammo.",
+      "box": [944, 35, 49, 22]
+    }
+  ],
+  "coverage": {
+    "HUD-01": "pass",
+    "HUD-02": "fail",
+    "HUD-03": "fail",
+    "HUD-04": "fail",
+    "HUD-05": "n/a",
+    "MENU-01": "fail",
+    "MENU-02": "pass",
+    "MENU-03": "fail",
+    "MENU-04": "pass",
+    "TYP-01": "fail",
+    "TYP-02": "fail",
+    "TYP-03": "fail",
+    "TYP-04": "fail",
+    "COL-01": "fail",
+    "COL-02": "pass",
+    "COL-03": "pass",
+    "FB-01": "n/a",
+    "FB-02": "n/a",
+    "FB-03": "n/a",
+    "ONB-01": "fail",
+    "ONB-02": "fail",
+    "ONB-03": "fail"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "lens": "first-time",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The first-spawn hint on a phone is printed on top of the announcer line, at 13 px",
+      "detail": "The one line that teaches a phone player to move and look shares its slot with the announcer's caption, so the announcer's words show through between the hint's words at the moment a new player is reading it. Both are at the small size, under the 14 px phone minimum. The same collision is in score-lines@phone and range-hud@phone whenever a caption or toast is up, and scoreboard@phone shows the caption half under the board.",
+      "evidence": "Hint text 'Move with your left thumb. Drag the right side to look' box [287,290,309,13] at 13 px; caption 'Announcer' [284,294,63,13] and 'Team deathmatch. The range is hot.' [357,294,205,13] at 13 px: same rows, 4 px apart. On desktop the two stand on separate rows (y 877 and y 923) and the hint is 16 px. touch-layout.ts gives .ds-toast, .ds-hintline and .ds-caption the same bottom offset and --ds-type-small.",
+      "fix": "On touch, stack the two instead of sharing one slot: hint line at the bottom offset, caption and toast one row above it (or hold captions while a hint is up). Set both to 14 px or more on a phone.",
+      "box": [237, 278, 371, 38]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "Eleven glyph-only touch buttons, and the hints never name Fire, Jump, Melee or Ping",
+      "detail": "A phone player's first spawn shows eleven round buttons with no words. The first-match hints cover the stick, aim, sprint, reload, swap, grenade, loadout and scores, so Fire, Jump, Melee and Ping are never introduced, and nothing says the gun fires by itself when the crosshair rests on an enemy (Auto-fire is on by default). Jump and Crouch are the same chevron-over-a-bar pointing up or down, Ping is a map pin that reads as 'map', and Scores is a three-line glyph beside Pause that reads as a menu.",
+      "evidence": "Controls in the DOM sample: Fire 76x76, Aim 60x60, Jump, Crouch 52x52, Reload, Swap weapon, Grenade, Melee 48x48, Pause, Scoreboard, Ping 44x44; no text run belongs to any of them. HINT_IDS in hints.ts: move, aim, sprint, reload, swap, grenade, loadout, scoreboard. settings-touch: 'Auto-fire (fires when the crosshair rests on an enemy)' ON.",
+      "fix": "Add a touch 'fire' hint right after 'move' (fire glyph + 'Rest the crosshair on an enemy and the gun fires. This button fires by hand') and one each for Jump and Ping the first time they matter. Give Jump and Crouch distinct glyphs (a standing and a crouched figure), and show a small word under each button until its hint is learned.",
+      "box": [612, 174, 216, 204]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The Controls legend that names the touch buttons starts under the fold of the phone's pause menu",
+      "detail": "Pause is the one place that lists every touch glyph with its name, but on a phone the four destinations take the whole screen and the legend's heading is sliced by the bottom edge. A player who pauses to find out what a button does sees Resume, Loadout, Settings and Leave and nothing that says there is a list to scroll to. On desktop the same legend stands in full at the right.",
+      "evidence": "'Controls' heading box [36,387,115,22] in a 390 px tall viewport: 3 px of it are on screen (contrast.md: p10 1.0, warn). The four buttons are 812 px wide rows ending at y 345 while their labels are at most 140 px wide, so the right 600 px of the screen is empty.",
+      "fix": "On a phone in landscape, set the Controls legend in the empty right two thirds beside the destination list (as on desktop) so it shows without scrolling.",
+      "box": [16, 369, 560, 21]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The 'USE LOADOUT' prompt looks like a button and reads as an order, but the control is elsewhere",
+      "detail": "During the countdown a boxed line in tracked capitals, the system's button style, says 'USE LOADOUT' under the crosshair. A phone player taps it and nothing happens: the control is the round USE button 110 px to the right. On desktop the same plate reads 'F LOADOUT' with the F set as plain text, not as a keycap like WASD in the hint line, and neither version says what a loadout is.",
+      "evidence": "Prompt is one text run 'Use Loadout', 16 px uppercase, class ds-prompt ds-plate, box [359,233,126,16]; it is not in the controls list. The USE control is at [608,194,60,60]. countdown@desktop: 'F Loadout' one run at [910,677,101,16], no ds-kbd element, while the hint line's 'WASD' is a separate 13 px bold cap.",
+      "fix": "Build the prompt like the hint line: the key as a keycap (or the USE glyph in its ring on touch) followed by sentence-case words that say what happens, 'Change your weapons'. On touch make the plate itself tappable.",
+      "box": [347, 226, 150, 31]
+    },
+    {
+      "screen": "loadout",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "Nine invented weapon names with one word each, and the Weapon card beside them is empty",
+      "detail": "A new player choosing a gun sees 'Wasp 9 auto', 'Bulwark 5.56 auto', 'M4A1 auto' and cannot tell a submachine gun from a machine gun or a rifle. The 'Weapon' column that should describe the equipped gun is a heading with nothing under it when the screen opens. On the phone shots no description is in view either.",
+      "evidence": "DOM sample: each tile is a 16 px name plus a 13 px fire-mode word (auto, pump, scoped, semi, burst). The right column holds only the h2 'Weapon' at [1444,147,94,22]; no role, name or bars follow, with M4A1 equipped and Done focused.",
+      "fix": "Fill the card with the equipped primary as soon as the screen opens (role sentence and bars), and replace the fire-mode word on each tile with the weapon's class and mode ('SMG · auto', 'Shotgun · pump', 'Sniper · scoped').",
+      "box": [1444, 147, 420, 120]
+    },
+    {
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "'Passphrase' is asked for with no word on what it is or whether it is needed",
+      "detail": "Play Online shows two empty fields, Name and Passphrase, with no placeholder or help line. A first-time player does not know which passphrase is meant, where to get it, or whether the field can stay empty. Same on online@phone-upright; on online@phone the field is under the fold.",
+      "evidence": "Label 'Passphrase' 13 px at [1462,302,69,13]; input [1462,326,384,46] with an empty label and no placeholder; no other text in the 'Your details' panel.",
+      "fix": "Add one line under the field: 'Only if the host set one. Leave it empty otherwise', or hide the field until the server reports that it wants a passphrase.",
+      "box": [1462, 302, 384, 70]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "On a phone held sideways the first screen shows only the two places that need the server",
+      "detail": "The name field and Rank line take the top half, so only Play Online and Battle Royale fit. Bot Match, the lit row and the one that works here, is cut at its title, and Practice Range and Settings are off screen with only a thin scrollbar to say so. A first-time phone player reads 'No game server answers this page' and sees no other way to play.",
+      "evidence": "Rank/Profile button ends at y 183 of 390; destinations start at y 201. Play Online [108,201,720,74], Battle Royale [108,275,720,74], Bot Match [108,349,720,74]: 41 of its 74 px are on screen, its readout line is not. Practice Range and Settings are absent from the visible DOM sample.",
+      "fix": "In landscape under 520 px tall, put the name field and Rank on the title's row at the right (as on desktop) so the list starts near y 60, and tighten the rows so all four destinations show.",
+      "box": [108, 349, 720, 41]
+    },
+    {
+      "screen": "royale",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "With the server down, Battle Royale offers only 'Check again' and never points at Local bots",
+      "detail": "The status line says to try again in a minute and the primary button is Check again, yet 'Local bots' plays the whole mode offline. On a phone held sideways the 'Play on' switch is under the fold, below Name, Your Squad and Squads. On royale@desktop the switch is in view but the line beside it still only says to wait, where Play Online's own message names Bot Match as the way to play meanwhile.",
+      "evidence": "Visible texts in royale@phone: 'The game server isn't answering. It may be restarting: try again in a minute.' [35,80,538,16], Name, Your Squad, footer Back and 'Check again'. 'Play on' appears at y 586 in royale@phone-upright and at [56,149] on desktop, where LOCAL BOTS [317,174,259,48] is enabled.",
+      "fix": "When the server does not answer, end the status line with 'Local bots plays now, offline' and make the primary action 'Play with local bots', with Check again beside it. Put 'Play on' first in the phone's order.",
+      "box": [16, 74, 560, 28]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "The range panel leads with 'TTK' over an empty black box, and sits on the Health label",
+      "detail": "The Practice Range is where a new player goes first, and its one panel opens with an unexplained abbreviation, four dashes and a blank dark rectangle. Its bottom edge also covers the top of the 'Health' label. The setting that hides it is called 'Range overlay' in Settings, with no description either.",
+      "evidence": "'TTK' 13 px at [68,733,22,13], values '–' except Distance 25.0 m; an empty 180x150 canvas fills [68,808,180,150]; the plate runs to about y 967 while 'Health' is at [56,964,39,13] and reads clipped in the screenshot. settings-hud@desktop: 'Range overlay' [76,343,101,16] has no sub-line, unlike 'HUD size'.",
+      "fix": "Spell it 'Time to kill', caption the canvas 'Recoil: fire to draw it' or hide it until the first shot, and lift the panel 16 px so it clears the Health label. Give 'Range overlay' a one-line description in Settings.",
+      "box": [56, 722, 204, 246]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "low",
+      "title": "After the countdown the match's goal survives only as 'TDM · 75'",
+      "detail": "The goal line 'First team to 75 kills, or ahead when the clock runs out' is up for the three seconds of the countdown. A player who missed it finds only the code 'TDM · 75' under the clock, and neither the scoreboard nor the pause screen says what wins. Same on the phone.",
+      "evidence": "'TDM · 75' 13 px at [939,60,48,13]. scoreboard@desktop texts: 'Team deathmatch', '8 players', team names and columns, no goal. pause@desktop: destinations and the Controls legend only.",
+      "fix": "Put the goal line in the scoreboard's header beside the mode name ('First team to 75 kills · 10 min'), and write the bar's label as 'First to 75'.",
+      "box": [917, 24, 94, 57]
+    },
+    {
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "The challenge 'Capture 4 zones' does not say where zones are",
+      "detail": "No mode on the Bot Match screen is called zones: they belong to Outposts. A new player reading today's challenges cannot tell which mode to pick to earn this one. Same on the phone Profile.",
+      "evidence": "'Capture 4 zones' 16 px at [73,739,117,16], '+800 XP'. Mode names in bot-lobby: Team deathmatch, Free-for-all, Outposts, Charge, Gun game. GLOSSARY.md: Zone is Outposts' term.",
+      "fix": "Name the mode in the challenge: 'Capture 4 zones in Outposts'.",
+      "box": [73, 739, 117, 16]
+    }
+  ]
+}

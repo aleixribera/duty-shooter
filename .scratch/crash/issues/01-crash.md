@@ -1,6 +1,6 @@
 # Crash map
 
-Status: claimed
+Status: wontfix
 
 Recreate the Call of Duty 4 map Crash in Blender and add it as a playable game map. Include the downed helicopter, multistorey buildings, routes, match spawns, objectives and bot navigation.
 
@@ -129,3 +129,5 @@ Added a tall, leafy tree behind the crash site, guided by https://ensigame.com/s
 Added the separate low rooftop beside the shop, following the overhead at https://u4ealounge.com/images/COD4Overviews/Crash.jpg and the sandbags and exterior ladder described at https://www.gtplanet.net/forum/threads/cod4-map-insight-crash.101471/. The building's exact footprint and construction are approximations. Blender-modeled sandbags supply cover; the exterior ladder can be climbed and descended by players. Added bot navigation links for ladders only after testing each direction against movement collision; bots now climb and descend the new roof in a simulation, and a blocked ladder is excluded. A muted browser climb reached the roof, and the rebuilt Blender level's sandbags were checked. The full suite passed 913 tests with 8 skipped; typecheck and production build also pass. Further layout and visual comparison remain.
 
 Turned the arcade approximately 15 degrees across the south side of the plaza, matching the diagonal shown on https://u4ealounge.com/images/COD4Overviews/Crash.jpg. Rotated its collision and decorative trim together, and moved its bot hints with it. A muted overhead and ground-level view, a browser walk through the arcade, both directions through its side entrance, model/layout checks, all five bot-mode soaks, headless checks, typecheck and production build pass. Rebuilt the Blender level and verified the positions and rotations of all 39 arcade pieces. The footprint and surrounding routes remain approximations.
+
+**Owner, 2026-11-10.** Retired, not finished: this ticket set out to recreate another game's map, and the game keeps only places of its own. Crash was removed in v2.156.0 (next-level ticket 31); next-level ticket 32 builds an original fourth map in its place.

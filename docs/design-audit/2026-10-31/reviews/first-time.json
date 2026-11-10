@@ -1,0 +1,137 @@
+{
+  "lens": "first-time",
+  "findings": [
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "ONB-01",
+      "severity": "high",
+      "title": "A phone player gets into the game and has no way to move, aim or fire",
+      "detail": "Past the menus, a touch player sees the HUD and nothing to press: no stick, no fire button, no reload, nothing to open the pause menu or scoreboard. The same applies on match-hud@phone. If they do reach the pause screen, its Controls panel teaches WASD, Left mouse and Shift Left, and Settings opens on Mouse, so the only help describes hardware they don't have.",
+      "evidence": "range-hud@phone and match-hud@phone: controls [] in the .dom.json, though the capture ran with hasTouch and isMobile. packages/fps-client/src/input.ts listens only for keydown, mousedown, mousemove, wheel and pointer lock (plus gamepad); there are no touch handlers anywhere in the client. pause@phone quotes \"WASD\", \"Left mouse\", \"Right mouse\", \"Control Left\", \"Rebind in Settings\", and the list runs off the bottom at Tab (y 834).",
+      "fix": "Add touch controls: a left move stick, right-side drag to look, and fire, aim, reload, jump, pause and scoreboard buttons, with the pause Controls panel showing those on touch devices. Until they exist, tell phone players on the main menu that the game needs a keyboard and mouse or a controller, before they enter a match.",
+      "box": [0, 500, 390, 344]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "ONB-02",
+      "severity": "high",
+      "title": "On phone the map, mode and goal sit below twelve seat rows, so Start gets pressed blind",
+      "detail": "The first view is a long list of bots with a big START pinned at the bottom. Nothing says a map or mode can be chosen, and the three header chips that name them look like buttons but are not. The only sentence explaining how to win is below the fold, so a new player starts without ever reading it.",
+      "evidence": "bot-lobby@phone.dom.json has no text run for Match, map cards, Mode or the blurb, and only 4 controls: BACK, LOADOUT, SETTINGS, START. Seats fill y 236-820 and are cut off by the footer at y 706 (\"Open seat\" 12 at y 802 measures 1.99:1). Chips \"Team deathmatch\", \"Survival Town\", \"You + 7 bots\" are not in controls.",
+      "fix": "On phone, put the Match section (map cards, mode, blurb) above Players, and collapse the seats to one summary line such as \"You + 7 bots\". Alternatively make the chips real buttons that jump to the picker.",
+      "box": [16, 236, 358, 468]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "high",
+      "title": "First spawn shows no controls and no task",
+      "detail": "A new player lands facing a dummy with a gun in hand and nothing telling them which keys do what, what to do here, or how to leave. Move, aim and fire are guessable for FPS players; aim down sights, grenade, prone, mantle and the Esc menu are not. The controls list exists but only appears if they think to press Esc, and nothing on screen mentions Esc. match-hud has the same gap.",
+      "evidence": "The range-hud@desktop DOM has 15 text runs and every one is a stat or ammo value: none is a key name, a verb or an exit hint. The only instruction in the scene is world signs reading \"25 m\", \"50 m\", \"SPRINT\", \"WALK\". The client has no first-run prompt text: no \"press\" or \"click to\" string in hud/ or the in-play code.",
+      "fix": "On first spawn, show a dismissable strip along the bottom edge: \"WASD move · Mouse aim · Left click fire · Right click aim · R reload · Esc menu\", plus a one-line task such as \"Shoot the dummies, then walk the lanes\". Fade it after the player has moved and fired.",
+      "box": [840, 530, 240, 70]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Four equal rows, with the top one broken and \"Offline\" meaning two opposite things",
+      "detail": "The eye goes first to Play Online, but it carries a red dot and a sentence that sounds like a fault. Bot Match and Practice Range also say \"Offline\", so they read as affected by the same problem when they are actually fine. The hint that Bot Match is the pick is only a thin bar and a tinted icon, so the player hesitates, and nothing says which option suits a beginner. Same on main-menu@phone.",
+      "evidence": "Row widths are all 480 px with the same 28 px titles. \"OFFLINE\" with a red dot on Play Online, against \"Any map, any mode. Offline.\" and \"Lanes, dummies and the movement course. Offline.\" Quoted status: \"No game server answers this page right now.\" Play Online stays enabled (disabled: false) and opens a second screen that says the server is not answering and points back to Bot Match and the Practice Range.",
+      "fix": "When no server answers, drop Play Online below the others, dim it and reword it to \"Servers are down, try again later\". Replace \"Offline\" on the other rows with \"Solo\" or \"No connection needed\". Give the recommended row a filled accent so it wins the squint test.",
+      "box": [56, 644, 480, 284]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "medium",
+      "title": "The opening prompt orders \"change your loadout now\" without saying how or what that is",
+      "detail": "The first words of the match are a command with a running countdown, using a term never explained, and no key to act on it. A new player either panics looking for the button or ignores it, and the countdown doesn't say what happens at zero. It appears only as thin text over a bright sky. On phone the line runs the full width of the screen.",
+      "evidence": "\"Team deathmatch · change your loadout now\" at 13 px over the scene measures 1.84:1 at p10 (box 766,291,388,13). No key is shown; in this mode Use doesn't open the screen while alive, so the real path is Esc, then Loadout. On phone the box is [1,220,388,13], 1 px from each edge.",
+      "fix": "Replace the line with a state plus a real action: \"Match starts in 2 · Esc to change weapons\". Use a plain word such as \"weapons\" on first contact, and put the line on a backing plate.",
+      "box": [766, 291, 388, 67]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "title": "Once in the match, the win condition is only the code \"TDM · 75\"",
+      "detail": "The goal is stated once, in the lobby. After Start, a new player has to decode \"TDM · 75\" under the timer, and nothing says 75 of what. The scoreboard and the pause screen don't repeat it either, so someone unsure of the goal has nowhere to look.",
+      "evidence": "\"TDM · 75\" is 11 px and measures 3.13:1 at p10, below 4.5:1 (box 941,62,55,11). scoreboard@desktop's title reads only \"Team deathmatch\" and \"8 players\"; pause@desktop shows \"Match / Paused\" and no objective. The full sentence \"First team to 75 kills wins, or the team ahead after 10 minutes\" exists only in the lobby.",
+      "fix": "Change the label to \"First to 75 kills\". Show the full goal line for a few seconds at match start, and keep it under the scoreboard title and on the pause screen.",
+      "box": [941, 62, 55, 11]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "\"Outposts\", \"Charge\" and \"Gun game\" can't be understood without selecting each one",
+      "detail": "The five modes are bare labels, so a new player can't compare them without clicking each and reading a line that changes above the buttons. That line sits under the map cards and reads like a map description. The default mode's own label is cut off, and its name is also printed on the selected map card where the other cards say \"Map\", which blurs which control is the map and which is the mode.",
+      "evidence": "Mode buttons are 91 px wide with one-word labels and no subtitle; a single blurb sits above them at [1364,395,488,33]. The label \"Team deathmatch\" is 96 px wide in a 91 px button and renders as \"TEAM DEATHMATC\". The card tag \"✓ Team deathmatch\" measures 1.46:1 at p10, beside \"Map\" on the other two cards.",
+      "fix": "Move the blurb directly below the mode row, and on hover or focus show that mode's goal before it is selected. Give each mode a two-to-four-word subtitle such as \"Hold the zones\" or \"Plant the charge\". Replace the card tag with a plain selected state.",
+      "box": [1384, 491, 460, 51]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Open seats look fillable but nothing can be done with them",
+      "detail": "New idea: a slot that looks actionable must be actionable. Dashed empty rows invite a click to add a bot or a friend, but they are inert, offline has no bot-count option, and the 12 numbered rows contradict the \"4v4\" in the note. The same note ends with \"The match pauses with the game.\", which a new player can't parse. The list is also the largest thing on the screen although nothing in it can be changed.",
+      "evidence": "Seats 09-12 at [700,291,624,194] are not in the controls list. The note reads \"Bots fill the match to 4v4.\" \"You + 7 bots\" or \"7 bots\" appears 3 times, plus \"You\" and a \"YOU\" tag on the same row. packages/fps-client/src/ui/lobby.ts hides the Bots switch when offline.",
+      "fix": "In a Bot Match, show the seats as a compact \"4 v 4\" team layout with no empty rows, and leave Open seat to the online lobby. Reword the note to \"Bots fill both teams to 4 players each. Pausing stops the match.\"",
+      "box": [700, 291, 624, 194]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "The range stats panel opens with unexplained jargon and an empty black box",
+      "detail": "The only panel on screen starts with \"TTK\", which a newcomer won't know, shows dashes, and has a large blank area below that looks like something failed to load. It reads as debug output, not as feedback on their shooting. On phone it covers about a third of the view, between the dummy and the HUD.",
+      "evidence": "Panel [24,721,206,247] holds 4 rows at 11 px; three values are \"–\". The empty well fills the lower 160 px or so. On phone it spans roughly [24,484,206,248]. No tooltip or description for \"TTK\" or \"Last hit\" is visible.",
+      "fix": "Write \"Time to kill\" in full, hide the panel until the first shot, and collapse the empty well until it has content. Add a one-line empty state: \"Shoot a dummy to see your stats\".",
+      "box": [24, 721, 206, 247]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "A lifelike figure stands in the yard and nothing says if it is friend, foe or scenery",
+      "detail": "New idea: the first human shape a player sees should be readable as a target or not. The figure at the fence is a Survival Town mannequin, but it is player-sized, wearing a red shirt in neither team colour, and nothing marks it, so a first-timer aims at it and gets nothing. Teammates get a nameplate and enemies get none, and no screen explains that \"no plate\" means enemy.",
+      "evidence": "Figure at about [1655,505,80,300] in match-hud@desktop, with no marker and clothes that are neither blue nor orange. apps/range/src/map/survival-town.ts builds mannequins in the houses' colours; players-view.ts draws nameplates for teammates only.",
+      "fix": "Make the mannequins read as props: a stand, a pole or a plastic-grey finish. State the friend-or-foe rule at match start: \"A name over someone's head means your team. Shoot the rest.\"",
+      "box": [1655, 505, 80, 300]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "COL-03",
+      "severity": "low",
+      "title": "\"◆ 1\" is unlabelled and uses the same mark as the Blue team",
+      "detail": "Beside the ammo count sits a small boxed diamond with a number. Nothing says it is grenades or which key throws them, and a new player who has just seen \"◆ Blue · you\" on the score bar may read it as a team or score value.",
+      "evidence": "Text \"◆ 1\" at 13 px, [1746,1010,22,13], 2.72:1 at p10. In match-hud the same glyph is on \"◆ Blue · you\" and on the scoreboard's Blue header. In Charge it also marks the carrier of the charge (hud.ts).",
+      "fix": "Replace ◆ with a grenade icon and pair it with the bound key, for example \"G 1\", so it no longer shares a mark with the Blue team.",
+      "box": [1737, 1005, 40, 23]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "The scoreboard cuts off Orange's stats and leaves K, D and Ping unexplained",
+      "detail": "On phone the Orange table runs past the panel edge, so its K and D columns sit over the game and Ping is gone. At any width the headers are bare abbreviations, and every player shows rank 1, so the # column tells a newcomer nothing at match start.",
+      "evidence": "Panel right edge is about x 358; Orange's \"K\" is at [359,265,9,11] and \"D\" at [384,265,9,11], measuring 1.47:1 at p10. \"▲ Orange\" [274,223,98,17] is cut to \"ORANG\". No Ping header on the Orange side. Headers are 11 px on both viewports. Every row in the # column reads \"1\".",
+      "fix": "On phone, stack the two teams vertically so both fit. Write the headers as \"Kills\" and \"Deaths\", and hide Ping when every value is \"–\", as it is offline.",
+      "box": [261, 210, 130, 280]
+    }
+  ]
+}

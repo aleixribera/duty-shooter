@@ -1,0 +1,115 @@
+{
+  "lens": "accessibility",
+  "findings": [
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "high",
+      "title": "Health and ammo readouts wash out over bright grass and sky",
+      "detail": "The bottom-corner HUD has only a faint text shadow and no plate, so over the light-green lawn of Survival Town the HEALTH and AUTO labels effectively disappear and the big 100 / 30 numbers lose their edge. A player checking ammo or health mid-fight has to look twice. The same thing happens on the scoreboard shot (identical numbers) and in the practice range over the sand floor (Health 2.27:1, 100 at p10 2.82:1).",
+      "evidence": "contrast.json match-hud@desktop, real pixels: 'Health' 12px p50 1.09 / p10 1.03 (needs 4.5); 'auto' 10px bold p50 1.06; 'M4A1' 15px bold p50 1.64; '/ ∞' 20px p50 1.78; '100' 48px bold p50 2.52 / p10 1.81 and '30' 54px bold p50 2.66 / p10 1.76 (need 3:1). Zoomed crop confirms grey #B4BAC5 'HEALTH' over pale green is barely visible. Ammo cluster box [1746,969,142,72].",
+      "fix": "Put a soft dark gradient scrim behind both bottom corners (e.g. a linear-gradient from rgba(8,10,14,0.55) at the bottom edge to transparent, ~140 px tall), add a 1-2 px dark outline or a tighter, stronger text-shadow (0 0 3px rgba(0,0,0,0.8)) to all HUD text, and raise the secondary labels from #B4BAC5 to near-white. Re-measure until labels reach 4.5:1 and the numbers 3:1 at p10 on this shot.",
+      "box": [28, 972, 84, 72]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "Score-bar team labels and the match goal are 11 px grey on a see-through plate",
+      "detail": "The only on-screen statement of the goal ('TDM · 75') and of which team is yours ('Blue · you') is tiny grey text on a translucent plate that lets the sky lighten it, so it reads as a smudge at normal viewing distance. The blue team score digit is also only just at the large-text limit. Same on the scoreboard shot and both phone shots.",
+      "evidence": "contrast.json: '◆ Blue · you' 11px p50 2.68 / p10 1.82, 'TDM · 75' 11px p50 3.44 / p10 3.13, '▲ Orange' 11px p50 3.34 (need 4.5; declared 6.19 assumes an opaque plate). Sampled the plate itself beside the text at rgb(71,74,83) and rgb(58,63,72): 2.8-3.6:1 against the #8E96A3 text, so this is not the ring catching a border. Blue score '0' (#3D8BFF) 30px bold p50 3.09 / p10 2.48.",
+      "fix": "Make the score-bar plate opaque (or at least 0.9 alpha), set the labels to 12-13 px and #C9CED8 or lighter, and lighten the blue team colour (e.g. #6FA8FF) so it clears 4.5:1 on the plate.",
+      "box": [819, 60, 282, 17]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "BOT tags at 9 px and table headers at 11 px are below the minimum size",
+      "detail": "Telling bots from humans and finding the K / D columns relies on labels smaller than anything else in the game, which at couch or arm's-length distance turn into grey specks. The same sub-12 px pattern repeats elsewhere: the 'AUTO' fire-mode tag is 10 px bold on every HUD shot, the 'YOU' badge in the bot lobby is 10 px bold, and the practice-range stats labels (TTK, DISTANCE, SHOTS / HITS, LAST HIT) are 11 px.",
+      "evidence": "scoreboard@desktop.dom.json: 'BOT' tags 9px bold #8E96A3, e.g. box [608,327,18,9]; headers '#', 'Player', 'K', 'D', 'Ping' 11px regular at y=265. contrast.md lists 21 size fails on this shot. Also 'auto' [1852,973,30,10] 10px, bot-lobby 'YOU' [635,208,22,10] 10px, range-hud 'TTK' [37,733,24,11] 11px.",
+      "fix": "Set a floor of 12 px for uppercase tags (BOT, AUTO, YOU) and 13-14 px for column headers and stat labels; give the BOT tag a lighter colour (#B4BAC5) since it no longer needs to be tiny to look secondary.",
+      "box": [522, 262, 420, 142]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "title": "Settings opens with no visibly focused row although the footer offers keyboard navigation",
+      "detail": "The footer advertises '↑↓ MOVE  ←→ ADJUST  ESC BACK', but no row, slider or tab is highlighted when the screen opens, so a keyboard or gamepad player does not know which setting the arrows will change. The bot lobby has the same gap: nothing is marked as focused (the teal 'You' row is identity, the filled START is the primary button), while its footer offers '↑↓ MOVE  ENTER SELECT'.",
+      "evidence": "settings@desktop.dom.json and settings@phone.dom.json: \"focused\": null; screenshot shows all ten rows in the same #12151B style, only the CONTROLS tab underlined (active tab, not focus). bot-lobby@desktop.dom.json: \"focused\": null. By contrast pause@desktop shows a clear focused RESUME (teal bar, tinted fill, arrow).",
+      "fix": "On open, focus the first row (Mouse sensitivity) and draw the same focus treatment the pause menu uses (teal left bar plus tinted row fill), visible for both keyboard and gamepad; in the lobby, focus START or the first player slot.",
+      "box": [56, 165, 920, 615]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Orange team columns are cut off on a phone, so their kills and deaths cannot be read",
+      "detail": "New idea: tables and panels must reflow (stack the two teams) rather than overflow the viewport. At 390 px the two team tables stay side by side; the Orange header is clipped to 'ORANG' and its K, D and Ping columns fall outside the panel, so the enemy team's score lines are simply missing.",
+      "evidence": "scoreboard@phone.dom.json: Orange 'K' at [359,265,9,11], 'D' at [384,265,9,11] and the K/D '0' values at x=360 and x=385, past the panel edge at about x=357; '▲ Orange' header [274,223,98,17] runs to x=372. contrast.json measures those cells at p50 1.47 because they sit over the sky; the screenshot shows nothing there.",
+      "fix": "Below ~700 px width, stack the Blue and Orange tables vertically at full panel width (or drop the Ping column) so every column fits inside the panel.",
+      "box": [262, 210, 128, 265]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The INTERFACE settings tab runs off the right edge of the phone screen",
+      "detail": "New idea: a tab row that does not fit must wrap, shrink or show a scroll cue. The fourth tab is cut to 'INTERFAC' at the screen edge with no arrow or fade hinting at more, so a phone player may never find the interface options.",
+      "evidence": "settings@phone.dom.json: 'INTERFACE' button box [296,79,121,40] ends at x=417 on a 390 px viewport; screenshot shows 'INTERFAC' clipped at the right edge.",
+      "fix": "On narrow screens let the tabs share the width (flex: 1, smaller letter-spacing) or wrap to two rows; if the row must scroll, add an edge fade and chevron.",
+      "box": [296, 79, 94, 40]
+    },
+    {
+      "screen": "settings",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "title": "Sliders, dropdowns and tabs are under the 44 px touch-target minimum on phone",
+      "detail": "On a touchscreen the sensitivity sliders are thin strips that are easy to miss or drag by accident. On desktop the same sliders are 20 px tall, below the ~32 px mouse guideline.",
+      "evidence": "contrast.md small targets, settings@phone: sliders 'Mouse sensitivity' 261x20, 'ADS sensitivity multiplier' 261x20, stick sliders 261x20; selects 331x38; tabs CONTROLS 117x40, KEYS 75x40, VIDEO 82x40, INTERFACE 121x40. settings@desktop: six sliders 270x20.",
+      "fix": "Give range inputs a 44 px tall hit area (padding around the track, with a larger 24-28 px thumb), and set tabs and selects to min-height 44 px on touch (pointer: coarse).",
+      "box": [31, 227, 331, 286]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "low",
+      "title": "Main-menu focus marker is a thin teal edge that is easy to miss",
+      "detail": "The selected item (BOT MATCH) differs from its neighbours only by a 3 px teal left bar and a teal icon; the card fill is the same, so at a glance a gamepad player has to hunt for it. The pause menu marks focus far more strongly, so the two menus also behave inconsistently.",
+      "evidence": "Screenshot: BOT MATCH [56,751,480,95] has a teal (#8FE3C8) bar at x=56-58; fill at x=300 is rgb(23,25,29) versus rgb(20,24,24) on PRACTICE RANGE, a negligible difference. DOM \"focused\": null (highlight is script-driven). pause@desktop RESUME uses a tinted fill, indent and chevron.",
+      "fix": "Reuse the pause-menu focus style on the main menu: tinted teal fill (e.g. rgba(143,227,200,0.12)), 4 px bar, white icon and a chevron on the focused card.",
+      "box": [56, 751, 480, 95]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "low",
+      "title": "The NAME label over the sky is nearly invisible",
+      "detail": "The label above the name field is grey on a grey sky gradient, so it reads as empty space; the placeholder inside the field carries the meaning, which keeps this low. On phone the 'TACTICAL ARENA SHOOTER' tagline has the same grey-on-gradient problem.",
+      "evidence": "contrast.json main-menu@desktop: 'Name' 12px p50 1.55 / p10 1.44 (need 4.5; declared 6.19 assumes a dark background that is not there). Zoomed crop confirms #8E96A3 on a ~#7A7D83 sky. main-menu@phone: 'Tactical arena shooter' 12px p50 3.48 / p10 1.66.",
+      "fix": "Extend the left-side dark vignette to the top-right corner (or put the label inside the field's plate) and use #C9CED8 for the label.",
+      "box": [1594, 46, 40, 12]
+    },
+    {
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "low",
+      "title": "Key caps and footer key hints are 11 px, below the 12 px floor",
+      "detail": "The pause controls card is where players learn the bindings, but its key caps ('WASD', 'Control Left', 'R') are 11 px, smaller than the 13 px action names beside them; the footer hints on every menu ('ENTER', 'ESC', '↑↓', 'CLICK') use the same 11 px caps. Contrast is excellent, so this is size only.",
+      "evidence": "contrast.md pause@desktop: 'WASD' [1332,470,31,11] 11px bold, 'Control Left' [1599,530,64,11], 'R' [1600,560,8,11], 'Click' [285,1007,32,11], all 'fail' on size with 13-15:1 contrast; 21 size fails on this shot. Same 11px footer caps on main-menu, settings and bot-lobby.",
+      "fix": "Raise key caps and footer hint caps to 12-13 px bold (and the action names to 14 px), widening the caps' padding to match.",
+      "box": [1325, 465, 450, 200]
+    }
+  ]
+}

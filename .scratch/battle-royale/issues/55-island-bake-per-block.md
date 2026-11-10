@@ -20,3 +20,5 @@ To do:
 - Bake the ground's sun and sky visibility per terrain block.
 
 ## Comments
+
+**Owner, 2026-11-10.** Carried into next-level ticket 34; follow it there.

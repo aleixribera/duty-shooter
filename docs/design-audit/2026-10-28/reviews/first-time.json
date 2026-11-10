@@ -1,0 +1,137 @@
+{
+  "lens": "first-time",
+  "findings": [
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-01",
+      "severity": "high",
+      "title": "First spawn shows no controls and no task, and the only panel has a large empty area",
+      "detail": "A newcomer drops into the Practice Range with a rifle and nothing telling them how to move, aim down sights, reload or what to try first. The full key list exists, but only on the pause screen, and nothing on the HUD says Esc opens it. The match HUD's first spawn has the same gap. The stats panel's lower half is an empty dark box, so it reads as broken or not loaded rather than as a place for guidance.",
+      "evidence": "HUD text is only \"TTK\", \"DISTANCE 25.0 m\", \"SHOTS / HITS\", \"LAST HIT\", \"HEALTH 100\", \"M4A1 AUTO 30 / ∞\"; empty panel below; controls only appear under \"CONTROLS\" in the pause menu",
+      "fix": "On first spawn, show a dismissible hint card (in the empty panel area or bottom centre): \"WASD move · Mouse aim · LMB fire · RMB aim · R reload · Esc controls & menu\", plus a one-line task such as \"Shoot the 25 m dummy, then try the SPRINT/WALK course\". Switch the glyphs when a gamepad is active. Drop the empty box or fill it with that hint.",
+      "box": [37, 808, 181, 149]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-02",
+      "severity": "medium",
+      "title": "The match goal is reduced to a cryptic \"TDM · 75\"",
+      "detail": "Once the match starts, nothing in play says what wins. The only hint is an 11 px abbreviation under the timer, which a newcomer won't read as 'first team to 75 kills'. The scoreboard (Tab) has only \"TEAM DEATHMATCH\" as its title and doesn't restate the goal either. The lobby explains it, but in small body text that's easy to skip on the way to Start.",
+      "evidence": "Score strip: \"0 ◆ BLUE · YOU | 9:56 TDM · 75 | 0 ▲ ORANGE\"; scoreboard header \"TEAM DEATHMATCH  8 PLAYERS\"",
+      "fix": "Show a 3-second spawn banner, \"Team Deathmatch: first team to 75 kills wins\". Change the strip label to \"FIRST TO 75\" (or \"75 KILLS TO WIN\"), and add the same line under the scoreboard title.",
+      "box": [941, 62, 55, 11]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "The top menu option is unavailable but looks as clickable as the rest",
+      "detail": "The first and most prominent option, PLAY ONLINE, is the one a newcomer reaches for. It is styled like the working options, and the only warning is a small red dot and a technical sentence. A player is likely to click it, hit a dead end, and only then try Bot Match, which already has focus but doesn't otherwise stand out.",
+      "evidence": "\"PLAY ONLINE / No game server answers this page right now. / ● OFFLINE\" in the same card style as \"BOT MATCH\", \"PRACTICE RANGE\", \"SETTINGS\"",
+      "fix": "Dim the Play Online card as disabled (lower opacity, no hover) with plain wording such as \"Online play is unavailable right now\", or move it below Bot Match while offline. Give the recommended option (Bot Match, or Practice Range for a first launch) a filled primary style.",
+      "box": [56, 644, 480, 100]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The two map cards don't make clear which map is picked",
+      "detail": "New idea: a selected option's label should say what it is, the same way as its unselected siblings. The left card's small label shows the mode name with a tick, while the right card's says \"MAP\". A newcomer can read this as 'Survival Town is the mode, Switchyard is the map', and the header \"YOUR PICK\" doesn't settle it. Only the outline and the header chips show that Survival Town is the selected map.",
+      "evidence": "Left card \"✓ TEAM DEATHMATCH / SURVIVAL TOWN\", right card \"MAP / SWITCHYARD\", section label \"YOUR PICK\"",
+      "fix": "Label both cards \"MAP\" and mark the selected one with \"✓ SELECTED\" (or a filled badge). Keep the mode name out of the map card, and rename \"YOUR PICK\" to \"MAP\".",
+      "box": [1364, 191, 500, 136]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "On phone the mode and map pickers are off-screen, and the chips above look like buttons but aren't",
+      "detail": "The phone lobby shows the twelve player slots and a big START, but not the MATCH section with the mode, map, sides and goal sentence. The only place mode and map appear is a row of bordered chips at the top, which look tappable but aren't controls. A player either taps a chip and nothing happens, or presses Start without knowing they could choose.",
+      "evidence": "Chips \"TEAM DEATHMATCH\", \"SURVIVAL TOWN\", \"YOU + 7 BOTS\" (not in the controls list); slots \"01 You\" to \"12 Open seat\" fill the screen; \"START\" fixed at the bottom",
+      "fix": "On narrow viewports, put the MATCH section (mode, map, goal) above the player list. Alternatively, make the chips real buttons that jump to it, or restyle them as plain text so they don't read as buttons.",
+      "box": [16, 79, 309, 68]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "medium",
+      "title": "The range's headline stat is the unexplained abbreviation \"TTK\"",
+      "detail": "The first row of the only data panel a newcomer sees is an insider abbreviation (time to kill), with nothing on screen to explain it. Next to it, \"SHOTS / HITS\" and \"LAST HIT\" show only dashes before the first shot, so the panel doesn't explain itself until the player has already fired.",
+      "evidence": "\"TTK  –\", \"SHOTS / HITS  –\", \"LAST HIT  –\" at 11 px",
+      "fix": "Spell it out (\"TIME TO KILL\") or add a sub-label (\"TTK · time to kill\"). Before the first shot, replace the dashes with \"Shoot a dummy to see stats\".",
+      "box": [37, 732, 130, 13]
+    },
+    {
+      "screen": "scoreboard",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The enemy team's column is cut off at the right edge",
+      "detail": "New idea: side-by-side team tables must fit the viewport or stack. On phone the ORANGE table runs past the panel and screen edge. The team name is clipped to \"ORANG\", and the enemies' K and D columns aren't visible at all, so the player can't compare scores with the other team.",
+      "evidence": "Header reads \"▲ ORANG\"; orange \"K\" at x 359 and \"D\" at x 384 sit outside the panel edge; no Ping column visible",
+      "fix": "Below about 600 px width, stack the two team tables vertically (Blue, then Orange) at full width, or drop the Ping column and shrink the name column so both tables fit.",
+      "box": [261, 210, 129, 265]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "title": "Footer advertises arrow-key navigation but no setting row looks focused",
+      "detail": "The footer tells the player to use ↑↓ to move and ←→ to adjust, but no row is highlighted, so a keyboard or gamepad player can't tell which slider the arrows will change. The main menu marks its focused item with an accent bar, so this screen is inconsistent with it.",
+      "evidence": "Footer \"↑↓ MOVE  ←→ ADJUST  ESC BACK\"; all rows from \"Mouse sensitivity\" to \"Invert vertical look\" share the same flat background",
+      "fix": "When Settings opens, focus the first row (\"Mouse sensitivity\") and give the focused row the same accent bar and lighter fill used on the main menu.",
+      "box": [56, 165, 920, 615]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "\"Outposts\" and \"Charge\" give no hint of what they are",
+      "detail": "Only the selected mode gets a description line. Two of the four mode buttons are made-up names that tell a newcomer nothing, so the only way to learn what they do is to click each one and read the paragraph above.",
+      "evidence": "MODE buttons \"TEAM DEATHMATCH\", \"FREE-FOR-ALL\", \"OUTPOSTS\", \"CHARGE\"; only TDM's text shown: \"Two teams, blue against orange. First team to 75 kills wins…\"",
+      "fix": "Add a 2-4 word sub-label under each mode button (for example \"Hold zones\" for Outposts, \"Attack / defend\" for Charge), or show the description on hover/focus, not only on selection.",
+      "box": [1615, 437, 229, 51]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "Unlabelled \"◆ 1\" badge next to the ammo count",
+      "detail": "Beside the ammo there's a small diamond with a 1. A newcomer can't tell whether it's grenades, lives, kills or a team marker, especially since ◆ is also the Blue team's symbol in the score strip. It appears the same way on the range HUD, scoreboard and pause screens.",
+      "evidence": "\"◆ 1\" boxed beside \"30 / ∞\"; score strip uses \"◆ BLUE · YOU\"",
+      "fix": "Use a grenade icon instead of ◆ (keep ◆ for Blue only), and show its key next to it (\"G\") so the badge explains itself.",
+      "box": [1738, 1005, 40, 23]
+    },
+    {
+      "screen": "settings",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "Settings use shooter jargon (\"ADS\", \"deadzone\") without explanation",
+      "detail": "The second setting a newcomer sees is \"ADS sensitivity multiplier\". \"Aim down sights\" appears in the next row, but nothing connects it to ADS. \"Controller ADS multiplier\" and \"Stick deadzone\" further down get no explanation either.",
+      "evidence": "\"ADS sensitivity multiplier\", \"Controller ADS multiplier\", \"Stick deadzone\"",
+      "fix": "Rename to \"Aiming sensitivity (aim down sights)\" or add a one-line helper under the row on focus, for example \"Stick deadzone: how far the stick moves before the view turns\".",
+      "box": [75, 238, 181, 16]
+    },
+    {
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The \"PAUSED\" title sits on top of the score strip",
+      "detail": "New idea: when an overlay opens, HUD elements it covers should be hidden. On phone the 40 px \"PAUSED\" heading and its \"MATCH\" label overlap the dimmed score strip, so the title and the timer and score digits read as one jumble. The player has to look twice to see which screen they are on.",
+      "evidence": "\"MATCH / PAUSED\" drawn over \"9:57 TDM · 75 | 0 ▲ ORANGE\"",
+      "fix": "Hide the score strip while paused, or push the pause header below it (top offset at least 90 px on narrow viewports).",
+      "box": [16, 22, 335, 66]
+    }
+  ]
+}

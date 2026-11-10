@@ -1,0 +1,4 @@
+{
+  "F18": { "verdict": "PASS", "note": "Trial fix (reverted afterwards): the NAME label got a dark glass plate and --ds-text-2, so it reads against any sky.", "evidence": "contrast.mjs p50 1.55:1 -> 8.19:1 (p10 1.44 -> 8.17), needs 4.5" },
+  "F03": { "verdict": "FAIL", "note": "Not addressed by this trial fix: Play Online still looks as available as Bot Match.", "evidence": "after shot unchanged in that area" }
+}
