@@ -41,12 +41,19 @@ describe('settings', () => {
 
     expect(old).toMatchObject({ sensitivity: 7, fov: 105, volume: 0.4, name: 'veteran', showFps: true });
     expect(old.bindings.jump).toBe('KeyJ');
-    expect(old).toMatchObject({ quality: 'auto', autoTier: null, dynamicResolution: true, fpsCap: 0, invertY: false, cameraMotion: 1, fovEffects: 1, colourVision: 'off', hudScale: 1, captions: true });
+    expect(old).toMatchObject({ fpsCap: 0, invertY: false, cameraMotion: 1, fovEffects: 1, colourVision: 'off', hudScale: 1, captions: true });
     expect(old.crosshair).toEqual(DEFAULT_CROSSHAIR);
   });
 
+  // Next-level ticket 35: one picture. A save from the days of quality tiers loads, and its tier is forgotten.
+  it('forgets the quality tier, Auto and dynamic resolution an old save carries', () => {
+    const old = parseSettings({ defaultsVersion: 2, quality: 'low', autoTier: 'medium', autoAdapter: 'intel', dynamicResolution: true, fpsCap: 60 }) as unknown as Record<string, unknown>;
+    expect(old['fpsCap']).toBe(60);
+    for (const gone of ['quality', 'autoTier', 'autoAdapter', 'dynamicResolution']) expect(old, gone).not.toHaveProperty(gone);
+  });
+
   it('keeps the new settings a player chose, and survives a round trip through storage', () => {
-    const chosen: Partial<Settings> = { quality: 'low', autoTier: 'medium', autoAdapter: 'intel iris xe', dynamicResolution: false, fpsCap: 60, invertY: true, cameraMotion: 0, fovEffects: 0.5, colourVision: 'protanopia', hudScale: 1.3, captions: false, crosshair: { shape: 'circle', size: 12, gap: 6, thickness: 3, colour: 'cyan', dot: false, dynamic: false } };
+    const chosen: Partial<Settings> = { fpsCap: 60, invertY: true, cameraMotion: 0, fovEffects: 0.5, colourVision: 'protanopia', hudScale: 1.3, captions: false, crosshair: { shape: 'circle', size: 12, gap: 6, thickness: 3, colour: 'cyan', dot: false, dynamic: false } };
     const parsed = parseSettings({ defaultsVersion: 2, ...chosen });
 
     expect(parsed).toMatchObject(chosen);
@@ -54,21 +61,19 @@ describe('settings', () => {
   });
 
   it('drops what a hand-edited save gets wrong, one value at a time', () => {
-    const broken = parseSettings({ quality: 'extreme', autoTier: 'auto', fpsCap: 77, cameraMotion: 9, fovEffects: -1, colourVision: 'dog', hudScale: 4, captions: 'yes', crosshair: { shape: 'star', size: 900, gap: -3, thickness: 0, colour: 'pink', dot: 1 } });
+    const broken = parseSettings({ fpsCap: 77, cameraMotion: 9, fovEffects: -1, colourVision: 'dog', hudScale: 4, captions: 'yes', crosshair: { shape: 'star', size: 900, gap: -3, thickness: 0, colour: 'pink', dot: 1 } });
 
-    expect(broken).toMatchObject({ quality: 'auto', autoTier: null, fpsCap: 0, cameraMotion: 1, fovEffects: 0, colourVision: 'off', hudScale: 1.3, captions: true });
+    expect(broken).toMatchObject({ fpsCap: 0, cameraMotion: 1, fovEffects: 0, colourVision: 'off', hudScale: 1.3, captions: true });
     expect(broken.crosshair).toEqual({ shape: 'cross', size: 24, gap: 0, thickness: 1, colour: 'white', dot: true, dynamic: true });
     expect(parseSettings({ crosshair: 'none' }).crosshair).toEqual(DEFAULT_CROSSHAIR);
   });
 
   it('restores one section to its defaults and leaves the others alone', () => {
-    const mine: Settings = { ...DEFAULT_SETTINGS, sensitivity: 3, invertY: true, quality: 'ultra', fpsCap: 144, volume: 0.2, hudScale: 0.8, cameraMotion: 0, autoTier: 'high', autoAdapter: 'nvidia', name: 'me' };
+    const mine: Settings = { ...DEFAULT_SETTINGS, sensitivity: 3, invertY: true, fpsCap: 144, volume: 0.2, hudScale: 0.8, cameraMotion: 0, name: 'me' };
 
     const video = restoreDefaults(mine, 'video');
-    expect(video).toMatchObject({ quality: 'auto', fpsCap: 0, sensitivity: 3, invertY: true, volume: 0.2, hudScale: 0.8, cameraMotion: 0, name: 'me' });
-    // What Auto measured is the machine's, not a choice: restoring keeps it.
-    expect(video).toMatchObject({ autoTier: 'high', autoAdapter: 'nvidia' });
-    expect(restoreDefaults(mine, 'mouse')).toMatchObject({ sensitivity: 10, invertY: false, quality: 'ultra' });
+    expect(video).toMatchObject({ fpsCap: 0, sensitivity: 3, invertY: true, volume: 0.2, hudScale: 0.8, cameraMotion: 0, name: 'me' });
+    expect(restoreDefaults(mine, 'mouse')).toMatchObject({ sensitivity: 10, invertY: false, fpsCap: 144 });
     expect(restoreDefaults(mine, 'accessibility')).toMatchObject({ cameraMotion: 1, hudScale: 0.8 });
     expect(atDefaults(mine, 'audio')).toBe(false);
     expect(atDefaults(restoreDefaults(mine, 'audio'), 'audio')).toBe(true);
@@ -78,7 +83,7 @@ describe('settings', () => {
     const all = (Object.keys(SECTION_SETTINGS) as SettingsSection[]).flatMap((s) => SECTION_SETTINGS[s]);
     expect(new Set(all).size).toBe(all.length);
     // What is not on the screen: who you are, what you carry, and what the page remembers for itself.
-    const elsewhere = ['name', 'loadout', 'builds', 'passphrase', 'firefoxTipShown', 'autoTier', 'autoAdapter'];
+    const elsewhere = ['name', 'loadout', 'builds', 'passphrase', 'firefoxTipShown'];
     for (const key of Object.keys(DEFAULT_SETTINGS)) if (!elsewhere.includes(key)) expect(all, key).toContain(key);
   });
 });

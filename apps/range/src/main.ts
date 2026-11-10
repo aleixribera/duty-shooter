@@ -1,4 +1,4 @@
-import { BOT_MAPS, BenchmarkPage, LobbyPage, Menu, PreparationPage, ProfileStore, QUALITY, QUALITY_TIERS, QualityGovernor, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, forcePixelCap, tierFromHints, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type GovernorSettings, type QualityTier, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BOT_MAPS, BenchmarkPage, FramePacer, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -23,27 +23,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const benching = params.has('bench');
   // `?benchmark`: the benchmark page a player opens from Settings > Video (ticket 27).
   const benchmarkPage = params.has('benchmark') && !benching;
-  // `?tier=<low|medium|high|ultra>`: that quality tier for this visit, without saving it.
-  let tierParam: QualityTier | null = QUALITY_TIERS.find((t) => t === params.get('tier')) ?? null;
-  // What a benchmark draws at while it owns the picture: `?bench` at High unless told, the render scale fixed unless `&dynres` is given.
-  let benchQuality: GovernorSettings | null = benching ? { quality: tierParam ?? 'high', autoTier: null, autoAdapter: '', dynamicResolution: params.has('dynres'), fpsCap: 0 } : null;
-  /** Where the adapter's hints would start Auto: what the benchmark page opens on where Auto has nothing remembered. */
-  let hinted: QualityTier = 'medium';
-  /** The settings as the frame governor reads them. */
-  const governed = (s: Settings): GovernorSettings => {
-    if (benchQuality) return benchQuality;
-    if (tierParam) return { ...s, quality: tierParam };
-    // The benchmark page flies what it is asked to: it never measures this machine's tier for Auto, and so never saves one.
-    if (benchmarkPage && s.quality === 'auto') return { ...s, quality: s.autoTier && s.autoAdapter === adapterName ? s.autoTier : hinted };
-    return s;
-  };
-  // The tier, the render scale and the frame-rate cap (ticket 22); there once the renderer says what it runs on.
-  let governor: QualityGovernor | null = null;
+  // The frame-rate cap; there once the renderer is. A benchmark draws uncapped.
+  let pacer: FramePacer | null = null;
   let backendName = '';
   let adapterName = '';
-  const videoStatus = (): VideoStatus | null => (governor ? { backend: backendName, adapter: adapterName, tier: governor.tier, searching: governor.searching, refreshHz: governor.refreshHz } : null);
-  // `?megapixels=<n>`: every tier's pixel cap set to n million, so a large window loads the GPU (to watch dynamic resolution hold its target).
-  if (Number(params.get('megapixels')) > 0) forcePixelCap(Number(params.get('megapixels')));
+  const videoStatus = (): VideoStatus | null => (pacer ? { backend: backendName, adapter: adapterName, refreshHz: pacer.refreshHz } : null);
   // `?stats`: each second, this frame's draw calls, triangles and the renderer's live geometries and textures, on `document.body.dataset.render`, for scripted measurements of a production build.
   const renderStats = params.has('stats');
   // The menus go up first, and take clicks while three.js and the map arrive behind them.
@@ -190,7 +174,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Practice Range, kept ready behind the menus (see `keepRangeReady`). */
   let spare: Game | null = null;
-  /** `fresh` builds the map again even where it is the one on show: the benchmark's, whose grass and scatter are its tier's. */
+  /** `fresh` builds the map again even where it is the one on show: the benchmark's, so every map is flown from the same cold start. */
   const useMap = (id: MapId, fresh = false) => {
     if (id === mapId && !fresh) return;
     hurried = true;
@@ -221,8 +205,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (spare || mapId === 'range' || game.driver || !menu.open) return;
     hurried = false;
     spare = createGame('range');
-    // At the tier and the scale on show: it draws its warm-up frames to the same renderer.
-    governor?.apply(spare);
     void spare.prepare(restMoment, breath);
   };
   let lobby: Lobby | null = null;
@@ -362,7 +344,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         settings = next;
         saveSettings(next);
         useColourVision(next.colourVision);
-        governor?.use(governed(next));
+        if (pacer && !benchmarkPage) pacer.fpsCap = next.fpsCap;
         game?.applySettings(next);
         menu.settings = next;
       },
@@ -939,19 +921,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   document.body.dataset['backend'] = backend;
   backendName = backend === 'webgpu' ? 'WebGPU' : 'WebGL 2';
   adapterName = created.hints.adapter;
-  hinted = tierFromHints(created.hints).start;
-  // Before the first game is built: what a tier thins (grass, scatter, texture filtering) is read as each map goes up.
   // `?hz=<n>`: the display's refresh rate, stated for a scripted browser, whose frames are not paced by one.
   const statedHz = Number(params.get('hz'));
-  const governing = (governor = new QualityGovernor(created.hints, governed(settings), statedHz > 0 ? statedHz : null));
-  // Auto settled on a tier: remembered with the adapter it was measured on, so it is not measured again.
-  governing.onFound = (tier, adapter) => {
-    settings = { ...settings, autoTier: tier, autoAdapter: adapter };
-    saveSettings(settings);
-    menu.settings = settings;
-    governing.use(governed(settings));
-    menu.videoChanged();
-  };
+  // A benchmark draws every frame it can: a cap would measure the cap.
+  const pacing = (pacer = new FramePacer(benching || benchmarkPage ? 0 : settings.fpsCap, statedHz > 0 ? statedHz : null));
   menu.videoChanged();
   // The line that said "Starting renderer" has done its job. Which backend drew the frame is no news to a player; scripts read it from `body.dataset.backend`.
   status.hidden = true;
@@ -989,12 +962,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         renderer,
         sound,
         menu,
-        /** The frame governor (its tier, scale and target), and a tier for this visit as `?tier=` gives one (null for the settings' own). */
-        governor: governing,
-        setTier(tier: QualityTier | null) {
-          tierParam = tier;
-          governing.use(governed(settings));
-        },
+        /** The frame pacer: the cap, and the display's rate as measured. */
+        pacer: pacing,
         get driver() {
           return driver;
         },
@@ -1012,20 +981,17 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Measure the finished look: wait for the baked lighting.
     await load(mapId).bake;
   }
-  let bench: ((time: number) => boolean) | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName, governor: governing }) : null;
+  let bench: ((time: number) => boolean) | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName }) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
-  /** The menu's map and the range behind it are built: frames behind the menu say what the machine holds. */
-  let settled = false;
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
     void routesOf(asMapId(botSetup.map) ?? 'survival-town');
     void game
       .prepare(restMoment, breath)
       .then(keepRangeReady)
-      .then(() => spare?.prepare())
-      .finally(() => (settled = true));
+      .then(() => spare?.prepare());
   }
   if (benchmarkPage) {
     // `&maps=a,b`: only those maps; every map otherwise, the small ones first.
@@ -1036,15 +1002,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     let run = 0;
     const release = () => {
       bench = null;
-      benchQuality = null;
-      governing.use(governed(settings));
     };
-    const fly = async (tier: QualityTier, dynamicResolution: boolean) => {
+    const fly = async () => {
       const mine = ++run;
       const reports: BenchReport[] = [];
       delete document.body.dataset['benchmark'];
-      benchQuality = { quality: tier, autoTier: null, autoAdapter: '', dynamicResolution, fpsCap: 0 };
-      governing.use(benchQuality);
       for (const [i, id] of maps.entries()) {
         page.flying(load(id).map.name, i, maps.length);
         page.progress(-1, 0, i, maps.length);
@@ -1054,7 +1016,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         await load(id).bake;
         if (mine !== run) return;
         const report = await new Promise<BenchReport>((done) => {
-          bench = startBenchmarkOn(game, renderer, load(id).map, { backend: backendName, adapter: adapterName, governor: governing, quiet: true, done, progress: (f, rate) => page.progress(f, rate, i, maps.length) });
+          bench = startBenchmarkOn(game, renderer, load(id).map, { backend: backendName, adapter: adapterName, quiet: true, done, progress: (f, rate) => page.progress(f, rate, i, maps.length) });
         });
         if (mine !== run) return;
         bench = null;
@@ -1062,7 +1024,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       }
       release();
       page.done(
-        reports.map((r) => ({ map: nameOf(r.map), meanMs: r.meanMs, low1Ms: r.low1Ms, scale: r.renderScale?.settled ?? null })),
+        reports.map((r) => ({ map: nameOf(r.map), meanMs: r.meanMs, low1Ms: r.low1Ms })),
         benchLine(version, reports, nameOf),
       );
       // For a script: the reports, and the mark `npm run bench` waits for.
@@ -1072,20 +1034,15 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const page = new BenchmarkPage(
       document.body,
       {
-        run: (tier, dynamicResolution) => void fly(tier, dynamicResolution),
+        run: () => void fly(),
         stop: () => {
           run++;
           release();
           page.done(null, '', 'Stopped before the last map: nothing was kept.');
         },
-        // The tier flown becomes the game's own: the next visit draws at it.
-        use: (tier) => {
-          settings = { ...loadSettings(), quality: tier };
-          saveSettings(settings);
-        },
       },
-      // `&tier=` and `&dynres=on|off` set what the page opens on; `&run` starts it without the click.
-      { tier: tierParam ?? governing.tier, dynamicResolution: params.has('dynres') ? params.get('dynres') !== 'off' : settings.dynamicResolution, home: location.pathname },
+      // `&run` starts it without the click.
+      { home: location.pathname },
     );
     page.ready({
       backend: backendName,
@@ -1094,26 +1051,34 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       maps: maps.map(nameOf),
       seconds: maps.reduce((sum, id) => sum + new Benchmark(load(id).map.benchmarkPath).seconds, 0),
     });
-    if (params.has('run')) void fly(page.tier, page.dynamicResolution);
+    if (params.has('run')) void fly();
   }
   if (renderStats) renderer.info.autoReset = false;
+  /** Where the window sat on the last frame drawn, and the width of its screen. */
+  let atX: number | null = null;
+  let atY = 0;
+  let screenW = 0;
   await renderer.setAnimationLoop((time) => {
     if (graphicsLost) return;
     if (bench) {
-      governing.tick(time);
-      governing.apply(game);
-      governing.drawn(time, bench(time));
+      pacing.tick(time);
+      bench(time);
       return;
     }
     // The frame-rate cap: a tick it passes over draws nothing and steps nothing, as on a slower display.
-    if (!governing.tick(time)) return;
+    if (!pacing.tick(time)) return;
+    // A window moved, or put on another screen: the display's rate is read again, in case it is a slower one.
+    if (screenLeft !== atX || screenTop !== atY || screen.width !== screenW) {
+      if (atX !== null) pacing.displayMoved();
+      atX = screenLeft;
+      atY = screenTop;
+      screenW = screen.width;
+    }
     if (!updatePreparation()) updateLobby();
     // The map is only a backdrop while the main menu is open. Limit its GPU
     // work, but keep polling controllers and immediately resume on play.
     const backdrop = (menu.open || lobbyPage.open || royalePage.open) && !fixedCamera;
-    // Auto looking for its tier draws the backdrop at full rate, once nothing is being built behind it: that is its measurement.
-    const measuring = backdrop && governing.searching && settled && game.drawing && !game.driver && !spare?.warming;
-    const drawBackdrop = !backdrop || measuring || time - lastMenuFrame >= 50;
+    const drawBackdrop = !backdrop || time - lastMenuFrame >= 50;
     if (backdrop && drawBackdrop) lastMenuFrame = time;
     // The score: with no game running the menus have their theme; a match's scenes are the game's own.
     if (!game.driver) sound.music.setScene(backdrop ? 'menu' : 'silence');
@@ -1130,10 +1095,6 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (renderStats) renderer.info.reset();
     game.frame(time, drawBackdrop);
     if (renderStats) countFrame(renderer, time);
-    // Only a run of frames at full rate says what the machine holds: play, or the backdrop while Auto measures. Not a map still building its shaders, which draws nothing.
-    governing.drawn(time, game.drawing && (!backdrop || measuring));
-    governing.apply(game);
-    game.shownScale = settings.dynamicResolution && !governing.searching ? governing.scale : null;
     // An online session that ended (rejected, kicked, a server gone for good) returns to the join screen.
     const driver = game.driver;
     if (driver !== watched) {
@@ -1216,7 +1177,6 @@ function startBenchmarkOn(
   about: {
     backend: string;
     adapter: string;
-    governor: QualityGovernor;
     /** The benchmark page's run: no panel of its own, `done` gets the report and `progress` how far along it is. */
     quiet?: boolean;
     done?: (report: BenchReport) => void;
@@ -1229,14 +1189,10 @@ function startBenchmarkOn(
   panel.style.cssText = 'position:fixed;left:12px;top:12px;margin:0;padding:10px 12px;background:rgb(10 12 14 / 0.8);color:#e8e6e1;font:12px/1.4 ui-monospace,monospace;z-index:10;white-space:pre;';
   if (!about.quiet) document.body.append(panel);
   renderer.info.autoReset = false;
-  const { governor } = about;
-  const tier = QUALITY[governor.tier].name;
-  /** The size drawn, at the tier's own render scale: before dynamic resolution moves it. */
+  /** The size drawn: the window's own pixels. */
   let resolution: readonly [number, number] | null = null;
   let pendingGpu = false;
   let finished = false;
-  // Dynamic resolution judges the flight alone, from the tier's own scale: not the load before it, nor the warm-up.
-  governor.restart();
   /** Draws the flight's frame at `time`; whether it was one of the measured ones. */
   return (time) => {
     if (finished) {
@@ -1249,7 +1205,6 @@ function startBenchmarkOn(
       renderer.info.autoReset = true;
       const report: BenchReport = {
         map: map.id,
-        tier,
         backend: about.backend,
         adapter: about.adapter,
         resolution: resolution ?? [renderer.domElement.width, renderer.domElement.height],
@@ -1267,12 +1222,11 @@ ${JSON.stringify(report, null, 1)}`;
     }
     game.overview = f;
     renderer.info.reset();
-    // Dynamic resolution resizes the canvas: the size reported is the one before it has, the tier's own.
     resolution ??= [renderer.domElement.width, renderer.domElement.height];
     game.frame(time);
-    bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles }, governor.dynamic ? governor.scale : undefined);
+    bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles });
     if (about.quiet) about.progress?.(bench.progress(time), game.fps);
-    else panel.textContent = `BENCHMARK ${map.name} · ${tier} · ${game.fps.toFixed(0)} fps`;
+    else panel.textContent = `BENCHMARK ${map.name} · ${game.fps.toFixed(0)} fps`;
     // GPU time: Three.js keeps the latest frame's queries per pass, so each resolve reads one frame.
     if (!pendingGpu) {
       pendingGpu = true;

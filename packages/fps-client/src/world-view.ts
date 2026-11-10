@@ -34,7 +34,7 @@ import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
 import { hasDistanceDetail } from './detail';
-import { anisotropyFor, currentQuality, keeps, type QualityProfile } from './quality';
+import { PICTURE, keeps, type QualityProfile } from './quality';
 import { Train } from './train';
 import { loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
@@ -107,10 +107,10 @@ export interface WorldContent {
 }
 
 /**
- * The sun's shadow map is the quality tier's (`quality.ts`): its size
+ * The sun's shadow map is the look's (`quality.ts`): its size
  * (texels), how far it reaches either side of the player (m), and its redraws a
  * second at most, so a fast display doesn't redraw every caster on every frame.
- * On High: 2048 texels over 45 m either side, 60 times a second.
+ * 2048 texels over 45 m either side, 60 times a second.
  */
 
 /** Base tint, roughness and metalness per surface: a polished studio blockout palette. */
@@ -300,7 +300,7 @@ function labelMesh(label: WorldLabel): Mesh {
   }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
-  texture.anisotropy = anisotropyFor(8);
+  texture.anisotropy = 8;
   const height = label.size;
   const mesh = new Mesh(new PlaneGeometry((height * canvas.width) / canvas.height, height), new MeshBasicNodeMaterial({ map: texture, side: DoubleSide }));
   mesh.position.set(label.position[0], label.position[1], label.position[2]);
@@ -349,11 +349,10 @@ export class WorldView {
   /** Where the realtime shadow map reaches: its centre (x, z) and the radius it fully covers (m). */
   readonly #shadowCentre = uniform(new Vector2(0, 0));
   // The map covers the ground all round that far (its square reaches farther on the ground than across).
-  readonly #shadowRadius = uniform(currentQuality().shadowDistance * 0.9);
-  /** The shadow map as the tier has it: its reach either side of the player (m), one texel (m), and the seconds between redraws. */
-  #shadowExtent = currentQuality().shadowDistance;
-  #shadowTexel = (2 * currentQuality().shadowDistance) / currentQuality().shadowMapSize;
-  #shadowRefresh = 1 / currentQuality().shadowRate;
+  readonly #shadowRadius = uniform(PICTURE.shadowDistance * 0.9);
+  /** The shadow map as the look has it: its reach either side of the player (m), one texel (m), and the seconds between redraws. */
+  #shadowTexel = (2 * PICTURE.shadowDistance) / PICTURE.shadowMapSize;
+  #shadowRefresh = 1 / PICTURE.shadowRate;
   /** The baked light probes, for lighting moving objects. */
   readonly probes = new ProbeField();
   readonly #root = new Group();
@@ -446,8 +445,8 @@ export class WorldView {
       const marks = grimeQuads(layout.faces, content.solids, layout.finishes, content.scatter);
       if (marks.length > 0) this.#root.add(new Mesh(grimeGeometry(marks), grimeMaterial()));
       const strewn = scatterModels(layout.faces, content.solids, content.scatter);
-      // Strewn rocks and shrubs are for the eye alone: a lower tier lays out fewer of them.
-      const models = { ...strewn, placements: strewn.placements.filter((_, i) => keeps(i, currentQuality().scatterDensity)) };
+      // Strewn rocks and shrubs are for the eye alone: the picture's density says how many are laid out.
+      const models = { ...strewn, placements: strewn.placements.filter((_, i) => keeps(i, PICTURE.scatterDensity)) };
       const scatterIn = loadMapModels(models, SCATTER_FINISHES).then(
         (group) => {
           this.#lightObject(group);
@@ -513,7 +512,7 @@ export class WorldView {
       this.#sign = new PopulationSign(content.populationSign);
       this.#root.add(this.#sign.mesh);
     }
-    const dust = currentQuality().dust ? dustMotes(content.indoorZones, this.probes) : null;
+    const dust = dustMotes(content.indoorZones, this.probes);
     if (dust) this.#root.add(dust);
     scene.add(this.#root);
     this.#lightObject(this.#root);
@@ -532,15 +531,14 @@ export class WorldView {
     cam.far = 220;
     shadow.autoUpdate = false;
     this.scene.add(sun, sun.target);
-    this.#shadowQuality(sun, currentQuality());
+    this.#shadowQuality(sun, PICTURE);
     return sun;
   }
 
-  /** Sizes the sun's shadow map as a tier has it. */
+  /** Sizes the sun's shadow map as the look has it. */
   #shadowQuality(sun: DirectionalLight, quality: QualityProfile): void {
     const shadow = sun.shadow;
     const extent = quality.shadowDistance;
-    this.#shadowExtent = extent;
     this.#shadowTexel = (2 * extent) / quality.shadowMapSize;
     this.#shadowRefresh = 1 / quality.shadowRate;
     this.#shadowRadius.value = extent * 0.9;
@@ -556,12 +554,6 @@ export class WorldView {
     cam.updateProjectionMatrix();
     shadow.needsUpdate = true;
     this.#shadowAt = -Infinity;
-  }
-
-  /** A change of quality tier, for what this view can change without being built again: the sun's shadow map. Plants, scatter and dust follow the tier the next time a map is built. */
-  setQuality(quality: QualityProfile): void {
-    if (quality.shadowDistance === this.#shadowExtent && (2 * quality.shadowDistance) / quality.shadowMapSize === this.#shadowTexel && 1 / quality.shadowRate === this.#shadowRefresh) return;
-    this.#shadowQuality(this.#sun, quality);
   }
 
   /** Shows the lobby's head count and this match's kills on the population sign, if the map has one. */

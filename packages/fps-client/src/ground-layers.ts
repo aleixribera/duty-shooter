@@ -1,6 +1,5 @@
 import { DataArrayTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, SRGBColorSpace, UnsignedByteType, RGBAFormat } from 'three/webgpu';
 import { GROUND_LAYER_SIZE, GROUND_LAYERS } from './surfaces/ground-layers-data';
-import { filterByQuality } from './quality';
 
 /**
  * The ground's photo layers (tools/textures/ground.py): one strip of colour and
@@ -47,7 +46,7 @@ function arrayTexture(colorSpace: string): DataArrayTexture {
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
-  filterByQuality(t, ANISOTROPY);
+  t.anisotropy = ANISOTROPY;
   t.flipY = false;
   return t;
 }

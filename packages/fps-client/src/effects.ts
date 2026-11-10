@@ -27,7 +27,7 @@ import {
 } from 'three/webgpu';
 import { currentLighting, haze, horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
 import { cloudAt } from './surface-tiles';
-import { currentQuality } from './quality';
+import { PICTURE } from './quality';
 
 /**
  * How each gun's shot reads at the muzzle, against the M4A1's 1: the flash's
@@ -170,9 +170,9 @@ class ParticleLayer {
   readonly #particles: Particle[] = [];
   readonly #max: number;
   readonly #kind: Kind;
-  /** What the quality tier's share of particles owes this layer: an emission is drawn each time it reaches one. */
+  /** What the picture's share of particles owes this layer: an emission is drawn each time it reaches one. */
   #owed = 1;
-  /** Drawn in full on every tier: what it shows decides a fight (a smoke cloud). */
+  /** Drawn in full whatever the picture's particle share: what it shows decides a fight (a smoke cloud). */
   readonly #essential: boolean;
   /** Holds its alpha through its life and fades only at the end, instead of fading from the start. */
   readonly #steady: boolean;
@@ -200,8 +200,8 @@ class ParticleLayer {
   }
 
   emit(p: Partial<Particle> & { p: Vector3 }): void {
-    // A lower tier draws a share of the particles: every nth emission, so a burst thins evenly and a lone puff still shows.
-    const share = this.#essential ? 1 : currentQuality().particles;
+    // The look may draw a share of the particles: every nth emission, so a burst thins evenly and a lone puff still shows.
+    const share = this.#essential ? 1 : PICTURE.particles;
     if (share < 1) {
       this.#owed += share;
       if (this.#owed < 1) return;
@@ -468,7 +468,7 @@ export class Effects {
   readonly #blood = new ParticleLayer(60, 'puff');
   readonly #flames = new ParticleLayer(40, 'flame');
   readonly #rings = new ParticleLayer(6, 'ring');
-  /** The smoke tacticals' clouds (ticket 20): drawn in full on every tier, since they decide who sees whom. */
+  /** The smoke tacticals' clouds (ticket 20): drawn in full whatever the particle share, since they decide who sees whom. */
   readonly #cloud = new ParticleLayer(CLOUD_PUFFS * 12, 'puff', { essential: true, steady: true });
   /** Each standing cloud's puffs owed (emitted as they reach one), by canister id. */
   readonly #clouds = new Map<number, { owed: number }>();

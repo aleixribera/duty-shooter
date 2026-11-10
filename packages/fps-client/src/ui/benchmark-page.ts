@@ -1,13 +1,12 @@
 /**
  * The benchmark a player can open (next-level ticket 27, `?benchmark`, linked
- * from Settings > Video): pick a tier, fly every map's path once, and read
- * the average and 1% low frame time of each, the render scale dynamic
- * resolution settled on, the adapter and the backend, with one line to copy.
+ * from Settings > Video): fly every map's path once in the game's one
+ * picture, at the screen's own resolution, and read the average and 1% low
+ * frame time of each, the adapter and the backend, with one line to copy.
  *
  * The page only shows and asks; the range app flies the maps and hands back
  * what it measured. Plain DOM on the theme's page shell, no three.js.
  */
-import { QUALITY, QUALITY_TIERS, type QualityTier } from '../quality';
 import { escapeHtml, installTheme } from './theme';
 
 /** What the page says of the machine and of the run before it starts. */
@@ -15,7 +14,7 @@ export interface BenchmarkFacts {
   readonly backend: string;
   /** The graphics adapter's name, or '' where the browser keeps it. */
   readonly adapter: string;
-  /** The window's size in the screen's own pixels: what a tier's render scale and pixel cap are taken from. */
+  /** The window's size in the screen's own pixels: what every frame is drawn at. */
   readonly resolution: readonly [number, number];
   /** The maps flown, by name, and how long the whole run takes (s). */
   readonly maps: readonly string[];
@@ -27,17 +26,13 @@ export interface BenchmarkRow {
   readonly map: string;
   readonly meanMs: number;
   readonly low1Ms: number;
-  /** The render scale dynamic resolution settled on, or null with it off. */
-  readonly scale: number | null;
 }
 
 export interface BenchmarkCallbacks {
-  /** Fly the maps at `tier`, dynamic resolution on or off. */
-  run(tier: QualityTier, dynamicResolution: boolean): void;
+  /** Fly the maps. */
+  run(): void;
   /** Give up the run under way. */
   stop(): void;
-  /** Make `tier` the game's own quality setting. */
-  use?(tier: QualityTier): void;
 }
 
 /** A frame time (ms) the average must stay under, and the one the 1% low must: 60 and 30 frames a second. */
@@ -45,20 +40,16 @@ const SMOOTH_MS = 1000 / 60;
 const STUTTER_MS = 1000 / 30;
 
 /**
- * What a run says, in a sentence: whether the tier held 60 frames a second on
- * every map, whether its stutters stayed short, and what to try if not.
+ * What a run says, in a sentence: whether the game held 60 frames a second
+ * on every map, and whether its stutters stayed short.
  */
-export function benchmarkVerdict(rows: readonly BenchmarkRow[], tier: QualityTier): string {
+export function benchmarkVerdict(rows: readonly BenchmarkRow[]): string {
   if (rows.length === 0) return '';
-  const name = QUALITY[tier].name;
   const slowest = rows.reduce((a, b) => (b.meanMs > a.meanMs ? b : a));
   const choppiest = rows.reduce((a, b) => (b.low1Ms > a.low1Ms ? b : a));
-  const lower = QUALITY_TIERS[QUALITY_TIERS.indexOf(tier) - 1];
-  const scaled = rows.some((r) => r.scale !== null && r.scale < 0.95);
-  if (slowest.meanMs > SMOOTH_MS) return `${name} averages under 60 fps on ${slowest.map}${lower ? `: try ${QUALITY[lower].name}` : ''}.`;
-  if (choppiest.low1Ms > STUTTER_MS) return `${name} holds 60 fps on average, but stutters on ${choppiest.map} drop under 30 fps${lower ? `: ${QUALITY[lower].name} may smooth them` : ''}.`;
-  if (scaled) return `${name} holds 60 fps, by drawing smaller than the screen on some maps.`;
-  return `${name} runs smoothly here: over 60 fps on every map, with short stutters.`;
+  if (slowest.meanMs > SMOOTH_MS) return `This machine averages under 60 fps on ${slowest.map}. Copy the line below into a report: it says where the time goes.`;
+  if (choppiest.low1Ms > STUTTER_MS) return `This machine holds 60 fps on average, but stutters on ${choppiest.map} drop under 30 fps.`;
+  return 'This machine runs the game smoothly: over 60 fps on every map, with short stutters.';
 }
 
 const CSS = `
@@ -88,7 +79,6 @@ const CSS = `
 .ds-bench .plate b { font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-bench .plate span { font-size: var(--ds-type-body); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ds-text); min-width: 210px; }
 .ds-bench .verdict { margin: 0 0 16px; padding: 12px 16px; background: var(--ds-panel); box-shadow: inset 4px 0 0 var(--ds-signal); color: var(--ds-text); font-weight: 700; }
-.ds-bench .verdict + .ds-btn { margin: -4px 0 4px; }
 .ds-bench .plate .ds-btn { min-height: 36px; padding: 0 14px; }
 @media (max-width: 960px) {
   .ds-bench .cols { grid-template-columns: minmax(0, 1fr); gap: 28px; }
@@ -97,7 +87,6 @@ const CSS = `
   .ds-bench .plate { top: 12px; }
   .ds-bench .plate span { min-width: 0; }
   .ds-bench .plate .ds-btn { min-height: 44px; }
-  .ds-bench .ds-seg button { min-height: 44px; }
   /* After a run the results are what was come for: they lead, and the choices follow. */
   .ds-bench .cols.measured > div:last-child { order: -1; }
 }
@@ -111,19 +100,13 @@ export class BenchmarkPage {
   readonly #callbacks: BenchmarkCallbacks;
   /** Where "Back to the game" goes. */
   readonly #home: string;
-  #tier: QualityTier;
-  #dynamic: boolean;
   #facts: BenchmarkFacts | null = null;
   #rows: readonly BenchmarkRow[] | null = null;
   #line = '';
-  /** The tier the last run flew. */
-  #ranTier: QualityTier;
-  /** The game's quality was set to the tier flown. */
-  #used = false;
   /** What stopped the last run short, to say on the page. */
   #note = '';
 
-  constructor(parent: HTMLElement, callbacks: BenchmarkCallbacks, start: { tier: QualityTier; dynamicResolution: boolean; home: string }) {
+  constructor(parent: HTMLElement, callbacks: BenchmarkCallbacks, start: { home: string }) {
     installTheme();
     if (!document.getElementById('ds-bench-css')) {
       const style = document.createElement('style');
@@ -132,23 +115,12 @@ export class BenchmarkPage {
       document.head.append(style);
     }
     this.#callbacks = callbacks;
-    this.#tier = start.tier;
-    this.#ranTier = start.tier;
-    this.#dynamic = start.dynamicResolution;
     this.#home = start.home;
     this.#root = document.createElement('div');
     this.#root.className = 'ds-bench ds-ui';
     this.#root.addEventListener('click', (e) => this.#click(e));
     parent.append(this.#root);
     this.#render();
-  }
-
-  get tier(): QualityTier {
-    return this.#tier;
-  }
-
-  get dynamicResolution(): boolean {
-    return this.#dynamic;
   }
 
   /** The machine and the run, once the engine knows them: the page can start. */
@@ -193,21 +165,7 @@ export class BenchmarkPage {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
     if (!el || (el as HTMLButtonElement).disabled) return;
     const act = el.dataset['act'];
-    if (act === 'tier') {
-      this.#tier = el.dataset['value'] as QualityTier;
-      this.#render(`[data-act="tier"][data-value="${this.#tier}"]`);
-    } else if (act === 'dynamic') {
-      this.#dynamic = el.dataset['value'] === 'on';
-      this.#render(`[data-act="dynamic"][data-value="${el.dataset['value']}"]`);
-    } else if (act === 'run') {
-      this.#ranTier = this.#tier;
-      this.#used = false;
-      this.#callbacks.run(this.#tier, this.#dynamic);
-    } else if (act === 'use') {
-      this.#callbacks.use?.(this.#ranTier);
-      this.#used = true;
-      this.#render('[data-act="use"]');
-    }
+    if (act === 'run') this.#callbacks.run();
     else if (act === 'stop') this.#callbacks.stop();
     else if (act === 'copy') void this.#copy();
   }
@@ -228,27 +186,17 @@ export class BenchmarkPage {
     said.textContent = copied ? 'Copied.' : 'Selected: press Ctrl+C to copy it.';
   }
 
-  #render(focus = ''): void {
+  #render(): void {
     const facts = this.#facts;
-    const seg = (act: string, value: string, text: string, on: boolean) => `<button type="button" data-act="${act}" data-value="${value}" class="${on ? 'on' : ''}" aria-pressed="${on}">${escapeHtml(text)}</button>`;
-    const tiers = QUALITY_TIERS.map((t) => seg('tier', t, QUALITY[t].name, t === this.#tier)).join('');
-    const dynamic = seg('dynamic', 'off', 'Off', !this.#dynamic) + seg('dynamic', 'on', 'On', this.#dynamic);
     const machine = facts
       ? `<div class="ds-readouts"><div><span>Backend</span><b>${escapeHtml(facts.backend)}</b></div><div><span>Graphics adapter</span><b>${escapeHtml(facts.adapter || 'Not named by the browser')}</b></div><div><span>Window</span><b>${facts.resolution[0]} x ${facts.resolution[1]} px</b></div></div>`
       : '';
     const flown = facts ? `${facts.maps.join(', ')}. About ${Math.round(facts.seconds / 5) * 5} seconds, plus each map's loading.` : '';
     let results = '';
     if (this.#rows) {
-      const scaled = this.#rows.some((r) => r.scale !== null);
-      const body = this.#rows
-        .map((r) => `<tr><td>${escapeHtml(r.map)}</td><td>${ms(r.meanMs)}<small>${fps(r.meanMs)}</small></td><td>${ms(r.low1Ms)}<small>${fps(r.low1Ms)}</small></td>${scaled ? `<td>${r.scale === null ? '' : `${Math.round(r.scale * 100)}%`}</td>` : ''}</tr>`)
-        .join('');
-      const ran = QUALITY[this.#ranTier].name;
-      const use = this.#callbacks.use
-        ? `<button type="button" class="ds-btn" data-act="use"${this.#used ? ' disabled' : ''}>${this.#used ? `The game now draws at ${escapeHtml(ran)}` : `Use ${escapeHtml(ran)} in the game`}</button>`
-        : '';
-      results = `<section><h2>Results</h2><p class="verdict" role="status">${escapeHtml(benchmarkVerdict(this.#rows, this.#ranTier))}</p>${use}<p>The average frame time, and the average of the slowest 1% of frames: what a stutter costs.</p>
-<table><thead><tr><th scope="col">Map</th><th scope="col">Average</th><th scope="col">1% low</th>${scaled ? '<th scope="col">Render scale</th>' : ''}</tr></thead><tbody>${body}</tbody></table></section>
+      const body = this.#rows.map((r) => `<tr><td>${escapeHtml(r.map)}</td><td>${ms(r.meanMs)}<small>${fps(r.meanMs)}</small></td><td>${ms(r.low1Ms)}<small>${fps(r.low1Ms)}</small></td></tr>`).join('');
+      results = `<section><h2>Results</h2><p class="verdict" role="status">${escapeHtml(benchmarkVerdict(this.#rows))}</p><p>The average frame time, and the average of the slowest 1% of frames: what a stutter costs.</p>
+<table><thead><tr><th scope="col">Map</th><th scope="col">Average</th><th scope="col">1% low</th></tr></thead><tbody>${body}</tbody></table></section>
 <section><h2>To share</h2><p>The same numbers as one line: paste it when you report slow play or compare machines.</p><textarea class="line" readonly rows="4" aria-label="The results as one line">${escapeHtml(this.#line)}</textarea>
 <div class="copy"><button type="button" class="ds-btn" data-act="copy">Copy the line</button><span data-copied role="status"></span></div></section>`;
     } else if (this.#note) results = `<section><h2>Results</h2><p>${escapeHtml(this.#note)}</p></section>`;
@@ -257,14 +205,12 @@ export class BenchmarkPage {
 <header><div class="heading"><div class="ds-crumb">Settings · Video</div><h1>Benchmark</h1></div></header>
 <div class="body"><div class="cols${this.#rows ? ' measured' : ''}">
 <div>
-<section><h2>Quality tier</h2><p>The tier each map is drawn at. Your own setting is not changed.</p><div class="ds-seg" role="group" aria-label="Quality tier">${tiers}</div></section>
-<section><h2>Dynamic resolution</h2><p>On, the render scale moves to hold the frame rate, and the results say where it settled. Off, every frame is drawn at the tier's own scale.</p><div class="ds-seg" role="group" aria-label="Dynamic resolution">${dynamic}</div></section>
+<section><h2>The picture</h2><p>Every map is drawn as you play it: the one look, every effect on, at this window's own resolution.</p></section>
 <section><h2>This machine</h2><p>${facts ? escapeHtml(flown) : 'The engine is still loading.'}</p>${machine}</section>
 </div>
 <div>${results}</div>
 </div></div>
 <footer><a class="ds-btn" href="${escapeHtml(this.#home)}">Back to the game</a><div class="grow"></div><button type="button" class="ds-btn primary big" data-act="run"${facts ? '' : ' disabled'}>${facts ? (this.#rows ? 'Run again' : 'Run benchmark') : 'Loading the engine'}</button></footer>
 </div>`;
-    if (focus) this.#root.querySelector<HTMLElement>(focus)?.focus();
   }
 }

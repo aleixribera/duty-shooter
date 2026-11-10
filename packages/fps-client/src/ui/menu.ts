@@ -3,7 +3,6 @@ import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, restoreDefaults, type Action, type Settings, type SettingsSection } from '../settings';
 import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
 import { HUD_SCALE_LIMITS } from '../hud/scale';
-import { QUALITY, QUALITY_CHOICES, type QualityChoice } from '../quality';
 import { COLOUR_VISIONS, COLOUR_VISION_NAMES } from '../team-colours';
 import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, sectionOrder, teamPreview, videoPreview, type VideoStatus } from './settings-screen';
 import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
@@ -1415,49 +1414,26 @@ export class Menu {
     } else if (tab === 'touch') {
       touchRows();
     } else if (tab === 'video') {
-      section('Quality', 'How much the picture spends. Auto measures this machine once and keeps the highest tier that holds the frame rate. A new tier takes a moment to build; grass and scatter follow at the next map.');
-      select('Quality', s.quality, QUALITY_CHOICES.map((c) => [c, c === 'auto' ? 'Auto' : QUALITY[c].name] as const), (v: QualityChoice) => {
-        this.#change({ quality: v });
-        redraw('Quality');
-      });
-      const again = h('button', '', 'ds-btn') as HTMLButtonElement;
-      again.type = 'button';
-      const measurable = () => {
-        const status = this.#video();
-        // Behind the main menu the map is the measurement; with a match or a lobby behind this screen, it waits for play.
-        const measuring = this.#back === 'main' ? 'Measuring now' : 'Measures once you are back in play';
-        const why = this.#settings.quality !== 'auto' ? 'Quality is picked by hand' : !status ? 'The map is still loading' : status.searching ? measuring : '';
-        again.textContent = why || 'Measure again';
-        again.disabled = why !== '';
-      };
-      measurable();
-      again.addEventListener('click', () => {
-        this.#change({ autoTier: null, autoAdapter: '' });
-        redraw('Quality');
-      });
-      row("Auto's measurement", again);
       section('Frame rate', 'The browser draws in step with the display: V-sync is its to decide, and cannot be turned off from here. A cap draws fewer frames than the display shows.');
-      toggle('Dynamic resolution', s.dynamicResolution, (v) => this.#change({ dynamicResolution: v }), 'Renders smaller when frames run long, and back up when there is room. The HUD stays sharp.');
       select('Frame-rate cap', String(s.fpsCap), capChoices(), (v) => this.#change({ fpsCap: Number(v) }));
-      toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }), 'With the render scale beside it while dynamic resolution is on.');
+      toggle('FPS counter', s.showFps, (v) => this.#change({ showFps: v }));
       section('View', 'How wide you see, and whether aiming narrows it with your field of view.');
       slider('Field of view', s.fov, STATS.input.minFov.value, STATS.input.maxFov.value, 1, (v) => `${v}°`, (v) => this.#change({ fov: v }));
       select('Aim-down-sights field of view', s.adsFov, [
         ['affected', 'Affected'],
         ['independent', 'Independent'],
       ], (v) => this.#change({ adsFov: v }));
-      section('Benchmark', 'How smoothly this machine runs each map: a fly-through at the tier you pick, with a verdict, the frame times and a line to copy.');
+      section('Benchmark', 'How smoothly this machine runs each map: a fly-through with a verdict, the frame times and a line to copy.');
       const bench = h('a', 'Open the benchmark', 'ds-btn') as HTMLAnchorElement;
       // The same backend as this page, where it was forced.
       bench.href = `${location.pathname}?benchmark${new URLSearchParams(location.search).has('webgl') ? '&webgl' : ''}`;
       bench.target = '_blank';
       bench.rel = 'noopener';
       row('Benchmark', bench, 'Opens in a new tab.');
-      const shown = videoPreview(h, () => ({ settings: this.#settings, status: this.#video() }));
+      const shown = videoPreview(h, () => this.#video());
       preview(shown.root, true);
       this.#afterChange = () => {
         shown.refresh();
-        measurable();
         restorable();
       };
     } else if (tab === 'audio') {

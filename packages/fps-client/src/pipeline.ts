@@ -1,19 +1,15 @@
-import { Fn, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, texture, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
-import { HalfFloatType, RenderPipeline, RenderTarget, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
+import { Fn, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
-import { fxaa } from 'three/examples/jsm/tsl/display/FXAANode.js';
 import { traa } from 'three/examples/jsm/tsl/display/TRAANode.js';
 import { currentLighting, sunColor } from './surface-materials';
-import { currentQuality, pixelCap, sharpenFor, type QualityProfile } from './quality';
+import { PICTURE } from './quality';
 
 const BLOOM = 0.1;
 
-/** Render pixels per CSS pixel at most: a high-DPI screen's density, up to twice. */
+/** Render pixels per CSS pixel at most: a high-DPI screen's density, up to twice (a phone's 3x is past what the eye sees at arm's length). */
 const MAX_DENSITY = 2;
-
-/** The most pixels a frame renders (millions), 1440p's worth: past it the frame renders smaller and the browser scales it up. */
-const MAX_MEGAPIXELS = 3.7;
 
 /**
  * Heat shimmer: what lies far off (the desert, the mountains) wavers a
@@ -50,7 +46,7 @@ const LUMA = vec3(0.2126, 0.7152, 0.0722);
  * each pixel is pushed away from the mean of its four neighbours, less where
  * that mean is bright (the sun's edge, a muzzle flash), so nothing rings.
  */
-function sharpened(image: TextureNode, at: Node<'vec2'>, amount: Node<'float'> = float(SHARPEN) as never): Node<'vec3'> {
+function sharpened(image: TextureNode, at: Node<'vec2'>): Node<'vec3'> {
   const px = vec2(1, 1).div(screenSize);
   const here = image.sample(at).rgb;
   const around = image
@@ -60,7 +56,7 @@ function sharpened(image: TextureNode, at: Node<'vec2'>, amount: Node<'float'> =
     .add(image.sample(at.sub(vec2(0, px.y))).rgb)
     .mul(0.25);
   const calm = float(1).div(dot(around, LUMA).add(1));
-  return max(here.add(here.sub(around).mul(calm.mul(amount))), vec3(0)) as unknown as Node<'vec3'>;
+  return max(here.add(here.sub(around).mul(calm.mul(SHARPEN))), vec3(0)) as unknown as Node<'vec3'>;
 }
 
 /** The sun shafts' picture (pixels: small, whatever the screen, since they have no edges), and how many reads each of its pixels takes toward the sun. */
@@ -134,13 +130,12 @@ function mooded(c: Node<'vec3'>, drain: Node<'float'>, dread: Node<'float'>, bea
 }
 
 /**
- * The pixel ratio a `width` x `height` (CSS px) canvas renders at on a screen
- * of `devicePixelRatio`: the screen's density, capped, then cut to the pixel
- * budget.
+ * The pixel ratio a canvas renders at on a screen of `devicePixelRatio`: the
+ * screen's own pixels, every one of them, up to twice the CSS pixels. Never a
+ * scale under the screen: a picture stretched to fill it is a soft one.
  */
-export function renderPixelRatio(width: number, height: number, devicePixelRatio: number, megapixels = MAX_MEGAPIXELS): number {
-  const budget = Math.sqrt((megapixels * 1e6) / Math.max(1, width * height));
-  return Math.min(devicePixelRatio, MAX_DENSITY, budget);
+export function renderPixelRatio(devicePixelRatio: number): number {
+  return Math.min(devicePixelRatio, MAX_DENSITY);
 }
 
 /**
@@ -168,22 +163,12 @@ interface CompilingRenderer extends WebGPURenderer {
 const builds = new WeakMap<object, { target: unknown; projection: Matrix4 | null }>();
 
 const sunOnScreen = new Vector3();
-const bufferSize = new Vector2();
 const cameraForward = new Vector3();
 
 export class GamePipeline {
   readonly #renderer: WebGPURenderer;
   readonly #pipeline: RenderPipeline;
-  /** FXAA's own step (the tiers without temporal AA): the target the finished frame is drawn to, and the pipeline that smooths it onto the screen. */
-  #smooth: { readonly flat: RenderTarget; readonly pipeline: RenderPipeline } | null = null;
-  readonly #bloom: ReturnType<typeof bloom> | null;
-  /** The tier this frame is put together for (ticket 22): what it turns on is decided once, here. */
-  readonly #quality: QualityProfile;
-  /** How much the frame is sharpened: more while it renders under the screen's size. */
-  readonly #sharpen = uniform(SHARPEN);
-  /** The render scale (the picture's side as a share of the native one), and the viewport it is a share of. */
-  #scale = 1;
-  #viewport: readonly [number, number, number] | null = null;
+  readonly #bloom: ReturnType<typeof bloom>;
   #ratio = 0;
   /** The nuke's white-out and colour grade, 0..1 (see `setNuke`). */
   readonly #flash = uniform(0);
@@ -201,59 +186,39 @@ export class GamePipeline {
   /** What to build shaders for ahead of drawing: the scenes and the passes that draw them. */
   readonly #passes: { scene: Scene; camera: PerspectiveCamera; pass: ReturnType<typeof pass>; depth: number; samples: number; unjittered: Matrix4 | null }[];
 
-  constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera, quality: QualityProfile = currentQuality()) {
+  constructor(renderer: WebGPURenderer, world: Scene, camera: PerspectiveCamera, view: Scene, viewCamera: PerspectiveCamera) {
     this.#renderer = renderer;
-    this.#quality = quality;
-    this.#scale = quality.renderScale;
-    const temporal = quality.antialias === 'taa';
     this.#camera = camera;
     // The viewmodel pass needs a transparent clear so it can be laid over the world.
     renderer.setClearColor(0x000000, 0);
     this.#pipeline = new RenderPipeline(renderer);
     const worldPass = pass(world, camera);
     this.#owned.push(worldPass);
-    // The velocity buffer is temporal AA's alone: a tier without it draws the world to one target.
-    if (temporal) worldPass.setMRT(mrt({ output, velocity }));
+    // The velocity buffer is temporal AA's.
+    worldPass.setMRT(mrt({ output, velocity }));
     const depth = worldPass.getTextureNode('depth');
-    // Light: the bake already darkens the static world's corners; ambient occlusion adds contact shading round moving things, on the tiers that have it.
-    let occluded: Node<'float'> | null = null;
-    if (quality.aoSamples > 0) {
-      // GTAO reconstructs normals from depth.
-      const aoPass = ao(depth, null as unknown as TextureNode, camera);
-      this.#owned.push(aoPass);
-      aoPass.resolutionScale = 0.5;
-      aoPass.radius.value = 0.6;
-      aoPass.samples.value = quality.aoSamples;
-      occluded = mix(float(1), aoPass.getTextureNode().sample(screenUV).r, 0.45) as unknown as Node<'float'>;
-    }
+    // Light: the bake already darkens the static world's corners; ambient occlusion adds contact shading round moving things.
+    // GTAO reconstructs normals from depth.
+    const aoPass = ao(depth, null as unknown as TextureNode, camera);
+    this.#owned.push(aoPass);
+    aoPass.resolutionScale = 0.5;
+    aoPass.radius.value = 0.6;
+    aoPass.samples.value = PICTURE.aoSamples;
+    const occluded = mix(float(1), aoPass.getTextureNode().sample(screenUV).r, 0.45) as unknown as Node<'float'>;
     const lit: Node<'vec4'> = worldPass.getTextureNode('output').toVec4();
-    let image: TextureNode;
-    let unjittered: Matrix4 | null = null;
-    // Under temporal AA the occlusion goes in before the reprojection, which steadies its noise; without it, on top of the frame.
-    let after: Node<'float'> | null = null;
-    if (temporal) {
-      // TRAA reads a texture: the world pass's own where nothing is laid on it. With occlusion on top, one drawn here and let go with the pipeline
-      // (the one `traa` would make for itself is never disposed).
-      let beauty: Node = worldPass.getTextureNode('output');
-      if (occluded) {
-        const shaded = rtt(vec4(lit.rgb.mul(occluded), lit.a) as never);
-        this.#owned.push(shaded);
-        beauty = shaded;
-      }
-      const t = traa(beauty, depth, worldPass.getTextureNode('velocity'), camera);
-      this.#owned.push(t);
-      // (The types leave out TRAA's texture node.)
-      image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();
-      unjittered = (t as unknown as { _originalProjectionMatrix: Matrix4 })._originalProjectionMatrix;
-    } else {
-      image = worldPass.getTextureNode('output');
-      after = occluded;
-    }
+    // The occlusion goes in before the reprojection, which steadies its noise. TRAA reads a texture: one drawn here and
+    // let go with the pipeline (the one `traa` would make for itself is never disposed).
+    const shaded = rtt(vec4(lit.rgb.mul(occluded), lit.a) as never);
+    this.#owned.push(shaded);
+    const t = traa(shaded, depth, worldPass.getTextureNode('velocity'), camera);
+    this.#owned.push(t);
+    // (The types leave out TRAA's texture node.)
+    const image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();
+    const unjittered = (t as unknown as { _originalProjectionMatrix: Matrix4 })._originalProjectionMatrix;
     // The shimmer goes after the reprojection, so the two don't fight.
-    const sharp = sharpened(image, quality.shimmer ? shimmer(depth, camera) : (screenUV as unknown as Node<'vec2'>), this.#sharpen as never);
-    const color = after ? (sharp.mul(after) as unknown as Node<'vec3'>) : sharp;
-    // The viewmodel is small and close: under temporal AA, 4x MSAA on its own pass keeps its edges clean.
-    const viewSamples = quality.viewmodelSamples > 1 ? quality.viewmodelSamples : 0;
+    const color = sharpened(image, shimmer(depth, camera));
+    // The viewmodel is small and close: 4x MSAA on its own pass keeps its edges clean.
+    const viewSamples = PICTURE.viewmodelSamples > 1 ? PICTURE.viewmodelSamples : 0;
     const viewPass = pass(view, viewCamera, { samples: viewSamples });
     this.#owned.push(viewPass);
     this.#passes = [
@@ -261,12 +226,9 @@ export class GamePipeline {
       { scene: view, camera: viewCamera, pass: viewPass, depth: VIEW_DEPTH, samples: viewSamples, unjittered: null },
     ];
     const vm = viewPass.getTextureNode('output');
-    let beamed = color;
-    if (quality.shafts) {
-      const beams = rtt(clamp(shafts(image, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
-      this.#owned.push(beams);
-      beamed = color.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH)) as unknown as Node<'vec3'>;
-    }
+    const beams = rtt(clamp(shafts(image, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
+    this.#owned.push(beams);
+    const beamed = color.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH)) as unknown as Node<'vec3'>;
     const over = vec4(mix(beamed, vm.rgb, vm.a), 1);
     // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
     const c = mooded(filmLook(over.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
@@ -275,23 +237,9 @@ export class GamePipeline {
     const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
     const composite = vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);
     // Only real highlights bloom (flashes, glints), not sunlit ground.
-    this.#bloom = quality.bloom ? bloom(composite, BLOOM, 0.35, 1.6) : null;
-    if (this.#bloom) this.#owned.push(this.#bloom);
-    const finished = this.#bloom ? composite.add(this.#bloom) : composite;
-    this.#pipeline.outputNode = finished;
-    if (!temporal) {
-      // FXAA looks for edges in the picture as the screen shows it: the frame is finished and tone-mapped into a target
-      // of this pipeline's own, and a second, small pipeline smooths that onto the screen. Two steps, each drawn from
-      // the top: a node that draws its own input to a texture (what `fxaa` makes of anything but a texture) draws the
-      // world and the viewmodel inside its own render, where the sun's shadow map comes out wrong and the viewmodel's
-      // clear is opaque.
-      const flat = new RenderTarget(1, 1, { type: HalfFloatType, depthBuffer: false });
-      const smoothed = fxaa(texture(flat.texture) as never);
-      const pipeline = new RenderPipeline(renderer, smoothed as never);
-      pipeline.outputColorTransform = false;
-      this.#owned.push(flat, smoothed, pipeline);
-      this.#smooth = { flat, pipeline };
-    }
+    this.#bloom = bloom(composite, BLOOM, 0.35, 1.6);
+    this.#owned.push(this.#bloom);
+    this.#pipeline.outputNode = composite.add(this.#bloom);
     this.#pipeline.needsUpdate = true;
   }
 
@@ -354,39 +302,9 @@ export class GamePipeline {
     }
   }
 
-  /** The canvas's size (CSS px) and the screen's density, which set the pixel ratio. */
-  setViewport(width: number, height: number, devicePixelRatio: number): void {
-    this.#viewport = [width, height, devicePixelRatio];
-    this.#resize();
-  }
-
-  /** The tier this pipeline was put together for. */
-  get quality(): QualityProfile {
-    return this.#quality;
-  }
-
-  /**
-   * The render scale: the picture's side as a share of the native one (the
-   * tier's own, or wherever dynamic resolution has it). The browser stretches
-   * the canvas back to the screen, and the frame is sharpened more the further
-   * it is stretched, so it does not go soft. The HUD is the page's, over the
-   * canvas, and stays at the screen's own resolution.
-   */
-  get renderScale(): number {
-    return this.#scale;
-  }
-
-  set renderScale(scale: number) {
-    if (scale === this.#scale) return;
-    this.#scale = scale;
-    this.#resize();
-  }
-
-  #resize(): void {
-    this.#sharpen.value = sharpenFor(this.#scale);
-    if (!this.#viewport) return;
-    const [width, height, dpr] = this.#viewport;
-    const ratio = renderPixelRatio(width, height, dpr, pixelCap(this.#quality)) * this.#scale;
+  /** The screen's density, which sets the pixel ratio: the screen's own pixels. */
+  setViewport(devicePixelRatio: number): void {
+    const ratio = renderPixelRatio(devicePixelRatio);
     // Every change of ratio reallocates each pass's targets: only when it moves.
     if (Math.abs(ratio - this.#ratio) < 1e-4) return;
     this.#ratio = ratio;
@@ -412,7 +330,7 @@ export class GamePipeline {
 
   /** Raises bloom briefly (the muzzle flash). */
   set bloomBoost(v: number) {
-    if (this.#bloom) this.#bloom.strength.value = BLOOM + v;
+    this.#bloom.strength.value = BLOOM + v;
   }
 
   render(): void {
@@ -427,19 +345,7 @@ export class GamePipeline {
     this.#sunAhead.value = Math.max(0, Math.min(1, (ahead - 0.15) / 0.45));
     // Another game drawing to this renderer (the range kept ready behind the menu) leaves its own pixel ratio on it.
     if (this.#ratio > 0 && Math.abs(this.#renderer.getPixelRatio() - this.#ratio) > 1e-4) this.#renderer.setPixelRatio(this.#ratio);
-    const smooth = this.#smooth;
-    if (!smooth) {
-      this.#pipeline.render();
-      return;
-    }
-    const renderer = this.#renderer;
-    const size = renderer.getDrawingBufferSize(bufferSize);
-    if (smooth.flat.width !== size.x || smooth.flat.height !== size.y) smooth.flat.setSize(size.x, size.y);
-    const target = renderer.getRenderTarget();
-    renderer.setRenderTarget(smooth.flat);
     this.#pipeline.render();
-    renderer.setRenderTarget(target);
-    smooth.pipeline.render();
   }
 
   dispose(): void {

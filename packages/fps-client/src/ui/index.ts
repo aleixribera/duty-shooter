@@ -17,9 +17,9 @@ export { BOT_MAPS } from './model';
 export { loadSettings, saveSettings, type Settings } from '../settings';
 export { padName } from '../gamepad';
 export { ProfileStore } from '../profile/store';
-// Quality tiers, the frame governor and the team colours: plain data and arithmetic, so the page has them before the engine.
-export { QUALITY, QUALITY_TIERS, QualityGovernor, forcePixelCap, tierFromHints } from '../quality';
-export type { AdapterHints, GovernorSettings, QualityProfile, QualityTier } from '../quality';
+// The picture, the frame pacer and the team colours: plain data and arithmetic, so the page has them before the engine.
+export { FramePacer, PICTURE } from '../quality';
+export type { AdapterHints, QualityProfile } from '../quality';
 export type { VideoStatus } from './settings-screen';
 export { BenchmarkPage } from './benchmark-page';
 export type { BenchmarkRow } from './benchmark-page';

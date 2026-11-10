@@ -65,7 +65,7 @@ describe('benchmark run', () => {
     expect([bench.progress(4100), bench.measuring(4100)]).toEqual([1, false]);
   });
 
-  it('reports the average, the 1% low and where dynamic resolution settled', () => {
+  it('reports the average and the 1% low', () => {
     const bench = new Benchmark(
       [
         { position: [0, 0, 0], yaw: 0, pitch: 0 },
@@ -76,8 +76,7 @@ describe('benchmark run', () => {
     let now = 0;
     let n = 0;
     while (bench.frame(now)) {
-      // The scale drops early in the flight and stays there.
-      bench.rendered(now, { drawCalls: 1, triangles: 1 }, now < 2000 ? 1 : 0.8);
+      bench.rendered(now, { drawCalls: 1, triangles: 1 });
       now += ++n % 100 === 0 ? 50 : 10;
     }
     const r = bench.result!;
@@ -85,19 +84,6 @@ describe('benchmark run', () => {
     // Nine hitches of 50 ms among some 960 frames: the slowest hundredth is nearly all of them.
     expect(r.low1Ms).toBeGreaterThan(40);
     expect(r.low1Ms).toBeLessThanOrEqual(50);
-    expect(r.renderScale).toEqual({ settled: 0.8, min: 0.8 });
-  });
-
-  it('leaves the render scale out where dynamic resolution was off', () => {
-    const bench = new Benchmark(
-      [
-        { position: [0, 0, 0], yaw: 0, pitch: 0 },
-        { position: [6, 0, 0], yaw: 0, pitch: 0 },
-      ],
-      { speed: 6, warmup: 0 },
-    );
-    for (let now = 0; bench.frame(now); now += 10) bench.rendered(now, { drawCalls: 1, triangles: 1 });
-    expect(bench.result!.renderScale).toBeNull();
   });
 
   it('the 1% low is the average of the slowest hundredth of the frames, one frame at least', () => {
@@ -109,10 +95,10 @@ describe('benchmark run', () => {
   });
 
   it('writes the run as one line to paste', () => {
-    const report = (map: string, meanMs: number, low1Ms: number, settled: number | null): BenchReport =>
-      ({ map, tier: 'High', backend: 'WebGPU', adapter: 'nvidia rtx 4070', resolution: [1920, 1080], meanMs, low1Ms, renderScale: settled === null ? null : { settled, min: settled } }) as unknown as BenchReport;
-    expect(benchLine('v2.152.0', [report('range', 5.04, 9.26, null), report('switchyard', 16.7, 31, 0.85)], (m) => m.toUpperCase())).toBe(
-      'Duty Shooter v2.152.0 | High | WebGPU | nvidia rtx 4070 | drawn at 1920x1080 | RANGE 5.0 ms avg, 9.3 ms 1% low | SWITCHYARD 16.7 ms avg, 31.0 ms 1% low, scale 85%',
+    const report = (map: string, meanMs: number, low1Ms: number, gpu: number | null): BenchReport =>
+      ({ map, backend: 'WebGPU', adapter: 'nvidia rtx 4070', resolution: [1920, 1080], meanMs, low1Ms, gpuMs: gpu === null ? null : { p50: gpu, p95: gpu, p99: gpu, max: gpu } }) as unknown as BenchReport;
+    expect(benchLine('v2.152.0', [report('range', 5.04, 9.26, null), report('switchyard', 16.7, 31, 3.24)], (m) => m.toUpperCase())).toBe(
+      'Duty Shooter v2.152.0 | WebGPU | nvidia rtx 4070 | drawn at 1920x1080 | RANGE 5.0 ms avg, 9.3 ms 1% low | SWITCHYARD 16.7 ms avg, 31.0 ms 1% low, GPU 3.2 ms',
     );
     expect(benchLine('dev', [])).toBe('');
     expect(benchLine('dev', [{ ...report('range', 5, 9, null), adapter: '' }])).toContain('| adapter not named |');

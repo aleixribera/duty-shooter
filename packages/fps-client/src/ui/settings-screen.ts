@@ -1,16 +1,15 @@
 /**
  * The Settings screen's own pieces (next-level ticket 22): its sections and
- * their order, what a quality tier turns on as a list a player can read, and
- * the previews beside the rows: the crosshair as it will be drawn, over a
- * light, a mid and a dark backdrop; the team colours as they will be drawn;
- * the tier in effect.
+ * their order, and the previews beside the rows: the crosshair as it will be
+ * drawn, over a light, a mid and a dark backdrop; the team colours as they
+ * will be drawn; the picture, what it draws, and on what.
  *
  * Plain DOM and the pure tables, no three.js: the menu has it before the
  * engine.
  */
 import { CrosshairView, type CrosshairOptions } from '../hud/crosshair';
-import { FRAME_CAPS, QUALITY, SCALE_FLOOR, type QualityProfile, type QualityTier } from '../quality';
-import type { Settings, SettingsSection } from '../settings';
+import { FRAME_CAPS, PICTURE, type QualityProfile } from '../quality';
+import type { SettingsSection } from '../settings';
 import { TEAM_PALETTES, type ColourVision } from '../team-colours';
 
 export const SECTION_NAMES: Readonly<Record<SettingsSection, string>> = {
@@ -34,54 +33,20 @@ export interface VideoStatus {
   readonly backend: string;
   /** The graphics adapter's name, or '' where the browser keeps it. */
   readonly adapter: string;
-  /** The tier being drawn. */
-  readonly tier: QualityTier;
-  /** Auto is still trying tiers. */
-  readonly searching: boolean;
   /** The display's refresh rate as measured (Hz), or null while unknown. */
   readonly refreshHz: number | null;
 }
 
-const percent = (v: number) => `${Math.round(v * 100)}%`;
-const onOff = (v: boolean) => (v ? 'On' : 'Off');
-
-/** What a tier turns on, a line each, as the table in `quality.ts` has it. */
-export function tierFacts(q: QualityProfile, dynamicResolution: boolean): readonly (readonly [label: string, value: string])[] {
+/** What the picture draws, a line each, as the table in `quality.ts` has it. One look, on every machine. */
+export function pictureFacts(q: QualityProfile = PICTURE): readonly (readonly [label: string, value: string])[] {
   return [
-    ['Render scale', dynamicResolution ? `${percent(SCALE_FLOOR)} to 100%, moving` : percent(q.renderScale)],
-    ['Most pixels a frame', `${q.megapixels.toFixed(1)} million`],
+    ['Resolution', "Your screen's own"],
     ['Shadows', `${q.shadowMapSize} px, ${q.shadowDistance} m`],
-    ['Ambient occlusion', q.aoSamples > 0 ? `${q.aoSamples} samples` : 'Off'],
-    ['Anti-aliasing', q.antialias === 'taa' ? 'Temporal' : 'FXAA'],
-    ['Sun shafts', onOff(q.shafts)],
-    ['Bloom', onOff(q.bloom)],
-    ['Heat shimmer', onOff(q.shimmer)],
-    ['Particles', percent(q.particles)],
-    ['Grass and scatter', `${percent(q.scatterDensity)}, drawn to ${percent(q.scatterDistance)}`],
+    ['Ambient occlusion', `${q.aoSamples} samples`],
+    ['Anti-aliasing', 'Temporal'],
+    ['Sun shafts, bloom, heat shimmer', 'On'],
     ['Texture filtering', `${q.anisotropy}x`],
   ];
-}
-
-/** The tier the Video preview describes: the one being drawn, else the one picked, else what Auto remembers. Null when Auto has yet to measure. */
-export function tierShown(settings: Pick<Settings, 'quality' | 'autoTier'>, status: VideoStatus | null): QualityTier | null {
-  if (settings.quality !== 'auto') return settings.quality;
-  return status?.tier ?? settings.autoTier;
-}
-
-/** The preview's heading: the tier, Auto's pick, or that Auto has yet to pick one. */
-export function tierHeading(settings: Pick<Settings, 'quality' | 'autoTier'>, status: VideoStatus | null): string {
-  const tier = tierShown(settings, status);
-  if (settings.quality !== 'auto') return QUALITY[settings.quality].name;
-  if (status?.searching) return 'Auto: measuring';
-  return tier ? `Auto: ${QUALITY[tier].name}` : 'Not measured yet';
-}
-
-/** The line under the tier's name: where it came from. */
-export function tierLine(settings: Pick<Settings, 'quality' | 'autoTier'>, status: VideoStatus | null): string {
-  if (settings.quality !== 'auto') return 'Picked by hand. Auto would measure this machine and choose for it.';
-  if (!status) return settings.autoTier ? 'What Auto measured on this machine last time.' : 'Auto measures this machine once the map is drawn, and remembers what it finds.';
-  if (status.searching) return `Trying ${QUALITY[status.tier].name} now. Auto draws each tier for a couple of seconds and keeps the highest one that holds the frame rate; below is what ${QUALITY[status.tier].name} turns on.`;
-  return `Auto measured this machine and chose it${status.adapter ? ` for ${status.adapter}` : ''}.`;
 }
 
 /** The frame-rate cap's choices as the list shows them. */
@@ -91,24 +56,21 @@ export function capChoices(): readonly (readonly [value: string, text: string])[
 
 type El = (tag: string, text?: string, cls?: string) => HTMLElement;
 
-/** The Video section's preview: the tier in effect and all it turns on. `refresh` redraws it in place. */
-export function videoPreview(h: El, read: () => { settings: Settings; status: VideoStatus | null }): { root: HTMLElement; refresh(): void } {
+/** The Video section's preview: the picture, all it draws, and the machine drawing it. `refresh` redraws it in place. */
+export function videoPreview(h: El, read: () => VideoStatus | null): { root: HTMLElement; refresh(): void } {
   const root = h('aside', '', 'ds-preview');
-  root.setAttribute('aria-label', 'The quality tier in effect');
+  root.setAttribute('aria-label', 'The picture');
   const refresh = () => {
-    const { settings, status } = read();
-    const tier = tierShown(settings, status);
+    const status = read();
     root.replaceChildren();
-    root.append(h('h3', tierHeading(settings, status)), h('p', tierLine(settings, status), 'ds-sub'));
-    if (tier) {
-      const list = h('dl', '', 'ds-tier');
-      for (const [label, value] of tierFacts(QUALITY[tier], settings.dynamicResolution)) {
-        const row = h('div');
-        row.append(h('dt', label), h('dd', value));
-        list.append(row);
-      }
-      root.append(list);
+    root.append(h('h3', 'The picture'), h('p', "One look on every machine, every effect on, drawn at your screen's own resolution.", 'ds-sub'));
+    const list = h('dl', '', 'ds-tier');
+    for (const [label, value] of pictureFacts()) {
+      const row = h('div');
+      row.append(h('dt', label), h('dd', value));
+      list.append(row);
     }
+    root.append(list);
     if (status) {
       const parts = [status.backend, status.adapter, status.refreshHz ? `${Math.round(status.refreshHz)} Hz display` : ''].filter(Boolean);
       root.append(h('p', parts.join(' · '), 'ds-note'));

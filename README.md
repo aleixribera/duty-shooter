@@ -65,11 +65,9 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?map=<map>` (`range`, `survival-town`, `switchyard`, `station-nine`, `zero-island`) starts with that map behind the menu.
 - `?explore=<map>` (`survival-town`, `switchyard`, `station-nine`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
-- `?bench` flies the benchmark path and reports frame times, draw calls and triangles, at the High tier with the render scale fixed; `&tier=<tier>` flies another tier and `&dynres` lets dynamic resolution move the scale.
-- `?benchmark` opens the benchmark page, the one Settings > Video links to: it flies every map at a chosen tier and shows each map's average and 1% low frame time, the render scale dynamic resolution settled on, the adapter and the backend, and one line to copy. `&maps=<map>,<map>` flies only those maps, `&tier=<tier>` and `&dynres=on|off` set what it opens on, and `&run` starts it without the click. A script reads the reports from `globalThis.duty.benchmark` once `document.body.dataset.benchmark` is `done`.
-- `?tier=<tier>` (`low`, `medium`, `high`, `ultra`) draws that quality tier for the visit, whatever Settings says, without saving it.
-- `?hz=<n>` states the display's refresh rate instead of measuring it: a scripted browser draws unpaced, so the frame time dynamic resolution and Auto hold has to be told.
-- `?megapixels=<n>` lifts every tier's pixel cap to n million, so a large window loads the GPU: to watch dynamic resolution hold its frame time.
+- `?bench` flies the benchmark path and reports frame times, GPU time (where the browser measures it), draw calls and triangles, in the game's one picture at the window's own resolution, uncapped.
+- `?benchmark` opens the benchmark page, the one Settings > Video links to: it flies every map and shows each map's average and 1% low frame time, the adapter and the backend, and one line to copy. `&maps=<map>,<map>` flies only those maps and `&run` starts it without the click. A script reads the reports from `globalThis.duty.benchmark` once `document.body.dataset.benchmark` is `done`.
+- `?hz=<n>` states the display's refresh rate instead of measuring it: a scripted browser draws unpaced, so the frame-rate cap has to be told what the display runs at.
 - `?soldiers=near|mid|far` draws every soldier at that level whatever its distance (full, cheap animated, or the far stand-in), to look at a level up close.
 - `?lod=off` draws a large map without its distance detail (soldier levels, far ground in blocks, far surfaces), to measure what that detail saves.
 - `?plants=off` draws a map without its plants (their soft cover still hides from bots; rocks and trunks show as their plain solids), to measure what the plants cost.
@@ -82,7 +80,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?webgl` forces the WebGL2 fallback.
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
 
-In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `sound`, `menu`, `driver`, `governor`) for the console and for scripts; `duty.setTier('low')` switches the quality tier live, `duty.setTier(null)` goes back to the setting.
+In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `sound`, `menu`, `driver`, `pacer`) for the console and for scripts.
 
 ## Desktop app
 

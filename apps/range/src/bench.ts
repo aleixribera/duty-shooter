@@ -87,8 +87,6 @@ export interface BenchResult {
   /** The average frame time (ms), and the average of the slowest 1% of frames. */
   readonly meanMs: number;
   readonly low1Ms: number;
-  /** The render scale over the run where dynamic resolution moved it: where it sat most (the median) and the least it went. Null with the scale fixed. */
-  readonly renderScale: { readonly settled: number; readonly min: number } | null;
   /** GPU time per frame (ms), where the browser exposes timestamp queries; null otherwise. */
   readonly gpuMs: Percentiles | null;
   readonly drawCalls: { readonly mean: number; readonly max: number };
@@ -97,12 +95,10 @@ export interface BenchResult {
 
 export interface BenchReport extends BenchResult {
   readonly map: string;
-  /** The quality tier drawn. */
-  readonly tier: string;
   readonly backend: string;
   /** The graphics adapter's name, or '' where the browser keeps it. */
   readonly adapter: string;
-  /** The size drawn (px), at the tier's own render scale and under its pixel cap: a tier that renders smaller says so here. */
+  /** The size drawn (px): the window's own pixels. */
   readonly resolution: readonly [number, number];
   /** Page start to the map's first rendered frame (ms). */
   readonly loadMs: number;
@@ -130,7 +126,6 @@ export class Benchmark {
   readonly #gpuMs: number[] = [];
   readonly #draws: number[] = [];
   readonly #tris: number[] = [];
-  readonly #scales: number[] = [];
   #result: BenchResult | null = null;
 
   constructor(keys: readonly CameraKey[], options: { speed?: number; warmup?: number } = {}) {
@@ -173,8 +168,8 @@ export class Benchmark {
     return this.#warmup + this.#path.length / this.#speed;
   }
 
-  /** Records the frame just drawn (outside the warm-up). `scale` is the render scale it was drawn at, where dynamic resolution moves it. */
-  rendered(now: number, stats: FrameStats, scale?: number): void {
+  /** Records the frame just drawn (outside the warm-up). */
+  rendered(now: number, stats: FrameStats): void {
     if (this.#start === null) return;
     // Both ends of the frame after the warm-up, so a compile stall that began in it is not counted.
     const after = (t: number) => (t - this.#start!) / 1000 > this.#warmup;
@@ -182,7 +177,6 @@ export class Benchmark {
       this.#frameMs.push(now - this.#last);
       this.#draws.push(stats.drawCalls);
       this.#tris.push(stats.triangles);
-      if (scale !== undefined) this.#scales.push(scale);
     }
     this.#last = now;
   }
@@ -194,13 +188,11 @@ export class Benchmark {
 
   #finish(): void {
     const whole = (v: readonly number[]) => Math.round(mean(v));
-    const scales = [...this.#scales].sort((a, b) => a - b);
     this.#result = {
       frames: this.#frameMs.length,
       frameMs: percentiles(this.#frameMs),
       meanMs: mean(this.#frameMs),
       low1Ms: onePercentLow(this.#frameMs),
-      renderScale: scales.length ? { settled: scales[Math.floor(scales.length / 2)]!, min: scales[0]! } : null,
       gpuMs: this.#gpuMs.length ? percentiles(this.#gpuMs) : null,
       drawCalls: { mean: whole(this.#draws), max: Math.max(0, ...this.#draws) },
       triangles: { mean: whole(this.#tris), max: Math.max(0, ...this.#tris) },
@@ -215,17 +207,18 @@ export function frameTimeText(ms: number): string {
 }
 
 /**
- * A benchmark's runs as one line to paste: the release, the tier, the backend
- * and adapter, the resolution, then each map's average and 1% low (and the
- * render scale dynamic resolution settled on, where it was on).
+ * A benchmark's runs as one line to paste: the release, the backend and
+ * adapter, the resolution, then each map's average and 1% low, and its GPU
+ * time where the browser measures it: what says whether the card or the
+ * processor is the limit.
  */
 export function benchLine(version: string, reports: readonly BenchReport[], names: (map: string) => string = (m) => m): string {
   const first = reports[0];
   if (!first) return '';
-  const head = [`Duty Shooter ${version}`, first.tier, first.backend, first.adapter || 'adapter not named', `drawn at ${first.resolution[0]}x${first.resolution[1]}`];
+  const head = [`Duty Shooter ${version}`, first.backend, first.adapter || 'adapter not named', `drawn at ${first.resolution[0]}x${first.resolution[1]}`];
   const runs = reports.map((r) => {
-    const scale = r.renderScale ? `, scale ${Math.round(r.renderScale.settled * 100)}%` : '';
-    return `${names(r.map)} ${r.meanMs.toFixed(1)} ms avg, ${r.low1Ms.toFixed(1)} ms 1% low${scale}`;
+    const gpu = r.gpuMs ? `, GPU ${r.gpuMs.p50.toFixed(1)} ms` : '';
+    return `${names(r.map)} ${r.meanMs.toFixed(1)} ms avg, ${r.low1Ms.toFixed(1)} ms 1% low${gpu}`;
   });
   return [...head, ...runs].join(' | ');
 }

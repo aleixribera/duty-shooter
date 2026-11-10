@@ -2,7 +2,7 @@ import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, isStock, parseAttachments, parseLoa
 import { DEFAULT_MIX, type MixLevels } from './audio/mix';
 import type { PadLayout } from './gamepad';
 import { CROSSHAIR_COLOURS, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, DEFAULT_CROSSHAIR, type CrosshairColour, type CrosshairOptions } from './hud/crosshair';
-import { FRAME_CAPS, QUALITY_CHOICES, QUALITY_TIERS, type QualityChoice, type QualityTier } from './quality';
+import { FRAME_CAPS } from './quality';
 import { COLOUR_VISIONS, type ColourVision } from './team-colours';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
@@ -105,13 +105,6 @@ export interface Settings {
   readonly builds: Readonly<Partial<Record<WeaponId, Attachments>>>;
   readonly passphrase: string;
   readonly firefoxTipShown: boolean;
-  /** Picture quality: a tier, or Auto, which measures once and remembers what it found. */
-  readonly quality: QualityChoice;
-  /** The tier Auto found, and the adapter it found it on (a different one measures again); null until it has measured. */
-  readonly autoTier: QualityTier | null;
-  readonly autoAdapter: string;
-  /** Moves the render scale to hold the frame rate. */
-  readonly dynamicResolution: boolean;
   /** Frames a second at most, or 0 for the display's own rate. */
   readonly fpsCap: number;
   /** Mouse look, up and down swapped. */
@@ -188,10 +181,6 @@ export const DEFAULT_SETTINGS: Settings = {
   builds: {},
   passphrase: '',
   firefoxTipShown: false,
-  quality: 'auto',
-  autoTier: null,
-  autoAdapter: '',
-  dynamicResolution: true,
   fpsCap: 0,
   invertY: false,
   cameraMotion: 1,
@@ -208,7 +197,7 @@ export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof 
   controls: ['bindings', 'adsMode', 'crouchMode', 'sprintMode'],
   mouse: ['sensitivity', 'adsMultiplier', 'invertY', 'padLayout', 'padSensitivityX', 'padSensitivityY', 'padAdsMultiplier', 'padInvertY', 'padDeadzone', 'padAimAssist', 'padRumble'],
   touch: ['touchSensitivity', 'touchAdsMultiplier', 'touchAutoFire', 'touchAimAssist'],
-  video: ['quality', 'dynamicResolution', 'fpsCap', 'fov', 'adsFov', 'showFps'],
+  video: ['fpsCap', 'fov', 'adsFov', 'showFps'],
   audio: ['volume', 'musicVolume', 'effectsVolume', 'voiceVolume', 'uiVolume'],
   hud: ['hudScale', 'showPing', 'showRangeOverlay', 'crosshair'],
   accessibility: ['cameraMotion', 'fovEffects', 'colourVision', 'captions'],
@@ -322,10 +311,6 @@ export function parseSettings(raw: unknown): Settings {
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
     // Everything from here on came with the Settings screen's sections: a save from before them has none, and gets the defaults.
-    quality: oneOf(r['quality'], QUALITY_CHOICES, d.quality),
-    autoTier: QUALITY_TIERS.includes(r['autoTier'] as QualityTier) ? (r['autoTier'] as QualityTier) : null,
-    autoAdapter: str(r['autoAdapter'], d.autoAdapter, 160),
-    dynamicResolution: bool(r['dynamicResolution'], d.dynamicResolution),
     fpsCap: (FRAME_CAPS as readonly number[]).includes(r['fpsCap'] as number) ? (r['fpsCap'] as number) : d.fpsCap,
     invertY: bool(r['invertY'], d.invertY),
     cameraMotion: clamp(r['cameraMotion'], 0, 1, d.cameraMotion),

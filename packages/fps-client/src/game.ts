@@ -68,7 +68,6 @@ import { TrainSounds } from './train';
 import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline } from './pipeline';
 import { STEP_LENGTH } from './motion';
-import type { QualityProfile } from './quality';
 import { useColourVision } from './team-colours';
 import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
@@ -565,42 +564,11 @@ export class Game {
     if (!settings.captions) this.hud.caption(null);
   }
 
-  /**
-   * Draws the match at another quality tier (ticket 22). The frame is put
-   * together again for it (one hitch while its shaders build), the shadows
-   * change where they are; what a tier thins as the map is built (grass,
-   * scatter, dust) is as it was until the next map.
-   */
-  setQuality(quality: QualityProfile): void {
-    if (quality === this.#pipeline.quality) return;
-    this.#worldView.setQuality(quality);
-    this.#pipeline.dispose();
-    this.#pipeline = new GamePipeline(this.#renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera, quality);
-    this.#resize();
-  }
-
-  /** The tier the match is drawn at. */
-  get quality(): QualityProfile {
-    return this.#pipeline.quality;
-  }
-
   /** The view as last drawn (vertical FOV in degrees, angles in radians): for scripts checking what the motion settings do. */
   get view(): { readonly fov: number; readonly pitch: number; readonly roll: number; readonly y: number } {
     const cam = this.#camera.camera;
     return { fov: cam.fov, pitch: cam.rotation.x, roll: cam.rotation.z, y: cam.position.y };
   }
-
-  /** The render scale (see `GamePipeline.renderScale`): dynamic resolution moves it, and the FPS counter shows it when told to. */
-  get renderScale(): number {
-    return this.#pipeline.renderScale;
-  }
-
-  set renderScale(scale: number) {
-    this.#pipeline.renderScale = scale;
-  }
-
-  /** The render scale to show beside the FPS counter, or null to show none (dynamic resolution off). */
-  shownScale: number | null = null;
 
   /** Starts fetching every weapon's models (first- and third-person) and the frag, settling once all are in. */
   preload(): Promise<void> {
@@ -733,7 +701,7 @@ export class Game {
     const height = this.#canvas.clientHeight;
     if (width === 0 || height === 0) return;
     this.#renderer.setSize(width, height, false);
-    this.#pipeline.setViewport(width, height, window.devicePixelRatio);
+    this.#pipeline.setViewport(window.devicePixelRatio);
     this.#camera.resize(width, height);
     this.#viewmodel.resize(width / height);
   }
@@ -1061,7 +1029,6 @@ export class Game {
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,
       showFps: this.#settings.showFps,
-      renderScale: this.shownScale,
       showPing: this.#settings.showPing,
       showOverlay,
       targetDistance: showOverlay ? this.#targetDistance(eye, forward) : null,

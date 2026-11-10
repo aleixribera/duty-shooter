@@ -1,7 +1,6 @@
 import { cameraPosition, dFdx, dFdy, dot, float, floor, fract, If, length, Loop, max, normalize, normalWorld, positionWorld, select, sin, smoothstep, sqrt, texture, vec2, vec3 } from 'three/tsl';
 import { LinearFilter, LinearMipmapLinearFilter, NoColorSpace, RepeatWrapping, Texture, TextureLoader, type Node } from 'three/webgpu';
 import type { Family } from './surfaces';
-import { filterByQuality } from './quality';
 
 /**
  * The tiling pictures under the finishes (tools/textures/tiles.mjs paints
@@ -84,7 +83,7 @@ function picture(name: string): Texture {
     texture.wrapS = texture.wrapT = RepeatWrapping;
     texture.minFilter = LinearMipmapLinearFilter;
     texture.magFilter = LinearFilter;
-    filterByQuality(texture, ANISOTROPY);
+    texture.anisotropy = ANISOTROPY;
     texture.generateMipmaps = true;
     texture.flipY = false;
     cache.set(name, texture);

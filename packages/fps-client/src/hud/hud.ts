@@ -278,8 +278,6 @@ export interface HudState {
   /** Round-trip time in ms, or null offline. */
   readonly ping: number | null;
   readonly showFps: boolean;
-  /** The render scale (0 to 1) to show beside the FPS: dynamic resolution is on. Null or absent to show none. */
-  readonly renderScale?: number | null;
   readonly showPing: boolean;
   readonly showOverlay: boolean;
   /** Range overlay: distance to whatever the crosshair is on. */
@@ -816,8 +814,6 @@ export class Hud {
 
     const stats: string[] = [];
     if (state.showFps) stats.push(`${Math.round(state.fps)} FPS`);
-    // Dynamic resolution: the share of the screen's own resolution the frame is drawn at now.
-    if (state.showFps && state.renderScale != null) stats.push(`${Math.round(state.renderScale * 100)}% res`);
     if (state.showPing && state.ping !== null) stats.push(`${Math.round(state.ping)} ms`);
     this.#text(this.#stats, stats.join('  ·  '));
     const respawn = state.respawnIn === null ? '' : state.respawnIn > 0.05 ? `\nRespawning in ${Math.ceil(state.respawnIn)}` : '\nRespawning';

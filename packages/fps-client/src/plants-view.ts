@@ -23,7 +23,7 @@ import {
 import { groundLayerIndex, GROUND_LAYERS, groundTextures } from './ground-layers';
 import { foliageLit, openGroundLit } from './surface-materials';
 import { PLANT_STRIDE, type PlantKind, type Plants } from './surfaces';
-import { currentQuality, filterByQuality, keeps } from './quality';
+import { PICTURE, keeps } from './quality';
 
 /**
  * A map's vegetation and rocks (ticket 29), drawn instanced: each model of
@@ -232,7 +232,7 @@ async function loadAtlas(url: string): Promise<Texture> {
   const t = await new TextureLoader().loadAsync(url);
   t.flipY = false;
   t.colorSpace = SRGBColorSpace;
-  filterByQuality(t, 4);
+  t.anisotropy = 4;
   t.needsUpdate = true;
   return t;
 }
@@ -305,15 +305,15 @@ export class KindView {
   readonly #refill: number;
   #at: readonly [number, number, number] | null = null;
   #zoom = 1;
-  /** How far this kind draws, as a share of its own distance (the quality tier's). */
+  /** How far this kind draws, as a share of its own distance (the picture's). */
   readonly #reach: number;
 
   constructor(kind: PlantKind, geometry: (name: string) => BufferGeometry, material: (kind: PlantKind) => Material) {
     this.#kind = kind;
     this.#refill = refillOf(kind);
     const count = kind.instances.length / PLANT_STRIDE;
-    // The quality tier thins and shortens only blades and fronds: a rock, a trunk or a bush is cover (and often a solid), and is drawn for everyone, at least as far as it always was.
-    const quality = currentQuality();
+    // The look thins and shortens only blades and fronds: a rock, a trunk or a bush is cover (and often a solid), and is drawn for everyone, at least as far as it always was.
+    const quality = PICTURE;
     const density = kind.thin ? quality.scatterDensity : 1;
     this.#reach = kind.thin ? quality.scatterDistance : Math.max(1, quality.scatterDistance);
     // Hard cover and bushes cast shadows near; blades and fronds don't (cheaper, and they'd only speckle the ground).
