@@ -4,6 +4,8 @@ import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from '.
 import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
 import { MATCH_GAIN_CSS, matchGainHtml } from './match-gain';
 import { SCORE_FEED_CSS, ScoreFeed, type ScoreFeedEntry } from './score-feed';
+import { MATCH_CLOCK_CSS, MatchClockView, matchClockHtml } from './match-clock';
+import { GRENADE_WARNINGS_CSS, GrenadeWarningsView, type GrenadeWarning } from './grenade-warnings';
 import { figure, medalName, type MatchGain } from '../profile/model';
 import { RECAP_CSS, recapHtml, type Recap } from '../ui/recap';
 import { END_REASONS, MODE_NAMES, TEAMS, endSummary, matchBar, mvpOf, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
@@ -275,6 +277,8 @@ export interface HudState {
   readonly action?: { readonly label: string; readonly share: number } | null;
   /** The pings standing, where they show on the screen, and the ping wheel while it is open (ticket 66). */
   readonly pingMarks?: { readonly marks: readonly PingScreenMark[]; readonly wheel: { readonly pick: PingKind | null } | null };
+  /** The live grenades near enough to warn you of (ticket 12). */
+  readonly grenades?: readonly GrenadeWarning[];
   readonly dt: number;
 }
 
@@ -443,6 +447,8 @@ export class Hud {
   readonly #royale: RoyaleHud;
   readonly #pings: PingMarks;
   readonly #allies: AllyTagsView;
+  readonly #grenades: GrenadeWarningsView;
+  readonly #clock = new MatchClockView();
   readonly #spectator: SpectatorPanel;
   readonly #card: MatchCardView;
   readonly #recap: HTMLDivElement;
@@ -458,7 +464,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS + MATCH_GAIN_CSS + SCORE_FEED_CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS + MATCH_GAIN_CSS + SCORE_FEED_CSS + MATCH_CLOCK_CSS + GRENADE_WARNINGS_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -472,6 +478,7 @@ export class Hud {
     this.#scope = el('div', 'ds-scope', this.root, '<i class="h"></i><i class="v"></i><i class="h thick"></i><i class="h thick r"></i><i class="v thick"></i>');
     this.#vignette = el('div', 'ds-vignette', this.root);
     this.#allies = new AllyTagsView(this.root);
+    this.#grenades = new GrenadeWarningsView(this.root);
     this.#spectator = new SpectatorPanel(this.root);
     this.#cross = el('div', 'ds-cross', this.root, '<i class="h"></i><i class="h"></i><i class="v"></i><i class="v"></i><b></b>');
     this.#arms = [...this.#cross.querySelectorAll('i')] as HTMLElement[];
@@ -685,6 +692,7 @@ export class Hud {
     const hide = !aimer || !aimer.alive || aimer.downed !== null || aimer.reviving !== null || (aw?.ads ?? 0) > 0.35 || sprinting || aw?.action === 'inspect';
     this.#style(this.#cross, 'opacity', hide ? '0' : '1');
     this.#allies.update(state.allies ?? []);
+    this.#grenades.update(self ? (state.grenades ?? []) : [], self?.yaw ?? 0);
     this.#spectator.update(state.spectator ?? null);
     const gap = Math.round(Math.max(4, (aw?.spread ?? 2) * state.pixelsPerDegree) * 2) / 2;
     const [left, right, up, down] = this.#arms;
@@ -938,9 +946,13 @@ export class Hud {
     const left = view.secondsLeft === null ? '' : clock(view.secondsLeft);
     if (s.phase === 'playing') {
       const bar = matchBar(s, state.scores, state.selfId, view.team);
-      // The last half minute in red, but not Charge's countdown to a round.
-      const low = view.secondsLeft !== null && view.secondsLeft <= 30 && state.charge?.state.phase !== 'freeze';
-      const mid = `<div class="mid"><span class="clock${low ? ' low' : ''}">${left || '–'}</span><span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
+      // A Charge round's clock is a round's: its last half minute in red, but not the countdown to it. Every other
+      // match's clock runs out on the bomb, and its last minute counts T-minus (ticket 24).
+      const round = s.mode === 'charge';
+      const low = round && state.charge?.state.phase !== 'freeze' && view.secondsLeft !== null && view.secondsLeft <= 30;
+      const bomb = round ? null : view.secondsLeft;
+      const face = bomb !== null ? matchClockHtml(bomb) : `<span class="clock${low ? ' low' : ''}">${left || '–'}</span>`;
+      const mid = `<div class="mid">${face}<span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
       if (bar.kind === 'tdm') {
         // Each side's way to the limit, under its score.
         const [a, b] = bar.teams.map(
@@ -965,6 +977,8 @@ export class Hud {
         const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
         this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
       }
+      // The last minute's clock and fuse move many times a second: painted into the bar, not written with it.
+      this.#clock.paint(this.#match, bomb);
       return;
     }
     const end = endSummary(s.result, s.mode, state.scores, state.selfId);

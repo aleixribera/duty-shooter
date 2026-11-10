@@ -110,6 +110,28 @@ function filmLook(c: Node<'vec3'>): Node<'vec3'> {
 }
 
 /**
+ * The picture's two moods, laid over the film look. Low health drains the
+ * colour out of it (`drain`, ticket 12): what is left is a cold grey, a little
+ * darker, so the red of the HUD's own warning is the only colour on screen.
+ * The last minute changes the light (`dread`, ticket 24): the shadows and the
+ * middle take the amber of a warning lamp while the brightest parts keep
+ * their own colour, the contrast tightens about middle grey and the frame's
+ * edge closes in; `beat` lifts the whole picture for an instant on each of
+ * the last ten seconds.
+ */
+function mooded(c: Node<'vec3'>, drain: Node<'float'>, dread: Node<'float'>, beat: Node<'float'>): Node<'vec3'> {
+  const grey = dot(c, LUMA);
+  const drained = mix(c, vec3(grey).mul(vec3(0.94, 0.98, 1.04)), drain.mul(0.82)).mul(float(1).sub(drain.mul(0.05)));
+  const luma = dot(drained, LUMA);
+  const lamp = vec3(luma).mul(vec3(1.3, 0.96, 0.56));
+  const lit = mix(drained, lamp, dread.mul(0.5).mul(float(1).sub(smoothstep(float(0.45), float(1.1), luma).mul(0.7))));
+  const tight = max(lit.sub(0.18).mul(dread.mul(0.22).add(1)).add(0.18), vec3(0));
+  const edge = length(screenUV.sub(0.5).mul(vec2(1, 0.7)));
+  const closed = tight.mul(float(1).sub(smoothstep(float(0.3), float(0.75), edge).mul(dread).mul(0.3)));
+  return closed.mul(beat.mul(0.09).add(1)) as unknown as Node<'vec3'>;
+}
+
+/**
  * The pixel ratio a `width` x `height` (CSS px) canvas renders at on a screen
  * of `devicePixelRatio`: the screen's density, capped, then cut to the pixel
  * budget.
@@ -153,6 +175,10 @@ export class GamePipeline {
   /** The nuke's white-out and colour grade, 0..1 (see `setNuke`). */
   readonly #flash = uniform(0);
   readonly #grade = uniform(0);
+  /** The picture's moods, 0..1 each (see `setMood`). */
+  readonly #drain = uniform(0);
+  readonly #dread = uniform(0);
+  readonly #beat = uniform(0);
   /** The sun on screen (0..1) and how much it is in front of the camera. */
   readonly #sun = uniform(new Vector2(0.5, 0.5));
   readonly #sunAhead = uniform(0);
@@ -200,7 +226,7 @@ export class GamePipeline {
     const beamed = color.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH));
     const over = vec4(mix(beamed, vm.rgb, vm.a), 1);
     // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
-    const c = filmLook(over.rgb as never);
+    const c = mooded(filmLook(over.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
     const luma = dot(c, LUMA);
     const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
     const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
@@ -280,6 +306,17 @@ export class GamePipeline {
   setNuke(flash: number, grade: number): void {
     this.#flash.value = flash;
     this.#grade.value = grade;
+  }
+
+  /**
+   * The picture's moods this frame, 0 to 1 each: how far low health has
+   * drained its colour, how far the last minute's light has come, and the beat
+   * of the last ten seconds.
+   */
+  setMood(drain: number, dread: number, beat: number): void {
+    this.#drain.value = drain;
+    this.#dread.value = dread;
+    this.#beat.value = beat;
   }
 
   /** Raises bloom briefly (the muzzle flash). */

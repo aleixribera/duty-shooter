@@ -1,6 +1,7 @@
 # Low health and danger
 
-Status: open
+Status: resolved
+Release: v2.152.0
 
 Spec: `../spec.md`
 
@@ -25,3 +26,18 @@ The audio half is released in v2.151.0; the ticket stays open for the desaturati
 
 - The heartbeat and the low-pass belong to the fight: they stop with the match (the ending's shot, the scoreboard and the vote were played through a closed filter when you ended it hurt) and through a pause of a Bot Match. Seen in a scripted free-for-all: paused at 28 health, the filter went from 7,700 Hz to open and no beat was played in 4 s of pause.
 - The ringing after a blast picks its ramps up from where the last one left them (`cancelAndHoldAtTime`), so a second blast inside the first does not click.
+
+**The colour and the grenade indicator (v2.152.0)**
+
+- Under 30 health the colour drains out of the picture (`colourDrain`, `mooded` in `pipeline.ts`): nothing at 30, all but gone at 8, eased over a third of a second so a hit moves the picture instead of cutting it, and back at once on death, a respawn, a pause and the match's end. What is left is a cold grey a little darker, so the red at the frame's edge and the health figure are the only warm things on screen.
+- The grenade indicator (`hud/grenade-warnings.ts`): a live frag within `warningRadius` (10 m) of the middle of your body is a square plate with a grenade on it, on a ring round the crosshair on the side the grenade lies, with a wedge pointing outward. Where the blast would take all the health you have, the plate fills in; in the fuse's last second it blinks (not under reduced motion). The nearest four are shown.
+- Decided: a teammate's grenade is not marked where sides are played, because it cannot hurt you. Your own is, since it can, but not while it flies away from you: a mark at the moment of every throw would teach you to ignore the mark. One that comes back off a wall, or lies near you, is marked.
+- Decided: the mark is a plate with a glyph and not a bare arrow, because the damage indicator is already an arc on the same ring and the two must not read as one thing. Lethal is a filled plate, not a second colour.
+- Distance is the blast's own, as the simulation's `#explode` measures it: from 5 cm above the grenade to the nearest part of your body as you stand, crouch or lie (`partCentres`, now exported from fps-core), and the fill is `blastDamage` against your health now, not against a full 100. Cover is not counted: behind a wall the mark says more than the blast will do, never less.
+- On a screen under 420 px high the ring is 96 px from the crosshair instead of 167, so a grenade dead ahead does not put its mark over the match bar.
+- Seen on Survival Town at 1920 by 1080, 844 by 390 and 390 by 844 with three grenades staged round the player (ahead and left, lethal on the right, behind): each mark on its side, the lethal one filled. A real throw at your feet: no mark while it flew off, a mark once it lay 7 m away, blinking through its last second, gone with the blast. In a scripted free-for-all the picture at 21 health had lost the green of the grass and the sand's yellow, and was back to full colour after the death.
+- Scripts: `.scratch/next-level/countdown/nade152b.mjs`, `drain152.mjs`.
+
+**After a review (in this release)**
+
+- The fill first measured from one point at the middle of the body and against full health: a grenade on the ground 2.2 m from your feet stayed hollow and killed (the blast reaches your legs at 2.22 m). It now uses the simulation's own measure, and a test walks a grenade along the ground from 1 to 6 m and holds the fill to `blastDamage` at every step.

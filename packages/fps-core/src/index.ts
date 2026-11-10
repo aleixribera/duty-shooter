@@ -29,7 +29,7 @@ export type {
   TickOutput,
   WeaponOutput,
 } from './simulation';
-export { hitBody, hitboxes, zoneCentre } from './combat/hitboxes';
+export { hitBody, hitboxes, partCentres, zoneCentre } from './combat/hitboxes';
 export type { HitPose, HitZone } from './combat/hitboxes';
 export { bulletDamage, rangeDamage, zoneMultiplier } from './combat/damage';
 export { shotsToKill, timeToKill, timeToKillTable } from './combat/ttk';

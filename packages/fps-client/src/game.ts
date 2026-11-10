@@ -40,6 +40,8 @@ import { tinnitusStrength } from './audio/danger';
 import { speechSeconds, speechVolume } from './audio/mix';
 import { matchScene } from './audio/music/scene';
 import { SIREN_OVERLAP } from './audio/countdown';
+import { clockRan, colourDrain, countdownCall, countdownLine, eased, lastMinuteLight, lastTenBeat, type MapEnding } from './last-minute';
+import { grenadeWarnings } from './hud/grenade-warnings';
 import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds';
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
@@ -191,6 +193,9 @@ interface Engagement {
   hits: number;
 }
 
+/** How fast the picture's moods move, a second: the colour drains and returns in a third of one, the last minute's light follows its clock and leaves over two. */
+const MOOD_RATES = { drain: 3, dreadIn: 4, dreadOut: 0.5 } as const;
+
 /**
  * One running game in the page: the fixed-tick loop over a driver (offline
  * or online), the camera, viewmodel, other players, effects, sound and HUD,
@@ -283,6 +288,11 @@ export class Game {
   readonly #countdownSounds = new CountdownSounds();
   #sirenAt: Vec3 | null = null;
   #matchLive: boolean | null = null;
+  /** The picture's moods as they stand (eased, so neither snaps): low health's drained colour and the last minute's light. */
+  #drain = 0;
+  #dread = 0;
+  /** The match clock a frame ago, for the calls it passes. */
+  #clockWas: number | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
   readonly #prepSounds = new PreparationSounds();
   #prepShot: PreparationShot | null = null;
@@ -299,6 +309,8 @@ export class Game {
   readonly #nukeAt: WorldContent['nuke'];
   /** The map's ending as a shot of its own (the nuke's, or the train's), or null to stay on the player's view. */
   readonly #endingShot: EndingShot | null;
+  /** What the map's clock runs out on, for what the last minute's first call says. */
+  readonly #ending: MapEnding;
   readonly #indoorZones: WorldContent['indoorZones'];
   readonly #ambience: Ambience;
   /** Where the listener last was, for placing sounds made with no position. */
@@ -334,6 +346,7 @@ export class Game {
     this.#overview = options.overview;
     this.#nukeAt = options.content.nuke ?? null;
     this.#endingShot = this.#nukeAt?.shot ?? options.content.train?.shot ?? null;
+    this.#ending = this.#nukeAt ? 'nuke' : options.content.train ? 'train' : null;
     this.#loadoutStation = options.loadoutStation ?? null;
     this.#rangeLanesWestOf = options.rangeLanesWestOf ?? null;
     this.#keeper = new MatchKeeper(options.profile ?? null);
@@ -430,6 +443,11 @@ export class Game {
     this.#engagements.clear();
     this.#loop.reset();
     this.#newMatch();
+    // The picture's moods belong to the game that was left: the menu's backdrop, and the next game, start without them.
+    this.#drain = 0;
+    this.#dread = 0;
+    this.#clockWas = null;
+    this.#pipeline.setMood(0, 0, 0);
     this.hud.visible = driver !== null;
   }
 
@@ -791,7 +809,7 @@ export class Game {
     for (const c of this.#chargeSounds.update(objective?.kind === 'charge' ? objective : null, performance.now() / 1000, (id) => this.#playerById(id)?.position ?? null)) this.#play(c.event, c.params);
     this.#zoneRings.update(driver?.match?.phase === 'playing' && objective?.kind === 'outposts' ? objective.zones : null, performance.now() / 1000);
     this.#updateRing(driver, eye);
-    this.#updateScore(driver);
+    this.#updateScore(driver, dt);
     this.#effects.update(dt, this.#camera.camera);
     this.#tracers.update(dt, this.#camera.camera);
     this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
@@ -924,6 +942,7 @@ export class Game {
       gain: this.#keeper.gain,
       recap: this.#royale && this.#cur?.alive && this.#cur.downed ? this.#log.recap : null,
       pingMarks: { marks: this.#pingMarks(eye), wheel: this.input.pingWheel },
+      grenades: grenadeWarnings(this.#cur, driver.grenades(), driver.serverTime, match !== null && match !== undefined && (teamMode(match.mode) || match.mode === 'battle-royale')),
       action,
       dt,
     });
@@ -1223,7 +1242,7 @@ export class Game {
    * counter, and your own health the heartbeat. With no game running the menus own the scene
    * (the app's frame loop).
    */
-  #updateScore(driver: GameDriver | null): void {
+  #updateScore(driver: GameDriver | null, dt: number): void {
     const self = this.#cur;
     const match = driver?.match ?? null;
     // A clock that stands still (a Bot Match paused) holds the sounds that run on it.
@@ -1237,6 +1256,20 @@ export class Game {
       driver && match && match.phase === 'playing' && match.timeLimit !== null && match.phaseEnds !== null && kind !== 'charge' && kind !== 'battle-royale'
         ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
         : null;
+    // The picture's share: the colour drains with your health, and the last minute changes the light. Both ease, so a
+    // hit, a respawn and the match's end move the picture instead of cutting it.
+    this.#drain = eased(this.#drain, fighting && self?.alive ? colourDrain(self.health) : 0, MOOD_RATES.drain, dt);
+    const light = lastMinuteLight(timeLeft);
+    this.#dread = eased(this.#dread, light, light > this.#dread ? MOOD_RATES.dreadIn : MOOD_RATES.dreadOut, dt);
+    this.#pipeline.setMood(this.#drain, this.#dread, frozen ? 0 : lastTenBeat(timeLeft));
+    // What the announcer says on the way down: at a minute, at half of one, at ten seconds.
+    const call = frozen ? null : countdownCall(this.#clockWas, timeLeft);
+    this.#clockWas = clockRan(this.#clockWas, timeLeft);
+    if (call) {
+      this.#say(call.say);
+      const line = countdownLine(call, this.#ending);
+      if (line) this.hud.toast(line, 4);
+    }
     if (!driver || frozen) {
       // Left, or paused: no siren over the menu, and none winding on against a clock that isn't running.
       if (this.#countdownSounds.hush(frozen)) this.#sound.stop(COUNTDOWN_VOICES, 0.2);

@@ -1,6 +1,7 @@
 # The countdown
 
-Status: open
+Status: resolved
+Release: v2.152.0
 
 Spec: `../spec.md`
 
@@ -21,3 +22,21 @@ The audio is released in v2.151.0; the ticket stays open for the HUD clock, the 
 - The siren no longer follows you out: leaving the match, or pausing a Bot Match, fades its voices in 0.2 s (`SoundSystem.stop`, new), and a pause that ends takes the held note up again with no second wind-up. Seen in a scripted Bot Match: no siren cue in 8 s of pause, a hold and no rise after it; none after Leave from the pause menu.
 - When the clock runs out the wind-down starts at once and the held note fades under it; it used to wait for the segment in hand to finish, up to 3 s into the ending. Seen: the fall logged in the same sample as the phase change, one fall, no hold after it.
 - Where the siren stands is worked out only when a clock first needs it, not at the start of every match.
+
+**The clock, the calls and the light (v2.152.0)**
+
+- The clock (`hud/match-clock.ts`): above a minute it reads `m:ss` as before. From 60 s it reads `T−0:58` in the alert colour, with a fuse under it that burns from both ends to the middle, so the state is a different text and a different shape as well as a different colour. In the last ten it counts tenths (`T−08.4`) and each new second ticks: larger and white for 0.2 s. A Charge round's clock is a round's, not the bomb's, and keeps its own face; Battle Royale has no match clock.
+- The calls (`last-minute.ts`): the announcer says "T minus sixty seconds", "Thirty seconds", "Ten seconds", each once as the running clock passes it. A clock first seen under a mark (a late join), or set past one, calls nothing. Only the first is written on the HUD, because after it the clock itself says the rest: "T-minus 60 seconds. This site will be destroyed." on a map that ends in the bomb, "T-minus 60 seconds. Clear the main line." on Switchyard, whose ending is the freight train. The lines are spoken by the announcer the game already has (the browser's speech synthesis); a recorded voice is ticket 16.
+- The light (`mooded` in `pipeline.ts`, `lastMinuteLight`): from 60 s the picture moves to a warning lamp's light. Shadows and middle tones take amber while the brightest parts keep their colour, the contrast tightens about middle grey and the frame's edge closes in; it comes on with no step (`1 - (left/60)^1.6`) and each of the last ten seconds lifts the whole picture by 9 % for an instant. It is a grade, not a change to the scene's lights, so it costs nothing a frame and looks the same on every map. It leaves over two seconds when the match ends, under the ending's own shot.
+- Decided: nothing of this pauses the fight or takes the centre of the screen. The one written line is a toast; on a phone held sideways (844 by 390) the toast sits just under the crosshair for its 4 s, which is the toast's place on short screens and is left for the touch ticket (23) to move.
+- Seen in scripted Bot Matches of 75 and 100 s on Survival Town, at 1920 by 1080 and 844 by 390: `T−0:58` with the toast at 58 s, `T−0:30`, `T−08.4` with the fuse nearly burnt, and the sky gone to sodium haze at 3 s against the first minute's blue. Not heard: whether the three lines sound right spoken; nobody has listened to this game's sound yet.
+- Scripts: `.scratch/next-level/countdown/mood152.mjs`.
+
+**After a review (in this release)**
+
+- A call is made once: online, the estimate of the server's time is corrected backwards now and then, and a clock that stepped back over 60 would have had its line spoken and written twice. The clock the calls are measured against only runs down (`clockRan`); a set clock or a new match starts it afresh.
+- The match bar is not rebuilt for the clock. In the last minute its markup stands still and the clock's text, its tick and the fuse are painted into it (`MatchClockView`), the fuse as a `scaleX`. Counted through the last 11.7 s of a 75 s Bot Match: the bar rebuilt once (a score changed), the clock painted 160 times. Written with the bar, it would have been rebuilt ten times a second.
+- Charge keeps its round clock from the first frame (decided by the mode, not by whether the round's state has arrived yet).
+- Leaving a match in its last minute takes the light with it at once: the menu's backdrop is not graded.
+- Left as it is: a match limited to 60 s or less never hears "T minus sixty seconds", because its clock never passes the mark. Only a server set to such a limit, or `?matchtime=`, makes one.
+- Scripts: `.scratch/next-level/countdown/clock152.mjs`.

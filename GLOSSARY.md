@@ -176,6 +176,10 @@ _Avoid_: banner, dog tag, respawn token
 One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP and 1 frag; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
 _Avoid_: respawn tower, revive station
 
+**Grenade indicator**:
+The HUD's mark for a live grenade within 10 m of you (`warningRadius`): a plate on a ring round the crosshair, on the side the grenade lies. It fills in where the blast would take all the health you have and blinks through the fuse's last second. Teammates' grenades are not marked where sides are played; your own is, except while it flies away from you.
+_Avoid_: grenade warning arrow, danger marker
+
 ## Movement
 
 **Sprint**:
@@ -196,7 +200,7 @@ _Avoid_: BR
 The seats playing together in a Battle Royale: one (Solos), two (Duos) or three (Trios). Squadmates can't hurt each other, and the last Squad with anyone alive wins.
 
 **Ally tag**:
-The mark over each teammate, or Squadmate in a Battle Royale: their name with a chevron up to 40 m in sight, the chevron alone further off or behind walls, held to the screen's edge when they're off it. A Downed ally's tag is a red cross with how far, or Revive once in reach. Enemies never get one.
+The mark over each teammate, or Squadmate in a Battle Royale: their name with a chevron up to 40 m in sight, the chevron alone further off or behind walls, held to the screen's edge under their name when they're off it. A Downed ally's tag is a red cross with how far, or Revive once in reach. Enemies never get one.
 _Avoid_: nameplate
 
 **Battle Royale screen**:
@@ -334,6 +338,10 @@ _Avoid_: buy time, warm-up
 **Countdown**:
 The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: everyone is held at their spawn, free to look around and change their loadout, while the HUD counts down; the match clock starts after it. Charge has none, because its first round's freeze is the same thing.
 _Avoid_: warm-up, pre-game
+
+**Last minute**:
+A timed match's final 60 s, played as an act of its own: the match clock reads T-minus over a burning fuse, the siren and the counter start, the announcer calls sixty, thirty and ten, and the picture moves to a warning lamp's light. It runs out on the map's ending. A Charge round's clock is not one, and Battle Royale has none.
+_Avoid_: overtime, sudden death (nothing about the rules changes), countdown (that is the match's opening)
 
 **Preparation**:
 A Battle Royale's Countdown: 20 s (`PREPARATION`) over the live scene, with the island from above while the Ring ignites, then your Squad at its spawn beside the loadout picker, then the dive to your eyes in the last 5 s, when the loadout locks and control is yours at 0. It ends early, with the dive, once every person has pressed Ready. A page still loading at the dive holds it (the load gate) for up to 10 s, then a bot plays that seat until the page has loaded. A person who leaves on purpose before the dive has their seat held (a bot plays it) until the dive begins, and takes it back if they rejoin before then; nobody left in it doesn't end it early.
