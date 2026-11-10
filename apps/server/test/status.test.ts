@@ -45,7 +45,7 @@ describe('server bots setting', () => {
       // Survival Town's own team size (4 a side) rather than the server's default.
       expect(await status()).toMatchObject({ players: 0, bots: 0, botsPerTeam: 4, maxBotsPerTeam: 4 });
       // Every lobby map is held, for the host to pick between matches.
-      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard'], map: 'survival-town' });
+      expect(server.game.matchStatus().lobby).toMatchObject({ maps: ['survival-town', 'switchyard', 'station-nine'], map: 'survival-town' });
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       await new Promise((done) => ws.addEventListener('open', done));
       ws.send(JSON.stringify({ t: 'join', name: 'alice', passphrase: '', protocol: PROTOCOL_VERSION }));

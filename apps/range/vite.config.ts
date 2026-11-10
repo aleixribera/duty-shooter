@@ -7,7 +7,7 @@ const SERVER = process.env['DUTY_SERVER'] ?? 'http://localhost:3000';
 
 export default defineConfig({
   // Each map's lighting, baked on the CPU at build time (served as bake/<map>.bin).
-  plugins: [bakeLighting(['survival-town', 'switchyard', 'range']), largeMapNav()],
+  plugins: [bakeLighting(['survival-town', 'switchyard', 'station-nine', 'range']), largeMapNav()],
   server: {
     proxy: {
       '/ws': { target: SERVER, ws: true },

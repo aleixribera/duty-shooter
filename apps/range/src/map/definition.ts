@@ -3,7 +3,7 @@ import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, L
 import type { Label, Ramp } from './map';
 
 /** The maps the app ships. */
-export type MapId = 'survival-town' | 'switchyard' | 'range' | 'zero-island';
+export type MapId = 'survival-town' | 'switchyard' | 'station-nine' | 'range' | 'zero-island';
 
 /** A box the audio treats as indoors (reverb). */
 export interface IndoorZone {

@@ -79,6 +79,8 @@ export interface NavOptions {
   readonly hints?: readonly Vec3[];
   /** Highest surface considered (m). Defaults to 10. */
   readonly ceiling?: number;
+  /** Surfaces at or below this height (m) are left out: below it is only the ground's underside. Defaults to -0.5; a map with floors sunk deeper (a trench) sets it lower. */
+  readonly floor?: number;
   /** Keep every node, not just the part a player can get round (for tuning a map's hints). */
   readonly keepAll?: boolean;
 }
@@ -139,11 +141,11 @@ export function restingHeight(world: World, x: number, y: number, z: number): nu
 }
 
 /** Every height a player can stand at in the column (x, z), lowest first. */
-function surfacesAt(world: World, x: number, z: number, ceiling: number): number[] {
+function surfacesAt(world: World, x: number, z: number, ceiling: number, floor: number): number[] {
   const tops = new Set<number>();
   for (const i of world.movement.inRect(x, z, x, z)) {
     const s = world.solids[i]!;
-    if (s.max[1] <= ceiling && s.max[1] > -0.5) tops.add(s.max[1]);
+    if (s.max[1] <= ceiling && s.max[1] > floor) tops.add(s.max[1]);
   }
   const out: number[] = [];
   for (const y of [...tops].sort((a, b) => a - b)) {
@@ -154,8 +156,8 @@ function surfacesAt(world: World, x: number, z: number, ceiling: number): number
 }
 
 /** The surface a hint stands on: the highest one at or a little below its y. */
-function snapHint(world: World, hint: Vec3, ceiling: number): Vec3 | null {
-  const ys = surfacesAt(world, hint[0], hint[2], ceiling).filter((y) => y <= hint[1] + 0.6);
+function snapHint(world: World, hint: Vec3, ceiling: number, floor: number): Vec3 | null {
+  const ys = surfacesAt(world, hint[0], hint[2], ceiling, floor).filter((y) => y <= hint[1] + 0.6);
   const y = ys.at(-1);
   return y === undefined ? null : [hint[0], y, hint[2]];
 }
@@ -250,6 +252,7 @@ function covered(world: World, p: Vec3): boolean {
 export function buildNavGraph(world: World, options: NavOptions): NavGraph {
   const spacing = options.spacing ?? 2;
   const ceiling = options.ceiling ?? 10;
+  const floor = options.floor ?? -0.5;
   const points: { p: Vec3; hint: boolean }[] = [];
   let x0 = Infinity;
   let x1 = -Infinity;
@@ -264,11 +267,11 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
   for (let x = Math.ceil(x0 / spacing) * spacing; x <= x1; x += spacing) {
     for (let z = Math.ceil(z0 / spacing) * spacing; z <= z1; z += spacing) {
       if (!insidePolygon(options.area, x, z)) continue;
-      for (const y of surfacesAt(world, x, z, ceiling)) points.push({ p: [x, y, z], hint: false });
+      for (const y of surfacesAt(world, x, z, ceiling, floor)) points.push({ p: [x, y, z], hint: false });
     }
   }
   for (const h of options.hints ?? []) {
-    const p = insidePolygon(options.area, h[0], h[2]) ? snapHint(world, h, ceiling) : null;
+    const p = insidePolygon(options.area, h[0], h[2]) ? snapHint(world, h, ceiling, floor) : null;
     if (p && !points.some((q) => flat(q.p, p) < 0.2 && Math.abs(q.p[1] - p[1]) < 0.3)) points.push({ p, hint: true });
   }
   // Keep exact endpoints: a ladder is entered only close to its feet or its
@@ -276,7 +279,7 @@ export function buildNavGraph(world: World, options: NavOptions): NavGraph {
   const ladderLinks: { bottom: number; top: number; cost: number }[] = [];
   for (const route of world.ladders) {
     if (!insidePolygon(options.area,route.bottom[0],route.bottom[2]) || !insidePolygon(options.area,route.landing[0],route.landing[2])) continue;
-    const bottom = snapHint(world,route.bottom,ceiling), top = snapHint(world,route.landing,ceiling);
+    const bottom = snapHint(world,route.bottom,ceiling,floor), top = snapHint(world,route.landing,ceiling,floor);
     if (!bottom || !top || Math.abs(bottom[1]-route.bottom[1])>0.1 || Math.abs(top[1]-route.landing[1])>0.1) continue;
     if (!traversesLadder(world,route,true) || !traversesLadder(world,route,false)) continue;
     const endpoint = (p: Vec3): number => {

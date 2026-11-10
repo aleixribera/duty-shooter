@@ -1,4 +1,4 @@
-// Plays a Bot Match of every mode on both maps, plus humans vs bots, each
+// Plays a Bot Match of every mode on every lobby map, plus humans vs bots, each
 // started through the menu in a fresh headless Chrome, and checks it runs:
 // the match clock moves every 5 s (no stall), the page logs no errors, and
 // bot-only matches get kills. Prints one JSON line per run and saves a
@@ -26,12 +26,13 @@ if (!out) {
 const SECONDS = Number(process.argv[3] ?? 90);
 const BASE = process.argv[4] ?? 'http://localhost:5173/';
 const MOVE = process.env.MOVE === '1';
-const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
+const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'station-nine': 'Station Nine', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 mkdirSync(out, { recursive: true });
 
+const MAPS = ['survival-town', 'switchyard', 'station-nine'];
 const runs = [];
-for (const map of ['survival-town', 'switchyard']) for (const mode of ['tdm', 'ffa', 'outposts', 'charge', 'gungame']) runs.push({ map, mode, hvb: false });
-for (const map of ['survival-town', 'switchyard']) for (const mode of ['tdm', 'outposts', 'charge']) runs.push({ map, mode, hvb: true });
+for (const map of MAPS) for (const mode of ['tdm', 'ffa', 'outposts', 'charge', 'gungame']) runs.push({ map, mode, hvb: false });
+for (const map of MAPS) for (const mode of ['tdm', 'outposts', 'charge']) runs.push({ map, mode, hvb: true });
 const only = process.env.ONLY?.split(',');
 const chosen = only ? runs.filter((r) => only.includes(`${r.map}/${r.mode}${r.hvb ? '/hvb' : ''}`)) : runs;
 

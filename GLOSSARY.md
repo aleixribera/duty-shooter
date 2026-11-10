@@ -102,6 +102,10 @@ The recreation of the original 2010 Nuketown, and the public lobby's map. Never 
 The second lobby map, original to Duty Shooter: a freight rail yard at dusk with three lanes. The long lane (open running track) is in the north, the middle lane (two rows of freight cars, with an alley between) runs through the centre, and the close lane (workshop, engine shed, fuel depot) is in the south. The signal box stands between the long lane and the cars. Team 1 starts at the west end and team 2 at the east end.
 _Avoid_: rail yard, train map
 
+**Station Nine**:
+The third lobby map, original to Duty Shooter: an instrument station on a weapons test range at dawn, the morning of a tower shot, and the match is the countdown. It is built for movement: a sprint jump falls short of its two gaps, the trench and the space between the loading docks, and only the Kick clears them; its docks, crates and trench walls are at mantle heights, and ladders climb the two camera towers and the bunker roof. Three lanes: the cable trench in the north (open to the desert behind a low barrier), the recording bunker in the middle, and the loading docks in the south, with the generator houses and fuel tanks beyond them. Team 1 starts at the west end and team 2 at the east end.
+_Avoid_: the test site (that's Survival Town's), the bunker map
+
 **Open boxcar**:
 A freight car on Switchyard with a door in each side and pallet steps up to it, so players run through it between the lanes. A closed boxcar has no doors; crates beside some of them climb to the roof.
 
@@ -329,7 +333,7 @@ The team mode where standing in the map's zones captures them, and each held zon
 _Avoid_: domination, capture points
 
 **Zone**:
-One of a map's Outposts objectives: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes. Switchyard has three, one on each lane. Survival Town has two, both on the street's axis: the west lawn between the garages and the street end past the bus.
+One of a map's Outposts objectives: a vertical cylinder that a team captures by standing in it. With both teams inside it is contested, and its progress freezes. Switchyard and Station Nine have three, one on each lane (on Station Nine: the trench, the bunker and the docks). Survival Town has two, both on the street's axis: the west lawn between the garages and the street end past the bus.
 _Avoid_: point, flag, objective (on its own)
 
 **Charge**:
@@ -337,7 +341,7 @@ The round-based team mode. The attackers carry a charge to one of the map's two 
 _Avoid_: bomb, search and destroy, demolition
 
 **Charge site**:
-One of the two places on a map where the attackers can plant the charge: a box volume from the map definition. Both are at the defenders' end. On Survival Town they are at the south house; on Switchyard they are the signal box's lever room and the fuel depot.
+One of the two places on a map where the attackers can plant the charge: a box volume from the map definition. Both are at the defenders' end. On Survival Town they are at the south house; on Switchyard they are the signal box's lever room and the fuel depot; on Station Nine, the east camera tower and the east generator house, each reached two ways.
 _Avoid_: bomb site, objective (on its own)
 
 **Round**:
@@ -372,7 +376,7 @@ The Preparation's hold for a page that hasn't yet said it has the match on scree
 _Avoid_: loading screen
 
 **Intermission**:
-The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (the nuke on Survival Town and on Zero Island, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
+The 20 s between `matchEnd` and the next `matchStart`: about 6 s of the map's ending (the nuke on Survival Town, Station Nine and Zero Island, Switchyard's freight train), then about 14 s of scoreboard and vote. Input is frozen throughout. Online and in Bot Match, the ending is followed by 10 s of scoreboard and then the lobby, until the host (in Bot Match, you) starts the next match.
 _Avoid_: post-game, between rounds
 
 **Freight train**:
@@ -380,7 +384,7 @@ Switchyard's end-of-match ending: two locos and 22 wagons that thunder west alon
 _Avoid_: the nuke (on Switchyard)
 
 **Ending shot**:
-A map's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move, so everyone watches it however they stood (input is frozen, so nobody could turn to it). On Survival Town it moves from behind the west end of town toward ground zero, for the siren, the flash and the cloud climbing over the rooftops; on Zero Island it looks across the Dustlands at the crater, where every Battle Royale ends in the nuke at Ground Zero, then pulls back clear of the surge as the cloud climbs; on Switchyard it looks from the long lane over the barrier up the main line and swings west with the Freight train as it roars past. The map data holds it (`nuke.shot`, `train.shot`).
+A map's ending played like a cut scene: from the match's end through the scoreboard, the camera leaves every player's eyes for one fixed move, so everyone watches it however they stood (input is frozen, so nobody could turn to it). On Survival Town it moves from behind the west end of town toward ground zero, for the siren, the flash and the cloud climbing over the rooftops; on Zero Island it looks across the Dustlands at the crater, where every Battle Royale ends in the nuke at Ground Zero, then pulls back clear of the surge as the cloud climbs; on Switchyard it looks from the long lane over the barrier up the main line and swings west with the Freight train as it roars past; on Station Nine it starts over the west end, looking across the station to the shot tower black against the sunrise, and pulls up and back as the cloud climbs. The map data holds it (`nuke.shot`, `train.shot`).
 _Avoid_: kill cam, video (nothing is recorded; it is drawn live)
 
 **Mode vote**:
@@ -391,7 +395,7 @@ The page every online player sits on between matches: the players with their pin
 _Avoid_: menu, waiting room
 
 **Host**:
-The person in the lobby who picks the next match's mode, bots, map and whether it is humans vs bots, and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away. The server holds every lobby map (Survival Town and Switchyard) and moves to the host's pick when the match starts; each page follows the pick while still in the lobby, so the map is loaded by then.
+The person in the lobby who picks the next match's mode, bots, map and whether it is humans vs bots, and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away. The server holds every lobby map (Survival Town, Switchyard and Station Nine) and moves to the host's pick when the match starts; each page follows the pick while still in the lobby, so the map is loaded by then.
 _Avoid_: owner, admin, leader
 
 **Headless match**:
@@ -405,14 +409,14 @@ _Avoid_: AI player, NPC
 Topping a match up with bots to the map's team size while anyone is playing. A person who joins takes a bot's seat, and the bots leave with the last person. The lobby's host only switches it on or off. Humans vs bots sizes the bots its own way instead, and a Battle Royale always fills to 60.
 
 **Team size**:
-The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard 6v6 and Survival Town 4v4 in the team modes. The modes without teams (free-for-all, gun game) hold twice a size of their own, kept smaller so the map isn't crowded with enemies on every side: 8 players on Switchyard and 6 on Survival Town. The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
+The people and bots a side a map plays at in each mode, which bot fill tops up to: Switchyard and Station Nine 6v6 (Station Nine 4v4 in Charge) and Survival Town 4v4 in the team modes. The modes without teams (free-for-all, gun game) hold twice a size of their own, kept smaller so the map isn't crowded with enemies on every side: 8 players on Switchyard and Station Nine and 6 on Survival Town. The host can set a size of their own with the lobby's hidden + and - keys; it lasts until the map or mode changes.
 
 **Humans vs bots**:
 A setting for any team mode, not a mode of its own: every person plays on Blue, against an Orange team of bots two bigger than the group (at least four, at most six, and never more than the free seats). A person joining mid-match brings another bot to Orange. Free-for-all and gun game ignore it. The host picks it in the lobby; Bot Match offers it too.
 _Avoid_: co-op, PvE
 
 **Bot Match**:
-An offline match against bots on either map (Survival Town or Switchyard), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page and plays a match as the online lobby does: you are the host and start it from the lobby page, and after the ending and the scoreboard you are back on that page with the last match's result, to pick again and press Start. What stays its own: it is offline, the match pauses with the game, a size of your own lasts across matches, there are no pings or invite, and Back (or Esc) on the page returns to the main menu.
+An offline match against bots on any lobby map (Survival Town, Switchyard or Station Nine), in any mode, as mixed teams at the map's team size or as humans vs bots. The game server runs in the page and plays a match as the online lobby does: you are the host and start it from the lobby page, and after the ending and the scoreboard you are back on that page with the last match's result, to pick again and press Start. What stays its own: it is offline, the match pauses with the game, a size of your own lasts across matches, there are no pings or invite, and Back (or Esc) on the page returns to the main menu.
 
 **Nav graph**:
 The walkable nodes and links (walk, drop, climb) that bots plan routes on. It's generated from a map's collision, with hints for tight spots. A small map's is generated when a server starts; a large map's is built ahead of time, shipped as data and searched in levels: Regions, then clusters, then nodes (ADR 0008).

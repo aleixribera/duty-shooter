@@ -3,6 +3,7 @@ import type { TeamSizes } from '@duty-shooter/fps-core';
 import { LIGHTING, type Finish } from '@duty-shooter/fps-client/surfaces';
 import type { MapDefinition, MapId } from './definition';
 import { buildSurvivalTown } from './survival-town';
+import { buildStationNine } from './station-nine';
 import { buildSwitchyard } from './switchyard';
 import { buildZeroIsland } from './zero-island';
 
@@ -95,28 +96,30 @@ export function buildRange(): MapDefinition {
   };
 }
 
-export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'range', 'zero-island'];
+export const MAP_IDS: readonly MapId[] = ['survival-town', 'switchyard', 'station-nine', 'range', 'zero-island'];
 
 /** `id` as a map id, or undefined when it names no map. */
 export const asMapId = (id: string | null | undefined): MapId | undefined => MAP_IDS.find((m) => m === id);
 /** The maps an online lobby plays: those built for matches (not the Practice Range). */
-export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard'];
+export const LOBBY_MAPS: readonly MapId[] = ['survival-town', 'switchyard', 'station-nine'];
 
 /**
  * The team size each map plays at, by mode: with bots on, a lobby fills to
  * it (a mode without teams holds twice it). The switchyard's long open yard
- * takes 6v6, Survival Town's streets 4v4. Modes where everyone is an enemy
+ * takes 6v6, Survival Town's streets 4v4; Station Nine, between them in size,
+ * plays 6v6 but Charge 4v4, its two sites close together at one end. Modes where everyone is an enemy
  * (free-for-all, gun game) play emptier: 6 players on Survival Town and 8 on
  * the switchyard, so a spawn isn't a crossfire from every side. A new mode without teams takes these too.
  */
 export const TEAM_SIZES: Readonly<Record<MapId, TeamSizes>> = {
   'survival-town': { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 },
   switchyard: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 },
+  'station-nine': { tdm: 6, ffa: 4, outposts: 6, charge: 4, gungame: 4 },
   range: {},
   'zero-island': { 'battle-royale': 30 },
 };
 
-const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, range: buildRange, 'zero-island': buildZeroIsland };
+const BUILDERS: Readonly<Record<MapId, () => MapDefinition>> = { 'survival-town': buildSurvivalTown, switchyard: buildSwitchyard, 'station-nine': buildStationNine, range: buildRange, 'zero-island': buildZeroIsland };
 
 /** Builds a map by id. Each call builds afresh. */
 export function buildMapById(id: MapId): MapDefinition {

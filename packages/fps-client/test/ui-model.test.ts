@@ -4,13 +4,13 @@ import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, las
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
-    const picks = Array.from({ length: 10 }, (_, i) => {
-      const values = [(Math.floor(i / 5) + 0.5) / 2, ((i % 5) + 0.5) / 5];
+    const picks = Array.from({ length: 5 * BOT_MAPS.length }, (_, i) => {
+      const values = [(Math.floor(i / 5) + 0.5) / BOT_MAPS.length, ((i % 5) + 0.5) / 5];
       return randomLobbyPick({ maps: BOT_MAPS, hvb: false }, () => values.shift()!);
     });
     expect(new Set(picks.map((pick) => pick?.map))).toEqual(new Set(BOT_MAPS));
     expect(new Set(picks.map((pick) => pick?.mode))).toEqual(new Set(['tdm', 'ffa', 'outposts', 'charge', 'gungame']));
-    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(10);
+    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(5 * BOT_MAPS.length);
   });
 
   it('only picks team modes for humans vs bots and leaves the setting out of the change', () => {
@@ -18,7 +18,7 @@ describe('random lobby picks', () => {
       const values = [0.99, (i + 0.5) / 3];
       return randomLobbyPick({ maps: BOT_MAPS, hvb: true }, () => values.shift()!);
     });
-    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: 'switchyard', mode })));
+    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: BOT_MAPS.at(-1), mode })));
     expect(randomLobbyPick({ maps: [], hvb: true })).toBeNull();
   });
 });

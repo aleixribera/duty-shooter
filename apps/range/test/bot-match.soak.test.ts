@@ -31,7 +31,7 @@ describe('Bot Match, played through', () => {
     afterEach(() => vi.restoreAllMocks());
 
     /** Your place (x, z, to the decimetre) at the start of each of `matches` Bot Matches, and the team you were on. */
-    function firstSpawns(mapId: 'survival-town' | 'switchyard', mode: ModeId, matches: number): { at: string; team: number }[] {
+    function firstSpawns(mapId: 'survival-town' | 'switchyard' | 'station-nine', mode: ModeId, matches: number): { at: string; team: number }[] {
       const map = buildMapById(mapId);
       const out: { at: string; team: number }[] = [];
       for (let n = 0; n < matches; n++) {
@@ -52,6 +52,7 @@ describe('Bot Match, played through', () => {
       ['switchyard', 'tdm'],
       ['survival-town', 'outposts'],
       ['switchyard', 'charge'],
+      ['station-nine', 'outposts'],
     ] as const)('on %s (%s) you start somewhere different from match to match, always in your own team’s yard', (mapId, mode) => {
       // Seeded, so the test is the same every run; the game draws from Math.random.
       let state = 31;

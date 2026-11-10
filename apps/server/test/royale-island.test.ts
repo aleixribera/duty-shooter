@@ -15,7 +15,7 @@ describe('Zero Island and the Play Online server (tickets 12 and 13)', () => {
     expect(royaleAvailable(options)).toBe(false);
     const server = await startServer(options);
     try {
-      expect(server.game.matchStatus().lobby?.maps).toEqual(['survival-town', 'switchyard']);
+      expect(server.game.matchStatus().lobby?.maps).toEqual(['survival-town', 'switchyard', 'station-nine']);
       expect(server.game.status().royale).toBe(false);
     } finally {
       await server.close();
@@ -31,7 +31,7 @@ describe('Zero Island and the Play Online server (tickets 12 and 13)', () => {
     expect(royaleAvailable({ ...options, maxBotsPerTeam: 0 })).toBe(false);
     const server = await startServer(options);
     try {
-      expect(server.game.matchStatus().lobby?.maps).toEqual(['survival-town', 'switchyard']);
+      expect(server.game.matchStatus().lobby?.maps).toEqual(['survival-town', 'switchyard', 'station-nine']);
       expect(server.game.status().royale).toBe(false);
       const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
       await new Promise((done) => ws.addEventListener('open', done));

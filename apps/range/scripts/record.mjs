@@ -15,7 +15,7 @@ if (!out) {
   console.error('usage: node record.mjs <out dir> [seconds] [map] [mode] [base url]');
   process.exit(2);
 }
-const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
+const NAMES = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'station-nine': 'Station Nine', tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 const frames = `${out}/frames`;
 rmSync(frames, { recursive: true, force: true });
 mkdirSync(frames, { recursive: true });
