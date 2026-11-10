@@ -415,8 +415,12 @@ One tick of a player's input, sent from client to server.
 _Avoid_: input packet
 
 **Recoil offset**:
-The recoil and flinch the simulation keeps on top of a usercmd's view angles; it never wears off. A player holds their aim by pulling the mouse against it, so the usercmd pitch can go far past straight down while the view (usercmd pitch plus offset) stays inside ±85°.
-_Avoid_: punch, recoil recovery
+The recoil and flinch the simulation keeps on top of a usercmd's view angles. Part of it comes back by itself (the **recoil return**); what a player pulls the mouse against never does, so the usercmd pitch can go far past straight down while the view (usercmd pitch plus offset) stays inside ±85°.
+_Avoid_: punch
+
+**Recoil return**:
+The share of each kick, and all of a flinch, that eases back out of the view once the weapon in hand has been quiet for its delay. A player's own pull against the kick pays it off first, so what a hand has already brought down doesn't come down twice. Tuned per weapon in the stats file (`recoilReturn`, `recoilReturnDelay`, `recoilReturnTime`).
+_Avoid_: recoil recovery, recentring, punch
 
 **Slow tick**:
 A server tick of 8 ms or more (`SLOW_TICK_MS`), which the server logs with what it did and a cause: the game's own work in one phase, a garbage collection, or a stall.

@@ -111,6 +111,11 @@ export interface WeaponAccuracy {
   /** How much each later shot's climb alternates up and down (an SMG's bounce); 0 when absent. */
   readonly kickBounce?: Stat<'multiplier'>;
   readonly recoilResetTime: Stat<'s'>;
+  /** The share of each kick that comes back to the view once the gun is quiet (0: none; 1: all of it). */
+  readonly recoilReturn: Stat<'multiplier'>;
+  /** How long the gun must be quiet before its recoil starts back, and how long the return takes to close most (63 %) of what is left. */
+  readonly recoilReturnDelay: Stat<'s'>;
+  readonly recoilReturnTime: Stat<'s'>;
   /** Scope sway half-amplitude when first fully aimed, and how long standing still takes to settle it. */
   readonly sway?: Stat<'deg'>;
   readonly swaySettle?: Stat<'s'>;
@@ -192,6 +197,9 @@ export const SMG: WeaponRow = {
     horizontalKick: tuned(0.2, 'deg', 'more side drift than the M4A1 (0.16).'),
     kickBounce: tuned(0.35, 'multiplier', 'each later shot\'s climb alternates 35 % up and down: the bounce the spec asks for, which stays controllable.'),
     recoilResetTime: tuned(0.22, 's', 'about the M4A1\'s 0.25 s.'),
+    recoilReturn: tuned(0.75, 'multiplier', 'a little more than the M4A1 (0.7): the SMG is light and comes back to hand.'),
+    recoilReturnDelay: tuned(0.08, 's', 'longer than the gap between its shots (0.05 s).'),
+    recoilReturnTime: tuned(0.13, 's', 'quicker back than the M4A1 (0.16 s).'),
   },
 };
 
@@ -237,6 +245,9 @@ export const PISTOL: WeaponRow = {
     verticalKick: tuned(0.9, 'deg', 'every shot flips the same.'),
     horizontalKick: tuned(0.25, 'deg', 'a little side flip.'),
     recoilResetTime: tuned(0.3, 's', 'about the M4A1\'s 0.25 s.'),
+    recoilReturn: tuned(0.85, 'multiplier', 'the flip of a pistol nearly all comes back: it is shot by shot, each from where the last began.'),
+    recoilReturnDelay: tuned(0.06, 's', 'well inside the gap between two presses at its fastest (0.15 s), so the sights are coming back before the next.'),
+    recoilReturnTime: tuned(0.09, 's', 'the quickest back of every weapon.'),
   },
 };
 
@@ -286,6 +297,9 @@ export const SHOTGUN: WeaponRow = {
     verticalKick: tuned(3, 'deg', 'every shot kicks the same.'),
     horizontalKick: tuned(0.6, 'deg', 'a little side kick.'),
     recoilResetTime: tuned(0.5, 's', 'the pump takes longer than any reset.'),
+    recoilReturn: tuned(0.8, 'multiplier', 'the muzzle comes back down as the pump is worked.'),
+    recoilReturnDelay: tuned(0.12, 's', 'the kick is felt before the gun comes back.'),
+    recoilReturnTime: tuned(0.22, 's', 'back on the target within the 0.8 s pump cycle.'),
   },
 };
 
@@ -331,6 +345,9 @@ export const SNIPER: WeaponRow = {
     verticalKick: tuned(4, 'deg', 'every shot kicks the same.'),
     horizontalKick: tuned(0.8, 'deg', 'a little side kick.'),
     recoilResetTime: tuned(1, 's', 'longer than the bolt cycle.'),
+    recoilReturn: tuned(0.9, 'multiplier', 'a braced rifle settles nearly where it was aimed.'),
+    recoilReturnDelay: tuned(0.15, 's', 'the scope jumps and hangs a moment.'),
+    recoilReturnTime: tuned(0.3, 's', 'the slowest back: the scope is on the target again as the bolt closes.'),
     sway: tuned(0.4, 'deg', 'scope sway on first aiming: at 50 m it moves the aim point 0.35 m, so a quick scope across the map is a gamble. 0.5 and more kept the sniper under its share in the balance runs.'),
     swaySettle: tuned(1.5, 's', 'standing still this long settles the sway to a fifth, as the spec asks ("settles over about 1.5 s").'),
   },

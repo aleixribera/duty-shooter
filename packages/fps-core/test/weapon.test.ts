@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEG, STATS, TICK_SECONDS, viewDirection } from '@duty-shooter/fps-core';
+import { DEG, recoilKick, STATS, TICK_SECONDS, viewDirection } from '@duty-shooter/fps-core';
 import { createHeadlessMatch, usercmd, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
 import { SHOOTER, SHOT_INTERVAL, angleBetween, drawn, eventsOf, lane, playerIn, shotTime, wallAt } from './support/combat';
 import { FLOOR, expectStat, ticks } from './support/movement';
@@ -239,17 +239,17 @@ describe('hipfire spread', () => {
     const match = range();
     drawn(match);
     setup(match);
-    let prev = match.latest;
     let worst = 0;
     let count = 0;
     for (let i = 0; i < ticks(seconds); i++) {
       const out = match.step({ [SHOOTER]: cmdFor(i) });
       for (const shot of eventsOf([out], 'shot')) {
-        const view = playerIn(prev, SHOOTER);
-        worst = Math.max(worst, angleBetween(shot.direction, viewDirection(view.yaw, view.pitch)));
+        // The view the shot left from: this tick's, less the shot's own kick (recoil comes back before the shot, the kick lands after).
+        const view = playerIn(out, SHOOTER);
+        const kick = recoilKick(shot.index);
+        worst = Math.max(worst, angleBetween(shot.direction, viewDirection(view.yaw - kick.yaw * DEG, view.pitch - kick.pitch * DEG)));
         count++;
       }
-      prev = out;
     }
     return { worst: worst / DEG, count };
   }
@@ -289,7 +289,8 @@ describe('recoil', () => {
     drawn(match);
     match.run(ticks(0.5), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads'] }) }));
     const outputs = match.run(ticks(3), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads', 'Fire'] }) }));
-    return { shots: eventsOf(outputs, 'shot').map((s) => s.direction), last: playerIn(outputs.at(-1)!, SHOOTER), match };
+    const pitches = outputs.map((o) => playerIn(o, SHOOTER).pitch);
+    return { shots: eventsOf(outputs, 'shot').map((s) => s.direction), last: playerIn(outputs.at(-1)!, SHOOTER), peak: Math.max(...pitches), match };
   }
 
   it('repeats exactly: the same burst always follows the same pattern', () => {
@@ -297,9 +298,9 @@ describe('recoil', () => {
   });
 
   it('climbs: the view rises over the burst, with a bigger first-shot kick', () => {
-    const { last, shots } = dump();
+    const { peak, shots } = dump();
 
-    expect(last.pitch).toBeGreaterThan(W.magazineSize.value * A.verticalKick.value * DEG * 0.9);
+    expect(peak).toBeGreaterThan(W.magazineSize.value * A.verticalKick.value * DEG * 0.9);
     const rise = shots.map((d) => Math.asin(d[1]));
     expect(rise[1]! - rise[0]!).toBeCloseTo(A.firstShotKick.value * DEG, 9);
     expect(rise[2]! - rise[1]!).toBeCloseTo(A.verticalKick.value * DEG, 9);
@@ -317,6 +318,86 @@ describe('recoil', () => {
 
     expect(burst()[0]).toBe(0);
     expect(burst()[0]).toBe(0);
+  });
+});
+
+describe('recoil that returns (next-level ticket 09)', () => {
+  const aimed = (pitch = 0) => usercmd({ pitch, buttons: ['Ads'] });
+  const pitchOf = (match: HeadlessMatch) => playerIn(match.latest, SHOOTER).pitch;
+
+  /** Five rounds of automatic fire from a level aim; the match the tick after the last, and how high the view got. */
+  function burst() {
+    const match = range();
+    drawn(match);
+    match.run(ticks(0.5), () => ({ [SHOOTER]: aimed() }));
+    const outputs = match.run(ticks(SHOT_INTERVAL * 4.5), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads', 'Fire'] }) }));
+    expect(eventsOf(outputs, 'shot')).toHaveLength(5);
+    const kicked = (A.firstShotKick.value + 4 * A.verticalKick.value) * DEG;
+    expect(pitchOf(match)).toBeCloseTo(kicked, 9);
+    return { match, kicked };
+  }
+
+  it('brings most of a burst back once the gun is quiet, and leaves the rest', () => {
+    const { match, kicked } = burst();
+
+    const outputs = match.run(ticks(1.5), () => ({ [SHOOTER]: aimed() }));
+
+    expect(pitchOf(match)).toBeCloseTo(kicked * (1 - A.recoilReturn.value), 6);
+    // Nothing moves before the delay; after it the view only ever comes down.
+    const pitches = outputs.map((o) => playerIn(o, SHOOTER).pitch);
+    const held = ticks(A.recoilReturnDelay.value - SHOT_INTERVAL / 2) - 2;
+    for (let i = 0; i < held; i++) expect(pitches[i]).toBeCloseTo(kicked, 9);
+    for (let i = 1; i < pitches.length; i++) expect(pitches[i]!).toBeLessThanOrEqual(pitches[i - 1]! + 1e-12);
+    // Most of the way back within twice its time.
+    const soon = pitches[ticks(A.recoilReturnDelay.value + 2 * A.recoilReturnTime.value)]!;
+    expect(kicked - soon).toBeGreaterThan(kicked * A.recoilReturn.value * 0.8);
+  });
+
+  it('gives nothing back in the middle of a spray', () => {
+    const match = range();
+    drawn(match);
+    match.run(ticks(0.5), () => ({ [SHOOTER]: aimed() }));
+
+    const outputs = match.run(ticks(SHOT_INTERVAL * 20), () => ({ [SHOOTER]: usercmd({ buttons: ['Ads', 'Fire'] }) }));
+
+    const pitches = outputs.map((o) => playerIn(o, SHOOTER).pitch);
+    for (let i = 1; i < pitches.length; i++) expect(pitches[i]!).toBeGreaterThanOrEqual(pitches[i - 1]!);
+  });
+
+  it('does not bring back what the player has already pulled down', () => {
+    const { match, kicked } = burst();
+
+    // The whole climb pulled down by hand: the view is level again, and stays there.
+    match.run(ticks(1.5), () => ({ [SHOOTER]: aimed(-kicked) }));
+
+    expect(pitchOf(match)).toBeCloseTo(0, 9);
+  });
+
+  it('brings back only what is still owed after half a pull', () => {
+    const { match, kicked } = burst();
+
+    match.run(ticks(1.5), () => ({ [SHOOTER]: aimed(-kicked / 2) }));
+
+    // Half pulled by hand, and of the 70 % owed the other 20 % came back by itself.
+    expect(pitchOf(match)).toBeCloseTo(kicked * (1 - 0.5 - (A.recoilReturn.value - 0.5)), 6);
+  });
+
+  it('is not paid by a pull the same way as the kick', () => {
+    const { match, kicked } = burst();
+
+    match.run(ticks(1.5), () => ({ [SHOOTER]: aimed(kicked) }));
+
+    expect(pitchOf(match)).toBeCloseTo(kicked + kicked * (1 - A.recoilReturn.value), 6);
+  });
+
+  it('repeats exactly: the same burst and the same pull end in the same state', () => {
+    const run = () => {
+      const { match, kicked } = burst();
+      match.run(ticks(0.4), (t) => ({ [SHOOTER]: aimed(-kicked * 0.3 * Math.sin(t)) }));
+      return match.latest;
+    };
+
+    expect(run()).toEqual(run());
   });
 });
 

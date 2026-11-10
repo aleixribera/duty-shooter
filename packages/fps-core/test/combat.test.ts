@@ -167,14 +167,26 @@ describe('flinch and regeneration', () => {
     const press = match.latest.tick + 1;
     const outputs = match.run(ticks(0.2), (t) => ({ [SHOOTER]: usercmd({ ...aim, buttons: t === press ? ['Ads', 'Fire'] : ['Ads'] }), [TARGET]: still }));
     const hit = eventsOf(outputs, 'hit')[0]!;
-    return { match, still, before, hit, after: playerIn(outputs.at(-1)!, TARGET) };
+    const struck = playerIn(outputs.find((o) => o.tick === hit.tick)!, TARGET);
+    return { match, still, before, hit, struck, after: playerIn(outputs.at(-1)!, TARGET) };
   }
 
   it("flinches the victim's view up by the flinch amount", () => {
-    const { before, after } = hitOnce();
+    const { before, struck } = hitOnce();
 
-    expectStat((after.pitch - before.pitch) / DEG, STATS.combat.flinch, 'flinch pitch');
-    expect(after.yaw).not.toBe(before.yaw);
+    expectStat((struck.pitch - before.pitch) / DEG, STATS.combat.flinch, 'flinch pitch');
+    expect(struck.yaw).not.toBe(before.yaw);
+  });
+
+  it('lets the flinch go: the view comes all the way back (next-level ticket 09)', () => {
+    const { match, still, before, struck } = hitOnce();
+
+    match.run(ticks(1), () => ({ [TARGET]: still }));
+
+    const settled = playerIn(match.latest, TARGET);
+    expect(struck.pitch).toBeGreaterThan(before.pitch);
+    expect(settled.pitch).toBeCloseTo(before.pitch, 9);
+    expect(settled.yaw).toBeCloseTo(before.yaw, 9);
   });
 
   it('regenerates to full only after the regen delay, over the regen duration', () => {

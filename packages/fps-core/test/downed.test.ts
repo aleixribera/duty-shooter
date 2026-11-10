@@ -186,7 +186,8 @@ describe('Finish', () => {
     run(STATS.royale.downedGrace.value);
     const pool = out('ada').health;
     expect(pool).toBeGreaterThan(0);
-    shoot('ada');
+    // Hipfire at six metres can miss.
+    for (let i = 0; i < 10 && out('ada').health === pool; i++) shoot('ada');
     expect(out('ada').health).toBeLessThan(pool);
     while (out('ada').alive) shoot('ada');
     expect(events.find((e) => e.type === 'kill')).toMatchObject({ killer: 'eve', victim: 'ada', cause: 'bullet' });

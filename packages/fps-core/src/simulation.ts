@@ -37,6 +37,15 @@ export const TICK_SECONDS = 1 / TICK_RATE;
 
 /** Highest and lowest view pitch (radians). */
 export const MAX_PITCH = 85 * DEG;
+/** Recoil owed back smaller than this (a fiftieth of a degree) comes back in one tick, so the view comes to rest. */
+const RECOIL_SETTLED = 0.02 * DEG;
+
+/** What is left of `owed` once the aim has moved by `pulled`: a move against it pays it off, never past nothing; a move with it changes nothing. */
+function paid(owed: number, pulled: number): number {
+  if (owed > 0 && pulled < 0) return Math.max(0, owed + pulled);
+  if (owed < 0 && pulled > 0) return Math.min(0, owed + pulled);
+  return owed;
+}
 
 export type PlayerId = string;
 export type TeamId = number;
@@ -276,6 +285,12 @@ export interface PlayerState {
   /** Recoil and flinch accumulated on top of the usercmd view angles (radians). */
   viewYaw: number;
   viewPitch: number;
+  /**
+   * The part of that offset owed back to the view (radians): most of each kick and all of a flinch, less what the
+   * player's own pull has already paid. It comes back once the gun is quiet (see `#recover`).
+   */
+  recoilYaw: number;
+  recoilPitch: number;
   health: number;
   /** Simulation time (s) of the last damage, for regeneration. */
   lastDamage: number;
@@ -437,6 +452,8 @@ export class Simulation {
       cmdPitch: pitch,
       viewYaw: 0,
       viewPitch: 0,
+      recoilYaw: 0,
+      recoilPitch: 0,
       health: H.max.value,
       lastDamage: -1e9,
       landing: null,
@@ -482,6 +499,8 @@ export class Simulation {
     p.downed = null;
     p.viewYaw = 0;
     p.viewPitch = 0;
+    p.recoilYaw = 0;
+    p.recoilPitch = 0;
     p.cmdYaw = yaw;
     p.cmdPitch = 0;
     p.health = Math.min(H.max.value, options.health ?? H.max.value);
@@ -614,9 +633,13 @@ export class Simulation {
     // Downed: on the ground, crawling and looking, and nothing else. Reviving: knelt beside them, hands busy.
     if (player.downed) cmd = { ...cmd, buttons: Button.Prone, firePresses: [] };
     else if (player.reviving) cmd = { ...cmd, buttons: (cmd.buttons & Button.Use) | Button.Crouch, firePresses: [] };
+    // How far the player's own hand moved the aim this tick: a pull against the kick pays the recoil off.
+    const pulledYaw = cmd.yaw - player.cmdYaw;
+    const pulledPitch = cmd.pitch - player.cmdPitch;
     player.cmdYaw = cmd.yaw;
     player.cmdPitch = cmd.pitch;
     let weapon = activeWeapon(player);
+    this.#recover(player, weapon, pulledYaw, pulledPitch);
     // Firing breaks a sprint (the sprint-to-fire time then applies).
     if (wantsFire(cmd) && weapon.action === 'ready') {
       cmd = { ...cmd, buttons: cmd.buttons & ~Button.Sprint };
@@ -697,7 +720,30 @@ export class Simulation {
       // Recoil kicks the view after the shot leaves.
       player.viewYaw += shot.kickYaw;
       player.viewPitch += shot.kickPitch;
+      const back = row.accuracy.recoilReturn.value;
+      player.recoilYaw += shot.kickYaw * back;
+      player.recoilPitch += shot.kickPitch * back;
     }
+  }
+
+  /**
+   * Recoil that returns. Part of every kick, and all of a flinch, is owed back to the view. The player's own
+   * pull against it pays that off, so what a hand has already brought down doesn't come down twice; and once the
+   * weapon in hand has been quiet for its delay, what is still owed eases back out of the view.
+   */
+  #recover(player: PlayerState, weapon: WeaponState, pulledYaw: number, pulledPitch: number): void {
+    if (player.recoilYaw === 0 && player.recoilPitch === 0) return;
+    player.recoilYaw = paid(player.recoilYaw, pulledYaw);
+    player.recoilPitch = paid(player.recoilPitch, pulledPitch);
+    const a = weaponRow(weapon.id).accuracy;
+    if (weapon.clock - weapon.lastShot < a.recoilReturnDelay.value - 1e-9) return;
+    const share = 1 - Math.exp(-TICK_SECONDS / a.recoilReturnTime.value);
+    const yaw = Math.abs(player.recoilYaw) < RECOIL_SETTLED ? player.recoilYaw : player.recoilYaw * share;
+    const pitch = Math.abs(player.recoilPitch) < RECOIL_SETTLED ? player.recoilPitch : player.recoilPitch * share;
+    player.viewYaw -= yaw;
+    player.recoilYaw -= yaw;
+    player.viewPitch -= pitch;
+    player.recoilPitch -= pitch;
   }
 
   /** A grenade in hand: thrown on release, or blown up in the hand when the fuse runs out; then the weapon comes back up. */
@@ -796,7 +842,11 @@ export class Simulation {
   #viewAngles(p: PlayerState): { yaw: number; pitch: number } {
     const raw = p.cmdPitch + p.viewPitch;
     const pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, raw));
-    if (pitch !== raw) p.viewPitch = pitch - p.cmdPitch;
+    if (pitch !== raw) {
+      p.viewPitch = pitch - p.cmdPitch;
+      // What the limit took off the view is not owed back either.
+      p.recoilPitch = paid(p.recoilPitch, pitch - raw);
+    }
     return { yaw: p.cmdYaw + p.viewYaw, pitch };
   }
 
@@ -1164,6 +1214,9 @@ export class Simulation {
     const side = noise(hashString(victim.id), this.#tick) < 0.5 ? -1 : 1;
     victim.viewPitch += amount;
     victim.viewYaw += side * amount * 0.25;
+    // A flinch is a jolt, not a new aim: all of it comes back.
+    victim.recoilPitch += amount;
+    victim.recoilYaw += side * amount * 0.25;
   }
 
   /** Quick melee: hits the nearest damageable body in front within lunge range, lunging the attacker to it. */

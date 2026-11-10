@@ -8,10 +8,11 @@ const town = botMap(buildSurvivalTown(), BOUNDARY);
 
 describe('Survival Town: bots on their own', () => {
   it('play 3v3 Outposts to the end: both teams take zones, and zones change hands', () => {
-    const m = createNetworkedMatch({ solids: town.solids, spawns: town.map.spawns.ffa, teamSpawns: town.map.spawns.teams!, zones: town.map.zones, mode: 'outposts', modes: { outposts: { scoreLimit: null, timeLimit: 240 } }, bots: { nav: town.nav, perTeam: 3, alwaysOn: true } });
+    // Six minutes: three bots a side take a zone about every hundred seconds here, and one team can hold the first four minutes.
+    const m = createNetworkedMatch({ solids: town.solids, spawns: town.map.spawns.ffa, teamSpawns: town.map.spawns.teams!, zones: town.map.zones, mode: 'outposts', modes: { outposts: { scoreLimit: null, timeLimit: 360 } }, bots: { nav: town.nav, perTeam: 3, alwaysOn: true } });
     const captures: { team: number; previous: number }[] = [];
     let ended = false;
-    for (let i = 0; i < 241 * 60 && !ended; i++) {
+    for (let i = 0; i < 361 * 60 && !ended; i++) {
       m.step();
       for (const e of m.server.modeEvents) {
         if (e.type === 'capture') captures.push({ team: e.team, previous: e.previous });

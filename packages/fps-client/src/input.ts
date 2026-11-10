@@ -24,8 +24,9 @@ const MENU_REPEAT_MS = 220;
 /**
  * The mouse pitch after moving it by `delta`, kept so the view (mouse pitch
  * plus the simulation's recoil and flinch, `offset`) stays inside the pitch
- * limits. Recoil does not wear off, so clamping the mouse pitch alone would
- * leave the floor out of reach after a spray: the limit counts the offset
+ * limits. Recoil a player has pulled down against stays in the offset, so
+ * clamping the mouse pitch alone would leave the floor out of reach after a
+ * spray held level: the limit counts the offset
  * instead, and the mouse pitch goes as far past straight down as the recoil
  * held against needs (see CMD_PITCH_LIMIT). It never pulls the pitch back,
  * only stops it moving further out.

@@ -52,9 +52,11 @@ export interface UserCmd {
 
 /**
  * The furthest a usercmd's pitch may go (radians), far past straight down on
- * purpose. Recoil never wears off: holding the aim level against it moves the
- * mouse pitch down by every kick of a life, which passes half a turn within a
- * couple of minutes of firing. The view (usercmd pitch plus recoil and flinch)
+ * purpose. What a player pulls down against recoil never comes back up (only
+ * the part left alone returns, see `#recover` in simulation.ts): holding the
+ * aim level through every spray moves the mouse pitch down by every kick of a
+ * life, which passes half a turn within a couple of minutes of firing. The
+ * view (usercmd pitch plus recoil and flinch)
  * is what the simulation clamps to MAX_PITCH; this bound only keeps absurd
  * numbers off the wire, and no life's recoil comes near it.
  */

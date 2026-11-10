@@ -144,6 +144,9 @@ const M4A1_ACCURACY = {
   firstShotKick: estimated(0.55, 'deg', 'Vertical kick of the first shot; the M4A1 has a noticeable first-shot jump. Visual estimate.'),
   verticalKick: estimated(0.38, 'deg', 'Vertical climb per later shot; tuned so a full magazine climbs about 11 deg without compensation. Visual estimate.'),
   horizontalKick: estimated(0.16, 'deg', 'Peak horizontal drift per shot; the M4A1 drifts right then left. Visual estimate.'),
+  recoilReturn: estimate(0.7, 'multiplier', 'Game value (next-level ticket 09): most of a burst\'s climb comes back once the trigger is let go, so a tap or a short burst ends near where it began, and the rest is the player\'s to pull down.'),
+  recoilReturnDelay: estimate(0.1, 's', 'Game value: longer than the gap between two shots of automatic fire (0.07 s), so nothing comes back in the middle of a spray.'),
+  recoilReturnTime: estimate(0.16, 's', 'Game value: the view is most of the way back in a quarter of a second, about when the recoil pattern restarts (0.25 s).'),
 } as const;
 
 /** The M4A1's row of the weapons table: the same stat objects as the sections above. */
