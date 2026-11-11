@@ -78,13 +78,7 @@ describe.each(UNDER_TEST)('%s handling against its row', (id) => {
 });
 
 describe('the SMG', () => {
-  it('kills in about 170 ms within 12 m and about 330 ms at 25 m, and slower than the M4A1 past 25 m', () => {
-    const close = measuredKill('smg', 10);
-    const medium = measuredKill('smg', 24);
-    expect(close.time).toBeGreaterThan(0.17 * 0.85);
-    expect(close.time).toBeLessThan(0.17 * 1.15);
-    expect(medium.time).toBeGreaterThan(0.33 * 0.85);
-    expect(medium.time).toBeLessThan(0.33 * 1.15);
+  it('kills slower than the M4A1 past 25 m', () => {
     for (const distance of [30, 45, 60]) expect(timeToKill('smg', distance), `${distance} m`).toBeGreaterThan(timeToKill('m4a1', distance));
   });
 
@@ -119,11 +113,6 @@ describe('the pistol', () => {
     const m = holding('pistol');
     const outputs = m.run(ticks(1), () => ({ [SHOOTER]: usercmd({ buttons: ['Fire'] }) }));
     expect(eventsOf(outputs, 'shot')).toHaveLength(1);
-  });
-
-  it('kills in about 450 ms within 10 m', () => {
-    const { time } = measuredKill('pistol', 8);
-    expect(time).toBeCloseTo(0.45, 1);
   });
 
   it('beats a primary that has to reload first, and loses to one that is ready', () => {

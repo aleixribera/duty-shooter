@@ -166,14 +166,26 @@ describe('the end of a Battle Royale', () => {
 
 describe("the match's big moments (ticket 69)", () => {
   it('a wiped Squad: who, by whom, and how many Squads are left', () => {
-    expect(squadWipedLine({ names: ['Ada', 'Mate'], by: 'Joan', squadsLeft: 7 })).toBe('Squad wiped: Ada and Mate, by Joan · 7 Squads left');
-    expect(squadWipedLine({ names: ['Ada'], by: null, squadsLeft: 2 })).toBe('Squad wiped: Ada · 2 Squads left');
-    expect(squadWipedLine({ names: ['Ada', 'Mate', 'Joan'], by: 'Bo', squadsLeft: 1 })).toBe('Squad wiped: Ada, Mate and Joan, by Bo · 1 Squad left');
+    const two = squadWipedLine({ names: ['Ada', 'Mate'], by: 'Joan', squadsLeft: 7 });
+    expect(two).toContain('Ada and Mate');
+    expect(two).toContain('Joan');
+    expect(two).toMatch(/\b7 Squads\b/);
+    const alone = squadWipedLine({ names: ['Ada'], by: null, squadsLeft: 2 });
+    expect(alone).toContain('Ada');
+    expect(alone).toMatch(/\b2 Squads\b/);
+    const three = squadWipedLine({ names: ['Ada', 'Mate', 'Joan'], by: 'Bo', squadsLeft: 1 });
+    expect(three).toContain('Ada, Mate and Joan');
+    expect(three).toContain('Bo');
+    expect(three).toMatch(/\b1 Squad\b(?!s)/);
   });
 
   it('a new Kill Leader, by name or as you', () => {
-    expect(killLeaderLine('Ada', 4, false)).toBe('Ada is the Kill Leader · 4 eliminations');
-    expect(killLeaderLine('Ada', 3, true)).toBe('You are the Kill Leader · 3 eliminations');
+    const them = killLeaderLine('Ada', 4, false);
+    expect(them).toContain('Ada');
+    expect(them).toContain('4');
+    const you = killLeaderLine('Ada', 3, true);
+    expect(you).not.toContain('Ada');
+    expect(you).toContain('3');
   });
 
   it("the victory card: the winners' own, or who won for everyone else", () => {

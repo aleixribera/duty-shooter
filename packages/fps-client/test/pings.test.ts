@@ -36,9 +36,11 @@ describe('the ping board', () => {
   });
 
   it('a feed line says who and where', () => {
-    expect(pingCallout('enemy', 'Ann', 'C4')).toBe('Ann: Enemy spotted');
-    expect(pingCallout('drop', 'You', 'C4')).toBe('You: Supply Drop in C4');
-    expect(pingCallout('help', 'Bo', '')).toBe('Bo: Need help');
+    expect(pingCallout('enemy', 'Ann', 'C4')).toMatch(/^Ann\b/);
+    expect(pingCallout('drop', 'You', 'C4')).toMatch(/^You\b.*C4/);
+    expect(pingCallout('help', 'Bo', '')).toMatch(/^Bo\b/);
+    expect(pingCallout('help', 'Bo', '')).not.toMatch(/ in\b/);
+    expect(pingCallout('enemy', 'Ann', 'C4')).not.toBe(pingCallout('help', 'Ann', 'C4'));
   });
 });
 

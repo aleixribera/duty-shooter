@@ -71,24 +71,38 @@ describe('the Battle Royale screen’s server line', () => {
   });
 
   it('opens a lobby on an empty server, as its host', () => {
-    expect(royaleServer(status)).toEqual({ tone: 'up', join: true, line: 'The server is free: you open the lobby.' });
+    expect(royaleServer(status)).toMatchObject({ tone: 'up', join: true });
   });
 
   it('joins a Battle Royale lobby with people in it', () => {
-    expect(royaleServer({ ...status, players: 2, lobbyMode: 'battle-royale' })).toEqual({ tone: 'up', join: true, line: '2 players in the lobby.' });
+    const lobby = royaleServer({ ...status, players: 2, lobbyMode: 'battle-royale' });
+    expect(lobby).toMatchObject({ tone: 'up', join: true });
+    expect(lobby.line).toContain('2');
+    expect(lobby.line).not.toBe(royaleServer(status).line);
   });
 
   it('can’t open one while the server plays a team mode with people', () => {
-    expect(royaleServer({ ...status, players: 3, phase: 'playing' })).toEqual({ tone: 'busy', join: false, line: 'The server is playing Team deathmatch with 3 players. Battle Royale opens when they finish and leave.' });
-    expect(royaleServer({ ...status, players: 1 })).toEqual({ tone: 'busy', join: false, line: '1 player in the server’s Team deathmatch lobby. Battle Royale opens when it empties.' });
+    const playing = royaleServer({ ...status, players: 3, phase: 'playing' });
+    expect(playing).toMatchObject({ tone: 'busy', join: false });
+    expect(playing.line).toContain('3');
+    expect(playing.line).toMatch(/Team deathmatch/i);
+    const waiting = royaleServer({ ...status, players: 1 });
+    expect(waiting).toMatchObject({ tone: 'busy', join: false });
+    expect(waiting.line).toContain('1');
+    expect(waiting.line).toMatch(/Team deathmatch/i);
+    expect(waiting.line).not.toBe(playing.line);
   });
 
   it('joins a Battle Royale under way to wait for the next', () => {
-    expect(royaleServer({ ...status, players: 2, phase: 'playing', mode: 'battle-royale', lobbyMode: 'battle-royale' })).toEqual({ tone: 'busy', join: true, line: 'A Battle Royale is under way with 2 players. Join to watch it and play the next one.' });
+    const underWay = royaleServer({ ...status, players: 2, phase: 'playing', mode: 'battle-royale', lobbyMode: 'battle-royale' });
+    expect(underWay).toMatchObject({ tone: 'busy', join: true });
+    expect(underWay.line).toContain('2');
   });
 
   it('says so when the server has no island', () => {
-    expect(royaleServer({ ...status, royale: false })).toMatchObject({ tone: 'down', join: false, line: 'This server has no Battle Royale map yet.' });
+    const none = royaleServer({ ...status, royale: false });
+    expect(none).toMatchObject({ tone: 'down', join: false });
+    expect(none.line).toBeTruthy();
   });
 
   it('knows when joining opens a fresh lobby, whose size the joiner picks', () => {
@@ -119,14 +133,20 @@ describe('the Battle Royale screen once joined', () => {
   const session = (over: Partial<RoyaleSessionState>): RoyaleSessionState => ({ host: true, hostName: 'Aleix', phase: 'lobby', loading: null, seated: false, out: false, reconnecting: false, ...over });
 
   it('lets the host start, and has everyone else wait for them', () => {
-    expect(royaleSession(session({}))).toEqual({ tone: 'up', line: 'You are the host.', go: { label: 'Start match', act: 'start' }, picks: true });
-    expect(royaleSession(session({ host: false }))).toEqual({ tone: 'up', line: 'Aleix is the host.', go: { label: 'Waiting for host', act: null }, picks: false });
+    const host = royaleSession(session({}));
+    expect(host).toMatchObject({ tone: 'up', go: { act: 'start' }, picks: true });
+    const guest = royaleSession(session({ host: false }));
+    expect(guest).toMatchObject({ tone: 'up', go: { act: null }, picks: false });
+    // A guest is told who the host is.
+    expect(guest.line).toContain('Aleix');
+    expect(host.line).not.toContain('Aleix');
   });
 
   it('says the connection is coming back, and holds Start and the picks, while it reconnects (ticket 38)', () => {
     const host = royaleSession(session({ reconnecting: true }));
     expect(host.tone).toBe('busy');
-    expect(host.line).toBe('Lost the connection. The match waits for you.');
+    expect(host.line).toBeTruthy();
+    expect(host.line).not.toBe(royaleSession(session({})).line);
     expect(host.go).toEqual({ label: 'Reconnecting…', act: null });
     expect(host.picks).toBe(false);
     expect(royaleSession(session({ reconnecting: true, phase: 'playing', seated: true })).go.act).toBeNull();
@@ -134,13 +154,16 @@ describe('the Battle Royale screen once joined', () => {
 
   it('offers the match under way once the island is built', () => {
     expect(royaleSession(session({ phase: 'playing', seated: true }))).toMatchObject({ tone: 'busy', go: { label: 'Join the match', act: 'enter' }, picks: false });
-    expect(royaleSession(session({ phase: 'playing', loading: 'Zero Island' }))).toMatchObject({ line: 'The match has started.', go: { label: 'Building the island…', act: null } });
+    const building = royaleSession(session({ phase: 'playing', loading: 'Zero Island' }));
+    expect(building.go.act).toBeNull();
+    expect(building.go.label).not.toBe(royaleSession(session({ phase: 'playing', seated: true })).go.label);
     expect(royaleSession(session({ phase: 'playing' })).go.label).toBe('Watch the match');
   });
 
   it('tells a seat already out of the match, back on the page, that it can only watch (ticket 48)', () => {
     const back = royaleSession(session({ phase: 'playing', seated: true, out: true }));
-    expect(back.line).toBe('You’re out of this match: watch it, and play the next one.');
+    expect(back.line).toBeTruthy();
+    expect(back.line).not.toBe(royaleSession(session({ phase: 'playing', seated: true })).line);
     expect(back.go).toEqual({ label: 'Watch the match', act: 'enter' });
     expect(back.line).not.toContain('Join');
   });

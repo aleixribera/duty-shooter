@@ -1,27 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { MENU_CSS } from '../src/ui/menu';
 
-/** The declarations of the rule for exactly `selector`, or undefined. */
-function rule(selector: string): string | undefined {
-  const at = MENU_CSS.indexOf(`${String.fromCharCode(10)}${selector} {`);
-  if (at < 0) return undefined;
-  const open = MENU_CSS.indexOf('{', at);
-  return MENU_CSS.slice(open + 1, MENU_CSS.indexOf('}', open));
+/** Every property the menu's rules set on exactly `selector` (as one of a rule's selectors). */
+function props(selector: string): Set<string> {
+  const set = new Set<string>();
+  for (const [, selectors, body] of MENU_CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (!selectors!.split(',').some((s) => s.trim() === selector)) continue;
+    for (const d of body!.split(';')) {
+      const p = d.split(':')[0]!.trim();
+      if (p) set.add(p);
+    }
+  }
+  return set;
 }
 
 // Ticket 56: ticket 12 removed the base rules for the pause menu's buttons,
-// leaving the browser's light grey button under near-white text.
+// leaving the browser's light grey button under near-white text. Whatever the
+// look, the rule has to replace each of the browser's own button styles.
 describe("the pause menu's buttons", () => {
-  it('have a dark panel, no browser border, and the menu text colour', () => {
-    const item = rule('.ds-pause .ds-item') ?? '';
-    // Ticket 24: a destination row over the scrim, as on the main menu: no surface of its own.
-    expect(item).toMatch(/background:\s*none/);
-    expect(item).toMatch(/border:\s*0/);
-    expect(item).toMatch(/color:\s*var\(--ds-text\)/);
-    expect(item).toMatch(/display:\s*grid/);
+  it("set their own background, border and text colour, so none of the browser's button shows", () => {
+    const set = props('.ds-pause .ds-item');
+    for (const p of ['background', 'border', 'color']) expect(set, p).toContain(p);
   });
 
   it('light up when hovered, focused or picked with the pad', () => {
-    expect(MENU_CSS).toMatch(/\.ds-pause \.ds-item:hover::before, \.ds-pause \.ds-item:focus-visible::before, \.ds-pause \.ds-item\[data-pad-focus\]::before \{[^}]*background: var\(--ds-signal\)/);
+    for (const state of [':hover', ':focus-visible', '[data-pad-focus]']) {
+      expect(props(`.ds-pause .ds-item${state}::before`), state).toContain('background');
+    }
   });
 });

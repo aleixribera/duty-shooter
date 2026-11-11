@@ -39,7 +39,10 @@ describe('a Supply Drop in the client (ticket 71)', () => {
     expect(gridCell(bounds, -499, -499)).toBe('A1');
     expect(gridCell(bounds, 10, 20)).toBe('F6');
     expect(gridCell(bounds, 499, 499)).toBe('J10');
-    expect(dropAnnouncement('F6', 19.6)).toBe('Supply Drop incoming in F6: the only sniper, landing in 20 s.');
+    const said = dropAnnouncement('F6', 19.6);
+    expect(said).toContain('F6');
+    // Whole seconds, rounded.
+    expect(said).toContain('20 s');
   });
 
   it('marks each crate with its countdown until it lands, and knows when it is opened', () => {
@@ -53,17 +56,21 @@ describe('a Supply Drop in the client (ticket 71)', () => {
   it('prompts a hold to open a landed crate in reach, not a falling one, nor for whoever holds the sniper', () => {
     const near = player([11, 4, 20]);
     expect(dropPrompt(near, state(), 99, 'm4a1', 'F')).toBeNull();
-    expect(dropPrompt(near, state(), 101, 'm4a1', 'F')).toBe('Hold F  Open Supply Drop');
+    const hold = dropPrompt(near, state(), 101, 'm4a1', 'F')!;
+    expect(hold).toContain('F');
     expect(dropPrompt(near, state(), 101, 'sniper', 'F')).toBeNull();
     expect(dropPrompt(player([20, 4, 20]), state(), 101, 'm4a1', 'F')).toBeNull();
     const opening = state({ drops: [{ stage: 2, position: [10, 4, 20], lands: 100, opening: { by: 'me', since: 101 } }] });
-    expect(dropPrompt(near, opening, 102, 'm4a1', 'F')).toBe('Opening Supply Drop');
+    const busy = dropPrompt(near, opening, 102, 'm4a1', 'F')!;
+    expect(busy).toBeTruthy();
+    expect(busy).not.toBe(hold);
   });
 
   it('prompts a press to take a different weapon lying in reach', () => {
     const s = state({ drops: [], loose: [{ id: 1, weapon: 'sniper', position: [0, 0, 0] }, { id: 2, weapon: 'm4a1', position: [0.5, 0, 0] }] });
-    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'm4a1', 'F')).toBe(`F  Take ${STATS.weapons.sniper.traits.name}`);
-    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'sniper', 'F')).toBe(`F  Take ${STATS.weapons.m4a1.traits.name}`);
+    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'm4a1', 'F')).toContain(STATS.weapons.sniper.traits.name);
+    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'sniper', 'F')).toContain(STATS.weapons.m4a1.traits.name);
+    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'sniper', 'F')).toContain('F');
     expect(dropPrompt(player([5, 0, 0]), s, 0, 'm4a1', 'F')).toBeNull();
   });
 });

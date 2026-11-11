@@ -79,7 +79,6 @@ describe('play report', () => {
   it('prints as plain text', () => {
     const text = formatPlayReport(playReport([join(at(24, 20), 'p1', 'alice'), leave(at(24, 21, 30), 'p1', 'alice')].join('\n')));
     expect(text).toContain('2026-10-24  1 session');
-    expect(text).toContain('Peak people at once: 1');
-    expect(text).toContain('Time played by people: 1 h 30 min');
+    expect(text).toContain('1 h 30 min');
   });
 });

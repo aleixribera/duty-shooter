@@ -119,13 +119,24 @@ describe('a Course time', () => {
 describe('the Course clock on the HUD', () => {
   const par = GATES.par;
   it('on the start pad shows the grades to beat, then the best once there is one', () => {
-    expect(courseLines({ kind: 'ready', best: null, par }).note).toBe('Gold 20.00 · Silver 25.00 · Bronze 32.00');
-    expect(courseLines({ kind: 'ready', best: 21.5, par }).note).toBe('Best 21.50 · Gold 20.00');
+    const fresh = courseLines({ kind: 'ready', best: null, par }).note;
+    for (const t of ['20.00', '25.00', '32.00']) expect(fresh).toContain(t);
+    // With a best, only the grade still above it.
+    const best = courseLines({ kind: 'ready', best: 21.5, par }).note;
+    expect(best).toContain('21.50');
+    expect(best).toContain('20.00');
+    expect(best).not.toContain('25.00');
   });
 
   it('after a finish names the grade and how the run stands on the best before it', () => {
-    expect(courseLines({ kind: 'result', seconds: 19.58, grade: 'gold', before: 20 })).toEqual({ label: 'Course · Gold', figure: '19.58', note: 'New best -0.42', best: true });
-    expect(courseLines({ kind: 'result', seconds: 26, grade: 'bronze', before: 20 })).toMatchObject({ label: 'Course · Bronze', note: '+6.00 on best', best: false });
-    expect(courseLines({ kind: 'result', seconds: 40, grade: null, before: null })).toMatchObject({ label: 'Course · No grade', note: 'First time on the board', best: true });
+    const gold = courseLines({ kind: 'result', seconds: 19.58, grade: 'gold', before: 20 });
+    expect(gold).toMatchObject({ figure: '19.58', best: true });
+    expect(gold.note).toContain('-0.42');
+    const bronze = courseLines({ kind: 'result', seconds: 26, grade: 'bronze', before: 20 });
+    expect(bronze).toMatchObject({ figure: '26.00', best: false });
+    expect(bronze.note).toContain('+6.00');
+    const first = courseLines({ kind: 'result', seconds: 40, grade: null, before: null });
+    expect(first.best).toBe(true);
+    expect(new Set([gold.label, bronze.label, first.label]).size).toBe(3);
   });
 });

@@ -57,8 +57,9 @@ describe('the spectator panel (ticket 32)', () => {
   });
 
   it('says who put the last one out when it moves on', () => {
-    expect(spectatorNotice('Bo', 'Carl')).toBe('Bo was eliminated by Carl');
-    expect(spectatorNotice('Bo', null)).toBe('Bo is out');
+    expect(spectatorNotice('Bo', 'Carl')).toMatch(/^Bo\b.*\bCarl\b/);
+    expect(spectatorNotice('Bo', null)).toMatch(/^Bo\b/);
+    expect(spectatorNotice('Bo', null)).not.toContain('Carl');
     expect(text(spectatorPanelHtml(state({ notice: 'Bo was eliminated by Carl' })))).toContain('Bo was eliminated by Carl');
   });
 

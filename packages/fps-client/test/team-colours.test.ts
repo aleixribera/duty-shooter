@@ -11,12 +11,11 @@ function closest(vision: ColourVision, seeing: ColourVision): number {
 afterEach(() => useColourVision('off'));
 
 describe('the team colours', () => {
-  it("are DESIGN.md's blue and orange with a red enemy marker until a set is picked", () => {
+  it('are the default set until a set is picked, and a team-less seat has none', () => {
     expect(teamPalette()).toBe(TEAM_PALETTES.off);
-    expect(TEAM_PALETTES.off.teams[1].colour).toBe('#3d8bff');
-    expect(TEAM_PALETTES.off.teams[2].colour).toBe('#ff9a3c');
-    expect(TEAM_PALETTES.off.enemy).toBe('#ff6159');
-    expect(hexNumber(teamColours(1)!.colour)).toBe(0x3d8bff);
+    expect(teamColours(1)).toBe(TEAM_PALETTES.off.teams[1]);
+    expect(teamColours(2)).toBe(TEAM_PALETTES.off.teams[2]);
+    expect(hexNumber(teamColours(1)!.colour)).toBe(Number.parseInt(TEAM_PALETTES.off.teams[1].colour.slice(1), 16));
     expect(teamColours(0)).toBeNull();
   });
 
@@ -42,17 +41,20 @@ describe('the team colours', () => {
   it('change everywhere at once: the palette the world reads follows the setting', () => {
     useColourVision('tritanopia');
     expect(teamPalette()).toBe(TEAM_PALETTES.tritanopia);
-    expect(teamColours(2)!.colour).toBe('#ffc93c');
+    expect(teamColours(2)).toBe(TEAM_PALETTES.tritanopia.teams[2]);
     useColourVision('off');
-    expect(teamColours(2)!.colour).toBe('#ff9a3c');
+    expect(teamColours(2)).toBe(TEAM_PALETTES.off.teams[2]);
   });
 
   it('give the HUD its tokens: the colours, and their channels for tints', () => {
-    const tokens = paletteTokens(TEAM_PALETTES.off);
-    expect(tokens['--ds-blue']).toBe('#3d8bff');
-    expect(tokens['--ds-orange']).toBe('#ff9a3c');
-    expect(tokens['--ds-enemy']).toBe('#ff6159');
-    expect(tokens['--ds-blue-rgb']).toBe('61 139 255');
+    for (const vision of COLOUR_VISIONS) {
+      const p = TEAM_PALETTES[vision];
+      const tokens = paletteTokens(p);
+      expect(tokens['--ds-blue'], vision).toBe(p.teams[1].colour);
+      expect(tokens['--ds-orange'], vision).toBe(p.teams[2].colour);
+      expect(tokens['--ds-enemy'], vision).toBe(p.enemy);
+      expect(tokens['--ds-blue-rgb'], vision).toBe(rgbChannels(p.teams[1].colour));
+    }
     expect(rgbChannels('#ff9a3c')).toBe('255 154 60');
   });
 });

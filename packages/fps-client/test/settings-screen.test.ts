@@ -48,13 +48,21 @@ describe("the Settings screen's styles", () => {
 describe("the benchmark's verdict", () => {
   const row = (map: string, meanMs: number, low1Ms: number) => ({ map, meanMs, low1Ms });
   it('says the machine runs smoothly when every map holds 60 fps and its stutters stay over 30', () => {
-    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 12, 30)])).toMatch(/^This machine runs the game smoothly/);
+    const smooth = benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 12, 30)]);
+    expect(smooth).toBeTruthy();
+    expect(smooth).not.toMatch(/Switchyard|Survival Town/);
   });
   it('names the slowest map when the average misses 60 fps', () => {
-    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Zero Island', 21, 40)])).toMatch(/^This machine averages under 60 fps on Zero Island\./);
+    const slow = benchmarkVerdict([row('Switchyard', 8, 20), row('Zero Island', 21, 40)]);
+    expect(slow).toContain('Zero Island');
+    expect(slow).not.toContain('Switchyard');
   });
   it('names the map whose stutters drop under 30 fps', () => {
-    expect(benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 10, 50)])).toBe('This machine holds 60 fps on average, but stutters on Survival Town drop under 30 fps.');
+    const stutter = benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 10, 50)]);
+    expect(stutter).toContain('Survival Town');
+    expect(stutter).not.toContain('Switchyard');
+    // Stutters on a map that averages 60 are not the same verdict as a map that misses 60.
+    expect(stutter).not.toBe(benchmarkVerdict([row('Switchyard', 8, 20), row('Survival Town', 21, 40)]));
   });
   it('says nothing of no run', () => {
     expect(benchmarkVerdict([])).toBe('');

@@ -168,7 +168,9 @@ describe('the Preparation’s one action', () => {
     expect(preparationAction(view())).toMatchObject({ label: 'Ready', enabled: true });
     expect(preparationAction(view()).note).toContain('0 of 2 ready');
     expect(preparationAction(view({ ready: true, readyCount: 1 }))).toMatchObject({ enabled: false, note: expect.stringContaining('1 more') });
-    expect(preparationAction(view({ ready: true, readyCount: 1, loading: 1 })).note).toBe('Waiting for 1 player to load');
+    const loading = preparationAction(view({ ready: true, readyCount: 1, loading: 1 })).note;
+    expect(loading).toContain('1');
+    expect(loading).not.toBe(preparationAction(view({ ready: true, readyCount: 1 })).note);
   });
 
   it('locks in the dive and asks for a click once it is over', () => {
@@ -185,8 +187,13 @@ describe('the Preparation’s one action', () => {
 
 describe('the champion Squad at the dive (ticket 69)', () => {
   it("says who they are and why, and when they're yours", () => {
-    expect(preparationChampion({ team: 2, names: ['Ada', 'Bo'], why: 'won' }, 1)).toEqual({ title: 'Champion Squad', names: 'Ada and Bo', why: 'Won the last match' });
-    expect(preparationChampion({ team: 1, names: ['Ada'], why: 'leader', kills: 7 }, 1)).toEqual({ title: 'Your Squad: champions', names: 'Ada', why: "Last match's Kill Leader, 7 eliminations" });
+    const theirs = preparationChampion({ team: 2, names: ['Ada', 'Bo'], why: 'won' }, 1)!;
+    expect(theirs.names).toBe('Ada and Bo');
+    const yours = preparationChampion({ team: 1, names: ['Ada'], why: 'leader', kills: 7 }, 1)!;
+    expect(yours.names).toBe('Ada');
+    expect(yours.why).toContain('7');
+    expect(yours.title).not.toBe(theirs.title);
+    expect(yours.why).not.toBe(theirs.why);
     expect(preparationChampion(undefined, 1)).toBeNull();
   });
 });

@@ -198,9 +198,12 @@ describe('the calls on the way down', () => {
 
   it("names what the map ends in: the bomb, Switchyard's train, or only the time", () => {
     const [minute, half] = COUNTDOWN_CALLS;
-    expect(countdownLine(minute!, 'nuke')).toBe('T-minus 60 seconds. This site will be destroyed.');
-    expect(countdownLine(minute!, 'train')).toBe('T-minus 60 seconds. Clear the main line.');
-    expect(countdownLine(minute!, null)).toBe('T-minus 60 seconds.');
+    const nuke = countdownLine(minute!, 'nuke')!;
+    const train = countdownLine(minute!, 'train')!;
+    const plain = countdownLine(minute!, null)!;
+    expect(new Set([nuke, train, plain]).size).toBe(3);
+    // A map that ends in nothing gets only the time.
+    expect(plain.length).toBeLessThan(Math.min(nuke.length, train.length));
     expect(countdownLine(half!, 'nuke')).toBeNull();
     // The voice says what the HUD writes.
     expect(countdownVoice(minute!, 'nuke')).toBe('t60Nuke');

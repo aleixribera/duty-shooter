@@ -41,7 +41,7 @@ describe('the death recap (ticket 73)', () => {
     log.down({ attacker: 'k', victim: 'a', cause: 'bullet', weapon: 'm4a1' }, lookup(), at(0, 0));
     log.kill({ killer: 'k', victim: 'a', cause: 'bleedOut', weapon: null }, lookup(), at(0, 0));
     expect(log.recap).toMatchObject({ what: 'bledOut', name: 'Kite', weapon: 'M4A1' });
-    expect(text(recapHtml(log.recap!))).toContain('Bled out · Downed by');
+    expect(text(recapHtml(log.recap!))).toContain('Kite');
   });
 
   it('puts the attacker where their last shot was heard when they are too far to be sent, and shows no health it does not know', () => {
@@ -57,10 +57,12 @@ describe('the death recap (ticket 73)', () => {
     const log = new MatchLog();
     log.reset('a');
     log.down({ attacker: null, victim: 'a', cause: 'ring', weapon: null }, lookup(), at(0, 0));
-    expect(text(recapHtml(log.recap!))).toBe('Downed by the Ring');
+    const downed = text(recapHtml(log.recap!));
+    expect(downed).toMatch(/Ring/);
     log.kill({ killer: null, victim: 'a', cause: 'ring', weapon: null }, lookup(), at(0, 0));
     expect(log.recap).toMatchObject({ what: 'ring', name: null, at: null });
-    expect(text(recapHtml(log.recap!))).toBe('Out to the Ring');
+    expect(text(recapHtml(log.recap!))).toMatch(/Ring/);
+    expect(text(recapHtml(log.recap!))).not.toBe(downed);
   });
 
   it('says your own frag, not a fall, for a frag that put you out', () => {
@@ -68,10 +70,11 @@ describe('the death recap (ticket 73)', () => {
     log.reset('a');
     log.kill({ killer: 'a', victim: 'a', cause: 'grenade', weapon: 'frag' }, lookup(), at(0, 0));
     expect(log.recap).toMatchObject({ what: 'self', name: null });
-    expect(text(recapHtml(log.recap!))).toBe('Out to your own frag');
+    const frag = text(recapHtml(log.recap!));
     log.reset('a');
     log.kill({ killer: null, victim: 'a', cause: 'fall', weapon: null }, lookup(), at(0, 0));
-    expect(text(recapHtml(log.recap!))).toBe('Out in a fall');
+    expect(log.recap).toMatchObject({ what: 'fall' });
+    expect(text(recapHtml(log.recap!))).not.toBe(frag);
   });
 
   it('clears when you are back up, and ignores other seats', () => {

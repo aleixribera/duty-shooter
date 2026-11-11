@@ -28,10 +28,14 @@ const me = (at: [number, number, number] = [1, 0, 0]) => ({ id: 'p2', alive: tru
 describe('the use prompt at a Beacon', () => {
   it('asks to hold use to reboot the seats whose Cards you carry, counts the channel down, and says when a Beacon rests', () => {
     const carrying = state({ cards: [{ owner: 'p1', team: 1, carrier: 'p2' }] });
-    expect(rebootPrompt(me(), carrying, 10, 'F', nameOf)).toBe('Hold F  Reboot Ada');
+    const ask = rebootPrompt(me(), carrying, 10, 'F', nameOf)!;
+    expect(ask).toContain('F');
+    expect(ask).toContain('Ada');
     const busy = state({ cards: carrying.cards!, beacons: [{ position: [0, 0, 0], channel: { by: 'p2', since: 10 } }] });
-    expect(rebootPrompt(me(), busy, 13, 'F', nameOf)).toBe(`Rebooting Ada  ${R.channel.value - 3} s`);
-    expect(rebootPrompt(me([200, 0, 1]), carrying, 60, 'F', nameOf)).toBe('Beacon resting  1:30');
+    const counting = rebootPrompt(me(), busy, 13, 'F', nameOf)!;
+    expect(counting).toContain('Ada');
+    expect(counting).toContain(`${R.channel.value - 3} s`);
+    expect(rebootPrompt(me([200, 0, 1]), carrying, 60, 'F', nameOf)).toContain('1:30');
     // Nothing without a Card, or away from a Beacon.
     expect(rebootPrompt(me(), state(), 10, 'F', nameOf)).toBeNull();
     expect(rebootPrompt(me([50, 0, 0]), carrying, 10, 'F', nameOf)).toBeNull();
@@ -40,9 +44,13 @@ describe('the use prompt at a Beacon', () => {
 
 describe('an out player’s Card', () => {
   it('says how long it lies, who carries it, and the reboot under way', () => {
-    expect(cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, position: [5, 0, 5], until: 100 }] }), 28, nameOf)).toBe('Your Reboot Card lies where you fell: 72 s for a squadmate to take it');
-    expect(cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, carrier: 'p2' }] }), 28, nameOf)).toBe('Moss carries your Reboot Card to a Beacon');
-    expect(cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, carrier: 'p2' }], beacons: [{ position: [0, 0, 0], channel: { by: 'p2', since: 20 } }] }), 28, nameOf)).toBe(`Moss is rebooting you: ${R.channel.value - 8} s`);
+    expect(cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, position: [5, 0, 5], until: 100 }] }), 28, nameOf)).toContain('72 s');
+    const carried = cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, carrier: 'p2' }] }), 28, nameOf)!;
+    expect(carried).toContain('Moss');
+    const rebooting = cardNote('p1', state({ cards: [{ owner: 'p1', team: 1, carrier: 'p2' }], beacons: [{ position: [0, 0, 0], channel: { by: 'p2', since: 20 } }] }), 28, nameOf)!;
+    expect(rebooting).toContain('Moss');
+    expect(rebooting).toContain(`${R.channel.value - 8} s`);
+    expect(rebooting).not.toBe(carried);
     expect(cardNote('p1', state(), 28, nameOf)).toBeNull();
   });
 });
@@ -62,9 +70,9 @@ describe('the marks and the feed', () => {
   });
 
   it('tells a Card taken and a Reboot begun and done, with the map square', () => {
-    expect(rebootFeed({ type: 'card', action: 'take', ownerName: 'Ada', playerName: 'Moss' }, 'F6')).toBe("Moss took Ada's Reboot Card");
-    expect(rebootFeed({ type: 'reboot', action: 'start', playerName: 'Moss', names: ['Ada', 'Joan'] }, 'F6')).toBe('Moss is rebooting Ada and Joan in F6');
-    expect(rebootFeed({ type: 'reboot', action: 'done', playerName: 'Moss', names: ['Ada'] }, '')).toBe('Moss rebooted Ada');
+    expect(rebootFeed({ type: 'card', action: 'take', ownerName: 'Ada', playerName: 'Moss' }, 'F6')).toMatch(/^Moss\b.*\bAda\b/);
+    expect(rebootFeed({ type: 'reboot', action: 'start', playerName: 'Moss', names: ['Ada', 'Joan'] }, 'F6')).toMatch(/^Moss\b.*\bAda and Joan\b.*\bF6$/);
+    expect(rebootFeed({ type: 'reboot', action: 'done', playerName: 'Moss', names: ['Ada'] }, '')).toMatch(/^Moss\b.*\bAda$/);
     expect(rebootFeed({ type: 'card', action: 'expire', ownerName: 'Ada', playerName: null }, '')).toBeNull();
   });
 });

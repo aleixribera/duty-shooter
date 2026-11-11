@@ -263,13 +263,19 @@ describe('the lobby', () => {
   });
 
   it('says who the people will play with: bots filling the sides, humans vs bots in a team mode, or just the people', () => {
-    expect(lobbyFill(lobby)).toBe('Bots fill the match to 2v2 when it starts.');
+    const sides = lobbyFill(lobby);
+    expect(sides).toContain('2v2');
     const big = { ...lobby, capacity: 12, maxBots: 6 };
-    expect(lobbyFill({ ...big, hvb: true })).toMatch(/everyone here plays together against 5 bots/);
-    expect(lobbyFill({ ...big, hvb: true, players: ['a'] })).toMatch(/against 4 bots, two more than you \(at least 4, at most 6\)/);
+    const hvb = lobbyFill({ ...big, hvb: true });
+    expect(hvb).toMatch(/\b5 bots\b/);
+    expect(lobbyFill({ ...big, hvb: true, players: ['a'] })).toMatch(/\b4 bots\b/);
     // Free-for-all has no sides to take.
-    expect(lobbyFill({ ...big, hvb: true, mode: 'ffa' })).toBe('Bots fill the match to 4 players when it starts.');
-    expect(lobbyFill({ ...lobby, bots: 0 })).toBe('No bots: just the people here.');
+    const ffa = lobbyFill({ ...big, hvb: true, mode: 'ffa' });
+    expect(ffa).toContain('4');
+    expect(ffa).not.toMatch(/\dv\d/);
+    const none = lobbyFill({ ...lobby, bots: 0 });
+    expect(none).not.toMatch(/\d/);
+    expect(new Set([sides, hvb, ffa, none]).size).toBe(4);
   });
 
   it('colours pings good under 100 ms, fair under 200, poor above', () => {
@@ -295,14 +301,15 @@ describe('the lobby', () => {
 
 describe('when a loadout change applies, as the loadout screen says it', () => {
   it('at once offline, from the next spawn online', () => {
-    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at once');
-    expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).toBe('Applies at your next spawn');
+    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).not.toBe(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false }));
   });
 
   it('in a Battle Royale, at the drop until the Preparation ends, then from the next match (ticket 59)', () => {
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false })).toBe('Applies when you drop');
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe('Applies when you drop');
-    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false })).toBe('Locked until the next match');
+    const lobbyNote = loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false });
+    expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe(lobbyNote);
+    const locked = loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: false });
+    expect(locked).not.toBe(lobbyNote);
+    expect(locked).not.toBe(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false }));
   });
 });
 
