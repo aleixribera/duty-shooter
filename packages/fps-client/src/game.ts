@@ -1,6 +1,4 @@
 import {
-  GUN_GAME_LADDER_LENGTH,
-  GUN_GAME_KILLS_PER_GUN,
   STATS,
   heldRow,
   kitInHand,
@@ -56,7 +54,7 @@ import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
 import { Tracers } from './tracers';
 import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
-import { TEAMS, chargeRoster } from './ui/model';
+import { chargeRoster } from './ui/model';
 import { InputController } from './input';
 import { AUTO_FIRE_IDLE, BODY_RADIUS, aimAt, aimSlowdown, autoFire, autoFireRange, type AimRead, type AutoFireState } from './touch/logic';
 import { hintLine, hintState, stepHints, type HintLine, type HintNames } from './hints';
@@ -90,6 +88,7 @@ import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel
 import type { MatchCardState } from './hud/match-card';
 import { GAIN_RANK_UP_AT } from './hud/match-gain';
 import { scoreFeedEntry } from './hud/score-feed';
+import { WORDY, eventWords, killedWith, type EventWords } from './hud/event-words';
 import { MatchKeeper, type ProfileStore } from './profile';
 import { CourseRun, courseGrade, type CourseGates } from './course-run';
 import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-clock';
@@ -98,11 +97,11 @@ import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTags, type AllySeen, type AllyTag } from './hud/ally-tags';
-import { RING_STAGES, heading, killLeaderLine, placement, ringNow, ringStatus, squadWipedParts, victoryCard, type RingPhase } from './ui/royale';
+import { RING_STAGES, heading, placement, ringNow, ringStatus, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
-import { dropAnnouncement, dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
-import { cardNote, rebootFeed, rebootMarks, rebootPrompt } from './ui/reboot';
-import { PingBoard, aimPing, pingCallout } from './ui/pings';
+import { dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
+import { cardNote, rebootMarks, rebootPrompt } from './ui/reboot';
+import { PingBoard, aimPing } from './ui/pings';
 import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
 import { currentLighting, setHaze } from './surface-materials';
@@ -197,16 +196,6 @@ function foleyCues(self: PlayerOutput): readonly (readonly [number, SoundEventNa
   if (w.action === 'inspect') return w.id === 'm4a1' ? [[0.45, 'inspectRattle'], [2.1, 'inspectRattle'], [3.6, 'reloadChargingHandle']] : [[0.45, 'inspectRattle'], [2.1, 'inspectRattle']];
   if (w.action === 'melee') return [[0.01, 'meleeSwing']];
   return [];
-}
-
-/** How a kill feed line names what did it. */
-function killedWith(cause: string, weapon: KillWeapon | null): string {
-  if (cause === 'melee') return 'Melee';
-  if (cause === 'ring') return 'The Ring';
-  if (cause === 'bleedOut') return 'Bled out';
-  if (cause === 'wipe') return 'Squad out';
-  if (weapon === 'frag') return 'Frag';
-  return weapon ? STATS.weapons[weapon].traits.name : '';
 }
 
 /** How hard each gun kicks the camera, against the M4A1's 1. */
@@ -2192,35 +2181,15 @@ export class Game {
         break;
       case 'kill':
         this.#log.kill(e, this.#lookup, e.victim === selfId ? (this.#cur?.position ?? null) : null);
-        if (!driver.online && e.killer === selfId && e.victim !== selfId) this.hud.eliminated(driver.nameOf(e.victim), e.zone === 'head');
-        if (!driver.online) this.hud.killFeed(e.killer === null || e.killer === e.victim ? null : driver.nameOf(e.killer), driver.nameOf(e.victim), e.zone === 'head', e.killer === selfId || e.victim === selfId, {}, killedWith(e.cause, e.weapon));
         break;
       case 'killFeed':
         if (e.victim === selfId && !e.down) this.#killer = e.killer === selfId ? null : e.killer;
         if (!e.down) this.#outBy.set(e.victim, e.killer === null || e.killer === e.victim ? null : e.killer === selfId ? 'You' : e.killerName);
         if (e.victim === selfId && !e.down) this.#keeper.died();
-        this.hud.killFeed(
-          e.killer === null || e.killer === e.victim ? null : e.killerName,
-          e.victimName,
-          e.headshot,
-          e.killer === selfId || e.victim === selfId,
-          {
-            killer: driver.scores.some((s) => s.id === e.killer && s.bot),
-            victim: driver.scores.some((s) => s.id === e.victim && s.bot),
-          },
-          killedWith(e.cause, e.weapon),
-          teamMode(driver.match?.mode ?? 'ffa') ? { killer: driver.scores.find((s) => s.id === e.killer)?.team, victim: driver.scores.find((s) => s.id === e.victim)?.team } : {},
-          e.down,
-        );
         break;
-      case 'revive': {
+      case 'revive':
         this.#log.revive(e);
-        const team = driver.scores.find((s) => s.id === e.target)?.team;
-        if (team !== undefined && team === driver.scores.find((s) => s.id === selfId)?.team) {
-          this.hud.objectiveFeed(`${driver.nameOf(e.reviver)} Revived ${driver.nameOf(e.target)}`, team, e.reviver === selfId || e.target === selfId);
-        }
         break;
-      }
       case 'grenade': {
         const own = e.player === selfId;
         const at = own ? { local: true } : { position: this.#eyeOf(e.player) ?? [0, 0, 0] as Vec3 };
@@ -2271,105 +2240,34 @@ export class Game {
         }
         break;
       }
-      case 'capture': {
-        const team = TEAMS[e.team]?.name ?? 'A team';
-        const lost = e.previous !== 0 ? ` from ${TEAMS[e.previous]?.name ?? 'the other team'}` : '';
-        this.hud.objectiveFeed(`${team} took ${e.zone}${lost}`, e.team, this.#cur?.team === e.team || this.#cur?.team === e.previous);
+      case 'drop':
+        if (e.action === 'announce') this.#say('supplyDrop', true);
         break;
-      }
-      case 'drop': {
-        const state = this.#royale;
-        const lands = state?.drops?.find((d) => d.stage === e.stage)?.lands;
-        const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
-        if (e.action === 'announce') {
-          this.hud.toast(dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - driver.serverTime), 6);
-          this.#say('supplyDrop', true);
-        }
-        else if (e.action === 'open' && e.player !== null) {
-          const mine = e.player === selfId;
-          const team = driver.scores.find((s) => s.id === e.player)?.team ?? 0;
-          this.hud.objectiveFeed(`${mine ? 'You' : driver.nameOf(e.player)} took the sniper from the Supply Drop${cell ? ` in ${cell}` : ''}`, team, mine);
-        }
-        break;
-      }
       case 'card':
-      case 'reboot': {
+      case 'reboot':
         if (e.type === 'reboot' && e.action === 'done') this.#log.reboot(e);
-        const cell = this.#islandBounds ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
-        const line = rebootFeed(e, cell);
-        const mine = e.player === selfId || (e.type === 'reboot' && e.seats.includes(selfId ?? ''));
-        const team = driver.scores.find((s) => s.id === e.player)?.team ?? 0;
-        if (line) this.hud.objectiveFeed(line, team, mine);
-        const ownTeam = driver.scores.find((s) => s.id === selfId)?.team;
-        if (e.type === 'card' && e.action === 'take' && e.player === selfId) this.hud.toast(`You carry ${e.ownerName}'s Reboot Card: take it to a Beacon and hold ${this.#useLabel()}.`, 5);
-        else if (e.type === 'card' && e.action === 'drop' && e.owner !== selfId && driver.scores.find((s) => s.id === e.owner)?.team === ownTeam && this.#cur?.alive)
-          this.hud.toast(`${e.ownerName}'s Reboot Card lies where they fell${cell ? ` in ${cell}` : ''}: ${STATS.royale.reboot.cardTime.value} s to take it.`, 5);
-        else if (e.type === 'reboot' && e.action === 'done' && selfId !== null && e.seats.includes(selfId)) this.hud.toast(`Rebooted by ${e.playerName}: back with ${STATS.royale.reboot.health.value} HP and ${STATS.royale.reboot.frags.value} frag.`, 5);
         break;
-      }
-      case 'squadOut': {
-        // Duos and Trios only (the mode's call): in Solos the kill feed has said it.
-        const ownTeam = driver.scores.find((s) => s.id === selfId)?.team;
-        const byUs = e.by !== null && driver.scores.some((s) => s.team === ownTeam && s.name === e.by);
-        const [line, tail] = squadWipedParts(e);
-        this.hud.objectiveFeed(line, e.team, e.team === ownTeam || byUs, tail);
-        break;
-      }
-      case 'killLeader': {
-        const you = e.player === selfId;
-        this.hud.objectiveFeed(killLeaderLine(e.name, e.kills, you), e.team, you);
-        if (you) this.hud.toast(`You are the Kill Leader: ${e.kills} eliminations, and everyone can see it.`, 4);
-        break;
-      }
       case 'ping': {
         const mine = e.player === selfId;
-        const name = mine ? 'You' : driver.nameOf(e.player);
-        if (!this.#pingBoard.add(e, name, mine)) break;
+        // The same ping told twice (a resent tick) is called out once.
+        if (!this.#pingBoard.add(e, mine ? 'You' : driver.nameOf(e.player), mine)) return;
         this.#play(e.kind === 'enemy' ? 'pingEnemy' : 'ping', { local: true });
-        const cell = this.#islandBounds && e.kind !== 'enemy' ? gridCell(this.#islandBounds, e.position[0], e.position[2]) : '';
-        this.hud.objectiveFeed(pingCallout(e.kind, name, cell), e.team, mine);
         break;
       }
       case 'trap':
         // Someone ran past a sound trap: the birds, the metal or the gravel, from where it lies.
         this.#play(TRAP_SOUNDS[e.kind], { position: e.position });
         break;
-      case 'loose':
-        if (e.player === selfId) this.hud.toast(`${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, 3);
-        break;
       case 'roundStart':
         this.#round(e.round, e.attackers);
         break;
       case 'charge': {
-        const driver = this.#driver;
-        const who = e.player === null ? null : e.player === driver?.selfId ? 'You' : (driver?.nameOf(e.player) ?? 'Someone');
-        const mine = this.#cur?.team === e.team;
-        const text =
-          e.action === 'pickup'
-            ? `${who} picked up the charge`
-            : e.action === 'drop'
-              ? `${who} dropped the charge`
-              : e.action === 'plant'
-                ? `${who} planted the charge at ${e.site}`
-                : e.action === 'defuse'
-                  ? `${who} defused the charge`
-                  : `The charge detonated at ${e.site}`;
-        // Where the charge lies is the attackers' to know: defenders hear only of the plant and what follows.
-        if (mine || e.action === 'plant' || e.action === 'defuse' || e.action === 'detonate') this.hud.objectiveFeed(text, e.team, e.player === driver?.selfId);
         if (e.action === 'plant') this.#say('chargePlanted');
         else if (e.action === 'defuse') this.#say('chargeDefused');
         if (e.action === 'detonate') {
           this.#effects.explosion(e.position);
           this.#play('explosion', { position: e.position });
         }
-        break;
-      }
-      case 'level': {
-        const driver = this.#driver;
-        const gun = STATS.weapons[e.weapon].traits.name;
-        const last = e.level === GUN_GAME_LADDER_LENGTH - 1;
-        if (e.player === driver?.selfId) this.hud.toast(e.demoted ? `Clubbed: knocked back a gun's worth of kills, on gun ${e.level + 1}, the ${gun}.` : `Gun ${e.level + 1}: the ${gun}${last ? `. ${GUN_GAME_KILLS_PER_GUN} kills with it win.` : '.'}`, 3);
-        else if (last && !e.demoted) this.hud.objectiveFeed(`${driver?.nameOf(e.player) ?? 'Someone'} is on the last gun`, 0, false);
         break;
       }
       case 'score': {
@@ -2398,6 +2296,31 @@ export class Game {
         this.#worldView.restoreProps();
         break;
     }
+    if (!WORDY.has(e.type)) return;
+    this.#tell(
+      eventWords(e, {
+        selfId,
+        online: driver.online,
+        mode: driver.match?.mode ?? null,
+        scores: driver.scores,
+        self: this.#cur,
+        nameOf: (id) => driver.nameOf(id),
+        cell: (at) => (this.#islandBounds ? gridCell(this.#islandBounds, at[0], at[2]) : ''),
+        useLabel: this.#useLabel(),
+        serverTime: driver.serverTime,
+        dropLands: (stage) => this.#royale?.drops?.find((d) => d.stage === stage)?.lands,
+      }),
+    );
+  }
+
+  /** Puts what an event says on the HUD. */
+  #tell(words: EventWords): void {
+    if (words.eliminated) this.hud.eliminated(words.eliminated.victim, words.eliminated.headshot);
+    const k = words.kill;
+    if (k) this.hud.killFeed(k.killer, k.victim, k.headshot, k.mine, k.bots, k.weapon, k.teams, k.down);
+    const f = words.feed;
+    if (f) this.hud.objectiveFeed(f.text, f.team, f.mine, f.tail);
+    if (words.toast) this.hud.toast(words.toast.text, words.toast.seconds);
   }
 
   /**
