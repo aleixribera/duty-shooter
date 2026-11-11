@@ -2,8 +2,8 @@ import { softConcealment, type ChargeSite, type Concealment, type Ladder, type N
 import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
-/** The maps the app ships. */
-export type MapId = 'survival-town' | 'switchyard' | 'station-nine' | 'range' | 'zero-island';
+import type { MapId } from './catalogue';
+export type { MapId } from './catalogue';
 
 /** A box the audio treats as indoors (reverb). */
 export interface IndoorZone {

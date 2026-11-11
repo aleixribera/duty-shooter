@@ -1,24 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, WEAPON_IDS, type Score } from '@duty-shooter/fps-core';
-import { BOT_MAPS, chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+import { chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+
+const MAPS: readonly string[] = ['survival-town', 'switchyard', 'station-nine'];
+const NAMES: Readonly<Record<string, string>> = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'zero-island': 'Zero Island' };
+const mapName = (id: string) => NAMES[id] ?? id;
 
 describe('random lobby picks', () => {
   it('can pick every available map and mode for mixed teams', () => {
-    const picks = Array.from({ length: 5 * BOT_MAPS.length }, (_, i) => {
-      const values = [(Math.floor(i / 5) + 0.5) / BOT_MAPS.length, ((i % 5) + 0.5) / 5];
-      return randomLobbyPick({ maps: BOT_MAPS, hvb: false }, () => values.shift()!);
+    const picks = Array.from({ length: 5 * MAPS.length }, (_, i) => {
+      const values = [(Math.floor(i / 5) + 0.5) / MAPS.length, ((i % 5) + 0.5) / 5];
+      return randomLobbyPick({ maps: MAPS, hvb: false }, () => values.shift()!);
     });
-    expect(new Set(picks.map((pick) => pick?.map))).toEqual(new Set(BOT_MAPS));
+    expect(new Set(picks.map((pick) => pick?.map))).toEqual(new Set(MAPS));
     expect(new Set(picks.map((pick) => pick?.mode))).toEqual(new Set(['tdm', 'ffa', 'outposts', 'charge', 'gungame']));
-    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(5 * BOT_MAPS.length);
+    expect(new Set(picks.map((pick) => `${pick?.map}/${pick?.mode}`)).size).toBe(5 * MAPS.length);
   });
 
   it('only picks team modes for humans vs bots and leaves the setting out of the change', () => {
     const picks = Array.from({ length: 3 }, (_, i) => {
       const values = [0.99, (i + 0.5) / 3];
-      return randomLobbyPick({ maps: BOT_MAPS, hvb: true }, () => values.shift()!);
+      return randomLobbyPick({ maps: MAPS, hvb: true }, () => values.shift()!);
     });
-    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: BOT_MAPS.at(-1), mode })));
+    expect(picks).toEqual(['tdm', 'outposts', 'charge'].map((mode) => ({ map: MAPS.at(-1), mode })));
     expect(randomLobbyPick({ maps: [], hvb: true })).toBeNull();
   });
 });
@@ -151,16 +155,16 @@ describe('connection errors', () => {
 
 describe('the Play Online tile', () => {
   it('shows the server up with players, mode and map, and offers the mode picker only when empty', () => {
-    const up = lobbyTile({ map: 'survival-town', mode: 'tdm', players: 3, capacity: 8, phase: 'playing' });
+    const up = lobbyTile({ map: 'survival-town', mode: 'tdm', players: 3, capacity: 8, phase: 'playing' }, mapName);
     expect(up).toEqual({ online: true, players: '3/8', mode: 'Team deathmatch', map: 'Survival Town', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
-    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'playing' }).pickMode).toBe(true);
-    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }).full).toBe(true);
+    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'playing' }, mapName).pickMode).toBe(true);
+    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 8, capacity: 8, phase: 'playing' }, mapName).full).toBe(true);
     expect(lobbyTile(null)).toEqual({ online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false });
-    expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true })).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
-    expect(lobbyTile({ map: 'zero-island', mode: 'battle-royale', players: 2, capacity: 60, phase: 'playing' })).toMatchObject({ map: 'Zero Island', mode: 'Battle Royale' });
-    expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 })).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
+    expect(lobbyTile({ map: 'switchyard', mode: 'outposts', players: 2, capacity: 12, phase: 'playing', bots: 4, hvb: true }, mapName)).toMatchObject({ map: 'Switchyard', bots: 4, hvb: true });
+    expect(lobbyTile({ map: 'zero-island', mode: 'battle-royale', players: 2, capacity: 60, phase: 'playing' }, mapName)).toMatchObject({ map: 'Zero Island', mode: 'Battle Royale' });
+    expect(lobbyTile({ map: 'survival-town', mode: 'tdm', players: 1, capacity: 8, phase: 'playing', bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 }, mapName)).toMatchObject({ bots: 5, botsPerTeam: 3, maxBotsPerTeam: 4 });
     // With a lobby the host picks the mode there, not the join form.
-    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }).pickMode).toBe(false);
+    expect(lobbyTile({ map: 'survival-town', mode: 'ffa', players: 0, capacity: 8, phase: 'lobby', lobby: true }, mapName).pickMode).toBe(false);
   });
 
   it('names match sizes the way each mode counts them', () => {

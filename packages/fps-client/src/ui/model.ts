@@ -30,9 +30,6 @@ export interface LobbyInfo {
 export const MODE_NAMES: Readonly<Record<string, string>> = { tdm: 'Team deathmatch', ffa: 'Free-for-all', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game', 'battle-royale': 'Battle Royale' };
 /** How each way a match can end reads on the end screen. */
 export const END_REASONS: Readonly<Record<MatchResult['reason'], string>> = { killLimit: 'kill limit', scoreLimit: 'score limit', timeLimit: 'time limit', roundLimit: 'round limit', forfeit: 'forfeit', lastSquad: 'last squad standing', noHumans: 'no players left' };
-export const MAP_NAMES: Readonly<Record<string, string>> = { range: 'Practice Range', 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'station-nine': 'Station Nine', 'zero-island': 'Zero Island' };
-/** The maps Bot Match plays on. */
-export const BOT_MAPS: readonly string[] = ['survival-town', 'switchyard', 'station-nine'];
 /** Teams always appear with their mark and name, never by colour alone. */
 export const TEAMS: Readonly<Record<number, { readonly name: string; readonly mark: string }>> = { 1: { name: 'Blue', mark: '◆' }, 2: { name: 'Orange', mark: '▲' } };
 
@@ -372,14 +369,14 @@ export interface LobbyTile {
   readonly hvb: boolean;
 }
 
-/** The Play Online tile's lines from the lobby status, or the server shown as down. */
-export function lobbyTile(status: LobbyInfo | null): LobbyTile {
+/** The Play Online tile's lines from the lobby status, or the server shown as down. `mapName` names a map id (the app's map catalogue). */
+export function lobbyTile(status: LobbyInfo | null, mapName: (id: string) => string = (id) => id): LobbyTile {
   if (!status) return { online: false, players: '–', mode: '–', map: '–', pickMode: false, full: false, bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, hvb: false };
   return {
     online: true,
     players: `${status.players}/${status.capacity}`,
     mode: MODE_NAMES[status.mode] ?? status.mode,
-    map: MAP_NAMES[status.map] ?? status.map,
+    map: mapName(status.map),
     // Seats held for people who dropped keep the match on, so it is not the joiner's to pick; with a lobby, the host picks there.
     pickMode: !status.lobby && status.players === 0 && !(status.away ?? 0),
     full: status.players >= status.capacity,

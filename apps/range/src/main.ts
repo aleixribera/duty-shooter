@@ -1,4 +1,4 @@
-import { BOT_MAPS, BenchmarkPage, FramePacer, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, lobbyMapName, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { BenchmarkPage, FramePacer, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
@@ -6,7 +6,7 @@ import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamM
 import type { WebGPURenderer } from 'three/webgpu';
 import { Benchmark, CameraPath, benchLine, type BenchReport } from './bench';
 import { LoadReport } from './load-report';
-import { TEAM_SIZES, asMapId, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { MATCH_MAPS, TEAM_SIZES, asMapId, buildMapById, mapEntry, mapConcealment, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -350,7 +350,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => engineReady.then(() => game.input.captureNext()),
     },
-    { lobby, version, padName: () => game?.input.padName ?? null, profile, video: videoStatus },
+    { lobby, version, mapName, padName: () => game?.input.padName ?? null, profile, video: videoStatus },
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
@@ -390,7 +390,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       settings: () => menu.lobbySettings(),
       leave: () => leaveGame(),
     },
-    { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? lobbyMapName(id), image: MAP_IMAGES.has(id) ? `maps/${id}.jpg` : null }) },
+    { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? mapName(id), image: mapEntry(id)?.picture ? `maps/${id}.jpg` : null }) },
   );
   /**
    * The Battle Royale screen: before joining, the server's state and the
@@ -696,8 +696,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
    * + and - keys) until the map or mode changes.
    */
   const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
-  const initialBotMap = BOT_MAPS[0]!;
-  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: BOT_MAPS, map: initialBotMap, squadSize: 1, squads: {} };
+  const initialBotMap = MATCH_MAPS[0]!;
+  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: MATCH_MAPS, map: initialBotMap, squadSize: 1, squads: {} };
   let botLobbyOpen = false;
   /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
   let botLast: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
@@ -1169,8 +1169,10 @@ function nextPaint(): Promise<void> {
 /** Where the page keeps its seat token. */
 const SEAT_KEY = 'duty-shooter.seat';
 
-/** Maps with a picture for the lobby (apps/range/public/maps/<id>.jpg). */
-const MAP_IMAGES: ReadonlySet<string> = new Set(['survival-town', 'switchyard', 'station-nine', 'zero-island']);
+/** A map's name from its id; an id the app doesn't ship (a newer server's) shows as itself. */
+function mapName(id: string): string {
+  return mapEntry(id)?.name ?? id;
+}
 /** The map a Battle Royale plays on. */
 const ROYALE_MAP: MapId = 'zero-island';
 

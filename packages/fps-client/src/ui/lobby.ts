@@ -1,6 +1,6 @@
 import { LOBBY_MODES, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MAP_NAMES, MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
+import { MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
@@ -347,7 +347,3 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** A map's display name from its id, for the lobby when the page has nothing better. */
-export function lobbyMapName(id: string): string {
-  return MAP_NAMES[id] ?? id;
-}

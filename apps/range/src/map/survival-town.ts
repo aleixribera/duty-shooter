@@ -3,6 +3,7 @@ import { LIGHTING, type EndingShot, type Finish, type Lighting, type Look } from
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
+import { MAP_CATALOGUE } from './catalogue';
 
 /**
  * Survival Town: a recreation of the original 2010 suburban test-site map
@@ -1312,7 +1313,7 @@ export function buildSurvivalTown(): MapDefinition {
   const dummies: PlayerSpawn[] = [];
   return {
     id: 'survival-town',
-    name: 'Survival Town',
+    name: MAP_CATALOGUE['survival-town'].name,
     solids: b.solids,
     hiddenSolids: b.hidden,
     finishes: FINISHES,

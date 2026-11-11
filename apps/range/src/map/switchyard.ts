@@ -2,6 +2,7 @@ import { INTERMISSION, type ChargeSite, type Material, type NavOptions, type Sol
 import { linearRgb, normalize, type EndingShot, type Finish, type FreightTrain, type Lamp, type Lighting, type Look, type ModelPlacement } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
+import { MAP_CATALOGUE } from './catalogue';
 
 /**
  * Switchyard: a freight rail yard at dusk, walled in on three sides, with
@@ -994,7 +995,7 @@ export function buildSwitchyard(): MapDefinition {
   const spawns = spawnSets();
   return {
     id: 'switchyard',
-    name: 'Switchyard',
+    name: MAP_CATALOGUE.switchyard.name,
     solids: b.solids,
     hiddenSolids: b.hidden,
     finishes: FINISHES,

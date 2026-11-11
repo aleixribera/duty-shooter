@@ -13,6 +13,7 @@ import { NC_CLEAR, NC_EXTRA, NC_KIT, NC_PADS, NC_PIECES, NC_PLACED } from './zer
 import { dressCover, kitWear, standPieces, type RegionKit } from './zero-island-kit';
 import { Dresser, fittedSolids, placePlants, type DressedPiece } from './zero-island-plants';
 import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zeroIslandBoundary, zeroIslandGround, type Core, type RegionId } from './zero-island-terrain';
+import { MAP_CATALOGUE } from './catalogue';
 
 /** The one low sun, out over the sea to the south-west. */
 export const ZERO_ISLAND_LIGHT: Lighting = {
@@ -373,7 +374,7 @@ export function buildZeroIsland(): MapDefinition {
   ];
   return {
     id: 'zero-island',
-    name: 'Zero Island',
+    name: MAP_CATALOGUE['zero-island'].name,
     solids: b.solids,
     hiddenSolids: b.hidden,
     terrain: ground.data,

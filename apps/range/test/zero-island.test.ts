@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INTERMISSION, STATS, TICK_SECONDS, Terrain, createWorld, raycastWorld, usercmd, viewDirection, type PlayerOutput, type Solid, type Vec3 } from '@duty-shooter/fps-core';
 import { GROUND_LAYERS, shotPose } from '@duty-shooter/fps-client/surfaces';
 import { createHeadlessMatch, type HeadlessMatch } from '@duty-shooter/fps-core/harness';
-import { insidePolygon, LOBBY_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
+import { insidePolygon, MATCH_MAPS, MAP_IDS, asMapId, buildMapById, mapSolids } from '../src/map/maps';
 import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, TERRAIN_COLORS, TERRAIN_LAYERS, regionAt, zeroIslandGround, type RegionId } from '../src/map/zero-island-terrain';
 
 const map = buildMapById('zero-island');
@@ -29,7 +29,7 @@ describe('Zero Island: the map', () => {
   it('is a map the app knows, offered in no lobby', () => {
     expect(MAP_IDS).toContain('zero-island');
     expect(asMapId('zero-island')).toBe('zero-island');
-    expect(LOBBY_MAPS).not.toContain('zero-island');
+    expect(MATCH_MAPS).not.toContain('zero-island');
   });
 
   it('is about a square kilometre of land', () => {

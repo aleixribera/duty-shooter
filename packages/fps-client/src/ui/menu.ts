@@ -380,6 +380,8 @@ export class Menu {
   #loadoutNote = '';
   #matchMode: ModeId | null = null;
   readonly #padName: () => string | null;
+  /** A map's name from its id. */
+  readonly #mapName: (id: string) => string;
   /** This browser's Profile: the main menu's Rank line and the Profile screen read it. Null where none is kept. */
   readonly #profile: ProfileStore | null;
   /** The Profile screen is asking whether to erase it. */
@@ -392,12 +394,13 @@ export class Menu {
   /** What had the focus outside the menu when it opened (a lobby button): it gets the focus back when the menu closes. */
   #opener: HTMLElement | null = null;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; padName?: () => string | null; profile?: ProfileStore | null; video?: () => VideoStatus | null }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; mapName?: (id: string) => string; padName?: () => string | null; profile?: ProfileStore | null; video?: () => VideoStatus | null }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
     this.#lobby = options.lobby;
     this.#version = options.version;
     this.#padName = options.padName ?? (() => null);
+    this.#mapName = options.mapName ?? ((id) => id);
     this.#profile = options.profile ?? null;
     this.#video = options.video ?? (() => null);
     installTheme();
@@ -535,7 +538,7 @@ export class Menu {
   /** New lobby status: the Play Online tile and screen follow it. */
   updateLobby(status: LobbyInfo | null): void {
     if (this.#lobby?.kind !== 'server') return;
-    const changed = JSON.stringify(lobbyTile(this.#lobby.status ?? null)) !== JSON.stringify(lobbyTile(status));
+    const changed = JSON.stringify(lobbyTile(this.#lobby.status ?? null, this.#mapName)) !== JSON.stringify(lobbyTile(status, this.#mapName));
     this.#lobby.status = status;
     // Only when what the screen shows changed, and keeping what is being typed.
     if (changed) this.#statusChanged();
@@ -883,7 +886,7 @@ export class Menu {
     // Play Online leads, with its server's state: the Pages copy has no server of its own and sends you to the public lobby's page.
     const server = lobby?.kind === 'server';
     const link = lobby?.kind === 'link' ? lobby.url : null;
-    const t = lobbyTile(server ? (lobby.status ?? null) : null);
+    const t = lobbyTile(server ? (lobby.status ?? null) : null, this.#mapName);
     // The public lobby joins in one click under the name above (typed first if there is none); a private server asks for its passphrase.
     const playOnline = () => {
       if (link) return location.assign(link);
@@ -942,7 +945,7 @@ export class Menu {
   #renderOnline(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
     const lobby = this.#lobby;
     const open = lobby?.kind === 'server' && lobby.public;
-    const t = lobbyTile(lobby?.kind === 'server' ? (lobby.status ?? null) : null);
+    const t = lobbyTile(lobby?.kind === 'server' ? (lobby.status ?? null) : null, this.#mapName);
     const { page, aside, body, footer } = this.#page(screen, h, 'Play Online', 'form');
     const form = page as HTMLFormElement;
     const chip = h('span', '', 'ds-chip');

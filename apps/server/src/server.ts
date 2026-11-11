@@ -10,7 +10,7 @@ import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTO
 import { EventLog } from './event-log';
 import { spendFirstUpgrade } from './first-upgrade';
 import { MODE_IDS, type ModeId, type SquadSize } from '@duty-shooter/fps-core/modes';
-import { LOBBY_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
+import { MATCH_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { watchTicks } from './slow-ticks';
 import { TickCosts, type TickWindow } from './tick-costs';
@@ -426,7 +426,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const first = serverMap(map);
   // Every lobby map is built up front, so a switch at a match's start costs nothing.
   // Zero Island isn't among them: Battle Royale plays in a process of its own (ADR 0009).
-  const others = LOBBY_MAPS.includes(options.map) ? LOBBY_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
+  const others = MATCH_MAPS.includes(options.map) ? MATCH_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const log = new EventLog(options.eventLog ?? null, { ...(options.printLog ? { print: options.printLog } : {}), ...(options.handedSockets ? { process: 'royale' } : {}) });

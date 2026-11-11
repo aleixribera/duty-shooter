@@ -2,6 +2,7 @@ import { INTERMISSION, type ChargeSite, type Ladder, type Material, type NavOpti
 import { linearRgb, normalize, type EndingShot, type Finish, type Lamp, type Lighting, type Look } from '@duty-shooter/fps-client/surfaces';
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
+import { MAP_CATALOGUE } from './catalogue';
 
 /**
  * Station Nine: an instrument station on a weapons test range, at dawn on
@@ -917,7 +918,7 @@ export function buildStationNine(): MapDefinition {
   const spawns = spawnSets();
   return {
     id: 'station-nine',
-    name: 'Station Nine',
+    name: MAP_CATALOGUE['station-nine'].name,
     solids: b.solids,
     hiddenSolids: b.hidden,
     ladders: stationLadders(),
