@@ -1,12 +1,17 @@
 # Duty Shooter
 
-A browser FPS built to feel like Call of Duty: Modern Warfare (2019), on an authoritative 60 Hz server.
+A browser shooter on an authoritative 60 Hz server, where every match is a weapons test and the test ends the match: you fight on ground that is about to stop existing. Survival Town and Station Nine end in a nuke, Switchyard under a freight train, and Zero Island at Ground Zero. A timed match's last minute is an act of its own: the clock reads T-minus over a burning fuse, the siren starts, Range Control counts it down and the light turns to a warning lamp's.
+
+It began as a study of Call of Duty: Modern Warfare (2019)'s gunplay and movement, and its controls and feel still start there; its weapons, maps and rules are now tuned for this game.
 
 - **Arsenal:** seven primaries (the M4A1, the Wasp 9 SMG, the Harrow 12 shotgun, the Ridgeline .308 sniper rifle, the Bulwark 5.56 light machine gun, the Vantage 7.62 marksman rifle and the Trident 5.56 burst rifle), two secondaries (the Warden 9 pistol and the Marshal .357 revolver), a frag, a tactical (a smoke that nobody sees through, or a flash that whites out whoever looks at it) and a perk (Fast Hands, Soft Soles or Blast Vest). Players pick a loadout between lives.
-- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; **Switchyard**, a freight yard at dusk; and **Station Nine**, a test range's instrument station at dawn before a tower shot, built for the Slide, the Kick and the climbs. Survival Town and Station Nine end each match with a nuke; Switchyard ends it with a freight train.
+- **Attachments:** each gun takes up to four (optic, muzzle, magazine, grip), opened by its Mastery and fitted in the gunsmith under it on the loadout screen. Every one is a sidegrade: it buys one thing and pays with another, so a new player's stock gun is never outgunned.
+- **Maps:** **Survival Town**, a 1950s test-site town of two houses facing each other across a cul-de-sac; **Switchyard**, a freight yard at dusk; **Station Nine**, a test range's instrument station at dawn before a tower shot, built for the Slide, the Kick and the climbs; and **Zero Island**, about a square kilometre of test range for the Battle Royale.
 - **Modes:** team deathmatch (75 kills or 10 minutes), free-for-all (30 kills or 10 minutes), Outposts (hold three zones; 200 points), Charge (plant or defuse; first to 4 rounds, no respawns within a round) and gun game (free-for-all up a ladder of seven of the nine guns dealt at random each match, 3 kills each before the next; the first to finish the last gun wins, or whoever is furthest up after 10 minutes). Any team mode can be played **humans vs bots**: every person on one team against a bot team sized to the group.
 - **Online**, the first person in is the host: in the lobby they pick the map, mode, bots on or off and humans vs bots, and press Start. The Random button picks a map and mode while keeping the sides setting; humans vs bots draws from team modes. Bot Match has the same button. Bots fill each side to the map's team size: 6v6 on Switchyard and Station Nine (4v4 in Charge there), 4v4 on Survival Town (`TEAM_SIZES` in `apps/range/src/map/maps.ts`). The host can change it with the hidden **+** and **-** keys in the lobby, until the map or mode changes. Up to 12 seats, with bots filling them.
-- **Offline**, **Bot Match** plays the match maps in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course.
+- **Battle Royale** on Zero Island, from the main menu: 60 seats in Squads of one, two or three, one life, and the Ring closing until one Squad is left. Supply Drops carry the only sniper; in Duos and Trios a fallen seat's Reboot Card can be carried to a Beacon to bring them back.
+- **Offline**, **Bot Match** plays the match maps in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course with a timed Course.
+- **Progress** lives in the browser (no account, no server database): a match's Score feeds XP and a Rank from 1 to 50, each weapon earns Mastery by its kills, and three Challenges change each day. Only a match played to its end counts.
 
 TypeScript, Three.js (WebGPU, with a WebGL2 fallback), Vite, Node 24.
 
@@ -19,7 +24,7 @@ npm run dev
 
 Open <http://localhost:5173>. The main menu flies over Survival Town; choose **Bot Match** or **Practice Range** to play offline. The first `npm run dev` bakes each map's lighting on the CPU (see below), which takes a little while; later starts reuse the cache.
 
-The game has one graphics look: temporal anti-aliasing, ambient occlusion, bloom and one sun shadow map, at the screen's full density up to 1440p's worth of pixels. A match's weapons, soldiers and effects are fetched and compiled behind its loading screen, so play starts without stalls.
+The game draws one picture on every machine, with no quality settings: temporal anti-aliasing, ambient occlusion, sun shafts, bloom, heat shimmer and one sun shadow map, always at the window's own pixels (the device pixel ratio, held at 2 at most). The work goes into making that picture cheap enough for weak machines rather than into lower tiers. A match's weapons, soldiers and effects are fetched and compiled behind its loading screen, so play starts without stalls.
 
 To play online locally:
 
@@ -100,7 +105,7 @@ npm run dist                               # dist/Duty-Shooter-Setup.exe
 
 ## Controls
 
-These are MW2019's defaults, and every one can be rebound in Settings.
+They start from MW2019's defaults, and every one can be rebound in Settings.
 
 | Action | Key |
 | --- | --- |
@@ -149,18 +154,19 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 
 The Tactical preset puts crouch on R3 and melee on Circle. Settings → Mouse and pad has the layout, stick sensitivity, ADS multiplier, deadzone, invert Y, aim slowdown and vibration strength. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
 
-### Changes from MW2019
+### Where the defaults differ from MW2019
 
 - The reserve is unlimited (shown as ∞). You still reload the magazine.
 - Sprinting doesn't cancel a reload.
 - The defaults are mouse sensitivity 10, stick sensitivity 12 and FOV 90°. That's twice MW2019's sensitivity, and wider than its 80°. Saves made under the old defaults move to the new ones; values you changed yourself are kept.
-- The view widens slightly while sprinting and sliding. Kills show an "Eliminated" or "Headshot" callout under the crosshair.
+- The view widens slightly while sprinting and sliding.
+- Recoil returns: the view recentres most of the way after a burst, with a visual kick on top that never moves the aim.
 
 ## Layout
 
 - `packages/fps-core`: the headless, deterministic simulation shared by the client and the server. It covers movement (pmove), weapons and grenades, hit zones, lag compensation, netcode, the game modes, bots and the sourced stats file. It has no DOM, rendering or audio code.
 - `packages/fps-client`: presentation and input. It covers rendering, the viewmodel, effects, synthesized audio, the HUD, menus and the client side of networking.
-- `apps/range`: the maps (Survival Town, Switchyard, Station Nine and the Practice Range, as data the core never imports), the lighting bake and the page that runs the game. Switchyard's models are `public/models/switchyard.glb`, built by `tools/map/switchyard.py` in Blender; Station Nine's are `public/models/station-nine.glb`, built by `tools/map/station-nine.py`.
+- `apps/range`: the maps (Survival Town, Switchyard, Station Nine, Zero Island and the Practice Range, as data the core never imports), the lighting bake and the page that runs the game. Switchyard's models are `public/models/switchyard.glb`, built by `tools/map/switchyard.py` in Blender; Station Nine's are `public/models/station-nine.glb`, built by `tools/map/station-nine.py`.
 - `apps/server`: the authoritative server. It speaks WebSocket and also serves the built client.
 
 `npm test` runs the fast tier in a few minutes: headless match tests (the real server and clients from `fps-core` over an in-memory network with latency, jitter and loss) and unit tests. `npm run test:soak` runs the soak tier, bots playing whole matches on each map and mode (the `*.soak.test.ts` files), and `npm run test:all` runs both, as CI does. `npm run typecheck` typechecks every package and its tests, and `npm run check` does that and the fast tier. `npm run test:core`, `test:client`, `test:range` and `test:server` run one package's fast tests.

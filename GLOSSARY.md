@@ -96,7 +96,7 @@ Data the app supplies to the core. It holds the solids, spawn sets, indoor zones
 _Avoid_: level
 
 **Survival Town**:
-The recreation of the original 2010 Nuketown, and the public lobby's map. Never call it "Nuketown" in the product.
+The public lobby's map: a 1955 test-site town of two houses facing each other across a cul-de-sac, which ends in a nuke. Its layout was borrowed from an older game's map; its name, look and ending are this game's own. Never use the borrowed map's name in the product.
 
 **Switchyard**:
 The second lobby map, original to Duty Shooter: a freight rail yard at dusk with three lanes. The long lane (open running track) is in the north, the middle lane (two rows of freight cars, with an alley between) runs through the centre, and the close lane (workshop, engine shed, fuel depot) is in the south. The signal box stands between the long lane and the cars. Team 1 starts at the west end and team 2 at the east end.
@@ -213,6 +213,14 @@ _Avoid_: banner, dog tag, respawn token
 **Reboot Beacon**:
 One of the 15 Blender beacons spread over Zero Island. Holding F at one for 10 s with Cards brings their seats back around it with their loadout, 50 HP, 1 frag and 1 Tactical; anyone may see the column of light and break it off by downing the carrier. A Beacon then rests for 120 s (its light turns red). Dark once the last two Stages begin.
 _Avoid_: respawn tower, revive station
+
+**Attachment**:
+A part fitted to a weapon in one of four slots (optic, muzzle, magazine, grip), each with two choices or stock: Reflex or Prism 2x, Suppressor or Compensator, Extended or Speed magazine, Vertical or Angled grip. Each is a sidegrade, buying one thing with another, so a forged save gains nothing and a stock gun is never outgunned. A slot opens at its Mastery step (optic 1, muzzle 2, magazine 3, grip 4), and a gun takes only the slots it can (no optic on a gun with a sight of its own, no muzzle on the pump shotgun, a magazine only on a gun fed from a box magazine, no optic or grip on a secondary). Online, the server applies a loadout's attachments as given and drops a slot the gun can't take.
+_Avoid_: mod, perk (a Perk is the loadout's own slot)
+
+**Gunsmith**:
+The rows under a gun on the loadout screen where its attachments are picked: one row per slot, a locked tile counting the kills still needed.
+_Avoid_: workshop, customise
 
 **Grenade indicator**:
 The HUD's mark for a live grenade within 10 m of you (`warningRadius`): a plate on a ring round the crosshair, on the side the grenade lies. It fills in where the blast would take all the health you have and blinks through the fuse's last second. Teammates' grenades are not marked where sides are played; your own is, except while it flies away from you.
