@@ -27,3 +27,5 @@ What each rename costs:
 
 Not done here: the name is the owner's to pick. The ticket is resolved with the docs rewritten and this recommendation recorded.
 
+
+- 2026-11-11, owner: keep Duty Shooter. The title, address and saves stay as they are; no rename.

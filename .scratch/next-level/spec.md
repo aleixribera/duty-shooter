@@ -14,7 +14,7 @@ That gives the look (atomic-age test site: bleached paint, desert haze, hazard s
 
 What would prove this wrong: if the last minute of a match doesn't feel different from the first when played, the idea is only a coat of paint, and the work goes to pure gunfeel instead.
 
-The name stays Duty Shooter for now: the address, the image, the saves and the installer all carry it, and a name is the owner's to change. Recommendation recorded in ticket 30.
+The name stays Duty Shooter: the owner decided on 2026-11-11 (ticket 30).
 
 ## What holds it back today, in order
 
