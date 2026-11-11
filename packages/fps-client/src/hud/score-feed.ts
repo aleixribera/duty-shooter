@@ -43,8 +43,8 @@ export function scoreFeedEntry(lines: readonly ScoreLine[], nameOf: (id: string)
 }
 
 /** Seconds a line stays, a Medal stays, and the total takes to count up to what was just earned. */
-export const SCORE_LINE_LIFE = 2.5;
-export const SCORE_MEDAL_LIFE = 2;
+const SCORE_LINE_LIFE = 2.5;
+const SCORE_MEDAL_LIFE = 2;
 const COUNT_UP = 0.35;
 /** Lines on screen at once: older ones leave early rather than run down into the readouts. */
 const MAX_LINES = 6;

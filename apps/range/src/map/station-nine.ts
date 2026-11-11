@@ -195,7 +195,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
  * shot tower, warm orange; a cool blue sky going peach at the horizon, and
  * sand-coloured light off the ground.
  */
-export const DAWN: Lighting = {
+const DAWN: Lighting = {
   sunDirection: normalize([0.8, 0.2, -0.42]),
   sunColor: [1.0, 0.64, 0.44],
   sunIntensity: 2.4,
@@ -275,7 +275,7 @@ function sandbags(b: Builder, x0: number, x1: number, z0: number, z1: number, he
 }
 
 /** A wooden cable reel on its side (the `cable-reel` model), its axle along x, at (x, z). */
-export const REEL = { width: 1.0, diameter: 1.6 } as const;
+const REEL = { width: 1.0, diameter: 1.6 } as const;
 function reel(b: Builder, x: number, z: number): void {
   const w = REEL.width / 2;
   const r = REEL.diameter / 2;
@@ -368,7 +368,7 @@ function buildBoundary(b: Builder): void {
 }
 
 /** The cable line's poles, from beyond the barrier out toward the shot tower. */
-export function cablePoles(): Vec3[] {
+function cablePoles(): Vec3[] {
   const from: Vec3 = [24, 0, -34];
   const dx = GROUND_ZERO[0] - from[0];
   const dz = GROUND_ZERO[2] - from[2];
@@ -484,7 +484,7 @@ function buildTower(b: Builder, s: 1 | -1): void {
 }
 
 /** The towers' ladders, and the bunker's. */
-export function stationLadders(): Ladder[] {
+function stationLadders(): Ladder[] {
   const out: Ladder[] = [];
   for (const s of [-1, 1] as const) {
     out.push({ bottom: [s * TOWER.ladderX, 0, TOWER.ladderZ], landing: [s * TOWER.landingX, TOWER.deck, TOWER.ladderZ] });
@@ -616,7 +616,7 @@ function buildHouse(b: Builder, s: 1 | -1): void {
  * (height above and below the axis, half-width) covers the circle over its
  * height, and the narrowest runs down to the ground over the saddles.
  */
-export const TANK = { z: 24.8, radius: 1.3, axis: 1.75, steps: [[0.5, 1.3], [0.85, 1.2], [1.1, 0.99]] } as const;
+const TANK = { z: 24.8, radius: 1.3, axis: 1.75, steps: [[0.5, 1.3], [0.85, 1.2], [1.1, 0.99]] } as const;
 function fuelTank(b: Builder, x0: number, x1: number): void {
   const { z, axis, radius, steps } = TANK;
   b.model('fuel-tank', [(x0 + x1) / 2, 0, z], 0, () => {

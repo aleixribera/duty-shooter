@@ -26,7 +26,7 @@ import { BURST, DMR, LMG, PISTOL, REVOLVER, SHOTGUN, SMG, SNIPER, estimate, type
  */
 
 /** One IW engine unit (an inch) in metres. */
-export const IW_UNIT = 0.0254;
+const IW_UNIT = 0.0254;
 
 const COLLECTED = '2026-10-25';
 

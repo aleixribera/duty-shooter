@@ -8,10 +8,10 @@ import { MASTERY_KILLS, masteryOf } from '../profile/model';
  * from the gun's own numbers.
  */
 
-export const SLOT_NAMES: { readonly [S in AttachmentSlot]: string } = { optic: 'Optic', muzzle: 'Muzzle', magazine: 'Magazine', grip: 'Grip' };
+const SLOT_NAMES: { readonly [S in AttachmentSlot]: string } = { optic: 'Optic', muzzle: 'Muzzle', magazine: 'Magazine', grip: 'Grip' };
 
 /** A tile's short line: what the choice is for, in a word or two. */
-export const ATTACHMENT_GIST: { readonly [A in AttachmentId]: string } = {
+const ATTACHMENT_GIST: { readonly [A in AttachmentId]: string } = {
   reflex: 'clear dot',
   prism: `${STATS.attachments.prism.zoom.value}x sight`,
   suppressor: 'quiet',

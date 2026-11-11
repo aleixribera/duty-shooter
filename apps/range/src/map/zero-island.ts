@@ -16,7 +16,7 @@ import { BRIDGES, CORES, REGION_IDS, RUNWAY, TERRAIN_COLORS, TERRAIN_LAYERS, zer
 import { MAP_CATALOGUE } from './catalogue';
 
 /** The one low sun, out over the sea to the south-west. */
-export const ZERO_ISLAND_LIGHT: Lighting = {
+const ZERO_ISLAND_LIGHT: Lighting = {
   sunDirection: normalize([-0.62, 0.2, 0.76]),
   sunColor: [1.0, 0.58, 0.32],
   sunIntensity: 2.4,

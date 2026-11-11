@@ -8,7 +8,7 @@ import { PREPARATION, anglesOf, viewDirection, type Vec3 } from '@duty-shooter/f
  */
 
 /** Seconds the island shot holds before the camera goes to the Squad. */
-export const ISLAND_SECONDS = 7;
+const ISLAND_SECONDS = 7;
 /** The Ring ignites over these seconds of the island shot. */
 const IGNITE = [0.5, 4.5] as const;
 /** The dive starts this far behind and above your eyes (m). */

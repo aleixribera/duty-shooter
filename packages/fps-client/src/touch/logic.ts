@@ -10,9 +10,9 @@ export const STICK_RADIUS = 56;
 /** Travel inside this share of the radius is rest: a thumb never lands dead still. */
 export const STICK_DEADZONE = 0.16;
 /** Pushed this far (of full) and mostly forward, the stick sprints. */
-export const STICK_SPRINT = 0.92;
+const STICK_SPRINT = 0.92;
 /** How far forward of sideways a push must be to sprint: forward at least this share of the deflection. */
-export const STICK_SPRINT_FORWARD = 0.75;
+const STICK_SPRINT_FORWARD = 0.75;
 /** Dragged this far past the top of its travel (in radii), the stick locks the sprint: the thumb can lift and the run goes on. */
 export const STICK_LOCK = 1.7;
 
@@ -54,9 +54,9 @@ export function readStick(dx: number, dy: number, radius = STICK_RADIUS): StickR
 }
 
 /** Degrees the view turns per CSS px of drag at sensitivity 1, before acceleration. */
-export const LOOK_DEGREES_PER_PX = 0.034;
+const LOOK_DEGREES_PER_PX = 0.034;
 /** The vertical turn against the horizontal: a thumb's arc drifts up and down, and the fight is mostly level. */
-export const LOOK_VERTICAL = 0.72;
+const LOOK_VERTICAL = 0.72;
 /** Drag speeds (px per ms) between which the gain climbs from slow to fast. */
 const LOOK_SLOW_SPEED = 0.06;
 const LOOK_FAST_SPEED = 1.5;

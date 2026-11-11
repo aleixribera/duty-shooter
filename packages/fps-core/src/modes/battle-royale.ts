@@ -35,7 +35,7 @@ interface Entry {
 const seatNumber = (id: PlayerId): number => Number(id.slice(1));
 
 /** Eliminations that make a Kill Leader (owner, ticket 69). */
-export const KILL_LEADER = 3;
+const KILL_LEADER = 3;
 
 /** Each island's Reboot Beacons, found once for every match played on it. */
 const BEACONS = new WeakMap<object, Vec3[]>();
@@ -364,7 +364,7 @@ export function nameList(names: readonly string[]): string {
  * order, filling the gaps in Squads already started before opening new ones.
  * So bots fill a part-empty Squad of friends first.
  */
-export function squadTeams(entrants: readonly MatchEntrant[], size: SquadSize): Map<PlayerId, TeamId> {
+function squadTeams(entrants: readonly MatchEntrant[], size: SquadSize): Map<PlayerId, TeamId> {
   const teams = new Map<PlayerId, TeamId>();
   const members: number[] = [0];
   const labels = new Map<number, TeamId>();

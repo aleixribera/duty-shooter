@@ -80,7 +80,7 @@ export const TOUCH_GLYPHS = {
 export type TouchGlyph = keyof typeof TOUCH_GLYPHS;
 
 /** What each control is called, for its accessible name and the Controls list. */
-export const TOUCH_NAMES: Readonly<Record<string, string>> = {
+const TOUCH_NAMES: Readonly<Record<string, string>> = {
   fire: 'Fire',
   ads: 'Aim',
   jump: 'Jump',

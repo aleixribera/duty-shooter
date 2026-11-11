@@ -33,7 +33,7 @@ import {
 import type { Material, Solid, World } from './world';
 
 /** Simulation rate in ticks per second, identical on client and server. */
-export const TICK_RATE = 60;
+const TICK_RATE = 60;
 /** Length of one tick in seconds. */
 export const TICK_SECONDS = 1 / TICK_RATE;
 
@@ -380,7 +380,7 @@ function throwButton(kind: ThrowableId | undefined): number {
 }
 
 /** The weapon in the player's hand. */
-export function activeWeapon(p: PlayerState): WeaponState {
+function activeWeapon(p: PlayerState): WeaponState {
   return p.weapons[p.slot] as WeaponState;
 }
 

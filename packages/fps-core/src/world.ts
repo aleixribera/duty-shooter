@@ -174,7 +174,7 @@ export interface World {
 }
 
 /** How many props a world holds at once: a Battle Royale's Beacons and its crates, with room to spare. */
-export const PROP_SLOTS = 40;
+const PROP_SLOTS = 40;
 
 /** The props a world holds now. */
 export interface WorldProps {

@@ -60,7 +60,7 @@ export interface MatchCard {
 /** Seconds between the route's points. */
 export const ROUTE_EVERY = 2;
 /** Hits within this far (m) and this long (s) of a fight's last are the same fight. */
-export const FIGHT_SPAN = { metres: 35, seconds: 20 } as const;
+const FIGHT_SPAN = { metres: 35, seconds: 20 } as const;
 /** A route point no nearer than this to the last (m) is kept; standing still adds nothing. */
 const ROUTE_STEP = 3;
 /** The route never holds more points than this: a match is about 10 minutes. */
@@ -268,7 +268,7 @@ export class MatchLog {
 }
 
 /** The recap's headline. */
-export function recapHeadline(r: Recap): string {
+function recapHeadline(r: Recap): string {
   switch (r.what) {
     case 'downed':
       return r.name ? 'Downed by' : r.cause === 'ring' ? 'Downed by the Ring' : r.cause === 'fall' ? 'Downed in a fall' : 'Downed';

@@ -10,7 +10,6 @@ import { ringCrackleVoice, ringHumVoice, ringShiftVoice } from './ring';
 import { heartbeatVoice, prepDroneVoice } from './preparation';
 import { trapBirdsVoice, trapGravelVoice, trapMetalVoice } from './traps';
 import { trainClackVoice, trainHornVoice, trainRumbleVoice } from './train';
-import { playBuffer, jit } from './synth-voice';
 import type { SoundEventName, SoundParams, Voice, VoiceExtras } from './types';
 import { deathVoice, painVoice } from './soldier-voice';
 import { challengeDoneVoice, damageTakenVoice, headshotKillVoice, headshotMarkerVoice, hitMarkerVoice, killMarkerVoice, medalVoice, pingEnemyVoice, pingVoice, rankUpVoice } from './ui';
@@ -112,15 +111,3 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
   };
 }
 
-/** Helper for a later sample-based voice: plays an AudioBuffer with optional rate/gain randomisation. */
-export function sampleVoice(buffer: AudioBuffer, options?: { gain?: number; rateJitter?: number }): Voice {
-  const gain = options?.gain ?? 1;
-  const rateJitter = Math.min(0.5, Math.max(0, options?.rateJitter ?? 0));
-  const voice: Voice & VoiceExtras = {
-    duration: buffer.duration / (1 - rateJitter),
-    play(ctx: AudioContext, out: AudioNode, _params: SoundParams, startTime: number) {
-      playBuffer(ctx, out, buffer, startTime, { gain, rate: 1 + jit(rateJitter) });
-    },
-  };
-  return voice;
-}

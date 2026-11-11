@@ -4,7 +4,7 @@ import { surfaceFaces, type Face } from './faces';
 import { linearRgb } from './lighting';
 import { DEFAULT_FINISHES, type Finish, type SurfaceSpec } from './types';
 
-export { ATLAS_BORDER, ATLAS_WIDTH, atlasUv, packAtlas, texelSize } from './atlas';
+export { ATLAS_BORDER, atlasUv, packAtlas } from './atlas';
 export type { Atlas, AtlasRect } from './atlas';
 // A map's timed Course: plain data a map file (and the server) can name without the client's DOM.
 export type { CourseBox, CourseGates, CoursePar } from '../course-run';
@@ -12,14 +12,14 @@ export { Baker } from './bake';
 export type { BakeInput, ProbeGrid } from './bake';
 export { readBakeFile, writeBakeFile } from './file';
 export type { BakeFile } from './file';
-export { decorationErrors, decorationFrame, frameFaces, insideFrame, isClear, solidFrame, surfaceFaces, toFrame } from './faces';
+export { decorationErrors, insideFrame, isClear, solidFrame, surfaceFaces, toFrame } from './faces';
 export type { Face, Frame } from './faces';
 export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
 export type { Lamp, Lighting } from './lighting';
 export { shotPose } from './ending';
 export { GRIME_MARKS, MOST_GRIME, grimeQuads } from './grime';
 export type { GrimeMark, GrimeQuad } from './grime';
-export { SCATTER_FILE, SCATTER_FINISHES, scatterModels, scatterPlacements } from './scatter';
+export { SCATTER_FINISHES, scatterModels, scatterPlacements } from './scatter';
 export type { Scatter } from './scatter';
 export { TERRAIN_CHUNK, chunkStep, terrainChunkCount, terrainChunkMesh, terrainColorBytes, terrainSeaMesh, terrainWaterMesh } from './terrain-mesh';
 export type { TerrainMesh } from './terrain-mesh';

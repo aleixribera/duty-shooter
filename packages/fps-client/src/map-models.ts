@@ -114,7 +114,7 @@ function groupGeometry(geometry: BufferGeometry, start: number, count: number): 
 const CELL = 160;
 
 /** A placement's transform: turned `yaw` about +y, then moved to its position. */
-export function placementMatrix(p: ModelPlacement): Matrix4 {
+function placementMatrix(p: ModelPlacement): Matrix4 {
   return new Matrix4().compose(new Vector3(...p.position), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), p.yaw), new Vector3(1, 1, 1));
 }
 

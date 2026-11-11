@@ -25,7 +25,7 @@ export type { LobbyCallbacks, LobbyMap, LobbyView } from './ui/lobby';
 export { BotMatchDriver, LocalRoyaleDriver, OfflineDriver, OnlineDriver } from './session';
 export type { BotMatchOptions, DriverTick, GameDriver, OfflineOptions, OnlineOptions, PresentedEvent } from './session';
 export { connectWebSocket } from './net/websocket';
-export { createSoundSystem, sampleVoice } from './audio';
+export { createSoundSystem } from './audio';
 export type { SoundEventName, SoundLogEntry, SoundParams, SoundSystem, SurfaceMaterial, Voice } from './audio';
 export { Game } from './game';
 export type { GameOptions } from './game';

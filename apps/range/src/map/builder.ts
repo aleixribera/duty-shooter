@@ -95,7 +95,7 @@ export interface GableRoofSpec {
 }
 
 /** Player clip steps under a slope rise by this much each (m): fine enough that walking up feels smooth. */
-export const SLOPE_STEP = 0.05;
+const SLOPE_STEP = 0.05;
 /** Bullet surfaces over a slope are this thick (m). */
 export const SLOPE_THICKNESS = 0.12;
 
@@ -386,7 +386,7 @@ export interface Rect {
 }
 
 /** `r` with every hole cut out of it, as non-overlapping rectangles. */
-export function carve(r: Rect, holes: readonly Rect[]): Rect[] {
+function carve(r: Rect, holes: readonly Rect[]): Rect[] {
   let pieces: Rect[] = [r];
   for (const h of holes) {
     const next: Rect[] = [];

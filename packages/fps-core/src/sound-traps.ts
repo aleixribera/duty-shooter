@@ -9,7 +9,6 @@ import type { PlayerId, PlayerOutput } from './simulation';
  */
 export type TrapKind = 'birds' | 'metal' | 'gravel';
 
-export const TRAP_KINDS: readonly TrapKind[] = ['birds', 'metal', 'gravel'];
 
 /** One trap: what it sounds like and where. */
 export interface SoundTrap {

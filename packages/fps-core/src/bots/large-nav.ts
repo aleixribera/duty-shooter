@@ -680,7 +680,7 @@ function regionRoutes(clusters: number, regions: number, hubs: readonly number[]
 }
 
 /** The graph over packed arrays, as a bot uses it. */
-export function largeNav(packed: PackedNav): LargeNav {
+function largeNav(packed: PackedNav): LargeNav {
   const count = packed.flags.length;
   const nodes: NavNode[] = new Array(count);
   for (let i = 0; i < count; i++) {

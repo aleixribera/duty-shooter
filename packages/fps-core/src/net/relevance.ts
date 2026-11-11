@@ -30,7 +30,7 @@ export interface NetProfile {
 }
 
 /** A small map, where everyone is always in play. */
-export const FULL_RATE: NetProfile = { snapshotEvery: 1, relevance: null };
+const FULL_RATE: NetProfile = { snapshotEvery: 1, relevance: null };
 
 /** A kilometre-wide map. Battle Royale's load test settles these numbers. */
 export const WIDE_MAP: NetProfile = { snapshotEvery: 3, relevance: { near: 60, mid: 250, midEvery: 6, hearing: 400, heardTicks: 120 } };

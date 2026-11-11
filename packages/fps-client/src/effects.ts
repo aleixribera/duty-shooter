@@ -37,7 +37,7 @@ import { PICTURE } from './quality';
  * middle of the view, so the Magnum's flash is kept to a rifle's size there
  * however hard it kicks.
  */
-export const MUZZLE: Readonly<Record<WeaponId, { readonly flash: number; readonly smoke: number }>> = {
+const MUZZLE: Readonly<Record<WeaponId, { readonly flash: number; readonly smoke: number }>> = {
   m4a1: { flash: 1, smoke: 1 },
   burst: { flash: 0.95, smoke: 0.95 },
   smg: { flash: 0.7, smoke: 0.7 },
@@ -56,7 +56,7 @@ const PLAIN_MUZZLE = MUZZLE.m4a1;
  * compensator throws a bigger, brighter flash out of its ports. Both are what
  * every player sees, so the compensator's steadier gun is paid for in sight.
  */
-export const DEVICE_FLASH: Readonly<Record<MuzzleId, { readonly flash: number; readonly light: number; readonly smoke: number }>> = {
+const DEVICE_FLASH: Readonly<Record<MuzzleId, { readonly flash: number; readonly light: number; readonly smoke: number }>> = {
   suppressor: { flash: 0, light: 0.12, smoke: 1.25 },
   compensator: { flash: 1.45, light: 1.35, smoke: 1 },
 };

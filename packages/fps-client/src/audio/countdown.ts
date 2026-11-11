@@ -46,20 +46,20 @@ const waver = (t: number): number => 1 + 0.011 * Math.sin(2 * Math.PI * 0.42 * t
 const cross = (seconds: number, fadeIn: number) => (t: number) => Math.min(1, t / fadeIn, (seconds - t) / SIREN_OVERLAP);
 
 /** The wind-up: from a growl to the top note over some five seconds, then held. */
-export function sirenRise(sr: number, rng: Rng): Float32Array {
+function sirenRise(sr: number, rng: Rng): Float32Array {
   const s = SIREN_RISE_SECONDS;
   return finish(rotor(sr, s, rng, (t) => (GROWL + (TOP - GROWL) * (1 - Math.exp(-t / WIND_UP))) * (t > 5 ? waver(t) : 1), cross(s, 1.2)), sr, 0.5, 70);
 }
 
 /** Held at the top, wavering. */
-export function sirenHold(sr: number, rng: Rng): Float32Array {
+function sirenHold(sr: number, rng: Rng): Float32Array {
   const s = SIREN_HOLD_SECONDS;
   const at = rng.range(0, 3);
   return finish(rotor(sr, s, rng, (t) => TOP * waver(t + at), cross(s, SIREN_OVERLAP)), sr, 0.5, 70);
 }
 
 /** The wind-down: the rotor coasting, the note sagging to a growl and dying away. */
-export function sirenFall(sr: number, rng: Rng): Float32Array {
+function sirenFall(sr: number, rng: Rng): Float32Array {
   const s = SIREN_FALL_SECONDS;
   return finish(rotor(sr, s, rng, (t) => 85 + (TOP - 85) * Math.exp(-t / 1.9), (t) => Math.min(1, t / SIREN_OVERLAP) * Math.exp(-t / 2.6) * Math.min(1, (s - t) / 0.8)), sr, 0.5, 60);
 }

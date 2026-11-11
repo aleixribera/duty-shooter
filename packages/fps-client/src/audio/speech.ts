@@ -59,13 +59,13 @@ export interface Speech {
 }
 
 /** Lines that may wait behind the one being said: news of the same moment both get said, a pile-up does not. */
-export const SPEECH_WAITING = 1;
+const SPEECH_WAITING = 1;
 
 /** The pause between one line and the next (s). */
 export const SPEECH_BREATH = 0.18;
 
 /** How fast a line that is cut off goes quiet (s). */
-export const SPEECH_CUT = 0.04;
+const SPEECH_CUT = 0.04;
 
 /** Who speaks when: one line at a time, one waiting, the rest dropped. */
 export class SpeechQueue {

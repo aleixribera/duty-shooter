@@ -16,7 +16,7 @@ import type { World } from './world';
 
 /** What a ping marks. The first four are the wheel's; the rest come from aiming at the thing. */
 export type PingKind = 'enemy' | 'go' | 'defend' | 'help' | 'drop' | 'card' | 'beacon';
-export const PING_KINDS: readonly PingKind[] = ['enemy', 'go', 'defend', 'help', 'drop', 'card', 'beacon'];
+const PING_KINDS: readonly PingKind[] = ['enemy', 'go', 'defend', 'help', 'drop', 'card', 'beacon'];
 /** The wheel's choices, clockwise from the top. */
 export const PING_WHEEL: readonly PingKind[] = ['enemy', 'go', 'defend', 'help'];
 

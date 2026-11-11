@@ -68,7 +68,7 @@ export interface ThinkBudget {
 }
 
 /** Grenade arcs a bot may simulate in a tick when no shared budget is given; a whole aim takes 27. */
-export const THROW_ARCS_PER_TICK = 3;
+const THROW_ARCS_PER_TICK = 3;
 
 /** A place a bot is sent to and stays in: a circle on the ground. */
 export interface BotObjective {
@@ -2327,7 +2327,7 @@ function blastPoint(world: World, eye: Vec3, yaw: number, pitch: number, fuse: n
  * (`step`) rather than in one tick. `best.miss` is how far from the target it
  * goes off (m).
  */
-export class ThrowSolve {
+class ThrowSolve {
   readonly #world: World;
   readonly #eye: Vec3;
   readonly #target: Vec3;

@@ -12,7 +12,7 @@ import { MODE_IDS, STATS, WEAPON_IDS, type Medal, type ModeId, type ScoreReason,
  */
 
 export const PROFILE_KEY = 'duty-shooter.profile.v1';
-export const PROFILE_VERSION = 1;
+const PROFILE_VERSION = 1;
 
 /** A weapon's own numbers: kills made with it, how many through the head, and the longest of them (m). */
 export interface WeaponRecord {
@@ -284,7 +284,7 @@ export function todaysChallenges(profile: Profile, date: string): ChallengeView[
 /* ---------- Taking a match ---------- */
 
 /** A win pays a quarter of the match's Score again. */
-export const WIN_BONUS = 0.25;
+const WIN_BONUS = 0.25;
 
 /** A Challenge this match moved. */
 export interface ChallengeGain extends ChallengeView {

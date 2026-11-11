@@ -98,7 +98,6 @@ const RUIN_ROOM: BuiltPiece = {
 };
 
 /** A run of cooling pipe on its saddles, from x 0 to 1 (scaled along its length): metal. */
-const PIPE_RADIUS = 0.75;
 const PIPE: BuiltPiece = {
   near: 70,
   boxes: [{ part: 'pipe', c: [0, 0.625, 0], s: [10, 2.45, 1.7], material: 'metal' }],
@@ -158,10 +157,9 @@ export const GZ_PIECES = {
   'gz-factory': FACTORY,
   'gz-station': STATION,
 } as const satisfies Record<string, BuiltPiece>;
-export type GzPiece = keyof typeof GZ_PIECES;
 
 /** Where the ring's track runs past the rail hub (zero-island-terrain.ts's ring, at its south): the platform's edge stands this far in from it. */
-export const GZ_STATION = { x: 8, z: 119.5, track: 126, floor: 9.9 } as const;
+const GZ_STATION = { x: 8, z: 119.5, track: 126, floor: 9.9 } as const;
 const FACTORY_AT = { x: 86, z: -130 } as const;
 
 /** Ground Zero's pads: the crater's floor, one level of slab under the core, and the rim's two. */
@@ -206,8 +204,6 @@ export const GZ_PLACED: readonly Placed[] = [
 /** The blast barriers round the reactor: rows of T-walls, the gaps between them on the pipes and the diagonals. Radius, length, thickness, height. */
 export const GZ_BARRIERS = { radius: 21, length: 7, thick: 1, height: 2.6, rows: 8 } as const;
 
-/** The radius the pipes have, for the generator (m). */
-export const GZ_PIPE_RADIUS = PIPE_RADIUS;
 
 /** How Ground Zero's kit dresses the cover pass's pieces there, by their kind. */
 export const GZ_KIT: Readonly<Record<string, KitDress>> = {

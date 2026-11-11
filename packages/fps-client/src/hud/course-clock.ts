@@ -40,7 +40,7 @@ export function courseLines(face: CourseFace): { label: string; figure: string; 
   }
 }
 
-export const COURSE_CLOCK_CSS = `
+const COURSE_CLOCK_CSS = `
 .ds-course { position: absolute; top: calc(var(--ds-safe-t, 0px) + 18px); left: 50%; transform: translateX(-50%); min-width: 220px; padding: 8px 18px 10px; background: var(--ds-scrim-soft); border-top: 2px solid var(--ds-line-2); text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
 .ds-course[hidden] { display: none; }
 .ds-course .label { font-size: var(--ds-type-small); color: var(--ds-text-2); }

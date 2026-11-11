@@ -19,7 +19,7 @@ export interface Scatter {
   readonly seed: number;
 }
 
-export const SCATTER_FILE = 'models/scatter.glb';
+const SCATTER_FILE = 'models/scatter.glb';
 
 /** What scatter wears: its own colours on every map, the dry end of the ground it lies on. */
 export const SCATTER_FINISHES: Readonly<Record<string, Finish>> = {

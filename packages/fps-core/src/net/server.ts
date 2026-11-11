@@ -186,7 +186,7 @@ const NO_TRAPS: readonly TrapSound[] = [];
 /** The most bots a side a lobby offers in a team mode. */
 export const MAX_BOTS_PER_TEAM = MATCH_SCALES.tdm.botsPerTeam;
 /** Seconds a fresh spawn can't be hurt, unless it fires first. */
-export const SPAWN_PROTECTION = 1.5;
+const SPAWN_PROTECTION = 1.5;
 
 /** People and bots a match holds: 6v6. */
 export const DEFAULT_MAX_PLAYERS = 12;

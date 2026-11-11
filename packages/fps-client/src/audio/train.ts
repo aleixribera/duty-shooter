@@ -12,7 +12,7 @@ import type { Voice, VoiceExtras } from './types';
 /** The horn's two long blasts, the rumble's segment and a clack, in seconds. */
 export const HORN_SECONDS = 3.6;
 export const RUMBLE_SECONDS = 2;
-export const CLACK_SECONDS = 0.5;
+const CLACK_SECONDS = 0.5;
 /** Rumble segments overlap by this much, so they join without a seam. */
 export const RUMBLE_OVERLAP = 0.25;
 
@@ -141,7 +141,7 @@ export function clack(sr: number, rng: Rng, gap: number): Float32Array {
 }
 
 /** How loud each of the train's sounds plays (before distance): it is meant to be loud. */
-export const TRAIN_GAIN = { horn: 0.9, rumble: 0.8, clack: 0.55 } as const;
+const TRAIN_GAIN = { horn: 0.9, rumble: 0.8, clack: 0.55 } as const;
 
 export const trainHornVoice = (): Voice & VoiceExtras =>
   synthVoice({

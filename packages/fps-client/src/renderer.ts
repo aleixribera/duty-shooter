@@ -19,7 +19,7 @@ export interface GameRenderer {
 }
 
 /** What the browser tells of the GPU behind a renderer: WebGPU's adapter info, or WebGL's unmasked renderer string. */
-export function adapterHints(renderer: WebGPURenderer, backend: RenderBackend): AdapterHints {
+function adapterHints(renderer: WebGPURenderer, backend: RenderBackend): AdapterHints {
   let adapter = '';
   let software = false;
   try {

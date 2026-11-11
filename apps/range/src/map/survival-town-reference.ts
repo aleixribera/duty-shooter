@@ -68,7 +68,7 @@ export interface ReferenceMeasurement {
   readonly source: string;
 }
 
-export const SOURCES = {
+const SOURCES = {
   MINIMAP: 'Call of Duty wiki, "Nuketown" (Black Ops), mini-map image Map_Nuketown_BO.jpg, 512 x 512 px: https://callofduty.fandom.com/wiki/Nuketown_(map)',
   WIKI: 'Call of Duty wiki, "Nuketown" (Black Ops), Overview: https://callofduty.fandom.com/wiki/Nuketown_(map)',
   WIKIPEDIA: 'Wikipedia, "Nuketown": https://en.wikipedia.org/wiki/Nuketown',
@@ -77,9 +77,7 @@ export const SOURCES = {
 } as const;
 
 /** Mini-map pixels to metres. */
-export const MINIMAP_SCALE = 0.25;
-/** The mini-map pixel at the world origin (the cul-de-sac centre, on the street's axis). */
-export const MINIMAP_ORIGIN = [279, 260] as const;
+const MINIMAP_SCALE = 0.25;
 
 const px = (n: number) => n * MINIMAP_SCALE;
 

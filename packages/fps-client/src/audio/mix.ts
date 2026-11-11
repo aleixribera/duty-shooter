@@ -8,7 +8,6 @@ import type { SoundEventName } from './types';
 /** Where a sound sits in the mix: each bus has its own volume in Settings. */
 export type BusName = 'music' | 'effects' | 'voice' | 'ui';
 
-export const BUSES: readonly BusName[] = ['music', 'effects', 'voice', 'ui'];
 
 /** The volumes a player sets, each 0..1: the master over everything, then one per bus. */
 export interface MixLevels {

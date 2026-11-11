@@ -49,7 +49,7 @@ export const CAR_ROOF = 3.9;
 const CAR_HALF = 1.5;
 const SHELL = 0.05;
 /** A tank car's barrel collision, three steps: inset from each end, half width, bottom and top. */
-export const TANK_STEPS: readonly (readonly [number, number, number, number])[] = [
+const TANK_STEPS: readonly (readonly [number, number, number, number])[] = [
   [0.4, 0.7, 1.1, 3.7],
   [0.5, 1.1, 1.3, 3.5],
   [0.6, 1.4, 1.6, 3.2],
@@ -149,7 +149,7 @@ const FINISHES: Readonly<Record<string, Finish>> = {
  * shadows north-east across the yard; a deep blue sky going orange at the
  * horizon, and dim ground light.
  */
-export const DUSK: Lighting = {
+const DUSK: Lighting = {
   sunDirection: normalize([-0.6, 0.21, 0.75]),
   sunColor: [1.0, 0.56, 0.3],
   sunIntensity: 2.3,
@@ -300,7 +300,7 @@ const REACH: Readonly<Record<Reach, readonly [number, number]>> = { north: [0, -
 /** Turns a model's +x toward each reach. */
 const REACH_YAW: Readonly<Record<Reach, number>> = { east: 0, north: Math.PI / 2, west: Math.PI, south: -Math.PI / 2 };
 /** A lamp head's housing: its length along the arm, width across it and height (the `lamp-head` model, glass underneath). */
-export const LAMP_HEAD = { along: 0.55, across: 0.32, height: 0.16 } as const;
+const LAMP_HEAD = { along: 0.55, across: 0.32, height: 0.16 } as const;
 
 /** A lamp's glowing head (the `lamp-head` model): a housing on its arm's end with the glass under it; the light hangs just below the glass. */
 function lampHead(b: Builder, x: number, y: number, z: number, reach: Reach): Vec3 {

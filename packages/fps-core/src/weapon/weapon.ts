@@ -60,10 +60,6 @@ export interface WeaponState {
   prevButtons: number;
 }
 
-export function weaponRow(id: WeaponId): WeaponRow {
-  return STATS.weapons[id];
-}
-
 /** The row a weapon in hand works by: its gun's, changed by what is on it. */
 export function rowOf(state: Pick<WeaponState, 'id' | 'attachments'>): WeaponRow {
   return moddedRow(state.id, state.attachments);

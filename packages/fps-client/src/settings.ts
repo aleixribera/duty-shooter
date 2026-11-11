@@ -123,7 +123,7 @@ export interface Settings {
 }
 
 /** MW2019's default bindings. */
-export const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
+const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
   forward: 'KeyW',
   back: 'KeyS',
   left: 'KeyA',

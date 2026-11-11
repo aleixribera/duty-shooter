@@ -18,7 +18,7 @@ export interface Atlas {
   readonly texels: number;
 }
 
-export const ATLAS_WIDTH = 2048;
+const ATLAS_WIDTH = 2048;
 /** Texels of border round each face's rect, copies of its edge: enough for bicubic sampling to stay inside it. */
 export const ATLAS_BORDER = 2;
 
@@ -29,7 +29,7 @@ const length = (v: readonly number[]) => Math.sqrt(v[0]! * v[0]! + v[1]! * v[1]!
 const texelsAlong = (metres: number, t: number) => Math.ceil(metres / t - 1e-3) + 1;
 
 /** Texel size (m) for a face: 20 cm everywhere people play, a metre on the desert round it. */
-export function texelSize(face: Face, family: Family): number {
+function texelSize(face: Face, family: Family): number {
   const t = family === 'sand' ? 1 : 0.2;
   return Math.max(t, length(face.u) / 1000, length(face.v) / 1000);
 }

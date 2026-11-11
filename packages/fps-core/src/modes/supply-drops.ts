@@ -55,7 +55,7 @@ interface Loose {
 const flat = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 
 /** The sniper as a crate gives it: a full magazine and the spare magazines. */
-export function dropSniper(): HeldWeapon {
+function dropSniper(): HeldWeapon {
   const magazine = STATS.weapons[DROP_WEAPON].handling.magazineSize.value;
   return { id: DROP_WEAPON, ammo: magazine, reserve: magazine * D.magazines.value };
 }

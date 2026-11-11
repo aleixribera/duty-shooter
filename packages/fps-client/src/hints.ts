@@ -74,7 +74,7 @@ export const HINT_READ = 2;
 export const HINT_REST = 1.5;
 export const HINT_SHOWINGS = 2;
 /** The magazine share that makes reloading worth a word, and the seconds of fighting before a grenade is. */
-export const RELOAD_AT = 0.5;
+const RELOAD_AT = 0.5;
 export const GRENADE_AFTER = 20;
 
 /** Whether the player is doing the thing right now. Doing it counts whether or not its hint is up. */

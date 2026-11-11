@@ -96,7 +96,7 @@ export function gravelSlide(sr: number, rng: Rng): Float32Array {
 }
 
 /** How loud each plays before distance: under a gunshot, over footsteps, so a trap is heard well past its runner's steps. */
-export const TRAP_GAIN = { birds: 0.75, metal: 0.7, gravel: 0.6 } as const;
+const TRAP_GAIN = { birds: 0.75, metal: 0.7, gravel: 0.6 } as const;
 
 export const trapBirdsVoice = (): Voice & VoiceExtras =>
   synthVoice({

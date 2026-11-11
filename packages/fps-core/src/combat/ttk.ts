@@ -18,7 +18,7 @@ export function shotsToKill(weapon: WeaponId, distance: number, zone: HitZone = 
  * first) at its fastest rate: a pump or bolt cycling in between, a burst
  * weapon waiting out its delay after every burst.
  */
-export function timeOfShot(weapon: WeaponId, shot: number): number {
+function timeOfShot(weapon: WeaponId, shot: number): number {
   const h = STATS.weapons[weapon].handling;
   const interval = 60 / h.fireRate.value;
   const burst = h.burstRounds?.value;

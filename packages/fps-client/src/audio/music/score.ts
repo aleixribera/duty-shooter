@@ -29,7 +29,7 @@ export const hz = (midi: number): number => 440 * Math.pow(2, (midi - 69) / 12);
  * The tape's speed at `t` s, about 1: a slow wow and a faster flutter. Every term repeats in 8 s,
  * so loops of 8 and 32 s close on themselves.
  */
-export function wow(t: number): number {
+function wow(t: number): number {
   return 1 + 0.0013 * Math.sin(TAU * 0.375 * t) + 0.0005 * Math.sin(TAU * 6.25 * t + 1.3) + 0.0007 * Math.sin(TAU * 0.125 * t + 0.6);
 }
 
@@ -122,7 +122,7 @@ function echo(data: Float32Array, sr: number, delay: number, feedback: number, w
 // ---------------------------------------------------------------------------------------------
 
 /** The progression: each chord's bass note and voicing (MIDI), from its bar (0-based) for so many bars. */
-export const PROGRESSION: readonly { readonly name: string; readonly bar: number; readonly bars: number; readonly bass: number; readonly notes: readonly number[] }[] = [
+const PROGRESSION: readonly { readonly name: string; readonly bar: number; readonly bars: number; readonly bass: number; readonly notes: readonly number[] }[] = [
   { name: 'Dm(add9)', bar: 0, bars: 2, bass: 38, notes: [50, 57, 64, 65] },
   { name: 'Bbmaj7', bar: 2, bars: 2, bass: 34, notes: [53, 58, 62, 69] },
   { name: 'Gm6', bar: 4, bars: 2, bass: 43, notes: [55, 58, 62, 64] },
@@ -140,7 +140,7 @@ export interface LeadNote {
 }
 
 /** The motif. It ends on C sharp, the leading note, and the loop's return to D minor answers it. */
-export const MOTIF: readonly LeadNote[] = [
+const MOTIF: readonly LeadNote[] = [
   { beat: 0, beats: 3, midi: 74 },
   { beat: 3, beats: 1, midi: 76 },
   { beat: 4, beats: 2, midi: 77 },
@@ -158,7 +158,7 @@ export const MOTIF: readonly LeadNote[] = [
 ];
 
 /** The answer: lower and sparser, built on the fifth D-A the siren sings. */
-export const ANSWER: readonly LeadNote[] = [
+const ANSWER: readonly LeadNote[] = [
   { beat: 0, beats: 4, midi: 69 },
   { beat: 4, beats: 2, midi: 74 },
   { beat: 6, beats: 2, midi: 69 },
@@ -265,7 +265,7 @@ export function lead(sr: number, notes: readonly LeadNote[], seconds: number, o:
 }
 
 /** How long the lead's echo rings past the loop (s). */
-export const LEAD_TAIL = 4;
+const LEAD_TAIL = 4;
 
 /** The far siren: a rotor's buzz climbing the fifth from D to A, wavering there, and winding back down. */
 function sirenMotif(sr: number): Float32Array {
@@ -372,7 +372,7 @@ function bed(sr: number, rng: Rng): Float32Array[] {
 }
 
 /** When the riser's pulses fall (s): from the bed's two a second to eight by the end. */
-export function riserPulses(): number[] {
+function riserPulses(): number[] {
   const r0 = 2 * Math.pow(2, 1 / 12);
   const a = 8 / r0;
   const times: number[] = [];

@@ -74,7 +74,7 @@ export const MATCH_CARD_CSS = `
 }
 `;
 
-export function matchCardFactsHtml(s: MatchCardState): string {
+function matchCardFactsHtml(s: MatchCardState): string {
   const c = s.card;
   const won = c.place === 1;
   const r = (label: string, value: string | number) => `<div><span>${label}</span><b>${value}</b></div>`;
@@ -87,7 +87,7 @@ export function matchCardFactsHtml(s: MatchCardState): string {
 }
 
 /** What the match paid, under the facts: the Score, the XP, the Rank bar and the Challenges it moved. Empty until the match is banked. */
-export function matchCardGainHtml(s: MatchCardState): string {
+function matchCardGainHtml(s: MatchCardState): string {
   return s.gain ? matchGainHtml([['Score', figure(s.score ?? s.gain.score)]], s.gain) : '';
 }
 

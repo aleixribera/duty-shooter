@@ -28,12 +28,12 @@ export interface OutpostsOptions {
 /** Seconds one player takes to capture a neutral zone. */
 export const CAPTURE_TIME = 10;
 /** Taking a zone from the other team takes this many times as long. */
-export const FLIP_FACTOR = 2;
+const FLIP_FACTOR = 2;
 /** The capture rate grows by this much per extra player in the zone, up to {@link MAX_CAPTURE_RATE}. */
 const RATE_PER_PLAYER = 0.5;
-export const MAX_CAPTURE_RATE = 2;
+const MAX_CAPTURE_RATE = 2;
 /** Points a held zone scores its team each second. */
-export const ZONE_POINTS_PER_SECOND = 1;
+const ZONE_POINTS_PER_SECOND = 1;
 /** Spawns this far (m) beyond a held zone's edge count as near it. */
 const NEAR_HELD = 20;
 

@@ -13,7 +13,7 @@ const D = STATS.royale.supplyDrop;
 /** How fast (m/s) a crate comes down under its canopy, in its last {@link D.fall} seconds. */
 export const FALL_SPEED = 6;
 /** Seconds the canopy takes to fold onto the ground once the crate lands. */
-export const CHUTE_FOLD = 1.6;
+const CHUTE_FOLD = 1.6;
 
 /** Where a crate is at simulation time `time`: metres above where it lands (null before it shows in the sky), and how open its canopy still is. */
 export function dropPose(drop: SupplyDropState, time: number): { readonly height: number | null; readonly chute: number } {
@@ -64,7 +64,7 @@ export function dropAnnouncement(cell: string, landsIn: number): string {
 const flat = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[2] - b[2]);
 
 /** What use does for `self` here: open a landed crate (held), or take a weapon off the ground (pressed); null when neither is in reach. */
-export function dropAction(self: PlayerOutput, state: BattleRoyaleState, primary: WeaponId | null): { readonly kind: 'open' | 'opening' | 'take'; readonly weapon?: WeaponId } | null {
+function dropAction(self: PlayerOutput, state: BattleRoyaleState, primary: WeaponId | null): { readonly kind: 'open' | 'opening' | 'take'; readonly weapon?: WeaponId } | null {
   if (!self.alive || self.downed) return null;
   for (const d of state.drops ?? []) {
     if (d.opened !== undefined) continue;

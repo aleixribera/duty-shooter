@@ -15,7 +15,7 @@ export interface MatchScale {
 }
 
 /** The team modes, on a small map, where every bot is in somebody's sight. */
-export const ARENA_SCALE: MatchScale = { seats: 32, botsPerTeam: 6, farBots: null, throwArcs: 2, plansPerTick: Infinity };
+const ARENA_SCALE: MatchScale = { seats: 32, botsPerTeam: 6, farBots: null, throwArcs: 2, plansPerTick: Infinity };
 
 /** A kilometre-wide map. Battle Royale's load test settles these numbers. */
 export const WIDE_SCALE: MatchScale = { seats: 60, botsPerTeam: 30, farBots: { range: 150, thinkEvery: 4 }, throwArcs: 1, plansPerTick: 1 };

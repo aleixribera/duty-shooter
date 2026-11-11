@@ -54,7 +54,7 @@ const shade = (k: number) => {
   return (v << 16) | (v << 8) | v;
 };
 
-export class KitKinds {
+class KitKinds {
   readonly #lists = new Map<string, { kind: Omit<PlantKind, 'instances'>; values: number[] }>();
 
   add(kind: Omit<PlantKind, 'instances'>, x: number, y: number, z: number, yaw: number, sx: number, sy: number, sz: number, color: number): void {

@@ -1,9 +1,9 @@
 import type { Vec3 } from '../math';
 
 /** The grid's cells are this wide (m): about how well a person places distant gunfire. */
-export const NOISE_CELL = 25;
+const NOISE_CELL = 25;
 /** Gunfire carries this far (m): what a person hears of it on the island. */
-export const EARSHOT = 400;
+const EARSHOT = 400;
 /** A cell's noise halves in about this long (s). */
 const FADE = 18;
 /** Below this a cell is quiet and dropped. */

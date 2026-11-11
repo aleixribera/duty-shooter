@@ -19,7 +19,7 @@ type N3 = Node<'vec3'>;
 export type TileName = 'brick' | 'stucco' | 'concrete' | 'siding' | 'shingles' | 'sheetMetal' | 'planks' | 'gravel' | 'asphalt' | 'earth' | 'grass' | 'trim';
 
 /** What one tile covers (m, along and up the surface): a whole number of its pattern (see tools/textures/tiles.mjs). */
-export const TILES: Readonly<Record<TileName, readonly [number, number]>> = {
+const TILES: Readonly<Record<TileName, readonly [number, number]>> = {
   brick: [1.8, 1.8],
   stucco: [3, 3],
   concrete: [3, 3],
@@ -161,7 +161,7 @@ export function hexRelief(name: TileName, st: N2): N3 {
 }
 
 /** The surface's own axes at the fragment, the same ones its `uv` runs along (see surfaceGeometries in world-view.ts). */
-export function surfaceAxes(): { tangent: N3; bitangent: N3; normal: N3 } {
+function surfaceAxes(): { tangent: N3; bitangent: N3; normal: N3 } {
   const n = normalWorld as unknown as N3;
   const wall = normalize(vec3(n.z, float(0), n.x.negate())) as N3;
   const tangent = select(n.y.abs().lessThan(0.99), wall, vec3(1, 0, 0)) as unknown as N3;

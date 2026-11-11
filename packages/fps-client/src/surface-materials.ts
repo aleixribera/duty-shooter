@@ -244,7 +244,7 @@ function decode(c: N3): N3 {
 }
 
 /** The sky in direction `d`, as the bake sees it, with a warm glow round the sun. */
-export function skyNode(d: N3): N3 {
+function skyNode(d: N3): N3 {
   const z = light.skyZenith as unknown as N3;
   const h = light.skyHorizon as unknown as N3;
   const up = max(d.y, float(0));
@@ -1031,7 +1031,7 @@ function placeholder3D(): Data3DTexture {
 }
 
 /** A 1x1 stand-in lightmap until the bake arrives. */
-export function placeholderLightmap(): DataTexture {
+function placeholderLightmap(): DataTexture {
   const t = new DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1, RGBAFormat, UnsignedByteType);
   // The sampler is set up from this texture and kept when the real one replaces it.
   t.minFilter = t.magFilter = LinearFilter;

@@ -12,7 +12,7 @@ import { escapeHtml as escape } from '../ui/theme';
  */
 
 /** When the bar starts to fill after the strip shows, and how long it takes (ms); with a Rank crossed it runs to the end and starts again. */
-export const GAIN_FILL_DELAY = 400;
+const GAIN_FILL_DELAY = 400;
 const FILL = 900;
 const FILL_UP = 1400;
 /** The share of the longer fill at which the old Rank's bar is full. */

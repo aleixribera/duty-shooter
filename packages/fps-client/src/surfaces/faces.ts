@@ -44,7 +44,7 @@ export function solidFrame(s: Solid): Frame {
   };
 }
 
-export function decorationFrame(d: Decoration): Frame {
+function decorationFrame(d: Decoration): Frame {
   const c = Math.cos(d.yaw);
   const s = Math.sin(d.yaw);
   return {
@@ -76,7 +76,7 @@ export function insideFrame(f: Frame, p: Vec3, margin = 0): boolean {
 }
 
 /** The six faces of a frame, outward-facing. */
-export function frameFaces(f: Frame): { origin: Vec3; u: Vec3; v: Vec3; normal: Vec3; side: number }[] {
+function frameFaces(f: Frame): { origin: Vec3; u: Vec3; v: Vec3; normal: Vec3; side: number }[] {
   const out: { origin: Vec3; u: Vec3; v: Vec3; normal: Vec3; side: number }[] = [];
   for (let k = 0; k < 3; k++) {
     const i = (k + 1) % 3;

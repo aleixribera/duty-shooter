@@ -49,7 +49,7 @@ export function heartbeat(sr: number, rng: Rng): Float32Array {
 }
 
 /** How loud each plays at full tension. */
-export const PREP_GAIN = { drone: 0.5, beat: 0.75 } as const;
+const PREP_GAIN = { drone: 0.5, beat: 0.75 } as const;
 
 export const prepDroneVoice = (): Voice & VoiceExtras =>
   synthVoice({

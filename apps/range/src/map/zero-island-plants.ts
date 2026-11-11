@@ -1,5 +1,5 @@
 import type { SoftCover, Terrain, TerrainData } from '@duty-shooter/fps-core';
-import { PLANT_STRIDE, type PlantKind, type Plants } from '@duty-shooter/fps-client/surfaces';
+import { type PlantKind, type Plants } from '@duty-shooter/fps-client/surfaces';
 import { KIT_SOLIDS } from './kit-solids';
 import type { CoverKind } from './zero-island-cover';
 import { CRATER, regionAt, TERRAIN_LAYERS, type RegionId, type RoutePoint } from './zero-island-terrain';
@@ -54,7 +54,7 @@ export interface Dress {
  * its piece's box empty that the square stone before it filled (ticket 78);
  * stood this much wider and deeper, it blocks the sightlines that stone did.
  */
-export const BOULDER_ACROSS = 1.08;
+const BOULDER_ACROSS = 1.08;
 
 /**
  * Picks the model each rock and trunk of the cover pass wears, before the map
@@ -437,9 +437,3 @@ export function placePlants(ground: PlantGround, dressed: readonly DressedPiece[
   return { plants: { url: 'models/vegetation.glb', atlas: 'textures/foliage.webp', kinds: kinds.done(), modelled }, soft };
 }
 
-/** How many plants of each kind, for reports. */
-export function plantCounts(plants: Plants): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const k of plants.kinds) out[`${k.asset}${k.far === FAR_SMALL ? ' (small)' : ''}`] = k.instances.length / PLANT_STRIDE;
-  return out;
-}

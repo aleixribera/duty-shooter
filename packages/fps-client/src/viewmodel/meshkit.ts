@@ -124,7 +124,6 @@ export const X = new Vector3(1, 0, 0);
 export const Y = new Vector3(0, 1, 0);
 export const Z = new Vector3(0, 0, 1);
 export const NX = new Vector3(-1, 0, 0);
-export const NY = new Vector3(0, -1, 0);
 export const NZ = new Vector3(0, 0, -1);
 
 /** Rotation that maps local -Z onto `dir`. */
@@ -789,7 +788,7 @@ function subdivide(profile: readonly RP[], maxStep: number): RP[] {
   return out;
 }
 
-export function appendPart(into: Part, p: Part): Part {
+function appendPart(into: Part, p: Part): Part {
   const base = into.vertexCount;
   for (let i = 0; i < p.pos.length; i++) {
     into.pos.push(p.pos[i]!);
@@ -853,25 +852,11 @@ export function smoothstep(a: number, b: number, x: number): number {
 }
 
 /** Cheap deterministic value noise on 1D/2D, -1..1. */
-export function hash1(n: number): number {
+function hash1(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return (s - Math.floor(s)) * 2 - 1;
 }
 
-export function vnoise2(x: number, y: number): number {
-  const xi = Math.floor(x);
-  const yi = Math.floor(y);
-  const xf = x - xi;
-  const yf = y - yi;
-  const h = (a: number, b: number): number => hash1(a * 57 + b * 131);
-  const u = xf * xf * (3 - 2 * xf);
-  const v = yf * yf * (3 - 2 * yf);
-  const a = h(xi, yi);
-  const b = h(xi + 1, yi);
-  const c = h(xi, yi + 1);
-  const d = h(xi + 1, yi + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
 
 // ---------------------------------------------------------------------------
 // TSL helpers

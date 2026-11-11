@@ -10,7 +10,7 @@ export function rangeDamage(distance: number, weapon: WeaponId = 'm4a1'): number
   return bands.at(-1)?.damage.value ?? 0;
 }
 
-export function zoneMultiplier(zone: HitZone, weapon: WeaponId = 'm4a1'): number {
+function zoneMultiplier(zone: HitZone, weapon: WeaponId = 'm4a1'): number {
   const D = STATS.weapons[weapon].damage;
   switch (zone) {
     case 'head':

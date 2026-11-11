@@ -52,7 +52,7 @@ export function advance(p: Projectile, seconds: number): { from: Vec3; to: Vec3;
 }
 
 /** Stands for the terrain where a hit names a solid. */
-export const TERRAIN_HIT = -1;
+const TERRAIN_HIT = -1;
 
 /** The first solid that blocks bullets the segment a→b enters, or the ground if that comes first, or null. Player clip and props never take part. */
 export function raycastWorld(world: World, a: Vec3, b: Vec3): WorldHit | null {

@@ -197,7 +197,7 @@ export function hum(sr: number, rng: Rng): Float32Array {
 }
 
 /** How loud each ambient voice plays (before distance): the loudness test holds these under footsteps and gunfire. */
-export const AMBIENT_GAIN = { wind: 0.019, birds: 0.011, creak: 0.018, radio: 0.021, horn: 0.012, couplings: 0.015, hum: 0.012 } as const;
+const AMBIENT_GAIN = { wind: 0.019, birds: 0.011, creak: 0.018, radio: 0.021, horn: 0.012, couplings: 0.015, hum: 0.012 } as const;
 
 export const windVoice = (): Voice & VoiceExtras =>
   synthVoice({

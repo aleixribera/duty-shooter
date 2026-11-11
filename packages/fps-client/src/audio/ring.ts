@@ -84,7 +84,7 @@ export function ringShift(sr: number, rng: Rng): Float32Array {
 }
 
 /** How loud each plays before distance. */
-export const RING_GAIN = { hum: 0.7, crackle: 0.55, shift: 0.4 } as const;
+const RING_GAIN = { hum: 0.7, crackle: 0.55, shift: 0.4 } as const;
 
 export const ringHumVoice = (): Voice & VoiceExtras =>
   synthVoice({

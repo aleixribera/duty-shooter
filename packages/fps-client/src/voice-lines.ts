@@ -67,7 +67,7 @@ export const VOICE_LINE_IDS = Object.keys(VOICE_LINES) as VoiceLineId[];
  * How a line is given to the recorder where its spelling would be said wrong
  * or flat. What is written on screen is always `VOICE_LINES`.
  */
-export const VOICE_SPOKEN: Partial<Record<VoiceLineId, string>> = {
+const VOICE_SPOKEN: Partial<Record<VoiceLineId, string>> = {
   // Written as one word, the voice swallows it.
   liveOutposts: 'Out posts. Take them and hold them. The range is hot.',
 };

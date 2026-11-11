@@ -57,7 +57,7 @@ export function matchScene(m: MatchMoment): MusicScene {
 }
 
 /** How long (s) each scene takes to come in, and to go when another replaces it. */
-export const FADES: Readonly<Record<MusicScene, { readonly in: number; readonly out: number }>> = {
+const FADES: Readonly<Record<MusicScene, { readonly in: number; readonly out: number }>> = {
   menu: { in: 2.5, out: 1.2 },
   match: { in: 0, out: 0 },
   lastMinute: { in: 4, out: 0.6 },
@@ -194,7 +194,7 @@ export class MusicDirector {
 /** The menu theme's loop: 8 bars of 4 beats at 60 a minute, one beat a second like the clock it stands for. */
 export const BEAT = 1;
 export const BAR = 4 * BEAT;
-export const LOOP_BARS = 8;
+const LOOP_BARS = 8;
 export const LOOP = LOOP_BARS * BAR;
 
 /** One pass of the menu theme: which lead phrase is played over the pad (if any), the far siren, and the Geiger ticks. */

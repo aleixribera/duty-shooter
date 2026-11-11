@@ -19,7 +19,7 @@ const SHORTEST = 2.5;
 const LINGER = 1.2;
 
 /** How long a caption for a line that takes `speech` seconds to say stays up. */
-export function captionSeconds(speech: number): number {
+function captionSeconds(speech: number): number {
   return Math.max(SHORTEST, speech + LINGER);
 }
 

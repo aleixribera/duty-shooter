@@ -40,7 +40,7 @@ const RESTART_DELAY_MS = 5_000;
 const STOP_GRACE_MS = 5_000;
 
 /** The status of a Battle Royale nobody has opened yet, or that is still starting: free, its joiner the host. */
-export function freeRoyaleStatus(starting: boolean): LobbyStatus & { readonly starting: boolean } {
+function freeRoyaleStatus(starting: boolean): LobbyStatus & { readonly starting: boolean } {
   return { map: 'zero-island', mode: 'battle-royale', players: 0, away: 0, capacity: WIDE_SCALE.seats, phase: 'lobby', bots: 0, botsPerTeam: 0, maxBotsPerTeam: 0, lobby: true, hvb: false, lobbyMode: 'battle-royale', squadSize: 1, royale: true, starting };
 }
 

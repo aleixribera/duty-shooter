@@ -124,7 +124,7 @@ export function bp(data: Float32Array, sr: number, fc: number | ((t: number) => 
 }
 
 /** Multiply in place by an attack (linear, seconds) then exponential decay (time constant, seconds). */
-export function adEnv(data: Float32Array, sr: number, attack: number, tau: number, hold = 0): Float32Array {
+function adEnv(data: Float32Array, sr: number, attack: number, tau: number, hold = 0): Float32Array {
   const aN = attack * sr;
   const hN = aN + hold * sr;
   const k = Math.exp(-1 / Math.max(tau * sr, 1));

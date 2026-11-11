@@ -1,4 +1,4 @@
-export { IW_UNIT, STATS } from './stats';
+export { STATS } from './stats';
 export type { Stats } from './stats';
 export type { Estimated, Provenance, Source, Sourced, Stat, Unit } from './types';
 export { WEAPON_IDS, isShellReload } from './weapons';

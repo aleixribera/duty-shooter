@@ -39,9 +39,9 @@ export const DEFUSE_TIME = 6;
 export const FREEZE_TIME = 5;
 /** Seconds the round's result is shown before the next round. */
 export const ROUND_END_TIME = 5;
-export const ROUNDS_TO_WIN = 4;
+const ROUNDS_TO_WIN = 4;
 /** The sides swap once this many rounds have been played. */
-export const SWAP_AFTER = 3;
+const SWAP_AFTER = 3;
 /** A defender within this distance (m) of the planted charge can defuse it. */
 export const DEFUSE_RANGE = 1.5;
 /** An attacker within this distance (m) of the dropped charge picks it up. */

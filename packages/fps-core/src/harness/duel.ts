@@ -31,7 +31,7 @@ const yards = new Map<number, DuelField>();
  * over it, about as dense as a town's streets, so a rusher can close in
  * behind something and a long gun still finds lanes.
  */
-export function duelField(k = 0): DuelField {
+function duelField(k = 0): DuelField {
   let yard = yards.get(k);
   if (!yard) {
     const hx = YARD_WIDTH / 2;
@@ -96,7 +96,7 @@ export interface DuelResult {
  * drawn, and fight until one dies (or `timeout` seconds pass). `swap` trades
  * their spots.
  */
-export function botDuel(options: { a: DuelSide; b: DuelSide; distance: number; seed: number; swap?: boolean; timeout?: number; watch?: (out: TickOutput, bots: { a: Bot; b: Bot }) => void }): DuelResult {
+function botDuel(options: { a: DuelSide; b: DuelSide; distance: number; seed: number; swap?: boolean; timeout?: number; watch?: (out: TickOutput, bots: { a: Bot; b: Bot }) => void }): DuelResult {
   const yard = duelField(options.seed % YARDS);
   const { world, nav } = yard;
   const sim = new Simulation(world);

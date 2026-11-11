@@ -74,7 +74,7 @@ export function disarmed(sr: number, rng: Rng): Float32Array {
 }
 
 /** How loud each Charge sound plays (before distance). */
-export const CHARGE_GAIN = { key: 0.25, armed: 0.5, beep: 0.6, tool: 0.3, disarmed: 0.5 } as const;
+const CHARGE_GAIN = { key: 0.25, armed: 0.5, beep: 0.6, tool: 0.3, disarmed: 0.5 } as const;
 
 export const chargeKeyVoice = (): Voice & VoiceExtras =>
   synthVoice({

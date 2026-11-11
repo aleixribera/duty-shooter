@@ -82,7 +82,7 @@ export function crosshairLayout(options: CrosshairOptions, spreadPx: number): Cr
   return { arms, dot, ring };
 }
 
-export const CROSSHAIR_CSS = `
+const CROSSHAIR_CSS = `
 .ds-cross { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transition: opacity 80ms linear; }
 .ds-cross i, .ds-cross b, .ds-cross u { position: absolute; display: block; box-sizing: border-box; }
 .ds-cross i, .ds-cross b { background: var(--ds-cross, #fff); box-shadow: 0 0 1px 1px rgb(0 0 0 / 0.55); }
