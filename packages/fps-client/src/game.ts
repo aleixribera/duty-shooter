@@ -9,10 +9,8 @@ import {
   angleDelta,
   inSite,
   inZone,
-  siteCentre,
   isShellReload,
   teamMode,
-  INTERMISSION,
   raycastWorld,
   sightBlocked,
   wading,
@@ -53,8 +51,7 @@ import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds
 import { FirstPersonCamera, shotPose } from './camera';
 import { Effects } from './effects';
 import { Tracers } from './tracers';
-import { Hud, hitKind, type ChargeHud, type ObjectiveMarker, type ZoneMarker } from './hud/hud';
-import { chargeRoster } from './ui/model';
+import { Hud, hitKind, type ChargeHud, type ZoneMarker } from './hud/hud';
 import { InputController } from './input';
 import { AUTO_FIRE_IDLE, BODY_RADIUS, aimAt, aimSlowdown, autoFire, autoFireRange, type AimRead, type AutoFireState } from './touch/logic';
 import { hintLine, hintState, stepHints, type HintLine, type HintNames } from './hints';
@@ -88,6 +85,7 @@ import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel
 import type { MatchCardState } from './hud/match-card';
 import { GAIN_RANK_UP_AT } from './hud/match-gain';
 import { scoreFeedEntry } from './hud/score-feed';
+import { chargeHudState, matchCardState, royaleHudState } from './hud/hud-state';
 import { WORDY, eventWords, killedWith, type EventWords } from './hud/event-words';
 import { MatchKeeper, type ProfileStore } from './profile';
 import { CourseRun, courseGrade, type CourseGates } from './course-run';
@@ -97,10 +95,10 @@ import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
 import { pinMarker } from './hud/markers';
 import { AllySight, alliesOf, allyTags, type AllySeen, type AllyTag } from './hud/ally-tags';
-import { RING_STAGES, heading, placement, ringNow, ringStatus, victoryCard, type RingPhase } from './ui/royale';
+import { RING_STAGES, ringNow, ringStatus, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
-import { dropMarks, dropPrompt, gridCell } from './ui/supply-drop';
-import { cardNote, rebootMarks, rebootPrompt } from './ui/reboot';
+import { dropPrompt, gridCell } from './ui/supply-drop';
+import { rebootPrompt } from './ui/reboot';
 import { PingBoard, aimPing } from './ui/pings';
 import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
@@ -1547,20 +1545,16 @@ export class Game {
   #matchCard(): MatchCardState | null {
     const driver = this.#driver;
     const match = driver?.match;
-    if (!driver || !match || match.mode !== 'battle-royale' || !driver.scores.some((s) => s.id === driver.selfId)) return null;
-    const ending = match.phase === 'nuke' || (match.phase === 'vote' && match.lobby !== null);
-    if (!ending || victoryTime(match, driver.serverTime) !== null) return null;
-    const left = Math.max(0, (match.phaseEnds ?? driver.serverTime) - driver.serverTime) + (match.phase === 'nuke' ? INTERMISSION.scoreboard : 0);
-    const winners = victoryCard(match.result, driver.scores, driver.selfId);
-    const me = driver.scores.find((s) => s.id === driver.selfId);
-    return {
-      card: this.#cardFor(placement(driver.scores, driver.selfId), me?.kills ?? 0),
-      winners: winners?.names ?? null,
-      yours: winners?.yours ?? false,
-      next: match.lobby ? `Back to the lobby in ${Math.ceil(left)} s` : `Next match in ${Math.ceil(left)} s`,
-      score: me?.score ?? 0,
+    if (!driver || !match) return null;
+    return matchCardState({
+      match,
+      selfId: driver.selfId,
+      scores: driver.scores,
+      serverTime: driver.serverTime,
+      victoryShowing: victoryTime(match, driver.serverTime) !== null,
       gain: this.#keeper.gain,
-    };
+      card: (place, kills) => this.#cardFor(place, kills),
+    });
   }
 
   /** The card, made once for what it shows: a fresh object would redraw its island every frame. */
@@ -1593,37 +1587,24 @@ export class Game {
     const state = this.#royale;
     const driver = this.#driver;
     if (!state || !driver) return null;
-    const self = this.#cur;
-    const watched = this.#spectator.watching === null ? null : this.#playerById(this.#spectator.watching);
-    const view = self?.alive ? self : watched;
-    const team = self?.team ?? null;
-    const mates = team === null ? [] : this.#others.filter((p) => p.alive && p.kind === 'player' && p.team === team && p.id !== view?.id);
-    return {
-      status: ringStatus(state, driver.serverTime, self?.alive ? self.position : null),
-      ring: ringNow(state, driver.serverTime),
-      next: state.next,
-      alive: state.alive,
-      squads: state.squads,
-      kills: driver.scores.find((s) => s.id === driver.selfId)?.kills ?? 0,
-      heading: heading(Math.atan2(-forward[0], -forward[2])),
-      at: view ? { x: view.position[0], z: view.position[2] } : null,
-      mates: mates.map((p) => ({ name: driver.nameOf(p.id), x: p.position[0], z: p.position[2], downed: Boolean(p.downed) })),
-      drops: dropMarks(state, driver.serverTime, this.#islandBounds),
-      reboot: rebootMarks(state, driver.scores.find((s) => s.id === driver.selfId)?.team ?? team, driver.serverTime, (id) => driver.nameOf(id)),
-      carrying: Boolean(self?.alive && state.cards?.some((c) => c.carrier === self.id)),
-      card: self && !self.alive && driver.selfId ? cardNote(driver.selfId, state, driver.serverTime, (id) => driver.nameOf(id)) : null,
-      placement: placement(driver.scores, driver.selfId),
-      out: !self?.alive,
-      seated: driver.scores.some((s) => s.id === driver.selfId),
-      watching: watched ? driver.nameOf(watched.id) : null,
+    return royaleHudState({
+      state,
+      selfId: driver.selfId,
+      scores: driver.scores,
+      nameOf: (id) => driver.nameOf(id),
+      serverTime: driver.serverTime,
+      self: this.#cur,
+      watched: this.#spectator.watching === null ? null : this.#playerById(this.#spectator.watching),
+      others: this.#others,
+      forward,
+      islandBounds: this.#islandBounds,
       // On touch the map and the menu are buttons on the glass: no key to name.
       mapKey: this.input.touchMode ? '' : bindingLabel(this.#settings.bindings.map),
       menuKey: this.input.touchMode ? '' : 'Esc',
       mapOpen: this.input.mapOpen,
-      pings: this.#pingBoard.live(driver.serverTime).map((m) => ({ kind: m.kind, x: m.position[0], z: m.position[2] })),
-      leader: state.leader ? { name: state.leader.name, kills: state.leader.kills, you: state.leader.id === driver.selfId } : null,
+      pings: this.#pingBoard.live(driver.serverTime),
       attacker: this.#attackerMark(),
-    };
+    });
   }
 
   /** Where whoever put you Downed or out stood, for the map, while you're Downed or out. */
@@ -1639,32 +1620,17 @@ export class Game {
     const driver = this.#driver;
     const self = this.#cur;
     if (!state || !driver || !self) return null;
-    const attacking = self.team === state.attackers;
-    const markers: ObjectiveMarker[] = [];
-    const add = (key: string, label: string, kind: ObjectiveMarker['kind'], at: Vec3) => {
-      const m = this.#project(at, eye);
-      if (m) markers.push({ key, label, kind, ...m });
-    };
-    if (state.planted) add('planted', state.planted.site, 'planted', [state.planted.position[0], state.planted.position[1] + 0.6, state.planted.position[2]]);
-    else
-      for (const site of this.#sites) {
-        const c = siteCentre(site);
-        add(`site-${site.id}`, site.id, 'site', [c[0], c[1] + 2, c[2]]);
-      }
-    if (state.dropped && attacking) add('charge', '◆', 'charge', [state.dropped[0], state.dropped[1] + 0.6, state.dropped[2]]);
-    const name = (id: PlayerId | null) => (id === null ? null : id === driver.selfId ? 'You' : driver.nameOf(id));
-    const watched = this.#spectator.watching;
-    return {
+    return chargeHudState({
       state,
-      attacking,
-      carrier: name(state.carrier),
-      actor: name(state.action?.player ?? null),
-      carrying: state.carrier === driver.selfId,
-      acting: state.action?.player === driver.selfId,
-      spectating: watched === null ? null : driver.nameOf(watched),
-      markers,
-      roster: chargeRoster(driver.scores, [...this.#others, self], driver.selfId, self.team, state.carrier),
-    };
+      self,
+      selfId: driver.selfId,
+      scores: driver.scores,
+      nameOf: (id) => driver.nameOf(id),
+      others: this.#others,
+      sites: this.#sites,
+      watching: this.#spectator.watching,
+      project: (at) => this.#project(at, eye),
+    });
   }
 
   /** Where a marker over world point `at` goes on screen, kept on screen when it is behind or off to the side, and how far it is. */
