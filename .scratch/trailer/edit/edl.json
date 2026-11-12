@@ -1,0 +1,385 @@
+{
+ "cues": {
+  "length": 58.25,
+  "open": 0.0,
+  "motif": 2.5,
+  "hot": 7.75,
+  "card2": 20.25,
+  "slow": 26.25,
+  "tminus": 29.25,
+  "ten": 37.5,
+  "five": 41.25,
+  "dead": 46.25,
+  "flash": 48.25,
+  "title": 53.25
+ },
+ "voGain": 2.2,
+ "vo": [
+  {
+   "line": "liveTdm",
+   "at": 5.65
+  },
+  {
+   "line": "t60Nuke",
+   "at": 29.5
+  },
+  {
+   "line": "t10",
+   "at": 37.55,
+   "duck": 8
+  },
+  {
+   "line": "five",
+   "at": 41.3,
+   "duck": 10
+  },
+  {
+   "line": "four",
+   "at": 42.3,
+   "duck": 10
+  },
+  {
+   "line": "three",
+   "at": 43.3,
+   "duck": 10
+  },
+  {
+   "line": "two",
+   "at": 44.3,
+   "duck": 10
+  },
+  {
+   "line": "one",
+   "at": 45.3,
+   "duck": 10
+  }
+ ],
+ "cut": [
+  {
+   "type": "clip",
+   "take": "st-static-road",
+   "in": 1.0,
+   "dur": 1.25,
+   "grade": "town",
+   "fadeIn": 0.2,
+   "sfxGain": 8
+  },
+  {
+   "type": "clip",
+   "take": "st-static-mannequin",
+   "in": 3.3,
+   "dur": 1.0,
+   "grade": "town",
+   "sfxGain": 8
+  },
+  {
+   "type": "clip",
+   "take": "st-static-window",
+   "in": 4.0,
+   "dur": 1.0,
+   "grade": "town",
+   "sfxGain": 8
+  },
+  {
+   "type": "clip",
+   "take": "sy-static-lane",
+   "in": 1.75,
+   "dur": 1.0,
+   "grade": "dusk",
+   "sfxGain": 8
+  },
+  {
+   "type": "clip",
+   "take": "s9-static-trench",
+   "in": 1.75,
+   "dur": 1.0,
+   "grade": "sun",
+   "fadeOut": 0.25,
+   "sfxGain": 8
+  },
+  {
+   "type": "card",
+   "card": "card1.png",
+   "dur": 2.5,
+   "fadeIn": 0.25,
+   "fadeOut": 0.25
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 1,
+   "dur": 1.0,
+   "grade": "fight",
+   "sfxGain": 3
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 0.0,
+   "dur": 1.0,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "cover-yard",
+   "in": 4.4,
+   "dur": 1.0,
+   "grade": "dusk"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 13.3,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "cover-yard",
+   "in": 8.0,
+   "dur": 1.0,
+   "grade": "dusk"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 14.2,
+   "dur": 1.0,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "cover-yard",
+   "in": 18.3,
+   "dur": 0.75,
+   "grade": "dusk",
+   "sfxGain": 2
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 53.0,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 3.0,
+   "dur": 1.0,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 23.9,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 27.3,
+   "dur": 0.75,
+   "grade": "sun",
+   "sfxGain": 2
+  },
+  {
+   "type": "clip",
+   "src": "cover-yard",
+   "in": 24.7,
+   "dur": 1.25,
+   "grade": "dusk"
+  },
+  {
+   "type": "clip",
+   "src": "cover-yard",
+   "in": 36.1,
+   "dur": 0.75,
+   "grade": "dusk",
+   "sfxGain": 2,
+   "tail": 0.6
+  },
+  {
+   "type": "card",
+   "card": "card2.png",
+   "dur": 2.25,
+   "fadeIn": 0.1,
+   "fadeOut": 0.25
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 16,
+   "dur": 2.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 22.9,
+   "dur": 1.75,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 41,
+   "dur": 3.0,
+   "speed": 0.4,
+   "slow": true,
+   "grade": "fight",
+   "fadeOut": 0.3
+  },
+  {
+   "type": "clip",
+   "take": "st-static-siren",
+   "in": 0.5,
+   "dur": 1.25,
+   "grade": "town",
+   "extra": [
+    {
+     "event": "countdownSirenHold",
+     "at": 0.05,
+     "params": {
+      "position": [
+       -84.33,
+       22,
+       -109.28
+      ],
+      "environment": "outdoor"
+     }
+    }
+   ]
+  },
+  {
+   "type": "clip",
+   "take": "st-static-crane",
+   "in": 1.2,
+   "dur": 2.25,
+   "grade": "town"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 28.6,
+   "dur": 1.5,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "take": "sy-static-train-low",
+   "in": 3.2,
+   "dur": 2.0,
+   "grade": "dusk",
+   "sfxGain": 2
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 9.3,
+   "dur": 1.25,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 20.85,
+   "dur": 1.0,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 49,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "take": "sy-static-lever-train",
+   "in": 2.9,
+   "dur": 1.0,
+   "grade": "dusk"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 37,
+   "dur": 0.75,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 12,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 55,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "b/cover-station",
+   "in": 26.9,
+   "dur": 1.0,
+   "grade": "sun"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 5.5,
+   "dur": 1.0,
+   "grade": "fight"
+  },
+  {
+   "type": "clip",
+   "src": "finale-town",
+   "in": 45,
+   "dur": 1.0,
+   "grade": "fight",
+   "tail": 0.0
+  },
+  {
+   "type": "black",
+   "dur": 0.5
+  },
+  {
+   "type": "clip",
+   "take": "st-static-nuke-wide",
+   "in": 0.3,
+   "dur": 4.45,
+   "grade": "town",
+   "sfxGain": 8,
+   "flash": {
+    "at": 1.5,
+    "decay": 0.3
+   },
+   "shake": {
+    "at": 1.5,
+    "px": 10,
+    "decay": 0.7
+   }
+  },
+  {
+   "type": "clip",
+   "take": "st-static-nuke-street",
+   "in": 2.0,
+   "dur": 2.05,
+   "grade": "town",
+   "fadeOut": 0.4
+  },
+  {
+   "type": "card",
+   "card": "title.png",
+   "dur": 4.5,
+   "fadeIn": 0.08,
+   "fadeOut": 1.2
+  }
+ ]
+}
