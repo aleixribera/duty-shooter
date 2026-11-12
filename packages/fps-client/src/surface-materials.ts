@@ -1010,6 +1010,24 @@ export function roomMaterial(): NodeMaterial {
   return m;
 }
 
+/**
+ * A vehicle's windows (a map model's glass with `through`): nothing is modelled inside, so it is drawn solid. What
+ * shows through is the sky beyond, as the light through the windows across the cab or the aisle, tinted and dimmed by
+ * `through`; over it the sky it mirrors. A real pane mirrors about 4% square on, which in a picture exposed for the
+ * street reads as black paint; this one mirrors 15% square on, rising to all of it at a grazing angle. Both skies are
+ * the reflected one, whose sun is a soft lobe, so a look through the glass at the sun stays a glow, not a hot spot.
+ */
+export function vehicleGlassMaterial(finish: Finish): NodeMaterial {
+  const view = normalize(positionWorld.sub(cameraPosition)) as unknown as N3;
+  const n = normalWorld as unknown as N3;
+  const cos = clamp(dot(n, view.negate()), float(0), float(1));
+  const mirrored = float(0.15).add(float(0.85).mul(pow(float(1).sub(cos), float(5))));
+  const behind = reflectedSky(view).mul((color(finish.color) as unknown as N3).mul(finish.through ?? 0.5));
+  const m = new MeshBasicNodeMaterial();
+  m.colorNode = vec4(haze(mix(behind, reflectedSky(reflect(view, n) as N3).mul(0.85), mirrored) as N3), 1);
+  return m;
+}
+
 /** A weathering mark (see grimeQuads): near black, so laying it over a wall darkens it the way dirt does, in sun and shade alike. */
 export function grimeMaterial(): NodeMaterial {
   const tint = attribute<'vec4'>('grimeTint', 'vec4');

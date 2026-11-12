@@ -151,7 +151,8 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'wagon.wood': { family: 'floor', color: 0x9a6a3f, accent: 0x7b5230 },
   'wagon.frame': { family: 'floor', color: 0xc9a36b, accent: 0xa8844f, roughness: 0.55 },
   'window.tint': { family: 'room', color: 0x2a3843 },
-  'auto.glass': { family: 'glass', color: 0x1c262d, roughness: 0.05, metalness: 0.1 },
+  // The vehicles' windows: a blue-grey tint over the sky beyond, as light through the far side's windows (see Finish.through).
+  'auto.glass': { family: 'glass', color: 0x8aa2ad, through: 0.55 },
   tyre: { family: 'plastic', color: 0x1e1f21, roughness: 0.9 },
   whitewall: { family: 'plastic', color: 0xe8e4da, roughness: 0.75 },
   chrome: { family: 'sheetMetal', color: 0xc8ccd0, roughness: 0.18, metalness: 1 },

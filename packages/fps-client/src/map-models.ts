@@ -2,7 +2,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attribute, float, mix } from 'three/tsl';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BufferAttribute, BufferGeometry, Color, Group, Matrix4, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, Quaternion, Vector3, type Material, type Object3D } from 'three/webgpu';
-import { lampMaterial, roomMaterial } from './surface-materials';
+import { lampMaterial, roomMaterial, vehicleGlassMaterial } from './surface-materials';
 import type { Family, Finish, MapModels, ModelPlacement } from './surfaces';
 
 /** How each family shines on a model (the finishes' patterns are for the baked surfaces; models take their colour). */
@@ -121,7 +121,7 @@ function placementMatrix(p: ModelPlacement): Matrix4 {
 /**
  * Loads a map's models and places them, merged into one mesh in each square
  * of the map (see `CELL`) for every finish together (see `finishMaterial`),
- * and one per lamp or room finish: a street of cars, crates and poles costs a draw
+ * and one per lamp, room or vehicle-glass finish: a street of cars, crates and poles costs a draw
  * call or two. Each part's material is named after the map finish it wears.
  * Everything casts and takes shadows like the static surfaces, and the lit
  * finishes put their depth down first (see `depthFirst`).
@@ -137,10 +137,11 @@ export async function loadMapModels(models: MapModels, finishes: Readonly<Record
     return finish;
   };
   const materialFor = (name: string, finish: Finish): Material => {
-    if (finish.family !== 'lamp' && finish.family !== 'room') return shared;
+    const glass = finish.family === 'glass' && finish.through !== undefined;
+    if (finish.family !== 'lamp' && finish.family !== 'room' && !glass) return shared;
     let m = own.get(name);
     if (!m) {
-      m = finish.family === 'lamp' ? lampMaterial(finish) : roomMaterial();
+      m = finish.family === 'lamp' ? lampMaterial(finish) : glass ? vehicleGlassMaterial(finish) : roomMaterial();
       own.set(name, m);
     }
     return m;
