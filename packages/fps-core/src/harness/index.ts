@@ -4,5 +4,5 @@ export { createNetworkedMatch } from './networked-match';
 export type { NetworkedClient, NetworkedMatch, NetworkedMatchOptions, NetworkedScript } from './networked-match';
 export { box, orientedBox, playerClip, yawBox } from '../world';
 export { usercmd } from '../usercmd';
-export { CHALLENGER_WEAPONS, DUEL_DISTANCES, DUEL_WEAPONS, balanceRuns, challengerRuns, winRate } from './duel';
+export { CHALLENGER_WEAPONS, DUEL_DISTANCES, DUEL_WEAPONS, balanceRuns, challengerRuns, skillDuels, winRate } from './duel';
 export type { DuelCell, DuelField, DuelResult, DuelSide } from './duel';

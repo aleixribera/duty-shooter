@@ -16,4 +16,25 @@ describe('Bot Match', () => {
       driver.dispose();
     }
   });
+
+  it("plays its bots at the setup's skill: Hard bots react faster and aim tighter than the same bots at Normal", () => {
+    const map = buildMapById('survival-town');
+    const play = (skill: 'normal' | 'hard') => {
+      const driver = new BotMatchDriver({ map: map.id, solids: mapSolids(map), spawns: map.spawns, nav: map.nav!, mode: 'tdm', botsPerTeam: 2, skill, name: 'You' });
+      try {
+        for (let i = 0; i < 30; i++) driver.tick(usercmd());
+        return driver.botProfiles;
+      } finally {
+        driver.dispose();
+      }
+    };
+    const normal = play('normal');
+    const hard = play('hard');
+    expect(normal.size).toBe(3);
+    expect([...hard.keys()].sort()).toEqual([...normal.keys()].sort());
+    for (const [name, p] of hard) {
+      expect(p.reaction).toBeLessThan(normal.get(name)!.reaction);
+      expect(p.aimError).toBeLessThan(normal.get(name)!.aimError);
+    }
+  });
 });

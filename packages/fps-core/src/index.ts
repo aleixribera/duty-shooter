@@ -44,8 +44,8 @@ export { DEFAULT_LOADOUT, PERK_IDS, TACTICAL_IDS, hasPerk, heldRow, kitInHand, k
 export type { GrenadeId, Loadout, LoadoutAttachments, PerkId, TacticalId, ThrowableId } from './weapon/loadout';
 export { ATTACHMENT_NAMES, ATTACHMENT_SLOTS, SLOT_CHOICES, SLOT_MASTERY, bandReach, isStock, moddedRow, parseAttachments, reloadPace, shotLoudness, slotsOf } from './weapon/attachments';
 export type { AttachmentId, AttachmentSlot, Attachments, GripId, MagazineId, MuzzleId, OpticId } from './weapon/attachments';
-export { BOT_NAMES, BOT_STYLES, Bot, botName, botProfile, buildLargeNav, botSees, buildNavGraph, coverBits, coverNear, coverOf, coveredFrom, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, startNode, SquadPlanner, SquadIntel, NoiseGrid, planCharge, planOutposts, royaleProfile, targetSite, wallAt } from './bots';
-export type { BotObjective, BotProfile, BotStyle, BotView, CoverSpot, GroundOrder, LargeNav, LargeNavOptions, NavGraph, NavIndex, NavLink, NavLinkKind, NavNode, NavOptions, PlannedSeat, SquadSituation } from './bots';
+export { BOT_NAMES, BOT_SKILLS, BOT_STYLES, Bot, botName, botProfile, buildLargeNav, botSees, buildNavGraph, coverBits, coverNear, coverOf, coveredFrom, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, startNode, SquadPlanner, SquadIntel, NoiseGrid, planCharge, planOutposts, royaleProfile, skilledProfile, targetSite, wallAt } from './bots';
+export type { BotObjective, BotProfile, BotSkill, BotStyle, BotView, CoverSpot, GroundOrder, LargeNav, LargeNavOptions, NavGraph, NavIndex, NavLink, NavLinkKind, NavNode, NavOptions, PlannedSeat, SquadSituation } from './bots';
 export type { ReloadKind, WeaponAction } from './weapon/weapon';
 export { STATS, WEAPON_IDS, isShellReload } from './stats';
 export type { Estimated, FireMode, MagazineReload, Provenance, ShellReload, Source, Sourced, Stat, Stats, Unit, WeaponId, WeaponRow, WeaponTraits } from './stats';

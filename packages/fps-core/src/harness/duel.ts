@@ -1,6 +1,6 @@
 import { Bot } from '../bots/bot';
 import { buildNavGraph, type NavGraph } from '../bots/nav';
-import { BOT_NAMES, botProfile } from '../bots/profile';
+import { BOT_NAMES, botProfile, skilledProfile, type BotSkill } from '../bots/profile';
 import { noise } from '../random';
 import { Simulation, TICK_SECONDS, type PlayerOutput, type SimEvent, type TickOutput } from '../simulation';
 import type { WeaponId } from '../stats';
@@ -80,6 +80,8 @@ export interface DuelSide {
   readonly weapon: WeaponId;
   /** The bot's name, which picks its personality. */
   readonly name: string;
+  /** How well it plays (Normal when left out). */
+  readonly skill?: BotSkill;
 }
 
 export interface DuelResult {
@@ -106,7 +108,8 @@ function botDuel(options: { a: DuelSide; b: DuelSide; distance: number; seed: nu
   sim.addPlayer({ id: 'b', team: 2, position: pb, yaw: facing(pb, pa), loadout: { primary: options.b.weapon, secondary: 'pistol', grenade: 'frag' } });
   // Weapons out before the bots open their eyes: a duel isn't decided by draw times at spawn.
   for (let i = 0; i < Math.round(DRAWN / TICK_SECONDS); i++) sim.step({});
-  const bots = { a: new Bot('a', botProfile(options.a.name), nav, world), b: new Bot('b', botProfile(options.b.name), nav, world) };
+  const bot = (id: 'a' | 'b', side: DuelSide) => new Bot(id, skilledProfile(botProfile(side.name), side.skill ?? 'normal'), nav, world);
+  const bots = { a: bot('a', options.a), b: bot('b', options.b) };
   const enemy = (self: PlayerOutput) => (o: PlayerOutput) => o.team !== self.team;
   let out: TickOutput = sim.output();
   let events: readonly SimEvent[] = [];
@@ -193,4 +196,24 @@ export function challengerRuns(rounds = 12, challengers: readonly WeaponId[] = C
     }
   }
   return cells;
+}
+
+/**
+ * Skill against skill: `rounds` seeded duels of a bot at skill `a` against one at `b`, both with `weapon` at
+ * `distance`, each fought both ways round with the personalities and spots traded, so only the skill differs.
+ */
+export function skillDuels(a: BotSkill, b: BotSkill, rounds = 12, weapon: WeaponId = 'm4a1', distance = 15): Pick<DuelCell, 'duels' | 'winsA' | 'winsB'> {
+  let winsA = 0;
+  let winsB = 0;
+  for (let r = 0; r < rounds; r++) {
+    const seed = r * 7919 + distance * 31 + 97;
+    const first = BOT_NAMES[(r * 2) % BOT_NAMES.length]!;
+    const second = BOT_NAMES[(r * 2 + 1) % BOT_NAMES.length]!;
+    for (const [na, nb, swap] of [[first, second, false], [second, first, true]] as const) {
+      const { winner } = botDuel({ a: { weapon, name: na, skill: a }, b: { weapon, name: nb, skill: b }, distance, seed, swap });
+      if (winner === 'a') winsA++;
+      else if (winner === 'b') winsB++;
+    }
+  }
+  return { duels: rounds * 2, winsA, winsB };
 }

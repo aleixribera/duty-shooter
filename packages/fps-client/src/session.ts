@@ -6,6 +6,7 @@ import {
   Simulation,
   TICK_SECONDS,
   buildNavGraph,
+  skilledProfile,
   createMemoryNetwork,
   createWorld,
   type Connection,
@@ -33,6 +34,8 @@ import {
   type World,
   type Zone,
   type ChargeSite,
+  type BotSkill,
+  type BotProfile,
 } from '@duty-shooter/fps-core';
 import { connectWebSocket } from './net/websocket';
 
@@ -441,6 +444,8 @@ export interface BotMatchOptions {
   readonly botsPerTeam: number;
   /** Humans vs bots: you on your own against a bot team, in team modes. */
   readonly hvb?: boolean;
+  /** How well the bots play; Normal when left out. */
+  readonly skill?: BotSkill;
   readonly name: string;
   readonly loadout?: Loadout;
   /** Seconds a match lasts in the modes with a clock (as the server's `TIME_LIMIT`); each mode's own when absent. */
@@ -496,6 +501,7 @@ export class BotMatchDriver extends OnlineDriver {
     const network = createMemoryNetwork();
     const world = createWorld(options.solids, { ladders: options.ladders ?? [], terrain: options.terrain });
     const perTeam = Math.max(0, Math.min(MAX_BOTS_PER_TEAM, options.botsPerTeam));
+    const skill = options.skill ?? 'normal';
     const server = new GameServer(network.server, {
       world,
       map: options.map,
@@ -506,7 +512,7 @@ export class BotMatchDriver extends OnlineDriver {
       ...(options.zones ? { zones: options.zones } : {}),
       ...(options.sites ? { sites: options.sites } : {}),
       passphrase: '',
-      bots: { nav: options.navGraph ?? buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM },
+      bots: { nav: options.navGraph ?? buildNavGraph(world, options.nav), perTeam, maxPerTeam: MAX_BOTS_PER_TEAM, ...(skill === 'normal' ? {} : { profile: (_name: string, base: BotProfile) => skilledProfile(base, skill) }) },
       lobby: true,
       ...(options.timeLimit === undefined ? {} : { modes: { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } } }),
     });
@@ -521,6 +527,11 @@ export class BotMatchDriver extends OnlineDriver {
 
   override get pings(): Readonly<Record<string, number>> {
     return {};
+  }
+
+  /** How each bot in the match plays, by name: its skill shows here. */
+  get botProfiles(): ReadonlyMap<string, BotProfile> {
+    return new Map([...this.#server.bots.values()].map(({ name, bot }) => [name, bot.profile]));
   }
 
   /** Whether the match is over and the server is back in its lobby: the page returns to Bot Match's setup. */

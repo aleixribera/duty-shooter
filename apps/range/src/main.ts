@@ -2,7 +2,7 @@ import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, c
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
-import { createWorld, teamMode, type LobbyPick, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
+import { createWorld, teamMode, type BotSkill, type LobbyPick, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { CameraPath } from './bench';
 import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
@@ -236,7 +236,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // `?matchtime=<s>` (dev only): Bot Matches that last that long, for testing their end without the 10 minutes.
   const matchTime = import.meta.env.DEV ? Number(params.get('matchtime')) || undefined : undefined;
   /** An offline match against bots on `id`, once its lighting is in. */
-  const playBots = async (id: MapId, mode: ModeId, botsPerTeam: number, hvb: boolean) => {
+  const playBots = async (id: MapId, mode: ModeId, botsPerTeam: number, hvb: boolean, skill: BotSkill) => {
     menu.loading('Bot Match', null);
     await whenLoaded(id);
     useMap(id);
@@ -245,7 +245,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const [navGraph] = await Promise.all([routesOf(id), ready()]);
     // Let the loading screen paint before the match builds its own routes (most of a second on the main thread).
     if (!navGraph) await new Promise((done) => setTimeout(done, 50));
-    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], terrain: map.terrain, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
+    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], terrain: map.terrain, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, skill, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -347,7 +347,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
             // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
             if (game.driver) game.setDriver(null);
             leaveLobby();
-            void playBots(botSetup.mapId, botSetup.state.mode, botSetup.state.bots, botSetup.state.hvb && teamMode(botSetup.state.mode));
+            void playBots(botSetup.mapId, botSetup.state.mode, botSetup.state.bots, botSetup.state.hvb && teamMode(botSetup.state.mode), botSetup.skill);
           });
           return;
         }
@@ -359,6 +359,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       loadout: () => menu.loadout('lobby'),
       settings: () => menu.lobbySettings(),
       leave: () => leaveGame(),
+      skill: (skill) => {
+        botSetup.skill = skill;
+        if (botLobbyOpen) lobbyPage.show(botView());
+      },
     },
     { map: (id) => ({ id, name: mapStore.peek(id as MapId)?.map.name ?? mapName(id), image: mapEntry(id)?.picture ? `maps/${id}.jpg` : null }) },
   );

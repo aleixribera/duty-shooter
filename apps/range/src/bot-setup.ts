@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, type LobbyPick, type LobbyState, type ModeId } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, type BotSkill, type LobbyPick, type LobbyState, type ModeId } from '@duty-shooter/fps-core';
 import type { LobbyView } from '@duty-shooter/fps-client/ui';
 import { MATCH_MAPS, TEAM_SIZES, asMapId, type MapId } from './map/catalogue';
 
@@ -17,6 +17,8 @@ export class BotSetup {
   #state: LobbyState;
   /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
   last: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
+  /** How well the bots play, kept between visits like the picks. */
+  skill: BotSkill = 'normal';
 
   constructor() {
     const map = MATCH_MAPS[0]!;
@@ -55,6 +57,7 @@ export class BotSetup {
       teamScores: this.last?.teamScores ?? null,
       loading: null,
       offline: true,
+      skill: this.skill,
     };
   }
 }

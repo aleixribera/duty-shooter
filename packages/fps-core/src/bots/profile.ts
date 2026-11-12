@@ -227,6 +227,38 @@ export function royaleProfile(profile: BotProfile): BotProfile {
   return { ...profile, loadout, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
 }
 
+/** How well a match's bots play, picked in Bot Match's setup: Normal is the moderate bot as {@link botProfile} makes it. */
+export type BotSkill = 'easy' | 'normal' | 'hard';
+export const BOT_SKILLS: readonly BotSkill[] = ['easy', 'normal', 'hard'];
+
+/**
+ * What each skill does to the traits that decide a fight, as multipliers on the bot's own (Normal is all ones). Easy
+ * sees you later, aims wider and follows a strafe worse; Hard reacts about as fast as a quick player, settles its aim
+ * tighter and goes for the head more. Style, loadout and how a bot moves stay its own, so a lobby keeps its mix.
+ * Game values, set against bot-vs-bot duels (`skillDuels` in the duel harness): Hard beats Normal, Normal beats Easy.
+ */
+const SKILL: Readonly<Record<Exclude<BotSkill, 'normal'>, Readonly<Partial<Record<'reaction' | 'aimError' | 'perceptionLag' | 'tracking' | 'turnRate' | 'recoilControl' | 'headshots', number>>>>> = {
+  easy: { reaction: 1.6, aimError: 1.8, perceptionLag: 1.4, tracking: 0.7, turnRate: 0.7, recoilControl: 0.7, headshots: 0.5 },
+  hard: { reaction: 0.7, aimError: 0.6, perceptionLag: 0.75, tracking: 1.15, turnRate: 1.25, recoilControl: 1.2, headshots: 1.4 },
+};
+
+/** `profile` played at `skill`: its fighting traits scaled (see {@link SKILL}), the shares held within 0 to 1. */
+export function skilledProfile(profile: BotProfile, skill: BotSkill): BotProfile {
+  if (skill === 'normal') return profile;
+  const k = SKILL[skill];
+  const share = (v: number) => Math.min(1, v);
+  return {
+    ...profile,
+    reaction: profile.reaction * (k.reaction ?? 1),
+    aimError: profile.aimError * (k.aimError ?? 1),
+    perceptionLag: profile.perceptionLag * (k.perceptionLag ?? 1),
+    tracking: share(profile.tracking * (k.tracking ?? 1)),
+    turnRate: profile.turnRate * (k.turnRate ?? 1),
+    recoilControl: share(profile.recoilControl * (k.recoilControl ?? 1)),
+    headshots: share(profile.headshots * (k.headshots ?? 1)),
+  };
+}
+
 const LISTED_STYLES = new Map<string, BotStyle>(BOT_NAMES.map((name, i) => [name, BOT_STYLES[i % BOT_STYLES.length]!]));
 
 /** The style a listed name plays, or null for any other name. */

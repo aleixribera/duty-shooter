@@ -144,7 +144,12 @@ const SNEAK = 10;
 const CLOSE_RANGE = 15;
 /** Once in a fight (an enemy seen this recently, s), speed beats silence. */
 const SPOTTED = 4;
-/** Seconds of a target's movement a bot remembers, for aiming a moment behind it. */
+/**
+ * Seconds of a target's movement a bot remembers, for aiming a moment behind it: at least this, and always enough to
+ * judge the target's motion as the bot last saw it (its `perceptionLag` back, over two `STEADY` spans), however slow
+ * its eyes. A Bot Match's Easy bots see further back than this allowed, read every walk as a sudden turn and never
+ * fired a bolt-action (ticket 83).
+ */
 const TRAIL = 0.4;
 /** Seconds a target can be out of sight before the bot stops shooting at where it was. */
 const LOSE_TARGET = 0.6;
@@ -704,7 +709,8 @@ export class Bot {
     }
     if (target && tp) {
       target.trail.push({ time, pose: pose(tp) });
-      while (target.trail.length > 1 && target.trail[0]!.time < time - TRAIL) target.trail.shift();
+      const memory = Math.max(TRAIL, this.profile.perceptionLag + 2 * STEADY);
+      while (target.trail.length > 1 && target.trail[0]!.time < time - memory) target.trail.shift();
     }
     const fighting = target !== null && tp !== undefined && time >= target.react;
     const range = tp ? flat(self.position, tp.position) : Infinity;

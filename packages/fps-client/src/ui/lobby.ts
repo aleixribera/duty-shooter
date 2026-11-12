@@ -1,4 +1,4 @@
-import { LOBBY_MODES, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
+import { BOT_SKILLS, LOBBY_MODES, teamMode, type BotSkill, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
 import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
@@ -109,6 +109,8 @@ export interface LobbyView {
   readonly offline?: boolean;
   /** The connection dropped and is coming back: the picks and Start wait for it (ticket 38). */
   readonly reconnecting?: boolean;
+  /** Bot Match: how well the bots play, a pick of its own. */
+  readonly skill?: BotSkill;
 }
 
 export interface LobbyCallbacks {
@@ -121,6 +123,8 @@ export interface LobbyCallbacks {
   loadout(): void;
   settings(): void;
   leave(): void;
+  /** Bot Match: the bots' skill picked. */
+  skill?(skill: BotSkill): void;
 }
 
 /**
@@ -223,6 +227,7 @@ export class LobbyPage {
     else if (act === 'fill') this.#callbacks.pick({ fill: value === 'on' });
     else if (act === 'hvb') this.#callbacks.pick({ hvb: value === 'on' });
     else if (act === 'map') this.#callbacks.pick({ map: value });
+    else if (act === 'skill' && (BOT_SKILLS as readonly string[]).includes(value)) this.#callbacks.skill?.(value as BotSkill);
     else if (act === 'random' && this.#view) {
       const pick = randomLobbyPick(this.#view.lobby);
       if (pick) this.#callbacks.pick(pick);
@@ -324,6 +329,9 @@ export class LobbyPage {
             (['off', 'on'] as const).map((s) => [s, s === 'on' ? `On · ${fillBots ? matchSize(l.mode, l.bots) : 'fill'}` : 'Off', (s === 'on') === fillBots] as const),
           )}</div>`
         : '';
+    const skill = v.skill === undefined
+      ? ''
+      : `<div><span class="ds-field-label">Bot skill</span>${seg('skill', BOT_SKILLS.map((s) => [s, SKILL_NAMES[s], s === v.skill] as const))}</div>`;
     const maps = l.maps
       .map((id) => {
         const m = this.#map(id);
@@ -362,7 +370,7 @@ export class LobbyPage {
 <h2 class="ds-h2" style="margin:0">Match${underway ? ' <small>Under way</small>' : ''}</h2>
 <div class="maps${picking ? '' : ' locked'}">${maps}</div>
 <button type="button" class="ds-btn random" data-act="random" data-key="random"${picking && l.maps.length ? '' : ' disabled'}>Random map &amp; mode</button>
-<div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div><p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>${versus}${size}${invite}</div>
+<div class="picks${picking ? '' : ' locked'}"><div><span class="ds-field-label">Mode</span>${modes}</div><p class="blurb">${escapeHtml(MODE_BLURBS[l.mode] ?? '')}</p>${versus}${skill}${size}${invite}</div>
 </aside>
 </div>
 <footer><button type="button" class="ds-btn" data-act="leave" data-key="leave">${icon('back')}${offline ? 'Back' : 'Leave'}</button><button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>
@@ -370,6 +378,8 @@ ${hints}${start}</footer>
 </div>`;
   }
 }
+
+const SKILL_NAMES: Readonly<Record<BotSkill, string>> = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
 /** Two-digit seat numbers: 01, 02 ... */
 function pad(n: number): string {
