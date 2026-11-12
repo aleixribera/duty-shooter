@@ -40,6 +40,8 @@ const CSS = `
 /* The five modes one under another, all one width (review 2026-11-12d: three over two of different widths read as uneven, and five in a row cut "Deathmatch" at the cell's edges). */
 .ds-lobby .picks .modes { grid-template-columns: 1fr; }
 .ds-lobby .picks .ds-seg button { min-height: 44px; }
+/* Each pick's name over its choices, as a settings section names its rows: in text colour at body size, not a small grey note. */
+.ds-lobby .picks .ds-field-label { margin-bottom: 10px; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.02em; color: var(--ds-text); }
 /* The maps as pictures, the picked one framed in signal. */
 .ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 128px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: var(--ds-raised) center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color var(--ds-fast), opacity var(--ds-fast); }
@@ -55,6 +57,19 @@ const CSS = `
 .ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
 .ds-lobby .invite .ds-btn { border-radius: 0; }
 .ds-lobby footer .ds-btn:not(.big) { min-width: 120px; }
+/* A Bot Match on a wide screen (review 2026-11-12f, 03: the left two-thirds under the rosters was empty dark map): the rosters
+   stand in one column at the left, the picks at the right, and between them the scrim clears onto the picked map, the
+   same map the match will play, live behind the page.
+   The scrim's stops follow the columns' edges (gutter + 400 px, and the picks' 520 px), and below 1360 px the middle would
+   be a slit, so the two columns stay. */
+@media (min-width: 1360px) {
+  .ds-lobby .solo { background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0, rgb(7 9 13 / 0.9) calc(var(--ds-gutter) + 400px), rgb(7 9 13 / 0.3) min(calc(var(--ds-gutter) + 600px), 50%), rgb(7 9 13 / 0.3) max(calc(100% - var(--ds-gutter) - 720px), 50%), rgb(7 9 13 / 0.9) calc(100% - var(--ds-gutter) - 520px)); }
+  .ds-lobby .solo .body { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr) minmax(360px, 520px); }
+  .ds-lobby .solo .body > section { grid-column: 1; }
+  .ds-lobby .solo .body > .match { grid-column: 3; }
+  .ds-lobby .solo .seats { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; grid-template-rows: none !important; gap: 6px; }
+  .ds-lobby .solo .seats.teams { gap: 22px; }
+}
 @media (max-width: 960px) {
   .ds-lobby .ds-page { background: var(--ds-scrim); }
   .ds-lobby .body { grid-template-columns: minmax(0, 1fr); gap: 32px; }
@@ -338,7 +353,7 @@ export class LobbyPage {
     const fill = sided ? '' : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}.` : lobbyFill(l);
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
 
-    return `<div class="ds-page">
+    return `<div class="ds-page${offline ? ' solo' : ''}">
 <header><div class="heading"><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
 <div class="aside">${who ? `<span class="ds-state ${state}" role="status">${who}</span>` : ''}</div></header>
 <div class="body">
