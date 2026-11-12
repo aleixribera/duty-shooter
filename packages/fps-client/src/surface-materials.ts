@@ -516,8 +516,18 @@ function albedo(finish: Finish, st: N2, wear: (mask: N) => void): N3 {
       const seams = grooves(x, px, 0.14, 0.006).mul(grooves(ys, py, 1.8, 0.006));
       return mix(base, accent, tone.mul(0.45)).mul(seams.mul(0.35).add(0.65)).mul(grain(5, 0.05)) as N3;
     }
-    case 'plaster':
-      return base.mul(grain(2.5, 0.03)) as N3;
+    case 'plaster': {
+      // Painted plaster, which at arm's length was one flat fill (review 2026-11-12f). Fine detail, none of it blotchy
+      // (the render's half-metre hollows were taken out for that, review 2026-11-12d): the roller's stipple, a few
+      // millimetres across, that settles to its mean in the noise's mipmaps once a pixel covers it; faint laps where each
+      // 23 cm pass of the roller met the last, running up the wall; the second coat a shade off in places; and the paint
+      // dulled round a wall's ends and openings, where hands and shoulders rub.
+      const stipple = grain(260, 0.06).mul(grain(80, 0.02));
+      const laps = float(0.975).add(noiseAt(vec2(x.mul(4.3), y.mul(0.35)) as N2, 1, 'b').mul(0.05));
+      const coat = grain(0.7, 0.035);
+      const rubbed = nearOpening(0.45).mul(smoothstep(float(0.35), float(0.75), noiseAt(st, 3.2, 'g'))).mul(0.09);
+      return base.mul(stipple).mul(laps).mul(coat).mul(float(1).sub(rubbed)) as N3;
+    }
     case 'wornPlaster': {
       // Irregular missing render reveals brickwork beneath faded plaster, most of it at corners and round openings.
       const broken = noiseAt(st, 0.55).add(noiseAt(st, 3, 'g').sub(0.5).mul(0.26)).add(noiseAt(st, 13).sub(0.5).mul(0.14)).add(nearOpening(0.9).mul(noiseAt(st, 1.7).mul(0.55)));
