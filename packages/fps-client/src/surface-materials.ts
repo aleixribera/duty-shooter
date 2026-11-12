@@ -360,6 +360,27 @@ function grooves(x: N, pixel: N, period: number, width: number): N {
   return mix(sharp, float(1 - width / period), smoothstep(float(0.15), float(0.45), w)) as N;
 }
 
+/**
+ * Ground thinning out toward its patch's edge: the bare ground reaches in from the nearest side by a distance that
+ * wanders with noise, so the line between them does too. At the edge it is all bare, so it meets the ground beyond
+ * without a seam; a little in, tufts survive in the bare patches.
+ */
+function fringed(a: N3, fringe: NonNullable<Finish['fringe']>, st: N2, wear: (mask: N) => void): N3 {
+  const { rect, width, into } = fringe;
+  const x = positionWorld.x as unknown as N;
+  const z = positionWorld.z as unknown as N;
+  const inside = min(min(x.sub(rect.x0), float(rect.x1).sub(x)), min(z.sub(rect.z0), float(rect.z1).sub(z))) as N;
+  const xz = vec2(x, z) as unknown as N2;
+  // How far in the bare ground reaches here: none of it past `width` plus the blend, all of it at the very edge.
+  const reach = noiseAt(xz, 0.09).mul(0.7).add(noiseAt(xz, 0.45, 'g').mul(0.3)).mul(width) as N;
+  const tufts = smoothstep(float(0.62), float(0.8), noiseAt(st, 2.2, 'b')).mul(smoothstep(float(0), float(1.5), inside)).mul(0.6);
+  const bare = float(1).sub(smoothstep(float(0), float(width * 0.35), inside.sub(reach))).mul(float(1).sub(tufts));
+  // The bare ground as the ground beyond draws it, ripples and scuffs and all: `st` is in world metres on both, so they line up.
+  const ground = albedo({ family: 'sand', color: into }, st, () => {});
+  wear(bare as N);
+  return mix(a, ground, bare) as N3;
+}
+
 /** Dry ground: broad scuffed patches and a slow change of soil. */
 function parched(a: N3, st: N2): N3 {
   return a.mul(float(1).sub(smoothstep(float(0.4), float(0.72), noiseAt(st, 0.19, 'g').add(noiseAt(st, 1.1).sub(0.5).mul(0.35))).mul(0.2))) as N3;
@@ -450,7 +471,8 @@ function albedo(finish: Finish, st: N2, wear: (mask: N) => void): N3 {
       // Lush and dry patches, darker clumps, and a slow drift in tone.
       const patches = smoothstep(float(0.3), float(0.75), noiseAt(st, 0.16));
       const clumps = smoothstep(float(0.45), float(0.8), noiseAt(st, 1.6, 'g'));
-      return mix(base, accent, patches.mul(0.9)).mul(float(1).sub(clumps.mul(0.18))).mul(grain(11, 0.1)).mul(macro(st, 0.1)) as N3;
+      const grass = mix(base, accent, patches.mul(0.9)).mul(float(1).sub(clumps.mul(0.18))).mul(grain(11, 0.1)).mul(macro(st, 0.1)) as N3;
+      return finish.fringe ? fringed(grass, finish.fringe, st, wear) : grass;
     }
     case 'sand': {
       const ripple = sin(x.mul(1.7).add(noiseAt(st, 0.12).mul(9))).mul(0.025).add(1);
@@ -681,10 +703,13 @@ export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
     a.assign(albedo(finish, st, (mask) => (exposed = mask)));
     if (tile && relief) {
       const read = HEX_FAMILIES.has(finish.family) ? hexRelief(tile, st) : reliefAt(tile, st, depth ? gradients(plain) : null);
-      // Where render has come away, the brickwork's relief; its courses are 20% bigger than a brick wall's.
-      relief.assign(exposed ? (mix(read, reliefAt('brick', st.mul(1.8 / 2.16) as N2), exposed) as N3) : read);
+      // Where render has come away, the brickwork's relief (its courses are 20% bigger than a brick wall's); where a lawn
+      // thins out, the cracked earth of the ground beyond.
+      const under = finish.fringe ? hexRelief(FAMILY_TILE.sand!, st) : reliefAt('brick', st.mul(1.8 / 2.16) as N2);
+      const surface = exposed ? (mix(read, under, exposed) as N3) : read;
+      relief.assign(surface);
       // Open ground's stones and cracks are in the relief: dirt lies in the low places, stone stands pale.
-      if (HEX_FAMILIES.has(finish.family)) a.assign(a.mul(mix(float(0.74), float(1.1), smoothstep(float(0.12), float(0.62), read.z))));
+      if (HEX_FAMILIES.has(finish.family)) a.assign(a.mul(mix(float(0.74), float(1.1), smoothstep(float(0.12), float(0.62), surface.z))));
     }
     return vec4(a, 1);
   })();

@@ -38,6 +38,11 @@ export interface Finish {
   /** How a map model in this finish shines, where it differs from its family's (glass, chrome); baked surfaces ignore these. */
   readonly roughness?: number;
   readonly metalness?: number;
+  /**
+   * Ground that thins out toward the edge of the patch it covers (a lawn into the desert round it): within `width`
+   * metres of the rectangle's edge it gives way to the colour `into`, along a ragged line rather than a ruled one.
+   */
+  readonly fringe?: { readonly rect: { readonly x0: number; readonly x1: number; readonly z0: number; readonly z1: number }; readonly width: number; readonly into: number };
 }
 
 /**

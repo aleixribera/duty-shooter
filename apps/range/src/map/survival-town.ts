@@ -96,6 +96,10 @@ const TOWN_LIGHT: Lighting = {
   skyHorizon: [0.96, 0.78, 0.58],
 };
 
+/** The lawn round both houses and the street, and the desert past it. */
+const LAWN = { x0: -27, x1: 21, z0: -53, z1: 53 } as const;
+const DESERT = 0xc9a87c;
+
 const FINISHES: Readonly<Record<string, Finish>> = {
   'north.siding': { family: 'siding', color: 0x9dcdb3 },
   'north.shutter': { family: 'louvre', color: 0x3d6b58 },
@@ -114,9 +118,10 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   deck: { family: 'floor', color: 0x8f6a4a, accent: 0x6c4f37 },
   walk: { family: 'concrete', color: 0xc4bfb4, accent: 0x99948a },
   'garage.floor': { family: 'concrete', color: 0xa6a198, accent: 0x86827a },
-  lawn: { family: 'grass', color: 0x768a42, accent: 0xa09c5e },
+  // The lawns thin out into the desert over a few metres, along a ragged line: a ruled edge read as a green rectangle pasted on the sand (review 2026-11-12d).
+  lawn: { family: 'grass', color: 0x768a42, accent: 0xa09c5e, fringe: { rect: LAWN, width: 5, into: DESERT } },
   street: { family: 'asphalt', color: 0x47494c },
-  desert: { family: 'sand', color: 0xc9a87c },
+  desert: { family: 'sand', color: DESERT },
   brick: { family: 'brick', color: 0xa4573f, accent: 0xd2c8b8 },
   fence: { family: 'fence', color: 0xf0eee6, accent: 0xdcd8cc },
   sofa: { family: 'plastic', color: 0xd48f8a },
@@ -510,7 +515,7 @@ function buildGround(b: Builder, sides: readonly Side[]): void {
     layers.push({ rect: side.rectD(-15.5, -9.5, 3.5, HOUSE.garage.d0), material: 'concrete' }); // driveway
     layers.push({ rect: side.rectD(8, 90, STREET_HALF, STREET_HALF + 1.5), material: 'concrete' }); // sidewalk
   }
-  layers.push({ rect: { x0: -27, x1: 21, z0: -53, z1: 53 }, material: 'grass' });
+  layers.push({ rect: LAWN, material: 'grass' });
   layers.push({ rect: { x0: -90, x1: 90, z0: -90, z1: 90 }, material: 'sand' });
   for (const { rect, material, look: own } of groundTiles(layers)) {
     const look = own ?? GROUND[material];
