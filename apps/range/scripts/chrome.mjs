@@ -10,7 +10,7 @@
 // priority, so they take only the CPU nothing else wants. `uncapped: true` is for measuring frame times (bench, perf): vsync
 // off, no frame cap, normal priority.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rm, rmSync, statSync } from 'node:fs';
 import { constants, setPriority, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -41,6 +41,27 @@ const frameCap = (cap) => `(() => {
 })();`;
 
 /**
+ * Throwaway profiles left in the temp directory by a script that died before close(): each is a few hundred MB, and
+ * 1740 of them once filled the disk. Any older than six hours goes, in the background.
+ */
+function sweepProfiles() {
+  const cut = Date.now() - 6 * 3600_000;
+  try {
+    for (const name of readdirSync(tmpdir())) {
+      if (!/^duty-(chrome|perf|measure)-/.test(name)) continue;
+      const dir = join(tmpdir(), name);
+      try {
+        if (statSync(dir).mtimeMs < cut) rm(dir, { recursive: true, force: true, maxRetries: 3 }, () => {});
+      } catch {
+        // Gone already.
+      }
+    }
+  } catch {
+    // No temp directory to read.
+  }
+}
+
+/**
  * `profile`: a user data directory to keep (a return visit's caches); a throwaway one when absent.
  * `uncapped`: frames as fast as the GPU draws them at normal priority, for frame-time measurements.
  */
@@ -54,6 +75,7 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
   }
   const chrome = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
   const port = 9300 + Math.floor(Math.random() * 500);
+  sweepProfiles();
   const profile = keep ?? mkdtempSync(join(tmpdir(), 'duty-chrome-'));
   const args = [
     `--remote-debugging-port=${port}`,
@@ -172,13 +194,15 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
         keepIdle.top.close();
       }
       ws.close();
+      // Chrome holds files in its profile until it has exited, and its children a moment after: wait, then retry the delete.
+      const exited = new Promise((done) => (browser.exitCode !== null ? done() : browser.once('exit', done)));
       browser.kill();
-      await sleep(500);
+      await Promise.race([exited, sleep(5000)]);
       if (keep) return;
       try {
-        rmSync(profile, { recursive: true, force: true });
+        rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
       } catch {
-        // Chrome may still hold the profile; it is in the temp directory.
+        // Still held; the next launch's sweep takes it once it is six hours old.
       }
     },
   };
