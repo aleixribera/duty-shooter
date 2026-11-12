@@ -685,6 +685,13 @@ class SurfaceMaterial extends NodeMaterial {
   }
 }
 
+/**
+ * How strongly a family's relief leans the light and darkens its hollows (1 where unset). Painted plaster in a room is
+ * smooth: at full strength the stucco's half-metre hollows mottled walls and ceilings alike, a room in blotchy brown
+ * render (review 2026-11-12d). It keeps a faint grain. Worn plaster keeps its render.
+ */
+const RELIEF_STRENGTH: Partial<Readonly<Record<Family, number>>> = { plaster: 0.3 };
+
 /** The material for one finish on static, lightmapped surfaces. */
 export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   if (finish.family === 'glass') return glassMaterial(finish);
@@ -695,7 +702,9 @@ export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   const a = property('vec3', 'surfaceAlbedo') as unknown as N3 & { assign(v: Node): void };
   const relief = tile ? (property('vec3', 'surfaceRelief') as unknown as N3 & { assign(v: Node): void }) : null;
   const depth = FAMILY_DEPTH[finish.family];
-  const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family], relief ? { normal: detailNormal(relief, 1), open: smoothstep(float(0.02), float(0.6), relief.z) as N } : null));
+  const k = RELIEF_STRENGTH[finish.family] ?? 1;
+  const shading = relief ? { normal: detailNormal(relief, k), open: mix(float(1), smoothstep(float(0.02), float(0.6), relief.z), k) as N } : null;
+  const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family], shading));
   m.colorNode = Fn(() => {
     const plain = uv() as unknown as N2;
     const st = tile && depth ? parallax(tile, plain, depth) : plain;
