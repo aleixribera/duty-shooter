@@ -21,7 +21,9 @@ const CREASE_SUN = 0.45;
  * things (see WorldView.lightMoving): each vertex carries its finish's colour,
  * roughness and metalness, and the ambient occlusion baked into the model's
  * vertex colours (1 where it has none), which darkens its creases. So models of
- * every finish merge into the same few meshes.
+ * every finish merge into the same few meshes. The vertex colours' alpha, where a
+ * model has it below 1, darkens the finish's colour outright: weathering drawn into
+ * the model (a bunker's joints, rain streaks and dust).
  */
 function finishMaterial(): Material {
   const m = new MeshStandardNodeMaterial();
@@ -38,7 +40,7 @@ function finishMaterial(): Material {
  * A part's geometry with only what the model materials read: position, normal,
  * an index, and its finish and baked occlusion per vertex (see `finishMaterial`).
  */
-function finishGeometry(source: BufferGeometry, finish: Finish): BufferGeometry {
+export function finishGeometry(source: BufferGeometry, finish: Finish): BufferGeometry {
   if (!source.hasAttribute('normal')) source.computeVertexNormals();
   const position = source.getAttribute('position');
   const n = position.count;
@@ -51,13 +53,15 @@ function finishGeometry(source: BufferGeometry, finish: Finish): BufferGeometry 
   const roughness = finish.roughness ?? sheen.roughness;
   const metalness = finish.metalness ?? sheen.metalness;
   const occlusion = source.getAttribute('color');
+  const weathered = occlusion?.itemSize === 4;
   const finishColor = new Float32Array(n * 3);
   const finishPbr = new Float32Array(n * 2);
   const modelAo = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    finishColor[i * 3] = colour.r;
-    finishColor[i * 3 + 1] = colour.g;
-    finishColor[i * 3 + 2] = colour.b;
+    const w = weathered ? occlusion.getW(i) : 1;
+    finishColor[i * 3] = colour.r * w;
+    finishColor[i * 3 + 1] = colour.g * w;
+    finishColor[i * 3 + 2] = colour.b * w;
     finishPbr[i * 2] = roughness;
     finishPbr[i * 2 + 1] = metalness;
     modelAo[i] = occlusion ? occlusion.getX(i) : 1;

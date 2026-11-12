@@ -22,7 +22,7 @@ import os
 import sys
 
 import bmesh
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Vector, noise
 
 sys.path.insert(0, os.path.dirname(__file__))
 import importlib  # noqa: E402
@@ -736,26 +736,134 @@ def instrument_tower():
     return kit.asset("instrument-tower", parts)
 
 
+# Board-formed concrete: pours 60 cm high (lift joints) in plywood forms 2.4 m wide (form joints). The walls are cut
+# along every joint and again `BLEND` either side of it, so the shade baked into the vertices on the joint fades out
+# over those few centimetres instead of across the 30-40 cm to the next cut: a crisp line (see `form_cuts`, `weather`).
+LIFT, FORM, BLEND = 0.6, 2.4, 0.03
+
+
+def form_cuts(hx, top, hz):
+    """A `kit.asset` cut: the outside of the walls (faces looking out from within 8 cm of the footprint's edge) cut into
+    a grid 30 cm high and 40 cm wide, finer about every lift and form joint, so the vertices `weather` shades are where its
+    lines and streaks need them. Faces inside the bunker, which no one sees, are left whole."""
+
+    def lines(lo, hi, step, period):
+        n, at = round(period / step), []
+        for k in range(int(lo / period) - 1, int(hi / period) + 2):
+            at += [k * period + d for d in (-BLEND, 0.0, BLEND)] + [period * (k + j / n) for j in range(1, n)]
+        return [v for v in at if lo < v < hi]
+
+    def cut(bm):
+        planes = [((0, 0, y), (0, 0, 1)) for y in lines(0.0, top, 0.3, LIFT)]
+        planes += [((x, 0, 0), (1, 0, 0)) for x in lines(-hx, hx, 0.4, FORM)]
+        planes += [((0, -z, 0), (0, 1, 0)) for z in lines(-hz, hz, 0.4, FORM)]
+
+        def outside(f):
+            c, n = f.calc_center_median(), f.normal
+            if abs(n.z) >= 0.5 or c.z > top:  # the slab's edge stays whole
+                return False
+            if abs(n.x) > abs(n.y):
+                return abs(c.x) >= hx - 0.081 and c.x * n.x > 0
+            return abs(c.y) >= hz - 0.081 and c.y * n.y > 0
+
+        for co, no in planes:
+            bm.normal_update()
+            faces = [f for f in bm.faces if outside(f)]
+            geom = faces + list({e for f in faces for e in f.edges}) + list({v for f in faces for v in f.verts})
+            bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-5, plane_co=co, plane_no=no)
+
+    return cut
+
+
 def bunker(name, hx, h, hz):
-    """A low concrete bunker: battered walls under a thick roof slab with chamfered edges, an observation slit along each
-    long side, a steel blast door at the -x end."""
-    parts = [kit.box((-hx + 0.08, 0.0, -hz + 0.08), (hx - 0.08, h - 0.4, hz - 0.08), BUNKER, 0.04)]
+    """A low concrete bunker cast in board forms: walls under a thick roof slab with chamfered edges on a battered
+    plinth, an observation slit set 30 cm into each long side and split by three posts, a steel blast door in its frame
+    at the back of a deep concrete reveal at the -x end. The pours, the rain off the slab and the desert's dust are
+    baked into its shade after the occlusion (`weather`).
+
+    The slit's dark back once lay in the wall's own face and fought it for the pixels (review 2026-11-12g: ragged
+    blots), and the door stood flat on the wall with no frame: both are set into the wall now."""
+    w, top = 0.08, h - 0.4  # the walls stand in from the slab's edge by `w`, up to `top`
+    s0, s1, deep, sx = h - 1.0, h - 0.75, 0.3, hx * 0.6  # the slit: its sill, its head, how far in, its half-length
+    reveal, dz, door_top = 0.3, 0.62, min(2.0, h - 0.62)  # the door: how far in, its opening's half-width, its head
+    x0 = -hx + w + reveal  # the body's -x face, behind the door's reveal
+    parts = [
+        kit.box((x0, 0.0, -hz + w), (hx - w, s0, hz - w), BUNKER, 0.02),
+        kit.box((x0, s1, -hz + w), (hx - w, top, hz - w), BUNKER, 0.02),
+        # The slit's course: solid beyond its ends, its dark back 30 cm in, three posts across it.
+        kit.box((x0, s0, -hz + w), (-sx, s1, hz - w), BUNKER),
+        kit.box((sx, s0, -hz + w), (hx - w, s1, hz - w), BUNKER),
+        kit.box((-sx, s0, -hz + w + deep), (sx, s1, hz - w - deep), UNDER),
+    ]
+    for x in (-sx / 2, 0.0, sx / 2):
+        for sz in (-1, 1):
+            lo, hi = span(sz * (hz - w), sz * (hz - w - deep))
+            parts.append(kit.box((x - 0.07, s0, lo), (x + 0.07, s1, hi), BUNKER))
+    # The -x end: the wall either side of the door's reveal, standing on the plinth (whose ends make the reveal's sides
+    # below it), and over its head.
+    parts += [
+        kit.box((-hx + w, 0.6, -hz + w), (x0, top, -dz), BUNKER, 0.02),
+        kit.box((-hx + w, 0.6, dz), (x0, top, hz - w), BUNKER, 0.02),
+        kit.box((-hx + w, door_top, -dz), (x0, top, dz), BUNKER, 0.02),
+    ]
     parts.append(kit.box((-hx, h - 0.45, -hz), (hx, h, hz), BUNKER, 0.12, 2))
-    parts.append(kit.prism([(-hx, 0.0), (hx, 0.0), (hx - 0.08, 0.6), (-hx + 0.08, 0.6)], -hz, hz, BUNKER))
-    for s in (-1, 1):
-        lo, hi = span(s * (hz - 0.08), s * (hz - 0.2))
-        parts.append(kit.box((-hx * 0.6, h - 1.0, lo), (hx * 0.6, h - 0.75, hi), UNDER))
-        lo, hi = span(s * (hz - 0.1), s * (hz - 0.07))
-        for k in range(5):
-            x = -hx * 0.6 + k * hx * 0.3
-            parts.append(kit.box((x - 0.05, h - 1.02, lo), (x + 0.05, h - 0.73, hi), BUNKER))
-    x = -hx + 0.08
-    parts.append(kit.box((x - 0.04, 0.0, -0.8), (x + 0.02, 2.1, 0.8), BUNKER, 0.02))
-    parts.append(kit.box((x - 0.07, 0.05, -0.65), (x - 0.02, 2.0, 0.65), SITE_STEEL, 0.01))
-    for y in (0.5, 1.5):
-        parts.append(kit.box((x - 0.08, y, -0.62), (x - 0.06, y + 0.12, -0.4), SITE_STEEL))
+    # The battered plinth all round, but for the door's threshold: a step there, down from the reveal's floor.
+    for lo, hi in ((-hz, -dz), (dz, hz)):
+        parts.append(kit.prism([(-hx, 0.0), (hx, 0.0), (hx - 0.08, 0.6), (-hx + 0.08, 0.6)], lo, hi, BUNKER))
+    parts.append(kit.prism([(x0, 0.0), (hx, 0.0), (hx - 0.08, 0.6), (x0, 0.6)], -dz, dz, BUNKER))
+    parts.append(kit.box((-hx, 0.0, -dz), (x0, 0.12, dz), BUNKER, 0.01))
+    # The blast door at the back of the reveal, in a steel frame standing 3 cm proud of it, with two strap hinges.
+    parts.append(kit.box((x0 - 0.05, 0.12, -dz + 0.06), (x0, door_top - 0.06, dz - 0.06), SITE_STEEL, 0.01))
+    for lo, hi in ((-dz, -dz + 0.06), (dz - 0.06, dz)):
+        parts.append(kit.box((x0 - 0.08, 0.12, lo), (x0, door_top, hi), SITE_STEEL))
+    parts.append(kit.box((x0 - 0.08, door_top - 0.06, -dz + 0.06), (x0, door_top, dz - 0.06), SITE_STEEL))
+    for y in (0.5, 1.4):
+        parts.append(kit.box((x0 - 0.07, y, -dz + 0.06), (x0 - 0.05, y + 0.1, -dz + 0.4), SITE_STEEL))
     parts.append(kit.cylinder(0.12, h, h + 0.04, (hx * 0.5, 0, 0), "y", SITE_STEEL, 12))
-    return kit.asset(name, parts)
+    return kit.asset(name, parts, cut=form_cuts(hx, top, hz))
+
+
+def weather(o, top):
+    """Darkens a bunker's concrete where it would be darker: its lift and form joints as lines, each pour a little apart
+    in tone, rain streaks run down from under the slab (`top`), and the desert's dust splashed up its foot. Walls only,
+    and the concrete's alone. It goes in the vertex colour's alpha, which the game multiplies into the finish's colour
+    in full (`map-models.ts`); the baked occlusion in its RGB only darkens part of the sunlight, too little to show."""
+    mesh = o.data
+    ca = mesh.color_attributes["Color"]
+    concrete = [i for i, m in enumerate(mesh.materials) if m and m.name == BUNKER.name]
+    walls = [p for p in mesh.polygons if abs(p.normal.z) < 0.5 and p.material_index in concrete]
+    hx = max(abs(v.co.x) for v in mesh.vertices)
+    hz = max(abs(v.co.y) for v in mesh.vertices)
+    # Which way each vertex's wall looks: an outside face's where it has one, so a hard corner (a post, the slit's ends),
+    # whose vertex normal splits the difference, still belongs to one wall.
+    facing = {}
+    for p in sorted(walls, key=lambda p: abs(p.center.x) >= hx - 0.081 or abs(p.center.y) >= hz - 0.081):
+        for v in p.vertices:
+            facing[v] = p.normal
+
+    def hash1(*k):
+        return (math.sin(sum(a * b for a, b in zip(k, (12.9898, 78.233, 37.719)))) * 43758.5453) % 1.0
+
+    for i, n in facing.items():
+        v = mesh.vertices[i]
+        x, y, z = v.co.x, v.co.z, -v.co.y
+        u, face = (z, 1 + (n.x > 0)) if abs(n.x) > abs(n.y) else (x, 3 + (n.y > 0))  # along the wall, and which wall
+        line = 0.0
+        if y > 0.3 and abs(y - LIFT * round(y / LIFT)) < 0.005:
+            line = 0.45
+        if abs(u - FORM * round(u / FORM)) < 0.005:
+            line = max(line, 0.35)
+        tone = 0.14 * hash1(math.floor(u / FORM), math.floor(y / LIFT), face)
+        # Rain off the slab: streaks a few tens of centimetres wide, each its own length, fading down the wall.
+        streak = max(0.0, noise.noise(Vector((u * 1.7, face * 3.1, 0.5))) * 1.6 - 0.15)
+        length = 0.6 + 1.8 * (0.5 + 0.5 * noise.noise(Vector((u * 0.9, face * 5.3, 2.5))))
+        streak *= max(0.0, 1.0 - (top - y) / length) if y <= top else 0.0
+        dust = max(0.0, 1.0 - y / 0.7) ** 1.5 * (0.7 + 0.3 * noise.noise(Vector((u * 2.3, y * 4.0, face))))
+        shade = max(0.25, 1.0 - line - tone - 0.6 * min(streak, 1.0) - 0.6 * dust)
+        c = ca.data[i].color
+        ca.data[i].color = (c[0], c[1], c[2], shade)
+
+
 
 
 def hangar(name, hx, h, hz):
@@ -948,6 +1056,9 @@ built += [shed(), picnic_table(), boat()] + [mannequin(i) for i in range(len(OUT
 built += [water_tower(), instrument_tower(), bunker("bunker-a", 5, 3, 3.5), bunker("bunker-b", 4, 2.5, 3), hangar("hangar-a", 6, 5, 4), hangar("hangar-b", 5, 4, 5), power_pole(), guard_hut()]
 built += [rock(name, i, *spec) for i, (name, spec) in enumerate(ROCKS.items())] + [scrub(name, i, *spec) for i, (name, spec) in enumerate(SCRUBS.items())]
 kit.bake_ao(built, distance=0.8)
+for o, h in ((o, {"bunker-a": 3, "bunker-b": 2.5}.get(o.name)) for o in built):
+    if h:
+        weather(o, h - 0.4)
 report = {}
 for o in built:
     worst, where = kit.strays(o, SOLIDS[o.name])

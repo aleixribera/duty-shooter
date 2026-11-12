@@ -139,8 +139,9 @@ class Kit:
 
     # ---------------------------------------------------------------- assets
 
-    def asset(self, name, parts, smooth_angle=60.0):
-        """Joins `parts` (their modifiers applied) into one object called `name`, origin at the world origin."""
+    def asset(self, name, parts, smooth_angle=60.0, cut=None):
+        """Joins `parts` (their modifiers applied) into one object called `name`, origin at the world origin. `cut`, if
+        given, gets the joined mesh as a bmesh before its normals are set, to cut in lines its baked shade will draw."""
         for o in parts:
             for m in list(o.modifiers):
                 with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o]):
@@ -151,6 +152,13 @@ class Kit:
         o.name = name
         o.data.name = name
         self.densify(o)
+        if cut:
+            bm = bmesh.new()
+            bm.from_mesh(o.data)
+            cut(bm)
+            bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+            bm.to_mesh(o.data)
+            bm.free()
         # Smooth over bevels and round parts, hard at real corners, flat panels kept flat by face-area weighting.
         o.data.shade_smooth()
         o.data.set_sharp_from_angle(angle=math.radians(smooth_angle))
