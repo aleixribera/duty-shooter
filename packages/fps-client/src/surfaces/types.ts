@@ -41,6 +41,11 @@ export interface Finish {
   /** Glass: how much of what is behind it a pane hides, seen square on (0.14 if unset; more at a slant, where it mirrors the sky). */
   readonly opacity?: number;
   /**
+   * Glass hung with curtains drawn back to each side: the light on them, as a share of the horizon's (more from the
+   * street, where the day falls on them through the glass, than from the room). Baked panes only.
+   */
+  readonly curtains?: number;
+  /**
    * A map model's glass with no room modelled behind it (a vehicle's windows): drawn solid, showing the sky beyond in its
    * colour dimmed by this much, as the light through the windows across the cab or the aisle, under a stronger mirror of
    * the sky than a house pane's (see `vehicleGlassMaterial`). Baked surfaces ignore it.

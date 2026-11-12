@@ -1059,30 +1059,79 @@ function glassMaterial(finish: Finish): NodeMaterial {
   // and only the room behind dims. At a slant it mirrors less than clear glass would, as dark glass does. (A factor
   // varying with the angle, built from the fresnel node, drew the panes pale in WebGPU: kept constant on purpose.)
   const mirror = float((0.7 * 0.14) / square);
-  const m = new SurfaceMaterial(() => new GlassModel(finish, fresnel, mirror as N));
+  const drapes = finish.curtains === undefined ? null : curtains(finish.curtains);
+  const m = new SurfaceMaterial(() => new GlassModel(finish, fresnel, mirror as N, drapes));
   m.transparent = true;
   m.depthWrite = false;
-  m.opacityNode = fresnel.mul(Math.min(0.6, 1 - square)).add(square);
+  const opacity = fresnel.mul(Math.min(0.6, 1 - square)).add(square);
+  // A curtain hides what is beyond it, from either side of the pane alike.
+  m.opacityNode = drapes ? mix(opacity, float(1), drapes.cover) : opacity;
   return m;
+}
+
+/** Curtain fabrics, sRGB: linen, a rust print, slate blue, and an off-white cotton. */
+const FABRICS = [0xb8a483, 0x8a5a44, 0x5f7286, 0xd2cbbb] as const;
+
+/**
+ * A window's curtains, drawn back to each side: how much of the pane they cover here (0..1), and their colour with
+ * `light` of the horizon's on them. Each drape takes 13 to 20% of the pane's width, gathered in at a tie-back a third of
+ * the way up, and hangs in pleats 8 cm apart. Seen from the street, panes with nothing but the room's plain wall behind
+ * them read as flat grey sheets (review 2026-11-12f). Read from the pane's own edges, so it fits any window, and the
+ * same from both faces of the pane, so the drapes hide as much from either side. The windows of a wall share a fabric,
+ * picked from the panes' height, which way the wall faces and a 12 m stretch along it.
+ */
+function curtains(light: number): { cover: N; fabric: N3 } {
+  const e = faceEdges();
+  const p = positionWorld as unknown as N3;
+  const n = normalWorld as unknown as N3;
+  const across = e.x.add(e.y);
+  const side = min(e.x, e.y);
+  const up = e.z.div(max(e.z.add(e.w), float(0.01)));
+  // Rounded to whole cells first: the hash magnifies the least wobble in a value that should hold across the pane.
+  // The pane's middle along the wall (e.x runs from its lower end, on either face), so one pane picks one fabric.
+  const facingX = step(abs(n.z), abs(n.x));
+  const stretch = floor(mix(p.x, p.z, facingX).sub(e.x).add(across.mul(0.5)).div(12));
+  const sill = floor(p.y.sub(e.z).mul(4).add(0.5));
+  const pick = hash(vec2(stretch.add(facingX.mul(57)), sill) as N2);
+  const tie = float(1).sub(smoothstep(float(0.4), float(0), abs(up.sub(0.36))).mul(0.3));
+  const reach = across.mul(pick.mul(0.07).add(0.13)).mul(tie);
+  // A pane whose side runs on into more glass has no end there (edges.ts measures it as FAR): no curtain, not a solid one.
+  const hem = max(fwidth(side), float(0.002));
+  const cover = smoothstep(reach.add(hem), reach.sub(hem), side).mul(step(across, float(10)));
+  // Pleats, crowded where the drape is gathered, each catching the light on one flank.
+  const pleat = sin(side.div(tie).mul((2 * Math.PI) / 0.08).add(sin(up.mul(9)).mul(0.5)));
+  const folds = pleat.mul(0.22).add(0.78).mul(smoothstep(float(0), float(0.06), reach.sub(side)).mul(0.25).add(0.75));
+  const [a, b, c, d] = FABRICS.map((f) => color(f) as unknown as N3);
+  const cloth = mix(mix(a!, b!, step(float(0.25), pick)), mix(c!, d!, step(float(0.75), pick)), step(float(0.5), pick));
+  return { cover: cover as N, fabric: cloth.mul(horizonColor).mul(folds.mul(light)) as N3 };
 }
 
 class GlassModel extends LightingModel {
   readonly #tint: N3;
   readonly #fresnel: N;
   readonly #mirror: N;
+  readonly #square: number;
+  readonly #drapes: { cover: N; fabric: N3 } | null;
 
-  constructor(finish: Finish, fresnel: N, mirror: N) {
+  constructor(finish: Finish, fresnel: N, mirror: N, drapes: { cover: N; fabric: N3 } | null) {
     super();
     this.#tint = color(finish.color) as unknown as N3;
     this.#fresnel = fresnel;
     this.#mirror = mirror;
+    this.#square = finish.opacity ?? 0.14;
+    this.#drapes = drapes;
   }
 
   override finish(builder: NodeBuilder): void {
     const context = builder.context as unknown as { outgoingLight: N3 };
     const view = positionWorldDirection as unknown as N3;
-    const sky = skyNode(reflect(view, normalWorld as unknown as N3) as N3);
-    context.outgoingLight.assign(haze(mix(this.#tint.mul(0.05), sky.mul(this.#mirror), this.#fresnel.mul(0.85).add(0.1)) as N3));
+    const sky = skyNode(reflect(view, normalWorld as unknown as N3) as N3).mul(this.#mirror);
+    const share = this.#fresnel.mul(0.85).add(0.1);
+    const glass = mix(this.#tint.mul(0.05), sky, share) as N3;
+    // Over a curtain the pane is drawn whole, so its mirror is scaled to what blending leaves of it elsewhere.
+    const drapes = this.#drapes;
+    const lit = drapes ? mix(glass, drapes.fabric.add(sky.mul(share).mul(this.#square)), drapes.cover) : glass;
+    context.outgoingLight.assign(haze(lit as N3));
   }
 }
 

@@ -114,9 +114,9 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   trim: { family: 'paint', color: 0xf3efe4 },
   // Window glass. From the street a room is far darker than the day outside, so the pane hides half of it and mirrors
   // the sky at a slant; seen square on, the bright plaster behind clear glass read as a milky sheet (review 2026-11-12d).
-  // From inside, the glass is as clear as before.
-  window: { family: 'glass', color: 0x161d22, opacity: 0.5 },
-  'window.inside': { family: 'glass', color: 0x9fc0cc },
+  // From inside, the glass is as clear as before. Curtains hang drawn back to each side, the same from either face.
+  window: { family: 'glass', color: 0x161d22, opacity: 0.5, curtains: 0.4 },
+  'window.inside': { family: 'glass', color: 0x9fc0cc, curtains: 0.25 },
   soffit: { family: 'paint', color: 0xe6e0d2 },
   shingles: { family: 'shingles', color: 0x6b6058, accent: 0x50473f },
   'roof.flat': { family: 'asphalt', color: 0x5d5853 },
