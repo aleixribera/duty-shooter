@@ -2,15 +2,13 @@
 
 The project-specific half of the iterate skill. Where this file and the skill differ, this file wins; `AGENTS.md` wins over both.
 
-## Truth file
+## Vision
 
-`.scratch/next-level/spec.md` (the owner's direction: "you fight on ground that is about to stop existing"). UI follows `DESIGN.md`; words follow `GLOSSARY.md`. Decisions recorded in tickets' `## Comments` and in `docs/adr/` bind like the spec.
+`.scratch/next-level/spec.md` plays the role of `VISION.md` (the owner's direction: "you fight on ground that is about to stop existing"). UI follows `DESIGN.md`; words follow `GLOSSARY.md`. Decisions recorded in tickets' `## Comments` and in `docs/adr/` bind like the spec.
 
-## Order of work
+## Plan
 
-1. Open tickets in `.scratch/next-level/issues/`, lowest number first, skipping blocked ones (`Blocked by:`) and long-running ones that say what they wait on (19 phases 2-3, 29, 33, 35, 36 later parts: take one of these only when no review ticket is open).
-2. When every ticket filed from the latest review is resolved: run the next **review** (below). It is the scorecard. File its weakest point and its five defects as new tickets (next numbers), each quoting the review, then work them in order.
-3. The arc is done when every row of a review scores 9 or more.
+`PLAN.md` at the repo root, written by the director chat: the order of work and each stage's acceptance check.
 
 **Review.** `node .scratch/next-level/reviews/capture.mjs .scratch/next-level/reviews/<date><letter> 50 http://localhost:5173/` against the dev server, then one reviewer subagent with no browser rates the pictures, the spec, the ticket titles, `DESIGN.md` and, for sound, `packages/fps-client/src/audio/`, in the shape of `reviews/2026-11-12f.md`: the ten-row table (picture, game feel, sound, gameplay depth, content, UI and UX, performance, stability, identity, onboarding and accessibility), the weakest point with a fix under an hour, the five most visible defects with frame and position, and what became of the previous five. Saved as `reviews/<date><letter>.md`; scores can go down.
 
