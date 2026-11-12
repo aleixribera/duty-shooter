@@ -1,0 +1,186 @@
+{
+ "fps": 60,
+ "cards": "cards",
+ "loudness": -14,
+ "shots": [
+  {
+   "clip": "gp-yard2",
+   "from": 2,
+   "to": 4.6,
+   "sfx": "novo",
+   "fadeIn": 0.3
+  },
+  {
+   "clip": "gp-yard2",
+   "from": 4.6,
+   "to": 8.2,
+   "sfx": "novo",
+   "over": "slate-yard",
+   "overIn": 0.25,
+   "overOut": 0.4
+  },
+  {
+   "clip": "gp-yard2",
+   "from": 10.4,
+   "to": 14,
+   "sfx": "novo"
+  },
+  {
+   "clip": "gp-town2",
+   "from": 36,
+   "to": 40,
+   "sfx": "novo",
+   "over": "slate-town",
+   "overIn": 0.25,
+   "overOut": 0.4
+  },
+  {
+   "clip": "gp-station",
+   "from": 5.4,
+   "to": 11.3,
+   "sfx": "novo",
+   "over": "slate-station",
+   "overIn": 0.25,
+   "overOut": 0.4
+  },
+  {
+   "clip": "gp-yard2",
+   "from": 27.6,
+   "to": 31,
+   "sfx": "novo",
+   "tail": 0.5
+  },
+  {
+   "card": "line-test",
+   "seconds": 1.9,
+   "fadeIn": 0.15,
+   "fadeOut": 0.25
+  },
+  {
+   "clip": "gp-finale3",
+   "from": 1.5,
+   "to": 6.4
+  },
+  {
+   "clip": "gp-finale3",
+   "from": 8.2,
+   "to": 10.4
+  },
+  {
+   "clip": "gp-finale2",
+   "from": 41,
+   "to": 44.8
+  },
+  {
+   "clip": "gp-station",
+   "from": 32,
+   "to": 34.2,
+   "sfx": "novo"
+  },
+  {
+   "clip": "gp-yard",
+   "from": 33.4,
+   "to": 36,
+   "sfx": "novo"
+  },
+  {
+   "clip": "gp-finale3",
+   "from": 59.4,
+   "to": 72.5,
+   "fadeOut": 0.6,
+   "tail": 1,
+   "sfx": "novo"
+  },
+  {
+   "card": "line-ends",
+   "seconds": 1.9,
+   "fadeIn": 0.2,
+   "fadeOut": 0.25
+  },
+  {
+   "card": "title",
+   "seconds": 2.4,
+   "fadeIn": 0.2,
+   "fadeOut": 0.3
+  },
+  {
+   "card": "end",
+   "seconds": 4,
+   "fadeIn": 0.25,
+   "fadeOut": 0.6
+  }
+ ],
+ "audio": [
+  {
+   "vo": "liveTdm",
+   "at": 0.25,
+   "gain": 0
+  },
+  {
+   "vo": "t10",
+   "at": 36.45,
+   "gain": 0
+  },
+  {
+   "vo": "five",
+   "at": 38.28,
+   "gain": 0
+  },
+  {
+   "vo": "four",
+   "at": 39.28,
+   "gain": 0
+  },
+  {
+   "vo": "three",
+   "at": 40.28,
+   "gain": 0
+  },
+  {
+   "vo": "two",
+   "at": 41.28,
+   "gain": 0
+  },
+  {
+   "vo": "one",
+   "at": 42.28,
+   "gain": 0
+  },
+  {
+   "file": "../audio/m-lateMatch.wav",
+   "at": 0,
+   "from": 0,
+   "seconds": 25,
+   "gain": 9,
+   "fadeIn": 1,
+   "fadeOut": 1.2
+  },
+  {
+   "file": "../audio/m-lastMinute.wav",
+   "at": 25.48,
+   "from": 0,
+   "seconds": 11,
+   "gain": 2,
+   "fadeIn": 0.02,
+   "fadeOut": 0.3
+  },
+  {
+   "file": "../audio/m-final10.wav",
+   "at": 36.45,
+   "from": 2.5,
+   "seconds": 6.85,
+   "gain": 0,
+   "fadeIn": 0.02,
+   "fadeOut": 0.12
+  },
+  {
+   "file": "../audio/s-matchStart.wav",
+   "at": 54,
+   "from": 0,
+   "seconds": 8.1,
+   "gain": -2,
+   "fadeIn": 0.05,
+   "fadeOut": 1.5
+  }
+ ]
+}
