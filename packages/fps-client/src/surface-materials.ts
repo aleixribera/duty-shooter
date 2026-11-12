@@ -1015,29 +1015,37 @@ function glassMaterial(finish: Finish): NodeMaterial {
   const n = normalWorld as unknown as N3;
   const view = positionWorldDirection as unknown as N3;
   const cos = clamp(dot(n, view.negate()), float(0), float(1));
-  const fresnel = float(0.04).add(float(0.96).mul(pow(float(1).sub(cos), float(5))));
-  const m = new SurfaceMaterial(() => new GlassModel(finish, fresnel as N));
+  const fresnel = float(0.04).add(float(0.96).mul(pow(float(1).sub(cos), float(5)))) as N;
+  const square = finish.opacity ?? 0.14;
+  // Blending scales the pane's own light, mostly the mirrored sky, by its opacity. A pane that hides more of the room
+  // mirrors less per unit, by clear glass's opacity over its own seen square on, so its sky stays as clear glass's
+  // and only the room behind dims. At a slant it mirrors less than clear glass would, as dark glass does. (A factor
+  // varying with the angle, built from the fresnel node, drew the panes pale in WebGPU: kept constant on purpose.)
+  const mirror = float((0.7 * 0.14) / square);
+  const m = new SurfaceMaterial(() => new GlassModel(finish, fresnel, mirror as N));
   m.transparent = true;
   m.depthWrite = false;
-  m.opacityNode = fresnel.mul(0.6).add(0.14);
+  m.opacityNode = fresnel.mul(Math.min(0.6, 1 - square)).add(square);
   return m;
 }
 
 class GlassModel extends LightingModel {
   readonly #tint: N3;
   readonly #fresnel: N;
+  readonly #mirror: N;
 
-  constructor(finish: Finish, fresnel: N) {
+  constructor(finish: Finish, fresnel: N, mirror: N) {
     super();
     this.#tint = color(finish.color) as unknown as N3;
     this.#fresnel = fresnel;
+    this.#mirror = mirror;
   }
 
   override finish(builder: NodeBuilder): void {
     const context = builder.context as unknown as { outgoingLight: N3 };
     const view = positionWorldDirection as unknown as N3;
     const sky = skyNode(reflect(view, normalWorld as unknown as N3) as N3);
-    context.outgoingLight.assign(haze(mix(this.#tint.mul(0.05), sky.mul(0.7), this.#fresnel.mul(0.85).add(0.1)) as N3));
+    context.outgoingLight.assign(haze(mix(this.#tint.mul(0.05), sky.mul(this.#mirror), this.#fresnel.mul(0.85).add(0.1)) as N3));
   }
 }
 

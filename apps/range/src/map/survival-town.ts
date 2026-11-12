@@ -96,6 +96,9 @@ const TOWN_LIGHT: Lighting = {
   skyHorizon: [0.96, 0.78, 0.58],
 };
 
+/** The houses' windows: dark from the street, clear from the room. */
+const WINDOW = { side: 'window', inside: 'window.inside' } as const;
+
 /** The lawn round both houses and the street, and the desert past it. */
 const LAWN = { x0: -27, x1: 21, z0: -53, z1: 53 } as const;
 const DESERT = 0xc9a87c;
@@ -109,6 +112,11 @@ const FINISHES: Readonly<Record<string, Finish>> = {
   'south.shutter': { family: 'louvre', color: 0x8e4a3c },
   'south.shutter.frame': { family: 'paint', color: 0x8e4a3c },
   trim: { family: 'paint', color: 0xf3efe4 },
+  // Window glass. From the street a room is far darker than the day outside, so the pane hides half of it and mirrors
+  // the sky at a slant; seen square on, the bright plaster behind clear glass read as a milky sheet (review 2026-11-12d).
+  // From inside, the glass is as clear as before.
+  window: { family: 'glass', color: 0x161d22, opacity: 0.5 },
+  'window.inside': { family: 'glass', color: 0x9fc0cc },
   soffit: { family: 'paint', color: 0xe6e0d2 },
   shingles: { family: 'shingles', color: 0x6b6058, accent: 0x50473f },
   'roof.flat': { family: 'asphalt', color: 0x5d5853 },
@@ -335,7 +343,7 @@ function buildHouse(side: Side): void {
   const M = HOUSE.main;
   const G = HOUSE.garage;
   const h = OUTER / 2;
-  const glass = (from: number, to: number, bottom = 0.9, top = 2.1): Opening => ({ from, to, bottom, top, pane: 'glass' });
+  const glass = (from: number, to: number, bottom = 0.9, top = 2.1): Opening => ({ from, to, bottom, top, pane: 'glass', paneLook: WINDOW, sash: 'trim' });
   const door = (from: number): Opening => ({ from, to: from + DOOR_W, bottom: 0, top: DOOR_H });
 
   const out = outsideWall(side.palette.siding);

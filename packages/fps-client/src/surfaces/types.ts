@@ -38,6 +38,8 @@ export interface Finish {
   /** How a map model in this finish shines, where it differs from its family's (glass, chrome); baked surfaces ignore these. */
   readonly roughness?: number;
   readonly metalness?: number;
+  /** Glass: how much of what is behind it a pane hides, seen square on (0.14 if unset; more at a slant, where it mirrors the sky). */
+  readonly opacity?: number;
   /**
    * Ground that thins out toward the edge of the patch it covers (a lawn into the desert round it): within `width`
    * metres of the rectangle's edge it gives way to the colour `into`, along a ragged line rather than a ruled one.

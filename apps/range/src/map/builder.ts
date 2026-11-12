@@ -11,6 +11,10 @@ export interface Opening {
   readonly top: number;
   /** A pane filling the opening, e.g. glass: blocks players, bullets pierce it per the penetration table. */
   readonly pane?: Material;
+  /** How the pane looks (else its material's default finish): an `inside` finish for the face looking into a room. */
+  readonly paneLook?: Look | string;
+  /** Sash bars on the pane, in this finish: a stile up each side, a rail across the head and foot, and the meeting rail halfway up where the two sashes of a hung window meet. */
+  readonly sash?: string;
 }
 
 export interface WallSpec {
@@ -236,7 +240,20 @@ export class Builder {
         // A thin pane in the middle of the wall.
         const p = Math.min(0.03, t);
         const [min, max] = span(o.from, o.to, o.bottom, o.top, spec.at - p, spec.at + p);
-        this.add(min, max, o.pane, { look: defaultFinishKey(o.pane) });
+        const pane = this.add(min, max, o.pane, { look: o.paneLook ?? defaultFinishKey(o.pane) });
+        if (o.sash) {
+          // Through the pane and 2 cm proud of each face, so both sides show them.
+          const bar = (a: number, b: number, y0: number, y1: number) => {
+            const [lo, hi] = span(a, b, y0, y1, spec.at - p - 0.02, spec.at + p + 0.02);
+            this.decorateBox(pane, lo, hi, o.sash!);
+          };
+          const middle = (o.bottom + o.top) / 2;
+          bar(o.from, o.from + 0.05, o.bottom, o.top);
+          bar(o.to - 0.05, o.to, o.bottom, o.top);
+          bar(o.from + 0.05, o.to - 0.05, o.top - 0.06, o.top);
+          bar(o.from + 0.05, o.to - 0.05, o.bottom, o.bottom + 0.07);
+          bar(o.from + 0.05, o.to - 0.05, middle - 0.025, middle + 0.025);
+        }
       }
       cursor = o.to;
     }
