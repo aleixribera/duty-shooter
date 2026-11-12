@@ -778,9 +778,19 @@ const GROUND_ZERO: Vec3 = [420, 0, -160];
 const STENCIL_BLACK = 0x2a2623;
 const STENCIL_RED = 0x8e3624;
 
+/** A face's bearing (whole degrees, north is -z) and distance (feet, to the nearest ten) to ground zero. */
+function toGroundZero(x: number, z: number): { bearing: string; feet: string } {
+  const dx = GROUND_ZERO[0] - x;
+  const dz = GROUND_ZERO[2] - z;
+  const bearing = Math.round(((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360);
+  const feet = Math.round((Math.hypot(dx, dz) * 3.2808) / 10) * 10;
+  return { bearing: `GZ ${String(bearing).padStart(3, '0')}°`, feet: `${feet.toLocaleString('en-US')} FT` };
+}
+
 /**
- * Each house marked up as a test structure, in stencil on its street front: its number over the garage door, and beside
- * the upstairs window its bearing and distance to ground zero (north is -z), measured from the middle of its front.
+ * Each house marked up as a test structure, in stencil on the two faces players see most: on the street front, its number
+ * over the garage door and its bearing and distance to ground zero beside the upstairs window; on the back, facing the
+ * spawn behind it, the number large at the west end of the garage's back wall and the survey mark under the deck.
  */
 function buildStencils(sides: readonly Side[]): Stencil[] {
   const M = HOUSE.main;
@@ -788,39 +798,52 @@ function buildStencils(sides: readonly Side[]): Stencil[] {
   const h = OUTER / 2;
   return sides.flatMap((side, i) => {
     const on = FINISHES[side.palette.siding]!.color;
-    // The street front looks toward the street: +z for the north house, -z for the south.
-    const yaw = side.s === -1 ? 0 : Math.PI;
-    const dx = GROUND_ZERO[0] - (M.x0 + M.x1) / 2;
-    const dz = GROUND_ZERO[2] - side.z(M.d0);
-    const bearing = Math.round(((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360);
-    const feet = Math.round((Math.hypot(dx, dz) * 3.2808) / 10) * 10;
-    // Over the garage door: between its frame's head (2.48) and the wall's top trim.
-    const number: Stencil = {
-      center: [(-15.5 + -9.5) / 2, 2.73, side.z(G.d0 - h)],
-      yaw,
-      width: 5,
-      height: 0.4,
-      lines: [{ text: `STRUCTURE ${i + 1}`, size: 0.24 }],
-      ink: STENCIL_BLACK,
-      on,
-      seed: 101 + i,
+    // The street front looks toward the street: +z for the north house, -z for the south; the back the other way.
+    const front = side.s === -1 ? 0 : Math.PI;
+    const back = front + Math.PI;
+    const paint = (center: Vec3, yaw: number, width: number, height: number, lines: Stencil['lines'], ink: number, seed: number): Stencil => ({ center, yaw, width, height, lines, ink, on, seed: seed + i });
+    const survey = (x: number, d: number, size: number): Stencil['lines'] => {
+      const { bearing, feet } = toGroundZero(x, side.z(d));
+      return [
+        { text: bearing, size },
+        { text: feet, size },
+      ];
     };
-    // Left of the upstairs window, clear of the corner board and the window's shutter.
-    const survey: Stencil = {
-      center: [(M.upperX0 + 0.25 + -0.2) / 2, 4.35, side.z(M.d0 - h)],
-      yaw,
-      width: 1.55,
-      height: 1.4,
-      lines: [
-        { text: `GZ ${String(bearing).padStart(3, '0')}°`, size: 0.22 },
-        { text: `${feet.toLocaleString('en-US')} FT`, size: 0.22 },
-      ],
-      ink: STENCIL_RED,
-      on,
-      seed: 201 + i,
-    };
-    return [number, survey];
+    const name = `STRUCTURE ${i + 1}`;
+    // The back door and its frame run from x -4 to DOOR_W + 0.08 past it, and the window's left shutter starts at 0.45: the wall between.
+    const backMark = (-4 + DOOR_W + 0.08 + 0.45) / 2;
+    return [
+      // Over the garage door: between its frame's head (2.48) and the wall's top trim.
+      paint([(-15.5 + -9.5) / 2, 2.73, side.z(G.d0 - h)], front, 5, 0.4, [{ text: name, size: 0.24 }], STENCIL_BLACK, 101),
+      // Left of the upstairs window, clear of the corner board and the window's shutter.
+      paint([(M.upperX0 + 0.25 + -0.2) / 2, 4.35, side.z(M.d0 - h)], front, 1.55, 1.4, survey((M.x0 + M.x1) / 2, M.d0 - h, 0.22), STENCIL_RED, 201),
+      // High on the garage's back wall at its west end, over the air conditioner and clear of the deck stairs in front: the
+      // number large enough to read from the spawn behind the house, 20 m off.
+      paint([-15.2, 2.42, side.z(G.d1 + h)], back, 3.6, 0.8, [{ text: name, size: 0.38 }], STENCIL_BLACK, 301),
+      // Under the deck, between the back door and the window's shutter.
+      paint([backMark, 1.75, side.z(M.d1 + h)], back, 2.9, 1.2, survey(backMark, M.d1 + h, 0.32), STENCIL_RED, 401),
+    ];
   });
+}
+
+/**
+ * The school bus marked as a test vehicle, on both flanks in the band between its rub rails (1.19 to 1.62 m up): from the
+ * rear to short of the curb side's door, so it reads the right way round from either side of the street.
+ */
+function busStencils(): Stencil[] {
+  const face = 1.24;
+  const [cx, cz] = BUS.center;
+  const at = (along: number, s: number): Vec3 => [cx + Math.cos(BUS.yaw) * along + Math.sin(BUS.yaw) * face * s, 1.405, cz - Math.sin(BUS.yaw) * along + Math.cos(BUS.yaw) * face * s];
+  return ([1, -1] as const).map((s, i) => ({
+    center: at(-2.05, s),
+    yaw: s === 1 ? BUS.yaw : BUS.yaw + Math.PI,
+    width: 7.6,
+    height: 0.38,
+    lines: [{ text: 'CIVIL EFFECTS TEST · VEHICLE 14', size: 0.24 }],
+    ink: STENCIL_BLACK,
+    on: FINISHES['bus.paint']!.color,
+    seed: 501 + i,
+  }));
 }
 
 /** Four square legs `size` apart (centre to centre) and `thick` thick, from the ground to `top`, with braces every `brace` m. */
@@ -1396,7 +1419,7 @@ export function buildSurvivalTown(): MapDefinition {
     ramps: [],
     labels,
     populationSign,
-    stencils: buildStencils(sides),
+    stencils: [...buildStencils(sides), ...busStencils()],
     horizon: { ground: 'desert', inner: { x0: -90, x1: 90, z0: -90, z1: 90 }, light: [-80, -80] },
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.
     lighting: TOWN_LIGHT,
