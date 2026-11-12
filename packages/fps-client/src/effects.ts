@@ -611,7 +611,9 @@ export class Effects {
     this.#splats = new DecalLayer(60, splatTexture());
     const casingGeometry = new CylinderGeometry(0.0048, 0.0048, 0.045, 8);
     casingGeometry.rotateZ(Math.PI / 2);
-    this.#casingMesh = new InstancedMesh(casingGeometry, new MeshStandardNodeMaterial({ color: 0xc9a24a, metalness: 1, roughness: 0.32 }), 80);
+    // Brass that stays brass: all metal, a case turned away from the sun reflected only the dim sky and ground and flew
+    // as a black rod (review 2026-11-12d). A little diffuse takes the light round it and a faint warmth keeps it off black.
+    this.#casingMesh = new InstancedMesh(casingGeometry, new MeshStandardNodeMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.36, emissive: 0x4a3510 }), 80);
     this.#casingMesh.count = 0;
     this.#casingMesh.frustumCulled = false;
     this.#casingMesh.castShadow = true;
