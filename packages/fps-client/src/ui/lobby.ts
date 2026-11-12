@@ -1,6 +1,6 @@
 import { LOBBY_MODES, teamMode, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MODE_BLURBS, MODE_NAMES, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
+import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
@@ -22,6 +22,11 @@ const CSS = `
 .ds-lobby .seat.bot { background: rgb(18 22 29 / 0.6); }
 .ds-lobby .seat.bot .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
 .ds-lobby .seat.open { background: transparent; border: 1px dashed var(--ds-line-2); }
+.ds-lobby .seats.teams { grid-auto-flow: row; align-items: start; }
+.ds-lobby .team { display: flex; flex-direction: column; gap: 6px; }
+/* A side's name at heading size with a 4 px bar in its colour and its mark, as on the scoreboard. */
+.ds-lobby .team h3 { margin: 0 0 4px; padding-left: 14px; box-shadow: inset 4px 0 0 currentColor; font-size: var(--ds-type-heading); line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ds-lobby .team.t1 h3 { color: var(--ds-blue); } .ds-lobby .team.t2 h3 { color: var(--ds-orange); }
 .ds-lobby .seat.open .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
 .ds-lobby .note { margin: 14px 0 0; max-width: 64ch; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-lobby .last { margin-top: 40px; }
@@ -251,7 +256,7 @@ export class LobbyPage {
     const bots = seatList.filter((s) => s.bot).length;
     // Offline nobody else can join: no open seats, only the players the match has.
     const shown = offline ? seatList.filter((s) => s.bot || s.id !== null) : seatList;
-    const seats = shown
+    const seatHtml = (list: readonly (typeof shown)[number][]) => list
       .map((s) => {
         if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Bot</span></span></div>`;
         if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Open seat</span></span></div>`;
@@ -261,8 +266,17 @@ export class LobbyPage {
         return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">${escapeHtml(s.name)}</span>${role ? `<span class="role">${role}</span>` : ''}</span>${ping}</div>`;
       })
       .join('');
-    // Rows fill the left column first, then the right.
+    // Rows fill the left column first, then the right. A Bot Match in a team mode shows its two sides instead: who you play with, and against.
     const rows = Math.ceil(Math.max(offline ? shown.length : l.capacity, 1) / 2);
+    const sided = offline && teamMode(l.mode);
+    // A side with no one on it (a map with no bots) gets no heading.
+    const side = (team: 1 | 2, list: readonly (typeof shown)[number][]) => list.length === 0 ? '' : `<div class="team t${team}"><h3>${TEAMS[team]!.mark} ${TEAMS[team]!.name}</h3>${seatHtml(list)}</div>`;
+    const seatsBlock = sided
+      ? (() => {
+          const [blue, orange] = botMatchSides(shown, l.hvb);
+          return `<div class="seats teams">${side(1, blue)}${side(2, orange)}</div>`;
+        })()
+      : `<div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seatHtml(shown)}</div>`;
     const last = lastMatch(v.result, v.mode, v.teamScores);
     const lastHtml = last
       ? `<section class="last"><h2 class="ds-h2">Last match</h2><div class="result"><b>${escapeHtml(last.headline)}</b><span>${escapeHtml(last.detail)}</span></div></section>`
@@ -321,14 +335,15 @@ export class LobbyPage {
     // Offline there is no connection to speak of: the roster says who plays.
     const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? '' : underway ? 'The match has started: join it now' : host ? 'You are the host: the picks and Start are yours' : hostName ? `${escapeHtml(hostName)} is the host and picks the match` : 'Waiting for a host';
     const state = reconnecting ? 'busy' : offline || host || underway ? 'up' : 'wait';
-    const fill = offline && hvb ? `You on Blue against ${bots} bots on Orange.` : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}.` : lobbyFill(l);
+    // With the sides headed, a line saying who is on which side only repeats them.
+    const fill = sided ? '' : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}.` : lobbyFill(l);
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
 
     return `<div class="ds-page">
 <header><div class="heading"><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
 <div class="aside">${who ? `<span class="ds-state ${state}" role="status">${who}</span>` : ''}</div></header>
 <div class="body">
-<section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2><div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seats}</div><p class="note">${escapeHtml(fill)}</p>${lastHtml}</section>
+<section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2>${seatsBlock}${fill ? `<p class="note">${escapeHtml(fill)}</p>` : ''}${lastHtml}</section>
 <aside class="match">
 <h2 class="ds-h2" style="margin:0">Match${underway ? ' <small>Under way</small>' : ''}</h2>
 <div class="maps${picking ? '' : ' locked'}">${maps}</div>

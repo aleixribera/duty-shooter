@@ -312,6 +312,19 @@ export function lobbySeats(lobby: LobbyState, selfId: PlayerId | null, names: Re
 }
 
 /**
+ * A Bot Match's seats as the two sides they will play on: the people on Blue, then the bots. Humans vs bots puts
+ * every bot on Orange; mixed teams fill Blue to its half (the larger, on an odd count) and give Orange the rest, as the
+ * roster does when the people join first and the bots after.
+ */
+export function botMatchSides(seats: readonly LobbySeat[], hvb: boolean): readonly [readonly LobbySeat[], readonly LobbySeat[]] {
+  const people = seats.filter((s) => !s.bot);
+  const bots = seats.filter((s) => s.bot);
+  const blue = hvb ? people.length : Math.max(people.length, Math.ceil(seats.length / 2));
+  const ours = bots.slice(0, Math.max(0, blue - people.length));
+  return [[...people, ...ours], bots.slice(ours.length)];
+}
+
+/**
  * The last match, as the lobby recalls it: "Blue won 75 to 60", "Ada won", "Draw", with how it ended. Null before the first.
  * A Battle Royale has no draw: one with no winner (no person left) gives your place in it, `place`, when you played it.
  */
