@@ -329,6 +329,27 @@ export class KindView {
     }
   }
 
+  /** Its meshes that cast a shadow on show for the warm-up frame (see `PlantsView.showCasters`). Returns what puts them back. */
+  showCasters(): () => void {
+    const restore: (() => void)[] = [];
+    for (const mesh of [this.near.mesh, this.lod?.mesh]) {
+      if (!mesh?.castShadow) continue;
+      const { visible, frustumCulled, count } = mesh;
+      restore.push(() => {
+        mesh.visible = visible;
+        mesh.frustumCulled = frustumCulled;
+        mesh.count = count;
+      });
+      mesh.visible = true;
+      mesh.frustumCulled = false;
+      // An empty mesh's first slot holds a stale plant, or the one placeholder every level starts with: drawn once, behind the loading screen.
+      mesh.count = Math.max(1, count);
+    }
+    return () => {
+      for (const put of restore) put();
+    };
+  }
+
   static key(x: number, z: number): number {
     return (Math.floor(x / TILE) + 1024) * 4096 + Math.floor(z / TILE) + 1024;
   }
@@ -441,6 +462,20 @@ export class PlantsView {
     // In half-octave steps (1, 1.4, 2, 2.8, 4 ...): a scope's zoom eases in, and every step is a refill.
     const z = zoom <= 1 ? 1 : 2 ** (Math.round(Math.log2(zoom) * 2) / 2);
     this.#zoom = z;
+  }
+
+  /**
+   * For the warm-up frame: every mesh that casts a shadow on show, with culling
+   * off and at least one plant. An instanced mesh's shaders are its own, and a
+   * compile builds only the main picture's; drawn here, each kind's shadow
+   * shader is built behind the loading screen, not as that kind first casts a
+   * shadow in play. Returns what puts them back.
+   */
+  showCasters(): () => void {
+    const restore = this.#kinds.map((k) => k.showCasters());
+    return () => {
+      for (const put of restore) put();
+    };
   }
 
   /** How many plants each level draws now, for `?stats`. */

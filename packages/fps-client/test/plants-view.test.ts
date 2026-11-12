@@ -61,6 +61,27 @@ describe('plants view', () => {
   });
 });
 
+describe('plants view: warm-up', () => {
+  it('puts every mesh that casts a shadow on show, culling off, for the warm-up frame, and back after', () => {
+    const k = view(bushes(row(30, 10)));
+    k.fill(1000, 0, 0);
+    expect(k.near.mesh.visible).toBe(false);
+    const restore = k.showCasters();
+    // The full model casts a shadow and gets one plant at least; the cheap one casts none and is left alone.
+    expect([k.near.mesh.visible, k.near.mesh.frustumCulled, k.near.mesh.count]).toEqual([true, false, 1]);
+    expect(k.lod!.mesh.visible).toBe(false);
+    restore();
+    expect([k.near.mesh.visible, k.near.mesh.frustumCulled, k.near.mesh.count]).toEqual([false, true, 0]);
+  });
+
+  it('leaves a kind that casts no shadow alone', () => {
+    const k = view({ ...bushes(row(30, 10)), thin: true });
+    k.fill(1000, 0, 0);
+    k.showCasters();
+    expect(k.near.mesh.visible).toBe(false);
+  });
+});
+
 describe('plants view: buffers', () => {
   it('keeps even a rare kind past the uniform-buffer size, so its matrices upload only on a refill', () => {
     const k = view(bushes(row(5, 10)));

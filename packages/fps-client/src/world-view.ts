@@ -648,6 +648,11 @@ export class WorldView {
     if (this.#plantsAt) this.#plants?.update(this.#plantsAt);
   }
 
+  /** For the warm-up frame: every plant that casts a shadow on show (see `PlantsView.showCasters`). Returns what puts them back. */
+  showPlants(): () => void {
+    return this.#plants?.showCasters() ?? (() => undefined);
+  }
+
   /** Redraws the shadow map on the next frame, whatever its refresh rate. */
   redrawShadow(): void {
     this.#sun.shadow.needsUpdate = true;

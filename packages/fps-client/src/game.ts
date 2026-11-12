@@ -564,8 +564,10 @@ export class Game {
 
   /**
    * Puts on show, for the warm-up frame, everything a match draws later: every
-   * weapon, soldier, effect and the muzzle flashes, with the shadow map
-   * redrawn so their shadow shaders compile too. Returns what puts them back.
+   * weapon, soldier, effect, the muzzle flashes and every plant that casts a
+   * shadow, with the shadow map redrawn so their shadow shaders compile too.
+   * After the plants' refill for the frame, which would undo theirs. Returns
+   * what puts them back.
    */
   #showSamples(): (() => void)[] {
     const flashes = [this.#viewFlash, this.#worldFlashes[0]!];
@@ -576,8 +578,11 @@ export class Game {
       this.#players.showSamples(this.#camera.camera),
       this.#arsenal.showSamples(this.#camera.camera),
       this.#effects.showSamples(),
+      this.#worldView.showPlants(),
       () => {
         for (const f of flashes) f.visible = false;
+        // The shadows of what was on show go with it: the next frame draws the map's own.
+        this.#worldView.redrawShadow();
       },
     ];
   }
@@ -908,8 +913,8 @@ export class Game {
     this.#updateHud(dt, eye, forward);
     if (render && !this.#holding) {
       const warm = this.#warmUp;
-      const restore = warm ? this.#showSamples() : [];
       this.#worldView.frame();
+      const restore = warm ? this.#showSamples() : [];
       this.#worldView.lightMoving();
       this.#pipeline.render();
       for (const put of restore) put();
