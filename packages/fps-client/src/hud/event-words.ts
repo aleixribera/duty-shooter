@@ -64,7 +64,10 @@ export const WORDY: ReadonlySet<PresentedEvent['type']> = new Set<PresentedEvent
 export function eventWords(e: PresentedEvent, ctx: EventWordsContext): EventWords {
   const selfId = ctx.selfId;
   const teamOf = (id: PlayerId | null) => ctx.scores.find((s) => s.id === id)?.team;
-  const isBot = (id: PlayerId | null) => ctx.scores.some((s) => s.id === id && s.bot);
+  // A bot is marked where it tells someone apart from people: in a match of you and bots alone (a Bot Match) every other
+  // name is one, and the word only repeated down the feed.
+  const others = ctx.scores.some((s) => s.id !== selfId && !s.bot);
+  const isBot = (id: PlayerId | null) => others && ctx.scores.some((s) => s.id === id && s.bot);
   switch (e.type) {
     case 'kill': {
       // Offline, the kill itself is the feed; online the server sends a killFeed event.

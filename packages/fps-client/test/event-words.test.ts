@@ -44,6 +44,14 @@ describe('what an event tells the player', () => {
     expect(self.killer).toBeNull();
   });
 
+  it('leaves bots unmarked in the kill feed when everyone but you is one (a Bot Match)', () => {
+    const row = (scores: Score[]) =>
+      eventWords(ev({ type: 'killFeed', killer: 'foe', killerName: 'Foe', victim: 'mate', victimName: 'Mate', headshot: false, cause: 'bullet', weapon: 'smg' }), ctx({ scores })).kill!;
+    expect(row([score('me', 1), score('mate', 1, true), score('foe', 2, true)]).bots).toEqual({ killer: false, victim: false });
+    // One other person in the match and the word says something again.
+    expect(row([score('me', 1), score('mate', 1, true), score('foe', 2, true), score('pal', 2)]).bots).toEqual({ killer: true, victim: true });
+  });
+
   it('tells only your own side who was revived', () => {
     expect(eventWords(ev({ type: 'revive', reviver: 'me', target: 'mate' }), ctx()).feed).toMatchObject({ team: 1, mine: true });
     expect(eventWords(ev({ type: 'revive', reviver: 'foe', target: 'foe' }), ctx())).toEqual({});
