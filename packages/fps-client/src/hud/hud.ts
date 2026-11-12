@@ -35,7 +35,7 @@ const CSS = `
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, var(--ds-blood) 100%); opacity: 0; }
 /* A plate is one flat surface over the world: no outline, no rounding. */
 .ds-plate { background: var(--ds-plate); border: 0; border-radius: 0; text-shadow: none; }
-.ds-ammo { position: absolute; right: 0; bottom: 0; min-width: 300px; padding: 0 calc(var(--ds-gutter) + var(--ds-safe-r)) calc(26px + var(--ds-safe-b)) 60px; text-align: right; background: linear-gradient(0deg, var(--ds-scrim-soft), var(--ds-scrim-thin) 70%, transparent); }
+.ds-ammo { position: absolute; right: 0; bottom: 0; min-width: 300px; padding: 0 calc(var(--ds-gutter) + var(--ds-safe-r)) calc(26px + var(--ds-safe-b)) 60px; text-align: right; isolation: isolate; }
 .ds-ammo .mag { font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: var(--ds-type-heading); color: var(--ds-text-2); margin-left: 8px; }
@@ -59,7 +59,11 @@ const CSS = `
 .ds-ammo .bar { width: 220px; margin-left: auto; }
 .ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; width: 100%; background: var(--ds-text); transform-origin: 0 50%; transition: transform 120ms linear; }
 .ds-ammo .mag.low ~ .bar i { background: var(--ds-alert); }
-.ds-health { position: absolute; left: 0; bottom: 0; min-width: 300px; padding: 0 60px calc(26px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); background: linear-gradient(0deg, var(--ds-scrim-soft), var(--ds-scrim-thin) 70%, transparent); }
+.ds-health { position: absolute; left: 0; bottom: 0; min-width: 300px; padding: 0 60px calc(26px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); isolation: isolate; }
+/* The plates' scrim: up from the bottom edge, and fading out toward the middle of the screen too, so it has no inner edge (review 2026-11-12d). */
+.ds-health::before, .ds-ammo::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(0deg, var(--ds-scrim-soft), var(--ds-scrim-thin) 70%, transparent); }
+.ds-health::before { -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent); mask-image: linear-gradient(90deg, #000 45%, transparent); }
+.ds-ammo::before { -webkit-mask-image: linear-gradient(270deg, #000 45%, transparent); mask-image: linear-gradient(270deg, #000 45%, transparent); }
 .ds-health .ds-label { color: var(--ds-text); }
 .ds-health.low .ds-label { color: var(--ds-alert); }
 .ds-health .bar { width: 236px; }
