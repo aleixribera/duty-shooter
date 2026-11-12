@@ -80,6 +80,17 @@ describe('first-match hints', () => {
     expect(r.current).toBeNull();
   });
 
+  it('the swap is offered only while the magazine is short, not over a full one at the end of a reload', () => {
+    const reloading = { ...idle, magazine: 0.4, reloading: true };
+    let r = run(hintState(knows('move', 'aim', 'sprint', 'reload')), reloading, HINT_REST + 0.2);
+    expect(r.current).toBe('swap');
+    // The magazine goes in partway through; the reload runs on, and the hint steps aside.
+    r = stepHints(r, { ...reloading, magazine: 1 }, 0.1);
+    expect(r.current).toBeNull();
+    // Nor is it put up over the full magazine for the rest of the reload.
+    expect(run(r, { ...reloading, magazine: 1 }, HINT_REST + 1).current).toBeNull();
+  });
+
   it('the grenade waits until the fight is a while old, and for a grenade to throw', () => {
     const start = hintState(knows('move', 'aim', 'sprint'));
     expect(run(start, idle, GRENADE_AFTER - 2).current).toBeNull();

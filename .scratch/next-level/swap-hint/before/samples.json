@@ -1,0 +1,272 @@
+[
+ {
+  "t": 0,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 100,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 200,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 300,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 400,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 500,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 600,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "0",
+  "action": "reload"
+ },
+ {
+  "t": 700,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 800,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 900,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 1000,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 1100,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 1200,
+  "hint": "QSwap to your other weapon: faster than a reload",
+  "mag": "30",
+  "action": "reload"
+ },
+ {
+  "t": 1300,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1400,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1500,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1600,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1700,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1800,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 1900,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2000,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2100,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2200,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2300,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2400,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2500,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2600,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2700,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2800,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 2900,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3000,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3100,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3200,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3300,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3400,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3500,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3600,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3700,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3800,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 3900,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 4000,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 4100,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 4200,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 4300,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ },
+ {
+  "t": 4400,
+  "hint": null,
+  "mag": "30",
+  "action": "ready"
+ }
+]

@@ -124,8 +124,9 @@ function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintI
     case 'reload':
       return f.fighting && f.magazine <= RELOAD_AT && !f.reloading;
     case 'swap':
-      // A reload under way is when the other weapon is the faster answer.
-      return f.fighting && f.reloading && done.has('reload');
+      // A reload under way is when the other weapon is the faster answer: until the rounds are in. A magazine goes in
+      // partway through the reload, and the hint stood over a full one for the rest of it (review 2026-11-12e).
+      return f.fighting && f.reloading && f.magazine < 1 && done.has('reload');
     case 'move':
       return f.fighting;
     case 'fire':
