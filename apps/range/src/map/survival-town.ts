@@ -339,6 +339,50 @@ const HOUSE = {
   roof: { mainPeak: 7.0, denHigh: 4.0, garagePeak: 4.5, eave: 0.4 },
 } as const;
 
+/**
+ * A deck's balustrade 1 m tall, across from `at` to `at` + 8 cm (an x for a
+ * run along d, a distance for a run along x), along from `from` to `to`:
+ * posts at the ends and at most 1.6 m apart, a top and a bottom rail, and
+ * square spindles about 15 cm apart in each bay between the posts. The posts and rails stop players
+ * and shots; the spindles stop shots only, and a hidden player clip closes
+ * the gaps between them, so the deck's edge holds a player as the board wall
+ * did while a shot or a look between the spindles goes through. Without a
+ * `last` post the rails stop at the post of the run it meets at `to`.
+ */
+function balustrade(side: Side, along: 'x' | 'd', at: number, from: number, to: number, last = true): void {
+  const T = 0.08;
+  const top = UPPER_FLOOR + 1;
+  const piece = (a0: number, y0: number, a1: number, y1: number, inset: number, blocks?: 'bullets'): void => {
+    const [c0, c1] = [at + inset, at + T - inset];
+    const [x0, d0, x1, d1] = along === 'x' ? [a0, c0, a1, c1] : [c0, a0, c1, a1];
+    side.b.add([x0, y0, side.z(d0)], [x1, y1, side.z(d1)], 'wood', blocks ? { blocks } : {});
+  };
+  side.paint('trim', () => {
+    const posts = Math.ceil((to - from) / 1.6 - 1e-9);
+    const P = 0.1;
+    // Where each post starts; without a last post the last bay runs to `to`.
+    const at0 = Array.from({ length: posts + 1 }, (_, i) => Math.min(to - P, Math.max(from, from + ((to - from) * i) / posts - P / 2)));
+    for (const a of last ? at0 : at0.slice(0, -1)) piece(a, UPPER_FLOOR, a + P, top + 0.04, -0.01);
+    // The rails' ends stop inside the end posts, clear of their faces.
+    const end = last ? to - 0.02 : to - 0.01;
+    piece(from + 0.02, top - 0.06, end, top, -0.005);
+    piece(from + 0.02, UPPER_FLOOR + 0.06, end, UPPER_FLOOR + 0.12, 0.015);
+    const S = 0.04;
+    for (let i = 0; i < posts; i++) {
+      const b0 = at0[i]! + P;
+      const b1 = i === posts - 1 && !last ? to : at0[i + 1]!;
+      const n = Math.round((b1 - b0) / 0.15);
+      for (let j = 1; j < n; j++) {
+        const a = b0 + ((b1 - b0) * j) / n;
+        piece(a - S / 2, UPPER_FLOOR + 0.12, a + S / 2, top - 0.06, 0.02, 'bullets');
+      }
+    }
+  });
+  const [x0, d0, x1, d1] = along === 'x' ? [from, at, to, at + T] : [at, from, at + T, to];
+  const [z0, z1] = [side.z(d0), side.z(d1)].sort((p, q) => p - q) as [number, number];
+  side.b.hidden.push(yawBox({ center: [(x0 + x1) / 2, UPPER_FLOOR + 0.5, (z0 + z1) / 2], size: [x1 - x0, 1, z1 - z0], yaw: 0, material: 'wood', blocks: 'players' }));
+}
+
 function buildHouse(side: Side): void {
   const { b } = side;
   const M = HOUSE.main;
@@ -471,11 +515,10 @@ function buildHouse(side: Side): void {
   side.paint('trim', () => {
     for (const x of [D.x0, -2.6, D.x1 - 0.15]) side.box(x, 0, D.d1 - 0.15, x + 0.15, slab, D.d1, 'wood');
   });
-  side.paint({ side: 'fence', top: 'trim', edge: 'trim' }, () => {
-    side.box(D.x0, UPPER_FLOOR, D.d1 - 0.08, D.x1, UPPER_FLOOR + 1, D.d1, 'wood');
-    side.box(D.x1 - 0.08, UPPER_FLOOR, deckD0, D.x1, UPPER_FLOOR + 1, D.d1 - 0.08, 'wood');
-    side.box(D.x0, UPPER_FLOOR, deckD0, D.x0 + 0.08, UPPER_FLOOR + 1, D.d1 - 1.4, 'wood');
-  });
+  // An open balustrade round the deck: a solid board wall there read as a slab from the yard (review 2026-11-12f).
+  balustrade(side, 'x', D.d1 - 0.08, D.x0, D.x1 + 0.01);
+  balustrade(side, 'd', D.x1 - 0.08, deckD0, D.d1 - 0.08, false);
+  balustrade(side, 'd', D.x0, deckD0, D.d1 - 1.4);
   const [sz0, sz1] = [side.z(D.d1 - 1.4), side.z(D.d1)].sort((p, q) => p - q) as [number, number];
   // An open timber flight in the deck's boards: boxed in to the ground it read as a dark sawtooth slab across the yard (review 2026-11-12d).
   side.paint('deck', () => b.openStairs({ along: 'x', from: D.stairsX0, to: D.x0, across: [sz0, sz1], bottom: 0, top: UPPER_FLOOR, material: 'wood', rail: 'trim' }));
