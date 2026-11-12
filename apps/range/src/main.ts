@@ -1,12 +1,17 @@
-import { BenchmarkPage, FramePacer, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyInfo, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, PreparationPage, ProfileStore, RoyalePage, preparationChampion, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyView, type PreparationView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
-import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
-import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, connectPort, createWorld, teamMode, type Connection, type LobbyPick, type LobbyState, type ModeId, type NavGraph, type Solid, type SpawnPoint } from '@duty-shooter/fps-core';
+import type { FromLocalRoyale } from './local-royale';
+import { createWorld, teamMode, type LobbyPick, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
-import { Benchmark, CameraPath, benchLine, type BenchReport } from './bench';
+import { CameraPath } from './bench';
+import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
+import { BotSetup } from './bot-setup';
+import { ROYALE_STATUS, SEAT_KEY, findLobby, hasSeat, lobbyStatus } from './lobby-status';
+import { startLocalBots } from './local-bots';
+import { MapStore } from './map-store';
 import { LoadReport } from './load-report';
-import { MATCH_MAPS, TEAM_SIZES, asMapId, buildMapById, mapEntry, mapConcealment, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { asMapId, mapEntry, mapConcealment, type MapDefinition, type MapId } from './map/maps';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#view');
 const status = document.querySelector<HTMLElement>('#status');
@@ -46,48 +51,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The release this page belongs to (`git describe`, set by the build), shown on the main menu.
   const version = import.meta.env.VITE_VERSION ?? 'dev';
 
-  /** A map's definition and collision, built once each, and how far its baked lighting has downloaded. */
-  const loaded = new Map<MapId, { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean }>();
-  const load = (id: MapId) => {
-    let entry = loaded.get(id);
-    if (!entry) {
-      const map = buildMapById(id);
-      const e: { map: MapDefinition; solids: Solid[]; bake: Promise<BakeFile | null>; progress: number | null; ready: boolean } = { map, solids: mapSolids(map), bake: Promise.resolve(null), progress: null, ready: false };
-      // Ground isn't baked yet (ticket 10), so a map on terrain has no file to ask for.
-      e.bake = map.terrain ? Promise.resolve(null) : engine!.loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
-      // For the screenshot scripts: whether this map's lighting is in.
-      void e.bake.then((file) => {
-        e.ready = true;
-        document.body.dataset['bake'] = file ? 'ready' : 'none';
-      });
-      entry = e;
-      loaded.set(id, entry);
-    }
-    return entry;
-  };
-  /** Each map's bot routes, from a worker; null if it could not, and the match builds them. */
-  const routes = new Map<MapId, Promise<NavGraph | null>>();
-  const routesOf = (id: MapId) => {
-    let found = routes.get(id);
-    if (!found) {
-      found = new Promise((done) => {
-        try {
-          const worker = new Worker(new URL('./map/routes-worker.ts', import.meta.url), { type: 'module' });
-          const finish = (graph: NavGraph | null) => {
-            worker.terminate();
-            done(graph);
-          };
-          worker.onmessage = (e: MessageEvent<NavGraph | null>) => finish(e.data);
-          worker.onerror = () => finish(null);
-          worker.postMessage(id);
-        } catch {
-          done(null);
-        }
-      });
-      routes.set(id, found);
-    }
-    return found;
-  };
+  /** The page's maps, each built once, and their bot routes. */
+  const mapStore = new MapStore((url, progress) => engine!.loadBake(url, progress));
+  const load = (id: MapId) => mapStore.load(id);
+  const routesOf = (id: MapId) => mapStore.routes(id);
   /** Shows the loading screen until the map's lighting is in (at once if it already is). */
   const whenLoaded = async (id: MapId) => {
     const entry = load(id);
@@ -208,7 +175,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     void spare.prepare(restMoment, breath);
   };
   let lobby: Lobby | null = null;
-  const lobbyDiscovery = findLobby();
+  const lobbyDiscovery = findLobby(!import.meta.env.DEV || params.has('online'));
   // An invite link (`#join=<passphrase>`): the passphrase into the join form, and out of the address bar.
   const invited = new URLSearchParams(location.hash.slice(1)).get('join');
   if (invited !== null) {
@@ -323,7 +290,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       refreshLobby: async () => {
         // A server that was down when the page opened is looked for again (Play Online, Check again).
         if (lobby === null) {
-          const found = await findLobby();
+          const found = await findLobby(!import.meta.env.DEV || params.has('online'));
           if (found) {
             lobby = found;
             menu.setLobby(found);
@@ -377,7 +344,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
             // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
             if (game.driver) game.setDriver(null);
             leaveLobby();
-            void playBots(asMapId(botSetup.map) ?? 'survival-town', botSetup.mode, botSetup.bots, botSetup.hvb && teamMode(botSetup.mode));
+            void playBots(botSetup.mapId, botSetup.state.mode, botSetup.state.bots, botSetup.state.hvb && teamMode(botSetup.state.mode));
           });
           return;
         }
@@ -390,7 +357,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       settings: () => menu.lobbySettings(),
       leave: () => leaveGame(),
     },
-    { map: (id) => ({ id, name: loaded.get(id as MapId)?.map.name ?? mapName(id), image: mapEntry(id)?.picture ? `maps/${id}.jpg` : null }) },
+    { map: (id) => ({ id, name: mapStore.peek(id as MapId)?.map.name ?? mapName(id), image: mapEntry(id)?.picture ? `maps/${id}.jpg` : null }) },
   );
   /**
    * The Battle Royale screen: before joining, the server's state and the
@@ -433,40 +400,20 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Local bots' worker's last word on its ticks, for the scripts that measure it. */
   let localStats: FromLocalRoyale | null = null;
-  /** Starts Local bots' worker: the island's server, ready once it has built the island and its nav. */
-  const startLocalBots = () =>
-    new Promise<{ readonly connection: Connection; readonly stop: () => void }>((done, fail) => {
-      const worker = new Worker(new URL('./royale-worker.ts', import.meta.url), { type: 'module', name: 'local-bots' });
-      const stop = () => worker.terminate();
-      let connection: Connection | null = null;
-      worker.addEventListener('message', (e: MessageEvent<FromLocalRoyale | { readonly k: string }>) => {
-        const m = e.data;
-        if (!('t' in m)) return;
-        if (m.t === 'ready') {
-          connection = connectPort(worker);
-          done({ connection, stop });
-        } else if (m.t === 'stats') {
-          localStats = m;
-          // For the scripts that measure a production build, which has no `duty` hooks.
-          document.body.dataset['localBots'] = JSON.stringify(m);
-        } else {
-          stop();
-          fail(new Error(m.reason));
-        }
-      });
-      worker.addEventListener('error', (e) => {
-        stop();
-        // Mid-match, the game hears the server is gone rather than waiting on silence.
-        if (connection) connection.close('The bots stopped on this machine.');
-        else fail(new Error(e.message || 'the worker failed to load'));
-      });
-      // `?seed=<n>`: every Local bots match on the same spawns and circles, for measurements that compare.
-      const seed = Number(params.get('seed'));
-      worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href, ...(params.has('seed') && Number.isFinite(seed) ? { seed } : {}) } satisfies ToLocalRoyale);
-    });
+  // `?seed=<n>`: every Local bots match on the same spawns and circles, for measurements that compare.
+  const seed = Number(params.get('seed'));
+  const startLocal = () =>
+    startLocalBots(
+      (m) => {
+        localStats = m;
+        // For the scripts that measure a production build, which has no `duty` hooks.
+        document.body.dataset['localBots'] = JSON.stringify(m);
+      },
+      params.has('seed') && Number.isFinite(seed) ? seed : undefined,
+    );
   /** Local bots: the worker starts while the island builds here, then this page joins its lobby as its host. */
   const joinLocalRoyale = async (attempt: number, name: string) => {
-    const bots = startLocalBots();
+    const bots = startLocal();
     const abandon = () => void bots.then((link) => link.stop(), () => undefined);
     await engineReady;
     if (attempt !== joinAttempt) return abandon();
@@ -688,62 +635,37 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     e.preventDefault();
     menu.show('pause');
   });
-  /**
-   * Bot Match's setup is the lobby page offline: you alone, the bots the
-   * match brings, and your picks, kept between visits. Opening it starts the
-   * picked map's lighting downloading, so Start rarely waits. The bots fill
-   * to the map's team size for the mode, or a size of your own (the hidden
-   * + and - keys) until the map or mode changes.
-   */
-  const teamSize = (map: string, mode: ModeId) => Math.min(MAX_BOTS_PER_TEAM, TEAM_SIZES[asMapId(map) ?? 'survival-town'][mode] ?? 3);
-  const initialBotMap = MATCH_MAPS[0]!;
-  let botSetup: LobbyState = { host: 'you', players: ['you'], capacity: DEFAULT_MAX_PLAYERS, mode: 'tdm', bots: teamSize(initialBotMap, 'tdm'), custom: false, maxBots: MAX_BOTS_PER_TEAM, hvb: false, maps: MATCH_MAPS, map: initialBotMap, squadSize: 1, squads: {} };
+  /** Bot Match's setup (`BotSetup`). Opening it starts the picked map's lighting downloading, so Start rarely waits. */
+  const botSetup = new BotSetup();
   let botLobbyOpen = false;
-  /** The Bot Match just played, shown on the setup page as the online lobby shows its last match. */
-  let botLast: Pick<LobbyView, 'mode' | 'result' | 'teamScores'> | null = null;
-  const botView = (): LobbyView => ({
-    lobby: botSetup,
-    phase: 'lobby',
-    selfId: 'you',
-    names: { you: settings.name.trim() || 'You' },
-    pings: {},
-    mode: botLast?.mode ?? botSetup.mode,
-    result: botLast?.result ?? null,
-    teamScores: botLast?.teamScores ?? null,
-    loading: null,
-    offline: true,
-  });
+  const botView = () => botSetup.view(settings.name);
   let settling: ReturnType<typeof setTimeout> | undefined;
   /** The picked map gets ready behind the page once the picks settle, so that Start has nothing left to wait for. */
   const followPick = () => {
     clearTimeout(settling);
     settling = setTimeout(() => {
       whenUp(() => {
-        const id = asMapId(botSetup.map) ?? 'survival-town';
+        const id = botSetup.mapId;
         void load(id).bake.then(() => {
-          if (botLobbyOpen && !game.driver && id === asMapId(botSetup.map)) useMap(id);
+          if (botLobbyOpen && !game.driver && id === asMapId(botSetup.state.map)) useMap(id);
         });
       });
     }, 350);
   };
   const openBotLobby = () => {
-    botLast = null;
+    botSetup.last = null;
     botLobbyOpen = true;
     menu.hide();
     lobbyPage.invite = null;
     lobbyPage.show(botView());
     followPick();
-    void routesOf(asMapId(botSetup.map) ?? 'survival-town');
+    void routesOf(botSetup.mapId);
   };
   const pickBots = (picks: LobbyPick) => {
-    const { fill: _fill, bots, squads: _squads, ...rest } = picks;
-    const next = { ...botSetup, ...rest };
-    // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
-    const custom = bots !== undefined || (botSetup.custom && picks.fill === undefined && next.map === botSetup.map && next.mode === botSetup.mode);
-    botSetup = { ...next, custom, bots: custom ? Math.max(1, Math.min(MAX_BOTS_PER_TEAM, bots ?? botSetup.bots)) : teamSize(next.map, next.mode) };
+    botSetup.pick(picks);
     if (picks.map) {
       followPick();
-      void routesOf(asMapId(picks.map) ?? 'survival-town');
+      void routesOf(botSetup.mapId);
     }
     lobbyPage.show(botView());
   };
@@ -800,7 +722,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const { BotMatchDriver, OnlineDriver } = engine!;
     if (driver instanceof BotMatchDriver && driver.over && !botLobbyOpen) {
       const match = driver.match!;
-      botLast = { mode: match.mode, result: match.result, teamScores: match.teamScores };
+      botSetup.last = { mode: match.mode, result: match.result, teamScores: match.teamScores };
       botLobbyOpen = true;
       game.paused = true;
       game.input.unlock();
@@ -981,13 +903,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Measure the finished look: wait for the baked lighting.
     await load(mapId).bake;
   }
-  let bench: ((time: number) => boolean) | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName }) : null;
+  let bench: BenchFrame | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName }) : null;
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
-    void routesOf(asMapId(botSetup.map) ?? 'survival-town');
+    void routesOf(botSetup.mapId);
     void game
       .prepare(restMoment, breath)
       .then(keepRangeReady)
@@ -996,62 +918,25 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   if (benchmarkPage) {
     // `&maps=a,b`: only those maps; every map otherwise, the small ones first.
     const asked = (params.get('maps') ?? '').split(',').map((m) => asMapId(m)).filter((m): m is MapId => m !== undefined);
-    const maps: readonly MapId[] = asked.length ? asked : ['range', 'survival-town', 'switchyard', 'station-nine', 'zero-island'];
-    const nameOf = (id: string) => (asMapId(id) ? load(asMapId(id)!).map.name : id);
-    /** The run under way: a stop, or a new run, leaves the old one behind. */
-    let run = 0;
-    const release = () => {
-      bench = null;
-    };
-    const fly = async () => {
-      const mine = ++run;
-      const reports: BenchReport[] = [];
-      delete document.body.dataset['benchmark'];
-      for (const [i, id] of maps.entries()) {
-        page.flying(load(id).map.name, i, maps.length);
-        page.progress(-1, 0, i, maps.length);
-        useMap(id, true);
-        // The finished look: the map ready, its baked lighting in.
-        await ready();
-        await load(id).bake;
-        if (mine !== run) return;
-        const report = await new Promise<BenchReport>((done) => {
-          bench = startBenchmarkOn(game, renderer, load(id).map, { backend: backendName, adapter: adapterName, quiet: true, done, progress: (f, rate) => page.progress(f, rate, i, maps.length) });
-        });
-        if (mine !== run) return;
-        bench = null;
-        reports.push(report);
-      }
-      release();
-      page.done(
-        reports.map((r) => ({ map: nameOf(r.map), meanMs: r.meanMs, low1Ms: r.low1Ms })),
-        benchLine(version, reports, nameOf),
-      );
-      // For a script: the reports, and the mark `npm run bench` waits for.
-      Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), benchmark: reports } });
-      document.body.dataset['benchmark'] = 'done';
-    };
-    const page = new BenchmarkPage(
-      document.body,
-      {
-        run: () => void fly(),
-        stop: () => {
-          run++;
-          release();
-          page.done(null, '', 'Stopped before the last map: nothing was kept.');
-        },
-      },
-      // `&run` starts it without the click.
-      { home: location.pathname },
-    );
-    page.ready({
+    openBenchmarkPage({
+      maps: asked.length ? asked : ['range', 'survival-town', 'switchyard', 'station-nine', 'zero-island'],
+      version,
+      renderer,
       backend: backendName,
       adapter: adapterName,
-      resolution: [Math.round(innerWidth * devicePixelRatio), Math.round(innerHeight * devicePixelRatio)],
-      maps: maps.map(nameOf),
-      seconds: maps.reduce((sum, id) => sum + new Benchmark(load(id).map.benchmarkPath).seconds, 0),
+      map: (id) => load(id).map,
+      nameOf: (id) => (asMapId(id) ? load(asMapId(id)!).map.name : id),
+      // The finished look: the map ready, its baked lighting in.
+      show: async (id) => {
+        useMap(id, true);
+        await ready();
+        await load(id).bake;
+        return game;
+      },
+      fly: (frame) => (bench = frame),
+      // `&run` starts it without the click.
+      runNow: params.has('run'),
     });
-    if (params.has('run')) void fly();
   }
   if (renderStats) renderer.info.autoReset = false;
   /** Where the window sat on the last frame drawn, and the width of its screen. */
@@ -1166,9 +1051,6 @@ function nextPaint(): Promise<void> {
   });
 }
 
-/** Where the page keeps its seat token. */
-const SEAT_KEY = 'duty-shooter.seat';
-
 /** A map's name from its id; an id the app doesn't ship (a newer server's) shows as itself. */
 function mapName(id: string): string {
   return mapEntry(id)?.name ?? id;
@@ -1182,130 +1064,6 @@ const flyPaths = new Map<MapDefinition, CameraPath | null>();
 function flyPath(map: MapDefinition): CameraPath | null {
   if (!flyPaths.has(map)) flyPaths.set(map, map.flyThrough.length >= 2 ? new CameraPath(map.flyThrough) : null);
   return flyPaths.get(map)!;
-}
-
-/**
- * Runs the benchmark on the game's map: the menu hidden, the camera on the
- * benchmark path. The report goes to an on-screen panel, to the console as
- * JSON and to `window.duty.benchmark`.
- */
-function startBenchmarkOn(
-  game: Game,
-  renderer: WebGPURenderer,
-  map: MapDefinition,
-  about: {
-    backend: string;
-    adapter: string;
-    /** The benchmark page's run: no panel of its own, `done` gets the report and `progress` how far along it is. */
-    quiet?: boolean;
-    done?: (report: BenchReport) => void;
-    progress?: (fraction: number, frameRate: number) => void;
-  },
-): (time: number) => boolean {
-  const bench = new Benchmark(map.benchmarkPath);
-  const loadMs = Math.round(performance.now());
-  const panel = document.createElement('pre');
-  panel.style.cssText = 'position:fixed;left:12px;top:12px;margin:0;padding:10px 12px;background:rgb(10 12 14 / 0.8);color:#e8e6e1;font:12px/1.4 ui-monospace,monospace;z-index:10;white-space:pre;';
-  if (!about.quiet) document.body.append(panel);
-  renderer.info.autoReset = false;
-  /** The size drawn: the window's own pixels. */
-  let resolution: readonly [number, number] | null = null;
-  let pendingGpu = false;
-  let finished = false;
-  /** Draws the flight's frame at `time`; whether it was one of the measured ones. */
-  return (time) => {
-    if (finished) {
-      game.frame(time);
-      return false;
-    }
-    const f = bench.frame(time);
-    if (!f) {
-      finished = true;
-      renderer.info.autoReset = true;
-      const report: BenchReport = {
-        map: map.id,
-        backend: about.backend,
-        adapter: about.adapter,
-        resolution: resolution ?? [renderer.domElement.width, renderer.domElement.height],
-        loadMs,
-        ...bench.result!,
-      };
-      about.done?.(report);
-      if (about.quiet) return false;
-      panel.textContent = `BENCHMARK ${map.name}
-${JSON.stringify(report, null, 1)}`;
-      console.log(`BENCHMARK ${JSON.stringify(report)}`);
-      Object.assign(globalThis, { duty: { ...((globalThis as { duty?: object }).duty ?? {}), benchmark: report } });
-      document.body.dataset['benchmark'] = 'done';
-      return false;
-    }
-    game.overview = f;
-    renderer.info.reset();
-    resolution ??= [renderer.domElement.width, renderer.domElement.height];
-    game.frame(time);
-    bench.rendered(time, { drawCalls: renderer.info.render.drawCalls, triangles: renderer.info.render.triangles });
-    if (about.quiet) about.progress?.(bench.progress(time), game.fps);
-    else panel.textContent = `BENCHMARK ${map.name} · ${game.fps.toFixed(0)} fps`;
-    // GPU time: Three.js keeps the latest frame's queries per pass, so each resolve reads one frame.
-    if (!pendingGpu) {
-      pendingGpu = true;
-      void renderer
-        .resolveTimestampsAsync('render')
-        .then((ms) => {
-          if (typeof ms === 'number') bench.gpu(ms);
-        })
-        .finally(() => (pendingGpu = false));
-    }
-    return bench.measuring(time);
-  };
-}
-
-/** Whether this page remembers a seat from an earlier connection. */
-function hasSeat(): boolean {
-  try {
-    return localStorage.getItem(SEAT_KEY) !== null;
-  } catch {
-    return false;
-  }
-}
-
-/** The Battle Royale process's lobby status, which the server holding the page answers for it (ADR 0009). */
-const ROYALE_STATUS = '/royale/status';
-
-/** The lobby status, a second time if the first try fails: one lost request is not a server that is down. */
-async function lobbyStatus(path = '/status'): Promise<LobbyInfo | null> {
-  return (await askLobbyStatus(path)) ?? (await askLobbyStatus(path));
-}
-
-/** The lobby status endpoint (map, mode, players, capacity, phase), or null if it does not answer. */
-async function askLobbyStatus(path: string): Promise<LobbyInfo | null> {
-  try {
-    // A slow page (a busy main thread) still gets its answer; a server that is down fails fast anyway.
-    const res = await fetch(path, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
-    return res.ok ? ((await res.json()) as LobbyInfo) : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Where online play is: the game server that served this page (it answers
- * /healthz), else the server's address baked into a copy built without one
- * (GitHub Pages), else nowhere. In dev, `?online` looks for a server behind
- * Vite's proxy.
- */
-async function findLobby(): Promise<Lobby | null> {
-  if (!import.meta.env.DEV || params.has('online')) {
-    try {
-      const res = await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
-      const health = res.ok && res.headers.get('content-type')?.includes('application/json') ? ((await res.json()) as { status?: unknown; public?: unknown }) : null;
-      if (health?.status === 'ok') return { kind: 'server', public: health.public === true, status: await lobbyStatus() };
-    } catch {
-      // No game server behind this page.
-    }
-  }
-  const url = import.meta.env.VITE_LOBBY_URL;
-  return url ? { kind: 'link', url } : null;
 }
 
 // Last, so the constants above are set before the menus can take a click.
