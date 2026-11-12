@@ -341,9 +341,13 @@ function buildHouse(side: Side): void {
   side.corner(back[0], 'west', 1);
   side.corner(back.at(-1), 'east', 1);
 
-  // Inside stairs to the upper floor, climbing away from the street.
+  // Inside stairs to the upper floor, climbing away from the street: painted risers, wooden treads, and a side plastered
+  // like the room's walls (each step's long faces are its `edge`); in trim paint the side was a flat off-white sawtooth.
   const S = HOUSE.stairs;
-  side.paint({ side: 'trim', top: 'floor' }, () => b.stairs({ along: 'z', from: side.z(S.d0), to: side.z(S.d1), across: [S.x0, S.x1], bottom: 0, top: UPPER_FLOOR, material: 'wood' }));
+  let steps: Solid[] = [];
+  side.paint({ side: 'trim', edge: 'wall', top: 'floor' }, () => (steps = b.stairs({ along: 'z', from: side.z(S.d0), to: side.z(S.d1), across: [S.x0, S.x1], bottom: 0, top: UPPER_FLOOR, material: 'wood' })));
+  // A painted skirt board along the open side, cut to the steps: without it the plastered side melts into the wall behind.
+  for (const step of steps) b.decorateBox(step, [S.x1 - SINK, step.max[1] - 0.1, step.min[2]], [S.x1 + 0.012, step.max[1], step.max[2]], 'trim');
 
   // Upper floor: a slab over the two-storey part with the stairwell left open, and the den's ceiling beside it.
   const slab = UPPER_FLOOR - 0.2;

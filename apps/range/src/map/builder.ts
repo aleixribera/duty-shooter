@@ -279,20 +279,22 @@ export class Builder {
     return full.map((f) => f.s);
   }
 
-  /** A flight of solid steps, each no higher than the step height. */
-  stairs(spec: StairsSpec): void {
+  /** A flight of solid steps, each no higher than the step height; the steps, from the foot up. */
+  stairs(spec: StairsSpec): Solid[] {
     const rise = spec.top - spec.bottom;
     const count = Math.ceil(rise / (spec.maxRise ?? 0.19) - 1e-9);
     const run = (spec.to - spec.from) / count;
     const [c0, c1] = spec.across;
+    const steps: Solid[] = [];
     for (let i = 0; i < count; i++) {
       const a = spec.from + run * i;
       const b = spec.from + run * (i + 1);
       const y = spec.bottom + (rise * (i + 1)) / count;
       const min: Vec3 = spec.along === 'x' ? [Math.min(a, b), spec.bottom, c0] : [c0, spec.bottom, Math.min(a, b)];
       const max: Vec3 = spec.along === 'x' ? [Math.max(a, b), y, c1] : [c1, y, Math.max(a, b)];
-      this.add(min, max, spec.material);
+      steps.push(this.add(min, max, spec.material));
     }
+    return steps;
   }
 
   /**
