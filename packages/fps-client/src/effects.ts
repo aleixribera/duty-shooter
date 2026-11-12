@@ -573,7 +573,9 @@ const HOLE_TINT: Readonly<Record<Material, number>> = {
 
 /** Dust and chip colour per material (sparks are used for metal and glass instead). */
 const DUST: Partial<Record<Material, number>> = {
-  wood: 0x8a6038,
+  // Sawdust and fresh splinters: pale, whatever the paint. Review 2026-11-12f (05) found the old dark brown hanging on
+  // painted siding as soft brown blots round every burst.
+  wood: 0xd4cab8,
   dirt: 0x7c6a52,
   grass: 0x7c6a52,
   plaster: 0xd8d4cc,
