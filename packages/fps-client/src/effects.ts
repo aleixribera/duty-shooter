@@ -335,7 +335,7 @@ class ParticleLayer {
 
 /**
  * A bullet hole, for a decal that modulates the surface under it (×2, so 0.5 leaves it as it is) and so takes whatever light
- * that surface has, sun, shade or a dark room: a small dark core in a jagged crater of paler, knocked-off material, shaded as
+ * that surface has, sun, shade or a dark room: a small dark core in a jagged, splintered crater of knocked-off material, shaded as
  * a dent lit from above (texture up is laid along the wall's up), a faint dust halo and a few chips thrown out of it.
  * Linear values; transparent outside. Drawn from one height field: flat surface, a sharp spalled rim, the crater falling away to the core.
  */
@@ -353,8 +353,23 @@ function holeTile(S: number): Uint8ClampedArray<ArrayBuffer> {
       return radius * (soft[i % n]! * (1 - e) + soft[(i + 1) % n]! * e);
     };
   };
-  const rim = outline(S * (0.13 + Math.random() * 0.04), 0.45);
-  const core = outline(S * 0.05, 0.18);
+  // The crater is a little over twice the core's width: wide enough to read as wood or plaster knocked off round the hole,
+  // not so wide that up close it reads as a pale disc stuck on the wall.
+  const rim = outline(S * (0.1 + Math.random() * 0.03), 0.5);
+  const core = outline(S * 0.048, 0.22);
+  // Splinters: the broken surface in streaks running out from the hole, each angle its own, with a little fine grit over them.
+  // Two scales of angular noise, fine over coarse, so the streaks run irregular rather than in even petals.
+  const noise = (n: number): ((a: number) => number) => {
+    const v = Array.from({ length: n }, () => Math.random());
+    return (a) => {
+      const f = ((a / (Math.PI * 2)) * n + n) % n;
+      const i = Math.floor(f);
+      return v[i % n]! * (1 - (f - i)) + v[(i + 1) % n]! * (f - i);
+    };
+  };
+  const fine = noise(157);
+  const coarse = noise(23);
+  const streak = (a: number): number => fine(a) * 0.6 + coarse(a) * 0.4;
   const grit = new Float32Array(S * S).map(() => Math.random());
   const height = new Float32Array(S * S);
   const ring = new Float32Array(S * S);
@@ -369,14 +384,14 @@ function holeTile(S: number): Uint8ClampedArray<ArrayBuffer> {
       const i = y * S + x;
       // 0 on the surface; inside the rim a step down, then a slope to the core, which is deeper still.
       const t = Math.min(1, Math.max(0, (rc - r) / Math.max(1, rc - rh)));
-      height[i] = r < rh ? -1.6 : r < rc ? -0.35 - 0.65 * t + (grit[i]! - 0.5) * 0.25 : 0;
+      height[i] = r < rh ? -1.6 : r < rc ? -0.35 - 0.65 * t + (streak(a) - 0.5) * 0.16 + (grit[i]! - 0.5) * 0.08 : 0;
       ring[i] = r / rc;
     }
   const at = (x: number, y: number): number => height[Math.min(S - 1, Math.max(0, y)) * S + Math.min(S - 1, Math.max(0, x))]!;
   const chips = Array.from({ length: 7 }, () => {
     const a = Math.random() * Math.PI * 2;
     const d = rim(a) * (1.1 + Math.random() * 0.6);
-    return { x: mid + Math.cos(a) * d, y: mid + Math.sin(a) * d, r: 0.8 + Math.random() * 1.3 };
+    return { x: mid + Math.cos(a) * d, y: mid + Math.sin(a) * d, r: (S / 128) * (0.8 + Math.random() * 1.3) };
   });
   // Light from above and in front: canvas up is the wall's up.
   const L = [0, 0.6, 0.8] as const;
@@ -393,27 +408,31 @@ function holeTile(S: number): Uint8ClampedArray<ArrayBuffer> {
         alpha = 1;
       } else if (q < 1) {
         // The crater's slopes: canvas y runs down, so its slope up the wall flips sign.
-        const nx = -(at(x + 1, y) - at(x - 1, y)) * 2.2;
-        const ny = (at(x, y + 1) - at(x, y - 1)) * 2.2;
+        const nx = -(at(x + 1, y) - at(x - 1, y)) * 2.2 * (S / 128);
+        const ny = (at(x, y + 1) - at(x, y - 1)) * 2.2 * (S / 128);
         const lit = Math.max(0.15, (nx * L[0] + ny * L[1] + L[2]) / Math.hypot(nx, ny, 1) / L[2]);
-        value = 0.68 * lit * (0.82 + 0.18 * q) * (0.95 + grit[i]! * 0.1);
+        // Lit about as the surface is, so the dent shows by its shading and its lit lower lip rather than as a pale fill.
+        value = 0.56 * lit * (0.8 + 0.2 * q) * (0.85 + streak(Math.atan2(y - mid, x - mid)) * 0.3);
         alpha = 1;
       } else {
         // Dust: a thin darker haze falling off over about the crater's own width, and a few pale chips.
-        const fall = Math.max(0, 1 - (q - 1) / 1.5);
-        const chip = chips.some((c) => Math.hypot(x - c.x, y - c.y) < c.r);
-        value = chip ? 0.66 : 0.4;
-        alpha = chip ? 0.9 : 0.45 * fall * fall;
+        const fall = Math.max(0, 1 - (q - 1) / 0.8);
+        // The chips lie within 1.7 of the crater's radius, plus their own size: past 2 there are none to test.
+        const chip = q < 2 && chips.some((c) => Math.hypot(x - c.x, y - c.y) < c.r);
+        value = chip ? 0.62 : 0.4;
+        alpha = chip ? 0.9 : 0.35 * fall * fall;
       }
       const v = Math.min(1, value) * 255;
-      data.set([v, v, v, alpha * 255], i * 4);
+      data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v;
+      data[i * 4 + 3] = alpha * 255;
     }
   return data;
 }
 
 /** Four bullet holes (`holeTile`), two by two: a decal shows the one its slot picks. Linear: 128 is the neutral grey of a ×2 modulate. */
 function holeTexture(): CanvasTexture {
-  const S = 128;
+  // 256 px a hole, so one a hand from the eye is still sharp.
+  const S = 256;
   const c = document.createElement('canvas');
   c.width = c.height = S * 2;
   const g = c.getContext('2d');
@@ -514,7 +533,9 @@ class DecalLayer {
     for (let i = 0; i < this.mesh.count; i++) {
       const o = i * 7;
       if (normal[0] * d[o + 3]! + normal[1] * d[o + 4]! + normal[2] * d[o + 5]! < 0.9) continue;
-      const reach = 0.35 * Math.min(size, d[o + 6]!);
+      // The crater reaches 0.10 to 0.13 of a decal's size, up to about 0.2 where its outline wobbles out, and its dust a
+      // little past that: a shot landing further off leaves a hole of its own.
+      const reach = 0.24 * Math.min(size, d[o + 6]!);
       const dx = point[0] - d[o]!;
       const dy = point[1] - d[o + 1]!;
       const dz = point[2] - d[o + 2]!;
