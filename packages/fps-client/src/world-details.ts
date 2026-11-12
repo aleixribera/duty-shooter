@@ -1,5 +1,5 @@
 import type { Vec3 } from '@duty-shooter/fps-core';
-import { attribute, color, cos, dot, float, max, mix, normalWorld, positionLocal, sin, smoothstep, texture, time, vec3 } from 'three/tsl';
+import { attribute, clamp, color, cos, dot, float, fwidth, max, min, mix, normalWorld, positionLocal, sin, smoothstep, texture, time, uv, vec3 } from 'three/tsl';
 import { AddEquation, AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DstColorFactor, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NoColorSpace, OneFactor, PlaneGeometry, SRGBColorSpace, SrcColorFactor, ZeroFactor } from 'three/webgpu';
 import { atlasUv, type Stencil, type SurfaceLayout } from './surfaces';
 import { haze, horizonColor, sunColor, sunDir, type ProbeField } from './surface-materials';
@@ -115,15 +115,24 @@ function seeded(seed: number): () => number {
   };
 }
 
+/** How far the letters' distance field reaches either side of an edge (canvas pixels), in its 0-255 channel. */
+const SDF_RANGE = 8;
+
 /**
- * Where a stencil's paint lies (0-255 per canvas pixel, row by row from the top): its lines in the UI's condensed type,
- * cut by stencil bridges, with a faint overspray round each letter and the wear of years in the sun.
+ * Where a stencil's paint lies, as one RGBA pixel per canvas pixel (row by row from the top): its lines in the UI's
+ * condensed type, cut by stencil bridges and chipped in flecks, as a signed distance from the letters' edges in red
+ * (128 the edge, more inside), the wear of years in the sun in green (how much of the paint is left), and in blue the
+ * paint's plain coverage: the letters over the faint overspray round them. The distance keeps the edges sharp however
+ * near, the coverage keeps the lettering even from afar, where mipmaps averaging distances break thin strokes up; as
+ * plain coverage alone at this size,
+ * the bus's lettering at arm's length was blurred blocks with stepped edges, and one-pixel chips swelled into pale
+ * four-pointed stars (review 2026-11-12f).
  */
-function stencilCoverage(s: Stencil, w: number, h: number): Uint8ClampedArray | null {
+export function stencilLayers(s: Stencil, w: number, h: number): Uint8ClampedArray<ArrayBuffer> | null {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   // The lines with a gap of 0.45 of a capital between them, the block centred.
   const tall = s.lines.reduce((sum, l, i) => sum + l.size * (i > 0 ? 1.45 : 1), 0);
@@ -140,9 +149,10 @@ function stencilCoverage(s: Stencil, w: number, h: number): Uint8ClampedArray | 
     lines.push({ text: l.text, font, x: (w - measured * squeeze) / 2, y: y + cap, squeeze });
     y += cap;
   });
-  const letters = (blur: number, alpha: number): void => {
+  // The letters, blurred or crisp, with the bridges cut through them: what the canvas then holds, in alpha.
+  const letters = (blur: number): Uint8ClampedArray => {
+    ctx.clearRect(0, 0, w, h);
     ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
-    ctx.globalAlpha = alpha;
     ctx.fillStyle = '#fff';
     ctx.textBaseline = 'alphabetic';
     for (const l of lines) {
@@ -154,32 +164,53 @@ function stencilCoverage(s: Stencil, w: number, h: number): Uint8ClampedArray | 
       ctx.restore();
     }
     ctx.filter = 'none';
-    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'destination-out';
+    for (const l of lines) {
+      ctx.font = `700 ${l.font}px ${FONT}`;
+      let before = 0;
+      for (const ch of l.text) {
+        const advance = ctx.measureText(ch).width;
+        if (BRIDGED.test(ch)) ctx.fillRect(l.x + (before + advance / 2) * l.squeeze - l.font * 0.035, l.y - l.font, l.font * 0.07, l.font * 1.1);
+        before += advance;
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    const rgba = ctx.getImageData(0, 0, w, h).data;
+    const alpha = new Uint8ClampedArray(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = rgba[i * 4 + 3]!;
+    return alpha;
   };
   // Overspray: a soft fringe round each letter, where the paint got under the plate.
-  letters(STENCIL_PX * 0.012, 0.22);
-  letters(0, 1);
-  // The bridges, cut through the crisp letters and their spray alike.
-  ctx.globalCompositeOperation = 'destination-out';
-  for (const l of lines) {
-    ctx.font = `700 ${l.font}px ${FONT}`;
-    let before = 0;
-    for (const ch of l.text) {
-      const advance = ctx.measureText(ch).width;
-      if (BRIDGED.test(ch)) ctx.fillRect(l.x + (before + advance / 2) * l.squeeze - l.font * 0.035, l.y - l.font, l.font * 0.07, l.font * 1.1);
-      before += advance;
-    }
-  }
-  ctx.globalCompositeOperation = 'source-over';
-  const a = ctx.getImageData(0, 0, w, h).data;
-  // Wear: the paint thinned in a coarse wash and chipped away in small flecks.
+  const spray = letters(STENCIL_PX * 0.012);
+  for (let i = 0; i < w * h; i++) spray[i] = spray[i]! * 0.22;
+  const crisp = letters(0);
   const random = seeded(s.seed);
+  // Wear: the paint thinned in a coarse wash...
   const cell = Math.max(4, Math.round(STENCIL_PX * 0.06));
   const cols = Math.ceil(w / cell) + 2;
   const rows = Math.ceil(h / cell) + 2;
   const wash = Float32Array.from({ length: cols * rows }, () => 0.72 + random() * 0.28);
   const at = (x: number, y: number): number => wash[y * cols + x]!;
-  const out = new Uint8ClampedArray(w * h);
+  // ...and chipped in small flecks, cut before the edges are measured so each keeps its own edge up close. A fleck is two
+  // or three overlapping discs, so it reads as a flake gone rather than a punched hole.
+  const flecks = Math.round((w * h) / 900);
+  for (let i = 0; i < flecks; i++) {
+    const fx = random() * w;
+    const fy = random() * h;
+    const size = 1 + random() * 2;
+    for (let k = 0, n = 2 + Math.floor(random() * 2); k < n; k++) {
+      const r = size * (0.6 + random() * 0.5);
+      const cx = fx + (random() - 0.5) * size * 1.6;
+      const cy = fy + (random() - 0.5) * size * 1.2;
+      for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(h - 1, Math.ceil(cy + r)); y++) {
+        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(w - 1, Math.ceil(cx + r)); x++) {
+          if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) crisp[y * w + x] = spray[y * w + x] = 0;
+        }
+      }
+    }
+  }
+  const distance = signedDistance(crisp, w, h);
+  const out = new Uint8ClampedArray(w * h * 4);
   for (let py = 0; py < h; py++) {
     const cy = py / cell;
     const iy = Math.floor(cy);
@@ -189,23 +220,79 @@ function stencilCoverage(s: Stencil, w: number, h: number): Uint8ClampedArray | 
       const ix = Math.floor(cx);
       const fx = cx - ix;
       const thin = (at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx) * (1 - fy) + (at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx) * fy;
-      out[py * w + px] = a[(py * w + px) * 4 + 3]! * thin;
-    }
-  }
-  const flecks = Math.round((w * h) / 900);
-  for (let i = 0; i < flecks; i++) {
-    const fx = Math.floor(random() * w);
-    const fy = Math.floor(random() * h);
-    const r = 1 + Math.floor(random() * 3);
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        const x = fx + dx;
-        const y = fy + dy;
-        if (x >= 0 && y >= 0 && x < w && y < h && dx * dx + dy * dy <= r * r) out[y * w + x] = 0;
-      }
+      const i = py * w + px;
+      out[i * 4] = 128 + (distance[i]! * 127) / SDF_RANGE;
+      out[i * 4 + 1] = thin * 255;
+      out[i * 4 + 2] = crisp[i]! + (spray[i]! * (255 - crisp[i]!)) / 255;
+      out[i * 4 + 3] = 255;
     }
   }
   return out;
+}
+
+/**
+ * Each pixel's signed distance (pixels) from the edge of the shape `alpha` covers (0-255, antialiased), positive inside.
+ * An antialiased pixel starts at its own part-way distance; the rest is an exact Euclidean distance transform, both ways.
+ */
+export function signedDistance(alpha: Uint8ClampedArray, w: number, h: number): Float32Array {
+  const INF = 1e20;
+  // Squared distance to the shape, and to what is outside it.
+  const toShape = new Float64Array(w * h);
+  const toOutside = new Float64Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const a = alpha[i]! / 255;
+    if (a >= 1) {
+      toShape[i] = 0;
+      toOutside[i] = INF;
+    } else if (a <= 0) {
+      toShape[i] = INF;
+      toOutside[i] = 0;
+    } else {
+      toShape[i] = Math.max(0, 0.5 - a) ** 2;
+      toOutside[i] = Math.max(0, a - 0.5) ** 2;
+    }
+  }
+  const n = Math.max(w, h);
+  const f = new Float64Array(n);
+  const z = new Float64Array(n + 1);
+  const v = new Uint32Array(n);
+  const d = new Float64Array(n);
+  for (const grid of [toShape, toOutside]) {
+    for (let x = 0; x < w; x++) edt1d(grid, x, w, h, f, z, v, d);
+    for (let y = 0; y < h; y++) edt1d(grid, y * w, 1, w, f, z, v, d);
+  }
+  const out = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) out[i] = Math.sqrt(toOutside[i]!) - Math.sqrt(toShape[i]!);
+  return out;
+}
+
+/** One line of a squared-distance grid, in place (Felzenszwalb and Huttenlocher's lower envelope of parabolas). */
+function edt1d(grid: Float64Array, offset: number, stride: number, length: number, f: Float64Array, z: Float64Array, v: Uint32Array, d: Float64Array): void {
+  for (let q = 0; q < length; q++) f[q] = grid[offset + q * stride]!;
+  let k = 0;
+  v[0] = 0;
+  z[0] = -Infinity;
+  z[1] = Infinity;
+  for (let q = 1; q < length; q++) {
+    // z[0] is -Infinity, so k never passes below 0.
+    let r = v[k]!;
+    let s = (f[q]! - f[r]! + q * q - r * r) / (2 * (q - r));
+    while (s <= z[k]!) {
+      k--;
+      r = v[k]!;
+      s = (f[q]! - f[r]! + q * q - r * r) / (2 * (q - r));
+    }
+    k++;
+    v[k] = q;
+    z[k] = s;
+    z[k + 1] = Infinity;
+  }
+  for (let q = 0, j = 0; q < length; q++) {
+    while (z[j + 1]! < q) j++;
+    const r = v[j]!;
+    d[q] = f[r]! + (q - r) * (q - r);
+  }
+  for (let q = 0; q < length; q++) grid[offset + q * stride] = d[q]!;
 }
 
 /**
@@ -220,28 +307,25 @@ export function stencilMesh(s: Stencil): { mesh: Mesh; map: CanvasTexture } {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
-  const cover = stencilCoverage(s, w, h);
-  if (ctx && cover) {
-    // Coverage alone, in alpha over white: a canvas keeps its pixels premultiplied, so any colour it held would come back
-    // dark wherever the paint thins, and filtering would carry that into the letters' edges and the far mipmaps.
-    const image = ctx.createImageData(w, h);
-    for (let i = 0; i < w * h; i++) {
-      image.data[i * 4] = 255;
-      image.data[i * 4 + 1] = 255;
-      image.data[i * 4 + 2] = 255;
-      image.data[i * 4 + 3] = cover[i]!;
-    }
-    ctx.putImageData(image, 0, 0);
-  }
+  const layers = stencilLayers(s, w, h);
+  if (ctx && layers) ctx.putImageData(new ImageData(layers, w, h), 0, 0);
   const map = new CanvasTexture(canvas);
   map.colorSpace = NoColorSpace;
   map.premultiplyAlpha = false;
   map.anisotropy = 8;
   const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: false, toneMapped: false });
   const t = texture(map);
+  // Near, the letters' edge a screen pixel soft however close: their distance in canvas pixels against how much it
+  // changes per screen pixel, over the overspray (the coverage outside them, which never tops 0.22). Once a canvas pixel
+  // is smaller than a screen pixel, the plain coverage, which mipmaps average truly. Then what wear has left of it.
+  const distance = t.r.sub(128 / 255).mul((255 * SDF_RANGE) / 127);
+  const letters = clamp(distance.div(max(fwidth(distance), 1e-4)).add(0.5), 0, 1);
+  const sharp = letters.add(min(t.b, 0.22).mul(float(1).sub(letters)));
+  const texels = max(fwidth(uv().x.mul(w)), fwidth(uv().y.mul(h)));
+  const paint = mix(sharp, t.b, smoothstep(0.75, 2, texels)).mul(t.g);
   // The paint over the face, channel by channel, in linear light; halved for the doubling blend.
   const [r, g, b] = [16, 8, 0].map((shift) => Math.min(1, (0.5 * linear((s.ink >> shift) & 255)) / Math.max(1e-3, linear((s.on >> shift) & 255))));
-  m.colorNode = mix(vec3(0.5), vec3(r!, g!, b!), t.a);
+  m.colorNode = mix(vec3(0.5), vec3(r!, g!, b!), paint);
   m.blending = CustomBlending;
   m.blendEquation = AddEquation;
   m.blendSrc = DstColorFactor;
