@@ -1,5 +1,5 @@
 import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
-import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
+import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, positionWorld, sin, smoothstep, sqrt, step, time, uniform, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AddEquation,
   AdditiveBlending,
@@ -27,6 +27,7 @@ import {
   Quaternion,
   SRGBColorSpace,
   Vector3,
+  Vector4,
   type Camera,
   type Node,
   type Scene,
@@ -111,6 +112,20 @@ const scattered = (c: Vec3): Vec3 => [c[0] ** 0.7, c[1] ** 0.7, c[2] ** 0.7];
 const tmpU = new Vector3();
 const tmpV = new Vector3();
 const tmpW = new Vector3();
+/**
+ * The newest shot's light, for the smoke round the muzzle to catch: where it is (xyz) and how strong now (w, 1 at a
+ * plain rifle's flash, 0 when out). The scene's surfaces get it from the shot's point light; puffs are unlit quads.
+ */
+export const shotGlow = uniform(new Vector4(0, 0, 0, 0));
+/** The flash's light on smoke: orange-white, the colour of the flash's tongues. */
+const GLOW_COLOR = vec3(1, 0.7, 0.42);
+/** How far (m) from the flash its light on smoke falls to half. */
+const GLOW_REACH = 0.55;
+/**
+ * Muzzle smoke's own shade: pale, as burnt powder's is. A mid grey (0xb4b6b8) drew a burst's haze in a room at half
+ * the brightness of the plaster behind it, a dark smudge over the sights (review 2026-11-12d).
+ */
+const MUZZLE_SMOKE = 0xd6d6d4;
 /** How far (m) behind a puff a surface must be for the puff to show in full: nearer, it fades, so smoke meets a wall or the ground without a hard line. */
 const SOFT = 0.35;
 /** How much longer than wide a spark is drawn, per m/s of its speed. */
@@ -146,7 +161,11 @@ function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
     const toSun = sunDir.transformDirection(cameraViewMatrix);
     const facing = dot(n, toSun).mul(0.5).add(0.5);
     const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7)).mul(around);
-    const lit = tint.mul(ambient.add(sunColor.mul(sun).mul(facing.mul(facing)).mul(0.6))) as N3;
+    // Lit by the shot as well, so a burst's haze flickers orange at the barrel with each round (review 2026-11-12d: no
+    // readable flash in a firing frame; indoors the haze was a dark smudge while the walls round it lit up with each shot).
+    const near = positionWorld.sub(shotGlow.xyz).length().div(GLOW_REACH);
+    const glow = GLOW_COLOR.mul(shotGlow.w.mul(1.6).div(near.mul(near).add(1)));
+    const lit = tint.mul(ambient.add(sunColor.mul(sun).mul(facing.mul(facing)).mul(0.6)).add(glow)) as N3;
     material.colorNode = haze(lit) as never;
     // Breaks into wisps as it ages: the noise eats further in.
     const body = float(1).sub(r).sub(billow.mul(age.mul(0.65).add(0.22)));
@@ -712,7 +731,7 @@ export class Effects {
       alpha: Math.min(0.3, 0.16 * look.smoke),
       drag: 5,
       sun,
-      color: new Color(0xb4b6b8),
+      color: new Color(MUZZLE_SMOKE),
     });
     // Each haze puff its own place along the barrel, size and stretch: the same disc at the same spot every shot laid a
     // turning burst out as a row of evenly spaced grey discs (review 2026-11-12d).
@@ -729,7 +748,7 @@ export class Effects {
         alpha: 0.2,
         drag: 1.2,
         sun,
-        color: new Color(0xb4b6b8),
+        color: new Color(MUZZLE_SMOKE),
       });
     }
   }
@@ -1058,13 +1077,19 @@ export class Effects {
         }
       }
     }
+    let glow = 0;
     for (let i = 0; i < this.#lights.length; i++) {
       const before = this.#lightAge[i] ?? 1;
       const age = before < 0 ? 0 : before + dt;
       this.#lightAge[i] = age;
       const light = this.#lights[i] as PointLight;
       light.intensity = age < 0.05 ? (14 * (1 - age / 0.05) + 4) * (this.#lightPower[i] ?? 1) : 0;
+      if (light.intensity / 18 > glow) {
+        glow = light.intensity / 18;
+        shotGlow.value.set(light.position.x, light.position.y, light.position.z, glow);
+      }
     }
+    if (glow === 0) shotGlow.value.w = 0;
     this.#blastAge += dt;
     const key = this.#key;
     if (key) {
@@ -1207,6 +1232,8 @@ export class Effects {
   dispose(): void {
     this.#root.removeFromParent();
     for (const layer of this.#layers()) layer.dispose();
+    // The glow is shared by every puff material: a flash still lit when a match ends mustn't light the next one's smoke.
+    shotGlow.value.w = 0;
   }
 }
 

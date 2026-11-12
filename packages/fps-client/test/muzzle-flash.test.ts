@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createWorld } from '@duty-shooter/fps-core';
 import { PerspectiveCamera, PointLight, Scene } from 'three/webgpu';
-import { Effects } from '../src/effects';
+import { Effects, shotGlow } from '../src/effects';
 
 // Effects' decal textures can be empty in this non-rendering check.
 vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
@@ -32,6 +32,20 @@ describe('a muzzle flash', () => {
     for (let t = 0; t < 0.1; t += dt) effects.update(dt, camera);
     expect(flash.visible).toBe(false);
     expect(shotLight(scene)).toBe(0);
+    effects.dispose();
+  });
+
+  // Review 2026-11-12d: no readable flash in a firing frame, and indoors the haze stayed a dark smudge while the walls lit up.
+  it('lights the smoke round the muzzle for as long as it lights the scene', () => {
+    const scene = new Scene();
+    const effects = new Effects(scene, createWorld([]));
+    const camera = new PerspectiveCamera();
+    effects.shot([0, 1.6, 0], [0, 0, -1], 'm4a1');
+    effects.update(1 / 60, camera);
+    expect(shotGlow.value.w).toBeCloseTo(1, 1);
+    expect(shotGlow.value.z).toBeCloseTo(-0.6, 5);
+    for (let t = 0; t < 0.1; t += 1 / 60) effects.update(1 / 60, camera);
+    expect(shotGlow.value.w).toBe(0);
     effects.dispose();
   });
 
