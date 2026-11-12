@@ -382,6 +382,13 @@ export class Game {
    * for checking it from a dev build's console.
    */
   previewEnding: number | null = null;
+  /**
+   * A camera of a script's own, over every other view (the player's, a spectated one, the ending's shot):
+   * where it stands, where it looks, its roll and its vertical field of view in degrees. For the trailer's shots.
+   */
+  cinema: { readonly position: Vec3; readonly yaw: number; readonly pitch: number; readonly roll?: number; readonly fov?: number } | null = null;
+  /** The field of view the camera had before `cinema` set its own. */
+  #cinemaFov: number | null = null;
   /** The ending's shot is on screen instead of the player's view (no crosshair or weapon HUD). */
   #inShot = false;
   readonly #chargeSounds = new ChargeSounds();
@@ -467,6 +474,11 @@ export class Game {
 
   get overview(): GameOptions['overview'] {
     return this.#overview;
+  }
+
+  /** For a scripted camera: how far along `from` -> `to` (0..1) the world first blocks it; null when clear. */
+  rayHit(from: Vec3, to: Vec3): number | null {
+    return raycastWorld(this.#world, from, to)?.t ?? null;
   }
 
   get fps(): number {
@@ -878,6 +890,26 @@ export class Game {
       this.#viewmodel.root.visible = false;
       this.#worldView.follow(eye);
     }
+    const cinema = this.cinema;
+    const cam = this.#camera.camera;
+    if (cinema) {
+      this.#cinemaFov ??= cam.fov;
+      cam.position.set(cinema.position[0], cinema.position[1], cinema.position[2]);
+      cam.rotation.set(cinema.pitch, cinema.yaw, cinema.roll ?? 0, 'YXZ');
+      const fov = cinema.fov ?? this.#cinemaFov;
+      if (Math.abs(cam.fov - fov) > 1e-4) {
+        cam.fov = fov;
+        cam.updateProjectionMatrix();
+      }
+      eye = cinema.position;
+      forward = viewDirection(cinema.yaw, cinema.pitch);
+      this.#viewmodel.root.visible = false;
+      this.#worldView.follow(eye);
+    } else if (this.#cinemaFov !== null) {
+      cam.fov = this.#cinemaFov;
+      cam.updateProjectionMatrix();
+      this.#cinemaFov = null;
+    }
     this.#lastLook = look;
     this.#sound.setListener(eye, forward, [0, 1, 0]);
     this.#listener = eye;
@@ -888,7 +920,8 @@ export class Game {
       const teams = driver.match ? teamMode(driver.match.mode) : false;
       // Your own soldier stands with your Squad while the Preparation's camera is on them.
       // Through someone's eyes, their own body would fill the view.
-      const shown = prep && prep.stage !== 'dive' && this.#cur ? [...this.#others, this.#cur] : eyes ? this.#others.filter((p) => p.id !== watched.id) : this.#others;
+      // A film camera sees your own soldier as one of the others.
+      const shown = ((prep && prep.stage !== 'dive') || (this.cinema && this.#cur?.alive)) && this.#cur ? [...this.#others, this.#cur] : eyes && !this.cinema ? this.#others.filter((p) => p.id !== watched.id) : this.#others;
       // Each soldier at its distance's level from the camera (full near, cheap mid, instanced far), nearer through a scope.
       const zoom = Math.tan(verticalFov(this.#settings.fov) / 2) / Math.tan((this.#camera.camera.fov * Math.PI) / 360);
       this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom);
