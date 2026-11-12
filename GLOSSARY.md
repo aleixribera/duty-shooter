@@ -258,7 +258,7 @@ _Avoid_: BR
 The seats playing together in a Battle Royale: one (Solos), two (Duos) or three (Trios). Squadmates can't hurt each other, and the last Squad with anyone alive wins.
 
 **Ally tag**:
-The mark over each teammate, or Squadmate in a Battle Royale: their name with a chevron up to 40 m in sight, the chevron alone further off or behind walls, held to the screen's edge under their name when they're off it. A Downed ally's tag is a red cross with how far, or Revive once in reach. Enemies never get one.
+The mark over each teammate, or Squadmate in a Battle Royale: their name with a chevron up to 40 m (dimmer with a wall between you), the chevron alone further off, held to the screen's edge under their name when they're off it. A Downed ally's tag is a red cross with how far, or Revive once in reach. Enemies never get one.
 _Avoid_: nameplate
 
 **Battle Royale screen**:

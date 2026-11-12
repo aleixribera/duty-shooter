@@ -21,11 +21,11 @@ describe('an ally tag (ticket 52)', () => {
     expect(allyTag(ally({ distance: NAME_RANGE - 1 }), W, H).name).toBe('Bea');
   });
 
-  it('behind a wall, only the chevron, at any range', () => {
-    const t = allyTag(ally({ seen: false, distance: 5 }), W, H);
-    expect(t.name).toBeNull();
-    expect(t.mark).toBe('chevron');
-    expect(t.edge).toBe(false);
+  it('behind a wall, the name still says who it is, on a dimmer tag; past the name range, only the chevron', () => {
+    const near = allyTag(ally({ seen: false, distance: NAME_RANGE - 1 }), W, H);
+    expect(near).toMatchObject({ name: 'Bea', mark: 'chevron', edge: false, hidden: true });
+    expect(allyTag(ally(), W, H).hidden).toBe(false);
+    expect(allyTag(ally({ seen: false, distance: NAME_RANGE + 1 }), W, H)).toMatchObject({ name: null, mark: 'chevron' });
   });
 
   it('off screen to the right, the chevron holds the right edge and points out', () => {

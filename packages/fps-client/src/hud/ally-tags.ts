@@ -1,7 +1,11 @@
 import { teamMode, type ModeId, type PlayerOutput, type TeamId } from '@duty-shooter/fps-core';
 import { offTouchCorners, pinMarker } from './markers';
 
-/** How far (m) an ally's name shows over their head; past it, and through walls, only the chevron (ticket 52). */
+/**
+ * How far (m) an ally's name shows over their head, through walls too; past it only the chevron (ticket 52). Bare
+ * chevrons over a wall from the team inside the house read as hit markers and said nothing of who was there (review
+ * 2026-11-12d), so a wall no longer takes the name away: it dims the tag.
+ */
 export const NAME_RANGE = 40;
 /**
  * The box (px) a tag can cover over the point it stands on: half its width, and how far
@@ -51,6 +55,8 @@ export interface AllyTag {
   readonly angle: number;
   /** Close over the crosshair: drawn faint. */
   readonly faded: boolean;
+  /** On screen with a wall between you: drawn dimmer than an ally in sight. */
+  readonly hidden: boolean;
 }
 
 /**
@@ -62,24 +68,24 @@ export function alliesOf(players: readonly PlayerOutput[], view: string | null, 
   return players.filter((p) => p.alive && p.kind === 'player' && p.team === team && p.id !== view);
 }
 
-/** Lays out one ally's tag: name near and in sight, a chevron always, held to the screen's edge when off it. */
+/** Lays out one ally's tag: name within the name range, dimmer behind a wall, a chevron always, held to the screen's edge when off it. */
 export function allyTag(a: AllySeen, width: number, height: number, touch = false): AllyTag {
   const onScreen = !a.behind && a.x >= INSET && a.x <= width - INSET && a.y >= INSET && a.y <= height - INSET;
-  const name = onScreen && a.seen && a.distance <= NAME_RANGE ? a.name : null;
+  const name = onScreen && a.distance <= NAME_RANGE ? a.name : null;
   const label = a.downed ? (a.inReach ? 'Revive' : `${Math.round(a.distance)} m`) : null;
   const mark = a.downed ? 'downed' : 'chevron';
   if (onScreen) {
     const cx = width / 2;
     const cy = height / 2;
     const faded = Math.abs(a.x - cx) < COVER.half && cy > a.y - COVER.up && cy < a.y + COVER.down;
-    return { id: a.id, name, mark, label, x: a.x, y: a.y, edge: false, angle: 0, faded };
+    return { id: a.id, name, mark, label, x: a.x, y: a.y, edge: false, angle: 0, faded, hidden: !a.seen };
   }
   // The tag centres on its pin, so it is its foot that keeps off the readouts' corners and the touch controls.
   const foot = pinMarker(a.x, a.y + EDGE_HALF, a.behind, width, height, touch);
   const pin = { x: foot.x, y: foot.y - EDGE_HALF };
   // Toward the ally from the screen's centre; straight down when they're behind you.
   const angle = a.behind ? 0 : (Math.atan2(a.y - height / 2, a.x - width / 2) * 180) / Math.PI - 90;
-  return { id: a.id, name: a.name, mark, label, x: pin.x, y: pin.y, edge: true, angle: Math.round(angle), faded: false };
+  return { id: a.id, name: a.name, mark, label, x: pin.x, y: pin.y, edge: true, angle: Math.round(angle), faded: false, hidden: false };
 }
 
 /**
@@ -122,6 +128,7 @@ const CROSS = '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true
 export const ALLY_TAGS_CSS = `
 .ds-allies { position: absolute; inset: 0; pointer-events: none; }
 .ds-ally { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; transition: opacity var(--ds-fast) var(--ds-ease); }
+.ds-ally.hidden { opacity: 0.65; }
 .ds-ally.faded { opacity: 0.3; }
 .ds-ally .name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; padding: 1px 7px 2px; background: var(--ds-scrim-soft); color: var(--ds-signal); font-size: var(--ds-type-small); font-weight: 700; line-height: 1.25; }
 .ds-ally.edge .name { max-width: 96px; }
@@ -161,7 +168,7 @@ export class AllyTagsView {
       const turn = t.angle === 0 ? '' : ` style="transform:rotate(${t.angle}deg)"`;
       const html = `${t.name ? `<div class="name">${escape(t.name)}</div>` : ''}<div${turn}>${icon}</div>${t.label ? `<div class="label${t.label === 'Revive' ? ' reach' : ''}">${t.label}</div>` : ''}`;
       if (html !== e.html) e.el.innerHTML = e.html = html;
-      const cls = `ds-ally${t.mark === 'downed' ? ' downed' : ''}${t.faded ? ' faded' : ''}${t.edge ? ' edge' : ''}`;
+      const cls = `ds-ally${t.mark === 'downed' ? ' downed' : ''}${t.hidden ? ' hidden' : ''}${t.faded ? ' faded' : ''}${t.edge ? ' edge' : ''}`;
       if (cls !== e.cls) e.el.className = e.cls = cls;
       // The mark sits on the point over their head; at an edge, the tag centres on the pin.
       const transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, ${t.edge ? '-50%' : '-100%'})`;
