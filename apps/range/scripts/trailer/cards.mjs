@@ -5,7 +5,7 @@
 //
 //   node apps/range/scripts/trailer/cards.mjs <out dir> <cards.json>
 //
-// cards.json: [{ "name": "slate-yard", "kind": "slate", "title": "Switchyard", "readout": "T−7:12" },
+// cards.json: [{ "name": "slate-yard", "kind": "slate", "title": "Switchyard", "readout": "T−7:12", "bottom": 96 },
 //              { "name": "line-1", "kind": "line", "text": "Every match is a weapons test." },
 //              { "name": "title", "kind": "title", "text": "Duty Shooter" },
 //              { "name": "end", "kind": "end", "text": "Duty Shooter", "facts": ["4 maps", ...], "call": "...", "url": "..." }]
@@ -40,7 +40,8 @@ const CSS = `
 function body(c) {
   switch (c.kind) {
     case 'slate':
-      return `<div class="scrim"></div><div class="slate"><h1>${esc(c.title)}</h1>${c.readout ? `<div class="readout">${esc(c.readout)}</div>` : ''}</div>`;
+      // `bottom` (px) lifts a slate clear of a HUD along the frame's foot.
+      return `<div class="scrim"></div><div class="slate"${c.bottom ? ` style="bottom: ${Number(c.bottom)}px"` : ''}><h1>${esc(c.title)}</h1>${c.readout ? `<div class="readout">${esc(c.readout)}</div>` : ''}</div>`;
     case 'line':
       return `${c.over ? '<div class="scrim" style="height:100%;background:rgba(7,9,13,0.35)"></div>' : '<div class="full"></div>'}<p class="line">${esc(c.text)}</p>`;
     case 'title':

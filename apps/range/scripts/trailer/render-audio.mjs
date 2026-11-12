@@ -1,11 +1,13 @@
 // Renders the trailer's sound offline through the game's own sound system
 // (createSoundSystem on an OfflineAudioContext), in headless Chrome:
 //
-//   sfx <shot dir> <from s> <to s> <out.wav> [cinematic]
+//   sfx <shot dir> <from s> <to s> <out.wav> [cinematic,music,novo]
 //       The sounds a captured shot asked for between from and to, each at its moment and heard from where the
-//       camera stood. 'cinematic' leaves out the idle player's own body and the HUD's sounds (hit markers,
-//       damage), for shots that don't look through the player's eyes. Starts 3 s early so sounds already
-//       ringing at 'from' are in, and cuts those 3 s off.
+//       camera stood, with Range Control's lines as the game said them. 'cinematic' leaves out the idle player's
+//       own body and the HUD's sounds (hit markers, damage), for shots that don't look through the player's
+//       eyes; 'music' plays the score's scenes and stings as the match changed them; 'novo' leaves out Range
+//       Control, for an edit that lays its lines itself. Starts 3 s early so
+//       sounds already ringing at 'from' are in, and cuts those 3 s off.
 //   music <scene> <seconds> <out.wav> [timeLeft]
 //       One scene of the score (menu, match, lateMatch, lastMinute, final10, ...), from its start.
 //   sting <name> <seconds> <out.wav>
@@ -32,10 +34,13 @@ if (kind === 'sfx') {
   out = file;
   const a = Number(from) - LEAD;
   seconds = Number(to) - a + 2;
-  const cinematic = mode === 'cinematic';
+  const modes = (mode ?? '').split(',');
+  const cinematic = modes.includes('cinematic');
+  const music = modes.includes('music');
+  const voice = !modes.includes('novo');
   const events = JSON.parse(readFileSync(`${dir}/sounds.json`, 'utf8'))
-    .filter((e) => e.event && e.t >= a && e.t < Number(to))
-    .filter((e) => !cinematic || (!e.params?.local && !PLAYER_ONLY.has(e.event)))
+    .filter((e) => (e.event || (voice && e.say) || (music && (e.scene || e.sting))) && e.t >= a && e.t < Number(to))
+    .filter((e) => !cinematic || !e.event || (!e.params?.local && !PLAYER_ONLY.has(e.event)))
     .map((e) => ({ ...e, t: e.t - a }));
   job = { kind, events };
 } else if (kind === 'music' || kind === 'sting') {
@@ -65,6 +70,13 @@ try {
       const ctx = new OfflineAudioContext(2, Math.ceil(rate * ${seconds}), rate);
       const sys = createSoundSystem({ context: ctx });
       const quantum = 128 / rate;
+      if (job.kind === 'sfx' && job.events.some((e) => e.say)) {
+        // Range Control's recording, decoded before the render starts.
+        const { loadRangeControl } = await import('/@fs/${audio}../announcer.ts');
+        loadRangeControl(sys.speech);
+        for (let i = 0; i < 200 && !sys.speech.state.ready && !sys.speech.state.failed; i++) await new Promise((r) => setTimeout(r, 50));
+        if (!sys.speech.state.ready) throw new Error("Range Control's recording did not load");
+      }
       if (job.kind === 'sfx') {
         // Every event at its own moment: the render stops there, the listener moves, the sound starts.
         const groups = new Map();
@@ -77,7 +89,10 @@ try {
           ctx.suspend(q).then(() => {
             for (const e of list) {
               if (e.listener) sys.setListener(e.listener[0], e.listener[1], e.listener[2]);
-              sys.play(e.event, e.params);
+              if (e.event) sys.play(e.event, e.params);
+              else if (e.say) sys.speech.say(e.say, e.cuts ?? false);
+              else if (e.scene) sys.music.setScene(e.scene, e.timeLeft);
+              else if (e.sting) sys.music.sting(e.sting);
             }
             ctx.resume();
           });

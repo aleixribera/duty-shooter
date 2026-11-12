@@ -89,6 +89,18 @@ const page = {
 try {
   await chrome.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: SHIM });
+  // Before the game reads them: the first-match hints all learned (no "WASD Move" over the footage), and a shot's
+  // own settings (a loadout, a field of view) over the saved ones.
+  const HINTS = ['move', 'fire', 'aim', 'sprint', 'reload', 'swap', 'grenade', 'loadout', 'scoreboard'];
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+      localStorage.setItem('duty-shooter.hints.v1', ${JSON.stringify(JSON.stringify({ done: HINTS, shown: {} }))});
+      const k = 'duty-shooter.settings.v1';
+      let s = {};
+      try { s = JSON.parse(localStorage.getItem(k) ?? '{}') ?? {}; } catch {}
+      localStorage.setItem(k, JSON.stringify({ ...s, ...${JSON.stringify(shot.settings ?? {})} }));
+    })()`,
+  });
   await chrome.navigate(`${base}?nolock&hz=${fps}${shot.params ? `&${shot.params}` : ''}`);
   if (!(await chrome.waitFor('globalThis.duty?.game && globalThis.duty?.sound', 120_000))) throw new Error('page did not start');
   await sleep(1000);
@@ -106,6 +118,10 @@ try {
     s.music.setScene = (next, timeLeft = null) => { log.push({ t: at(), scene: next, timeLeft }); return scene(next, timeLeft); };
     const sting = s.music.sting.bind(s.music);
     s.music.sting = (which) => { log.push({ t: at(), sting: which }); return sting(which); };
+    // Range Control's recorded lines, as asked: the live queue waits on the real clock, not this one, so the render
+    // replays the asks and its own queue (on the shot's clock) makes the game's waits and drops.
+    const say = s.speech.say.bind(s.speech);
+    s.speech.say = (id, cuts = false) => { log.push({ t: at(), say: id, cuts }); return say(id, cuts); };
     return true;
   })()`);
   if (shot.ui !== true) await js(HIDE_UI);
