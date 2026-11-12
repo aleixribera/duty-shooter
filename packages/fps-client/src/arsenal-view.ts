@@ -44,29 +44,30 @@ export class ArsenalView {
   /** The tacticals' canisters (ticket 20), by kind. */
   readonly #canisters = new Map<'smoke' | 'flash', Object3D>();
   #disposed = false;
-  /** Settles once the frag model is in (or failed to load). */
+  /** Settles once the frag and canister models are in (or failed to load). */
   readonly loaded: Promise<void>;
-  /** The frag and glint `showSamples` drew, kept so their shaders stay compiled. */
+  /** The frag, canisters and glint `showSamples` drew, kept so their shaders stay compiled. */
   #samples: Object3D[] = [];
 
   constructor(scene: Scene) {
     scene.add(this.#root);
     this.#glintMaterial = new MeshBasicNodeMaterial({ map: glintTexture(), transparent: true, depthWrite: false, blending: AdditiveBlending });
-    this.loaded = new GLTFLoader().loadAsync(new URL('./viewmodel/assets/frag.glb', import.meta.url).href).then(({ scene: model }) => {
+    const frag = new GLTFLoader().loadAsync(new URL('./viewmodel/assets/frag.glb', import.meta.url).href).then(({ scene: model }) => {
       if (this.#disposed) return disposeAuthored(model);
       this.#template = model;
     }).catch((error: unknown) => {
       console.warn('Unable to load the frag model:', error);
     });
     const canisters = { smoke: new URL('./viewmodel/assets/smoke.glb', import.meta.url).href, flash: new URL('./viewmodel/assets/flash.glb', import.meta.url).href };
-    for (const [kind, url] of Object.entries(canisters) as ['smoke' | 'flash', string][]) {
+    const loads = (Object.entries(canisters) as ['smoke' | 'flash', string][]).map(([kind, url]) =>
       new GLTFLoader().loadAsync(url).then(({ scene: model }) => {
         if (this.#disposed) return disposeAuthored(model);
         this.#canisters.set(kind, model);
       }).catch((error: unknown) => {
         console.warn(`Unable to load the ${kind} model:`, error);
-      });
-    }
+      }),
+    );
+    this.loaded = Promise.all([frag, ...loads]).then(() => undefined);
   }
 
   /** Draws the live grenades `alpha` of a tick past the latest one. */
@@ -133,7 +134,7 @@ export class ArsenalView {
   }
 
   /**
-   * Shows, for one frame, a frag and a scope glint a thousandth of their size a
+   * Shows, for one frame, a frag, each canister and a scope glint a thousandth of their size a
    * few metres in front of `camera`, so their shaders compile before a match
    * needs them. Returns what hides them again.
    */
@@ -143,9 +144,13 @@ export class ArsenalView {
       frag.traverse((o) => {
         o.castShadow = true;
       });
+      const canisters = [...this.#canisters.values()].map((c) => c.clone());
+      for (const c of canisters) c.traverse((o) => {
+        o.castShadow = true;
+      });
       const glint = new Mesh(this.#glintGeometry, this.#glintMaterial);
       glint.renderOrder = 4;
-      this.#samples = [frag, glint];
+      this.#samples = [frag, ...canisters, glint];
     }
     for (const o of this.#samples) {
       o.position.set(0, 0, -4).applyQuaternion(camera.quaternion).add(camera.position);

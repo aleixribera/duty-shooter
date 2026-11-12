@@ -51,6 +51,8 @@ try {
   }
   if (!(await chrome.waitFor(`duty.driver?.match?.phase === 'playing'`, 180_000))) throw new Error('match did not start');
   await chrome.evaluate('globalThis.__t0 = performance.now()');
+  // Which grenades the match threw (a smoke or flash canister is a model of its own).
+  await chrome.evaluate(`(() => { const ids = new Set(); const count = (globalThis.__thrown = {}); const d = duty.driver; const real = d.grenades.bind(d); d.grenades = () => { const list = real(); for (const g of list) if (!ids.has(g.id)) { ids.add(g.id); count[g.kind] = (count[g.kind] ?? 0) + 1; } return list; }; })()`);
   await key('keyDown', 'KeyW');
   for (let t = 0; t < SECONDS; t += 5) {
     const side = t % 10 === 0 ? 'KeyA' : 'KeyD';
@@ -75,6 +77,7 @@ try {
     }));
   })`);
   console.log(JSON.stringify(keys));
+  console.log('thrown', JSON.stringify(await chrome.evaluate('__thrown')));
   const kills = await chrome.evaluate('duty.driver.scores.reduce((n, s) => n + s.kills, 0)');
   console.log(`${map} ${mode}: ${builds.length} builds in ${SECONDS} s of play, ${builds.reduce((a, b) => a + b.ms, 0).toFixed(0)} ms; kills ${kills}; errors ${JSON.stringify(chrome.errors.slice(0, 3))}`);
   for (const b of builds) console.log(`  ${b.at}s  ${b.ms.toFixed(1)} ms  ${b.what}`);
