@@ -27,6 +27,7 @@ import {
   mx_noise_float,
   normalize,
   normalView,
+  positionView,
   normalWorld,
   positionWorld,
   positionWorldDirection,
@@ -567,6 +568,20 @@ const CREVICE = 0.3;
 /** How much of the sky a face leaning up or down gains or loses: walls in the shade still show their relief. */
 const SKY_LEAN = 0.9;
 
+/**
+ * Adds a point light's share only while it shines. The game's point lights (the muzzle flashes and a frag's
+ * blast) are dark until something fires, yet every lit pixel paid for their distance, falloff and angle; a
+ * branch on the light's colour, the same for every pixel, skips all of it while it is dark (next-level ticket 35).
+ * The view normal and position are worked out ahead of it: a shared node first used inside a branch is only
+ * set inside it.
+ */
+function whileLit(lightNode: unknown, add: (normal: N3) => void): void {
+  const normal = (normalView as unknown as N3).toVar() as N3;
+  positionView.toVar();
+  const c = (lightNode as { colorNode: N3 }).colorNode;
+  If(c.x.add(c.y).add(c.z).greaterThan(0) as never, () => add(normal));
+}
+
 /** Lights a static surface from the lightmap and, near the player, the realtime sun shadow, through its relief; adds point lights (muzzle flashes). */
 class BakedLightingModel extends LightingModel {
   readonly #albedo: N3;
@@ -595,7 +610,7 @@ class BakedLightingModel extends LightingModel {
       return;
     }
     // Three's lights divide by pi where the bake's light does not.
-    this.#point.addAssign(lightColor.mul(max(dot(normalView as unknown as N3, lightDirection), float(0))).div(Math.PI));
+    whileLit(lightNode, (n) => this.#point.addAssign(lightColor.mul(max(dot(n, lightDirection), float(0))).div(Math.PI)));
   }
 
   override finish(builder: NodeBuilder): void {
@@ -707,7 +722,7 @@ class OpenGroundModel extends LightingModel {
       if (shadow) this.#mask.mulAssign(shadow);
       return;
     }
-    this.#point.addAssign(lightColor.mul(max(dot(normalView as unknown as N3, lightDirection), float(0))).div(Math.PI));
+    whileLit(lightNode, (n) => this.#point.addAssign(lightColor.mul(max(dot(n, lightDirection), float(0))).div(Math.PI)));
   }
 
   override finish(builder: NodeBuilder): void {
@@ -773,7 +788,7 @@ class FoliageModel extends LightingModel {
       return;
     }
     // Lamps light leaves from either side, wrapped as the sun is.
-    this.#point.addAssign(lightColor.mul(abs(dot(normalView as unknown as N3, lightDirection)).mul(0.6).add(0.4)).div(Math.PI));
+    whileLit(lightNode, (n) => this.#point.addAssign(lightColor.mul(abs(dot(n, lightDirection)).mul(0.6).add(0.4)).div(Math.PI)));
   }
 
   override finish(builder: NodeBuilder): void {

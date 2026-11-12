@@ -10,6 +10,10 @@
 // `depthfirst` (the game's own depth-first twins, see map-models.ts), `plants`, `ground` (the terrain hidden), `groundflat` (its shader
 // swapped for a flat colour), `groundrecv` (it receiving the sun's shadow), `groundalt` (its shader against another build of it, `GV=<variant>`:
 // needs a temporary hook, `globalThis.__groundMat` in terrain-view.ts building `terrainMaterial` while `globalThis.__gv` names the variant).
+// `leafrecv` (the plants' leaves receiving the sun's shadow), `leafalt` (the leaves' shader against another build of it, `GV=<variant>`:
+// needs `globalThis.__leafMat` in plants-view.ts building the leaf material), `leafequal` (an alpha-tested depth-only twin of the
+// leaves drawn first, the leaves then drawn with Equal depth and no alpha test: needs `globalThis.__leafDepthMat` in plants-view.ts
+// building a depth-only copy inside plantMaterial, as a material can't share its nodes with another).
 // A spot is named as the map names it (Zero Island's are its Regions' names, "Ground Zero"); a name it doesn't have leaves the menu's overview up. Some change the picture: they measure a part's cost, not a fix.
 import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
 
@@ -95,6 +99,36 @@ try {
         x.material = v ? x.userData.realMat : globalThis.__groundAltMat;
       });
       if ('${what}' === 'groundrecv') world.traverse((x) => { if (x.name === 'ground') x.receiveShadow = v; });
+      if ('${what}' === 'leafrecv') world.getObjectByName('plants')?.traverse((x) => { if (x.isInstancedMesh && x.material?.alphaTest > 0) x.receiveShadow = v; });
+      if ('${what}' === 'leafalt') world.getObjectByName('plants')?.traverse((x) => {
+        if (!x.isInstancedMesh) return;
+        x.userData.realMat ??= x.material;
+        if (!(x.userData.realMat.alphaTest > 0)) return;
+        if (!globalThis.__leafAltMat) { globalThis.__gv = ${JSON.stringify(process.env.GV ?? '')}; globalThis.__leafAltMat = globalThis.__leafMat(); globalThis.__gv = ''; }
+        x.material = v ? x.userData.realMat : globalThis.__leafAltMat;
+      });
+      if ('${what}' === 'leafequal') {
+        if (!globalThis.__leafEq) {
+          globalThis.__leafEq = [];
+          const leaves = []; world.getObjectByName('plants')?.traverse((x) => { if (x.isInstancedMesh && x.material?.alphaTest > 0) leaves.push(x); });
+          const mats = new Map();
+          for (const x of leaves) {
+            let d = mats.get(x.material);
+            if (!d) { d = globalThis.__leafDepthMat(); mats.set(x.material, d); }
+            const t = new x.constructor(x.geometry, d, x.instanceMatrix.count);
+            t.instanceMatrix = x.instanceMatrix;
+            t.renderOrder = -1; t.frustumCulled = false; t.castShadow = false; t.receiveShadow = false;
+            x.parent.add(t);
+            globalThis.__leafEq.push([x, t]);
+          }
+          globalThis.__leafEqMats = [...mats.keys()];
+          console.log('leaf twins', leaves.length, mats.size);
+          const sync = () => { for (const [x, t] of globalThis.__leafEq) { t.count = x.count; t.visible = x.visible && globalThis.__leafEqOn; } requestAnimationFrame(sync); };
+          sync();
+        }
+        globalThis.__leafEqOn = v;
+        for (const m of globalThis.__leafEqMats) { m.alphaTest = v ? 0 : 0.5; m.depthFunc = v ? 4 : 3; m.depthWrite = !v; m.needsUpdate = true; }
+      }
       if ('${what}' === 'plants') { const p = world.getObjectByName('plants'); if (p) p.visible = v; }
     };
     const names = new Map();
