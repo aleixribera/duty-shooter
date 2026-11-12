@@ -508,6 +508,9 @@ const FILL = 0.8;
 const KEY = 2.2;
 const RIM = 0.8;
 const ENVIRONMENT = 0.8;
+/** Out of the sun: the key's share of its strength in sun, and how much the fill rises. */
+const SHADE_KEY = 0.4;
+const SHADE_FILL = 0.6;
 
 /** A pistol slide's run back and forward after a shot (s). */
 const SLIDE_CYCLE = 0.07;
@@ -691,11 +694,14 @@ export class Viewmodel {
     const k = 1 - Math.exp(-dt / 0.2);
     this.#sunLight += (sun - this.#sunLight) * k;
     this.#ambientLight += (ambient - this.#ambientLight) * k;
-    // Out of the sun the key is only a faint bounce; every light follows the ambient level, so a room darkens the gun as much as its walls.
+    // Out of the sun the key becomes the open sky overhead and the fill rises with the light thrown back off the ground and walls round
+    // the player: a dark gun lit by the fill alone reads as a black cut-out against a lit street. Every light follows the ambient level,
+    // so a room still darkens the gun as much as its walls.
     const amb = Math.min(1, this.#ambientLight);
-    this.#key.intensity = KEY * (0.12 + 0.88 * this.#sunLight) * amb;
+    const shade = 1 - this.#sunLight;
+    this.#key.intensity = KEY * (SHADE_KEY + (1 - SHADE_KEY) * this.#sunLight) * amb;
     this.#rim.intensity = RIM * amb;
-    this.#fill.intensity = FILL * this.#ambientLight;
+    this.#fill.intensity = FILL * (1 + SHADE_FILL * shade) * this.#ambientLight;
     this.scene.environmentIntensity = ENVIRONMENT * amb;
   }
 
