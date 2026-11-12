@@ -16,6 +16,7 @@ const FAMILY_MATERIAL: Partial<Record<Family, Material>> = {
   siding: 'wood',
   floor: 'wood',
   fence: 'wood',
+  louvre: 'wood',
   shingles: 'wood',
   sheetMetal: 'sheetMetal',
 };

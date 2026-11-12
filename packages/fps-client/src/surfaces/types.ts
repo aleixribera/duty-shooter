@@ -17,6 +17,8 @@ export type Family =
   | 'paint'
   | 'sheetMetal'
   | 'fence'
+  /** Louvred shutter slats, 5 cm apart. */
+  | 'louvre'
   | 'glass'
   | 'plastic'
   | 'floor'

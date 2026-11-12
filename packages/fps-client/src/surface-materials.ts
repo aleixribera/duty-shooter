@@ -378,6 +378,7 @@ const SHINE: Readonly<Record<Family, { ks: number; power: number }>> = {
   paint: { ks: 0.18, power: 48 },
   sheetMetal: { ks: 0.35, power: 40 },
   fence: { ks: 0.03, power: 10 },
+  louvre: { ks: 0.1, power: 30 },
   glass: { ks: 1.2, power: 400 },
   room: { ks: 0, power: 1 },
   plastic: { ks: 0.15, power: 36 },
@@ -475,6 +476,14 @@ function albedo(finish: Finish, st: N2, wear: (mask: N) => void): N3 {
     case 'fence': {
       const board = hash(vec2(floor(x.div(0.14)), float(3)) as N2);
       return weathered(mix(base, accent, board.mul(0.5)).mul(grooves(x, px, 0.14, 0.018).mul(0.45).add(0.55)).mul(grain(4, 0.06)) as N3, p, st);
+    }
+    case 'louvre': {
+      // Slats 5 cm apart, tipped down: each catches the light along its top edge and sits in the shadow of the one above
+      // at its foot, with a dark gap between. Far off, where a slat is under a couple of pixels, it settles to their mean.
+      const q = fract(y.div(0.05));
+      const slat = mix(float(0.5), float(1.12), smoothstep(float(0.05), float(0.9), q)).mul(grooves(y, py, 0.05, 0.007).mul(0.6).add(0.4));
+      const far = smoothstep(float(0.2), float(0.5), py.div(0.05));
+      return weathered(base.mul(mix(slat, float(0.8), far)).mul(grain(4, 0.05)) as N3, p, st);
     }
     case 'floor': {
       // Planks 14 cm wide, butt joints every 1.8 m, staggered per plank.

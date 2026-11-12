@@ -39,6 +39,8 @@ export interface WallTrim {
   readonly frames?: string;
   /** A shutter either side of each window. */
   readonly shutters?: string;
+  /** The shutters' stiles and rails, framing the slats a little proud of them (else the shutter is one panel). */
+  readonly shutterFrame?: string;
   /** A baseboard along the foot of the wall. */
   readonly baseboard?: string;
 }
@@ -267,8 +269,18 @@ export class Builder {
           const w = Math.min(0.45, (o.top - o.bottom) * 0.4);
           const l = over(o.from - FRAME_W - w - 0.03, o.from - FRAME_W);
           const r = over(o.to + FRAME_W, o.to + FRAME_W + w + 0.03);
-          if (l) deco(l, o.from - FRAME_W - w - 0.03, o.from - FRAME_W - 0.03, o.bottom, o.top, trim.shutters, 0.025);
-          if (r) deco(r, o.to + FRAME_W + 0.03, o.to + FRAME_W + w + 0.03, o.bottom, o.top, trim.shutters, 0.025);
+          const shutter = (s: Solid, a: number, b: number) => {
+            deco(s, a, b, o.bottom, o.top, trim.shutters!, 0.025);
+            const frame = trim.shutterFrame;
+            if (!frame) return;
+            // Stiles 5 cm wide up both sides, rails 7 cm deep across the top and foot, 7 mm proud of the slats.
+            deco(s, a, a + 0.05, o.bottom, o.top, frame, 0.032);
+            deco(s, b - 0.05, b, o.bottom, o.top, frame, 0.032);
+            deco(s, a + 0.05, b - 0.05, o.bottom, o.bottom + 0.07, frame, 0.032);
+            deco(s, a + 0.05, b - 0.05, o.top - 0.07, o.top, frame, 0.032);
+          };
+          if (l) shutter(l, o.from - FRAME_W - w - 0.03, o.from - FRAME_W - 0.03);
+          if (r) shutter(r, o.to + FRAME_W + 0.03, o.to + FRAME_W + w + 0.03);
         }
       }
       if (trim.baseboard) {

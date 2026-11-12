@@ -98,9 +98,12 @@ const TOWN_LIGHT: Lighting = {
 
 const FINISHES: Readonly<Record<string, Finish>> = {
   'north.siding': { family: 'siding', color: 0x9dcdb3 },
-  'north.shutter': { family: 'paint', color: 0x3d6b58 },
+  'north.shutter': { family: 'louvre', color: 0x3d6b58 },
+  'north.shutter.frame': { family: 'paint', color: 0x3d6b58 },
+  'north.door': { family: 'paint', color: 0x3d6b58 },
   'south.siding': { family: 'siding', color: 0xecd9a0 },
-  'south.shutter': { family: 'paint', color: 0x8e4a3c },
+  'south.shutter': { family: 'louvre', color: 0x8e4a3c },
+  'south.shutter.frame': { family: 'paint', color: 0x8e4a3c },
   trim: { family: 'paint', color: 0xf3efe4 },
   soffit: { family: 'paint', color: 0xe6e0d2 },
   shingles: { family: 'shingles', color: 0x6b6058, accent: 0x50473f },
@@ -193,15 +196,16 @@ function faceCentre(x: number, z: number): number {
 /** Yaw that looks along +x / -x / +z / -z. */
 const LOOK = { east: -Math.PI / 2, west: Math.PI / 2, south: Math.PI, north: 0 } as const;
 
-/** A house's own colours: its siding and its shutters. */
+/** A house's own colours: its siding, its shutters' slats and their frames. */
 interface Palette {
   readonly siding: string;
   readonly shutter: string;
+  readonly shutterFrame: string;
 }
 
 const PALETTES = {
-  north: { siding: 'north.siding', shutter: 'north.shutter' },
-  south: { siding: 'south.siding', shutter: 'south.shutter' },
+  north: { siding: 'north.siding', shutter: 'north.shutter', shutterFrame: 'north.shutter.frame' },
+  south: { siding: 'south.siding', shutter: 'south.shutter', shutterFrame: 'south.shutter.frame' },
 } as const satisfies Record<string, Palette>;
 
 /**
@@ -231,7 +235,7 @@ class Side {
   trim(inside: 1 | -1 | 'both'): WallTrim[] {
     if (inside === 'both') return [1, -1].map((face) => ({ face: face as 1 | -1, frames: 'trim', baseboard: 'trim' }));
     return [
-      { face: -inside as 1 | -1, frames: 'trim', shutters: this.palette.shutter },
+      { face: -inside as 1 | -1, frames: 'trim', shutters: this.palette.shutter, shutterFrame: this.palette.shutterFrame },
       { face: inside, frames: 'trim', baseboard: 'trim' },
     ];
   }
@@ -874,7 +878,7 @@ function buildOutskirts(b: Builder): void {
     }
     const door = (x0 + x1) / 2 - 0.45;
     front(door - 0.08, door + 0.99, 0.3, 2.41, 0.015, 'trim');
-    front(door, door + 0.91, 0.31, 2.33, 0.025, 'north.shutter');
+    front(door, door + 0.91, 0.31, 2.33, 0.025, 'north.door');
     b.gableRoof({
       x0: x0 - 0.4,
       x1: x1 + 0.4,
