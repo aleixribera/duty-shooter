@@ -1216,15 +1216,17 @@ function playerName(name: string, bot: boolean, team?: number): string {
 const colHead = (word: string) => `<th><span class="w">${word}</span><span class="n" title="${word}">${word[0]}</span></th>`;
 
 /** The held scoreboard: both teams side by side, or the free-for-all ranking; each row its Score, kills, deaths, assists and ping, the highest Score first. */
-function boardHtml(state: HudState): string {
+export function boardHtml(state: HudState): string {
   const mode: ModeId = state.match?.status.mode ?? 'ffa';
   const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
   const levels = board.kind === 'ffa' && board.levels;
+  // Against bots nobody has a ping: a column of dashes says nothing, so it goes.
+  const pinged = (board.kind === 'ffa' ? board.rows : board.teams.flatMap((t) => t.rows)).some((r) => r.ping !== null);
   const table = (rows: readonly BoardRow[]) =>
-    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>Score</th>${colHead('Kills')}${colHead('Deaths')}${colHead('Assists')}<th>Ping</th></tr>${rows
+    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>Score</th>${colHead('Kills')}${colHead('Deaths')}${colHead('Assists')}${pinged ? '<th>Ping</th>' : ''}</tr>${rows
       .map(
         (r) =>
-          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td class="score">${figure(r.score)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.assists}</td><td class="ping">${r.ping === null ? '–' : r.ping}</td></tr>`,
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td class="score">${figure(r.score)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.assists}</td>${pinged ? `<td class="ping">${r.ping === null ? '–' : r.ping}</td>` : ''}</tr>`,
       )
       .join('')}</table>`;
   // The goal stays findable after the countdown: the board says what wins beside the mode's name.
