@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { createWorld } from '@duty-shooter/fps-core';
+import { box, createWorld } from '@duty-shooter/fps-core';
 import { PerspectiveCamera, PointLight, Scene } from 'three/webgpu';
-import { Effects, shotGlow } from '../src/effects';
+import { Effects, flashClearance, shotGlow } from '../src/effects';
 
 // Effects' decal textures can be empty in this non-rendering check.
 vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) });
@@ -96,5 +96,33 @@ describe('a muzzle flash', () => {
     expect(loud.size).toBeGreaterThan(plain.size * 1.3);
     expect(loud.light).toBeGreaterThan(plain.light);
     effects.dispose();
+  });
+
+  // Review 2026-11-12f: a stair tread a hand over the muzzle flared a flat tangerine mid-burst, and a handrail beside it
+  // a white beam. The light dims so the nearest surface takes no more than one a metre off.
+  it('lights a surface a hand from the muzzle no brighter than one a metre off', () => {
+    const shoot = (world: ReturnType<typeof createWorld>) => {
+      const scene = new Scene();
+      const effects = new Effects(scene, world);
+      effects.shot([0, 1.6, 0], [0, 0, -1], 'm4a1');
+      effects.update(1 / 60, new PerspectiveCamera());
+      const out = { light: shotLight(scene), glow: shotGlow.value.w };
+      effects.dispose();
+      return out;
+    };
+    const open = shoot(createWorld([]));
+    // A tread 15 cm over where the light sits (0.6 m ahead, at 1.6 m).
+    const tread = shoot(createWorld([box({ min: [-0.5, 1.75, -1], max: [0.5, 1.8, 0], material: 'wood' })]));
+    expect(open.light).toBeGreaterThan(10);
+    const atTread = tread.light / 0.15 ** 1.6;
+    expect(atTread).toBeLessThanOrEqual(open.light * 1.01);
+    expect(atTread).toBeGreaterThan(open.light * 0.9);
+    // The smoke round the muzzle still glows at full strength.
+    expect(tread.glow).toBeCloseTo(open.glow, 5);
+    // A 6 cm handrail running past the light a quarter metre to the side and a little up, off every axis and diagonal.
+    const rail = shoot(createWorld([box({ min: [0.22, 1.67, -3], max: [0.28, 1.73, 2], material: 'wood' })]));
+    expect(rail.light / Math.hypot(0.22, 0.07) ** 1.6).toBeLessThanOrEqual(open.light * 1.01);
+    // Nothing near: all of it.
+    expect(flashClearance(createWorld([]), [0, 1.6, -0.6])).toBe(1);
   });
 });

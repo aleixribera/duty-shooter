@@ -1,4 +1,4 @@
-import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
+import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Solid, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
 import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, positionWorld, sin, smoothstep, sqrt, step, time, uniform, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AddEquation,
@@ -596,6 +596,36 @@ const CLOUD_FEED_FLOOR = 0.35;
 const KEY_COLOR = 0xffe6cc;
 const KEY_INTENSITY = 26;
 
+/** The muzzle light's falloff exponent, and the nearest a surface may sit before the light dims to spare it (m). */
+const FLASH_DECAY = 1.6;
+const FLASH_CLEAR = 1;
+export function flashClearance(world: World, p: Vec3): number {
+  let near = FLASH_CLEAR;
+  // Exact, not sampled: a 6 cm handrail beside the light slips between any handful of rays.
+  for (const i of world.bullets.inRect(p[0] - FLASH_CLEAR, p[2] - FLASH_CLEAR, p[0] + FLASH_CLEAR, p[2] + FLASH_CLEAR)) {
+    const s = world.solids[i] as Solid;
+    if (s.blocks !== 'players') near = Math.min(near, distanceToSolid(p, s));
+  }
+  if (world.terrain) near = Math.min(near, Math.max(0, p[1] - world.terrain.heightAt(p[0], p[2])));
+  return (Math.max(near, 0.05) / FLASH_CLEAR) ** FLASH_DECAY;
+}
+
+/** How far `p` is from the solid's nearest point (0 inside it). */
+function distanceToSolid(p: Vec3, s: Solid): number {
+  const o = s.orientation;
+  let sum = 0;
+  for (let k = 0; k < 3; k++) {
+    let out: number;
+    if (o) {
+      const axis = o.axes[k] as Vec3;
+      const along = (p[0] - o.center[0]) * axis[0] + (p[1] - o.center[1]) * axis[1] + (p[2] - o.center[2]) * axis[2];
+      out = Math.abs(along) - (o.half[k] as number);
+    } else out = Math.max((s.min[k] as number) - (p[k] as number), (p[k] as number) - (s.max[k] as number));
+    if (out > 0) sum += out * out;
+  }
+  return Math.sqrt(sum);
+}
+
 /**
  * Combat effects: a muzzle flash that lights the scene, muzzle smoke after
  * sustained fire, ejected casings that bounce and settle, bullet-hole decals,
@@ -608,6 +638,8 @@ export class Effects {
   readonly #lightAge: number[] = [];
   /** Each shot light's strength, by the gun that fired it. */
   readonly #lightPower: number[] = [];
+  /** How much of each light reaches the surfaces round it: less with one a hand off (flashClearance). */
+  readonly #lightClear: number[] = [];
   #nextLight = 0;
   readonly #sparks = new ParticleLayer(280, 'spark');
   readonly #dust = new ParticleLayer(260, 'puff');
@@ -657,10 +689,11 @@ export class Effects {
       this.#fireSmoke.mesh.name = 'ambient-fire-smoke';
     }
     for (let i = 0; i < 2; i++) {
-      const light = new PointLight(0xffb468, 0, 9, 1.6);
+      const light = new PointLight(0xffb468, 0, 9, FLASH_DECAY);
       this.#lights.push(light);
       this.#lightAge.push(1);
       this.#lightPower.push(1);
+      this.#lightClear.push(1);
       this.#root.add(light);
     }
     this.#holes = new DecalLayer(220, holeTexture(), true);
@@ -747,6 +780,7 @@ export class Effects {
     // Fresh until the next update: that frame draws it at full strength however long the frame took.
     this.#lightAge[i] = -1;
     this.#lightPower[i] = look.flash;
+    this.#lightClear[i] = flashClearance(this.#world, [light.position.x, light.position.y, light.position.z]);
     this.#recentShots.push(this.#time);
     while ((this.#recentShots[0] ?? Infinity) < this.#time - 1.2) this.#recentShots.shift();
     const heat = this.#recentShots.length;
@@ -1116,9 +1150,11 @@ export class Effects {
       const age = before < 0 ? 0 : before + dt;
       this.#lightAge[i] = age;
       const light = this.#lights[i] as PointLight;
-      light.intensity = age < 0.05 ? (14 * (1 - age / 0.05) + 4) * (this.#lightPower[i] ?? 1) : 0;
-      if (light.intensity / 18 > glow) {
-        glow = light.intensity / 18;
+      // The smoke round the muzzle glows at the flash's full power: it is lit from inside, however near a wall.
+      const power = age < 0.05 ? (14 * (1 - age / 0.05) + 4) * (this.#lightPower[i] ?? 1) : 0;
+      light.intensity = power * (this.#lightClear[i] ?? 1);
+      if (power / 18 > glow) {
+        glow = power / 18;
         shotGlow.value.set(light.position.x, light.position.y, light.position.z, glow);
       }
     }
