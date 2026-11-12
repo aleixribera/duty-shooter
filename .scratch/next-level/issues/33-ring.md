@@ -9,3 +9,4 @@ Carried over from `.scratch/battle-royale/issues/26-final-tuning.md`, left open 
 ## Comments
 
 - (2026-11-12) The Ring half is already done: ticket 08 (v2.146.0) made it a curtain of drifting rays, pulses climbing from a hot foot line and arcs that strike and go, one cylinder, one draw call, no texture, and battle-royale tickets 44 and 53 set its foot on the ground and the water under it (no longer at sea level) and fade its detail toward the sun. What is left here is the final pass on the finished island (Ring timing, bots, download size, frame budget, sniper balance), which waits on Zero Island's bake (ticket 34) and its frame cost (ticket 35), since both change what gets measured.
+- (2026-11-12) Ticket 34 is resolved (v2.171.0): Zero Island's surfaces bake in the normal build. The final pass still waits on ticket 35's frame cost.
