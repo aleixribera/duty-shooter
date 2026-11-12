@@ -455,7 +455,8 @@ function buildHouse(side: Side): void {
     side.box(D.x0, UPPER_FLOOR, deckD0, D.x0 + 0.08, UPPER_FLOOR + 1, D.d1 - 1.4, 'wood');
   });
   const [sz0, sz1] = [side.z(D.d1 - 1.4), side.z(D.d1)].sort((p, q) => p - q) as [number, number];
-  side.paint({ side: 'trim', top: 'deck' }, () => b.stairs({ along: 'x', from: D.stairsX0, to: D.x0, across: [sz0, sz1], bottom: 0, top: UPPER_FLOOR, material: 'wood' }));
+  // Boxed in with the deck's own boards: in paint the stair's side was a blank stepped wall, the brightest thing in the yard.
+  side.paint({ side: 'deck', top: 'deck' }, () => b.stairs({ along: 'x', from: D.stairsX0, to: D.x0, across: [sz0, sz1], bottom: 0, top: UPPER_FLOOR, material: 'wood' }));
 
   // Furniture (modelled): cover inside, gaps either a body wide or closed.
   side.furnish('sofa', 2, 0, 21, 5, 0.85, 22, 'wood', true);
