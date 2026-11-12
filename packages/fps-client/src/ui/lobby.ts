@@ -37,9 +37,8 @@ const CSS = `
 .ds-lobby .match { display: grid; gap: 18px; }
 .ds-lobby .blurb { margin: -4px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-lobby .picks { display: grid; gap: 18px; }
-/* Five modes wrap two or three a row, the last row's buttons sharing its width: no empty cell. */
-.ds-lobby .picks .modes { display: flex; flex-wrap: wrap; }
-.ds-lobby .picks .modes button { flex: 1 1 150px; }
+/* The five modes one under another, all one width (review 2026-11-12d: three over two of different widths read as uneven, and five in a row cut "Deathmatch" at the cell's edges). */
+.ds-lobby .picks .modes { grid-template-columns: 1fr; }
 .ds-lobby .picks .ds-seg button { min-height: 44px; }
 /* The maps as pictures, the picked one framed in signal. */
 .ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
@@ -329,7 +328,7 @@ export class LobbyPage {
         ? `<button type="button" class="ds-btn primary big" disabled>Loading ${escapeHtml(v.loading)}…</button>`
         : `<button type="button" class="ds-btn primary big" data-act="join" data-key="start">Join the match</button>`
       : host
-        ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start</button>`
+        ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start match</button>`
         : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
     // The connection line: a dot for the state and what it means for you.
     // Offline there is no connection to speak of: the roster says who plays.

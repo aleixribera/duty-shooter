@@ -100,9 +100,11 @@ const CSS = `
 /* A segmented picker: one choice lit. */
 .ds-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
 .ds-seg button { min-height: 40px; padding: 8px 6px; border: 0; background: rgb(11 14 19 / 0.92); font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); transition: background-color 100ms, color 100ms; }
-.ds-seg button.on { background: var(--ds-text); color: var(--ds-ink); }
+/* The lit choice framed in signal, as the lobby's map pictures are: one way of showing what is picked on every screen. */
+.ds-seg button.on { background: var(--ds-raised); color: var(--ds-text); box-shadow: inset 0 0 0 2px var(--ds-signal); }
 .ds-seg button:not(:disabled):not(.on):hover { background: var(--ds-raised-2); color: var(--ds-text); }
-.ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: -2px; position: relative; z-index: 1; }
+/* Focus tints the option as .ds-btn's focus does, so where you are reads apart from the framed choice. */
+.ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { background: var(--ds-signal-dim); color: var(--ds-text); outline: 2px solid var(--ds-signal); outline-offset: 2px; position: relative; z-index: 1; }
 .ds-field-label { display: block; margin: 0 0 8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 
 /* Key hints: keyboard caps, or the controller's glyphs once a pad drives the screen. */
@@ -125,7 +127,7 @@ html.ds-touch .ds-ui .ds-btn { min-height: 44px; }
 /* A thumb on a seam picks the neighbour: on touch the segments of a picker stand 8 px apart, each in its own line (design audit 2026-11-10, F13). */
 html.ds-touch .ds-seg { gap: 8px; background: none; border: 0; }
 html.ds-touch .ds-seg button { box-shadow: inset 0 0 0 1px var(--ds-line); }
-html.ds-touch .ds-seg button.on { box-shadow: none; }
+html.ds-touch .ds-seg button.on { box-shadow: inset 0 0 0 2px var(--ds-signal); }
 
 @keyframes ds-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes ds-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
