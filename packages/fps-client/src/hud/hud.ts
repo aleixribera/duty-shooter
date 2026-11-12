@@ -444,6 +444,15 @@ export function roundCardUp(state: HudState): boolean {
   return view.status.mode !== 'battle-royale' && (view.countdown ?? 0) > 0;
 }
 
+/**
+ * Whether a notice can speak now: not over the round card, which has the screen while it is up (review 2026-11-12f, 04:
+ * "Controller connected" on the gun under the opening card), not over a toast already speaking, and not while the
+ * toast's place is hidden (the held scoreboard, the island map), where it would count down unseen.
+ */
+export function noticeDue(state: HudState, toastLeft: number, toastHidden = false): boolean {
+  return toastLeft <= 0 && !toastHidden && !roundCardUp(state);
+}
+
 /** The button prompt as the round card's last line, or nothing. */
 export function cardPrompt(state: HudState): string {
   const prompt = state.message ? null : (state.prompt ?? null);
@@ -508,6 +517,8 @@ export class Hud {
   onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
+  /** A notice waiting for the toast's place (`notice`). */
+  #notice: { readonly text: string; readonly seconds: number } | null = null;
   readonly #royale: RoyaleHud;
   readonly #pings: PingMarks;
   readonly #allies: AllyTagsView;
@@ -709,6 +720,19 @@ export class Hud {
     div.addEventListener('animationend', () => div.remove());
   }
 
+  /**
+   * A toast about the machine rather than the match (a controller plugged in): it waits for the round card and any
+   * toast speaking to go, then takes the toast's place. A newer notice replaces one still waiting.
+   */
+  notice(text: string, seconds = 4): void {
+    this.#notice = { text, seconds };
+  }
+
+  /** The notice still waiting, if any: a game handing over to another map's passes it on. */
+  get pendingNotice(): { readonly text: string; readonly seconds: number } | null {
+    return this.#notice;
+  }
+
   toast(text: string, seconds = 8): void {
     this.#toast.textContent = text;
     this.#toast.style.opacity = '1';
@@ -880,9 +904,14 @@ export class Hud {
     // The held board has the screen, and so does a Battle Royale's card: the feed steps back rather than show through or under it.
     this.root.classList.toggle('boarded', (board && !voting) || Boolean(state.matchCard));
     // The island map or the held board open, nothing else speaks over it.
-    this.#style(this.#toast, 'visibility', royale?.mapOpen || (board && !voting) ? 'hidden' : 'visible');
+    const toastHidden = Boolean(royale?.mapOpen || (board && !voting));
+    this.#style(this.#toast, 'visibility', toastHidden ? 'hidden' : 'visible');
     if (board) this.#set(this.#board, boardHtml(state));
 
+    if (this.#notice && noticeDue(state, this.#toastTime, toastHidden)) {
+      this.toast(this.#notice.text, this.#notice.seconds);
+      this.#notice = null;
+    }
     // The hint has the toast's place, and gives it up while a toast speaks.
     const hint = this.#toastTime > 0 ? null : (state.hint ?? null);
     if (this.#hint.hidden !== (hint === null)) this.#hint.hidden = hint === null;

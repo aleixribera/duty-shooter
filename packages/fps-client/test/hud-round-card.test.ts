@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardPrompt, roundCardUp, type HudState } from '../src/hud/hud';
+import { cardPrompt, noticeDue, roundCardUp, type HudState } from '../src/hud/hud';
 
 const at = (over: object) => ({ message: null, prompt: 'F  Loadout', charge: null, ...over }) as unknown as HudState;
 const match = (countdown: number | null, mode = 'tdm', phase = 'playing') => ({ status: { phase, mode }, countdown });
@@ -26,5 +26,23 @@ describe('the loadout prompt during the countdown', () => {
   it('adds nothing to the card without a prompt, or under a message', () => {
     expect(cardPrompt(at({ match: match(3), prompt: null }))).toBe('');
     expect(cardPrompt(at({ match: match(3), message: 'Connecting' }))).toBe('');
+  });
+});
+
+describe('a notice (a controller plugged in)', () => {
+  it('waits while the opening card or a Charge freeze is up', () => {
+    expect(noticeDue(at({ match: match(3) }), 0)).toBe(false);
+    expect(noticeDue(at({ match: match(null, 'charge'), charge: { state: { phase: 'freeze' } } }), 0)).toBe(false);
+  });
+
+  it("waits for a toast already speaking, and while the toast's place is hidden", () => {
+    expect(noticeDue(at({ match: match(0) }), 1.5)).toBe(false);
+    expect(noticeDue(at({ match: match(0) }), 0, true)).toBe(false);
+  });
+
+  it('speaks once play is on, out of a match, and in a Battle Royale', () => {
+    expect(noticeDue(at({ match: match(0) }), 0)).toBe(true);
+    expect(noticeDue(at({ match: null }), 0)).toBe(true);
+    expect(noticeDue(at({ match: match(3, 'battle-royale') }), -0.01)).toBe(true);
   });
 });

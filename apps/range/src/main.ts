@@ -157,6 +157,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       game.applySettings(settings);
     }
     wire(game);
+    // A notice raised at the menu (a pad's first press) still waits for its moment in the new game.
+    const waiting = old.hud.pendingNotice;
+    if (waiting) game.hud.notice(waiting.text, waiting.seconds);
     // The old game goes once the new one is ready: its shaders, most of them the new one's too, stay compiled meanwhile.
     void game.prepare().finally(() => old.dispose());
   };
@@ -734,7 +737,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   setInterval(() => {
     if (lobby?.kind === 'server' && menu.open && menu.screen === 'main' && !game?.driver) void lobbyStatus().then((s) => menu.updateLobby(s));
   }, 10_000);
-  addEventListener('gamepadconnected', (e) => game?.hud.toast(`Controller connected: ${padName(e.gamepad.id)}`, 4));
+  // It waits for the round card to go: at a match's start the card has the screen.
+  addEventListener('gamepadconnected', (e) => game?.hud.notice(`Controller connected: ${padName(e.gamepad.id)}`, 4));
 
   // The engine, a piece at a time: the menus stay live between the pieces.
   await nextPaint();
