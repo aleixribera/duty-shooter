@@ -40,6 +40,8 @@ export class PingBoard {
     if (this.#marks.some((m) => m.id === e.id)) return false;
     // A seat's newest place replaces its last.
     if (placePing(e.kind)) this.#marks = this.#marks.filter((m) => !(m.player === e.player && placePing(m.kind)));
+    // An enemy marked again (often by a second squadmate) is one marker, where they were last seen: two stood on each other (review 2026-11-12g).
+    if (e.target !== null) this.#marks = this.#marks.filter((m) => m.target !== e.target);
     this.#marks.push({ id: e.id, kind: e.kind, player: e.player, name, position: e.position, target: e.target, until: e.until, mine });
     return true;
   }

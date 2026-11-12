@@ -35,6 +35,17 @@ describe('the ping board', () => {
     expect(board.live(0)).toEqual([]);
   });
 
+  it('holds one marker per enemy, the newest, however many squadmates mark them', () => {
+    const board = new PingBoard();
+    board.add(ping({ id: 1, kind: 'enemy', target: 'x', position: [1, 0, 1] }), 'Ann', false);
+    board.add(ping({ id: 2, kind: 'enemy', target: 'y' }), 'Ann', false);
+    board.add(ping({ id: 3, kind: 'enemy', target: 'x', player: 'b', position: [2, 0, 1] }), 'Bo', false);
+    // An enemy marked on the ground (no one targeted) is never folded into another.
+    board.add(ping({ id: 4, kind: 'enemy' }), 'Bo', false);
+    board.add(ping({ id: 5, kind: 'enemy' }), 'Ann', false);
+    expect(board.live(0).map((m) => m.id)).toEqual([2, 3, 4, 5]);
+  });
+
   it('a feed line says who and where', () => {
     expect(pingCallout('enemy', 'Ann', 'C4')).toMatch(/^Ann\b/);
     expect(pingCallout('drop', 'You', 'C4')).toMatch(/^You\b.*C4/);

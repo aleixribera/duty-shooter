@@ -15,7 +15,7 @@ import { END_REASONS, MODE_NAMES, TEAMS, endSummary, goalLine, matchBar, mvpOf, 
 import { escapeHtml as escape, icon, installTheme } from '../ui/theme';
 import { placement, type VictoryCard } from '../ui/royale';
 import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
-import { PingMarks, clearOfAllies, type PingScreenMark } from './ping-marks';
+import { PingMarks, placePings, type PingScreenMark } from './ping-marks';
 import { CAPTIONS_CSS, CaptionView } from './captions';
 import { CrosshairView, type CrosshairOptions } from './crosshair';
 import { HUD_SCALE_CSS, HUD_SCALE_LIMITS } from './scale';
@@ -524,7 +524,7 @@ export class Hud {
   readonly #royale: RoyaleHud;
   readonly #pings: PingMarks;
   readonly #allies: AllyTagsView;
-  /** The ping markers lifted clear of an ally's tag last frame (see clearOfAllies). */
+  /** The ping markers lifted clear of an ally's tag or another marker last frame (see placePings). */
   #pingsLifted: ReadonlySet<number> = new Set();
   readonly #grenades: GrenadeWarningsView;
   readonly #clock = new MatchClockView();
@@ -891,7 +891,7 @@ export class Hud {
     this.#style(this.#recap, 'display', recap ? '' : 'none');
     if (recap) this.#set(this.#recap, recapHtml(recap));
     const pings = royale?.mapOpen ? [] : (state.pingMarks?.marks ?? []);
-    const placed = clearOfAllies(pings, state.allies ?? [], this.#pingsLifted);
+    const placed = placePings(pings, state.allies ?? [], this.#pingsLifted);
     this.#pingsLifted = new Set(placed.filter((m, i) => m !== pings[i]).map((m) => m.id));
     this.#pings.update(placed, state.pingMarks?.wheel ?? null);
     this.root.classList.toggle('royale', royale !== null);

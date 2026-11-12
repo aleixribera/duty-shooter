@@ -51,33 +51,45 @@ const HOLD = 12;
 const GAP = 4;
 const TOP = 8;
 
+/** How much nearer (m) a marker lifted last frame must come before it takes the place of the one under it. */
+const NEARER = 2;
+
 /**
- * The marks lifted clear of the allies' tags. An ally often pings the enemy they're facing, so the enemy stands just past
- * them on the screen and its marker landed on their chevron, the two merging (review 2026-11-12e). A marker that would
- * cover a tag goes straight up until it sits over it, still over its point, and the tag under it shows whole. `lifted`
- * names the marks lifted last frame: they hold a little longer (see HOLD).
+ * The marks placed clear of the allies' tags and of each other, in the order given. An ally often pings the enemy
+ * they're facing, so the enemy stands just past them on the screen and its marker landed on their chevron, the two
+ * merging (review 2026-11-12e); two enemies pinged side by side stacked label on label, one hiding the other's distance
+ * (review 2026-11-12g). A marker that would cover a tag or a marker already placed goes straight up until it sits over
+ * it, still over its point. The nearest marker is placed first, so it keeps its point and the farther ones stand above
+ * it, as they would in the world. `lifted` names the marks lifted last frame: they hold a little longer (see HOLD and
+ * NEARER), so two markers at a border don't swap or jump each frame.
  */
-export function clearOfAllies(marks: readonly PingScreenMark[], tags: readonly AllyTag[], lifted: ReadonlySet<number> = new Set()): PingScreenMark[] {
-  if (tags.length === 0) return [...marks];
+export function placePings(marks: readonly PingScreenMark[], tags: readonly AllyTag[], lifted: ReadonlySet<number> = new Set()): PingScreenMark[] {
+  if (marks.length === 0 || (tags.length === 0 && marks.length === 1)) return [...marks];
   const boxes = tags.map((t) => {
     const h = t.edge ? 42 + (t.label ? 18 : 0) : tagHeight(t);
     const bottom = t.edge ? t.y + h / 2 : t.y;
-    return { x: t.x, top: bottom - h, bottom };
+    return { x: t.x, half: TAG_HALF, top: bottom - h, bottom };
   });
-  return marks.map((m) => {
+  const placed: PingScreenMark[] = [...marks];
+  const order = marks.map((m, i) => ({ m, i, by: m.distance + (lifted.has(m.id) ? NEARER : 0) })).sort((a, b) => a.by - b.by || a.m.id - b.m.id);
+  for (const { m, i } of order) {
     const hold = lifted.has(m.id) ? HOLD : 0;
-    const half = pingHalf(m.kind) + TAG_HALF + hold;
     let y = m.y;
-    // Each lift clears one tag; a lift can only meet tags higher up, so there are at most as many as there are tags.
+    // Each lift clears one box; a lift can only meet boxes higher up, so there are at most as many as there are boxes.
+    // The hold widens only the first test, from the marker's own point: once lifted, it sits GAP over the box it cleared,
+    // inside the hold, and would find that box again instead of the next one up.
     for (let k = 0; k <= boxes.length; k++) {
-      const under = boxes.find((b) => Math.abs(b.x - m.x) < half && y > b.top - hold && y - PING_UP - hold < b.bottom);
+      const below = k === 0 ? hold : 0;
+      const under = boxes.find((b) => Math.abs(b.x - m.x) < pingHalf(m.kind) + b.half + hold && y > b.top - below && y - PING_UP - hold < b.bottom);
       if (!under) break;
       y = under.top - GAP;
     }
-    if (y === m.y) return m;
     // A lifted marker stops at the screen's top; one already up there was never moved, so it stays on its point.
-    return { ...m, y: Math.max(y, Math.min(m.y, PING_UP + TOP)) };
-  });
+    const at = y === m.y ? m : { ...m, y: Math.max(y, Math.min(m.y, PING_UP + TOP)) };
+    placed[i] = at;
+    boxes.push({ x: at.x, half: pingHalf(m.kind), top: at.y - PING_UP, bottom: at.y });
+  }
+  return placed;
 }
 
 /** Where each wheel choice sits, around the centre (px): up, right, down, left. */
