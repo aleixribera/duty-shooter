@@ -42,6 +42,7 @@ export const MENU_CSS = `
 .ds-dest b { display: block; font-size: var(--ds-type-display); line-height: 0.92; font-weight: 700; letter-spacing: 0.015em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
 .ds-dest .readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 6px; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
 .ds-dest .readout em { font-style: normal; color: var(--ds-text); }
+.ds-dest.off b { color: var(--ds-text-2); }
 .ds-dest:hover::before, .ds-dest:focus-visible::before, .ds-dest[data-pad-focus]::before { background: var(--ds-signal); transform: scaleX(2); }
 .ds-dest:hover b, .ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { transform: translateX(10px); }
 .ds-dest:focus-visible, .ds-dest[data-pad-focus] { outline: none; }
@@ -53,6 +54,8 @@ export const MENU_CSS = `
 .ds-dot { display: inline-flex; align-items: center; gap: 8px; color: var(--ds-text); }
 .ds-dot::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--ds-alert); }
 .ds-dot.up::before { background: var(--ds-signal); }
+.ds-dot.off { color: var(--ds-text-2); }
+.ds-dot.off::before { background: var(--ds-text-3); }
 .ds-home footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .ds-version { font-size: var(--ds-type-small); color: var(--ds-text-2); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
 /* The first time the menu shows, the destinations rise in one after another; never on a redraw. */
@@ -899,16 +902,16 @@ export class Menu {
       this.#change({ name: n });
       this.#callbacks.playOnline(n, '', null, null);
     };
+    // No server answering: Play Online keeps its place but steps back, saying what it waits for, and the lit Bot Match leads.
+    const offline = !link && (!server || !t.online);
     const onlineReadout = link
       ? '<span class="ds-dot up">Public lobby, on its own page</span>'
-      : !server
-        ? '<span class="ds-dot">No server</span>'
-        : t.online
-          ? `<span class="ds-dot up">${t.full ? 'Full' : 'Online'}</span><span><em>${escapeHtml(t.players)}</em> players${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span><span>${escapeHtml(t.mode)}${t.hvb ? ' vs bots' : ''} on ${escapeHtml(t.map)}</span>`
-          : '<span class="ds-dot">Server offline</span>';
-    dest('Play Online', onlineReadout, playOnline, server);
+      : offline
+        ? '<span class="ds-dot off">Offline: no server is answering</span>'
+        : `<span class="ds-dot up">${t.full ? 'Full' : 'Online'}</span><span><em>${escapeHtml(t.players)}</em> players${t.bots > 0 ? ` + ${t.bots} bots` : ''}</span><span>${escapeHtml(t.mode)}${t.hvb ? ' vs bots' : ''} on ${escapeHtml(t.map)}</span>`;
+    dest('Play Online', onlineReadout, playOnline, server && !offline).classList.toggle('off', offline);
     dest('Battle Royale', `<span><em>${WIDE_SCALE.seats}</em> seats</span><span>Zero Island</span><span>Solos, Duos or Trios</span>`, () => this.#callbacks.battleRoyale());
-    dest('Bot Match', '<span>Any map, any mode, against bots</span>', () => this.#callbacks.botMatch(), !server);
+    dest('Bot Match', '<span>Any map, any mode, against bots</span>', () => this.#callbacks.botMatch(), !server || offline);
     dest('Practice Range', '<span>Lanes, dummies and a movement course</span>', () => this.#callbacks.practiceRange());
     dest(
       'Settings',
