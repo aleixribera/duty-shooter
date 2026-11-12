@@ -71,7 +71,8 @@ export const MENU_CSS = `
   .ds-home { display: flex; flex-direction: column; gap: 18px; padding: 20px var(--ds-gutter); overflow-y: auto;
     background: linear-gradient(0deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 55%, rgb(7 9 13 / 0.45) 100%); }
   .ds-home .top { flex-direction: column; gap: 14px; }
-  .ds-name { width: min(270px, 100%); }
+  /* One column, one width: the name and the Rank run as wide as the list and its divider (ticket 80). */
+  .ds-name { width: min(720px, 100%); }
   .ds-dests { margin: auto 0 0; align-self: flex-start; }
   .ds-dest { padding: 8px 0 10px 18px; }
   .ds-dest .readout { font-size: var(--ds-type-body); }
