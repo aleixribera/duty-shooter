@@ -1575,7 +1575,8 @@ export class GameServer {
     const awake = this.#mode.fixedSeats === undefined ? Infinity : Math.round((time - this.#matchStart) / TICK_SECONDS);
     let waking = 0;
     const people = far ? this.#joined().flatMap((c) => seats.get(c.id as PlayerId) ?? []) : [];
-    // A bot's pings are for the people of its side: a side of bots alone shares what it sees without them.
+    // A bot's pings are for the people of its Squad, and only in a Battle Royale: elsewhere they filled the
+    // feed with "Enemy spotted" and the world with markers (Aleix, 2026-11-13). A side of bots alone shares what it sees without them.
     const heard = new Set<TeamId>();
     for (const c of this.#joined()) {
       const team = seats.get(c.id as PlayerId)?.team;
@@ -1611,7 +1612,7 @@ export class GameServer {
       };
       cmds[id] = seat.bot.think(view);
       const ping = seat.bot.takePing();
-      if (ping && heard.has(self.team)) this.#askPing(id, ping);
+      if (ping && this.#squads && heard.has(self.team)) this.#askPing(id, ping);
       if (probe) {
         probe.thought(id, seat.bot.activity);
         this.#facts.thoughts += 1;

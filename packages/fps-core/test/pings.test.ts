@@ -140,6 +140,29 @@ describe('on the server', () => {
     expect(heard).toHaveLength(2);
   });
 
+  /** The pings a person heard from bots over `seconds` of a match with bots of both sides in sight of each other. */
+  function botPings(mode: 'tdm' | 'battle-royale', seconds: number): PingEvent[] {
+    const spawns = [[0, 0], [12, 0], [0, 12], [12, 12], [24, 0], [0, 24]].map(([x, z]) => ({ position: [x, 0, z] as Vec3, yaw: 0 }));
+    const m = createNetworkedMatch({
+      solids: [FLOOR],
+      spawns,
+      mode,
+      ...(mode === 'battle-royale' ? { modes: { battleRoyale: { squadSize: 2, seed: 3 } } } : {}),
+      bots: { nav: NAV, perTeam: 3, maxPerTeam: 3 },
+      latency: 0.03,
+    });
+    const person = m.join('a');
+    m.run(ticks(seconds));
+    const bots = new Set(m.server.latest.players.filter((p) => p.id !== person.client.id).map((p) => p.id));
+    expect(bots.size).toBeGreaterThan(1);
+    return person.frames.flatMap((f) => f.server).filter((e): e is PingEvent => e.type === 'ping' && bots.has(e.player));
+  }
+
+  it('from a bot only in a Battle Royale: in Bot Match and Play Online they filled the feed (Aleix, 2026-11-13)', () => {
+    expect(botPings('tdm', 20)).toEqual([]);
+    expect(botPings('battle-royale', 90).length).toBeGreaterThan(0);
+  });
+
   it('sends a Squad wipe and a new Kill Leader again in later snapshots, like a kill (review, ticket 69)', () => {
     for (const type of ['kill', 'killFeed', 'squadOut', 'killLeader', 'reboot', 'ping']) expect(IMPORTANT.has(type)).toBe(true);
   });

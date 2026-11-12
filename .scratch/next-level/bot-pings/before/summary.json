@@ -1,0 +1,12 @@
+{
+  "seconds": 60,
+  "pingLines": 11,
+  "mostMarks": 2,
+  "examples": [
+    "◆ Ember: Enemy spotted",
+    "◆ Rook: Enemy spotted",
+    "◆ Briar: Enemy spotted"
+  ],
+  "kills": 11,
+  "errors": []
+}
