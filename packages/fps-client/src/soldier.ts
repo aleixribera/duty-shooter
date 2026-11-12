@@ -268,16 +268,28 @@ const SHADE = 0.85;
  */
 function bodyMaterial(): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
+  bodyNodes ??= bodyFinish();
+  // Over the vertex colours, which the material multiplies in itself.
+  material.colorNode = bodyNodes.color;
+  material.roughnessNode = bodyNodes.roughness;
+  return material;
+}
+
+/**
+ * The body's colour and roughness, built once and worn by every soldier. Three keys a shader on its nodes
+ * themselves, so a body with nodes of its own built a shader of its own: about 15 ms at every soldier's first
+ * appearance. Sharing them, every body shares one shader; each keeps its own material for its hit flash.
+ */
+let bodyNodes: ReturnType<typeof bodyFinish> | null = null;
+
+function bodyFinish() {
   const finish = attribute('finish', 'vec2');
   const camo = finish.x;
   const blotch = smoothstep(0.02, 0.1, mx_noise_float(positionGeometry.mul(7.5)));
   const fleck = smoothstep(0.16, 0.24, mx_noise_float(positionGeometry.mul(13).add(11.3)));
   const weave = mx_noise_float(positionGeometry.mul(170)).mul(0.05).add(1);
   const cloth = mix(float(1), float(0.7), blotch.mul(camo)).mul(mix(float(1), float(1.26), fleck.mul(camo))).mul(camo.mul(0.08).add(1));
-  // Over the vertex colours, which the material multiplies in itself.
-  material.colorNode = cloth.mul(weave);
-  material.roughnessNode = finish.y.add(blotch.mul(camo).mul(0.04));
-  return material;
+  return { color: cloth.mul(weave), roughness: finish.y.add(blotch.mul(camo).mul(0.04)) };
 }
 
 /** How dark the model's baked shade leaves a piece on the whole, 0 to 1 (1 with none baked): what the far stand-in's box of it is darkened by. */

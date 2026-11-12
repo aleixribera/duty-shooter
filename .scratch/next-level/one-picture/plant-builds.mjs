@@ -8,6 +8,8 @@ import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
 const BASE = process.env.BASE ?? 'http://localhost:5191/';
 const map = process.argv[2] ?? 'zero-island';
 const at = process.argv[3] ? `&at=${process.argv[3]}` : '';
+// WHAT=all: every mesh of the world, not only the plants.
+const everything = process.env.WHAT === 'all';
 const HMR_SHIELD = `(() => { const Real = WebSocket; const hmr = (p) => p === 'vite-hmr' || (Array.isArray(p) && p.includes('vite-hmr')); globalThis.WebSocket = new Proxy(Real, { construct(target, args) { if (hmr(args[1])) return { addEventListener() {}, removeEventListener() {}, send() {}, close() {}, readyState: 0 }; return new target(...args); } }); })()`;
 
 const EARLY = `(() => {
@@ -43,14 +45,15 @@ try {
     r._renderObjectDirect = function (object, material, s) { scenes.add(s); return realDirect.apply(this, arguments); };
     requestAnimationFrame(() => requestAnimationFrame(() => {
       r._renderObjectDirect = realDirect;
-      const plants = [...scenes].map((s) => s.getObjectByName('plants')).find(Boolean);
+      // Every scene but the first-person one (its unequipped attachments never show in a match).
+      const plants = ${everything} ? { traverse: (f) => { for (const sc of scenes) if (!sc.getObjectByName('viewmodel') && !sc.getObjectByName('stock')) sc.traverse(f); } } : [...scenes].map((s) => s.getObjectByName('plants')).find(Boolean);
       if (!plants) return done({ error: 'no plants' });
       const builds = [];
       const real = nodes._createNodeBuilder;
       nodes._createNodeBuilder = function (renderObject) {
         const b = real.apply(this, arguments);
         const build = b.build;
-        b.build = function () { const t = performance.now(); const x = build.apply(this, arguments); builds.push({ uuid: renderObject.object.uuid, ms: performance.now() - t, pass: (renderObject.camera.isOrthographicCamera ? 'shadow ' : '') + 'ctx ' + renderObject.context.id + ' ' + renderObject.material.type, vis: restore.length }); return x; };
+        b.build = function () { const t = performance.now(); const x = build.apply(this, arguments); const nm = (o) => { let x = o; for (let i = 0; i < 4 && x; i++, x = x.parent) if (x.name) return x.name; return o.type; }; builds.push({ who: nm(renderObject.object), uuid: renderObject.object.uuid, ms: performance.now() - t, pass: (renderObject.camera.isOrthographicCamera ? 'shadow ' : '') + 'ctx ' + renderObject.context.id + ' ' + nm(renderObject.object) + ' ' + renderObject.material.type, vis: restore.length }); return x; };
         return b;
       };
       const restore = [];
@@ -58,13 +61,13 @@ try {
       let shownBefore = 0;
       let countZero = 0;
       plants.traverse((o) => {
-        if (!o.isInstancedMesh) return;
+        if (!o.isMesh) return;
         meshes++;
         const { visible, frustumCulled, count } = o;
         if (visible) shownBefore++;
         if (count === 0) countZero++;
         restore.push(() => { o.visible = visible; o.frustumCulled = frustumCulled; o.count = count; });
-        o.visible = true; o.frustumCulled = false; o.count = Math.max(1, count);
+        o.visible = true; o.frustumCulled = false; if (o.isInstancedMesh) o.count = Math.max(1, count);
       });
       let frames = 0;
       const tick = () => {
