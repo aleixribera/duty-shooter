@@ -16,6 +16,20 @@ What would prove this wrong: if the last minute of a match doesn't feel differen
 
 The name stays Duty Shooter: the owner decided on 2026-11-11 (ticket 30).
 
+Tested 2026-11-13: the owner played a match to its end and the last minute lands ("Hell yeah it slaps"). The countdown stays the game's idea; the work does not turn to pure gunfeel.
+
+## Objectives
+
+The owner's five, 2026-11-13. Every item of the plan serves one of them, and they are what a review measures:
+
+1. **Really good multiplayer and lobby controls.**
+2. **Runs on a toaster:** integrated graphics, with the one picture. There is one graphics preset; no Low, Medium, High or Ultra (the owner, 2026-11-10 and 2026-11-13).
+3. **Gameplay and the world feel really good.**
+4. **Every weapon feels good.**
+5. **Easy to understand** for someone who has just opened the game and has only a short time to play.
+
+Names follow objective 5: plain words a newcomer reads at once ("Smoke", "Flash", "Fast Hands") beat themed ones.
+
 ## What holds it back today, in order
 
 1. **It can't ship.** Main was red for three days on a bot stuck on a ladder; the fix sat uncommitted. (Fixed first, v2.142.1.)
@@ -48,4 +62,4 @@ The name stays Duty Shooter: the owner decided on 2026-11-11 (ticket 30).
 
 ## The review
 
-When the arcs are done a reviewer subagent plays the build (scripts, screenshots, clips, the code) and rates out of 10: picture, game feel, sound, gameplay depth, content, UI and UX, performance, stability, identity, onboarding and accessibility. The work continues until every one is 9 or more. Reviews are kept in `reviews/`.
+A reviewer subagent judges the build against the five objectives, from evidence of what a player meets: two clients in one online lobby, a scripted player that aims at enemies and gets kills, the last minute of a match, every weapon fired, frame times on integrated graphics, and a newcomer's first minute from the link. Each objective gets a pass or fail with the evidence and its biggest gap. The ten-row score out of 10 (reviews up to 2026-11-12h) is retired: it was graded on a scripted player strafing at walls in one map and stopped moving after review (d). Reviews are kept in `reviews/`.
