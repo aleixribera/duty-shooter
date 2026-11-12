@@ -19,6 +19,11 @@ import type { Plugin } from 'vite';
  *   world and before what is see-through, tested against the depth the world
  *   left: it sits on the far plane, so it fills only the pixels nothing else
  *   did, and glass, smoke and particles still blend over it.
+ * - A material with a colour node casts its shadow through a colour node three
+ *   built for that material alone, so materials sharing one colour node (every
+ *   soldier's body) each built a shadow shader of their own the first time
+ *   they cast a shadow. A material whose shadow depends on its colour node
+ *   alone now gets the one shadow node made for that colour node.
  *
  * A pattern that is missing (three changed) fails the build: the fix is
  * checked against the new code, never silently dropped. The dev server keeps
@@ -79,6 +84,24 @@ class NodeUniformBuffer extends UniformBuffer {
 			if ( previousInterleavedMatrix !== undefined ) previousInterleavedMatrix.version = matrices.version;
 `,
   ],
+  [
+    `				colorNode = vec4( shadowRGB, shadowAlpha );
+
+				if ( hasMaskNode ) {`,
+    `				if ( hasColorNode && ! hasMap && ! hasCastShadowNode && ! hasMaskNode ) {
+
+					colorNode = _shadowColorNodes.get( material.colorNode );
+					if ( colorNode === undefined ) _shadowColorNodes.set( material.colorNode, colorNode = vec4( shadowRGB, shadowAlpha ) );
+
+				} else {
+
+					colorNode = vec4( shadowRGB, shadowAlpha );
+
+				}
+
+				if ( hasMaskNode ) {`,
+  ],
+  ['\nclass Renderer {', '\nconst _shadowColorNodes = new WeakMap();\n\nclass Renderer {'],
 ];
 
 /** The WebGPU builds the patches apply to. */
