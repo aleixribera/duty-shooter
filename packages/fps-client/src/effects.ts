@@ -416,10 +416,13 @@ class DecalLayer {
   #next = 0;
   readonly #max: number;
   readonly #upright: boolean;
+  /** Each decal's point, normal and size, for a modulate layer's overlap test. */
+  readonly #laid: Float32Array;
 
   constructor(max: number, texture: CanvasTexture, modulate = false) {
     this.#max = max;
     this.#upright = modulate;
+    this.#laid = new Float32Array(modulate ? max * 7 : 0);
     const laid = { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 };
     let material: MeshStandardNodeMaterial | MeshBasicNodeMaterial;
     if (modulate) {
@@ -444,6 +447,9 @@ class DecalLayer {
   }
 
   add(point: Vec3, normal: Vec3, size: number, color: Color): void {
+    // A modulate decal multiplies what is under it, so stacked ones compound into a dark blot: a shot into a hole already
+    // there widens nothing new, and lays no second decal.
+    if (this.#laid.length > 0 && this.#overlaps(point, normal, size)) return;
     const n = new Vector3(normal[0], normal[1], normal[2]);
     tmp.position.set(point[0], point[1], point[2]).addScaledVector(n, 0.004);
     tmp.quaternion.setFromUnitVectors(Z, n);
@@ -458,12 +464,28 @@ class DecalLayer {
     tmp.scale.setScalar(size);
     tmp.updateMatrix();
     const i = this.#next;
+    if (this.#laid.length > 0) this.#laid.set([point[0], point[1], point[2], normal[0], normal[1], normal[2], size], i * 7);
     this.mesh.setMatrixAt(i, tmp.matrix);
     this.mesh.setColorAt(i, color);
     this.#next = (i + 1) % this.#max;
     this.mesh.count = Math.max(this.mesh.count, i + 1);
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  /** Whether a decal laid at `point` would sit in one already there: its centre inside that one's crater, on the same face. */
+  #overlaps(point: Vec3, normal: Vec3, size: number): boolean {
+    const d = this.#laid;
+    for (let i = 0; i < this.mesh.count; i++) {
+      const o = i * 7;
+      if (normal[0] * d[o + 3]! + normal[1] * d[o + 4]! + normal[2] * d[o + 5]! < 0.9) continue;
+      const reach = 0.35 * Math.min(size, d[o + 6]!);
+      const dx = point[0] - d[o]!;
+      const dy = point[1] - d[o + 1]!;
+      const dz = point[2] - d[o + 2]!;
+      if (dx * dx + dy * dy + dz * dz < reach * reach) return true;
+    }
+    return false;
   }
 }
 
@@ -709,7 +731,7 @@ export class Effects {
     const m = material;
     // Loose ground closes over a bullet: a small dark pock, not a cracked hole.
     const loose = m === 'dirt' || m === 'grass' || m === 'sand' || m === 'gravel';
-    this.#holes.add(point, normal, loose ? 0.05 + Math.random() * 0.02 : 0.1 + Math.random() * 0.05, new Color(HOLE_TINT[m]));
+    this.#holes.add(point, normal, loose ? 0.04 + Math.random() * 0.015 : 0.065 + Math.random() * 0.03, new Color(HOLE_TINT[m]));
     const n = new Vector3(normal[0], normal[1], normal[2]);
     const p = new Vector3(point[0], point[1], point[2]).addScaledVector(n, 0.03);
     const sun = this.#sunlit(p);
