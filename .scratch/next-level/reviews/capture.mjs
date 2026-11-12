@@ -12,6 +12,27 @@ const BASE = process.argv[4] ?? 'http://localhost:5191/';
 mkdirSync(out, { recursive: true });
 const HMR_SHIELD = `(() => { const Real = WebSocket; const hmr = (p) => p === 'vite-hmr' || (Array.isArray(p) && p.includes('vite-hmr')); globalThis.WebSocket = new Proxy(Real, { construct(target, args) { if (hmr(args[1])) return { addEventListener() {}, removeEventListener() {}, send() {}, close() {}, readyState: 0 }; return new target(...args); } }); })()`;
 
+// Where the player stands and the solid under the crosshair (its index, bounds, material and look), so a surface in a frame can be found.
+const UNDER = `(() => {
+  const p = duty.game.player; const w = duty.map; const solids = w.solids;
+  const eye = [p.position[0], p.position[1] + 1.6, p.position[2]];
+  const d = [-Math.sin(p.yaw) * Math.cos(p.pitch), Math.sin(p.pitch), -Math.cos(p.yaw) * Math.cos(p.pitch)];
+  let best = null;
+  solids.forEach((s, n) => {
+    if (s.orientation) return;
+    let t0 = 0, t1 = 1e9;
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(d[i]) < 1e-9) { if (eye[i] < s.min[i] || eye[i] > s.max[i]) return; continue; }
+      let a = (s.min[i] - eye[i]) / d[i], b = (s.max[i] - eye[i]) / d[i];
+      if (a > b) [a, b] = [b, a];
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b);
+      if (t0 > t1) return;
+    }
+    if (!best || t0 < best.t) best = { t: t0, n, min: s.min, max: s.max, material: s.material, look: w.looks?.[n] ?? null };
+  });
+  return { position: p.position, yaw: p.yaw, pitch: p.pitch, under: best };
+})()`;
+
 const chrome = await launchChrome();
 try {
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HMR_SHIELD });
@@ -59,7 +80,10 @@ try {
       await shot('06-scoreboard');
       await key('keyUp', 'Tab', 'Tab', 9);
     }
-    if (t === 30) await shot('07-play-mid');
+    if (t === 30) {
+      await shot('07-play-mid');
+      console.log('07', JSON.stringify(await chrome.evaluate(UNDER)));
+    }
     await sleep(2000);
   }
   await key('keyUp', 'KeyW');

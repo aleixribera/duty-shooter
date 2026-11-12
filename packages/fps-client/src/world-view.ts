@@ -30,7 +30,7 @@ import {
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Plants, type Scatter, type Stencil, type SurfaceLayout } from './surfaces';
-import { cornerEdges, openEdges } from './surfaces/edges';
+import { cornerCreases, cornerEdges, creaseEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
 import { hasDistanceDetail } from './detail';
@@ -229,9 +229,16 @@ function grimeGeometry(marks: readonly GrimeQuad[]): BufferGeometry {
  * The static surfaces as one geometry per finish: each face a quad with its
  * normal, its own coordinates in metres (uv: along it horizontally and up it,
  * for the finish patterns), its lightmap coordinates (uv1) and how far each
- * corner is from the wall's open edges (faceEdges, for the weathering).
+ * corner is from the wall's open edges (faceEdges, for the weathering) and from
+ * the creases where another surface meets it (faceCreases, for their shade).
  */
-function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[], only: readonly number[] | null = null, open = openEdges(layout.faces)): Map<string, BufferGeometry> {
+function surfaceGeometries(
+  layout: SurfaceLayout,
+  solids: readonly Solid[],
+  only: readonly number[] | null = null,
+  open = openEdges(layout.faces),
+  creases = creaseEdges(layout.faces, solids),
+): Map<string, BufferGeometry> {
   const byFinish = new Map<string, number[]>();
   for (const i of only ?? layout.faces.keys()) {
     const f = layout.faces[i]!;
@@ -247,6 +254,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[], only
     const uv = new Float32Array(faces.length * 8);
     const uv1 = new Float32Array(faces.length * 8);
     const edges = new Float32Array(faces.length * 16);
+    const crease = new Float32Array(faces.length * 16);
     const index = new Uint32Array(faces.length * 6);
     faces.forEach((fi, k) => {
       const f = layout.faces[fi]!;
@@ -271,6 +279,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[], only
         uv.set([p[0] * h[0] + p[1] * h[1] + p[2] * h[2], p[0] * w[0] + p[1] * w[1] + p[2] * w[2]], v * 2);
         uv1.set(rect ? atlasUv(layout.atlas, rect, a, b) : [0, 0], v * 2);
         edges.set(cornerEdges(f, open[fi]!, a, b), v * 4);
+        crease.set(cornerCreases(f, creases, fi, a, b), v * 4);
       });
       index.set([k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3], k * 6);
     });
@@ -280,6 +289,7 @@ function surfaceGeometries(layout: SurfaceLayout, solids: readonly Solid[], only
     g.setAttribute('uv', new BufferAttribute(uv, 2));
     g.setAttribute('uv1', new BufferAttribute(uv1, 2));
     g.setAttribute('faceEdges', new BufferAttribute(edges, 4));
+    g.setAttribute('faceCreases', new BufferAttribute(crease, 4));
     g.setIndex(new BufferAttribute(index, 1));
     g.computeBoundingSphere();
     out.set(finish, g);
@@ -399,7 +409,7 @@ export class WorldView {
     const materials = new Map<string, ReturnType<typeof surfaceMaterial>>();
     const materialOf = (key: string) => {
       let m = materials.get(key);
-      if (!m) materials.set(key, (m = surfaceMaterial(layout.finishes[key]!, baked)));
+      if (!m) materials.set(key, (m = surfaceMaterial(layout.finishes[key]!, baked, { creases: true })));
       return m;
     };
     const meshes = (geometries: Map<string, BufferGeometry>, castShadow: boolean) =>
@@ -417,8 +427,11 @@ export class WorldView {
     if (content.terrain && hasDistanceDetail()) {
       // A map on terrain is too wide to draw whole: its surfaces go in blocks, the far ones with their big solids alone.
       const open = openEdges(layout.faces);
+      // No crease shade on a map this size: finding them on Zero Island's 316k faces stalls its load by a second or two,
+      // and a weak PC loading the map matters more than its rooms' corners (PLAN.md, objective 2).
+      const creases = new Float32Array(layout.faces.length * 4).fill(-1);
       this.#surfaceBlocks = new SurfaceBlocks(
-        surfaceBlocks(layout, content.solids).map((b) => ({ ...b, near: meshes(surfaceGeometries(layout, content.solids, b.near, open), true), far: meshes(surfaceGeometries(layout, content.solids, b.far, open), false) })),
+        surfaceBlocks(layout, content.solids).map((b) => ({ ...b, near: meshes(surfaceGeometries(layout, content.solids, b.near, open, creases), true), far: meshes(surfaceGeometries(layout, content.solids, b.far, open, creases), false) })),
       );
       this.#root.add(this.#surfaceBlocks.root);
     } else this.#root.add(...meshes(surfaceGeometries(layout, content.solids), true));

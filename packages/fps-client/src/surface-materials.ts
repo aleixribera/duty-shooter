@@ -233,16 +233,29 @@ export const horizonColor = (light.skyHorizon as unknown as N3).mul(light.skyInt
 export const skyZenith = (light.skyZenith as unknown as N3).mul(light.skyIntensity) as N3;
 /** Fill light (linear) added to the darkest baked light; warm, like light bounced off wood and plaster. */
 const INDOOR_FILL = [0.2, 0.18, 0.15] as const;
+/** How much more (and less) fill a wall facing the sun's side (and turned from it) gets than one across it. */
+const FILL_LEAN = 0.45;
 
 /**
  * Light stored by the bake (square-root encoded) back to linear, with a
  * little fill added where it is darkest: two bounces leave rooms lit only
- * through their windows nearly black, and players need to see in them.
+ * through their windows nearly black, and players need to see in them. Given
+ * the surface's normal `n`, the fill leans: it is light that came in off the
+ * sunlit ground, so a wall that faces the sun's side of the room (the one
+ * across from its sunny windows) takes more of it than a wall beside it, and a
+ * room's corner shows as two faces, not one sheet of brown cardboard (review
+ * 2026-11-12h). The sun's side is taken along the map's grid (the world axis
+ * nearest the sun), which its rooms are built square to: leaning along the
+ * sun itself, a sun at 45 degrees to the streets (Survival Town's) lit both
+ * faces of half the corners alike.
  */
-function decode(c: N3): N3 {
+function decode(c: N3, n: N3 | null = null): N3 {
   const light = c.mul(c).mul(INDIRECT_RANGE);
   const luma = dot(light, vec3(0.2126, 0.7152, 0.0722));
-  return light.add(vec3(...INDOOR_FILL).mul(smoothstep(float(0.35), float(0.02), luma))) as N3;
+  const fill = vec3(...INDOOR_FILL).mul(smoothstep(float(0.35), float(0.02), luma));
+  if (!n) return light.add(fill) as N3;
+  const lean = select(abs(sunDir.x).greaterThan(abs(sunDir.z)), n.x.mul(sign(sunDir.x)), n.z.mul(sign(sunDir.z)));
+  return light.add(fill.mul(lean.mul(FILL_LEAN).add(1))) as N3;
 }
 
 /** The sky in direction `d`, as the bake sees it, with a warm glow round the sun. */
@@ -521,10 +534,11 @@ function albedo(finish: Finish, st: N2, wear: (mask: N) => void): N3 {
       // (the render's half-metre hollows were taken out for that, review 2026-11-12d): the roller's stipple, a few
       // millimetres across, that settles to its mean in the noise's mipmaps once a pixel covers it; faint laps where each
       // 23 cm pass of the roller met the last, running up the wall; the second coat a shade off in places; and the paint
-      // dulled round a wall's ends and openings, where hands and shoulders rub.
+      // dulled round a wall's ends and openings, where hands and shoulders rub. The coats drift in tone over about a
+      // metre, as a wall painted by hand does, so a wall filling the screen isn't one flat sheet (review 2026-11-12h).
       const stipple = grain(260, 0.06).mul(grain(80, 0.02));
       const laps = float(0.975).add(noiseAt(vec2(x.mul(4.3), y.mul(0.35)) as N2, 1, 'b').mul(0.05));
-      const coat = grain(0.7, 0.035);
+      const coat = grain(0.9, 0.08).mul(grain(0.3, 0.05));
       const rubbed = nearOpening(0.45).mul(smoothstep(float(0.35), float(0.75), noiseAt(st, 3.2, 'g'))).mul(0.09);
       return base.mul(stipple).mul(laps).mul(coat).mul(float(1).sub(rubbed)) as N3;
     }
@@ -609,6 +623,21 @@ const CREVICE = 0.3;
 /** How much of the sky a face leaning up or down gains or loses: walls in the shade still show their relief. */
 const SKY_LEAN = 0.9;
 
+/** How much of the ambient and lamp light reaches the very crease of a room's corner, and how far out (m) its shade runs. */
+const CREASE_LIGHT = 0.45;
+const CREASE_REACH = 0.3;
+
+/**
+ * 1 away from any crease, falling to CREASE_LIGHT into one: the light a corner, a wall's foot and the line under a
+ * ceiling lose to the surface that meets them, which the bake's 20 cm texels smear away (review 2026-11-12h, a room
+ * corner drawn as a 1 px seam). From faceCreases (see creaseEdges).
+ */
+function creaseLight(): N {
+  const c = attribute<'vec4'>('faceCreases', 'vec4') as unknown as N4;
+  const near = float(1).sub(smoothstep(float(0), float(CREASE_REACH), max(min(min(c.x, c.y), min(c.z, c.w)), float(0))));
+  return float(1).sub(near.mul(near).mul(1 - CREASE_LIGHT)) as N;
+}
+
 /**
  * Adds a point light's share only while it shines. The game's point lights (the muzzle flashes and a frag's
  * blast) are dark until something fires, yet every lit pixel paid for their distance, falloff and angle; a
@@ -629,15 +658,17 @@ class BakedLightingModel extends LightingModel {
   readonly #baked: Baked;
   readonly #shine: { ks: number; power: number };
   readonly #relief: Relief | null;
+  readonly #crease: N | null;
   readonly #mask = float(1).toVar('sunMask');
   readonly #point = vec3(0, 0, 0).toVar('pointLight');
 
-  constructor(albedo: N3, baked: Baked, shine: { ks: number; power: number }, relief: Relief | null) {
+  constructor(albedo: N3, baked: Baked, shine: { ks: number; power: number }, relief: Relief | null, crease: N | null) {
     super();
     this.#albedo = albedo;
     this.#baked = baked;
     this.#shine = shine;
     this.#relief = relief;
+    this.#crease = crease;
   }
 
   override direct(input: Parameters<LightingModel['direct']>[0]): void {
@@ -671,9 +702,11 @@ class BakedLightingModel extends LightingModel {
     // The bake and the shadow are for the flat face; the relief leans it toward the sun or away, by the ratio of the two.
     const lean = this.#relief ? max(dot(lit, sunDir), float(0)).div(max(facing, float(0.2))) : float(1);
     const sunTerm = mix(baked, facing.mul(field.sun), near.mul(ready)).mul(this.#mask).mul(lean);
-    const sky = mix(vec3(0.42, 0.44, 0.47).mul(field.open), decode(lm.rgb as N3), ready);
-    const shaded = this.#relief ? sky.mul(float(1).add(lit.y.sub(n.y).mul(SKY_LEAN))).mul(mix(float(1 - CREVICE), float(1), this.#relief.open)) : sky;
-    const diffuse = this.#albedo.mul(shaded.add(sunColor.mul(sunTerm)).add(this.#point));
+    const sky = mix(vec3(0.42, 0.44, 0.47).mul(field.open), decode(lm.rgb as N3, n), ready);
+    const relieved = this.#relief ? sky.mul(float(1).add(lit.y.sub(n.y).mul(SKY_LEAN))).mul(mix(float(1 - CREVICE), float(1), this.#relief.open)) : sky;
+    // A crease keeps its sun (the bake and the shadow see to that) but loses the light that comes from all round.
+    const shaded = this.#crease ? relieved.add(this.#point).mul(this.#crease) : relieved.add(this.#point);
+    const diffuse = this.#albedo.mul(shaded.add(sunColor.mul(sunTerm)));
     const v = normalize(cameraPosition.sub(positionWorld)) as unknown as N3;
     const h = normalize(sunDir.add(v));
     const spec = sunColor.mul(sunTerm).mul(pow(max(dot(lit, h), float(0)), float(this.#shine.power)).mul(this.#shine.ks));
@@ -702,8 +735,11 @@ class SurfaceMaterial extends NodeMaterial {
  */
 const RELIEF_STRENGTH: Partial<Readonly<Record<Family, number>>> = { plaster: 0.3 };
 
-/** The material for one finish on static, lightmapped surfaces. */
-export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
+/**
+ * The material for one finish on static, lightmapped surfaces. With `creases`, its geometry carries faceCreases
+ * (surfaceGeometries' does; the far ground's and the terrain's don't) and its corners are shaded from them.
+ */
+export function surfaceMaterial(finish: Finish, baked: Baked, options: { readonly creases?: boolean } = {}): NodeMaterial {
   if (finish.family === 'glass') return glassMaterial(finish);
   if (finish.family === 'lamp') return lampMaterial(finish);
   if (finish.family === 'room') return roomMaterial();
@@ -714,7 +750,7 @@ export function surfaceMaterial(finish: Finish, baked: Baked): NodeMaterial {
   const depth = FAMILY_DEPTH[finish.family];
   const k = RELIEF_STRENGTH[finish.family] ?? 1;
   const shading = relief ? { normal: detailNormal(relief, k), open: mix(float(1), smoothstep(float(0.02), float(0.6), relief.z), k) as N } : null;
-  const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family], shading));
+  const m = new SurfaceMaterial(() => new BakedLightingModel(a, baked, SHINE[finish.family], shading, options.creases ? creaseLight() : null));
   m.colorNode = Fn(() => {
     const plain = uv() as unknown as N2;
     const st = tile && depth ? parallax(tile, plain, depth) : plain;

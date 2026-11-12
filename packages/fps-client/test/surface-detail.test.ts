@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { box } from '@duty-shooter/fps-core';
 import { GRIME_MARKS, MOST_GRIME, SCATTER_FINISHES, grimeQuads, layoutSurfaces, scatterPlacements, type Scatter, type SurfaceSpec } from '@duty-shooter/fps-client/surfaces';
-import { cornerEdges, openEdges } from '../src/surfaces/edges';
+import { cornerCreases, cornerEdges, creaseEdges, openEdges } from '../src/surfaces/edges';
 
 const finishes = { dirt: { family: 'dirt', color: 0xb9925f }, road: { family: 'asphalt', color: 0x746e61 }, wall: { family: 'plaster', color: 0xcccccc } } as const;
 const spec = (looks: SurfaceSpec['looks']): SurfaceSpec => ({ finishes, looks, decorations: [], indoor: [] });
@@ -32,6 +32,40 @@ describe('open edges', () => {
 
   it('gives faces that are not walls no open edges', () => {
     expect(open[faces.findIndex((f) => f.normal[1] === 1)]).toBe(0);
+  });
+});
+
+describe('creases', () => {
+  // A room's corner: a floor, a wall along z = 0 (its room face at z = 0.2) and one along x = 0 (room face at x = 0.2)
+  // that overlaps the first's end, as the maps' walls do.
+  const room = [
+    box({ min: [-1, -0.5, -1], max: [5, 0, 5], material: 'wood' }),
+    box({ min: [0, 0, 0], max: [4, 3, 0.2], material: 'concrete' }),
+    box({ min: [0, 0, 0], max: [0.2, 3, 4], material: 'concrete' }),
+  ];
+  const { faces } = layoutSurfaces(room, spec([null, { side: 'wall' }, { side: 'wall' }]));
+  const creases = creaseEdges(faces, room);
+  const roomFace = faces.findIndex((f) => f.solid === 1 && f.normal[2] === 1);
+  /** The distance to the nearest crease on the first wall's room face at (x, y). */
+  const toCrease = (x: number, y: number) => {
+    const f = faces[roomFace]!;
+    const alongU = Math.abs(f.u[0]) > 0;
+    const [ku, kv] = alongU ? [(x - f.origin[0]) / f.u[0], (y - f.origin[1]) / f.v[1]] : [(y - f.origin[1]) / f.u[1], (x - f.origin[0]) / f.v[0]];
+    return Math.min(...cornerCreases(f, creases, roomFace, ku, kv));
+  };
+
+  it('finds the corner where the other wall overlaps the face', () => {
+    // The other wall's room face stands at x = 0.2.
+    expect(toCrease(0.5, 1.5)).toBeCloseTo(0.3, 1);
+  });
+
+  it('finds the foot on the floor', () => {
+    expect(toCrease(2, 0.1)).toBeCloseTo(0.1, 1);
+  });
+
+  it('leaves the open end and the head alone', () => {
+    // The far end (x = 4) stops in the open, and nothing stands on the wall's head.
+    expect(toCrease(3.9, 2.9)).toBeGreaterThan(2);
   });
 });
 
