@@ -1,5 +1,6 @@
 import { PING_WHEEL, type PingKind } from '@duty-shooter/fps-core';
 import { PING_LABELS } from '../ui/pings';
+import type { AllyTag } from './ally-tags';
 
 /**
  * Pings on the screen (ticket 66): a marker over each thing the Squad
@@ -36,6 +37,47 @@ export interface PingScreenMark {
   readonly y: number;
   /** Metres from the view, along the ground. */
   readonly distance: number;
+}
+
+/** How far (px) a ping's marker reaches over its point: up, and to each side (an enemy's word is short, a place's longer). */
+const PING_UP = 62;
+const pingHalf = (kind: PingKind): number => (kind === 'enemy' ? 36 : 62);
+/** An ally's tag (see allyTags): half its width (a long name's), and how tall its name, mark and label stand (px). */
+const TAG_HALF = 64;
+const tagHeight = (t: AllyTag): number => (t.name ? 22 : 0) + (t.mark === 'downed' ? 22 : 17) + (t.label ? 18 : 0);
+/** How much further (px) a marker lifted last frame stays lifted, so one at a tag's border doesn't jump up and down. */
+const HOLD = 12;
+/** The gap (px) left between a raised marker and the tag under it, and the least room a marker keeps at the screen's top. */
+const GAP = 4;
+const TOP = 8;
+
+/**
+ * The marks lifted clear of the allies' tags. An ally often pings the enemy they're facing, so the enemy stands just past
+ * them on the screen and its marker landed on their chevron, the two merging (review 2026-11-12e). A marker that would
+ * cover a tag goes straight up until it sits over it, still over its point, and the tag under it shows whole. `lifted`
+ * names the marks lifted last frame: they hold a little longer (see HOLD).
+ */
+export function clearOfAllies(marks: readonly PingScreenMark[], tags: readonly AllyTag[], lifted: ReadonlySet<number> = new Set()): PingScreenMark[] {
+  if (tags.length === 0) return [...marks];
+  const boxes = tags.map((t) => {
+    const h = t.edge ? 42 + (t.label ? 18 : 0) : tagHeight(t);
+    const bottom = t.edge ? t.y + h / 2 : t.y;
+    return { x: t.x, top: bottom - h, bottom };
+  });
+  return marks.map((m) => {
+    const hold = lifted.has(m.id) ? HOLD : 0;
+    const half = pingHalf(m.kind) + TAG_HALF + hold;
+    let y = m.y;
+    // Each lift clears one tag; a lift can only meet tags higher up, so there are at most as many as there are tags.
+    for (let k = 0; k <= boxes.length; k++) {
+      const under = boxes.find((b) => Math.abs(b.x - m.x) < half && y > b.top - hold && y - PING_UP - hold < b.bottom);
+      if (!under) break;
+      y = under.top - GAP;
+    }
+    if (y === m.y) return m;
+    // A lifted marker stops at the screen's top; one already up there was never moved, so it stays on its point.
+    return { ...m, y: Math.max(y, Math.min(m.y, PING_UP + TOP)) };
+  });
 }
 
 /** Where each wheel choice sits, around the centre (px): up, right, down, left. */
