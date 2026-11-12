@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GRENADE_AFTER, HINT_READ, HINT_REST, HINT_SHOWINGS, HINT_STAYS, NO_HINTS_SEEN, hintLine, hintState, stepHints, type HintFacts, type HintMemory, type HintNames, type HintState } from '../src/hints';
+import { GRENADE_AFTER, HINT_CALM, HINT_READ, HINT_REST, HINT_SHOWINGS, HINT_STAYS, NO_HINTS_SEEN, hintLine, hintState, stepHints, type HintFacts, type HintMemory, type HintNames, type HintState } from '../src/hints';
 import { parseHintMemory } from '../src/hint-store';
 import { goalLine } from '../src/ui/model';
 
@@ -20,6 +20,7 @@ const idle: HintFacts = {
   scoreboard: false,
   thumbs: false,
   firing: false,
+  clash: false,
 };
 const dead: HintFacts = { ...idle, fighting: false, waiting: true };
 
@@ -86,6 +87,28 @@ describe('first-match hints', () => {
     expect(run(start, { ...idle, grenades: 0 }, GRENADE_AFTER + 5).current).toBeNull();
     const thrown = stepHints(run(start, idle, GRENADE_AFTER + HINT_REST + 1), { ...idle, throwing: true }, 0.1);
     expect(thrown.memory.done).toContain('grenade');
+  });
+
+  it('a lesson waits for a quiet moment: none starts in a fight, one up steps aside when a fight starts', () => {
+    const fight: HintFacts = { ...idle, clash: true };
+    // Moving learned: the sights are next, but not while shots are flying, nor in the seconds after.
+    let s = run(hintState(knows('move')), fight, 5);
+    expect(s.current).toBeNull();
+    s = run(s, idle, HINT_CALM - 0.5);
+    expect(s.current).toBeNull();
+    s = run(s, idle, 1);
+    expect(s.current).toBe('aim');
+    // Up and read, then a shot: it goes at once, isn't counted as shown, and comes back in the next quiet.
+    s = run(s, idle, HINT_READ + 0.5);
+    s = stepHints(s, fight, 0.1);
+    expect(s.current).toBeNull();
+    expect(s.memory.shown.aim ?? 0).toBe(0);
+    s = run(s, idle, HINT_CALM - 0.5);
+    expect(s.current).toBeNull();
+    s = run(s, idle, 1);
+    expect(s.current).toBe('aim');
+    // What a fight is for still says its word in one: half a magazine gone mid-fight calls for a reload.
+    expect(run(hintState(knows('move', 'aim', 'sprint')), { ...fight, magazine: 0.3 }, 1).current).toBe('reload');
   });
 
   it('dead with a respawn coming: the loadout and its key, then the scores', () => {

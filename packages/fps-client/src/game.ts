@@ -277,6 +277,10 @@ export class Game {
   #autoFire: AutoFireState = AUTO_FIRE_IDLE;
   /** The first-match hints (ticket 26): their state, the clear of the memory it was built on, and whether the loadout screen opened since the last frame. */
   #hints = hintState(hintMemory());
+  /** Last frame's health and gun (which, and its rounds), to see the player hit or firing for the hints. */
+  #hintHealth = 0;
+  #hintFighting = false;
+  #hintGun: { readonly id: string; readonly ammo: number } | null = null;
   #hintsCleared = hintMemoryCleared();
   #loadoutOpened = false;
   #lastFrame: number | null = null;
@@ -1769,6 +1773,15 @@ export class Game {
     const fighting = !held && self !== null && self.alive && !self.downed;
     const w = self?.weapon;
     const size = self && w ? heldRow(self).handling.magazineSize.value : undefined;
+    // In a fight: hit since last frame, a round gone from the same gun (a shot; a reload only adds), or an enemy called out.
+    // Only between two frames of fighting: a revive or a respawn sets health and rounds afresh.
+    const steady = fighting && this.#hintFighting;
+    const hit = steady && self !== null && self.health < this.#hintHealth;
+    const shot = steady && !!w && this.#hintGun?.id === w.id && w.ammo < this.#hintGun.ammo;
+    const called = fighting && this.#pingBoard.live(driver.serverTime).some((m) => m.kind === 'enemy');
+    this.#hintHealth = self?.health ?? 0;
+    this.#hintFighting = fighting;
+    this.#hintGun = w ? { id: w.id, ammo: w.ammo } : null;
     const before = this.#hints.memory;
     this.#hints = stepHints(
       this.#hints,
@@ -1789,6 +1802,7 @@ export class Game {
         scoreboard: input.scoreboard,
         thumbs: input.touchMode,
         firing: input.touchFiring,
+        clash: hit || shot || called,
       },
       dt,
     );

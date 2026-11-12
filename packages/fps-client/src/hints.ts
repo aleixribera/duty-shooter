@@ -38,6 +38,8 @@ export interface HintFacts {
   readonly thumbs: boolean;
   /** The Fire button under a thumb (not auto-fire's own pull). */
   readonly firing: boolean;
+  /** In a fight this frame: the player fired, was hit, or an enemy is called out. */
+  readonly clash: boolean;
 }
 
 /** What a browser has learned: the hints done with for good, and how often each was shown without being followed. */
@@ -60,11 +62,13 @@ export interface HintState {
   readonly fought: number;
   /** Hints already shown this life: one that timed out comes back next life, not at once. */
   readonly thisLife: readonly HintId[];
+  /** When the player was last in a fight (s). */
+  readonly clashed: number;
   readonly time: number;
 }
 
 export function hintState(memory: HintMemory): HintState {
-  return { memory, current: null, since: 0, rested: -Infinity, weapon: null, fought: 0, thisLife: [], time: 0 };
+  return { memory, current: null, since: 0, rested: -Infinity, weapon: null, fought: 0, thisLife: [], clashed: -Infinity, time: 0 };
 }
 
 /** How long a hint stays up unfollowed before it steps aside (s), the breath between two (s), and the showings after which one is dropped for good. */
@@ -76,6 +80,10 @@ export const HINT_SHOWINGS = 2;
 /** The magazine share that makes reloading worth a word, and the seconds of fighting before a grenade is. */
 const RELOAD_AT = 0.5;
 export const GRENADE_AFTER = 20;
+/** The quiet after a fight before a lesson that can wait (the sights, sprinting, a grenade) is given (s). */
+export const HINT_CALM = 4;
+/** The hints that teach rather than answer the moment: none is given in a fight. */
+const LESSONS: ReadonlySet<HintId> = new Set(['aim', 'sprint', 'grenade']);
 
 /** Whether the player is doing the thing right now. Doing it counts whether or not its hint is up. */
 function doing(id: HintId, f: HintFacts, s: HintState): boolean {
@@ -106,6 +114,8 @@ const ORDER: readonly HintId[] = ['loadout', 'scoreboard', 'reload', 'swap', 'mo
 
 /** Whether this is the moment for the hint. */
 function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintId>): boolean {
+  // A lesson mid-fight is read by no one and covers the fight: it waits for the quiet after.
+  if (LESSONS.has(id) && s.time - s.clashed < HINT_CALM) return false;
   switch (id) {
     case 'loadout':
       return f.waiting;
@@ -135,8 +145,9 @@ function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintI
  * the next state; `current` is the line to draw, and `memory` changes when
  * there is something new to keep (compare by identity).
  */
-export function stepHints(s: HintState, f: HintFacts, dt: number): HintState {
-  const time = s.time + dt;
+export function stepHints(s0: HintState, f: HintFacts, dt: number): HintState {
+  const time = s0.time + dt;
+  const s: HintState = { ...s0, time, clashed: f.clash ? time : s0.clashed };
   let { done, shown } = s.memory;
   let memory = s.memory;
   let current = s.current;
@@ -153,6 +164,11 @@ export function stepHints(s: HintState, f: HintFacts, dt: number): HintState {
   for (const id of HINT_IDS) if (!done.includes(id) && doing(id, f, s)) learn(id);
   if (current !== null) {
     if (done.includes(current)) {
+      current = null;
+      rested = time;
+    } else if (time - since < HINT_STAYS && LESSONS.has(current) && f.clash) {
+      // A fight broke in: not a showing, and the lesson comes back in the quiet after, this life.
+      thisLife = thisLife.filter((id) => id !== current);
       current = null;
       rested = time;
     } else if (time - since >= HINT_STAYS || !matters(current, f, s, new Set(done))) {
@@ -174,7 +190,7 @@ export function stepHints(s: HintState, f: HintFacts, dt: number): HintState {
     }
   }
   if (done !== s.memory.done || shown !== s.memory.shown) memory = { done, shown };
-  return { memory, current, since, rested, weapon: f.fighting ? f.weapon : null, fought, thisLife, time };
+  return { memory, current, since, rested, weapon: f.fighting ? f.weapon : null, fought, thisLife, clashed: s.clashed, time };
 }
 
 /** What the player holds: which names the hint's keys take. */
