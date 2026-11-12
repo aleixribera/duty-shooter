@@ -127,6 +127,7 @@ const CSS = `
 .ds-round { position: absolute; left: 50%; top: 30%; width: max-content; max-width: calc(100vw - 32px); transform: translate(-50%, -50%); padding: 10px 16px 12px; background: var(--ds-plate); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
 .ds-round .sub { font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); text-shadow: 0 1px 8px var(--ds-shadow-hi), 0 0 2px var(--ds-shadow-hi); }
 .ds-round .goal { margin-top: 8px; font-size: var(--ds-type-body); text-shadow: none; white-space: normal; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
+.ds-round .use { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ds-line); font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; white-space: pre; }
 .ds-round h2 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
 .ds-feed .gun { color: var(--ds-text-2); margin: 0 8px; font-size: var(--ds-type-small); }
 .ds-feed .gun b { color: var(--ds-alert); margin-left: 6px; font-weight: 700; }
@@ -431,6 +432,20 @@ interface Indicator {
  * ping counters, the range overlay (TTK, distance, recoil trace) and the
  * scoreboard. Plain DOM over the canvas.
  */
+/** Whether the round card is up: a match's opening countdown, or a Charge round's freeze. */
+export function roundCardUp(state: HudState): boolean {
+  const view = state.match;
+  if (view?.status.phase !== 'playing') return false;
+  if (state.charge) return state.charge.state.phase === 'freeze';
+  return view.status.mode !== 'battle-royale' && (view.countdown ?? 0) > 0;
+}
+
+/** The button prompt as the round card's last line, or nothing. */
+export function cardPrompt(state: HudState): string {
+  const prompt = state.message ? null : (state.prompt ?? null);
+  return prompt === null ? '' : `<div class="use">${escape(prompt)}</div>`;
+}
+
 export class Hud {
   readonly root: HTMLDivElement;
   readonly #cross: CrosshairView;
@@ -826,7 +841,8 @@ export class Hud {
     const quiet = royale !== null || state.match?.status.mode === 'battle-royale';
     this.#text(this.#center, state.message ?? (self && !self.alive && !banner && !quiet ? `You died${waiting}` : ''));
     const prompt = state.message ? null : (state.prompt ?? null);
-    this.#prompt.hidden = prompt === null;
+    // While the countdown's card is up, the prompt is its last line instead of a second plate under the crosshair.
+    this.#prompt.hidden = prompt === null || roundCardUp(state);
     if (prompt !== null) this.#text(this.#prompt, prompt);
 
     this.#style(this.#overlay, 'display', state.showOverlay ? '' : 'none');
@@ -981,7 +997,7 @@ export class Hud {
       this.#set(this.#action, `${s.action.kind === 'plant' ? 'Planting' : 'Defusing'}<div class="bar"><i style="width:${Math.round(s.action.progress * 100)}%"></i></div>`);
     }
     if (s.phase === 'freeze') {
-      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2>${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(goalLine({ mode: 'charge', killLimit: null }, c.attacking))}</div>`);
+      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2>${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(goalLine({ mode: 'charge', killLimit: null }, c.attacking))}</div>${cardPrompt(state)}`);
     } else if (s.phase === 'over' && s.outcome) {
       const won = TEAMS[s.outcome.winner];
       this.#set(this.#round, `<div class="sub">${ROUND_REASONS[s.outcome.reason]}</div><h2 class="ds-t${s.outcome.winner}">${won?.mark ?? ''} ${won?.name ?? 'Team'} wins the round</h2>`);
@@ -998,7 +1014,7 @@ export class Hud {
       return;
     }
     this.#style(this.#round, 'display', '');
-    this.#set(this.#round, `<div class="sub">${escape(MODE_NAMES[view!.status.mode] ?? view!.status.mode)}</div><h2>${Math.max(1, Math.ceil(left))}</h2><div class="goal">${escape(goalLine(view!.status))}</div>`);
+    this.#set(this.#round, `<div class="sub">${escape(MODE_NAMES[view!.status.mode] ?? view!.status.mode)}</div><h2>${Math.max(1, Math.ceil(left))}</h2><div class="goal">${escape(goalLine(view!.status))}</div>${cardPrompt(state)}`);
   }
 
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
