@@ -944,7 +944,9 @@ export class Game {
     this.#updateScore(driver, dt);
     this.#effects.update(dt, this.#camera.camera);
     this.#tracers.update(dt, this.#camera.camera);
-    this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.5;
+    // A shot lifts the bloom a little, so the flash itself flares. Lifted further, every bright edge in the frame flared with it:
+    // a sunlit handrail over the player's head flashed into a glowing beam on each shot (review 2026-11-12e).
+    this.#pipeline.bloomBoost = this.#effects.flashStrength * 0.12;
     this.#updateHud(dt, eye, forward);
     if (render && !this.#holding) {
       const warm = this.#warmUp;
@@ -2092,7 +2094,7 @@ export class Game {
           this.#viewmodel.fire();
           this.#effects.flash(this.#viewFlash, e.weapon, e.muzzle);
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle);
+          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle, e.origin);
           this.#tracer(e, muzzle);
         } else if (own) {
           this.#play('gunshot', { local: true, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
@@ -2102,7 +2104,7 @@ export class Game {
           this.#camera.kick(0.35 * kick, (Math.random() - 0.5) * 0.25 * kick, (Math.random() - 0.5) * 0.6 * kick);
           this.#rumble(shotRumble(kick));
           const muzzle = this.#viewToWorld(this.#viewmodel.muzzle);
-          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle);
+          this.#effects.shot(muzzle, e.direction, e.weapon, e.muzzle, e.origin);
           this.#tracer(e, muzzle);
           const cam = this.#camera.camera;
           const right = new Vector3(1, 0, 0).applyQuaternion(cam.quaternion);

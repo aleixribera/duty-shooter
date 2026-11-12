@@ -723,15 +723,27 @@ export class Effects {
     return raycastWorld(this.#world, from, [p.x + d[0] * 60, p.y + d[1] * 60, p.z + d[2] * 60]) ? 0 : 1;
   }
 
-  /** A shot fired at `origin` (world) toward `direction` by `weapon`: lights the scene and builds up smoke on sustained fire. */
-  shot(origin: Vec3, direction: Vec3, weapon?: WeaponId, device?: MuzzleId): void {
+  /**
+   * A shot fired at `origin` (world) toward `direction` by `weapon`: lights the scene and builds up smoke on sustained fire.
+   * `eye` is where the shooter looks from, when the muzzle is drawn ahead of it (your own gun).
+   */
+  shot(origin: Vec3, direction: Vec3, weapon?: WeaponId, device?: MuzzleId, eye: Vec3 = origin): void {
     const plain = weapon ? MUZZLE[weapon] : PLAIN_MUZZLE;
     const fx = device ? DEVICE_FLASH[device] : null;
     const look = fx ? { flash: plain.flash * fx.light, smoke: plain.smoke * fx.smoke } : plain;
     const i = this.#nextLight;
     this.#nextLight = (i + 1) % this.#lights.length;
     const light = this.#lights[i] as PointLight;
-    light.position.set(origin[0] + direction[0] * 0.6, origin[1] + direction[1] * 0.6, origin[2] + direction[2] * 0.6);
+    // 0.6 m past `origin`, but kept 12 cm on the shooter's side of any wall between the eye and there. The light casts no
+    // shadow, and your own gun's muzzle is drawn up to a metre ahead of the eye, past a wall you stand pressed against: from
+    // the far side it lit the treads and rail beyond a stair stringer through the wood (review 2026-11-12e).
+    const end: Vec3 = [origin[0] + direction[0] * 0.6, origin[1] + direction[1] * 0.6, origin[2] + direction[2] * 0.6];
+    const wall = raycastWorld(this.#world, eye, end);
+    if (wall) {
+      const span = Math.hypot(end[0] - eye[0], end[1] - eye[1], end[2] - eye[2]);
+      const k = span > 0 ? Math.max(0, wall.t - 0.12 / span) : 0;
+      light.position.set(eye[0] + (end[0] - eye[0]) * k, eye[1] + (end[1] - eye[1]) * k, eye[2] + (end[2] - eye[2]) * k);
+    } else light.position.set(end[0], end[1], end[2]);
     // Fresh until the next update: that frame draws it at full strength however long the frame took.
     this.#lightAge[i] = -1;
     this.#lightPower[i] = look.flash;
