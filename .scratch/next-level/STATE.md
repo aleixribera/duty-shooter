@@ -2,7 +2,7 @@
 
 ## Now
 
-Pass 5 (2026-11-12) shipped ticket 89, a bunker not a box (v2.187.42). Every review-g ticket (85-89) is resolved, so the next pass runs review h (`.claude/iterate.md`, "Review") and files its tickets. The loop runs from an anchor session that starts every pass. A pass should wait for its review subagent in the foreground so the hand-over runs in the turn the pass began in.
+Loop pass 1 (2026-11-12, after the restart): nothing was parked (no `wip/` branches; the tree's changed and untracked files are other sessions' work and old frames). Step: review h, pass 1 of it. Acceptance: `reviews/2026-11-12h.md` with the ten-row table, weakest point and five defects, and tickets 90-95 filed from it.
 
 ## Where things stand
 
