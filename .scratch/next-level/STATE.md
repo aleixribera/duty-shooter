@@ -2,7 +2,7 @@
 
 ## Now
 
-Pass 2 (2026-11-12) shipped ticket 86, chips that stay flecks near the camera (v2.187.37). Next: ticket 87, ENEMY markers stacked on each other (review g, 07). The app again refused to start pass 3: a background reviewer's notification had woken the turn. Pass 3 waits as a proposed "Iterate" session to be started by hand. A pass should wait for its review subagent in the foreground (run it without background, or block on it) so the hand-over runs in the turn the pass began in.
+Pass 2 (2026-11-12) shipped ticket 86, chips that stay flecks near the camera (v2.187.37). Next: ticket 87, ENEMY markers stacked on each other (review g, 07). The loop now runs from an anchor session that starts every pass (restarted 2026-11-12). A pass should wait for its review subagent in the foreground (run it without background, or block on it) so the hand-over runs in the turn the pass began in.
 
 ## Where things stand
 
