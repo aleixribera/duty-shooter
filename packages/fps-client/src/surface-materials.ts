@@ -1,5 +1,6 @@
 import type { Vec3 } from '@duty-shooter/fps-core';
 import {
+  If,
   abs,
   attribute,
   dFdx,
@@ -818,6 +819,8 @@ export function terrainMaterial(colors: TerrainColors): NodeMaterial {
   return m;
 }
 
+/** A hexagon's weight under which it can't change the pixel (one part in 255), so the ground doesn't read it. */
+const HEX_UNSEEN = 1 / 255;
 /** How far (m) the edge between two cells' layers wanders, so it follows no grid. */
 const LAYER_WANDER = 1.4;
 /** How strongly the photos' relief bends the light: the low sun rakes across it. */
@@ -847,9 +850,6 @@ function layeredGround(colors: TerrainColors, paint: N3, flat: N, coarse: N): No
   const layer = (texture(colors.texture, cell.div(vec2(sx, sz)) as never).level(float(0)) as unknown as N4).a.mul(255).round().toInt().toVar('groundLayer');
   const size = (metres.element(layer) as unknown as N).toVar('groundMetres');
   const st = p.div(size) as N2;
-  const dx = (dFdx(p as never) as unknown as N2).div(size) as N2;
-  const dy = (dFdy(p as never) as unknown as N2).div(size) as N2;
-  // Hex tiling (game-textures' hexSample): three places in the tile per pixel, blended where the hexagons meet.
   const cells = st.mul(1.6 * 3.4641016) as N2;
   const skew = vec2(cells.x, cells.x.mul(-0.57735027).add(cells.y.mul(1.15470054))) as N2;
   const base = floor(skew) as N2;
@@ -861,29 +861,66 @@ function layeredGround(colors: TerrainColors, paint: N3, flat: N, coarse: N): No
   const cb = corner(base.add(vec2(0, 1)), base.add(vec2(1, 0)));
   const cc = corner(base.add(vec2(1, 0)), base.add(vec2(0, 1)));
   const raw = pow(select(low, vec3(z, f.y, f.x), vec3(z.negate(), float(1).sub(f.y), float(1).sub(f.x))) as unknown as N3, vec3(7, 7, 7)) as N3;
-  const w = raw.div(raw.x.add(raw.y).add(raw.z)).toVar('groundHex') as N3;
   const shift = (c: N2) => fract(sin(vec2(dot(c, vec2(127.1, 311.7)), dot(c, vec2(269.5, 183.3)))).mul(43758.5453)) as unknown as N2;
-  const read = (map: Texture, c: N2) => (texture(map, st.add(shift(c)) as never).depth(layer).grad(dx as never, dy as never) as unknown as N4).rgb as N3;
-  const hex = (map: Texture) => read(map, ca).mul(w.x).add(read(map, cb).mul(w.y)).add(read(map, cc).mul(w.z)) as N3;
-  const photo = hex(photos);
-  const bump = hex(relief);
-  // The photo's own detail over the cell's palette colour: its mean divided out.
-  const tint = clamp(paint.div(max(means.element(layer) as unknown as N3, vec3(0.01, 0.01, 0.01))), vec3(0.15, 0.15, 0.15), vec3(5, 5, 5)) as N3;
-  const patch = noiseAt(p, 1 / GROUND_PATCH, 'r').sub(0.5).mul(GROUND_PATCH_STRENGTH * 2).add(1).mul(coarse.mul(0.08).add(1)) as N;
   const g = normalWorld as unknown as N3;
-  // The photo's +y runs up its picture, which is the world's -z.
-  const lean = bump.xy.mul(2).sub(1).mul(GROUND_RELIEF) as N2;
   // Steep ground: the cliff layer, read from the side along whichever way the slope faces (two reads, no hexagons: a cliff's strata run level anyway).
   const q = positionWorld.div(GROUND_LAYERS[cliff]!.metres) as unknown as N3;
-  const side = (uvs: N2) => (texture(photos, uvs as never).depth(int(cliff)) as unknown as N4).rgb as N3;
-  const facing = pow(abs(normalize(vec2(g.x, g.z).add(0.0001)) as unknown as N2) as unknown as N2, vec2(4, 4)) as N2;
-  const across = facing.div(facing.x.add(facing.y)) as N2;
-  const rock = side(vec2(q.z, q.y.negate()) as N2).mul(across.x).add(side(vec2(q.x, q.y.negate()) as N2).mul(across.y)) as N3;
   const rockTint = (color(BARE_ROCK) as unknown as N3).div(vec3(...GROUND_LAYERS[cliff]!.mean)) as N3;
-  const albedo = mix(rock.mul(rockTint), photo.mul(tint), flat).mul(patch).toVar('groundAlbedo') as N3;
-  const normal = normalize(g.add(vec3(lean.x, float(0), lean.y.negate()).mul(flat))).toVar('groundNormal') as N3;
+  const albedo = property('vec3', 'groundAlbedo') as unknown as N3 & { assign(v: Node): void };
+  const normal = property('vec3', 'groundNormal') as unknown as N3 & { assign(v: Node): void };
   const m = new SurfaceMaterial(() => new OpenGroundModel(albedo, normal));
-  m.colorNode = vec4(albedo, 1);
+  // The photos are read only where the ground is flat enough to show them, the cliff only where it is steep enough, and a
+  // hexagon only where it weighs anything: open ground skips the cliff's two reads, and most of its pixels a hexagon or two.
+  // Every read in a branch takes its gradients from outside it, where they are legal.
+  m.colorNode = Fn(() => {
+    // Worked out ahead of the branches: a shared node first used inside one is only set inside it.
+    const open = flat.toVar('groundFlat') as N;
+    const at = st.toVar('groundSt') as N2;
+    const which = layer.toVar('groundLayerHere');
+    const w = raw.div(raw.x.add(raw.y).add(raw.z)).toVar('groundHex') as N3;
+    const corners = [ca.toVar('groundHexA'), cb.toVar('groundHexB'), cc.toVar('groundHexC')] as N2[];
+    const dx = (dFdx(p as never) as unknown as N2).div(size).toVar('groundDx') as N2;
+    const dy = (dFdy(p as never) as unknown as N2).div(size).toVar('groundDy') as N2;
+    const qx = (dFdx(q as never) as unknown as N3).toVar('cliffDx') as N3;
+    const qy = (dFdy(q as never) as unknown as N3).toVar('cliffDy') as N3;
+    const facing = pow(abs(normalize(vec2(g.x, g.z).add(0.0001)) as unknown as N2) as unknown as N2, vec2(4, 4)) as N2;
+    const across = facing.div(facing.x.add(facing.y)).toVar('cliffAcross') as N2;
+    const photo = vec3(0, 0, 0).toVar('groundPhoto') as N3 & { assign(v: Node): void; addAssign(v: Node): void; divAssign(v: Node): void };
+    const bump = vec3(0.5, 0.5, 1).toVar('groundBump') as N3 & { assign(v: Node): void; addAssign(v: Node): void; divAssign(v: Node): void };
+    const rock = vec3(0, 0, 0).toVar('groundRock') as N3 & { assign(v: Node): void };
+    If(open.greaterThan(0) as never, () => {
+      const read = (map: Texture, c: N2) => (texture(map, at.add(shift(c)) as never).depth(which).grad(dx as never, dy as never) as unknown as N4).rgb as N3;
+      const shown = float(0).toVar('groundHexShown') as N & { addAssign(v: Node): void };
+      photo.assign(vec3(0, 0, 0));
+      bump.assign(vec3(0, 0, 0));
+      // Hex tiling (game-textures' hexSample): three places in the tile per pixel, blended where the hexagons meet;
+      // a place weighing under one part in 255 can't change the pixel, so it isn't read.
+      corners.forEach((c, i) => {
+        const k = [w.x, w.y, w.z][i]!;
+        If(k.greaterThan(HEX_UNSEEN) as never, () => {
+          photo.addAssign(read(photos, c).mul(k));
+          bump.addAssign(read(relief, c).mul(k));
+          shown.addAssign(k);
+        });
+      });
+      photo.divAssign(shown);
+      bump.divAssign(shown);
+    });
+    If(open.lessThan(1) as never, () => {
+      const side = (uvs: N2, gx: N2, gy: N2) => (texture(photos, uvs as never).depth(int(cliff)).grad(gx as never, gy as never) as unknown as N4).rgb as N3;
+      const along = (v: N3) => vec2(v.z, v.y.negate()) as N2;
+      const over = (v: N3) => vec2(v.x, v.y.negate()) as N2;
+      rock.assign(side(along(q), along(qx), along(qy)).mul(across.x).add(side(over(q), over(qx), over(qy)).mul(across.y)));
+    });
+    // The photo's own detail over the cell's palette colour: its mean divided out.
+    const tint = clamp(paint.div(max(means.element(layer) as unknown as N3, vec3(0.01, 0.01, 0.01))), vec3(0.15, 0.15, 0.15), vec3(5, 5, 5)) as N3;
+    const patch = noiseAt(p, 1 / GROUND_PATCH, 'r').sub(0.5).mul(GROUND_PATCH_STRENGTH * 2).add(1).mul(coarse.mul(0.08).add(1)) as N;
+    // The photo's +y runs up its picture, which is the world's -z.
+    const lean = bump.xy.mul(2).sub(1).mul(GROUND_RELIEF) as N2;
+    albedo.assign(mix(rock.mul(rockTint), photo.mul(tint), open).mul(patch));
+    normal.assign(normalize(g.add(vec3(lean.x, float(0), lean.y.negate()).mul(open))));
+    return vec4(albedo, 1);
+  })();
   return m;
 }
 

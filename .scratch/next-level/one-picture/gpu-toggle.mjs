@@ -7,7 +7,10 @@
 // material hidden), `modelsflat` (their shading swapped for an unlit copy of colour and texture), `modelsrecv`
 // (models receiving the sun's shadow), `modelsplain` (their material without the game's probe lighting), `prepass` (the big model
 // meshes' depth drawn first, so their lighting runs once a pixel), `prepassall` (every opaque mesh's),
-// `depthfirst` (the game's own depth-first twins, see map-models.ts), `plants`. Some change the picture: they measure a part's cost, not a fix.
+// `depthfirst` (the game's own depth-first twins, see map-models.ts), `plants`, `ground` (the terrain hidden), `groundflat` (its shader
+// swapped for a flat colour), `groundrecv` (it receiving the sun's shadow), `groundalt` (its shader against another build of it, `GV=<variant>`:
+// needs a temporary hook, `globalThis.__groundMat` in terrain-view.ts building `terrainMaterial` while `globalThis.__gv` names the variant).
+// A spot is named as the map names it (Zero Island's are its Regions' names, "Ground Zero"); a name it doesn't have leaves the menu's overview up. Some change the picture: they measure a part's cost, not a fix.
 import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
 
 const BASE = process.env.BASE ?? 'http://localhost:5173/';
@@ -37,7 +40,7 @@ try {
       if (o.isScene && o.children.length >= 10) { world = o; r._renderObjectDirect = realDirect; }
       return realDirect.apply(this, arguments);
     };
-    import('/node_modules/.vite/deps/three_webgpu.js').then((t) => { globalThis.__Basic = t.MeshBasicNodeMaterial; });
+    const loaded = import('/node_modules/.vite/deps/three_webgpu.js').then((t) => { globalThis.__Basic = t.MeshBasicNodeMaterial; }, (e) => done('import failed: ' + e));
     let on = true;
     let counting = false;
     let sky = null;
@@ -78,6 +81,20 @@ try {
         for (const c of globalThis.__pre) c.visible = v;
       }
       if ('${what}' === 'depthfirst') world.traverse((x) => { if (x.name === 'depth-first') x.visible = v; });
+      if ('${what}' === 'ground') world.traverse((x) => { if (x.name === 'ground') { x.userData.wasVisible ??= x.visible; x.material.visible = v; } });
+      if ('${what}' === 'groundflat') world.traverse((x) => {
+        if (x.name !== 'ground') return;
+        x.userData.realMat ??= x.material;
+        globalThis.__groundFlat ??= new globalThis.__Basic({ color: 0x7a7060 });
+        x.material = v ? x.userData.realMat : globalThis.__groundFlat;
+      });
+      if ('${what}' === 'groundalt') world.traverse((x) => {
+        if (x.name !== 'ground') return;
+        x.userData.realMat ??= x.material;
+        if (!globalThis.__groundAltMat) { globalThis.__gv = ${JSON.stringify(process.env.GV ?? '')}; globalThis.__groundAltMat = globalThis.__groundMat(); globalThis.__gv = ''; }
+        x.material = v ? x.userData.realMat : globalThis.__groundAltMat;
+      });
+      if ('${what}' === 'groundrecv') world.traverse((x) => { if (x.name === 'ground') x.receiveShadow = v; });
       if ('${what}' === 'plants') { const p = world.getObjectByName('plants'); if (p) p.visible = v; }
     };
     const names = new Map();
@@ -126,7 +143,7 @@ try {
       setTimeout(() => { if (step > 2) counting = true; }, 400);
       setTimeout(tick, ${period});
     };
-    setTimeout(tick, 500);
+    loaded.then(() => setTimeout(tick, 500));
   })`);
   console.log(`${what} ${map} ${spot}`, out);
 } finally {
