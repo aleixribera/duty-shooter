@@ -1140,10 +1140,13 @@ function wornMaterial(spec: WornSpec): MeshStandardNodeMaterial {
 }
 
 function makeMaterials(): GunMaterials {
+  // Black finishes are dark grey, not black: a near-black albedo on a mostly metallic surface took almost no light but its
+  // highlights, so the gun read as a cut-out against the place it is held in. Anodising is a dyed oxide over the metal,
+  // mostly a coating to the light.
   const anod = wornMaterial({
-    base: [0.036, 0.039, 0.046],
+    base: [0.075, 0.079, 0.088],
     worn: [0.5, 0.51, 0.53],
-    metal: 0.8,
+    metal: 0.3,
     wornMetal: 1,
     rough: 0.42,
     wornRough: 0.3,
@@ -1155,9 +1158,9 @@ function makeMaterials(): GunMaterials {
     wearBias: 0.12,
   });
   const steel = wornMaterial({
-    base: [0.058, 0.058, 0.054],
+    base: [0.09, 0.09, 0.085],
     worn: [0.42, 0.42, 0.41],
-    metal: 0.55,
+    metal: 0.45,
     wornMetal: 1,
     rough: 0.62,
     wornRough: 0.33,
@@ -1169,8 +1172,8 @@ function makeMaterials(): GunMaterials {
     wearBias: 0.1,
   });
   const poly = wornMaterial({
-    base: [0.03, 0.03, 0.031],
-    worn: [0.075, 0.075, 0.075],
+    base: [0.05, 0.05, 0.052],
+    worn: [0.1, 0.1, 0.1],
     metal: 0,
     wornMetal: 0,
     rough: 0.68,
@@ -1183,9 +1186,9 @@ function makeMaterials(): GunMaterials {
     wearBias: 0.18,
   });
   const mag = wornMaterial({
-    base: [0.062, 0.064, 0.067],
+    base: [0.085, 0.088, 0.092],
     worn: [0.46, 0.47, 0.48],
-    metal: 0.6,
+    metal: 0.45,
     wornMetal: 1,
     rough: 0.55,
     wornRough: 0.32,
@@ -1197,9 +1200,9 @@ function makeMaterials(): GunMaterials {
     wearBias: 0.08,
   });
   const nitride = wornMaterial({
-    base: [0.05, 0.05, 0.052],
+    base: [0.07, 0.07, 0.073],
     worn: [0.55, 0.55, 0.55],
-    metal: 0.85,
+    metal: 0.6,
     wornMetal: 1,
     rough: 0.36,
     wornRough: 0.25,
@@ -1233,9 +1236,9 @@ function makeLowMaterials(): { metal: MeshStandardNodeMaterial; poly: MeshStanda
     return m;
   };
   return {
-    metal: mk([0.045, 0.047, 0.052], 0.7, 0.48),
-    poly: mk([0.03, 0.03, 0.031], 0, 0.7),
-    mag: mk([0.062, 0.064, 0.067], 0.6, 0.55),
+    metal: mk([0.075, 0.079, 0.088], 0.3, 0.48),
+    poly: mk([0.05, 0.05, 0.052], 0, 0.7),
+    mag: mk([0.085, 0.088, 0.092], 0.45, 0.55),
   };
 }
 
