@@ -1,5 +1,5 @@
 import { INTERMISSION, createWorld, raycastWorld, yawBox, type Material, type NavOptions, type PlayerSpawn, type Solid, type SpawnPoint, type Vec3, type World, type Zone, type ChargeSite } from '@duty-shooter/fps-core';
-import { LIGHTING, type EndingShot, type Finish, type Lighting, type Look } from '@duty-shooter/fps-client/surfaces';
+import { LIGHTING, type EndingShot, type Finish, type Lighting, type Look, type Stencil } from '@duty-shooter/fps-client/surfaces';
 import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening, type Rect, type WallTrim } from './builder';
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
@@ -772,6 +772,57 @@ function buildSign(b: Builder): NonNullable<MapDefinition['populationSign']> {
   return { center: [(x0 + x1) / 2, (y0 + y1) / 2, z1], yaw: 0, width: x1 - x0 - 0.2, height: y1 - y0 - 0.2 };
 }
 
+/** Where the end-of-match bomb goes off, out on the range east-north-east of town. */
+const GROUND_ZERO: Vec3 = [420, 0, -160];
+/** Stencil paint: lamp black for the structure numbers, the site's red oxide for the survey marks. */
+const STENCIL_BLACK = 0x2a2623;
+const STENCIL_RED = 0x8e3624;
+
+/**
+ * Each house marked up as a test structure, in stencil on its street front: its number over the garage door, and beside
+ * the upstairs window its bearing and distance to ground zero (north is -z), measured from the middle of its front.
+ */
+function buildStencils(sides: readonly Side[]): Stencil[] {
+  const M = HOUSE.main;
+  const G = HOUSE.garage;
+  const h = OUTER / 2;
+  return sides.flatMap((side, i) => {
+    const on = FINISHES[side.palette.siding]!.color;
+    // The street front looks toward the street: +z for the north house, -z for the south.
+    const yaw = side.s === -1 ? 0 : Math.PI;
+    const dx = GROUND_ZERO[0] - (M.x0 + M.x1) / 2;
+    const dz = GROUND_ZERO[2] - side.z(M.d0);
+    const bearing = Math.round(((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360);
+    const feet = Math.round((Math.hypot(dx, dz) * 3.2808) / 10) * 10;
+    // Over the garage door: between its frame's head (2.48) and the wall's top trim.
+    const number: Stencil = {
+      center: [(-15.5 + -9.5) / 2, 2.73, side.z(G.d0 - h)],
+      yaw,
+      width: 5,
+      height: 0.4,
+      lines: [{ text: `STRUCTURE ${i + 1}`, size: 0.24 }],
+      ink: STENCIL_BLACK,
+      on,
+      seed: 101 + i,
+    };
+    // Left of the upstairs window, clear of the corner board and the window's shutter.
+    const survey: Stencil = {
+      center: [(M.upperX0 + 0.25 + -0.2) / 2, 4.35, side.z(M.d0 - h)],
+      yaw,
+      width: 1.55,
+      height: 1.4,
+      lines: [
+        { text: `GZ ${String(bearing).padStart(3, '0')}°`, size: 0.22 },
+        { text: `${feet.toLocaleString('en-US')} FT`, size: 0.22 },
+      ],
+      ink: STENCIL_RED,
+      on,
+      seed: 201 + i,
+    };
+    return [number, survey];
+  });
+}
+
 /** Four square legs `size` apart (centre to centre) and `thick` thick, from the ground to `top`, with braces every `brace` m. */
 function legs(b: Builder, x: number, z: number, size: number, thick: number, top: number, brace: number): void {
   const h = size / 2;
@@ -1345,12 +1396,13 @@ export function buildSurvivalTown(): MapDefinition {
     ramps: [],
     labels,
     populationSign,
+    stencils: buildStencils(sides),
     horizon: { ground: 'desert', inner: { x0: -90, x1: 90, z0: -90, z1: 90 }, light: [-80, -80] },
     // Out on the test range east-north-east of town, in full view over the rooftops; the siren is on the water tower.
     lighting: TOWN_LIGHT,
     scatter: { on: ['desert', 'soil'], within: { x0: -90, x1: 90, z0: -90, z1: 90 }, open: 160, walls: 40, seed: 7321 },
     lamps: [],
-    nuke: { groundZero: [420, 0, -160], siren: [-46, 19.5, 14], shot: NUKE_SHOT },
+    nuke: { groundZero: GROUND_ZERO, siren: [-46, 19.5, 14], shot: NUKE_SHOT },
     train: null,
     ambience: ambience(populationSign),
     spawns,

@@ -1,5 +1,5 @@
 import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SoundTrap, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
-import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter } from '@duty-shooter/fps-client/surfaces';
+import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter, Stencil } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
 
 import type { MapId } from './catalogue';
@@ -76,6 +76,8 @@ export interface MapDefinition {
    * its centre, facing `yaw`, and its size), or null for a map without one.
    */
   readonly populationSign: { readonly center: Vec3; readonly yaw: number; readonly width: number; readonly height: number } | null;
+  /** Lettering painted on its faces: a test site's survey marks (drawn only). */
+  readonly stencils?: readonly Stencil[];
   /**
    * The far world, drawn but never collided with: ground in the finish
    * `ground` from the edge of the map's own ground (`inner`, x0..x1 by

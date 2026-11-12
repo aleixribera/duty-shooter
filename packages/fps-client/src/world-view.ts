@@ -29,7 +29,7 @@ import {
   type WebGPURenderer,
 } from 'three/webgpu';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Plants, type Scatter, type SurfaceLayout } from './surfaces';
+import { atlasUv, GRIME_MARKS, grimeQuads, layoutSurfaces, LIGHTING, SCATTER_FINISHES, scatterModels, type BakeFile, type Decoration, type EndingShot, type Finish, type FreightTrain, type GrimeQuad, type Lighting, type Look, type MapModels, type Plants, type Scatter, type Stencil, type SurfaceLayout } from './surfaces';
 import { cornerEdges, openEdges } from './surfaces/edges';
 import { TerrainView } from './terrain-view';
 import { SurfaceBlocks, surfaceBlocks } from './surface-blocks';
@@ -44,7 +44,7 @@ import { PlantsView } from './plants-view';
 import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
 import { buildSkyField } from './sky-field';
 import { SurfaceHits } from './surface-hit';
-import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
+import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, stencilMesh, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
 export interface RampShape {
@@ -84,6 +84,8 @@ export interface WorldContent {
   readonly labels?: readonly WorldLabel[];
   /** Where the population sign's live face goes, if the map has one. */
   readonly populationSign?: SignPlacement | null;
+  /** Lettering painted on its faces (see Stencil). */
+  readonly stencils?: readonly Stencil[];
   /** The far ground and mountains round the map, if it has them. */
   readonly horizon?: Horizon | null;
   /** The ground, for a map on terrain (see Terrain), and the sRGB colour of each palette entry. */
@@ -369,6 +371,8 @@ export class WorldView {
   /** Standard materials already switched to probe lighting. */
   readonly #lit = new WeakSet<object>();
   readonly #sign: PopulationSign | null = null;
+  /** The stencils' textures, which their materials hold in a node rather than as a map. */
+  readonly #stencilMaps: CanvasTexture[] = [];
   /** Settles once the map's models are in the scene, or have failed to load. */
   readonly modelsIn: Promise<void> = Promise.resolve();
   /** Which face a shot struck, for what its impact looks and sounds like. */
@@ -522,6 +526,11 @@ export class WorldView {
       this.#sign = new PopulationSign(content.populationSign);
       this.#root.add(this.#sign.mesh);
     }
+    for (const stencil of content.stencils ?? []) {
+      const { mesh, map } = stencilMesh(stencil);
+      this.#stencilMaps.push(map);
+      this.#root.add(mesh);
+    }
     const dust = dustMotes(content.indoorZones, this.probes);
     if (dust) this.#root.add(dust);
     scene.add(this.#root);
@@ -632,6 +641,7 @@ export class WorldView {
       }
     });
     this.#sun.shadow.map?.dispose();
+    for (const map of this.#stencilMaps) map.dispose();
     this.terrain?.dispose();
   }
 

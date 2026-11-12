@@ -1,7 +1,7 @@
 import type { Vec3 } from '@duty-shooter/fps-core';
-import { attribute, color, cos, dot, float, max, mix, normalWorld, positionLocal, sin, smoothstep, time, vec3 } from 'three/tsl';
-import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, PlaneGeometry, SRGBColorSpace } from 'three/webgpu';
-import { atlasUv, type SurfaceLayout } from './surfaces';
+import { attribute, color, cos, dot, float, max, mix, normalWorld, positionLocal, sin, smoothstep, texture, time, vec3 } from 'three/tsl';
+import { AddEquation, AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, CustomBlending, DstColorFactor, Float32BufferAttribute, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, NoColorSpace, OneFactor, PlaneGeometry, SRGBColorSpace, SrcColorFactor, ZeroFactor } from 'three/webgpu';
+import { atlasUv, type Stencil, type SurfaceLayout } from './surfaces';
 import { haze, horizonColor, sunColor, sunDir, type ProbeField } from './surface-materials';
 
 /** Where a live sign's face goes: its centre on the board, facing `yaw`, and its size (m). */
@@ -91,6 +91,168 @@ export class PopulationSign {
     (this.mesh.material as MeshStandardNodeMaterial).dispose();
     this.#texture.dispose();
   }
+}
+
+/** Canvas pixels per metre of stencil: a 30 cm capital is 77 px tall, sharp from a few metres off. */
+const STENCIL_PX = 256;
+/** Letters whose closed shapes a stencil plate can't hold: each is cut through by a bridge down its middle. */
+const BRIDGED = /[ABDOPQR04689]/;
+
+/** sRGB (0-255) to linear light. */
+const linear = (c: number): number => {
+  const v = c / 255;
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+};
+
+/** A small seeded random, so a stencil wears the same way every time the map is built. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0 || 1;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Where a stencil's paint lies (0-255 per canvas pixel, row by row from the top): its lines in the UI's condensed type,
+ * cut by stencil bridges, with a faint overspray round each letter and the wear of years in the sun.
+ */
+function stencilCoverage(s: Stencil, w: number, h: number): Uint8ClampedArray | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  // The lines with a gap of 0.45 of a capital between them, the block centred.
+  const tall = s.lines.reduce((sum, l, i) => sum + l.size * (i > 0 ? 1.45 : 1), 0);
+  let y = ((s.height - tall) / 2) * STENCIL_PX;
+  const lines: { text: string; font: number; x: number; y: number; squeeze: number }[] = [];
+  s.lines.forEach((l, i) => {
+    if (i > 0) y += l.size * 0.45 * STENCIL_PX;
+    const cap = l.size * STENCIL_PX;
+    // Capitals stand about 0.7 of the type's size in these faces.
+    const font = cap / 0.7;
+    ctx.font = `700 ${font}px ${FONT}`;
+    const measured = ctx.measureText(l.text).width;
+    const squeeze = Math.min(1, (w * 0.98) / measured);
+    lines.push({ text: l.text, font, x: (w - measured * squeeze) / 2, y: y + cap, squeeze });
+    y += cap;
+  });
+  const letters = (blur: number, alpha: number): void => {
+    ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#fff';
+    ctx.textBaseline = 'alphabetic';
+    for (const l of lines) {
+      ctx.save();
+      ctx.translate(l.x, 0);
+      ctx.scale(l.squeeze, 1);
+      ctx.font = `700 ${l.font}px ${FONT}`;
+      ctx.fillText(l.text, 0, l.y);
+      ctx.restore();
+    }
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+  };
+  // Overspray: a soft fringe round each letter, where the paint got under the plate.
+  letters(STENCIL_PX * 0.012, 0.22);
+  letters(0, 1);
+  // The bridges, cut through the crisp letters and their spray alike.
+  ctx.globalCompositeOperation = 'destination-out';
+  for (const l of lines) {
+    ctx.font = `700 ${l.font}px ${FONT}`;
+    let before = 0;
+    for (const ch of l.text) {
+      const advance = ctx.measureText(ch).width;
+      if (BRIDGED.test(ch)) ctx.fillRect(l.x + (before + advance / 2) * l.squeeze - l.font * 0.035, l.y - l.font, l.font * 0.07, l.font * 1.1);
+      before += advance;
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  const a = ctx.getImageData(0, 0, w, h).data;
+  // Wear: the paint thinned in a coarse wash and chipped away in small flecks.
+  const random = seeded(s.seed);
+  const cell = Math.max(4, Math.round(STENCIL_PX * 0.06));
+  const cols = Math.ceil(w / cell) + 2;
+  const rows = Math.ceil(h / cell) + 2;
+  const wash = Float32Array.from({ length: cols * rows }, () => 0.72 + random() * 0.28);
+  const at = (x: number, y: number): number => wash[y * cols + x]!;
+  const out = new Uint8ClampedArray(w * h);
+  for (let py = 0; py < h; py++) {
+    const cy = py / cell;
+    const iy = Math.floor(cy);
+    const fy = cy - iy;
+    for (let px = 0; px < w; px++) {
+      const cx = px / cell;
+      const ix = Math.floor(cx);
+      const fx = cx - ix;
+      const thin = (at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx) * (1 - fy) + (at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx) * fy;
+      out[py * w + px] = a[(py * w + px) * 4 + 3]! * thin;
+    }
+  }
+  const flecks = Math.round((w * h) / 900);
+  for (let i = 0; i < flecks; i++) {
+    const fx = Math.floor(random() * w);
+    const fy = Math.floor(random() * h);
+    const r = 1 + Math.floor(random() * 3);
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const x = fx + dx;
+        const y = fy + dy;
+        if (x >= 0 && y >= 0 && x < w && y < h && dx * dx + dy * dy <= r * r) out[y * w + x] = 0;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * A stencil's mesh: a plane a few millimetres off its face whose texture holds where the paint lies, and whose colour is
+ * what the face's colour is multiplied by there (halved, so 0.5 leaves it be). The blend multiplies what is already
+ * drawn there, so the paint wears the face's own light and grain.
+ */
+export function stencilMesh(s: Stencil): { mesh: Mesh; map: CanvasTexture } {
+  const w = Math.min(2048, Math.ceil(s.width * STENCIL_PX));
+  const h = Math.min(2048, Math.ceil(s.height * STENCIL_PX));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const cover = stencilCoverage(s, w, h);
+  if (ctx && cover) {
+    // Coverage alone, in alpha over white: a canvas keeps its pixels premultiplied, so any colour it held would come back
+    // dark wherever the paint thins, and filtering would carry that into the letters' edges and the far mipmaps.
+    const image = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      image.data[i * 4] = 255;
+      image.data[i * 4 + 1] = 255;
+      image.data[i * 4 + 2] = 255;
+      image.data[i * 4 + 3] = cover[i]!;
+    }
+    ctx.putImageData(image, 0, 0);
+  }
+  const map = new CanvasTexture(canvas);
+  map.colorSpace = NoColorSpace;
+  map.premultiplyAlpha = false;
+  map.anisotropy = 8;
+  const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: false, toneMapped: false });
+  const t = texture(map);
+  // The paint over the face, channel by channel, in linear light; halved for the doubling blend.
+  const [r, g, b] = [16, 8, 0].map((shift) => Math.min(1, (0.5 * linear((s.ink >> shift) & 255)) / Math.max(1e-3, linear((s.on >> shift) & 255))));
+  m.colorNode = mix(vec3(0.5), vec3(r!, g!, b!), t.a);
+  m.blending = CustomBlending;
+  m.blendEquation = AddEquation;
+  m.blendSrc = DstColorFactor;
+  m.blendDst = SrcColorFactor;
+  m.blendSrcAlpha = ZeroFactor;
+  m.blendDstAlpha = OneFactor;
+  const mesh = new Mesh(new PlaneGeometry(w / STENCIL_PX, h / STENCIL_PX), m);
+  const off = 0.004;
+  mesh.position.set(s.center[0] + Math.sin(s.yaw) * off, s.center[1], s.center[2] + Math.cos(s.yaw) * off);
+  mesh.rotation.y = s.yaw;
+  return { mesh, map };
 }
 
 /** The far world round a map (see the map definition's `horizon`). */

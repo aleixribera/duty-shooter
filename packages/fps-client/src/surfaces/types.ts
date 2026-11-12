@@ -62,6 +62,27 @@ export interface Look {
 }
 
 /**
+ * Lettering painted on a face (a test site's survey marks), drawn just over it. It multiplies the face's colour rather than
+ * lighting itself, so the paint keeps that face's light, shade and grain, as the bullet holes do.
+ */
+export interface Stencil {
+  /** The centre of the lettering, on the face. */
+  readonly center: Vec3;
+  /** Which way the face looks: 0 along +z, turning toward +x. */
+  readonly yaw: number;
+  /** The area the lines are fitted into (m); a line too wide for it is narrowed. */
+  readonly width: number;
+  readonly height: number;
+  /** The lines, top to bottom, each with its capital height (m). */
+  readonly lines: readonly { readonly text: string; readonly size: number }[];
+  /** The paint's colour and the colour of the face it is painted on (sRGB). */
+  readonly ink: number;
+  readonly on: number;
+  /** Seeds the wear, so each stencil wears its own way. */
+  readonly seed: number;
+}
+
+/**
  * Visual-only geometry tied to one solid (trim, window frames, porch
  * details): a box, yawed about its centre, that must stay within 5 cm of
  * the solid it decorates.
