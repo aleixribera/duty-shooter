@@ -2,7 +2,7 @@
 # Before code reaches main: the typecheck and the soaks (whole matches played out by bots), the checks
 # CI's release run makes that a session's own pass skips most often. Every push to main is live, so a
 # commit that fails them used to publish a broken page and fail the container build, mailing the owner.
-# Turned on per checkout with `git config core.hooksPath .githooks`. About a minute and a half.
+# Turned on per checkout with `git config core.hooksPath .githooks`. About three minutes, at idle priority.
 remote="$1"
 zero=0000000000000000000000000000000000000000
 files=""
@@ -27,13 +27,16 @@ if [ -n "$pushed" ]; then
   fi
 fi
 log="${TMPDIR:-/tmp}/duty-pre-push-$$.log"
-echo "pre-push: typecheck and soaks (about 90 s)..." >&2
-if ! npm run typecheck > "$log" 2>&1; then
+# At idle priority, so a game played at this PC keeps its frames; vitest.config.ts also caps the soaks' workers.
+low=""
+command -v nice > /dev/null 2>&1 && low="nice -n 19"
+echo "pre-push: typecheck and soaks at idle priority (about 3 min)..." >&2
+if ! $low npm run typecheck > "$log" 2>&1; then
   tail -30 "$log" >&2
   echo "pre-push: the typecheck fails on the working tree. If the error is in a file your commits don't touch, it may be another session's unfinished edit." >&2
   exit 1
 fi
-if ! npm run test:soak > "$log" 2>&1; then
+if ! $low npm run test:soak > "$log" 2>&1; then
   grep -E 'FAIL|Error|expected' "$log" | head -30 >&2
   echo "pre-push: a soak fails (full log: $log). It plays the working tree: if the failing file isn't yours, run it alone (npx vitest run --project soak <file>) before blaming your change." >&2
   exit 1

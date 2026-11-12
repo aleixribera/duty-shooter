@@ -102,7 +102,7 @@ function frameStats(times) {
 
 /** A page in Chrome, with the probes in, on `profile`. */
 async function open(profile) {
-  const chrome = await launchChrome({ profile });
+  const chrome = await launchChrome({ profile, uncapped: true });
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: PROBES });
   await chrome.send('Network.enable');
   return chrome;

@@ -11,7 +11,7 @@ import { launchChrome } from './chrome.mjs';
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const map = args[0] ?? 'survival-town';
 const base = args[1] ?? 'http://localhost:5173/';
-const chrome = await launchChrome();
+const chrome = await launchChrome({ uncapped: true });
 try {
   const url = new URL(base);
   url.searchParams.set('bench', '');
