@@ -310,6 +310,56 @@ export class Builder {
   }
 
   /**
+   * An open timber flight: boarded treads on two sloping stringers, the space under it open to the eye and to bullets.
+   * You walk it as the solid flight would be (hidden player clip, the same steps), so collision and the bots' nav are
+   * those of `stairs`. Returns the treads, from the foot up.
+   */
+  openStairs(spec: StairsSpec & { readonly tread?: number; readonly stringer?: number; readonly rail?: Look | string }): Solid[] {
+    const rise = spec.top - spec.bottom;
+    const count = Math.ceil(rise / (spec.maxRise ?? 0.19) - 1e-9);
+    const run = (spec.to - spec.from) / count;
+    const [c0, c1] = spec.across;
+    const tread = spec.tread ?? 0.045;
+    const at = (a: number, y: number, c: number): Vec3 => (spec.along === 'x' ? [a, y, c] : [c, y, a]);
+    const treads: Solid[] = [];
+    for (let i = 0; i < count; i++) {
+      const a = spec.from + run * i;
+      const b = spec.from + run * (i + 1);
+      const y = spec.bottom + (rise * (i + 1)) / count;
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      this.hidden.push(playerClip({ min: at(lo, spec.bottom, c0), max: at(hi, y, c1), material: spec.material }));
+      treads.push(this.add(at(lo, y - tread, c0), at(hi, y, c1), spec.material, { blocks: 'bullets' }));
+    }
+    // Each stringer's top edge runs under the treads' back edges, so every tread sits on it and its nosing overhangs.
+    const depth = spec.stringer ?? 0.24;
+    const width = 0.05;
+    const length = Math.abs(spec.to - spec.from);
+    const pitch = Math.atan2(rise, length);
+    const sign = Math.sign(spec.to - spec.from);
+    const d: Vec3 = spec.along === 'x' ? [sign, 0, 0] : [0, 0, sign];
+    const yaw = Math.atan2(-d[0], -d[2]);
+    const n = [-Math.sin(pitch), Math.cos(pitch)] as const;
+    const mid = (spec.from + spec.to) / 2 - (sign * n[0] * depth) / 2;
+    const midY = spec.bottom - tread + rise / 2 - (n[1] * depth) / 2;
+    for (const c of [c0 + width / 2, c1 - width / 2]) {
+      this.angledBullet(at(mid, midY, c), [width, depth, Math.hypot(length, rise)], yaw, pitch, 0, spec.material);
+    }
+    if (spec.rail) {
+      // A handrail each side on a post at the foot, its top 1 m over the landing at the head, level with a landing's rail.
+      const rail = 0.06;
+      const over = 1 - rail / 2 / Math.cos(pitch);
+      const foot = spec.from - sign * rail;
+      for (const c of [c0 + rail / 2, c1 - rail / 2]) {
+        this.angledBullet(at((foot + spec.to) / 2, spec.bottom + over + rise / 2 - (rail * rise) / length / 2, c), [rail, rail, Math.hypot(Math.abs(spec.to - foot), rise)], yaw, pitch, 0, spec.material, spec.rail);
+        const [p0, p1] = [foot, foot + sign * rail].sort((p, q) => p - q) as [number, number];
+        this.add(at(p0, spec.bottom, c - rail / 2), at(p1, spec.bottom + over, c + rail / 2), spec.material, { look: spec.rail });
+      }
+    }
+    return treads;
+  }
+
+  /**
    * A walkable sloped plane from an edge at height `low` up to an edge at
    * `high`: drawn and shot at as a sloped bullet surface whose top is the
    * plane, walked on as player clip steps (none when `walkable` is false).
