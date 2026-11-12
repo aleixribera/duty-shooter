@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { bakeLighting } from './bake/plugin.ts';
 import { BAKED_MAPS } from './src/map/catalogue.ts';
+import { changelog } from './changelog/plugin.ts';
 import { largeMapNav } from './nav/plugin.ts';
 import { threePatch } from './three-patch/plugin.ts';
 
@@ -10,7 +11,8 @@ const SERVER = process.env['DUTY_SERVER'] ?? 'http://localhost:3000';
 export default defineConfig({
   // Each map's lighting, baked on the CPU at build time (served as bake/<map>.bin).
   // three.js, patched for the same picture at less cost: instanced matrices sent only when they move, the sky drawn only where nothing covers it (three-patch/plugin.ts).
-  plugins: [threePatch(), bakeLighting(BAKED_MAPS), largeMapNav()],
+  // The menu's Changelog, from the release tags in git (changelog/plugin.ts).
+  plugins: [threePatch(), bakeLighting(BAKED_MAPS), largeMapNav(), changelog()],
   // The dev server bundles three ahead of the page, outside the plugins above: the patch goes there too.
   optimizeDeps: { rolldownOptions: { plugins: [threePatch()] } },
   server: {

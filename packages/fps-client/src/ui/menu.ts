@@ -9,6 +9,7 @@ import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseA
 import { buildEffects, gunsmithRows, openKit, rebuild, slotLock, withBuilds, type BuildEffects, type GunsmithChoice } from './gunsmith';
 import { escapeHtml, hint, icon, installTheme } from './theme';
 import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
+import { CHANGELOG_SCREEN_CSS, changelogHtml, type Release } from './changelog-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
 import { touchMode } from '../touch/mode';
 import { clearHintMemory, hintsSeen } from '../hint-store';
@@ -57,7 +58,6 @@ export const MENU_CSS = `
 .ds-dot.off { color: var(--ds-text-2); }
 .ds-dot.off::before { background: var(--ds-text-3); }
 .ds-home footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.ds-version { font-size: var(--ds-type-small); color: var(--ds-text-2); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
 /* The first time the menu shows, the destinations rise in one after another; never on a redraw. */
 @keyframes ds-rise { from { opacity: 0; transform: translateY(14px); } }
 .ds-home.enter .ds-dest { animation: ds-rise var(--ds-slow) var(--ds-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
@@ -333,7 +333,7 @@ export interface MenuCallbacks {
  */
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
-type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile';
+type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile' | 'changelog';
 
 type El = (tag: string, text?: string, cls?: string) => HTMLElement;
 
@@ -392,12 +392,16 @@ export class Menu {
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
   #redrawAfterPress = false;
+  /** The releases for the Changelog, loaded the first time it opens; null where the app has none to give. */
+  readonly #changelog: (() => Promise<readonly Release[]>) | null;
+  #releases: readonly Release[] | null = null;
+  #releasesFailed = false;
   /** The control that had the focus on each screen when another opened over it: coming back lands on it. */
   readonly #left = new Map<Screen, string>();
   /** What had the focus outside the menu when it opened (a lobby button): it gets the focus back when the menu closes. */
   #opener: HTMLElement | null = null;
 
-  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; mapName?: (id: string) => string; padName?: () => string | null; profile?: ProfileStore | null; video?: () => VideoStatus | null }) {
+  constructor(settings: Settings, callbacks: MenuCallbacks, options: { lobby: Lobby | null; version: string; mapName?: (id: string) => string; padName?: () => string | null; profile?: ProfileStore | null; video?: () => VideoStatus | null; changelog?: () => Promise<readonly Release[]> }) {
     this.#settings = settings;
     this.#callbacks = callbacks;
     this.#lobby = options.lobby;
@@ -406,11 +410,12 @@ export class Menu {
     this.#mapName = options.mapName ?? ((id) => id);
     this.#profile = options.profile ?? null;
     this.#video = options.video ?? (() => null);
+    this.#changelog = options.changelog ?? null;
     installTheme();
     if (!document.getElementById('ds-menu-css')) {
       const style = document.createElement('style');
       style.id = 'ds-menu-css';
-      style.textContent = MENU_CSS + PROFILE_SCREEN_CSS + SETTINGS_SCREEN_CSS;
+      style.textContent = MENU_CSS + PROFILE_SCREEN_CSS + SETTINGS_SCREEN_CSS + CHANGELOG_SCREEN_CSS;
       document.head.append(style);
     }
     this.#root = document.createElement('div');
@@ -610,6 +615,12 @@ export class Menu {
         }
       } else focus(focused < 0 ? 0 : focused + d);
     };
+    // The Changelog has one control and a long list: up and down scroll the list.
+    const log = this.#screen === 'changelog' ? this.#root.querySelector<HTMLElement>('.ds-page > .body') : null;
+    if (log && (nav === 'up' || nav === 'down')) {
+      log.scrollBy({ top: (nav === 'up' ? -0.6 : 0.6) * log.clientHeight });
+      return;
+    }
     switch (nav) {
       case 'up':
         focus(focused < 0 ? 0 : focused - 1);
@@ -804,6 +815,9 @@ export class Menu {
       case 'profile':
         this.#renderProfile(screen, h, button);
         break;
+      case 'changelog':
+        this.#renderChangelog(screen, h, button);
+        break;
     }
     // Keep the controller's focus on screen: the first control of a new screen.
     // Queued last, after any focus a screen sets itself.
@@ -930,7 +944,15 @@ export class Menu {
       home.classList.add('enter');
     }
     const footer = h('footer');
-    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')), h('div', this.#version, 'ds-version'));
+    footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')));
+    // The version running, and the way into what each release changed.
+    if (this.#changelog) {
+      const log = h('button', '', 'ds-version') as HTMLButtonElement;
+      log.type = 'button';
+      log.innerHTML = `<b>Changelog</b><span translate="no">${escapeHtml(this.#version)}</span>`;
+      log.addEventListener('click', () => this.show('changelog'));
+      footer.append(log);
+    } else footer.append(h('div', this.#version, 'ds-version'));
     home.append(footer);
   }
 
@@ -1262,6 +1284,29 @@ export class Menu {
       footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')));
       button(footer, 'Reset profile', () => again(true));
     }
+  }
+
+  /** The Changelog: what each release changed, newest first, loaded the first time it opens. */
+  #renderChangelog(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
+    const { body, footer } = this.#page(screen, h, 'Changelog');
+    // The list scrolls under the keys: it takes the focus as the screen opens.
+    body.tabIndex = 0;
+    body.setAttribute('aria-label', 'Releases');
+    body.classList.add('ds-log-body');
+    queueMicrotask(() => body.focus({ preventScroll: true }));
+    const view = h('div', '', 'ds-log');
+    view.innerHTML = this.#releases?.length === 0 ? '<p class="none">This build carries no changelog.</p>' : changelogHtml(this.#releases, this.#releasesFailed);
+    body.append(view);
+    button(footer, 'Back', () => this.show('main'), 'back', 'back');
+    footer.append(this.#hints(h, hint('↑↓', '✥', 'Scroll')));
+    const load = this.#changelog;
+    if (this.#releases || this.#releasesFailed || !load) return;
+    load().then(
+      (releases) => (this.#releases = releases),
+      () => (this.#releasesFailed = true),
+    ).finally(() => {
+      if (this.open && this.#screen === 'changelog') this.#render();
+    });
   }
 
   /** Marks the focused control for the controller's focus ring (the page may not have window focus, so :focus is not enough). */

@@ -8,3 +8,9 @@ interface ImportMetaEnv {
   /** The release (`git describe`), shown on the main menu; set by the container and Pages builds. */
   readonly VITE_VERSION?: string;
 }
+
+/** The menu's Changelog, newest first (changelog/plugin.ts). */
+declare module 'virtual:changelog' {
+  const releases: readonly { readonly version: string; readonly date: string; readonly title: string }[];
+  export default releases;
+}

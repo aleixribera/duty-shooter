@@ -56,6 +56,9 @@ jobs:
           else
             echo "moving=latest" >> "$GITHUB_OUTPUT"
           fi
+      # The image's build has no git (.dockerignore): the menu's Changelog is read from the tags here and copied in.
+      - name: Write the changelog
+        run: node apps/range/changelog/write.ts
       - name: Set up multi-platform emulation
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Set up Docker builder

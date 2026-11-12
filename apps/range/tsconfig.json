@@ -16,6 +16,7 @@
     "test",
     "bake",
     "three-patch",
+    "changelog",
     "vite.config.ts"
   ]
 }

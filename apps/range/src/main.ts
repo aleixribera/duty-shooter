@@ -317,7 +317,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       captureKey: () => engineReady.then(() => game.input.captureNext()),
     },
-    { lobby, version, mapName, padName: () => game?.input.padName ?? null, profile, video: videoStatus },
+    { lobby, version, mapName, padName: () => game?.input.padName ?? null, profile, video: videoStatus, changelog: () => import('virtual:changelog').then((m) => m.default) },
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {

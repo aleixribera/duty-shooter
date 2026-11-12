@@ -83,4 +83,6 @@ A scripted client that keeps time with `setInterval(…, 1000 / 60)` runs at 62.
 
 ## Releases
 
-Every commit gets the next version tag above the highest one (`git tag --sort=-v:refname | head -1`): a patch for fixes and tidying, a minor for features. CI publishes `:vX.Y.Z` for a tag and moves `:latest` from `main` (only `main`'s run tests); the live lobby follows `:latest` unless the stack's `.env` pins `DUTY_IMAGE` (`docs/deploy.md`).
+Every commit gets the next version tag above the highest one (`git tag --sort=-v:refname | head -1`): a patch for fixes and tidying, a minor for features.
+
+Players read the commit messages: the main menu's Changelog (`apps/range/changelog/`) lists every tagged commit that changed files under `apps/` or `packages/` (not tests, scripts or notes), titled by the message's words before its first colon. So start the message with what changed, for a player, in a few words ("Brass casings, not black rods: ..."). The container build has no git, so CI writes the list first (`node apps/range/changelog/write.ts`). CI publishes `:vX.Y.Z` for a tag and moves `:latest` from `main` (only `main`'s run tests); the live lobby follows `:latest` unless the stack's `.env` pins `DUTY_IMAGE` (`docs/deploy.md`).

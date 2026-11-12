@@ -25,3 +25,6 @@ docs/design-audit/*/captures/
 docs/design-audit/*/after/
 docs/design-audit/*/*.html
 docs/design-audit/*/*.png
+
+# The changelog's releases, written from git by CI for the container build (apps/range/changelog/write.ts)
+apps/range/changelog.json
