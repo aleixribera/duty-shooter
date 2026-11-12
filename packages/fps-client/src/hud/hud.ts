@@ -174,7 +174,7 @@ const CSS = `
 .ds-overlay .k.trace { grid-column: 1 / 3; margin-top: 6px; }
 .ds-overlay .k { color: var(--ds-text-2); font-size: var(--ds-type-small); }
 .ds-board { position: absolute; z-index: 2; left: 50%; top: calc(142px + var(--ds-safe-t)); max-height: calc(100vh - 332px); overflow: hidden; transform: translateX(-50%); width: min(920px, calc(100vw - 64px)); padding: 0; display: none; background: var(--ds-plate-solid); text-shadow: none; animation: ds-fade 100ms ease-out; }
-.ds-hud.boarded .ds-feed, .ds-hud.boarded .ds-round { visibility: hidden; }
+.ds-hud.boarded .ds-feed, .ds-hud.boarded .ds-round, .ds-hud.boarded .ds-center, .ds-hud.boarded .ds-prompt { visibility: hidden; }
 .ds-board > header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 20px 12px; border-bottom: 1px solid var(--ds-line); }
 .ds-board > header b { font-size: var(--ds-type-heading); letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-board > header span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
