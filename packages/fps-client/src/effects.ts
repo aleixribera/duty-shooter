@@ -130,6 +130,16 @@ const MUZZLE_SMOKE = 0xd6d6d4;
 const SOFT = 0.35;
 /** How much longer than wide a spark is drawn, per m/s of its speed. */
 const STREAK = 0.55;
+/**
+ * A chip or drop nearer the eye than this (m) is not drawn, and it shows in full only from CHIP_CLEAR out. Debris is
+ * thrown back towards the shooter, and a splinter passing a hand from the camera drew as a flat grey card taller than
+ * the gun, standing over the crosshair (review 2026-11-12g, 05).
+ */
+export const CHIP_GONE = 0.15;
+export const CHIP_CLEAR = 0.4;
+/** The most of the view (rad) a chip may span along its length: a fleck stays a fleck however near it flies. */
+export const CHIP_ARC = 0.08;
+const camAt = new Vector3();
 
 function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
   const additive = kind === 'spark' || kind === 'flame' || kind === 'ring';
@@ -172,7 +182,11 @@ function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
     material.opacityNode = smoothstep(float(0), float(0.3), body).mul(alpha).mul(soft);
   } else if (kind === 'chip') {
     const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7)).mul(around);
-    material.colorNode = haze(tint.mul(ambient.add(sunColor.mul(sun).mul(0.3))) as N3) as never;
+    // Two faces: one side of the shard catches the light and the other is in its own shade, and the tumble turns which
+    // face is lit, so a chip glints as it spins instead of lying flat and even as a card.
+    const facet = mix(float(0.62), float(1.2), smoothstep(float(-0.8), float(0.8), p.x.add(p.y.mul(0.25))));
+    const glint = cos(roll.mul(2).add(seed.mul(6.28))).mul(0.2).add(1);
+    material.colorNode = haze(tint.mul(ambient.add(sunColor.mul(sun).mul(0.3))).mul(facet.mul(glint)) as N3) as never;
     // A shard: a lopsided diamond.
     material.opacityNode = step(abs(p.x).add(abs(p.y).mul(0.62)).add(p.x.mul(p.y).mul(0.4)), float(0.86)).mul(alpha);
   } else if (kind === 'spark') {
@@ -289,6 +303,9 @@ class ParticleLayer {
       q.rot += q.spin * dt;
     }
     const streaks = this.#kind === 'spark';
+    const debris = this.#kind === 'chip';
+    // Where the eye is this frame: the camera has moved since its world matrix was last made, at the last render.
+    if (debris) camera.getWorldPosition(camAt);
     if (streaks) {
       tmpRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
       tmpUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -307,12 +324,19 @@ class ParticleLayer {
       }
       tmp.position.copy(q.p);
       tmp.quaternion.copy(camera.quaternion).multiply(tmpQ.setFromAxisAngle(Z, roll));
-      const size = Math.max(0, q.size + q.grow * q.age);
+      let size = Math.max(0, q.size + q.grow * q.age);
+      let near = 1;
+      if (debris) {
+        const d = q.p.distanceTo(camAt);
+        const span = size * Math.max(1, stretch);
+        if (span > d * CHIP_ARC) size *= (d * CHIP_ARC) / span;
+        near = Math.min(1, Math.max(0, (d - CHIP_GONE) / (CHIP_CLEAR - CHIP_GONE)));
+      }
       tmp.scale.set(size, size * stretch, size);
       tmp.updateMatrix();
       this.mesh.setMatrixAt(i, tmp.matrix);
       // Quick fade in, long fade out.
-      const fade = this.#steady ? Math.min(1, t * 5) * (1 - t * t * t) : Math.min(1, t * 12) * (1 - t) * (1 - t);
+      const fade = near * (this.#steady ? Math.min(1, t * 5) * (1 - t * t * t) : Math.min(1, t * 12) * (1 - t) * (1 - t));
       this.#data.setXYZW(i, q.alpha * fade, roll, t, q.sun);
       this.#color.setXYZ(i, q.color.r, q.color.g, q.color.b);
       this.#seed.setX(i, q.seed);
