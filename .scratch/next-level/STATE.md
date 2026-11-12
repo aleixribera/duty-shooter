@@ -2,7 +2,7 @@
 
 ## Now
 
-Pass 1 of the iterate loop (2026-11-12) shipped the bootstrap, review (g) as tickets 85-89, and ticket 85 (v2.187.35). Next: ticket 86, wood chips not cardboard.
+Pass 1 of the iterate loop (2026-11-12) shipped the bootstrap, review (g) as tickets 85-89, and ticket 85 (v2.187.35). Next: ticket 86, wood chips not cardboard. The app refused to start pass 2 from an automated turn (a background job had woken this one); it waits as a proposed "Iterate" session to be started by hand. A pass should start its successor from a turn the owner began, or keep its last steps in the foreground.
 
 ## Where things stand
 
