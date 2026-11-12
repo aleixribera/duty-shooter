@@ -202,6 +202,28 @@ describe('lighting bake on terrain (next-level ticket 34)', () => {
     expect(Math.max(...above(sunnySide(bake(true))).map((t) => t.sun))).toBe(0);
   });
 
+  it('samples a face too narrow for the insets down its middle, not buried in the wall it runs into', () => {
+    // A wall with a skirting board on each side: 2.5 cm deep (1 cm sunk), so its top is narrower than both insets. Clamped,
+    // every texel across one board's top landed in the wall, and the face took the stand-in light: a white line indoors.
+    const wall = box({ min: [0, 0, 0], max: [0.2, 3, 4], material: 'plaster' });
+    const board = (x: number): Decoration => ({ center: [x, 0.05, 2], size: [0.025, 0.1, 3.8], yaw: 0, finish: 'trim', solid: 0 });
+    const decorations = [board(0.2 + 0.0025), board(-0.0025)];
+    const layout = layoutSurfaces([wall], spec({ finishes: { trim: { family: 'paint', color: 0xffffff } }, decorations }));
+    const baker = new Baker({ solids: [wall], faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo });
+    const sun = new Float32Array(baker.texels);
+    baker.sun(0, baker.texels, sun);
+    let k = 0;
+    const tops: number[][] = [];
+    layout.faces.forEach((f, i) => {
+      const r = layout.atlas.rects[i];
+      if (!r) return;
+      if (f.decoration >= 0 && f.normal[1] > 0.7) tops.push([...sun.subarray(k, k + r.w * r.h)]);
+      k += r.w * r.h;
+    });
+    expect(tops).toHaveLength(2);
+    for (const top of tops) expect(top.every((v) => v >= 0)).toBe(true);
+  });
+
   it('counts what is sunk in the ground as buried', () => {
     const texels = sunnySide(bake(true));
     const under = texels.filter((t) => t.y < -0.2);

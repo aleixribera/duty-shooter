@@ -150,8 +150,11 @@ export class Baker {
     const r = this.#input.atlas.rects[fi]!;
     const lu = Math.sqrt(len2(f.u));
     const lv = Math.sqrt(len2(f.v));
-    const s = Math.min(Math.max(this.#texI[k]! / (r.w - 1), INSET / lu), 1 - INSET / lu);
-    const t = Math.min(Math.max(this.#texJ[k]! / (r.h - 1), INSET / lv), 1 - INSET / lv);
+    // A face narrower than both insets samples down its middle: clamped to the insets, every texel across it landed past
+    // one edge, buried in the wall a skirting board's top runs into, and the face took the stand-in light, a white line.
+    const inset = (i: number, n: number, l: number) => (l < 2 * INSET ? 0.5 : Math.min(Math.max(i / (n - 1), INSET / l), 1 - INSET / l));
+    const s = inset(this.#texI[k]!, r.w, lu);
+    const t = inset(this.#texJ[k]!, r.h, lv);
     const n = f.normal;
     return {
       p: [f.origin[0] + f.u[0] * s + f.v[0] * t + n[0] * LIFT, f.origin[1] + f.u[1] * s + f.v[1] * t + n[1] * LIFT, f.origin[2] + f.u[2] * s + f.v[2] * t + n[2] * LIFT],

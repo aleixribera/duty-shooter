@@ -10,7 +10,7 @@ import { probeGrid, surfaceSpec } from './spec';
  */
 
 /** Bumped whenever the bake's output changes for the same map, so cached bakes are redone. */
-const BAKE_VERSION = 4;
+const BAKE_VERSION = 5;
 
 interface Prepared {
   readonly map: MapDefinition;
