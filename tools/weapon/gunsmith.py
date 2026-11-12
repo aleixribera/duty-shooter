@@ -35,36 +35,38 @@ WORLD_SCALE = 1.0
 
 
 # ---------------------------------------------------------------------------
-# Finishes: how each surface looks. Colours are linear RGB.
+# Finishes: how each surface looks. Colours are linear RGB. The black finishes are dark grey (0.04 to 0.08) and
+# mostly coating rather than bare metal: near-black albedo on a metallic surface takes almost no light but its
+# highlights, and a gun in hand read as a black cut-out (next-level ticket 44).
 # ---------------------------------------------------------------------------
 
 FINISHES = {
     # Black nitride steel: slides, receivers. Wears to bright steel on the edges.
-    "nitride": dict(base=(0.022, 0.023, 0.025), rough=0.36, metal=0.85, wear=(0.32, 0.32, 0.33), wear_rough=0.22,
+    "nitride": dict(base=(0.072, 0.074, 0.08), rough=0.36, metal=0.4, wear=(0.32, 0.32, 0.33), wear_rough=0.22,
                     wear_amount=0.55, grain=0.25, bump=0.15),
     # Manganese phosphate (parkerized): matte grey-black, slightly green.
-    "phosphate": dict(base=(0.03, 0.032, 0.03), rough=0.62, metal=0.55, wear=(0.26, 0.26, 0.26), wear_rough=0.3,
+    "phosphate": dict(base=(0.08, 0.084, 0.08), rough=0.62, metal=0.35, wear=(0.26, 0.26, 0.26), wear_rough=0.3,
                       wear_amount=0.45, grain=0.35, bump=0.25),
     # Hot-blued carbon steel: deep blue-black with a gloss.
-    "blued": dict(base=(0.014, 0.017, 0.024), rough=0.32, metal=0.9, wear=(0.3, 0.3, 0.31), wear_rough=0.2,
+    "blued": dict(base=(0.055, 0.06, 0.074), rough=0.32, metal=0.5, wear=(0.3, 0.3, 0.31), wear_rough=0.2,
                   wear_amount=0.5, grain=0.2, bump=0.08),
     # Bare machined steel: bolts, crowns, pins.
     "steel": dict(base=(0.38, 0.38, 0.39), rough=0.3, metal=1.0, wear=(0.55, 0.55, 0.56), wear_rough=0.18,
                   wear_amount=0.3, grain=0.5, bump=0.1, brushed=True),
     # Black hard-anodised aluminium: scope tubes, rails.
-    "anodised": dict(base=(0.016, 0.016, 0.018), rough=0.42, metal=0.75, wear=(0.5, 0.5, 0.52), wear_rough=0.25,
+    "anodised": dict(base=(0.072, 0.075, 0.084), rough=0.42, metal=0.3, wear=(0.5, 0.5, 0.52), wear_rough=0.25,
                      wear_amount=0.5, grain=0.2, bump=0.08),
     # Glass-filled polymer: frames, grips, magazines bodies.
-    "polymer": dict(base=(0.026, 0.026, 0.028), rough=0.6, metal=0.0, wear=(0.06, 0.06, 0.062), wear_rough=0.42,
+    "polymer": dict(base=(0.062, 0.062, 0.066), rough=0.6, metal=0.0, wear=(0.1, 0.1, 0.104), wear_rough=0.42,
                     wear_amount=0.6, grain=0.3, bump=0.35, speckle=0.12),
     # Sand-coloured polymer: the burst rifle's shell.
     "sand": dict(base=(0.2, 0.15, 0.088), rough=0.62, metal=0.0, wear=(0.3, 0.24, 0.16), wear_rough=0.45,
                  wear_amount=0.5, grain=0.3, bump=0.35, speckle=0.05),
     # Aggressive stipple on polymer grip panels.
-    "stipple": dict(base=(0.022, 0.022, 0.024), rough=0.78, metal=0.0, wear=(0.05, 0.05, 0.052), wear_rough=0.55,
+    "stipple": dict(base=(0.055, 0.055, 0.058), rough=0.78, metal=0.0, wear=(0.09, 0.09, 0.094), wear_rough=0.55,
                     wear_amount=0.4, grain=0.3, bump=0.3, stipple=1.0),
     # Rubber: butt pads, scope eye cups.
-    "rubber": dict(base=(0.018, 0.018, 0.018), rough=0.88, metal=0.0, wear=(0.03, 0.03, 0.03), wear_rough=0.8,
+    "rubber": dict(base=(0.042, 0.042, 0.042), rough=0.88, metal=0.0, wear=(0.055, 0.055, 0.055), wear_rough=0.8,
                    wear_amount=0.2, grain=0.5, bump=0.4),
     # Oiled walnut with a lacquer coat.
     "walnut": dict(base=(0.12, 0.05, 0.022), rough=0.34, metal=0.0, wear=(0.3, 0.15, 0.07), wear_rough=0.55,
