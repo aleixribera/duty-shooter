@@ -2101,11 +2101,14 @@ export class Game {
         }
         break;
       }
-      case 'impact':
+      case 'impact': {
         if (e.side === 'entry') this.#tracers.land(e.shooter, e.point);
-        this.#effects.impact(e.point, e.normal, e.material);
-        this.#play('impact', { position: e.point, material: e.material });
+        // What the face struck is drawn as: a room's plaster on a wooden outer wall chips and sounds like plaster.
+        const material = this.#worldView.hits.materialAt(e.point, e.normal, e.material);
+        this.#effects.impact(e.point, e.normal, material);
+        this.#play('impact', { position: e.point, material });
         break;
+      }
       case 'prop': {
         const head = this.#worldView.popProp(e.prop);
         if (head) {

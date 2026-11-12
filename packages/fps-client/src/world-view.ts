@@ -43,6 +43,7 @@ import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
 import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
 import { buildSkyField } from './sky-field';
+import { SurfaceHits } from './surface-hit';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, type Horizon, type SignPlacement } from './world-details';
 
 /** A sloped surface drawn as a ramp (collision is the map's business). Rises along -Z from z0 to z1. */
@@ -370,6 +371,8 @@ export class WorldView {
   readonly #sign: PopulationSign | null = null;
   /** Settles once the map's models are in the scene, or have failed to load. */
   readonly modelsIn: Promise<void> = Promise.resolve();
+  /** Which face a shot struck, for what its impact looks and sounds like. */
+  readonly hits: SurfaceHits;
 
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
@@ -385,6 +388,7 @@ export class WorldView {
     this.follow([0, 0, 0]);
 
     const layout = layoutSurfaces(content.solids, { finishes: content.finishes, looks: content.looks, decorations: content.decorations, indoor: content.indoorZones, modelled: [...(content.models?.placements.flatMap((p) => p.solids) ?? []), ...(content.plants?.modelled ?? [])] });
+    this.hits = new SurfaceHits(layout.faces, layout.finishes);
     const size = uniform(new Vector2(1, 1));
     const baked = { lightmap: lightmapNode(), size: size as never, ready: uniform(0), shadowCentre: this.#shadowCentre as never, shadowRadius: this.#shadowRadius as never };
     const materials = new Map<string, ReturnType<typeof surfaceMaterial>>();
