@@ -1,6 +1,6 @@
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { NavGraph, Solid } from '@duty-shooter/fps-core';
-import { buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
+import { MAP_CATALOGUE, buildMapById, mapSolids, type MapDefinition, type MapId } from './map/maps';
 
 /** A map's definition and collision, built once, and how far its baked lighting has downloaded. */
 export interface LoadedMap {
@@ -33,8 +33,7 @@ export class MapStore {
     if (!entry) {
       const map = buildMapById(id);
       const e: { -readonly [K in keyof LoadedMap]: LoadedMap[K] } = { map, solids: mapSolids(map), bake: Promise.resolve(null), progress: null, ready: false };
-      // Ground isn't baked yet (ticket 10), so a map on terrain has no file to ask for.
-      e.bake = map.terrain ? Promise.resolve(null) : this.#loadBake(`bake/${id}.bin`, (f) => (e.progress = f));
+      e.bake = MAP_CATALOGUE[id].baked ? this.#loadBake(`bake/${id}.bin`, (f) => (e.progress = f)) : Promise.resolve(null);
       // For the screenshot scripts: whether this map's lighting is in.
       void e.bake.then((file) => {
         e.ready = true;

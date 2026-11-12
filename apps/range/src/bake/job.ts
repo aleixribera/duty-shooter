@@ -1,4 +1,5 @@
-import { Baker, layoutSurfaces, writeBakeFile, type ProbeGrid, type SurfaceLayout } from '@duty-shooter/fps-client/surfaces';
+import { Baker, layoutSurfaces, linearRgb, writeBakeFile, type ProbeGrid, type SurfaceLayout } from '@duty-shooter/fps-client/surfaces';
+import type { Vec3 } from '@duty-shooter/fps-core';
 import { buildMapById, type MapDefinition, type MapId } from '../map/maps';
 import { probeGrid, surfaceSpec } from './spec';
 
@@ -9,7 +10,7 @@ import { probeGrid, surfaceSpec } from './spec';
  */
 
 /** Bumped whenever the bake's output changes for the same map, so cached bakes are redone. */
-const BAKE_VERSION = 3;
+const BAKE_VERSION = 4;
 
 interface Prepared {
   readonly map: MapDefinition;
@@ -20,13 +21,23 @@ interface Prepared {
 
 const prepared = new Map<MapId, Prepared>();
 
+const NO_PROBES: ProbeGrid = { min: [0, 0, 0], step: 1, dims: [0, 0, 0] };
+
+/** The ground's colour, for the light it gives back: the mean of its colours. */
+function groundAlbedo(map: MapDefinition): Vec3 | undefined {
+  const colours = map.terrainColors?.map(linearRgb);
+  if (!colours?.length) return undefined;
+  return [0, 1, 2].map((c) => colours.reduce((sum, v) => sum + v[c]!, 0) / colours.length) as unknown as Vec3;
+}
+
 function prepare(id: MapId): Prepared {
   let p = prepared.get(id);
   if (!p) {
     const map = buildMapById(id);
     const layout = layoutSurfaces(map.solids, surfaceSpec(map));
-    const baker = new Baker({ solids: map.solids, faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo, lighting: map.lighting, lamps: map.lamps });
-    p = { map, layout, baker, grid: probeGrid(map) };
+    const baker = new Baker({ solids: map.solids, faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo, lighting: map.lighting, lamps: map.lamps, terrain: map.terrain ?? null, groundAlbedo: groundAlbedo(map) });
+    // A map on terrain keeps its sky field for what moves (see sky-field.ts): no probes.
+    p = { map, layout, baker, grid: map.terrain ? NO_PROBES : probeGrid(map) };
     prepared.set(id, p);
   }
   return p;
@@ -34,8 +45,11 @@ function prepare(id: MapId): Prepared {
 
 function fingerprint(p: Prepared): string {
   let h = 2166136261;
-  const text = JSON.stringify([BAKE_VERSION, p.map.lighting, p.map.lamps, p.layout.key, p.map.solids, p.layout.faces.map((f) => f.finish), p.layout.finishes, p.grid]);
+  const terrain = p.map.terrain;
+  const text = JSON.stringify([BAKE_VERSION, p.map.lighting, p.map.lamps, p.layout.key, p.map.solids, p.layout.faces.map((f) => f.finish), p.layout.finishes, p.grid, p.map.terrainColors, terrain && [terrain.origin, terrain.cell, terrain.columns, terrain.rows]]);
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  // The ground's heights, to the centimetre.
+  if (terrain) for (let i = 0; i < terrain.heights.length; i++) h = Math.imul(h ^ Math.round(terrain.heights[i]! * 100), 16777619) >>> 0;
   return h.toString(16);
 }
 

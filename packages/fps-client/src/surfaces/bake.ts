@@ -1,4 +1,4 @@
-import { createWorld, raycastWorld, type Solid, type Vec3, type World } from '@duty-shooter/fps-core';
+import { createWorld, raycastWorld, type Solid, type TerrainData, type Vec3, type World } from '@duty-shooter/fps-core';
 import { ATLAS_BORDER, type Atlas } from './atlas';
 import { insideFrame, isClear, solidFrame, type Face, type Frame } from './faces';
 import { LIGHTING, encodeLight, skyRadiance, type Lamp, type Lighting } from './lighting';
@@ -42,9 +42,15 @@ export interface BakeInput {
   readonly lighting?: Lighting;
   /** Lamps lighting the map (none if not given). */
   readonly lamps?: readonly Lamp[];
+  /** The ground of a map on terrain: it casts shadows, hides what is sunk in it and gives back light. */
+  readonly terrain?: TerrainData | null;
+  /** The ground's linear albedo, for the light it gives back. */
+  readonly groundAlbedo?: Vec3 | undefined;
 }
 
 const ZERO: Vec3 = [0, 0, 0];
+/** The ground's albedo when a map doesn't give one. */
+const GROUND: Vec3 = [0.2, 0.2, 0.18];
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const len2 = (a: Vec3) => dot(a, a);
 
@@ -104,7 +110,10 @@ export class Baker {
     this.#lamps = input.lamps ?? [];
     const occluders = input.solids.map((s, i) => ({ s, i })).filter(({ s }) => !isClear(s) && s.prop === null);
     this.#solidOf = occluders.map(({ i }) => i);
-    this.#world = createWorld(occluders.map(({ s }) => (s.blocks === 'players' ? { ...s, blocks: 'both' as const } : s)));
+    this.#world = createWorld(
+      occluders.map(({ s }) => (s.blocks === 'players' ? { ...s, blocks: 'both' as const } : s)),
+      { terrain: input.terrain ?? null },
+    );
     this.#frames = occluders.map(({ s }) => solidFrame(s));
     input.faces.forEach((f, i) => {
       if (f.solid >= 0) this.#faceOf.set(f.solid * 6 + f.side, i);
@@ -151,8 +160,9 @@ export class Baker {
     };
   }
 
-  /** Whether a point is buried in an opaque solid other than `self` (drawn solid index). */
+  /** Whether a point is buried in an opaque solid other than `self` (drawn solid index), or under the ground. */
   #buried(p: Vec3, self: number): boolean {
+    if (this.#world.terrain && p[1] < this.#world.terrain.heightAt(p[0], p[2])) return true;
     for (const i of this.#world.bullets.inRect(p[0] - 0.01, p[2] - 0.01, p[0] + 0.01, p[2] + 0.01)) {
       if (this.#solidOf[i] !== self && insideFrame(this.#frames[i]!, p, 0.001)) return true;
     }
@@ -222,6 +232,14 @@ export class Baker {
     const hit = raycastWorld(this.#world, p, [p[0] + d[0] * SKY_REACH, p[1] + d[1] * SKY_REACH, p[2] + d[2] * SKY_REACH]);
     if (!hit) return skyRadiance(d, this.#light);
     if (dot(hit.normal, d) > 0) return [0, 0, 0];
+    if (hit.solid < 0) {
+      // The ground: lit by the sun as it faces it (its shadows aren't traced) and by half the open sky.
+      const a = this.#input.groundAlbedo ?? GROUND;
+      const c = this.#light.sunColor;
+      const sunlit = this.#light.sunIntensity * Math.max(0, dot(hit.normal, this.#light.sunDirection));
+      const sky = 0.5 * this.#light.skyIntensity * 0.6;
+      return [a[0] * (sunlit * c[0] + sky), a[1] * (sunlit * c[1] + sky), a[2] * (sunlit * c[2] + sky)];
+    }
     const at = this.#texelAt(this.#solidOf[hit.solid]!, hit.point, hit.normal);
     if (!at) return [0, 0, 0];
     const a = this.#input.albedo[at.face]!;

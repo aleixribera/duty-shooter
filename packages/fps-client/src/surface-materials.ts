@@ -623,13 +623,14 @@ class BakedLightingModel extends LightingModel {
     // Within the shadow map's reach, the realtime shadow alone decides the sun; beyond it, the bake does.
     const reach = this.#baked.shadowRadius;
     const near = float(1).sub(smoothstep(reach.mul(0.8), reach, length(positionWorld.xz.sub(this.#baked.shadowCentre))));
-    // With no bake (a map on terrain), the sky field stands in for it: the far shadows, and how much sky is seen.
+    // On a map on terrain the sky field adds the shadows of what lies past the bake's reach (a hill's, far off); until
+    // the bake is in it stands in for it, how much sky is seen too. Elsewhere it is off and changes nothing.
     const field = skyLight(n);
     const baked = mix(facing, lm.a, ready).mul(field.sun);
     // The bake and the shadow are for the flat face; the relief leans it toward the sun or away, by the ratio of the two.
     const lean = this.#relief ? max(dot(lit, sunDir), float(0)).div(max(facing, float(0.2))) : float(1);
-    const sunTerm = mix(baked, facing, near.mul(ready)).mul(this.#mask).mul(lean);
-    const sky = mix(vec3(0.42, 0.44, 0.47), decode(lm.rgb as N3), ready).mul(field.open);
+    const sunTerm = mix(baked, facing.mul(field.sun), near.mul(ready)).mul(this.#mask).mul(lean);
+    const sky = mix(vec3(0.42, 0.44, 0.47).mul(field.open), decode(lm.rgb as N3), ready);
     const shaded = this.#relief ? sky.mul(float(1).add(lit.y.sub(n.y).mul(SKY_LEAN))).mul(mix(float(1 - CREVICE), float(1), this.#relief.open)) : sky;
     const diffuse = this.#albedo.mul(shaded.add(sunColor.mul(sunTerm)).add(this.#point));
     const v = normalize(cameraPosition.sub(positionWorld)) as unknown as N3;

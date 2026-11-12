@@ -11,7 +11,7 @@ export interface MapEntry {
   readonly teamSizes: TeamSizes;
   /** Built for matches: online lobbies and Bot Match play it (not the Practice Range or the island). */
   readonly match: boolean;
-  /** Its lighting is baked at build time (bake/<map>.bin); the island lights itself. */
+  /** Its lighting is baked at build time (bake/<map>.bin). */
   readonly baked: boolean;
   /** It has a picture for the lobby (public/maps/<id>.jpg). */
   readonly picture: boolean;
@@ -33,7 +33,7 @@ export const MAP_CATALOGUE = {
   switchyard: { name: 'Switchyard', teamSizes: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 }, match: true, baked: true, picture: true },
   'station-nine': { name: 'Station Nine', teamSizes: { tdm: 6, ffa: 4, outposts: 6, charge: 4, gungame: 4 }, match: true, baked: true, picture: true },
   range: { name: 'Practice Range', teamSizes: {}, match: false, baked: true, picture: false },
-  'zero-island': { name: 'Zero Island', teamSizes: { 'battle-royale': 30 }, match: false, baked: false, picture: true },
+  'zero-island': { name: 'Zero Island', teamSizes: { 'battle-royale': 30 }, match: false, baked: true, picture: true },
 } as const satisfies Record<string, MapEntry>;
 
 /** The maps the app ships. */

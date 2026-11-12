@@ -374,7 +374,7 @@ export class WorldView {
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
     useLighting(content.lighting ?? LIGHTING);
-    // A map on terrain has no bake: its sky field lights it instead (far shadows, and how much sky each place sees).
+    // A map on terrain bakes only its surfaces: its sky field lights the rest (far shadows, and how much sky each place sees).
     useSkyField(content.terrain ? buildSkyField(content.terrain, content.solids, (content.lighting ?? LIGHTING).sunDirection) : null);
     scene.backgroundNode = cloudySky(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
@@ -474,6 +474,8 @@ export class WorldView {
       (baked.lightmap as unknown as { value: unknown }).value = lightmapTexture(file);
       size.value.set(file.width, file.height);
       baked.ready.value = 1;
+      // A map on terrain bakes its surfaces alone: the sky field goes on lighting its ground, plants and whatever moves.
+      if (file.probes.dims[0] === 0) return;
       this.probes.load(file);
       useSkyField(null);
     });

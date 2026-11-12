@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { box, yawBox, type Solid, type Vec3 } from '@duty-shooter/fps-core';
+import { box, yawBox, type Solid, type TerrainData, type Vec3 } from '@duty-shooter/fps-core';
 import { ATLAS_BORDER, Baker, LIGHTING, decorationErrors, layoutSurfaces, packAtlas, readBakeFile, writeBakeFile, type Decoration, type SurfaceSpec } from '@duty-shooter/fps-client/surfaces';
 
 const spec = (over: Partial<SurfaceSpec> = {}): SurfaceSpec => ({ finishes: {}, looks: [], decorations: [], indoor: [], ...over });
@@ -153,6 +153,77 @@ describe('lighting bake', () => {
     const at = (x: number, z: number) => probes[(Math.round(x + 6) + Math.round(z + 6) * 13) * 4 + 3]! / 255;
     expect(at(...downSun(3))).toBeLessThan(0.1);
     expect(at(5, -5)).toBeGreaterThan(0.9);
+  });
+});
+
+describe('lighting bake on terrain (next-level ticket 34)', () => {
+  // Flat ground at 0 with a 12 m ridge 8 m toward the sun from a lone pillar, running across the sun's way.
+  const L = LIGHTING.sunDirection;
+  const flat = Math.hypot(L[0], L[2]);
+  const toSun: [number, number] = [L[0] / flat, L[2] / flat];
+  const n = 40;
+  const heights = new Float32Array((n + 1) * (n + 1));
+  for (let j = 0; j <= n; j++)
+    for (let i = 0; i <= n; i++) {
+      const along = (i - n / 2) * toSun[0] + (j - n / 2) * toSun[1];
+      heights[j * (n + 1) + i] = Math.abs(along - 8) < 1.5 ? 12 : 0;
+    }
+  const terrain: TerrainData = { origin: [-n / 2, -n / 2], cell: 1, columns: n, rows: n, heights, palette: ['dirt'] };
+  // Sunk a metre into the ground: its lowest metre is buried.
+  const pillar = box({ min: [-0.5, -1, -0.5], max: [0.5, 2, 0.5], material: 'concrete' });
+  const layout = layoutSurfaces([pillar], spec());
+  const bake = (withTerrain: boolean) => {
+    const baker = new Baker({ solids: [pillar], faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo, terrain: withTerrain ? terrain : null });
+    const sun = new Float32Array(baker.texels);
+    baker.sun(0, baker.texels, sun);
+    return sun;
+  };
+  /** The sun pass of the face looking most toward the sun, its texels by height. */
+  const sunnySide = (sun: Float32Array) => {
+    let best = -1;
+    let first = 0;
+    let start = 0;
+    layout.faces.forEach((f, i) => {
+      const r = layout.atlas.rects[i];
+      if (!r) return;
+      const d = f.normal[0] * toSun[0] + f.normal[2] * toSun[1];
+      if (best < 0 || d > best) [best, first] = [d, start];
+      start += r.w * r.h;
+    });
+    const fi = layout.faces.findIndex((f) => f.normal[0] * toSun[0] + f.normal[2] * toSun[1] === best);
+    const f = layout.faces[fi]!;
+    const r = layout.atlas.rects[fi]!;
+    return Array.from({ length: r.w * r.h }, (_, k) => ({ y: f.origin[1] + f.u[1] * ((k % r.w) / (r.w - 1)) + f.v[1] * (Math.floor(k / r.w) / (r.h - 1)), sun: sun[first + k]! }));
+  };
+
+  it('shades a surface in the shadow of a hill, which the same surface without the ground does not', () => {
+    const above = (texels: { y: number; sun: number }[]) => texels.filter((t) => t.y > 0.2);
+    expect(Math.max(...above(sunnySide(bake(false))).map((t) => t.sun))).toBeGreaterThan(0.1);
+    expect(Math.max(...above(sunnySide(bake(true))).map((t) => t.sun))).toBe(0);
+  });
+
+  it('counts what is sunk in the ground as buried', () => {
+    const texels = sunnySide(bake(true));
+    const under = texels.filter((t) => t.y < -0.2);
+    const over = texels.filter((t) => t.y > 0.2);
+    expect(under.length).toBeGreaterThan(0);
+    expect(over.length).toBeGreaterThan(0);
+    expect(under.every((t) => t.sun === -1)).toBe(true);
+    expect(over.every((t) => t.sun >= 0)).toBe(true);
+  });
+
+  it('lights a surface by what comes back off the ground: the more of it, the lighter the ground', () => {
+    const indirect = (albedo: number) => {
+      const baker = new Baker({ solids: [pillar], faces: layout.faces, atlas: layout.atlas, albedo: layout.albedo, terrain, groundAlbedo: [albedo, albedo, albedo] });
+      const sun = new Float32Array(baker.texels);
+      baker.sun(0, baker.texels, sun);
+      const out = new Float32Array(baker.texels * 3);
+      baker.indirect(sun, null, 0, baker.texels, out);
+      let total = 0;
+      for (let k = 0; k < baker.texels; k++) if (sun[k]! >= 0) total += out[3 * k]!;
+      return total;
+    };
+    expect(indirect(0.6)).toBeGreaterThan(indirect(0.05));
   });
 });
 
