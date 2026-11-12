@@ -6,8 +6,8 @@ import { GRENADE_WARNINGS_MOST, fuseBlink, grenadeWarnings, type WarnedPlayer } 
 
 describe('the match clock', () => {
   it('reads time left until the last minute, then T-minus, then tenths', () => {
-    expect(clockFace(599.2)).toMatchObject({ text: '10:00', act: 'match' });
-    expect(clockFace(60.01)).toMatchObject({ text: '1:01', act: 'match', fuse: 1 });
+    expect(clockFace(599.2)).toMatchObject({ text: 'T−10:00', act: 'match' });
+    expect(clockFace(60.01)).toMatchObject({ text: 'T−1:01', act: 'match', fuse: 1 });
     expect(clockFace(60)).toMatchObject({ text: 'T−1:00', act: 'minute' });
     expect(clockFace(47.3)).toMatchObject({ text: 'T−0:48', act: 'minute' });
     expect(clockFace(10.01)).toMatchObject({ text: 'T−0:11', act: 'minute' });
@@ -48,8 +48,19 @@ describe('the match clock', () => {
     expect(ticks).toBe(LAST_TEN);
   });
 
-  it('draws the fuse only in the last minute', () => {
-    expect(matchClockHtml(200)).toBe('<span class="clock">3:20</span>');
+  it('counts T-minus from the first second, its quiet fuse burning down to the last minute', () => {
+    expect(clockFace(600, 600)).toMatchObject({ text: 'T−10:00', act: 'match', fuse: 1 });
+    expect(clockFace(330, 600).fuse).toBeCloseTo(0.5, 5);
+    expect(clockFace(60.5, 600).fuse).toBeLessThan(0.01);
+    // There the alert fuse lights, full.
+    expect(clockFace(60, 600)).toMatchObject({ act: 'minute', fuse: 1 });
+    // A match of unknown length keeps its quiet fuse whole.
+    expect(clockFace(330).fuse).toBe(1);
+    expect(matchClockHtml(330, 600)).toContain('scaleX(0.5)');
+  });
+
+  it('draws the quiet fuse before the last minute and the alert one in it', () => {
+    expect(matchClockHtml(200)).toBe('<span class="clock">T−3:20</span><span class="fuse quiet"><i style="transform:scaleX(1)"></i></span>');
     expect(matchClockHtml(30)).toContain('<span class="fuse">');
     expect(clockClass(clockFace(200))).toBe('clock');
     expect(clockClass(clockFace(30))).toBe('clock tminus');

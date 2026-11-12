@@ -1,8 +1,9 @@
 /**
  * The match clock on the match bar (ticket 24). A match ends with the bomb, so
- * its last minute is the countdown to it: the clock stops reading time left
- * and reads T-minus, in the alert colour, over a fuse that burns down from
- * both ends; in the last ten seconds it reads tenths and ticks on each one.
+ * the whole match is the countdown to it: the clock reads T-minus from the
+ * first second, over a quiet fuse that burns down from both ends to the last
+ * minute. There the fuse lights again in the alert colour, the clock turns
+ * alert with it, and in the last ten seconds it reads tenths and ticks on each one.
  */
 
 /** Seconds from the end at which the clock turns to T-minus, and at which it reads tenths. */
@@ -16,7 +17,7 @@ export interface ClockFace {
   readonly text: string;
   /** The act the clock is in: the match, its last minute, its last ten seconds. */
   readonly act: 'match' | 'minute' | 'ten';
-  /** How much of the last minute is left, 1 (all of it, and before it) to 0. */
+  /** Before the last minute, how much of the match is left before it (1 without a known length); in it, how much of it is left. 1 to 0. */
   readonly fuse: number;
   /** One of the last ten seconds has just turned. */
   readonly tick: boolean;
@@ -24,11 +25,14 @@ export interface ClockFace {
 
 const two = (n: number): string => String(n).padStart(2, '0');
 
-/** The face of the clock with `secondsLeft` of the match to go. */
-export function clockFace(secondsLeft: number): ClockFace {
+/** The face of the clock with `secondsLeft` of a match `length` seconds long (null: unknown) to go. */
+export function clockFace(secondsLeft: number, length: number | null = null): ClockFace {
   const left = Math.max(0, Number.isFinite(secondsLeft) ? secondsLeft : 0);
   const whole = Math.ceil(left);
-  if (left > LAST_MINUTE) return { text: `${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'match', fuse: 1, tick: false };
+  if (left > LAST_MINUTE) {
+    const before = length !== null && length > LAST_MINUTE ? Math.min(1, (left - LAST_MINUTE) / (length - LAST_MINUTE)) : 1;
+    return { text: `T−${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'match', fuse: before, tick: false };
+  }
   const fuse = left / LAST_MINUTE;
   if (left > LAST_TEN) return { text: `T−${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'minute', fuse, tick: false };
   // Tenths count down, so they are cut, not rounded: the clock never reads a tenth it has not reached.
@@ -43,14 +47,14 @@ export function clockClass(face: ClockFace): string {
 
 /**
  * The clock's place in the match bar's markup. Before the last minute it is
- * the time itself, which changes once a second. In the last minute it is the
- * clock and its fuse as empty elements: what they read changes many times a
- * second, and is painted into them (`MatchClockView`) instead of rebuilding
- * the whole bar for a tenth of a second.
+ * the clock and its quiet fuse as they read, which changes once a second. In
+ * the last minute it is the clock and its fuse as empty elements: what they
+ * read changes many times a second, and is painted into them
+ * (`MatchClockView`) instead of rebuilding the whole bar for a tenth of a second.
  */
-export function matchClockHtml(secondsLeft: number): string {
-  const face = clockFace(secondsLeft);
-  if (face.act === 'match') return `<span class="clock">${face.text}</span>`;
+export function matchClockHtml(secondsLeft: number, length: number | null = null): string {
+  const face = clockFace(secondsLeft, length);
+  if (face.act === 'match') return `<span class="clock">${face.text}</span><span class="fuse quiet"><i style="transform:scaleX(${fuseDrawn(face.fuse)})"></i></span>`;
   return '<span class="clock tminus"></span><span class="fuse"><i></i></span>';
 }
 
@@ -97,5 +101,7 @@ export const MATCH_CLOCK_CSS = `
 .ds-match .clock.ten.tick { transform: scale(1.3); color: var(--ds-text); }
 .ds-match .fuse { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: color-mix(in srgb, var(--ds-alert) 24%, transparent); }
 .ds-match .fuse i { display: block; height: 100%; background: var(--ds-alert); transform-origin: 50% 50%; }
+.ds-match .fuse.quiet { background: var(--ds-line); }
+.ds-match .fuse.quiet i { background: var(--ds-text-2); }
 @media (prefers-reduced-motion: reduce) { .ds-match .clock.ten.tick { transform: scale(1.12); } }
 `;

@@ -1015,11 +1015,11 @@ export class Hud {
     if (s.phase === 'playing') {
       const bar = matchBar(s, state.scores, state.selfId, view.team);
       // A Charge round's clock is a round's: its last half minute in red, but not the countdown to it. Every other
-      // match's clock runs out on the bomb, and its last minute counts T-minus (ticket 24).
+      // match's clock runs out on the bomb and counts T-minus to it, its last minute in the alert colour (ticket 24).
       const round = s.mode === 'charge';
       const low = round && state.charge?.state.phase !== 'freeze' && view.secondsLeft !== null && view.secondsLeft <= 30;
       const bomb = round ? null : view.secondsLeft;
-      const face = bomb !== null ? matchClockHtml(bomb) : `<span class="clock${low ? ' low' : ''}">${left || '–'}</span>`;
+      const face = bomb !== null ? matchClockHtml(bomb, s.timeLimit ?? null) : `<span class="clock${low ? ' low' : ''}">${left || '–'}</span>`;
       const mid = `<div class="mid">${face}<span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
       if (bar.kind === 'tdm') {
         // Each side's way to the limit, under its score.
