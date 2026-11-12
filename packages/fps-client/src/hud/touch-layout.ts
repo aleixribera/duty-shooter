@@ -17,7 +17,9 @@ html.ds-touch .ds-ammo { right: auto; left: 50%; width: 156px; text-align: left;
 html.ds-touch .ds-health .hp, html.ds-touch .ds-ammo .mag { font-size: var(--ds-type-heading); line-height: 1; margin-top: 3px; }
 html.ds-touch .ds-ammo .res { font-size: var(--ds-type-small); margin-left: 4px; }
 html.ds-touch .ds-ammo .gun { justify-content: flex-start; gap: 6px; margin: 0 0 3px; font-size: var(--ds-type-small); line-height: 1.2; white-space: nowrap; overflow: hidden; }
-html.ds-touch .ds-ammo .nade { float: right; margin: 0; vertical-align: 0; }
+html.ds-touch .ds-ammo .nade { float: right; gap: 5px; margin: 0; font-size: var(--ds-type-body); vertical-align: 0; }
+/* The plate's fixed 60 px keeps the counts at their own size here. */
+html.ds-touch .ds-ammo .nade .ds-icon { width: 18px; height: 18px; stroke-width: 2; }
 html.ds-touch .ds-health .bar, html.ds-touch .ds-ammo .bar { width: auto; margin: 6px 0 0; height: 4px; }
 /* A narrow phone: the plates stand left of the right thumb's cluster instead of on the middle. */
 @media (max-width: 740px) {

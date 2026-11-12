@@ -42,8 +42,10 @@ const CSS = `
 .ds-ammo .res.low { color: var(--ds-alert); }
 .ds-ammo .gun { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-bottom: 4px; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-ammo .gun small { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text); }
-.ds-ammo .nade { display: inline-flex; align-items: center; gap: 5px; margin-right: 18px; font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); vertical-align: 10px; }
-.ds-ammo .nade .ds-icon { width: 18px; height: 18px; stroke-width: 2; }
+/* The grenade and tactical counts scale with the magazine's figure, about half of it, so they read as part of the plate
+   rather than small marks beside it (review 2026-11-12f, 04-08: "small glyphs beside a '1'"). The glyph stands a quarter taller than its count. */
+.ds-ammo .nade { display: inline-flex; align-items: center; gap: 0.3em; margin-right: 0.9em; font-size: clamp(19px, calc(var(--ds-type-display) * 0.45), 24px); line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ds-text); vertical-align: 0.4em; }
+.ds-ammo .nade .ds-icon { width: 1.25em; height: 1.25em; stroke-width: 1.9; }
 .ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.45; }
 .ds-ammo .nade.cook { color: var(--ds-alert); }
 .ds-ammo .nade.tac.cook { color: var(--ds-signal); }
