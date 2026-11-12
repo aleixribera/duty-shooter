@@ -70,6 +70,15 @@ const CSS = `
   .ds-lobby .solo .seats { grid-template-columns: minmax(0, 1fr); grid-auto-flow: row; grid-template-rows: none !important; gap: 6px; }
   .ds-lobby .solo .seats.teams { gap: 22px; }
 }
+/* A desktop browser on a 1080p screen leaves about 930 px (review 2026-11-12g, 03: at 1904x929 the Bot skill row was cut by
+   the footer): below 1000 px of height the picks tighten, shorter map pictures, closer rows and, with a mouse, 40 px choices,
+   so every pick fits above the footer without a scroll. */
+@media (min-width: 961px) and (max-height: 1000px) {
+  .ds-lobby .maps button { height: 96px; }
+  .ds-lobby .match, .ds-lobby .picks { gap: 12px; }
+  .ds-lobby .picks .ds-field-label { margin-bottom: 6px; }
+  :root:not(.ds-touch) .ds-lobby .picks .ds-seg button { min-height: 40px; }
+}
 @media (max-width: 960px) {
   .ds-lobby .ds-page { background: var(--ds-scrim); }
   .ds-lobby .body { grid-template-columns: minmax(0, 1fr); gap: 32px; }
