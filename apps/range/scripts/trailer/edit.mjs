@@ -51,9 +51,13 @@ const stamp = (f) => (existsSync(f) ? `${statSync(f).size}:${statSync(f).mtimeMs
 const cardFile = (name) => join(at(edl.cards ?? 'cards'), `${name}.png`);
 
 // ---- Picture: each shot its own segment (same codec and size, so they join without re-encoding). ----
+// Every segment in one colour space, BT.709 at TV range, and tagged so: the frames are JPEGs (BT.601, full range)
+// and the cards are RGB, and a join of mixed ranges plays every segment with the first one's.
+const TV = 'out_color_matrix=bt709:out_range=tv';
+const tags = ['-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709'];
 const enc = draft
-  ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-pix_fmt', 'yuv420p', '-r', String(fps)]
-  : ['-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-pix_fmt', 'yuv420p', '-r', String(fps), '-x264-params', 'colorprim=bt709:transfer=bt709:colormatrix=bt709'];
+  ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-pix_fmt', 'yuv420p', '-r', String(fps), ...tags]
+  : ['-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-pix_fmt', 'yuv420p', '-r', String(fps), ...tags, '-x264-params', 'colorprim=bt709:transfer=bt709:colormatrix=bt709'];
 const timeline = [];
 let t = 0;
 const segments = [];
@@ -66,7 +70,7 @@ for (const [i, s] of edl.shots.entries()) {
     // Whole frames, so the timeline under the picture is the picture's.
     seconds = Math.round(s.seconds * fps) / fps;
     inputs = [cardFile(s.card)];
-    const vf = [`scale=${W}:${H}`, ...fades(seconds), 'format=yuv420p'].join(',');
+    const vf = [`scale=${W}:${H}:${TV}`, ...fades(seconds), 'format=yuv420p'].join(',');
     args = ['-loop', '1', '-framerate', String(fps), '-t', n3(seconds), '-i', cardFile(s.card), '-vf', vf, '-frames:v', String(Math.round(seconds * fps))];
   } else {
     const shot = JSON.parse(readFileSync(join(at(s.clip), 'shot.json'), 'utf8'));
@@ -77,7 +81,7 @@ for (const [i, s] of edl.shots.entries()) {
     // Whole output frames: the picture's length, which the sound is laid against.
     seconds = Math.round((count / shot.fps / speed) * fps) / fps;
     inputs = [join(at(s.clip), 'shot.json'), ...(s.over ? [cardFile(s.over)] : [])];
-    const chain = [`scale=${W}:${H}:flags=lanczos`, edl.grade && s.grade !== false ? edl.grade : null, s.grade || null, ...fades(seconds)].filter(Boolean);
+    const chain = [`scale=${W}:${H}:flags=lanczos:in_color_matrix=bt601:in_range=pc:${TV}`, edl.grade && s.grade !== false ? edl.grade : null, s.grade || null, ...fades(seconds)].filter(Boolean);
     const frameInputs = ['-start_number', String(first), '-framerate', String(shot.fps * speed), '-i', join(at(s.clip), 'frames', '%05d.jpg')];
     if (s.over) {
       const o = [`fade=t=in:st=0:d=${n3(s.overIn ?? 0.01)}:alpha=1`, s.overOut ? `fade=t=out:st=${n3(seconds - s.overOut)}:d=${n3(s.overOut)}:alpha=1` : null].filter(Boolean);
@@ -85,7 +89,7 @@ for (const [i, s] of edl.shots.entries()) {
         '-filter_complex', `[0:v]${chain.join(',')}[v];[1:v]scale=${W}:${H},format=rgba,${o.join(',')}[o];[v][o]overlay=format=auto,format=yuv420p`, '-frames:v', String(Math.round(seconds * fps))];
     } else args = [...frameInputs, '-vf', [...chain, 'format=yuv420p'].join(','), '-frames:v', String(Math.round(seconds * fps))];
   }
-  const file = join(cache, `v-${key({ s, W, H, fps, grade: edl.grade, draft, files: inputs.map(stamp) })}.mp4`);
+  const file = join(cache, `v-${key({ v: 2, s, W, H, fps, grade: edl.grade, draft, files: inputs.map(stamp) })}.mp4`);
   if (!existsSync(file)) {
     // Encoded beside the cache file and moved in whole: a stopped encode never leaves a half segment to reuse.
     const part = file.replace(/\.mp4$/, '.part.mp4');
