@@ -31,7 +31,7 @@ import {
   type Node,
   type Scene,
 } from 'three/webgpu';
-import { currentLighting, haze, horizonColor, skyZenith, sunColor, sunDir } from './surface-materials';
+import { ambientTint, currentLighting, haze, horizonColor, skyZenith, sunColor, sunDir, type ProbeField } from './surface-materials';
 import { cloudAt } from './surface-tiles';
 import { PICTURE } from './quality';
 
@@ -88,6 +88,8 @@ interface Particle {
   sun: number;
   /** Its own place in the noise, so no two puffs are the same shape. */
   seed: number;
+  /** The light round where it was born against open ground's, per channel (see ambientTint): a room's dim warm light indoors. */
+  ambient: Vec3;
 }
 
 /**
@@ -103,6 +105,9 @@ const tmpQ = new Quaternion();
 const tmpRight = new Vector3();
 const tmpUp = new Vector3();
 const Z = new Vector3(0, 0, 1);
+const WHITE: Vec3 = [1, 1, 1];
+/** A puff gathers the room's light from every side, so in a dim room it stays paler than the walls behind it rather than soot-dark. */
+const scattered = (c: Vec3): Vec3 => [c[0] ** 0.7, c[1] ** 0.7, c[2] ** 0.7];
 const tmpU = new Vector3();
 const tmpV = new Vector3();
 const tmpW = new Vector3();
@@ -118,6 +123,9 @@ function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
   const data = attribute<'vec4'>('pData', 'vec4');
   const tint = attribute<'vec3'>('pColor', 'vec3') as unknown as N3;
   const seed = attribute<'float'>('pSeed', 'float');
+  // Smoke, dust and chips take the sky's light scaled to the light round them: under a roof, a dark room's, not the open sky's
+  // (review 2026-11-12d: muzzle smoke indoors was a pale blue cloud in a dim beige room).
+  const around = attribute<'vec3'>('pAmbient', 'vec3') as unknown as N3;
   const alpha = data.x;
   const roll = data.y;
   const age = data.z;
@@ -137,14 +145,14 @@ function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
     const n = normalize(vec3(p.x.mul(c).sub(p.y.mul(s)).add(bump), p.x.mul(s).add(p.y.mul(c)).add(bump), sqrt(max(float(1).sub(r.mul(r)), float(0.02)))));
     const toSun = sunDir.transformDirection(cameraViewMatrix);
     const facing = dot(n, toSun).mul(0.5).add(0.5);
-    const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7));
+    const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7)).mul(around);
     const lit = tint.mul(ambient.add(sunColor.mul(sun).mul(facing.mul(facing)).mul(0.6))) as N3;
     material.colorNode = haze(lit) as never;
     // Breaks into wisps as it ages: the noise eats further in.
     const body = float(1).sub(r).sub(billow.mul(age.mul(0.65).add(0.22)));
     material.opacityNode = smoothstep(float(0), float(0.3), body).mul(alpha).mul(soft);
   } else if (kind === 'chip') {
-    const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7));
+    const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7)).mul(around);
     material.colorNode = haze(tint.mul(ambient.add(sunColor.mul(sun).mul(0.3))) as N3) as never;
     // A shard: a lopsided diamond.
     material.opacityNode = step(abs(p.x).add(abs(p.y).mul(0.62)).add(p.x.mul(p.y).mul(0.4)), float(0.86)).mul(alpha);
@@ -176,7 +184,10 @@ class ParticleLayer {
   readonly #data: InstancedBufferAttribute;
   readonly #color: InstancedBufferAttribute;
   readonly #seed: InstancedBufferAttribute;
+  readonly #ambient: InstancedBufferAttribute;
   readonly #particles: Particle[] = [];
+  /** The baked light probes, for the light round a puff or chip where it is born; null on a map without them. */
+  probes: ProbeField | null = null;
   readonly #max: number;
   readonly #kind: Kind;
   /** What the picture's share of particles owes this layer: an emission is drawn each time it reaches one. */
@@ -195,10 +206,12 @@ class ParticleLayer {
     this.#data = new InstancedBufferAttribute(new Float32Array(max * 4), 4);
     this.#color = new InstancedBufferAttribute(new Float32Array(max * 3), 3);
     this.#seed = new InstancedBufferAttribute(new Float32Array(max), 1);
-    for (const a of [this.#data, this.#color, this.#seed]) a.setUsage(DynamicDrawUsage);
+    this.#ambient = new InstancedBufferAttribute(new Float32Array(max * 3).fill(1), 3);
+    for (const a of [this.#data, this.#color, this.#seed, this.#ambient]) a.setUsage(DynamicDrawUsage);
     geometry.setAttribute('pData', this.#data);
     geometry.setAttribute('pColor', this.#color);
     geometry.setAttribute('pSeed', this.#seed);
+    geometry.setAttribute('pAmbient', this.#ambient);
     this.mesh = new InstancedMesh(geometry, particleMaterial(kind), max);
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     this.mesh.count = 0;
@@ -232,6 +245,7 @@ class ParticleLayer {
       color: new Color(1, 1, 1),
       sun: 1,
       seed: Math.random(),
+      ambient: this.probes && (this.#kind === 'puff' || this.#kind === 'chip') ? scattered(ambientTint(this.probes.sample([p.p.x, p.p.y, p.p.z]))) : WHITE,
       ...p,
     });
   }
@@ -283,6 +297,7 @@ class ParticleLayer {
       this.#data.setXYZW(i, q.alpha * fade, roll, t, q.sun);
       this.#color.setXYZ(i, q.color.r, q.color.g, q.color.b);
       this.#seed.setX(i, q.seed);
+      this.#ambient.setXYZ(i, q.ambient[0], q.ambient[1], q.ambient[2]);
     }
     this.mesh.count = list.length;
     this.mesh.visible = true;
@@ -290,6 +305,7 @@ class ParticleLayer {
     this.#data.needsUpdate = true;
     this.#color.needsUpdate = true;
     this.#seed.needsUpdate = true;
+    this.#ambient.needsUpdate = true;
   }
 
   dispose(): void {
@@ -629,6 +645,11 @@ export class Effects {
     return this.#fire && this.#fireSmoke ? [...combat, this.#fire, this.#fireSmoke] : combat;
   }
 
+  /** The baked light probes, so smoke, dust and chips take the light round them (null: the sky's, as on open ground). */
+  set probes(field: ProbeField | null) {
+    for (const l of this.#layers()) l.probes = field;
+  }
+
   /** Lights the Preparation's Squad from `at` (world), or puts the light out (null). */
   set keyLight(at: Vec3 | null) {
     this.#key = at;
@@ -693,12 +714,16 @@ export class Effects {
       sun,
       color: new Color(0xb4b6b8),
     });
+    // Each haze puff its own place along the barrel, size and stretch: the same disc at the same spot every shot laid a
+    // turning burst out as a row of evenly spaced grey discs (review 2026-11-12d).
     for (let k = 0; k < n; k++) {
+      const ahead = (Math.random() - 0.3) * 0.35;
       this.#smoke.emit({
-        p: at.clone(),
+        p: at.clone().add(new Vector3(direction[0] * ahead + (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.08, direction[2] * ahead + (Math.random() - 0.5) * 0.1)),
         v: new Vector3(direction[0] * 0.4 + (Math.random() - 0.5) * 0.15, 0.35 + Math.random() * 0.2, direction[2] * 0.4 + (Math.random() - 0.5) * 0.15),
         life: 1.6 + Math.random() * 0.8,
-        size: 0.12 * Math.sqrt(look.smoke),
+        size: 0.12 * Math.sqrt(look.smoke) * (0.6 + Math.random() * 0.8),
+        stretch: 1 + Math.random() * 0.9,
         grow: 0.32,
         spin: (Math.random() - 0.5) * 0.8,
         alpha: 0.2,

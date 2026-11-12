@@ -1016,6 +1016,37 @@ class GlassModel extends LightingModel {
   }
 }
 
+/** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun and smoke get their full light. */
+export const OPEN_AMBIENT = 0.4;
+
+/**
+ * How bright the light round a point is against open ground, from its probe sample (null: no probes, open ground): the
+ * probe's luminance, with the warm fill the walls get in a dark room (see the surface materials' decode), capped at 1.2.
+ */
+export function ambientScale(probe: { readonly ambient: Vec3 } | null): number {
+  if (!probe) return 1;
+  const luma = luminance(probe.ambient);
+  const fill = 0.18 * Math.min(1, Math.max(0, (0.35 - luma) / 0.33));
+  return Math.min(1.2, (luma + fill) / OPEN_AMBIENT);
+}
+
+/**
+ * The light round a point as a multiplier on the sky's, per channel (white with no probes): the probe's colour plus the
+ * walls' warm `INDOOR_FILL` in a dark room, against open ground, each channel capped at 1.2. A buried, black probe gives
+ * the fill alone, not black.
+ */
+export function ambientTint(probe: { readonly ambient: Vec3 } | null): Vec3 {
+  if (!probe) return [1, 1, 1];
+  const fill = Math.min(1, Math.max(0, (0.35 - luminance(probe.ambient)) / 0.33));
+  const [r, g, b] = probe.ambient;
+  const lit = (c: number, f: number): number => Math.min(1.2, (c + f * fill) / OPEN_AMBIENT);
+  return [lit(r, INDOOR_FILL[0]), lit(g, INDOOR_FILL[1]), lit(b, INDOOR_FILL[2])];
+}
+
+function luminance(c: Vec3): number {
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+
 /** The baked probe grid as a 3D texture, plus a CPU sampler for things lit outside the shaders. */
 export class ProbeField {
   readonly texture = texture3D(placeholder3D());

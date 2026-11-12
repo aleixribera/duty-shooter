@@ -102,13 +102,10 @@ import { rebootPrompt } from './ui/reboot';
 import { PingBoard, aimPing } from './ui/pings';
 import type { PingScreenMark } from './hud/ping-marks';
 import type { BakeFile, EndingShot } from './surfaces';
-import { currentLighting, setHaze } from './surface-materials';
+import { ambientScale, currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
 import { Announcer, LeadCalls, browserSpeaker, closesRange, leadOf, leftLine, liveLine, loadRangeControl } from './announcer';
 import { VOICE_LINES, VOICE_ON_THE_SECOND, type VoiceLineId } from './voice-lines';
-
-/** The probes' ambient luminance on open ground (0.3 to 0.5 round the town), where the gun gets its full fill light. */
-const OPEN_AMBIENT = 0.4;
 
 const TICK_MS = TICK_SECONDS * 1000;
 /** How far the nuke's shock shakes the ending's shot at its strongest (radians, peak to peak). */
@@ -426,6 +423,7 @@ export class Game {
     this.#viewmodel = new Viewmodel(this.#worldView.scene.environment, options.content.lighting);
     this.#effects = new Effects(this.#worldView.scene, options.world, options.content.fires);
     this.#tracers = new Tracers(this.#worldView.scene, options.world);
+    this.#effects.probes = this.#worldView.probes;
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
     this.#viewFlash = this.#effects.createFlash();
     this.#viewmodel.muzzle.add(this.#viewFlash);
@@ -1681,12 +1679,7 @@ export class Game {
   #lightViewmodel(eye: Vec3, dt: number): void {
     const d = currentLighting().sunDirection;
     const sun = sightBlocked(this.#world, eye, [eye[0] + d[0] * 80, eye[1] + d[1] * 80, eye[2] + d[2] * 80]) ? 0 : 1;
-    const probe = this.#worldView.probes.sample(eye);
-    const luma = probe ? 0.2126 * probe.ambient[0] + 0.7152 * probe.ambient[1] + 0.0722 * probe.ambient[2] : OPEN_AMBIENT;
-    // Dark rooms get the same warm fill the walls do (see the surface materials' decode), so the gun matches them.
-    const fill = 0.18 * Math.min(1, Math.max(0, (0.35 - luma) / 0.33));
-    const ambient = Math.min(1.2, (luma + fill) / OPEN_AMBIENT);
-    this.#viewmodel.setLighting(sun, ambient, dt);
+    this.#viewmodel.setLighting(sun, ambientScale(this.#worldView.probes.sample(eye)), dt);
   }
 
   /** The Course's clock, a tick at a time: only with no match on, and only for a living body. */
