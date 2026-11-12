@@ -112,6 +112,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     at && at.length >= 2 && at.every(Number.isFinite) ? { position: [at[0]!, 0, at[1]!], yaw: at[2] ?? 0 } : map.offlineSpawn;
   // Survival Town is the main menu's backdrop; `?map=<id>` (`range`, `switchyard`) starts on another map instead.
   const initial: MapId = asMapId(params.get('map')) ?? 'survival-town';
+  /** The still behind the canvas (index.html), Survival Town's aerial from the menu's first pose, goes once the world has drawn or another map is on show. */
+  const dropStill = () => (document.body.style.backgroundImage = 'none');
+  if (initial !== 'survival-town') dropStill();
   let mapId: MapId = initial;
   // Assigned below, once the menu exists (the game's input reports to it).
   let game!: Game;
@@ -144,6 +147,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** `fresh` builds the map again even where it is the one on show: the benchmark's, so every map is flown from the same cold start. */
   const useMap = (id: MapId, fresh = false) => {
     if (id === mapId && !fresh) return;
+    dropStill();
     hurried = true;
     const old = game;
     old.input.onUnlock = null;
@@ -758,6 +762,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The GPU device (or the WebGL context) gone: nothing more can be drawn, so the page says so and offers a reload, which takes an online seat back (ticket 61).
   const loseGraphics = renderer.onDeviceLost.bind(renderer);
   renderer.onDeviceLost = (info) => {
+    dropStill();
     loseGraphics(info);
     graphicsLost = true;
     preparation.page.hide();
@@ -802,6 +807,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     } else if (menu.screen === 'main') menu.show('main');
   }
 
+  /** Dev: the menu's fly-through held this many metres along (`duty.flyAt`), as for the still behind the canvas. */
+  let flyAt: number | null = null;
   // Dev builds expose the game for debugging and playtesting from the console.
   if (import.meta.env.DEV) {
     Object.assign(globalThis, {
@@ -817,6 +824,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         menu,
         /** The frame pacer: the cap, and the display's rate as measured. */
         pacer: pacing,
+        get flyAt() {
+          return flyAt;
+        },
+        set flyAt(metres: number | null) {
+          flyAt = metres;
+        },
         get driver() {
           return driver;
         },
@@ -838,6 +851,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
+  /** When the world first drew: the menu's fly-through starts there, at the pose of the still behind the canvas (index.html). */
+  let flyStart: number | null = null;
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
   if (!bench) {
     void routesOf(botSetup.mapId);
@@ -903,9 +918,15 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // keep simulation and input running even between backdrop renders.
     if (backdrop && !game.driver && !drawBackdrop) return;
     // Behind the menus (and the lobby), with no game running, the camera flies the map's menu path.
+    if (flyStart === null && game.drawing) {
+      flyStart = time;
+      // The world's first frame takes over from the still, which shows the same pose: a short fade hides what the lighting adds.
+      void canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' }).finished.then(dropStill, dropStill);
+    }
     if ((!game.driver || game.overviewOnly) && !fixedCamera) {
       const path = flyPath(load(mapId).map);
-      if (path) game.overview = path.pose(((time / 1000) * FLY_SPEED) % path.length);
+      const flown = flyAt ?? (flyStart === null ? 0 : ((time - flyStart) / 1000) * FLY_SPEED);
+      if (path) game.overview = path.pose(flown % path.length);
     }
     // Drawn first, so the frame on show covers it.
     if (spare?.warming && drawBackdrop && !game.driver) spare.frame(time);
