@@ -1,7 +1,13 @@
 import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
-import { abs, attribute, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
+import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, sin, smoothstep, sqrt, step, time, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
+  AddEquation,
   AdditiveBlending,
+  CustomBlending,
+  DstColorFactor,
+  OneFactor,
+  SrcColorFactor,
+  ZeroFactor,
   NormalBlending,
   CanvasTexture,
   Color,
@@ -97,6 +103,9 @@ const tmpQ = new Quaternion();
 const tmpRight = new Vector3();
 const tmpUp = new Vector3();
 const Z = new Vector3(0, 0, 1);
+const tmpU = new Vector3();
+const tmpV = new Vector3();
+const tmpW = new Vector3();
 /** How far (m) behind a puff a surface must be for the puff to show in full: nearer, it fades, so smoke meets a wall or the ground without a hard line. */
 const SOFT = 0.35;
 /** How much longer than wide a spark is drawn, per m/s of its speed. */
@@ -289,61 +298,92 @@ class ParticleLayer {
   }
 }
 
-/** A bullet hole texture: a ragged dark core, the chipped paler ring round it, hairline cracks, transparent outside. */
-function holeTexture(): CanvasTexture {
-  const c = document.createElement('canvas');
-  const S = 128;
-  c.width = c.height = S;
-  const g = c.getContext('2d');
-  if (g) {
-    const mid = S / 2;
-    const ragged = (radius: number, wobble: number, points: number): void => {
-      g.beginPath();
-      for (let i = 0; i <= points; i++) {
-        const a = (i / points) * Math.PI * 2;
-        const d = radius * (1 - wobble + Math.random() * wobble * 2);
-        if (i === 0) g.moveTo(mid + Math.cos(a) * d, mid + Math.sin(a) * d);
-        else g.lineTo(mid + Math.cos(a) * d, mid + Math.sin(a) * d);
-      }
-      g.closePath();
+/**
+ * A bullet hole, for a decal that modulates the surface under it (×2, so 0.5 leaves it as it is) and so takes whatever light
+ * that surface has, sun, shade or a dark room: a small dark core in a jagged crater of paler, knocked-off material, shaded as
+ * a dent lit from above (texture up is laid along the wall's up), a faint dust halo and a few chips thrown out of it.
+ * Linear values; transparent outside. Drawn from one height field: flat surface, a sharp spalled rim, the crater falling away to the core.
+ */
+function holeTile(S: number): Uint8ClampedArray<ArrayBuffer> {
+  const mid = S / 2 - 0.5;
+  // A ragged radius round the centre: random reaches at even steps, softened with their neighbours and eased between.
+  const outline = (radius: number, wobble: number): ((a: number) => number) => {
+    const n = 18;
+    const raw = Array.from({ length: n }, () => 1 + (Math.random() * 2 - 1) * wobble);
+    const soft = raw.map((v, i) => (raw[(i + n - 1) % n]! + v * 2 + raw[(i + 1) % n]!) / 4);
+    return (a) => {
+      const f = ((a / (Math.PI * 2)) * n + n) % n;
+      const i = Math.floor(f);
+      const e = (1 - Math.cos((f - i) * Math.PI)) / 2;
+      return radius * (soft[i % n]! * (1 - e) + soft[(i + 1) % n]! * e);
     };
-    // Soot blown out round the hole.
-    const soot = g.createRadialGradient(mid, mid, 0, mid, mid, mid);
-    soot.addColorStop(0, 'rgba(30,27,24,0.7)');
-    soot.addColorStop(0.45, 'rgba(48,44,40,0.32)');
-    soot.addColorStop(1, 'rgba(60,55,50,0)');
-    g.fillStyle = soot;
-    g.fillRect(0, 0, S, S);
-    // The chipped ring: surface knocked away, paler than what is left.
-    g.fillStyle = 'rgba(205,200,190,0.5)';
-    ragged(S * 0.2, 0.3, 13);
-    g.fill();
-    // Cracks running out of it.
-    g.strokeStyle = 'rgba(20,18,16,0.6)';
-    g.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
-      let a = Math.random() * Math.PI * 2;
-      let x = mid + Math.cos(a) * S * 0.1;
-      let y = mid + Math.sin(a) * S * 0.1;
-      g.beginPath();
-      g.moveTo(x, y);
-      for (let k = 0; k < 4; k++) {
-        a += (Math.random() - 0.5) * 0.9;
-        const reach = S * (0.05 + Math.random() * 0.05);
-        x += Math.cos(a) * reach;
-        y += Math.sin(a) * reach;
-        g.lineTo(x, y);
-      }
-      g.stroke();
+  };
+  const rim = outline(S * (0.13 + Math.random() * 0.04), 0.45);
+  const core = outline(S * 0.05, 0.18);
+  const grit = new Float32Array(S * S).map(() => Math.random());
+  const height = new Float32Array(S * S);
+  const ring = new Float32Array(S * S);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const dx = x - mid;
+      const dy = y - mid;
+      const r = Math.hypot(dx, dy);
+      const a = Math.atan2(dy, dx);
+      const rc = rim(a);
+      const rh = core(a);
+      const i = y * S + x;
+      // 0 on the surface; inside the rim a step down, then a slope to the core, which is deeper still.
+      const t = Math.min(1, Math.max(0, (rc - r) / Math.max(1, rc - rh)));
+      height[i] = r < rh ? -1.6 : r < rc ? -0.35 - 0.65 * t + (grit[i]! - 0.5) * 0.25 : 0;
+      ring[i] = r / rc;
     }
-    // The hole itself.
-    g.fillStyle = 'rgba(8,8,8,1)';
-    ragged(S * 0.105, 0.22, 11);
-    g.fill();
-  }
-  const t = new CanvasTexture(c);
-  t.colorSpace = SRGBColorSpace;
-  return t;
+  const at = (x: number, y: number): number => height[Math.min(S - 1, Math.max(0, y)) * S + Math.min(S - 1, Math.max(0, x))]!;
+  const chips = Array.from({ length: 7 }, () => {
+    const a = Math.random() * Math.PI * 2;
+    const d = rim(a) * (1.1 + Math.random() * 0.6);
+    return { x: mid + Math.cos(a) * d, y: mid + Math.sin(a) * d, r: 0.8 + Math.random() * 1.3 };
+  });
+  // Light from above and in front: canvas up is the wall's up.
+  const L = [0, 0.6, 0.8] as const;
+  const data = new Uint8ClampedArray(S * S * 4);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const i = y * S + x;
+      const h = height[i]!;
+      const q = ring[i]!;
+      let value: number;
+      let alpha: number;
+      if (h < -1) {
+        value = 0.05;
+        alpha = 1;
+      } else if (q < 1) {
+        // The crater's slopes: canvas y runs down, so its slope up the wall flips sign.
+        const nx = -(at(x + 1, y) - at(x - 1, y)) * 2.2;
+        const ny = (at(x, y + 1) - at(x, y - 1)) * 2.2;
+        const lit = Math.max(0.15, (nx * L[0] + ny * L[1] + L[2]) / Math.hypot(nx, ny, 1) / L[2]);
+        value = 0.68 * lit * (0.82 + 0.18 * q) * (0.95 + grit[i]! * 0.1);
+        alpha = 1;
+      } else {
+        // Dust: a thin darker haze falling off over about the crater's own width, and a few pale chips.
+        const fall = Math.max(0, 1 - (q - 1) / 1.5);
+        const chip = chips.some((c) => Math.hypot(x - c.x, y - c.y) < c.r);
+        value = chip ? 0.66 : 0.4;
+        alpha = chip ? 0.9 : 0.45 * fall * fall;
+      }
+      const v = Math.min(1, value) * 255;
+      data.set([v, v, v, alpha * 255], i * 4);
+    }
+  return data;
+}
+
+/** Four bullet holes (`holeTile`), two by two: a decal shows the one its slot picks. Linear: 128 is the neutral grey of a ×2 modulate. */
+function holeTexture(): CanvasTexture {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S * 2;
+  const g = c.getContext('2d');
+  for (let k = 0; k < 4; k++) g?.putImageData(new ImageData(holeTile(S), S, S), (k % 2) * S, Math.floor(k / 2) * S);
+  return new CanvasTexture(c);
 }
 
 function splatTexture(): CanvasTexture {
@@ -365,15 +405,37 @@ function splatTexture(): CanvasTexture {
   return t;
 }
 
-/** Instanced, ring-buffered decals laid flat on surfaces. */
+/**
+ * Instanced, ring-buffered decals laid flat on surfaces. A `modulate` layer doesn't light itself: it multiplies the surface
+ * under it by twice its texture (0.5 leaves it be), tinted by each decal's colour where it covers, so it carries that
+ * surface's own light (baked shade, a dark room) and can't stand out from it the way a lit sticker does. Its decals also
+ * stand upright on walls.
+ */
 class DecalLayer {
   readonly mesh: InstancedMesh;
   #next = 0;
   readonly #max: number;
+  readonly #upright: boolean;
 
-  constructor(max: number, texture: CanvasTexture) {
+  constructor(max: number, texture: CanvasTexture, modulate = false) {
     this.#max = max;
-    const material = new MeshStandardNodeMaterial({ map: texture, transparent: true, depthWrite: false, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    this.#upright = modulate;
+    const laid = { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 };
+    let material: MeshStandardNodeMaterial | MeshBasicNodeMaterial;
+    if (modulate) {
+      const m = new MeshBasicNodeMaterial({ ...laid, fog: false, toneMapped: false });
+      // Four decals to the texture, two by two: the slot picks which.
+      const t = textureNode(texture, uv().mul(0.5).add(vec2(float(instanceIndex.mod(2)), float(instanceIndex.div(2).mod(2))).mul(0.5)));
+      // The instance colour multiplies the colour node afterwards: divided out where the decal is clear, so it tints only what it covers.
+      m.colorNode = mix(vec3(0.5).div(instanceColor), t.rgb, t.a);
+      m.blending = CustomBlending;
+      m.blendEquation = AddEquation;
+      m.blendSrc = DstColorFactor;
+      m.blendDst = SrcColorFactor;
+      m.blendSrcAlpha = ZeroFactor;
+      m.blendDstAlpha = OneFactor;
+      material = m;
+    } else material = new MeshStandardNodeMaterial({ map: texture, ...laid, roughness: 0.9 });
     this.mesh = new InstancedMesh(new PlaneGeometry(1, 1), material, max);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
@@ -384,7 +446,15 @@ class DecalLayer {
   add(point: Vec3, normal: Vec3, size: number, color: Color): void {
     const n = new Vector3(normal[0], normal[1], normal[2]);
     tmp.position.set(point[0], point[1], point[2]).addScaledVector(n, 0.004);
-    tmp.quaternion.setFromUnitVectors(Z, n).multiply(tmpQ.setFromAxisAngle(Z, Math.random() * Math.PI * 2));
+    tmp.quaternion.setFromUnitVectors(Z, n);
+    // On a wall an upright decal's texture up runs up the wall, a little askew; on a floor or ceiling, any way round.
+    let spin = Math.random() * Math.PI * 2;
+    if (this.#upright && Math.abs(n.y) < 0.9) {
+      const up = tmpV.set(0, 1, 0).applyQuaternion(tmp.quaternion);
+      const want = tmpW.set(0, 1, 0).addScaledVector(n, -n.y).normalize();
+      spin = Math.atan2(tmpU.crossVectors(up, want).dot(n), up.dot(want)) + (Math.random() - 0.5) * 0.5;
+    }
+    tmp.quaternion.multiply(tmpQ.setFromAxisAngle(Z, spin));
     tmp.scale.setScalar(size);
     tmp.updateMatrix();
     const i = this.#next;
@@ -410,8 +480,8 @@ interface Casing {
 const HOLE_TINT: Readonly<Record<Material, number>> = {
   concrete: 0xffffff,
   plaster: 0xffffff,
-  metal: 0xb8c0c8,
-  wood: 0xd0a070,
+  metal: 0xe4e8ec,
+  wood: 0xf0dcc0,
   dirt: 0x907860,
   grass: 0x907860,
   glass: 0xe0f0ff,
@@ -419,7 +489,7 @@ const HOLE_TINT: Readonly<Record<Material, number>> = {
   asphalt: 0x8a8a8a,
   gravel: 0x9a9080,
   sand: 0xb8a582,
-  sheetMetal: 0xc0c8d0,
+  sheetMetal: 0xe4e8ec,
   plastic: 0xf0f0f0,
 };
 
@@ -515,7 +585,7 @@ export class Effects {
       this.#lightPower.push(1);
       this.#root.add(light);
     }
-    this.#holes = new DecalLayer(220, holeTexture());
+    this.#holes = new DecalLayer(220, holeTexture(), true);
     this.#splats = new DecalLayer(60, splatTexture());
     const casingGeometry = new CylinderGeometry(0.0048, 0.0048, 0.045, 8);
     casingGeometry.rotateZ(Math.PI / 2);
