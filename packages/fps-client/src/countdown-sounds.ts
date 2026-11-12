@@ -17,7 +17,7 @@ export interface CountdownCue {
 
 /** The siren while it winds up and holds, and everything the countdown plays. */
 const SIREN_VOICES: readonly SoundEventName[] = ['countdownSirenRise', 'countdownSirenHold'];
-export const COUNTDOWN_VOICES: readonly SoundEventName[] = [...SIREN_VOICES, 'countdownSirenFall', 'geigerTick'];
+export const COUNTDOWN_VOICES: readonly SoundEventName[] = [...SIREN_VOICES, 'countdownSirenFall', 'countdownSirenBlast', 'geigerTick'];
 
 /**
  * How often the counter ticks (a second) with `timeLeft` s on the clock: a slow chatter through

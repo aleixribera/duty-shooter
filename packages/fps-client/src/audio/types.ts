@@ -80,6 +80,7 @@ export type SoundEventName =
   | 'countdownSirenRise' // the last minute's air-raid siren winding up, far off at the map's edge
   | 'countdownSirenHold' // one segment of that siren held at its top note
   | 'countdownSirenFall' // the siren winding down as the clock runs out
+  | 'countdownSirenBlast' // that siren tried once at five minutes left: a short wind-up, cut, coasting down
   | 'geigerTick'; // one tick of the counter that chatters through the last minute (not placed in the world)
 
 /** Every world material has its own footsteps, impacts and casing bounces. */

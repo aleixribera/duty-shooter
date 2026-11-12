@@ -64,6 +64,22 @@ function sirenFall(sr: number, rng: Rng): Float32Array {
   return finish(rotor(sr, s, rng, (t) => 85 + (TOP - 85) * Math.exp(-t / 1.9), (t) => Math.min(1, t / SIREN_OVERLAP) * Math.exp(-t / 2.6) * Math.min(1, (s - t) / 0.8)), sr, 0.5, 60);
 }
 
+/** Seconds of the five-minute mark's test blast. */
+export const SIREN_BLAST_SECONDS = 6.5;
+
+/**
+ * The five-minute mark (ticket 36): the siren tried once, the way a site tests its siren. The motor runs for two
+ * seconds, short of the top note, and is cut: the rotor coasts down to a growl and dies away.
+ */
+export function sirenBlast(sr: number, rng: Rng): Float32Array {
+  const s = SIREN_BLAST_SECONDS;
+  const on = 2.2;
+  const peak = GROWL + (TOP - GROWL) * (1 - Math.exp(-on / WIND_UP));
+  const pitch = (t: number) => (t < on ? GROWL + (TOP - GROWL) * (1 - Math.exp(-t / WIND_UP)) : 85 + (peak - 85) * Math.exp(-(t - on) / 1.6));
+  const gain = (t: number) => Math.min(1, t / 0.4) * (t < on ? 1 : Math.exp(-(t - on) / 1.9)) * Math.min(1, (s - t) / 0.6);
+  return finish(rotor(sr, s, rng, pitch, gain), sr, 0.5, 60);
+}
+
 /** The siren's parts are long and dull: rendered at half rate and stretched, like the nuke's. */
 const half = (render: (sr: number, rng: Rng) => Float32Array, seconds: number): ((rng: Rng, sr: number) => Float32Array[]) => (rng, sr) => [upsample(render(sr / 2, rng), samples(sr, seconds))];
 
@@ -84,6 +100,7 @@ function sirenVoice(id: string, seconds: number, render: (sr: number, rng: Rng) 
 export const sirenRiseVoice = (): Voice & VoiceExtras => sirenVoice('countdownSirenRise', SIREN_RISE_SECONDS, sirenRise, 1);
 export const sirenHoldVoice = (): Voice & VoiceExtras => sirenVoice('countdownSirenHold', SIREN_HOLD_SECONDS, sirenHold, 2);
 export const sirenFallVoice = (): Voice & VoiceExtras => sirenVoice('countdownSirenFall', SIREN_FALL_SECONDS, sirenFall, 1);
+export const sirenBlastVoice = (): Voice & VoiceExtras => sirenVoice('countdownSirenBlast', SIREN_BLAST_SECONDS, sirenBlast, 1);
 
 const TICK_SECONDS = 0.03;
 export const GEIGER_BANK = 'geigerTick/tick';

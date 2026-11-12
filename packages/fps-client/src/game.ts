@@ -1438,8 +1438,10 @@ export class Game {
     this.#clockWas = clockRan(this.#clockWas, timeLeft);
     if (call) {
       const line = countdownLine(call, this.#ending);
-      this.#say(countdownVoice(call, this.#ending), line !== null);
+      const voice = countdownVoice(call, this.#ending);
+      if (voice) this.#say(voice, line !== null);
       if (line) this.hud.toast(line, 4);
+      if (call.blast) this.#play('countdownSirenBlast', { position: [...(this.#sirenAt ??= sirenSpot(this.#world.solids))] });
     }
     if (!driver || frozen) {
       // Left, or paused: no siren over the menu, and none winding on against a clock that isn't running.

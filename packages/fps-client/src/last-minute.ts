@@ -32,10 +32,12 @@ export function lastTenBeat(secondsLeft: number | null): number {
 export interface CountdownCall {
   /** Seconds left at which it is called. */
   readonly at: number;
-  /** What the announcer says. */
-  readonly line: VoiceLineId;
+  /** What the announcer says, or null where the call is the siren's alone. */
+  readonly line: VoiceLineId | null;
   /** What the HUD writes, or null where the clock itself says it. */
   readonly show: string | null;
+  /** The siren is tried once (a short blast) with it. */
+  readonly blast?: boolean;
 }
 
 /** What a map's clock runs out on: the bomb, Switchyard's freight train, or nothing of its own. */
@@ -50,8 +52,12 @@ const ENDING_LINES: Readonly<Record<NonNullable<MapEnding>, string>> = {
 /** The first call as it is said on a map with an ending of its own: the same words the HUD writes. */
 const ENDING_VOICES: Readonly<Record<NonNullable<MapEnding>, VoiceLineId>> = { nuke: 't60Nuke', train: 't60Train' };
 
-/** The calls, from the first down. The last five seconds are counted out one by one, each said as the clock turns to it. */
+/**
+ * The calls, from the first down. Five minutes out the siren is tried once (ticket 36: the middle of the match knows
+ * the place has a countdown too). The last five seconds are counted out one by one, each said as the clock turns to it.
+ */
 export const COUNTDOWN_CALLS: readonly CountdownCall[] = [
+  { at: 300, line: null, show: 'T-minus five minutes.', blast: true },
   { at: 60, line: 't60', show: 'T-minus 60 seconds.' },
   { at: 30, line: 't30', show: null },
   { at: 10, line: 't10', show: null },
@@ -75,7 +81,7 @@ const CLOCK_ONLY = 13;
 export function clockSpeaks(secondsLeft: number | null): boolean {
   if (secondsLeft === null) return false;
   if (secondsLeft <= CLOCK_ONLY) return true;
-  return COUNTDOWN_CALLS.some((c) => secondsLeft > c.at && secondsLeft - c.at <= CALL_ROOM);
+  return COUNTDOWN_CALLS.some((c) => c.line !== null && secondsLeft > c.at && secondsLeft - c.at <= CALL_ROOM);
 }
 
 /** A clock that moved more than this between two frames (s) was set, not run: nothing is called for what it skipped. */
@@ -99,8 +105,8 @@ export function clockRan(before: number | null, now: number | null): number | nu
   return now > before && now - before <= CLOCK_RUNS ? before : now;
 }
 
-/** What the announcer says for `call` on a map that ends in `ending`. */
-export function countdownVoice(call: CountdownCall, ending: MapEnding): VoiceLineId {
+/** What the announcer says for `call` on a map that ends in `ending`, or null where it says nothing. */
+export function countdownVoice(call: CountdownCall, ending: MapEnding): VoiceLineId | null {
   return call.line === 't60' && ending ? ENDING_VOICES[ending] : call.line;
 }
 

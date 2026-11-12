@@ -155,7 +155,7 @@ describe('the calls on the way down', () => {
     let before: number | null = null;
     for (let t = from; t >= to; t -= step) {
       const call = countdownCall(before, t);
-      if (call) said.push(call.line);
+      if (call) said.push(call.line ?? 'siren');
       before = t;
     }
     return said;
@@ -163,7 +163,19 @@ describe('the calls on the way down', () => {
 
   it('says each line once as the clock passes it', () => {
     expect(run(75, 0)).toEqual(['t60', 't30', 't10', 'five', 'four', 'three', 'two', 'one']);
-    expect(run(75, 0, 1 / 20)).toEqual(COUNTDOWN_CALLS.map((c) => c.line));
+    expect(run(75, 0, 1 / 20)).toEqual(COUNTDOWN_CALLS.filter((c) => c.at < 75).map((c) => c.line));
+  });
+
+  it('tries the siren once at five minutes, with a written line and no voice, and keeps the voice free around it', () => {
+    expect(run(310, 290)).toEqual(['siren']);
+    const call = countdownCall(300.01, 299.99)!;
+    expect(call).toMatchObject({ at: 300, blast: true });
+    expect(countdownVoice(call, 'nuke')).toBeNull();
+    expect(countdownLine(call, 'nuke')).toBe('T-minus five minutes. This site will be destroyed.');
+    expect(countdownLine(call, null)).toBe('T-minus five minutes.');
+    expect(clockSpeaks(301)).toBe(false);
+    // A match shorter than five minutes never passes it.
+    expect(run(240, 61)).toEqual([]);
   });
 
   it('counts the last five seconds out, each as the clock turns to it, and says the later of two a long frame passes', () => {
@@ -191,7 +203,7 @@ describe('the calls on the way down', () => {
     const said: string[] = [];
     for (const now of readings) {
       const call = countdownCall(was, now);
-      if (call) said.push(call.line);
+      if (call) said.push(call.line ?? 'siren');
       was = clockRan(was, now);
     }
     expect(said).toEqual(['t60']);
@@ -203,12 +215,12 @@ describe('the calls on the way down', () => {
     expect(clockRan(59.9, 60.3)).toBe(59.9);
   });
 
-  it('writes on the HUD only what the clock does not already say', () => {
-    expect(COUNTDOWN_CALLS.filter((c) => c.show !== null).map((c) => c.at)).toEqual([60]);
+  it('writes on the HUD only the marks that open an act, each with what the map ends in', () => {
+    expect(COUNTDOWN_CALLS.filter((c) => c.show !== null).map((c) => c.at)).toEqual([300, 60]);
   });
 
   it("names what the map ends in: the bomb, Switchyard's train, or only the time", () => {
-    const [minute, half] = COUNTDOWN_CALLS;
+    const [minute, half] = COUNTDOWN_CALLS.filter((c) => c.at <= 60);
     const nuke = countdownLine(minute!, 'nuke')!;
     const train = countdownLine(minute!, 'train')!;
     const plain = countdownLine(minute!, null)!;

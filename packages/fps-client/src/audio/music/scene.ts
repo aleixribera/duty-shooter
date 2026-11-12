@@ -6,13 +6,13 @@
 
 /**
  * The score's scenes. `menu` is the theme; `match` is silence that still lets stings through
- * (players need their ears); `lastMinute` and `final10` are the countdown's bed and its last
- * rise; `finalStage` is a Battle Royale's last Ring; `victory` and `defeat` are stings;
+ * (players need their ears); `lateMatch` is the countdown's bed far off and low, from five
+ * minutes out (ticket 36); `lastMinute` and `final10` are that bed and its last rise; `finalStage` is a Battle Royale's last Ring; `victory` and `defeat` are stings;
  * `silence` stops everything, stings too.
  */
-export type MusicScene = 'menu' | 'match' | 'lastMinute' | 'final10' | 'finalStage' | 'victory' | 'defeat' | 'silence';
+export type MusicScene = 'menu' | 'match' | 'lateMatch' | 'lastMinute' | 'final10' | 'finalStage' | 'victory' | 'defeat' | 'silence';
 
-export const MUSIC_SCENES: readonly MusicScene[] = ['menu', 'match', 'lastMinute', 'final10', 'finalStage', 'victory', 'defeat', 'silence'];
+export const MUSIC_SCENES: readonly MusicScene[] = ['menu', 'match', 'lateMatch', 'lastMinute', 'final10', 'finalStage', 'victory', 'defeat', 'silence'];
 
 /** The one-shots: a match opening, the Ring starting to close, and the two endings. */
 export type Sting = 'matchStart' | 'ringClosing' | 'victory' | 'defeat';
@@ -23,6 +23,8 @@ export type Stem = 'pad' | 'leadA' | 'leadB' | 'siren' | 'bed' | 'riser' | Sting
 /** The match's last act begins this many seconds from its end, and its final rise this many. */
 export const LAST_MINUTE = 60;
 export const FINAL_TEN = 10;
+/** From this many seconds out the bed comes in, far off and low: the middle of the match knows the place has a countdown. */
+export const LATE_MATCH = 300;
 
 /** Which part of the countdown `timeLeft` (s; null: the match has no clock, or isn't being played) falls in. */
 export type CountdownAct = 'none' | 'lastMinute' | 'final10';
@@ -51,7 +53,9 @@ export function matchScene(m: MatchMoment): MusicScene {
   if (m.phase === 'playing') {
     const act = countdownAct(m.timeLeft);
     if (act !== 'none') return act;
-    return m.finalStage ? 'finalStage' : 'match';
+    if (m.finalStage) return 'finalStage';
+    // A clock run out (the server not yet over) is past the countdown: silence, not the far bed again.
+    return m.timeLeft !== null && m.timeLeft > 0 && m.timeLeft <= LATE_MATCH ? 'lateMatch' : 'match';
   }
   return m.won === null ? 'match' : m.won ? 'victory' : 'defeat';
 }
@@ -60,6 +64,7 @@ export function matchScene(m: MatchMoment): MusicScene {
 const FADES: Readonly<Record<MusicScene, { readonly in: number; readonly out: number }>> = {
   menu: { in: 2.5, out: 1.2 },
   match: { in: 0, out: 0 },
+  lateMatch: { in: 10, out: 3 },
   lastMinute: { in: 4, out: 0.6 },
   final10: { in: 0.25, out: 0.12 },
   finalStage: { in: 5, out: 2 },
@@ -150,6 +155,10 @@ export function planScene(scene: MusicScene, timeLeft: number | null = null): Sc
       const end = tension(FINAL_TEN);
       return { ...base, loops: [{ stem: 'bed', gain: STEM_GAIN.bed, rate: end.rate, cutoff: end.cutoff }], shots: [{ stem: 'riser', gain: STEM_GAIN.riser, offset: RISER_SECONDS - left }] };
     }
+    case 'lateMatch':
+      // The last minute's bed two semitones down, quiet and closed, as if from the next street: it opens and climbs
+      // when the last minute takes over.
+      return { ...base, loops: [{ stem: 'bed', gain: STEM_GAIN.bed * 0.45, rate: Math.pow(2, -2 / 12), cutoff: 320 }] };
     case 'finalStage':
       // The countdown's bed a semitone down and half closed: the same dread, without the clock.
       return { ...base, loops: [{ stem: 'bed', gain: STEM_GAIN.bed * 0.8, rate: Math.pow(2, -1 / 12), cutoff: 900 }] };

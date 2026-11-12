@@ -5,7 +5,7 @@ import { bulletCrackVoice, casingVoice, impactVoice } from './impacts';
 import { nukeBlastVoice, nukeSirenVoice } from './nuke';
 import { birdsVoice, couplingsVoice, creakVoice, hornVoice, humVoice, radioVoice, windVoice } from './ambience';
 import { chargeArmedVoice, chargeBeepVoice, chargeDisarmedVoice, chargeKeyVoice, chargeToolVoice } from './charge';
-import { geigerTickVoice, sirenFallVoice, sirenHoldVoice, sirenRiseVoice } from './countdown';
+import { geigerTickVoice, sirenBlastVoice, sirenFallVoice, sirenHoldVoice, sirenRiseVoice } from './countdown';
 import { ringCrackleVoice, ringHumVoice, ringShiftVoice } from './ring';
 import { heartbeatVoice, prepDroneVoice } from './preparation';
 import { trapBirdsVoice, trapGravelVoice, trapMetalVoice } from './traps';
@@ -107,6 +107,7 @@ export function createDefaultVoices(): Record<SoundEventName, Voice & VoiceExtra
     countdownSirenRise: sirenRiseVoice(),
     countdownSirenHold: sirenHoldVoice(),
     countdownSirenFall: sirenFallVoice(),
+    countdownSirenBlast: sirenBlastVoice(),
     geigerTick: geigerTickVoice(),
   };
 }

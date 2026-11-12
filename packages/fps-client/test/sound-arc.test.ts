@@ -3,7 +3,7 @@ import { HEARTBEAT_FULL, Heartbeat, LOW_HEALTH, WORLD_OPEN_HZ, dangerCutoff, dan
 import { DEFAULT_MIX, DUCK, DuckEnvelope, VOICE_DUCK_DB, busGain, dbToLinear, mergeMix, musicDuck, speechSeconds, speechVolume } from '../src/audio/mix';
 import { BAR, FINAL_TEN, LAST_MINUTE, LOOP, MUSIC_SCENES, MenuArranger, MusicDirector, RISER_SECONDS, countdownAct, geigerTicks, matchScene, planScene, tension, type MatchMoment } from '../src/audio/music/scene';
 import { BED_SECONDS, LOOPED, STEMS, renderStem } from '../src/audio/music/score';
-import { SIREN_FALL_SECONDS, SIREN_HOLD_SECONDS, SIREN_OVERLAP, SIREN_RISE_SECONDS } from '../src/audio/countdown';
+import { SIREN_BLAST_SECONDS, SIREN_FALL_SECONDS, SIREN_HOLD_SECONDS, SIREN_OVERLAP, SIREN_RISE_SECONDS, sirenBlast } from '../src/audio/countdown';
 import { createRng } from '../src/audio/dsp';
 import { busOf, distanceGain } from '../src/audio/system';
 import { boltReleaseVoice, chargingHandleVoice, dryFireVoice, magInVoice, magOutVoice, weaponRaiseVoice } from '../src/audio/weapon';
@@ -121,8 +121,14 @@ describe('the score', () => {
   });
 
   it('picks the scene a match calls for', () => {
-    // Mostly silence: players need their ears.
-    expect(matchScene(moment({ timeLeft: 300 }))).toBe('match');
+    // Mostly silence: players need their ears. From five minutes out, the bed far off and low.
+    expect(matchScene(moment({ timeLeft: 301 }))).toBe('match');
+    expect(matchScene(moment({ timeLeft: 300 }))).toBe('lateMatch');
+    expect(matchScene(moment({ timeLeft: 61 }))).toBe('lateMatch');
+    expect(matchScene(moment({ timeLeft: null }))).toBe('match');
+    // Run out before the server ends the match: past the countdown, not back to its start.
+    expect(matchScene(moment({ timeLeft: 0 }))).toBe('match');
+    expect(matchScene(moment({ timeLeft: -0.4 }))).toBe('match');
     expect(matchScene(moment({ phase: null }))).toBe('match');
     expect(matchScene(moment({ timeLeft: 42 }))).toBe('lastMinute');
     expect(matchScene(moment({ timeLeft: 7 }))).toBe('final10');
@@ -525,5 +531,26 @@ describe('each gun’s handling', () => {
     expect(hear(out, 'reloadMagOut', { local: true, weapon: 'shotgun' }, null).some((v) => v !== 0)).toBe(true);
     // Someone else's reload is the same object, heard from where they stand.
     expect(hear(out, 'reloadMagOut', { weapon: 'pistol' }, 8).some((v) => v !== 0)).toBe(true);
+  });
+});
+
+describe('the five-minute siren', () => {
+  it('is tried once: a two-second wind-up, cut, coasting down to nothing, and never clips', () => {
+    const sr = 22050;
+    const out = sirenBlast(sr, createRng(7));
+    expect(out.length).toBe(Math.round(sr * SIREN_BLAST_SECONDS));
+    const rms = (from: number, to: number) => {
+      let sum = 0;
+      for (let i = Math.floor(from * sr); i < Math.floor(to * sr); i++) sum += (out[i] ?? 0) ** 2;
+      return Math.sqrt(sum / ((to - from) * sr));
+    };
+    let peak = 0;
+    for (const v of out) peak = Math.max(peak, Math.abs(v));
+    expect(peak).toBeLessThanOrEqual(1);
+    const motor = rms(1.5, 2.2);
+    expect(motor).toBeGreaterThan(0.05);
+    // Cut: some 10 dB down two seconds on, and gone by the end.
+    expect(rms(4.2, 4.6)).toBeLessThan(motor * 0.35);
+    expect(rms(SIREN_BLAST_SECONDS - 0.2, SIREN_BLAST_SECONDS)).toBeLessThan(motor * 0.05);
   });
 });

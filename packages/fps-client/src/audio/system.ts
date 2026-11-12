@@ -145,6 +145,7 @@ const PROFILES: Record<SoundEventName, Profile> = {
   countdownSirenRise: { cap: 1, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
   countdownSirenHold: { cap: 2, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
   countdownSirenFall: { cap: 1, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
+  countdownSirenBlast: { cap: 1, ref: 60, rolloff: 0.5, send: 0.14, indoorSend: 0.12, level: 0.18 },
   geigerTick: { ...ui, cap: 12, level: 0.7, bus: 'effects' },
 };
 
