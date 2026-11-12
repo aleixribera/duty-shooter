@@ -38,6 +38,7 @@ import { PICTURE, keeps, type QualityProfile } from './quality';
 import { Train } from './train';
 import { depthFirst, isDepthTwin, loadMapModels } from './map-models';
 import { cloudySky } from './surface-sky';
+import { sunShadowFilter } from './sun-shadow';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
@@ -545,6 +546,8 @@ export class WorldView {
     sun.castShadow = true;
     const shadow = sun.shadow;
     shadow.bias = -0.0005;
+    // Three's types leave out a shadow's own filter.
+    (shadow as unknown as { filterNode: unknown }).filterNode = sunShadowFilter;
     const cam = shadow.camera;
     cam.near = 1;
     cam.far = 220;
