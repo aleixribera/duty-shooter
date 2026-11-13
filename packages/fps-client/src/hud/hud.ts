@@ -450,13 +450,25 @@ export function roundCardUp(state: HudState): boolean {
   return view.status.mode !== 'battle-royale' && (view.countdown ?? 0) > 0;
 }
 
+/** How long a toast stands before Range Control's caption may take its place (s). */
+const TOAST_READ = 2;
+
 /**
  * Whether a notice can speak now: not over the round card, which has the screen while it is up (review 2026-11-12f, 04:
  * "Controller connected" on the gun under the opening card), not over a toast already speaking, and not while the
  * toast's place is hidden (the held scoreboard, the island map), where it would count down unseen.
  */
-export function noticeDue(state: HudState, toastLeft: number, toastHidden = false): boolean {
-  return toastLeft <= 0 && !toastHidden && !roundCardUp(state);
+export function noticeDue(state: HudState, toastLeft: number, toastHidden = false, captioned = false): boolean {
+  return toastLeft <= 0 && !captioned && !toastHidden && !roundCardUp(state);
+}
+
+/**
+ * The slot under the crosshair has one speaker at a time (review 2026-11-13b: Range Control's caption stood over the
+ * hint, two lines in one place). A toast or a caption has it while it lasts: a caption cuts a toast that has been read,
+ * and waits under a fresh one. The first-match hint stands there the rest of the time, its clock held meanwhile.
+ */
+export function slotHint(hint: HintLine | null, toastLeft: number, captioned: boolean): HintLine | null {
+  return toastLeft > 0 || captioned ? null : hint;
 }
 
 /** The button prompt as the round card's last line, or nothing. */
@@ -523,6 +535,9 @@ export class Hud {
   onVote: ((mode: ModeId) => void) | null = null;
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
+  /** How long the toast up now has been (s). */
+  #toastAge = 0;
+  #slotTaken = false;
   /** A notice waiting for the toast's place (`notice`). */
   #notice: { readonly text: string; readonly seconds: number } | null = null;
   readonly #royale: RoyaleHud;
@@ -739,10 +754,13 @@ export class Hud {
     return this.#notice;
   }
 
+  /** A written line in the slot under the crosshair: the newest speaker has it, so a caption still up gives way. */
   toast(text: string, seconds = 8): void {
+    this.#captions.show(null);
     this.#toast.textContent = text;
     this.#toast.style.opacity = '1';
     this.#toastTime = seconds;
+    this.#toastAge = 0;
   }
 
   #drawTrace(): void {
@@ -877,8 +895,6 @@ export class Hud {
     const quiet = royale !== null || state.match?.status.mode === 'battle-royale';
     this.#text(this.#center, state.message ?? (self && !self.alive && !banner && !quiet ? `You died${waiting}` : ''));
     const prompt = state.message ? null : (state.prompt ?? null);
-    // While the countdown's card is up, the prompt is its last line instead of a second plate under the crosshair.
-    this.#prompt.hidden = prompt === null || roundCardUp(state);
     if (prompt !== null) this.#text(this.#prompt, prompt);
 
     this.#style(this.#overlay, 'display', state.showOverlay ? '' : 'none');
@@ -914,15 +930,23 @@ export class Hud {
     this.#style(this.#toast, 'visibility', toastHidden ? 'hidden' : 'visible');
     if (board) this.#set(this.#board, boardHtml(state));
 
-    if (this.#notice && noticeDue(state, this.#toastTime, toastHidden)) {
+    const cardUp = roundCardUp(state);
+    // The round card says what the round is and what wins: Range Control's words for it wait under the card.
+    this.#style(this.#captions.root, 'visibility', toastHidden || cardUp || this.#toastTime > 0 ? 'hidden' : 'visible');
+    if (this.#notice && noticeDue(state, this.#toastTime, toastHidden, this.#captions.speaking)) {
       this.toast(this.#notice.text, this.#notice.seconds);
       this.#notice = null;
     }
-    // The hint has the toast's place, and gives it up while a toast speaks.
-    const hint = this.#toastTime > 0 ? null : (state.hint ?? null);
+    this.#slotTaken = this.#toastTime > 0 || (this.#captions.speaking && !cardUp);
+    const hint = slotHint(state.hint ?? null, this.#toastTime, this.#captions.speaking && !cardUp);
     if (this.#hint.hidden !== (hint === null)) this.#hint.hidden = hint === null;
     if (hint) this.#set(this.#hint, hintLineHtml(hint));
+    // While the countdown's card is up, the prompt is its last line instead of a second plate under the crosshair; and
+    // the loadout hint already names its key, so the plate does not say it twice.
+    const promptHidden = prompt === null || cardUp || hint?.id === 'loadout';
+    if (this.#prompt.hidden !== promptHidden) this.#prompt.hidden = promptHidden;
     if (this.#toastTime > 0) {
+      this.#toastAge += dt;
       this.#toastTime -= dt;
       if (this.#toastTime <= 0) this.#toast.style.opacity = '0';
     }
@@ -1187,9 +1211,23 @@ export class Hud {
     this.root.style.setProperty('--ds-hud-scale', String(Math.min(HUD_SCALE_LIMITS[1], Math.max(HUD_SCALE_LIMITS[0], scale))));
   }
 
-  /** A caption for a line the announcer says, taking `speech` seconds to say; null clears it. */
+  /**
+   * A caption for a line the announcer says, taking `speech` seconds to say; null clears it. It speaks in the toast's
+   * slot, and as the newest speaker it cuts a toast still up there.
+   */
   caption(line: string | null, speech = 0): void {
     this.#captions.show(line, speech);
+    // A toast up long enough to be read gives way; a fresh one (often the same moment's facts) keeps the slot, and the
+    // caption shows after it if it is still being said.
+    if (line !== null && this.#toastTime > 0 && this.#toastAge >= TOAST_READ) {
+      this.#toastTime = 0;
+      this.#toast.style.opacity = '0';
+    }
+  }
+
+  /** Whether a toast or Range Control's caption has the slot the first-match hint stands in. */
+  get slotTaken(): boolean {
+    return this.#slotTaken;
   }
 
   dispose(): void {

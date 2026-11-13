@@ -40,6 +40,8 @@ export interface HintFacts {
   readonly firing: boolean;
   /** In a fight this frame: the player fired, was hit, or an enemy is called out. */
   readonly clash: boolean;
+  /** The hint's slot is taken by a toast or Range Control's caption: time under them is not time the hint was read. */
+  readonly covered?: boolean;
 }
 
 /** What a browser has learned: the hints done with for good, and how often each was shown without being followed. */
@@ -152,7 +154,8 @@ export function stepHints(s0: HintState, f: HintFacts, dt: number): HintState {
   let { done, shown } = s.memory;
   let memory = s.memory;
   let current = s.current;
-  let since = s.since;
+  // Hidden under a toast or a caption, the line on show is not being read: its clock waits.
+  let since = f.covered && s.current !== null ? s.since + dt : s.since;
   let rested = s.rested;
   // A new life: what timed out last life may come back.
   const fresh = f.fighting && s.fought === 0;

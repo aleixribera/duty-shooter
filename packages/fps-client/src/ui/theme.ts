@@ -129,7 +129,8 @@ html.ds-touch .ds-seg { gap: 8px; background: none; border: 0; }
 html.ds-touch .ds-seg button { box-shadow: inset 0 0 0 1px var(--ds-line); }
 html.ds-touch .ds-seg button.on { box-shadow: inset 0 0 0 2px var(--ds-signal); }
 
-@keyframes ds-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* The rise is the translate property, not transform: a line centred by its transform (the hint, the round card) keeps its place as it comes in. */
+@keyframes ds-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: none; } }
 @keyframes ds-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   @keyframes ds-in { from { opacity: 0; } to { opacity: 1; } }

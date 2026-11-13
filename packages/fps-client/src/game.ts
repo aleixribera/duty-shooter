@@ -1439,16 +1439,14 @@ export class Game {
   }
 
   /**
-   * Range Control says a line, and everything but the UI makes room under it. `written`: the HUD is writing the same
-   * words as it speaks (a toast), so no caption repeats them.
+   * A Charge round opens: Range Control says which side you are on this time. The round card is up through the
+   * freeze and writes the round, the side and the goal, so nothing else writes them again (review 2026-11-13b: four
+   * lines said "plant the charge" at once). Someone with no side is told nothing.
    */
-  /** A Charge round opens: which side you are on this time. Someone with no side is told nothing. */
-  #round(round: number, attackers: TeamId): void {
+  #round(attackers: TeamId): void {
     const team = this.#driver ? this.#team(this.#driver) : null;
     if (team === null) return;
-    const attack = team === attackers;
-    this.hud.toast(`Round ${round}: you ${attack ? 'attack' : 'defend'}.`, 4);
-    this.#say(attack ? 'roundAttack' : 'roundDefend');
+    this.#say(team === attackers ? 'roundAttack' : 'roundDefend');
   }
 
   /** Your team in the match, or null with none (every player for themselves, or only watching). */
@@ -1456,6 +1454,10 @@ export class Game {
     return driver.scores.find((s) => s.id === driver.selfId)?.team ?? null;
   }
 
+  /**
+   * Range Control says a line, and everything but the UI makes room under it. `written`: the HUD is writing the same
+   * words as it speaks (a toast), so no caption repeats them.
+   */
   #say(line: VoiceLineId, written = false): void {
     const seconds = this.#announcer.say(line);
     // The caption does not wait on the voice: it is there for whoever cannot hear it, or has it turned down. The last
@@ -1540,7 +1542,7 @@ export class Game {
       const line = liveLine(match.mode);
       if (line) this.#say(line);
       // Charge opens round by round, and the mode only announces the rounds after the first.
-      else if (match.objective?.kind === 'charge') this.#round(match.objective.round, match.objective.attackers);
+      else if (match.objective?.kind === 'charge') this.#round(match.objective.attackers);
     }
     if (stopped) this.#say('ceaseFire');
     // Who is ahead, as it changes hands.
@@ -1864,6 +1866,7 @@ export class Game {
         thumbs: input.touchMode,
         firing: input.touchFiring,
         clash: hit || shot || called,
+        covered: this.hud.slotTaken,
       },
       dt,
     );
@@ -2310,7 +2313,7 @@ export class Game {
         this.#play(TRAP_SOUNDS[e.kind], { position: e.position });
         break;
       case 'roundStart':
-        this.#round(e.round, e.attackers);
+        this.#round(e.attackers);
         break;
       case 'charge': {
         if (e.action === 'plant') this.#say('chargePlanted');

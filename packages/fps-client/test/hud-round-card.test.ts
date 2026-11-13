@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cardPrompt, noticeDue, roundCardUp, type HudState } from '../src/hud/hud';
+import { cardPrompt, noticeDue, roundCardUp, slotHint, type HudState } from '../src/hud/hud';
+import type { HintLine } from '../src/hints';
 
 const at = (over: object) => ({ message: null, prompt: 'F  Loadout', charge: null, ...over }) as unknown as HudState;
 const match = (countdown: number | null, mode = 'tdm', phase = 'playing') => ({ status: { phase, mode }, countdown });
@@ -40,9 +41,27 @@ describe('a notice (a controller plugged in)', () => {
     expect(noticeDue(at({ match: match(0) }), 0, true)).toBe(false);
   });
 
+  it("waits for Range Control's caption to finish", () => {
+    expect(noticeDue(at({ match: match(0) }), 0, false, true)).toBe(false);
+  });
+
   it('speaks once play is on, out of a match, and in a Battle Royale', () => {
     expect(noticeDue(at({ match: match(0) }), 0)).toBe(true);
     expect(noticeDue(at({ match: null }), 0)).toBe(true);
     expect(noticeDue(at({ match: match(3, 'battle-royale') }), -0.01)).toBe(true);
+  });
+});
+
+describe('the slot under the crosshair (review 2026-11-13b: a caption stood over the hint)', () => {
+  const move: HintLine = { id: 'move', keys: [{ cap: 'WASD' }], text: 'Move. The mouse looks' };
+
+  it('gives the hint way while a toast or a caption speaks', () => {
+    expect(slotHint(move, 2, false)).toBeNull();
+    expect(slotHint(move, 0, true)).toBeNull();
+  });
+
+  it('shows the hint once the slot is quiet', () => {
+    expect(slotHint(move, 0, false)).toBe(move);
+    expect(slotHint(null, 0, false)).toBeNull();
   });
 });

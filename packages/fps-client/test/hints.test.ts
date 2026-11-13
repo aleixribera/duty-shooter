@@ -122,6 +122,18 @@ describe('first-match hints', () => {
     expect(run(hintState(knows('move', 'aim', 'sprint')), { ...fight, magazine: 0.3 }, 1).current).toBe('reload');
   });
 
+  it('a line hidden under a toast or a caption is not being read: its time there does not count as a showing', () => {
+    // The loadout hint goes up while dead, then Range Control speaks over it until the respawn ends its moment.
+    let s = run(hintState(NO_HINTS_SEEN), dead, 0.5);
+    expect(s.current).toBe('loadout');
+    s = run(s, { ...dead, covered: true }, HINT_READ + 1);
+    s = run(s, idle, 0.1);
+    expect(s.memory.shown.loadout ?? 0).toBe(0);
+    // Seen in the clear for as long, it counts.
+    s = run(run(hintState(NO_HINTS_SEEN), dead, HINT_READ + 1), idle, 0.1);
+    expect(s.memory.shown.loadout).toBe(1);
+  });
+
   it('dead with a respawn coming: the loadout and its key, then the scores', () => {
     let s = run(hintState(knows('move')), dead, 0.2);
     expect(s.current).toBe('loadout');

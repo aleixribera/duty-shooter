@@ -41,8 +41,7 @@ html.ds-touch .ds-overlay canvas, html.ds-touch .ds-overlay .k.trace { display: 
 html.ds-touch .ds-recap { left: calc(var(--ds-safe-l) + 68px); top: calc(var(--ds-safe-t) + 44px); bottom: auto; min-width: 0; max-width: 300px; padding: 8px 12px; }
 /* Lines that come and go stand over the plates, between the thumbs. */
 html.ds-touch .ds-toast, html.ds-touch .ds-hintline, html.ds-touch .ds-caption { top: auto; bottom: calc(var(--ds-safe-b) + 74px); width: max-content; max-width: min(380px, calc(100vw - 470px - var(--ds-safe-l) - var(--ds-safe-r))); padding: 6px 12px 6px 14px; font-size: var(--ds-type-body); white-space: normal; }
-/* One slot, one speaker: while the announcer's caption is up, the hint and the toast (the same words, more often than not) wait. */
-html.ds-touch:has(.ds-caption.on) .ds-hintline, html.ds-touch:has(.ds-caption.on) .ds-toast { visibility: hidden !important; }
+/* One slot, one speaker: the HUD shows the caption, the toast or the hint, never two at once (slotHint). */
 /* The countdown's plate hangs under the match bar, clear of the crosshair. */
 html.ds-touch .ds-round { top: calc(var(--ds-safe-t) + 70px); transform: translateX(-50%); padding: 6px 14px 8px; }
 html.ds-touch .ds-round h2 { margin-top: 2px; } html.ds-touch .ds-round .goal { margin-top: 4px; }

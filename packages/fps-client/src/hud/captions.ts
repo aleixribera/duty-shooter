@@ -1,13 +1,14 @@
 /**
  * Captions for what the announcer says (next-level ticket 22): the line, on a
- * plate above the readouts, for as long as it takes to say and a moment more.
+ * plate in the toast's slot under the crosshair, for as long as it takes to say
+ * and a moment more.
  * It shows whether or not the voice is heard, so it works with the voice
  * turned down as well as for someone who cannot hear it.
  */
 import { escapeHtml } from '../ui/theme';
 
 export const CAPTIONS_CSS = `
-.ds-caption { position: absolute; left: 50%; bottom: calc(176px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(640px, calc(100vw - 32px)); padding: 7px 14px 8px; background: var(--ds-scrim); font-size: var(--ds-type-body); line-height: 1.3; text-align: center; text-shadow: none; display: none; }
+.ds-caption { position: absolute; left: 50%; bottom: calc(128px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(640px, calc(100vw - 32px)); padding: 7px 14px 8px; background: var(--ds-scrim); font-size: var(--ds-type-body); line-height: 1.3; text-align: center; text-shadow: none; display: none; }
 .ds-caption.on { display: block; }
 .ds-caption small { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-right: 10px; }
 /* A phone: the thumbs own the bottom, so the line sits under the match bar instead. */
@@ -45,6 +46,11 @@ export class CaptionView {
     this.root.innerHTML = `<small>Range Control</small>${escapeHtml(line)}`;
     this.root.classList.add('on');
     this.#left = captionSeconds(speech);
+  }
+
+  /** Whether a caption is up (it may be hidden under the round card meanwhile). */
+  get speaking(): boolean {
+    return this.#left > 0;
   }
 
   update(dt: number): void {
