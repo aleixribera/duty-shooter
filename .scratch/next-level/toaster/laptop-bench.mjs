@@ -20,18 +20,27 @@ writeFileSync(join(profile, 'user.js'), [
   'user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);',
   'user_pref("browser.aboutwelcome.enabled", false);',
   'user_pref("remote.prefs.recommended", true);',
+  // PREFS="name=value;…": extra Firefox prefs, for an A/B of one of Firefox's own settings.
+  ...(process.env.PREFS ?? '').split(';').filter(Boolean).map((p) => `user_pref("${p.slice(0, p.indexOf('='))}", ${p.slice(p.indexOf('=') + 1)});`),
 ].join('\n'));
 // Headless Firefox has no GPU (no WebGPU adapter, no WebGL2). So Firefox runs as a normal window on a
 // headless Mutter of its own: a virtual monitor drawn on the laptop's GPU, on its own Wayland display
 // and its own D-Bus session, so nothing shows on the owner's screen and nothing talks to their session.
 const ffArgs = `--no-remote --profile ${profile} --remote-debugging-port ${port} --width=${w} --height=${h}`;
-const ff = spawn('dbus-run-session', ['--', 'sh', '-c',
-  `mutter --headless --no-x11 --virtual-monitor ${w}x${h}@60 --wayland-display duty-wl >/dev/null 2>&1 & sleep 3; ` +
-  `WAYLAND_DISPLAY=duty-wl MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland exec nice -n 5 firefox ${ffArgs}`], {
-  env: { ...process.env, DISPLAY: '', WAYLAND_DISPLAY: '' },
-  stdio: ['ignore', 'ignore', 'pipe'],
-  detached: true,
-});
+// REAL=1: a real window, full screen (kiosk) on the owner's own desktop session and its compositor, the way he plays.
+const real = !!process.env.REAL;
+const session = { WAYLAND_DISPLAY: 'wayland-0', XDG_RUNTIME_DIR: '/run/user/1000', DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus' };
+const ff = real
+  ? spawn('sh', ['-c', `MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland exec firefox --kiosk ${ffArgs}`], {
+    env: { ...process.env, ...session, DISPLAY: '' }, stdio: ['ignore', 'ignore', 'pipe'], detached: true,
+  })
+  : spawn('dbus-run-session', ['--', 'sh', '-c',
+    `mutter --headless --no-x11 --virtual-monitor ${w}x${h}@60 --wayland-display duty-wl >/dev/null 2>&1 & sleep 3; ` +
+    `WAYLAND_DISPLAY=duty-wl MOZ_ENABLE_WAYLAND=1 GDK_BACKEND=wayland exec nice -n 5 firefox ${ffArgs}`], {
+    env: { ...process.env, DISPLAY: '', WAYLAND_DISPLAY: '' },
+    stdio: ['ignore', 'ignore', 'pipe'],
+    detached: true,
+  });
 let errTail = '';
 ff.stderr.on('data', (d) => (errTail = (errTail + d).slice(-4000)));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -62,7 +71,7 @@ const send = (method, params) => new Promise((ok, bad) => {
 await send('session.new', { capabilities: {} });
 const tree = await send('browsingContext.getTree', {});
 const context = tree.contexts[0].context;
-await send('browsingContext.setViewport', { context, viewport: { width: Number(w), height: Number(h) }, devicePixelRatio: 1 }).catch(() => {});
+if (!real) await send('browsingContext.setViewport', { context, viewport: { width: Number(w), height: Number(h) }, devicePixelRatio: 1 }).catch(() => {});
 const evaluate = async (expression) => {
   const r = await send('script.evaluate', { expression, target: { context }, awaitPromise: true });
   return r.type === 'success' ? r.result.value : `ERR ${JSON.stringify(r.exceptionDetails?.text)}`;

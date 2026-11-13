@@ -17,7 +17,7 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 106 to 113; details in each ticket). Cut to BACKLOG on the way: walking bots look 18° up; bots fight from cover only on Zero Island.
 
-Pass 31: PLAN item 4 (toaster), pass 2. The laptop measured at last (`toaster/laptop-bench.mjs`: Firefox on a headless Mutter of its own, nothing on screen): 23 to 29 fps at 1080p on every map, GPU 14 to 22 ms in the passes, post-processing 9 of Survival Town's 17. Shipped the heat shimmer branched (0.6 ms less, same picture). The check still fails after two passes: cut, the GPU budget goes first in BACKLOG. Next pass: PLAN.md from item 5 (item 7, progression, is new from the director), or a second pass on whichever request a real match shows weakest.
+Pass 32: PLAN item 1 (Aleix's laptop, as the director re-scoped it), pass 1. Undisturbed, the laptop runs Survival Town at 17-21 ms (GPU 14.5) and Zero Island 26-28 (GPU 18.7), the same in a real full-screen window as headless: the GPU is the bottleneck. Shipped the bloom's bright pass from a cheap source (0.14 ms). Fewer AO samples were cut: they lose the contact shade (three's GTAO step placement, ticket 99). Firefox's readback is not the cost. Next pass: item 1 pass 2 on the GPU (TRAA 2.2, GTAO 2.1, light-times-occlusion copy 0.55, world pass 6.8; levers in BACKLOG), then Zero Island's 7 ms of script.
 
 ## Needs Aleix
 
@@ -52,7 +52,7 @@ None.
 
 ## Ideas for the loop
 
-- The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there with nothing on its screen; the recipe and probes are in ticket 99 (pass 31). Compare only within one page: its runs drift 40% with the owner on it.
+- The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there with nothing on its screen; the recipe and probes are in ticket 99 (pass 31). Compare only within one page: its runs drift 40% with the owner on it. `REAL=1` runs it in a real full-screen window; a server inside an `lt run` script starts as `python3 -m http.server -d <dir> &` with a `trap`, or it keeps lt's lock (pass 32).
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - The shared headless Blender on port 9876 was reset under pass 5 twice (another session's `bkit.reset()` or a crash). Model rebuilds run reliably in their own process: `tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>` with a runner that calls `bkit.reset(); bkit.run(script, export=True)`.
 

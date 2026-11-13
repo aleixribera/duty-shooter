@@ -1,0 +1,76 @@
+{
+ "url": "http://localhost:8473/?benchmark&run&maps=survival-town,zero-island",
+ "size": [
+  "1920",
+  "1080"
+ ],
+ "firefox": true,
+ "report": [
+  {
+   "map": "survival-town",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 9988,
+   "frames": 2016,
+   "frameMs": {
+    "p50": 20.26,
+    "p95": 28.58,
+    "p99": 31.66,
+    "max": 64.06
+   },
+   "meanMs": 20.593,
+   "low1Ms": 35.016,
+   "gpuMs": {
+    "p50": 15.751,
+    "p95": 16.91,
+    "p99": 17.963,
+    "max": 18.931
+   },
+   "drawCalls": {
+    "mean": 151,
+    "max": 190
+   },
+   "triangles": {
+    "mean": 527083,
+    "max": 638483
+   }
+  },
+  {
+   "map": "zero-island",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 60221,
+   "frames": 2278,
+   "frameMs": {
+    "p50": 29.18,
+    "p95": 33.42,
+    "p99": 36.46,
+    "max": 85.12
+   },
+   "meanMs": 28.317,
+   "low1Ms": 43.206,
+   "gpuMs": {
+    "p50": 18.786,
+    "p95": 20.243,
+    "p99": 21.604,
+    "max": 25.981
+   },
+   "drawCalls": {
+    "mean": 140,
+    "max": 178
+   },
+   "triangles": {
+    "mean": 1021275,
+    "max": 1201648
+   }
+  }
+ ]
+}

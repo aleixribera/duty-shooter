@@ -10,7 +10,10 @@ const filled = new Function('what', 'cycles', 'period', 'process', 'return `' + 
 // `post:<variant>`: the picture's output swapped for one of the alternatives a temporary hook in pipeline.ts
 // leaves on `globalThis.__post` (see the ticket), to price one part of the post-processing.
 const post = what.startsWith('post:') ? `if (globalThis.__post) { const P = globalThis.__post; P.pipeline.outputNode = v ? P.real : P.variants[${JSON.stringify(what.slice(5))}]; P.pipeline.needsUpdate = true; }` : '';
-const page = filled.replace(/on = v;/, `on = v; ${post}`).replace(/import\('\/node_modules\/\.vite\/deps\/three_webgpu\.js'\)/, 'Promise.resolve({})');
+// `ao:<samples>:<temporal 0|1>`: the ambient occlusion's samples and its per-frame rotation, against the game's own (needs `globalThis.__ao`).
+const [, aoSamples, aoTemporal] = what.split(':');
+const aoSet = what.startsWith('ao:') ? `if (globalThis.__ao) { const A = globalThis.__ao; A.__real ??= A.samples.value; A.samples.value = v ? A.__real : ${Number(aoSamples)}; A.useTemporalFiltering = v ? false : ${aoTemporal === '1'}; }` : '';
+const page = filled.replace(/on = v;/, `on = v; ${post} ${aoSet}`).replace(/import\('\/node_modules\/\.vite\/deps\/three_webgpu\.js'\)/, 'Promise.resolve({})');
 process.stdout.write(`(async () => {
   while (!document.body.dataset.bake || !globalThis.duty?.game) await new Promise((r) => setTimeout(r, 500));
   await new Promise((r) => setTimeout(r, 8000));

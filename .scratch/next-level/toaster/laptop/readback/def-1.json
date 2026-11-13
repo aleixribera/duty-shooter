@@ -1,0 +1,76 @@
+{
+ "url": "https://aleixribera.github.io/duty-shooter/?benchmark&run&maps=survival-town,zero-island",
+ "size": [
+  "1920",
+  "1080"
+ ],
+ "firefox": true,
+ "report": [
+  {
+   "map": "survival-town",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 10209,
+   "frames": 2394,
+   "frameMs": {
+    "p50": 18.34,
+    "p95": 25.04,
+    "p99": 28.08,
+    "max": 47.3
+   },
+   "meanMs": 17.341,
+   "low1Ms": 30.083,
+   "gpuMs": {
+    "p50": 14.66,
+    "p95": 15.721,
+    "p99": 16.914,
+    "max": 17.041
+   },
+   "drawCalls": {
+    "mean": 148,
+    "max": 190
+   },
+   "triangles": {
+    "mean": 517688,
+    "max": 638483
+   }
+  },
+  {
+   "map": "zero-island",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 60699,
+   "frames": 2503,
+   "frameMs": {
+    "p50": 26.24,
+    "p95": 30.54,
+    "p99": 32.64,
+    "max": 65.1
+   },
+   "meanMs": 25.777,
+   "low1Ms": 37.689,
+   "gpuMs": {
+    "p50": 18.643,
+    "p95": 20.884,
+    "p99": 22.124,
+    "max": 22.563
+   },
+   "drawCalls": {
+    "mean": 142,
+    "max": 178
+   },
+   "triangles": {
+    "mean": 1025534,
+    "max": 1201357
+   }
+  }
+ ]
+}

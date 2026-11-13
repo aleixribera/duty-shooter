@@ -248,16 +248,20 @@ export class GamePipeline {
     const vm = viewPass.getTextureNode('output');
     const beams = rtt(clamp(shafts(image, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
     this.#owned.push(beams);
-    const beamed = color.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH)) as unknown as Node<'vec3'>;
-    const over = vec4(mix(beamed, vm.rgb, vm.a), 1);
-    // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
-    const c = mooded(filmLook(over.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
-    const luma = dot(c, LUMA);
-    const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
-    const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
-    const composite = vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);
-    // Only real highlights bloom (flashes, glints), not sunlit ground.
-    this.#bloom = bloom(composite, BLOOM, 0.35, 1.6);
+    const shaft = sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH);
+    const finish = (scene: Node<'vec3'>): Node<'vec4'> => {
+      const over = vec4(mix(scene.add(shaft), vm.rgb, vm.a), 1);
+      // The nuke: a scorched grade after the blast (burnt orange, deeper shadows), and a white-out at the instant of it.
+      const c = mooded(filmLook(over.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
+      const luma = dot(c, LUMA);
+      const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
+      const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
+      return vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1) as unknown as Node<'vec4'>;
+    };
+    const composite = finish(color);
+    // Only real highlights bloom (flashes, glints), not sunlit ground. Its bright pass is drawn at half size and blurred
+    // wide, so it reads the picture without the sharpening and the shimmer, which it would blur away (0.14 ms on the toaster).
+    this.#bloom = bloom(finish(image.sample(screenUV).rgb as unknown as Node<'vec3'>), BLOOM, 0.35, 1.6);
     this.#owned.push(this.#bloom);
     this.#pipeline.outputNode = composite.add(this.#bloom);
     this.#pipeline.needsUpdate = true;

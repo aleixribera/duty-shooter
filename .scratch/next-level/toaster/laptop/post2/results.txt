@@ -1,0 +1,152 @@
+== post-cheapbloom survival-town&spot=cul-de-sac
+probe {
+ "frames": [
+  856,
+  858
+ ],
+ "onMs": "15.900",
+ "offMs": "15.903",
+ "rows": [
+  "  6.783 on   6.854 off  -0.072 diff  output 1920x1080",
+  "  2.238 on   2.260 off  -0.022 diff  TRAANode.resolve 1920x1080",
+  "  2.084 on   2.106 off  -0.022 diff  GTAONode.AO 960x540",
+  "  1.811 on   1.829 off  -0.019 diff  screen",
+  "  0.553 on   0.559 off  -0.006 diff  rt 1920x1080",
+  "  0.444 on   0.303 off   0.140 diff  UnrealBloomPass.bright 960x540",
+  "  0.438 on   0.447 off  -0.009 diff  ShadowMap 2048x2048",
+  "  0.387 on   0.390 off  -0.004 diff  output 1920x1080 x4"
+ ]
+}
+== ao-6-1 survival-town&spot=cul-de-sac
+probe {
+ "frames": [
+  861,
+  879
+ ],
+ "onMs": "15.752",
+ "offMs": "15.427",
+ "rows": [
+  "  6.714 on   6.789 off  -0.075 diff  output 1920x1080",
+  "  2.214 on   2.236 off  -0.022 diff  TRAANode.resolve 1920x1080",
+  "  2.064 on   1.568 off   0.496 diff  GTAONode.AO 960x540",
+  "  1.932 on   1.954 off  -0.022 diff  screen",
+  "  0.547 on   0.553 off  -0.006 diff  rt 1920x1080",
+  "  0.394 on   0.417 off  -0.023 diff  UnrealBloomPass.bright 960x540",
+  "  0.382 on   0.387 off  -0.004 diff  output 1920x1080 x4",
+  "  0.327 on   0.351 off  -0.024 diff  ShadowMap 2048x2048"
+ ]
+}
+== ao-3-1 survival-town&spot=cul-de-sac
+probe {
+ "frames": [
+  856,
+  886
+ ],
+ "onMs": "15.875",
+ "offMs": "15.238",
+ "rows": [
+  "  6.749 on   6.878 off  -0.129 diff  output 1920x1080",
+  "  2.224 on   2.264 off  -0.040 diff  TRAANode.resolve 1920x1080",
+  "  2.073 on   1.183 off   0.890 diff  GTAONode.AO 960x540",
+  "  1.942 on   1.979 off  -0.037 diff  screen",
+  "  0.550 on   0.561 off  -0.011 diff  rt 1920x1080",
+  "  0.414 on   0.384 off   0.030 diff  UnrealBloomPass.bright 960x540",
+  "  0.384 on   0.392 off  -0.007 diff  output 1920x1080 x4",
+  "  0.374 on   0.372 off   0.002 diff  ShadowMap 2048x2048"
+ ]
+}
+== post-nobloom survival-town&spot=cul-de-sac
+probe {
+ "frames": [
+  808,
+  895
+ ],
+ "onMs": "16.826",
+ "offMs": "15.400",
+ "rows": [
+  "  7.170 on   7.296 off  -0.126 diff  output 1920x1080",
+  "  2.357 on   2.398 off  -0.041 diff  TRAANode.resolve 1920x1080",
+  "  2.219 on   2.260 off  -0.041 diff  GTAONode.AO 960x540",
+  "  1.914 on   1.878 off   0.036 diff  screen",
+  "  0.588 on   0.599 off  -0.011 diff  rt 1920x1080",
+  "  0.490 on   0.000 off   0.490 diff  UnrealBloomPass.bright 960x540",
+  "  0.475 on   0.438 off   0.037 diff  ShadowMap 2048x2048",
+  "  0.408 on   0.415 off  -0.007 diff  output 1920x1080 x4"
+ ]
+}
+== post-cheapbloom zero-island&spot=The%20Dustlands
+probe {
+ "frames": [
+  729,
+  739
+ ],
+ "onMs": "17.875",
+ "offMs": "17.784",
+ "rows": [
+  "  9.400 on   9.430 off  -0.030 diff  output 1920x1080",
+  "  2.201 on   2.211 off  -0.009 diff  TRAANode.resolve 1920x1080",
+  "  1.785 on   1.793 off  -0.008 diff  screen",
+  "  1.736 on   1.743 off  -0.007 diff  GTAONode.AO 960x540",
+  "  0.553 on   0.556 off  -0.002 diff  rt 1920x1080",
+  "  0.451 on   0.296 off   0.155 diff  UnrealBloomPass.bright 960x540",
+  "  0.378 on   0.379 off  -0.002 diff  output 1920x1080 x4",
+  "  0.281 on   0.283 off  -0.002 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== ao-6-1 zero-island&spot=The%20Dustlands
+probe {
+ "frames": [
+  715,
+  737
+ ],
+ "onMs": "17.541",
+ "offMs": "17.342",
+ "rows": [
+  "  9.150 on   9.238 off  -0.088 diff  output 1920x1080",
+  "  2.144 on   2.167 off  -0.023 diff  TRAANode.resolve 1920x1080",
+  "  1.874 on   1.892 off  -0.019 diff  screen",
+  "  1.689 on   1.332 off   0.356 diff  GTAONode.AO 960x540",
+  "  0.539 on   0.546 off  -0.006 diff  rt 1920x1080",
+  "  0.440 on   0.441 off  -0.001 diff  UnrealBloomPass.bright 960x540",
+  "  0.368 on   0.372 off  -0.004 diff  output 1920x1080 x4",
+  "  0.270 on   0.276 off  -0.005 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== ao-3-1 zero-island&spot=The%20Dustlands
+probe {
+ "frames": [
+  712,
+  748
+ ],
+ "onMs": "18.064",
+ "offMs": "17.416",
+ "rows": [
+  "  9.429 on   9.450 off  -0.021 diff  output 1920x1080",
+  "  2.207 on   2.218 off  -0.011 diff  TRAANode.resolve 1920x1080",
+  "  1.928 on   1.933 off  -0.005 diff  screen",
+  "  1.741 on   1.042 off   0.699 diff  GTAONode.AO 960x540",
+  "  0.555 on   0.560 off  -0.005 diff  rt 1920x1080",
+  "  0.454 on   0.450 off   0.004 diff  UnrealBloomPass.bright 960x540",
+  "  0.379 on   0.380 off  -0.001 diff  output 1920x1080 x4",
+  "  0.277 on   0.283 off  -0.005 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== post-nobloom zero-island&spot=The%20Dustlands
+probe {
+ "frames": [
+  720,
+  813
+ ],
+ "onMs": "17.796",
+ "offMs": "16.120",
+ "rows": [
+  "  9.358 on   9.260 off   0.098 diff  output 1920x1080",
+  "  2.195 on   2.176 off   0.019 diff  TRAANode.resolve 1920x1080",
+  "  1.779 on   1.698 off   0.081 diff  screen",
+  "  1.728 on   1.712 off   0.017 diff  GTAONode.AO 960x540",
+  "  0.551 on   0.547 off   0.005 diff  rt 1920x1080",
+  "  0.453 on   0.000 off   0.453 diff  UnrealBloomPass.bright 960x540",
+  "  0.376 on   0.373 off   0.004 diff  output 1920x1080 x4",
+  "  0.279 on   0.000 off   0.279 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
