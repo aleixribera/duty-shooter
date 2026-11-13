@@ -1,0 +1,105 @@
+{
+  "events": [
+    {
+      "at": "09:10:46",
+      "what": "lobby",
+      "code": "7WZDCQ",
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 3 players + 5 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 30 ms MOVE 03 Pol MOVE KICK 05 Bot 07 Bot ▲ ORANGE 02 Marta MOVE KICK 04 Bot 06 Bot 08 Bot EVEN TEAMS MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE"
+    },
+    {
+      "at": "09:10:48",
+      "what": "match 1 started",
+      "map": "survival-town",
+      "mode": "tdm"
+    },
+    {
+      "at": "09:11:08",
+      "what": "marta dropped",
+      "feed": [
+        "▲ Marta left",
+        "▲ Marta left"
+      ]
+    },
+    {
+      "at": "09:11:13",
+      "what": "scoreboard",
+      "text": "Cinder +50 Health 100 M4A1 auto 1 1 0/ ∞ 33 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 7 players ◆ BLUE 2 # Player Score Kills Deaths Assists Ping 1 Aleix 150 1 0 1 27 2 Staticbot 150 1 1 0 – 3 Pol 0 0 0 0 – 4 Cinderbot 0 0 1 0 – ▲ ORANGE 2 # Player Score Kills Deaths Assists Ping 1 Makobot 150 1 0 0 – 2 Pikebot 150 1 1 1 – 3 Mossbot 50 0 1 1 – 2 ◆ Blue · you T−0:53 TDM · 75 2 ▲ Orange"
+    },
+    {
+      "at": "09:11:19",
+      "what": "marta back",
+      "feed": [
+        "▲ Marta is back",
+        "▲ Marta is back"
+      ],
+      "rejected": null
+    },
+    {
+      "at": "09:12:06",
+      "what": "match ended",
+      "kills": 2,
+      "deaths": 1,
+      "phase": "nuke",
+      "left": 6,
+      "teams": "[{\"team\":1,\"score\":7},{\"team\":2,\"score\":8}]"
+    },
+    {
+      "at": "09:12:06",
+      "what": "after 0 s",
+      "phase": "nuke",
+      "left": 6,
+      "text": "+100 35 ms DEFEAT MVP MAKOBOT 425 score 3 kills Best Medal First blood Your match Score 250 Kills 2 Deaths 1 Assists 1 Place 6th / 8 XP earned +250 Rank 1Observer 250 / 800 XP Scoreboard in 0:06 T-minus 60 seconds. This site will be destroyed."
+    },
+    {
+      "at": "09:12:12",
+      "what": "after 6 s",
+      "phase": "vote",
+      "left": 10,
+      "text": "+100 28 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 8 players ◆ BLUE 7 # Player Score Kills Deaths Assists Ping 1 Cinderbot 425 3 4 0 – 2 Staticbot 300 2 3 0 – 3 Aleix 250 2 1 1 29 4 Pol 0 0 0 0 – ▲ ORANGE 8 # Player Score Kills Deaths Assists Ping 1 Makobot 425 3 1 0 – 2 Pikebot 375 3 3 1 – 3 Mossbot 300 2 3 1 – 4 Marta 0 0 0 0 – DEFEAT MVP MAKOBOT 425 score 3 kills Best Medal First blood Your match Score 250 Kills 2 Deaths 1 Assists 1 Place 6th / 8 XP earned +250 Rank 1Observer 250 / 800 XP Back to the lobby in 0:10 T-minus 60 seconds. This site will be destro"
+    },
+    {
+      "at": "09:12:18",
+      "what": "after 12 s",
+      "phase": "vote",
+      "left": 4,
+      "text": "+100 29 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 8 players ◆ BLUE 7 # Player Score Kills Deaths Assists Ping 1 Cinderbot 425 3 4 0 – 2 Staticbot 300 2 3 0 – 3 Aleix 250 2 1 1 26 4 Pol 0 0 0 0 – ▲ ORANGE 8 # Player Score Kills Deaths Assists Ping 1 Makobot 425 3 1 0 – 2 Pikebot 375 3 3 1 – 3 Mossbot 300 2 3 1 – 4 Marta 0 0 0 0 – DEFEAT MVP MAKOBOT 425 score 3 kills Best Medal First blood Your match Score 250 Kills 2 Deaths 1 Assists 1 Place 6th / 8 XP earned +250 Rank 1Observer 250 / 800 XP Back to the lobby in 0:04 T-minus 60 seconds. This site will be destro"
+    },
+    {
+      "at": "09:12:24",
+      "what": "after 18 s",
+      "phase": "lobby",
+      "left": null,
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 3 players + 5 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 28 ms MOVE 03 Pol MOVE KICK 05 Bot 07 Bot ▲ ORANGE 02 Marta MOVE KICK 04 Bot 06 Bot 08 Bot EVEN TEAMS LAST MATCH ORANGE WON 8 TO 7 Team deathmatch · time limit MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE LOADOUT SETTINGS ↑↓ MOVE ENTER SELECT STA"
+    },
+    {
+      "at": "09:12:26",
+      "what": "lobby again",
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 3 players + 5 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 31 ms MOVE 03 Pol MOVE KICK 05 Bot 07 Bot ▲ ORANGE 02 Marta MOVE KICK 04 Bot 06 Bot 08 Bot EVEN TEAMS LAST MATCH ORANGE WON 8 TO 7 Team deathmatch · time limit MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE LOADOUT SETTINGS ↑↓ MOVE ENTER SELECT STA"
+    },
+    {
+      "at": "09:12:26",
+      "what": "friends",
+      "friends": [
+        {
+          "name": "Marta",
+          "id": "p2",
+          "rejected": null,
+          "closed": null
+        },
+        {
+          "name": "Pol",
+          "id": "p3",
+          "rejected": null,
+          "closed": null
+        }
+      ]
+    },
+    {
+      "at": "09:12:28",
+      "what": "match 2 started",
+      "map": "survival-town",
+      "mode": "tdm"
+    }
+  ],
+  "errors": []
+}

@@ -39,6 +39,8 @@ export class TeamRoster {
   /** This match's (or round's) order of each team's first spawns. */
   readonly #firstOrder = new Map<TeamId, readonly number[]>();
   readonly #recent = new RecentSpawns();
+  /** Kills of those who left this match, kept with the team they were scored for: a team's tally never drops when someone goes. */
+  readonly #banked = new Map<TeamId, number>();
   readonly #random: () => number;
   /** Everyone's Score: the kills are read in {@link recordKills}, and the mode adds its own awards. */
   readonly score = new ScoreKeeper();
@@ -70,7 +72,14 @@ export class TeamRoster {
     return team;
   }
 
+  /** Kills this match by those of `team` who have left it. */
+  banked(team: TeamId): number {
+    return this.#banked.get(team) ?? 0;
+  }
+
   leave(id: PlayerId): void {
+    const gone = this.#entries.get(id);
+    if (gone && gone.kills > 0) this.#banked.set(gone.team, this.banked(gone.team) + gone.kills);
     this.#entries.delete(id);
     this.#spawned.delete(id);
     this.#recent.forget(id);
@@ -79,6 +88,8 @@ export class TeamRoster {
 
   /** A player back from a drop: their row as they left it, already spawned. */
   rejoin(score: Score): void {
+    // Their kills were kept with the team when they left: they come back with them.
+    if (score.kills > 0) this.#banked.set(score.team, Math.max(0, this.banked(score.team) - score.kills));
     this.#entries.set(score.id, { id: score.id, name: score.name, team: score.team, kills: score.kills, deaths: score.deaths, order: this.#order++ });
     this.score.rejoin(score);
     this.#spawned.add(score.id);
@@ -87,6 +98,7 @@ export class TeamRoster {
   /** A new match: everyone's row from zero, teams kept where possible and evened out with the fewest moves. */
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
     this.#entries.clear();
+    this.#banked.clear();
     this.#spawned.clear();
     this.#nextFirst.clear();
     this.#firstOrder.clear();

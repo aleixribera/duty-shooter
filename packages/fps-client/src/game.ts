@@ -84,6 +84,7 @@ import { Spectator, followCamera, withRoster, type SpectateView } from './specta
 import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel';
 import type { MatchCardState } from './hud/match-card';
 import { GAIN_RANK_UP_AT } from './hud/match-gain';
+import { RosterNotices } from './hud/roster-notices';
 import { scoreFeedEntry } from './hud/score-feed';
 import { chargeHudState, matchCardState, royaleHudState } from './hud/hud-state';
 import { WORDY, eventWords, killedWith, type EventWords } from './hud/event-words';
@@ -340,6 +341,8 @@ export class Game {
   /** The announcer (ticket 72), and the Squads left when it last looked (null outside a Battle Royale). */
   readonly #announcer: Announcer;
   readonly #leadCalls = new LeadCalls();
+  /** Friends coming and going mid-match, told in the feed. */
+  readonly #rosterNotices = new RosterNotices();
   /** When each soldier last grunted (s). */
   readonly #grunted = new Map<PlayerId, number>();
   #squadsLeft: number | null = null;
@@ -539,6 +542,7 @@ export class Game {
     this.#goalOwed = false;
     this.#goalUntil = 0;
     this.#leadCalls.reset();
+    this.#rosterNotices.reset();
     this.#grunted.clear();
     this.hud.visible = driver !== null;
   }
@@ -1552,6 +1556,9 @@ export class Game {
       const lead = this.#leadCalls.update(leadOf(match.mode, match.teamScores, driver.scores, driver.selfId, team), driver.serverTime);
       if (lead) this.#say(lead);
     }
+    // Who joined, left or came back, while a match is played online.
+    if (driver.online && match?.phase === 'playing') for (const n of this.#rosterNotices.update(driver.scores, driver.selfId, match.mode)) this.hud.objectiveFeed(n.text, n.team, false);
+    else this.#rosterNotices.reset();
     const royale = this.#royale;
     this.#sound.music.setScene(matchScene({ phase: match?.phase ?? null, timeLeft, finalStage: royale !== null && royale.stage >= RING_STAGES, won: this.#won(driver) }), timeLeft);
     // After the scene is set: a sting asked of a score that is still silent is dropped.

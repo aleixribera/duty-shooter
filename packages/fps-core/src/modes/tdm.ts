@@ -103,6 +103,6 @@ export class TeamDeathmatch implements GameMode {
   }
 
   #teamScore(team: TeamId): number {
-    return this.#roster.members(team).reduce((sum, e) => sum + e.kills, 0);
+    return this.#roster.members(team).reduce((sum, e) => sum + e.kills, this.#roster.banked(team));
   }
 }

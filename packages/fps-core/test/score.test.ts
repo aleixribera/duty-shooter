@@ -231,6 +231,24 @@ describe('score and winning', () => {
     expect(mode.scores().find((s) => s.id === 'a')).toMatchObject({ kills: 2, score: 300 });
   });
 
+  it('a team deathmatch tally keeps the kills of those who leave, and a seat back from a drop takes them back', () => {
+    const mode = new TeamDeathmatch();
+    mode.start([{ id: 'a', name: 'a', team: 1 }, { id: 'a2', name: 'a2', team: 1 }, { id: 'b', name: 'b', team: 2 }]);
+    mode.onEvents([kill('a', 'b'), kill('a2', 'b'), kill('a2', 'b')], ctx(0));
+    expect(mode.teamScores()).toEqual([{ team: 1, score: 3 }, { team: 2, score: 0 }]);
+    // a2 drops (a friend's connection, a bot giving up its seat, or everyone's bots at the lobby): blue keeps 3.
+    const a2 = mode.scores().find((s) => s.id === 'a2')!;
+    mode.leave('a2');
+    expect(mode.teamScores()).toEqual([{ team: 1, score: 3 }, { team: 2, score: 0 }]);
+    // Back in their seat with their row: counted once, not twice.
+    mode.rejoin(a2);
+    expect(mode.teamScores()).toEqual([{ team: 1, score: 3 }, { team: 2, score: 0 }]);
+    // The next match starts from nothing.
+    mode.leave('a');
+    mode.start([{ id: 'a2', name: 'a2', team: 1 }, { id: 'b', name: 'b', team: 2 }]);
+    expect(mode.teamScores()).toEqual([{ team: 1, score: 0 }, { team: 2, score: 0 }]);
+  });
+
   it('a team kill scores nothing', () => {
     const mode = new TeamDeathmatch();
     mode.start([{ id: 'a', name: 'a', team: 1 }, { id: 'a2', name: 'a2', team: 1 }, { id: 'b', name: 'b', team: 2 }]);

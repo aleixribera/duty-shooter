@@ -13,7 +13,7 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Pass 23 shipped request 1 (v2.195.0, ticket 106). Passes 24 and 26 request 2 (v2.196.0, v2.197.1, tickets 107, 109). Pass 25 request 3 (v2.197.0, ticket 108). Pass 27 shipped request 4 (v2.198.0, ticket 110): the follow camera over the right shoulder turning with their aim, their gun and magazine bottom right, their kills on the panel, "You died" off the middle after 3 s. Cut to BACKLOG: walking bots look 18° up (the fix exposes a Switchyard stuck spot in the soak). Next pass: request 5 (a whole match with friends plays well).
+Pass 23 shipped request 1 (v2.195.0, ticket 106). Passes 24 and 26 request 2 (v2.196.0, v2.197.1, tickets 107, 109). Pass 25 request 3 (v2.197.0, ticket 108). Pass 27 shipped request 4 (v2.198.0, ticket 110): the follow camera over the right shoulder turning with their aim, their gun and magazine bottom right, their kills on the panel, "You died" off the middle after 3 s. Cut to BACKLOG: walking bots look 18° up (the fix exposes a Switchyard stuck spot in the soak). Pass 28 shipped request 5 rough (v2.199.0, ticket 111): a whole friend match played end to end (`friends/look.mjs`); a Team deathmatch team keeps a leaver's kills (the lobby said "Blue won 0 to 0"), and the feed says "<name> joined / left / is back". Next pass: request 6 (other weapons against real games).
 
 Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
 

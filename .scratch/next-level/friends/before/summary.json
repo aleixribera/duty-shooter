@@ -1,0 +1,87 @@
+{
+  "events": [
+    {
+      "at": "09:01:55",
+      "what": "lobby",
+      "code": "MEUZ5F",
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 3 players + 5 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 24 ms MOVE 03 Pol MOVE KICK 05 Bot 07 Bot ▲ ORANGE 02 Marta MOVE KICK 04 Bot 06 Bot 08 Bot EVEN TEAMS MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE"
+    },
+    {
+      "at": "09:01:57",
+      "what": "match 1 started",
+      "map": "survival-town",
+      "mode": "tdm"
+    },
+    {
+      "at": "09:02:23",
+      "what": "scoreboard",
+      "text": "Health 100 M4A1 auto 1 1 30/ ∞ 26 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 6 players ◆ BLUE 2 # Player Score Kills Deaths Assists Ping 1 Cinderbot 350 2 1 0 – 2 Aleix 0 0 0 0 30 2 Staticbot 0 0 0 0 – ▲ ORANGE 1 # Player Score Kills Deaths Assists Ping 1 Mossbot 125 1 1 0 – 2 Pikebot 50 0 1 1 – 3 Makobot 0 0 0 0 – 2 ◆ Blue · you T−0:38 TDM · 75 1 ▲ Orange"
+    },
+    {
+      "at": "09:03:00",
+      "what": "match ended",
+      "kills": 0,
+      "deaths": 1,
+      "phase": "nuke",
+      "left": 6
+    },
+    {
+      "at": "09:03:00",
+      "what": "after 0 s",
+      "phase": "nuke",
+      "left": 6,
+      "text": "32 ms VICTORY MVP CINDERBOT 800 score 5 kills Best Medal Double kill Your match Score 0 Kills 0 Deaths 1 Assists 0 Place 5th / 6 XP earned +0 Rank 1Observer 0 / 800 XP Scoreboard in 0:06"
+    },
+    {
+      "at": "09:03:06",
+      "what": "after 6 s",
+      "phase": "vote",
+      "left": 10,
+      "text": "26 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 6 players ◆ BLUE 5 # Player Score Kills Deaths Assists Ping 1 Cinderbot 800 5 2 0 – 2 Aleix 0 0 1 0 27 2 Staticbot 0 0 1 0 – ▲ ORANGE 4 # Player Score Kills Deaths Assists Ping 1 Mossbot 400 3 3 0 – 2 Pikebot 250 1 2 2 – 3 Makobot 0 0 0 0 – VICTORY MVP CINDERBOT 800 score 5 kills Best Medal Double kill Your match Score 0 Kills 0 Deaths 1 Assists 0 Place 5th / 6 XP earned +0 Rank 1Observer 0 / 800 XP Back to the lobby in 0:10"
+    },
+    {
+      "at": "09:03:12",
+      "what": "after 12 s",
+      "phase": "vote",
+      "left": 4,
+      "text": "30 ms TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out 6 players ◆ BLUE 5 # Player Score Kills Deaths Assists Ping 1 Cinderbot 800 5 2 0 – 2 Aleix 0 0 1 0 28 2 Staticbot 0 0 1 0 – ▲ ORANGE 4 # Player Score Kills Deaths Assists Ping 1 Mossbot 400 3 3 0 – 2 Pikebot 250 1 2 2 – 3 Makobot 0 0 0 0 – VICTORY MVP CINDERBOT 800 score 5 kills Best Medal Double kill Your match Score 0 Kills 0 Deaths 1 Assists 0 Place 5th / 6 XP earned +0 Rank 1Observer 0 / 800 XP Back to the lobby in 0:04"
+    },
+    {
+      "at": "09:03:19",
+      "what": "after 18 s",
+      "phase": "lobby",
+      "left": null,
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 1 player + 7 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 24 ms MOVE 03 Bot 05 Bot 07 Bot ▲ ORANGE 02 Bot 04 Bot 06 Bot 08 Bot LAST MATCH BLUE WON 0 TO 0 Team deathmatch · time limit MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE LOADOUT SETTINGS ↑↓ MOVE ENTER SELECT START MATCH"
+    },
+    {
+      "at": "09:03:20",
+      "what": "lobby again",
+      "text": "PRIVATE LOBBY You are the host: the picks and Start are yours PLAYERS 1 player + 7 bots · 8 of 12 seats ◆ BLUE 01 Aleix You · Host 26 ms MOVE 03 Bot 05 Bot 07 Bot ▲ ORANGE 02 Bot 04 Bot 06 Bot 08 Bot LAST MATCH BLUE WON 0 TO 0 Team deathmatch · time limit MATCH SURVIVAL TOWN SWITCHYARD STATION NINE RANDOM MAP & MODE Mode TEAM DEATHMATCH FREE-FOR-ALL OUTPOSTS CHARGE GUN GAME Blue against orange. First team to 75 kills, or ahead after 10 minutes. Sides MIXED TEAMS HUMANS VS BOTS Bots OFF ON · 4V4 Invite link COPY LEAVE LOADOUT SETTINGS ↑↓ MOVE ENTER SELECT START MATCH"
+    },
+    {
+      "at": "09:03:20",
+      "what": "friends",
+      "friends": [
+        {
+          "name": "Marta",
+          "id": "p2",
+          "rejected": null,
+          "closed": 1000
+        },
+        {
+          "name": "Pol",
+          "id": "p3",
+          "rejected": null,
+          "closed": 1000
+        }
+      ]
+    },
+    {
+      "at": "09:03:22",
+      "what": "match 2 started",
+      "map": "survival-town",
+      "mode": "tdm"
+    }
+  ],
+  "errors": []
+}
