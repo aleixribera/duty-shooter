@@ -23,7 +23,8 @@ import { colourVision, teamColours } from '../team-colours';
 import type { PingKind } from '@duty-shooter/fps-core';
 
 const CSS = `
-.ds-hud { position: fixed; inset: 0; pointer-events: none; font: 400 var(--ds-type-body)/1.2 var(--ds-font); color: var(--ds-text); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--ds-shadow); user-select: none; z-index: 5; }
+/* Where the match bar ends (its top, the score's display figure and the side label under it): the zones' and Charge's strips stand under it. */
+.ds-hud { --ds-match-foot: calc(55px + var(--ds-type-display) + var(--ds-safe-t)); position: fixed; inset: 0; pointer-events: none; font: 400 var(--ds-type-body)/1.2 var(--ds-font); color: var(--ds-text); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--ds-shadow); user-select: none; z-index: 5; }
 .ds-hit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 .ds-hit i { position: absolute; width: 11px; height: 2.4px; background: var(--ds-reticle); left: -5.5px; top: -1.2px; box-shadow: 0 0 2px var(--ds-shadow); }
 /* A kill's marker is the hit's for 90 ms, then turns the kill colour with a small glow (DESIGN.md, Motion: the kill's beats). */
@@ -100,7 +101,7 @@ const CSS = `
 /* Each line is a small unlit plate; your own lines are lit plates (DESIGN.md, Kill feed). */
 /* A bot is said in words after the name, not boxed in a tag. */
 .ds-bot { margin-left: 6px; color: var(--ds-text-2); font-size: var(--ds-type-small); font-weight: 400; }
-.ds-zones { position: absolute; left: 50%; top: calc(86px + var(--ds-safe-t)); transform: translateX(-50%); display: flex; gap: 6px; }
+.ds-zones { position: absolute; left: 50%; top: calc(var(--ds-match-foot) + 8px); transform: translateX(-50%); display: flex; gap: 6px; }
 .ds-zones .zone { position: relative; width: 40px; height: 40px; border: 2px solid currentColor; background: var(--ds-plate-thin); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: var(--ds-text-3); }
 .ds-zones .zone.ds-t1 { color: var(--ds-blue); background: rgb(var(--ds-blue-rgb) / 0.28); }
 .ds-zones .zone.ds-t2 { color: var(--ds-orange); background: rgb(var(--ds-orange-rgb) / 0.28); }
@@ -121,7 +122,7 @@ const CSS = `
 .ds-marker.target b { border-color: var(--ds-light); }
 .ds-marker.charge b { border-color: var(--ds-alert); color: var(--ds-alert); }
 .ds-marker.planted b { border-color: var(--ds-alert); color: var(--ds-alert); animation: ds-blink 0.5s steps(2) infinite; }
-.ds-charge { position: absolute; left: 50%; top: calc(86px + var(--ds-safe-t)); transform: translateX(-50%); padding: 6px 14px; text-align: center; white-space: nowrap; }
+.ds-charge { position: absolute; left: 50%; top: calc(var(--ds-match-foot) + 8px); transform: translateX(-50%); padding: 6px 14px; text-align: center; white-space: nowrap; }
 .ds-charge .side { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-charge .what { font-size: var(--ds-type-body); font-weight: 700; margin-top: 3px; }
 .ds-charge .what.alert { color: var(--ds-alert); }
@@ -243,6 +244,7 @@ const CSS = `
 @media (max-height: 520px) and (min-width: 641px) {
   /* The match bar rises to the top edge and the opening card stands under it, clear of the crosshair, as with touch controls. */
   .ds-match { top: calc(8px + var(--ds-safe-t)); }
+  .ds-hud { --ds-match-foot: calc(39px + var(--ds-type-display) + var(--ds-safe-t)); }
   .ds-round { top: calc(84px + var(--ds-safe-t)); transform: translateX(-50%); padding: 6px 14px 8px; }
   .ds-round h2 { margin-top: 2px; }
   .ds-round .goal { margin-top: 4px; }

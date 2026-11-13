@@ -21,7 +21,7 @@ Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The lapto
 
 Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114) shipped v2.202.0 to v2.203.1 and proven (design-audit 2026-11-13: both highs and 8 mediums fixed, open mediums in BACKLOG; frame times within noise). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG).
 
-Pass 37: PLAN order step 2, a fresh review on the Backlit build (`reviews/2026-11-13c`), pass 1. Acceptance: the capture completes with no page errors, and the review judges all six objectives with frame or number evidence, and what became of 13b's five. Next pass: request 8 (random next match), then item 7 rough.
+Pass 37: PLAN order step 2, the fresh review on the Backlit build: `reviews/2026-11-13c.md` (1, 4 pass; 2 not judgeable, the PC was loaded; 3, 5, 6 fail). Fixed its Outposts strip over the score bar; the rest in BACKLOG. Next pass: request 8 (ticket 115), then item 7 rough.
 
 ## Needs Aleix
 
@@ -39,7 +39,7 @@ Pass 37: PLAN order step 2, a fresh review on the Backlit build (`reviews/2026-1
 
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
-- Reviews judge PLAN.md's five objectives (the ten-row scorecard is retired). Latest: 2026-11-13b (1, 2 pass; 3, 4, 5 fail).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 - CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
 ## Broken
