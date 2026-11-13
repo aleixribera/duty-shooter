@@ -33,6 +33,8 @@ export interface Death {
   readonly victim: string;
   readonly killer: string | null;
   readonly cause: string;
+  /** Where the victim was. */
+  readonly at: readonly [x: number, z: number];
 }
 
 /** What a whole match came to. */
@@ -112,6 +114,7 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
     concealment: isle.world.concealment,
     traps: isle.world.traps,
     spawns: isle.map.spawns.ffa,
+    ...(isle.map.towns ? { towns: isle.map.towns } : {}),
     mode: 'battle-royale',
     modes: { battleRoyale: { squadSize: size, seed, ...(timeLimit === undefined ? {} : { timeLimit }) } },
     bots: { nav: isle.nav, perTeam: 30, alwaysOn: true, profile },
@@ -148,7 +151,8 @@ export function playRoyale(isle: Island, { size, seed, timeLimit, good, each }: 
     matchTime = tick / 60;
     for (const e of out.events) {
       if (e.type === 'kill') {
-        deaths.push({ time: matchTime, victim: e.victim, killer: e.killer, cause: e.cause });
+        const victim = out.players.find((p) => p.id === e.victim);
+        deaths.push({ time: matchTime, victim: e.victim, killer: e.killer, cause: e.cause, at: victim ? [victim.position[0], victim.position[2]] : [NaN, NaN] });
         const since = downedAt.get(e.victim);
         if (since !== undefined && e.cause !== 'bleedOut' && e.cause !== 'wipe') finishes.push(matchTime - since);
         downedAt.delete(e.victim);

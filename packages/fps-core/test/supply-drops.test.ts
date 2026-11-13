@@ -99,6 +99,23 @@ describe('planning the drops', () => {
     expect(cramped).toBeGreaterThan(0);
   });
 
+  it('lands in a town when one stands well inside its circle (request 3)', () => {
+    const town = { x: 60, z: -40, radius: 40 };
+    const towned = playGround(NAV, WORLD, [town]);
+    let asked = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const ring = planRing(towned, seededRandom(seed), 600);
+      for (const d of planDrops(ring, towned, seededRandom(seed + 100))) {
+        const c = ring[d.stage - 1]!.to;
+        expect(flat(d.position, c)).toBeLessThanOrEqual(c.radius * D.ring.value + 1e-6);
+        if (Math.hypot(town.x - c.x, town.z - c.z) > c.radius * D.ring.value) continue;
+        asked += 1;
+        expect(Math.hypot(d.position[0] - town.x, d.position[2] - town.z)).toBeLessThanOrEqual(town.radius);
+      }
+    }
+    expect(asked).toBeGreaterThan(10);
+  });
+
   it('replays from its seed', () => {
     const ring = planRing(ground, seededRandom(9), 600);
     expect(planDrops(ring, ground, seededRandom(4))).toEqual(planDrops(ring, ground, seededRandom(4)));

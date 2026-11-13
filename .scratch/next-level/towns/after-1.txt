@@ -1,0 +1,20 @@
+RING over 400 plans: last circle closes in a town 84%, Stage 4's circle holds a town's middle 56%
+size 1 seed 1: 555 s, lastSquad; final circle IN a town (0,-66); kills 58, in towns 18; Stage 4 on 5, in towns 2; ring deaths 1; stuck 6 s
+size 1 seed 2: 555 s, lastSquad; final circle IN a town (-232,260); kills 58, in towns 28; Stage 4 on 6, in towns 1; ring deaths 1; stuck 6 s
+size 1 seed 3: 557 s, lastSquad; final circle IN a town (28,-52); kills 59, in towns 21; Stage 4 on 4, in towns 1; ring deaths 0; stuck 6 s
+size 1 seed 4: 457 s, lastSquad; final circle out of a town (-348,-134); kills 58, in towns 34; Stage 4 on 4, in towns 0; ring deaths 0; stuck 3 s
+size 1 seed 5: 488 s, lastSquad; final circle IN a town (412,76); kills 59, in towns 28; Stage 4 on 5, in towns 0; ring deaths 0; stuck 4 s
+size 1 seed 6: 548 s, lastSquad; final circle IN a town (-22,-48); kills 58, in towns 26; Stage 4 on 5, in towns 2; ring deaths 0; stuck 68 s
+size 2 seed 1: 552 s, lastSquad; final circle IN a town (0,-66); kills 45, in towns 8; Stage 4 on 7, in towns 0; ring deaths 2; stuck 6 s
+size 2 seed 2: 532 s, lastSquad; final circle IN a town (-232,260); kills 47, in towns 14; Stage 4 on 4, in towns 1; ring deaths 0; stuck 7 s
+size 2 seed 3: 521 s, lastSquad; final circle IN a town (28,-52); kills 43, in towns 24; Stage 4 on 5, in towns 1; ring deaths 0; stuck 6 s
+size 2 seed 4: 555 s, lastSquad; final circle out of a town (-348,-134); kills 41, in towns 8; Stage 4 on 6, in towns 0; ring deaths 0; stuck 10 s
+size 2 seed 5: 463 s, lastSquad; final circle IN a town (412,76); kills 46, in towns 27; Stage 4 on 4, in towns 0; ring deaths 0; stuck 4 s
+size 2 seed 6: 467 s, lastSquad; final circle IN a town (-22,-48); kills 45, in towns 28; Stage 4 on 5, in towns 0; ring deaths 0; stuck 5 s
+size 3 seed 1: 487 s, lastSquad; final circle IN a town (0,-66); kills 44, in towns 3; Stage 4 on 1, in towns 0; ring deaths 3; stuck 8 s
+size 3 seed 2: 403 s, lastSquad; final circle IN a town (-232,260); kills 37, in towns 21; Stage 4 on 5, in towns 0; ring deaths 0; stuck 5 s
+size 3 seed 3: 408 s, lastSquad; final circle IN a town (28,-52); kills 51, in towns 20; Stage 4 on 6, in towns 0; ring deaths 0; stuck 6 s
+size 3 seed 4: 461 s, lastSquad; final circle out of a town (-348,-134); kills 50, in towns 13; Stage 4 on 12, in towns 0; ring deaths 0; stuck 5 s
+size 3 seed 5: 557 s, lastSquad; final circle IN a town (412,76); kills 46, in towns 15; Stage 4 on 6, in towns 1; ring deaths 1; stuck 5 s
+size 3 seed 6: 402 s, lastSquad; final circle IN a town (-22,-48); kills 42, in towns 18; Stage 4 on 4, in towns 0; ring deaths 0; stuck 11 s
+TOTAL 18 matches: final circle in a town 83%; kills in towns 354/887 (40%); from Stage 4 on 9/94 (10%); ring deaths 8

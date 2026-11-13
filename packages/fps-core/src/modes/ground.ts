@@ -15,6 +15,13 @@ const CLOSER = 0.96;
 /** Turns and shifts of the lattice tried at a spacing before it closes up. */
 const TRIES = 6;
 
+/** A built-up place a map names (Zero Island's Cores): a Battle Royale's Ring, starts, crates and bots lean to them, so its fights are among buildings. */
+export interface Town {
+  readonly x: number;
+  readonly z: number;
+  readonly radius: number;
+}
+
 /**
  * Where a large match can put people: every spot a bot's nav stands on open
  * land, so a spawn is walkable and has a way to everywhere else. Bridges, roofs,
@@ -29,11 +36,14 @@ export class PlayGround {
   /** The middle of the land, and how far from there its farthest spot lies. */
   readonly centre: readonly [x: number, z: number];
   readonly radius: number;
+  /** The map's towns: none on most maps. */
+  readonly towns: readonly Town[];
 
-  constructor(spots: Float32Array, areas: Int32Array | null = null) {
+  constructor(spots: Float32Array, areas: Int32Array | null = null, towns: readonly Town[] = []) {
     if (spots.length === 0) throw new Error('No ground to play on');
     this.#spots = spots;
     this.#areas = areas;
+    this.towns = towns;
     let [minX, maxX, minZ, maxZ] = [Infinity, -Infinity, Infinity, -Infinity];
     for (let i = 0; i < this.count; i++) {
       const [x, z] = [spots[i * 3]!, spots[i * 3 + 2]!];
@@ -47,6 +57,11 @@ export class PlayGround {
     let far = 0;
     for (let i = 0; i < this.count; i++) far = Math.max(far, Math.hypot(spots[i * 3]! - this.centre[0], spots[i * 3 + 2]! - this.centre[1]));
     this.radius = far;
+  }
+
+  /** The same ground with other towns. */
+  withTowns(towns: readonly Town[]): PlayGround {
+    return new PlayGround(this.#spots, this.#areas, towns);
   }
 
   get count(): number {
@@ -82,13 +97,32 @@ export class PlayGround {
     }
     return found.sort((p, q) => p.d - q.d || p.i - q.i).map((p) => p.i);
   }
+
+  /** The town (x, z) stands in, `edge` (m) past its rim counted in, or null. */
+  townAt(x: number, z: number, edge = 0): Town | null {
+    return this.towns.find((t) => Math.hypot(x - t.x, z - t.z) <= t.radius + edge) ?? null;
+  }
+
+  /** A random spot of open ground in `town`, within `share` of its radius of its middle, or null where it has none. */
+  inTown(town: Town, random: () => number, share = TOWN_HEART): number | null {
+    const spots = this.near(town.x, town.z, town.radius * share);
+    return spots.length === 0 ? null : spots[Math.floor(random() * spots.length)]!;
+  }
 }
 
-const grounds = new WeakMap<NavGraph, PlayGround>();
+/** A town's heart: the share of its radius a spot picked in it lies within, clear of its outskirts. */
+export const TOWN_HEART = 0.75;
 
-/** The open land of a map with a nav graph. Worked out once a graph, so a warm-up pays and a match's opening doesn't. */
-export function playGround(nav: NavGraph, world: World): PlayGround {
+const grounds = new WeakMap<NavGraph, PlayGround>();
+const NO_TOWNS: readonly Town[] = [];
+
+/** The open land of a map with a nav graph, and its towns. Worked out once a graph, so a warm-up pays and a match's opening doesn't. */
+export function playGround(nav: NavGraph, world: World, towns: readonly Town[] = NO_TOWNS): PlayGround {
   let ground = grounds.get(nav);
+  if (ground && ground.towns !== towns) {
+    ground = ground.withTowns(towns);
+    grounds.set(nav, ground);
+  }
   if (!ground) {
     const spots: number[] = [];
     const areas: number[] = [];
@@ -101,7 +135,7 @@ export function playGround(nav: NavGraph, world: World): PlayGround {
       spots.push(x, y, z);
       areas.push(of[i]!);
     }
-    ground = new PlayGround(new Float32Array(spots), Int32Array.from(areas));
+    ground = new PlayGround(new Float32Array(spots), Int32Array.from(areas), towns);
     grounds.set(nav, ground);
   }
   return ground;
@@ -111,6 +145,14 @@ export function playGround(nav: NavGraph, world: World): PlayGround {
 export function groundFromSpawns(spawns: readonly SpawnPoint[]): PlayGround {
   return new PlayGround(new Float32Array(spawns.flatMap((s) => [...s.position])));
 }
+
+/** A Squad's start this far (m) past a town's rim is at the town. */
+const TOWN_START = 25;
+
+const atTown = (ground: PlayGround, spot: number): boolean => {
+  const [x, , z] = ground.spot(spot);
+  return ground.townAt(x, z, TOWN_START) !== null;
+};
 
 /** A shuffle of the first `count` numbers. */
 function shuffled(count: number, random: () => number): number[] {
@@ -151,7 +193,8 @@ function places(ground: PlayGround, spacing: number, size: number, gap: number, 
 /**
  * Where each of `squads` Squads of `size` starts, one list of spawns a Squad:
  * random places on land, every seat at least the spawn spacing from every other
- * Squad's and within the squadmate gap of its own first seat. A lattice, as
+ * Squad's and within the squadmate gap of its own first seat, the places at
+ * the map's towns taken first. A lattice, as
  * darts thrown at random jam well short of 60 on this much land. It is wide
  * enough that snapping to the nearest spot, and the squadmates round that, can
  * only close the distance down to the spacing.
@@ -167,7 +210,8 @@ export function squadSpots(ground: PlayGround, squads: number, size: number, ran
     if (tried % TRIES === 0) spacing *= CLOSER;
   }
   if (found.length === 0) found = [[0]];
-  const order = shuffled(found.length, random);
+  // Places in or by a town go first, as the crowd lands where the buildings are.
+  const order = shuffled(found.length, random).sort((a, b) => Number(atTown(ground, found[b]![0]!)) - Number(atTown(ground, found[a]![0]!)));
   return Array.from({ length: squads }, (_, i) => {
     const place = found[order[i % order.length]!]!;
     return Array.from({ length: size }, (_, seat): SpawnPoint => ({ position: [...ground.spot(place[seat % place.length]!)], yaw: random() * Math.PI * 2 }));

@@ -13,7 +13,7 @@ import { FreeForAll, type FreeForAllOptions } from '../modes/ffa';
 import { GunGame, type GunGameOptions } from '../modes/gungame';
 import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeActions, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
-import { playGround } from '../modes/ground';
+import { playGround, type Town } from '../modes/ground';
 import { royaleLoadout } from '../modes/supply-drops';
 import { clearOf, royaleProps, standProps } from '../modes/royale-props';
 import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
@@ -58,6 +58,8 @@ export interface ServerMap {
   readonly teamSpawns?: readonly (readonly SpawnPoint[])[];
   readonly zones?: readonly Zone[];
   readonly sites?: readonly ChargeSite[];
+  /** Its built-up places, which a Battle Royale's Ring, starts, crates and bots lean to; none without. */
+  readonly towns?: readonly Town[];
   /** No bots play on a map without one. */
   readonly nav?: NavGraph;
   /** Bots a side the lobby fills to on this map, by mode; the server's default where a mode has none. */
@@ -88,6 +90,8 @@ export interface GameServerOptions {
   readonly zones?: readonly Zone[];
   /** The map's Charge sites; none without. */
   readonly sites?: readonly ChargeSite[];
+  /** The map's towns (see ServerMap); none without. */
+  readonly towns?: readonly Town[];
   /** The first map's team size by mode, which bots fill to; `bots.perTeam` where a mode has none. */
   readonly teamSize?: TeamSizes;
   /** Range dummies, simulated by the server for everyone. */
@@ -484,6 +488,7 @@ export class GameServer {
       ...(options.teamSpawns ? { teamSpawns: options.teamSpawns } : {}),
       ...(options.zones ? { zones: options.zones } : {}),
       ...(options.sites ? { sites: options.sites } : {}),
+      ...(options.towns ? { towns: options.towns } : {}),
       ...(options.bots ? { nav: options.bots.nav } : {}),
       ...(options.teamSize ? { teamSize: options.teamSize } : {}),
     };
@@ -1454,7 +1459,7 @@ export class GameServer {
     const people = new Set<PlayerId>();
     for (const c of this.#clients) if (c.id !== null && !c.script) people.add(c.id);
     for (const away of this.#away.values()) people.add(away.id);
-    return { people, ...(this.#map.nav ? { ground: playGround(this.#map.nav, this.#map.world) } : {}) };
+    return { people, ...(this.#map.nav ? { ground: playGround(this.#map.nav, this.#map.world, this.#map.towns) } : {}) };
   }
 
   /** Runs one server tick: queued usercmds, the simulation, the game mode and match flow, then snapshots. */
@@ -1645,7 +1650,7 @@ export class GameServer {
         if (Math.hypot(at[0] - to[0], at[1] - to[1], at[2] - to[2]) > CARD_REACH) return null;
         return findPath(nav, startNode(nav, world, from), node) ? at : null;
       },
-    });
+    }, this.#map.towns);
     this.#grounds = this.#squads.plan({
       time,
       state,

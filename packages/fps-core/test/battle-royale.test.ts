@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { INTERMISSION, STATS, TICK_SECONDS, victoryBeat, botProfile, box, buildNavGraph, createWorld, type BattleRoyaleState, type Connection, type ModeContext, type ModeEvent, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
 import { BattleRoyale, PlayGround, planRing, playGround, type MatchEntrant, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { seededRandom } from '../src/random';
+import { squadSpots } from '../src/modes/ground';
 import { createNetworkedMatch, usercmd, type NetworkedClient, type NetworkedMatch, type NetworkedMatchOptions } from '@duty-shooter/fps-core/harness';
 import { Button } from '../src/usercmd';
 import { nameList } from '../src/modes/battle-royale';
@@ -332,6 +333,46 @@ describe('the Ring', () => {
     }
     // Without the parts known, some drifted across the cut.
     expect(crossed).toBeGreaterThan(0);
+  });
+
+  it('closes most matches in a town, still moving as it closes, and the rest anywhere (request 3)', () => {
+    const towns = [
+      { x: 150, z: 120, radius: 45 },
+      { x: -160, z: -90, radius: 50 },
+    ];
+    const ground = playGround(NAV, WORLD, towns);
+    const inTown = (c: { x: number; z: number }) => towns.some((t) => Math.hypot(c.x - t.x, c.z - t.z) <= t.radius);
+    let closed = 0;
+    let elsewhere = 0;
+    const drifts: number[] = [];
+    const N = 200;
+    for (let seed = 0; seed < N; seed++) {
+      const plan = planRing(ground, seededRandom(seed), 600);
+      const last = plan.at(-1)!;
+      if (inTown(last.to)) {
+        closed += 1;
+        drifts.push(Math.hypot(last.to.x - last.from.x, last.to.z - last.from.z) / last.from.radius);
+      } else elsewhere += 1;
+      expect(ground.near(last.to.x, last.to.z, 0.01)).not.toEqual([]);
+    }
+    // About the share asked for, but not all: the end still varies.
+    expect(closed / N).toBeGreaterThan(STATS.royale.townEnd.value - 0.1);
+    expect(elsewhere).toBeGreaterThan(0);
+    // The last circle still moves off where everyone sat (ticket 68), if less far when the town's heart stops it.
+    drifts.sort((a, b) => a - b);
+    expect(drifts[Math.floor(drifts.length / 2)]!).toBeGreaterThan(0.5);
+  });
+
+  it('starts Squads at the towns first (request 3)', () => {
+    const towns = [{ x: 150, z: 120, radius: 45 }];
+    const ground = playGround(NAV, WORLD, towns);
+    const near = (p: SpawnPoint) => Math.hypot(p.position[0] - 150, p.position[2] - 120) <= 45 + 25;
+    let at = 0;
+    for (let seed = 0; seed < 20; seed++) if (squadSpots(ground, 4, 3, seededRandom(seed)).some((squad) => near(squad[0]!))) at += 1;
+    expect(at).toBe(20);
+    let without = 0;
+    for (let seed = 0; seed < 20; seed++) if (squadSpots(playGround(NAV, WORLD), 4, 3, seededRandom(seed)).some((squad) => near(squad[0]!))) without += 1;
+    expect(without).toBeLessThan(20);
   });
 
   it('hurts more at each Stage', () => {

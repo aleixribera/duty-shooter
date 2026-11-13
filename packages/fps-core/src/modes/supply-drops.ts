@@ -76,7 +76,7 @@ export function roomForDrop(world: World, at: Vec3): boolean {
 /**
  * When and where each crate of a match falls: one at the start of each Stage
  * from the stats file's first to its last, landing on open ground well inside
- * that Stage's next circle with room around it (when `world` is given), its
+ * that Stage's next circle (in a town there, if one is) with room around it (when `world` is given), its
  * warning after it's announced.
  */
 export function planDrops(ring: readonly RingStage[], ground: PlayGround, random: () => number, world?: World): { readonly stage: number; readonly position: Vec3; readonly announce: number; readonly lands: number }[] {
@@ -85,6 +85,14 @@ export function planDrops(ring: readonly RingStage[], ground: PlayGround, random
     const s = ring[stage - 1]!;
     const c = s.to;
     let position: Vec3 | null = null;
+    // A town well inside the circle takes the crate: a fight over it is a fight among buildings.
+    const town = ground.towns.filter((w) => Math.hypot(w.x - c.x, w.z - c.z) <= c.radius * D.ring.value).sort((a, b) => Math.hypot(a.x - c.x, a.z - c.z) - Math.hypot(b.x - c.x, b.z - c.z))[0];
+    for (let t = 0; town && t < TRIES && !position; t++) {
+      const found = ground.inTown(town, random);
+      if (found === null) break;
+      const spot: Vec3 = [...ground.spot(found)];
+      if (Math.hypot(spot[0] - c.x, spot[2] - c.z) <= c.radius * D.ring.value && (!world || roomForDrop(world, spot))) position = spot;
+    }
     for (let t = 0; t < TRIES && !position; t++) {
       const [turn, out] = [random() * Math.PI * 2, Math.sqrt(random()) * c.radius * D.ring.value];
       const [x, z] = [c.x + Math.cos(turn) * out, c.z + Math.sin(turn) * out];

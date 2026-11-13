@@ -1,6 +1,6 @@
 import type { Vec3 } from '../math';
 import { STATS } from '../stats';
-import type { PlayGround } from './ground';
+import type { PlayGround, Town } from './ground';
 
 /** A circle on the ground plane. */
 export interface Circle {
@@ -26,10 +26,12 @@ export interface RingStage {
 const TRIES = 12;
 /** The first circle clears the land's edge by this much (m). */
 const MARGIN = 5;
+/** A Ring closing on a town keeps this share of its radius round the end inside each circle, and closes no farther out. */
+const TOWN_HEART = 0.6;
 
 /**
  * Every circle of a match, from `random`: the same stream replays them. The end
- * is chosen first, on land, then each circle is a random one inside the last
+ * is chosen first, on land (in one of the ground's towns, mostly), then each circle is a random one inside the last
  * that still holds the end, so all of them nest and the last closes on land.
  * The Stages' times scale with the match, so a short test match has the whole
  * Ring in it.
@@ -39,21 +41,27 @@ export function planRing(ground: PlayGround, random: () => number, timeLimit: nu
   const rows = Object.values(R.ring);
   const pace = timeLimit / R.matchLength.value;
   const first: Circle = { x: ground.centre[0], z: ground.centre[1], radius: ground.radius + MARGIN };
-  const [endX, , endZ] = ground.spot(Math.floor(random() * ground.count));
+  // Most matches end in a town, among buildings; the rest anywhere on land.
+  let town = ground.towns.length > 0 && random() < R.townEnd.value ? ground.towns[Math.floor(random() * ground.towns.length)]! : null;
+  const inTown = town && ground.inTown(town, random);
+  if (inTown === null) town = null;
+  const [endX, , endZ] = ground.spot(inTown ?? Math.floor(random() * ground.count));
   const stages: RingStage[] = [];
   let from = first;
   let time = 0;
   for (const row of rows) {
     const radius = first.radius * row.radius.value;
     const room = from.radius - radius;
+    // Closing on a town, each circle holds the town round the end too, so the late Stages are fought in it.
+    const hold = town ? Math.min(town.radius * TOWN_HEART, radius / 2) : 0;
     let to: Circle | null = null;
     for (let t = 0; t < TRIES && !to; t++) {
       const [turn, out] = [random() * Math.PI * 2, Math.sqrt(random()) * room];
       const [x, z] = [from.x + Math.cos(turn) * out, from.z + Math.sin(turn) * out];
-      if (Math.hypot(x - endX, z - endZ) <= radius) to = { x, z, radius };
+      if (Math.hypot(x - endX, z - endZ) <= radius - hold) to = { x, z, radius };
     }
     if (!to) {
-      // The end is inside `from`, so this far along the line to it is inside `from` and holds the end.
+      // The end is inside `from` (by its hold, which shrinks with the circles), so this far along the line to it is inside `from` and holds the end.
       const away = Math.hypot(endX - from.x, endZ - from.z);
       const k = away > room ? room / away : 1;
       to = { x: from.x + (endX - from.x) * k, z: from.z + (endZ - from.z) * k, radius };
@@ -65,7 +73,7 @@ export function planRing(ground: PlayGround, random: () => number, timeLimit: nu
     time = shrinkEnd;
   }
   const last = stages.at(-1);
-  if (last && stages.length > 1) stages[stages.length - 1] = { ...last, to: { ...drifted(ground, first, last.from, last.to), radius: last.to.radius } };
+  if (last && stages.length > 1) stages[stages.length - 1] = { ...last, to: { ...drifted(ground, first, last.from, last.to, town), radius: last.to.radius } };
   return stages;
 }
 
@@ -75,16 +83,21 @@ export function planRing(ground: PlayGround, random: () => number, timeLimit: nu
  * or on from the island's middle), at the open ground nearest that point that
  * a route joins to the ground the Ring was closing on (the circle before it
  * holds that), so it never drifts across water or onto a cliff top nobody
- * inside can climb to. It draws no
- * randomness, so the rest of a seed's match is as it was.
+ * inside can climb to. A Ring closing on a town stays in its heart, so its
+ * last fight is among the buildings. It draws no randomness, so the rest of
+ * a seed's match is as it was.
  */
-function drifted(ground: PlayGround, first: Circle, from: Circle, end: Circle): { x: number; z: number } {
+function drifted(ground: PlayGround, first: Circle, from: Circle, end: Circle, town: Town | null): { x: number; z: number } {
   const want = from.radius * STATS.royale.finalDrift.value;
   let [dx, dz] = [end.x - from.x, end.z - from.z];
   if (Math.hypot(dx, dz) < 1) [dx, dz] = [from.x - first.x, from.z - first.z];
   if (Math.hypot(dx, dz) < 1) [dx, dz] = [1, 0];
   const k = want / Math.hypot(dx, dz);
-  const [x, z] = [from.x + dx * k, from.z + dz * k];
+  let [x, z] = [from.x + dx * k, from.z + dz * k];
+  if (town) {
+    const [heart, off] = [town.radius * TOWN_HEART, Math.hypot(x - town.x, z - town.z)];
+    if (off > heart) [x, z] = [town.x + ((x - town.x) * heart) / off, town.z + ((z - town.z) * heart) / off];
+  }
   // The part of the island the Ring was closing on: the open ground nearest where the last circle stood.
   const area = areaNear(ground, end.x, end.z);
   // Open ground nearest there; the wider the water or the cliffs, the further it looks.

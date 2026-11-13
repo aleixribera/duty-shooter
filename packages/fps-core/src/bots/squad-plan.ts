@@ -1,5 +1,6 @@
 import type { Vec3 } from '../math';
 import type { BattleRoyaleState } from '../modes/game-mode';
+import { TOWN_HEART, type Town } from '../modes/ground';
 import type { Circle } from '../modes/ring';
 import { noise } from '../random';
 import { STATS } from '../stats';
@@ -125,6 +126,10 @@ const PING_HEADING = STATS.ping.placeLife.value;
 const LOUD_KILLS: ReadonlySet<string> = new Set(['bullet', 'grenade']);
 /** Tries at a random spot inside a circle. */
 const TRIES = 6;
+/** A town this near (m) the ground a bot wants is one it may take instead; it picks within this share of the town's radius of its middle. */
+const TOWN_REACH = 220;
+/** A bot already in a town that shifts keeps to the town, this far (m) from where it is. */
+const TOWN_STEP = 25;
 /**
  * Going for a Supply Drop, weighed once by each bot when it's announced: the
  * chance at its boldest and in full health, and how much of it even the most
@@ -171,6 +176,7 @@ export class SquadPlanner {
   readonly #spot: (x: number, z: number) => Vec3;
   readonly #seed: number;
   readonly #reach: CardReach | null;
+  readonly #towns: readonly Town[];
   /** Whether a bot can reach each Card lying on the island (by owner and time), from each part of the nav: the nav spot by it, or null for none. */
   readonly #cardSpots = new Map<string, Map<number, Vec3 | null>>();
   readonly #minds = new Map<PlayerId, Mind>();
@@ -183,11 +189,13 @@ export class SquadPlanner {
    * `reach` says where on the nav a bot coming from one point can stand to
    * take something lying at another, or null when there's no such place
    * (a Card in the sea or on a roof); without it, everywhere is reachable.
+   * `towns` are the map's built-up places, which bots' ground leans to.
    */
-  constructor(spot: (x: number, z: number) => Vec3, seed: number, reach?: CardReach) {
+  constructor(spot: (x: number, z: number) => Vec3, seed: number, reach?: CardReach, towns: readonly Town[] = []) {
     this.#spot = spot;
     this.#seed = seed;
     this.#reach = reach ?? null;
+    this.#towns = towns;
   }
 
   #random(): number {
@@ -230,8 +238,23 @@ export class SquadPlanner {
     }
   }
 
-  /** A place in `c`, on the ground, nearest to the one wanted. */
+  /**
+   * A place in `c`, on the ground, nearest to the one wanted; now and then
+   * (`townRally`) in the town nearest it whose heart is well inside `c`
+   * instead, so the Squads gather where the buildings are.
+   */
   #inCircle(c: Circle, want: readonly [number, number]): Vec3 {
+    const town = this.#townIn(c, want);
+    if (town && this.#random() < STATS.royale.townRally.value) {
+      // Into its heart from outside; from within, a step about the town rather than a run across it.
+      const within = Math.hypot(want[0] - town.x, want[1] - town.z) <= town.radius;
+      const [x, z, reach] = within ? [want[0], want[1], TOWN_STEP] : [town.x, town.z, town.radius * TOWN_HEART];
+      for (let t = 0; t < TRIES; t++) {
+        const [turn, out] = [this.#random() * Math.PI * 2, Math.sqrt(this.#random()) * reach];
+        const p = this.#spot(x + Math.cos(turn) * out, z + Math.sin(turn) * out);
+        if (away(p, c) <= c.radius * DEEP && away(p, town) <= town.radius) return p;
+      }
+    }
     for (let t = 0; t < TRIES; t++) {
       const [turn, out] = [this.#random() * Math.PI * 2, Math.sqrt(this.#random()) * Math.min(c.radius, 30 + t * 15)];
       const p = this.#spot(want[0] + Math.cos(turn) * out, want[1] + Math.sin(turn) * out);
@@ -243,6 +266,17 @@ export class SquadPlanner {
       if (away(p, c) <= c.radius) return p;
     }
     return this.#spot(c.x, c.z);
+  }
+
+  /** The town nearest `want`, within reach of it, whose heart stands well inside `c`; null for none. */
+  #townIn(c: Circle, want: readonly [number, number]): Town | null {
+    let best: Town | null = null;
+    let near = TOWN_REACH;
+    for (const t of this.#towns) {
+      const d = Math.hypot(t.x - want[0], t.z - want[1]);
+      if (d < near && away([t.x, 0, t.z], c) + t.radius * TOWN_HEART <= c.radius * DEEP) [best, near] = [t, d];
+    }
+    return best;
   }
 
   /** The point on the line to `c`'s middle that is just well inside it. */

@@ -37,6 +37,9 @@ One of Zero Island's six areas: Ground Zero, The Dustlands, Frostbite Peaks, Mut
 **Core**:
 A Region's dense, fully detailed place, a disc of 6,000 to 10,000 m². Every Core is built now, by its Region kit: Ground Zero's, the Dustlands' (the mining camp round the crashed cargo jet, ticket 18), Rogue Harbor's (the container port, its quay, cranes and moored cargo ship, ticket 19), Neon City's (the crossroads under the elevated highway, its walk-ups and arcades, the towers' shells, ticket 20), Frostbite Peaks' (the radar base on the plateau under the summit: the radome, the dish, the watchtower and the stopped cableway, ticket 21) and Mutant Jungle's (the clearing round the giant glowing tree: the temple's ruins, two gateways, a colonnade, crystal outcrops and a camp on stilts by the stream's spring, ticket 22).
 
+**Town**:
+A built-up place a map names for Battle Royale (`towns` on its definition; Zero Island's six are its Cores). The Ring closes in one in most matches (`royale.townEnd`), Squads starting at one are placed first, a Supply Drop lands in one inside its circle, and bots choosing ground inside the Ring often take it in one (`royale.townRally`), so the fights are among buildings.
+
 **Region kit**:
 A Region's own models (`models/<region>.glb`, built by `tools/map/regions/<region>.py`): its Built pieces, and unit models that dress the cover pass's pieces in the Region (walls, sheds, wrecks), all drawn instanced like Plants. Ground Zero's is the first (ticket 17); the steps every Region follows are in `zero-island-region.ts`.
 _Avoid_: asset pack, prefab

@@ -400,6 +400,7 @@ export function buildZeroIsland(): MapDefinition {
     spawns: { ffa: [spawn!, ...roundCores], teams: null },
     zones: [],
     sites: [],
+    towns: REGION_IDS.map((id) => ({ x: CORES[id].x, z: CORES[id].z, radius: CORES[id].radius })),
     offlineSpawn: spawn!,
     overview: spots[1]!,
     dummies: [],

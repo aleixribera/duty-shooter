@@ -54,6 +54,21 @@ describe('a Squad on the move', () => {
     expect(orders.get('b')!.rally).toEqual(rally);
   });
 
+  it('a Squad choosing ground inside leans to a town there, and only to one inside (request 3)', () => {
+    // Solo Squads all over the circle; a town of 45 m at (150, 60), well inside the next circle.
+    const town = { x: 150, z: 60, radius: 45 };
+    const seats = Array.from({ length: 30 }, (_, i) => seat(`s${i}`, i + 1, -100 + (i % 6) * 60, -120 + Math.floor(i / 6) * 60));
+    const inTown = (orders: ReturnType<SquadPlanner['plan']>) => seats.filter((s) => apart(orders.get(s.id)!.rally, [town.x, town.z]) <= town.radius).length;
+    const towned = inTown(new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, undefined, [town]).plan(situation(seats)));
+    const plain = inTown(planner().plan(situation(seats)));
+    expect(towned).toBeGreaterThan(seats.length * STATS.royale.townRally.value * 0.5);
+    expect(towned).toBeGreaterThan(plain + 5);
+    // A town the next circle doesn't hold well inside draws nobody.
+    const outside = { x: 390, z: 0, radius: 45 };
+    const drawn = new SquadPlanner((x, z): Vec3 => [x, 0, z], 7, undefined, [outside]).plan(situation(seats));
+    for (const s of seats) expect(apart(drawn.get(s.id)!.rally, [outside.x, outside.z])).toBeGreaterThan(outside.radius);
+  });
+
   it('a Squad already well inside stays near where it is', () => {
     const orders = planner().plan(situation([seat('a', 1, 110, 10)], { time: 5 }));
     expect(apart(orders.get('a')!.rally, [110, 10])).toBeLessThan(40);

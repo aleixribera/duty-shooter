@@ -379,6 +379,12 @@ export const STATS = {
     },
     botReaction: estimate(2.6, 'multiplier', BOT_SKILL),
     botAim: estimate(3.1, 'multiplier', BOT_SKILL),
+    townEnd: estimate(
+      0.8,
+      'multiplier',
+      "The share of matches whose Ring closes in a town (owner, request 3: Battle Royale's fights in towns). The rest close anywhere on land, so the end still varies, as Warzone's endgame circles were moved to land in competitive areas more often while keeping a variety of terrain (Season 03 Reloaded patch notes, callofduty.com, 2026-04).",
+    ),
+    townRally: estimate(0.6, 'multiplier', "The chance a bot choosing new ground inside the Ring takes it in a town there (request 3): towns fill as the Ring closes, and the fights are among buildings."),
     finalDrift: estimate(
       1.25,
       'multiplier',

@@ -1,6 +1,7 @@
 import { softConcealment, type ChargeSite, type Concealment, type Ladder, type NavOptions, type PlayerSpawn, type SoftCover, type Solid, type SoundTrap, type SpawnPoint, type TerrainData, type Vec3, type Zone } from '@duty-shooter/fps-core';
 import type { CourseGates, Decoration, EndingShot, Finish, FreightTrain, Lamp, Lighting, Look, MapModels, Plants, Scatter, Stencil } from '@duty-shooter/fps-client/surfaces';
 import type { Label, Ramp } from './map';
+import type { Town } from '@duty-shooter/fps-core/modes';
 
 import type { MapId } from './catalogue';
 export type { MapId } from './catalogue';
@@ -119,6 +120,8 @@ export interface MapDefinition {
   readonly zones: readonly Zone[];
   /** The two Charge sites, on the second team set's half (the defenders start there); none on a map that doesn't play it. */
   readonly sites: readonly ChargeSite[];
+  /** Its towns, the built-up places a Battle Royale's Ring, starts, crates and bots lean to (Zero Island's Cores); none on a map that doesn't play it. */
+  readonly towns?: readonly Town[];
   /** Where an offline session starts. */
   readonly offlineSpawn: SpawnPoint;
   /** Where the camera waits when there is no player to follow. */

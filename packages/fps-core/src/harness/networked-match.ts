@@ -30,6 +30,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly zones?: GameServerOptions['zones'];
   /** The map's Charge sites. */
   readonly sites?: GameServerOptions['sites'];
+  /** The map's towns. */
+  readonly towns?: GameServerOptions['towns'];
   readonly intermission?: { readonly nuke?: number; readonly vote?: number };
   /** The server's passphrase; defaults to 'letmein'. */
   readonly passphrase?: string;
@@ -114,6 +116,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     modes: firstDraws(options.modes),
     ...(options.zones ? { zones: options.zones } : {}),
     ...(options.sites ? { sites: options.sites } : {}),
+    ...(options.towns ? { towns: options.towns } : {}),
     ...(options.intermission ? { intermission: options.intermission } : {}),
     passphrase,
     ...(options.dummies ? { dummies: options.dummies } : {}),

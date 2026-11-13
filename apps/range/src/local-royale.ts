@@ -34,6 +34,7 @@ export class LocalRoyale {
       map: MAP,
       mode: 'battle-royale',
       spawns: map.spawns.ffa,
+      ...(map.towns ? { towns: map.towns } : {}),
       teamSize: TEAM_SIZES[MAP],
       passphrase: '',
       maxPlayers: WIDE_SCALE.seats,

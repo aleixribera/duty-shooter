@@ -440,6 +440,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       ...(def.spawns.teams ? { teamSpawns: def.spawns.teams } : {}),
       zones: def.zones,
       sites: def.sites,
+      ...(def.towns ? { towns: def.towns } : {}),
       ...(nav ? { nav } : {}),
       teamSize: TEAM_SIZES[def.id],
     };
@@ -469,6 +470,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     ...(first.teamSpawns ? { teamSpawns: first.teamSpawns } : {}),
     ...(first.zones ? { zones: first.zones } : {}),
     ...(first.sites ? { sites: first.sites } : {}),
+    ...(first.towns ? { towns: first.towns } : {}),
     ...(first.teamSize ? { teamSize: first.teamSize } : {}),
     dummies: map.dummies,
     passphrase: options.passphrase,
