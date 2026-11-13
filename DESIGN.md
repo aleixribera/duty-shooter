@@ -25,7 +25,8 @@ The 1955 test-site theme lives in the world, the sound and the countdown, never 
 
   Text on a lit plate is `--ds-text`. No surface is ever filled with the light itself.
 - **One lit plate per group:** the selected row of a list, the chosen tile of a slot, the chosen loadout. Each screen also has one lit action (the footer's primary), plus at most one reward it is about (the unlock card after a match). If two things are lit in one group, one of them is wrong.
-- **Hover and focus** light the edge at half (`--ds-light-half`) with no halo. Selection lights it fully.
+- **Hover and focus** light the edge at half (`--ds-light-half`, at least 3:1 against the unlit edge) with no halo. Selection lights it fully. Focus on a control that is already lit turns its edge white and adds a 2 px `--ds-text-2` ring 4 px out, so a pad or keyboard player can always find it.
+- **A control that can't be used is unlit:** its words in `--ds-text-3`, its choice kept as a grey edge without the light.
 - **Lit text** has no plate. It is used for:
   - the match clock;
   - the score popup;
@@ -46,7 +47,7 @@ The 1955 test-site theme lives in the world, the sound and the countdown, never 
 | Plate edge, unlit | `--ds-plate-edge` | `#34373b` |
 | Raised | `--ds-raised`, `--ds-raised-2` | `#1b1d20`, `#24272b` |
 | Text | `--ds-text`, `--ds-text-2`, `--ds-text-3` | `#fbf6ec`, `#b3b5b8`, `#8b8e92` |
-| Light (the one accent) | `--ds-light`, `--ds-light-edge`, `--ds-light-half` | `#ffe2b0`, `#ffe7c2`, `#8c7a5c` |
+| Light (the one accent) | `--ds-light`, `--ds-light-edge`, `--ds-light-half` | `#ffe2b0`, `#ffe7c2`, `#b39d76` |
 | Halo | `--ds-light-halo` | 45% of `#ffce8c` |
 | Lit fill | `--ds-plate-lit` | `#3b3226` at the bottom edge to `#141516`, radial |
 | Danger, the kill marker | `--ds-alert` | `#ff4a3d` |

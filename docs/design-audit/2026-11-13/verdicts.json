@@ -1,0 +1,52 @@
+{
+  "F01": {
+    "verdict": "PASS",
+    "note": "with the server down, a phone shows Play on (Server / Local bots) first, above the Squad",
+    "evidence": "after/royale@phone.png: the picker at the top of the body"
+  },
+  "F02": {
+    "verdict": "PASS",
+    "note": "the match bar sits at the top edge and the opening card under it; both scores and the clock are clear",
+    "evidence": "after/countdown@phone.png"
+  },
+  "F07": {
+    "verdict": "PASS",
+    "note": "the shut Squads picker is unlit: dimmed words, Solos a grey edge with no halo",
+    "evidence": "after/royale@desktop.png"
+  },
+  "F08": {
+    "verdict": "PASS",
+    "note": "the disabled picker no longer looks like the live one",
+    "evidence": "after/royale@desktop.png against after/royale-local@desktop.png"
+  },
+  "F12": {
+    "verdict": "PASS",
+    "note": "a focused lit primary carries a 2 px ring 4 px out",
+    "evidence": "after/bot-lobby@desktop.png: ring round Start Match"
+  },
+  "F18": {
+    "verdict": "PASS",
+    "note": "the half-lit focus edge is #b39d76",
+    "evidence": "4.6:1 against the unlit edge #34373b (was 2.9:1)"
+  },
+  "F24": {
+    "verdict": "PASS",
+    "note": "the countdown number is lit and the clock rests until play starts",
+    "evidence": "after/countdown@phone.png, after/countdown@desktop.png"
+  },
+  "F25": {
+    "verdict": "PASS",
+    "note": "the clock holds 6.1ch, so the bar no longer moves",
+    "evidence": "blue score x 752 -> 766 before; 748 -> 748 after (countdown -> match-hud)"
+  },
+  "F27": {
+    "verdict": "FAIL",
+    "note": "smaller, not small enough: health 164 px wide (was 259), ammo 210 px (was 227); the bottom band covers 44% of the width, down from 58%",
+    "evidence": "after/match-hud@phone.png"
+  },
+  "F28": {
+    "verdict": "PASS",
+    "note": "the health plate sizes to its figure: 164 px wide on a short screen (was 259)",
+    "evidence": "after/match-hud@phone.png"
+  }
+}

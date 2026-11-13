@@ -53,7 +53,8 @@ const CSS = `
 .ds-lobby .maps button.on { border-color: var(--ds-light); box-shadow: inset 0 0 0 1px var(--ds-light); }
 .ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
-.ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
+/* A locked pick (the host's) is a disabled picker, which dims itself (theme.ts); the map tiles dim here. */
+.ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
 .ds-lobby .invite { display: flex; }
 .ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
 .ds-lobby .invite .ds-btn { border-radius: 0; }

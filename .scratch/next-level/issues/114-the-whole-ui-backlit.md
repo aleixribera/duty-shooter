@@ -1,6 +1,7 @@
 # The whole UI in the Backlit style
 
-Status: open
+Status: resolved
+Release: v2.203.1
 
 Spec: `../spec.md`; `PLAN.md` item 1b (Aleix chose Backlit on 2026-11-13). `DESIGN.md` describes it; the reference frames and the mockup's CSS are in `../ui/backlit/`.
 
@@ -28,3 +29,19 @@ Rough order: the system in `theme.ts`, the main menu, the HUD in low light, ever
 - Figures: Chakra Petch has no tabular digits (a 1 is 374 units, a 0 644), so the magazine, the match scores and the clock hold a fixed width in `ch` (DESIGN.md, Type); the plates beside them no longer move as they count.
 - Second opinion (a review subagent on the diff): a scrolling plate (a long dialog, the held scoreboard) lost its fill past the first screenful, now `.is-scroll` carries the fill on the element itself; the lit tab's halo was clipped where the tabs scroll sideways, and a phone's full-width Resume carried a halo over half the screen, both now without one; a kill chained onto a standing stack left a blank row for 300 ms, now only a fresh stack waits for its lines; your vote's 2 px border moved its words by a pixel, now 1 px plus an inset line. All fixed in the same release.
 - Left open: `design-audit` on every screen, throttled frame times, and whether the kill stack should end sooner. The opening banner covering the match bar on a sideways phone predates this pass (BACKLOG).
+
+**2026-11-13, loop pass 36 (pass 3): the proof, and what the audit found.**
+- `design-audit` on every screen (`docs/design-audit/2026-11-13.md`, 50 shots at desktop, sideways and upright phone; five reviewers): 68 findings, 2 high, 29 medium, 37 low, with no text failing contrast in play. Fixed in this release:
+  - focus you can find (F12, F18): `--ds-light-half` raised from `#8c7a5c` (2.9:1 on an unlit edge) to `#b39d76` (4.6:1), and focus on an already-lit control adds a 2 px `--ds-text-2` ring 4 px out (inset on tabs, which clip);
+  - a shut picker is unlit (F07, F08): dimmed words, its choice a grey edge with no light (the lobby's locked picks no longer dim twice);
+  - Battle Royale with the server down puts Play on first on a phone (F01);
+  - on a short screen (max-height 520) the match bar rises to the top, the opening card stands under it (under the zones or Charge strip when they show), and health and ammo shrink (F02, F28; F27 still open: the ammo plate stays 210 px wide; this was the BACKLOG item about the banner);
+  - the countdown number is lit and the clock rests until play starts, Charge's freeze included (F24);
+  - the clock holds the width of "T−10:00" (6.1ch), so the bar no longer re-centres (F25);
+  - "1 kill" in the MVP line (F66).
+  The phone shots ran with a mouse; a touch switches the page to its touch layout, which already placed the card and plates. Left: F16 (ten lit "Stock" tiles on the Loadout, a DESIGN.md call), F14/F15/F21 (a sideways phone scrolls in Bot Match and Settings), both in BACKLOG, and the 37 lows in the report.
+- The kill stack now ends at 1.8 s (DESIGN.md, Motion): lines and Medal both, so a Medal at 750 ms stands about 1 s.
+- Frame times (`../ui/backlit-screens/perf.mjs`, Bot Match on Survival Town and the main menu, the commit before the Backlit pass against this one, on dev servers, as a production build pauses a match without pointer lock). Unthrottled, before then after, two rounds each: menu 14.95/14.5 ms against 14.35/14.49 ms; match 5.27/8.09 ms (1% low 13.1/19.8) against 7.45/6.83 ms (1% low 13.9/12.4); no frame over 50 ms. Within noise. At 4x CPU throttle the PC (54% busy with other work) gave 56-100 ms against 53-62 ms in a match: noise too wide to say more than "no worse". The laptop's confirmation waits for its turn (item 1).
+- Mint grep: nothing outside this ticket. Fonts: 59 KB for the four.
+- Second opinion (a review subagent on the diff): locked lobby picks dimmed twice; the card on a short screen sat on the zones' and Charge's strips; Charge's freeze number wasn't lit; all fixed. Left: at HUD scale 1.3 on a window over 1000 px wide and under 520 px tall, the scaled bar can reach the card (scale.ts zooms the bar, not the card).
+- Cut here, after three passes (the skill's two-pass rule, and PLAN's order puts a fresh review and item 7 next). The audit's open mediums go to BACKLOG; its 37 lows stay in the report. A test now holds the kill's beats and their 1.8 s end (`score-ui.test.ts`).

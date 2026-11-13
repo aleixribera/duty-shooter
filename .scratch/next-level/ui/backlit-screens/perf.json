@@ -1,0 +1,85 @@
+{
+  "rate": 1,
+  "results": [
+    {
+      "label": "before",
+      "map": "◆ Blue · you",
+      "menu": {
+        "frames": 801,
+        "meanMs": 14.95,
+        "p50Ms": 17.3,
+        "p99Ms": 31.2,
+        "low1Ms": 31.43,
+        "over50": 0
+      },
+      "match": {
+        "frames": 2848,
+        "meanMs": 5.27,
+        "p50Ms": 5,
+        "p99Ms": 10.9,
+        "low1Ms": 13.09,
+        "over50": 0
+      }
+    },
+    {
+      "label": "after",
+      "map": "◆ Blue · you",
+      "menu": {
+        "frames": 835,
+        "meanMs": 14.35,
+        "p50Ms": 17.3,
+        "p99Ms": 18.5,
+        "low1Ms": 18.73,
+        "over50": 0
+      },
+      "match": {
+        "frames": 2013,
+        "meanMs": 7.45,
+        "p50Ms": 7.3,
+        "p99Ms": 12.9,
+        "low1Ms": 13.89,
+        "over50": 0
+      }
+    },
+    {
+      "label": "before",
+      "map": "◆ Blue · you",
+      "menu": {
+        "frames": 826,
+        "meanMs": 14.5,
+        "p50Ms": 17.3,
+        "p99Ms": 18.5,
+        "low1Ms": 18.66,
+        "over50": 0
+      },
+      "match": {
+        "frames": 1856,
+        "meanMs": 8.09,
+        "p50Ms": 7.7,
+        "p99Ms": 16.7,
+        "low1Ms": 19.75,
+        "over50": 0
+      }
+    },
+    {
+      "label": "after",
+      "map": "◆ Blue · you",
+      "menu": {
+        "frames": 829,
+        "meanMs": 14.49,
+        "p50Ms": 17.3,
+        "p99Ms": 18.6,
+        "low1Ms": 19.68,
+        "over50": 0
+      },
+      "match": {
+        "frames": 2198,
+        "meanMs": 6.83,
+        "p50Ms": 6.7,
+        "p99Ms": 11.3,
+        "low1Ms": 12.43,
+        "over50": 0
+      }
+    }
+  ]
+}

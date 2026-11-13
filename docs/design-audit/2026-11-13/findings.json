@@ -1,0 +1,1447 @@
+{
+  "project": "duty-shooter",
+  "date": "2026-11-13",
+  "commit": "c1e7076f",
+  "dirty": true,
+  "findings": [
+    {
+      "id": "F01",
+      "screen": "royale",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "high",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "With the server down, the way to play a Battle Royale (Local bots) is nowhere on the phone screen",
+      "detail": "On a phone held sideways the Battle Royale screen shows the server error, Your Squad, greyed-out squad sizes and a lit Check again. The Server / Local bots picker that leads to a playable match is below the fold, and the error line doesn't mention it, so a new player presses Check again, gets nothing, and backs out believing Battle Royale can't be played. On desktop the picker is visible, but the error line still doesn't point to it and Check again remains the lit action.",
+      "fix": "When the server is down, switch the picker to Local bots on its own, or end the error line with 'Play with Local bots instead' as a button. On the phone layout, put the Play on picker first in the body, above Your Squad.",
+      "evidence": "phone DOM: no 'Play on', 'Server' or 'Local bots' text or control in view; visible: 'The server isn’t answering. It may be restarting.' [35,78,309,20], disabled SOLOS/DUOS/TRIOS, lit 'CHECK AGAIN' [420,338,408,44]. Desktop: picker at [56,149,520,48], error line 'The server isn’t answering. It may be restarting.' with no mention of Local bots.",
+      "box": [
+        16,
+        74,
+        340,
+        28
+      ]
+    },
+    {
+      "id": "F02",
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "high",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "hierarchy",
+        "hud",
+        "rules"
+      ],
+      "title": "The opening goal plate covers the score bar and the clock on a sideways phone",
+      "detail": "During the countdown, the 'Team deathmatch / 4 / goal' plate sits on top of the match bar, so both team scores and the clock are hidden except for the tops of their digits. Its bottom edge also reaches the crosshair. DESIGN: on a phone the goal line stands right under the match bar, off the crosshair.",
+      "fix": "On short viewports, anchor the goal plate below the match bar (top at about 90 px), keep it to one line plus the number, and don't let it reach the centre 20% box.",
+      "evidence": "Screenshot: the plate spans about CSS [223,43,398,147]. The clock 'T-10:00' box [372,25,116,39] and the scores at y 25-64 are cut by the plate from y 43. The plate's bottom is at y≈190, right at the crosshair (centre y 195). · Plate spans about y 43-190 CSS px. The clock 'T−10:00' [372,25,116,39], '◆ Blue · you' [252,62,86,17] and 'TDM · 75' [402,62,56,17] lie under 'Team deathmatch' [362,54,121,20]. Ally tags 'Briar' [261,127] and 'Ember' [587,114] lie under the plate. · Match bar figures at y 25-64 (clock 'T−10:00' [372,25,116,39], scores [285,25,20,39] and [547,25,20,39]; team labels at y 62-79). The countdown plate spans about [223,43,398,147], so its 'Team deathmatch' line [362,54,121,20] sits on the clock. In the screenshot only the top halves of '0', 'T−10:00' and '0' show. · Plate spans about x 223-620, y 43-190 (CSS); match bar 'T−10:00' at [372,25,116,39] and team '0's at [285,25] / [547,25] sit under it. Crosshair top tick at y 174-190; the 20% centre box is y 156-234, so the plate intrudes 34 px into it. · countdown@phone.png: the plate overlaps the score bar and clock at the top centre. The plate's bottom edge reaches about y 190 CSS. The centre box spans y 156-234 and x 338-506.",
+      "box": [
+        223,
+        43,
+        398,
+        147
+      ],
+      "alsoNoted": [
+        "first-time: On a phone the opening goal plate covers the score and clock bar and the allies' name tags",
+        "hierarchy: The countdown plate covers the bottom half of the match bar",
+        "hud: The opening countdown plate hides the clock and scores and reaches down to the crosshair",
+        "rules: Countdown and goal plate covers the match clock and reaches the centre"
+      ]
+    },
+    {
+      "id": "F03",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "The main menu has no way to the Loadout",
+      "detail": "A new player who wants to choose a gun before playing finds only Profile and Settings under the destinations. Loadout appears only in the Bot Match lobby footer and the pause menu, and not at all on the Battle Royale screen. DESIGN.md puts Loadouts in this row.",
+      "fix": "Add Loadouts as the first item in the small row (Loadouts · Profile · Settings), with the lit dot when an unlock is waiting.",
+      "evidence": "Row under the list: 'Profile' [68,956,103,44] and 'Settings' [179,956,123,44] only. The same on phone (16,308) and phone-upright (18,708). The royale footer holds only Back and Check again / Open lobby.",
+      "box": [
+        68,
+        956,
+        234,
+        44
+      ]
+    },
+    {
+      "id": "F04",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "TYP-02",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The wordmark is bigger than the destinations and sits flush on them, so it reads as the first menu item",
+      "detail": "On a sideways phone 'DUTY SHOOTER' is the largest text on the screen and sits 1 px above 'PLAY ONLINE', in the same face and caps. It reads as the top row of the destination list, and the list loses its head.",
+      "fix": "On the sideways phone, make the wordmark smaller than the destinations (22 px heading size, text-3) and leave at least 16 px between it and the list. Or move it into the right column above the profile corner.",
+      "evidence": "h1 'Duty Shooter' [16,5,262,42], 32 px/700 Chakra Petch. 'Play Online' [32,48,193,39], 30 px/700. The gap is 1 px (47 → 48). On desktop the wordmark is 51.84 px against 60 px destinations with about 370 px between them, which reads correctly.",
+      "box": [
+        16,
+        5,
+        262,
+        82
+      ]
+    },
+    {
+      "id": "F05",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "first-time"
+      ],
+      "title": "The name field in the profile corner is a 19 px tall tap target",
+      "detail": "The player's name is an editable input, but its hit area is a 19 px strip that looks like plain text. On a phone it is hard to hit and easy to miss. It is the same on desktop (298x19, under the 32 px mouse minimum) and on the upright phone (260x19).",
+      "fix": "Make the whole name line of the profile plate the input, at least 44 px tall on touch and 32 px with a mouse, and give it a visible edit affordance (an underline in --ds-line-2 or a pencil icon button).",
+      "evidence": "DOM controls: input 'Name' box [598,26,218,19] on main-menu@phone, [1550,60,298,19] on desktop and [98,90,260,19] on phone-upright. contrast.md flags it as a small target on all three. · Control 'Name' input [598,26,218,19] on phone and [1550,60,298,19] on desktop, drawn as bold text with no field edge. Only the Battle Royale Local bots screen shows a labelled 'Name' field.",
+      "box": [
+        598,
+        26,
+        218,
+        19
+      ],
+      "alsoNoted": [
+        "first-time: The player name is an editable field that looks like plain text and is only 19 px tall"
+      ]
+    },
+    {
+      "id": "F06",
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "rules"
+      ],
+      "title": "'Play Online' title fails contrast over the world on a sideways phone",
+      "detail": "Offline, the Play Online destination is drawn in --ds-text-3 directly over the scrimmed world. On the phone it sits over the bright hills and sky, so the first and largest destination reads as faded and is hard to read in daylight. DESIGN reserves --ds-text-3 for labels on plates. On desktop the same title passes only narrowly (p10 4.31).",
+      "fix": "Draw the unavailable destination in --ds-text-2 (it still reads as dimmer than the white rows) and let the status line carry 'Offline'. Alternatively, darken the menu scrim behind the list on short viewports.",
+      "evidence": "contrast.json main-menu@phone: 'Play Online' 30 px bold, colour rgb(139,142,146), declared 5.61:1, measured p50 2.4:1 and p10 1.6:1 against the 3:1 need. It is the only contrast fail in the audit. · contrast.md main-menu@phone: 'Play Online' p50 2.4, p10 1.6, need 3.0.",
+      "box": [
+        32,
+        48,
+        193,
+        39
+      ],
+      "alsoNoted": [
+        "rules: Unlit destination 'Play Online' too faint over the map"
+      ]
+    },
+    {
+      "id": "F07",
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Layout",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The disabled Squads picker looks live, and its Solos choice is still fully lit",
+      "detail": "With the server down, Solos/Duos/Trios cannot be pressed, but the row looks exactly like the working Play on row above it, and Solos glows as brightly as Check again. A player clicks Duos, nothing happens, and nothing says why.",
+      "fix": "Show a disabled picker unlit: dim its text to text-3 and drop the halo from its chosen choice. Put the reason beside it in one short line ('Needs the server'), or hide the row while the server is down.",
+      "evidence": "DOM: SOLOS, DUOS and TRIOS have disabled=true at [56,279,169,48], [231,279,169,48] and [407,279,169,48]. Solos has class 'on' with text rgb(251,246,236) and the full lit edge and halo. Duos and Trios use the same rgb(179,181,184) as the enabled 'Local bots'. The only reason given is a sentence at [779,710,309,20], under the island picture on the other side of the screen. The same row on royale@phone is also disabled with no mark.",
+      "box": [
+        56,
+        253,
+        520,
+        74
+      ]
+    },
+    {
+      "id": "F08",
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "rules"
+      ],
+      "title": "Squad-size picker is disabled but looks exactly like the enabled one",
+      "detail": "With the server down, Solos, Duos and Trios are disabled. They are drawn the same as on the Local bots screen, where they work: Solos lit and the others grey. A player clicks Duos, nothing happens, and nothing says why. NEW idea: a disabled control must look disabled and say what it is waiting for (DESIGN: Do). The same happens on royale@phone.",
+      "fix": "When disabled, dim the whole segmented control (unlit plate edge, label in --ds-text-3, no halo on the chosen one). Put the reason in the Squads label ('Squads: needs the server'), or move the picker under Local bots only.",
+      "evidence": "DOM: SOLOS, DUOS and TRIOS are disabled:true at [56,279,169,48], [231,279,169,48] and [407,279,169,48]. The text colours match royale-local@desktop, where they are enabled: Solos #fbf6ec, Duos and Trios #b3b5b8. The lit edge and halo on SOLOS are the same in both shots. · Controls 'SOLOS' [56,279,169,48], 'DUOS' [231,279,169,48] and 'TRIOS' [407,279,169,48] are all disabled. Solos is drawn with the full light edge. The only note on screen is 'Friends can join; bots fill the empty seats.' under the Play on picker. · royale@desktop.dom.json: the squad buttons are disabled:true and sit in [56,279,520,48].",
+      "box": [
+        56,
+        279,
+        520,
+        48
+      ],
+      "alsoNoted": [
+        "first-time: Squad sizes are greyed out and unclickable with no reason given, yet Solos still shows lit",
+        "rules: Disabled Solos/Duos/Trios picker gives no reason"
+      ]
+    },
+    {
+      "id": "F09",
+      "screen": "royale",
+      "viewport": "phone",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Layout",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Way to play is below the fold on the sideways phone",
+      "detail": "Several Battle Royale controls are below the fold on the phone: the 'Play on' picker (Local bots) and the map readouts need a scroll, and the Squads picker is half under the footer. DESIGN: Layout requires the way to play to show without a scroll on a sideways phone. royale-local@phone has the same problem, made worse because the Name field takes the top of the screen.",
+      "fix": "On short landscape screens, put the pickers in two columns, or move the Name field and readouts after the pickers, so that Play on and Squads fit above the footer.",
+      "evidence": "royale@phone.dom.json: Squads picker [16,316,169,48]. The footer starts at y 338. The Play on picker has y > 390.",
+      "box": [
+        16,
+        316,
+        169,
+        48
+      ]
+    },
+    {
+      "id": "F10",
+      "screen": "royale-local",
+      "viewport": "phone",
+      "rule": "TYP-06",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Your name is shown twice, and the field that edits it is far from the slot that shows it",
+      "detail": "The Name field and the squad slot both say 'Player 6597'. On the phone this pushes Squads under the footer. On desktop the Name field sits under the island picture in the right column, about 700 px from the squad slot it changes.",
+      "fix": "Make your own squad slot the name field (tap to rename), or put the Name field directly in or under the slot, and drop the separate field. On the phone, Squads then moves up into view.",
+      "evidence": "royale-local@phone: input [16,88,812,46] 'Player 6597', slot name [29,227,95,21] 'Player 6597', 'Squads' label at y 308 with buttons at y 334, under the footer that starts at y 330. royale-local@desktop: Name input at about [760,719,1104,46], slot at [56,389,208,104].",
+      "box": [
+        16,
+        61,
+        812,
+        230
+      ]
+    },
+    {
+      "id": "F11",
+      "screen": "royale-local",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "The squad-size picker sits entirely under the footer on a sideways phone",
+      "detail": "On the Battle Royale screen held sideways, Solos, Duos and Trios fall below the fixed footer. A player presses Open Lobby without ever seeing that squad size was a choice. NEW idea, from DESIGN Layout: on a sideways phone, the way to play shows without a scroll. On royale@phone only a 14 px sliver of the picker shows above the footer.",
+      "fix": "On short viewports, put the Squads picker on the header line or above the name field, or shrink the squad slot to one line so the picker clears the footer.",
+      "evidence": "DOM: SOLOS [16,334,169,48], DUOS [191,334,169,48] and TRIOS [367,334,169,48]. The footer buttons start at y 338 and the footer plate at about y 330, so all three are covered. On royale@phone the picker is at y 316-364 under the same footer.",
+      "box": [
+        16,
+        308,
+        520,
+        74
+      ]
+    },
+    {
+      "id": "F12",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Keyboard or pad focus on the footer's primary button looks the same as no focus",
+      "detail": "The primary button (Start Match, Done, Check Again, Open Lobby) is always lit. When focus lands on it, the only change is the edge going from warm white to pure white, so a keyboard or pad player can't tell whether Enter will press it. Focus lands on this button when the lobby, loadout, gunsmith and online screens open.",
+      "fix": "Give the focused primary a mark that the resting lit state doesn't have, such as a 2 px outer ring offset 3 px in --ds-text or a brighter fill (--ds-plate-lit raised), so focus differs by at least 3:1 from rest.",
+      "evidence": "Pixels on the edge of the focused START MATCH (bot-lobby, focused per DOM) are #ffffff. On the unfocused OPEN LOBBY (royale-local, focused: null) they are #ffe7c2. The two states differ by about 1.2:1. The halo and fill are the same in both.",
+      "box": [
+        1604,
+        1008,
+        260,
+        58
+      ]
+    },
+    {
+      "id": "F13",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "TYP-02",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The page title and the first section heading have the same size and weight",
+      "detail": "'BOT MATCH' and 'MATCH' are stacked at the same 22 px/700, so the title and its first block look like two equal headings, and the repeated word adds to the blur. Settings on a sideways phone does the same: 'SETTINGS' (h1) and 'AIM, CROUCH AND SPRINT' (h3) are both 22 px/700, as are 'Battle Royale' and 'Your Squad'.",
+      "fix": "On the sideways phone, keep the h1 at heading size but drop section headings to a small uppercase label (13 px, text-2, 0.1em), or hide a section heading that repeats the title ('Match' under 'Bot Match').",
+      "evidence": "bot-lobby@phone: h1 'Bot Match' [16,8,127,29] 22/700 and h2 'Match' [16,57,77,29] 22/700. settings-controls@phone: h1 [16,17,109,29] 22/700 and h3 [16,75,292,29] 22/700. royale@phone: h1 [16,8,174,29] and h2 'Your Squad' [16,140,147,29], both 22/700.",
+      "box": [
+        16,
+        8,
+        812,
+        78
+      ]
+    },
+    {
+      "id": "F14",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "Sideways phone lobby shows only maps; mode, sides, bot skill and the goal sit below the fold beside a lit Start match",
+      "detail": "A first-time phone player sees three map tiles and a glowing Start match, so they start without knowing that a mode, teams and bot skill exist. They find out they're in Team deathmatch only from the countdown. DESIGN.md asks that a sideways phone shows the way to play without a scroll.",
+      "fix": "In the sideways layout, shrink the map tiles to a single row of ~60 px strips (or a segmented picker) so Mode and its one-line goal fit above the footer, or put the chosen mode and goal in the footer beside Start match.",
+      "evidence": "bot-lobby@phone DOM: visible texts are 'Bot Match', 'Match', three map names and 'Random map & mode'. No 'Mode', 'Sides', 'Bot skill' or 'Players' in view. Start match is lit and focused [622,338,206,44]. · bot-lobby@phone: tiles [16,112,402,96], [426,112,402,96], [16,216,402,96]; 'Random map & mode' [16,330,812,44] already sits under the footer. No Mode, Sides or Bot skill text is in view. DESIGN: 'the way to play, and what each button does, show without a scroll'.",
+      "box": [
+        16,
+        57,
+        812,
+        281
+      ],
+      "alsoNoted": [
+        "hierarchy: The first screen on a sideways phone is three map tiles; mode, sides, bot skill and the roster need scrolling"
+      ]
+    },
+    {
+      "id": "F15",
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Layout",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Bot Match settings hidden below the map tiles on phone",
+      "detail": "Only the map tiles are visible on the phone. Mode, Sides, Skill and Players all need a scroll, and 'Random map & mode' sits under the footer. A player can start without seeing the mode or the bot skill.",
+      "fix": "On landscape phones, shrink the map tiles to one row, or move them into a picker, so the Mode, Sides, Skill and Players fields fit above the footer.",
+      "evidence": "bot-lobby@phone.dom.json: 'Random map & mode' [16,330,812,44] overlaps the footer at y 338. The Mode and Skill pickers have y > 390.",
+      "box": [
+        16,
+        330,
+        812,
+        44
+      ]
+    },
+    {
+      "id": "F16",
+      "screen": "loadout",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Ten plates are lit at once, so the light no longer points anywhere",
+      "detail": "Every equipped item is a fully lit plate (2 px light edge, halo, lit fill): M4A1, six 'Stock / as issued' attachment tiles, Warden 9, Frag, plus Done. The brightest thing on the screen is a stacked column of default stock attachments the player has not touched, and Done does not stand out. The same happens with fewer plates on bot-lobby@desktop (Survival Town, Team deathmatch, Mixed teams, Normal and Start match lit; the 520 px wide Team deathmatch row is the biggest lit shape, bigger than Start match) and on royale@desktop (Server, Solos and Check again).",
+      "fix": "Show 'equipped' as a picked choice with less light than the primary. For example, picker choices get the lit edge without the halo, and only the footer primary gets edge, halo and lit fill. On Loadout, leave the 'Stock' default unlit (a raised plate with a text-2 edge, the way your own seat is marked) so light lands only on a choice the player made.",
+      "evidence": "loadout@desktop: lit plates at [56,170,331,74], [164,338,408,56], [164,402,408,56], [164,466,408,56], [164,530,408,56], [56,657,331,74], [164,743,408,56], [164,807,408,56], [56,934,331,60] and Done [1604,1008,260,58]. bot-lobby@desktop: 5 lit plates, Team deathmatch [1344,414,520,44] against Start match [1604,1008,260,58].",
+      "box": [
+        56,
+        170,
+        516,
+        824
+      ]
+    },
+    {
+      "id": "F17",
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Must-read sentences set at 13 px",
+      "detail": "Sentence-case text that players need to read is set at 13 px, below the 14 px minimum. Only short uppercase labels may go down to 12. Examples on the profile: 'No kills yet', '25 to level 1', 'New at midnight'. The same 13 px size appears in the royale 'why' line [56,207,218,17], the range stats, the settings notes, the pause Controls descriptions and the footer key hints. contrast.md flags 55 size warnings on profile alone.",
+      "fix": "Raise the body/note step of the type scale from 13 to 14 or more. Keep 13 only for short uppercase labels on plates.",
+      "evidence": "contrast.md profile@desktop: rows sized 13 under the 14 threshold. The DOM shows IBM Plex 13/400.",
+      "box": [
+        801,
+        209,
+        58,
+        17
+      ]
+    },
+    {
+      "id": "F18",
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Half-lit focus is a 1 px tan hairline that barely differs from an unfocused plate",
+      "detail": "When focus is on a normal button (Back, Reset profile, settings rows, footer buttons), the only sign is a 1 px edge in --ds-light-half instead of the grey plate edge. On a 1080p screen at couch distance, a keyboard or pad player has trouble finding where focus is. This is the default focus on Profile, and the same treatment covers every unlit control.",
+      "fix": "Draw half-lit focus as a 2 px edge, and use a colour that reaches 3:1 against --ds-plate-edge (for example --ds-text-2 #b3b5b8, or raise --ds-light-half to around #b39d76), while keeping the halo for full selection only.",
+      "evidence": "Focused BACK (DOM focused) has a 1 px edge of rgb(140,122,92) = #8c7a5c. Unfocused RESET PROFILE has a 1 px edge of rgb(52,55,59) = #34373b. They differ by 2.87:1, under the 3:1 needed for a focus change, and the edge is 1 px instead of 2 px. The fills are (29,29,28) and (20,22,25).",
+      "box": [
+        56,
+        1022,
+        117,
+        44
+      ]
+    },
+    {
+      "id": "F19",
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Reset Profile sits in the footer's primary slot, the spot every other screen uses for the way forward",
+      "detail": "On every other page the bottom-right button is the action to take. Here the only control in that spot is the destructive Reset Profile, so a player trained to press the bottom-right button lands on the action that wipes their progress.",
+      "fix": "Move Reset Profile out of the footer: put it in a small danger row at the end of the page body with an alert-coloured edge, behind a confirm. Leave the footer with Back only.",
+      "evidence": "Footer right: 'RESET PROFILE' at about [1695,1022,169,44], unlit. The primary slot on other screens holds Check again, Start match, Done and Run benchmark at [1604,1008,260,58]. On profile@phone, Reset Profile sits right next to Back at the same size.",
+      "box": [
+        1695,
+        1022,
+        169,
+        44
+      ]
+    },
+    {
+      "id": "F20",
+      "screen": "profile",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "lenses": [
+        "rules"
+      ],
+      "title": "No primary action; Reset profile weighs the same as Back",
+      "detail": "The profile footer holds only Back and the destructive 'Reset profile', both drawn as equal graphite plates, side by side with no separation. Nothing is lit, so there is no obvious next step, and the destructive action sits exactly where a primary usually goes. Desktop has the same footer.",
+      "fix": "Move Reset profile away from Back (into a danger area, or behind a confirm), and style it as a danger or quiet control.",
+      "evidence": "profile@phone.dom.json: Back [16,338,117,44] and Reset profile [141,338,169,44], with the same style.",
+      "box": [
+        16,
+        338,
+        294,
+        44
+      ]
+    },
+    {
+      "id": "F21",
+      "screen": "settings-controls",
+      "viewport": "phone",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Layout",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "On a sideways phone each setting stacks its label above a full-width control, so only about three rows fit",
+      "detail": "The 844 px wide screen uses the narrow-screen pattern: label on one line, then an 812 px wide field. Each row takes about 95 px, so a player sees two or three settings at a time and scrolls through a long Controls list. Every settings tab on the sideways phone does this.",
+      "fix": "On widths of 640 px or more, keep the desktop row (label left, control right, about 52 px tall) even when the viewport is short. Stack only on upright phones.",
+      "evidence": "Labels at y 124, 219 and 315, with selects [32,151,784,44], [32,247,784,44] and [32,342,784,44]: a pitch of about 95 px. On desktop the same rows are 57 px tall, with the label on the left and the control on the right.",
+      "box": [
+        16,
+        75,
+        812,
+        255
+      ]
+    },
+    {
+      "id": "F22",
+      "screen": "settings-video",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "'The picture' lists graphics settings that can't be changed, with no word on why",
+      "detail": "A new player whose frame rate is low opens Video looking for a quality switch. They find shadows, ambient occlusion and anti-aliasing listed as values with no control, and nothing says the game sets them itself for this machine. They hunt for an option that doesn't exist. New rule idea: a read-only readout of settings says who sets it.",
+      "fix": "Add one short note under the heading, e.g. 'Set for this machine. Lower the frame-rate cap if it stutters', or offer a quality picker.",
+      "evidence": "Readouts 'Shadows 2048 px, 45 m', 'Ambient occlusion 8 samples', 'Anti-aliasing Temporal', 'Texture filtering 8x' [1076,157,400,235], none with a control. The only note is 'WebGPU · nvidia blackwell · 60 Hz display'.",
+      "box": [
+        1076,
+        119,
+        400,
+        302
+      ]
+    },
+    {
+      "id": "F23",
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "first-time",
+        "hierarchy",
+        "hud",
+        "rules"
+      ],
+      "title": "Practice Range stats panel is clipped at the top edge and fills two-thirds of the left side",
+      "detail": "On a sideways phone, the Range stats plate starts above the screen, so 'Time to kill' is cut off at the bezel. Its empty recoil box then runs down to the health plate, covering about two-thirds of the screen's height on the left, where targets in other lanes appear.",
+      "fix": "Offset the panel by --ds-safe-t plus the gutter. On short viewports, drop or collapse the recoil plot (show it only after a burst) so the panel is about four rows tall.",
+      "evidence": "DOM: 'Time to kill' box [28,-1,58,17] and its value '-' [136,-1,7,17], so text is at y = -1. In the screenshot the plate covers about CSS [16,0,204,258], 258 of 390 px tall. · 'Time to kill' at [28,-1,58,17] (above the viewport top). The panel spans about [16,0,204,258] CSS px of a 844x390 view. The recoil area is an empty dark block of about 180x150 px. · Rows from 'Time to kill' [28,-1,58,17] down to 'Recoil of the last burst' [28,75,118,17]; recoil canvas [28,98,180,150]; plate about [16,0,204,258], 66% of the viewport height. The first row starts at y = -1. On desktop the canvas is at [68,788,180,150]. · 'Time to kill' and its value at y = -1 ([28,-1,58,17], [136,-1,7,17]); recoil canvas [28,98,180,150] empty; panel spans about x 16-220, y 0-257 of a 390 px-tall viewport (66% of the height). · range-hud@phone.dom.json: 'Time to kill' box [28,-1,58,17]. The panel spans about [16,0,204,258].",
+      "box": [
+        16,
+        0,
+        204,
+        259
+      ],
+      "alsoNoted": [
+        "first-time: The range stats panel is clipped at the top edge and covers a quarter of the phone view with an empty black box",
+        "hierarchy: The range stats panel and its empty recoil box take a quarter of the screen and are clipped at the top",
+        "hud: The range stats panel runs off the top of a phone screen and covers two thirds of the left side",
+        "rules: Range stats panel is cut off at the top edge"
+      ]
+    },
+    {
+      "id": "F24",
+      "screen": "countdown",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Light",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The lit match clock outshines the countdown number the player is waiting on",
+      "detail": "During the opening countdown the only figure that matters is the seconds left (4). The eye goes first to the clock, which is lit and larger, and shows a static T−10:00. The countdown sits in a plain white 52 px figure below it.",
+      "fix": "While the countdown runs, show the countdown number as the lit figure at display size (60 px or more) and keep the clock unlit until play starts. Lighting the clock is the change that announces 'go'.",
+      "evidence": "Clock 'T−10:00' [848,21,231,78]: 60 px, rgb(255,226,176) with the light glow. Countdown '4' [944,269,32,67]: 51.84 px, rgb(251,246,236), unlit. Countdown@phone has the same pairing (clock 30 px lit, number 32 px).",
+      "box": [
+        761,
+        21,
+        398,
+        387
+      ]
+    },
+    {
+      "id": "F25",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "medium",
+      "lenses": [
+        "hud"
+      ],
+      "title": "The match clock's digits are proportional, so the whole score bar resizes and shifts as time runs",
+      "detail": "Each tick that changes a digit's width changes the clock plate's width, and because the three plates are centred together the team score plates slide sideways too. A twitching bar at the top centre pulls the eye in peripheral vision for no reason.",
+      "fix": "Set font-variant-numeric: tabular-nums on the clock and team scores; if Chakra Petch's digits stay proportional, give the clock a fixed width in ch (e.g. min-width: 6.5ch) and the team plates fixed widths so the bar never re-centres.",
+      "evidence": "Same 60 px clock: 'T−10:00' w=231 (countdown), 'T−9:58' w=202 (match-hud), 'T−9:57' w=195 (scoreboard). Blue score '0' x moves 752 -> 766 -> 770 and orange '0' x 1133 -> 1119 -> 1115 across those shots.",
+      "box": [
+        849,
+        24,
+        229,
+        90
+      ]
+    },
+    {
+      "id": "F26",
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "hierarchy",
+        "hud",
+        "rules"
+      ],
+      "title": "The announcer toast hides an ally's name tag",
+      "detail": "The 'Range Control: Team deathmatch. The range is hot.' toast sits over the place where the ally tag 'Rook' is drawn. The name shows only as a faint fragment behind the toast while it is up.",
+      "fix": "Draw ally tags above toasts, or (as DESIGN says for touch) move the toast to the full-width slot above the readouts on a phone, away from where tags appear.",
+      "evidence": "DOM: the toast text is at [264,115,316,20] on a plate spanning about [250,108,344,36]. The 'Rook' tag is at [416,135,28,17], inside the plate. contrast.json gives 'Rook' p10 1.44:1 against the 4.5:1 need. · Caption 'Team deathmatch. The range is hot.' [348,115,232,20] with 'Range Control' [264,118,74,17] on a plate about [250,108,344,36]. Ally tag 'Rook' [416,135,28,17] is partly covered. The crosshair is at about (422,195). · Toast spans about x 250-594, y 108-144; ally tag 'Rook' at [416,135,28,17] lies inside it (contrast p10 1.44, visibly dimmed under the plate). Desktop toast text at [802-1118, 923] bottom centre. · match-hud@phone.dom.json: caption plate [250,108,344,36] and ally tag 'Rook' [416,135,28,17].",
+      "box": [
+        250,
+        108,
+        344,
+        44
+      ],
+      "alsoNoted": [
+        "hierarchy: The announcer caption covers an ally's name tag right above the crosshair",
+        "hud: On phone the Range Control toast sits under the match bar and covers an ally's name tag",
+        "rules: Caption plate covers an ally name tag"
+      ]
+    },
+    {
+      "id": "F27",
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "lenses": [
+        "accessibility",
+        "hierarchy"
+      ],
+      "title": "Health and ammo plates keep their desktop size on a phone and cover over half the bottom",
+      "detail": "On an 844x390 phone, the health and ammo plates are drawn at the same CSS size as at 1920x1080. Together they cover over half the screen's width across its bottom quarter, hiding the ground where enemies crouch and approach. The same happens on countdown@phone and range-hud@phone.",
+      "fix": "Add a compact HUD step under 520 px tall: one-line plates (label beside the value, no segmented bar under health, the grenade counts folded into the ammo line), about 50 px tall and under 180 px wide each.",
+      "evidence": "Screenshot: the health plate is about CSS [16,276,259,89] and the ammo plate about [601,264,227,101]. Together they cover 486 of 844 px of width (58%) and about 25% of the height. On desktop the same plates cover 554 of 1920 px (29%) and about 11% of the height. The figures are 30 px on both. · Health plate about [16,277,260,88] holding '100' [36,304,51,39] at 30 px. Ammo plate about [601,264,226,101] with '30' [729,301,38,39]. On desktop the health plate is also 260 px wide but holds a 60 px figure. Seen on range-hud@phone and countdown@phone too.",
+      "box": [
+        16,
+        264,
+        812,
+        101
+      ],
+      "alsoNoted": [
+        "hierarchy: The HUD plates keep their desktop width while their figures shrink by half, so a third of the plate area is empty"
+      ]
+    },
+    {
+      "id": "F28",
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "hud"
+      ],
+      "title": "Health and ammo plates keep their desktop size on a sideways phone and fill a third of the screen height",
+      "detail": "NEW: HUD plates scale with the viewport's short side. The health plate is the same 259 px wide on an 844x390 phone as on a 1920x1080 desktop although its figure shrank to 30 px, so it is mostly empty plate; with the ammo plate the bottom band blocks about 58% of the width and the bottom 32% of the height, where enemies on the ground appear.",
+      "fix": "Size the plates to their content on short viewports (health about 140 px wide, ammo about 180 px), cut inner padding to 10-12 px, and derive plate height from the figure size so the band starts around y 300.",
+      "evidence": "Health plate about [16,276,259,89] (desktop [56,940,259,115]); ammo plate about [601,264,227,101]; '100' is 30 px on phone vs 60 px on desktop. Bottom band covered from y 264 to 365 of 390.",
+      "box": [
+        16,
+        276,
+        259,
+        89
+      ]
+    },
+    {
+      "id": "F29",
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "The controls list a player opens Pause to read is set at 13 px",
+      "detail": "Every binding and action name in the Controls plate is 13 px on a 1920x1080 screen. At normal play distance, 'Tactical: smoke or flash' and 'Aim down sights' are hard to read, and reading them is the panel's whole purpose. The same 13 px step carries readouts players act on elsewhere: 55 texts on profile@desktop, 24 on scoreboard@desktop, and the Practice Range stats panel ('Time to kill', 'Distance', 'Shots / hits').",
+      "fix": "Set the Pause controls list, scoreboard columns and Range stats in --ds-type-body (16 px). Keep --ds-type-small (13 px) only for short uppercase labels and key hints beside a larger value.",
+      "evidence": "contrast.md for pause@desktop: 36 size warnings, all 13 px, including 'Aim down sights' [1436,464,87,17], 'Tactical: smoke or flash' [1702,592,124,17] and key caps 'Right mouse' [1332,464,82,17]. TYP-01 needs 14 px for sentence-case text a player must read. Contrast passes (8.82:1).",
+      "box": [
+        1332,
+        432,
+        494,
+        241
+      ]
+    },
+    {
+      "id": "F30",
+      "screen": "pause",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "In the controls list, an action sits closer to the next column's key than to its own key",
+      "detail": "Spacing does not bind each action to its key. 'Crouch / slide' sits nearer to 'Control Left' (Prone's key) than to 'C', so a player scanning for crouch can read the wrong key. On desktop the two gaps are equal (86 px against 84 px), so the pairing is still ambiguous. NEW idea: a key-and-action pair must sit closer together than any neighbouring pair (proximity grouping).",
+      "fix": "Put each action right after its key (an 8–12 px gap), with a wide gutter (40 px or more) or a 1 px line between the two columns. Or right-align the keys against their labels in one column.",
+      "evidence": "pause@phone: keycap 'C' ends about x 356, label 'Crouch / slide' [442,138,73,17] ends at x 515, next keycap 'Control Left' starts about x 581. That is 86 px to its own key and 66 px to the wrong one. The same holds for 'Aim down sights' → 'Shift Left' and 'Jump / mantle' → 'R'.",
+      "box": [
+        330,
+        64,
+        498,
+        250
+      ]
+    },
+    {
+      "id": "F31",
+      "screen": "end-panel",
+      "viewport": "phone",
+      "rule": "FB-03",
+      "severity": "medium",
+      "lenses": [
+        "first-time",
+        "hud"
+      ],
+      "title": "The phone match end gives no sign of what comes next and no way to the scoreboard",
+      "detail": "After a match on the phone the player sees the result and their numbers, but no timer, button or hint. They wait without knowing whether the game has stalled. The desktop panel shows 'Scoreboard in 0:02'. DESIGN.md says the phone gets a hold-to-see scoreboard button in this layout.",
+      "fix": "Show the same 'Scoreboard in 0:0N' line under the panel on phone, plus the Scoreboard hold button the design calls for.",
+      "evidence": "end-panel@phone DOM: 'Draw', 'Your match' readouts and 'Rank 1 Observer 0 / 800 XP', with no control and no 'Scoreboard in' text. Desktop shows 'Scoreboard in 0:01' [910,341,100,17]. · end-panel@phone.dom.json: 0 controls, no 'Scoreboard in' text, no MVP runs; panel about [68,6,708,166] with the world visible below. end-panel@desktop.dom.json: 0 controls, chip 'Scoreboard in 0:01' at [910,341,100,17].",
+      "box": [
+        68,
+        6,
+        708,
+        166
+      ],
+      "alsoNoted": [
+        "hud: The phone match-end panel gives no next step: no button, no countdown, no scoreboard"
+      ]
+    },
+    {
+      "id": "F32",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Profile corner",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Profile corner lacks the next-unlock line",
+      "detail": "DESIGN.md says the profile corner shows Rank in the light plus a next-unlock line. The corner shows only 'Rank 1' and 'Observer · 0 / 800 XP', with no line saying what the next rank unlocks.",
+      "fix": "Add one line under the XP readout naming the next unlock (for example 'Rank 2: <item>').",
+      "evidence": "main-menu@desktop.png top right, about [1468,40,396,98].",
+      "box": [
+        1468,
+        40,
+        396,
+        98
+      ]
+    },
+    {
+      "id": "F33",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-03",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Name field is a 19 px tall target",
+      "detail": "The callsign input in the profile corner is 19 px tall on desktop, against a 32 px minimum. On the phone it is [598,26,218,19], against a 44 px minimum for touch.",
+      "fix": "Give the input min-height 32px on desktop and 44px on touch, keeping its plate.",
+      "evidence": "main-menu@desktop.dom.json: input [1550,60,298,19].",
+      "box": [
+        1550,
+        60,
+        298,
+        19
+      ]
+    },
+    {
+      "id": "F34",
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Destination list",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Loadouts missing from the secondary row",
+      "detail": "DESIGN.md specifies a Loadouts / Profile / Settings row under the destinations. The menu shows only Profile and Settings. The same is true on the phone.",
+      "fix": "Add the Loadouts entry to the row, or update DESIGN.md if it moved deliberately.",
+      "evidence": "main-menu@desktop.png: the bottom row has Profile [68,956,103,44] and Settings, and no Loadouts entry.",
+      "box": [
+        68,
+        956,
+        103,
+        44
+      ]
+    },
+    {
+      "id": "F35",
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "The offline Play Online page names Bot Match and the Practice Range but gives no button to either",
+      "detail": "The sentence tells the player what they can play instead, but the only actions are Back and a lit Check again, so they must back out and find it themselves. The connection-error dialog already offers a Bot Match button, which makes this page the odd one out.",
+      "fix": "Add a Bot Match button beside Check again in the footer, as the error dialog does.",
+      "evidence": "'The server may be restarting. Bot Match and the Practice Range play without it.' [56,123,505,59]. Controls: 'BACK' [56,1015,117,44] and 'CHECK AGAIN' [1604,1008,260,58] only. error@desktop has 'BOT MATCH' [274,938,180,44].",
+      "box": [
+        56,
+        123,
+        505,
+        59
+      ]
+    },
+    {
+      "id": "F36",
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Type",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Some buttons render in IBM Plex instead of Chakra Petch 600",
+      "detail": "DESIGN.md sets controls in Chakra Petch 600. Several .ds-btn controls render in IBM Plex Sans Condensed 400 instead:\n- 'Check again' in the online footer\n- 'Run benchmark' on benchmark (22/400 IBM on desktop, 16/400 on phone)\n- loadout tile names and key binds\nThe two buttons on one footer then look like different families.",
+      "fix": "Make the .ds-btn primary/big variants inherit font-family and weight from the base .ds-btn.",
+      "evidence": "online@desktop.dom.json: 'Check again' [1604,1008,260,58] in IBM 400. benchmark@desktop.dom.json: 'Run benchmark' button.ds-btn.primary.big in IBM 22/400.",
+      "box": [
+        1604,
+        1008,
+        260,
+        58
+      ]
+    },
+    {
+      "id": "F37",
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "The 'Island: Zero' readout reads as a count of zero",
+      "detail": "Among Seats 60, Match 10 min and Ring 6 stages, 'Island / Zero' looks like a number (no island) rather than the name Zero Island used on the main menu.",
+      "fix": "Show the full name, 'Zero Island', or label the cell 'Map'.",
+      "evidence": "Readout label 'Island' [1053,612], value 'Zero' [1053,631,48,29], next to numeric readouts '60', '10 min', '6 stages'. The main menu says 'Zero Island' [153,652].",
+      "box": [
+        1053,
+        612,
+        48,
+        48
+      ]
+    },
+    {
+      "id": "F38",
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The server-down notice is far from both the Server choice and Check again",
+      "detail": "The one line that explains the state of the screen sits in the right column under the island readouts, away from the Play on picker it concerns and from the Check again button that acts on it. A player reading down the left column misses it. NEW idea: a status line sits next to the control it explains.",
+      "fix": "Replace the 'Friends can join; bots fill the empty seats.' note under Play on [56,207,218,17] with the server-down line (with its red dot) while the server is down.",
+      "evidence": "'The server isn’t answering. It may be restarting.' [779,710,309,20]. Server picker at [56,149,257,48]; Check again at [1604,1008,260,58].",
+      "box": [
+        760,
+        700,
+        340,
+        40
+      ]
+    },
+    {
+      "id": "F39",
+      "screen": "royale-local",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Player name shown in both the Name field and the squad slot",
+      "detail": "The local royale screen shows your name in a full-width Name field and again in your squad slot.",
+      "fix": "Make the squad slot the editable name, or drop the separate field.",
+      "evidence": "royale-local@desktop.dom.json: Name field [760,719,1104,46] and the same name in the squad slot.",
+      "box": [
+        760,
+        719,
+        1104,
+        46
+      ]
+    },
+    {
+      "id": "F40",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Lobby seat",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Your seat has no role line",
+      "detail": "DESIGN.md says your lobby seat reads 'You · Host'. The seat shows the name only.",
+      "fix": "Add the role line to your own seat.",
+      "evidence": "bot-lobby@desktop.png: seat [57,214,398,50].",
+      "box": [
+        57,
+        214,
+        398,
+        50
+      ]
+    },
+    {
+      "id": "F41",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Field labels change style between setup screens",
+      "detail": "Bot Match labels its pickers in 16 px bold white ('Mode', 'Sides', 'Bot skill'), while Battle Royale labels the same kind of picker in 13 px regular grey ('Play on', 'Squads'). The map picker in Bot Match has no label at all. The same element carries different weight from screen to screen.",
+      "fix": "Use one .ds-field-label style everywhere: 13 px, text-2, uppercase at 0.1em per DESIGN's 'small labels over values'. Add a 'Map' label over the tiles.",
+      "evidence": "bot-lobby@desktop: 'Mode' [1344,383,38,20] 16/700 rgb(251,246,236) .ds-field-label. royale@desktop: 'Play on' [56,123,38,17] 13/400 rgb(179,181,184) .ds-field-label.",
+      "box": [
+        1344,
+        383,
+        57,
+        445
+      ]
+    },
+    {
+      "id": "F42",
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "TYP-02",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Field labels have two different styles",
+      "detail": "The .ds-field-label class renders at 16/700 #fbf6ec in the bot lobby ('Mode'), but at 13/400 #b3b5b8 in the royale lobby. The same role gets two steps of the scale.",
+      "fix": "Pick one label style for .ds-field-label and remove the bot-lobby override.",
+      "evidence": "bot-lobby@desktop.dom.json: 'Mode' [1344,383,38,20] 16/700. royale@desktop.dom.json: field labels 13/400.",
+      "box": [
+        1344,
+        383,
+        38,
+        20
+      ]
+    },
+    {
+      "id": "F43",
+      "screen": "loadout",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time",
+        "hierarchy"
+      ],
+      "title": "Locked attachments say 'kills to go' without saying with what, and the Profile calls the same thing Mastery",
+      "detail": "A new player sees 'Reflex: 25 kills to go' with no lock mark and may not realise the kills must come from this gun. The Profile shows the same progress as 'Mastery 0 / 5 · 25 to level 1' without saying that a level opens an attachment slot, so the two screens never meet.",
+      "fix": "Write the lock as 'M4A1 kills: 0 / 25' with a lock glyph on locked tiles, and on Profile write 'Level 1 opens the optic slot' instead of '25 to level 1'.",
+      "evidence": "Loadout: 'Reflex' / '25 kills to go' [593,345], 'Vertical' / '300 kills to go' [593,537]. Locked names are grey 179,181,184 with no lock icon. Profile: 'Mastery 0 / 5' [1149,191], '25 to level 1' [1294,191]. · Locked names 'Reflex' and 'Suppressor' use rgb(179,181,184); unlocked 'Wasp 9' and 'Harrow 12' use rgb(251,246,236). Both captions are 13 px rgb(139,142,146) tracked caps. Plate, edge and size are identical, and there is no lock mark.",
+      "box": [
+        580,
+        338,
+        824,
+        248
+      ],
+      "alsoNoted": [
+        "hierarchy: Locked attachments look almost the same as items you can equip"
+      ]
+    },
+    {
+      "id": "F44",
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "Each weapon row says 'No kills yet' beside 'Kills 0'",
+      "detail": "Every one of the nine weapon rows says the same fact twice. The repeated text makes the list dense and pushes the mastery progress, the useful part, to the edge.",
+      "fix": "Keep one: drop the 'Kills / 0' readout while kills are 0, or drop 'No kills yet' and keep the number.",
+      "evidence": "Row 1: 'No kills yet' [801,209,58,17] and 'Kills' [1106,183,23,17] over '0' in display type. Repeated for all 9 weapons, each row also carrying 'Mastery 0 / 5' and '25 to level 1'.",
+      "box": [
+        785,
+        171,
+        590,
+        69
+      ]
+    },
+    {
+      "id": "F45",
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Profile states the same facts twice",
+      "detail": "Each weapon row says 'No kills yet' next to a 'Kills 0' readout. The rank block says both '0 XP of 800' and '800 XP to Rank 2'.",
+      "fix": "Keep the Kills readout and drop 'No kills yet'. Keep one XP sentence (for example '800 XP to Rank 2') next to the bar.",
+      "evidence": "profile@desktop.dom.json: 'No kills yet' [801,209,58,17] beside 'Kills 0' [1106,183,23,17]. XP lines are around [108,196,629,20].",
+      "box": [
+        108,
+        183,
+        1021,
+        43
+      ]
+    },
+    {
+      "id": "F46",
+      "screen": "settings-controls",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Layout",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The settings column on the left is answered by nothing on the right",
+      "detail": "On Controls, Mouse and pad, Touch and Audio the rows end at x 1036, and the right 46% of the screen is empty world under the scrim. The eye has no second anchor, and the long lists run far down the left edge. DESIGN asks for a left block to be answered on the right by a picture or readouts, 'never by nothing'.",
+      "fix": "Use the right column for the focused row's note and a live preview (key-binding map, sensitivity test reticle, volume test), or split long tabs such as Controls into two columns of rows.",
+      "evidence": "Rows span [56,157,980,…]; nothing between x 1036 and 1864 below the tabs. Video and Accessibility do fill the right column (The picture, Team colours).",
+      "box": [
+        1036,
+        95,
+        828,
+        912
+      ]
+    },
+    {
+      "id": "F47",
+      "screen": "settings-controls",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "Key names read like code: 'Shift Left', 'Control Left'",
+      "detail": "Players know these keys as Left Shift and Left Ctrl. The reversed code-style names look odd here and in the pause menu's controls card. New rule idea: key caps use the names printed on keyboards.",
+      "fix": "Map key codes to display names: ShiftLeft to 'L Shift', ControlLeft to 'L Ctrl', and the same for the right-hand and Alt keys.",
+      "evidence": "'Shift Left' [673,757], 'Control Left' [673,871] in Settings. The same in pause@desktop 'Shift Left' [1601,464], 'Control Left' [1601,496].",
+      "box": [
+        660,
+        747,
+        360,
+        154
+      ]
+    },
+    {
+      "id": "F48",
+      "screen": "settings-controls",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Settings tabs only 4 px apart",
+      "detail": "The settings tabs are 44 px tall but only 4 px apart, against the 8 px minimum gap between targets. Desktop uses the same 4 px gap.",
+      "fix": "Set the tab gap to 8px.",
+      "evidence": "settings-controls@phone.dom.json: tabs [141,10,99,44] and [244,10,139,44], a 4 px gap.",
+      "box": [
+        141,
+        10,
+        242,
+        44
+      ]
+    },
+    {
+      "id": "F49",
+      "screen": "settings-video",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "'Aim-down-sights field of view: Affected' doesn't say affected by what",
+      "detail": "The choice is between 'Affected' and 'Independent', and neither word says what it changes. A new player can't predict the result without trying both in a match.",
+      "fix": "Rename the choices to 'Follows field of view' and 'Fixed', or add a few-word note: 'Whether aiming zoom follows your field of view'.",
+      "evidence": "Row 'Aim-down-sights field of view' with select 'Affected / Independent' [660,405,360,40] and no note.",
+      "box": [
+        660,
+        405,
+        360,
+        40
+      ]
+    },
+    {
+      "id": "F50",
+      "screen": "settings-video",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Neighbouring touch targets sit 3-6 px apart on phone",
+      "detail": "Settings tabs are 67-72 px wide with only 3-4 px between them, so a thumb aimed at Video can land on Touch or Audio. Stacked buttons elsewhere are also under the 8 px gap: the Pause list, the Battle Royale squad picker and the upright Bot Match mode list.",
+      "fix": "Use at least 8 px gaps between touch targets on coarse pointers (gap: 8px on the tab strip, pause list and .ds-seg).",
+      "evidence": "DOM (settings-*@phone): CONTROLS 141-240 then MOUSE AND PAD at 244 (4 px gap), TOUCH ends 459 then VIDEO at 463 (4 px), VIDEO ends 530 then AUDIO at 533 (3 px). pause@phone: buttons at y 56/110/164/218, 48 px tall (6 px gaps). royale@phone squads: 6 px gaps. bot-lobby@phone-upright modes: 466/516/566, 44 px tall (6 px gaps).",
+      "box": [
+        141,
+        10,
+        637,
+        44
+      ]
+    },
+    {
+      "id": "F51",
+      "screen": "settings-audio",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "hierarchy",
+        "rules"
+      ],
+      "title": "Single-section tabs repeat the tab name as the section heading",
+      "detail": "With the lit AUDIO tab above, the page opens on an 'AUDIO' heading that says the same thing again. Settings-touch does the same ('TOUCH').",
+      "fix": "Hide the section heading when a tab has only one section.",
+      "evidence": "Lit tab 'Audio' at about [1454,28,76,44]; section heading 'AUDIO' at [56,119,70,29]. settings-touch: tab 'Touch' and heading 'TOUCH'. · settings-audio@desktop.dom.json: h2 'Audio' [56,119,70,29] under the lit Audio tab.",
+      "box": [
+        56,
+        119,
+        70,
+        29
+      ],
+      "alsoNoted": [
+        "rules: Section heading repeats the lit tab"
+      ]
+    },
+    {
+      "id": "F52",
+      "screen": "settings-accessibility",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The Colour vision picker is in a different column from the team-colour preview it changes",
+      "detail": "A player changing Colour vision on the left has to look about 400 px across to the Team colours swatches on the right to see the effect, and nothing links the two. NEW idea: a control and its live preview sit together.",
+      "fix": "Put the Team colours preview directly under the Colour vision row, in the Colour section.",
+      "evidence": "'Colour vision' select at [660,348,360,40] in the left column; 'Team colours' swatches at [1076,157,400,158] in the right column. On settings-accessibility@phone, Team colours comes first and Colour vision is far below.",
+      "box": [
+        56,
+        157,
+        1420,
+        239
+      ]
+    },
+    {
+      "id": "F53",
+      "screen": "loading",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Loading percentage uses proportional digits",
+      "detail": "The '42%' readout is not tabular, so it jitters as it counts up. The slider values on settings-mouse are not tabular either.",
+      "fix": "Add font-variant-numeric: tabular-nums to the progress figure and the .val readouts.",
+      "evidence": "loading@desktop.dom.json: '42%' [84,856,170,109] without tabular-nums.",
+      "box": [
+        84,
+        856,
+        170,
+        109
+      ]
+    },
+    {
+      "id": "F54",
+      "screen": "connecting",
+      "viewport": "desktop",
+      "rule": "COL-02",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Done and pending steps differ only by dash shade",
+      "detail": "On the connecting screen, completed and pending steps use the same text colour. Only the shade of the leading dash changes, so the state is carried by colour alone.",
+      "fix": "Mark done steps with a check (or strike or dim the text) and the current one with a spinner.",
+      "evidence": "connecting@desktop.png: the step list at [84,830,160,81].",
+      "box": [
+        84,
+        830,
+        160,
+        81
+      ]
+    },
+    {
+      "id": "F55",
+      "screen": "error",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Error text repeats the buttons",
+      "detail": "The line 'Try again in a minute, or play a Bot Match.' restates the two buttons directly below it.",
+      "fix": "Drop the sentence, or replace it with the actual cause.",
+      "evidence": "error@desktop.dom.json: the line at [84,894,405,20], above the Try again and Bot Match buttons.",
+      "box": [
+        84,
+        894,
+        405,
+        20
+      ]
+    },
+    {
+      "id": "F56",
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-04",
+      "severity": "low",
+      "lenses": [
+        "hud"
+      ],
+      "title": "An empty recoil graph takes a 180x150 black box before the player has fired",
+      "detail": "On first spawn the stats panel shows four dashes and a large empty black square labelled 'Recoil of the last burst'; nothing in it can be read or acted on until a burst is fired, and it stacks the panel right up against the health plate.",
+      "fix": "Hide the recoil graph and its label until the first burst, then show it.",
+      "evidence": "Canvas [68,788,180,150] blank; readouts 'Time to kill –', 'Shots / hits –', 'Last hit –'.",
+      "box": [
+        68,
+        765,
+        180,
+        173
+      ]
+    },
+    {
+      "id": "F57",
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Empty recoil box takes up the left side of the phone HUD",
+      "detail": "The 'Recoil of the last burst' graph shows as an empty black box before any shot is fired. On a 390 px tall screen, it blocks a large share of the left view and gives the player nothing to act on.",
+      "fix": "Hide the recoil graph until the first burst. On phone, collapse it into the stats panel or behind a tap.",
+      "evidence": "range-hud@phone.png: an empty dark box at the left, about [28,98,180,150] CSS.",
+      "box": [
+        28,
+        98,
+        180,
+        150
+      ]
+    },
+    {
+      "id": "F58",
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "TYP-01",
+      "severity": "low",
+      "lenses": [
+        "hud"
+      ],
+      "title": "The phone hint line drops to 13 px, below body size",
+      "detail": "On desktop the hint text is body size, but on a phone 'Move. The mouse looks' shrinks to 13 px; DESIGN makes the hint line one body-size line and the rule book asks for at least 14 px phone body text.",
+      "fix": "Keep the hint line at --ds-type-body (16 px) on phone, shortening the copy if needed.",
+      "evidence": "range-hud@phone: 'Move. The mouse looks' [394,350,123,17] at 13 px (contrast.md size warn); desktop run [917,921,151,20] is not flagged.",
+      "box": [
+        316,
+        342,
+        213,
+        34
+      ]
+    },
+    {
+      "id": "F59",
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "TYP-01",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Movement hint shrinks to 13 px on phone",
+      "detail": "The first-play hint 'Move. The mouse looks' is 16 px on desktop but drops to 13 px on the phone. Phone body text must be at least 14 px.",
+      "fix": "Keep the hint at 16 px on phone (the body step).",
+      "evidence": "range-hud@phone.dom.json: hint [394,350,123,17], 13 px.",
+      "box": [
+        394,
+        350,
+        123,
+        17
+      ]
+    },
+    {
+      "id": "F60",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "HUD-03",
+      "severity": "low",
+      "lenses": [
+        "hud"
+      ],
+      "title": "HUD text sits 21-25 px from the top and bottom edges, inside the 3% safe margin",
+      "detail": "The side margins follow the 56 px gutter but the top and bottom do not: the clock and scores start 21 px from the top, the kill feed 24 px, and the health and ammo plates end 25 px from the bottom, crowding the bezel and at risk on an overscanned TV.",
+      "fix": "Apply the gutter (or at least 40-48 px plus --ds-safe-t / --ds-safe-b) to the top and bottom HUD anchors on desktop.",
+      "evidence": "'T−9:58' [863,21,202,78] and team '0's at y 21; kill feed top y 24 (kill shots); health and ammo plates end at y 1055 of 1080. 3% of 1920 = 58 px.",
+      "box": [
+        730,
+        21,
+        461,
+        93
+      ]
+    },
+    {
+      "id": "F61",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "lenses": [
+        "first-time"
+      ],
+      "title": "Abbreviations like 'TDM · 75' and 'ADS 0.24 s' stay unexplained after the opening",
+      "detail": "Once the countdown plate is gone, the match bar only says 'TDM · 75'. A newcomer who missed the goal line can't decode it without pressing Tab. The Loadout's Handling stat reads 'ADS 0.24 s', and 'aim down sights' is never shortened to ADS anywhere else.",
+      "fix": "Write the bar's line as 'First to 75' (the mode name is on the scoreboard), and the stat as 'Aim 0.24 s'.",
+      "evidence": "'TDM · 75' [936,92,56,17] under the clock. loadout@desktop 'ADS 0.24 s' [1787,419,59,17]. Settings and the pause controls card spell out 'Aim down sights'.",
+      "box": [
+        936,
+        92,
+        56,
+        17
+      ]
+    },
+    {
+      "id": "F62",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "low",
+      "lenses": [
+        "accessibility"
+      ],
+      "title": "Ally name tags are small and drop below 4.5:1 over the bright scene",
+      "detail": "Ally tags are 13 px bold on a small translucent plate. Against the sunlit siding and sky they lose contrast, so naming who is where takes a second look.",
+      "fix": "Make the tag plate opaque (--ds-plate), add 2 px padding, and set the name at 14 px.",
+      "evidence": "contrast.json match-hud@desktop: 'Rook' 13 px bold, p50 5.08 and p10 2.83. 'Ember' p50 4.5 and p10 4.09 (need 4.5). On scoreboard@desktop, 'Ember' is p10 3.91.",
+      "box": [
+        1338,
+        472,
+        28,
+        17
+      ]
+    },
+    {
+      "id": "F63",
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "HUD-03",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Health and ammo figures sit too close to the bottom edge",
+      "detail": "The large health and ammo figures end about 41 px from the bottom edge. The 3% safe area at 1920 is about 58 px.",
+      "fix": "Raise the bottom HUD anchor to about 3vw (58 px).",
+      "evidence": "match-hud@desktop.dom.json: '100' [76,961,101,78], whose bottom is at y 1039.",
+      "box": [
+        76,
+        961,
+        101,
+        78
+      ]
+    },
+    {
+      "id": "F64",
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "hud"
+      ],
+      "title": "The pause footer hint 'Click Resume' repeats the lit Resume button",
+      "detail": "The footer hint names the same action as the lit RESUME row, and its '↑↓ Move' shares the screen with 'WASD Move' in the Controls plate, so 'Move' means two different things. Same on phone.",
+      "fix": "Drop 'Click Resume' from the footer, and label the menu hint 'Choose' (or show only the arrow glyph) so it doesn't collide with the in-game Move.",
+      "evidence": "Footer runs: '↑↓' 'Move' [64-120,1003], 'Enter' 'Select', 'Click' 'Resume' [261-352,1003]; RESUME button [56,135,440,73]; Controls row 'WASD' 'Move' [1332-1464,432].",
+      "box": [
+        56,
+        999,
+        300,
+        25
+      ]
+    },
+    {
+      "id": "F65",
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "'Click Resume' hint repeats the Resume button",
+      "detail": "The footer hint 'Click · Resume' names the same action as the lit Resume button at the top of the list. The rule says a button never sits beside a key hint for the same action. Phone has the same footer.",
+      "fix": "Drop the 'Click Resume' hint, and keep Move and Select.",
+      "evidence": "pause@desktop.dom.json: hint 'Click' [261,1003,32,17] + 'Resume' [309,1003,43,17]; button RESUME [56,135,440,73].",
+      "box": [
+        253,
+        1001,
+        100,
+        21
+      ]
+    },
+    {
+      "id": "F66",
+      "screen": "end-panel",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "lenses": [
+        "first-time",
+        "hud",
+        "rules"
+      ],
+      "title": "The MVP line says '1 kills'",
+      "detail": "The plural doesn't follow the count, a small slip on the screen every match ends on.",
+      "fix": "Make the unit follow the count: '1 kill', '2 kills'. Check 'score' and the other readouts that pair a number with a unit as well.",
+      "evidence": "'1' [779,150,9,20] followed by 'kills' [788,150,29,20] in the MVP strip. · '1' [779,150,9,20] followed by 'kills' [788,150,29,20]. · end-panel@desktop.dom.json: '1' [779,150,9,20] + 'kills' [788,150,29,20].",
+      "box": [
+        779,
+        150,
+        38,
+        20
+      ],
+      "alsoNoted": [
+        "hud: The MVP line reads '1 kills'",
+        "rules: '1 kills' plural error in the MVP line"
+      ]
+    },
+    {
+      "id": "F67",
+      "screen": "benchmark",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "proposedRule": "DESIGN: Type",
+      "severity": "low",
+      "lenses": [
+        "hierarchy"
+      ],
+      "title": "The primary button's label is the lightest type in the footer",
+      "detail": "The lit primary is set in regular-weight IBM Plex, while the secondary 'Back to the game' uses Chakra Petch 600. The secondary label reads heavier than the action the screen is built around. The same 22/400 Plex primary label appears on every footer: Check again, Start match, Done, Open lobby.",
+      "fix": "Set .ds-btn.primary.big in Chakra Petch 600 like every other button, so the lit plate and the heavier label point the same way.",
+      "evidence": "'Run benchmark' [1630,1022,198,29] 22/400 IBM Plex Sans Condensed. 'Back to the game' [78,1026,172,21] 16/600 Chakra Petch. DESIGN: buttons are Chakra Petch 600, uppercase.",
+      "box": [
+        56,
+        1008,
+        1808,
+        58
+      ]
+    },
+    {
+      "id": "F68",
+      "screen": "benchmark",
+      "viewport": "phone",
+      "rule": "TYP-02",
+      "severity": "low",
+      "lenses": [
+        "rules"
+      ],
+      "title": "Page title same size as section headings",
+      "detail": "On the phone, the 'Benchmark' title is 22 px, the same as the 'This machine' and 'Results' section headings, so the page has no visible title step. Desktop uses 52 px.",
+      "fix": "Use the 32 px title step for phone h1s.",
+      "evidence": "benchmark@phone.dom.json: h1 'Benchmark' [16,8,140,29] 22 px, and h2 'This machine' [16,57,153,29] 22 px.",
+      "box": [
+        16,
+        8,
+        140,
+        29
+      ]
+    }
+  ]
+}

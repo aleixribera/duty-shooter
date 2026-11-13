@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Score, ScoreLine } from '@duty-shooter/fps-core';
 import { matchGainHtml } from '../src/hud/match-gain';
-import { scoreFeedEntry } from '../src/hud/score-feed';
+import { KILL_BEATS, SCORE_FEED_CSS, scoreFeedEntry } from '../src/hud/score-feed';
 import { MatchTracker, applyMatch, emptyProfile, rankFloor, type MatchRecord } from '../src/profile';
 import { mvpOf, scoreboard } from '../src/ui/model';
 import { profileHtml, rankCorner } from '../src/ui/profile-screen';
@@ -10,6 +10,17 @@ const row = (id: string, team: number, score: number, kills: number, deaths: num
 const names = (id: string) => ({ v1: 'Vera', v2: 'Otto' })[id] ?? id;
 
 describe('the score lines beside the crosshair', () => {
+  it("lands a kill in DESIGN.md's beats and is gone by 1.8 s", () => {
+    expect([KILL_BEATS.total, KILL_BEATS.lines, KILL_BEATS.medal]).toEqual([0.12, 0.3, 0.75]);
+    expect(KILL_BEATS.linesGone).toBeLessThanOrEqual(1.8);
+    expect(KILL_BEATS.medalGone).toBeLessThanOrEqual(1.8);
+    // The animations end when the code removes them: a delayed one runs for what is left after its beat.
+    const ends = (name: string) =>
+      [...SCORE_FEED_CSS.matchAll(/animation: (ds-score-[a-z]+) ([\d.]+)s [^;]*?(?:([\d.]+)s )?both/g)].filter((m) => m[1] === name).map((m) => Math.round((Number(m[2]) + Number(m[3] ?? 0)) * 100) / 100);
+    expect(ends('ds-score-line')).toEqual([KILL_BEATS.linesGone, KILL_BEATS.linesGone]);
+    expect(ends('ds-score-medal')).toEqual([KILL_BEATS.medalGone]);
+  });
+
   it('reads a headshot kill as two lines with their points, and sums them', () => {
     const lines: ScoreLine[] = [
       { reason: 'kill', points: 100, victim: 'v1', weapon: 'm4a1', metres: 31 },

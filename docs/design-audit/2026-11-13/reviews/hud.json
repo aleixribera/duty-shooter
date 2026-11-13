@@ -1,0 +1,170 @@
+{
+  "lens": "hud",
+  "findings": [
+    {
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "HUD-01",
+      "severity": "high",
+      "title": "The opening countdown plate hides the clock and scores and reaches down to the crosshair",
+      "detail": "On a sideways phone the mode/number/goal plate is drawn on top of the match bar, so only the top half of 'T-10:00' and the team scores peek out, and its lower edge lands on the crosshair's top tick. In the last seconds before the fight the player loses the clock and has a plate over the aim point. DESIGN's Goal line says it stands under the match bar, off the crosshair; on desktop it does (plate ends at y 407, above the centre box).",
+      "evidence": "Plate spans about x 223-620, y 43-190 (CSS); match bar 'T−10:00' at [372,25,116,39] and team '0's at [285,25] / [547,25] sit under it. Crosshair top tick at y 174-190; the 20% centre box is y 156-234, so the plate intrudes 34 px into it.",
+      "fix": "On short viewports place the countdown plate below the match bar (top >= 88 px) and shrink it to end above y 150: goal on one line at 13-14 px, no divider, 'F Loadout' beside the number; or anchor the plate to the left edge under the match bar.",
+      "box": [223, 43, 397, 147]
+    },
+    {
+      "screen": "kill",
+      "viewport": "phone",
+      "rule": "FB-01",
+      "severity": "high",
+      "title": "On phone the kill's score reasons are drawn underneath the hint line",
+      "detail": "The +200 popup on a phone sits at the bottom centre, about 125 px below the crosshair, and its reason rows ('+100 Eliminated', '+50 Headshot') fall behind the 'WASD Move. The mouse looks' plate, so only ghosts of them show at both 200 ms and 1 s. The player sees a number but never why, and it is far from where they are looking (DESIGN Motion: '+score lights up by the crosshair').",
+      "evidence": "kill-200ms-844x390.jpg and kill-1s-844x390.jpg: '+200' at about [405,318,37,15]; hint plate at about [316,342,213,34] with the reason text faintly visible behind it. Crosshair centre at (422,195).",
+      "fix": "Anchor the score popup to the crosshair on every viewport (about 24 px right of and 12 px below centre, as on desktop), draw it above the hint line, and hide the hint line while a kill popup is up (one speaker at a time).",
+      "box": [316, 316, 241, 62]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "TYP-03",
+      "severity": "medium",
+      "title": "The match clock's digits are proportional, so the whole score bar resizes and shifts as time runs",
+      "detail": "Each tick that changes a digit's width changes the clock plate's width, and because the three plates are centred together the team score plates slide sideways too. A twitching bar at the top centre pulls the eye in peripheral vision for no reason.",
+      "evidence": "Same 60 px clock: 'T−10:00' w=231 (countdown), 'T−9:58' w=202 (match-hud), 'T−9:57' w=195 (scoreboard). Blue score '0' x moves 752 -> 766 -> 770 and orange '0' x 1133 -> 1119 -> 1115 across those shots.",
+      "fix": "Set font-variant-numeric: tabular-nums on the clock and team scores; if Chakra Petch's digits stay proportional, give the clock a fixed width in ch (e.g. min-width: 6.5ch) and the team plates fixed widths so the bar never re-centres.",
+      "box": [849, 24, 229, 90]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "The range stats panel runs off the top of a phone screen and covers two thirds of the left side",
+      "detail": "Stacked above the health plate, the stats panel is taller than the space left on a 390 px-high screen, so its first row is cut by the top edge and the panel blocks the left lane from y 0 to 257. Most of it is the empty black recoil graph.",
+      "evidence": "'Time to kill' and its value at y = -1 ([28,-1,58,17], [136,-1,7,17]); recoil canvas [28,98,180,150] empty; panel spans about x 16-220, y 0-257 of a 390 px-tall viewport (66% of the height).",
+      "fix": "On short viewports collapse the panel to its four readouts in one strip (recoil graph only after a burst, or behind a toggle), anchor it top-left inside the safe area (top >= 16 px), and cap its height so it never overflows.",
+      "box": [16, 0, 204, 257]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Health and ammo plates keep their desktop size on a sideways phone and fill a third of the screen height",
+      "detail": "NEW: HUD plates scale with the viewport's short side. The health plate is the same 259 px wide on an 844x390 phone as on a 1920x1080 desktop although its figure shrank to 30 px, so it is mostly empty plate; with the ammo plate the bottom band blocks about 58% of the width and the bottom 32% of the height, where enemies on the ground appear.",
+      "evidence": "Health plate about [16,276,259,89] (desktop [56,940,259,115]); ammo plate about [601,264,227,101]; '100' is 30 px on phone vs 60 px on desktop. Bottom band covered from y 264 to 365 of 390.",
+      "fix": "Size the plates to their content on short viewports (health about 140 px wide, ammo about 180 px), cut inner padding to 10-12 px, and derive plate height from the figure size so the band starts around y 300.",
+      "box": [16, 276, 259, 89]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "DESIGN: Components (HUD plates and toasts)",
+      "severity": "medium",
+      "title": "On phone the Range Control toast sits under the match bar and covers an ally's name tag",
+      "detail": "The toast is drawn at the top centre, just above the crosshair area and on top of the ally tag 'Rook', so the player loses who is in front of them while it is up. DESIGN puts the phone toast full width above the readouts; on desktop it is at the bottom centre.",
+      "evidence": "Toast spans about x 250-594, y 108-144; ally tag 'Rook' at [416,135,28,17] lies inside it (contrast p10 1.44, visibly dimmed under the plate). Desktop toast text at [802-1118, 923] bottom centre.",
+      "fix": "Put the phone toast in the bottom slot, full width between the health and ammo plates and above the readouts, and draw ally tags above toasts.",
+      "box": [250, 108, 344, 36]
+    },
+    {
+      "screen": "end-panel",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "The phone match-end panel gives no next step: no button, no countdown, no scoreboard",
+      "detail": "On a sideways phone the panel shows only the result, the readouts and the Rank bar: no control, no 'Scoreboard in' countdown and no MVP line, so the player can't tell whether to wait, tap or leave. DESIGN says the phone panel takes the whole screen and the scoreboard comes while its button is held, but there is no such button. Desktop has only a 'Scoreboard in 0:01' chip and no control to leave or continue either.",
+      "evidence": "end-panel@phone.dom.json: 0 controls, no 'Scoreboard in' text, no MVP runs; panel about [68,6,708,166] with the world visible below. end-panel@desktop.dom.json: 0 controls, chip 'Scoreboard in 0:01' at [910,341,100,17].",
+      "fix": "Give the end panel a footer with one lit primary named for what happens now (a pressable 'Scoreboard in 0:05' that skips the wait, then 'Back to lobby'), plus a held 'Scoreboard' button on phone; keep the MVP line on phone and let the panel take the whole screen as DESIGN specifies.",
+      "box": [68, 6, 708, 166]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "desktop",
+      "rule": "HUD-04",
+      "severity": "low",
+      "title": "An empty recoil graph takes a 180x150 black box before the player has fired",
+      "detail": "On first spawn the stats panel shows four dashes and a large empty black square labelled 'Recoil of the last burst'; nothing in it can be read or acted on until a burst is fired, and it stacks the panel right up against the health plate.",
+      "evidence": "Canvas [68,788,180,150] blank; readouts 'Time to kill –', 'Shots / hits –', 'Last hit –'.",
+      "fix": "Hide the recoil graph and its label until the first burst, then show it.",
+      "box": [68, 765, 180, 173]
+    },
+    {
+      "screen": "kill",
+      "viewport": "desktop",
+      "rule": "DESIGN: Components (Bots in the HUD)",
+      "severity": "low",
+      "title": "The kill feed repeats 'bot' after every name in a Bot Match",
+      "detail": "Lines read 'Rook bot  Wasp 9  Comet bot' and 'You + M4A1 Vandal bot'; in a Bot Match everyone but you is a bot, so the word only adds noise to a feed read at a glance. DESIGN says the feed leaves it out there. Same on phone.",
+      "evidence": "kill-200ms-1920x1080.jpg feed at about x 1662-1862, y 24-85: 'Rook bot Wasp 9 Comet bot', 'You + M4A1 Vandal bot'; kill-200ms-844x390.jpg shows the same lines.",
+      "fix": "Drop the 'bot' suffix in kill-feed lines when every other player in the match is a bot.",
+      "box": [1662, 24, 200, 62]
+    },
+    {
+      "screen": "kill",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "title": "The long-shot bonus is stated twice in the same kill popup",
+      "detail": "The medal plate says 'LONG SHOT 62 M' and the reason row under it says '+50 Long shot 62 m', so the player reads the same fact twice in the 1.8 s the popup is up.",
+      "evidence": "kill-1s-1920x1080.jpg: medal plate at about [1085,556,220,40] 'LONG SHOT 62 M'; reason row at about [1096,682,158,17] '+50  Long shot  62 m'.",
+      "fix": "Name the medal alone ('Long shot') and keep the distance only in the reason row, or drop the reason row for a bonus that has its own medal.",
+      "box": [1085, 556, 220, 145]
+    },
+    {
+      "screen": "kill",
+      "viewport": "desktop",
+      "rule": "DESIGN: Light",
+      "severity": "low",
+      "title": "The +score at 200 ms sits on a dark gradient band, though lit text has no plate",
+      "detail": "While the score counts up ('+139') it is drawn on a dark horizontal band fading out to the right, a gradient the system reserves for scrims and the lit fill; by 1 s the band is gone, so the popup changes backing mid-sequence.",
+      "evidence": "kill-200ms-1920x1080.jpg: band about x 1085-1370, y 603-631 behind '+139'; kill-1s shows '+200' with no band.",
+      "fix": "Remove the band and rely on the lit-text glow (or a hard text shadow) for the +score, as DESIGN specifies for lit text.",
+      "box": [1085, 603, 285, 28]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "HUD-03",
+      "severity": "low",
+      "title": "HUD text sits 21-25 px from the top and bottom edges, inside the 3% safe margin",
+      "detail": "The side margins follow the 56 px gutter but the top and bottom do not: the clock and scores start 21 px from the top, the kill feed 24 px, and the health and ammo plates end 25 px from the bottom, crowding the bezel and at risk on an overscanned TV.",
+      "evidence": "'T−9:58' [863,21,202,78] and team '0's at y 21; kill feed top y 24 (kill shots); health and ammo plates end at y 1055 of 1080. 3% of 1920 = 58 px.",
+      "fix": "Apply the gutter (or at least 40-48 px plus --ds-safe-t / --ds-safe-b) to the top and bottom HUD anchors on desktop.",
+      "box": [730, 21, 461, 93]
+    },
+    {
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-06",
+      "severity": "low",
+      "title": "The pause footer hint 'Click Resume' repeats the lit Resume button",
+      "detail": "The footer hint names the same action as the lit RESUME row, and its '↑↓ Move' shares the screen with 'WASD Move' in the Controls plate, so 'Move' means two different things. Same on phone.",
+      "evidence": "Footer runs: '↑↓' 'Move' [64-120,1003], 'Enter' 'Select', 'Click' 'Resume' [261-352,1003]; RESUME button [56,135,440,73]; Controls row 'WASD' 'Move' [1332-1464,432].",
+      "fix": "Drop 'Click Resume' from the footer, and label the menu hint 'Choose' (or show only the arrow glyph) so it doesn't collide with the in-game Move.",
+      "box": [56, 999, 300, 25]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "TYP-01",
+      "severity": "low",
+      "title": "The phone hint line drops to 13 px, below body size",
+      "detail": "On desktop the hint text is body size, but on a phone 'Move. The mouse looks' shrinks to 13 px; DESIGN makes the hint line one body-size line and the rule book asks for at least 14 px phone body text.",
+      "evidence": "range-hud@phone: 'Move. The mouse looks' [394,350,123,17] at 13 px (contrast.md size warn); desktop run [917,921,151,20] is not flagged.",
+      "fix": "Keep the hint line at --ds-type-body (16 px) on phone, shortening the copy if needed.",
+      "box": [316, 342, 213, 34]
+    },
+    {
+      "screen": "end-panel",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The MVP line reads '1 kills'",
+      "detail": "NEW: counted nouns agree with their number. The MVP line on the screen that sums up the match reads '1 kills', which looks like a bug.",
+      "evidence": "'1' [779,150,9,20] followed by 'kills' [788,150,29,20].",
+      "fix": "Pluralise by count ('1 kill', '2 kills').",
+      "box": [779, 150, 38, 20]
+    }
+  ]
+}

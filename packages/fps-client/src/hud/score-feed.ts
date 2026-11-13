@@ -6,8 +6,8 @@ import { escapeHtml as escape } from '../ui/theme';
  * The kill confirmation (ticket 11): the Score a player just earned, set
  * below and to the right of the crosshair so the centre stays clear. Every
  * reason is one line ("+100 Eliminated"), the newest on top, under a running
- * total that counts up; a Medal is named once, larger, above them. Lines go
- * after about 2.5 s, a Medal after 2.
+ * total that counts up; a Medal is named once, larger, above them. Lines and
+ * Medal are gone 1.8 s after the kill (DESIGN.md, Motion).
  */
 
 /** One line of the stack. */
@@ -43,13 +43,15 @@ export function scoreFeedEntry(lines: readonly ScoreLine[], nameOf: (id: string)
 }
 
 /** Seconds a line stays, a Medal stays, and the total takes to count up to what was just earned. */
-const SCORE_LINE_LIFE = 2.5;
-const SCORE_MEDAL_LIFE = 2;
+const SCORE_LINE_LIFE = 1.8;
+const SCORE_MEDAL_LIFE = 1.8;
 const COUNT_UP = 0.35;
 /** When each beat of a kill comes, in seconds after it (DESIGN.md, Motion): +score lights, the reason lines, the Medal. */
 const BEAT_TOTAL = 0.12;
 const BEAT_LINES = 0.3;
 const BEAT_MEDAL = 0.75;
+/** The kill's beats and ends in seconds, for the test that holds them to DESIGN.md. */
+export const KILL_BEATS = { total: BEAT_TOTAL, lines: BEAT_LINES, medal: BEAT_MEDAL, linesGone: SCORE_LINE_LIFE, medalGone: SCORE_MEDAL_LIFE } as const;
 /** Lines on screen at once: older ones leave early rather than run down into the readouts. */
 const MAX_LINES = 6;
 

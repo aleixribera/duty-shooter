@@ -53,7 +53,7 @@ export const MENU_CSS = `
 .ds-dest.off b { color: var(--ds-text-3); }
 .ds-dest.ds-plate:not(.is-lit):hover, .ds-dest.ds-plate:not(.is-lit):focus-visible, .ds-dest.ds-plate:not(.is-lit)[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); }
 .ds-dest:hover b, .ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { transform: translateX(10px); color: var(--ds-text); }
-.ds-dest.ds-plate.is-lit:focus-visible, .ds-dest.ds-plate.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+.ds-dest.ds-plate.is-lit:focus-visible, .ds-dest.ds-plate.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); outline: 2px solid var(--ds-text-2); outline-offset: 4px; }
 .ds-dest:focus-visible, .ds-dest[data-pad-focus] { outline: none; }
 /* Under the list, what is not a place to play: at heading size, no plate. */
 .ds-more { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px 12px; }
@@ -132,7 +132,7 @@ export const MENU_CSS = `
 .ds-tabs button { --ds-ch: 8px; --ds-edge: transparent; --ds-fill: transparent; height: 44px; padding: 0 16px; background: transparent; border: 0; color: var(--ds-text-2); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; transition: color 100ms; }
 .ds-tabs button:hover, .ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); color: var(--ds-text); outline: none; }
 .ds-tabs button.on { --ds-edge: var(--ds-light-edge); --ds-edge-w: 2px; --ds-fill: var(--ds-plate-lit); color: var(--ds-text); filter: drop-shadow(0 0 14px var(--ds-light-halo)); }
-.ds-tabs button.on:focus-visible, .ds-tabs button.on[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+.ds-tabs button.on:focus-visible, .ds-tabs button.on[data-pad-focus] { --ds-edge: var(--ds-reticle); outline: 2px solid var(--ds-text-2); outline-offset: -4px; }
 /* Settings: a block a section, its name at heading size (a live state under it, where it has one), then a row a setting, the control on the right. */
 .ds-rows { max-width: 980px; }
 .ds-rows section + section { margin-top: 36px; }
@@ -205,7 +205,7 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .ds-item:not(.is-lit):hover, .ds-pause .ds-item:not(.is-lit):focus-visible, .ds-pause .ds-item:not(.is-lit)[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); }
 .ds-pause .ds-item:hover b, .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { transform: translateX(10px); color: var(--ds-text); }
 .ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { outline: none; }
-.ds-pause .ds-item.is-lit:focus-visible, .ds-pause .ds-item.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+.ds-pause .ds-item.is-lit:focus-visible, .ds-pause .ds-item.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); outline: 2px solid var(--ds-text-2); outline-offset: 4px; }
 .ds-pause .ds-error { margin: -12px 0 12px; }
 .ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); box-sizing: border-box; padding: 18px 20px; }
 .ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: var(--ds-type-small); color: var(--ds-text-2); }

@@ -83,6 +83,7 @@ const CSS = `
   .ds-royale .last { order: 4; }
   .ds-royale .sec-size { order: 5; }
   .ds-royale .sec-source { order: 6; }
+  .ds-royale .down .sec-source { order: 0; }
   .ds-royale .island { order: 7; }
   .ds-royale .slot { min-height: 84px; padding: 10px 12px; }
   /* The host's controls want the row's width: the Squad's number and Join on top, its people under them. */
@@ -418,7 +419,9 @@ ${v.passphrase && !local && server.join ? `<label class="ds-field"><span class="
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
     const extras = s ? `<button type="button" class="ds-btn" data-act="loadout" data-key="loadout">Loadout</button><button type="button" class="ds-btn" data-act="settings" data-key="settings">Settings</button>` : '';
 
-    return `<form class="ds-page" novalidate>
+    // The server can't be joined: on a phone, the way round it (Local bots) comes first, not under the Squad.
+    const down = !s && !local && v.status !== undefined && !server.join;
+    return `<form class="ds-page${down ? ' down' : ''}" novalidate>
 <header><div class="heading"><h1>Battle Royale</h1></div></header>
 <div class="body">
 <div class="controls">

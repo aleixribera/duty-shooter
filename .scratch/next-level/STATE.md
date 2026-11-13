@@ -17,12 +17,10 @@ Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 
 
 Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The laptop's GPU is the bottleneck (Survival Town ~55 fps, Zero Island ~43 at the A/B spots); shipped the bloom's cheap bright pass and the TRAA's two-picture history. Levers left are first in BACKLOG for the director. Prefer `flag:` A/Bs over `post:` swaps (ticket 99).
 
-Passes 34-35: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep passes 1-2. Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
-- [x] The system in `theme.ts`: Backlit tokens, two fonts (59 KB, swap), `.ds-plate` (+ `.is-scroll` for plates that scroll), buttons and segments as plates (v2.202.0).
-- [x] The main menu: lit row only on a plate, Profile and Settings row, profile corner (v2.202.0). Loadouts and its dot wait on item 7.
-- [x] The HUD in low light: match bar as three plates with the lit clock, health and ammo plates, feed lines as plates (yours lit), the kill's beats at 90/120/300/750 ms, changing figures at a fixed `ch` width (Chakra Petch has no tabular digits) (v2.203.0).
-- [x] Every other screen: tabs, settings rows, pause list, dialogs, scoreboard, end panel, toasts, recap, votes, lobby seats, touch controls; display type on 34 title/figure rules (v2.203.0).
-- [ ] Prove: `design-audit` on every screen, throttled frame times menu and match, the kill stack's 2.5 s end (shorten?). Frames: `ui/backlit-screens/look.mjs` (pages, royale, kill, match; before/after).
+Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep passes 1-2, then the proof (pass 36). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
+- [x] The system, the main menu, the HUD in low light and every other screen (v2.202.0, v2.203.0; details in ticket 114).
+- [x] Prove, pass 36: `design-audit` 2026-11-13 (68 findings: 2 high, 29 medium, 37 low; both highs and 8 mediums fixed, verdicts in the report); frame times before/after within noise (`ui/backlit-screens/perf.mjs`, dev servers); kill stack ends at 1.8 s; mint grep clean; fonts 59 KB.
+- Item 1b cut after pass 36 (ticket 114 resolved): the audit's open mediums are in BACKLOG. Next by PLAN's order: a fresh review on the Backlit build, then item 7 rough. The laptop's frame-time confirmation waits on item 1.
 
 ## Needs Aleix
 

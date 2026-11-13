@@ -1,0 +1,181 @@
+{
+  "lens": "first-time",
+  "findings": [
+    {
+      "screen": "royale",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "high",
+      "title": "With the server down, the way to play a Battle Royale (Local bots) is nowhere on the phone screen",
+      "detail": "On a phone held sideways the Battle Royale screen shows the server error, Your Squad, greyed-out squad sizes and a lit Check again. The Server / Local bots picker that leads to a playable match is below the fold, and the error line doesn't mention it, so a new player presses Check again, gets nothing, and backs out believing Battle Royale can't be played. On desktop the picker is visible, but the error line still doesn't point to it and Check again remains the lit action.",
+      "evidence": "phone DOM: no 'Play on', 'Server' or 'Local bots' text or control in view; visible: 'The server isn’t answering. It may be restarting.' [35,78,309,20], disabled SOLOS/DUOS/TRIOS, lit 'CHECK AGAIN' [420,338,408,44]. Desktop: picker at [56,149,520,48], error line 'The server isn’t answering. It may be restarting.' with no mention of Local bots.",
+      "fix": "When the server is down, switch the picker to Local bots on its own, or end the error line with 'Play with Local bots instead' as a button. On the phone layout, put the Play on picker first in the body, above Your Squad.",
+      "box": [16, 74, 340, 28]
+    },
+    {
+      "screen": "bot-lobby",
+      "viewport": "phone",
+      "rule": "MENU-01",
+      "severity": "medium",
+      "title": "Sideways phone lobby shows only maps; mode, sides, bot skill and the goal sit below the fold beside a lit Start match",
+      "detail": "A first-time phone player sees three map tiles and a glowing Start match, so they start without knowing that a mode, teams and bot skill exist. They find out they're in Team deathmatch only from the countdown. DESIGN.md asks that a sideways phone shows the way to play without a scroll.",
+      "evidence": "bot-lobby@phone DOM: visible texts are 'Bot Match', 'Match', three map names and 'Random map & mode'. No 'Mode', 'Sides', 'Bot skill' or 'Players' in view. Start match is lit and focused [622,338,206,44].",
+      "fix": "In the sideways layout, shrink the map tiles to a single row of ~60 px strips (or a segmented picker) so Mode and its one-line goal fit above the footer, or put the chosen mode and goal in the footer beside Start match.",
+      "box": [16, 57, 812, 281]
+    },
+    {
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "title": "Squad sizes are greyed out and unclickable with no reason given, yet Solos still shows lit",
+      "detail": "With the server down, Solos, Duos and Trios are disabled, but Solos keeps its lit edge and nothing says why the choice is locked. A new player clicks Duos, nothing happens, and it reads as a broken button. The same happens on the phone.",
+      "evidence": "Controls 'SOLOS' [56,279,169,48], 'DUOS' [231,279,169,48] and 'TRIOS' [407,279,169,48] are all disabled. Solos is drawn with the full light edge. The only note on screen is 'Friends can join; bots fill the empty seats.' under the Play on picker.",
+      "fix": "Keep squad sizes choosable while the server is down, since the choice carries over to Local bots. If they must stay shut, unlight Solos and add a note under 'Squads' such as 'Pick once the server answers'.",
+      "box": [56, 279, 520, 48]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "desktop",
+      "rule": "MENU-02",
+      "severity": "medium",
+      "title": "The main menu has no way to the Loadout",
+      "detail": "A new player who wants to choose a gun before playing finds only Profile and Settings under the destinations. Loadout appears only in the Bot Match lobby footer and the pause menu, and not at all on the Battle Royale screen. DESIGN.md puts Loadouts in this row.",
+      "evidence": "Row under the list: 'Profile' [68,956,103,44] and 'Settings' [179,956,123,44] only. The same on phone (16,308) and phone-upright (18,708). The royale footer holds only Back and Check again / Open lobby.",
+      "fix": "Add Loadouts as the first item in the small row (Loadouts · Profile · Settings), with the lit dot when an unlock is waiting.",
+      "box": [68, 956, 234, 44]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "title": "The player name is an editable field that looks like plain text and is only 19 px tall",
+      "detail": "'Player 1748' in the profile corner is a text input, but it has no frame, cursor or edit mark, so a new player never learns they can name themselves there. On touch it is also a 19 px strip that's hard to tap. On desktop it is 298x19 px with the same look.",
+      "evidence": "Control 'Name' input [598,26,218,19] on phone and [1550,60,298,19] on desktop, drawn as bold text with no field edge. Only the Battle Royale Local bots screen shows a labelled 'Name' field.",
+      "fix": "Give the name a small pencil or an underline that lights at half on hover or focus, and make its hit area at least 44 px tall on touch, padding the input itself rather than the text.",
+      "box": [598, 26, 218, 19]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "On a phone the opening goal plate covers the score and clock bar and the allies' name tags",
+      "detail": "During the countdown the plate with the mode, the number and the goal sits on top of the match bar, so the new player can't see their team, the score or the clock that the goal line refers to. Ally tags under it are hidden too. DESIGN.md asks for it to stand right under the match bar on touch.",
+      "evidence": "Plate spans about y 43-190 CSS px. The clock 'T−10:00' [372,25,116,39], '◆ Blue · you' [252,62,86,17] and 'TDM · 75' [402,62,56,17] lie under 'Team deathmatch' [362,54,121,20]. Ally tags 'Briar' [261,127] and 'Ember' [587,114] lie under the plate.",
+      "fix": "Anchor the countdown plate below the match bar on phone (top ≥ 88 px), and trim it to the number and the goal line so its bottom stays above the crosshair.",
+      "box": [223, 43, 398, 147]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "The range stats panel is clipped at the top edge and covers a quarter of the phone view with an empty black box",
+      "detail": "On the first spawn in the Practice Range, a phone player sees a large panel whose first line is cut off at the top. Most of it is an empty black 'Recoil of the last burst' square that means nothing before the first shot. It takes the left quarter of the view, beside the lanes. On desktop the empty recoil square is also there, just smaller.",
+      "evidence": "'Time to kill' at [28,-1,58,17] (above the viewport top). The panel spans about [16,0,204,258] CSS px of a 844x390 view. The recoil area is an empty dark block of about 180x150 px.",
+      "fix": "Inset the panel by the safe area and gutter. On phone, show only the four readouts in a compact strip and hide the recoil graph until a burst has been fired.",
+      "box": [16, 0, 204, 258]
+    },
+    {
+      "screen": "end-panel",
+      "viewport": "phone",
+      "rule": "FB-03",
+      "severity": "medium",
+      "title": "The phone match end gives no sign of what comes next and no way to the scoreboard",
+      "detail": "After a match on the phone the player sees the result and their numbers, but no timer, button or hint. They wait without knowing whether the game has stalled. The desktop panel shows 'Scoreboard in 0:02'. DESIGN.md says the phone gets a hold-to-see scoreboard button in this layout.",
+      "evidence": "end-panel@phone DOM: 'Draw', 'Your match' readouts and 'Rank 1 Observer 0 / 800 XP', with no control and no 'Scoreboard in' text. Desktop shows 'Scoreboard in 0:01' [910,341,100,17].",
+      "fix": "Show the same 'Scoreboard in 0:0N' line under the panel on phone, plus the Scoreboard hold button the design calls for.",
+      "box": [68, 6, 708, 166]
+    },
+    {
+      "screen": "settings-video",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "'The picture' lists graphics settings that can't be changed, with no word on why",
+      "detail": "A new player whose frame rate is low opens Video looking for a quality switch. They find shadows, ambient occlusion and anti-aliasing listed as values with no control, and nothing says the game sets them itself for this machine. They hunt for an option that doesn't exist. New rule idea: a read-only readout of settings says who sets it.",
+      "evidence": "Readouts 'Shadows 2048 px, 45 m', 'Ambient occlusion 8 samples', 'Anti-aliasing Temporal', 'Texture filtering 8x' [1076,157,400,235], none with a control. The only note is 'WebGPU · nvidia blackwell · 60 Hz display'.",
+      "fix": "Add one short note under the heading, e.g. 'Set for this machine. Lower the frame-rate cap if it stutters', or offer a quality picker.",
+      "box": [1076, 119, 400, 302]
+    },
+    {
+      "screen": "online",
+      "viewport": "desktop",
+      "rule": "MENU-01",
+      "severity": "low",
+      "title": "The offline Play Online page names Bot Match and the Practice Range but gives no button to either",
+      "detail": "The sentence tells the player what they can play instead, but the only actions are Back and a lit Check again, so they must back out and find it themselves. The connection-error dialog already offers a Bot Match button, which makes this page the odd one out.",
+      "evidence": "'The server may be restarting. Bot Match and the Practice Range play without it.' [56,123,505,59]. Controls: 'BACK' [56,1015,117,44] and 'CHECK AGAIN' [1604,1008,260,58] only. error@desktop has 'BOT MATCH' [274,938,180,44].",
+      "fix": "Add a Bot Match button beside Check again in the footer, as the error dialog does.",
+      "box": [56, 123, 505, 59]
+    },
+    {
+      "screen": "loadout",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "Locked attachments say 'kills to go' without saying with what, and the Profile calls the same thing Mastery",
+      "detail": "A new player sees 'Reflex: 25 kills to go' with no lock mark and may not realise the kills must come from this gun. The Profile shows the same progress as 'Mastery 0 / 5 · 25 to level 1' without saying that a level opens an attachment slot, so the two screens never meet.",
+      "evidence": "Loadout: 'Reflex' / '25 kills to go' [593,345], 'Vertical' / '300 kills to go' [593,537]. Locked names are grey 179,181,184 with no lock icon. Profile: 'Mastery 0 / 5' [1149,191], '25 to level 1' [1294,191].",
+      "fix": "Write the lock as 'M4A1 kills: 0 / 25' with a lock glyph on locked tiles, and on Profile write 'Level 1 opens the optic slot' instead of '25 to level 1'.",
+      "box": [580, 338, 824, 248]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "Abbreviations like 'TDM · 75' and 'ADS 0.24 s' stay unexplained after the opening",
+      "detail": "Once the countdown plate is gone, the match bar only says 'TDM · 75'. A newcomer who missed the goal line can't decode it without pressing Tab. The Loadout's Handling stat reads 'ADS 0.24 s', and 'aim down sights' is never shortened to ADS anywhere else.",
+      "evidence": "'TDM · 75' [936,92,56,17] under the clock. loadout@desktop 'ADS 0.24 s' [1787,419,59,17]. Settings and the pause controls card spell out 'Aim down sights'.",
+      "fix": "Write the bar's line as 'First to 75' (the mode name is on the scoreboard), and the stat as 'Aim 0.24 s'.",
+      "box": [936, 92, 56, 17]
+    },
+    {
+      "screen": "settings-video",
+      "viewport": "desktop",
+      "rule": "ONB-03",
+      "severity": "low",
+      "title": "'Aim-down-sights field of view: Affected' doesn't say affected by what",
+      "detail": "The choice is between 'Affected' and 'Independent', and neither word says what it changes. A new player can't predict the result without trying both in a match.",
+      "evidence": "Row 'Aim-down-sights field of view' with select 'Affected / Independent' [660,405,360,40] and no note.",
+      "fix": "Rename the choices to 'Follows field of view' and 'Fixed', or add a few-word note: 'Whether aiming zoom follows your field of view'.",
+      "box": [660, 405, 360, 40]
+    },
+    {
+      "screen": "settings-controls",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "Key names read like code: 'Shift Left', 'Control Left'",
+      "detail": "Players know these keys as Left Shift and Left Ctrl. The reversed code-style names look odd here and in the pause menu's controls card. New rule idea: key caps use the names printed on keyboards.",
+      "evidence": "'Shift Left' [673,757], 'Control Left' [673,871] in Settings. The same in pause@desktop 'Shift Left' [1601,464], 'Control Left' [1601,496].",
+      "fix": "Map key codes to display names: ShiftLeft to 'L Shift', ControlLeft to 'L Ctrl', and the same for the right-hand and Alt keys.",
+      "box": [660, 747, 360, 154]
+    },
+    {
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The 'Island: Zero' readout reads as a count of zero",
+      "detail": "Among Seats 60, Match 10 min and Ring 6 stages, 'Island / Zero' looks like a number (no island) rather than the name Zero Island used on the main menu.",
+      "evidence": "Readout label 'Island' [1053,612], value 'Zero' [1053,631,48,29], next to numeric readouts '60', '10 min', '6 stages'. The main menu says 'Zero Island' [153,652].",
+      "fix": "Show the full name, 'Zero Island', or label the cell 'Map'.",
+      "box": [1053, 612, 48, 48]
+    },
+    {
+      "screen": "end-panel",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "low",
+      "title": "The MVP line says '1 kills'",
+      "detail": "The plural doesn't follow the count, a small slip on the screen every match ends on.",
+      "evidence": "'1' [779,150,9,20] followed by 'kills' [788,150,29,20] in the MVP strip.",
+      "fix": "Make the unit follow the count: '1 kill', '2 kills'. Check 'score' and the other readouts that pair a number with a unit as well.",
+      "box": [779, 150, 38, 20]
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "lens": "accessibility",
+  "findings": [
+    {
+      "screen": "bot-lobby",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "title": "Keyboard or pad focus on the footer's primary button looks the same as no focus",
+      "detail": "The primary button (Start Match, Done, Check Again, Open Lobby) is always lit. When focus lands on it, the only change is the edge going from warm white to pure white, so a keyboard or pad player can't tell whether Enter will press it. Focus lands on this button when the lobby, loadout, gunsmith and online screens open.",
+      "evidence": "Pixels on the edge of the focused START MATCH (bot-lobby, focused per DOM) are #ffffff. On the unfocused OPEN LOBBY (royale-local, focused: null) they are #ffe7c2. The two states differ by about 1.2:1. The halo and fill are the same in both.",
+      "fix": "Give the focused primary a mark that the resting lit state doesn't have, such as a 2 px outer ring offset 3 px in --ds-text or a brighter fill (--ds-plate-lit raised), so focus differs by at least 3:1 from rest.",
+      "box": [1604, 1008, 260, 58]
+    },
+    {
+      "screen": "profile",
+      "viewport": "desktop",
+      "rule": "MENU-04",
+      "severity": "medium",
+      "title": "Half-lit focus is a 1 px tan hairline that barely differs from an unfocused plate",
+      "detail": "When focus is on a normal button (Back, Reset profile, settings rows, footer buttons), the only sign is a 1 px edge in --ds-light-half instead of the grey plate edge. On a 1080p screen at couch distance, a keyboard or pad player has trouble finding where focus is. This is the default focus on Profile, and the same treatment covers every unlit control.",
+      "evidence": "Focused BACK (DOM focused) has a 1 px edge of rgb(140,122,92) = #8c7a5c. Unfocused RESET PROFILE has a 1 px edge of rgb(52,55,59) = #34373b. They differ by 2.87:1, under the 3:1 needed for a focus change, and the edge is 1 px instead of 2 px. The fills are (29,29,28) and (20,22,25).",
+      "fix": "Draw half-lit focus as a 2 px edge, and use a colour that reaches 3:1 against --ds-plate-edge (for example --ds-text-2 #b3b5b8, or raise --ds-light-half to around #b39d76), while keeping the halo for full selection only.",
+      "box": [56, 1022, 117, 44]
+    },
+    {
+      "screen": "royale",
+      "viewport": "desktop",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "Squad-size picker is disabled but looks exactly like the enabled one",
+      "detail": "With the server down, Solos, Duos and Trios are disabled. They are drawn the same as on the Local bots screen, where they work: Solos lit and the others grey. A player clicks Duos, nothing happens, and nothing says why. NEW idea: a disabled control must look disabled and say what it is waiting for (DESIGN: Do). The same happens on royale@phone.",
+      "evidence": "DOM: SOLOS, DUOS and TRIOS are disabled:true at [56,279,169,48], [231,279,169,48] and [407,279,169,48]. The text colours match royale-local@desktop, where they are enabled: Solos #fbf6ec, Duos and Trios #b3b5b8. The lit edge and halo on SOLOS are the same in both shots.",
+      "fix": "When disabled, dim the whole segmented control (unlit plate edge, label in --ds-text-3, no halo on the chosen one). Put the reason in the Squads label ('Squads: needs the server'), or move the picker under Local bots only.",
+      "box": [56, 279, 520, 48]
+    },
+    {
+      "screen": "pause",
+      "viewport": "desktop",
+      "rule": "TYP-01",
+      "severity": "medium",
+      "title": "The controls list a player opens Pause to read is set at 13 px",
+      "detail": "Every binding and action name in the Controls plate is 13 px on a 1920x1080 screen. At normal play distance, 'Tactical: smoke or flash' and 'Aim down sights' are hard to read, and reading them is the panel's whole purpose. The same 13 px step carries readouts players act on elsewhere: 55 texts on profile@desktop, 24 on scoreboard@desktop, and the Practice Range stats panel ('Time to kill', 'Distance', 'Shots / hits').",
+      "evidence": "contrast.md for pause@desktop: 36 size warnings, all 13 px, including 'Aim down sights' [1436,464,87,17], 'Tactical: smoke or flash' [1702,592,124,17] and key caps 'Right mouse' [1332,464,82,17]. TYP-01 needs 14 px for sentence-case text a player must read. Contrast passes (8.82:1).",
+      "fix": "Set the Pause controls list, scoreboard columns and Range stats in --ds-type-body (16 px). Keep --ds-type-small (13 px) only for short uppercase labels and key hints beside a larger value.",
+      "box": [1332, 432, 494, 241]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "medium",
+      "title": "'Play Online' title fails contrast over the world on a sideways phone",
+      "detail": "Offline, the Play Online destination is drawn in --ds-text-3 directly over the scrimmed world. On the phone it sits over the bright hills and sky, so the first and largest destination reads as faded and is hard to read in daylight. DESIGN reserves --ds-text-3 for labels on plates. On desktop the same title passes only narrowly (p10 4.31).",
+      "evidence": "contrast.json main-menu@phone: 'Play Online' 30 px bold, colour rgb(139,142,146), declared 5.61:1, measured p50 2.4:1 and p10 1.6:1 against the 3:1 need. It is the only contrast fail in the audit.",
+      "fix": "Draw the unavailable destination in --ds-text-2 (it still reads as dimmer than the white rows) and let the status line carry 'Offline'. Alternatively, darken the menu scrim behind the list on short viewports.",
+      "box": [32, 48, 193, 39]
+    },
+    {
+      "screen": "main-menu",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "medium",
+      "title": "The name field in the profile corner is a 19 px tall tap target",
+      "detail": "The player's name is an editable input, but its hit area is a 19 px strip that looks like plain text. On a phone it is hard to hit and easy to miss. It is the same on desktop (298x19, under the 32 px mouse minimum) and on the upright phone (260x19).",
+      "evidence": "DOM controls: input 'Name' box [598,26,218,19] on main-menu@phone, [1550,60,298,19] on desktop and [98,90,260,19] on phone-upright. contrast.md flags it as a small target on all three.",
+      "fix": "Make the whole name line of the profile plate the input, at least 44 px tall on touch and 32 px with a mouse, and give it a visible edit affordance (an underline in --ds-line-2 or a pencil icon button).",
+      "box": [598, 26, 218, 19]
+    },
+    {
+      "screen": "countdown",
+      "viewport": "phone",
+      "rule": "HUD-02",
+      "severity": "medium",
+      "title": "The opening goal plate covers the score bar and the clock on a sideways phone",
+      "detail": "During the countdown, the 'Team deathmatch / 4 / goal' plate sits on top of the match bar, so both team scores and the clock are hidden except for the tops of their digits. Its bottom edge also reaches the crosshair. DESIGN: on a phone the goal line stands right under the match bar, off the crosshair.",
+      "evidence": "Screenshot: the plate spans about CSS [223,43,398,147]. The clock 'T-10:00' box [372,25,116,39] and the scores at y 25-64 are cut by the plate from y 43. The plate's bottom is at y≈190, right at the crosshair (centre y 195).",
+      "fix": "On short viewports, anchor the goal plate below the match bar (top at about 90 px), keep it to one line plus the number, and don't let it reach the centre 20% box.",
+      "box": [223, 43, 398, 147]
+    },
+    {
+      "screen": "range-hud",
+      "viewport": "phone",
+      "rule": "HUD-03",
+      "severity": "medium",
+      "title": "Practice Range stats panel is clipped at the top edge and fills two-thirds of the left side",
+      "detail": "On a sideways phone, the Range stats plate starts above the screen, so 'Time to kill' is cut off at the bezel. Its empty recoil box then runs down to the health plate, covering about two-thirds of the screen's height on the left, where targets in other lanes appear.",
+      "evidence": "DOM: 'Time to kill' box [28,-1,58,17] and its value '-' [136,-1,7,17], so text is at y = -1. In the screenshot the plate covers about CSS [16,0,204,258], 258 of 390 px tall.",
+      "fix": "Offset the panel by --ds-safe-t plus the gutter. On short viewports, drop or collapse the recoil plot (show it only after a burst) so the panel is about four rows tall.",
+      "box": [16, -1, 204, 259]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "HUD-04",
+      "severity": "medium",
+      "title": "Health and ammo plates keep their desktop size on a phone and cover over half the bottom",
+      "detail": "On an 844x390 phone, the health and ammo plates are drawn at the same CSS size as at 1920x1080. Together they cover over half the screen's width across its bottom quarter, hiding the ground where enemies crouch and approach. The same happens on countdown@phone and range-hud@phone.",
+      "evidence": "Screenshot: the health plate is about CSS [16,276,259,89] and the ammo plate about [601,264,227,101]. Together they cover 486 of 844 px of width (58%) and about 25% of the height. On desktop the same plates cover 554 of 1920 px (29%) and about 11% of the height. The figures are 30 px on both.",
+      "fix": "Add a compact HUD step under 520 px tall: one-line plates (label beside the value, no segmented bar under health, the grenade counts folded into the ammo line), about 50 px tall and under 180 px wide each.",
+      "box": [16, 264, 812, 101]
+    },
+    {
+      "screen": "royale-local",
+      "viewport": "phone",
+      "rule": "NEW",
+      "severity": "medium",
+      "title": "The squad-size picker sits entirely under the footer on a sideways phone",
+      "detail": "On the Battle Royale screen held sideways, Solos, Duos and Trios fall below the fixed footer. A player presses Open Lobby without ever seeing that squad size was a choice. NEW idea, from DESIGN Layout: on a sideways phone, the way to play shows without a scroll. On royale@phone only a 14 px sliver of the picker shows above the footer.",
+      "evidence": "DOM: SOLOS [16,334,169,48], DUOS [191,334,169,48] and TRIOS [367,334,169,48]. The footer buttons start at y 338 and the footer plate at about y 330, so all three are covered. On royale@phone the picker is at y 316-364 under the same footer.",
+      "fix": "On short viewports, put the Squads picker on the header line or above the name field, or shrink the squad slot to one line so the picker clears the footer.",
+      "box": [16, 308, 520, 74]
+    },
+    {
+      "screen": "settings-video",
+      "viewport": "phone",
+      "rule": "MENU-03",
+      "severity": "low",
+      "title": "Neighbouring touch targets sit 3-6 px apart on phone",
+      "detail": "Settings tabs are 67-72 px wide with only 3-4 px between them, so a thumb aimed at Video can land on Touch or Audio. Stacked buttons elsewhere are also under the 8 px gap: the Pause list, the Battle Royale squad picker and the upright Bot Match mode list.",
+      "evidence": "DOM (settings-*@phone): CONTROLS 141-240 then MOUSE AND PAD at 244 (4 px gap), TOUCH ends 459 then VIDEO at 463 (4 px), VIDEO ends 530 then AUDIO at 533 (3 px). pause@phone: buttons at y 56/110/164/218, 48 px tall (6 px gaps). royale@phone squads: 6 px gaps. bot-lobby@phone-upright modes: 466/516/566, 44 px tall (6 px gaps).",
+      "fix": "Use at least 8 px gaps between touch targets on coarse pointers (gap: 8px on the tab strip, pause list and .ds-seg).",
+      "box": [141, 10, 637, 44]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "phone",
+      "rule": "COL-01",
+      "severity": "low",
+      "title": "The announcer toast hides an ally's name tag",
+      "detail": "The 'Range Control: Team deathmatch. The range is hot.' toast sits over the place where the ally tag 'Rook' is drawn. The name shows only as a faint fragment behind the toast while it is up.",
+      "evidence": "DOM: the toast text is at [264,115,316,20] on a plate spanning about [250,108,344,36]. The 'Rook' tag is at [416,135,28,17], inside the plate. contrast.json gives 'Rook' p10 1.44:1 against the 4.5:1 need.",
+      "fix": "Draw ally tags above toasts, or (as DESIGN says for touch) move the toast to the full-width slot above the readouts on a phone, away from where tags appear.",
+      "box": [250, 108, 344, 44]
+    },
+    {
+      "screen": "match-hud",
+      "viewport": "desktop",
+      "rule": "COL-01",
+      "severity": "low",
+      "title": "Ally name tags are small and drop below 4.5:1 over the bright scene",
+      "detail": "Ally tags are 13 px bold on a small translucent plate. Against the sunlit siding and sky they lose contrast, so naming who is where takes a second look.",
+      "evidence": "contrast.json match-hud@desktop: 'Rook' 13 px bold, p50 5.08 and p10 2.83. 'Ember' p50 4.5 and p10 4.09 (need 4.5). On scoreboard@desktop, 'Ember' is p10 3.91.",
+      "fix": "Make the tag plate opaque (--ds-plate), add 2 px padding, and set the name at 14 px.",
+      "box": [1338, 472, 28, 17]
+    }
+  ]
+}

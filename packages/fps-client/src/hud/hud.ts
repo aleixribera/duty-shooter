@@ -43,7 +43,8 @@ const CSS = `
 /* Chakra Petch has no tabular digits (a 1 is narrower than a 0), so each figure that changes in place holds a fixed width in ch, the widest digit's: the plates and the gauge beside them never move as it counts. */
 .ds-ammo .mag { display: inline-block; min-width: 2ch; }
 .ds-match .score { min-width: 2ch; text-align: center; }
-.ds-match .clock { min-width: 4ch; text-align: center; }
+/* The clock holds the width of its longest face ("T−10:00", about six zeros wide), so the bar never re-centres as it counts. */
+.ds-match .clock { min-width: 6.1ch; text-align: center; }
 .ds-ammo .mag { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: var(--ds-type-heading); color: var(--ds-text-2); margin-left: 8px; }
@@ -156,6 +157,9 @@ const CSS = `
 .ds-match .mid { min-width: 132px; }
 .ds-match .clock { font-family: var(--ds-font-display); font-size: var(--ds-type-display); line-height: 1; font-weight: 700; letter-spacing: 0.02em; color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); }
 .ds-match .clock.low { color: var(--ds-alert); text-shadow: none; }
+/* While the opening countdown runs, its number is the lit figure and the clock rests; the clock lighting is the "go". */
+.ds-match.counting .clock { color: var(--ds-text); text-shadow: none; }
+.ds-round h2.count { color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); }
 .ds-match .sub { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-top: 3px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; }
 .ds-match > .roster { flex-direction: row; gap: 4px; padding: 6px 8px; }
 .ds-match > .roster.l { flex-direction: row-reverse; }
@@ -237,6 +241,17 @@ const CSS = `
 /* A phone on its side (ticket 26): the result on one line, the numbers in one row and the vote beside nothing it hides. The board
    comes when it is asked for, over the panel and not under it: there is no room for both. */
 @media (max-height: 520px) and (min-width: 641px) {
+  /* The match bar rises to the top edge and the opening card stands under it, clear of the crosshair, as with touch controls. */
+  .ds-match { top: calc(8px + var(--ds-safe-t)); }
+  .ds-round { top: calc(84px + var(--ds-safe-t)); transform: translateX(-50%); padding: 6px 14px 8px; }
+  .ds-round h2 { margin-top: 2px; }
+  .ds-round .goal { margin-top: 4px; }
+  /* The zones' strip and Charge's stand under the bar too: the card goes below them. */
+  .ds-hud:has(.ds-zones[style*="flex"]) .ds-round, .ds-hud:has(.ds-charge:not([style*="none"])) .ds-round { top: calc(132px + var(--ds-safe-t)); }
+  /* Health and ammo shrink to what they hold: the ground at the bottom of a short screen is where enemies come from. */
+  .ds-health, .ds-ammo { bottom: calc(12px + var(--ds-safe-b)); padding: 8px 12px 10px; }
+  .ds-ammo { min-width: 0; }
+  .ds-health .bar { width: 140px; }
   .ds-end { top: calc(6px + var(--ds-safe-t)); width: min(880px, calc(100vw - 136px - var(--ds-safe-l) - var(--ds-safe-r))); }
   .ds-end .head { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 14px; padding-top: 6px; }
   .ds-end h2 { margin: 0 0 6px; font-size: var(--ds-type-title); }
@@ -1094,7 +1109,7 @@ export class Hud {
       this.#set(this.#action, `${s.action.kind === 'plant' ? 'Planting' : 'Defusing'}<div class="bar"><i style="width:${Math.round(s.action.progress * 100)}%"></i></div>`);
     }
     if (s.phase === 'freeze') {
-      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2>${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(goalLine({ mode: 'charge', killLimit: null }, c.attacking))}</div>${cardPrompt(state)}`);
+      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2 class="count">${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(goalLine({ mode: 'charge', killLimit: null }, c.attacking))}</div>${cardPrompt(state)}`);
     } else if (s.phase === 'over' && s.outcome) {
       const won = TEAMS[s.outcome.winner];
       this.#set(this.#round, `<div class="sub">${ROUND_REASONS[s.outcome.reason]}</div><h2 class="ds-t${s.outcome.winner}">${won?.mark ?? ''} ${won?.name ?? 'Team'} wins the round</h2>`);
@@ -1115,7 +1130,7 @@ export class Hud {
       return;
     }
     this.#style(this.#round, 'display', '');
-    this.#set(this.#round, `<div class="sub">${escape(MODE_NAMES[view!.status.mode] ?? view!.status.mode)}</div><h2>${Math.max(1, Math.ceil(left))}</h2><div class="goal">${escape(goalLine(view!.status))}</div>${cardPrompt(state)}`);
+    this.#set(this.#round, `<div class="sub">${escape(MODE_NAMES[view!.status.mode] ?? view!.status.mode)}</div><h2 class="count">${Math.max(1, Math.ceil(left))}</h2><div class="goal">${escape(goalLine(view!.status))}</div>${cardPrompt(state)}`);
   }
 
   /** The match bar (team scores or the leader, the clock, the mode) and, after a match, the result, your line and the vote. */
@@ -1123,6 +1138,8 @@ export class Hud {
     const view = state.match;
     // A Battle Royale has its own bar: the compass, the count and the Ring.
     this.#style(this.#match, 'display', view && view.status.phase === 'playing' && !state.royale ? 'flex' : 'none');
+    const counting = view?.status.phase === 'playing' && view.status.mode !== 'battle-royale' && ((view.countdown ?? 0) > 0 || state.charge?.state.phase === 'freeze');
+    this.#match.classList.toggle('counting', counting);
     this.#style(this.#end, 'display', view && !state.victory && !state.matchCard && (view.status.phase === 'nuke' || view.status.phase === 'vote') ? 'block' : 'none');
     // The Charge portraits widen the bar into the kill feed's corner, so the feed steps down under it.
     this.root.classList.toggle('rostered', view?.status.phase === 'playing' && (state.charge?.roster.length ?? 0) > 0);
@@ -1187,7 +1204,7 @@ export class Hud {
     // The MVP: the highest Score of the match, with their kills and best Medal.
     const mvp = mvpOf(state.scores, state.selfId);
     if (mvp) {
-      head += `<div class="mvp ds-plate"><span>MVP</span><b class="who">${mvp.you ? 'You' : playerName(mvp.name, mvp.bot)}</b><span><b>${figure(mvp.score)}</b> score</span><span><b>${mvp.kills}</b> kills</span>${mvp.medal ? `<span>Best Medal <b>${escape(medalName(mvp.medal))}</b></span>` : ''}</div>`;
+      head += `<div class="mvp ds-plate"><span>MVP</span><b class="who">${mvp.you ? 'You' : playerName(mvp.name, mvp.bot)}</b><span><b>${figure(mvp.score)}</b> score</span><span><b>${mvp.kills}</b> ${mvp.kills === 1 ? 'kill' : 'kills'}</span>${mvp.medal ? `<span>Best Medal <b>${escape(medalName(mvp.medal))}</b></span>` : ''}</div>`;
     }
     let changed = this.#set(this.#endHead, head);
     // Your match: your numbers and, once the match is banked, what it paid.

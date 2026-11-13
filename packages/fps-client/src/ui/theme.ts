@@ -21,7 +21,7 @@ const CSS = `
   --ds-ink: #0b0c0e; --ds-panel: #111315; --ds-raised: #1b1d20; --ds-raised-2: #24272b;
   --ds-text: #fbf6ec; --ds-text-2: #b3b5b8; --ds-text-3: #8b8e92;
   /* The light: its text and figures, a lit plate's edge, the edge lit at half (hover, focus), the halo round a lit plate, the glow round lit text. */
-  --ds-light: #ffe2b0; --ds-light-edge: #ffe7c2; --ds-light-half: #8c7a5c; --ds-light-halo: rgb(255 206 140 / 0.45); --ds-light-glow: rgb(255 206 140 / 0.55);
+  --ds-light: #ffe2b0; --ds-light-edge: #ffe7c2; --ds-light-half: #b39d76; --ds-light-halo: rgb(255 206 140 / 0.45); --ds-light-glow: rgb(255 206 140 / 0.55);
   /* A plate's unlit edge, and the fill of a lit plate: lit from below. */
   --ds-plate-edge: #34373b; --ds-plate-lit: radial-gradient(ellipse 90% 140% at 50% 115%, #3b3226, #141516 72%);
   --ds-cut: 14px;
@@ -126,6 +126,8 @@ const CSS = `
 .ds-btn:not(:disabled):hover, .ds-btn:focus-visible, .ds-btn[data-pad-focus] { --ds-edge: var(--ds-light-half); outline: none; }
 .ds-btn:not(:disabled):active { --ds-fill: var(--ds-raised-2); }
 .ds-btn.primary:not(:disabled):hover, .ds-btn.primary:focus-visible, .ds-btn.primary[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+/* Focus on a lit control: the edge goes white and a ring stands 4 px out, since a lit plate has no brighter edge to give (DESIGN.md, Light). */
+.ds-btn.primary:not(:disabled):focus-visible, .ds-btn.primary:not(:disabled)[data-pad-focus], .ds-seg button.on:focus-visible, .ds-seg button.on[data-pad-focus] { outline: 2px solid var(--ds-text-2); outline-offset: 4px; }
 .ds-btn.primary:not(:disabled):active { --ds-fill: var(--ds-raised-2); }
 .ds-btn.big { --ds-ch: var(--ds-cut); min-height: 58px; min-width: 260px; padding: 0 36px; font-size: var(--ds-type-heading); letter-spacing: 0.12em; }
 .ds-btn:disabled { color: var(--ds-text-2); }
@@ -140,6 +142,9 @@ const CSS = `
 .ds-seg button:not(:disabled):not(.on):hover { --ds-edge: var(--ds-light-half); color: var(--ds-text); }
 .ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { --ds-edge: var(--ds-light-half); color: var(--ds-text); outline: none; z-index: 1; }
 .ds-seg button.on:focus-visible, .ds-seg button.on[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+/* A picker that can't be used goes out: its words dim, and its choice keeps a grey edge without the light, so it no longer looks live. */
+.ds-seg button:disabled { color: var(--ds-text-3); cursor: default; }
+.ds-seg button.on:disabled { --ds-edge: var(--ds-text-3); --ds-edge-w: 1px; --ds-fill: var(--ds-plate); color: var(--ds-text-2); filter: none; }
 .ds-field-label { display: block; margin: 0 0 8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 
 /* Key hints: keyboard caps, or the controller's glyphs once a pad drives the screen. */
