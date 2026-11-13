@@ -10,7 +10,8 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 5. Multiplayer quality of life: a whole match with friends plays well.
 6. Other weapons (not the M4, sniper or SMG): review against real games (TTK, spread, rate, movement, feedback), redesign the pump shotgun, burst SCAR, semi-auto rifle (sight, role) and revolver; prove with TTK and hits-per-kill at range, range runs and frames; list the changes.
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
-8. (2026-11-14, next in line, before PLAN work) Random next match: "a button at the end of each match that starts another new game with a random map and mode and teams (if multiple players) once the normal timer to go to the lobby finishes. Make the admin able to press this." Reading: on the match-end screen the lobby host (the only player in a Bot Match) gets a "Random next match" button; if pressed, when the usual countdown back to the lobby ends a new match starts at once instead of the lobby, on a random map, a random mode valid for that map and player count, with teams shuffled when there are several players. Everyone else sees the host chose it. Play Online private lobbies and Bot Match; Battle Royale only if a random pick fits there.
+8. (2026-11-14, next in line, before PLAN work) Random next match the host can pick at match end, Bot Match and private lobbies (ticket 115, his words and the reading there).
+9. (2026-11-14) Reset all progression to 0 for every browser once item 7 is built, as its last step (ticket 116).
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
