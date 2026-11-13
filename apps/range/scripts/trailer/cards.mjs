@@ -18,7 +18,7 @@ mkdirSync(out, { recursive: true });
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const CSS = `
-  :root { --ink: #0b0e13; --text: #f3f1ea; --text-2: #b4bac5; --line: rgba(243, 241, 234, 0.22); --signal: #8fe3c8; --gutter: 112px; }
+  :root { --ink: #0b0c0e; --text: #fbf6ec; --text-2: #b3b5b8; --line: rgba(251, 246, 236, 0.22); --light: #ffe2b0; --gutter: 112px; }
   html, body { margin: 0; width: 1920px; height: 1080px; background: transparent; overflow: hidden; }
   body { font-family: Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif; color: var(--text); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
   .full { position: absolute; inset: 0; background: var(--ink); }

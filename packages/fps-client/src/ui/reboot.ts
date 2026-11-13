@@ -8,7 +8,7 @@ import { STATS, type BattleRoyaleState, type BeaconState, type PlayerId, type Pl
  */
 
 const R = STATS.royale.reboot;
-const SIGNAL = '#8fe3c8';
+const LIGHT = '#ffe2b0';
 const ALERT = '#ff6159';
 
 /** A Beacon's light: its colour, how bright (emissive), the column of light over it (0 to 1) and whether its head turns. */
@@ -22,9 +22,9 @@ export interface BeaconLook {
 /** How Beacon `b` looks at simulation time `time` (null: Reboot is closed, it is dark); `now` (s) paces the pulse. */
 export function beaconLook(b: BeaconState | null, time: number, now: number): BeaconLook {
   if (!b) return { colour: '#000000', glow: 0, beam: 0, turn: false };
-  if (b.channel) return { colour: SIGNAL, glow: 2.2 + Math.sin(now * 9) * 1.2, beam: 0.28 + Math.sin(now * 9) * 0.06, turn: true };
+  if (b.channel) return { colour: LIGHT, glow: 2.2 + Math.sin(now * 9) * 1.2, beam: 0.28 + Math.sin(now * 9) * 0.06, turn: true };
   if (b.ready !== undefined && b.ready > time) return { colour: ALERT, glow: 0.5, beam: 0, turn: false };
-  return { colour: SIGNAL, glow: 1.4, beam: 0, turn: false };
+  return { colour: LIGHT, glow: 1.4, beam: 0, turn: false };
 }
 
 const flat = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0]! - b[0]!, a[2]! - b[2]!);

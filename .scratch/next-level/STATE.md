@@ -15,9 +15,14 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 106 to 113; details in each ticket). Cut to BACKLOG on the way: walking bots look 18° up; bots fight from cover only on Zero Island.
 
-Pass 32: PLAN item 1 (Aleix's laptop, as the director re-scoped it), pass 1. Undisturbed, the laptop runs Survival Town at 17-21 ms (GPU 14.5) and Zero Island 26-28 (GPU 18.7), the same in a real full-screen window as headless: the GPU is the bottleneck. Shipped the bloom's bright pass from a cheap source (0.14 ms). Fewer AO samples were cut: they lose the contact shade (three's GTAO step placement, ticket 99). Firefox's readback is not the cost. Next pass: item 1 pass 2 on the GPU (TRAA 2.2, GTAO 2.1, light-times-occlusion copy 0.55, world pass 6.8; levers in BACKLOG), then Zero Island's 7 ms of script.
+Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The laptop's GPU is the bottleneck (Survival Town ~55 fps, Zero Island ~43 at the A/B spots); shipped the bloom's cheap bright pass and the TRAA's two-picture history. Levers left are first in BACKLOG for the director. Prefer `flag:` A/Bs over `post:` swaps (ticket 99).
 
-Pass 33: PLAN item 1 pass 2 (GPU). Shipped: the temporal AA takes turns between two pictures instead of copying one into its history each frame, about 0.5 ms a frame on the laptop (one-page A/B), same picture. Dropped: folding the occlusion into the TRAA (GPU timestamps fell, frames got slower: a cold read). Item still fails (at the A/B spots Survival Town ~55 fps, Zero Island ~43), and its two passes are spent: the levers left (previous-depth copy, our own GTAO, a plus-shaped TRAA neighbourhood) are first in BACKLOG for the director. Next pass: the benchmark page before/after on the laptop (not run: the session was interrupted), then the next item in order. Prefer `flag:` A/Bs: `post:` swaps read Zero Island's frame 0.6-1 ms off (ticket 99).
+Pass 34: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep pass 1. Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
+- [x] The system in `theme.ts`: Backlit tokens (`--ds-light*`, mint gone), the two fonts (59 KB, swap), `.ds-plate` with `.is-lit`/`.is-half`/`.is-own`/`.is-empty`, buttons and segments as plates, `--ds-scrim-menu` (v2.202.0).
+- [x] The main menu: lit row only on a plate, Profile and Settings row, profile corner (v2.202.0). Loadouts and its dot wait on item 7.
+- [ ] The HUD in low light: score bar, health, ammo, feed on unlit plates (the HUD's 13 `.ds-plate`s already draw as plates); the lit clock, your own feed lines lit; the kill's timed beats.
+- [ ] Every other screen: lobby, Battle Royale lobby and screen, settings (tabs still old), pause, scoreboard, match end, dialogs, gunsmith, profile, changelog, touch controls.
+- [ ] Prove: frames beside `ui/backlit/`, `design-audit`, throttled frame times menu and match. Frames: `ui/backlit-pass/look.mjs` (menu, settings, hud).
 
 ## Needs Aleix
 

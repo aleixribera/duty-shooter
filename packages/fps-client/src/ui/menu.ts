@@ -8,7 +8,7 @@ import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, secti
 import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { buildEffects, gunsmithRows, openKit, rebuild, slotLock, withBuilds, type BuildEffects, type GunsmithChoice } from './gunsmith';
 import { escapeHtml, hint, icon, installTheme } from './theme';
-import { PROFILE_SCREEN_CSS, profileHtml, rankLineHtml } from './profile-screen';
+import { PROFILE_SCREEN_CSS, profileHtml, rankCorner } from './profile-screen';
 import { CHANGELOG_SCREEN_CSS, changelogHtml, type Release } from './changelog-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
 import { touchMode } from '../touch/mode';
@@ -24,72 +24,83 @@ export const MENU_CSS = `
 .ds-screen { position: absolute; inset: 0; }
 /* The same screen drawn again (a tab, a new key, the server's status) does not fade in again. */
 
-/* The main menu: a title card over the map's fly-through. The wordmark and the name at the top, the destinations in display type with their live readouts at the foot, key hints and the version under them. */
-.ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 40px var(--ds-gutter) 22px;
-  background: linear-gradient(90deg, rgb(7 9 13 / 0.92) 0%, rgb(7 9 13 / 0.62) 32%, rgb(7 9 13 / 0) 60%), linear-gradient(0deg, rgb(7 9 13 / 0.8) 0%, rgb(7 9 13 / 0) 34%), linear-gradient(180deg, rgb(7 9 13 / 0.55) 0%, rgb(7 9 13 / 0) 18%); }
+/* The main menu: a title card over the map's fly-through, in low light. The wordmark and the profile corner at the top, the destinations in display type with their live readouts, Profile and Settings under them, key hints and the version at the foot. */
+.ds-home { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: calc(40px + var(--ds-safe-t)) calc(var(--ds-gutter) + var(--ds-safe-r)) calc(22px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l));
+  background: var(--ds-scrim-menu); }
 .ds-home .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-.ds-brand h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.9; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
-.ds-brand p { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
-.ds-name { width: 270px; }
-.ds-name label { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; background: var(--ds-scrim-soft); border: 1px solid var(--ds-line-2); transition: border-color var(--ds-fast); }
-.ds-name label:focus-within { border-color: var(--ds-signal); }
-.ds-name input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ds-text); font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; outline: none; }
-.ds-name .ds-icon { color: var(--ds-text-2); flex: none; }
-/* Destinations: display type, a readout under each, the lit one marked by a signal bar at its left edge. */
-.ds-dests { align-self: end; display: flex; flex-direction: column; width: min(720px, 100%); margin-bottom: 22px; }
-.ds-dest { position: relative; display: block; padding: 10px 0 12px 22px; text-align: left; background: none; border: 0; color: var(--ds-text); }
-.ds-dest::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
-.ds-dest.lit::before { background: var(--ds-signal); }
-.ds-dest b { display: block; font-size: var(--ds-type-display); line-height: 0.92; font-weight: 700; letter-spacing: 0.015em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
+.ds-brand h1 { margin: 0; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 0.9; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ds-text-2); }
+/* The profile corner: an unlit plate. The Rank in a cut badge, its number in the light; the name (it can be typed over), the Rank and XP; a thin bar in the light. */
+.ds-corner { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 14px 14px; width: 396px; padding: 14px 16px 16px; }
+.ds-corner:focus-within, .ds-corner:has([data-pad-focus]) { --ds-edge: var(--ds-light-half); }
+.ds-corner.no-rank { grid-template-columns: minmax(0, 1fr); }
+.ds-corner .badge { display: grid; place-items: center; width: 52px; height: 52px; background: var(--ds-raised-2); font-family: var(--ds-font-display); font-size: 30px; font-weight: 700; line-height: 1; color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+.ds-corner .who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ds-corner input { width: 100%; min-width: 0; padding: 0; background: none; border: 0; color: var(--ds-text); font: 600 var(--ds-type-body)/1.2 var(--ds-font); outline: none; }
+.ds-corner input::placeholder { color: var(--ds-text-2); }
+.ds-corner .meta { font-size: var(--ds-type-small); color: var(--ds-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-corner .meta b { font-weight: 600; color: var(--ds-text); }
+.ds-corner .ds-xpbar { grid-column: 1 / -1; height: 3px; background: var(--ds-track); }
+.ds-corner .ds-xpbar i { background: var(--ds-light); box-shadow: 0 0 18px var(--ds-light-glow); }
+/* Destinations: display type, a readout under each. Only the lit one is a plate; the others light their edge at half under the pointer or focus, and their title slides in. */
+.ds-dests { align-self: end; display: flex; flex-direction: column; gap: 4px; width: min(680px, 100%); margin-bottom: 18px; }
+.ds-dest.ds-plate { display: block; padding: 16px 28px 18px; text-align: left; border: 0; background: none; color: var(--ds-text-2); }
+.ds-dest.ds-plate:not(.is-lit) { --ds-edge: transparent; --ds-fill: transparent; }
+.ds-dest b { display: block; font-family: var(--ds-font-display); font-size: var(--ds-type-display); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ds-text-2); transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
 .ds-dest .readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin-top: 6px; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
 .ds-dest .readout em { font-style: normal; color: var(--ds-text); }
-.ds-dest.off b { color: var(--ds-text-2); }
-.ds-dest:hover::before, .ds-dest:focus-visible::before, .ds-dest[data-pad-focus]::before { background: var(--ds-signal); transform: scaleX(2); }
-.ds-dest:hover b, .ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { transform: translateX(10px); }
+.ds-dest.ds-plate.is-lit b { color: var(--ds-reticle); }
+.ds-dest.off b { color: var(--ds-text-3); }
+.ds-dest.ds-plate:not(.is-lit):hover, .ds-dest.ds-plate:not(.is-lit):focus-visible, .ds-dest.ds-plate:not(.is-lit)[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); }
+.ds-dest:hover b, .ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { transform: translateX(10px); color: var(--ds-text); }
+.ds-dest.ds-plate.is-lit:focus-visible, .ds-dest.ds-plate.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); }
 .ds-dest:focus-visible, .ds-dest[data-pad-focus] { outline: none; }
-.ds-dest:focus-visible b, .ds-dest[data-pad-focus] b { color: var(--ds-signal-hi); }
-.ds-dest.minor { margin-top: 14px; padding-top: 18px; border-top: 1px solid var(--ds-line); }
-.ds-dest.minor::before { top: 20px; }
-.ds-dest.minor b { font-size: var(--ds-type-heading); letter-spacing: 0.12em; }
-.ds-dest.minor .readout { display: none; }
+/* Under the list, what is not a place to play: at heading size, no plate. */
+.ds-more { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px 12px; }
+.ds-more button { min-height: 44px; padding: 0 16px; background: none; border: 0; font-family: var(--ds-font-display); font-size: var(--ds-type-heading); font-weight: 600; letter-spacing: 0.02em; color: var(--ds-text-2); transition: color var(--ds-fast); }
+.ds-more button:hover, .ds-more button:focus-visible, .ds-more button[data-pad-focus] { color: var(--ds-text); outline: none; box-shadow: inset 0 -2px 0 var(--ds-light-half); }
 .ds-dot { display: inline-flex; align-items: center; gap: 8px; color: var(--ds-text); }
 .ds-dot::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--ds-alert); }
-.ds-dot.up::before { background: var(--ds-signal); }
+.ds-dot.up::before { background: var(--ds-good); }
 .ds-dot.off { color: var(--ds-text-2); }
 .ds-dot.off::before { background: var(--ds-text-3); }
 .ds-home footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 /* The first time the menu shows, the destinations rise in one after another; never on a redraw. */
 @keyframes ds-rise { from { opacity: 0; transform: translateY(14px); } }
 .ds-home.enter .ds-dest { animation: ds-rise var(--ds-slow) var(--ds-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.ds-home.enter .ds-dest.is-lit { animation: ds-rise var(--ds-slow) var(--ds-ease) both, ds-light-on 450ms var(--ds-ease) forwards; animation-delay: calc(var(--i, 0) * 50ms), calc(var(--i, 0) * 50ms + 120ms); }
 .ds-home.enter .ds-brand { animation: ds-rise var(--ds-slow) var(--ds-ease) both; }
 @media (prefers-reduced-motion: reduce) {
   @keyframes ds-rise { from { opacity: 0; } }
-  .ds-dest b, .ds-dest::before { transition: none; }
+  .ds-home.enter .ds-dest.is-lit { animation: ds-rise var(--ds-slow) var(--ds-ease) both; }
+  .ds-dest b { transition: none; }
 }
 /* Small windows: everything in one scrolling column. */
 @media (max-width: 900px), (max-height: 600px) {
-  .ds-home { display: flex; flex-direction: column; gap: 18px; padding: 20px var(--ds-gutter); overflow-y: auto;
-    background: linear-gradient(0deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.78) 55%, rgb(7 9 13 / 0.45) 100%); }
+  .ds-home { display: flex; flex-direction: column; gap: 14px; padding: calc(20px + var(--ds-safe-t)) calc(var(--ds-gutter) + var(--ds-safe-r)) calc(20px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); overflow-y: auto;
+    background: linear-gradient(0deg, rgb(6 7 8 / 0.94) 0%, rgb(6 7 8 / 0.78) 55%, rgb(6 7 8 / 0.5) 100%); }
   .ds-home .top { flex-direction: column; gap: 14px; }
-  /* One column, one width: the name and the Rank run as wide as the list and its divider (ticket 80). */
-  .ds-name { width: min(720px, 100%); }
+  /* One column, one width: the profile corner runs as wide as the list (ticket 80). */
+  .ds-corner { width: min(680px, 100%); }
   .ds-dests { margin: auto 0 0; align-self: flex-start; }
-  .ds-dest { padding: 8px 0 10px 18px; }
-  .ds-dest .readout { font-size: var(--ds-type-body); }
+  .ds-dest.ds-plate { padding: 10px 18px 12px; }
+  /* No halo on a row this wide: a filter over half the screen costs the toaster. */
+  .ds-dest.ds-plate.is-lit { filter: none; }
+  .ds-more { margin-left: 2px; }
   .ds-home footer .ds-hints { display: none; }
 }
-/* A phone on its side (ticket 26): the name and the Rank stand right of the list, as on a desktop, so the list starts under the title and four destinations show at once. */
+/* A phone on its side (ticket 26): the profile corner stands right of the list, as on a desktop, so the list starts under the title and four destinations show at once. */
 @media (max-height: 520px) and (min-width: 641px) {
-  .ds-home { display: grid; grid-template-columns: minmax(0, 1fr) min(270px, 36%); grid-template-rows: auto auto auto; align-content: start; gap: 8px 24px; padding: 14px var(--ds-gutter) 12px; }
+  .ds-home { display: grid; grid-template-columns: minmax(0, 1fr) min(300px, 38%); grid-template-rows: auto auto auto auto; align-content: start; gap: 4px 24px; padding: calc(12px + var(--ds-safe-t)) calc(var(--ds-gutter) + var(--ds-safe-r)) calc(10px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); }
   .ds-home .top { display: contents; }
-  .ds-brand { grid-column: 1; grid-row: 1; margin-bottom: 8px; }
-  .ds-name { grid-column: 2; grid-row: 1 / span 2; width: auto; }
-  .ds-dests { grid-column: 1; grid-row: 2; align-self: start; margin: 0; width: 100%; }
-  .ds-home footer { grid-column: 1 / -1; grid-row: 3; }
-  .ds-dest { padding: 3px 0 5px 18px; }
+  .ds-brand { grid-column: 1; grid-row: 1; margin-bottom: 4px; }
+  .ds-corner { grid-column: 2; grid-row: 1 / span 3; align-self: start; width: auto; grid-template-columns: 44px minmax(0, 1fr); padding: 12px; }
+  .ds-corner .badge { width: 44px; height: 44px; font-size: 24px; }
+  .ds-dests { grid-column: 1; grid-row: 2; align-self: start; margin: 0; width: 100%; gap: 0; }
+  .ds-more { grid-column: 1; grid-row: 3; margin: 0; }
+  .ds-home footer { grid-column: 1 / -1; grid-row: 4; }
+  .ds-dest.ds-plate { --ds-ch: 10px; padding: 5px 16px 6px; }
   .ds-dest .readout { margin-top: 2px; }
-  .ds-dest.minor { margin-top: 6px; padding-top: 10px; min-height: 44px; }
-  .ds-dest.minor::before { top: 12px; }
 }
 
 /* Page content: columns, cards, facts and fields. */
@@ -104,11 +115,11 @@ export const MENU_CSS = `
 .ds-mode b { display: block; font-size: var(--ds-type-body); line-height: 1.1; text-transform: uppercase; letter-spacing: 0.03em; }
 .ds-mode span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-mode:hover { background: var(--ds-raised); }
-.ds-mode.on { border-color: var(--ds-signal); box-shadow: inset 4px 0 0 var(--ds-signal); }
-.ds-mode:focus-visible, .ds-mode[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
+.ds-mode.on { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
+.ds-mode:focus-visible, .ds-mode[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
 .ds-field { display: block; margin: 0 0 16px; }
 .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
-.ds-field input:focus { border-color: var(--ds-signal); outline: none; }
+.ds-field input:focus { border-color: var(--ds-light); outline: none; }
 .ds-error { color: var(--ds-alert); min-height: 20px; font-size: var(--ds-type-body); }
 .ds-sub { margin: 6px 0 0; color: var(--ds-text-2); }
 /* The one line a page has to say, where it has nothing else to show (a server that doesn't answer). */
@@ -118,11 +129,11 @@ export const MENU_CSS = `
 /* Settings: tabs in the header, rows of label and control. */
 .ds-tabs { display: flex; gap: 2px; }
 .ds-tabs button { position: relative; height: 44px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-2); font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
-.ds-tabs button::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--ds-signal); transform: scaleX(0); transition: transform 140ms var(--ds-ease); }
+.ds-tabs button::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--ds-light); transform: scaleX(0); transition: transform 140ms var(--ds-ease); }
 .ds-tabs button:hover { color: var(--ds-text); background: rgb(243 241 234 / 0.04); }
 .ds-tabs button.on { color: var(--ds-text); }
 .ds-tabs button.on::after { transform: none; }
-.ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: -2px; }
+.ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: -2px; }
 /* Settings: a block a section, its name at heading size (a live state under it, where it has one), then a row a setting, the control on the right. */
 .ds-rows { max-width: 980px; }
 .ds-rows section + section { margin-top: 36px; }
@@ -130,26 +141,26 @@ export const MENU_CSS = `
 .ds-rows .ds-sub { margin: -4px 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-rows .list { display: grid; gap: 1px; background: var(--ds-line); }
 .ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: center; min-height: 56px; padding: 6px 16px 6px 20px; background: var(--ds-panel); transition: background-color var(--ds-fast), box-shadow var(--ds-fast); }
-.ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-signal); }
+.ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-light); }
 .ds-row > label { font-size: var(--ds-type-body); }
 .ds-slider { display: flex; align-items: center; gap: 12px; }
 .ds-slider input { flex: 1; min-width: 0; height: 32px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
-.ds-slider input::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
-.ds-slider input::-moz-range-track { height: 4px; background: linear-gradient(90deg, var(--ds-signal) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
+.ds-slider input::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--ds-light) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
+.ds-slider input::-moz-range-track { height: 4px; background: linear-gradient(90deg, var(--ds-light) var(--p, 50%), var(--ds-line-2) var(--p, 50%)); border-radius: 0; }
 .ds-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 20px; margin-top: -8px; background: var(--ds-text); border: 0; border-radius: 0; box-shadow: 0 0 0 3px rgb(7 9 13 / 0.6); }
 .ds-slider input::-moz-range-thumb { width: 14px; height: 20px; background: var(--ds-text); border: 0; border-radius: 0; }
 /* A thumb's reach: the whole row height on touch, with a bigger thumb, so a slider is not a 20px strip to hit. */
 @media (pointer: coarse) { .ds-slider input { height: 44px; } .ds-slider input::-webkit-slider-thumb { width: 22px; height: 30px; margin-top: -13px; } .ds-row select, .ds-bind { min-height: 44px; } }
 .ds-slider input:focus { outline: none; }
-.ds-slider input:focus-visible::-webkit-slider-thumb, .ds-slider input[data-pad-focus]::-webkit-slider-thumb { background: var(--ds-signal); }
+.ds-slider input:focus-visible::-webkit-slider-thumb, .ds-slider input[data-pad-focus]::-webkit-slider-thumb { background: var(--ds-light); }
 .ds-slider .val { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: var(--ds-ink); border: 1px solid var(--ds-line); font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); }
 .ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
-.ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238fe3c8' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+.ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffe2b0' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
-.ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-signal); outline: none; }
+.ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-light); outline: none; }
 .ds-bind { padding-right: 12px; cursor: pointer; }
-.ds-bind:hover { border-color: var(--ds-signal); }
-.ds-bind.wait { border-color: var(--ds-signal); color: var(--ds-signal); background: var(--ds-signal-dim); }
+.ds-bind:hover { border-color: var(--ds-light); }
+.ds-bind.wait { border-color: var(--ds-light); color: var(--ds-light); background: var(--ds-raised); }
 
 /* Loadout: weapon tiles by slot, and the focused weapon's card. */
 .ds-kit { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 24px; }
@@ -161,7 +172,7 @@ export const MENU_CSS = `
 .ds-bars { display: grid; grid-template-columns: 110px 1fr 82px; gap: 12px 12px; align-items: center; font-size: var(--ds-type-small); }
 .ds-bars .k { color: var(--ds-text-3); text-transform: uppercase; font-size: var(--ds-type-small); letter-spacing: 0.14em; }
 .ds-bars .bar { height: 6px; background: rgb(255 255 255 / 0.08); overflow: hidden; }
-.ds-bars .bar i { display: block; height: 100%; background: var(--ds-signal); transition: width 160ms var(--ds-ease); }
+.ds-bars .bar i { display: block; height: 100%; background: var(--ds-light); transition: width 160ms var(--ds-ease); }
 .ds-bars .v { text-align: right; font-weight: 700; color: var(--ds-text); }
 /* The gunsmith (ticket 19): under a gun's tiles, one row per slot it takes, the slot's name and its three choices. */
 .ds-smith { display: grid; gap: 8px; margin: -12px 0 24px; }
@@ -190,11 +201,11 @@ body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .ds-item { position: relative; display: grid; align-items: center; min-height: 64px; padding: 8px 0 8px 22px; text-align: left; color: var(--ds-text); background: none; border: 0; cursor: pointer; }
 .ds-pause .ds-item::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
 .ds-pause .ds-item b { font-size: var(--ds-type-display); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
-.ds-pause .ds-item.primary::before { background: var(--ds-signal); }
-.ds-pause .ds-item:hover::before, .ds-pause .ds-item:focus-visible::before, .ds-pause .ds-item[data-pad-focus]::before { background: var(--ds-signal); transform: scaleX(2); }
+.ds-pause .ds-item.primary::before { background: var(--ds-light); }
+.ds-pause .ds-item:hover::before, .ds-pause .ds-item:focus-visible::before, .ds-pause .ds-item[data-pad-focus]::before { background: var(--ds-light); transform: scaleX(2); }
 .ds-pause .ds-item:hover b, .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { transform: translateX(10px); }
 .ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { outline: none; }
-.ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { color: var(--ds-signal-hi); }
+.ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { color: var(--ds-light-edge); }
 .ds-pause .ds-error { margin: -12px 0 12px; }
 .ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.86); }
 .ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: var(--ds-type-small); color: var(--ds-text-2); }
@@ -232,8 +243,8 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
 .ds-steps li::before { content: ''; flex: none; width: 18px; height: 2px; background: var(--ds-line-2); }
 .ds-steps li.done::before { background: var(--ds-text-2); }
 .ds-steps li.now { color: var(--ds-text); font-weight: 700; }
-.ds-steps li.now::before { background: var(--ds-signal); }
-.ds-menu.pad .ds-panel [data-pad-focus], .ds-menu.pad .ds-field input[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
+.ds-steps li.now::before { background: var(--ds-light); }
+.ds-menu.pad .ds-panel [data-pad-focus], .ds-menu.pad .ds-field input[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
 
 @media (max-width: 960px) {
   .ds-cols { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -860,10 +871,11 @@ export class Menu {
     brand.innerHTML = `<h1>Duty Shooter</h1>`;
     top.append(brand);
 
-    // The name, remembered between visits.
-    const nameBox = h('div', '', 'ds-name');
-    const label = h('label');
-    label.innerHTML = icon('user');
+    // The profile corner: the Rank this browser has earned, and the name, remembered between visits and typed over in place.
+    const rank = this.#profile ? rankCorner(this.#profile.profile) : null;
+    const corner = h('div', '', `ds-corner ds-plate${rank ? '' : ' no-rank'}`);
+    if (rank) corner.insertAdjacentHTML('beforeend', rank.badge);
+    const who = h('div', '', 'who');
     const name = h('input') as HTMLInputElement;
     name.maxLength = 16;
     name.placeholder = 'Your name';
@@ -872,28 +884,19 @@ export class Menu {
     name.setAttribute('autocomplete', 'nickname');
     name.spellcheck = false;
     name.addEventListener('change', () => this.#change({ name: name.value.trim().slice(0, 16) }));
-    label.append(name);
-    nameBox.append(label);
-    // Under the name, the Rank it has earned in this browser: the way into the Profile.
-    if (this.#profile) {
-      const rank = h('button', '', 'ds-rankline') as HTMLButtonElement;
-      rank.type = 'button';
-      rank.innerHTML = rankLineHtml(this.#profile.profile);
-      rank.addEventListener('click', () => {
-        this.#askReset = false;
-        this.show('profile');
-      });
-      nameBox.append(rank);
-    }
-    top.append(nameBox);
+    who.append(name);
+    if (rank) who.insertAdjacentHTML('beforeend', rank.meta);
+    corner.append(who);
+    if (rank) corner.insertAdjacentHTML('beforeend', rank.bar);
+    top.append(corner);
     home.append(top);
 
     const lobby = this.#lobby;
     const nav = h('nav', '', 'ds-dests');
     nav.setAttribute('aria-label', 'Main menu');
     // The title is each destination's first text: scripts find the buttons by the text they start with.
-    const dest = (title: string, readout: string, onClick: () => void, lit = false, minor = false) => {
-      const b = h('button', '', `ds-dest${lit ? ' lit' : ''}${minor ? ' minor' : ''}`) as HTMLButtonElement;
+    const dest = (title: string, readout: string, onClick: () => void, lit = false) => {
+      const b = h('button', '', `ds-dest ds-plate${lit ? ' is-lit' : ''}`) as HTMLButtonElement;
       b.type = 'button';
       b.style.setProperty('--i', String(nav.children.length));
       b.innerHTML = `<b>${escapeHtml(title)}</b><span class="readout">${readout}</span>`;
@@ -928,17 +931,26 @@ export class Menu {
     dest('Battle Royale', `<span><em>${WIDE_SCALE.seats}</em> seats</span><span>Zero Island</span><span>Solos, Duos or Trios</span>`, () => this.#callbacks.battleRoyale());
     dest('Bot Match', '<span>Any map, any mode, against bots</span>', () => this.#callbacks.botMatch(), !server || offline);
     dest('Practice Range', '<span>Lanes, dummies and a movement course</span>', () => this.#callbacks.practiceRange());
-    dest(
-      'Settings',
-      '',
-      () => {
-        this.#back = 'main';
-        this.show('settings');
-      },
-      false,
-      true,
-    );
     home.append(nav);
+    // Under the list, what is not a place to play: the Profile and Settings.
+    const more = h('nav', '', 'ds-more');
+    more.setAttribute('aria-label', 'More');
+    const minor = (title: string, onClick: () => void) => {
+      const b = h('button', title) as HTMLButtonElement;
+      b.type = 'button';
+      b.addEventListener('click', onClick);
+      more.append(b);
+    };
+    if (this.#profile)
+      minor('Profile', () => {
+        this.#askReset = false;
+        this.show('profile');
+      });
+    minor('Settings', () => {
+      this.#back = 'main';
+      this.show('settings');
+    });
+    home.append(more);
     // The destinations rise in the first time the menu shows, and never on a redraw.
     if (!this.#entered) {
       this.#entered = true;

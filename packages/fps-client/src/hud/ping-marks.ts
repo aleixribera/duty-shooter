@@ -10,7 +10,7 @@ import type { AllyTag } from './ally-tags';
  */
 
 const CSS = `
-.ds-ping { position: absolute; left: 0; top: 0; will-change: transform; display: flex; flex-direction: column; align-items: center; pointer-events: none; color: var(--ds-signal); text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
+.ds-ping { position: absolute; left: 0; top: 0; will-change: transform; display: flex; flex-direction: column; align-items: center; pointer-events: none; color: var(--ds-light); text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
 .ds-ping.enemy { color: var(--ds-enemy); }
 .ds-ping .pin { width: 14px; height: 14px; border: 2px solid currentColor; transform: rotate(45deg); background: rgb(11 14 19 / 0.55); }
 .ds-ping.enemy .pin { width: 0; height: 0; border: 9px solid transparent; border-top: 14px solid currentColor; transform: none; background: none; margin-bottom: -4px; }
@@ -21,7 +21,7 @@ const CSS = `
 .ds-pingwheel { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; transform: translate(-50%, -50%); pointer-events: none; display: none; }
 .ds-pingwheel.open { display: block; }
 .ds-pingwheel span { position: absolute; transform: translate(-50%, -50%); padding: 6px 10px; background: var(--ds-glass); border: 1px solid var(--ds-line-2); font-size: var(--ds-type-small); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; color: var(--ds-text); }
-.ds-pingwheel span.on { background: var(--ds-signal); color: var(--ds-signal-ink); border-color: var(--ds-signal); }
+.ds-pingwheel span.on { background: var(--ds-light); color: var(--ds-ink); border-color: var(--ds-light); }
 .ds-pingwheel span.enemy.on { background: var(--ds-enemy); border-color: var(--ds-enemy); color: var(--ds-ink); }
 .ds-pingwheel i { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid var(--ds-text); }
 @media (prefers-reduced-motion: reduce) { .ds-ping.fresh .pin { animation: none; } }

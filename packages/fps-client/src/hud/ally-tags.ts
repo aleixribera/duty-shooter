@@ -145,16 +145,16 @@ export const ALLY_TAGS_CSS = `
 .ds-ally { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; transition: opacity var(--ds-fast) var(--ds-ease); }
 .ds-ally.hidden { opacity: 0.65; }
 .ds-ally.faded { opacity: 0.3; }
-.ds-ally .name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; padding: 1px 7px 2px; background: var(--ds-scrim-soft); color: var(--ds-signal); font-size: var(--ds-type-small); font-weight: 700; line-height: 1.25; }
+.ds-ally .name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; padding: 1px 7px 2px; background: var(--ds-scrim-soft); color: var(--ds-text); font-size: var(--ds-type-small); font-weight: 700; line-height: 1.25; }
 .ds-ally.edge .name { max-width: 96px; }
 .ds-ally svg { display: block; overflow: visible; }
 .ds-ally svg path { fill: none; stroke-linecap: square; }
 .ds-ally svg .o { stroke: var(--ds-ink); stroke-width: 6.5; stroke-opacity: 0.85; }
-.ds-ally svg .i { stroke: var(--ds-signal); stroke-width: 3; }
+.ds-ally svg .i { stroke: var(--ds-text); stroke-width: 3; }
 .ds-ally.downed svg .o { stroke-width: 8; }
 .ds-ally.downed svg .i { stroke: var(--ds-alert); stroke-width: 4; }
 .ds-ally .label { padding: 0 6px 1px; background: var(--ds-scrim-soft); color: var(--ds-text); font-size: var(--ds-type-small); line-height: 1.3; }
-.ds-ally .label.reach { color: var(--ds-signal); font-weight: 700; }
+.ds-ally .label.reach { color: var(--ds-text); font-weight: 700; }
 `;
 
 /** The tags as DOM: one element per ally, rewritten only when what it says changes. */

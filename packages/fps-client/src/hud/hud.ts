@@ -34,7 +34,7 @@ const CSS = `
 .ds-blind { position: absolute; inset: 0; background: var(--ds-text); opacity: 0; }
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, var(--ds-blood) 100%); opacity: 0; }
 /* A plate is one flat surface over the world: no outline, no rounding. */
-.ds-plate { background: var(--ds-plate); border: 0; border-radius: 0; text-shadow: none; }
+.ds-plate { border: 0; border-radius: 0; text-shadow: none; }
 .ds-ammo { position: absolute; right: 0; bottom: 0; min-width: 300px; padding: 0 calc(var(--ds-gutter) + var(--ds-safe-r)) calc(26px + var(--ds-safe-b)) 60px; text-align: right; isolation: isolate; }
 .ds-ammo .mag { font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
@@ -48,7 +48,7 @@ const CSS = `
 .ds-ammo .nade .ds-icon { width: 1.25em; height: 1.25em; stroke-width: 1.9; }
 .ds-ammo .nade.none { color: var(--ds-text-3); opacity: 0.45; }
 .ds-ammo .nade.cook { color: var(--ds-alert); }
-.ds-ammo .nade.tac.cook { color: var(--ds-signal); }
+.ds-ammo .nade.tac.cook { color: var(--ds-light); }
 .ds-scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent 38vmin, var(--ds-shadow) 38.3vmin, var(--ds-black) 39vmin); }
 .ds-scope i { position: absolute; background: var(--ds-black); }
 .ds-scope i.h { left: calc(50% - 38vmin); right: calc(50% - 38vmin); top: calc(50% - 1px); height: 2px; }
@@ -116,7 +116,7 @@ const CSS = `
 .ds-marker.ds-t2 b { background: rgb(var(--ds-orange-rgb) / 0.4); }
 .ds-marker small { font-size: var(--ds-type-small); margin-top: 2px; color: var(--ds-text-2); }
 .ds-marker.contested b { border-color: var(--ds-alert); }
-.ds-marker.target b { border-color: var(--ds-signal); }
+.ds-marker.target b { border-color: var(--ds-light); }
 .ds-marker.charge b { border-color: var(--ds-alert); color: var(--ds-alert); }
 .ds-marker.planted b { border-color: var(--ds-alert); color: var(--ds-alert); animation: ds-blink 0.5s steps(2) infinite; }
 .ds-charge { position: absolute; left: 50%; top: calc(86px + var(--ds-safe-t)); transform: translateX(-50%); padding: 6px 14px; text-align: center; white-space: nowrap; }
@@ -125,7 +125,7 @@ const CSS = `
 .ds-charge .what.alert { color: var(--ds-alert); }
 .ds-action { position: absolute; left: 50%; top: calc(50% + 48px); transform: translateX(-50%); width: 240px; padding: 8px 12px; text-align: center; font-size: var(--ds-type-small); }
 .ds-action .bar { height: 5px; margin-top: 6px; background: var(--ds-track); overflow: hidden; }
-.ds-action .bar i { display: block; height: 100%; background: var(--ds-signal); }
+.ds-action .bar i { display: block; height: 100%; background: var(--ds-light); }
 .ds-action .bar i.bleed { background: var(--ds-alert); }
 .ds-action div { font-variant-numeric: tabular-nums; }
 .ds-action .shield { margin-bottom: 4px; font-weight: 700; color: var(--ds-text); }
@@ -160,7 +160,7 @@ const CSS = `
 .ds-pc.ds-t1 { background: var(--ds-t1-shade); }
 .ds-pc.ds-t2 { background: var(--ds-t2-shade); }
 .ds-pc svg { position: absolute; left: 0; bottom: 0; width: 34px; height: 34px; }
-.ds-pc.you { box-shadow: inset 0 -2px 0 currentColor, inset 0 0 0 1px var(--ds-signal); }
+.ds-pc.you { box-shadow: inset 0 -2px 0 currentColor, inset 0 0 0 1px var(--ds-light); }
 .ds-pc.dead { box-shadow: none; background: var(--ds-raised); }
 .ds-pc.dead svg { filter: grayscale(1) brightness(0.45); opacity: 0.8; }
 .ds-pc.dead::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - 1.2px), var(--ds-alert) calc(50% - 1.2px), var(--ds-alert) calc(50% + 1.2px), transparent calc(50% + 1.2px)); opacity: 0.9; }
@@ -216,7 +216,7 @@ const CSS = `
 .ds-end { position: absolute; left: 50%; top: calc(56px + var(--ds-safe-t)); transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); text-align: center; display: none; animation: ds-in 160ms ease-out; }
 /* The result heads the panel on its plate: over the sky and the cloud it measured 1.2:1. */
 .ds-end .head { margin: 0 auto 1px; width: min(840px, 100%); padding-top: 12px; background: var(--ds-plate); }
-.ds-end .head .mvp.ds-plate { margin-bottom: 0; background: none; border-top: 1px solid var(--ds-line); }
+.ds-end .head .mvp.ds-plate { --ds-edge: transparent; --ds-fill: transparent; margin-bottom: 0; border-top: 1px solid var(--ds-line); }
 .ds-end h2 { margin: 4px 0 14px; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
 /* The MVP: one line on its own plate, set on top of yours. */
 .ds-end .mvp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 auto 1px; width: min(840px, 100%); padding: 9px 14px; text-align: left; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
@@ -254,12 +254,12 @@ const CSS = `
 .ds-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: auto; }
 .ds-votes button { position: relative; overflow: hidden; font: inherit; color: inherit; text-align: left; background: var(--ds-raised); border: 1px solid var(--ds-line); border-radius: 0; padding: 10px 12px; cursor: pointer; }
 .ds-votes button:hover { border-color: var(--ds-text-2); }
-.ds-votes button.mine { border-color: var(--ds-signal); box-shadow: inset 4px 0 0 var(--ds-signal); }
+.ds-votes button.mine { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
 .ds-votes button > span { display: block; }
 .ds-votes button .key { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-votes button .mode { display: block; font-size: var(--ds-type-body); font-weight: 700; text-transform: uppercase; margin: 2px 0 6px; }
 .ds-votes button .tally { height: 4px; background: var(--ds-line); overflow: hidden; }
-.ds-votes button .tally i { display: block; height: 100%; background: var(--ds-signal); transition: width 200ms ease-out; }
+.ds-votes button .tally i { display: block; height: 100%; background: var(--ds-light); transition: width 200ms ease-out; }
 .ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: var(--ds-type-heading); font-weight: 700; }
 .ds-end .next { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--ds-scrim-soft); font-size: var(--ds-type-small); color: var(--ds-text); }
 .ds-end .vote .next { display: block; padding: 0; background: none; color: var(--ds-text-2); }

@@ -69,16 +69,16 @@ const CSS = `
 .ds-bench tbody td { background: var(--ds-panel); font-weight: 700; }
 .ds-bench tbody td small { display: block; font-size: var(--ds-type-small); font-weight: 400; color: var(--ds-text-2); }
 .ds-bench .line { display: block; width: 100%; min-height: 96px; padding: 12px 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 400 var(--ds-type-small)/1.5 ui-monospace, Consolas, monospace; resize: none; }
-.ds-bench .line:focus { border-color: var(--ds-signal); outline: none; }
+.ds-bench .line:focus { border-color: var(--ds-light); outline: none; }
 .ds-bench .copy { margin-top: 12px; display: flex; align-items: center; gap: 16px; }
 .ds-bench .copy span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-bench footer a.ds-btn { text-decoration: none; color: inherit; }
 /* While it flies: one plate in the corner, the picture left alone. */
-.ds-bench .plate { position: absolute; left: var(--ds-gutter); top: 28px; display: none; align-items: center; gap: 16px; padding: 10px 14px 10px 18px; background: var(--ds-scrim); box-shadow: inset 4px 0 0 var(--ds-signal); pointer-events: auto; }
+.ds-bench .plate { position: absolute; left: var(--ds-gutter); top: 28px; display: none; align-items: center; gap: 16px; padding: 10px 14px 10px 18px; background: var(--ds-scrim); box-shadow: inset 4px 0 0 var(--ds-light); pointer-events: auto; }
 .ds-bench.flying .plate { display: flex; }
 .ds-bench .plate b { font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-bench .plate span { font-size: var(--ds-type-body); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ds-text); min-width: 210px; }
-.ds-bench .verdict { margin: 0 0 16px; padding: 12px 16px; background: var(--ds-panel); box-shadow: inset 4px 0 0 var(--ds-signal); color: var(--ds-text); font-weight: 700; }
+.ds-bench .verdict { margin: 0 0 16px; padding: 12px 16px; background: var(--ds-panel); box-shadow: inset 4px 0 0 var(--ds-light); color: var(--ds-text); font-weight: 700; }
 .ds-bench .plate .ds-btn { min-height: 36px; padding: 0 14px; }
 @media (max-width: 960px) {
   .ds-bench .cols { grid-template-columns: minmax(0, 1fr); gap: 28px; }

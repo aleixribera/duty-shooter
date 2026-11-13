@@ -49,9 +49,9 @@ const CSS = `
 .ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
 .ds-lobby .maps button b { position: relative; z-index: 1; }
 .ds-lobby .maps button b { font-size: var(--ds-type-heading); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
-.ds-lobby .maps button.on { border-color: var(--ds-signal); box-shadow: inset 0 0 0 1px var(--ds-signal); }
+.ds-lobby .maps button.on { border-color: var(--ds-light); box-shadow: inset 0 0 0 1px var(--ds-light); }
 .ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
-.ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 2px; }
+.ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
 .ds-lobby .picks.locked .ds-seg button:not(.on), .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }
 .ds-lobby .invite { display: flex; }
 .ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }

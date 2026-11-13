@@ -60,14 +60,15 @@ export function changelogHtml(releases: readonly Release[] | null, failed = fals
 
 export const CHANGELOG_SCREEN_CSS = `
 /* The main menu's way into the Changelog, at the foot beside the key hints: the word and the version running now. */
-.ds-version { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--ds-text-2); font-size: var(--ds-type-small); font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgb(0 0 0 / 0.7); }
-.ds-version b { font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text); transition: color var(--ds-fast); }
-.ds-version:hover b, .ds-version:focus-visible b, .ds-version[data-pad-focus] b { color: var(--ds-signal); }
-.ds-version:focus-visible, .ds-version[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 4px; }
+.ds-version { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--ds-text-2); font-size: var(--ds-type-small); font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgb(0 0 0 / 0.7); }
+.ds-version b { font-weight: 600; color: var(--ds-text-2); transition: color var(--ds-fast); }
+.ds-version span::before { content: '· '; }
+.ds-version:hover b, .ds-version:focus-visible b, .ds-version[data-pad-focus] b { color: var(--ds-text); }
+.ds-version:focus-visible, .ds-version[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 4px; }
 /* The Changelog: a day's name, then its releases as one list split by 1px lines. */
 /* The list takes the focus as it opens, for the keys to scroll it: a ring only for keyboard focus, inside its edge. */
 .ds-log-body:focus:not(:focus-visible) { outline: none; }
-.ds-log-body:focus-visible { outline: 2px solid var(--ds-signal); outline-offset: -2px; }
+.ds-log-body:focus-visible { outline: 2px solid var(--ds-light-half); outline-offset: -2px; }
 .ds-log { max-width: 820px; }
 .ds-log section { content-visibility: auto; contain-intrinsic-size: auto 480px; }
 .ds-log section + section { margin-top: 32px; }

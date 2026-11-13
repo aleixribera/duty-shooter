@@ -111,7 +111,7 @@ export class RebootView {
     lampMesh?.traverse((o) => {
       if (o instanceof Mesh) o.material = lamp;
     });
-    const beam = new Mesh(this.#beamGeometry, new MeshBasicNodeMaterial({ color: new Color('#8fe3c8'), transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }));
+    const beam = new Mesh(this.#beamGeometry, new MeshBasicNodeMaterial({ color: new Color('#ffe2b0'), transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }));
     beam.scale.set(BEAM_WIDTH, BEAM_HEIGHT, BEAM_WIDTH);
     beam.position.y = 2.6;
     beam.visible = false;

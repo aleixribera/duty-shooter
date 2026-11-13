@@ -4,7 +4,7 @@ import { matchGainHtml } from '../src/hud/match-gain';
 import { scoreFeedEntry } from '../src/hud/score-feed';
 import { MatchTracker, applyMatch, emptyProfile, rankFloor, type MatchRecord } from '../src/profile';
 import { mvpOf, scoreboard } from '../src/ui/model';
-import { profileHtml, rankLineHtml } from '../src/ui/profile-screen';
+import { profileHtml, rankCorner } from '../src/ui/profile-screen';
 
 const row = (id: string, team: number, score: number, kills: number, deaths: number, more: Partial<Score> = {}): Score => ({ id, team, name: id, kills, deaths, score, assists: 0, ...more });
 const names = (id: string) => ({ v1: 'Vera', v2: 'Otto' })[id] ?? id;
@@ -145,11 +145,13 @@ describe('the Profile screen', () => {
     expect(html).toContain('<span>Best place</span><b>#4</b>');
   });
 
-  it('gives the main menu its line: the Rank, its title and the way in', () => {
-    expect(rankLineHtml(emptyProfile())).toContain('<b>Rank 1</b>Observer');
-    const high = rankLineHtml({ ...emptyProfile(), xp: rankFloor(12) + 10 });
-    expect(high).toContain('<b>Rank 12</b>');
-    expect(high).toContain('Profile');
+  it('gives the main menu its corner: the Rank in its badge, its title and XP, and the bar', () => {
+    const fresh = rankCorner(emptyProfile());
+    expect(fresh.badge).toContain('>1</span>');
+    expect(fresh.meta).toContain('<b>Rank 1</b> Observer · 0 / ');
+    const high = rankCorner({ ...emptyProfile(), xp: rankFloor(12) + 10 });
+    expect(high.badge).toContain('aria-label="Rank 12"');
+    expect(high.bar).toContain('XP to Rank 13');
   });
 });
 

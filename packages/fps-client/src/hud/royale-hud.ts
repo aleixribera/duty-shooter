@@ -30,16 +30,16 @@ const CSS = `
 .ds-compass .mk.safe { color: var(--ds-hazard); font-size: var(--ds-type-body); }
 .ds-compass .mk.mate { color: var(--ds-text); font-size: var(--ds-type-small); }
 .ds-compass .mk.pinned { opacity: 0.75; }
-.ds-compass .mk.drop { color: var(--ds-signal); font-size: var(--ds-type-small); }
+.ds-compass .mk.drop { color: var(--ds-light); font-size: var(--ds-type-small); }
 .ds-compass .mk.drop { white-space: nowrap; }
-.ds-compass .mk.reboot { color: var(--ds-signal); font-size: var(--ds-type-small); white-space: nowrap; }
+.ds-compass .mk.reboot { color: var(--ds-light); font-size: var(--ds-type-small); white-space: nowrap; }
 .ds-compass .mk.reboot small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
-.ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-signal); transform: rotate(45deg); background: var(--ds-ink); }
-.ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-signal); }
+.ds-map aside .key i.beacon { width: 9px; height: 9px; border: 2px solid var(--ds-light); transform: rotate(45deg); background: var(--ds-ink); }
+.ds-map aside .key i.card { width: 12px; height: 8px; background: var(--ds-light); }
 .ds-map aside .key i.foe { width: 12px; height: 0; border: 0; font-style: normal; }
 .ds-map aside .key i.foe::before { content: '✕'; display: block; margin-top: -8px; font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-alert); }
 .ds-watch .card { font-size: var(--ds-type-small); letter-spacing: 0.02em; color: var(--ds-text); text-transform: none; }
-.ds-compass .mk.ping { color: var(--ds-signal); font-size: var(--ds-type-small); white-space: nowrap; }
+.ds-compass .mk.ping { color: var(--ds-light); font-size: var(--ds-type-small); white-space: nowrap; }
 .ds-compass .mk.ping.enemy { color: var(--ds-enemy); }
 .ds-compass .mk.ping small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; color: var(--ds-text); }
 .ds-compass .mk.drop small { margin-left: 3px; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.04em; color: var(--ds-text); }
@@ -62,11 +62,11 @@ const CSS = `
 .ds-nextline .arrow { width: 16px; height: 16px; display: grid; place-items: center; color: var(--ds-text); font-size: var(--ds-type-small); line-height: 1; }
 .ds-nextline b { color: var(--ds-text); font-variant-numeric: tabular-nums; }
 .ds-leader { display: flex; align-items: baseline; gap: 8px; padding: 3px 12px; white-space: nowrap; font-size: var(--ds-type-small); letter-spacing: 0.08em; color: var(--ds-text-2); }
-.ds-leader .k { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-leader .k { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-light); }
 .ds-leader b { color: var(--ds-text); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; }
 .ds-leader .n { color: var(--ds-text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-victory { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 12px 28px 14px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
-.ds-victory .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-victory .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-light); }
 .ds-victory .place { margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
 .ds-victory .who { margin-top: 6px; font-size: var(--ds-type-title); font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
 .ds-victory .of { margin-top: 4px; font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
@@ -90,8 +90,8 @@ const CSS = `
 .ds-map aside .key { display: flex; align-items: center; gap: 10px; font-size: var(--ds-type-small); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .key i { width: 22px; height: 0; border-top: 2px solid var(--ds-hazard); }
 .ds-map aside .key i.next { border-top: 2px dashed var(--ds-text); }
-.ds-map aside .key i.drop { width: 10px; height: 10px; border: 2px solid var(--ds-signal); background: var(--ds-ink); }
-.ds-map aside .key i.you { width: 0; height: 0; border: 6px solid transparent; border-bottom: 11px solid var(--ds-signal); border-top: 0; }
+.ds-map aside .key i.drop { width: 10px; height: 10px; border: 2px solid var(--ds-light); background: var(--ds-ink); }
+.ds-map aside .key i.you { width: 0; height: 0; border: 6px solid transparent; border-bottom: 11px solid var(--ds-light); border-top: 0; }
 .ds-map aside .close { font-size: var(--ds-type-small); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-map aside .close kbd { font: inherit; font-weight: 700; padding: 1px 6px; border: 1px solid var(--ds-line-2); color: var(--ds-text); margin-right: 6px; }
 @media (max-width: 760px) {
@@ -423,7 +423,7 @@ export class RoyaleHud {
     const tok = (this.#tokens ??= {
       hazard: css.getPropertyValue('--ds-hazard').trim(),
       text: css.getPropertyValue('--ds-text').trim(),
-      signal: css.getPropertyValue('--ds-signal').trim(),
+      signal: css.getPropertyValue('--ds-light').trim(),
       alert: css.getPropertyValue('--ds-alert').trim(),
       ink: css.getPropertyValue('--ds-ink').trim(),
     });

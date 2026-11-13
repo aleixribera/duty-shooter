@@ -26,7 +26,7 @@ const CSS = `
 .ds-royale .slot { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-height: 104px; padding: 14px 16px; background: var(--ds-panel); border: 1px solid var(--ds-line); }
 .ds-royale .slot b { font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-royale .slot span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-royale .slot.you { border-color: var(--ds-signal); box-shadow: inset 4px 0 0 var(--ds-signal); }
+.ds-royale .slot.you { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
 .ds-royale .slot.bot { background: transparent; border: 1px dashed var(--ds-line-2); }
 .ds-royale .slot.bot b { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); white-space: normal; }
 @keyframes ds-fill { from { opacity: 0; transform: translateY(6px); } }
@@ -61,11 +61,11 @@ const CSS = `
 .ds-royale .steps li { display: flex; align-items: center; gap: 10px; }
 .ds-royale .steps li::before { content: ''; width: 14px; height: 2px; background: var(--ds-line-2); }
 .ds-royale .steps li.now { color: var(--ds-text); }
-.ds-royale .steps li.now::before { background: var(--ds-signal); }
+.ds-royale .steps li.now::before { background: var(--ds-light); }
 .ds-royale .steps li.done::before { background: var(--ds-text-2); }
 .ds-royale .ds-field { margin: 0; }
 .ds-royale .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; }
-.ds-royale .ds-field input:focus { border-color: var(--ds-signal); outline: none; }
+.ds-royale .ds-field input:focus { border-color: var(--ds-light); outline: none; }
 .ds-royale .error { color: var(--ds-alert); }
 .ds-royale .last { padding: 14px 16px; background: var(--ds-panel); border: 1px solid var(--ds-line); }
 .ds-royale .last b { display: block; font-size: var(--ds-type-heading); text-transform: uppercase; letter-spacing: 0.03em; }

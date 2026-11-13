@@ -129,7 +129,7 @@ const CSS = `
 .ds-prep.dive .kit, .ds-prep.dive .squad { display: none; }
 /* At the dive, under the field: the Squad to beat. */
 .ds-prep .champ { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; text-align: right; animation: ds-in 300ms var(--ds-ease) both; }
-.ds-prep .champ span { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-signal); }
+.ds-prep .champ span { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-light); }
 .ds-prep .champ b { margin-top: 4px; max-width: min(420px, 60vw); font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
 .ds-prep .champ small { margin-top: 4px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 @media (max-width: 760px) {

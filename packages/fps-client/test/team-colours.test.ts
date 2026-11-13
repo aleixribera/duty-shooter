@@ -30,11 +30,11 @@ describe('the team colours', () => {
     }
   });
 
-  it('keep the enemy marker off the signal colour and the text in every set', () => {
+  it('keep the enemy marker off the light and the text in every set', () => {
     for (const vision of COLOUR_VISIONS) {
       const enemy = TEAM_PALETTES[vision].enemy;
-      expect(seenApart(enemy, '#8fe3c8', vision), `${vision}: signal`).toBeGreaterThanOrEqual(35);
-      expect(seenApart(enemy, '#f3f1ea', vision), `${vision}: text`).toBeGreaterThanOrEqual(35);
+      expect(seenApart(enemy, '#ffe2b0', vision), `${vision}: light`).toBeGreaterThanOrEqual(35);
+      expect(seenApart(enemy, '#fbf6ec', vision), `${vision}: text`).toBeGreaterThanOrEqual(35);
     }
   });
 

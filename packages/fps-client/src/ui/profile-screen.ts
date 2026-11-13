@@ -13,15 +13,6 @@ export const PROFILE_SCREEN_CSS = `
 /* A bar that says how far: the track a line, the fill in the text colour (signal is kept for what can be pressed). */
 .ds-xpbar { display: block; height: 6px; background: var(--ds-line-2); overflow: hidden; }
 .ds-xpbar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; }
-/* The main menu's line under the name: Rank and title, and the way into the Profile. */
-.ds-rankline { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0 10px; width: 100%; min-height: 44px; margin-top: 6px; padding: 8px 0 0; background: none; border: 0; text-align: left; text-shadow: 0 1px 3px rgb(0 0 0 / 0.7); }
-.ds-rankline .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-body); color: var(--ds-text); }
-.ds-rankline .who b { margin-right: 8px; color: var(--ds-text); font-weight: 700; }
-.ds-rankline .go { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text); transition: color var(--ds-fast); }
-.ds-rankline .ds-xpbar { grid-column: 1 / -1; height: 3px; margin-top: 7px; }
-.ds-rankline:hover .go, .ds-rankline:focus-visible .go, .ds-rankline[data-pad-focus] .go { color: var(--ds-signal); }
-.ds-rankline:focus-visible, .ds-rankline[data-pad-focus] { outline: 2px solid var(--ds-signal); outline-offset: 4px; }
-
 /* The Profile: you on the left (Rank, lifetime, today's Challenges), the weapons on the right. */
 .ds-prof { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 32px 48px; max-width: 1320px; align-items: start; }
 .ds-prof section + section { margin-top: 32px; }
@@ -55,8 +46,8 @@ export const PROFILE_SCREEN_CSS = `
 .ds-prof .gun .m .ds-xpbar { grid-column: 1 / -1; height: 4px; }
 /* The footer's question before a Profile is erased. */
 .ds-ask { flex: 1; min-width: 0; font-size: var(--ds-type-body); color: var(--ds-text); }
-.ds-btn.danger { border-color: var(--ds-alert); color: var(--ds-alert); }
-.ds-btn.danger:not(:disabled):hover, .ds-btn.danger:focus-visible, .ds-btn.danger[data-pad-focus] { border-color: var(--ds-alert); background: var(--ds-raised); box-shadow: 0 0 0 2px var(--ds-ink), 0 0 0 4px var(--ds-alert); }
+.ds-btn.danger { --ds-edge: var(--ds-alert); color: var(--ds-alert); }
+.ds-btn.danger:not(:disabled):hover, .ds-btn.danger:focus-visible, .ds-btn.danger[data-pad-focus] { --ds-edge: var(--ds-alert); --ds-edge-w: 2px; --ds-fill: var(--ds-raised); }
 @media (max-width: 960px) {
   .ds-prof { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .ds-prof section + section { margin-top: 28px; }
@@ -80,11 +71,19 @@ function bar(part: number, label: string): string {
   return `<span class="ds-xpbar" role="img" aria-label="${escape(label)}"><i style="transform:scaleX(${share(part)})"></i></span>`;
 }
 
-/** The main menu's line under the name: "Rank 12 Range Officer", the bar to the next Rank, and the word that opens the Profile. */
-export function rankLineHtml(profile: Profile): string {
+/**
+ * The main menu's profile corner, in three parts the menu sets round the name: the Rank in its badge, the line under the
+ * name ("Rank 7 Range Officer · 3,420 / 4,000 XP") and the bar to the next Rank.
+ */
+export function rankCorner(profile: Profile): { badge: string; meta: string; bar: string } {
   const r = rankOf(profile.xp);
   const to = r.next === null ? 'Top Rank' : `${figure(r.next - r.xp)} XP to Rank ${r.rank + 1}`;
-  return `<span class="who"><b>Rank ${r.rank}</b>${escape(r.title)}</span><span class="go">Profile</span>${bar(r.share, to)}`;
+  const xp = r.next === null ? `${figure(r.xp)} XP` : `${figure(r.xp)} / ${figure(r.next)} XP`;
+  return {
+    badge: `<span class="badge" role="img" aria-label="Rank ${r.rank}">${r.rank}</span>`,
+    meta: `<span class="meta"><b>Rank ${r.rank}</b> ${escape(r.title)} · ${xp}</span>`,
+    bar: bar(r.share, to),
+  };
 }
 
 /** The Profile screen's body: Rank and XP, the lifetime strip and today's Challenges, then every weapon with its Mastery. */

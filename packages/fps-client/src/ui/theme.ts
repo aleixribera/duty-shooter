@@ -1,7 +1,7 @@
 /**
- * Duty Shooter's identity (DESIGN.md): system fonts only, a dark ink palette
- * with one signal colour (mint), five type sizes, and team colours that always
- * come with their mark. Shared by the menus, the lobby, the Battle Royale
+ * Duty Shooter's identity (DESIGN.md): Backlit. Graphite plates with cut
+ * corners in low light, one warm light for what is chosen, two self-hosted
+ * families, five type sizes, and team colours that always come with their mark. Shared by the menus, the lobby, the Battle Royale
  * screen and the HUD.
  *
  * The page shell, buttons, segmented pickers and key hints live here so the
@@ -12,22 +12,33 @@
 import { installTouchMode } from '../touch/mode';
 
 const CSS = `
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/chakra-petch-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/chakra-petch-latin-700-normal.woff2) format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Condensed'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/ibm-plex-sans-condensed-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Condensed'; font-style: normal; font-weight: 600; font-display: swap; src: url(fonts/ibm-plex-sans-condensed-latin-600-normal.woff2) format('woff2'); }
 :root {
-  --ds-ink: #0b0e13; --ds-panel: #12161d; --ds-raised: #1c222c; --ds-raised-2: #252c38;
-  --ds-text: #f3f1ea; --ds-text-2: #b4bac5; --ds-text-3: #8e96a3;
-  --ds-signal: #8fe3c8; --ds-signal-hi: #b4f0dc; --ds-signal-ink: #062118; --ds-signal-dim: rgb(143 227 200 / 0.14);
+  /* Backlit (DESIGN.md): graphite plates in low light, one warm light for what is chosen, what to do now and the reward. */
+  --ds-ink: #0b0c0e; --ds-panel: #111315; --ds-raised: #1b1d20; --ds-raised-2: #24272b;
+  --ds-text: #fbf6ec; --ds-text-2: #b3b5b8; --ds-text-3: #8b8e92;
+  /* The light: its text and figures, a lit plate's edge, the edge lit at half (hover, focus), the halo round a lit plate, the glow round lit text. */
+  --ds-light: #ffe2b0; --ds-light-edge: #ffe7c2; --ds-light-half: #8c7a5c; --ds-light-halo: rgb(255 206 140 / 0.45); --ds-light-glow: rgb(255 206 140 / 0.55);
+  /* A plate's unlit edge, and the fill of a lit plate: lit from below. */
+  --ds-plate-edge: #34373b; --ds-plate-lit: radial-gradient(ellipse 90% 140% at 50% 115%, #3b3226, #141516 72%);
+  --ds-cut: 14px;
   --ds-hazard: #a68cff; --ds-hazard-dim: rgb(166 140 255 / 0.16);
-  --ds-alert: #ff6159; --ds-blue: #3d8bff; --ds-orange: #ff9a3c; --ds-gold: #f2c230;
+  --ds-alert: #ff4a3d; --ds-blue: #3d8bff; --ds-orange: #ff9a3c; --ds-gold: #f2c230;
   /* The team colours as bare channels (for a tint of any strength), their portraits' backing, and the enemy marker. team-colours.ts rewrites these with the colour-vision setting. */
   --ds-blue-rgb: 61 139 255; --ds-orange-rgb: 255 154 60; --ds-t1-shade: #1d3354; --ds-t2-shade: #4a2f17; --ds-enemy: #ff6159;
   --ds-preview-sky: #a9bfd2; --ds-preview-wall: #857a68; --ds-preview-shade: #1b1f24;
   --ds-good: #7fdc6a; --ds-fair: #f2c230; --ds-poor: #ff5d52;
-  --ds-line: rgb(243 241 234 / 0.12); --ds-line-2: rgb(243 241 234 / 0.22);
-  --ds-glass: rgb(14 18 24 / 0.84); --ds-scrim: rgb(7 9 13 / 0.9); --ds-scrim-soft: rgb(7 9 13 / 0.72); --ds-scrim-thin: rgb(7 9 13 / 0.42);
-  /* HUD surfaces over the world: a plate (flat ink), softer under a feed line, solid under a table, thin under a marker. */
-  --ds-plate: rgb(12 15 21 / 0.8); --ds-plate-soft: rgb(12 15 21 / 0.74); --ds-plate-solid: rgb(12 15 21 / 0.94); --ds-plate-thin: rgb(11 14 19 / 0.55);
+  --ds-line: rgb(251 246 236 / 0.12); --ds-line-2: rgb(251 246 236 / 0.22);
+  --ds-glass: rgb(17 19 21 / 0.84); --ds-scrim: rgb(6 7 8 / 0.9); --ds-scrim-soft: rgb(6 7 8 / 0.72); --ds-scrim-thin: rgb(6 7 8 / 0.42);
+  /* The menu's low light over the world: darkest at the edges and behind the list on the left, so the lit row is the brightest thing on screen. */
+  --ds-scrim-menu: linear-gradient(90deg, rgb(6 7 8 / 0.8) 0%, rgb(6 7 8 / 0.55) 36%, rgb(6 7 8 / 0) 64%), radial-gradient(ellipse 90% 85% at 62% 42%, rgb(6 7 8 / 0.3) 0%, rgb(6 7 8 / 0.6) 70%, rgb(6 7 8 / 0.9) 100%);
+  /* Plates: graphite at 90%, softer under a feed line, solid under a table, thin under a marker. */
+  --ds-plate: rgb(17 19 21 / 0.9); --ds-plate-soft: rgb(17 19 21 / 0.74); --ds-plate-solid: rgb(17 19 21 / 0.95); --ds-plate-thin: rgb(17 19 21 / 0.55);
   /* An empty bar's track, the faintest lift of a surface, and a line strong enough to ring a marker. */
-  --ds-track: rgb(243 241 234 / 0.16); --ds-tint: rgb(243 241 234 / 0.07); --ds-line-3: rgb(243 241 234 / 0.5);
+  --ds-track: rgb(251 246 236 / 0.16); --ds-tint: rgb(251 246 236 / 0.07); --ds-line-3: rgb(251 246 236 / 0.5);
   /* The crosshair and the scope: pure white and black, the only ones. Shadows that keep type off the world. */
   --ds-reticle: #fff; --ds-black: #000; --ds-shadow: rgb(0 0 0 / 0.6); --ds-shadow-hi: rgb(0 0 0 / 0.85); --ds-shadow-lo: rgb(0 0 0 / 0.35);
   /* A team's colour as the ground under a portrait, and the red a hit puts at the screen's edge. */
@@ -39,8 +50,10 @@ const CSS = `
   /* The screen's safe area (a phone's notch, rounded corners and home bar): every edge counts from these. */
   --ds-safe-t: env(safe-area-inset-top, 0px); --ds-safe-r: env(safe-area-inset-right, 0px); --ds-safe-b: env(safe-area-inset-bottom, 0px); --ds-safe-l: env(safe-area-inset-left, 0px);
   /* Touch controls: glass thin enough to see the fight through. */
-  --ds-touch-fill: rgb(12 15 21 / 0.42); --ds-touch-line: rgb(243 241 234 / 0.4); --ds-touch-press: rgb(243 241 234 / 0.3); --ds-touch-knob: rgb(243 241 234 / 0.55);
-  --ds-font: Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
+  --ds-touch-fill: rgb(17 19 21 / 0.42); --ds-touch-line: rgb(251 246 236 / 0.4); --ds-touch-press: rgb(251 246 236 / 0.3); --ds-touch-knob: rgb(251 246 236 / 0.55);
+  /* Two self-hosted families (public/fonts, SIL OFL), on the old system stack while they load. */
+  --ds-font: 'IBM Plex Sans Condensed', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
+  --ds-font-display: 'Chakra Petch', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
 .ds-ui { font-family: var(--ds-font); font-variant-numeric: tabular-nums; color: var(--ds-text); -webkit-font-smoothing: antialiased; }
 .ds-ui *, .ds-ui *::before, .ds-ui *::after { box-sizing: border-box; }
@@ -48,70 +61,90 @@ const CSS = `
 .ds-ui button:disabled { cursor: default; }
 /* A label over a value: sentence case, small, the second text colour. */
 .ds-label { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0.01em; color: var(--ds-text-2); }
-.ds-title { font-weight: 700; font-stretch: condensed; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-title { font-family: var(--ds-font-display); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-t1 { color: var(--ds-blue); } .ds-t2 { color: var(--ds-orange); }
+/* Lit text: the clock, the score popup, the result, the next Rank, a figure that just changed. No plate. */
+.ds-lit-text { color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); }
+
+/* The plate (DESIGN.md, Shape and depth): cut at the top left and the bottom right, drawn as two layers (the edge, then
+   the fill inset by the edge's width) so the halo, a drop-shadow on the element itself, follows the cut. Its edge and fill
+   are its own: a plate inside a lit one starts unlit again. Unlit, lit at half (hover, focus), lit (chosen), your own, empty. */
+.ds-plate, .ds-btn, .ds-seg button { --ds-ch: 10px; --ds-edge: var(--ds-plate-edge); --ds-edge-w: 1px; --ds-fill: var(--ds-plate); position: relative; isolation: isolate; }
+.ds-plate::before, .ds-plate::after, .ds-btn::before, .ds-btn::after, .ds-seg button::before, .ds-seg button::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); }
+.ds-plate::before, .ds-btn::before, .ds-seg button::before { inset: 0; background: var(--ds-edge); }
+.ds-plate::after, .ds-btn::after, .ds-seg button::after { inset: var(--ds-edge-w); background: var(--ds-fill); }
+.ds-plate { --ds-ch: var(--ds-cut); }
+.ds-plate.is-half { --ds-edge: var(--ds-light-half); }
+.ds-plate.is-lit, .ds-btn.primary, .ds-seg button.on { --ds-edge: var(--ds-light-edge); --ds-edge-w: 2px; --ds-fill: var(--ds-plate-lit); filter: drop-shadow(0 0 14px var(--ds-light-halo)); }
+/* Your own row or seat: raised, its edge in the second text colour. The light is kept for what you pick. */
+.ds-plate.is-own { --ds-edge: var(--ds-text-2); --ds-fill: var(--ds-raised); }
+/* An empty slot: the one dashed line. */
+.ds-plate.is-empty { --ds-edge: transparent; --ds-fill: transparent; outline: 1px dashed var(--ds-text-2); outline-offset: -1px; }
+/* Light comes on in one move: brightness falls from 2.4 to 1 as it shows. */
+@keyframes ds-light-on { from { filter: brightness(2.4) drop-shadow(0 0 14px var(--ds-light-halo)); } }
+.ds-plate.is-lit.light-on { animation: ds-light-on 400ms var(--ds-ease) forwards; }
 
 /* The page shell: a header with the title, a body that scrolls on its own, and a footer that always shows the actions. */
 .ds-page { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
   padding: var(--ds-safe-t) var(--ds-safe-r) var(--ds-safe-b) var(--ds-safe-l);
-  background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.8) 55%, rgb(7 9 13 / 0.9) 100%); }
+  background: linear-gradient(90deg, rgb(6 7 8 / 0.94) 0%, rgb(6 7 8 / 0.82) 55%, rgb(6 7 8 / 0.9) 100%); }
 .ds-page > header { display: flex; align-items: flex-end; gap: 24px; padding: 28px var(--ds-gutter) 18px; border-bottom: 1px solid var(--ds-line); }
 .ds-page > header .heading { flex: 1; min-width: 0; }
-.ds-page > header h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-page > header h1 { margin: 0; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ds-page > header .aside { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 4px; }
 .ds-page > .body { overflow-y: auto; overscroll-behavior: contain; padding: 28px var(--ds-gutter) 32px; scrollbar-width: thin; scrollbar-color: var(--ds-line-2) transparent; }
 .ds-page > footer { display: flex; align-items: center; gap: 12px; padding: 14px var(--ds-gutter); background: var(--ds-scrim-soft); border-top: 1px solid var(--ds-line); }
 .ds-page > footer .grow { flex: 1; min-width: 0; }
-.ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-line); background: rgb(243 241 234 / 0.04); font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; }
+.ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-plate-edge); background: var(--ds-plate); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; }
 .ds-chip b { color: var(--ds-text); font-weight: 700; }
 /* A block's name at heading size, its count or note beside it in sentence case. */
 .ds-h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ds-line-2);
-  font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-.ds-h2 small { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text-2); }
+  font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-h2 small { font-family: var(--ds-font); font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text-2); }
 
 /* Readouts: a label over a value, side by side in one strip split by lines. */
 .ds-readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
 .ds-readouts > div { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; background: var(--ds-panel); }
 .ds-readouts span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-readouts b { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; }
+.ds-readouts b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; }
 
 /* A status dot and the sentence that says what the state means. */
 .ds-state { display: flex; align-items: baseline; gap: 10px; font-size: var(--ds-type-body); color: var(--ds-text); }
 .ds-state::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--ds-alert); transform: translateY(-1px); }
-.ds-state.up::before { background: var(--ds-signal); }
+.ds-state.up::before { background: var(--ds-good); }
 .ds-state.busy::before { background: var(--ds-fair); }
 .ds-state.wait::before { background: var(--ds-text-3); }
 
-/* Buttons: a quiet frame, the primary in signal, the big call to action in the footer. */
-.ds-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 22px; border: 1px solid var(--ds-line-2); border-radius: 2px;
-  background: rgb(243 241 234 / 0.05); font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
-  transition: background-color 120ms, border-color 120ms, color 120ms, transform 120ms var(--ds-ease); }
-.ds-btn:not(:disabled):hover, .ds-btn:focus-visible, .ds-btn[data-pad-focus] { border-color: var(--ds-signal); background: var(--ds-signal-dim); outline: none; }
-.ds-btn:not(:disabled):active { transform: translateY(1px); }
-/* The pressed button's top edge stays under the pointer, so a press there still clicks. */
-.ds-btn:not(:disabled):active::after { content: ''; position: absolute; inset: -2px 0 0; }
-.ds-btn.primary { background: var(--ds-signal); border-color: var(--ds-signal); color: var(--ds-signal-ink); }
-.ds-btn.primary:not(:disabled):hover, .ds-btn.primary:focus-visible, .ds-btn.primary[data-pad-focus] { background: var(--ds-signal-hi); border-color: var(--ds-signal-hi); box-shadow: 0 0 0 2px var(--ds-ink), 0 0 0 4px var(--ds-signal); }
-.ds-btn.big { min-height: 58px; min-width: 260px; padding: 0 36px; font-size: var(--ds-type-heading); letter-spacing: 0.16em; }
-.ds-btn:disabled { opacity: 0.5; }
-.ds-btn.primary:disabled { opacity: 1; background: var(--ds-signal-dim); border-color: rgb(143 227 200 / 0.35); color: rgb(143 227 200 / 0.85); font-size: var(--ds-type-body); }
+/* Buttons: an unlit plate, lit at half under the pointer or focus; the primary is the screen's lit action. */
+.ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 22px; border: 0; background: none;
+  font-family: var(--ds-font-display); font-size: var(--ds-type-body); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; color: var(--ds-text);
+  transition: color var(--ds-fast); }
+.ds-btn:not(:disabled):hover, .ds-btn:focus-visible, .ds-btn[data-pad-focus] { --ds-edge: var(--ds-light-half); outline: none; }
+.ds-btn:not(:disabled):active { --ds-fill: var(--ds-raised-2); }
+.ds-btn.primary:not(:disabled):hover, .ds-btn.primary:focus-visible, .ds-btn.primary[data-pad-focus] { --ds-edge: var(--ds-reticle); }
+.ds-btn.primary:not(:disabled):active { --ds-fill: var(--ds-raised-2); }
+.ds-btn.big { --ds-ch: var(--ds-cut); min-height: 58px; min-width: 260px; padding: 0 36px; font-size: var(--ds-type-heading); letter-spacing: 0.12em; }
+.ds-btn:disabled { color: var(--ds-text-2); }
+/* A primary that can't be pressed is unlit, and its label says why. */
+.ds-btn.primary:disabled { --ds-edge: var(--ds-plate-edge); --ds-edge-w: 1px; --ds-fill: var(--ds-plate); filter: none; font-size: var(--ds-type-body); }
 .ds-btn .ds-icon { width: 20px; height: 20px; }
 
 /* A segmented picker: one choice lit. */
-.ds-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
-.ds-seg button { min-height: 40px; padding: 8px 6px; border: 0; background: rgb(11 14 19 / 0.92); font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); transition: background-color 100ms, color 100ms; }
-/* The lit choice framed in signal, as the lobby's map pictures are: one way of showing what is picked on every screen. */
-.ds-seg button.on { background: var(--ds-raised); color: var(--ds-text); box-shadow: inset 0 0 0 2px var(--ds-signal); }
-.ds-seg button:not(:disabled):not(.on):hover { background: var(--ds-raised-2); color: var(--ds-text); }
-/* Focus tints the option as .ds-btn's focus does, so where you are reads apart from the framed choice. */
-.ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { background: var(--ds-signal-dim); color: var(--ds-text); outline: 2px solid var(--ds-signal); outline-offset: 2px; position: relative; z-index: 1; }
+.ds-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 6px; }
+.ds-seg button { --ds-ch: 8px; min-height: 40px; padding: 8px 6px; border: 0; background: none; font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); transition: color 100ms; }
+.ds-seg button.on { color: var(--ds-text); }
+.ds-seg button:not(:disabled):not(.on):hover { --ds-edge: var(--ds-light-half); color: var(--ds-text); }
+.ds-seg button:focus-visible, .ds-seg button[data-pad-focus] { --ds-edge: var(--ds-light-half); color: var(--ds-text); outline: none; z-index: 1; }
+.ds-seg button.on:focus-visible, .ds-seg button.on[data-pad-focus] { --ds-edge: var(--ds-reticle); }
 .ds-field-label { display: block; margin: 0 0 8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 
 /* Key hints: keyboard caps, or the controller's glyphs once a pad drives the screen. */
-.ds-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: var(--ds-type-small); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-2); }
+.ds-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-hints > span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-.ds-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1px solid var(--ds-line-2); border-bottom-width: 2px; border-radius: 3px;
-  background: rgb(243 241 234 / 0.06); font-size: var(--ds-type-small); font-weight: 700; font-style: normal; letter-spacing: 0.04em; color: var(--ds-text); }
+.ds-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 7px; border: 1px solid var(--ds-line-2); border-radius: 2px;
+  background: var(--ds-plate); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; font-style: normal; letter-spacing: 0.04em; color: var(--ds-text); }
 .ds-kbd.pad { display: none; border-radius: 50%; min-width: 24px; width: 24px; padding: 0; }
 .pad .ds-kbd.key { display: none; } .pad .ds-kbd.pad { display: inline-flex; }
 
@@ -125,9 +158,7 @@ body:has(.ds-menu:not([hidden]) .ds-page) .ds-hud { visibility: hidden; }
 /* A thumb's 44 px for every button, whatever its row gave it. */
 html.ds-touch .ds-ui .ds-btn { min-height: 44px; }
 /* A thumb on a seam picks the neighbour: on touch the segments of a picker stand 8 px apart, each in its own line (design audit 2026-11-10, F13). */
-html.ds-touch .ds-seg { gap: 8px; background: none; border: 0; }
-html.ds-touch .ds-seg button { box-shadow: inset 0 0 0 1px var(--ds-line); }
-html.ds-touch .ds-seg button.on { box-shadow: inset 0 0 0 2px var(--ds-signal); }
+html.ds-touch .ds-seg { gap: 8px; }
 
 /* The rise is the translate property, not transform: a line centred by its transform (the hint, the round card) keeps its place as it comes in. */
 @keyframes ds-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: none; } }
@@ -135,6 +166,7 @@ html.ds-touch .ds-seg button.on { box-shadow: inset 0 0 0 2px var(--ds-signal); 
 @media (prefers-reduced-motion: reduce) {
   @keyframes ds-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes ds-slide { from { opacity: 0; } to { opacity: 1; } }
+  .ds-plate.is-lit.light-on { animation: none; }
 }
 @media (max-width: 960px) {
   :root { --ds-gutter: 16px; }
@@ -144,7 +176,8 @@ html.ds-touch .ds-seg button.on { box-shadow: inset 0 0 0 2px var(--ds-signal); 
   .ds-page > .body { padding: 20px var(--ds-gutter) 24px; }
   .ds-page > footer { flex-wrap: wrap; padding: 12px var(--ds-gutter); }
   .ds-page > footer .ds-hints { display: none; }
-  .ds-btn.big { min-width: 0; flex: 1 1 100%; order: 9; }
+  /* No halo on a plate this wide: a filter over half the screen costs the toaster. */
+  .ds-btn.big { min-width: 0; flex: 1 1 100%; order: 9; filter: none; }
 }
 /* A phone held sideways has width and no height: the header is one line and the footer one row, so the body keeps the screen. */
 @media (max-height: 520px) {

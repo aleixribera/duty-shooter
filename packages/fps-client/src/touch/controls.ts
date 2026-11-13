@@ -122,7 +122,7 @@ export const TOUCH_CSS = `
 .ds-tc .tb { position: absolute; display: none; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 1.5px solid var(--ds-touch-line); border-radius: 50%; background: var(--ds-touch-fill); color: var(--ds-text); pointer-events: auto; touch-action: none; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .ds-tc .tb svg { pointer-events: none; }
 .ds-tc .tb.down { background: var(--ds-touch-press); border-color: var(--ds-text); }
-.ds-tc .tb.lit { border-color: var(--ds-signal); color: var(--ds-signal); }
+.ds-tc .tb.lit { border-color: var(--ds-light); color: var(--ds-light); }
 .ds-tc .tb.none { opacity: 0.45; }
 .ds-tc .tb.top { display: flex; width: 44px; height: 44px; }
 .ds-tc .tb[hidden] { display: none; }
@@ -144,7 +144,7 @@ export const TOUCH_CSS = `
 .ds-tc .grenade { right: calc(var(--ds-safe-r) + 180px); bottom: calc(var(--ds-safe-b) + 72px); }
 .ds-tc .tactical { right: calc(var(--ds-safe-r) + 156px); bottom: calc(var(--ds-safe-b) + 212px); }
 .ds-tc .melee { right: calc(var(--ds-safe-r) + 184px); bottom: calc(var(--ds-safe-b) + 12px); }
-.ds-tc .use { width: 60px; height: 60px; right: calc(var(--ds-safe-r) + 176px); bottom: calc(var(--ds-safe-b) + 136px); border-color: var(--ds-signal); color: var(--ds-signal); }
+.ds-tc .use { width: 60px; height: 60px; right: calc(var(--ds-safe-r) + 176px); bottom: calc(var(--ds-safe-b) + 136px); border-color: var(--ds-light); color: var(--ds-light); }
 .ds-tc .prev { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 148px); bottom: calc(var(--ds-safe-b) + 20px); }
 .ds-tc .next { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 84px); bottom: calc(var(--ds-safe-b) + 20px); }
 .ds-tc .view { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 20px); bottom: calc(var(--ds-safe-b) + 20px); }
@@ -157,7 +157,7 @@ export const TOUCH_CSS = `
 .ds-tc .stickui .run { position: absolute; left: -22px; top: -${Math.round(STICK_RADIUS * 1.7) + 22}px; width: 44px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--ds-touch-line); background: var(--ds-touch-fill); color: var(--ds-text-2); font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.08em; visibility: hidden; }
 .ds-tc .stickui.held .run, .ds-tc .stickui.locked .run { visibility: visible; }
 .ds-tc .stickui.sprint .knob { background: var(--ds-text); }
-.ds-tc .stickui.lock .run, .ds-tc .stickui.locked .run { border-color: var(--ds-signal); color: var(--ds-signal); }
+.ds-tc .stickui.lock .run, .ds-tc .stickui.locked .run { border-color: var(--ds-light); color: var(--ds-light); }
 .ds-tc .stickui.locked { opacity: 0.85; }
 /* Portrait: the game plays in landscape, and says so plainly instead of offering controls that cannot work. */
 .ds-tc .turn { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: flex-end; gap: 10px; padding: calc(var(--ds-safe-t) + 24px) calc(var(--ds-safe-r) + 20px) calc(var(--ds-safe-b) + 28px) calc(var(--ds-safe-l) + 20px); background: var(--ds-ink); pointer-events: auto; }
