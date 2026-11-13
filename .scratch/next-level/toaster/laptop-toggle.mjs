@@ -13,7 +13,9 @@ const post = what.startsWith('post:') ? `if (globalThis.__post) { const P = glob
 // `ao:<samples>:<temporal 0|1>`: the ambient occlusion's samples and its per-frame rotation, against the game's own (needs `globalThis.__ao`).
 const [, aoSamples, aoTemporal] = what.split(':');
 const aoSet = what.startsWith('ao:') ? `if (globalThis.__ao) { const A = globalThis.__ao; A.__real ??= A.samples.value; A.samples.value = v ? A.__real : ${Number(aoSamples)}; A.useTemporalFiltering = v ? false : ${aoTemporal === '1'}; }` : '';
-const page = filled.replace(/on = v;/, `on = v; ${post} ${aoSet}`).replace(/import\('\/node_modules\/\.vite\/deps\/three_webgpu\.js'\)/, 'Promise.resolve({})');
+// `flag:<global>.<prop>`: a boolean the page leaves on globalThis, true against false (e.g. `flag:__traa.pingPong`).
+const flag = what.startsWith('flag:') ? `{ const [g, p] = ${JSON.stringify(what.slice(5).split('.'))}; if (globalThis[g]) globalThis[g][p] = v; }` : '';
+const page = filled.replace(/on = v;/, `on = v; ${post} ${aoSet} ${flag}`).replace(/import\('\/node_modules\/\.vite\/deps\/three_webgpu\.js'\)/, 'Promise.resolve({})');
 process.stdout.write(`(async () => {
   while (!document.body.dataset.bake || !globalThis.duty?.game) await new Promise((r) => setTimeout(r, 500));
   await new Promise((r) => setTimeout(r, 8000));

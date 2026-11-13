@@ -1,0 +1,47 @@
+Terminated                 node ~/duty-bench.mjs "https://aleixribera.github.io/duty-shooter/$M" bench-before.json > bench-before.log 2>&1
+exit 1
+== turns-vs-old survival-town&spot=cul-de-sac
+loaded 0.163 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1847,
+  1837
+ ],
+ "onMs": "14.964",
+ "offMs": "15.119",
+ "onFrameMs": "18.151",
+ "offFrameMs": "18.264",
+ "rows": [
+  "  6.422 on   6.466 off  -0.044 diff  output 1920x1080",
+  "  2.126 on   2.149 off  -0.023 diff  TRAANode.resolve 1920x1080",
+  "  1.972 on   1.985 off  -0.013 diff  GTAONode.AO 960x540",
+  "  1.848 on   1.860 off  -0.012 diff  screen",
+  "  0.524 on   0.526 off  -0.002 diff  rt 1920x1080",
+  "  0.366 on   0.368 off  -0.002 diff  output 1920x1080 x4",
+  "  0.341 on   0.385 off  -0.044 diff  ShadowMap 2048x2048",
+  "  0.277 on   0.289 off  -0.012 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== turns-vs-old zero-island&spot=The%20Dustlands
+loaded 0.232 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1454,
+  1496
+ ],
+ "onMs": "17.986",
+ "offMs": "18.302",
+ "onFrameMs": "23.045",
+ "offFrameMs": "22.412",
+ "rows": [
+  "  9.471 on   9.640 off  -0.170 diff  output 1920x1080",
+  "  2.216 on   2.260 off  -0.043 diff  TRAANode.resolve 1920x1080",
+  "  1.936 on   1.969 off  -0.032 diff  screen",
+  "  1.749 on   1.781 off  -0.032 diff  GTAONode.AO 960x540",
+  "  0.557 on   0.565 off  -0.008 diff  rt 1920x1080",
+  "  0.381 on   0.387 off  -0.007 diff  output 1920x1080 x4",
+  "  0.306 on   0.291 off   0.015 diff  UnrealBloomPass.bright 960x540",
+  "  0.280 on   0.297 off  -0.018 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+tail: option used in invalid context -- 3

@@ -1,0 +1,89 @@
+exit 0
+== pingpong-vs-copy survival-town&spot=cul-de-sac
+loaded 0.114 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1832,
+  1795
+ ],
+ "onMs": "15.075",
+ "offMs": "15.138",
+ "onFrameMs": "18.247",
+ "offFrameMs": "18.740",
+ "rows": [
+  "  6.515 on   6.522 off  -0.007 diff  output 1920x1080",
+  "  2.612 on   2.618 off  -0.006 diff  TRAANode.resolve 1920x1080",
+  "  1.990 on   1.992 off  -0.002 diff  GTAONode.AO 960x540",
+  "  1.875 on   1.876 off  -0.002 diff  screen",
+  "  0.370 on   0.371 off  -0.001 diff  output 1920x1080 x4",
+  "  0.339 on   0.379 off  -0.040 diff  ShadowMap 2048x2048",
+  "  0.279 on   0.255 off   0.024 diff  UnrealBloomPass.bright 960x540",
+  "  0.277 on   0.294 off  -0.016 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== fold-only-vs-old survival-town&spot=cul-de-sac
+loaded 0.336 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1680,
+  1713
+ ],
+ "onMs": "15.639",
+ "offMs": "15.832",
+ "onFrameMs": "19.875",
+ "offFrameMs": "19.579",
+ "rows": [
+  "  6.776 on   6.829 off  -0.052 diff  output 1920x1080",
+  "  2.706 on   2.254 off   0.451 diff  TRAANode.resolve 1920x1080",
+  "  2.070 on   2.086 off  -0.016 diff  GTAONode.AO 960x540",
+  "  1.951 on   1.965 off  -0.015 diff  screen",
+  "  0.385 on   0.388 off  -0.003 diff  output 1920x1080 x4",
+  "  0.334 on   0.348 off  -0.014 diff  UnrealBloomPass.h0 960x540",
+  "  0.318 on   0.303 off   0.015 diff  ShadowMap 2048x2048",
+  "  0.217 on   0.181 off   0.036 diff  UnrealBloomPass.bright 960x540"
+ ]
+}
+== pingpong-vs-copy zero-island&spot=The%20Dustlands
+loaded 0.317 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1457,
+  1423
+ ],
+ "onMs": "17.645",
+ "offMs": "17.511",
+ "onFrameMs": "22.994",
+ "offFrameMs": "23.588",
+ "rows": [
+  "  9.327 on   9.252 off   0.075 diff  output 1920x1080",
+  "  2.646 on   2.626 off   0.020 diff  TRAANode.resolve 1920x1080",
+  "  1.909 on   1.894 off   0.015 diff  screen",
+  "  1.721 on   1.709 off   0.013 diff  GTAONode.AO 960x540",
+  "  0.375 on   0.373 off   0.003 diff  output 1920x1080 x4",
+  "  0.307 on   0.304 off   0.003 diff  UnrealBloomPass.bright 960x540",
+  "  0.274 on   0.273 off   0.002 diff  UnrealBloomPass.h0 960x540",
+  "  0.271 on   0.269 off   0.002 diff  UnrealBloomPass.h1 480x270"
+ ]
+}
+== fold-only-vs-old zero-island&spot=The%20Dustlands
+loaded 0.186 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1453,
+  1497
+ ],
+ "onMs": "17.890",
+ "offMs": "18.398",
+ "onFrameMs": "23.121",
+ "offFrameMs": "22.485",
+ "rows": [
+  "  9.471 on   9.689 off  -0.218 diff  output 1920x1080",
+  "  2.682 on   2.272 off   0.410 diff  TRAANode.resolve 1920x1080",
+  "  1.935 on   1.979 off  -0.044 diff  screen",
+  "  1.749 on   1.791 off  -0.042 diff  GTAONode.AO 960x540",
+  "  0.381 on   0.391 off  -0.009 diff  output 1920x1080 x4",
+  "  0.319 on   0.280 off   0.039 diff  UnrealBloomPass.bright 960x540",
+  "  0.271 on   0.301 off  -0.030 diff  UnrealBloomPass.h0 960x540",
+  "  0.255 on   0.246 off   0.009 diff  UnrealBloomPass.h1 480x270"
+ ]
+}

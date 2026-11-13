@@ -17,6 +17,8 @@ Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 
 
 Pass 32: PLAN item 1 (Aleix's laptop, as the director re-scoped it), pass 1. Undisturbed, the laptop runs Survival Town at 17-21 ms (GPU 14.5) and Zero Island 26-28 (GPU 18.7), the same in a real full-screen window as headless: the GPU is the bottleneck. Shipped the bloom's bright pass from a cheap source (0.14 ms). Fewer AO samples were cut: they lose the contact shade (three's GTAO step placement, ticket 99). Firefox's readback is not the cost. Next pass: item 1 pass 2 on the GPU (TRAA 2.2, GTAO 2.1, light-times-occlusion copy 0.55, world pass 6.8; levers in BACKLOG), then Zero Island's 7 ms of script.
 
+Pass 33: PLAN item 1 pass 2 (GPU). Shipped: the temporal AA takes turns between two pictures instead of copying one into its history each frame, about 0.5 ms a frame on the laptop (one-page A/B), same picture. Dropped: folding the occlusion into the TRAA (GPU timestamps fell, frames got slower: a cold read). Item still fails (at the A/B spots Survival Town ~55 fps, Zero Island ~43), and its two passes are spent: the levers left (previous-depth copy, our own GTAO, a plus-shaped TRAA neighbourhood) are first in BACKLOG for the director. Next pass: the benchmark page before/after on the laptop (not run: the session was interrupted), then the next item in order. Prefer `flag:` A/Bs: `post:` swaps read Zero Island's frame 0.6-1 ms off (ticket 99).
+
 ## Needs Aleix
 
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).

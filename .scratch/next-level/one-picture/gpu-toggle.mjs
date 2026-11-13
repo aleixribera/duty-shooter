@@ -144,6 +144,11 @@ try {
     };
     const sums = { on: new Map(), off: new Map() };
     const frames = { on: new Set(), off: new Set() };
+    // Frame to frame on the page's clock too: the GPU's copies and presenting are in no pass's timestamps.
+    const paced = { on: [0, 0], off: [0, 0] };
+    let last = 0;
+    const pace = (t) => { if (last && counting) { const p = paced[on ? 'on' : 'off']; p[0] += t - last; p[1]++; } last = t; if (!paced.stop) requestAnimationFrame(pace); };
+    requestAnimationFrame(pace);
     const pool = backend.timestampQueryPool.render;
     const realResolve = pool._resolveQueries.bind(pool);
     pool._resolveQueries = async function () {
@@ -171,7 +176,9 @@ try {
         const rows = keys.map((k) => [k, per('on', k), per('off', k)]).sort((a, b) => b[1] - a[1]).slice(0, 8)
           .map(([k, a, b]) => a.toFixed(3).padStart(7) + ' on ' + b.toFixed(3).padStart(7) + ' off ' + (a - b).toFixed(3).padStart(7) + ' diff  ' + k);
         const total = (s) => [...sums[s].values()].reduce((a, b) => a + b, 0) / Math.max(1, frames[s].size);
-        done(JSON.stringify({ frames: [frames.on.size, frames.off.size], onMs: total('on').toFixed(3), offMs: total('off').toFixed(3), rows }, null, 1));
+        paced.stop = true;
+        const frameMs = (s) => (paced[s][0] / Math.max(1, paced[s][1])).toFixed(3);
+        done(JSON.stringify({ frames: [frames.on.size, frames.off.size], onMs: total('on').toFixed(3), offMs: total('off').toFixed(3), onFrameMs: frameMs('on'), offFrameMs: frameMs('off'), rows }, null, 1));
         return;
       }
       setTimeout(() => { if (step > 2) counting = true; }, 400);

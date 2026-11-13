@@ -1,0 +1,47 @@
+exit 0
+== traa survival-town&spot=cul-de-sac
+loaded 0.097 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1286,
+  1280
+ ],
+ "onMs": "15.668",
+ "offMs": "15.504",
+ "onFrameMs": "19.565",
+ "offFrameMs": "19.687",
+ "rows": [
+  "  6.723 on   6.624 off   0.098 diff  output 1920x1080",
+  "  2.684 on   2.196 off   0.488 diff  TRAANode.resolve 1920x1080",
+  "  2.054 on   2.023 off   0.031 diff  GTAONode.AO 960x540",
+  "  1.935 on   1.908 off   0.027 diff  screen",
+  "  0.470 on   0.427 off   0.043 diff  ShadowMap 2048x2048",
+  "  0.382 on   0.377 off   0.005 diff  output 1920x1080 x4",
+  "  0.316 on   0.286 off   0.029 diff  UnrealBloomPass.bright 960x540",
+  "  0.278 on   0.280 off  -0.002 diff  UnrealBloomPass.h0 960x540"
+ ]
+}
+== traa zero-island&spot=The%20Dustlands
+loaded 0.352 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1192,
+  1236
+ ],
+ "onMs": "16.264",
+ "offMs": "16.579",
+ "onFrameMs": "21.019",
+ "offFrameMs": "20.421",
+ "rows": [
+  "  8.591 on   8.718 off  -0.128 diff  output 1920x1080",
+  "  2.451 on   2.067 off   0.384 diff  TRAANode.resolve 1920x1080",
+  "  1.762 on   1.783 off  -0.021 diff  screen",
+  "  1.587 on   1.611 off  -0.024 diff  GTAONode.AO 960x540",
+  "  0.346 on   0.351 off  -0.006 diff  output 1920x1080 x4",
+  "  0.284 on   0.253 off   0.032 diff  UnrealBloomPass.bright 960x540",
+  "  0.250 on   0.269 off  -0.019 diff  UnrealBloomPass.h0 960x540",
+  "  0.239 on   0.213 off   0.025 diff  UnrealBloomPass.h1 480x270"
+ ]
+}
+
+[exited with code 0]

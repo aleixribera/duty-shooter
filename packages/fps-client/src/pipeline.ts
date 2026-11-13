@@ -2,9 +2,9 @@ import { Fn, If, Loop, clamp, dot, float, frameId, getViewPosition, interleavedG
 import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
-import { traa } from 'three/examples/jsm/tsl/display/TRAANode.js';
 import { currentLighting, sunColor } from './surface-materials';
 import { PICTURE } from './quality';
+import { TakingTurnsTRAA } from './traa';
 
 const BLOOM = 0.1;
 
@@ -230,7 +230,7 @@ export class GamePipeline {
     // let go with the pipeline (the one `traa` would make for itself is never disposed).
     const shaded = rtt(vec4(lit.rgb.mul(occluded), lit.a) as never);
     this.#owned.push(shaded);
-    const t = traa(shaded, depth, worldPass.getTextureNode('velocity'), camera);
+    const t = new TakingTurnsTRAA(shaded as unknown as TextureNode, depth, worldPass.getTextureNode('velocity'), camera);
     this.#owned.push(t);
     // (The types leave out TRAA's texture node.)
     const image = (t as unknown as { getTextureNode(): TextureNode }).getTextureNode();

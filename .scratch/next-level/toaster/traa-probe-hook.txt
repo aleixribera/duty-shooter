@@ -1,0 +1,22 @@
+    // TEMP-TRAA-PROBE (not for commit): the old temporal AA chain (an occlusion pass, then three's TRAA copying its history), to compare on the laptop.
+    {
+      const litOld: Node<'vec4'> = worldPass.getTextureNode('output').toVec4();
+      const occOld = mix(float(1), aoPass.getTextureNode().sample(screenUV).r, 0.45) as unknown as Node<'float'>;
+      const shadedOld = rtt(vec4(litOld.rgb.mul(occOld), litOld.a) as never);
+      const tOld = traaOld(shadedOld, depth, worldPass.getTextureNode('velocity'), camera);
+      const imageOld = (tOld as unknown as { getTextureNode(): TextureNode }).getTextureNode();
+      const beamsOld = rtt(clamp(shafts(imageOld, this.#sun as never), float(0), float(1.6)) as never, SHAFT_SIZE[0], SHAFT_SIZE[1], { type: HalfFloatType });
+      const shaftOld = sunColor.mul((beamsOld as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH);
+      const finishOld = (scene: Node<'vec3'>): Node<'vec4'> => {
+        const over = vec4(mix(scene.add(shaftOld), vm.rgb, vm.a), 1);
+        const c = mooded(filmLook(over.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
+        const luma = dot(c, LUMA);
+        const warm = mix(c, vec3(luma).mul(vec3(1.35, 0.9, 0.6)), float(0.6));
+        const graded = warm.mul(warm).div(warm.add(0.12)).mul(1.02);
+        return vec4(mix(mix(c, graded, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1) as unknown as Node<'vec4'>;
+      };
+      const oldOut = finishOld(sharpened(imageOld, shimmer(depth, camera))).add(bloom(finishOld(imageOld.sample(screenUV).rgb as unknown as Node<'vec3'>), BLOOM, 0.35, 1.6));
+      (globalThis as Record<string, unknown>)['__traa'] = t;
+      t.pingPong = !location.search.includes('copy');
+      (globalThis as Record<string, unknown>)['__post'] = { pipeline: this.#pipeline, real: this.#pipeline.outputNode, variants: { old: oldOut } };
+    }

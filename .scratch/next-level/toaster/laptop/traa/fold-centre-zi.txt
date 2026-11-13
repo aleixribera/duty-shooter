@@ -1,0 +1,23 @@
+exit 0
+== traa zero-island&spot=The%20Dustlands
+loaded 0.096 s 1920x1080@1 gpu:true
+probe {
+ "frames": [
+  1924,
+  2003
+ ],
+ "onMs": "19.451",
+ "offMs": "19.957",
+ "onFrameMs": "26.159",
+ "offFrameMs": "25.176",
+ "rows": [
+  " 10.304 on  10.508 off  -0.205 diff  output 1920x1080",
+  "  2.894 on   2.450 off   0.444 diff  TRAANode.resolve 1920x1080",
+  "  2.102 on   2.145 off  -0.043 diff  screen",
+  "  1.901 on   1.940 off  -0.039 diff  GTAONode.AO 960x540",
+  "  0.415 on   0.423 off  -0.009 diff  output 1920x1080 x4",
+  "  0.345 on   0.334 off   0.012 diff  UnrealBloomPass.bright 960x540",
+  "  0.298 on   0.317 off  -0.019 diff  UnrealBloomPass.h0 960x540",
+  "  0.292 on   0.298 off  -0.006 diff  UnrealBloomPass.h1 480x270"
+ ]
+}
