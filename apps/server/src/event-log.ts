@@ -2,8 +2,9 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 /** Something worth keeping a record of, as the game server reports it; the log adds the time. */
-export type LoggedEvent =
+export type LoggedEvent = (
   | { readonly event: 'serverStart'; readonly version: string }
+  | { readonly event: 'lobbyOpen' | 'lobbyClose' }
   | { readonly event: 'join' | 'leave'; readonly id: string; readonly name: string; readonly bot: boolean; readonly script: boolean }
   | { readonly event: 'matchStart'; readonly map: string; readonly mode: string; readonly hvb: boolean }
   | {
@@ -14,7 +15,11 @@ export type LoggedEvent =
       /** Seconds the match lasted. */
       readonly duration: number;
       readonly result: unknown;
-    };
+    }
+) & {
+  /** The private lobby it happened in; absent for the public one. */
+  readonly lobby?: string;
+};
 
 /**
  * The server's event log: one JSON line per event, appended to a file (on the

@@ -325,6 +325,22 @@ export function botMatchSides(seats: readonly LobbySeat[], hvb: boolean): readon
 }
 
 /**
+ * An online lobby's seats as the sides the host set (`lobby.sides`): each person on theirs, then each bot the match will
+ * bring onto the side with fewer, as the roster places them. Open seats aren't sides yet, so they're left out. Null where
+ * the lobby has no sides (no team mode, or humans vs bots).
+ */
+export function lobbySides(lobby: LobbyState, seats: readonly LobbySeat[]): readonly [readonly LobbySeat[], readonly LobbySeat[]] | null {
+  if (!lobby.sides || !teamMode(lobby.mode) || (lobby.hvb && lobby.maxBots > 0)) return null;
+  const blue: LobbySeat[] = [];
+  const orange: LobbySeat[] = [];
+  for (const s of seats) {
+    if (s.bot) (blue.length <= orange.length ? blue : orange).push(s);
+    else if (s.id !== null) (lobby.sides[s.id] === 2 ? orange : blue).push(s);
+  }
+  return [blue, orange];
+}
+
+/**
  * The last match, as the lobby recalls it: "Blue won 75 to 60", "Ada won", "Draw", with how it ended. Null before the first.
  * A Battle Royale has no draw: one with no winner (no person left) gives your place in it, `place`, when you played it.
  */
@@ -338,7 +354,7 @@ export function lastMatch(result: MatchResult | null, mode: ModeId, teamScores: 
 }
 
 export interface ConnectionError {
-  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'gpu' | 'other';
+  readonly kind: 'down' | 'full' | 'version' | 'passphrase' | 'name' | 'idle' | 'gpu' | 'kicked' | 'other';
   readonly title: string;
   readonly body: string;
 }
@@ -361,6 +377,7 @@ export function connectionError(status: string | null): ConnectionError {
   if (/full/i.test(status)) return { kind: 'full', title: 'Server full', body: 'A seat frees up when someone leaves: try again in a moment.' };
   if (/updated|reload/i.test(status)) return { kind: 'version', title: 'Update needed', body: 'The server runs a newer version. Reload to get it.' };
   if (/passphrase/i.test(status)) return { kind: 'passphrase', title: 'Wrong passphrase', body: 'Check it and try again.' };
+  if (/removed by the host/i.test(status)) return { kind: 'kicked', title: 'Removed from the lobby', body: 'The host took you out of it. Play Online takes you to the public lobby.' };
   if (/name/i.test(status)) return { kind: 'name', title: 'Pick another name', body: 'That one is taken or not allowed. Change it on the main menu.' };
   return { kind: 'other', title: 'Could not join', body: status };
 }

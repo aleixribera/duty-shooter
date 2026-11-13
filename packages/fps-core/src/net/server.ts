@@ -298,7 +298,8 @@ interface AwaySeat {
   readonly token: string;
   /** Their full simulation state and scoreboard row when they dropped. */
   readonly state: PlayerState;
-  readonly score: Score;
+  /** None for a seat held in a lobby before its first match. */
+  readonly score?: Score;
   /** The match they left; back in a later one, they join it fresh. */
   readonly match: number;
   /** Simulation time the seat is let go. */
@@ -405,6 +406,12 @@ export class GameServer {
   #customBots: number | null = null;
   /** Humans vs bots as picked (on only in team modes: see #hvbOn). */
   #hvb: boolean;
+  /** With a lobby: the side each person plays on in the next team match, which the host may change. */
+  readonly #sides = new Map<PlayerId, TeamId>();
+  /** The host has put someone on a side: the sides stay as arranged instead of evening out when someone leaves. */
+  #arranged = false;
+  /** Seat tokens of those the host removed: they can't take their seat back. */
+  readonly #kicked = new Set<string>();
   /** The maps the server holds, the one played now and the one the host picked for the next match. */
   readonly #maps: readonly ServerMap[];
   #map: ServerMap;
@@ -651,6 +658,7 @@ export class GameServer {
       map: this.#lobbyMap.id,
       squadSize: this.#royale.squadSize,
       squads: Object.fromEntries(this.#lobbyMode === BATTLE_ROYALE ? this.#lobbySquads() : []),
+      ...(teamMode(this.#lobbyMode) ? { sides: Object.fromEntries(this.#joined().map((c) => [c.id as string, this.#sides.get(c.id as PlayerId) ?? TEAMS[0]])) } : {}),
     };
   }
 
@@ -814,6 +822,24 @@ export class GameServer {
       }
       return;
     }
+    if (message.t === 'side' || message.t === 'even') {
+      // Only the host, and only in the lobby.
+      if (this.#phase !== 'lobby' || client.id !== this.host) return;
+      if (message.t === 'even') {
+        this.#arranged = false;
+        this.#evenSides();
+      } else if (this.#sides.has(message.id as PlayerId)) {
+        this.#sides.set(message.id as PlayerId, message.team as TeamId);
+        this.#arranged = true;
+      }
+      return;
+    }
+    if (message.t === 'kick') {
+      // Only the host, never themselves.
+      const target = [...this.#clients].find((c) => c.id === message.id);
+      if (client.id === this.host && target && target !== client) this.#kick(target);
+      return;
+    }
     if (message.t === 'ping') {
       if (client.id !== null && this.#phase === 'playing') {
         this.#askPing(client.id, { kind: message.kind, at: message.at, ...(message.target === undefined ? {} : { target: message.target }) });
@@ -840,6 +866,7 @@ export class GameServer {
   #join(client: Client, rawName: string, passphrase: string, protocol: number, preferred: ModeId | null, bots: number | null, hvb: boolean | null, resume: string | null): void {
     if (protocol !== PROTOCOL_VERSION) return this.#reject(client, 'protocol');
     if (this.#options.passphrase && !samePassphrase(passphrase, this.#options.passphrase)) return this.#reject(client, 'passphrase');
+    if (resume !== null && this.#kicked.has(resume)) return this.#reject(client, 'kicked');
     if (resume !== null) {
       // The seat is still connected (a half-open socket, another tab): that connection drops, holding the seat for this one.
       const holder = [...this.#clients].find((c) => c !== client && c.id !== null && c.token === resume);
@@ -887,6 +914,7 @@ export class GameServer {
       this.#add(id, name);
     }
     // Otherwise, too late for a match that seats its own: they spectate it, and take a bot's seat at the next.
+    if (this.#options.lobby) this.#placeSide(id);
     this.#welcome(client);
   }
 
@@ -914,7 +942,7 @@ export class GameServer {
       // The bot hands the seat back as it stands, wherever it took it and alive or not.
       this.#bots.delete(away.id);
       this.#protectedSince.set(away.id, this.simulation.time);
-    } else if (away.match === this.#matchNumber) {
+    } else if (away.match === this.#matchNumber && away.score) {
       this.#mode.rejoin(away.score);
       this.simulation.setPlayerState(away.state);
       // A moment's protection while the returning page finds its feet.
@@ -931,7 +959,16 @@ export class GameServer {
 
   /** Everyone back to the lobby: no match, no bots, the last result kept for the lobby to show. */
   #openLobby(): void {
+    // Everyone stays on the side they just played on (a newcomer to the last match included).
+    if (teamMode(this.#mode.id) && !this.#hvbOn) {
+      for (const c of this.#joined()) {
+        const team = this.simulation.playerStateView(c.id as PlayerId)?.team;
+        if (team === TEAMS[0] || team === TEAMS[1]) this.#sides.set(c.id as PlayerId, team);
+      }
+    }
     this.#phase = 'lobby';
+    // Sides nobody arranged even out again: whoever joined the last match late may have tipped them.
+    if (this.#options.lobby && !this.#arranged) this.#evenSides();
     this.#startRequested = false;
     this.#votes.clear();
     this.#protectedSince.clear();
@@ -1058,7 +1095,49 @@ export class GameServer {
 
   /** The side humans vs bots puts a player on (people first, bots second), as entrant fields; none otherwise. */
   #sideOf(id: PlayerId): { side?: TeamId } {
-    return this.#hvbOn ? { side: this.#bots.has(id) ? TEAMS[1] : TEAMS[0] } : {};
+    if (this.#hvbOn) return { side: this.#bots.has(id) ? TEAMS[1] : TEAMS[0] };
+    // With a lobby, a person plays on the side they had there.
+    const side = this.#options.lobby && teamMode(this.#mode.id) ? this.#sides.get(id) : undefined;
+    return side === undefined ? {} : { side };
+  }
+
+  /** People in the lobby, and those whose seat is held for them, in join order. */
+  #sideMembers(): PlayerId[] {
+    const ids = new Set<PlayerId>([...this.#joined().map((c) => c.id as PlayerId), ...[...this.#away.values()].map((a) => a.id)]);
+    return [...ids].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+  }
+
+  /** A newcomer's side: the team the match gave them, else the side with fewer people (the first side on a tie). */
+  #placeSide(id: PlayerId): void {
+    const team = this.simulation.playerStateView(id)?.team;
+    if (this.#phase !== 'lobby' && teamMode(this.#mode.id) && (team === TEAMS[0] || team === TEAMS[1])) {
+      this.#sides.set(id, team);
+      return;
+    }
+    const count = (t: TeamId) => this.#sideMembers().filter((m) => m !== id && this.#sides.get(m) === t).length;
+    this.#sides.set(id, count(TEAMS[1]) < count(TEAMS[0]) ? TEAMS[1] : TEAMS[0]);
+  }
+
+  /** The fewest moves that even the sides out: the latest joiners of the bigger side cross over. */
+  #evenSides(): void {
+    const members = this.#sideMembers();
+    for (;;) {
+      const on = (t: TeamId) => members.filter((m) => this.#sides.get(m) === t);
+      const [a, b] = [on(TEAMS[0]), on(TEAMS[1])];
+      const big = a.length > b.length + 1 ? a : b.length > a.length + 1 ? b : null;
+      const mover = big?.[big.length - 1];
+      if (mover === undefined) return;
+      this.#sides.set(mover, big === a ? TEAMS[1] : TEAMS[0]);
+    }
+  }
+
+  /** The host removes a person: their seat goes at once, with no hold, and they can't take it back. */
+  #kick(client: Client): void {
+    const id = client.id as PlayerId;
+    this.#kicked.add(client.token);
+    this.#send(client, { t: 'reject', reason: 'kicked' });
+    this.#drop(client, false, true);
+    client.connection.close('rejected: kicked');
   }
 
   /** The loadout a player's next spawn carries (the mode's, else their pick or a bot's from its profile), as spawn options (empty for the default). */
@@ -1253,12 +1332,12 @@ export class GameServer {
     this.#options.onLog?.(event);
   }
 
-  #drop(client: Client, hold = true): void {
+  #drop(client: Client, hold = true, kicked = false): void {
     if (!this.#clients.delete(client) || client.id === null) return;
     this.#log({ event: 'leave', id: client.id, name: client.name, bot: false, script: client.script });
     if (hold) this.#hold(client);
     // Leaving the Preparation on purpose isn't final until the dive: back before it, they drop with their Squad.
-    else if (this.#beforeDive()) this.#hold(client, true);
+    else if (this.#beforeDive() && !kicked) this.#hold(client, true);
     // A match that seats its own has no fewer for it.
     if (this.#phase === 'playing' && this.#mode.fixedSeats !== undefined && this.simulation.has(client.id)) this.#standIn(client.id, client.name);
     else this.#remove(client.id);
@@ -1276,8 +1355,9 @@ export class GameServer {
     const grace = left ? Infinity : (this.#options.reconnectGrace ?? RECONNECT_GRACE);
     const state = this.simulation.playerState(id);
     const score = this.#mode.scores().find((s) => s.id === id);
-    if (grace <= 0 || !state || !score) return;
-    this.#away.set(client.token, { id, name: client.name, token: client.token, state, score, match: this.#matchNumber, until: this.simulation.time + grace, ...(left ? { left } : {}) });
+    // In the lobby a seat is held with no score: one who never played a match has none.
+    if (grace <= 0 || !state || (!score && this.#phase !== 'lobby')) return;
+    this.#away.set(client.token, { id, name: client.name, token: client.token, state, ...(score ? { score } : {}), match: this.#matchNumber, until: this.simulation.time + grace, ...(left ? { left } : {}) });
   }
 
   /** A Battle Royale's Preparation is on and its dive hasn't begun. */
@@ -1301,8 +1381,13 @@ export class GameServer {
       this.#fill = this.#defaultFill();
       this.#customBots = null;
       this.#hvb = this.#options.hvb === true;
+      this.#arranged = false;
       this.#endStandIns();
     }
+    // Sides go with their seat; until the host arranges them, those left even out.
+    const members = new Set(this.#sideMembers());
+    for (const id of [...this.#sides.keys()]) if (!members.has(id)) this.#sides.delete(id);
+    if (this.#options.lobby && this.#phase === 'lobby' && !this.#arranged) this.#evenSides();
     this.#fillBots();
   }
 

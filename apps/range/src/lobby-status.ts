@@ -50,3 +50,17 @@ export async function findLobby(askServer: boolean): Promise<Lobby | null> {
   const url = import.meta.env.VITE_LOBBY_URL;
   return url ? { kind: 'link', url } : null;
 }
+
+/** A private lobby's code from a link (`?lobby=`), as the server reads it (upper case), or null for none or one that can't be a code. */
+export function privateLobbyCode(asked: string | null): string | null {
+  return asked !== null && /^[A-Za-z0-9]{4,12}$/.test(asked) ? asked.toUpperCase() : null;
+}
+
+/** Letters and digits nobody misreads when a code is read out: no 0/O, 1/I/L. */
+const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+/** A new private lobby's code: six of them, at random. */
+export function newLobbyCode(): string {
+  const picks = crypto.getRandomValues(new Uint8Array(6));
+  return [...picks].map((n) => CODE_LETTERS[n % CODE_LETTERS.length]).join('');
+}

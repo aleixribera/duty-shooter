@@ -1,6 +1,6 @@
 import { BOT_SKILLS, LOBBY_MODES, teamMode, type BotSkill, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, matchSize, pingTone, randomLobbyPick } from './model';
+import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, lobbySides, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
 const CSS = `
@@ -56,6 +56,10 @@ const CSS = `
 .ds-lobby .invite { display: flex; }
 .ds-lobby .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
 .ds-lobby .invite .ds-btn { border-radius: 0; }
+/* The host's controls on a person's seat: Move to the other side, Kick. Square, as every control, and 44 px tall. */
+.ds-lobby .seat .acts { flex: none; display: flex; gap: 8px; margin-right: -10px; }
+.ds-lobby .seat .acts .ds-btn { padding: 0 12px; font-size: var(--ds-type-small); }
+.ds-lobby .lobby-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .ds-lobby footer .ds-btn:not(.big) { min-width: 120px; }
 /* A Bot Match on a wide screen (review 2026-11-12f, 03: the left two-thirds under the rosters was empty dark map): the rosters
    stand in one column at the left, the picks at the right, and between them the scrim clears onto the picked map, the
@@ -120,6 +124,8 @@ export interface LobbyView {
   readonly reconnecting?: boolean;
   /** Bot Match: how well the bots play, a pick of its own. */
   readonly skill?: BotSkill;
+  /** A private lobby of this page's own (`?lobby=`), rather than the public one. */
+  readonly private?: boolean;
 }
 
 export interface LobbyCallbacks {
@@ -134,6 +140,12 @@ export interface LobbyCallbacks {
   leave(): void;
   /** Bot Match: the bots' skill picked. */
   skill?(skill: BotSkill): void;
+  /** The host's controls online: a person onto a side, the sides evened, a person removed. */
+  side?(id: string, team: 1 | 2): void;
+  even?(): void;
+  kick?(id: string): void;
+  /** Out of the public lobby into a new private one of your own. */
+  goPrivate?(): void;
 }
 
 /**
@@ -241,6 +253,10 @@ export class LobbyPage {
       const pick = randomLobbyPick(this.#view.lobby);
       if (pick) this.#callbacks.pick(pick);
     }
+    else if (act === 'side' && (value === '1' || value === '2')) this.#callbacks.side?.(el.dataset['id'] ?? '', Number(value) as 1 | 2);
+    else if (act === 'even') this.#callbacks.even?.();
+    else if (act === 'kick') this.#callbacks.kick?.(el.dataset['id'] ?? '');
+    else if (act === 'private') this.#callbacks.goPrivate?.();
     else if (act === 'start') this.#callbacks.start();
     else if (act === 'join') this.#callbacks.join();
     else if (act === 'loadout') this.#callbacks.loadout();
@@ -284,24 +300,36 @@ export class LobbyPage {
     const bots = seatList.filter((s) => s.bot).length;
     // Offline nobody else can join: no open seats, only the players the match has.
     const shown = offline ? seatList.filter((s) => s.bot || s.id !== null) : seatList;
-    const seatHtml = (list: readonly (typeof shown)[number][]) => list
+    // The host's controls on each person's seat, while the lobby waits: in a sided lobby Move to the other side, and Kick on everyone else.
+    const controls = picking && !offline;
+    const seatHtml = (list: readonly (typeof shown)[number][], team?: 1 | 2) => list
       .map((s) => {
         if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Bot</span></span></div>`;
         if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Open seat</span></span></div>`;
         const ping = s.ping === null || offline ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} ms</span>`;
         // Who this seat is to you, in words under the name: You, Host, or both.
         const role = offline ? '' : [s.you ? 'You' : '', s.host ? 'Host' : ''].filter(Boolean).join(' · ');
-        return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">${escapeHtml(s.name)}</span>${role ? `<span class="role">${role}</span>` : ''}</span>${ping}</div>`;
+        const other = team === 1 ? 2 : 1;
+        const move = controls && team !== undefined ? `<button type="button" class="ds-btn" data-act="side" data-value="${other}" data-id="${escapeHtml(s.id)}" data-key="side-${escapeHtml(s.id)}" aria-label="Move ${escapeHtml(s.name)} to ${TEAMS[other]!.name}">Move</button>` : '';
+        const kick = controls && !s.you ? `<button type="button" class="ds-btn" data-act="kick" data-id="${escapeHtml(s.id)}" data-key="kick-${escapeHtml(s.id)}" aria-label="Kick ${escapeHtml(s.name)}">Kick</button>` : '';
+        const acts = move || kick ? `<span class="acts">${move}${kick}</span>` : '';
+        return `<div class="seat${s.you ? ' you' : ''}"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">${escapeHtml(s.name)}</span>${role ? `<span class="role">${role}</span>` : ''}</span>${ping}${acts}</div>`;
       })
       .join('');
     // Rows fill the left column first, then the right. A Bot Match in a team mode shows its two sides instead: who you play with, and against.
     const rows = Math.ceil(Math.max(offline ? shown.length : l.capacity, 1) / 2);
-    const sided = offline && teamMode(l.mode);
-    // A side with no one on it (a map with no bots) gets no heading.
-    const side = (team: 1 | 2, list: readonly (typeof shown)[number][]) => list.length === 0 ? '' : `<div class="team t${team}"><h3>${TEAMS[team]!.mark} ${TEAMS[team]!.name}</h3>${seatHtml(list)}</div>`;
+    // Online, a team mode's people stand on the sides the host set (ticket 97).
+    const online = offline ? null : lobbySides(l, shown);
+    const sided = (offline && teamMode(l.mode)) || online !== null;
+    // A side with no one on it (a map with no bots) gets no heading, unless the host may move someone onto it.
+    const side = (team: 1 | 2, list: readonly (typeof shown)[number][]) => list.length === 0 && !(online && controls) ? '' : `<div class="team t${team}"><h3>${TEAMS[team]!.mark} ${TEAMS[team]!.name}</h3>${seatHtml(list, online ? team : undefined)}</div>`;
+    const even = online && controls && l.players.length > 1 ? `<button type="button" class="ds-btn" data-act="even" data-key="even">Even teams</button>` : '';
+    // The public lobby offers a private one of your own, under the players where it is seen at once; a private one's link is how friends get in.
+    const goPrivate = !offline && !v.private && this.#callbacks.goPrivate ? `<button type="button" class="ds-btn" data-act="private" data-key="private">New private lobby</button>` : '';
+    const lobbyActs = even || goPrivate ? `<div class="lobby-acts">${even}${goPrivate}</div>` : '';
     const seatsBlock = sided
       ? (() => {
-          const [blue, orange] = botMatchSides(shown, l.hvb);
+          const [blue, orange] = online ?? botMatchSides(shown, l.hvb);
           return `<div class="seats teams">${side(1, blue)}${side(2, orange)}</div>`;
         })()
       : `<div class="seats" style="grid-template-rows: repeat(${rows}, auto)">${seatHtml(shown)}</div>`;
@@ -371,10 +399,10 @@ export class LobbyPage {
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
 
     return `<div class="ds-page${offline ? ' solo' : ''}">
-<header><div class="heading"><h1>${offline ? 'Bot Match' : 'Lobby'}</h1></div>
+<header><div class="heading"><h1>${offline ? 'Bot Match' : v.private ? 'Private lobby' : 'Lobby'}</h1></div>
 <div class="aside">${who ? `<span class="ds-state ${state}" role="status">${who}</span>` : ''}</div></header>
 <div class="body">
-<section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2>${seatsBlock}${fill ? `<p class="note">${escapeHtml(fill)}</p>` : ''}${lastHtml}</section>
+<section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2>${seatsBlock}${fill ? `<p class="note">${escapeHtml(fill)}</p>` : ''}${lobbyActs}${lastHtml}</section>
 <aside class="match">
 <h2 class="ds-h2" style="margin:0">Match${underway ? ' <small>Under way</small>' : ''}</h2>
 <div class="maps${picking ? '' : ' locked'}">${maps}</div>

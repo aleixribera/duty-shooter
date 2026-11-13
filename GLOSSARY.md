@@ -429,12 +429,16 @@ _Avoid_: kill cam, video (nothing is recorded; it is drawn live)
 The intermission vote that picks the next match's mode. The plurality wins, and a tie keeps the current mode. Only a server without a lobby runs it (the headless tests); online and Bot Match go back to the lobby instead.
 
 **Lobby**:
-The page every online player sits on between matches: the players with their pings, the map, the host's picks and the Start button. The online server opens it for the first person in, and after every match's nuke and 10 s scoreboard everyone goes back to it. No match runs and no bots play while it is open.
+The page every online player sits on between matches: the players with their pings (in a team mode, on the side each will play on), the map, the host's picks and the Start button. The online server opens it for the first person in, and after every match's nuke and 10 s scoreboard everyone goes back to it. No match runs and no bots play while it is open. The server holds one public lobby and any number of private lobbies up to its limit.
 _Avoid_: menu, waiting room
 
 **Host**:
-The person in the lobby who picks the next match's mode, bots, map and whether it is humans vs bots, and presses Start: the first person in, until they leave, when it passes to the next one who joined. Someone who joins while a match is under way plays in it straight away. The server holds every lobby map (Survival Town, Switchyard and Station Nine) and moves to the host's pick when the match starts; each page follows the pick while still in the lobby, so the map is loaded by then.
+The person in the lobby who picks the next match's mode, bots, map and whether it is humans vs bots, puts each person on a side (or evens the sides out), can kick anyone, and presses Start: the first person in, until they leave, when it passes to the next one who joined (one who drops and comes back within the grace period is host again). Someone who joins while a match is under way plays in it straight away. The server holds every lobby map (Survival Town, Switchyard and Station Nine) and moves to the host's pick when the match starts; each page follows the pick while still in the lobby, so the map is loaded by then.
 _Avoid_: owner, admin, leader
+
+**Private lobby**:
+A lobby of its own on the online server, reached by its link (`?lobby=<code>`): only those with the link are in it, and it stays together from match to match until everyone has left (a minute after, it closes). Anyone in the public lobby can make one with New private lobby, which moves them alone into it as its host. A person the host kicks can't take their seat back.
+_Avoid_: party, room, custom game
 
 **Headless match**:
 The real simulation run in-process with no rendering. It's the main seam for automated tests, and the networked variant adds the server, clients and a simulated network.

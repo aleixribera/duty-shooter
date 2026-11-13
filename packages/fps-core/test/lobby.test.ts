@@ -160,3 +160,83 @@ describe('the lobby', () => {
     expect(m.server.status().lobby).toBe(false);
   });
 });
+
+describe("the host's controls", () => {
+  const sides = (c: NetworkedClient) => c.client.match?.lobby?.sides;
+
+  it('puts each newcomer on the side with fewer people, and plays the match on the sides the host set', () => {
+    const m = lobby();
+    const [a, b, c] = joinAll(m, 'a', 'b', 'c');
+    m.run(ticks(0.5));
+    expect(sides(b!)).toEqual({ [a!.client.id!]: 1, [b!.client.id!]: 2, [c!.client.id!]: 1 });
+
+    a!.client.setSide(c!.client.id!, 2);
+    a!.client.setSide(a!.client.id!, 2);
+    m.run(ticks(0.5));
+    expect(sides(c!)).toEqual({ [a!.client.id!]: 2, [b!.client.id!]: 2, [c!.client.id!]: 2 });
+
+    a!.client.setSide(b!.client.id!, 1);
+    a!.client.startMatch();
+    until(m, () => m.server.phase === 'playing', 2);
+    expect([player(m, a!).team, player(m, b!).team, player(m, c!).team]).toEqual([2, 1, 2]);
+  });
+
+  it('evens the sides out when the host asks, moving the latest joiners', () => {
+    const m = lobby();
+    const [a, b, c, d] = joinAll(m, 'a', 'b', 'c', 'd');
+    for (const x of [a, b, c, d]) a!.client.setSide(x!.client.id!, 1);
+    m.run(ticks(0.5));
+    a!.client.evenSides();
+    m.run(ticks(0.5));
+    expect(sides(a!)).toEqual({ [a!.client.id!]: 1, [b!.client.id!]: 1, [c!.client.id!]: 2, [d!.client.id!]: 2 });
+  });
+
+  it('keeps the sides even as people leave, until the host arranges them', () => {
+    const m = lobby();
+    const [a, b, c, d] = joinAll(m, 'a', 'b', 'c', 'd');
+    b!.client.close();
+    d!.client.close();
+    m.run(ticks(0.5));
+    expect(Object.values(sides(a!)!).sort()).toEqual([1, 2]);
+    expect(sides(a!)![c!.client.id!]).toBe(2);
+  });
+
+  it('lets only the host move or remove anyone', () => {
+    const m = lobby();
+    const [a, b] = joinAll(m, 'a', 'b');
+    b!.client.setSide(b!.client.id!, 1);
+    b!.client.kick(a!.client.id!);
+    m.run(ticks(0.5));
+    expect(sides(a!)![b!.client.id!]).toBe(2);
+    expect(a!.client.status).toBe('joined');
+    expect(m.server.host).toBe(a!.client.id);
+  });
+
+  it('removes a kicked person for good: out of the lobby, told why, and refused their seat back', () => {
+    const m = lobby();
+    const [a, b, c] = joinAll(m, 'a', 'b', 'c');
+    const token = b!.client.token!;
+    a!.client.kick(b!.client.id!);
+    m.run(ticks(0.5));
+    expect(b!.client.status).toBe('rejected');
+    expect(b!.client.rejectReason).toBe('kicked');
+    expect(a!.client.match?.lobby?.players).toEqual([a!.client.id, c!.client.id]);
+    expect(m.server.playerCount).toBe(2);
+
+    const again = m.join('b2', { resume: token });
+    m.run(ticks(0.5));
+    expect(again.client.status).toBe('rejected');
+    expect(again.client.rejectReason).toBe('kicked');
+  });
+
+  it('can remove someone during a match too', () => {
+    const m = lobby();
+    const [a, b] = joinAll(m, 'a', 'b');
+    a!.client.startMatch();
+    until(m, () => m.server.phase === 'playing', 2);
+    a!.client.kick(b!.client.id!);
+    m.run(ticks(0.5));
+    expect(b!.client.rejectReason).toBe('kicked');
+    expect(m.server.latest.players.some((p) => p.id === b!.client.id)).toBe(false);
+  });
+});

@@ -12,7 +12,7 @@ import { parsePing, type PingRequest } from '../pings';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 29;
+export const PROTOCOL_VERSION = 30;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -23,7 +23,7 @@ export const EVENT_RESEND_TICKS = 20;
 /** Longest seat token accepted in a join. */
 const MAX_TOKEN = 64;
 
-export type RejectReason = 'passphrase' | 'full' | 'protocol' | 'name';
+export type RejectReason = 'passphrase' | 'full' | 'protocol' | 'name' | 'kicked';
 
 /** A usercmd tagged with the client's sequence number. */
 export interface SequencedCmd {
@@ -72,6 +72,12 @@ export type ClientMessage =
   | ({ readonly t: 'lobby' } & LobbyPick)
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' }
+  /** The host puts a person in the lobby on a side (1 or 2) for the next match. */
+  | { readonly t: 'side'; readonly id: string; readonly team: 1 | 2 }
+  /** The host evens the lobby's sides out. */
+  | { readonly t: 'even' }
+  /** The host removes a person from the lobby (or the match), for good. */
+  | { readonly t: 'kick'; readonly id: string }
   /** Anyone in a Battle Royale lobby: the Squad (from 1) they'd like to play in, if it has room. */
   | { readonly t: 'squad'; readonly squad: number }
   /** A Battle Royale's Preparation: this player has picked and is ready to drop (it can't be taken back). */
@@ -150,6 +156,8 @@ export interface LobbyState {
   /** Battle Royale: seats a Squad for the next match, and the Squad (from 1) each person is in. */
   readonly squadSize: SquadSize;
   readonly squads: Readonly<Record<string, number>>;
+  /** The side (1 or 2) each person plays on in the next match, where it has sides; the host may move them. */
+  readonly sides?: Readonly<Record<string, number>>;
 }
 
 /** The match as every client needs it: map, mode, phase and its deadline, limits, team scores and the vote. */
@@ -282,6 +290,15 @@ export function decodeClient(data: string): ClientMessage | null {
     return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }), ...(squads === undefined ? {} : { squads }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
+  if (value['t'] === 'even') return { t: 'even' };
+  if (value['t'] === 'side') {
+    const { id, team } = value;
+    return typeof id === 'string' && id.length <= 40 && (team === 1 || team === 2) ? { t: 'side', id, team } : null;
+  }
+  if (value['t'] === 'kick') {
+    const { id } = value;
+    return typeof id === 'string' && id.length <= 40 ? { t: 'kick', id } : null;
+  }
   if (value['t'] === 'ready') return { t: 'ready' };
   if (value['t'] === 'loaded') return { t: 'loaded' };
   if (value['t'] === 'watch') {

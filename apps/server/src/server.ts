@@ -76,7 +76,10 @@ export interface RoyaleRoute {
 
 export interface RunningServer {
   readonly http: Server;
+  /** The public lobby. */
   readonly game: GameServer;
+  /** The private lobbies open now, by code. */
+  readonly privateLobbies: ReadonlyMap<string, GameServer>;
   /** Seats the warm-up match filled; 0 when there was none. */
   readonly warmedSeats: number;
   /** The port actually bound (useful with port 0). */
@@ -84,6 +87,20 @@ export interface RunningServer {
   /** The game loop since the last call: milliseconds per tick, ticks that started a whole tick late, and slow ticks by cause. */
   takeLoopStats(): TickWindow & { readonly causes: Readonly<Record<string, number>> };
   close(): Promise<void>;
+}
+
+/** A private lobby's code, as its link carries it (`?lobby=`): letters and digits, any case. */
+const LOBBY_CODE = /^[A-Za-z0-9]{4,12}$/;
+/** Private lobbies a server holds at once; each plays its own match. */
+export const MAX_PRIVATE_LOBBIES = 8;
+/** Seconds a private lobby with nobody in it stays open before it closes. */
+export const PRIVATE_LOBBY_IDLE = 60;
+
+/** The private lobby a request names (`?lobby=<code>`, upper-cased), null for the public one, or 'bad' for a code that can't be one. */
+function lobbyCode(url: string | undefined): string | null | 'bad' {
+  const asked = new URL(url ?? '/', 'http://x').searchParams.get('lobby');
+  if (asked === null || asked === '') return null;
+  return LOBBY_CODE.test(asked) ? asked.toUpperCase() : 'bad';
 }
 
 /** Where the build leaves Zero Island's bots' nav (`MapDefinition.navFile`). */
@@ -398,8 +415,13 @@ async function serveStatic(root: string, req: IncomingMessage, res: ServerRespon
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const root = resolve(options.staticDir);
   const maxBots = options.maxBotsPerTeam ?? 0;
-  /** A map's nav: a large map's from the build, a small map's generated now. */
+  /** A map's nav: a large map's from the build, a small map's generated now (once: every lobby shares it). */
+  const navs = new Map<string, NavGraph | null>();
   const navOf = (def: MapDefinition, world: ServerMap['world']): NavGraph | null => {
+    if (!navs.has(def.id)) navs.set(def.id, freshNav(def, world));
+    return navs.get(def.id)!;
+  };
+  const freshNav = (def: MapDefinition, world: ServerMap['world']): NavGraph | null => {
     if (def.navFile) {
       const file = join(root, def.navFile);
       if (!existsSync(file)) throw new Error(`${file} is missing: build the range app first.`);
@@ -422,11 +444,17 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       teamSize: TEAM_SIZES[def.id],
     };
   };
-  const map = buildMapById(options.map);
+  const defs = new Map<MapId, MapDefinition>();
+  const defOf = (id: MapId): MapDefinition => {
+    if (!defs.has(id)) defs.set(id, buildMapById(id));
+    return defs.get(id)!;
+  };
+  const map = defOf(options.map);
   const first = serverMap(map);
   // Every lobby map is built up front, so a switch at a match's start costs nothing.
   // Zero Island isn't among them: Battle Royale plays in a process of its own (ADR 0009).
-  const others = MATCH_MAPS.includes(options.map) ? MATCH_MAPS.filter((id) => id !== options.map).map((id) => serverMap(buildMapById(id))) : [];
+  const otherIds = MATCH_MAPS.includes(options.map) ? MATCH_MAPS.filter((id) => id !== options.map) : [];
+  const others = otherIds.map((id) => serverMap(defOf(id)));
   let accept: ((connection: Connection) => void) | null = null;
   const transport: ServerTransport = { onConnection: (handler) => (accept = handler) };
   const log = new EventLog(options.eventLog ?? null, { ...(options.printLog ? { print: options.printLog } : {}), ...(options.handedSockets ? { process: 'royale' } : {}) });
@@ -462,16 +490,64 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const ticks = watchTicks(options.slowTickMs);
   const game = new GameServer(transport, { ...config, probe: ticks.profiler });
 
+  /** Private lobbies by code: each its own game, on worlds of its own (props fall per match), sharing the maps' nav. */
+  type PrivateLobby = { game: GameServer; accept: ((connection: Connection) => void) | null; emptySince: number | null; sockets: Set<WebSocket> };
+  const lobbies = new Map<string, PrivateLobby>();
+  /** The private lobby with this code, opened if need be; null when the server holds all it may. */
+  const privateLobby = (code: string) => {
+    const open = lobbies.get(code);
+    if (open) return open;
+    if (lobbies.size >= MAX_PRIVATE_LOBBIES || options.handedSockets) return null;
+    const own = serverMap(map);
+    const lobby: PrivateLobby = { game: null!, accept: null, emptySince: performance.now(), sockets: new Set() };
+    const ownTransport: ServerTransport = { onConnection: (handler) => (lobby.accept = handler) };
+    lobby.game = new GameServer(ownTransport, {
+      ...config,
+      world: own.world,
+      maps: otherIds.map((id) => serverMap(defOf(id))),
+      onLog: (event) => log.write({ ...event, lobby: code }),
+      ...(own.nav ? { bots: { nav: own.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
+    });
+    lobbies.set(code, lobby);
+    log.write({ event: 'lobbyOpen', lobby: code });
+    return lobby;
+  };
+  /** A private lobby gone: its code free again, and any socket still on it cut. */
+  const closeLobby = (code: string) => {
+    const lobby = lobbies.get(code);
+    if (!lobby) return;
+    lobbies.delete(code);
+    for (const ws of lobby.sockets) ws.terminate();
+    log.write({ event: 'lobbyClose', lobby: code });
+  };
+  /** Closes private lobbies left empty long enough: nobody in them, and no seat held for someone coming back. */
+  const closeIdleLobbies = (now: number) => {
+    for (const [code, lobby] of lobbies) {
+      if (lobby.game.playerCount > 0 || lobby.game.status().away > 0) lobby.emptySince = null;
+      else if (lobby.emptySince === null) lobby.emptySince = now;
+      else if (now - lobby.emptySince >= PRIVATE_LOBBY_IDLE * 1000) closeLobby(code);
+    }
+  };
+
   const http = createServer((req, res) => {
     if (req.url === '/healthz') {
       // Everyone on the box, Battle Royale included: the updater waits for nobody before it restarts the container.
       const royalePlayers = options.royale?.players ?? 0;
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount + royalePlayers, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version, protocol: PROTOCOL_VERSION, ...(options.royale ? { royalePlayers } : {}) }));
+      const privatePlayers = [...lobbies.values()].reduce((sum, l) => sum + l.game.playerCount, 0);
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'ok', players: game.playerCount + royalePlayers + privatePlayers, maxPlayers: game.maxPlayers, public: options.passphrase === '', version: options.version, protocol: PROTOCOL_VERSION, ...(options.royale ? { royalePlayers } : {}) }));
       return;
     }
-    if (req.url === '/status') {
-      // The lobby as the Play Online menu shows it, fetched before joining.
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(game.status()));
+    if (req.url === '/status' || req.url?.startsWith('/status?')) {
+      // The lobby as the Play Online menu shows it, fetched before joining. Only joining opens a private one, so a
+      // plain GET can't fill the server with lobbies: one not open yet reads as it will be, empty and waiting.
+      const code = lobbyCode(req.url);
+      if (code === 'bad') {
+        res.writeHead(400, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ status: 'no such lobby' }));
+        return;
+      }
+      const open = code === null ? game : lobbies.get(code)?.game;
+      const status = open ? open.status() : { ...game.status(), map: map.id, mode: options.mode, lobbyMode: options.mode, players: 0, away: 0, bots: 0, phase: 'lobby' as const };
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(status));
       return;
     }
     if (req.url === '/royale/status' && options.royale) {
@@ -507,10 +583,25 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n');
       return;
     }
+    // `/ws?lobby=<code>` joins (or opens) that private lobby; plain `/ws` the public one.
+    const code = lobbyCode(req.url);
+    const lobby = code === null ? null : code === 'bad' ? undefined : privateLobby(code);
+    if (lobby === undefined) {
+      socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+      return;
+    }
+    if (code !== null && lobby === null) {
+      socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+      return;
+    }
     wss.handleUpgrade(req, socket, head, (ws) => {
       guard.opened(address);
       ws.on('close', () => guard.closed(address));
-      accept?.(
+      if (lobby) {
+        lobby.sockets.add(ws);
+        ws.on('close', () => lobby.sockets.delete(ws));
+      }
+      (lobby ? lobby.accept : accept)?.(
         wsConnection(ws, (reason) => {
           if (reason === 'rejected: passphrase') guard.failedJoin(address, Date.now());
         }),
@@ -533,6 +624,15 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         const started = performance.now();
         ticks.profiler.willStart(lag);
         game.tick();
+        for (const [code, lobby] of lobbies) {
+          try {
+            lobby.game.tick();
+          } catch (error) {
+            // A private lobby that fails closes on its own; the public game and the other lobbies play on.
+            console.error(`Private lobby ${code} failed:`, error);
+            closeLobby(code);
+          }
+        }
         costs.record(performance.now() - started, lag >= tickMs, lag);
         failures = 0;
       } catch (error) {
@@ -548,6 +648,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       ran += 1;
     }
     if (now - next > tickMs * 5) next = now; // a long stall: drop time instead of catching up
+    closeIdleLobbies(now);
     log.flush();
     ticks.profiler.flush();
     timer = setTimeout(loop, Math.max(0, next - performance.now()));
@@ -563,6 +664,9 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   return {
     http,
     game,
+    get privateLobbies() {
+      return new Map([...lobbies].map(([code, l]) => [code, l.game]));
+    },
     warmedSeats,
     port,
     takeLoopStats: () => ({ ...costs.take(), causes: ticks.profiler.takeCauses() }),

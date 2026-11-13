@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, WEAPON_IDS, type Score } from '@duty-shooter/fps-core';
-import { chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
+import { chargeRoster, GRAPHICS_LOST, connectionError, endSummary, lastMatch, loadoutOptions, lobbyBots, pauseActions, lobbyFill, lobbySeats, lobbySides, lobbyTile, loadoutNote, matchBar, matchSize, ordinal, pingTone, randomLobbyPick, scoreboard, weaponCard } from '../src/ui/model';
 
 const MAPS: readonly string[] = ['survival-town', 'switchyard', 'station-nine'];
 const NAMES: Readonly<Record<string, string>> = { 'survival-town': 'Survival Town', switchyard: 'Switchyard', 'zero-island': 'Zero Island' };
@@ -138,6 +138,7 @@ describe('the end of the match', () => {
 
 describe('connection errors', () => {
   it('reads each failure as a title, an explanation and what to do', () => {
+    expect(connectionError('Removed by the host.').kind).toBe('kicked');
     expect(connectionError('The server is full.').kind).toBe('full');
     expect(connectionError('The game was updated. Reload the page.').kind).toBe('version');
     expect(connectionError('Disconnected: connection lost.').kind).toBe('down');
@@ -252,6 +253,15 @@ describe('the lobby', () => {
       [4, null, 'Bot', null, false, false, true],
       [5, null, '', null, false, false, false],
     ]);
+  });
+
+  it('stands people on the sides the host set online, and each bot the match brings on the side with fewer', () => {
+    const sided = { ...lobby, capacity: 8, sides: { b: 1, a: 2, c: 2 } };
+    const sides = lobbySides(sided, lobbySeats(sided, 'a', {}, {}));
+    expect(sides?.map((side) => side.map((s) => s.id ?? 'bot'))).toEqual([['b', 'bot'], ['a', 'c']]);
+    expect(lobbySides({ ...sided, mode: 'ffa' }, [])).toBeNull();
+    expect(lobbySides({ ...sided, hvb: true }, [])).toBeNull();
+    expect(lobbySides(lobby, [])).toBeNull();
   });
 
   it('counts the bots the match will bring as the server rosters them', () => {

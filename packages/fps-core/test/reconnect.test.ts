@@ -221,3 +221,29 @@ describe('coming back after a dropped connection', () => {
     expect(line.attempts).toBe(attempts);
   });
 });
+
+describe('coming back to a lobby', () => {
+  it('takes back its place in the lobby after 5 s away: the same seat, its side, and the host again', () => {
+    const m = match({ lobby: true, mode: 'tdm', teamSpawns: [DUEL.slice(0, 1), DUEL.slice(1)] });
+    const { c, line } = joinOver(m, 'host');
+    const guest = m.join('guest');
+    m.run(ticks(0.5));
+    const id = c.client.id!;
+    c.client.setSide(guest.client.id!, 1);
+    m.run(ticks(0.5));
+    const before = guest.client.match?.lobby?.sides;
+
+    line.refuse = Infinity;
+    line.cut();
+    m.run(ticks(5));
+    expect(c.client.status).toBe('reconnecting');
+    expect(guest.client.match?.lobby?.host).toBe(guest.client.id);
+    line.refuse = 0;
+    until(m, c);
+    m.run(ticks(0.5));
+
+    expect(c.client.id).toBe(id);
+    expect(m.server.phase).toBe('lobby');
+    expect(guest.client.match?.lobby).toMatchObject({ host: id, players: [id, guest.client.id], sides: before });
+  });
+});

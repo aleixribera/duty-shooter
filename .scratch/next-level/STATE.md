@@ -2,14 +2,14 @@
 
 ## Now
 
-Loop pass 4 (2026-11-13) shipped PLAN item 1, ticket 96 (v2.187.49): `reviews/capture.mjs` plays a Bot Match to its end with a player who aims and kills, records the game's sound, tours every map and mode, and puts two clients in an online lobby; the reviewer judges the five objectives (method in `.claude/iterate.md`). First capture: `reviews/2026-11-13a/` (not yet reviewed). Next: PLAN item 2, lobbies you can bring friends into, pass 1. The review of `2026-11-13a` can run beside it (no browser needed).
+Loop pass 5 (2026-11-13) shipped PLAN item 2 rough, ticket 97 (v2.188.0): private lobbies. "New private lobby" in Play Online gives a `?lobby=CODE` link; the host moves people between sides, evens them and kicks; a dropped player gets their lobby seat back (`apps/server/test/private-lobby.test.ts`, frames `lobbies/after/`). Left for a second pass in `BACKLOG.md`. Next: PLAN item 3, online at real ping, pass 1. The review of `reviews/2026-11-13a` is still unread.
 
 ## Where things stand
 
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; models and sight pictures left), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Last scored review: h (`reviews/2026-11-12h.md`); the ten-row scorecard is retired by PLAN.md. Captures from 2026-11-13a on are judged by the five objectives.
-- CI: green through v2.187.48; check v2.187.49.
+- CI: green through v2.187.49; check v2.188.0.
 
 ## Broken
 

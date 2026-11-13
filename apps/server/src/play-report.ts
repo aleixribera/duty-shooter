@@ -8,6 +8,7 @@ interface LogLine {
   readonly script?: boolean;
   /** The server process that wrote it, where it isn't the main one: `royale` (ADR 0009). */
   readonly process?: string;
+  readonly lobby?: string;
 }
 
 export interface PlayReport {
@@ -64,7 +65,7 @@ export function playReport(log: string): PlayReport {
       }
     } else if ((line.event === 'join' || line.event === 'leave') && line.id && !line.script) {
       const bot = line.bot === true;
-      const key = `${process}:${line.id}`;
+      const key = `${process}:${line.lobby ?? ''}:${line.id}`;
       if (line.event === 'join') {
         const session = { name: line.name ?? line.id, bot, start: time, process };
         open.set(key, session);

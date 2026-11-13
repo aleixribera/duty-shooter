@@ -7,7 +7,7 @@ import type { WebGPURenderer } from 'three/webgpu';
 import { CameraPath } from './bench';
 import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
 import { BotSetup } from './bot-setup';
-import { ROYALE_STATUS, SEAT_KEY, findLobby, hasSeat, lobbyStatus } from './lobby-status';
+import { ROYALE_STATUS, SEAT_KEY, findLobby, hasSeat, lobbyStatus, newLobbyCode, privateLobbyCode } from './lobby-status';
 import { startLocalBots } from './local-bots';
 import { MapStore } from './map-store';
 import { PreparationFlow } from './preparation-flow';
@@ -190,8 +190,23 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     saveSettings(settings);
     history.replaceState(null, '', location.pathname + location.search);
   }
-  /** The link that brings a friend to this server: the page, carrying the passphrase where there is one. */
-  const inviteLink = (passphrase: string) => `${location.origin}${location.pathname}${passphrase ? `#join=${encodeURIComponent(passphrase)}` : ''}`;
+  /**
+   * A private lobby this page plays in (`?lobby=<code>`): its link opens Play Online straight into it, and the
+   * code stays in the address bar, so a reload comes back to it. Null for the public lobby.
+   */
+  let privateCode = privateLobbyCode(params.get('lobby'));
+  /** Into a private lobby (a code) or back to the public one (null), the address bar following. */
+  const usePrivate = (code: string | null) => {
+    privateCode = code;
+    const url = new URL(location.href);
+    if (code) url.searchParams.set('lobby', code);
+    else url.searchParams.delete('lobby');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+  };
+  /** The link that brings a friend to this server, into this page's private lobby where it has one, carrying the passphrase where there is one. */
+  const inviteLink = (passphrase: string) => `${location.origin}${location.pathname}${privateCode ? `?lobby=${privateCode}` : ''}${passphrase ? `#join=${encodeURIComponent(passphrase)}` : ''}`;
+  /** The lobby's own path on the server: the public one's, or this page's private one's. */
+  const lobbyPath = (path: string) => (privateCode ? `${path}?lobby=${privateCode}` : path);
 
   /**
    * Takes the pointer and starts input; shows the pause menu if the browser
@@ -253,6 +268,39 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
+  /** Into the online lobby (this page's private one where it has one): its status, the map lit, then the socket. */
+  const playOnline = (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
+      const attempt = ++joinAttempt;
+      onlineName = name.trim() || 'You';
+      menu.connecting(0);
+      // The lobby status first: a server that is down or full is reported without opening a socket.
+      void lobbyStatus(lobbyPath('/status')).then(async (status) => {
+        if (attempt !== joinAttempt) return;
+        menu.updateLobby(status);
+        if (!status) return menu.failed(null);
+        // A seat held for this page counts among the players, and is still its to take back.
+        if (status.players >= status.capacity && !hasSeat()) return menu.failed('The server is full.');
+        await engineReady;
+        if (attempt !== joinAttempt) return;
+        // The server's map, for prediction and drawing.
+        const id = asMapId(status.map) ?? 'survival-town';
+        // The map's lighting first: joined, the player is in the match (and can be shot) at once.
+        menu.connecting(1);
+        await load(id).bake;
+        if (attempt !== joinAttempt) return;
+        // The weapons and soldiers ready to draw before the socket opens: once joined, the player is in play.
+        useMap(id);
+        await ready();
+        if (attempt !== joinAttempt) return;
+        menu.connecting(2);
+        const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+        // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
+        lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
+        const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}${lobbyPath('/ws')}`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+        useMap(id);
+        play(next);
+      });
+  };
   const menu = new Menu(
     settings,
     {
@@ -262,38 +310,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       battleRoyale: () => openRoyale(),
       botMatch: () => openBotLobby(),
-      playOnline: (name: string, passphrase: string, mode: ModeId | null, bots: number | null) => {
-        const attempt = ++joinAttempt;
-        onlineName = name.trim() || 'You';
-        menu.connecting(0);
-        // The lobby status first: a server that is down or full is reported without opening a socket.
-        void lobbyStatus().then(async (status) => {
-          if (attempt !== joinAttempt) return;
-          menu.updateLobby(status);
-          if (!status) return menu.failed(null);
-          // A seat held for this page counts among the players, and is still its to take back.
-          if (status.players >= status.capacity && !hasSeat()) return menu.failed('The server is full.');
-          await engineReady;
-          if (attempt !== joinAttempt) return;
-          // The server's map, for prediction and drawing.
-          const id = asMapId(status.map) ?? 'survival-town';
-          // The map's lighting first: joined, the player is in the match (and can be shot) at once.
-          menu.connecting(1);
-          await load(id).bake;
-          if (attempt !== joinAttempt) return;
-          // The weapons and soldiers ready to draw before the socket opens: once joined, the player is in play.
-          useMap(id);
-          await ready();
-          if (attempt !== joinAttempt) return;
-          menu.connecting(2);
-          const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-          // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
-          lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-          const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
-          useMap(id);
-          play(next);
-        });
-      },
+      playOnline,
       refreshLobby: async () => {
         // A server that was down when the page opened is looked for again (Play Online, Check again).
         if (lobby === null) {
@@ -328,6 +345,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   );
   /** Back to the main menu from a game (or its lobby). */
   const leaveGame = () => {
+    // Leaving a private lobby leaves it for good: Play Online goes to the public one again.
+    if (privateCode) usePrivate(null);
     botLobbyOpen = false;
     royalePre = false;
     royalePage.hide();
@@ -360,6 +379,16 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         game.driver?.startMatch();
       },
       join: () => void joinMatch(),
+      side: (id, team) => game.driver?.setSide(id, team),
+      even: () => game.driver?.evenSides(),
+      kick: (id) => game.driver?.kick(id),
+      goPrivate: () => {
+        // Out of the public lobby and into a new one of your own, by the same way in as Play Online.
+        const passphrase = settings.passphrase;
+        leaveGame();
+        usePrivate(newLobbyCode());
+        playOnline(onlineName, passphrase, null, null);
+      },
       loadout: () => menu.loadout('lobby'),
       settings: () => menu.lobbySettings(),
       leave: () => leaveGame(),
@@ -724,7 +753,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     } else {
       if (royalePage.open) royalePage.hide();
       royalePre = royaleSession = false;
-      const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, reconnecting };
+      const view: LobbyView = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, pings: driver.pings, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, reconnecting, private: privateCode !== null };
       lobbyPage.show(view);
     }
     if (match.phase !== 'lobby' && lobbyJoin && entry.ready) {
@@ -735,7 +764,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   void lobbyDiscovery.then((found) => {
     lobby = found;
     menu.setLobby(found);
-    if (invited !== null && found?.kind === 'server' && menu.open && menu.screen === 'main') menu.openOnline();
+    if ((invited !== null || privateCode !== null) && found?.kind === 'server' && menu.open && menu.screen === 'main') menu.openOnline();
   });
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
   const explore = asMapId(params.get('explore'));
@@ -944,6 +973,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       if (driver.status !== 'playing' && driver.status !== 'connecting' && driver.status !== 'reconnecting') {
         // A Battle Royale join that failed (or its lobby dropping) says so on its own screen, ready to try again.
         const royaleFailed = royalePre || royaleSession;
+        // Removed from a private lobby: Play Online goes to the public one from here.
+        if (driver.status === 'Removed by the host.' && privateCode) usePrivate(null);
         leaveLobby();
         game.setDriver(null);
         game.paused = true;

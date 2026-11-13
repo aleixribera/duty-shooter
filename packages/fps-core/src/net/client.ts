@@ -315,6 +315,21 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'start' }));
   }
 
+  /** The host puts a person in the lobby on side 1 or 2 (ignored from anyone else). */
+  setSide(id: string, team: 1 | 2): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'side', id, team }));
+  }
+
+  /** The host evens the lobby's sides out (ignored from anyone else). */
+  evenSides(): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'even' }));
+  }
+
+  /** The host removes a person for good (ignored from anyone else). */
+  kick(id: string): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'kick', id }));
+  }
+
   /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room. */
   setSquad(squad: number): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'squad', squad }));

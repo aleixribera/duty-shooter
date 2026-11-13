@@ -1,0 +1,18 @@
+{
+  "publicHasPrivateButton": true,
+  "code": "WF2H29",
+  "invite": "http://localhost:5173/?lobby=WF2H29",
+  "friendsIn": [
+    "p2",
+    "p3"
+  ],
+  "sidesBefore": "{\"p1\":1,\"p2\":2,\"p3\":1}",
+  "moved": true,
+  "kicked": true,
+  "polRejected": "kicked",
+  "sidesAfter": "{\"p1\":1,\"p2\":1}",
+  "players": 2,
+  "started": true,
+  "playing": true,
+  "errors": []
+}

@@ -83,6 +83,10 @@ export interface GameDriver {
   setLobby(settings: LobbyPick): void;
   /** The host starts the next match from the lobby (online only; ignored from anyone else). */
   startMatch(): void;
+  /** The host's controls in the lobby: a person onto side 1 or 2, the sides evened out, a person removed (online only; ignored from anyone else). */
+  setSide(id: string, team: 1 | 2): void;
+  evenSides(): void;
+  kick(id: string): void;
   /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room (online only). */
   setSquad(squad: number): void;
   /** In a Battle Royale's Preparation: ready to drop (online only). */
@@ -164,6 +168,12 @@ export class OfflineDriver implements GameDriver {
   setLobby(): void {}
 
   startMatch(): void {}
+
+  setSide(): void {}
+
+  evenSides(): void {}
+
+  kick(): void {}
 
   setSquad(): void {}
 
@@ -334,6 +344,18 @@ export class OnlineDriver implements GameDriver {
     this.#client.startMatch();
   }
 
+  setSide(id: string, team: 1 | 2): void {
+    this.#client.setSide(id, team);
+  }
+
+  evenSides(): void {
+    this.#client.evenSides();
+  }
+
+  kick(id: string): void {
+    this.#client.kick(id);
+  }
+
   setSquad(squad: number): void {
     this.#client.setSquad(squad);
   }
@@ -369,6 +391,7 @@ export class OnlineDriver implements GameDriver {
       if (c.rejectReason === 'passphrase') return 'Wrong passphrase.';
       if (c.rejectReason === 'full') return 'The server is full.';
       if (c.rejectReason === 'protocol') return 'The game was updated. Reload the page.';
+      if (c.rejectReason === 'kicked') return 'Removed by the host.';
       return 'Pick another name.';
     }
     if (c.status === 'closed') return `Disconnected: ${c.closeReason ?? 'connection lost'}.`;
