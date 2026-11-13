@@ -56,6 +56,8 @@ export interface WeaponState {
   shotsFired: number;
   /** Rounds the burst under way still owes (a burst weapon): they leave at the fire rate whether or not the trigger is still held. */
   burstLeft: number;
+  /** Clock time of a click on a semi-automatic gun that came a little before it could fire again (within `pressBuffer`): it fires the moment the gun can. Null when none waits. */
+  pressAt: number | null;
   reloadHeld: number;
   prevButtons: number;
 }
@@ -88,6 +90,7 @@ export function createWeaponState(id: WeaponId = 'm4a1', reserve?: number, attac
     shotIndex: 0,
     shotsFired: 0,
     burstLeft: 0,
+    pressAt: null,
     reloadHeld: 0,
     prevButtons: 0,
   };
@@ -110,6 +113,7 @@ export function drawWeapon(state: WeaponState, clock: number, buttons: number): 
   state.steady = 0;
   state.shotIndex = 0;
   state.burstLeft = 0;
+  state.pressAt = null;
   state.reloadHeld = 0;
   state.nextShot = Math.min(state.nextShot, clock);
   state.lastShot = Math.min(state.lastShot, clock);
@@ -347,9 +351,11 @@ export function updateWeapon(state: WeaponState, cmd: UserCmd, ctx: WeaponContex
     state.actionTime = 0;
   }
 
-  // A burst runs to its end without the trigger; anything that takes the weapon out of the shoulder ends it.
-  if (state.action !== 'ready' || sprinting || ctx.movement === 'ladder') state.burstLeft = 0;
-  else if (fire || state.burstLeft > 0) fireShots(state, row, cmd, ctx, t0, t1, events);
+  // A burst runs to its end without the trigger, and a click kept from just before the gun was ready waits for it; anything that takes the weapon out of the shoulder ends both.
+  if (state.action !== 'ready' || sprinting || ctx.movement === 'ladder') {
+    state.burstLeft = 0;
+    state.pressAt = null;
+  } else if (fire || state.burstLeft > 0 || state.pressAt !== null) fireShots(state, row, cmd, ctx, t0, t1, events);
   state.prevButtons = cmd.buttons;
   return events;
 }
@@ -462,11 +468,17 @@ function fireShots(state: WeaponState, row: WeaponRow, cmd: UserCmd, ctx: Weapon
     return;
   }
 
-  // One shot per press: the presses inside the tick, or a press at its start.
-  const presses = cmd.firePresses.length > 0 ? cmd.firePresses : newPress ? [0] : [];
-  for (const press of presses) {
-    const time = Math.max(t0 + press * dt, state.nextShot, state.fireReadyAt);
-    if (time >= t1 - 1e-12 || state.ammo <= 0) break;
+  // One shot per press: a click kept from an earlier tick, then the presses inside this one, or a press at its start.
+  const presses = [...(state.pressAt !== null ? [state.pressAt] : []), ...(cmd.firePresses.length > 0 ? cmd.firePresses : newPress ? [0] : []).map((f) => t0 + f * dt)];
+  state.pressAt = null;
+  for (const pressTime of presses) {
+    const time = Math.max(pressTime, t0, state.nextShot, state.fireReadyAt);
+    if (state.ammo <= 0) break;
+    if (time >= t1 - 1e-12) {
+      // A semi-automatic click that came only a little before the gun could fire is kept for it, not lost; one from longer before is.
+      if (mode === 'semi' && time - pressTime <= W.pressBuffer.value + 1e-9) state.pressAt = pressTime;
+      break;
+    }
     shoot(time);
     if (mode === 'pump' || mode === 'bolt') {
       // Work the pump or bolt: the cycle runs from the shot.

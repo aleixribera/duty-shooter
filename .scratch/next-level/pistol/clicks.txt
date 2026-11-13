@@ -1,0 +1,6 @@
+buffer 0 ms, clicks every 130±25 ms: 61 % of clicks fire, three shots take 448 ms, four 676 ms
+buffer 0 ms, clicks every 150±25 ms: 72 % of clicks fire, three shots take 448 ms, four 665 ms
+buffer 0 ms, clicks every 170±25 ms: 88 % of clicks fire, three shots take 380 ms, four 583 ms
+buffer 100 ms, clicks every 130±25 ms: 89 % of clicks fire, three shots take 303 ms, four 457 ms
+buffer 100 ms, clicks every 150±25 ms: 99 % of clicks fire, three shots take 315 ms, four 473 ms
+buffer 100 ms, clicks every 170±25 ms: 100 % of clicks fire, three shots take 342 ms, four 514 ms

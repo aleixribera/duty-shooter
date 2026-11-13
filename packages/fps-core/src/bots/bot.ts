@@ -827,8 +827,10 @@ export class Bot {
         if (off < tolerance && self.weapon.ammo > 0 && range <= tactics.reach && ready && clear()) {
           if (mode !== 'auto') {
             // One round (or one burst) a press: release, then press again, a paced one once its wait is over.
-            fire = !(this.#lastButtons & Button.Fire) && time >= this.#pressAt;
+            fire = !(this.#lastButtons & Button.Fire) && time >= this.#pressAt && self.weapon.canFire;
             if (fire && paced) this.#pressAt = time + tactics.pace![1];
+            // No press before the gun can fire again: a semi-automatic keeps an early click and fires it later, past the checks above.
+            if (fire && mode === 'semi') this.#pressAt = Math.max(this.#pressAt, time + 60 / STATS.weapons[self.weapon.id].handling.fireRate.value);
           } else if (range > this.profile.burstRange) {
             if (time >= target.pauseUntil && time >= target.burstUntil) {
               target.burstUntil = time + (0.22 + 0.25 * r(11)) * this.profile.burst * (range <= LONG_BURSTS_WITHIN ? tactics.burst : 1);

@@ -11,13 +11,16 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 6. Other weapons (not the M4, sniper or SMG): review against real games (TTK, spread, rate, movement, feedback), redesign the pump shotgun, burst SCAR, semi-auto rifle (sight, role) and revolver; prove with TTK and hits-per-kill at range, range runs and frames; list the changes.
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
 
-Pass 23 (2026-11-13) shipped request 1 (v2.195.0, ticket 106): Battle Royale invite links (`?royale=<seat>` puts the friend into the inviter's Squad), host Move and Kick, a dropped friend's seat held in its Squad ("Coming back"), and attachments fitted in the Preparation's own picker. Checked by `.scratch/next-level/royale-lobby/look.mjs` (frames in `after/`). Next pass: request 2, the pistol.
+Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
+
+Pass 23 shipped request 1 (v2.195.0, ticket 106). Pass 24 shipped request 2 (v2.196.0, ticket 107): semi-automatic guns keep a click up to 0.1 s early (`pressBuffer`, weapon state `pressAt`, protocol 32) instead of dropping it (real clicking lost 28-39 % of clicks); the pistol kills in 3 torso hits within 12 m (300 ms), head x1.6; the revolver fires at 210 rpm to keep its edge. Checked by `pistol/clicks.probe.test.ts` (before/after) and `pistol/look.mjs` (range frames in `pistol/after/`). Next pass: request 3, Battle Royale fights in towns.
 
 Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
 
 ## Needs Aleix
 
 - Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
+- Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
 - The Fedora laptop on and on Tailscale (or at home on the LAN) for one benchmark run: item 4's acceptance is measured on it.
 

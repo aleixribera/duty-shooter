@@ -669,6 +669,8 @@ export class Simulation {
     // Downed: on the ground, crawling and looking, and nothing else. Reviving: knelt beside them, hands busy.
     if (player.downed) cmd = { ...cmd, buttons: Button.Prone, firePresses: [] };
     else if (player.reviving) cmd = { ...cmd, buttons: (cmd.buttons & Button.Use) | Button.Crouch, firePresses: [] };
+    // Nor does a click kept from just before (a semi-automatic's) go off in those hands.
+    if (player.downed || player.reviving) player.weapons[player.slot]!.pressAt = null;
     // How far the player's own hand moved the aim this tick: a pull against the kick pays the recoil off.
     const pulledYaw = cmd.yaw - player.cmdYaw;
     const pulledPitch = cmd.pitch - player.cmdPitch;

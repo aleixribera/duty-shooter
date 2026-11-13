@@ -1,0 +1,49 @@
+{
+  "runs": [
+    {
+      "label": "chest",
+      "cadence": 130,
+      "clicks": 8,
+      "fired": 8,
+      "before": {
+        "weapon": "pistol",
+        "ammo": 17,
+        "ttk": "–",
+        "shots": "–",
+        "dist": "8.3 m",
+        "lastHit": "–"
+      },
+      "after": {
+        "weapon": "pistol",
+        "ammo": 9,
+        "ttk": "339 ms",
+        "shots": "3 / 3",
+        "dist": "30.9 m",
+        "lastHit": "34.0 HP · lower torso · 8 m"
+      }
+    },
+    {
+      "label": "head",
+      "cadence": 130,
+      "clicks": 8,
+      "fired": 8,
+      "before": {
+        "weapon": "pistol",
+        "ammo": 17,
+        "ttk": "339 ms",
+        "shots": "3 / 3",
+        "dist": "8.2 m",
+        "lastHit": "34.0 HP · lower torso · 8 m"
+      },
+      "after": {
+        "weapon": "pistol",
+        "ammo": 9,
+        "ttk": "323 ms",
+        "shots": "3 / 3",
+        "dist": "33.0 m",
+        "lastHit": "54.4 HP · head · 8 m"
+      }
+    }
+  ],
+  "errors": []
+}

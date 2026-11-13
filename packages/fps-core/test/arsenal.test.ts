@@ -115,6 +115,23 @@ describe('the pistol', () => {
     expect(eventsOf(outputs, 'shot')).toHaveLength(1);
   });
 
+  it('keeps a click that came a little before the gun was ready and fires it the moment it is', () => {
+    const m = holding('pistol');
+    const interval = 60 / row('pistol').handling.fireRate.value;
+    const early = ticks(interval - STATS.weapon.pressBuffer.value / 2);
+    const outputs = [m.step({ [SHOOTER]: usercmd({ firePresses: [0] }) }), ...m.run(early - 1, () => ({ [SHOOTER]: idle }))];
+    outputs.push(m.step({ [SHOOTER]: usercmd({ firePresses: [0] }) }), ...m.run(ticks(0.3), () => ({ [SHOOTER]: idle })));
+    const shots = eventsOf(outputs, 'shot');
+    expect(shots).toHaveLength(2);
+    expect(shotTime(shots[1]!) - shotTime(shots[0]!)).toBeCloseTo(interval, 6);
+  });
+
+  it('drops a click that came long before the gun was ready: no shot leaves on its own later', () => {
+    const m = holding('pistol');
+    const outputs = [m.step({ [SHOOTER]: usercmd({ firePresses: [0] }) }), m.step({ [SHOOTER]: idle }), m.step({ [SHOOTER]: usercmd({ firePresses: [0] }) }), ...m.run(ticks(0.4), () => ({ [SHOOTER]: idle }))];
+    expect(eventsOf(outputs, 'shot')).toHaveLength(1);
+  });
+
   it('beats a primary that has to reload first, and loses to one that is ready', () => {
     for (const primary of ['m4a1', 'smg'] as const) {
       const r = row(primary).reload;

@@ -16,7 +16,7 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * | SMG     | ~170 ms within 12 m   | ~330 ms by 25 m     | worse than the M4A1   |
  * | Shotgun | one shot within 5 m   | two within 12 m     | no reliable kill >18 m |
  * | Sniper  | one shot: body and legs, any range | feet: 2 |
- * | Pistol  | ~450 ms within 10 m   |                     |                       |
+ * | Pistol  | 3 shots / 300 ms within 12 m | 4 / 450 ms by 30 m | 5 shots        |
  *
  * None of them are taken from any other game's weapon tables. Display names
  * are original and avoid manufacturer trademarks.
@@ -234,7 +234,7 @@ export const SMG: WeaponRow = {
 export const PISTOL: WeaponRow = {
   traits: { name: 'Warden 9', role: 'A quick draw for when the primary runs dry.', slot: 'secondary', fireMode: 'semi', reload: 'magazine', sight: 'iron' },
   handling: {
-    fireRate: tuned(400, 'rpm', 'the fastest rate presses are accepted at (semi-automatic): four hits at 150 ms intervals kill in 450 ms, the target within 10 m.'),
+    fireRate: tuned(400, 'rpm', 'the fastest rate presses are accepted at (semi-automatic): 150 ms, about as fast as a player keeps clicking (Valorant\'s Classic fires 6.75 a second, 148 ms; CS2\'s Glock-18 400 rpm), and a click a little early is kept for the gun (\'pressBuffer\' in the weapon section).'),
     magazineSize: sourced(17, 'rounds', GLOCK_17, 0, 'The article describes the Glock 17 magazines as having "a 17-round capacity".'),
     muzzleVelocity: sourced(360, 'm/s', PARABELLUM, 15, '115 gr Federal FMJ from a 118 mm test barrel: 1,180 ft/s (360 m/s).'),
     adsTime: tuned(0.15, 's', 'the quickest to aim of every weapon.'),
@@ -252,11 +252,11 @@ export const PISTOL: WeaponRow = {
   },
   damage: {
     bands: {
-      close: { range: tuned(10, 'm', 'the close band of the time-to-kill target ("about 450 ms within 10 m").'), damage: tuned(28, 'HP', 'four torso hits kill (3 x 150 ms = 450 ms); three (84) do not.') },
-      medium: { range: tuned(25, 'm', 'past this the pistol is a poor choice.'), damage: tuned(22, 'HP', 'five torso hits kill.') },
-      long: { damage: tuned(17, 'HP', 'six torso hits kill.') },
+      close: { range: tuned(12, 'm', 'a room and the yard outside it, the revolver\'s close band too.'), damage: tuned(34, 'HP', 'three torso hits kill in 300 ms (2 x 150 ms), 1.35 times the M4A1\'s 222 ms. It was four in 450 ms, twice the rifle, and five past 10 m: the sidearm lost the fights it is drawn for. Well-liked sidearms sit nearer their rifles or kill with the head: Modern Warfare\'s X16 about 388 ms against its rifles\' 200-250 (esportstales.com); Valorant\'s Classic 26 to the body and 78 to the head, CS2\'s Glock-18 30 and four times that to the head (csdb.gg).') },
+      medium: { range: tuned(30, 'm', 'past this the pistol is a poor choice.'), damage: tuned(26, 'HP', 'four torso hits kill, 450 ms: behind every primary at that range.') },
+      long: { damage: tuned(20, 'HP', 'five torso hits kill.') },
     },
-    headMultiplier: tuned(1.5, 'multiplier', 'rewards a careful head shot: three to the head kill up close.'),
+    headMultiplier: tuned(1.6, 'multiplier', 'two to the head kill up close (54 each), where it took three: an aimed pistol pays, as Valorant\'s and CS2\'s do, without the one-shot head the revolver keeps.'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
     upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
     lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
@@ -530,7 +530,7 @@ export const BURST: WeaponRow = {
 export const REVOLVER: WeaponRow = {
   traits: { name: 'Marshal .357', role: 'Six heavy rounds: two hits, or one to the head, inside 12 m.', slot: 'secondary', fireMode: 'semi', reload: 'cylinder', sight: 'iron' },
   handling: {
-    fireRate: tuned(150, 'rpm', 'the fastest rate presses are accepted at: a long double-action pull, 400 ms between shots. Two hits kill in 400 ms against the pistol\'s four in 450 ms; a miss costs 400 ms more against the pistol\'s 150.'),
+    fireRate: tuned(210, 'rpm', 'the fastest rate presses are accepted at: a long double-action pull, 286 ms between shots. Two hits kill in 286 ms against the pistol\'s three in 300 ms; a miss costs 286 ms more against the pistol\'s 150. It was 150 rpm (400 ms) while the pistol took four hits in 450 ms.'),
     magazineSize: tuned(6, 'rounds', 'a six-shot cylinder, as the ticket asks: three kills at best before the slowest sidearm reload.'),
     muzzleVelocity: tuned(440, 'm/s', 'a .357 load from a 4 inch barrel, quicker than the pistol\'s 9 mm (360).'),
     adsTime: tuned(0.2, 's', 'slower than the pistol (0.15 s): a heavier gun to level.'),
@@ -548,9 +548,9 @@ export const REVOLVER: WeaponRow = {
   },
   damage: {
     bands: {
-      close: { range: tuned(12, 'm', 'a little past the pistol\'s close band (10 m): a sidearm\'s reach.'), damage: tuned(52, 'HP', 'two torso hits kill, where the M4A1 takes four: it hits like a rifle and a half up close.') },
-      medium: { range: tuned(30, 'm', 'the three-shot band.'), damage: tuned(36, 'HP', 'three torso hits kill, 800 ms: slower than the pistol\'s five (600 ms).') },
-      long: { damage: tuned(26, 'HP', 'four torso hits kill, 1.2 s: no gun for a long shot.') },
+      close: { range: tuned(12, 'm', 'the pistol\'s close band: a sidearm\'s reach.'), damage: tuned(52, 'HP', 'two torso hits kill, where the M4A1 takes four: it hits like a rifle and a half up close.') },
+      medium: { range: tuned(30, 'm', 'the three-shot band.'), damage: tuned(36, 'HP', 'three torso hits kill, 571 ms: slower than the pistol\'s four (450 ms).') },
+      long: { damage: tuned(26, 'HP', 'four torso hits kill, 857 ms: no gun for a long shot.') },
     },
     headMultiplier: tuned(2, 'multiplier', 'one head shot kills inside 12 m (104) and nowhere else (72): the reason to carry it instead of the pistol.'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
@@ -567,9 +567,9 @@ export const REVOLVER: WeaponRow = {
     firstShotKick: tuned(3.4, 'deg', 'the hardest flip of anything but the sniper: the sights leave the target on every shot.'),
     verticalKick: tuned(3.4, 'deg', 'every shot flips the same.'),
     horizontalKick: tuned(0.7, 'deg', 'it twists in the hand.'),
-    recoilResetTime: tuned(0.5, 's', 'longer than the gap between two presses (0.4 s).'),
+    recoilResetTime: tuned(0.5, 's', 'longer than the gap between two presses (0.29 s).'),
     recoilReturn: tuned(0.9, 'multiplier', 'the flip comes back down as the hammer comes back.'),
     recoilReturnDelay: tuned(0.1, 's', 'the muzzle hangs at the top a moment.'),
-    recoilReturnTime: tuned(0.16, 's', 'back on the target well inside the 0.4 s between shots.'),
+    recoilReturnTime: tuned(0.12, 's', 'mostly back on the target inside the 0.29 s between shots.'),
   },
 };

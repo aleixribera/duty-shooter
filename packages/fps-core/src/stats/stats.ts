@@ -111,6 +111,7 @@ const M4A1_WEAPON = {
   emptyReloadDuration: estimated(2.75, 's', 'Tactical duration (2.23 s) plus about 0.5 s for the bolt release; unmeasured.', 0.15),
   drawTime: estimated(0.8, 's', 'Spawn raise animation; not found in any source. Visual estimate from MW2019 footage.', 0.1),
   holsterTime: estimate(0.35, 's', 'Game value for Duty Shooter v2: lowering the rifle to switch weapons, a little under half its draw (0.8 s), so a switch to the pistol (0.35 + 0.4 s) beats the M4A1 tactical reload (2.23 s).'),
+  pressBuffer: estimate(0.1, 's', 'Game value for Duty Shooter v2: a click on a semi-automatic gun that comes at most this long before the gun can fire again (its fire rate) is kept and fired the moment it can, instead of being lost. Clicking as fast as one can, a press lands up to 50-60 ms before the 150 ms the pistol needs, and a lost press reads as a gun that ignores you (the Deadlock forum thread "Semi-automatic weapon input mishandling"); a suggested buffer for a press that comes during a transition is about 120 ms (bugnet.io, "How to fix ADS transition blocking fire input"). Longer, a nervous double click fires a shot the player no longer wants.'),
   inspectHoldTime: estimated(0.4, 's', 'How long reload must be held to inspect; chosen so a normal reload tap never inspects.'),
   inspectDuration: estimated(4.5, 's', 'Inspect animation length; visual estimate.'),
   recoilResetTime: estimated(0.25, 's', 'Pause in fire after which the recoil pattern restarts from the first shot; IW-style.'),

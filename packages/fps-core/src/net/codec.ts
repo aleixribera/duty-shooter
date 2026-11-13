@@ -59,6 +59,8 @@ export const MORE_WORDS = [
   'lmg', 'dmr', 'burst', 'revolver', 'burstLeft',
   // Attachments (protocol 29): a loadout's and a gun's, their slots, the choices ('speed' is already a word), and a shot's muzzle.
   'attachments', 'optic', 'muzzle', 'magazine', 'grip', 'reflex', 'prism', 'suppressor', 'compensator', 'extended', 'vertical', 'angled',
+  // The click a semi-automatic gun keeps for the moment it is ready (protocol 32).
+  'pressAt',
 ] as const satisfies readonly string[];
 
 const WORD_INDEX: ReadonlyMap<string, number> = new Map(WORDS.map((word, i) => [word, i]));
