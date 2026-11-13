@@ -18,10 +18,10 @@ async function botMatch(page, map, mode = 'Team deathmatch', teams = ['Mixed tea
 }
 
 const REPO = fileURLToPath(new URL('../../../../', import.meta.url)).replace(/\\/g, '/');
-const MAP_IDS = { Switchyard: 'switchyard', 'Survival Town': 'survival-town', 'Station Nine': 'station-nine' };
+export const MAP_IDS = { Switchyard: 'switchyard', 'Survival Town': 'survival-town', 'Station Nine': 'station-nine' };
 
 /** The bots' routes on the page, as globalThis.__nav: the map's nav graph (as the route worker builds it) and A*. */
-async function loadNav(page, map) {
+export async function loadNav(page, map) {
   const id = MAP_IDS[map];
   if (!id) throw new Error(`no map id for ${map}`);
   const ok = await page.js(`(async () => {
@@ -88,7 +88,7 @@ function finale(map, { matchtime = 75, warm = 22, seconds = 72, segment = 4 } = 
  * `range` m, turns to them on a damped aim (no snap), aims down sights and fires once on target; `chase` keeps
  * walking at them (a shotgun's range). The page-side steer runs every frame on the virtual clock.
  */
-const steer = ({ range = 40, chase = 0 }) => `(() => {
+export const steer = ({ range = 40, chase = 0 }) => `(() => {
   const g = duty.game, d = g.driver, me = g.player, s = (globalThis.__steer ??= { yawV: 0, pitchV: 0 });
   // Dead: the turn starts again from rest after the respawn.
   if (!me || !me.alive || !d) return ((s.yawV = s.pitchV = 0), (s.at = null), { walk: false, fire: false, ads: false, sprint: false });
