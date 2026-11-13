@@ -84,17 +84,19 @@ slide_parts.append(g.lathe("guide_rod", [(0.0033, 0.0), (0.0033, 0.008), (0.0026
 slide_parts.append(g.slab("extractor", soften([(0.006, 0.019), (0.0175, 0.0195), (0.0175, 0.0235), (0.006, 0.0235)], 1), 0.0016, "steel", 0.0003, x=w + 0.0003))
 slide_parts.append(g.box("cover_plate", (0.017, 0.0016, 0.019), (0, SLIDE_REAR - 0.0004, 0.0135), "polymer", 0.0005))
 slide_parts.append(g.cyl("striker_hole", 0.0018, 0.001, (0, SLIDE_REAR - 0.0012, 0.0175), "blued", verts=12, bevel=0))
-# Rear sight: a dovetailed block with a U notch and two white dots.
-rear = g.slab("rear_sight", soften([(-0.0505, 0.0285), (-0.04, 0.0285), (-0.0405, 0.0352), (-0.0425, 0.039, True), (-0.0505, 0.039, True)], 1), 0.0205, "nitride", 0.0005)
-g.cut(rear, [g.box("notch", (0.0034, 0.02, 0.006), (0, -0.045, 0.039), "nitride", 0)])
+# Rear sight: a dovetailed block with a square notch and two white dots. The notch (5 mm) is nearly twice the front
+# post (2.8 mm), so aimed at arm's length a bar of light shows each side of the post, and its depth matches the post's
+# height above the slide: equal height, equal light.
+rear = g.slab("rear_sight", soften([(-0.0505, 0.0285), (-0.04, 0.0285), (-0.0405, 0.0352), (-0.0425, 0.039, True), (-0.0505, 0.039, True)], 1), 0.019, "nitride", 0.0005)
+g.cut(rear, [g.box("notch", (0.005, 0.02, 0.0068), (0, -0.045, 0.039), "nitride", 0)])
 slide_parts.append(rear)
 for side in (-1, 1):
     slide_parts.append(g.cyl(f"rear_dot{side}", 0.0011, 0.0008, (side * 0.0058, -0.0507, 0.0352), "white_paint", verts=14, bevel=0))
 slide_parts.append(g.box("rear_screw", (0.003, 0.003, 0.0004), (0, -0.044, 0.0391), "steel", 0.0002))
 # Front sight: a tapered post with a fibre insert facing the shooter.
-slide_parts.append(g.slab("front_sight", soften([(0.124, 0.0285), (0.1305, 0.0285), (0.1295, 0.0385, True), (0.1255, 0.0385, True)], 1), 0.0034, "nitride", 0.0004))
+slide_parts.append(g.slab("front_sight", soften([(0.124, 0.0285), (0.1305, 0.0285), (0.1295, 0.0385, True), (0.1255, 0.0385, True)], 1), 0.0028, "nitride", 0.0004))
 slide_parts.append(g.slab("front_base", [(0.1225, 0.0285), (0.1315, 0.0285), (0.131, 0.0315), (0.123, 0.0315)], 0.0064, "nitride", 0.0004))
-slide_parts.append(g.cyl("front_insert", 0.0011, 0.0006, (0, 0.1242, 0.0355), "green_insert", verts=14, bevel=0))
+slide_parts.append(g.cyl("front_insert", 0.00095, 0.0006, (0, 0.1242, 0.0356), "green_insert", verts=14, bevel=0))
 # Markings: the model on the left, calibre ahead of the port on the right.
 slide_parts.append(g.text("mark_model", "WARDEN 9", (-w - 0.00005, 0.052, 0.0135), 0.0042, "engraving", side="-X"))
 slide_parts.append(g.text("mark_cal", "9x19", (-w - 0.00005, 0.01, 0.0135), 0.0034, "engraving", side="-X"))

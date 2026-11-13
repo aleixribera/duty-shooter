@@ -1,0 +1,17 @@
+{
+  "weapon": "revolver",
+  "size": "1920x1080",
+  "hip": {
+    "cover": 0.0446,
+    "top": 0.607,
+    "left": 0.552,
+    "right": 0.74
+  },
+  "ads": {
+    "cover": 0.0791,
+    "top": 0.496,
+    "left": 0.367,
+    "right": 0.635
+  },
+  "errors": []
+}

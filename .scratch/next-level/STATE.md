@@ -4,7 +4,7 @@
 
 Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all seven work in a real match (ideas beyond them go to BACKLOG.md):
 1. Battle Royale lobby like Play Online's (invite link, host moves/kicks, even squads, seat back after a drop), squads friends join; attachments choosable in BR (or, if loot, say so in the lobby).
-2. Pistol: why friends all hate it, compared with well-loved shooters (sourced), fixed. REOPENED (Aleix, 2026-11-13, after v2.196.0): "The pistol's gun model, especially the sight, was not very good, it takes a lot of vision from the screen." The Warden 9's model and iron sights (hip and ADS) cover too much of the screen. Next pass takes this first: compare how popular shooters frame a pistol (how much of the screen it takes; a thin front post and rear notch), then fix the model, sights and viewmodel framing, with before/after frames.
+2. Pistol: why friends all hate it, compared with well-loved shooters (sourced), fixed. Reopened for its model and sights (ticket 109, shipped v2.197.1).
 3. BR fights in towns: bias Zero Island's final circles, drops and bot routes to built-up areas; measure final circles and kills over many matches before and after.
 4. Spectator view: improve it.
 5. Multiplayer quality of life: a whole match with friends plays well.
@@ -13,13 +13,14 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Pass 23 shipped request 1 (v2.195.0, ticket 106). Pass 24 shipped request 2's handling and damage (v2.196.0, ticket 107: a click up to 0.1 s early is kept; 3 torso hits within 12 m). Pass 25 shipped request 3 (v2.197.0, ticket 108): a map names its towns (Zero Island's Cores); the Ring closes in one in 80 % of matches with every circle holding it, Squads at towns start first, crates land in a town inside their circle, bots take ground in towns (60 %). Over 18 matches (`towns/before.txt`, `after.txt`): last circle in a town 0 → 15 of 18, kills in towns 12 → 50 %, from Stage 4 on 3 → 46 %, Ring deaths 31 → 10. Next pass: request 2 reopened (the pistol's model and sights), then request 4.
+Pass 23 shipped request 1 (v2.195.0, ticket 106). Pass 24 shipped request 2's handling and damage (v2.196.0, ticket 107). Pass 25 shipped request 3 (v2.197.0, ticket 108: the Ring closes in a town in 80 % of Zero Island matches; kills in towns 12 → 50 %). Pass 26 shipped request 2 reopened (v2.197.1, ticket 109): the Warden 9 aimed at 0.46 m (was 0.34), hip lower and right, a 5 mm notch around a 2.8 mm post; rear sight aimed 75 → 51 px at 1080p, gun and hands below the aim point a fifth narrower (`pistol-sights/`). Next pass: request 4 (spectator view).
 
 Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
 
 ## Needs Aleix
 
 - Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
+- Overridable (pass 26): the Warden 9 and Marshal .357 are now held further out when aimed (0.46 m); further would shrink the front post below 2 px on a phone.
 - Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
 - The Fedora laptop on and on Tailscale (or at home on the LAN) for one benchmark run: item 4's acceptance is measured on it.

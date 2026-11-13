@@ -1,0 +1,17 @@
+{
+  "weapon": "pistol",
+  "size": "844x390",
+  "hip": {
+    "cover": 0.0341,
+    "top": 0.64,
+    "left": 0.542,
+    "right": 0.688
+  },
+  "ads": {
+    "cover": 0.0676,
+    "top": 0.495,
+    "left": 0.39,
+    "right": 0.615
+  },
+  "errors": []
+}

@@ -77,11 +77,14 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
     // Two hands: the support palm wraps the left of the grip over the shooting hand's fingers.
     left: { pos: [-0.019, -0.07, 0.004], normal: [1, 0, 0], wrist: [-0.3, -0.5, 0.8] },
     rearSight: [0, 0.039, 0.045],
-    eyeRelief: 0.34,
+    // Aimed at near arm's length, as shooters push a handgun's sight plane out: the slide and hands take a narrow
+    // column under the post rather than the lower middle of the view.
+    eyeRelief: 0.46,
     muzzle: [0, 0.016, -0.14],
     ejectionPort: [0.013, 0.024, -0.03],
     magGrab: [-0.012, -0.095, 0],
-    hip: [0.1, -0.12, -0.4],
+    // Low and right of the crosshair, so the hip view keeps the middle of the screen.
+    hip: [0.115, -0.14, -0.45],
     travel: 0.035,
     kick: 0.8,
   },
@@ -166,14 +169,15 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
     right: { pos: [0.016, -0.052, 0.03], normal: [-1, 0, 0], wrist: [0.1, -0.45, 0.89] },
     left: { pos: [-0.019, -0.062, 0.018], normal: [1, 0, 0], wrist: [-0.3, -0.5, 0.8] },
     rearSight: [0, 0.054, 0.0235],
-    eyeRelief: 0.34,
+    // Held out like the pistol.
+    eyeRelief: 0.46,
     muzzle: [0, 0.034, -0.168],
     // Nothing leaves a revolver on a shot; the socket sits by the cylinder.
     ejectionPort: [0.02, 0.021, -0.02],
     // The hand that brings the speedloader in by its knob; the cylinder's left side, where it swings it out and shut.
     carry: { pos: [-0.03, -0.015, 0.04], normal: [0.7, 0.2, -0.7], wrist: [-0.3, -0.65, 0.7] },
     reach: { pos: [-0.0245, 0.0212, -0.0225], normal: [1, 0, 0], wrist: [-0.35, -0.6, 0.72] },
-    hip: [0.1, -0.12, -0.4],
+    hip: [0.115, -0.14, -0.45],
     kick: 1.9,
     cycle: 0.2,
   },

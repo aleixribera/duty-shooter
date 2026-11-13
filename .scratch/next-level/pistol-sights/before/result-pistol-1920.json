@@ -1,0 +1,17 @@
+{
+  "weapon": "pistol",
+  "size": "1920x1080",
+  "hip": {
+    "cover": 0.0412,
+    "top": 0.641,
+    "left": 0.55,
+    "right": 0.727
+  },
+  "ads": {
+    "cover": 0.082,
+    "top": 0.496,
+    "left": 0.365,
+    "right": 0.64
+  },
+  "errors": []
+}
