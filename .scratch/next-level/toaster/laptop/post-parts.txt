@@ -1,0 +1,55 @@
+== bare
+ "onMs": "17.133",
+ "offMs": "8.172",
+  "  6.937 on   6.800 off   0.137 diff  output 1920x1080",
+  "  2.618 on   0.743 off   1.875 diff  screen",
+  "  2.315 on   0.000 off   2.315 diff  TRAANode.resolve 1920x1080",
+  "  2.131 on   0.000 off   2.131 diff  GTAONode.AO 960x540",
+  "  0.566 on   0.000 off   0.566 diff  rt 1920x1080",
+  "  0.542 on   0.000 off   0.542 diff  UnrealBloomPass.bright 960x540",
+  "  0.471 on   0.237 off   0.234 diff  ShadowMap 2048x2048",
+  "  0.395 on   0.391 off   0.003 diff  output 1920x1080 x4"
+== notraa
+ "onMs": "16.661",
+ "offMs": "16.518",
+  "  6.754 on   6.773 off  -0.019 diff  output 1920x1080",
+  "  2.550 on   2.410 off   0.140 diff  screen",
+  "  2.256 on   2.263 off  -0.007 diff  TRAANode.resolve 1920x1080",
+  "  2.075 on   2.080 off  -0.005 diff  GTAONode.AO 960x540",
+  "  0.551 on   0.552 off  -0.002 diff  rt 1920x1080",
+  "  0.515 on   0.461 off   0.054 diff  UnrealBloomPass.bright 960x540",
+  "  0.432 on   0.392 off   0.040 diff  ShadowMap 2048x2048",
+  "  0.384 on   0.385 off  -0.001 diff  output 1920x1080 x4"
+== nosharpen
+ "onMs": "16.696",
+ "offMs": "16.116",
+  "  6.771 on   6.708 off   0.062 diff  output 1920x1080",
+  "  2.558 on   2.252 off   0.306 diff  screen",
+  "  2.262 on   2.239 off   0.023 diff  TRAANode.resolve 1920x1080",
+  "  2.080 on   2.059 off   0.021 diff  GTAONode.AO 960x540",
+  "  0.552 on   0.546 off   0.006 diff  rt 1920x1080",
+  "  0.507 on   0.390 off   0.117 diff  UnrealBloomPass.bright 960x540",
+  "  0.425 on   0.381 off   0.044 diff  ShadowMap 2048x2048",
+  "  0.386 on   0.382 off   0.004 diff  output 1920x1080 x4"
+== noshimmer
+ "onMs": "16.758",
+ "offMs": "15.704",
+  "  6.793 on   6.739 off   0.054 diff  output 1920x1080",
+  "  2.567 on   1.680 off   0.887 diff  screen",
+  "  2.269 on   2.251 off   0.018 diff  TRAANode.resolve 1920x1080",
+  "  2.086 on   2.069 off   0.017 diff  GTAONode.AO 960x540",
+  "  0.554 on   0.549 off   0.005 diff  rt 1920x1080",
+  "  0.504 on   0.452 off   0.052 diff  UnrealBloomPass.bright 960x540",
+  "  0.433 on   0.422 off   0.011 diff  ShadowMap 2048x2048",
+  "  0.387 on   0.384 off   0.003 diff  output 1920x1080 x4"
+== nobloom
+ "onMs": "16.568",
+ "offMs": "14.932",
+  "  6.714 on   6.770 off  -0.055 diff  output 1920x1080",
+  "  2.537 on   2.431 off   0.107 diff  screen",
+  "  2.246 on   2.262 off  -0.016 diff  TRAANode.resolve 1920x1080",
+  "  2.063 on   2.080 off  -0.017 diff  GTAONode.AO 960x540",
+  "  0.548 on   0.552 off  -0.004 diff  rt 1920x1080",
+  "  0.516 on   0.000 off   0.516 diff  UnrealBloomPass.bright 960x540",
+  "  0.428 on   0.342 off   0.086 diff  ShadowMap 2048x2048",
+  "  0.382 on   0.385 off  -0.003 diff  output 1920x1080 x4"

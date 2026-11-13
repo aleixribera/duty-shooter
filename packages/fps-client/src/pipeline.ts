@@ -1,4 +1,4 @@
-import { Fn, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { Fn, If, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
 import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
@@ -17,15 +17,23 @@ const MAX_DENSITY = 2;
  * anything nearer than 150 m and anything seen well above the horizon (a
  * cloud) stay still. A pixel only borrows from a neighbour that is itself
  * far off, so near things never smear into the distance round their edges.
- * Two extra texture reads a pixel.
+ *
+ * Branched, as most of a frame is nearer than 150 m or sky: there a pixel reads
+ * the depth once and stops, with no position worked out and no second read.
+ * The same picture as working it all out everywhere (a pixel with no heat of
+ * its own is never shifted), for a quarter of the pass's cost on an integrated GPU
+ * (0.6 ms of its 2.4 at 1080p on the toaster, ticket 99).
  */
 function shimmer(depth: TextureNode, camera: PerspectiveCamera): Node<'vec2'> {
   const projectionInverse = uniform(camera.projectionMatrixInverse);
   const view = uniform(camera.matrixWorldInverse);
   const up = view.mul(vec4(0, 1, 0, 0)).xyz;
-  const heat = (uv: Node<'vec2'>) => {
-    const z = depth.sample(uv).r;
-    const d = perspectiveDepthToViewZ(z, float(camera.near), float(camera.far)).negate();
+  const near = float(camera.near);
+  const far = float(camera.far);
+  /** How far off a depth lies (m). */
+  const distance = (z: Node<'float'>) => perspectiveDepthToViewZ(z, near, far).negate();
+  /** The heat at a depth `z` and distance `d`: 0 nearer than 150 m, at the far plane (the sky), and above the horizon. */
+  const heat = (uv: Node<'vec2'>, z: Node<'float'>, d: Node<'float'>) => {
     const elevation = dot(getViewPosition(uv, z, projectionInverse).normalize(), up);
     return smoothstep(float(150), float(600), d)
       .mul(float(1).sub(step(float(camera.far * 0.99), d)))
@@ -33,8 +41,20 @@ function shimmer(depth: TextureNode, camera: PerspectiveCamera): Node<'vec2'> {
   };
   const t = time;
   const wave = vec2(sin(screenUV.y.mul(700).add(t.mul(6))).mul(0.0009), sin(screenUV.x.mul(300).sub(t.mul(4))).mul(0.0004));
-  const shifted = screenUV.add(wave.mul(heat(screenUV)));
-  return mix(screenUV, shifted, step(float(0.5), heat(shifted))) as unknown as Node<'vec2'>;
+  return Fn(() => {
+    const at = vec2(screenUV).toVar();
+    const z = depth.sample(screenUV).r.toVar();
+    const d = distance(z).toVar();
+    If(d.greaterThan(150).and(d.lessThan(camera.far * 0.99)), () => {
+      const here = heat(screenUV, z, d).toVar();
+      If(here.greaterThan(0), () => {
+        const shifted = screenUV.add(wave.mul(here)).toVar();
+        const zs = depth.sample(shifted).r.toVar();
+        at.assign(mix(screenUV, shifted, step(float(0.5), heat(shifted, zs, distance(zs)))));
+      });
+    });
+    return at;
+  })() as unknown as Node<'vec2'>;
 }
 
 /** How much of the difference between a pixel and its neighbours is added back to it. */

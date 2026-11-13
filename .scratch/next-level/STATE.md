@@ -13,9 +13,9 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Pass 23 shipped request 1 (v2.195.0, ticket 106). Passes 24 and 26 request 2 (v2.196.0, v2.197.1, tickets 107, 109). Pass 25 request 3 (v2.197.0, ticket 108). Pass 27 shipped request 4 (v2.198.0, ticket 110): the follow camera over the right shoulder turning with their aim, their gun and magazine bottom right, their kills on the panel, "You died" off the middle after 3 s. Cut to BACKLOG: walking bots look 18° up (the fix exposes a Switchyard stuck spot in the soak). Pass 28 shipped request 5 rough (v2.199.0, ticket 111): a whole friend match played end to end (`friends/look.mjs`); a Team deathmatch team keeps a leaver's kills (the lobby said "Blue won 0 to 0"), and the feed says "<name> joined / left / is back". Pass 29 shipped request 6 rough (v2.200.0, ticket 112): the Harrow 12, Trident, Vantage and Marshal redesigned against well-liked shooters (sourced), the Vantage's reticle glows; TTK table and range runs in the ticket. Pass 30 shipped request 7 rough (v2.201.0, ticket 113): bots go round a lost target in every mode by gun (SMG most, long guns and the shotgun never), reload on the way to cover when shot dry beyond 10 m, top up out of fights, and play the Battle Royale end game more patiently; deaths while reloading 8.5 % to 5.4 % of deaths in 30 min of bot TDM. Every request now has a rough pass: next pass, back to PLAN.md's order (item 4 still waits on the laptop), or a second pass on whichever request a real match shows weakest.
+Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 106 to 113; details in each ticket). Cut to BACKLOG on the way: walking bots look 18° up; bots fight from cover only on Zero Island.
 
-Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
+Pass 31: PLAN item 4 (toaster), pass 2. The laptop measured at last (`toaster/laptop-bench.mjs`: Firefox on a headless Mutter of its own, nothing on screen): 23 to 29 fps at 1080p on every map, GPU 14 to 22 ms in the passes, post-processing 9 of Survival Town's 17. Shipped the heat shimmer branched (0.6 ms less, same picture). The check still fails after two passes: cut, the GPU budget goes first in BACKLOG. Next pass: PLAN.md from item 5 (item 7, progression, is new from the director), or a second pass on whichever request a real match shows weakest.
 
 ## Needs Aleix
 
@@ -26,7 +26,8 @@ Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passe
 - Overridable (pass 26): the Warden 9 and Marshal .357 are now held further out when aimed (0.46 m); further would shrink the front post below 2 px on a phone.
 - Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
-- The Fedora laptop on and on Tailscale (or at home on the LAN) for one benchmark run: item 4's acceptance is measured on it.
+- The laptop: Chromium for the toaster runs, since most players use Chrome and Firefox's own presenting hides the game's cost there: run `ssh -t uni-laptop "sudo dnf install -y chromium"` once.
+- A look (pass 31): open the game in Firefox on the laptop and go to Zero Island's Dustlands; is the sand blue? Firefox's WebGPU frames came out with red and blue swapped in a headless run (BACKLOG).
 
 ## Where things stand
 
@@ -49,6 +50,7 @@ None.
 
 ## Ideas for the loop
 
+- The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there with nothing on its screen; the recipe and probes are in ticket 99 (pass 31). Compare only within one page: its runs drift 40% with the owner on it.
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - The shared headless Blender on port 9876 was reset under pass 5 twice (another session's `bkit.reset()` or a crash). Model rebuilds run reliably in their own process: `tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>` with a runner that calls `bkit.reset(); bkit.run(script, export=True)`.
 

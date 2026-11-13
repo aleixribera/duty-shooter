@@ -1,0 +1,13 @@
+200
+== map=survival-town&spot=cul-de-sac
+probe {
+ "onMs": "16.319",
+ "offMs": "16.567",
+  "  1.857 on   2.423 off  -0.566 diff  screen",
+  "  0.467 on   0.367 off   0.101 diff  UnrealBloomPass.bright 960x540",
+== map=zero-island&spot=The%20Dustlands
+probe {
+ "onMs": "18.339",
+ "offMs": "18.860",
+  "  1.829 on   2.414 off  -0.585 diff  screen",
+  "  0.467 on   0.470 off  -0.003 diff  UnrealBloomPass.bright 960x540",

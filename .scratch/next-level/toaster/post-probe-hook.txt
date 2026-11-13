@@ -1,0 +1,33 @@
+// Temporary hook for laptop-toggle.mjs post:<variant>: paste at the end of GamePipeline's constructor (packages/fps-client/src/pipeline.ts), build in development mode, never commit it there.
+    // TEMP-POST-PROBE (not for commit): alternative outputs, to price each part on the laptop.
+    const finish = (col: Node<'vec3'>, withBloom: boolean) => {
+      const o = vec4(mix(col.add(sunColor.mul((beams as unknown as { r: Node<'float'> }).r).mul(this.#sunAhead).mul(SHAFT_STRENGTH)), vm.rgb, vm.a), 1);
+      const cc = mooded(filmLook(o.rgb as never), this.#drain as never, this.#dread as never, this.#beat as never);
+      const comp = vec4(mix(mix(cc, cc, this.#grade), vec3(1.7, 1.6, 1.45), this.#flash), 1);
+      return withBloom ? comp.add(bloom(comp, BLOOM, 0.35, 1.6)) : comp;
+    };
+    const shimmerOld = (dep: TextureNode, cam: PerspectiveCamera): Node<'vec2'> => {
+      const pi = uniform(cam.projectionMatrixInverse);
+      const up = uniform(cam.matrixWorldInverse).mul(vec4(0, 1, 0, 0)).xyz;
+      const heat = (uv: Node<'vec2'>) => {
+        const z = dep.sample(uv).r;
+        const d = perspectiveDepthToViewZ(z, float(cam.near), float(cam.far)).negate();
+        const elevation = dot(getViewPosition(uv, z, pi).normalize(), up);
+        return smoothstep(float(150), float(600), d).mul(float(1).sub(step(float(cam.far * 0.99), d))).mul(float(1).sub(smoothstep(float(0.015), float(0.05), elevation)));
+      };
+      const wave = vec2(sin(screenUV.y.mul(700).add(time.mul(6))).mul(0.0009), sin(screenUV.x.mul(300).sub(time.mul(4))).mul(0.0004));
+      const shifted = screenUV.add(wave.mul(heat(screenUV)));
+      return mix(screenUV, shifted, step(float(0.5), heat(shifted))) as unknown as Node<'vec2'>;
+    };
+    (globalThis as Record<string, unknown>)['__post'] = {
+      pipeline: this.#pipeline,
+      real: finish(sharpened(image, shimmer(depth, camera)), true),
+      variants: {
+        nobloom: composite,
+        nosharpen: finish(image.sample(shimmer(depth, camera)).rgb as never, true),
+        noshimmer: finish(sharpened(image, screenUV as never), true),
+        notraa: finish(sharpened(shaded as never, shimmer(depth, camera)), true),
+        oldshimmer: finish(sharpened(image, shimmerOld(depth, camera)), true),
+        bare: vec4(mix(lit.rgb, vm.rgb, vm.a), 1),
+      },
+    };

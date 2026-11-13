@@ -1,0 +1,175 @@
+{
+ "url": "https://aleixribera.github.io/duty-shooter/?benchmark&run",
+ "size": [
+  "1920",
+  "1080"
+ ],
+ "firefox": true,
+ "report": [
+  {
+   "map": "range",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 19585,
+   "frames": 427,
+   "frameMs": {
+    "p50": 34.7,
+    "p95": 41.38,
+    "p99": 62.26,
+    "max": 182.62
+   },
+   "meanMs": 34.9,
+   "low1Ms": 109.485,
+   "gpuMs": {
+    "p50": 13.743,
+    "p95": 15.058,
+    "p99": 15.231,
+    "max": 15.293
+   },
+   "drawCalls": {
+    "mean": 76,
+    "max": 89
+   },
+   "triangles": {
+    "mean": 40299,
+    "max": 43085
+   }
+  },
+  {
+   "map": "survival-town",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 43326,
+   "frames": 1082,
+   "frameMs": {
+    "p50": 38.78,
+    "p95": 44.34,
+    "p99": 47.12,
+    "max": 66.14
+   },
+   "meanMs": 38.352,
+   "low1Ms": 53.624,
+   "gpuMs": {
+    "p50": 17.28,
+    "p95": 18.328,
+    "p99": 18.624,
+    "max": 18.812
+   },
+   "drawCalls": {
+    "mean": 155,
+    "max": 190
+   },
+   "triangles": {
+    "mean": 543525,
+    "max": 638483
+   }
+  },
+  {
+   "map": "switchyard",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 93750,
+   "frames": 1219,
+   "frameMs": {
+    "p50": 37.32,
+    "p95": 42.36,
+    "p99": 44.78,
+    "max": 116.76
+   },
+   "meanMs": 36.933,
+   "low1Ms": 58.125,
+   "gpuMs": {
+    "p50": 16.846,
+    "p95": 18.519,
+    "p99": 19.171,
+    "max": 19.613
+   },
+   "drawCalls": {
+    "mean": 120,
+    "max": 133
+   },
+   "triangles": {
+    "mean": 491933,
+    "max": 540500
+   }
+  },
+  {
+   "map": "station-nine",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 147296,
+   "frames": 745,
+   "frameMs": {
+    "p50": 37.62,
+    "p95": 43.5,
+    "p99": 45.96,
+    "max": 75.82
+   },
+   "meanMs": 37.233,
+   "low1Ms": 58.071,
+   "gpuMs": {
+    "p50": 15.994,
+    "p95": 18.549,
+    "p99": 19.704,
+    "max": 19.885
+   },
+   "drawCalls": {
+    "mean": 116,
+    "max": 130
+   },
+   "triangles": {
+    "mean": 556585,
+    "max": 661049
+   }
+  },
+  {
+   "map": "zero-island",
+   "backend": "WebGPU",
+   "adapter": "",
+   "resolution": [
+    1920,
+    1080
+   ],
+   "loadMs": 187287,
+   "frames": 1454,
+   "frameMs": {
+    "p50": 44.5,
+    "p95": 50.28,
+    "p99": 51.98,
+    "max": 69.32
+   },
+   "meanMs": 44.35,
+   "low1Ms": 57.816,
+   "gpuMs": {
+    "p50": 21.747,
+    "p95": 23.834,
+    "p99": 24.267,
+    "max": 24.839
+   },
+   "drawCalls": {
+    "mean": 143,
+    "max": 178
+   },
+   "triangles": {
+    "mean": 1029361,
+    "max": 1201202
+   }
+  }
+ ]
+}
