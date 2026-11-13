@@ -1,0 +1,47 @@
+{
+  "inviteOpensRoyale": true,
+  "inviteLeftAddressBar": true,
+  "invitedSquad": 5,
+  "pauSquad": 5,
+  "zedSquad": 1,
+  "invite": "http://localhost:5173/?royale=p4",
+  "before": {
+    "self": 1,
+    "bob": 1,
+    "carol": 1,
+    "dave": 2
+  },
+  "movedOut": true,
+  "movedIn": true,
+  "afterMove": {
+    "self": 1,
+    "bob": 1,
+    "carol": 3,
+    "dave": 1
+  },
+  "kicked": true,
+  "bobRejected": "kicked",
+  "playersAfterKick": 3,
+  "held": {
+    "p7": "Dave"
+  },
+  "heldSquad": 1,
+  "daveBack": {
+    "id": "p7",
+    "sameSeat": true,
+    "squad": 1,
+    "hostSquad": 1,
+    "held": null
+  },
+  "started": true,
+  "preparation": true,
+  "smithRows": [
+    "Optic",
+    "Muzzle",
+    "Magazine: 70 kills to go with the M4A1",
+    "Muzzle: 75 kills to go with the Warden 9"
+  ],
+  "fitted": true,
+  "loadoutAfterFit": "{\"primary\":\"m4a1\",\"secondary\":\"pistol\",\"grenade\":\"frag\",\"tactical\":\"smoke\",\"perk\":null,\"attachments\":{\"primary\":{\"optic\":\"reflex\"}}}",
+  "errors": []
+}

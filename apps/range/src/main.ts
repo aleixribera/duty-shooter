@@ -1,8 +1,8 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
-import { createWorld, teamMode, type BotSkill, type LobbyPick, type ModeId, type SpawnPoint } from '@duty-shooter/fps-core';
+import { createWorld, royaleLoadout, teamMode, type BotSkill, type LobbyPick, type ModeId, type SpawnPoint, type WeaponId } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { CameraPath } from './bench';
 import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
@@ -211,6 +211,21 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** The link that brings a friend to this server, into this page's private lobby where it has one, carrying the passphrase where there is one. */
   const inviteLink = (passphrase: string) => `${location.origin}${location.pathname}${privateCode ? `?lobby=${privateCode}` : ''}${passphrase ? `#join=${encodeURIComponent(passphrase)}` : ''}`;
+  /**
+   * A Battle Royale invite (`?royale=<seat>`, Aleix 2026-11-13): the link opens the Battle Royale screen, and once
+   * in its lobby this page asks for the inviter's Squad. Out of the address bar at once: the seat is only good for now.
+   */
+  let royaleWith = params.get('royale');
+  if (royaleWith !== null) {
+    const url = new URL(location.href);
+    url.searchParams.delete('royale');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+    if (!/^p\d{1,6}$/.test(royaleWith)) royaleWith = '';
+  }
+  /** The link that brings a friend into this page's Battle Royale lobby and Squad, with the passphrase where there is one. */
+  const royaleInvite = (self: string, passphrase: string) => `${location.origin}${location.pathname}?royale=${encodeURIComponent(self)}${passphrase ? `#join=${encodeURIComponent(passphrase)}` : ''}`;
+  /** The passphrase this page joined the Battle Royale with, for its invite link. */
+  let royalePassphrase = '';
   /** The lobby's own path on the server: the public one's, or this page's private one's. */
   const lobbyPath = (path: string) => (privateCode ? `${path}?lobby=${privateCode}` : path);
 
@@ -441,7 +456,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const openRoyale = () => {
     menu.hide();
     royalePre = true;
-    royale = { ...royale, name: settings.name.trim(), passphrase: lobby?.kind === 'server' && !lobby.public, joining: null, error: null };
+    royale = { ...royale, name: settings.name.trim(), passphrase: lobby?.kind === 'server' && !lobby.public, passphraseText: settings.passphrase, joining: null, error: null };
     askRoyale();
   };
   /** Local bots' worker's last word on its ticks, for the scripts that measure it. */
@@ -499,6 +514,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       menu.settings = settings;
     }
     royale = { ...royale, name, joining: 0, error: null };
+    royalePassphrase = lobby?.kind === 'server' && lobby.public ? '' : passphrase;
     showRoyale();
     if (royale.source === 'local') return void joinLocalRoyale(attempt, name);
     void lobbyStatus(ROYALE_STATUS).then(async (status) => {
@@ -554,6 +570,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         }
       },
       squad: (squad) => game.driver?.setSquad(squad),
+      move: (id, squad) => game.driver?.setSquad(squad, id),
+      kick: (id) => game.driver?.kick(id),
       start: () => {
         lobbyJoin = true;
         game.driver?.startMatch();
@@ -574,18 +592,30 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   );
   /** The renderer lost its device: the frame loop stops and the error screen stays up. */
   let graphicsLost = false;
+  /** Kills made with a gun, which open its attachments. */
+  const gunKills = (id: WeaponId) => profile.profile.weapons[id]?.kills ?? 0;
+  const applyLoadout = (loadout: Settings['loadout']) => {
+    settings = { ...settings, loadout };
+    saveSettings(settings);
+    game?.driver?.setLoadout(loadout);
+    game?.applySettings(settings);
+    menu.settings = settings;
+  };
   const preparation = new PreparationFlow({
     game: () => game,
     menu,
     sound: () => sound,
     settings: () => settings,
-    setLoadout: (loadout) => {
-      settings = { ...settings, loadout };
-      saveSettings(settings);
-      game?.driver?.setLoadout(loadout);
-      game?.applySettings(settings);
-      menu.settings = settings;
+    // A gun picked here carries its own build from the gunsmith, as on the loadout screen.
+    setLoadout: (loadout) => applyLoadout(withBuilds(loadout, settings.builds, gunKills)),
+    setBuild: (gun, slot, choice) => {
+      const builds = rebuild(settings.builds, gun, slot, choice);
+      settings = { ...settings, builds };
+      // A saved sniper plays as the M4A1 in a Battle Royale: fitting the M4A1 here makes it the pick.
+      const primary = royaleLoadout(settings.loadout).primary === gun ? { primary: gun } : {};
+      applyLoadout(withBuilds({ ...settings.loadout, ...primary }, builds, gunKills));
     },
+    kills: gunKills,
     name: () => onlineName,
     takeOver: () => {
       leaveLobby();
@@ -754,7 +784,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       const seated = mine !== undefined;
       // One life: a seat that has died, or whose Squad has a place, is out of this match.
       const out = mine !== undefined && (mine.deaths > 0 || mine.place !== undefined);
-      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, out, reconnecting, place: royalePlace };
+      // Came by a friend's invite: into their Squad once, as soon as the lobby is waiting.
+      if (royaleWith !== null && match.phase === 'lobby' && match.lobby.squadSize > 1 && !reconnecting && driver.selfId && driver.online && royale.source === 'server') {
+        const theirs = royaleWith ? match.lobby.squads[royaleWith] : undefined;
+        if (theirs !== undefined && match.lobby.squads[driver.selfId] !== theirs) driver.setSquad(theirs);
+        royaleWith = null;
+      }
+      const invite = royale.source === 'server' && driver.selfId ? royaleInvite(driver.selfId, royalePassphrase) : null;
+      const session: RoyaleSession = { lobby: match.lobby, phase: match.phase, selfId: driver.selfId, names, mode: match.mode, result: match.result, teamScores: match.teamScores, loading: loadingName, seated, out, reconnecting, place: royalePlace, invite };
       royalePage.show({ ...royale, joining: null, error: null, session });
     } else {
       if (royalePage.open) royalePage.hide();
@@ -770,7 +807,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   void lobbyDiscovery.then((found) => {
     lobby = found;
     menu.setLobby(found);
-    if ((invited !== null || privateCode !== null) && found?.kind === 'server' && menu.open && menu.screen === 'main') menu.openOnline();
+    if (royaleWith !== null && found?.kind === 'server' && menu.open && menu.screen === 'main') openRoyale();
+    else if ((invited !== null || privateCode !== null) && found?.kind === 'server' && menu.open && menu.screen === 'main') menu.openOnline();
   });
   // `?explore=<map>`: walk that map alone, offline, as the main menu once offered (for testing and screenshots).
   const explore = asMapId(params.get('explore'));

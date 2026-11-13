@@ -330,9 +330,9 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'kick', id }));
   }
 
-  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room. */
-  setSquad(squad: number): void {
-    if (this.#status === 'joined') this.#connection.send(encode({ t: 'squad', squad }));
+  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room; the host may move another person (`id`). */
+  setSquad(squad: number, id?: string): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'squad', squad, ...(id === undefined ? {} : { id }) }));
   }
 
   /** In a Battle Royale's Preparation: ready to drop (ignored outside one). */

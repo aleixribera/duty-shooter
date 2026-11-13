@@ -12,7 +12,7 @@ import { parsePing, type PingRequest } from '../pings';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 30;
+export const PROTOCOL_VERSION = 31;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -78,8 +78,8 @@ export type ClientMessage =
   | { readonly t: 'even' }
   /** The host removes a person from the lobby (or the match), for good. */
   | { readonly t: 'kick'; readonly id: string }
-  /** Anyone in a Battle Royale lobby: the Squad (from 1) they'd like to play in, if it has room. */
-  | { readonly t: 'squad'; readonly squad: number }
+  /** Anyone in a Battle Royale lobby: the Squad (from 1) they'd like to play in, if it has room; the host may move another person (`id`). */
+  | { readonly t: 'squad'; readonly squad: number; readonly id?: string }
   /** A Battle Royale's Preparation: this player has picked and is ready to drop (it can't be taken back). */
   | { readonly t: 'ready' }
   /** This player's page has what the match needs on screen (the load gate). */
@@ -156,6 +156,8 @@ export interface LobbyState {
   /** Battle Royale: seats a Squad for the next match, and the Squad (from 1) each person is in. */
   readonly squadSize: SquadSize;
   readonly squads: Readonly<Record<string, number>>;
+  /** Battle Royale: seats held in a Squad for people whose connection dropped, by id, with their names; they come back into them. */
+  readonly held?: Readonly<Record<string, string>>;
   /** The side (1 or 2) each person plays on in the next match, where it has sides; the host may move them. */
   readonly sides?: Readonly<Record<string, number>>;
 }
@@ -310,8 +312,9 @@ export function decodeClient(data: string): ClientMessage | null {
     return ping ? { t: 'ping', ...ping } : null;
   }
   if (value['t'] === 'squad') {
-    const { squad } = value;
-    return typeof squad === 'number' && Number.isInteger(squad) && squad >= 1 && squad <= WIDE_SCALE.seats ? { t: 'squad', squad } : null;
+    const { squad, id } = value;
+    if (id !== undefined && (typeof id !== 'string' || id.length > 40)) return null;
+    return typeof squad === 'number' && Number.isInteger(squad) && squad >= 1 && squad <= WIDE_SCALE.seats ? { t: 'squad', squad, ...(id === undefined ? {} : { id }) } : null;
   }
   if (value['t'] === 'cmds') {
     const cmds = value['cmds'];

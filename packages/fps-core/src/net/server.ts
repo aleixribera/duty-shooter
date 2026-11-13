@@ -557,8 +557,9 @@ export class GameServer {
     const count = new Map<number, number>();
     const placed = new Map<PlayerId, number>();
     const rest: PlayerId[] = [];
-    for (const c of this.#joined()) {
-      const id = c.id as PlayerId;
+    // Seats held for someone coming back keep their Squad, in join order with everyone else.
+    const ids = [...this.#joined().map((c) => c.id as PlayerId), ...this.#heldIds()].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+    for (const id of ids) {
       const squad = this.#squadPicks.get(id);
       if (squad !== undefined && squad <= most && (count.get(squad) ?? 0) < size) {
         placed.set(id, squad);
@@ -573,6 +574,21 @@ export class GameServer {
     }
     this.#squadPicks = placed;
     return placed;
+  }
+
+  /** The host lets go of a seat held in the lobby for someone who dropped (a closed tab holds one for minutes): it is free, and its token can't come back. */
+  #letGo(id: PlayerId): void {
+    for (const [token, away] of this.#away) {
+      if (away.id !== id) continue;
+      this.#away.delete(token);
+      this.#kicked.add(token);
+      this.#seatsChanged();
+    }
+  }
+
+  /** Seats held in the lobby for people whose connection dropped (not those who left on purpose). */
+  #heldIds(): PlayerId[] {
+    return [...this.#away.values()].filter((a) => !a.left).map((a) => a.id);
   }
 
   /** A person asks for a Squad: theirs if it has room without them. */
@@ -663,6 +679,7 @@ export class GameServer {
       map: this.#lobbyMap.id,
       squadSize: this.#royale.squadSize,
       squads: Object.fromEntries(this.#lobbyMode === BATTLE_ROYALE ? this.#lobbySquads() : []),
+      ...(this.#lobbyMode === BATTLE_ROYALE && this.#heldIds().length > 0 ? { held: Object.fromEntries([...this.#away.values()].filter((a) => !a.left).map((a) => [a.id as string, a.name])) } : {}),
       ...(teamMode(this.#lobbyMode) ? { sides: Object.fromEntries(this.#joined().map((c) => [c.id as string, this.#sides.get(c.id as PlayerId) ?? TEAMS[0]])) } : {}),
     };
   }
@@ -842,7 +859,9 @@ export class GameServer {
     if (message.t === 'kick') {
       // Only the host, never themselves.
       const target = [...this.#clients].find((c) => c.id === message.id);
-      if (client.id === this.host && target && target !== client) this.#kick(target);
+      if (client.id !== this.host) return;
+      if (target && target !== client) this.#kick(target);
+      else if (!target && this.#phase === 'lobby') this.#letGo(message.id as PlayerId);
       return;
     }
     if (message.t === 'ping') {
@@ -852,7 +871,10 @@ export class GameServer {
       return;
     }
     if (message.t === 'squad') {
-      if (this.#phase === 'lobby' && this.#lobbyMode === BATTLE_ROYALE) this.#pickSquad(client.id, message.squad);
+      if (this.#phase !== 'lobby' || this.#lobbyMode !== BATTLE_ROYALE) return;
+      // The host may move anyone in the lobby; everyone else only themselves.
+      const who = message.id === undefined || message.id === client.id ? client.id : client.id === this.host && this.#joined().some((c) => c.id === message.id) ? (message.id as PlayerId) : null;
+      if (who !== null) this.#pickSquad(who, message.squad);
       return;
     }
     if (message.t === 'cmds') {

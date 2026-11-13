@@ -2,11 +2,23 @@
 
 ## Now
 
-Loop pass 22 (2026-11-13) took item 5's spawn views, pass 1 (ticket 100), and shipped it (v2.194.6): a spawn no longer opens with a mannequin under its nose (Survival Town's yards, 22-a) or an end-screen container filling half the screen (Switchyard, 23-a); `closeView` turns spawns up to 30°, and Switchyard's front-row end spawns stand 3 m further back (`spawn-near/sheet.jpg`). Pass 21 shipped side-by-side objective markers (v2.194.4). Next: item 5's other gaps (Survival Town opening fights at 6 HP behind smoke, 22-b; Zero Island's boxy cliffs, cut at pass 19, in BACKLOG; the range's hit count stopping after the Reflex), a fresh review to see what's left, item 4 when the laptop is back (unreachable on Tailscale again at pass 22). Item 6 leftovers in ticket 102.
+Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all seven work in a real match (ideas beyond them go to BACKLOG.md):
+1. Battle Royale lobby like Play Online's (invite link, host moves/kicks, even squads, seat back after a drop), squads friends join; attachments choosable in BR (or, if loot, say so in the lobby).
+2. Pistol: why friends all hate it, compared with well-loved shooters (sourced), fixed.
+3. BR fights in towns: bias Zero Island's final circles, drops and bot routes to built-up areas; measure final circles and kills over many matches before and after.
+4. Spectator view: improve it.
+5. Multiplayer quality of life: a whole match with friends plays well.
+6. Other weapons (not the M4, sniper or SMG): review against real games (TTK, spread, rate, movement, feedback), redesign the pump shotgun, burst SCAR, semi-auto rifle (sight, role) and revolver; prove with TTK and hits-per-kill at range, range runs and frames; list the changes.
+7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
+
+Pass 23 (2026-11-13) shipped request 1 (v2.195.0, ticket 106): Battle Royale invite links (`?royale=<seat>` puts the friend into the inviter's Squad), host Move and Kick, a dropped friend's seat held in its Squad ("Coming back"), and attachments fitted in the Preparation's own picker. Checked by `.scratch/next-level/royale-lobby/look.mjs` (frames in `after/`). Next pass: request 2, the pistol.
+
+Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
 
 ## Needs Aleix
 
 - Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
+- Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
 - The Fedora laptop on and on Tailscale (or at home on the LAN) for one benchmark run: item 4's acceptance is measured on it.
 
 ## Where things stand

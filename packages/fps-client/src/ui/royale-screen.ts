@@ -39,6 +39,18 @@ const CSS = `
 .ds-royale .squad .who i { font-style: normal; color: var(--ds-text-2); }
 .ds-royale .squad .ds-btn { min-height: 40px; padding: 0 18px; font-size: var(--ds-type-small); letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-royale .new { margin-top: 10px; }
+/* The host's hand on a person (Aleix, 2026-11-13): Move and Kick, square and 40 px tall, at the foot of a seat or after a name. */
+.ds-royale .slot .acts { order: -1; display: flex; gap: 6px; margin-bottom: auto; padding-bottom: 8px; }
+.ds-royale .acts .ds-btn { min-height: 40px; padding: 0 12px; font-size: var(--ds-type-small); letter-spacing: 0.14em; text-transform: uppercase; }
+.ds-royale .slot.held { border-style: dashed; }
+.ds-royale .squad .people { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.ds-royale .squad .person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ds-royale .squad .person > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-royale .squad .person i { font-style: normal; color: var(--ds-text-2); }
+.ds-royale .squad .person .acts { flex: none; display: flex; gap: 6px; }
+.ds-royale .ds-field.invite-field { display: block; margin-top: 22px; }
+.ds-royale .invite { display: flex; }
+.ds-royale .invite input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; font-size: var(--ds-type-body); color: var(--ds-text); background: var(--ds-ink); border: 1px solid var(--ds-line-2); border-right: 0; border-radius: 0; }
 /* The island, its numbers, and where the connection is. */
 .ds-royale .island { display: grid; gap: 0; }
 .ds-royale .island .pic { aspect-ratio: 960 / 414; background: var(--ds-raised) center / cover no-repeat; border: 1px solid var(--ds-line); border-bottom: 0; }
@@ -73,6 +85,10 @@ const CSS = `
   .ds-royale .sec-source { order: 6; }
   .ds-royale .island { order: 7; }
   .ds-royale .slot { min-height: 84px; padding: 10px 12px; }
+  /* The host's controls want the row's width: the Squad's number and Join on top, its people under them. */
+  .ds-royale .squad { flex-wrap: wrap; row-gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+  .ds-royale .squad .people { order: 3; flex-basis: 100%; }
+  .ds-royale .squad > .ds-btn { margin-left: auto; }
   .ds-royale .slot b { font-size: var(--ds-type-body); }
   .ds-royale .island .ds-readouts > div { padding: 10px 12px; }
   .ds-royale .island .ds-readouts b { font-size: var(--ds-type-body); }
@@ -104,6 +120,8 @@ export interface RoyaleSession {
   readonly reconnecting?: boolean;
   /** Your Squad's place in the last match and of how many Squads; null when you weren't placed in it. */
   readonly place?: { readonly place: number; readonly of: number } | null;
+  /** The link that brings a friend into this lobby and your Squad; none on Local bots. */
+  readonly invite?: string | null;
 }
 
 export interface RoyaleView {
@@ -114,6 +132,8 @@ export interface RoyaleView {
   /** The name to join with, and whether the server asks for a passphrase. */
   readonly name: string;
   readonly passphrase: boolean;
+  /** The passphrase to fill in, from an invite link or the last join. */
+  readonly passphraseText?: string;
   /** How far a join has got (0 reaching the server, 1 building the island, 2 joining the lobby); null when not joining. */
   readonly joining: number | null;
   /** Why the last join failed. */
@@ -133,6 +153,10 @@ export interface RoyaleCallbacks {
   squads(size: SquadSize): void;
   /** Into Squad `squad` (a free number opens a new one). */
   squad(squad: number): void;
+  /** The host moves person `id` into Squad `squad`. */
+  move(id: string, squad: number): void;
+  /** The host removes person `id` from the lobby. */
+  kick(id: string): void;
   /** The host starts the match. */
   start(): void;
   /** Into the match that has started. */
@@ -168,6 +192,8 @@ export class RoyalePage {
   #view: RoyaleView | null = null;
   /** The people seen in each slot, so a slot a friend just took fills in once. */
   #seen = new Set<string>();
+  /** Until when the invite's Copy button says Copied. */
+  #copiedUntil = 0;
 
   constructor(parent: HTMLElement, callbacks: RoyaleCallbacks, options: { readonly image: string }) {
     installTheme();
@@ -254,6 +280,16 @@ export class RoyalePage {
     if (act === 'source') this.#callbacks.source(el.dataset['value'] === 'local' ? 'local' : 'server');
     else if (act === 'squads') this.#callbacks.squads(value as SquadSize);
     else if (act === 'squad') this.#callbacks.squad(value);
+    else if (act === 'move') this.#callbacks.move(el.dataset['id'] ?? '', value);
+    else if (act === 'kick') this.#callbacks.kick(el.dataset['id'] ?? '');
+    else if (act === 'copy') {
+      const invite = this.#view?.session?.invite;
+      if (!invite) return;
+      void navigator.clipboard?.writeText(invite).catch(() => {});
+      this.#copiedUntil = performance.now() + 1500;
+      if (this.#view) this.show(this.#view);
+      setTimeout(() => this.#view && this.open && this.show(this.#view), 1600);
+    }
     else if (act === 'start') this.#callbacks.start();
     else if (act === 'enter') this.#callbacks.enter();
     else if (act === 'refresh') this.#callbacks.refresh();
@@ -270,14 +306,27 @@ export class RoyalePage {
     this.#callbacks.leave();
   }
 
-  #slots(squad: SquadView, mine: boolean, local: boolean): string {
+  /**
+   * The host's buttons on a person: Move (into `into`, when there is a Squad to move them to) and Kick.
+   * `into` is your Squad for someone in another, or a fresh one for someone in yours.
+   */
+  #acts(id: string, name: string, into: { readonly squad: number; readonly label: string } | null): string {
+    const n = escapeHtml(name);
+    const move = into ? `<button type="button" class="ds-btn" data-act="move" data-id="${escapeHtml(id)}" data-value="${into.squad}" data-key="move-${escapeHtml(id)}" aria-label="Move ${n} ${escapeHtml(into.label)}">Move</button>` : '';
+    return `<span class="acts">${move}<button type="button" class="ds-btn" data-act="kick" data-id="${escapeHtml(id)}" data-key="kick-${escapeHtml(id)}" aria-label="Kick ${n}">Kick</button></span>`;
+  }
+
+  #slots(squad: SquadView, mine: boolean, local: boolean, out: number | null = null, controls = false): string {
     const tiles = squad.slots
       .map((s, i) => {
         if (s.id === null) return local ? `<div class="slot bot"><b>Bot</b></div>` : `<div class="slot bot"><b>Open seat</b><span>A bot, until a friend joins</span></div>`;
         const key = `${squad.squad}:${s.id}`;
         const fresh = mine && !s.you && !this.#seen.has(key);
         this.#seen.add(key);
-        return `<div class="slot${s.you ? ' you' : ''}${fresh && i > 0 ? ' fresh' : ''}"><b>${escapeHtml(s.name)}</b>${s.role ? `<span>${escapeHtml(s.role)}</span>` : ''}</div>`;
+        // The host's hand on a friend in their own Squad: out to a Squad of their own, or out of the lobby.
+        // A seat held for someone coming back can only be let go (a closed tab holds one for minutes).
+        const acts = controls && !s.you ? this.#acts(s.id, s.name, out === null || s.held ? null : { squad: out, label: 'to a Squad of their own' }) : '';
+        return `<div class="slot${s.you ? ' you' : ''}${s.held ? ' held' : ''}${fresh && i > 0 ? ' fresh' : ''}"><b>${escapeHtml(s.name)}</b>${s.role ? `<span>${escapeHtml(s.role)}</span>` : ''}${acts}</div>`;
       })
       .join('');
     return `<div class="slots">${tiles}</div>`;
@@ -302,16 +351,29 @@ export class RoyalePage {
     let footNote: string;
     if (s) {
       const view = royaleSquads(s.lobby, s.selfId, s.names);
+      // The host's hand on the Squads while the lobby waits (Aleix, 2026-11-13): Move people in and out of theirs, and Kick.
+      const controls = host && !underway && !s.reconnecting && !local;
+      const squads = s.lobby.squadSize > 1;
       const others = view.others
         .map((o) => {
-          const who = o.slots.map((x) => (x.id === null ? '' : escapeHtml(x.name))).filter(Boolean).join(', ');
           const room = o.slots.filter((x) => x.id === null).length;
           const join = o.open && !underway && !s.reconnecting ? `<button type="button" class="ds-btn" data-act="squad" data-value="${o.squad}" data-key="squad-${o.squad}">Join</button>` : '';
+          if (controls) {
+            const into = squads && view.mine?.open ? { squad: view.mine.squad, label: 'into your Squad' } : null;
+            const people = o.slots
+              .filter((x) => x.id !== null)
+              .map((x) => `<span class="person"><span>${escapeHtml(x.name)}${x.held ? ' <i>· coming back</i>' : ''}</span>${this.#acts(x.id!, x.name, x.held ? null : into)}</span>`)
+              .join('');
+            return `<div class="squad"><span class="n">Squad ${o.squad}</span><div class="people">${people}</div>${join}</div>`;
+          }
+          const who = o.slots.map((x) => (x.id === null ? '' : `${escapeHtml(x.name)}${x.held ? ' <i>(coming back)</i>' : ''}`)).filter(Boolean).join(', ');
           return `<div class="squad"><span class="n">Squad ${o.squad}</span><span class="who">${who}${room > 0 ? ` <i>· ${room} ${room === 1 ? 'seat' : 'seats'} for bots</i>` : ''}</span>${join}</div>`;
         })
         .join('');
+      const copied = performance.now() < this.#copiedUntil;
+      const invite = s.invite && !local ? `<label class="ds-field invite-field"><span class="ds-field-label">Invite link</span><span class="invite"><input readonly value="${escapeHtml(s.invite)}" data-key="invite"><button type="button" class="ds-btn" data-act="copy" data-key="copy" aria-live="polite">${copied ? 'Copied' : 'Copy'}</button></span></label>` : '';
       const leaveSquad = view.newSquad !== null && !underway && !s.reconnecting ? `<button type="button" class="ds-btn new" data-act="squad" data-value="${view.newSquad}" data-key="new-squad">Start a new Squad</button>` : '';
-      squadsHtml = `<section class="sec-squad"><h2>Your Squad${underway && !s.seated ? '<small>For the next match</small>' : s.lobby.squadSize === 1 ? '' : `<small>Squad ${view.mine?.squad ?? ''}</small>`}</h2>${view.mine ? this.#slots(view.mine, true, local) : ''}${leaveSquad}</section>
+      squadsHtml = `<section class="sec-squad"><h2>Your Squad${underway && !s.seated ? '<small>For the next match</small>' : s.lobby.squadSize === 1 ? '' : `<small>Squad ${view.mine?.squad ?? ''}</small>`}</h2>${view.mine ? this.#slots(view.mine, true, local, squads ? view.free : null, controls) : ''}${leaveSquad}${invite}</section>
 ${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads">${others}</div></section>` : ''}`;
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
     } else {
@@ -335,7 +397,7 @@ ${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads"
     } else {
       conn = `${server.line ? `<p class="ds-state ${server.tone}">${escapeHtml(server.line)}</p>` : ''}${v.error ? `<p class="error">${escapeHtml(v.error)}</p>` : ''}
 ${server.join ? `<label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>` : ''}
-${v.passphrase && !local && server.join ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" data-key="passphrase"></label>` : ''}`;
+${v.passphrase && !local && server.join ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" value="${escapeHtml(v.passphraseText ?? '')}" data-key="passphrase"></label>` : ''}`;
     }
 
     let go: string;

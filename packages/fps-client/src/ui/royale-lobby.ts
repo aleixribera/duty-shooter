@@ -5,9 +5,11 @@ import { MODE_NAMES, type LobbyInfo } from './model';
 export interface SquadSlot {
   readonly id: PlayerId | null;
   readonly name: string;
-  /** "You", "Host", "Friend" (or "You · host"); empty for a bot's seat. */
+  /** "You", "Host", "Friend" (or "You · host"), "Coming back" for a seat held for a dropped connection; empty for a bot's seat. */
   readonly role: string;
   readonly you: boolean;
+  /** A seat held for someone whose connection dropped: theirs when they come back. */
+  readonly held?: boolean;
 }
 
 export interface SquadView {
@@ -26,6 +28,8 @@ export interface RoyaleSquads {
   readonly others: readonly SquadView[];
   /** The number a fresh Squad of your own would take: only when you have company to leave. */
   readonly newSquad: number | null;
+  /** The lowest Squad number nobody is in: where the host moves someone out to. */
+  readonly free: number;
   readonly people: number;
   /** The seats bots take when the match starts. */
   readonly bots: number;
@@ -37,7 +41,8 @@ const BOT_SEAT = 'Bot fills this seat';
 export function royaleSquads(lobby: LobbyState, selfId: PlayerId | null, names: Readonly<Record<string, string>>): RoyaleSquads {
   const size = lobby.squadSize;
   const groups = new Map<number, PlayerId[]>();
-  for (const id of lobby.players) {
+  const held = lobby.held ?? {};
+  for (const id of [...lobby.players, ...Object.keys(held).filter((h) => !lobby.players.includes(h))]) {
     const squad = lobby.squads[id];
     if (squad === undefined) continue;
     const members = groups.get(squad) ?? [];
@@ -46,6 +51,7 @@ export function royaleSquads(lobby: LobbyState, selfId: PlayerId | null, names: 
   }
   const view = (squad: number, members: readonly PlayerId[]): SquadView => {
     const slots: SquadSlot[] = members.map((id) => {
+      if (!lobby.players.includes(id)) return { id, name: held[id] ?? names[id] ?? id, role: 'Coming back', you: false, held: true };
       const you = id === selfId;
       const host = id === lobby.host;
       return { id, name: names[id] ?? id, role: you ? (host ? 'You · host' : 'You') : host ? 'Host' : 'Friend', you };
@@ -63,7 +69,9 @@ export function royaleSquads(lobby: LobbyState, selfId: PlayerId | null, names: 
   while (groups.has(free)) free += 1;
   const company = mine !== null && mine.slots.filter((s) => s.id !== null).length > 1;
   const people = lobby.players.length;
-  return { mine, others, newSquad: size > 1 && company ? free : null, people, bots: Math.max(0, WIDE_SCALE.seats - people) };
+  // A seat held for someone coming back is no bot's.
+  const heldSeats = Object.keys(held).filter((h) => !lobby.players.includes(h)).length;
+  return { mine, others, newSquad: size > 1 && company ? free : null, free, people, bots: Math.max(0, WIDE_SCALE.seats - people - heldSeats) };
 }
 
 export interface RoyaleServer {

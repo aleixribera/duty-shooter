@@ -87,8 +87,8 @@ export interface GameDriver {
   setSide(id: string, team: 1 | 2): void;
   evenSides(): void;
   kick(id: string): void;
-  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room (online only). */
-  setSquad(squad: number): void;
+  /** In a Battle Royale lobby: the Squad (from 1) to play in, if it has room; the host may move another person (`id`) (online only). */
+  setSquad(squad: number, id?: string): void;
   /** In a Battle Royale's Preparation: ready to drop (online only). */
   ready(): void;
   /** The page has what the match needs on screen, for the server's load gate (online only). */
@@ -356,8 +356,8 @@ export class OnlineDriver implements GameDriver {
     this.#client.kick(id);
   }
 
-  setSquad(squad: number): void {
-    this.#client.setSquad(squad);
+  setSquad(squad: number, id?: string): void {
+    this.#client.setSquad(squad, id);
   }
 
   ready(): void {

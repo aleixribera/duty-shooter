@@ -43,6 +43,17 @@ describe('the Battle Royale screen’s Squads', () => {
     expect(s.bots).toBe(56);
   });
 
+  it('keeps a friend whose connection dropped in their seat, coming back', () => {
+    const s = royaleSquads(lobby({ players: ['p1'], squadSize: 2, squads: { p1: 1, p2: 1 }, held: { p2: 'Marta' } }), 'p1', names);
+    expect(s.mine?.slots).toEqual([
+      { id: 'p1', name: 'Aleix', role: 'You · host', you: true },
+      { id: 'p2', name: 'Marta', role: 'Coming back', you: false, held: true },
+    ]);
+    expect(s.mine?.open).toBe(false);
+    expect(s.free).toBe(2);
+    expect(s.bots).toBe(58);
+  });
+
   it('offers a new Squad only to someone who has company in theirs', () => {
     expect(royaleSquads(lobby({ players: ['p1', 'p2'], squads: { p1: 1, p2: 1 } }), 'p2', names).newSquad).toBe(2);
     expect(royaleSquads(lobby({ players: ['p1', 'p2'], squads: { p1: 1, p2: 3 } }), 'p2', names).newSquad).toBeNull();

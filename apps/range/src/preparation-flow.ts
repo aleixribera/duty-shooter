@@ -1,4 +1,5 @@
-import { PreparationPage, preparationChampion, type Menu, type PreparationView, type Settings } from '@duty-shooter/fps-client/ui';
+import { PreparationPage, gunsmithRows, preparationChampion, type Menu, type PreparationView, type Settings } from '@duty-shooter/fps-client/ui';
+import { royaleLoadout, type AttachmentId, type AttachmentSlot, type WeaponId } from '@duty-shooter/fps-core';
 import type { Game, SoundSystem } from '@duty-shooter/fps-client';
 import { LoadReport } from './load-report';
 
@@ -11,6 +12,10 @@ export interface PreparationHost {
   settings(): Settings;
   /** The player picked a loadout on the Preparation's page. */
   setLoadout(loadout: Settings['loadout']): void;
+  /** The player fitted an attachment (null: stock) to a gun on the Preparation's page. */
+  setBuild(gun: WeaponId, slot: AttachmentSlot, choice: AttachmentId | null): void;
+  /** Kills made with a gun, which open its attachment slots. */
+  kills(gun: WeaponId): number;
   /** The name this player joined under, for their own seat. */
   name(): string;
   /** The Preparation takes the screen: the lobby and Battle Royale pages go, and a Start click's wait for the match is over. */
@@ -36,6 +41,7 @@ export class PreparationFlow {
     this.#host = host;
     this.page = new PreparationPage(document.body, {
       loadout: (loadout) => host.setLoadout(loadout),
+      build: (gun, slot, choice) => host.setBuild(gun, slot, choice),
       // Ready is a press, so it can take the pointer (or the controller) for the drop.
       ready: () => {
         const game = host.game();
@@ -56,6 +62,15 @@ export class PreparationFlow {
       e.preventDefault();
       host.menu.show('pause');
     });
+  }
+
+  /** The gunsmith rows of the two guns the Preparation shows picked. */
+  #smith(): NonNullable<PreparationView['smith']> {
+    const { loadout, builds } = this.#host.settings();
+    const picked = royaleLoadout(loadout);
+    const rows = (id: WeaponId, own: boolean) => gunsmithRows(id, own ? builds[id] : undefined, this.#host.kills(id));
+    // A saved sniper plays as a stock M4A1 here, until something is fitted to it.
+    return { primary: rows(picked.primary, picked.primary === loadout.primary), secondary: rows(picked.secondary, true) };
   }
 
   /** Each frame: the Preparation up while this seated player's Battle Royale opens, and until they take control. True while it is up. */
@@ -95,6 +110,7 @@ export class PreparationFlow {
         squads: state?.squads ?? 0,
         squad,
         loadout: this.#host.settings().loadout,
+        smith: this.#smith(),
         ready: this.#ready || prep.ready.includes(driver.selfId ?? ''),
         readyCount: prep.ready.length,
         people: prep.people,

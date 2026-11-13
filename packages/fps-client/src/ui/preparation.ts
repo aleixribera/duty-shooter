@@ -1,7 +1,8 @@
-import { DROP_WEAPON, royaleLoadout, STATS, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
+import { DROP_WEAPON, royaleLoadout, STATS, type AttachmentId, type AttachmentSlot, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
 import { nameList } from '@duty-shooter/fps-core/modes';
 import type { PadNav } from '../gamepad';
 import type { PreparationStage } from '../preparation-shot';
+import type { GunsmithSlot } from './gunsmith';
 import { goalLine, loadoutOptions } from './model';
 import { escapeHtml, hint, installTheme, patchHtml } from './theme';
 
@@ -38,6 +39,8 @@ export interface PreparationView {
   readonly play: boolean;
   /** The champion Squad, introduced at the dive (ticket 69); absent or null when there is none. */
   readonly champion?: PreparationChampion | null;
+  /** The gunsmith of the two guns picked (Aleix, 2026-11-13: attachments in a Battle Royale come from the loadout, not loot). */
+  readonly smith?: { readonly primary: readonly GunsmithSlot[]; readonly secondary: readonly GunsmithSlot[] };
 }
 
 /** The champion Squad as the dive introduces it. */
@@ -59,6 +62,8 @@ export function preparationChampion(champion: RoyaleChampion | undefined, team: 
 
 export interface PreparationCallbacks {
   loadout(loadout: Loadout): void;
+  /** An attachment (null: stock) into `slot` of gun `gun`, as the loadout screen's gunsmith fits it. */
+  build(gun: WeaponId, slot: AttachmentSlot, choice: AttachmentId | null): void;
   ready(): void;
   play(): void;
 }
@@ -96,6 +101,12 @@ const CSS = `
 .ds-prep .ds-field-label { margin-bottom: 6px; color: var(--ds-text-2); }
 .ds-prep .kit { display: grid; gap: 14px; }
 .ds-prep .kit .drop-note { margin-top: -8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
+/* A gun's attachments under it: a short row a slot that is open, and the next one still shut in a line. */
+.ds-prep .smith { display: grid; gap: 6px; margin-top: -6px; }
+.ds-prep .smith-row { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 10px; }
+.ds-prep .smith-row > span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-prep .smith .ds-seg button { min-height: 36px; font-size: var(--ds-type-small); }
+.ds-prep .smith .shut { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-prep .ds-seg button { min-height: 44px; font-size: var(--ds-type-body); }
 .ds-prep .ds-seg button:disabled:not(.on) { color: var(--ds-text-3); }
 .ds-prep .mates { display: grid; gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); }
@@ -130,6 +141,7 @@ const CSS = `
   .ds-prep .champ { margin-top: 14px; }
   .ds-prep .champ b { font-size: var(--ds-type-heading); }
   .ds-prep .ds-seg button { font-size: var(--ds-type-small); letter-spacing: 0.08em; }
+  .ds-prep .smith-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .ds-prep .mates { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .ds-prep .mate { flex-direction: column; gap: 0; padding: 6px 10px; }
   .ds-prep .mate b { font-size: var(--ds-type-body); max-width: 100%; }
@@ -239,6 +251,10 @@ export class PreparationPage {
     if (act === 'go') {
       if (v.play) this.#callbacks.play();
       else this.#callbacks.ready();
+    } else if (act === 'fit') {
+      const gun = el.dataset['gun'] as WeaponId;
+      const slot = el.dataset['slot'] as AttachmentSlot;
+      this.#callbacks.build(gun, slot, (el.dataset['value'] || null) as AttachmentId | null);
     } else if (act === 'pick') {
       const slot = el.dataset['slot'] as keyof Loadout;
       const value = el.dataset['value'] ?? '';
@@ -260,6 +276,21 @@ export class PreparationPage {
           return `<button type="button" data-act="pick" data-slot="${slot}" data-value="${escapeHtml(c ?? '')}" data-key="${slot}-${escapeHtml(c ?? 'none')}" class="${on ? 'on' : ''}" aria-pressed="${on}"${locked ? ' disabled' : ''}>${escapeHtml(name(c))}</button>`;
         })
         .join('')}</div></div>`;
+    // Under each gun, its open attachment slots, and the next shut one with the kills it waits for.
+    const smith = (gun: WeaponId, rows: readonly GunsmithSlot[] | undefined) => {
+      if (!rows?.length) return '';
+      const open = rows.filter((r) => !r.choices.some((c) => c.locked));
+      const shut = rows.find((r) => r.choices.some((c) => c.locked));
+      const lines = open.map(
+        (r) =>
+          `<div class="smith-row"><span>${escapeHtml(r.name)}</span><div class="ds-seg" role="group" aria-label="${escapeHtml(`${weaponName(gun)} ${r.name.toLowerCase()}`)}">${r.choices
+            .map((c) => `<button type="button" data-act="fit" data-gun="${gun}" data-slot="${r.slot}" data-value="${c.id ?? ''}" data-key="fit-${gun}-${r.slot}-${c.id ?? 'stock'}" class="${c.on ? 'on' : ''}" aria-pressed="${c.on}"${locked ? ' disabled' : ''}>${escapeHtml(c.name)}</button>`)
+            .join('')}</div></div>`,
+      );
+      const wait = shut ? shut.choices.find((c) => c.locked)!.detail : '';
+      if (shut) lines.push(`<div class="shut">${escapeHtml(`${shut.name}: ${wait} with the ${weaponName(gun)}`)}</div>`);
+      return `<div class="smith">${lines.join('')}</div>`;
+    };
     const action = preparationAction(v);
     const clock = v.play ? 'Go' : preparationClock(v.left);
     const clockLabel = v.play ? 'You are down' : v.stage === 'dive' ? 'Dropping in' : 'Drop in';
@@ -271,7 +302,7 @@ export class PreparationPage {
     return `<div class="card" role="region" aria-label="Preparation">
 <div><h1>Preparation</h1><p class="goal">${escapeHtml(goalLine({ mode: 'battle-royale', killLimit: null }))}. Stay inside the Ring.</p></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
-<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
+<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
 <div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button><div class="note">${escapeHtml(action.note)}</div>${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { box, buildNavGraph, createWorld, type SpawnPoint } from '@duty-shooter/fps-core';
 import { createNetworkedMatch, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
+import { Line } from './support/line';
 import { FLOOR, ticks } from './support/movement';
 
 /**
@@ -40,7 +41,7 @@ const island = {
   teamSize: { 'battle-royale': 30 },
 };
 
-function server(): NetworkedMatch {
+function server(reconnectGrace = 0): NetworkedMatch {
   return createNetworkedMatch({
     solids: [FLOOR],
     spawns: SPREAD,
@@ -54,7 +55,7 @@ function server(): NetworkedMatch {
     intermission: { nuke: 1, vote: 1 },
     latency: 0.03,
     bots: { nav: townNav, perTeam: 2, maxPerTeam: 6 },
-    reconnectGrace: 0,
+    reconnectGrace,
   });
 }
 
@@ -226,5 +227,106 @@ describe('Squads picked in the lobby', () => {
     expect(lobbyOf(alice)).toMatchObject({ mode: 'battle-royale', squadSize: 2 });
     expect(lobbyOf(alice).squads[alice.client.id!]).toBe(4);
     expect(lobbyOf(alice).squads[bob.client.id!]).toBe(4);
+  });
+});
+
+describe('the host’s hand on the Squads (Aleix, 2026-11-13)', () => {
+  it('lets the host move a person into a Squad with room, and nobody else move another', () => {
+    const m = server();
+    const alice = join(m, 'alice', 'battle-royale');
+    alice.client.setLobby({ squads: 3 });
+    settle(m);
+    const bob = join(m, 'bob');
+    const carol = join(m, 'carol');
+    settle(m);
+    const mine = lobbyOf(alice).squads[alice.client.id!]!;
+    // Bob takes carol out to a Squad of her own: ignored, he isn't the host.
+    bob.client.setSquad(7, carol.client.id!);
+    settle(m);
+    expect(lobbyOf(carol).squads[carol.client.id!]).toBe(mine);
+    alice.client.setSquad(7, carol.client.id!);
+    settle(m);
+    expect(lobbyOf(carol).squads[carol.client.id!]).toBe(7);
+    expect(lobbyOf(alice).squads[alice.client.id!]).toBe(mine);
+    alice.client.setSquad(mine, carol.client.id!);
+    settle(m);
+    expect(lobbyOf(carol).squads[carol.client.id!]).toBe(mine);
+  });
+
+  it('lets the host remove a person from the Battle Royale lobby', () => {
+    const m = server();
+    const alice = join(m, 'alice', 'battle-royale');
+    const bob = join(m, 'bob');
+    settle(m);
+    alice.client.kick(bob.client.id!);
+    settle(m);
+    expect(lobbyOf(alice).players).toEqual([alice.client.id]);
+    expect(bob.client.status).not.toBe('joined');
+  });
+});
+
+describe('coming back to a Squad', () => {
+  it('holds a dropped friend’s seat in their Squad, so a newcomer takes another and they come back into it', () => {
+    const m = server(30);
+    const alice = join(m, 'alice', 'battle-royale');
+    alice.client.setLobby({ squads: 2 });
+    settle(m);
+    const line = new Line(() => m.network.connect());
+    const bob = m.join('bob', { connection: line.connect(), reconnect: line.connect });
+    for (let i = 0; i < ticks(3) && (bob.client.status !== 'joined' || !bob.client.match?.lobby); i++) m.step();
+    settle(m);
+    const id = bob.client.id!;
+    const squad = lobbyOf(alice).squads[alice.client.id!]!;
+    expect(lobbyOf(alice).squads[id]).toBe(squad);
+
+    line.refuse = Infinity;
+    line.cut();
+    m.run(ticks(2));
+    expect(lobbyOf(alice).held).toEqual({ [id]: 'bob' });
+    expect(lobbyOf(alice).squads[id]).toBe(squad);
+    // The Duo's other seat is held: a newcomer goes elsewhere.
+    const carol = join(m, 'carol');
+    settle(m);
+    expect(lobbyOf(alice).squads[carol.client.id!]).not.toBe(squad);
+    carol.client.setSquad(squad);
+    settle(m);
+    expect(lobbyOf(alice).squads[carol.client.id!]).not.toBe(squad);
+
+    // Only the host can let a held seat go; a guest's kick is ignored.
+    carol.client.kick(id);
+    settle(m);
+    expect(lobbyOf(alice).held).toEqual({ [id]: 'bob' });
+
+    line.refuse = 0;
+    for (let i = 0; i < ticks(10) && !(bob.client.status === 'joined' && bob.client.match?.lobby?.players.includes(id)); i++) m.step();
+    settle(m);
+    expect(bob.client.id).toBe(id);
+    expect(lobbyOf(alice).squads[id]).toBe(squad);
+    expect(lobbyOf(alice).held).toBeUndefined();
+  });
+});
+
+describe('letting a held seat go', () => {
+  it('frees a dropped seat the host kicks, and keeps its token out', () => {
+    const m = server(30);
+    const alice = join(m, 'alice', 'battle-royale');
+    alice.client.setLobby({ squads: 2 });
+    settle(m);
+    const line = new Line(() => m.network.connect());
+    const bob = m.join('bob', { connection: line.connect(), reconnect: line.connect });
+    for (let i = 0; i < ticks(3) && (bob.client.status !== 'joined' || !bob.client.match?.lobby); i++) m.step();
+    settle(m);
+    const id = bob.client.id!;
+    line.refuse = Infinity;
+    line.cut();
+    m.run(ticks(2));
+    alice.client.kick(id);
+    settle(m);
+    expect(lobbyOf(alice).held).toBeUndefined();
+    expect(lobbyOf(alice).squads[id]).toBeUndefined();
+    line.refuse = 0;
+    m.run(ticks(3));
+    expect(bob.client.status).not.toBe('joined');
+    expect(lobbyOf(alice).players).toEqual([alice.client.id]);
   });
 });
