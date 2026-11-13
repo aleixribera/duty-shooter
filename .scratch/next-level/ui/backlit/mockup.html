@@ -1,0 +1,617 @@
+<title>Duty Shooter UI Directions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Barlow+Condensed:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700;800&family=Rajdhani:wght@600;700&family=Saira:wdth,wght@75..125,400..800&display=swap">
+<style>
+/* Layout: a review sheet. A sticky chooser (direction x screen) over stacked direction blocks; every mockup is a 1920x1080 stage scaled to its column. */
+:root{
+  color-scheme:dark;
+  --page:#0e0f10; --ink:#e9e7e2; --mute:#a3a29d; --line:#2a2c2f; --mark:#8fe3c8;
+  --ui:"Public Sans",system-ui,"Segoe UI",sans-serif;
+}
+body{background:var(--page);color:var(--ink);font:16px/1.55 var(--ui);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--page)}
+.wrap{max-width:1500px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 80px}
+h1{font-size:clamp(32px,5vw,52px);line-height:1.05;font-weight:800;letter-spacing:-.01em;margin:0 0 16px;text-wrap:balance}
+h2{font-size:clamp(28px,3.4vw,40px);line-height:1.1;font-weight:800;margin:0;text-wrap:balance}
+h3{font-size:18px;font-weight:700;margin:0 0 6px}
+p{margin:0;max-width:68ch}
+a{color:var(--mark)}
+.lede{color:var(--mute);font-size:18px;max-width:72ch}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:28px 40px;margin:36px 0 8px;padding-top:28px;border-top:1px solid var(--line)}
+.rules > div{min-width:0}
+.rules p{color:var(--mute)}
+.beats{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px;font-variant-numeric:tabular-nums}
+.beats li{display:grid;grid-template-columns:64px 1fr;gap:12px;color:var(--mute)}
+.beats li b{color:var(--ink);font-weight:600}
+
+.chooser{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);border-bottom:1px solid var(--line);margin:32px 0 0;padding-block:10px}
+.chooser .r{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px}
+.chooser .r + .r{margin-top:2px}
+.chooser .k{color:var(--mute);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;width:84px}
+.chooser button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--mute);font:600 15px/1 var(--ui);padding:10px 10px 8px;cursor:pointer}
+.chooser button:hover{color:var(--ink)}
+.chooser button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--mark)}
+.chooser button:focus-visible,.play:focus-visible{outline:2px solid var(--mark);outline-offset:2px}
+
+.dir{padding-top:56px}
+.dir-head{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px 48px;align-items:start;margin-bottom:28px}
+.dir-head p{color:var(--mute);margin-top:10px;font-size:17px}
+.kit{display:grid;gap:14px}
+.sw{display:flex;flex-wrap:wrap;gap:10px}
+.sw div{display:grid;gap:4px;font-size:12px;color:var(--mute);width:76px}
+.sw i{display:block;height:36px;border:1px solid #ffffff22}
+.spec{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:12px}
+.spec .big{font-size:34px;line-height:1.1}
+.spec small{color:var(--mute);font-size:13px}
+
+.screen{margin-top:28px}
+.screen-h{display:flex;align-items:baseline;gap:16px;margin-bottom:10px}
+.screen-h h3{margin:0}
+.play{appearance:none;background:none;border:1px solid var(--line);color:var(--ink);font:600 14px/1 var(--ui);padding:8px 14px;cursor:pointer}
+.play:hover{border-color:var(--mark)}
+.frame{overflow-x:auto;border:1px solid var(--line)}
+.stage{position:relative;aspect-ratio:16/9;max-width:100%;overflow:hidden;background:#000}
+.stage > img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px 36px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
+.notes > div{min-width:0}
+.notes p{color:var(--mute);font-size:15px}
+.pick{margin-top:72px;padding-top:32px;border-top:1px solid var(--line);display:grid;gap:16px}
+.pick p{font-size:17px}
+.src{margin-top:40px;color:var(--mute);font-size:14px}
+.src ul{padding-left:18px;margin:8px 0 0;display:grid;gap:4px}
+@media (max-width:760px){
+  .dir-head{grid-template-columns:minmax(0,1fr)}
+  .stage{min-width:720px}
+  .chooser .k{display:none}
+  .chooser .r{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .chooser button{white-space:nowrap;padding:9px 8px 7px}
+}
+
+/* ---------- The 1920x1080 mockup layer: shared low-light base, driven by each direction's tokens ---------- */
+.ui{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;transform:scale(var(--s,.5));line-height:1.15;font-family:var(--text);color:var(--txt);font-size:22px}
+.ui > *{position:absolute}
+.ui b{font-weight:inherit}
+.ui .t-b{color:var(--blue)} .ui .t-o{color:var(--enemy)}
+.lock{opacity:.42}
+.D{font-family:var(--disp);font-weight:var(--dw,700);text-transform:var(--up,uppercase);font-stretch:var(--dx,100%)}
+
+/* panels, unlit */
+.ui :is(.m-prof,.h-top,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn){background:var(--pan);border:1px solid var(--pedge);border-radius:var(--rad)}
+/* lit text */
+.ui :is(.h-clock b,.k-pop,.r-head b,.r-rank .to){color:var(--acc);text-shadow:0 0 22px var(--glow)}
+.ui :is(.m-bar i,.r-bar i){background:var(--acc);box-shadow:0 0 14px var(--glow)}
+
+/* menu */
+.m-shade{inset:0;background:radial-gradient(ellipse 62% 75% at 70% 42%,rgba(3,4,6,.18),rgba(3,4,6,.84) 78%)}
+.m-brand{left:96px;top:72px;font-size:46px;letter-spacing:.08em;color:var(--dim)}
+.m-prof{right:96px;top:64px;width:500px;display:grid;grid-template-columns:72px 1fr;gap:4px 18px;align-items:center;padding:20px 24px}
+.av{grid-row:1/3;width:72px;height:72px;display:grid;place-items:center;font-size:40px;color:var(--acc);border:2px solid var(--acc);border-radius:var(--rad);box-shadow:0 0 18px var(--glow),inset 0 0 16px var(--glow);text-shadow:0 0 12px var(--glow)}
+.m-prof .nm{font-size:24px;font-weight:600;align-self:end}
+.m-prof .rk{font-size:18px;color:var(--dim);align-self:start}
+.m-prof .m-bar,.m-prof .m-next{grid-column:1/-1}
+.m-bar{height:6px;background:var(--track);position:relative;margin-top:10px;border-radius:var(--rad)}
+.m-bar i{position:absolute;inset:0 auto 0 0;border-radius:inherit}
+.m-next{font-size:18px;color:var(--dim);margin-top:6px}
+.m-next b{color:var(--txt);font-weight:600}
+.m-list{left:96px;top:330px;display:flex;flex-direction:column;gap:10px}
+.m-item{display:grid;gap:6px;padding:16px 28px;width:660px;border:1px solid transparent;border-radius:var(--rad)}
+.m-item b{font-size:60px;line-height:1;color:var(--dim)}
+.m-item span{font-size:21px;color:var(--dim2)}
+.m-item.on b{color:var(--txt)}
+.m-item.on span{color:var(--dim)}
+.m-small{left:124px;top:944px;display:flex;gap:44px;font-size:24px;color:var(--dim);font-weight:600}
+.m-small .new{color:var(--txt)}
+.m-small .new i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc),0 0 22px var(--glow);margin-left:10px;vertical-align:5px}
+.m-foot{left:124px;right:96px;bottom:40px;display:flex;gap:36px;font-size:18px;color:var(--dim2);align-items:center}
+.m-foot kbd{font:inherit;border:1px solid currentColor;padding:2px 8px;margin-right:8px;border-radius:min(var(--rad),4px)}
+.m-foot .ver{margin-left:auto}
+
+/* hud */
+.h-top{left:50%;top:28px;translate:-50% 0;display:flex;align-items:stretch}
+.h-team,.h-clock{display:grid;justify-items:center;align-content:center;gap:2px;padding:8px 0}
+.h-team{width:130px}
+.h-clock{width:200px}
+.h-team b,.h-clock b{font-size:54px;line-height:1}
+.h-team span,.h-clock span{font-size:15px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.h-team.blue b{color:var(--blue)} .h-team.orange b{color:var(--enemy)}
+.h-feed{right:56px;top:36px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:20px}
+.h-feed > div{display:flex;gap:12px;align-items:baseline;padding:6px 14px}
+.h-feed .w{font-size:15px;color:var(--dim)}
+.cr{left:960px;top:540px;width:0;height:0}
+.cr i{position:absolute;background:#fff;box-shadow:0 0 0 1px #0009}
+.cr i:nth-child(1){left:-2px;top:-24px;width:4px;height:14px}
+.cr i:nth-child(2){left:-2px;top:10px;width:4px;height:14px}
+.cr i:nth-child(3){left:-24px;top:-2px;width:14px;height:4px}
+.cr i:nth-child(4){left:10px;top:-2px;width:14px;height:4px}
+.h-health{left:72px;bottom:52px;display:grid;gap:4px;padding:14px 22px}
+.h-health span{font-size:15px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.h-health b,.h-mag b{font-size:72px;line-height:1}
+.h-hbar{width:300px;height:8px;background:var(--track);position:relative;border-radius:var(--rad)}
+.h-hbar i{position:absolute;inset:0;background:var(--txt);opacity:.85;border-radius:inherit}
+.h-ammo{right:72px;bottom:52px;display:grid;justify-items:end;gap:4px;padding:14px 22px}
+.h-gun{font-size:20px;color:var(--dim)}
+.h-gun span{color:var(--txt);margin-left:10px;font-size:16px}
+.h-mag{display:flex;align-items:baseline;gap:8px}
+.h-mag .res{font-size:28px;color:var(--dim)}
+.h-nades{display:flex;gap:22px;font-size:17px;color:var(--dim)}
+
+/* kill moment */
+.xm{left:960px;top:540px;width:0;height:0;rotate:45deg}
+.xm i{position:absolute;background:var(--c);box-shadow:0 0 0 1px #000a,0 0 12px var(--c)}
+.xm i:nth-child(1){left:-2px;top:-34px;width:4px;height:18px}
+.xm i:nth-child(2){left:-2px;top:16px;width:4px;height:18px}
+.xm i:nth-child(3){left:-34px;top:-2px;width:18px;height:4px}
+.xm i:nth-child(4){left:16px;top:-2px;width:18px;height:4px}
+.k-hit{--c:#fff;opacity:0}
+.k-kill{--c:var(--killc);--kf:killpop;--dur:160ms}
+.k-pop{left:1012px;top:448px;font-size:64px;line-height:1;--kf:lighton;--dur:420ms;--ease:ease-out}
+.k-why{left:1012px;top:530px;display:grid;gap:2px;padding:8px 16px;font-size:21px}
+.k-why span{color:var(--acc)}
+.k-medal{left:960px;top:196px;translate:-50% 0;display:grid;justify-items:center;gap:4px;padding:16px 40px 14px;--kf:lighton;--dur:520ms;--ease:ease-out}
+.k-medal b{font-size:44px;line-height:1;color:var(--txt);text-shadow:0 0 22px var(--glow)}
+.k-medal span{font-size:19px;color:var(--dim)}
+.stage.go .k-hit{animation:hitflash 180ms linear both}
+.stage.go .beat{animation:var(--kf,rise) var(--dur,220ms) var(--ease,cubic-bezier(.2,.8,.2,1)) var(--at,0ms) both}
+@keyframes hitflash{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+@keyframes rise{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
+@keyframes killpop{0%{opacity:0;scale:1.6}60%{opacity:1;scale:.92}100%{opacity:1;scale:1}}
+@keyframes lighton{0%{opacity:0;filter:brightness(2.6)}25%{opacity:1;filter:brightness(2.2)}100%{opacity:1;filter:brightness(1)}}
+
+/* loadout */
+.l-back{inset:0;background:radial-gradient(ellipse 34% 26% at 50% 60%,color-mix(in srgb,var(--acc) 16%,transparent),transparent 100%),radial-gradient(ellipse 70% 60% at 50% 40%,#16181c,#060708 80%)}
+.l-title{left:96px;top:64px;font-size:46px;letter-spacing:.06em;color:var(--dim)}
+.l-sets{left:96px;top:168px;width:380px;display:grid;gap:10px}
+.l-sets > div{display:grid;gap:4px;padding:14px 18px}
+.l-sets b{font-size:34px;line-height:1;color:var(--dim)}
+.l-sets .on b{color:var(--txt)}
+.l-sets span{font-size:17px;color:var(--dim2)}
+.l-sets .on span{color:var(--dim)}
+.l-kit{left:96px;top:560px;width:380px;display:grid;gap:12px}
+.l-kit > div{display:grid;gap:2px}
+.l-kit span{font-size:15px;color:var(--dim2);text-transform:uppercase;letter-spacing:.1em}
+.l-kit b{font-size:23px;font-weight:600;color:var(--txt)}
+.gun{left:500px;top:150px;width:960px;height:512px}
+.gun-wait{left:500px;top:390px;width:960px;text-align:center;font-size:20px;color:var(--dim)}
+.l-gun{left:560px;top:680px;width:840px;display:grid;gap:8px}
+.l-gun b{font-size:76px;line-height:1}
+.l-gun span{font-size:21px;color:var(--dim)}
+.l-mastery{left:560px;top:836px;width:840px;display:grid;gap:4px;font-size:20px}
+.l-mastery .row{display:flex;justify-content:space-between;color:var(--dim)}
+.l-mastery .row b{color:var(--txt)}
+.l-smith{right:96px;top:150px;width:430px;display:grid;gap:22px}
+.l-slot{display:grid;gap:8px}
+.l-slot > span{font-size:15px;color:var(--dim2);text-transform:uppercase;letter-spacing:.1em}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{height:66px;display:grid;align-content:center;padding:0 12px;font-size:19px;color:var(--dim)}
+.tile.on{color:var(--txt)}
+.tile small{display:block;font-size:14px;color:var(--dim2)}
+.l-note{font-size:17px;color:var(--dim);line-height:1.35}
+.camos{display:flex;gap:8px}
+.camos i{width:46px;height:46px;display:block;border-radius:var(--rad)}
+.l-foot{left:96px;right:96px;bottom:40px;display:flex;gap:36px;font-size:18px;color:var(--dim2)}
+.l-foot kbd{font:inherit;border:1px solid currentColor;padding:2px 8px;margin-right:8px;border-radius:min(var(--rad),4px)}
+
+/* results */
+.r-shade{inset:0;background:rgba(3,4,6,.8)}
+.r-head{left:120px;top:110px;display:grid;gap:14px}
+.r-head b{font-size:150px;line-height:.9}
+.r-head span{font-size:24px;color:var(--dim)}
+.r-me{left:120px;top:380px;display:flex;gap:84px}
+.r-me > div{display:grid;gap:4px}
+.r-me b{font-size:84px;line-height:1}
+.r-me span{font-size:17px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.r-xp{left:120px;top:560px;width:980px;display:grid;gap:14px}
+.r-rank{display:flex;justify-content:space-between;align-items:baseline}
+.r-rank b{font-size:40px;line-height:1}
+.r-rank .from{color:var(--dim)}
+.r-bar{height:14px;background:var(--track);position:relative;overflow:hidden;border-radius:var(--rad)}
+.r-bar i{position:absolute;inset:0 auto 0 0;width:39.3%;border-radius:inherit}
+.r-bar.flash{animation:flash 380ms ease-out}
+@keyframes flash{0%{background:var(--acc);box-shadow:0 0 40px var(--glow)}100%{background:var(--track)}}
+.r-xpn{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;color:var(--dim)}
+.r-xpn .xpn{color:var(--txt)}
+.r-lines{left:120px;top:780px;display:grid;gap:12px;font-size:22px;color:var(--dim)}
+.r-lines b{color:var(--txt);font-weight:600}
+.r-card{right:120px;top:380px;width:600px;display:grid;gap:14px;padding:36px}
+.r-card b{font-size:48px;line-height:1.02}
+.r-card span{font-size:21px;color:var(--dim);line-height:1.35}
+.r-btn{display:inline-grid;place-items:center;padding:0 34px;height:64px;font-size:22px;justify-self:start;color:var(--dim);font-weight:600}
+.r-btn.pri{color:var(--txt)}
+.r-actions{right:120px;bottom:72px;display:flex;gap:14px}
+.stage.go .r-card{animation:lighton 600ms ease-out 2.3s both}
+
+/* ===== 1. Spotlight: cyan light from below ===== */
+.d-spot{--txt:#fff;--dim:rgba(226,236,255,.5);--dim2:rgba(226,236,255,.34);--acc:#38e1ff;--glow:rgba(56,225,255,.5);--pan:rgba(8,11,17,.76);--pedge:rgba(255,255,255,.07);--rad:8px;--track:rgba(255,255,255,.1);--blue:#4d94ff;--enemy:#ff8a2a;--killc:#ff3d55;
+  --disp:"Rajdhani","Arial",sans-serif;--text:"Inter","Segoe UI",sans-serif}
+.d-spot :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card){background:radial-gradient(ellipse 90% 130% at 50% 120%,rgba(56,225,255,.26),rgba(8,11,17,.8) 72%);border-color:rgba(56,225,255,.5);box-shadow:0 14px 44px -14px rgba(56,225,255,.6),inset 0 -2px 0 #38e1ff}
+.d-spot .m-item.on b{text-shadow:0 0 26px rgba(56,225,255,.45)}
+.d-spot .av{border-radius:50%}
+.d-spot .r-btn{border-radius:8px}
+
+/* ===== 2. Edge Light: no boxes, a line of cold light ===== */
+.d-edge{--txt:#f4f8ff;--dim:rgba(232,240,255,.56);--dim2:rgba(232,240,255,.4);--acc:#d6efff;--glow:rgba(150,205,255,.7);--pan:linear-gradient(90deg,rgba(0,0,0,.5),rgba(0,0,0,0));--pedge:transparent;--rad:0px;--track:rgba(255,255,255,.14);--blue:#5c9dff;--enemy:#ff8a2a;--killc:#ff4655;
+  --disp:"Barlow Condensed","Arial Narrow",sans-serif;--text:"Barlow Semi Condensed","Arial Narrow",sans-serif;--dw:600}
+.d-edge .ui{text-shadow:0 1px 3px rgba(0,0,0,.75)}
+.d-edge :is(.h-top,.k-medal,.r-card,.r-btn){background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.5) 20%,rgba(0,0,0,.5) 80%,rgba(0,0,0,0))}
+.d-edge :is(.h-feed > div,.h-ammo){background:linear-gradient(270deg,rgba(0,0,0,.5),rgba(0,0,0,0))}
+.d-edge .h-top{background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.55) 12%,rgba(0,0,0,.55) 88%,rgba(0,0,0,0));padding:0 40px;border-bottom:1px solid rgba(255,255,255,.18)}
+.d-edge .h-team span,.d-edge .h-clock span,.d-edge .h-health span{color:rgba(232,240,255,.72)}
+.d-edge :is(.m-item.on,.l-sets > .on,.tile.on,.r-btn.pri,.r-card){background:linear-gradient(90deg,rgba(190,225,255,.17),rgba(190,225,255,0) 85%);box-shadow:inset 3px 0 0 #e9f6ff,-8px 0 22px -6px rgba(150,205,255,.8)}
+.d-edge .h-feed > .me{background:linear-gradient(270deg,rgba(190,225,255,.2),rgba(190,225,255,0) 90%);box-shadow:inset -3px 0 0 #e9f6ff,8px 0 22px -6px rgba(150,205,255,.8)}
+.d-edge .m-item{padding:12px 28px}
+.d-edge .m-item b{font-size:70px}
+.d-edge .m-item.on b{text-shadow:0 0 24px rgba(150,205,255,.55),0 1px 3px rgba(0,0,0,.6)}
+.d-edge .av{border-width:1px}
+.d-edge .m-bar,.d-edge .h-hbar,.d-edge .r-bar{height:3px}
+.d-edge .r-bar{height:4px}
+.d-edge .tile{background:rgba(0,0,0,.4);box-shadow:inset 0 -1px 0 rgba(255,255,255,.12)}
+.d-edge .r-head b{font-size:170px}
+
+/* ===== 3. Backlit: cut-corner plates lit from behind ===== */
+.d-backlit{--txt:#fbf6ec;--dim:#9a9c9f;--dim2:#74777b;--acc:#ffe2b0;--glow:rgba(255,206,140,.55);--pan:transparent;--pedge:transparent;--rad:0px;--track:#26282b;--blue:#4d94ff;--enemy:#ff8a2a;--killc:#ff4040;
+  --disp:"Chakra Petch","Arial",sans-serif;--text:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;--ch:14px}
+.d-backlit :is(.m-item,.h-team,.h-clock,.h-feed > div,.l-sets > div,.tile,.r-btn){position:relative}
+.d-backlit :is(.m-prof,.m-item,.h-team,.h-clock,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn){isolation:isolate}
+.d-backlit :is(.m-prof,.m-item,.h-team,.h-clock,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn)::before,
+.d-backlit :is(.m-prof,.m-item,.h-team,.h-clock,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn)::after{content:"";position:absolute;z-index:-1;clip-path:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch))}
+.d-backlit :is(.m-prof,.m-item,.h-team,.h-clock,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn)::before{inset:0;background:var(--edgec,#34373b)}
+.d-backlit :is(.m-prof,.m-item,.h-team,.h-clock,.h-feed > div,.h-health,.h-ammo,.k-why,.k-medal,.l-sets > div,.tile,.r-card,.r-btn)::after{inset:var(--ew,1px);background:var(--fill,rgba(17,19,21,.9))}
+.d-backlit .m-item:not(.on){--edgec:transparent;--fill:transparent}
+.d-backlit :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card,.k-medal){--edgec:#ffe7c2;--ew:2px;--fill:radial-gradient(ellipse 90% 140% at 50% 115%,#3b3226,#141516 72%);filter:drop-shadow(0 0 14px rgba(255,206,140,.45))}
+.d-backlit .r-card .r-btn{--edgec:#6a604f;--ew:1px;--fill:#141516}
+.d-backlit .m-item.on b{color:#fff}
+.d-backlit .h-top{gap:6px}
+.d-backlit .h-feed > div{--ch:9px}
+.d-backlit .tile{--ch:10px}
+.d-backlit .av{clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);box-shadow:none;border:0;background:rgba(255,226,176,.14);outline:2px solid var(--acc)}
+.d-backlit .m-item b{font-size:56px}
+.d-backlit .m-item{padding:18px 30px}
+.d-backlit .r-bar i,.d-backlit .m-bar i{box-shadow:0 0 18px rgba(255,206,140,.7)}
+
+/* ===== 4. Neon: a pink tube around what you choose ===== */
+.d-neon{--txt:#fff;--dim:#9d97b8;--dim2:#726c8e;--acc:#ff4fb0;--glow:rgba(255,79,176,.6);--pan:rgba(13,10,22,.8);--pedge:rgba(255,255,255,.06);--rad:6px;--track:#271f3a;--blue:#4d94ff;--enemy:#ff8a2a;--killc:#ff4fb0;
+  --disp:"Saira","Arial",sans-serif;--text:"Saira","Arial",sans-serif;--dx:118%}
+.d-neon .m-shade{background:radial-gradient(ellipse 62% 75% at 70% 42%,rgba(8,4,16,.25),rgba(8,4,16,.86) 78%)}
+.d-neon .r-shade{background:rgba(8,4,16,.82)}
+.d-neon .l-back{background:radial-gradient(ellipse 34% 26% at 50% 60%,rgba(255,79,176,.13),transparent),radial-gradient(ellipse 70% 60% at 50% 40%,#17122a,#07050d 80%)}
+.d-neon :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card){border:2px solid #ff6fc0;box-shadow:0 0 6px #ff4fb0,0 0 26px rgba(255,79,176,.55),inset 0 0 20px rgba(255,79,176,.3);background:rgba(28,10,30,.8)}
+.d-neon :is(.m-item.on b,.l-sets .on b,.r-card b){text-shadow:0 0 14px rgba(255,79,176,.7)}
+.d-neon .m-item b{font-size:52px}
+.d-neon .r-head b{font-size:130px}
+.d-neon .l-gun b{font-size:66px}
+
+/* ===== 5. Lit Panel: the selection is the light ===== */
+.d-lit{--txt:#f2f4ee;--dim:#959a92;--dim2:#6f746c;--acc:#c8ff3d;--glow:rgba(200,255,61,.45);--pan:rgba(11,12,11,.82);--pedge:transparent;--rad:3px;--track:#262924;--blue:#4d94ff;--enemy:#ff8a2a;--killc:#ff4b3e;
+  --disp:"Archivo","Arial",sans-serif;--text:"Archivo","Arial",sans-serif;--dw:800;--dx:112%}
+.d-lit :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card){background:#c8ff3d;border-color:#c8ff3d;box-shadow:0 10px 40px -8px rgba(200,255,61,.5),0 0 0 1px #c8ff3d}
+.d-lit :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card),
+.d-lit :is(.m-item.on,.l-sets > .on,.tile.on,.h-feed > .me,.r-btn.pri,.r-card) *{color:#0b0d08!important;text-shadow:none!important}
+.d-lit .h-feed > .me .w{opacity:.7}
+.d-lit .av{background:#c8ff3d;color:#0b0d08;text-shadow:none}
+.d-lit .m-item b{font-size:54px}
+.d-lit .r-head b{font-size:132px}
+.d-lit .l-gun b{font-size:64px}
+.d-lit .r-card .r-btn{background:#0b0d08;color:#c8ff3d!important;border-color:#0b0d08}
+
+@media (prefers-reduced-motion:reduce){.stage.go *{animation:none!important}}
+</style>
+
+<div class="wrap">
+  <h1>Duty Shooter UI Directions</h1>
+  <p class="lede">Round two, after your note: dark and low-lit. Every screen sits in shadow and only what matters gives off light: the option you are on, the button to press, the number that just changed, the kill. Five ways to draw that light, on the same five screens over real frames from the build. Pick one, or parts of several.</p>
+
+  <div class="rules">
+    <div>
+      <h3>Light is the reward</h3>
+      <p>At rest the HUD sits in low light: grey labels, white numbers, no glow. Light means something is chosen or something happened. A kill is the brightest moment on screen, then it fades back:</p>
+      <ul class="beats">
+        <li><b>0 ms</b>Hit marker and a dry tick</li>
+        <li><b>90 ms</b>The marker turns the kill colour and glows, with a heavier thunk</li>
+        <li><b>120 ms</b>+150 lights up by the crosshair</li>
+        <li><b>300 ms</b>The name, and +50 for the headshot</li>
+        <li><b>750 ms</b>A medal lights, only when earned; one at a time</li>
+        <li><b>1.8 s</b>Back to low light</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Progression in three places</h3>
+      <p>In the menu, your rank and the next unlock in the profile corner, and a lit dot on Loadouts when something new is waiting. In the fight, only score. After the match, one bar that sweeps and flashes as it rolls over the rank, two lines for Mastery and a Challenge, and one lit card for what you unlocked, with Equip it.</p>
+    </div>
+    <div>
+      <h3>Toaster-safe</h3>
+      <p>The glow is a box or text shadow on flat HTML: painted once, then only composited, so it costs the integrated GPU nothing worth measuring. Nothing blurs the game picture behind a panel; round one's frosted glass is gone. Light that animates fades in opacity, never a growing blur.</p>
+      <p style="margin-top:10px">The menu darkens the world behind it so the selection is the brightest thing. In play the world can't be darkened, so there the light is only on the clock, your feed line and the kill. Press Play on the kill moment and the results to watch the timing.</p>
+    </div>
+  </div>
+
+  <div class="chooser" id="chooser">
+    <div class="r" id="pick-dir"><span class="k">Direction</span></div>
+    <div class="r" id="pick-screen"><span class="k">Screen</span></div>
+  </div>
+
+  <div id="dirs"></div>
+
+  <section class="pick">
+    <h2>My read</h2>
+    <p id="read1">The default answer is Spotlight: the round-one Default you liked, turned down, with cyan light doing the selecting. It would be fine, and it is the safest.</p>
+    <p id="read2">I would go one step further: Spotlight's menus and screens, with Lit Panel's way of lighting the one button that matters (Play, Equip it, Play again) as a solid lit block, so the next action is never in doubt. In play, keep Edge Light's HUD: no boxes over the fight, so the only light in a fight is the kill.</p>
+    <p id="read3">What would prove me wrong: if the panel-less HUD reads poorly over the bright desert when you play, the HUD keeps Spotlight's dark panels instead.</p>
+  </section>
+
+  <section class="src">
+    <h3>Research behind it</h3>
+    <ul>
+      <li><a href="https://technology.riotgames.com/node/110">VALORANT shaders and gameplay clarity</a> (Riot): clarity first, on any hardware.</li>
+      <li><a href="https://playcaliber.com/en/news/638/about-our-approach-to-hud-design/">Caliber, our approach to HUD design</a>: check every element over light, dark and mixed backgrounds.</li>
+      <li><a href="https://natdart.myportfolio.com/modern-warfare">Modern Warfare (2019) UI</a>, from an Infinity Ward UI artist: a minimal gunsmith built around the attachments.</li>
+      <li><a href="https://www.gamesradar.com/modern-warfare-3-has-blue-ui-instead-of-red-and-theres-a-good-reason-why">Why Modern Warfare 3's UI went blue</a> (GamesRadar): the accent colour is a readability choice.</li>
+      <li><a href="https://www.nme.com/news/apex-legends-developer-suggests-plan-to-tackle-visual-clutter-3133025">Apex Legends and visual clutter</a> (NME): even the angular plates need restraint.</li>
+      <li><a href="https://bootcamp.uxdesign.cc/7-obvious-beginner-mistakes-with-your-games-hud-from-a-ui-ux-art-director-d852e255184a">7 beginner HUD mistakes</a>, from a UI/UX art director.</li>
+      <li><a href="https://gamejuice.pages.dev/articles/reward-progression-juice-levelups-loot">Reward and level-up juice</a>: bars that sweep rather than jump, a pulse at the rollover.</li>
+      <li><a href="https://kotaku.com/call-of-duty-warzone-s-rewards-screen-needs-to-chill-1843421140">Warzone's rewards screen needs to chill</a> (Kotaku): one reward card, not a flood.</li>
+      <li><a href="https://www.ginx.tv/en/valorant-to-get-change-to-damage-and-health-feedback-replay-system-in-the-works-confirm-devs">Valorant's damage and kill feedback changes</a>: players notice when feedback is taken away.</li>
+      <li><a href="https://www.callofduty.com/blog/2024/10/call-of-duty-black-ops-6-launch-progression-leveling-prestiging-challenges-intel">Black Ops 6 progression</a>: account rank and weapon levels kept apart.</li>
+    </ul>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script>
+const DIRS = [
+  { key:'spot', name:'Spotlight',
+    idea:'The Default you liked, turned down. Dark solid panels, rounded corners, white type, and a cyan light under whatever you are on, spilling up through it like a lit floor. The closest to a current big shooter.',
+    sw:[['#080b11','Panel'],['#ffffff','Lit white'],['#8a93a3','Unlit'],['#38e1ff','Cyan light'],['#ff3d55','Kill red']],
+    type:['Rajdhani','"Rajdhani"',700,'T–2:00  +150','Inter for text'],
+    notes:[
+      ['Borrows from','Valorant\'s and Fortnite\'s menus, and round one\'s Default without the frosted glass, the pill badges and the gradients.'],
+      ['The light','Cyan, from below: a lit bottom edge and a soft spill on the selected row, button, tile and loadout.'],
+      ['The kill','The marker turns red and glows; +150 lights cyan; the medal lights white over a dark plate.'],
+      ['Costs','The safest of the five. Cyan is the genre\'s most common accent, so it is the least its own.'] ] },
+  { key:'edge', name:'Edge Light',
+    idea:'No boxes at all: grey type straight over the world, and a thin line of cold white light on the edge of what you choose, with a faint wash of light beside it. The quietest HUD of the five.',
+    sw:[['#000000','Shadow'],['#f4f8ff','Lit white'],['#8f97a6','Unlit'],['#d6efff','Cold light'],['#ff4655','Kill red']],
+    type:['Barlow Condensed','"Barlow Condensed"',600,'T–2:00  +150','Barlow Semi Condensed for text'],
+    notes:[
+      ['Borrows from','Modern Warfare (2019)\'s minimal menus and gunsmith, and the thin-line HUDs of current military shooters.'],
+      ['The light','A 3 px line of white light with a glow, on the left edge of a choice (the right edge on the right side of the screen), and a wash that fades out from it.'],
+      ['The kill','A red glowing marker, a white +150, the medal on a soft dark band. Nothing else changes.'],
+      ['Costs','Without panels it leans on text shadows over the bright desert. Almost no colour, so the least dopamine at rest.'] ] },
+  { key:'backlit', name:'Backlit',
+    idea:'Cut-corner plates in graphite, like a lightbox switched off. What you choose is lit from behind: its edge glows warm white and the light leaks out around the cut corners.',
+    sw:[['#121315','Graphite'],['#fbf6ec','Lit white'],['#9a9c9f','Unlit'],['#ffe2b0','Warm light'],['#ff4040','Kill red']],
+    type:['Chakra Petch','"Chakra Petch"',700,'T–2:00  +150','IBM Plex Sans Condensed for text'],
+    notes:[
+      ['Borrows from','Apex Legends\' and Titanfall\'s angled plates, and keyboard backlighting: light that comes through the shape rather than sitting on it.'],
+      ['The light','Warm white, from behind: a 2 px lit edge and a halo that follows the cut shape. Every plate has the shape; only the chosen one is lit.'],
+      ['The kill','The medal is a lit plate; +150 glows warm. The marker turns red.'],
+      ['Costs','More edges on screen than the others. Warm white is calm, so the reward leans on brightness, not colour.'] ] },
+  { key:'neon', name:'Neon',
+    idea:'Violet-black and one pink neon tube: the selection is outlined in a lit line that glows onto its panel. Wide type. The most night-time and the most playful of the five.',
+    sw:[['#0d0a16','Night'],['#ffffff','Lit white'],['#9d97b8','Unlit'],['#ff4fb0','Neon pink'],['#4d94ff','Team blue']],
+    type:['Saira, wide','"Saira"',700,'T–2:00  +150','Saira at normal width for text'],
+    notes:[
+      ['Borrows from','Neon signage and night-time arena shooters: one tube of colour in a dark room.'],
+      ['The light','A 2 px pink tube with an outer and an inner glow on the chosen row, tile, button and card.'],
+      ['The kill','The marker, +150 and medal all light pink, the kill colour and the accent in one.'],
+      ['Costs','Pink is loud, and the wide type takes room. It suits a playful game more than a tense one.'] ] },
+  { key:'lit', name:'Lit Panel',
+    idea:'The selection doesn\'t glow at an edge, it becomes the light: a solid lime panel with black type, bright enough to read over anything. The rest stays flat and dark.',
+    sw:[['#0b0c0b','Panel'],['#f2f4ee','Lit white'],['#959a92','Unlit'],['#c8ff3d','Lime light'],['#ff4b3e','Kill red']],
+    type:['Archivo, wide','"Archivo"',800,'T–2:00  +150','Archivo at normal width for text'],
+    notes:[
+      ['Borrows from','The solid selected rows of Call of Duty\'s menus, and The Finals\' habit of one loud colour on a dark screen.'],
+      ['The light','A solid emissive fill with a soft halo. The clearest of the five: there is never a doubt what is chosen.'],
+      ['The kill','+150 lights lime; your line in the feed turns into a lime bar; the marker turns red.'],
+      ['Costs','Lime is the strongest pull on the eye; on every selected thing it can feel loud, so it suits buttons more than every row.'] ] },
+];
+const SCREENS = [['menu','Main menu'],['hud','In play'],['kill','The kill moment'],['loadout','Loadout editor'],['results','After the match']];
+
+function menu(d){
+  return `<img class="bg" src="frames/menu.jpg" alt="">
+  <div class="ui"><div class="m-shade"></div>
+    <div class="m-brand D">Duty Shooter</div>
+    <div class="m-prof"><div class="av D">7</div><div class="nm">Player 9311</div><div class="rk">Rank 7 · 3,420 / 4,000 XP</div><div class="m-bar"><i style="width:85.5%"></i></div><div class="m-next">Next: <b>Marshal .357</b> at Rank 8</div></div>
+    <nav class="m-list">
+      <div class="m-item"><b class="D">Play Online</b><span>12 playing · 2 lobbies open</span></div>
+      <div class="m-item"><b class="D">Battle Royale</b><span>60 seats · Zero Island · Solos, Duos or Trios</span></div>
+      <div class="m-item on"><b class="D">Bot Match</b><span>Any map, any mode, against bots</span></div>
+      <div class="m-item"><b class="D">Practice Range</b><span>Every gun, the locked ones too</span></div>
+    </nav>
+    <div class="m-small"><span class="new">Loadouts<i></i></span><span>Profile</span><span>Settings</span></div>
+    <div class="m-foot"><span><kbd>↑↓</kbd>Move</span><span><kbd>Enter</kbd>Select</span><span class="ver">Changelog · v2.190</span></div>
+  </div>`;
+}
+function hudParts(){
+  return `
+    <div class="h-top">
+      <div class="h-team blue"><b class="D">42</b><span>Blue · you</span></div>
+      <div class="h-clock"><b class="D">T–2:00</b><span>Team deathmatch · 75</span></div>
+      <div class="h-team orange"><b class="D">38</b><span>Orange</span></div>
+    </div>
+    <div class="h-feed">
+      <div><span class="t-b">Juniper</span><span class="w">Vantage 7.62</span><span class="t-o">Vandal</span></div>
+      <div><span class="t-o">Pike</span><span class="w">Wasp 9</span><span class="t-b">Ember</span></div>
+      <div class="me"><span class="t-b">Player 9311</span><span class="w">Trident 5.56</span><span class="t-o">Comet</span></div>
+    </div>
+    <div class="h-health"><span>Health</span><b class="D">100</b><div class="h-hbar"><i></i></div></div>
+    <div class="h-ammo"><div class="h-gun">Trident 5.56<span>Burst</span></div><div class="h-mag"><b class="D">27</b><span class="res">/ 90</span></div><div class="h-nades"><span>Smoke 1</span><span>Frag 1</span></div></div>`;
+}
+function hud(){
+  return `<img class="bg" src="frames/play-1.jpg" alt=""><div class="ui">${hudParts()}<div class="cr"><i></i><i></i><i></i><i></i></div></div>`;
+}
+function kill(){
+  return `<img class="bg" src="frames/play-3.jpg" alt=""><div class="ui">${hudParts()}
+    <div class="xm k-hit"><i></i><i></i><i></i><i></i></div>
+    <div class="xm k-kill beat" style="--at:90ms"><i></i><i></i><i></i><i></i></div>
+    <div class="k-pop D beat" style="--at:120ms">+150</div>
+    <div class="k-why beat" style="--at:300ms">Eliminated Comet<span>Headshot +50</span></div>
+    <div class="k-medal beat" style="--at:750ms"><b class="D">Long shot</b><span>48 m · +100</span></div></div>`;
+}
+function loadout(){
+  const t = (name, cls = '', sub = '') => `<div class="tile ${cls}">${name}${sub ? `<small>${sub}</small>` : ''}</div>`;
+  const camo = ['#4b4f45','#8a7a5c','#c9b48a','#5a6b4b','#2f3a46','#7d2f24'];
+  return `<div class="l-back"></div>
+  <div class="ui">
+    <div class="l-title D">Loadouts</div>
+    <div class="l-sets">
+      <div class="on"><b class="D">Main</b><span>Trident 5.56 · Warden 9</span></div>
+      <div><b class="D">Close</b><span>Wasp 9 · Warden 9</span></div>
+      <div><b class="D">Long</b><span>Ridgeline .308 · Marshal .357</span></div>
+    </div>
+    <div class="l-kit">
+      <div><span>Secondary</span><b>Warden 9</b></div>
+      <div><span>Tactical</span><b>Smoke</b></div>
+      <div><span>Lethal</span><b>Frag</b></div>
+      <div><span>Perk</span><b>Fast Hands</b></div>
+    </div>
+    <canvas class="gun" width="1200" height="640"></canvas>
+    <div class="gun-wait">Loading the Trident 5.56 model</div>
+    <div class="l-gun"><b class="D">Trident 5.56</b><span>Three rounds a press: one aimed burst kills inside 36 m; from the hip it scatters.</span></div>
+    <div class="l-mastery"><div class="row"><span>Mastery <b>2</b></span><span><b>96</b> / 150 kills to Mastery 3</span></div><div class="m-bar"><i style="width:64%"></i></div></div>
+    <div class="l-smith">
+      <div class="l-slot"><span>Optic</span><div class="tiles">${t('Stock')}${t('Reflex','on','A clear dot')}${t('Prism 2x','','2× zoom')}</div>
+        <div class="l-note">Prism 2x: aim-in 18 % slower, a narrower view and a slower turn in the sights.</div></div>
+      <div class="l-slot"><span>Muzzle</span><div class="tiles">${t('Stock','on')}${t('Suppressor')}${t('Compensator')}</div></div>
+      <div class="l-slot"><span>Magazine</span><div class="tiles">${t('Stock','on')}${t('Extended','lock','Mastery 3')}${t('Speed','lock','Mastery 3')}</div></div>
+      <div class="l-slot"><span>Grip</span><div class="tiles">${t('Stock','on')}${t('Vertical','lock','Mastery 4')}${t('Angled','lock','Mastery 4')}</div></div>
+      <div class="l-slot"><span>Camo · Reticle</span><div class="camos">${camo.map((c,i) => `<i style="background:${c};${i===1?'outline:3px solid var(--acc);outline-offset:2px;box-shadow:0 0 16px var(--glow);':''}${i>3?'opacity:.3':''}"></i>`).join('')}</div></div>
+    </div>
+    <div class="l-foot"><span><kbd>Esc</kbd>Back</span><span><kbd>Enter</kbd>Equip</span><span><kbd>R</kbd>Try it in the Practice Range</span></div>
+  </div>`;
+}
+function results(){
+  return `<img class="bg" src="frames/menu.jpg" alt="" style="filter:blur(6px) saturate(.6);transform:scale(1.04)">
+  <div class="ui"><div class="r-shade"></div>
+    <div class="r-head"><b class="D">Victory</b><span>Blue 75 – 62 Orange · Survival Town · Team deathmatch</span></div>
+    <div class="r-me">
+      <div><b class="D">2,350</b><span>Score</span></div>
+      <div><b class="D">14</b><span>Eliminations</span></div>
+      <div><b class="D">1st</b><span>On Blue</span></div>
+    </div>
+    <div class="r-xp"><div class="r-rank"><b class="D from">Rank 7</b><b class="D to">Rank 8</b></div><div class="r-bar"><i></i></div><div class="r-xpn"><b class="xpn">+2,350 XP</b><span>1,770 / 4,500 to Rank 9</span></div></div>
+    <div class="r-lines">
+      <div><b>Trident 5.56 Mastery 2</b> · 54 more kills to the Extended and Speed magazines</div>
+      <div><b>Challenge done</b> · 5 headshots in one match · +500 XP</div>
+    </div>
+    <div class="r-card"><b class="D">Marshal .357 unlocked</b><span>Six heavy rounds: one to the head kills inside 35 m, two to the body inside 15 m.</span><div class="r-btn">Equip it</div></div>
+    <div class="r-actions"><div class="r-btn pri">Play again</div><div class="r-btn">Menu</div></div>
+  </div>`;
+}
+const BUILD = { menu, hud, kill, loadout, results };
+
+const host = document.getElementById('dirs');
+host.innerHTML = DIRS.map(D => `
+  <section class="dir" data-dir="${D.key}" id="dir-${D.key}">
+    <div class="dir-head">
+      <div><h2>${D.name}</h2><p>${D.idea}</p></div>
+      <div class="kit">
+        <div class="sw">${D.sw.map(([c,n]) => `<div><i style="background:${c}"></i>${n}</div>`).join('')}</div>
+        <div class="spec"><span class="big" style="font-family:${D.type[1].replace(/"/g, "'")},sans-serif;font-weight:${D.type[2]}">${D.type[3]}</span><small>${D.type[0]} for display; ${D.type[4]}.</small></div>
+      </div>
+    </div>
+    ${SCREENS.map(([s,label]) => `
+      <div class="screen" data-screen="${s}">
+        <div class="screen-h"><h3>${label}</h3>${s === 'kill' || s === 'results' ? `<button class="play" type="button" data-play="${s}">Play</button>` : ''}</div>
+        <div class="frame"><div class="stage d-${D.key}" data-kind="${s}">${BUILD[s](D.key)}</div></div>
+      </div>`).join('')}
+    <div class="notes">${D.notes.map(([h,p]) => `<div><h3>${h}</h3><p>${p}</p></div>`).join('')}</div>
+  </section>`).join('');
+
+/* scale each 1920x1080 layer to its stage */
+const ro = new ResizeObserver(es => { for (const e of es) e.target.style.setProperty('--s', e.contentRect.width / 1920); });
+document.querySelectorAll('.stage').forEach(s => ro.observe(s));
+
+/* chooser */
+const state = { dir: 'all', screen: 'all' };
+try { const h = location.hash.slice(1); if (DIRS.some(d => d.key === h)) state.dir = h; } catch {}
+function mk(row, key, items){
+  const el = document.getElementById(row);
+  for (const [v, label] of [['all','All five'], ...items]) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.v = v;
+    b.addEventListener('click', () => { state[key] = v; apply(); if (key === 'dir') history.replaceState(null, '', v === 'all' ? location.pathname + location.search : '#' + v); });
+    el.append(b);
+  }
+}
+mk('pick-dir', 'dir', DIRS.map(d => [d.key, d.name]));
+mk('pick-screen', 'screen', SCREENS);
+function apply(){
+  document.querySelectorAll('#pick-dir button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.dir));
+  document.querySelectorAll('#pick-screen button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.screen));
+  document.querySelectorAll('.dir').forEach(s => s.hidden = state.dir !== 'all' && s.dataset.dir !== state.dir);
+  document.querySelectorAll('.screen').forEach(s => s.hidden = state.screen !== 'all' && s.dataset.screen !== state.screen);
+}
+apply();
+addEventListener('hashchange', () => { const h = location.hash.slice(1); state.dir = DIRS.some(d => d.key === h) ? h : 'all'; apply(); });
+
+/* play buttons */
+const ease = t => 1 - Math.pow(1 - t, 3);
+function sweep(stage){
+  const bar = stage.querySelector('.r-bar'), fill = bar.querySelector('i'), xp = stage.querySelector('.xpn');
+  const to = stage.querySelector('.r-rank .to');
+  const show = n => { xp.textContent = '+' + n.toLocaleString('en-US') + ' XP'; };
+  if (to) to.style.visibility = 'hidden';
+  const t0 = performance.now(), A = 700, P = 380, B = 1000, total = A + P + B;
+  function frame(now){
+    const t = now - t0;
+    if (t < A) fill.style.width = (85.5 + 14.5 * ease(t / A)) + '%';
+    else if (t < A + P) { if (!bar.classList.contains('flash')) { fill.style.width = '0%'; bar.classList.add('flash'); if (to) to.style.visibility = ''; } }
+    else fill.style.width = (39.3 * ease(Math.min(1, (t - A - P) / B))) + '%';
+    show(Math.round(2350 * Math.min(1, t / total)));
+    if (t < total) requestAnimationFrame(frame); else { bar.classList.remove('flash'); fill.style.width = ''; show(2350); }
+  }
+  requestAnimationFrame(frame);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-play]'); if (!b) return;
+  const stage = b.closest('.screen').querySelector('.stage');
+  stage.classList.remove('go'); void stage.offsetWidth; stage.classList.add('go');
+  if (b.dataset.play === 'results' && !matchMedia('(prefers-reduced-motion: reduce)').matches) sweep(stage);
+});
+
+/* the loadout gun: one WebGL renderer, copied into every loadout stage on screen */
+(function gun(){
+  const canvases = [...document.querySelectorAll('canvas.gun')];
+  const waits = [...document.querySelectorAll('.gun-wait')];
+  const fail = msg => waits.forEach(w => w.textContent = msg);
+  if (!window.THREE || !THREE.GLTFLoader) return fail('The 3D gun could not load here.');
+  let r;
+  try { r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch { return fail('The 3D gun needs WebGL.'); }
+  r.setPixelRatio(1); r.setSize(1200, 640, false);
+  r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.95;
+  const scene = new THREE.Scene();
+  if (THREE.RoomEnvironment) { const pm = new THREE.PMREMGenerator(r); scene.environment = pm.fromScene(new THREE.RoomEnvironment(), 0.04).texture; }
+  const key = new THREE.DirectionalLight(0xfff1e0, 1.2); key.position.set(2, 3, 1.5); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xc8dcff, 1.1); rim.position.set(-2, 1, -2); scene.add(rim);
+  const cam = new THREE.PerspectiveCamera(24, 1200 / 640, 0.01, 20); cam.position.set(1.08, 0.12, 0); cam.lookAt(0, 0, 0);
+  const pivot = new THREE.Group(); scene.add(pivot);
+  const seen = new Set();
+  const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? seen.add(e.target) : seen.delete(e.target)));
+  canvases.forEach(c => io.observe(c));
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const onErr = (e) => { window.__gun = 'error ' + (e && e.message); fail('The 3D gun could not load here.'); };
+  fetch('trident.txt').then(res => { if (!res.ok) throw new Error(res.status); return res.text(); }).then(b64 => {
+    const bin = atob(b64.trim()), buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    new THREE.GLTFLoader().parse(buf.buffer, '', onGun, onErr);
+  }).catch(onErr);
+  function onGun(g){
+    const m = g.scene, box = new THREE.Box3().setFromObject(m), c = box.getCenter(new THREE.Vector3());
+    m.position.sub(c); pivot.add(m);
+    waits.forEach(w => w.hidden = true); window.__gun = 'loaded';
+    const draw = list => { r.render(scene, cam); for (const cv of list) { const x = cv.getContext('2d'); x.clearRect(0, 0, 1200, 640); x.drawImage(r.domElement, 0, 0); } };
+    pivot.rotation.y = 0; draw(canvases);
+    (function loop(now){
+      requestAnimationFrame(loop);
+      if (!seen.size) return;
+      const t = still ? 0 : now / 1000;
+      pivot.rotation.y = Math.sin(t * 0.32) * 0.62;
+      pivot.rotation.z = Math.sin(t * 0.21) * 0.04;
+      draw(seen);
+    })(performance.now());
+  }
+})();
+</script>

@@ -11,6 +11,7 @@ Decided with Aleix on 2026-11-13:
 - Bots ping only in Battle Royale; everywhere else they are annoying (Aleix).
 - Scopes and sights are super important (Aleix): they are a named part of the weapons item, not a later attachment detail.
 - Progression is the sixth objective (Aleix, 2026-11-13): progress stays in the browser with a save code; 4 guns at the start and one more about every 2 Ranks, all 9 by Rank 12, any gun tried in the Practice Range; customizing is attachments, Mastery camos and optic reticles (no soldier looks yet); a main-menu loadout editor; unlocks shown after the match, not during the fight. Battle Royale uses the same loadouts: no looting, and Supply Drops never hold the sniper.
+- The UI style is Backlit (Aleix, 2026-11-13). He chose it from two rounds of mockups, after rejecting the period-themed looks and asking for "a dark theme, with low light, illuminating the important buttons/selection". `DESIGN.md` holds it, and `.scratch/next-level/ui/backlit/` holds the reference frames and the mockup's CSS.
 
 ## Current stage: the six objectives
 
@@ -23,6 +24,29 @@ Work top to bottom, each item rough first (it works end to end) before any item 
    - **The laptop stays awake for the whole of this item** (it would otherwise lock before or between tests: 5 idle minutes, and a locked screen can't be reopened without Aleix's password). `lt claim duty-shooter` holds a GNOME idle and suspend inhibitor (`laptop-awake.service`) across passes; the director claimed it on 2026-11-13. A pass runs `lt claim duty-shooter` again if `lt status` shows no claim. When this item is resolved, `lt release duty-shooter`; the laptop sleeps again only once no project holds a claim. Its lock and power settings are never changed; closing the lid still sleeps it. If the screen is locked anyway, never unlock it or type Aleix's password: run headless and say so, or ask Aleix under "Needs Aleix".
    - **Calibrate this PC to the laptop as the work goes** (Aleix, 2026-11-13). Each time the laptop is measured, tune `potato.mjs`'s settings (CPU throttle, resolution, anything else that brings it closer) until this PC's mean and 1% low on each map land within 15% of the laptop's latest numbers, and write the factors and both sets of numbers in the ticket. Recalibrate whenever the laptop's numbers move. This PC runs Chrome and the laptop Firefox, so a stutter only Firefox shows is still found and checked on the laptop; the laptop is the judge.
    Acceptance: on the laptop in Firefox, `?benchmark` on every map (Zero Island and the main menu included): mean 60 fps or better, 1% low 40 or better, no frame over 100 ms after the first 5 s of a match, with the before and after numbers in the ticket.
+1b. **The whole UI in the Backlit style** (Aleix's choice, 2026-11-13; it doesn't need the laptop, so work it while item 1 waits for a turn there). Restyle every screen to `DESIGN.md`, matching the reference frames in `.scratch/next-level/ui/backlit/` (`menu`, `hud`, `kill`, `loadout`, `results`; `mockup.html` has the CSS). Rough first, in this order:
+   - **The system, in `theme.ts`:**
+     - the new tokens (`--ds-signal*` renamed `--ds-light*`);
+     - the two self-hosted fonts;
+     - one plate class with its lit and half-lit states (cut corners, edge, halo, lit fill);
+     - the menu's low-light scrim.
+   - **The main menu:**
+     - the destination list, with only the lit row on a plate;
+     - the profile corner, with the Rank, the bar and the next unlock;
+     - the lit dot on Loadouts.
+   - **The HUD, resting in low light:**
+     - the score bar, health, ammo and feed on unlit plates;
+     - the lit clock, and your own feed lines lit;
+     - the kill moment's timed beats (`DESIGN.md`, Motion).
+   - **Every other screen:** lobby, Battle Royale lobby and screen, settings, pause, scoreboard, match end, dialogs, gunsmith, profile, changelog, touch controls.
+
+   Item 7's loadout editor and results screen are built in this style when that item comes, not here.
+   Acceptance:
+   - Frames of every screen at desktop and phone width, beside the reference frames.
+   - `design-audit` passes on every screen.
+   - Nothing in the old mint signal is left (a grep).
+   - The four font files under 100 KB, and the first screen paints before they load.
+   - The main menu's and a match's frame times on this PC's throttled run within noise of before, confirmed on the laptop when it has a turn.
 2. **A review that sees what a player meets.** Rebuild `reviews/capture.mjs` (and the review method in `.claude/iterate.md`) so the scripted player turns toward the nearest enemy and gets kills, a match is run on to its last minute, sound is recorded, every map and mode is visited in turn, two clients share an online lobby, and frame times are logged. The reviewer gives each objective pass or fail with evidence and its biggest gap.
    Acceptance: one capture holds a hit marker and score popup on a kill, a frame and audio from the last minute, a lobby with two clients, and a frame-time summary.
 3. **Lobbies you can bring friends into** (objective 1). Today the server runs one public lobby of 12 that everyone with the link joins. Add private lobbies with their own link, a party that stays together between matches, host controls over teams (move a player, balance) and kick, and rejoining your seat after a dropped connection.
