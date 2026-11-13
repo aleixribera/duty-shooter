@@ -745,6 +745,9 @@ export class Game {
 
   /** One rendered frame. Call from the renderer's animation loop. */
   frame(now: number, render = true): void {
+    // The world's light and sky field are shared with the Practice Range kept behind the menu: this frame's shadow and
+    // viewmodel read them before anything else, so they are taken back first.
+    this.#worldView.show();
     const dt = this.#lastFrame === null ? 1 / 60 : Math.min(0.1, (now - this.#lastFrame) / 1000);
     this.#frameStart = this.#lastFrame ?? now - TICK_MS;
     this.#lastFrame = now;

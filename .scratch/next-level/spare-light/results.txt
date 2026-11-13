@@ -1,0 +1,13 @@
+Ticket 101: the light and sky field the Practice Range kept behind the menu took from the map on show.
+Sun direction the world's uniforms hold (currentLighting = shadows, glare, smoke; shownLighting = materials).
+
+look.mjs (Zero Island behind the menu, deviceMemory 2 = no spare range, 8 = spare built):
+  before mem2 {"current":"-0.619,0.2,0.759","shown":"-0.619,0.2,0.759"}
+  before mem8 {"current":"-0.553,0.623,0.553","shown":"-0.619,0.2,0.759"}   <- range's sun for shadows on the island
+  after  mem8 {"current":"-0.619,0.2,0.759","shown":"-0.619,0.2,0.759"}
+
+range.mjs (spare built behind Survival Town, Switchyard picked, then Practice Range):
+  before menu  {"current":"-0.553,0.623,0.553","shown":"-0.6,0.45,0.66"}
+  before range {"current":"-0.61,0.214,0.763","shown":"-0.553,0.623,0.553"}  <- range shadows cast by Switchyard's sun
+  after  menu  {"current":"-0.6,0.45,0.66","shown":"-0.6,0.45,0.66"}
+  after  range {"current":"-0.553,0.623,0.553","shown":"-0.553,0.623,0.553"}

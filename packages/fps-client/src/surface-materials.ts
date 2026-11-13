@@ -187,25 +187,60 @@ function placeholderField(): DataTexture {
   return t;
 }
 
-/** Lights every world material by `sky` from now on, or by none (a map with a bake, or with no terrain). */
-export function useSkyField(sky: SkyField | null): void {
-  const old = field.map.value;
+/** A map's sky field on the GPU: its picture and where it lies. Its WorldView owns it and disposes it. */
+export interface SkyFieldMap {
+  readonly map: DataTexture;
+  readonly origin: readonly [number, number];
+  readonly size: readonly [number, number];
+  readonly cell: number;
+}
+
+/** `sky` as a texture the world's materials can read (see `showSkyField`). */
+export function skyFieldMap(sky: SkyField): SkyFieldMap {
+  const half = new Uint16Array(sky.data.length);
+  for (let i = 0; i < half.length; i++) half[i] = DataUtils.toHalfFloat(sky.data[i]!);
+  const t = new DataTexture(half, sky.columns, sky.rows, RGBAFormat, HalfFloatType);
+  t.minFilter = t.magFilter = LinearFilter;
+  t.wrapS = t.wrapT = ClampToEdgeWrapping;
+  t.generateMipmaps = false;
+  t.flipY = false;
+  t.needsUpdate = true;
+  return { map: t, origin: [sky.origin[0], sky.origin[1]], size: [sky.columns * sky.cell, sky.rows * sky.cell], cell: sky.cell };
+}
+
+/**
+ * Lights every world material by `sky` from now on, or by none (a map with a bake, or with no terrain). Disposes
+ * nothing: a map behind the menu and the Practice Range kept ready beside it each keep their own and take turns.
+ */
+export function showSkyField(sky: SkyFieldMap | null): void {
   field.on.value = sky ? 1 : 0;
   if (sky) {
-    const half = new Uint16Array(sky.data.length);
-    for (let i = 0; i < half.length; i++) half[i] = DataUtils.toHalfFloat(sky.data[i]!);
-    const t = new DataTexture(half, sky.columns, sky.rows, RGBAFormat, HalfFloatType);
-    t.minFilter = t.magFilter = LinearFilter;
-    t.wrapS = t.wrapT = ClampToEdgeWrapping;
-    t.generateMipmaps = false;
-    t.flipY = false;
-    t.needsUpdate = true;
-    field.map.value = t;
+    field.map.value = sky.map;
     field.origin.value.set(sky.origin[0], sky.origin[1]);
-    field.size.value.set(sky.columns * sky.cell, sky.rows * sky.cell);
+    field.size.value.set(sky.size[0], sky.size[1]);
     field.cell.value = sky.cell;
   } else field.map.value = NO_FIELD;
-  if (old !== NO_FIELD) old.dispose();
+}
+
+/** Whose world the shared light and sky field hold now (`showWorld`). */
+let shownBy: object | null = null;
+
+/**
+ * Puts `owner`'s light and sky field into the uniforms every world material reads, unless they hold them already.
+ * Two worlds share those uniforms (the menu's map and the Practice Range kept ready behind it), so whichever draws
+ * next takes them back. Answers whether anything changed.
+ */
+export function showWorld(owner: object, lighting: Lighting, sky: SkyFieldMap | null): boolean {
+  if (shownBy === owner) return false;
+  shownBy = owner;
+  useLighting(lighting);
+  showSkyField(sky);
+  return true;
+}
+
+/** Whether `owner`'s world is the one the uniforms hold (`showWorld`). */
+export function showsWorld(owner: object): boolean {
+  return shownBy === owner;
 }
 
 /** Where the realtime shadow map reaches now: its centre (x, z) and the radius it fully covers (m). */

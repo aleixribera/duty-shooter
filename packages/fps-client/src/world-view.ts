@@ -42,7 +42,7 @@ import { sunShadowFilter } from './sun-shadow';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
-import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, showLighting, shownLighting, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
+import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, showLighting, shownLighting, showSkyField, showsWorld, showWorld, skyFieldMap, type SkyFieldMap, surfaceMaterial, useLighting } from './surface-materials';
 import { lastMinuteLighting } from './last-minute';
 import { buildSkyField } from './sky-field';
 import { SurfaceHits } from './surface-hit';
@@ -363,6 +363,8 @@ export class WorldView {
   readonly #sun: DirectionalLight;
   /** The map's own light, which the last minute turns (`setLastMinute`). */
   readonly #lighting: Lighting;
+  /** The map's sky field, for a map on terrain until a bake with probes replaces it. */
+  #skyField: SkyFieldMap | null;
   /** The last minute's turn of the map's light, as last shown (`setLastMinute`). */
   #lastMinute: Lighting | null = null;
   /** How far the last minute had turned it then (0..1). */
@@ -399,9 +401,9 @@ export class WorldView {
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
     this.#lighting = content.lighting ?? LIGHTING;
-    useLighting(this.#lighting);
     // A map on terrain bakes only its surfaces: its sky field lights the rest (far shadows, and how much sky each place sees).
-    useSkyField(content.terrain ? buildSkyField(content.terrain, content.solids, (content.lighting ?? LIGHTING).sunDirection) : null);
+    this.#skyField = content.terrain ? skyFieldMap(buildSkyField(content.terrain, content.solids, this.#lighting.sunDirection)) : null;
+    this.show();
     scene.backgroundNode = cloudySky(positionWorldDirection as never);
     // Reflections only (metals, the viewmodel): the probes carry the ambient light.
     scene.environment = reflections(renderer, content.lighting ?? LIGHTING);
@@ -507,7 +509,7 @@ export class WorldView {
       // A map on terrain bakes its surfaces alone: the sky field goes on lighting its ground, plants and whatever moves.
       if (file.probes.dims[0] === 0) return;
       this.probes.load(file);
-      useSkyField(null);
+      this.#dropSkyField();
     });
 
     for (const [i, b] of content.solids.entries()) {
@@ -612,6 +614,7 @@ export class WorldView {
    */
   setLastMinute(sky: number): Lighting | null {
     // The uniforms are shared: a light another view put up since is put back too.
+    this.show();
     if (sky === this.#lastSky && this.#lastMinute !== null && shownLighting() === this.#lastMinute) return null;
     const l = lastMinuteLighting(this.#lighting, sky);
     this.#lastSky = sky;
@@ -672,8 +675,26 @@ export class WorldView {
     for (const mesh of this.#props.values()) mesh.visible = true;
   }
 
+  /**
+   * Puts this map's light and sky field back into the uniforms every world material reads, if another view took
+   * them since (the Practice Range built behind the menu, or a map played and left while the range waited).
+   * Cheap when they are this view's already; the game calls it first thing every frame, and `setLastMinute` again.
+   */
+  show(): void {
+    showWorld(this, this.#lighting, this.#skyField);
+  }
+
+  #dropSkyField(): void {
+    const sky = this.#skyField;
+    if (!sky) return;
+    this.#skyField = null;
+    if (showsWorld(this)) showSkyField(null);
+    sky.map.dispose();
+  }
+
   /** Frees the GPU resources this view made (switching maps builds a new one). */
   dispose(): void {
+    this.#dropSkyField();
     this.scene.traverse((o) => {
       if (!(o instanceof Mesh) || isDepthTwin(o)) return;
       o.geometry.dispose();
