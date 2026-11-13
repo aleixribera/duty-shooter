@@ -57,6 +57,27 @@ export function opticSight(optic: OpticId, at: V3, target = new Vector3()): Vect
 
 const templates = new Map<OpticId, Promise<Object3D | null>>();
 
+/** A pure, moderate red: brighter, the film curve washes it to salmon, which vanishes on the orange targets. */
+const glowRed = () => new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(1, 0, 0.004), emissiveIntensity: 1.4, roughness: 1, metalness: 0 });
+
+/**
+ * A gun with its optic built in (the Vantage): its `red_insert` reticle glows as a
+ * rail optic's does. Lit by the scene, it sat black in the dark tube and vanished
+ * on a target in shade (ticket 112).
+ */
+export function glowBuiltInReticle(scene: Object3D): void {
+  let glow: Material | null = null;
+  scene.traverse((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    const old = mesh.material as Material;
+    if (Array.isArray(old) || old.name.replace(/\.\d+$/, '') !== 'red_insert') return;
+    glow ??= Object.assign(glowRed(), { name: old.name });
+    mesh.material = glow;
+    old.dispose();
+  });
+}
+
 /** The glass reads as clear tinted glass and the reticle glows; both stay out of the baked texture's dark lens finish. */
 function dress(scene: Object3D): void {
   const swap = new Map<Material, Material>();
@@ -72,8 +93,7 @@ function dress(scene: Object3D): void {
       if (finish === 'lens') {
         next = new MeshStandardMaterial({ color: new Color(0.55, 0.75, 0.8), roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.1, depthWrite: false });
       } else if (finish === 'red_insert') {
-        // A pure, moderate red: brighter, the film curve washes it to salmon, which vanishes on the orange targets.
-        next = new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(1, 0, 0.004), emissiveIntensity: 1.4, roughness: 1, metalness: 0 });
+        next = glowRed();
       } else {
         next = old;
       }

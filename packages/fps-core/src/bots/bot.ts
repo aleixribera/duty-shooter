@@ -199,11 +199,11 @@ const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
   pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1, burst: 1, pace: null },
   // Past the M4A1's close band, where its four hits beat the rifle's five; aimed nearly always (the hip sprays), and it stays put with a target in view.
   lmg: { range: [20, 30], ads: 5, reach: Infinity, push: false, rush: null, hold: 50, scoped: false, juke: 1, burst: 2.6, pace: null },
-  // Inside its two-shot band but out of an SMG's; always through the optic, and far off each round waits for the last one's kick to come back.
-  dmr: { range: [24, 38], ads: 0, reach: Infinity, push: false, rush: null, hold: 60, scoped: false, juke: 1, burst: 1, pace: [28, 0.36] },
-  // Well inside the one-burst band, and aimed: from the hip a burst rarely lands whole.
-  burst: { range: [14, 24], ads: 6, reach: Infinity, push: false, rush: null, hold: 36, scoped: false, juke: 1, burst: 1, pace: null },
-  // Inside its two-shot band (12 m); every round placed, since a miss costs 0.4 s and there are six.
+  // At range, where its three hits beat the M4A1's five and six, well out of an SMG's; always through the optic, and far off each round waits for the last one's kick to come back.
+  dmr: { range: [30, 46], ads: 0, reach: Infinity, push: false, rush: null, hold: 60, scoped: false, juke: 1, burst: 1, pace: [28, 0.3] },
+  // Inside the one-burst band (36 m) but out of an SMG's, and aimed: from the hip a burst rarely lands whole.
+  burst: { range: [16, 30], ads: 6, reach: Infinity, push: false, rush: null, hold: 40, scoped: false, juke: 1, burst: 1, pace: null },
+  // Inside its two-shot band (15 m); every round placed, since there are six.
   revolver: { range: [5, 10], ads: 5, reach: 35, push: false, rush: null, hold: 12, scoped: false, juke: 1, burst: 1, pace: [0, 0.4] },
 };
 /** A gun's long bursts (`burst` above 1) only this near (m): farther off, the climb a long burst walks up takes it off the body before the weight settles it. */

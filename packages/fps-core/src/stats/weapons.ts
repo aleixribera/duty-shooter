@@ -27,9 +27,12 @@ import type { Estimated, Source, Stat, Unit } from './types';
  * | Weapon        | Its place                                                                  |
  * | ------------- | -------------------------------------------------------------------------- |
  * | Bulwark 5.56  | 100 rounds and a recoil that settles: slower than the M4A1 close, level with it far, slow to do anything else |
- * | Vantage 7.62  | two hits within 30 m; past it two only when one is the head, else three: between the M4A1 and the sniper |
- * | Trident 5.56  | one three-round burst kills within 26 m when all three land; a miss waits out the gap to the next burst |
- * | Marshal .357  | a secondary: two hits or one to the head within 12 m, six rounds, a slow trigger and a slow reload |
+ * | Vantage 7.62  | three to the body at any range (316 ms), a head and a body in 158 ms: slow up close, quicker than the M4A1 far off |
+ * | Trident 5.56  | one aimed three-round burst kills within 36 m when all three land; from the hip it scatters |
+ * | Marshal .357  | a secondary: one head shot kills within 35 m, two to the body within 15 m; six rounds, a slow trigger |
+ *
+ * Ticket 112 redesigned the shotgun, the burst rifle, the marksman rifle and
+ * the revolver against well-liked shooters; each changed number says why.
  */
 
 export type WeaponId = 'm4a1' | 'smg' | 'shotgun' | 'sniper' | 'pistol' | 'lmg' | 'dmr' | 'burst' | 'revolver';
@@ -280,7 +283,7 @@ export const PISTOL: WeaponRow = {
 
 /** The shotgun: a 12-gauge pump on the Remington 870's numbers, firing 00 buckshot. */
 export const SHOTGUN: WeaponRow = {
-  traits: { name: 'Harrow 12', role: 'One-shot kills in a doorway; useless at range.', slot: 'primary', fireMode: 'pump', reload: 'shell', sight: 'iron' },
+  traits: { name: 'Harrow 12', role: 'One aimed blast kills to about 10 m, two to 16 m; only a chip past 24 m.', slot: 'primary', fireMode: 'pump', reload: 'shell', sight: 'iron' },
   handling: {
     fireRate: tuned(75, 'rpm', '60 / the 0.8 s pump cycle.'),
     magazineSize: sourced(6, 'rounds', REMINGTON_870, 0, 'One of the listed internal tube magazines: "3+1, 4+1, 5+1, 6+1, or 7+1 round". The tube\'s 6 count; the chambered round is not modelled.'),
@@ -302,11 +305,12 @@ export const SHOTGUN: WeaponRow = {
   damage: {
     bands: {
       point: { range: tuned(7, 'm', 'the one-shot band of the target ("one shot within 5 m"), carried on to 7 m: at 5 m the shotgun had to cross the last few metres under fire and lost too many fights in the balance runs.'), damage: tuned(30, 'HP', 'per pellet: any 4 of the 8 pellets kill, limbs included, so a blast that is half on target still kills inside 5 m (the balance runs: at 20, a blast from a bot at 4 m often left a few HP).') },
-      close: { range: tuned(12, 'm', 'the two-shot band of the target ("two shots within 12 m").'), damage: tuned(15, 'HP', 'per pellet: at 12 m about half the pellets of an aimed blast land (measured in the simulation), so two blasts kill (7 pellets, 105), and seven of eight up to about 7 m still kill in one.') },
-      medium: { range: tuned(18, 'm', 'past this the target asks for no reliable kill.'), damage: tuned(7, 'HP', 'per pellet: half the pellets land at this range, so it takes three or four shots.') },
-      long: { damage: tuned(3, 'HP', 'per pellet: a full hit is 24, no reliable kill past 18 m.') },
+      close: { range: tuned(11, 'm', 'the aimed one-shot band (ticket 112): a well-liked pump (Apex Legends\' Peacekeeper) kills with one well-placed blast well past arm\'s length and loses its kill by degrees. Here it fell from 30 to 15 a pellet at 7 m, so a blast at 8 m with six of eight pellets on (90) left the enemy standing: the "hit for 90" that makes a pump feel broken.'), damage: tuned(22, 'HP', 'per pellet: any 5 of the 8 kill (110), so an aimed blast still kills to about 10 m, where the 2.6 deg aimed cone puts most of it on a torso.') },
+      medium: { range: tuned(16, 'm', 'the two-blast band.'), damage: tuned(13, 'HP', 'per pellet: half an aimed blast (4 pellets, 52) twice kills; all eight at once (104) only kill someone who stands still for it.') },
+      far: { range: tuned(24, 'm', 'past this the shotgun only chips.'), damage: tuned(6, 'HP', 'per pellet: a full blast is 48, so even every pellet of two blasts leaves the target standing: no reliable kill past 16 m.') },
+      long: { damage: tuned(4, 'HP', 'per pellet: a full hit is 32, a nudge to finish a hurt enemy, as well-liked pumps keep a little chip at range.') },
     },
-    headMultiplier: tuned(1.2, 'multiplier', 'a small bonus per pellet: a spread is not aimed at the head.'),
+    headMultiplier: tuned(1.5, 'multiplier', 'per pellet, the Peacekeeper\'s before its nerf (1.5, then 1.25 in its November 2019 patch; gamespot.com): a blast aimed high pays at every range, so three head pellets kill up close. It was 1.2, which a spread never felt.'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
     upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
     lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
@@ -319,7 +323,7 @@ export const SHOTGUN: WeaponRow = {
     hipSpreadStill: tuned(4.5, 'deg', 'the pellet cone from the hip: at 5 m it is 0.4 m wide, about a torso.'),
     hipSpreadMoving: tuned(5.5, 'deg', 'a little wider on the move.'),
     hipSpreadAirborne: tuned(8, 'deg', 'wide in the air.'),
-    aimedSpread: tuned(3.2, 'deg', 'the pellet cone aimed: at 12 m it is 1.3 m wide, so about half the pellets land.'),
+    aimedSpread: tuned(2.6, 'deg', 'the pellet cone aimed, tighter than the hip\'s 4.5 so aiming pays, as a choke does: at 10 m it is 0.9 m wide, so five of eight land on a torso; at 16 m about half. It was 3.2.'),
     firstShotKick: tuned(3, 'deg', 'a heavy kick per shot; the pump hides the climb.'),
     verticalKick: tuned(3, 'deg', 'every shot kicks the same.'),
     horizontalKick: tuned(0.6, 'deg', 'a little side kick.'),
@@ -431,10 +435,10 @@ export const LMG: WeaponRow = {
 
 /** The marksman rifle: a semi-automatic in 7.62 mm under a 2x prism optic. */
 export const DMR: WeaponRow = {
-  traits: { name: 'Vantage 7.62', role: 'Two aimed shots: any two up to 30 m, one of them the head past it.', slot: 'primary', fireMode: 'semi', reload: 'magazine', sight: 'optic' },
+  traits: { name: 'Vantage 7.62', role: 'A head and a body shot kill at any range, three to the body; slow to win up close.', slot: 'primary', fireMode: 'semi', reload: 'magazine', sight: 'optic' },
   handling: {
-    fireRate: tuned(240, 'rpm', 'the fastest rate presses are accepted at: two hits 250 ms apart, a little slower than the M4A1\'s four up close (223 ms) and quicker than anything but the sniper far off.'),
-    magazineSize: tuned(12, 'rounds', 'six kills at best, four when every one takes three: enough for a fight, not for a spray.'),
+    fireRate: tuned(380, 'rpm', 'the fastest rate presses are accepted at, 158 ms apart, as fast as a quick finger clicks (Apex Legends\' G7 Scout is 240 rpm, progameguides.com, for more damage a hit): a head and a body in 158 ms; three to the body in 316 ms, about the M4A1\'s five at 40 m (297 ms), quicker than its six past 50 m (371 ms) and well behind its four up close (222 ms). At 270 and 320 rpm bots carrying it, who mostly aim at the chest, won 35 and 37 % of their duels.'),
+    magazineSize: tuned(15, 'rounds', 'five three-shot kills: enough for a fight at range, not for a spray (the G7 carries 20).'),
     muzzleVelocity: tuned(820, 'm/s', 'a full-power rifle round from a mid-length barrel, a little quicker than the sniper\'s heavy load (790).'),
     adsTime: tuned(0.3, 's', 'between the M4A1 (0.242 s) and the sniper (0.35 s).'),
     zoom: tuned(2.2, 'multiplier', 'a low-power optic: enough to pick a head at 60 m, not enough to lose the street around it (the sniper\'s scope is 4x).'),
@@ -451,41 +455,41 @@ export const DMR: WeaponRow = {
   },
   damage: {
     bands: {
-      close: { range: tuned(30, 'm', 'a little past the M4A1\'s close band (27 m): inside it the marksman rifle is a two-shot gun anywhere on the torso. At 45 m bots carrying it beat the M4A1 in the carbine\'s own 30 m band (54 % of 200 duels).'), damage: tuned(52, 'HP', 'two torso hits kill (104); one never does.') },
-      long: { damage: tuned(44, 'HP', 'two torso hits leave 12 HP; a head and a torso (66 + 44) kill, and three torso hits always do: far off it pays for the head.') },
+      close: { range: tuned(50, 'm', 'a full-power round barely falls off: the marksman rifle is the same gun at 10 m and 50 m, where the M4A1 already needs five or six hits (ticket 112). It was a two-shot gun anywhere on the body to 30 m, a better M4A1 inside the carbine\'s own band; well-liked marksman rifles (the G7 Scout, 30 body and 60 head) take three to the body and pay for the head.'), damage: tuned(40, 'HP', 'three torso hits kill (120), two never do (80); a head and a torso (72 + 40) do.') },
+      long: { damage: tuned(38, 'HP', 'three torso hits still kill (114), and a head and a torso (68 + 38).') },
     },
-    headMultiplier: tuned(1.5, 'multiplier', 'a head shot never kills by itself (78 up close, 66 far): that is the sniper\'s. It makes the second shot a kill at any range.'),
+    headMultiplier: tuned(1.8, 'multiplier', 'a head shot never kills by itself (72 up close, 68 far): that is the sniper\'s. It makes a head and a body a kill at any range: the G7 Scout\'s two-to-one head bonus, scaled to a gun that takes three to the body.'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
     upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
     lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
     armMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
-    legMultiplier: tuned(0.9, 'multiplier', 'two leg hits leave 6 HP up close: aim matters.'),
+    legMultiplier: tuned(0.9, 'multiplier', 'three leg hits kill (108 up close, 103 far): aim matters, but a hit is a hit.'),
     penetration: tuned(1.4, 'multiplier', 'a full-power round, a little under the sniper\'s 1.6.'),
   },
   accuracy: {
     hipSpreadStill: tuned(5, 'deg', 'poor from the hip, between the M4A1 (2) and the sniper (9): it is an aimed gun.'),
     hipSpreadMoving: tuned(7, 'deg', 'worse on the move.'),
     hipSpreadAirborne: tuned(11, 'deg', 'hopeless in the air.'),
-    firstShotKick: tuned(1.7, 'deg', 'three times an M4A1 round\'s jump: the optic leaves the target on every shot.'),
-    verticalKick: tuned(1.7, 'deg', 'every shot kicks the same.'),
+    firstShotKick: tuned(1.2, 'deg', 'twice an M4A1 round\'s jump: the reticle hops off the head and comes back (it was 1.7, which left the optic off the target for most of the gap between three body shots).'),
+    verticalKick: tuned(1.2, 'deg', 'every shot kicks the same.'),
     horizontalKick: tuned(0.35, 'deg', 'a little side kick.'),
-    recoilResetTime: tuned(0.45, 's', 'longer than the gap between two presses at its fastest (0.25 s).'),
+    recoilResetTime: tuned(0.45, 's', 'longer than the gap between two presses at its fastest (0.158 s).'),
     recoilReturn: tuned(0.9, 'multiplier', 'a shouldered rifle comes back nearly to where it was aimed, as the sniper does.'),
     recoilReturnDelay: tuned(0.07, 's', 'the optic jumps and starts back at once.'),
-    recoilReturnTime: tuned(0.11, 's', 'at the fastest press (0.25 s) four fifths of the return is done, so a second shot fired flat out lands about half a degree high, 0.4 m at 50 m: fast is for close, a breath between shots is for far.'),
+    recoilReturnTime: tuned(0.08, 's', 'at the fastest press (0.158 s) two thirds of the return is done, so a second shot fired flat out lands about half a degree high, 0.4 m at 50 m: fast is for close, a breath between shots is for far.'),
   },
 };
 
 /** The burst rifle: three rounds a press. */
 export const BURST: WeaponRow = {
-  traits: { name: 'Trident 5.56', role: 'Three rounds a press: one burst kills within 26 m if all three land.', slot: 'primary', fireMode: 'burst', reload: 'magazine', sight: 'iron' },
+  traits: { name: 'Trident 5.56', role: 'Three rounds a press: one aimed burst kills inside 36 m; from the hip it scatters.', slot: 'primary', fireMode: 'burst', reload: 'magazine', sight: 'iron' },
   handling: {
     fireRate: tuned(800, 'rpm', 'the rate inside a burst, about the M4A1\'s (809): three rounds leave in 150 ms.'),
     burstRounds: tuned(3, 'rounds', 'the burst the ticket asks for.'),
-    burstDelay: tuned(0.34, 's', 'from a burst\'s last round to the next burst\'s first: a burst that leaves its target standing costs 490 ms from first round to first round, more than twice an M4A1 kill.'),
+    burstDelay: tuned(0.28, 's', 'from a burst\'s last round to the next burst\'s first, the Hemlok\'s in Apex Legends (burst_fire_delay 0.28, Apex Legends wiki): a burst that leaves its target standing costs 430 ms to the next round. It was 0.34 s, a wait that made one stray round feel like a lost fight.'),
     magazineSize: tuned(30, 'rounds', 'ten bursts, the M4A1\'s magazine.'),
     muzzleVelocity: tuned(930, 'm/s', 'a full-length barrel for the M4A1\'s round.'),
-    adsTime: tuned(0.26, 's', 'a little slower than the M4A1 (0.242 s): a longer rifle.'),
+    adsTime: tuned(0.28, 's', 'slower than the M4A1 (0.242 s): an aimed rifle; caught unaimed up close, it loses (it was 0.26).'),
     zoom: tuned(1.2, 'multiplier', 'iron sights, a touch tighter than the M4A1\'s 1.1: it is aimed burst by burst.'),
     sprintToFire: tuned(0.26, 's', 'about the M4A1\'s 0.246 s.'),
     drawTime: tuned(0.8, 's', 'as the M4A1.'),
@@ -500,9 +504,9 @@ export const BURST: WeaponRow = {
   },
   damage: {
     bands: {
-      close: { range: tuned(26, 'm', 'the one-burst band, just short of the M4A1\'s close band (27 m): where the carbine starts to need a fifth round, a burst stops killing alone. At 38 m bots carrying it beat the M4A1 in the carbine\'s own 30 m band (57 % of 200 duels).'), damage: tuned(34, 'HP', 'three torso hits kill (102), two never do: a burst kills only whole. 150 ms, the quickest kill of any gun that needs more than one hit, and 490 ms when one round of it misses.') },
-      medium: { range: tuned(70, 'm', 'the two-burst band.'), damage: tuned(26, 'HP', 'four torso hits kill: a burst and the first round of the next, 490 ms, against the M4A1\'s 297-371 ms.') },
-      long: { damage: tuned(21, 'HP', 'five torso hits kill: 565 ms, well behind the M4A1 (371 ms).') },
+      close: { range: tuned(36, 'm', 'the one-burst band reaches past the M4A1\'s close band (27 m), as Call of Duty 4\'s burst rifle (the M16, three hits out to mid range) owned the middle distance (ticket 112). It was 26 m, which made it a close-range gun beside the SMG; up close it now gives way to the guns that fire from the hip.'), damage: tuned(34, 'HP', 'three torso hits kill (102), two never do: a burst kills only whole, in 150 ms, and in 430 ms when one round of it misses.') },
+      medium: { range: tuned(70, 'm', 'the two-burst band.'), damage: tuned(26, 'HP', 'four torso hits kill: a burst and the first round of the next, 430 ms, against the M4A1\'s 297-371 ms.') },
+      long: { damage: tuned(21, 'HP', 'five torso hits kill: 505 ms, behind the M4A1 (371 ms).') },
     },
     headMultiplier: tuned(1.4, 'multiplier', 'the rifle\'s head bonus: the same round.'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage, as on the M4A1.'),
@@ -513,11 +517,11 @@ export const BURST: WeaponRow = {
     penetration: tuned(1, 'multiplier', 'the M4A1\'s round.'),
   },
   accuracy: {
-    hipSpreadStill: tuned(2.6, 'deg', 'outside the M4A1 (2.0): from the hip a burst rarely lands whole past a few metres.'),
-    hipSpreadMoving: tuned(4.2, 'deg', 'worse on the move than the M4A1 (3.5).'),
+    hipSpreadStill: tuned(3.4, 'deg', 'well outside the M4A1 (2.0): from the hip a burst lands whole only at arm\'s length, so up close it has to be aimed (it was 2.6).'),
+    hipSpreadMoving: tuned(5, 'deg', 'worse on the move than the M4A1 (3.5).'),
     hipSpreadAirborne: tuned(8, 'deg', 'worse than the M4A1 (7).'),
-    firstShotKick: tuned(0.32, 'deg', 'the second round leaves 0.32 deg above the first: 0.15 m at 26 m.'),
-    verticalKick: tuned(0.36, 'deg', 'the third leaves 0.68 deg above the first, 0.3 m at 26 m: aimed at the belt, a burst walks up the torso; aimed at the chest far off, its last round goes over the shoulder.'),
+    firstShotKick: tuned(0.22, 'deg', 'the second round leaves 0.22 deg above the first: 0.14 m at 36 m.'),
+    verticalKick: tuned(0.24, 'deg', 'the third leaves 0.46 deg above the first, 0.29 m at 36 m: aimed at the chest, a burst stays on the body to the edge of its band (it climbed 0.68 deg, and the last round went over the shoulder past 26 m).'),
     horizontalKick: tuned(0.1, 'deg', 'a burst climbs straight.'),
     recoilResetTime: tuned(0.25, 's', 'shorter than the wait between bursts, so every burst is the same three kicks.'),
     recoilReturn: tuned(0.95, 'multiplier', 'nearly all of a burst comes back: the next starts where this one did.'),
@@ -528,7 +532,7 @@ export const BURST: WeaponRow = {
 
 /** The revolver: six rounds of .357, the second secondary. */
 export const REVOLVER: WeaponRow = {
-  traits: { name: 'Marshal .357', role: 'Six heavy rounds: two hits, or one to the head, inside 12 m.', slot: 'secondary', fireMode: 'semi', reload: 'cylinder', sight: 'iron' },
+  traits: { name: 'Marshal .357', role: 'Six heavy rounds: one to the head kills inside 35 m, two to the body inside 15 m.', slot: 'secondary', fireMode: 'semi', reload: 'cylinder', sight: 'iron' },
   handling: {
     fireRate: tuned(210, 'rpm', 'the fastest rate presses are accepted at: a long double-action pull, 286 ms between shots. Two hits kill in 286 ms against the pistol\'s three in 300 ms; a miss costs 286 ms more against the pistol\'s 150. It was 150 rpm (400 ms) while the pistol took four hits in 450 ms.'),
     magazineSize: tuned(6, 'rounds', 'a six-shot cylinder, as the ticket asks: three kills at best before the slowest sidearm reload.'),
@@ -541,18 +545,18 @@ export const REVOLVER: WeaponRow = {
     moveSpeed: tuned(1.3, 'multiplier', 'a sidearm\'s pace, a little under the pistol (1.4) for the weight.'),
   },
   reload: {
-    tacticalAddAmmo: tuned(2, 's', 'cylinder out, cases dumped, six rounds in off a speedloader: nearly twice the pistol\'s magazine (1.05 s).'),
-    tacticalDuration: tuned(2.6, 's', 'the cylinder shut and the gun back up: longer than the M4A1\'s reload (2.23 s) for a fifth of the rounds.'),
-    emptyAddAmmo: tuned(2, 's', 'the same hands: a revolver has nothing to chamber.'),
-    emptyDuration: tuned(2.6, 's', 'the same as with rounds left.'),
+    tacticalAddAmmo: tuned(1.8, 's', 'cylinder out, cases dumped, six rounds in off a speedloader: still most of twice the pistol\'s magazine (1.05 s).'),
+    tacticalDuration: tuned(2.3, 's', 'the cylinder shut and the gun back up, about Valorant\'s Sheriff (2.25 s): it was 2.6 s, longer than any rifle\'s for six rounds.'),
+    emptyAddAmmo: tuned(1.8, 's', 'the same hands: a revolver has nothing to chamber.'),
+    emptyDuration: tuned(2.3, 's', 'the same as with rounds left.'),
   },
   damage: {
     bands: {
-      close: { range: tuned(12, 'm', 'the pistol\'s close band: a sidearm\'s reach.'), damage: tuned(52, 'HP', 'two torso hits kill, where the M4A1 takes four: it hits like a rifle and a half up close.') },
-      medium: { range: tuned(30, 'm', 'the three-shot band.'), damage: tuned(36, 'HP', 'three torso hits kill, 571 ms: slower than the pistol\'s four (450 ms).') },
-      long: { damage: tuned(26, 'HP', 'four torso hits kill, 857 ms: no gun for a long shot.') },
+      close: { range: tuned(15, 'm', 'a little past the pistol\'s close band (12 m): two body hits kill in 286 ms.'), damage: tuned(52, 'HP', 'two torso hits kill, where the M4A1 takes four: it hits like a rifle and a half up close.') },
+      medium: { range: tuned(35, 'm', 'the head-shot band (ticket 112): well-liked hand cannons kill with one head shot well past arm\'s length (Valorant\'s Sheriff, 160 to the head out to 30 m against 150 HP, dodge.gg; Counter-Strike\'s Desert Eagle). It killed with one head shot only inside 12 m, which left it a slower pistol.'), damage: tuned(40, 'HP', 'three torso hits kill (120, 571 ms), one head shot does (104).') },
+      long: { damage: tuned(34, 'HP', 'three torso hits still kill (102); a head shot leaves 12 HP.') },
     },
-    headMultiplier: tuned(2, 'multiplier', 'one head shot kills inside 12 m (104) and nowhere else (72): the reason to carry it instead of the pistol.'),
+    headMultiplier: tuned(2.6, 'multiplier', 'one head shot kills inside 35 m (104 and more) and not past it (88): the reason to carry it instead of the pistol. The Sheriff\'s is about 2.9 (55 body, 160 head).'),
     neckMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
     upperTorsoMultiplier: tuned(1, 'multiplier', 'the base the bands describe.'),
     lowerTorsoMultiplier: tuned(1, 'multiplier', 'the torso\'s damage.'),
@@ -561,7 +565,7 @@ export const REVOLVER: WeaponRow = {
     penetration: tuned(1.1, 'multiplier', 'a heavier bullet than the pistol\'s goes through a little more than the M4A1\'s.'),
   },
   accuracy: {
-    hipSpreadStill: tuned(1.8, 'deg', 'a little wider than the pistol (1.4): the long pull moves the muzzle.'),
+    hipSpreadStill: tuned(1.2, 'deg', 'tighter than the pistol (1.4): a hand cannon\'s first shot goes where it is pointed (the Sheriff and the Desert Eagle are first-shot accurate), and its 3.4 deg flip punishes the second. It was 1.8.'),
     hipSpreadMoving: tuned(3, 'deg', 'wider than the pistol (2.4).'),
     hipSpreadAirborne: tuned(6, 'deg', 'wider than the pistol (5).'),
     firstShotKick: tuned(3.4, 'deg', 'the hardest flip of anything but the sniper: the sights leave the target on every shot.'),

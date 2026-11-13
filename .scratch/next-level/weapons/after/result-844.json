@@ -1,0 +1,105 @@
+{
+  "runs": [
+    {
+      "label": "shotgun-8m-chest",
+      "distance": 8.2,
+      "presses": 1,
+      "fired": 1,
+      "before": {
+        "weapon": "shotgun",
+        "ammo": 6,
+        "ttk": "–",
+        "shots": "–",
+        "lastHit": "–"
+      },
+      "after": {
+        "weapon": "shotgun",
+        "ammo": 5,
+        "ttk": "20 ms",
+        "shots": "1 / 1",
+        "lastHit": "127.6 HP · lower torso · 8 m"
+      }
+    },
+    {
+      "label": "revolver-24m-head",
+      "distance": 24.4,
+      "presses": 1,
+      "fired": 1,
+      "before": {
+        "weapon": "revolver",
+        "ammo": 6,
+        "ttk": "20 ms",
+        "shots": "1 / 1",
+        "lastHit": "127.6 HP · lower torso · 8 m"
+      },
+      "after": {
+        "weapon": "revolver",
+        "ammo": 5,
+        "ttk": "55 ms",
+        "shots": "1 / 1",
+        "lastHit": "104.0 HP · head · 24 m"
+      }
+    },
+    {
+      "label": "burst-29m-chest",
+      "distance": 23.3,
+      "presses": 1,
+      "fired": 3,
+      "before": {
+        "weapon": "burst",
+        "ammo": 30,
+        "ttk": "–",
+        "shots": "–",
+        "lastHit": "–"
+      },
+      "after": {
+        "weapon": "burst",
+        "ammo": 27,
+        "ttk": "175 ms",
+        "shots": "3 / 3",
+        "lastHit": "34.0 HP · upper torso · 23 m"
+      }
+    },
+    {
+      "label": "dmr-54m-chest",
+      "distance": 48.2,
+      "presses": 3,
+      "fired": 3,
+      "before": {
+        "weapon": "dmr",
+        "ammo": 15,
+        "ttk": "175 ms",
+        "shots": "3 / 3",
+        "lastHit": "34.0 HP · upper torso · 23 m"
+      },
+      "after": {
+        "weapon": "dmr",
+        "ammo": 12,
+        "ttk": "1075 ms",
+        "shots": "3 / 3",
+        "lastHit": "40.0 HP · upper torso · 48 m"
+      }
+    },
+    {
+      "label": "dmr-54m-head-chest",
+      "distance": 48.2,
+      "presses": 2,
+      "fired": 2,
+      "before": {
+        "weapon": "dmr",
+        "ammo": 15,
+        "ttk": "1075 ms",
+        "shots": "3 / 3",
+        "lastHit": "40.0 HP · upper torso · 48 m"
+      },
+      "after": {
+        "weapon": "dmr",
+        "ammo": 13,
+        "ttk": "625 ms",
+        "shots": "2 / 2",
+        "lastHit": "40.0 HP · upper torso · 48 m"
+      }
+    }
+  ],
+  "errors": []
+}

@@ -40,8 +40,10 @@ describe('time-to-kill targets', () => {
     for (const d of [26, 40, 60, 90]) expect(timeToKill('smg', d), `${d} m`).toBeGreaterThan(timeToKill('m4a1', d));
   });
 
-  it('the shotgun kills in one shot within 5 m, two within 12 m, and not reliably past 18 m', () => {
+  it('the shotgun kills in one shot within 5 m (aimed, to 10 m), two within 12 m, and not reliably past 18 m', () => {
     for (const d of [1, 3, 5]) expect(shotsToKill('shotgun', d), `${d} m`).toBe(1);
+    // An aimed blast with five of its eight pellets on still kills to 10 m: no "hit for 90" just past arm's length (ticket 112).
+    for (const d of [6, 8, 10]) expect(shotsToKill('shotgun', d, 'upperTorso', 5), `${d} m`).toBe(1);
     // At 12 m about half of an aimed blast lands.
     for (const d of [6, 9, 12]) expect(shotsToKill('shotgun', d, 'upperTorso', 4), `${d} m`).toBeLessThanOrEqual(2);
     // Past 18 m even every pellet of two blasts on target leaves the player standing.

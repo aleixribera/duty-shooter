@@ -155,15 +155,11 @@ describe('the marksman rifle', () => {
     expect(eventsOf(m.run(ticks(1.5), () => ({ [SHOOTER]: usercmd({ buttons: ['Fire'] }) })), 'shot')).toHaveLength(1);
   });
 
-  it('kills with any two hits to the body inside its near band', () => {
-    for (const distance of [5, near - 2]) {
-      for (const zone of ['upperTorso', 'lowerTorso', 'arm'] as const) expect(measuredKill('dmr', distance, zone).hits, `${zone} at ${distance} m`).toBe(2);
-    }
-  });
-
-  it('kills with two at range only when one is the head, else three', () => {
-    for (const distance of [near + 5, 70, 120]) {
-      expect(measuredKill('dmr', distance).hits, `torso at ${distance} m`).toBe(3);
+  it('kills with three to the body at any range, and two only when one is the head', () => {
+    for (const distance of [5, near - 2, near + 5, 70, 120]) {
+      // A limb that far off is a few pixels wide; the torso stands for the body there.
+      const zones = distance > 70 ? (['upperTorso'] as const) : (['upperTorso', 'lowerTorso', 'arm'] as const);
+      for (const zone of zones) expect(measuredKill('dmr', distance, zone).hits, `${zone} at ${distance} m`).toBe(3);
       expect(bulletDamage(distance, 'head', 'dmr') + bulletDamage(distance, 'upperTorso', 'dmr'), `head and torso at ${distance} m`).toBeGreaterThanOrEqual(STATS.health.max.value);
     }
   });
@@ -245,6 +241,14 @@ describe('the revolver', () => {
   it('kills up close with two to the body or one to the head', () => {
     expect(measuredKill('revolver', 8).hits).toBe(2);
     expect(measuredKill('revolver', 8, 'head').hits).toBe(1);
+  });
+
+  it('kills with one to the head to the end of its head-shot band, and not past it', () => {
+    const band = revolver.damage.bands.medium!.range!.value;
+    for (const distance of [14, 25, band - 1]) expect(measuredKill('revolver', distance, 'head').hits, `${distance} m`).toBe(1);
+    expect(measuredKill('revolver', band + 5, 'head').hits).toBe(2);
+    // The pistol never does that.
+    expect(shotsToKill('pistol', 5, 'head')).toBeGreaterThan(1);
   });
 
   it('hits harder than the pistol at every range, with fewer rounds and a slower trigger', () => {
