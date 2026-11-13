@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 20 (2026-11-13) took item 5's Switchyard streaky strip, pass 1 (ticket 100), and shipped it (v2.194.3): the open boxcars' door posts and corners wear plain steel instead of the body's corrugation and rust squeezed onto a 5 cm face (`yard-strip/sheet.jpg`). Pass 19 cut the Dustlands sandstone redraw (`strata/sandstone.patch`, pass 2 in BACKLOG). Next: item 5's other gaps (Switchyard's B and A markers overlapping at the screen's edge, 11-kill-2b; the Charge spawn facing a container, 23-a; Survival Town's spawn facing a mannequin, 22-a), item 4 when the laptop is back (it was unreachable on Tailscale at pass 20). Item 6 leftovers in ticket 102.
+Loop pass 21 (2026-11-13) took item 5's overlapping objective markers, pass 1 (ticket 100), and shipped it (v2.194.4): Outposts' zones and Charge's sites pinned to one edge of the screen stand one over the other instead of printing letter over letter, and on a narrow screen the caption drops under the A B C strip (`edge-markers/sheet.jpg`). Pass 20 shipped the Switchyard boxcar strip (v2.194.3). Next: item 5's other gaps (the Charge spawn facing a container, 23-a; Survival Town's spawn facing a mannequin, 22-a), item 4 when the laptop is back (unreachable on Tailscale again at pass 21). Item 6 leftovers in ticket 102.
 
 ## Needs Aleix
 
