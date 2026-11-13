@@ -1,0 +1,216 @@
+diff --git a/tools/map/fit-solids.mjs b/tools/map/fit-solids.mjs
+index 363d7f84..9254f752 100644
+--- a/tools/map/fit-solids.mjs
++++ b/tools/map/fit-solids.mjs
+@@ -29,9 +29,9 @@ const OUT = join(ROOT, 'apps/range/src/map/kit-solids.ts');
+ export const SOURCES = [
+   {
+     glb: 'apps/range/public/models/vegetation.glb',
+-    // Boulders and rubble (ticket 78) are rounded and broken where the jointed rocks were flat: more boxes, and
++    // Boulders, rubble (ticket 78) and the sandstone ledges (ticket 100) are rounded, broken and worn: many boxes, and
+     // rubble's breaks are worth a box down to a smaller share, as there are few of them on the island.
+-    assets: { 'rock-a': 8, 'rock-b': 8, 'rock-strata': 3, 'rubble-a': [10, 0.004], 'rubble-b': [10, 0.004], 'pine-trunk': 4, 'broadleaf-trunk': 4 },
++    assets: { 'rock-a': 8, 'rock-b': 8, 'rock-strata': [14, 0.004], 'rubble-a': [10, 0.004], 'rubble-b': [10, 0.004], 'pine-trunk': 4, 'broadleaf-trunk': 4 },
+   },
+   {
+     // Ground Zero's kit for the cover pass's pieces (ticket 17), unit models like the rocks.
+diff --git a/tools/map/vegetation.py b/tools/map/vegetation.py
+index ccb89db9..49a20aed 100644
+--- a/tools/map/vegetation.py
++++ b/tools/map/vegetation.py
+@@ -154,61 +154,135 @@ def boulder_lod(name, seed):
+     return kit.asset(name, [o], smooth_angle=50)
+ 
+ 
+-# Jointed rocks (ticket 63): a map solid is boxes, so a rock is built from
+-# blocks that boxes can follow. Rounded boulders left their box's corners and
+-# top edges as invisible walls, and boxes fitted inside them left a hand's
+-# width of rock that bullets went through. The Dustlands' ledges are a few blocks of
+-# stone broken along joints, as granite and sandstone weather: flat faces, a
+-# small chamfer on every edge, the crown's top corners spalled off and the
+-# faces pitted inward. Everything about a block is cut into it, never added, so
+-# tools/map/fit-solids.mjs finds boxes a few centimetres inside its faces.
+-ROCKS = {
+-    # Sandstone ledges, each stepped back a little from the one under it.
+-    "rock-strata": [((-0.5, -0.5, -0.06), (0.5, 0.48, 0.4)), ((-0.48, -0.47, 0.34), (0.5, 0.5, 0.7)), ((-0.46, -0.45, 0.64), (0.47, 0.48, 0.9)), ((-0.4, -0.42, 0.85), (0.43, 0.42, 1.0))],
++# Sandstone ledges (ticket 100, after ticket 63's jointed blocks read as boxes stacked on one another): one mass
++# of bedded stone, worn as sandstone weathers. Its plan is a rounded square whose corners differ, one nearly
++# square and another worn right round; the beds are uneven in thickness, the soft ones eroded back under the
++# bed above and the hard ones standing out over them as lips, each shifted a little from the one under it; a vertical
++# joint or two is opened into a cleft; the faces are scored along the bedding, and the crown is rounded over.
++# Everything is worn in, never added, so the foot stays the widest it is and tools/map/fit-solids.mjs fills it
++# with a handful of boxes.
++STRATA = {
++    # (seed, bed tops as shares of the height, which of those beds are soft, joints)
++    "rock-strata": (13, (0.3, 0.36, 0.42, 0.47, 0.74, 0.8), (1, 3, 5), 2),
+ }
+-# Unit metres of a rock's edge chamfer, the most a face is pitted in, and how far down a top corner spalls (a share of the block).
+-EDGE, PIT, SPALL = 0.01, 0.004, 0.1
++# Unit metres: how far a soft bed is worn back, how far a bed is shifted from the one under it, a cleft's depth,
++# the score lines' depth, and how far down the crown rounds over.
++NOTCH, SHIFT, CLEFT, SCORE, CROWN = 0.04, 0.005, 0.08, 0.01, 0.025
++# How far a bed's edge wanders in and out around the rock.
++WANDER = 0.1
+ 
+ 
+-def jointed(name, seed, blocks, lod=False):
+-    """A rock of `blocks` ((lo, hi) corners, unit frame, z up), overlapping. `lod`: the bare blocks, 12 triangles each."""
++def sandstone(name, seed, beds, soft, joints, lod=False):
++    """A sandstone ledge filling the unit box (x and y -0.5 to 0.5, z from -0.06 to 1). `lod`: the same in about 150 triangles."""
+     rng = random.Random(seed)
+     seed_v = Vector((rng.uniform(0, 50), rng.uniform(0, 50), rng.uniform(0, 50)))
+-    parts = []
+-    for lo, hi in blocks:
+-        lo, hi = Vector(lo), Vector(hi)
+-        c, h = (lo + hi) / 2, (hi - lo) / 2
+-        bm = bmesh.new()
+-        bmesh.ops.create_cube(bm, size=2.0)
++    around = 12 if lod else 32
++    tops = (-0.06, *beds, 1.0)
++    # Each bed: its squareness at each corner (a superellipse's exponent: 5 worn round, 14 nearly square) and its shift.
++    corners = [[rng.uniform(5.0, 14.0) for _ in range(4)] for _ in tops]
++    # Each bed's own wander round the rock (a noise offset).
++    wander = [Vector((rng.uniform(0, 40), rng.uniform(0, 40), rng.uniform(0, 40))) for _ in tops]
++    for k in range(1, len(corners)):
++        corners[k] = [0.55 * a + 0.45 * b for a, b in zip(corners[k - 1], corners[k])]
++    shifts = [Vector((0, 0))] + [Vector((rng.uniform(-1, 1), rng.uniform(-1, 1))) * SHIFT for _ in tops[1:]]
++    # Clefts: (angle around, half-width in radians, from and to height).
++    clefts = [(rng.uniform(0, math.tau), rng.uniform(0.05, 0.09), rng.uniform(0.0, 0.3), rng.uniform(0.7, 1.0)) for _ in range(joints)]
++
++    # Heights of the rings: a few through each bed, more where a soft one wears back.
++    if lod:
++        zs = [-0.06, 0.3, 0.6, 0.88, 0.96, 1.0]
++    else:
++        zs = []
++        for k in range(len(tops) - 1):
++            z0, z1 = tops[k], tops[k + 1]
++            # A soft bed is worn back deepest just under the bed above, which overhangs it as a lip.
++            fr = (0, 0.3, 0.6, 0.8, 0.92) if k in soft else (0, 0.06, 0.5)
++            zs += [z0 + (z1 - z0) * f for f in fr]
++        zs += [1.0 - CROWN * 0.5, 1.0 - CROWN * 0.15, 1.0]
++        zs = sorted(set(round(z, 4) for z in zs))
++
++    def notch(t):
++        """How far a soft bed is worn back, 0 to 1, `t` of the way up it: a slope up into the dark under the lip."""
++        return (t / 0.82) ** 0.8 if t < 0.82 else max(0.0, 1 - (t - 0.82) / 0.18) ** 0.5
++
++    def bed_at(z):
++        for k in range(len(tops) - 1):
++            if z <= tops[k + 1]:
++                return k, (z - tops[k]) / max(1e-6, tops[k + 1] - tops[k])
++        return len(tops) - 2, 1.0
++
++    def ring(z):
++        k, t = bed_at(z)
++        # The bed's corners and shift, blended into the next over its top tenth so the beds meet.
++        b = max(0.0, (t - 0.9) / 0.1) if k + 1 < len(tops) - 1 else 0.0
++        sq = [a * (1 - b) + c * b for a, c in zip(corners[k], corners[min(k + 1, len(corners) - 1)])]
++        shift = shifts[k] * (1 - b) + shifts[min(k + 1, len(shifts) - 1)] * b
++        # The crown rounds over.
++        over = max(0.0, (z - (1 - CROWN)) / CROWN)
++        crown = CROWN * (1 - math.sqrt(max(0.0, 1 - over * over)))
++        pts = []
++        for i in range(around):
++            a = i / around * math.tau
++            c, s = math.cos(a), math.sin(a)
++            q = (0 if s < 0 else 3) if c < 0 else (1 if s < 0 else 2)
++            p = sq[q]
++            x = 0.5 * math.copysign(abs(c) ** (2 / p), c)
++            y = 0.5 * math.copysign(abs(s) ** (2 / p), s)
++            # A soft bed worn back further in some places than others; a bed's wander blends into the next's at its top.
++            soft_here = NOTCH * (0.35 + 0.9 * (0.5 + 0.5 * noise.noise(Vector((c * 1.3, s * 1.3, k * 7.1)) + seed_v))) * notch(t) if k in soft else 0.0
++            m = min(1.0, max(0.0, (t - 0.85) / 0.15))
++            w = wander[k] * (1 - m) + wander[min(k + 1, len(wander) - 1)] * m
++            # The foot wanders least: it stands in the ground, where a body takes cover.
++            foot = 0.3 + 0.7 * min(1.0, max(0.0, z / 0.3)) ** 2
++            edge_in = WANDER * foot * max(0.0, noise.noise(Vector((c * 1.7, s * 1.7, z * 1.5)) + w))
++            inward = soft_here + edge_in + crown
++            if not lod:
++                for ca, hw, z0, z1 in clefts:
++                    d = abs((a - ca + math.pi) % math.tau - math.pi)
++                    if d < hw and z0 <= z <= z1:
++                        edge = min(1.0, (z1 - z) / 0.08, (z - z0) / 0.08 + (1.0 if z0 <= 0.0 else 0.0))
++                        inward += CLEFT * math.cos(d / hw * math.pi / 2) ** 2 * edge
++                # Scored along the bedding: noise stretched round the rock, fine up it.
++                pv = Vector((x * 3.0, y * 3.0, z * 26.0)) + seed_v
++                inward += SCORE * max(0.0, noise.noise(pv))
++            # Inward toward the plan's middle, never out of the unit box.
++            r = math.hypot(x, y)
++            f = max(0.0, (r - inward) / r)
++            pts.append(Vector((x * f + shift.x, y * f + shift.y, z)))
++        return pts
++
++    bm = bmesh.new()
++    rings = [[bm.verts.new(p) for p in ring(z)] for z in zs]
++    for lo, hi in zip(rings, rings[1:]):
++        for i in range(around):
++            j = (i + 1) % around
++            bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
++    # The crown: a flat top; the foot's floor closes it.
++    mid = sum((v.co for v in rings[-1]), Vector()) / around
++    inner = [bm.verts.new(mid + (v.co - mid) * 0.75) for v in rings[-1]]
++    for i in range(around):
++        j = (i + 1) % around
++        bm.faces.new((rings[-1][i], rings[-1][j], inner[j], inner[i]))
++    bm.faces.new(inner)
++    bm.faces.new(list(reversed(rings[0])))
++    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
++    # The crown broken: a steep plane across it, taking a top corner off down into the bed below.
++    for _ in range(1):
++        a = rng.uniform(0, math.tau)
++        n = Vector((math.cos(a), math.sin(a), rng.uniform(1.2, 2.2))).normalized()
++        cut = max(v.co.dot(n) for v in bm.verts) - rng.uniform(0.07, 0.11)
+         for v in bm.verts:
+-            v.co = c + Vector((v.co.x * h.x, v.co.y * h.y, v.co.z * h.z))
+-        if not lod:
+-            bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=1, use_grid_fill=True)
+-            bm.normal_update()
+-            outer = [e for e in bm.edges if len(e.link_faces) == 2 and e.link_faces[0].normal.angle(e.link_faces[1].normal, 0) > math.radians(45)]
+-            bmesh.ops.bevel(bm, geom=outer, offset=EDGE, offset_type="OFFSET", segments=1, profile=0.5, affect="EDGES", clamp_overlap=True)
+-            # The crowning block's top corners spall: whatever lies past a plane across each is pushed back
+-            # onto it. Only the crown's, and not all of them: a spalled corner is rock no box can follow,
+-            # and a block under it is what a body stands on and ducks behind.
+-            for sx in (-1, 1):
+-                for sy in (-1, 1):
+-                    depth = SPALL * rng.uniform(0.4, 1.0) if rng.random() < 0.6 and hi.z > 0.99 else 0.0
+-                    n = Vector((sx / h.x, sy / h.y, 1 / h.z))
+-                    for v in bm.verts:
+-                        d = v.co - c
+-                        if d.x * sx < 0 or d.y * sy < 0:
+-                            continue
+-                        over = d.dot(n) - (3 - depth * 3)
+-                        if over > 0:
+-                            v.co -= n * (over / n.length_squared)
+-            bm.normal_update()
+-            # Pitted, inward only, so the block's faces stay the outside of the rock.
+-            for v in bm.verts:
+-                pit = 0.5 + 0.5 * noise.noise(v.co * 7.0 + seed_v)
+-                v.co -= v.normal * PIT * max(0.0, min(1.0, pit))
+-        bmesh.ops.triangulate(bm, faces=bm.faces)
+-        parts.append(kit.obj(name, bm, rock))
+-    return kit.asset(name, parts, smooth_angle=35)
++            over = v.co.dot(n) - cut
++            if over > 0:
++                v.co -= n * over
++    bmesh.ops.triangulate(bm, faces=list(bm.faces))
++    # Into the unit box: x and y fill -0.5 to 0.5 (the shifts and wear may have moved them in).
++    lo = Vector([min(v.co[k] for v in bm.verts) for k in range(2)])
++    hi = Vector([max(v.co[k] for v in bm.verts) for k in range(2)])
++    for v in bm.verts:
++        v.co.x = -0.5 + (v.co.x - lo.x) / (hi.x - lo.x)
++        v.co.y = -0.5 + (v.co.y - lo.y) / (hi.y - lo.y)
++    return kit.asset(name, [kit.obj(name, bm, rock)], smooth_angle=35)
+ 
+ 
+ # Boulders (ticket 78): jointed blocks read as stacked cubes on open ground, so outside the Dustlands a
+@@ -684,8 +758,8 @@ hard = [
+     # Granite boulders on open ground, the Dustlands' sandstone ledges, Ground Zero's broken concrete (ticket 78).
+     *[granite(name, seed, masses) for name, (seed, masses) in BOULDERS.items()],
+     *[granite(f"{name}-lod", seed, masses, lod=True) for name, (seed, masses) in BOULDERS.items()],
+-    jointed("rock-strata", 13, ROCKS["rock-strata"]),
+-    jointed("rock-strata-lod", 13, ROCKS["rock-strata"], lod=True),
++    sandstone("rock-strata", *STRATA["rock-strata"]),
++    sandstone("rock-strata-lod", *STRATA["rock-strata"], lod=True),
+     *[broken(name, 71 + i, blocks) for i, (name, blocks) in enumerate(RUBBLE.items())],
+     *[broken(f"{name}-lod", 71 + i, blocks, lod=True) for i, (name, blocks) in enumerate(RUBBLE.items())],
+     # Trees' unit trunks.
