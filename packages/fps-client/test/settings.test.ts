@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOADOUT } from '@duty-shooter/fps-core';
-import { DEFAULT_SETTINGS, SECTION_SETTINGS, atDefaults, parseSettings, restoreDefaults, type Settings, type SettingsSection } from '../src/settings';
+import { DEFAULT_SETTINGS, SECTION_SETTINGS, atDefaults, newcomerName, parseSettings, restoreDefaults, settingsWithName, type Settings, type SettingsSection } from '../src/settings';
 import { DEFAULT_CROSSHAIR } from '../src/hud/crosshair';
 
 describe('settings', () => {
@@ -85,5 +85,19 @@ describe('settings', () => {
     // What is not on the screen: who you are, what you carry, and what the page remembers for itself.
     const elsewhere = ['name', 'loadout', 'builds', 'passphrase', 'firefoxTipShown'];
     for (const key of Object.keys(DEFAULT_SETTINGS)) if (!elsewhere.includes(key)) expect(all, key).toContain(key);
+  });
+
+  it('gives a browser with no name one to play under, and keeps a name it has', () => {
+    // Play Online joins in one click under the menu's name: with none, a newcomer's click only lit the empty box (ticket 103).
+    for (const r of [0, 0.5, 0.99999]) {
+      const name = newcomerName(() => r);
+      expect(name).toMatch(/^Player \d{4}$/);
+      expect(parseSettings({ name }).name).toBe(name);
+    }
+    const named = settingsWithName(DEFAULT_SETTINGS, () => 0.25);
+    expect(named.name).toBe('Player 3250');
+    expect(settingsWithName({ ...DEFAULT_SETTINGS, name: '  ' }, () => 0).name).toBe('Player 1000');
+    const mine = { ...DEFAULT_SETTINGS, name: 'Aleix' };
+    expect(settingsWithName(mine)).toBe(mine);
   });
 });

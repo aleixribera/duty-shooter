@@ -327,6 +327,21 @@ export function mixOf(settings: Settings): MixLevels {
   return { master: settings.volume, music: settings.musicVolume, effects: settings.effectsVolume, voice: settings.voiceVolume, ui: settings.uiVolume };
 }
 
+/**
+ * A name to play under from the first visit (next-level ticket 103): Play
+ * Online joins in one click under the menu's name, and with none it only lit
+ * the empty name box. Plain and visibly a stand-in, so it reads as one to
+ * change; at most 16 characters, as every name.
+ */
+export function newcomerName(random: () => number = Math.random): string {
+  return `Player ${1000 + Math.floor(random() * 9000)}`;
+}
+
+/** The settings, with a name given to a browser that has none yet (saved, so it stays the same visit to visit). */
+export function settingsWithName(settings: Settings, random?: () => number): Settings {
+  return settings.name.trim() ? settings : { ...settings, name: newcomerName(random) };
+}
+
 export function loadSettings(): Settings {
   const raw = readStorage();
   if (!raw) return DEFAULT_SETTINGS;

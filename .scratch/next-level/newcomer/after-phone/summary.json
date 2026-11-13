@@ -1,0 +1,66 @@
+{
+  "online": {
+    "path": "online",
+    "menu": 0.4,
+    "clicks": 1,
+    "driver": 6.6,
+    "goal": "TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out",
+    "live": 6.6,
+    "hint": "WASD Move. The mouse looks",
+    "hintAt": 6.7,
+    "events": [
+      {
+        "at": 0.1,
+        "what": "open"
+      },
+      {
+        "at": 0.4,
+        "what": "menu",
+        "buttons": [
+          "Rank 1Observer",
+          "PLAY ONLINE",
+          "BATTLE ROYALE",
+          "BOT MATCH",
+          "PRACTICE RANGE",
+          "SETTINGS",
+          "CHANGELOG"
+        ]
+      },
+      {
+        "at": 0.4,
+        "what": "click Play Online"
+      },
+      {
+        "at": 1.8,
+        "what": "screen",
+        "title": null,
+        "buttons": [
+          "CANCEL"
+        ],
+        "loading": null
+      },
+      {
+        "at": 6.6,
+        "what": "driver",
+        "phase": "playing",
+        "counting": false,
+        "goal": "TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out"
+      },
+      {
+        "at": 6.6,
+        "what": "goal plate",
+        "goal": "TEAM DEATHMATCH First team to 75 kills, or ahead when the clock runs out"
+      },
+      {
+        "at": 6.6,
+        "what": "live"
+      },
+      {
+        "at": 6.7,
+        "what": "hint",
+        "hint": "WASD Move. The mouse looks"
+      }
+    ],
+    "errors": []
+  }
+}

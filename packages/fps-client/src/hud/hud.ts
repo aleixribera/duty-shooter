@@ -135,6 +135,8 @@ const CSS = `
 .ds-round .goal { margin-top: 8px; font-size: var(--ds-type-body); text-shadow: none; white-space: normal; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
 .ds-round .use { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ds-line); font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; white-space: pre; }
 .ds-round h2 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
+/* A mode's name in the count's place (joined under way) is long: it wraps on a narrow screen. */
+.ds-round h2.mode { white-space: normal; }
 .ds-feed .gun { color: var(--ds-text-2); margin: 0 8px; font-size: var(--ds-type-small); }
 .ds-feed .gun b { color: var(--ds-alert); margin-left: 6px; font-weight: 700; }
 .ds-stats { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); top: calc(20px + var(--ds-safe-t)); padding: 3px 8px; background: var(--ds-scrim-thin); font-size: var(--ds-type-small); font-weight: 700; color: var(--ds-text-2); letter-spacing: 0.08em; text-shadow: none; }
@@ -404,6 +406,8 @@ export interface MatchView {
   readonly myVote: ModeId | null;
   /** Seconds left in the match's opening countdown, or null once play is on. */
   readonly countdown?: number | null;
+  /** Joined this match under way, these first seconds: the goal plate stands without a count (ticket 103). */
+  readonly joined?: boolean;
 }
 
 
@@ -1050,7 +1054,11 @@ export class Hud {
     // A Battle Royale opens with its Preparation instead, which the page shows.
     const left = view?.status.phase === 'playing' && view.status.mode !== 'battle-royale' ? (view.countdown ?? null) : null;
     if (left === null || left <= 0) {
-      if (!state.charge) this.#style(this.#round, 'display', 'none');
+      // Joined under way: no count to give, but what wins is still news.
+      if (view?.joined && !state.charge && !state.royale) {
+        this.#style(this.#round, 'display', '');
+        this.#set(this.#round, `<h2 class="mode">${escape(MODE_NAMES[view.status.mode] ?? view.status.mode)}</h2><div class="goal">${escape(goalLine(view.status))}</div>`);
+      } else if (!state.charge) this.#style(this.#round, 'display', 'none');
       return;
     }
     this.#style(this.#round, 'display', '');

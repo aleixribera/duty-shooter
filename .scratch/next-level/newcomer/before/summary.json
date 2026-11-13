@@ -1,0 +1,108 @@
+{
+  "online": {
+    "path": "online",
+    "menu": 0.4,
+    "clicks": 3,
+    "driver": 6.7,
+    "goal": "Team deathmatch 5 First team to 75 kills, or ahead when the clock runs out F LOADOUT",
+    "live": 11.4,
+    "hint": "WASD Move. The mouse looks",
+    "hintAt": 11.5,
+    "events": [
+      {
+        "at": 0.1,
+        "what": "open"
+      },
+      {
+        "at": 0.4,
+        "what": "menu",
+        "buttons": [
+          "Rank 1Observer",
+          "PLAY ONLINE",
+          "BATTLE ROYALE",
+          "BOT MATCH",
+          "PRACTICE RANGE",
+          "SETTINGS",
+          "CHANGELOG"
+        ]
+      },
+      {
+        "at": 0.5,
+        "what": "click Play Online"
+      },
+      {
+        "at": 0.8,
+        "what": "asked for a name",
+        "field": "Your name"
+      },
+      {
+        "at": 2.9,
+        "what": "click Play Online"
+      },
+      {
+        "at": 3.4,
+        "what": "screen",
+        "title": null,
+        "buttons": [
+          "CANCEL"
+        ],
+        "loading": null
+      },
+      {
+        "at": 5.7,
+        "what": "screen",
+        "title": null,
+        "buttons": [],
+        "loading": null
+      },
+      {
+        "at": 6.2,
+        "what": "screen",
+        "title": "LOBBY",
+        "buttons": [
+          "MOVE",
+          "NEW PRIVATE LOBBY",
+          "SURVIVAL TOWN",
+          "SWITCHYARD",
+          "STATION NINE",
+          "RANDOM MAP & MODE",
+          "TEAM DEATHMATCH",
+          "FREE-FOR-ALL",
+          "OUTPOSTS",
+          "CHARGE",
+          "GUN GAME",
+          "MIXED TEAMS",
+          "HUMANS VS BOTS",
+          "OFF"
+        ],
+        "loading": null
+      },
+      {
+        "at": 6.3,
+        "what": "click Start"
+      },
+      {
+        "at": 6.7,
+        "what": "driver",
+        "phase": "playing",
+        "counting": true,
+        "goal": "Team deathmatch 5 First team to 75 kills, or ahead when the clock runs out F LOADOUT"
+      },
+      {
+        "at": 6.7,
+        "what": "goal plate",
+        "goal": "Team deathmatch 5 First team to 75 kills, or ahead when the clock runs out F LOADOUT"
+      },
+      {
+        "at": 11.4,
+        "what": "live"
+      },
+      {
+        "at": 11.5,
+        "what": "hint",
+        "hint": "WASD Move. The mouse looks"
+      }
+    ],
+    "errors": []
+  }
+}

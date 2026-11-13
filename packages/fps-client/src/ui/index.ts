@@ -13,7 +13,7 @@ export { royaleOpens, royaleServer } from './royale-lobby';
 export { placement } from './royale';
 export { GRAPHICS_LOST, connectionError, loadoutNote } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
-export { loadSettings, saveSettings, type Settings } from '../settings';
+export { loadSettings, saveSettings, settingsWithName, type Settings } from '../settings';
 export { padName } from '../gamepad';
 export { ProfileStore } from '../profile/store';
 // The picture, the frame pacer and the team colours: plain data and arithmetic, so the page has them before the engine.

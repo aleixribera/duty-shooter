@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 11 (2026-11-13) started `PLAN.md` item 6 (pass 1, rough; ticket 102, which takes over ticket 19's optic models): the Reflex and the Prism 2x are Blender models (`tools/weapon/optics.py`) on the rail of every gun that takes an optic, the irons fold away under them, and aiming lines up through them (`viewmodel/optics.ts`). Acceptance seen: viewer frames of all five guns x three sights at desktop and phone (`sights/after/sheet-*.jpg`), the dot within 3 px of centre; the M4A1 and Bulwark aimed in the Practice Range (`sights/after/range-sheet.jpg`). Gaps are in ticket 102. Next: item 6 pass 2 (the sniper's and the Vantage's scopes, a wider Prism view, a brighter dot), or item 5 pass 2's gaps; item 4 pass 2 if the laptop is back (it timed out again this pass).
+Loop pass 12 (2026-11-13) did `PLAN.md` item 7 pass 1 (rough; ticket 103): every item now has a rough pass. A fresh browser gets a name ("Player NNNN"), so Play Online joins in one click (it used to only light the empty name box), and joining a match under way shows the goal plate for 4 s. Acceptance seen with `node .scratch/next-level/newcomer/look.mjs <out> online bot` (fresh profile, dev server + `npm run server` public): Play Online live at 6.2 s, Bot Match at 11.7 s, both with the goal plate and the first hint (`newcomer/after/`, `after-phone/`). Gaps in ticket 103 (production-build timing, lobby members who join after the countdown). Next: second passes, items in order (item 1's review capture to judge them, item 4 if the laptop is back, item 6 pass 2: the sniper's and the Vantage's scopes).
 
 ## Needs Aleix
 
@@ -11,9 +11,9 @@ Loop pass 11 (2026-11-13) started `PLAN.md` item 6 (pass 1, rough; ticket 102, w
 ## Where things stand
 
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
-- Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
+- Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Last scored review: h (`reviews/2026-11-12h.md`); the ten-row scorecard is retired by PLAN.md. Review 2026-11-13a (the first by the five objectives) fails all five; its capture predates private lobbies, so objective 1 needs a new capture.
-- CI: green through v2.191.1; check this pass's tag (v2.192.0).
+- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. Check this pass's tag (v2.193.0).
 
 ## Broken
 

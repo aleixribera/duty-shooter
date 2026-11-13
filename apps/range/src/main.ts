@@ -1,4 +1,4 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, useColourVision, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -20,6 +20,12 @@ if (!canvas || !status) throw new Error('index.html is missing #view or #status'
 const params = new URLSearchParams(location.search);
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
+  // A first visit gets a name at once (ticket 103): Play Online joins in one click under it, and the menu's name box changes it.
+  const named = settingsWithName(settings);
+  if (named !== settings) {
+    settings = named;
+    saveSettings(settings);
+  }
   // The menus draw the team colours too, before the engine is there to set them.
   useColourVision(settings.colourVision);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.

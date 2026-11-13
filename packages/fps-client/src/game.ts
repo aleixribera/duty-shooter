@@ -116,6 +116,8 @@ const SPECTATE_GLIDE = 40;
 const RECAP_OUT_MS = 20_000;
 /** How long (ms) the spectator's notice of who put out the one watched stays up. */
 const SPECTATE_NOTICE_MS = 4000;
+/** How long the goal plate stands for someone who joined a match under way (s): the countdown's plate, without its count. */
+const JOINED_GOAL_SECONDS = 4;
 /** A binding as a short key cap for the spectator's panel. */
 const shortKey = (code: string): string => (code === 'Mouse0' ? 'LMB' : code === 'Mouse2' ? 'RMB' : code === 'Mouse1' ? 'MMB' : bindingLabel(code));
 
@@ -345,6 +347,9 @@ export class Game {
   readonly #countdownSounds = new CountdownSounds();
   #sirenAt: Vec3 | null = null;
   #matchLive: boolean | null = null;
+  /** Joined a match already under way, so its countdown and goal were never shown: the goal plate is owed, and until when it stands (s, page clock; ticket 103). */
+  #goalOwed = false;
+  #goalUntil = 0;
   /** The picture's moods as they stand (eased, so neither snaps): low health's drained colour and the last minute's light. */
   #drain = 0;
   #dread = 0;
@@ -531,6 +536,8 @@ export class Game {
     // Range Control was talking to the game that was left: it stops mid-word, and the next game's first frame is not this one's last.
     this.#announcer.stop();
     this.#matchLive = null;
+    this.#goalOwed = false;
+    this.#goalUntil = 0;
     this.#leadCalls.reset();
     this.#grunted.clear();
     this.hud.visible = driver !== null;
@@ -1087,6 +1094,7 @@ export class Game {
                     ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
                     : match.phaseEnds - driver.serverTime,
             countdown: match.countdownEnds === null || match.countdownEnds === undefined ? null : match.countdownEnds - driver.serverTime,
+            joined: match.phase === 'playing' && performance.now() / 1000 < this.#goalUntil,
             team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
           }
@@ -1518,6 +1526,14 @@ export class Game {
     // Stopped with time still on the clock (a limit reached, the last round won): Range Control closes the range. A
     // clock that ran out needs no telling, and a Battle Royale ends on its own beat.
     const stopped = this.#matchLive === true && match !== null && (match.phase === 'nuke' || match.phase === 'vote') && closesRange(match.mode, match.result?.reason ?? null);
+    // Live from the first frame: joined under way, past the countdown that says what wins. Charge's own line says it
+    // all round, and a Battle Royale has its own screens. It stands once you are in and playing, not behind a menu.
+    if (live && match !== null && this.#matchLive === null && match.mode !== 'charge' && match.mode !== 'battle-royale') this.#goalOwed = true;
+    if (!live) this.#goalOwed = false;
+    else if (this.#goalOwed && self?.alive && !this.#paused) {
+      this.#goalOwed = false;
+      this.#goalUntil = performance.now() / 1000 + JOINED_GOAL_SECONDS;
+    }
     this.#matchLive = match ? live : null;
     if (opened && match) {
       const line = liveLine(match.mode);
