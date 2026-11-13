@@ -26,11 +26,12 @@ export function reachable(nav: NavGraph, reverse: boolean): Set<number> {
 }
 
 /**
- * Three minutes of bots only, in one mode at one size, with no score or time
- * limit: who left the boundary, the longest a bot roamed in place during live
- * play (and where), the teams that captured a zone, and the rounds played.
+ * Three minutes (or `seconds`) of bots only, in one mode at one size, with no
+ * score or time limit: who left the boundary, the longest a bot roamed in
+ * place during live play (and where), the teams that captured a zone, and the
+ * rounds played.
  */
-export function soak(b: BotMap, mode: ModeId, perTeam: number) {
+export function soak(b: BotMap, mode: ModeId, perTeam: number, seconds = 180) {
   const m = createNetworkedMatch({
     solids: b.solids,
     ladders: b.map.ladders ?? [],
@@ -53,7 +54,7 @@ export function soak(b: BotMap, mode: ModeId, perTeam: number) {
   let levelUps = 0;
   const wrongGun: string[] = [];
   const misarmed = new Set<string>();
-  for (let i = 0; i < 180 * 60; i++) {
+  for (let i = 0; i < seconds * 60; i++) {
     const out = m.step();
     for (const e of m.server.modeEvents) {
       if (e.type === 'capture') captures.add(e.team);

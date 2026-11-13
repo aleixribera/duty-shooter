@@ -4,6 +4,7 @@ import { Builder, FRAME_PROUD, groundTiles, SINK, SLOPE_THICKNESS, type Opening,
 import { insidePolygon, mapSolids, type CameraKey, type CameraSpot, type IndoorZone, type MapDefinition, type Measured } from './definition';
 import type { Label } from './map';
 import { MAP_CATALOGUE } from './catalogue';
+import { facingOpen } from './spawn-facing';
 
 /**
  * Survival Town: a recreation of the original 2010 suburban test-site map
@@ -1449,7 +1450,7 @@ export function buildSurvivalTown(): MapDefinition {
   buildOutskirts(b);
   buildDesert(b);
   buildBoundary(b);
-  const spawns = spawnSets();
+  const spawns = facingOpen(spawnSets(), [...b.solids, ...b.hidden], PLAY_AREA);
   const dummies: PlayerSpawn[] = [];
   return {
     id: 'survival-town',

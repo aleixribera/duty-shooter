@@ -3,6 +3,7 @@ import { linearRgb, normalize, type EndingShot, type Finish, type FreightTrain, 
 import { Builder, groundTiles, type Opening, type Rect } from './builder';
 import type { CameraKey, CameraSpot, IndoorZone, MapDefinition } from './definition';
 import { MAP_CATALOGUE } from './catalogue';
+import { facingOpen } from './spawn-facing';
 
 /**
  * Switchyard: a freight rail yard at dusk, walled in on three sides, with
@@ -992,7 +993,7 @@ export function buildSwitchyard(): MapDefinition {
   buildScenery(b);
   const { lamps, humming } = buildLamps(b);
   buildBoundary(b);
-  const spawns = spawnSets();
+  const spawns = facingOpen(spawnSets(), [...b.solids, ...b.hidden], PLAY_AREA);
   return {
     id: 'switchyard',
     name: MAP_CATALOGUE.switchyard.name,
