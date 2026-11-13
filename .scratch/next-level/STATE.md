@@ -2,7 +2,7 @@
 
 ## Now
 
-Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all seven work in a real match (ideas beyond them go to BACKLOG.md):
+Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all of them work in a real match; item 8 is unbuilt and goes first (ideas beyond them go to BACKLOG.md):
 1. Battle Royale lobby like Play Online's (invite link, host moves/kicks, even squads, seat back after a drop), squads friends join; attachments choosable in BR (or, if loot, say so in the lobby).
 2. Pistol: why friends all hate it, compared with well-loved shooters (sourced), fixed. Reopened for its model and sights (ticket 109, shipped v2.197.1).
 3. BR fights in towns: bias Zero Island's final circles, drops and bot routes to built-up areas; measure final circles and kills over many matches before and after.
@@ -10,6 +10,7 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 5. Multiplayer quality of life: a whole match with friends plays well.
 6. Other weapons (not the M4, sniper or SMG): review against real games (TTK, spread, rate, movement, feedback), redesign the pump shotgun, burst SCAR, semi-auto rifle (sight, role) and revolver; prove with TTK and hits-per-kill at range, range runs and frames; list the changes.
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
+8. (2026-11-14, next in line, before PLAN work) Random next match: "a button at the end of each match that starts another new game with a random map and mode and teams (if multiple players) once the normal timer to go to the lobby finishes. Make the admin able to press this." Reading: on the match-end screen the lobby host (the only player in a Bot Match) gets a "Random next match" button; if pressed, when the usual countdown back to the lobby ends a new match starts at once instead of the lobby, on a random map, a random mode valid for that map and player count, with teams shuffled when there are several players. Everyone else sees the host chose it. Play Online private lobbies and Bot Match; Battle Royale only if a random pick fits there.
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
@@ -17,10 +18,9 @@ Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 
 
 Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The laptop's GPU is the bottleneck (Survival Town ~55 fps, Zero Island ~43 at the A/B spots); shipped the bloom's cheap bright pass and the TRAA's two-picture history. Levers left are first in BACKLOG for the director. Prefer `flag:` A/Bs over `post:` swaps (ticket 99).
 
-Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep passes 1-2, then the proof (pass 36). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
-- [x] The system, the main menu, the HUD in low light and every other screen (v2.202.0, v2.203.0; details in ticket 114).
-- [x] Prove, pass 36: `design-audit` 2026-11-13 (68 findings: 2 high, 29 medium, 37 low; both highs and 8 mediums fixed, verdicts in the report); frame times before/after within noise (`ui/backlit-screens/perf.mjs`, dev servers); kill stack ends at 1.8 s; mint grep clean; fonts 59 KB.
-- Item 1b cut after pass 36 (ticket 114 resolved): the audit's open mediums are in BACKLOG. Next by PLAN's order: a fresh review on the Backlit build, then item 7 rough. The laptop's frame-time confirmation waits on item 1.
+Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114) shipped v2.202.0 to v2.203.1 and proven (design-audit 2026-11-13: both highs and 8 mediums fixed, open mediums in BACKLOG; frame times within noise). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG).
+
+Pass 37: PLAN order step 2, a fresh review on the Backlit build (`reviews/2026-11-13c`), pass 1. Acceptance: the capture completes with no page errors, and the review judges all six objectives with frame or number evidence, and what became of 13b's five. Next pass: request 8 (random next match), then item 7 rough.
 
 ## Needs Aleix
 
@@ -39,7 +39,7 @@ Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep pa
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Reviews judge PLAN.md's five objectives (the ten-row scorecard is retired). Latest: 2026-11-13b (1, 2 pass; 3, 4, 5 fail).
-- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's and v2.193.1's runs passed. v2.193.2 to v2.194.1 passed.
+- CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
 ## Broken
 
