@@ -1,0 +1,61 @@
+{
+ "rate": 4,
+ "at": "2026-11-13T01:22:20.441Z",
+ "maps": {
+  "survival-town": {
+   "meanMs": 21.91,
+   "low1Ms": 51.11,
+   "meanFps": 45.6,
+   "low1Fps": 19.6,
+   "p50": 21,
+   "gpuP50": 1.265,
+   "draws": 154,
+   "loadMs": 9430,
+   "errors": []
+  },
+  "switchyard": {
+   "meanMs": 18.53,
+   "low1Ms": 46.47,
+   "meanFps": 54,
+   "low1Fps": 21.5,
+   "p50": 16.9,
+   "gpuP50": 1.288,
+   "draws": 117,
+   "loadMs": 8916,
+   "errors": []
+  },
+  "station-nine": {
+   "meanMs": 21.33,
+   "low1Ms": 43.24,
+   "meanFps": 46.9,
+   "low1Fps": 23.1,
+   "p50": 20.9,
+   "gpuP50": 1.221,
+   "draws": 116,
+   "loadMs": 8422,
+   "errors": []
+  },
+  "range": {
+   "meanMs": 13.04,
+   "low1Ms": 41.42,
+   "meanFps": 76.7,
+   "low1Fps": 24.1,
+   "p50": 12.5,
+   "gpuP50": 1.022,
+   "draws": 73,
+   "loadMs": 8046,
+   "errors": []
+  },
+  "zero-island": {
+   "meanMs": 29.29,
+   "low1Ms": 76.38,
+   "meanFps": 34.1,
+   "low1Fps": 13.1,
+   "p50": 26,
+   "gpuP50": 1.728,
+   "draws": 148,
+   "loadMs": 12517,
+   "errors": []
+  }
+ }
+}

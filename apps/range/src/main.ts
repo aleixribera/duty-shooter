@@ -876,14 +876,17 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     // Measure the finished look: wait for the baked lighting.
     await load(mapId).bake;
   }
-  let bench: BenchFrame | null = benching ? startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName }) : null;
+  // `?bench` flies once the map's shaders are built and its warm-up frame drawn, as the benchmark page and play do:
+  // without it the flight built them itself, and the 1% low counted hitches no player meets (ticket 99).
+  let bench: BenchFrame | null = null;
+  if (benching) void ready().then(() => (bench = startBenchmarkOn(game, renderer, load(mapId).map, { backend: backendName, adapter: adapterName })));
   let watched: GameDriver | null = null;
   let lastStatus = '';
   let lastMenuFrame = -Infinity;
   /** When the world first drew: the menu's fly-through starts there, at the pose of the still behind the canvas (index.html). */
   let flyStart: number | null = null;
   // The first moments of a match get ready behind the menu from the start, so that Play has little left to do.
-  if (!bench) {
+  if (!benching) {
     void routesOf(botSetup.mapId);
     void game
       .prepare(restMoment, breath)

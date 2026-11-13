@@ -70,7 +70,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?map=<map>` (`range`, `survival-town`, `switchyard`, `station-nine`, `zero-island`) starts with that map behind the menu.
 - `?explore=<map>` (`survival-town`, `switchyard`, `station-nine`, `range`, `zero-island`) walks a map alone, offline; *dev* `?at=x,z,yaw` moves that spawn.
 - `?spot=<name>` puts the camera at one of the map's reference spots, menu and HUD hidden.
-- `?bench` flies the benchmark path and reports frame times, GPU time (where the browser measures it), draw calls and triangles, in the game's one picture at the window's own resolution, uncapped.
+- `?bench` flies the benchmark path, once the map's shaders are built as for play, and reports frame times, GPU time (where the browser measures it), draw calls and triangles, in the game's one picture at the window's own resolution, uncapped.
 - `?benchmark` opens the benchmark page, the one Settings > Video links to: it flies every map and shows each map's average and 1% low frame time, the adapter and the backend, and one line to copy. `&maps=<map>,<map>` flies only those maps and `&run` starts it without the click. A script reads the reports from `globalThis.duty.benchmark` once `document.body.dataset.benchmark` is `done`.
 - `?hz=<n>` states the display's refresh rate instead of measuring it: a scripted browser draws unpaced, so the frame-rate cap has to be told what the display runs at.
 - `?soldiers=near|mid|far` draws every soldier at that level whatever its distance (full, cheap animated, or the far stand-in), to look at a level up close.

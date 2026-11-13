@@ -1,0 +1,28 @@
+{
+ "rate": 4,
+ "at": "2026-11-13T01:14:30.454Z",
+ "maps": {
+  "range": {
+   "meanMs": 11.9,
+   "low1Ms": 40.2,
+   "meanFps": 84,
+   "low1Fps": 24.9,
+   "p50": 10.8,
+   "gpuP50": 1.03,
+   "draws": 72,
+   "loadMs": 2410,
+   "errors": []
+  },
+  "station-nine": {
+   "meanMs": 21.09,
+   "low1Ms": 51.42,
+   "meanFps": 47.4,
+   "low1Fps": 19.4,
+   "p50": 19.4,
+   "gpuP50": 1.101,
+   "draws": 114,
+   "loadMs": 3282,
+   "errors": []
+  }
+ }
+}
