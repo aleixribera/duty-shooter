@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 13 (2026-11-13) fixed review 2026-11-13a's most visible defect (ticket 104, v2.193.1): in the team modes, teammates off screen or behind you no longer pin named tags round the screen's edges over the health, the feed and the gun; only a Battle Royale squad keeps edge tags. Seen with `node .scratch/next-level/ally-edges/look.mjs <out>` (Switchyard TDM): 5 edge tags before, 0 after, names over heads kept (`ally-edges/before|after/`). Next: second passes in plan order. Item 1 pass 2 (a fresh capture and review: 13a predates private lobbies, optics, the last-minute sky and spawn fixes; fix its own gaps first: Battle Royale "no lobby", 4 s of online play, no scope raised, empty last-minute sound log), item 4 when the laptop is back, item 6 pass 2 (sniper and Vantage scopes). Other 13a defects still open: empty rank bar on the end screen (16), mirrored range signs (30-a), "change loadout" said twice (23-b), hints that don't follow the situation (ammo 0 while teaching WASD).
+Loop pass 14 (2026-11-13) did PLAN item 1 pass 2 (ticket 96, v2.193.2): the capture's own gaps are closed (the last-minute sound log fills, Zero Island is in every capture, every sight is aimed and fired in the range, online makes a private lobby with a move, a kick and 45 s of play), and the dev server builds Zero Island's nav in a worker and keeps it until a source changes. Review `reviews/2026-11-13b.md`: objectives 1 and 2 pass (2 only from this PC's capped frames), 3, 4, 5 fail. Its fix first: ejected brass drawn far too big (a casing spans 100-275 px and covers the kill popup; check: no casing over 40 px in any `*-fire`/`*-kill-*` frame). Next: that fix, then item 6 pass 2 (13b: no sight puts the 25 m dummy under the reticle, the sniper's sits ~360 px low; the Vantage shows a front post inside its optic), item 5's map gaps, item 4 when the laptop is back. Open from 13b also: hint line stacking two hints in one slot, "Plant the charge" said three times, loadout prompt twice.
 
 ## Needs Aleix
 
@@ -13,8 +13,8 @@ Loop pass 13 (2026-11-13) fixed review 2026-11-13a's most visible defect (ticket
 
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
-- Last scored review: h (`reviews/2026-11-12h.md`); the ten-row scorecard is retired by PLAN.md. Review 2026-11-13a (the first by the five objectives) fails all five; its capture predates private lobbies, so objective 1 needs a new capture.
-- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's runs all passed. Check v2.193.1's.
+- Reviews judge PLAN.md's five objectives (the ten-row scorecard is retired). Latest: 2026-11-13b (1, 2 pass; 3, 4, 5 fail).
+- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's runs all passed. Check v2.193.2's.
 
 ## Broken
 
@@ -33,5 +33,5 @@ None.
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - The shared headless Blender on port 9876 was reset under pass 5 twice (another session's `bkit.reset()` or a crash). Model rebuilds run reliably in their own process: `tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>` with a runner that calls `bkit.reset(); bkit.run(script, export=True)`.
 
-- Zero Island in the capture is opt-in (`ISLAND=1`): the dev server's first build of the island's nav ran past 3 min here. Ask for `/nav/zero-island.nav` once before a capture to warm it.
+- Zero Island's nav under the dev server: built in a worker (~70 s here) on the first ask and kept until a source changes; the capture asks for it after its match.
 - Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs` lists shader builds and long frames in a flight (`DEV=1` for `?bench`). The capture's range stall was the range's load, not play (ticket 99).

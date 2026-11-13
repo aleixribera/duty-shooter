@@ -7,11 +7,13 @@
 //            scoreboard, the last minute, the end screen; sound recorded from the game's own output (opening and
 //            last minute, .webm) with each second's level and every sound the game asked for; frame times.
 //            Map and mode rotate through all fifteen pairs, one per review (MAIN=<map id>:<mode id> picks one).
-//   tour     every other map and mode in turn, 25 s each with the same player, then the Practice Range; ISLAND=1
-//            adds a local Battle Royale on Zero Island (the dev server builds the island's nav on its first ask,
-//            which took this PC over three minutes, and the island takes GBs).
-//   online   Play Online on a local server (started here if none answers): this page and a second client, a
-//            Node socket named Friend, share the lobby; the host starts the match.
+//   tour     every other map and mode in turn, 25 s each with the same player; the Practice Range, where each
+//            scoped gun and optic is aimed and fired; then a local Battle Royale on Zero Island (ISLAND=0 skips
+//            it: the island takes GBs). The island's nav is asked of the dev server after the match, so its
+//            build (minutes on this PC, kept until a source changes) runs during the tour, not the match.
+//   online   Play Online on a local server (started here if none answers): the host makes a private lobby, two
+//            Node sockets join by its link, the host moves one to the other side and kicks the other, starts the
+//            match and plays it with the same player.
 // Everything lands in <out>: frames (.jpg), sound (.webm), and summary.json (per part: kills, deaths, frame
 // times, sound levels, the sounds heard, page errors). ONLY=<part>,<part> runs just those parts (menu, match, tour,
 // island, online) into an existing capture, keeping the rest of its summary.
@@ -26,6 +28,8 @@ import { loadNav, steer } from '../../../apps/range/scripts/trailer/shots.mjs';
 const out = process.argv[2];
 if (!out) throw new Error('usage: capture.mjs <out dir> [match seconds] [base url]');
 const MATCH_SECONDS = Number(process.argv[3] ?? 150);
+// The online match is played this long by the scripted player.
+const ONLINE_SECONDS = Number(process.env.ONLINE_SECONDS ?? 45);
 const BASE = process.argv[4] ?? 'http://localhost:5173/';
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 mkdirSync(out, { recursive: true });
@@ -55,7 +59,7 @@ const TOUR = Object.keys(MODES)
   .map((mode, i) => [Object.keys(MAPS)[(i + 1) % 3], mode])
   .filter(([m, o]) => !(m === MAIN[0] && o === MAIN[1]));
 
-const want = (part) => (ONLY ? ONLY.includes(part) : part !== 'island' || process.env.ISLAND === '1');
+const want = (part) => (ONLY ? ONLY.includes(part) : part !== 'island' || process.env.ISLAND !== '0');
 const summary = {
   base: BASE,
   frameCap: Number(process.env.FRAME_CAP ?? 30),
@@ -269,7 +273,7 @@ async function frames(page) {
 
 /** The sounds heard (counts by event) and the levels, from the page's logs since `arm`, then cleared. */
 async function sounds(page, since = 0) {
-  const { s, l } = await page.js(`(() => { const r = { s: globalThis.__sounds ?? [], l: globalThis.__levels ?? [] }; globalThis.__sounds = []; globalThis.__levels = []; return r; })()`);
+  const { s, l } = await page.js(`(() => { const r = { s: (globalThis.__sounds ?? []).splice(0), l: (globalThis.__levels ?? []).splice(0) }; return r; })()`);
   const counts = {};
   for (const [, e] of s) counts[e] = (counts[e] ?? 0) + 1;
   const rms = l
@@ -457,6 +461,17 @@ if (want('match')) {
   log('match', JSON.stringify(summary.match?.play ?? summary.match));
 }
 
+// The island's nav, asked now: the dev server builds it (minutes on this PC) during the tour, not the match, and
+// keeps it for the island's own ask. The build goes on server-side if this ask times out.
+let navWarm = null;
+if (want('island')) {
+  const t = Date.now();
+  navWarm = fetch(`${BASE}nav/zero-island.nav`).then(
+    async (r) => ({ status: r.status, mb: Math.round((await r.arrayBuffer()).byteLength / 1e5) / 10, seconds: Math.round((Date.now() - t) / 1000) }),
+    (e) => ({ failed: e.message, seconds: Math.round((Date.now() - t) / 1000) }),
+  );
+}
+
 // --- the tour ----------------------------------------------------------------
 if (want('tour')) {
   summary.tour = [];
@@ -489,27 +504,58 @@ if (want('tour')) {
     save();
   }
 
+  // The Practice Range from the menu, then each sight a gun can take, aimed down the lane and fired: the irons,
+  // the Reflex and Prism 2x on the M4A1, the Vantage's and the sniper's scopes, and the shotgun up close.
+  const SIGHTS = [
+    ['m4a1', null],
+    ['m4a1', 'reflex'],
+    ['m4a1', 'prism'],
+    ['dmr', null],
+    ['sniper', null],
+    ['shotgun', null],
+    ['smg', null],
+  ];
   log('tour: Practice Range');
   summary.range = await session('30-range', async (page) => {
     await open(page);
     if (!(await page.click('Practice Range'))) throw new Error('no Practice Range button');
-    await sleep(8000);
+    if (!(await page.waitFor(`duty.game?.player?.alive === true`, 240_000, 500))) throw new Error('the range did not start');
+    await sleep(3000);
+    await arm(page, null);
+    const t0 = await page.js('performance.now()');
     await page.js('__ft.on = true');
     await page.shot('30-range-a');
     await page.key('keyDown', 'KeyW');
     await sleep(1500);
     await page.key('keyUp', 'KeyW');
-    await page.mouse('mousePressed', 'right');
-    await sleep(500);
-    for (let i = 0; i < 6; i++) {
-      await page.mouse('mousePressed');
-      await sleep(150);
-      await page.mouse('mouseReleased');
-      await sleep(250);
+    const guns = [];
+    for (const [gun, optic] of SIGHTS) {
+      const name = `30-range-${gun}${optic ? `-${optic}` : ''}`;
+      const ok = await page.js(`(() => { const d = duty.game?.driver; if (!d?.setLoadout) return false; d.setLoadout(${JSON.stringify({ primary: gun, secondary: 'pistol', grenade: 'frag', attachments: optic ? { primary: { optic } } : {} })}); return true; })()`);
+      if (!ok) {
+        guns.push({ gun, optic, failed: 'no setLoadout' });
+        continue;
+      }
+      await sleep(3200);
+      await page.mouse('mousePressed', 'right');
+      await sleep(1500);
+      await page.shot(`${name}-ads`);
+      const shots = gun === 'sniper' || gun === 'shotgun' ? 2 : 5;
+      for (let i = 0; i < shots; i++) {
+        await page.mouse('mousePressed');
+        await sleep(120);
+        if (i === 0) await page.shot(`${name}-fire`);
+        await page.mouse('mouseReleased');
+        await sleep(gun === 'sniper' || gun === 'shotgun' ? 1400 : 300);
+      }
+      await page.mouse('mouseReleased', 'right');
+      await sleep(400);
+      const heard = (await sounds(page, t0)).heard;
+      guns.push({ gun, optic, heard: Object.fromEntries(Object.entries(heard).filter(([e]) => !e.startsWith('ambient') && e !== 'footstep')) });
     }
     await page.shot('30-range-b');
-    await page.mouse('mouseReleased', 'right');
     return {
+      guns,
       frames: await frames(page),
       errors: page.chrome.errors.slice(0, 3),
     };
@@ -520,6 +566,7 @@ if (want('tour')) {
 if (want('island')) {
   {
     log('tour: Zero Island, local Battle Royale');
+    summary.navWarm = navWarm ? await Promise.race([navWarm, sleep(1000).then(() => 'still building')]) : null;
     summary.island = await session('31-island', async (page) => {
       await open(page);
       if (!(await page.click('Battle Royale'))) throw new Error('no Battle Royale button');
@@ -604,13 +651,17 @@ if (want('online')) {
         await page.js(fill);
         if (!(await page.click('Join'))) throw new Error('no Join button');
       }
-      if (!(await page.waitFor(`!!document.querySelector('.ds-lobby:not([hidden])') || duty.driver?.match?.phase === 'playing'`, 90_000, 500))) throw new Error('no lobby');
-      // The second client: a plain socket that joins by the same route and stays.
-      const friend = new WebSocket(`${BASE.replace(/^http/, 'ws')}ws`);
-      friend.on('error', () => {});
-      const welcomed = new Promise((done) => {
-        friend.on('error', (e) => done(`error: ${e.message}`));
-        friend.on('message', (data, binary) => {
+      if (!(await page.waitFor(`!!document.querySelector('.ds-lobby:not([hidden])')`, 90_000, 500))) throw new Error('no public lobby');
+      // A private lobby of the host's own, from the public one.
+      if (!(await page.click('New private lobby'))) throw new Error('no New private lobby button');
+      if (!(await page.waitFor(`/[?&]lobby=/.test(location.search) && !!document.querySelector('.ds-lobby:not([hidden])')`, 90_000, 500))) throw new Error('no private lobby');
+      const code = await page.js(`new URLSearchParams(location.search).get('lobby')`);
+      // Two friends by its link: plain sockets that join and stay.
+      const friend = (name) => {
+        const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}ws?lobby=${code}`);
+        const f = { ws, name, id: null, rejected: null };
+        ws.on('error', (e) => (f.rejected ??= `error: ${e.message}`));
+        ws.on('message', (data, binary) => {
           if (binary) return;
           let m = null;
           try {
@@ -618,26 +669,29 @@ if (want('online')) {
           } catch {
             return;
           }
-          if (m.t === 'welcome') done(true);
-          if (m.t === 'reject') done(`rejected: ${m.reason}`);
+          if (m.t === 'welcome') f.id = m.id;
+          if (m.t === 'reject') f.rejected = m.reason;
         });
-        setTimeout(() => done('no welcome in 20 s'), 20_000);
-      });
-      friend.on('open', () =>
-        friend.send(
-          JSON.stringify({
-            t: 'join',
-            name: 'Friend',
-            passphrase,
-            protocol: h.protocol,
-          }),
-        ),
-      );
+        ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name, passphrase, protocol: h.protocol })));
+        return f;
+      };
+      const friends = [friend('Marta'), friend('Pol')];
       try {
-        const r = { friend: await welcomed };
+        const r = { code, invite: await page.js(`document.querySelector('.invite input')?.value ?? null`) };
         await sleep(3000);
-        r.lobby = await page.js(`document.querySelector('.ds-lobby:not([hidden])')?.innerText.replace(/\\s+/g, ' ').slice(0, 400) ?? null`);
+        r.friends = friends.map((f) => ({ name: f.name, in: f.id != null, rejected: f.rejected }));
+        r.lobby = await page.js(`document.querySelector('.ds-lobby:not([hidden])')?.innerText.replace(/\s+/g, ' ').slice(0, 400) ?? null`);
         await page.shot('41-online-lobby');
+        // Host controls: Marta to the other side, Pol kicked.
+        const [marta, pol] = friends;
+        const act = (a, id) => page.chrome.send('Runtime.evaluate', { userGesture: true, returnByValue: true, expression: `(() => { const b = document.querySelector('[data-act="${a}"][data-id="${id}"]'); if (!b) return false; b.click(); return true; })()` }).then((x) => x.result?.result?.value === true);
+        r.moved = marta.id != null && (await act('side', marta.id));
+        await sleep(1500);
+        r.kicked = pol.id != null && (await act('kick', pol.id));
+        await sleep(1500);
+        r.polRejected = pol.rejected;
+        r.sides = await page.js(`JSON.stringify(duty.driver?.match?.lobby?.sides ?? null)`);
+        await page.shot('42-online-host-controls');
         await page.chrome.send('Emulation.setDeviceMetricsOverride', {
           width: 390,
           height: 844,
@@ -645,7 +699,7 @@ if (want('online')) {
           mobile: true,
         });
         await sleep(800);
-        await page.shot('42-online-lobby-phone');
+        await page.shot('43-online-lobby-phone');
         await page.chrome.send('Emulation.setDeviceMetricsOverride', {
           width: 1920,
           height: 1080,
@@ -656,15 +710,20 @@ if (want('online')) {
         r.started = await page.click('Start');
         r.playing = !!(await page.waitFor(`duty.driver?.match?.phase === 'playing'`, 60_000, 500));
         if (r.playing) {
+          r.map = await page.js(`duty.driver?.match?.map ?? null`);
+          await arm(page, r.map);
+          const t0 = await page.js('performance.now()');
           await page.js('__ft.on = true');
-          await sleep(4000);
-          await page.shot('43-online-play');
-          r.frames = await frames(page);
+          await sleep(1000);
+          await page.shot('44-online-play-a');
+          r.play = await play(page, '44-online', ONLINE_SECONDS, async (t) => t > ONLINE_SECONDS - 5 && !page.done && ((page.done = true), await page.shot('44-online-play-b')));
+          Object.assign(r, { frames: await frames(page), ...(await sounds(page, t0)) });
+          delete r.log;
         }
         r.errors = page.chrome.errors.slice(0, 3);
         return r;
       } finally {
-        friend.close();
+        for (const f of friends) f.ws.close();
       }
     });
   } finally {
