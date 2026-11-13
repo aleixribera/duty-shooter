@@ -1,0 +1,7 @@
+lmg       kills   50 deaths   73 flanks/min  0.00 reloads    0 exposed   0% diedReloading   0 dmg/reload   0.0 cover 4.6%
+m4a1      kills   63 deaths   57 flanks/min  0.00 reloads   56 exposed  52% diedReloading   7 dmg/reload  17.4 cover 4.1%
+pistol    kills   13 deaths   15 flanks/min  0.00 reloads    6 exposed  67% diedReloading   2 dmg/reload  54.9 cover 13.0%
+shotgun   kills   98 deaths   90 flanks/min  0.00 reloads   55 exposed  49% diedReloading   3 dmg/reload   3.0 cover 3.1%
+smg       kills  465 deaths  542 flanks/min  0.00 reloads  254 exposed  67% diedReloading  51 dmg/reload  23.7 cover 4.4%
+sniper    kills  267 deaths  179 flanks/min  0.00 reloads  186 exposed  25% diedReloading  18 dmg/reload  12.3 cover 3.5%
+ALL       kills 956 deaths 956 flanks/min 0.00 reloads 557 exposed 50% diedReloading 81 (8.5% of deaths) dmg/reload 17.5 cover 4.1%

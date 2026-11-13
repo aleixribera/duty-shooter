@@ -177,6 +177,9 @@ const EASE = 16;
  * times as long as the profile's (a machine gun settles as it fires, so its
  * bursts are long). `pace`: beyond the first (m), a round a press is placed
  * with care and the next waits the second (s), for the sights to come back.
+ * `flank`: how readily it goes round a target that ducked out of sight, times
+ * its own boldness (request 7): a close-range gun has to get near and goes
+ * round, a long gun holds the angle it has.
  */
 interface Tactics {
   readonly range: readonly [number, number] | null;
@@ -189,22 +192,23 @@ interface Tactics {
   readonly juke: number;
   readonly burst: number;
   readonly pace: readonly [beyond: number, seconds: number] | null;
+  readonly flank: number;
 }
 
 const TACTICS: Readonly<Record<WeaponId, Tactics>> = {
-  m4a1: { range: null, ads: null, reach: Infinity, push: false, rush: null, hold: 35, scoped: false, juke: 1, burst: 1, pace: null },
-  smg: { range: [9, 13], ads: 10, reach: 45, push: false, rush: null, hold: 22, scoped: false, juke: 2, burst: 1, pace: null },
-  shotgun: { range: [2.5, 4], ads: 6, reach: 10, push: true, rush: 8, hold: null, scoped: false, juke: 1, burst: 1, pace: null },
-  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, rush: null, hold: null, scoped: true, juke: 1, burst: 1, pace: null },
-  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1, burst: 1, pace: null },
+  m4a1: { range: null, ads: null, reach: Infinity, push: false, rush: null, hold: 35, scoped: false, juke: 1, burst: 1, pace: null, flank: 0.8 },
+  smg: { range: [9, 13], ads: 10, reach: 45, push: false, rush: null, hold: 22, scoped: false, juke: 2, burst: 1, pace: null, flank: 1.6 },
+  shotgun: { range: [2.5, 4], ads: 6, reach: 10, push: true, rush: 8, hold: null, scoped: false, juke: 1, burst: 1, pace: null, flank: 0 },
+  sniper: { range: [28, 45], ads: 0, reach: Infinity, push: false, rush: null, hold: null, scoped: true, juke: 1, burst: 1, pace: null, flank: 0 },
+  pistol: { range: [6, 12], ads: 10, reach: 45, push: false, rush: null, hold: 16, scoped: false, juke: 1, burst: 1, pace: null, flank: 1 },
   // Past the M4A1's close band, where its four hits beat the rifle's five; aimed nearly always (the hip sprays), and it stays put with a target in view.
-  lmg: { range: [20, 30], ads: 5, reach: Infinity, push: false, rush: null, hold: 50, scoped: false, juke: 1, burst: 2.6, pace: null },
+  lmg: { range: [20, 30], ads: 5, reach: Infinity, push: false, rush: null, hold: 50, scoped: false, juke: 1, burst: 2.6, pace: null, flank: 0 },
   // At range, where its three hits beat the M4A1's five and six, well out of an SMG's; always through the optic, and far off each round waits for the last one's kick to come back.
-  dmr: { range: [30, 46], ads: 0, reach: Infinity, push: false, rush: null, hold: 60, scoped: false, juke: 1, burst: 1, pace: [28, 0.3] },
+  dmr: { range: [30, 46], ads: 0, reach: Infinity, push: false, rush: null, hold: 60, scoped: false, juke: 1, burst: 1, pace: [28, 0.3], flank: 0 },
   // Inside the one-burst band (36 m) but out of an SMG's, and aimed: from the hip a burst rarely lands whole.
-  burst: { range: [16, 30], ads: 6, reach: Infinity, push: false, rush: null, hold: 40, scoped: false, juke: 1, burst: 1, pace: null },
+  burst: { range: [16, 30], ads: 6, reach: Infinity, push: false, rush: null, hold: 40, scoped: false, juke: 1, burst: 1, pace: null, flank: 0.8 },
   // Inside its two-shot band (15 m); every round placed, since there are six.
-  revolver: { range: [5, 10], ads: 5, reach: 35, push: false, rush: null, hold: 12, scoped: false, juke: 1, burst: 1, pace: [0, 0.4] },
+  revolver: { range: [5, 10], ads: 5, reach: 35, push: false, rush: null, hold: 12, scoped: false, juke: 1, burst: 1, pace: [0, 0.4], flank: 1 },
 };
 /** A gun's long bursts (`burst` above 1) only this near (m): farther off, the climb a long burst walks up takes it off the body before the weight settles it. */
 const LONG_BURSTS_WITHIN = 36;
@@ -316,6 +320,16 @@ const FLANK_KEY = '#flank';
 
 /** With the primary dry and an enemy this near (m), out comes the pistol. */
 const PISTOL_RANGE = 10;
+/**
+ * Down to this share of the magazine (the last round or two, none for a small one) in a fight farther off than
+ * `PISTOL_RANGE`, a bot reloads on its way to cover out of the enemy's sight rather than standing in the open, and
+ * after one such reload doesn't go again for this long (s). Out of a fight it tops up below `TOP_UP` of the magazine.
+ */
+const RELOAD_COVER = 0.1;
+const RELOAD_PAUSE = 2;
+const TOP_UP = 0.4;
+/** Battle Royale: with this few others left on the island it plays the end game, every fight weighed (request 7). */
+const ENDGAME = 8;
 /** Inside this range (m) a shotgun's cone covers the body: no need to line the shot up. */
 const POINT_BLANK = 7;
 /** A scoped bot backs off from a target this much closer than it likes. */
@@ -386,6 +400,8 @@ interface Engagement {
 
 const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, stance: p.stance, eyeHeight: p.eyeHeight });
 const eyeOf = (p: PlayerOutput): Vec3 => [p.position[0], p.position[1] + p.eyeHeight, p.position[2]];
+/** Rounds the magazine of the gun in `p`'s hands holds, its attachments counted. */
+const magazineOf = (p: PlayerOutput): number => moddedRow(p.weapon.id, kitInHand(p.loadout, p.weapon)).handling.magazineSize.value;
 const flat = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[2] - a[2]);
 /** Whether `p` is partway along the leg a→b: between its ends, within 0.5 m of its line, at a's level. */
 function onLeg(p: Vec3, a: Vec3, b: Vec3): boolean {
@@ -496,8 +512,8 @@ export class Bot {
   #caution = 0.5;
   /** Damage it has dealt each enemy lately, and when last: whoever has more left is winning. */
   readonly #dealt = new Map<PlayerId, { damage: number; time: number }>();
-  /** Breaking off to heal: the cover node, the eye it hides from, until when at most, and whether it got there. */
-  #recover: { node: number; threat: Vec3; until: number; arrived: boolean } | null = null;
+  /** Breaking off to heal (or, with `reload`, to reload): the cover node, the eye it hides from, until when at most, and whether it got there. */
+  #recover: { node: number; threat: Vec3; until: number; arrived: boolean; reload: boolean } | null = null;
   #recoverAt = 0;
   /** Metres to the next stop on a bound, and where it last counted from. */
   #bound = 0;
@@ -695,8 +711,8 @@ export class Bot {
     const tp = target ? this.#seats.get(target.id) : undefined;
     if (target && (!tp || !tp.alive || (!target.visible && time - target.lastSeen > LOSE_TARGET))) {
       // Out of sight, not dead: a careful bot holds the angle they went behind, for them to come back round, rather than chase.
-      // On the ground of a Battle Royale, the bolder go round to them instead.
-      if (tp?.alive && ground && !hurry && !this.#recover && this.#flanks(view, tp, r)) {
+      // The bolder go round to them instead, the more readily with a gun that has to get close (none on the way to plant or defuse).
+      if (tp?.alive && !hurry && !this.#recover && view.objective?.use !== true && this.#flanks(view, tp, r)) {
         this.#holdUntil = 0;
       } else if (tp?.alive && caution > 0.55 && !this.#recover && !hurry) {
         const last = this.#memory.get(tp.id)?.position ?? tp.position;
@@ -728,9 +744,13 @@ export class Bot {
     // Hurt and losing: off to cover to heal; healed (or tired of waiting), back to it.
     if (this.#recover) {
       const at = this.#nav.nodes[this.#recover.node]!.position;
-      if (self.health >= HEALED || time >= this.#recover.until || using || hurry) {
+      // Gone to reload: there, and loaded.
+      const done = this.#recover.reload ? this.#recover.arrived && self.weapon.action !== 'reload' && !this.#runningDry(self) : self.health >= HEALED;
+      // Loaded, but hit on the way: it stays to heal as well rather than walk back out hurt.
+      if (done && this.#recover.reload && self.health < HURT + HURT_CAREFUL * caution && !using && !hurry) this.#recover.reload = false;
+      else if (done || time >= this.#recover.until || using || hurry) {
+        this.#recoverAt = time + (this.#recover.reload ? RELOAD_PAUSE : RECOVER_PAUSE);
         this.#recover = null;
-        this.#recoverAt = time + RECOVER_PAUSE;
         this.#goal = null;
         this.#path = [];
       } else if (!this.#recover.arrived && flat(self.position, at) < 1 && Math.abs(self.position[1] - at[1]) < 0.8) this.#recover.arrived = true;
@@ -739,6 +759,8 @@ export class Bot {
       const theirs = 100 - (left && time - left.time < DEALT_MEMORY ? left.damage : 0);
       const hurt = self.health < HURT + HURT_CAREFUL * caution;
       if (ground ? (hurt && theirs > self.health) || this.#outgunned(view, ground) : hurt && theirs > self.health + 10) this.#breakOff(view, eyeOf(tp));
+      // Shot dry at range: reloading where the enemy can see it is the easiest kill there is, so the reload happens on the way to cover.
+      else if (range > PISTOL_RANGE && this.#runningDry(self)) this.#breakOff(view, eyeOf(tp), true);
     }
     if (ground && perceiving && fighting && target?.visible && tp && !using && !hurry && !this.#recover && !this.#stand && time >= this.#standAt && range > POINT_BLANK && !tactics.push) this.#takeStand(view, tp, range);
     if (this.#stand && (time >= this.#stand.until || this.#recover)) this.#stand = null;
@@ -1027,8 +1049,11 @@ export class Bot {
       this.#switchAt = time + 1;
     }
     // Reload in a quiet moment, or when empty, or once in cover (whatever is left in the magazine).
-    const covered = this.#recover?.arrived === true && !(fighting && target?.visible) && w.ammo < this.profile.reloadBelow * 2;
-    if (!switching && !toPistol && w.action === 'ready' && ((w.ammo < this.profile.reloadBelow && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0 || covered) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
+    // Off to cover to reload, it reloads on the way (a reload carries on through a sprint).
+    const covered = this.#recover?.reload === true || (this.#recover?.arrived === true && !(fighting && target?.visible) && w.ammo < this.profile.reloadBelow * 2);
+    // Out of a fight, it tops up a magazine run low before the next one finds it short.
+    const low = w.ammo < Math.max(this.profile.reloadBelow, magazineOf(self) * TOP_UP);
+    if (!switching && !toPistol && w.action === 'ready' && ((low && !fighting && time - this.#lastEnemySeen > 1) || w.ammo === 0 || covered) && !(this.#lastButtons & Button.Reload)) buttons.push('Reload');
     const holding = using ? null : this.#cooking(view);
     if (holding) buttons.push(holding === 'frag' ? 'Grenade' : 'Tactical');
 
@@ -1541,6 +1566,8 @@ export class Bot {
       const foes = sides.others;
       if (mates === 0 && foes > 0) c += 0.15;
       c -= 0.1 * Math.max(-2, Math.min(3, mates + 1 - foes));
+      // The end of a Battle Royale: few left, and the one who waits for the other to move wins.
+      if (view.ground && foes <= ENDGAME) c += 0.15;
     }
     c += (1 - self.health / 100) * 0.4;
     if (this.#dangers.some((d) => time - d.time < 8 && flat(d.position, self.position) < 20)) c += 0.15;
@@ -1561,14 +1588,14 @@ export class Bot {
   }
 
   /** Breaks off to the nearest cover out of `threat`'s sight, if there is any close; otherwise fights on. */
-  #breakOff(view: BotView, threat: Vec3): void {
+  #breakOff(view: BotView, threat: Vec3, reload = false): void {
     const { self, time } = view;
     const node = (view.ground ? this.#hide(self.position, threat) : null) ?? this.#shelter(self.position, threat);
     if (node === null) {
       this.#recoverAt = time + 1;
       return;
     }
-    this.#recover = { node, threat, until: time + RECOVER_MAX, arrived: false };
+    this.#recover = { node, threat, until: time + RECOVER_MAX, arrived: false, reload };
     this.#smokeOff(view, threat);
     this.#holdUntil = 0;
     this.#search = null;
@@ -1576,6 +1603,12 @@ export class Bot {
     this.#stand = null;
     this.#flank = null;
     this.#plan(self.position, node, view, true, threat);
+  }
+
+  /** The gun in hand is down to its last round or two (or none) and has more to reload from. */
+  #runningDry(self: PlayerOutput): boolean {
+    const w = self.weapon;
+    return w.reserve !== 0 && w.ammo <= Math.floor(magazineOf(self) * RELOAD_COVER);
   }
 
   /** The nearest cover sheltered from `threat`, not toward it, that truly hides a body from there. */
@@ -1617,10 +1650,12 @@ export class Bot {
     const last = this.#memory.get(tp.id)?.position ?? tp.position;
     const range = flat(self.position, last);
     if (range < FLANK_RANGE[0] || range > FLANK_RANGE[1] || this.#flank) return false;
-    // Flankers always do, others as bold as they are; in a Squad the second seat goes while the first keeps them busy.
-    const slot = view.ground!.slot;
-    const style = this.profile.style === 'flanker' ? 1 : this.profile.aggression;
-    if (r(81) > style * (slot % 2 === 1 ? 1.4 : 1)) return false;
+    // Flankers always do with a gun that goes round at all, others as bold as they are, times how readily their gun goes;
+    // in a Squad the second seat goes while the first keeps them busy.
+    const slot = view.ground?.slot ?? 0;
+    const lean = TACTICS[self.weapon.id].flank;
+    const style = lean === 0 ? 0 : this.profile.style === 'flanker' ? Math.max(1, lean) : this.profile.aggression * lean;
+    if (style === 0 || r(81) > style * (slot % 2 === 1 ? 1.4 : 1)) return false;
     const [dx, dz] = [(last[0] - self.position[0]) / range, (last[2] - self.position[2]) / range];
     const swing = Math.max(FLANK_LEAST, range * FLANK_SWING);
     const side = r(82) < 0.5 ? 1 : -1;
@@ -1630,6 +1665,8 @@ export class Bot {
       const node = nearestNode(this.#nav, this.#world, at);
       const p = this.#nav.nodes[node]!.position;
       if (Math.abs(p[1] - self.position[1]) > 4) continue;
+      // Sent to a zone, it goes round only as far as it would chase a noise from there.
+      if (view.objective && flat(p, view.objective.position) > view.objective.radius + OBJECTIVE_LEASH) continue;
       this.#flank = { node, id: tp.id, until: time + FLANK_MAX };
       this.#chasing = FLANK_KEY;
       this.#plan(self.position, node, view, true, eye);

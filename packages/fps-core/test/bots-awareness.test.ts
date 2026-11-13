@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Bot, DEG, Simulation, angleDelta, botProfile, buildNavGraph, createWorld, raycastWorld, type BotView, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
+import { Bot, DEG, Simulation, angleDelta, botProfile, buildNavGraph, createWorld, raycastWorld, type BotView, type Loadout, type NavGraph, type PlayerOutput, type SimEvent, type TickOutput, type Vec3 } from '@duty-shooter/fps-core';
 import { box, usercmd } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
@@ -23,9 +23,9 @@ type Cmd = ReturnType<typeof usercmd>;
 const STAY = (at: Vec3) => ({ position: at, radius: 1.5 });
 
 /** A match of one bot ('b', team 1) and scripted players; `extra` adds to each view (the mode's say). */
-function match(world: ReturnType<typeof createWorld>, nav: NavGraph, players: { id: string; team: number; at: Vec3; yaw?: number }[], name: string, extra: Partial<BotView> = {}) {
+function match(world: ReturnType<typeof createWorld>, nav: NavGraph, players: { id: string; team: number; at: Vec3; yaw?: number; loadout?: Loadout }[], name: string, extra: Partial<BotView> = {}) {
   const sim = new Simulation(world);
-  for (const p of players) sim.addPlayer({ id: p.id, team: p.team, position: p.at, yaw: p.yaw ?? 0 });
+  for (const p of players) sim.addPlayer({ id: p.id, team: p.team, position: p.at, yaw: p.yaw ?? 0, ...(p.loadout ? { loadout: p.loadout } : {}) });
   const bot = new Bot('b', botProfile(name), nav, world);
   const outputs: TickOutput[] = [];
   let out = sim.output();
@@ -195,13 +195,13 @@ describe('a bot remembering deaths', () => {
 
 describe('a bot weighing the mode and its situation', () => {
   /** A bot that has seen the target cross 12 m in front of it, and then lost it (gone round a corner): what it does next. */
-  const lose = (name: string, lives: 'round' | 'respawn') => {
-    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0] }, { id: 't', team: 2, at: [150, 0, 150] }], name, { lives });
+  const lose = (name: string, lives: 'round' | 'respawn', loadout?: Loadout, distance = 12) => {
+    const m = match(open, openNav, [{ id: 'b', team: 1, at: [0, 0, 0], ...(loadout ? { loadout } : {}) }, { id: 't', team: 2, at: [150, 0, 150] }], name, { lives });
     for (let i = 0; i < ticks(1); i++) m.step();
     const b = m.self();
     const forward: Vec3 = [-Math.sin(b.yaw), 0, -Math.cos(b.yaw)];
     const right: Vec3 = [Math.cos(b.yaw), 0, -Math.sin(b.yaw)];
-    m.sim.respawn('t', [b.position[0] + forward[0] * 12 - right[0] * 3, 0, b.position[2] + forward[2] * 12 - right[2] * 3], b.yaw - Math.PI / 2);
+    m.sim.respawn('t', [b.position[0] + forward[0] * distance - right[0] * 3, 0, b.position[2] + forward[2] * distance - right[2] * 3], b.yaw - Math.PI / 2);
     for (let i = 0; i < ticks(0.5); i++) m.step({ t: usercmd({ yaw: b.yaw - Math.PI / 2, forward: 1 }) });
     m.sim.respawn('t', [150, 0, 150], 0);
     for (let i = 0; i < ticks(1); i++) m.step();
@@ -214,6 +214,34 @@ describe('a bot weighing the mode and its situation', () => {
     expect(lose('Juniper', 'round')).toBe('hold');
     // A rusher, where it's back in seconds.
     expect(lose('Kestrel', 'respawn')).toBe('chase');
+  });
+
+  it('losing a target, a flanker goes round to it with the SMG, and holds its angle with the sniper rifle (request 7)', () => {
+    // Moss plays the flanker, in team deathmatch; the target crosses 20 m off.
+    expect(lose('Moss', 'respawn', { primary: 'smg', secondary: 'pistol', grenade: 'frag' }, 20)).toBe('flank');
+    expect(lose('Moss', 'respawn', { primary: 'sniper', secondary: 'pistol', grenade: 'frag' }, 20)).not.toBe('flank');
+  });
+
+  it("shot dry at range, reloads on its way to cover out of the enemy's sight, and fights on once loaded (request 7)", () => {
+    // The enemy stands 15 m off in the open, south of the wall; the bot, a step from the doorway and facing it, at full health with 3 rounds left in its magazine of 30.
+    const m = match(walled, walledNav, [{ id: 'b', team: 1, at: [1.5, 0, -3], yaw: Math.PI }, { id: 't', team: 2, at: [1.5, 0, 12], yaw: 0 }], 'Juniper');
+    const state = m.sim.playerState('b')!;
+    state.weapons[0]!.ammo = 3;
+    m.sim.setPlayerState(state);
+    // Each tick in cover: whether the enemy could see its chest, and the rounds in its magazine.
+    const cover: { hidden: boolean; ammo: number }[] = [];
+    let left = false;
+    for (let i = 0; i < ticks(10) && !left; i++) {
+      const out = m.step({ t: usercmd({ yaw: 0 }) });
+      const b = m.self();
+      const t = out.players.find((p) => p.id === 't')!;
+      if (m.bot.activity === 'cover') cover.push({ hidden: raycastWorld(walled, [t.position[0], t.position[1] + t.eyeHeight, t.position[2]], [b.position[0], b.position[1] + 1.2, b.position[2]]) !== null, ammo: b.weapon.ammo });
+      else left = cover.length > 0;
+    }
+    expect(cover.length, 'went to cover').toBeGreaterThan(0);
+    // It came back out reloaded, from where the enemy couldn't see it.
+    expect(left, 'came back out').toBe(true);
+    expect(cover.at(-1)).toEqual({ hidden: true, ammo: 30 });
   });
 
   it('hurt and losing a fight, breaks off to cover out of the enemy\'s sight and stays there until healed', () => {
