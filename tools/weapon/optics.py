@@ -123,7 +123,7 @@ g.cut(hood, [g.sweep("window", hood_in, REFLEX_REAR - 0.01, 0.02, "anodised", be
 # The glass, set in the hood's front; the dot sits just behind it on the axis.
 glass = soften([(-0.0112, 0.0228), (0.0112, 0.0228), (0.0112, 0.0356), (0.0088, 0.0416), (-0.0088, 0.0416), (-0.0112, 0.0356)], 2)
 g.sweep("glass", glass, 0.0066, 0.0074, "lens", bevel=0)
-g.cyl("dot", 0.00024, 0.0003, (0, 0.0062, A), "red_insert", axis="Y", verts=12, bevel=0)
+g.cyl("dot", 0.00038, 0.0003, (0, 0.0062, A), "red_insert", axis="Y", verts=12, bevel=0)
 # The emitter under the window, the brightness buttons on the left, the battery cap on the right.
 g.box("emitter", (0.0062, 0.0036, 0.0026), (0, -0.003, 0.0228), "anodised", 0.0006)
 for i, y in enumerate((-0.0005, 0.0075)):

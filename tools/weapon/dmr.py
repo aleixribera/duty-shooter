@@ -28,6 +28,7 @@ g = gunsmith.Gun("dmr")
 BORE_Z = 0.03
 REC_REAR, REC_FRONT = -0.09, 0.13
 MUZZLE = 0.7
+HG_FRONT = 0.405  # the handguard runs past the gas block
 RAIL_Z = 0.047
 RAIL_TOP = RAIL_Z + 0.0093
 OPTIC_R = 0.021  # the clear tube: short and wide, so the view through it is a wide one
@@ -126,19 +127,18 @@ body.append(g.slab("mag_catch", soften([(0.036, -0.03), (0.0425, -0.03), (0.044,
 # Barrel, gas block, handguard cover, muzzle brake.
 # ---------------------------------------------------------------------------
 body.append(g.lathe("barrel", [(0.0, 0.0), (0.0118, 0.0), (0.0118, 0.03), (0.0102, 0.05), (0.0094, 0.24), (0.0086, 0.3), (0.0082, 0.53), (0.0, 0.53)], (0, REC_FRONT, BORE_Z), "blued", verts=32, segments=2))
-cover = g.sweep("handguard", [(-0.0185, 0.0128), (0.0185, 0.0128), (0.0185, 0.034), (0.0125, 0.046), (-0.0125, 0.046), (-0.0185, 0.034)], REC_FRONT + 0.004, 0.335, "polymer", bevel=0.0022)
-hcuts = [g.cyl("hg_bore", 0.0125, 0.24, (0, 0.24, BORE_Z), "polymer", verts=28, bevel=0)]
+cover = g.sweep("handguard", [(-0.0185, 0.0128), (0.0185, 0.0128), (0.0185, 0.034), (0.0125, 0.046), (-0.0125, 0.046), (-0.0185, 0.034)], REC_FRONT + 0.004, HG_FRONT, "polymer", bevel=0.0022)
+hcuts = [g.cyl("hg_bore", 0.0125, HG_FRONT - 0.115, (0, (HG_FRONT + 0.125) / 2, BORE_Z), "polymer", verts=28, bevel=0)]
 for side in (-1, 1):
-    for i in range(6):
+    for i in range(8):
         y = 0.16 + i * 0.03
         hcuts.append(g.slab(f"hg_vent{side}{i}", soften([(y - 0.009, 0.022, True), (y + 0.009, 0.022, True), (y + 0.012, 0.029, True), (y - 0.006, 0.029, True)], 2), 0.012, "polymer", 0, x=side * 0.0185))
 g.cut(cover, hcuts)
 body.append(cover)
-gas = g.slab("gas_block", soften([(0.36, BORE_Z - 0.0125), (0.392, BORE_Z - 0.0125), (0.392, BORE_Z + 0.021), (0.385, BORE_Z + 0.028), (0.366, BORE_Z + 0.028), (0.36, BORE_Z + 0.021)], 1), 0.024, "phosphate", bevel=0.0016)
+# A low-profile gas block, inside the long handguard: nothing stands over the barrel ahead of the optic, so the
+# view through it holds the reticle alone (a post-like block there read as a front sight under the chevron).
+gas = g.slab("gas_block", soften([(0.36, BORE_Z - 0.011), (0.392, BORE_Z - 0.011), (0.392, BORE_Z + 0.008), (0.386, BORE_Z + 0.011), (0.366, BORE_Z + 0.011), (0.36, BORE_Z + 0.008)], 1), 0.022, "phosphate", bevel=0.0012)
 body.append(gas)
-body.append(g.cyl("gas_tube", 0.0052, 0.06, (0, 0.335, BORE_Z + 0.0185), "phosphate", verts=18, bevel=0.0004))
-body.append(g.cyl("gas_plug", 0.0056, 0.008, (0, 0.395, BORE_Z + 0.0185), "steel", verts=6, bevel=0.0004))
-body.append(g.slab("front_post_base", soften([(0.366, BORE_Z + 0.027), (0.386, BORE_Z + 0.027), (0.381, BORE_Z + 0.036), (0.371, BORE_Z + 0.036)], 1), 0.008, "phosphate", 0.0006))
 brake = g.lathe("brake", [(0.0, 0.0), (0.0108, 0.0), (0.0118, 0.004), (0.0118, 0.058), (0.0104, 0.062), (0.0, 0.062)], (0, MUZZLE - 0.062, BORE_Z), "phosphate", verts=36, segments=2)
 bcuts = [g.cyl("brake_bore", 0.0048, 0.07, (0, MUZZLE - 0.03, BORE_Z), "phosphate", verts=20, bevel=0)]
 for i in range(5):

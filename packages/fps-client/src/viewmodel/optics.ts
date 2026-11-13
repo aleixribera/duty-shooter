@@ -72,7 +72,8 @@ function dress(scene: Object3D): void {
       if (finish === 'lens') {
         next = new MeshStandardMaterial({ color: new Color(0.55, 0.75, 0.8), roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.1, depthWrite: false });
       } else if (finish === 'red_insert') {
-        next = new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(1, 0.06, 0.03), emissiveIntensity: 3, roughness: 1, metalness: 0 });
+        // A pure, moderate red: brighter, the film curve washes it to salmon, which vanishes on the orange targets.
+        next = new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(1, 0, 0.004), emissiveIntensity: 1.4, roughness: 1, metalness: 0 });
       } else {
         next = old;
       }

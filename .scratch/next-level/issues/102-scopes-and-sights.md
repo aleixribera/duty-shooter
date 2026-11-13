@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.192.0 (pass 1)
+Release: v2.192.0 (pass 1), v2.193.4 (pass 2)
 
 Spec: `../spec.md`
 
@@ -44,3 +44,19 @@ Gaps, for the next pass of this item:
 - The optic's shaders are not built in the warm-up, so the first mount in a match may hitch.
 - The Reflex dot is small and pale in play: about 5 px and salmon over the range's bright walls at 1080p (`sights/after/sky-reflex.jpg`), about 2 px on a phone (emulated at device scale 1). It wants a size floor and a hotter red.
 - Still to do in item 6: the sniper's and the Vantage's scopes, and a clip per weapon with sound.
+
+**2026-11-13, loop pass 16 (pass 2: sights on the target).** Review 13b failed objective 4 on "no sight puts the 25 m dummy under the reticle; the sniper's sits ~360 px low; the Vantage shows a front post inside its optic". The first was the capture's: its range part walked forward and fired without ever aiming, and recoil left the view on the 64 m back wall. The other two were real.
+
+Built:
+- **The Vantage's optic shows the reticle alone** (`tools/weapon/dmr.py`, rebaked `dmr.glb`): the handguard now runs to 0.405 over a low-profile gas block; the raised gas block, gas tube and the front post base it carried are gone, so nothing post-like stands under the chevron.
+- **The red dot and the Prism's ring read on any target** (`viewmodel/optics.ts`): the reticle glows a pure, moderate red (emissive 1, 0, 0.004 at 1.4) instead of a hot one the film curve washed to salmon, which vanished on the orange dummies. The Reflex dot is 0.76 mm across instead of 0.48 (`tools/weapon/optics.py`, rebaked `reflex.glb`): about 10 px at 1080 lines, 3 px on an 844x390 phone.
+- **The review aims** (`reviews/capture.mjs`): each sight is laid on the 25 m target's chest (the shotgun's on the 10 m one), net of recoil and flinch, before the ADS frame and before each shot; `summary.json` logs the range's shots/hits per sight.
+
+Checked:
+- `sights2/look.mjs` in the Practice Range, irons, Reflex and Prism on the M4A1, Reflex on the Bulwark, the Vantage and the Ridgeline, at 1920x1080 and 844x390 (`sights2/sheet.jpg`): every reticle sits on the dummy's chest, and every shot hit (4/4, 2/2 semi, 1/1 bolt).
+- The capture's range part rerun with the aim: every sight on its target, every shot a hit (shotgun 2/2 at 10 m, SMG 7/6), no page errors (`sights2/capture-sheet.jpg`).
+- `optics.test.ts`, `prerendered-kit.test.ts`, `ui-model.test.ts`, the client typecheck.
+
+Second opinion (read-only, final diff): no bugs; the gas block stays inside the handguard (1.5 mm shows through the last vent), the larger dot still clears the glass and the test's off-axis rays.
+
+Left for item 6: the M4A1's front sight tower still shows low in the Reflex and Prism; the Prism's lens is a small circle in a big eyecup; the dot has no size floor on small phones; third-person guns carry no optic; a clip per weapon with sound.

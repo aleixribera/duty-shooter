@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 15 (2026-11-13) did review 13b's fix first (ticket 105, v2.193.3): ejected brass is drawn no longer than 40 px at 1080 lines however near the eye it flies (was 100-275 px over the kill popup); frames `brass/sheet.jpg`. Next: item 6 pass 2 (13b: no sight puts the 25 m dummy under the reticle, the sniper's sits ~360 px low; the Vantage shows a front post inside its optic), item 5's map gaps, item 4 when the laptop is back. Open from 13b also: hint line stacking two hints in one slot, "Plant the charge" said three times, loadout prompt twice.
+Loop pass 16 (2026-11-13) did item 6 pass 2, sights on the target (ticket 102): the Vantage's optic no longer shows a post under its chevron (long handguard, low gas block), the Reflex dot and Prism ring glow a pure red that reads on the orange dummies (was salmon) and the dot is 1.6x larger, and the review's range part now lays each sight on the 25 m target before its frame and shots. Acceptance seen: every sight on the dummy's chest with all shots hitting, desktop and phone (`sights2/sheet.jpg`). Next: item 5's map gaps, item 4 when the laptop is back. Open from 13b also: hint line stacking two hints in one slot, "Plant the charge" said three times, loadout prompt twice; item 6 leftovers in ticket 102.
 
 ## Needs Aleix
 
@@ -14,7 +14,7 @@ Loop pass 15 (2026-11-13) did review 13b's fix first (ticket 105, v2.193.3): eje
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Reviews judge PLAN.md's five objectives (the ten-row scorecard is retired). Latest: 2026-11-13b (1, 2 pass; 3, 4, 5 fail).
-- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's and v2.193.1's runs passed. Check v2.193.2's and v2.193.3's.
+- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's and v2.193.1's runs passed. v2.193.2's and v2.193.3's runs passed; check later ones.
 
 ## Broken
 

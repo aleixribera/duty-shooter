@@ -515,6 +515,16 @@ if (want('tour')) {
     ['shotgun', null],
     ['smg', null],
   ];
+  // Turns the view onto a range target's chest, net of the recoil and flinch the simulation adds to the mouse's angles.
+  const AIM_AT = (id) => `(() => {
+    const g = duty.game, me = g?.player, t = g?.driver?.others(0).find((p) => p.id === ${JSON.stringify(id)});
+    if (!me || !t) return null;
+    const eye = [me.position[0], me.position[1] + me.eyeHeight, me.position[2]];
+    const dx = t.position[0] - eye[0], dy = t.position[1] + t.eyeHeight * 0.78 - eye[1], dz = t.position[2] - eye[2];
+    const look = g.input.angles;
+    g.input.setAngles(Math.atan2(-dx, -dz) - (me.yaw - look.yaw), Math.atan2(dy, Math.hypot(dx, dz)) - (me.pitch - look.pitch));
+    return Math.round(Math.hypot(dx, dz));
+  })()`;
   log('tour: Practice Range');
   summary.range = await session('30-range', async (page) => {
     await open(page);
@@ -537,11 +547,18 @@ if (want('tour')) {
         continue;
       }
       await sleep(3200);
+      // Each sight is laid on a target's chest (the shotgun's at 10 m, the rest at 25 m), and laid again before each
+      // shot as a player pulls back down, so the frames show whether the reticle and the hits land on it.
+      const target = gun === 'shotgun' ? 'dummy-10' : 'dummy-25';
+      await page.js(AIM_AT(target));
       await page.mouse('mousePressed', 'right');
       await sleep(1500);
+      await page.js(AIM_AT(target));
+      await sleep(150);
       await page.shot(`${name}-ads`);
       const shots = gun === 'sniper' || gun === 'shotgun' ? 2 : 5;
       for (let i = 0; i < shots; i++) {
+        if (i > 0) await page.js(AIM_AT(target));
         await page.mouse('mousePressed');
         await sleep(120);
         if (i === 0) await page.shot(`${name}-fire`);
@@ -551,7 +568,8 @@ if (want('tour')) {
       await page.mouse('mouseReleased', 'right');
       await sleep(400);
       const heard = (await sounds(page, t0)).heard;
-      guns.push({ gun, optic, heard: Object.fromEntries(Object.entries(heard).filter(([e]) => !e.startsWith('ambient') && e !== 'footstep')) });
+      const hits = await page.js(`document.querySelector('.shots')?.textContent ?? null`);
+      guns.push({ gun, optic, target, hits, heard: Object.fromEntries(Object.entries(heard).filter(([e]) => !e.startsWith('ambient') && e !== 'footstep')) });
     }
     await page.shot('30-range-b');
     return {
