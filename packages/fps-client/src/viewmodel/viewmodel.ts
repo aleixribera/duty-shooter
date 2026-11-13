@@ -1,4 +1,4 @@
-import { STATS, WEAPON_IDS, isShellReload, type WeaponId, type WeaponRow } from '@duty-shooter/fps-core';
+import { STATS, WEAPON_IDS, isShellReload, type OpticId, type WeaponId, type WeaponRow } from '@duty-shooter/fps-core';
 import { DirectionalLight, Euler, Group, HemisphereLight, Object3D, PerspectiveCamera, Quaternion, Scene, Vector3, type Texture } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { attachAuthoredM4, disposeAuthored } from './authored-m4a1';
@@ -9,6 +9,7 @@ import { buildArms, type ArmsModel } from './arms';
 import { buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, type M4A1Model } from './m4a1';
 import { WeaponMotion } from './motion';
+import { IRON_NODES, OPTICS, OPTIC_MOUNTS, mountOptic, opticSight, opticTemplate } from './optics';
 import type { ViewmodelState } from './state';
 
 const W = STATS.weapon;
@@ -552,6 +553,11 @@ export class Viewmodel {
   readonly #catchRest = new Quaternion();
   readonly #adsOffset: Vector3;
   readonly #kits = new Map<KitId, KitGun>();
+  /** The optic each gun carries (ticket 19): its model once mounted. */
+  readonly #optics = new Map<WeaponId, { readonly id: OpticId; node: Object3D | null }>();
+  /** A hidden copy of each optic, shown only in `showAll`'s frame so its glass and reticle compile in the warm-up. */
+  readonly #opticWarm = new Map<OpticId, Object3D>();
+  readonly #sight = new Vector3();
   /** The frag in hand, built the first time one is cooked. */
   /** The frag, smoke and flash for the hand, each built the first time it is needed. */
   readonly #throwables = new Map<'frag' | 'smoke' | 'flash', ReturnType<typeof buildFrag>>();
@@ -713,11 +719,20 @@ export class Viewmodel {
     this.scene.environmentIntensity = ENVIRONMENT * amb;
   }
 
-  /** Builds every weapon and the frag now, settling once their models are in: a first switch then has nothing to fetch. */
+  /** Builds every weapon, the frag and the optics now, settling once their models are in: a first switch then has nothing to fetch. */
   prepare(): Promise<void> {
     for (const id of WEAPON_IDS) if (id !== 'm4a1') this.#kit(id);
     const throwables = (['frag', 'smoke', 'flash'] as const).map((k) => this.#throwable(k).loaded);
-    return Promise.all([this.#authored, ...throwables, ...[...this.#kits.values()].map((k) => k.loaded)]).then(() => undefined);
+    const optics = (Object.keys(OPTICS) as OpticId[]).map((o) =>
+      opticTemplate(o).then((template) => {
+        if (!template || this.#disposed || this.#opticWarm.has(o)) return;
+        const warm = template.clone();
+        warm.visible = false;
+        this.#pivot.add(warm);
+        this.#opticWarm.set(o, warm);
+      }),
+    );
+    return Promise.all([this.#authored, ...throwables, ...optics, ...[...this.#kits.values()].map((k) => k.loaded)]).then(() => undefined);
   }
 
   /**
@@ -726,7 +741,7 @@ export class Viewmodel {
    * through); returns what puts them back.
    */
   showAll(): () => void {
-    const shown = [this.root, this.gun.root, ...[...this.#kits.values()].map((k) => k.root), ...[...this.#throwables.values()].map((t) => t.root)];
+    const shown = [this.root, this.gun.root, ...[...this.#kits.values()].map((k) => k.root), ...[...this.#throwables.values()].map((t) => t.root), ...this.#opticWarm.values()];
     const was = shown.map((o) => o.visible);
     const scale = this.root.scale.x;
     for (const o of shown) o.visible = true;
@@ -757,16 +772,63 @@ export class Viewmodel {
     if (id === 'm4a1') {
       this.gun.sockets.muzzle.add(this.#muzzle);
       this.gun.sockets.ejectionPort.add(this.#ejectionPort);
-      const rear = this.gun.sockets.rearSight.position;
-      this.#adsOffset.set(-rear.x, -rear.y, -EYE_RELIEF - rear.z);
       return;
     }
     const kit = this.#kit(id);
     kit.root.visible = true;
     kit.sockets.muzzle.add(this.#muzzle);
     kit.sockets.ejectionPort.add(this.#ejectionPort);
-    const rear = kit.sockets.rearSight.position;
-    this.#adsOffset.set(-rear.x, -rear.y, -kit.rig.eyeRelief - rear.z);
+  }
+
+  /** The gun `id`'s model root: the M4A1's, or its kit's. */
+  #gunRoot(id: WeaponId): Object3D {
+    return id === 'm4a1' ? this.gun.root : this.#kit(id).root;
+  }
+
+  /** Shows or folds the gun `id`'s iron sights. */
+  #irons(id: WeaponId, shown: boolean): void {
+    this.#gunRoot(id).traverse((o) => {
+      if (IRON_NODES.includes(o.name)) o.visible = shown;
+    });
+  }
+
+  /**
+   * Puts `optic` on the gun `id` (ticket 19), or takes its optic off: the model goes on the gun's rail once it and
+   * the gun are loaded, and the irons fold while it is on. A gun with no mount for optics stays on its irons.
+   */
+  #fitOptic(id: WeaponId, optic: OpticId | null): void {
+    const mount = OPTIC_MOUNTS[id];
+    const want = mount && optic ? optic : null;
+    const have = this.#optics.get(id);
+    if (have?.id === want) return;
+    if (have) {
+      have.node?.removeFromParent();
+      this.#optics.delete(id);
+      this.#irons(id, true);
+    }
+    if (!want || !mount) return;
+    const entry: { readonly id: OpticId; node: Object3D | null } = { id: want, node: null };
+    this.#optics.set(id, entry);
+    const gunLoaded = id === 'm4a1' ? Promise.resolve() : this.#kit(id).loaded;
+    void Promise.all([opticTemplate(want), gunLoaded]).then(([template]) => {
+      if (this.#disposed || this.#optics.get(id) !== entry || !template) return;
+      const part = mount.on && id !== 'm4a1' ? this.#kit(id).part(mount.on) : null;
+      entry.node = mountOptic(this.#gunRoot(id), template, want, mount, part);
+      this.#irons(id, false);
+    });
+  }
+
+  /** Where aiming puts the gun: its sight line on the camera's axis, through the optic once one is on, else down the irons. */
+  #aim(id: WeaponId, kit: KitGun | null): void {
+    const optic = this.#optics.get(id);
+    const mount = OPTIC_MOUNTS[id];
+    if (optic?.node && mount) {
+      const sight = opticSight(optic.id, mount[optic.id], this.#sight);
+      this.#adsOffset.set(-sight.x, -sight.y, -OPTICS[optic.id].eyeRelief - sight.z);
+      return;
+    }
+    const rear = kit ? kit.sockets.rearSight.position : this.gun.sockets.rearSight.position;
+    this.#adsOffset.set(-rear.x, -rear.y, -(kit ? kit.rig.eyeRelief : EYE_RELIEF) - rear.z);
   }
 
   /** Advances the animation. `worldVerticalFov` (radians) only nudges the viewmodel FOV with the player's setting. */
@@ -775,6 +837,8 @@ export class Viewmodel {
     this.#hold(state.weapon ?? 'm4a1');
     const id = this.#weapon;
     const kit = id === 'm4a1' ? null : this.#kit(id);
+    this.#fitOptic(id, state.optic ?? null);
+    this.#aim(id, kit);
     const row = STATS.weapons[id];
     const ads = ease(Math.min(1, Math.max(0, state.ads)));
     const k = (tau: number) => 1 - Math.exp(-dt / tau);
@@ -1011,6 +1075,11 @@ export class Viewmodel {
     this.#disposed = true;
     this.#disposeAuthored?.();
     this.#disposeAuthored = null;
+    // The optics' models are shared by every viewmodel: off the guns before the guns' own are disposed.
+    for (const o of this.#optics.values()) o.node?.removeFromParent();
+    this.#optics.clear();
+    for (const warm of this.#opticWarm.values()) warm.removeFromParent();
+    this.#opticWarm.clear();
     this.gun.dispose();
     for (const kit of this.#kits.values()) kit.dispose();
     for (const t of this.#throwables.values()) t.dispose();

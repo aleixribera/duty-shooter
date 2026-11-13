@@ -81,7 +81,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`, `/royale/`); a production build always does.
-- `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment.
+- `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment, and `&optic=reflex` or `&optic=prism` puts that optic on a gun that takes one.
 - `?webgl` forces the WebGL2 fallback.
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
 

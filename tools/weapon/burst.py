@@ -132,16 +132,19 @@ body.append(g.slab("deflector", soften([(-0.108, 0.02), (-0.099, 0.02), (-0.099,
 # Rail and sights: guard ears at the back, a hooded post at the front.
 # ---------------------------------------------------------------------------
 body.append(g.rail("rail", -0.2, 0.158, TOP - 0.0006, "anodised"))
+# The iron sights fold away under an optic: the ears, hood and post are one part, `irons` (ticket 19).
+irons = []
 body.append(g.box("rs_clamp", (0.024, 0.016, 0.006), (0, RS_Y + 0.001, RAIL_TOP + 0.002), "phosphate", 0.0008))
 body.append(g.cyl("rs_clamp_knob", 0.004, 0.005, (0.0145, RS_Y + 0.001, RAIL_TOP + 0.002), "phosphate", axis="X", verts=18, bevel=0.0004))
 for side in (-1, 1):
-    body.append(g.slab(f"rs_ear{side}", soften([(RS_Y - 0.007, RAIL_TOP + 0.004), (RS_Y + 0.008, RAIL_TOP + 0.004), (RS_Y + 0.004, SIGHT_Z + 0.008, True), (RS_Y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.0028, "phosphate", 0.0006, x=side * 0.0105))
+    irons.append(g.slab(f"rs_ear{side}", soften([(RS_Y - 0.007, RAIL_TOP + 0.004), (RS_Y + 0.008, RAIL_TOP + 0.004), (RS_Y + 0.004, SIGHT_Z + 0.008, True), (RS_Y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.0028, "phosphate", 0.0006, x=side * 0.0105))
 body.append(g.box("fs_clamp", (0.024, 0.014, 0.006), (0, FS_Y, RAIL_TOP + 0.002), "phosphate", 0.0008))
 hood = g.slab("fs_hood", soften([(FS_Y - 0.005, RAIL_TOP + 0.004), (FS_Y + 0.005, RAIL_TOP + 0.004), (FS_Y + 0.004, SIGHT_Z + 0.008, True), (FS_Y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.021, "phosphate", 0.0007)
 g.cut(hood, [g.slab("fs_window", soften([(FS_Y - 0.01, RAIL_TOP + 0.0075, True), (FS_Y + 0.01, RAIL_TOP + 0.0075, True), (FS_Y + 0.01, SIGHT_Z + 0.0055, True), (FS_Y - 0.01, SIGHT_Z + 0.0055, True)], 2), 0.015, "phosphate", 0)])
-body.append(hood)
-body.append(g.slab("fs_post", [(FS_Y - 0.0016, RAIL_TOP + 0.007), (FS_Y + 0.0016, RAIL_TOP + 0.007), (FS_Y + 0.0009, SIGHT_Z), (FS_Y - 0.0009, SIGHT_Z)], 0.0022, "phosphate", 0.0003))
-body.append(g.cyl("fs_dot", 0.0007, 0.0006, (0, FS_Y - 0.0016, SIGHT_Z - 0.0012), "green_insert", verts=12, bevel=0))
+irons.append(hood)
+irons.append(g.slab("fs_post", [(FS_Y - 0.0016, RAIL_TOP + 0.007), (FS_Y + 0.0016, RAIL_TOP + 0.007), (FS_Y + 0.0009, SIGHT_Z), (FS_Y - 0.0009, SIGHT_Z)], 0.0022, "phosphate", 0.0003))
+irons.append(g.cyl("fs_dot", 0.0007, 0.0006, (0, FS_Y - 0.0016, SIGHT_Z - 0.0012), "green_insert", verts=12, bevel=0))
+g.part("irons", irons, (0, 0, 0))
 
 # ---------------------------------------------------------------------------
 # Barrel and a three-prong flash hider.

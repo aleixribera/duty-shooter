@@ -77,10 +77,12 @@ for y in (0.075, 0.141):
     body.append(g.box(f"tray_guide{y}", (0.03, 0.003, 0.004), (-0.004, y, REC_TOP + 0.0006), "phosphate", 0.0005))
 
 # Rear sight behind the cover: a drum base and two guard ears (no ring).
+# The iron sights fold away under an optic: the ears, hood and post are one part, `irons` (ticket 19).
+irons = []
 rs_y = -0.095
 body.append(g.box("rs_base", (0.03, 0.017, 0.012), (0, rs_y, REC_TOP + 0.006), "phosphate", 0.0012))
 for side in (-1, 1):
-    body.append(g.slab(f"rs_ear{side}", soften([(rs_y - 0.0075, REC_TOP + 0.01), (rs_y + 0.0075, REC_TOP + 0.01), (rs_y + 0.004, SIGHT_Z + 0.008, True), (rs_y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.003, "phosphate", 0.0006, x=side * 0.0115))
+    irons.append(g.slab(f"rs_ear{side}", soften([(rs_y - 0.0075, REC_TOP + 0.01), (rs_y + 0.0075, REC_TOP + 0.01), (rs_y + 0.004, SIGHT_Z + 0.008, True), (rs_y - 0.004, SIGHT_Z + 0.008, True)], 1), 0.003, "phosphate", 0.0006, x=side * 0.0115))
 drum = g.lathe("rs_drum", [(0.0, 0.0), (0.006, 0.0), (0.0066, 0.0008), (0.0066, 0.0068), (0.0, 0.0068)], (-0.015 - 0.0068, rs_y, REC_TOP + 0.0065), "phosphate", axis="X", verts=24)
 g.cut(drum, [g.box(f"drum_k{i}", (0.006, 0.001, 0.001), (-0.0185, rs_y + math.cos(i * math.pi / 8) * 0.0067, REC_TOP + 0.0065 + math.sin(i * math.pi / 8) * 0.0067), "phosphate", 0, rot=(i * math.pi / 8, 0, 0)) for i in range(16)])
 body.append(drum)
@@ -149,10 +151,11 @@ body.append(g.box("handle_collar", (0.03, 0.016, 0.01), (0, 0.232, 0.05), "phosp
 fs_y = 0.431
 body.append(g.slab("fs_tower", soften([(fs_y - 0.013, BORE_Z + 0.0125, True), (fs_y + 0.013, BORE_Z + 0.0125, True), (fs_y + 0.006, SIGHT_Z - 0.014), (fs_y - 0.006, SIGHT_Z - 0.014)], 1), 0.011, "phosphate", 0.0008))
 for side in (-1, 1):
-    body.append(g.slab(f"fs_ear{side}", soften([(fs_y - 0.006, SIGHT_Z - 0.016), (fs_y + 0.006, SIGHT_Z - 0.016), (fs_y + 0.004, SIGHT_Z + 0.007, True), (fs_y - 0.004, SIGHT_Z + 0.007, True)], 1), 0.0026, "phosphate", 0.0006, x=side * 0.0078))
-body.append(g.box("fs_bridge", (0.018, 0.011, 0.0035), (0, fs_y, SIGHT_Z - 0.0145), "phosphate", 0.0006))
-body.append(g.slab("fs_post", [(fs_y - 0.0016, SIGHT_Z - 0.014), (fs_y + 0.0016, SIGHT_Z - 0.014), (fs_y + 0.0009, SIGHT_Z), (fs_y - 0.0009, SIGHT_Z)], 0.0022, "phosphate", 0.0003))
-body.append(g.cyl("fs_dot", 0.0007, 0.0006, (0, fs_y - 0.0016, SIGHT_Z - 0.0012), "green_insert", verts=12, bevel=0))
+    irons.append(g.slab(f"fs_ear{side}", soften([(fs_y - 0.006, SIGHT_Z - 0.016), (fs_y + 0.006, SIGHT_Z - 0.016), (fs_y + 0.004, SIGHT_Z + 0.007, True), (fs_y - 0.004, SIGHT_Z + 0.007, True)], 1), 0.0026, "phosphate", 0.0006, x=side * 0.0078))
+irons.append(g.box("fs_bridge", (0.018, 0.011, 0.0035), (0, fs_y, SIGHT_Z - 0.0145), "phosphate", 0.0006))
+irons.append(g.slab("fs_post", [(fs_y - 0.0016, SIGHT_Z - 0.014), (fs_y + 0.0016, SIGHT_Z - 0.014), (fs_y + 0.0009, SIGHT_Z), (fs_y - 0.0009, SIGHT_Z)], 0.0022, "phosphate", 0.0003))
+irons.append(g.cyl("fs_dot", 0.0007, 0.0006, (0, fs_y - 0.0016, SIGHT_Z - 0.0012), "green_insert", verts=12, bevel=0))
+g.part("irons", irons, (0, 0, 0))
 
 # Bipod, folded forward under the barrel.
 body.append(g.tube("bipod_yoke", 0.0128, 0.0098, 0.016, (0, 0.47, BORE_Z), "phosphate", verts=32))

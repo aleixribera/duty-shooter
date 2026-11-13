@@ -1,4 +1,4 @@
-import type { MovementState, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
+import type { MovementState, OpticId, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
 
 /**
  * Everything the first-person viewmodel needs from the game, per rendered
@@ -8,6 +8,8 @@ import type { MovementState, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } 
 export interface ViewmodelState {
   /** The weapon in hand; the M4A1 when absent. */
   readonly weapon?: WeaponId;
+  /** The optic on the weapon in hand (ticket 19): the gun carries it on its rail and aims through it. Irons when absent. */
+  readonly optic?: OpticId | null;
   readonly action: WeaponAction;
   /** Seconds into the current action. */
   readonly actionTime: number;

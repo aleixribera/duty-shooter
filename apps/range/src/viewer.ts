@@ -79,7 +79,8 @@ const BASE: ViewmodelState = {
 /**
  * The dev viewer (`?viewer`): a first-person weapon and arms cycling every
  * animation. `&weapon=shotgun` picks the weapon, `&clip=reload` plays one
- * clip, and `&t=0.6` holds that clip at one moment (for screenshots).
+ * clip, `&t=0.6` holds that clip at one moment (for screenshots), and
+ * `&optic=reflex` or `&optic=prism` puts that optic on a gun that takes one.
  */
 export async function startViewer(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   const { renderer } = await createRenderer(canvas, { forceWebGL });
@@ -100,7 +101,8 @@ export async function startViewer(canvas: HTMLCanvasElement, status: HTMLElement
   const params = new URLSearchParams(location.search);
   const weapon = (WEAPON_IDS as readonly string[]).includes(params.get('weapon') ?? '') ? (params.get('weapon') as WeaponId) : 'm4a1';
   const CLIPS = clipsFor(weapon);
-  const BASE_STATE: ViewmodelState = { ...BASE, weapon, ammo: STATS.weapons[weapon].handling.magazineSize.value };
+  const optic = params.get('optic') === 'reflex' || params.get('optic') === 'prism' ? (params.get('optic') as 'reflex' | 'prism') : null;
+  const BASE_STATE: ViewmodelState = { ...BASE, weapon, optic, ammo: STATS.weapons[weapon].handling.magazineSize.value };
   const hold = params.has('t') ? Number(params.get('t')) : null;
   const only = params.get('clip');
   if (only !== null) clipIndex = Math.max(0, CLIPS.findIndex((c) => c.name.toLowerCase().startsWith(only.toLowerCase())));

@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 10 (2026-11-13) fixed the Broken item (ticket 101): the Practice Range kept behind the menu no longer takes the map's light. Each WorldView owns its sky field and takes the shared light back at the top of every frame (`WorldView.show`, `showWorld`); before, the shown map's shadows were aimed by the range's sun and the range, entered after another map, by that map's (`spare-light/results.txt`). Acceptance seen: both probe scripts read each map's own sun. The laptop was still not tried this pass. Next: item 5 pass 2's other gaps (Station Nine's early kills, the Switchyard spawn at (-49, 12)), or item 4 pass 2 if the laptop is back.
+Loop pass 11 (2026-11-13) started `PLAN.md` item 6 (pass 1, rough; ticket 102, which takes over ticket 19's optic models): the Reflex and the Prism 2x are Blender models (`tools/weapon/optics.py`) on the rail of every gun that takes an optic, the irons fold away under them, and aiming lines up through them (`viewmodel/optics.ts`). Acceptance seen: viewer frames of all five guns x three sights at desktop and phone (`sights/after/sheet-*.jpg`), the dot within 3 px of centre; the M4A1 and Bulwark aimed in the Practice Range (`sights/after/range-sheet.jpg`). Gaps are in ticket 102. Next: item 6 pass 2 (the sniper's and the Vantage's scopes, a wider Prism view, a brighter dot), or item 5 pass 2's gaps; item 4 pass 2 if the laptop is back (it timed out again this pass).
 
 ## Needs Aleix
 
@@ -11,9 +11,9 @@ Loop pass 10 (2026-11-13) fixed the Broken item (ticket 101): the Practice Range
 ## Where things stand
 
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
-- Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; models and sight pictures left), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
+- Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Last scored review: h (`reviews/2026-11-12h.md`); the ten-row scorecard is retired by PLAN.md. Review 2026-11-13a (the first by the five objectives) fails all five; its capture predates private lobbies, so objective 1 needs a new capture.
-- CI: green through v2.191.0; check this pass's tag (v2.191.1).
+- CI: green through v2.191.1; check this pass's tag (v2.192.0).
 
 ## Broken
 

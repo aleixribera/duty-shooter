@@ -388,8 +388,10 @@ function flashHider(q: Q): Part {
   return radial(p, 120, mod);
 }
 
-function frontSightBase(q: Q): Part {
+/** The front sight's base on the gas journal, and its post with the ears round it: the post folds away under an optic (ticket 19). */
+function frontSightBase(q: Q): { readonly base: Part; readonly post: Part } {
   const parts: Part[] = [];
+  const post: Part[] = [];
   // Base ring around the gas journal.
   parts.push(
     radial(
@@ -421,7 +423,7 @@ function frontSightBase(q: Q): Part {
     ),
   );
   // Protective ears around the post.
-  parts.push(
+  post.push(
     frontLoft(
       polyRound(
         [
@@ -445,7 +447,7 @@ function frontSightBase(q: Q): Part {
   );
   // Front sight post (square, tip at SIGHT_Y) and its detent base.
   const hp = 0.0009;
-  parts.push(
+  post.push(
     topLoft(
       [
         [-hp, FRONT_SIGHT_Z - hp, 0.0002],
@@ -465,7 +467,7 @@ function frontSightBase(q: Q): Part {
       const m4 = th % (Math.PI / 2);
       if (z < 0.0005 && z > -0.0031 && Math.min(m4, Math.PI / 2 - m4) < 0.25) s.x -= 0.0006;
     };
-    parts.push(
+    post.push(
       radial(
         [
           { z: 0.001, r: 0.0034 },
@@ -517,7 +519,7 @@ function frontSightBase(q: Q): Part {
       parts.push(disc(new Vector3(-0.0141, -0.006, z), NX, 0.0015, 0.0005, q));
     }
   }
-  return merge(...parts);
+  return { base: merge(...parts), post: merge(...post) };
 }
 
 function deltaRing(q: Q): Part {
@@ -1284,6 +1286,7 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
   const muzzleB = hi ? new GeoBuilder() : anod;
   const rearSightB = hi ? new GeoBuilder() : anod;
   const steelB = hi ? new GeoBuilder() : anod;
+  const frontPostB = hi ? new GeoBuilder() : anod;
   const poly = new GeoBuilder();
   const handguardB = hi ? new GeoBuilder() : poly;
   const stockB = hi ? new GeoBuilder() : poly;
@@ -1371,7 +1374,9 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
   // Barrel group.
   steelB.add(barrel(q).surf(steelTint));
   muzzleB.add(flashHider(q).surf(steelTint));
-  steelB.add(frontSightBase(q).surf(steelTint));
+  const frontSight = frontSightBase(q);
+  steelB.add(frontSight.base.surf(steelTint));
+  frontPostB.add(frontSight.post.surf(steelTint));
   steelB.add(deltaRing(q).surf(steelTint));
   steelB.add(handguardCap(q).surf(steelTint));
   if (hi) {
@@ -1551,6 +1556,7 @@ export function buildM4A1(options: { detail?: 'high' | 'low' } = {}): M4A1Model 
     mesh(wellB, mats.anod, 'magwell', root);
     mesh(lowerB, mats.anod, 'lowerReceiverBody', root);
     mesh(steelB, mats.steel, 'steel', root);
+    mesh(frontPostB, mats.steel, 'frontSightPost', root);
     mesh(muzzleB, mats.steel, 'muzzleDevice', root);
     mesh(poly, mats.poly, 'polymer', root);
     mesh(handguardB, mats.poly, 'handguard', root);

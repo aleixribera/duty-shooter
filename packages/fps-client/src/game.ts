@@ -779,6 +779,7 @@ export class Game {
       this.#viewmodel.update(
         {
           weapon: self.weapon.id,
+          optic: kitInHand(self.loadout, self.weapon)?.optic ?? null,
           grenade: self.grenade,
           action: self.weapon.action,
           actionTime: animTime(self, alpha),
@@ -1287,6 +1288,7 @@ export class Game {
     this.#viewmodel.update(
       {
         weapon: p.weapon.id,
+        optic: kitInHand(p.loadout, p.weapon)?.optic ?? null,
         grenade: p.grenade,
         action: p.weapon.action,
         actionTime: animTime(p, alpha),
