@@ -592,11 +592,12 @@ export class Viewmodel {
   #sunLight = 1;
   #ambientLight = 1;
 
-  /** `lighting` is the map's light: the gun's own lights take its colours, so the gun belongs to the place it is held in. */
-  constructor(environment: Texture | null = null, lighting: Lighting = LIGHTING) {
-    this.scene.environment = environment;
-    this.scene.environmentIntensity = ENVIRONMENT;
-    // Each colour at full brightness (the strengths are the rig's own), and part-way to white: a gun wholly the colour of an orange sun reads as a filter over the picture.
+  /**
+   * The gun's own lights in `lighting`'s colours: each at full brightness (the strengths are the rig's own), and
+   * part-way to white, since a gun wholly the colour of an orange sun reads as a filter over the picture. The map's
+   * light as it is built, and the last minute's turn of it as the clock runs out (ticket 100).
+   */
+  takeLight(lighting: Lighting): void {
     const tint = (c: readonly [number, number, number], by: number): [number, number, number] => {
       const peak = Math.max(c[0], c[1], c[2], 1e-3);
       return [1 + (c[0] / peak - 1) * by, 1 + (c[1] / peak - 1) * by, 1 + (c[2] / peak - 1) * by];
@@ -607,6 +608,13 @@ export class Viewmodel {
     this.#fill.color.setRGB(...tint([horizon[0] + zenith[0], horizon[1] + zenith[1], horizon[2] + zenith[2]], 0.6));
     this.#fill.groundColor.setRGB(...tint(lighting.ground, 0.7)).multiplyScalar(0.3);
     this.#rim.color.setRGB(...tint(zenith, 0.5));
+  }
+
+  /** `lighting` is the map's light: the gun's own lights take its colours, so the gun belongs to the place it is held in. */
+  constructor(environment: Texture | null = null, lighting: Lighting = LIGHTING) {
+    this.scene.environment = environment;
+    this.scene.environmentIntensity = ENVIRONMENT;
+    this.takeLight(lighting);
     this.scene.add(this.#fill);
     this.#key.position.set(-0.6, 1, 0.4);
     this.#rim.position.set(0.8, 0.3, -1);

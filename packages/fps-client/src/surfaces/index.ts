@@ -14,7 +14,7 @@ export { readBakeFile, writeBakeFile } from './file';
 export type { BakeFile } from './file';
 export { decorationErrors, insideFrame, isClear, solidFrame, surfaceFaces, toFrame } from './faces';
 export type { Face, Frame } from './faces';
-export { INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
+export { DEFAULT_CLOUD_COVER, INDIRECT_RANGE, LIGHTING, encodeLight, linearRgb, normalize, skyRadiance } from './lighting';
 export type { Lamp, Lighting } from './lighting';
 export { shotPose } from './ending';
 export { GRIME_MARKS, MOST_GRIME, grimeQuads } from './grime';

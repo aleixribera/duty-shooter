@@ -42,7 +42,8 @@ import { sunShadowFilter } from './sun-shadow';
 import { tilesLoaded } from './surface-tiles';
 import { groundLoaded } from './ground-layers';
 import { PlantsView } from './plants-view';
-import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
+import { currentLighting, grimeMaterial, lightmapNode, lightmapTexture, ProbeField, probeLit, reflectedSky, setShadowReach, showLighting, shownLighting, surfaceMaterial, useLighting, useSkyField } from './surface-materials';
+import { lastMinuteLighting } from './last-minute';
 import { buildSkyField } from './sky-field';
 import { SurfaceHits } from './surface-hit';
 import { distantTown, dustMotes, farGroundGeometry, mountains, PopulationSign, stencilMesh, type Horizon, type SignPlacement } from './world-details';
@@ -360,6 +361,12 @@ export function reflections(renderer: WebGPURenderer, lighting: Lighting = LIGHT
 export class WorldView {
   readonly scene = new Scene();
   readonly #sun: DirectionalLight;
+  /** The map's own light, which the last minute turns (`setLastMinute`). */
+  readonly #lighting: Lighting;
+  /** The last minute's turn of the map's light, as last shown (`setLastMinute`). */
+  #lastMinute: Lighting | null = null;
+  /** How far the last minute had turned it then (0..1). */
+  #lastSky = 0;
   /** Where the realtime shadow map reaches: its centre (x, z) and the radius it fully covers (m). */
   readonly #shadowCentre = uniform(new Vector2(0, 0));
   // The map covers the ground all round that far (its square reaches farther on the ground than across).
@@ -391,7 +398,8 @@ export class WorldView {
 
   constructor(renderer: WebGPURenderer, content: WorldContent, bake: Promise<BakeFile | null> = Promise.resolve(null)) {
     const scene = this.scene;
-    useLighting(content.lighting ?? LIGHTING);
+    this.#lighting = content.lighting ?? LIGHTING;
+    useLighting(this.#lighting);
     // A map on terrain bakes only its surfaces: its sky field lights the rest (far shadows, and how much sky each place sees).
     useSkyField(content.terrain ? buildSkyField(content.terrain, content.solids, (content.lighting ?? LIGHTING).sunDirection) : null);
     scene.backgroundNode = cloudySky(positionWorldDirection as never);
@@ -594,6 +602,24 @@ export class WorldView {
   /** Shows the lobby's head count and this match's kills on the population sign, if the map has one. */
   setPopulation(population: number, kills: number): void {
     this.#sign?.show(population, kills);
+  }
+
+  /**
+   * Turns the map's sky, sun and cloud `sky` of the way (0..1) to the last
+   * minute's end (`lastMinuteLighting`, ticket 100): the world's materials
+   * through their uniforms, the soldiers and props through the sun light.
+   * Returns the light now shown when it changed, else null.
+   */
+  setLastMinute(sky: number): Lighting | null {
+    // The uniforms are shared: a light another view put up since is put back too.
+    if (sky === this.#lastSky && this.#lastMinute !== null && shownLighting() === this.#lastMinute) return null;
+    const l = lastMinuteLighting(this.#lighting, sky);
+    this.#lastSky = sky;
+    this.#lastMinute = l;
+    showLighting(l);
+    this.#sun.color.setRGB(...l.sunColor);
+    this.#sun.intensity = l.sunIntensity * Math.PI;
+    return l;
   }
 
   /**

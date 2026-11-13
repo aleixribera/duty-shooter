@@ -45,7 +45,7 @@ import { tinnitusStrength } from './audio/danger';
 import { speechVolume } from './audio/mix';
 import { matchScene } from './audio/music/scene';
 import { SIREN_OVERLAP } from './audio/countdown';
-import { clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastTenBeat, type MapEnding } from './last-minute';
+import { clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastMinuteSky, lastTenBeat, type MapEnding } from './last-minute';
 import { grenadeWarnings } from './hud/grenade-warnings';
 import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds';
 import { FirstPersonCamera, shotPose } from './camera';
@@ -348,6 +348,8 @@ export class Game {
   /** The picture's moods as they stand (eased, so neither snaps): low health's drained colour and the last minute's light. */
   #drain = 0;
   #dread = 0;
+  /** How far the last minute has turned the sky (`lastMinuteSky`), held through the ending. */
+  #sky = 0;
   /** The match clock a frame ago, for the calls it passes. */
   #clockWas: number | null = null;
   /** A Battle Royale's Preparation: its sound, and the camera's shot this frame (null outside one). */
@@ -521,8 +523,11 @@ export class Game {
     // The picture's moods belong to the game that was left: the menu's backdrop, and the next game, start without them.
     this.#drain = 0;
     this.#dread = 0;
+    this.#sky = 0;
     this.#clockWas = null;
     this.#pipeline.setMood(0, 0, 0);
+    const shown = this.#worldView.setLastMinute(0);
+    if (shown) this.#viewmodel.takeLight(shown);
     // Range Control was talking to the game that was left: it stops mid-word, and the next game's first frame is not this one's last.
     this.#announcer.stop();
     this.#matchLive = null;
@@ -1470,6 +1475,12 @@ export class Game {
     const light = lastMinuteLight(timeLeft);
     this.#dread = eased(this.#dread, light, light > this.#dread ? MOOD_RATES.dreadIn : MOOD_RATES.dreadOut, dt);
     this.#pipeline.setMood(this.#drain, this.#dread, frozen ? 0 : lastTenBeat(timeLeft));
+    // And the place itself: the sky darkens to rust and the sun reddens, evenly with the clock (ticket 100). The ending
+    // and the scoreboard over what is left stand under the sky the clock ran out in; it clears with the next match.
+    const sky = lastMinuteSky(this.#dread);
+    this.#sky = match?.phase === 'nuke' || match?.phase === 'vote' ? Math.max(this.#sky, sky) : sky >= this.#sky ? sky : eased(this.#sky, sky, MOOD_RATES.dreadOut, dt);
+    const shown = this.#worldView.setLastMinute(this.#sky);
+    if (shown) this.#viewmodel.takeLight(shown);
     // What the announcer says on the way down: at a minute, at half of one, at ten seconds, then each of the last five.
     const call = frozen ? null : countdownCall(this.#clockWas, timeLeft);
     this.#clockWas = clockRan(this.#clockWas, timeLeft);

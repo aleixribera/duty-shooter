@@ -69,7 +69,7 @@ import {
   type Texture,
 } from 'three/webgpu';
 import type { Node } from 'three/webgpu';
-import { INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
+import { DEFAULT_CLOUD_COVER, INDIRECT_RANGE, LIGHTING, type BakeFile, type Family, type Finish, type Lighting, type ProbeGrid } from './surfaces';
 import { roomColor } from './surface-room';
 import type { SkyField } from './sky-field';
 import { CLIFF_LAYER, GROUND_LAYERS, groundLayerIndex, groundTextures } from './ground-layers';
@@ -96,9 +96,6 @@ type N4 = Node<'vec4'>;
  * The current map's sun and sky, as uniforms every material reads, so a map
  * with its own light (Switchyard's dusk) relights them all; see useLighting.
  */
-/** The cloud a map's sky has when its light doesn't say. */
-const DEFAULT_CLOUD_COVER = 0.45;
-
 const light = {
   sunDirection: uniform(new Vector3(...LIGHTING.sunDirection)),
   sunColor: uniform(new Vector3(...LIGHTING.sunColor)),
@@ -113,10 +110,34 @@ const light = {
   cloudCover: uniform(LIGHTING.cloudCover ?? DEFAULT_CLOUD_COVER),
 };
 let current: Lighting = LIGHTING;
+/** The light the uniforms hold now: the map's own, or the last minute's turn of it (`showLighting`). */
+let shown: Lighting = LIGHTING;
 
 /** Lights every world material with `lighting` from now on (a map's WorldView sets its own). */
 export function useLighting(lighting: Lighting): void {
   current = lighting;
+  shown = lighting;
+  setLight(lighting);
+}
+
+/**
+ * Draws the world in `lighting` for now, without making it the map's light
+ * (the last minute's sky, ticket 100): `currentLighting` still answers with
+ * the map's own, and the next `useLighting` replaces it. Uniforms only, so
+ * no shader rebuilds.
+ */
+export function showLighting(lighting: Lighting): void {
+  if (lighting === shown) return;
+  shown = lighting;
+  setLight(lighting);
+}
+
+/** The light the world's uniforms hold now. */
+export function shownLighting(): Lighting {
+  return shown;
+}
+
+function setLight(lighting: Lighting): void {
   light.sunDirection.value.set(...lighting.sunDirection);
   light.sunColor.value.set(...lighting.sunColor);
   light.sunIntensity.value = lighting.sunIntensity;

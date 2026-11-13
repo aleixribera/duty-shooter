@@ -30,6 +30,9 @@ export interface Lighting {
   readonly cloudCover?: number;
 }
 
+/** The cloud a map's sky has when its light doesn't say. */
+export const DEFAULT_CLOUD_COVER = 0.45;
+
 /**
  * The warm afternoon (Survival Town and the range): a sun low in the
  * south-west (about 38 degrees up), a blue sky warming toward the horizon,

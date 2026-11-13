@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, blastDamage, type GrenadeOutput } from '@duty-shooter/fps-core';
 import { LAST_MINUTE, LAST_TEN, MatchClockView, clockClass, clockFace, fuseDrawn, matchClockHtml } from '../src/hud/match-clock';
-import { COUNTDOWN_CALLS, clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastTenBeat } from '../src/last-minute';
+import { COUNTDOWN_CALLS, clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastMinuteLighting, lastMinuteSky, lastTenBeat } from '../src/last-minute';
+import { LIGHTING, skyRadiance, type Lighting } from '../src/surfaces';
 import { GRENADE_WARNINGS_MOST, fuseBlink, grenadeWarnings, type WarnedPlayer } from '../src/hud/grenade-warnings';
 
 describe('the match clock', () => {
@@ -146,6 +147,49 @@ describe("the last minute's light", () => {
       high = up;
     }
     expect(beats).toBe(LAST_TEN);
+  });
+});
+
+describe("the last minute's sky", () => {
+  const luma = (c: readonly number[]) => 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+  const up = [0, 0.6, 0.8] as const;
+
+  it('turns evenly with the clock, from nothing before the minute to all of it at the end', () => {
+    expect(lastMinuteSky(lastMinuteLight(null))).toBe(0);
+    expect(lastMinuteSky(lastMinuteLight(LAST_MINUTE))).toBe(0);
+    expect(lastMinuteSky(lastMinuteLight(0))).toBeCloseTo(1, 9);
+    for (const t of [55, 30, 10, 3]) expect(lastMinuteSky(lastMinuteLight(t))).toBeCloseTo(1 - t / LAST_MINUTE, 9);
+  });
+
+  it("is the map's own light, the same object, with nothing of the minute come", () => {
+    expect(lastMinuteLighting(LIGHTING, 0)).toBe(LIGHTING);
+  });
+
+  it('darkens the air and the sun and turns them red, further each second down to the last', () => {
+    const at = (t: number): Lighting => lastMinuteLighting(LIGHTING, lastMinuteSky(lastMinuteLight(t)));
+    let before = at(LAST_MINUTE);
+    for (const t of [55, 30, 10, 3, 0]) {
+      const now = at(t);
+      expect(luma(skyRadiance(up, now))).toBeLessThan(luma(skyRadiance(up, before)));
+      expect(now.sunIntensity).toBeLessThan(before.sunIntensity);
+      expect(now.cloudCover!).toBeGreaterThan(before.cloudCover ?? 0.45);
+      before = now;
+    }
+    const end = at(3);
+    const sky = skyRadiance(up, end);
+    expect(sky[0]).toBeGreaterThan(sky[1]! * 1.8);
+    expect(sky[1]).toBeGreaterThan(sky[2]!);
+    expect(end.sunColor[0]).toBeGreaterThan(end.sunColor[1]! * 2);
+    // The sun's way across the sky, and what the bake's ground gives back, are the map's.
+    expect(end.sunDirection).toBe(LIGHTING.sunDirection);
+    expect(end.ground).toBe(LIGHTING.ground);
+  });
+
+  it("turns a map's own light, a dusk included, the same way", () => {
+    const dusk: Lighting = { ...LIGHTING, skyZenith: [0.1, 0.12, 0.3], skyHorizon: [0.9, 0.5, 0.3], cloudCover: 0.8 };
+    const end = lastMinuteLighting(dusk, 1);
+    expect(luma(skyRadiance(up, end))).toBeLessThan(luma(skyRadiance(up, dusk)));
+    expect(end.cloudCover).toBeLessThanOrEqual(0.85);
   });
 });
 

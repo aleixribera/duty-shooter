@@ -1,6 +1,8 @@
 import { LAST_MINUTE, LAST_TEN } from './hud/match-clock';
 import { LOW_HEALTH } from './audio/danger';
 import type { VoiceLineId } from './voice-lines';
+import { DEFAULT_CLOUD_COVER, type Lighting } from './surfaces/lighting';
+import type { Vec3 } from '@duty-shooter/fps-core';
 
 /**
  * The last minute away from the HUD (ticket 24): the light the picture takes
@@ -18,6 +20,46 @@ export function lastMinuteLight(secondsLeft: number | null): number {
   if (secondsLeft === null || !(secondsLeft < LAST_MINUTE)) return 0;
   const left = Math.max(0, secondsLeft) / LAST_MINUTE;
   return 1 - left ** 1.6;
+}
+
+/**
+ * How far the last minute has turned the sky, from how far its light has come
+ * (`lastMinuteLight`, eased): the light comes fastest at the start, the sky
+ * evenly with the clock, so it is still darkening in the last ten seconds.
+ */
+export function lastMinuteSky(light: number): number {
+  const k = Math.min(1, Math.max(0, light));
+  return k <= 0 ? 0 : 1 - (1 - k) ** (1 / 1.6);
+}
+
+/** The sky the last minute ends under: smoke lit red from below, a low sun burning through it. Linear colours. */
+const DOOM = {
+  skyZenith: [0.2, 0.065, 0.045],
+  skyHorizon: [0.72, 0.3, 0.14],
+  sunColor: [1, 0.44, 0.2],
+} as const satisfies Record<string, Vec3>;
+
+/**
+ * A map's sky, sun and cloud `sky` of the way (0..1, `lastMinuteSky`) to the
+ * last minute's end (ticket 100): the air darkens toward rust, the haze to a
+ * burnt orange, the sun dims and reddens and the cloud gathers. The world's
+ * sunlit surfaces, its haze and the drawn sky all read these, so the whole
+ * place changes, not only the picture's grade.
+ */
+export function lastMinuteLighting(base: Lighting, sky: number): Lighting {
+  const k = Math.min(1, Math.max(0, sky));
+  if (k === 0) return base;
+  const cover = base.cloudCover ?? DEFAULT_CLOUD_COVER;
+  const to = (a: Vec3, b: Vec3): Vec3 => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  return {
+    ...base,
+    skyZenith: to(base.skyZenith, DOOM.skyZenith),
+    skyHorizon: to(base.skyHorizon, DOOM.skyHorizon),
+    skyIntensity: base.skyIntensity * (1 - 0.25 * k),
+    sunColor: to(base.sunColor, DOOM.sunColor),
+    sunIntensity: base.sunIntensity * (1 - 0.3 * k),
+    cloudCover: Math.max(cover, Math.min(0.85, cover + 0.3 * k)),
+  };
 }
 
 /** How long a beat takes to fall to about a third (s). */
