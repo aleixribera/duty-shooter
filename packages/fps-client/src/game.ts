@@ -1212,7 +1212,8 @@ export class Game {
       const inReach = p.downed !== null && canRevive && flat <= reach && Math.abs(p.position[1] - self.position[1]) <= reach;
       return { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind };
     });
-    return allyTags(seenAllies, w, h, this.input.touchMode);
+    // Off screen, only a Battle Royale squad holds the edges; a teammate in the team modes waits until in view.
+    return allyTags(seenAllies, w, h, this.input.touchMode, match.mode === 'battle-royale');
   }
 
   /** The Charge round, while one is on. */

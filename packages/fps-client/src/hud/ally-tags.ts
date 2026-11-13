@@ -68,9 +68,14 @@ export function alliesOf(players: readonly PlayerOutput[], view: string | null, 
   return players.filter((p) => p.alive && p.kind === 'player' && p.team === team && p.id !== view);
 }
 
+/** Whether the point over an ally's head is on screen, clear of its edges. */
+function inView(a: AllySeen, width: number, height: number): boolean {
+  return !a.behind && a.x >= INSET && a.x <= width - INSET && a.y >= INSET && a.y <= height - INSET;
+}
+
 /** Lays out one ally's tag: name within the name range, dimmer behind a wall, a chevron always, held to the screen's edge when off it. */
 export function allyTag(a: AllySeen, width: number, height: number, touch = false): AllyTag {
-  const onScreen = !a.behind && a.x >= INSET && a.x <= width - INSET && a.y >= INSET && a.y <= height - INSET;
+  const onScreen = inView(a, width, height);
   const name = onScreen && a.distance <= NAME_RANGE ? a.name : null;
   const label = a.downed ? (a.inReach ? 'Revive' : `${Math.round(a.distance)} m`) : null;
   const mark = a.downed ? 'downed' : 'chevron';
@@ -92,8 +97,18 @@ export function allyTag(a: AllySeen, width: number, height: number, touch = fals
  * Every ally's tag, parted where two would lie on each other (design audit 2026-11-10): of two names
  * over heads that overlap, the nearer ally keeps theirs and the other is down to its chevron; of two
  * tags held to the same stretch of an edge, the later one steps up the edge (sideways, at the top).
+ *
+ * Only with `edges` (a Battle Royale squad) does an ally off screen or behind you hold the screen's
+ * edge; without it (the team modes, where nobody is Downed today) only a Downed one would, and the rest have no tag until they come
+ * into view. Five teammates pinned round the edges sat on the health, the kill feed and the gun, and
+ * said nothing a player needed in a team fight (review 2026-11-13a, its most visible defect).
  */
-export function allyTags(allies: readonly AllySeen[], width: number, height: number, touch = false): AllyTag[] {
+export function allyTags(allies: readonly AllySeen[], width: number, height: number, touch = false, edges = true): AllyTag[] {
+  const shown = edges ? allies : allies.filter((a) => a.downed || inView(a, width, height));
+  return partTags(shown, width, height, touch);
+}
+
+function partTags(allies: readonly AllySeen[], width: number, height: number, touch: boolean): AllyTag[] {
   const tags = allies.map((a) => allyTag(a, width, height, touch));
   const named: AllyTag[] = [];
   const nearestFirst = allies.map((_, i) => i).sort((i, j) => allies[i]!.distance - allies[j]!.distance);

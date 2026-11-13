@@ -106,7 +106,7 @@ Five sizes do the work. Big things are very big and small things small; nothing 
 - Critical states (low ammo, low health, connection lost) change shape or text as well as colour.
 - On touch nothing readable sits under a thumb: the health and the ammo move to two plates at the bottom middle, between the stick's ground and the fire cluster, the score lines stand to the right of the crosshair, and edge markers keep off the controls' ground (`TOUCH_GROUND` in `hud/markers.ts`).
 - A count's glyph is the thing counted: the grenade count wears a grenade, not a dot.
-- An ally's tag carries their name up to 40 m, through walls too, where the tag is dimmer; past that only the chevron shows. A tag held to the screen's edge always carries the name: a bare chevron there says nothing of who it points at. Tags never lie on each other: of two names that would overlap the nearer ally keeps theirs, and edge tags that meet step along the edge (`allyTags` in `hud/ally-tags.ts`).
+- An ally's tag carries their name up to 40 m, through walls too, where the tag is dimmer; past that only the chevron shows. Off screen or behind you, an ally holds the screen's edge only in a Battle Royale squad; a teammate in the team modes has no tag until they come into view, since five teammates pinned round the edges sat on the health, the kill feed and the gun. A tag held to the edge always carries the name: a bare chevron there says nothing of who it points at. Tags never lie on each other: of two names that would overlap the nearer ally keeps theirs, and edge tags that meet step along the edge (`allyTags` in `hud/ally-tags.ts`).
 - Figures that change in place (ammo, health, scores, the clock) are tabular, so a digit changing never shifts the line.
 
 ## Words

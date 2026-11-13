@@ -110,6 +110,28 @@ describe('tags that would lie on each other (design audit 2026-11-10)', () => {
   });
 });
 
+describe('allies off screen in the team modes (review 2026-11-13a)', () => {
+  const field = [
+    ally({ id: 'ahead', x: 700, y: 500 }),
+    ally({ id: 'right', x: W + 600, y: H / 2 }),
+    ally({ id: 'behind', x: 900, y: 300, behind: true }),
+    ally({ id: 'downed', x: -400, y: H / 2, downed: true, distance: 30 }),
+  ];
+
+  it('only the ones in view get a tag, and a Downed one anywhere: none pins to the edges over the readouts and the gun', () => {
+    const tags = allyTags(field, W, H, false, false);
+    expect(tags.map((t) => t.id)).toEqual(['ahead', 'downed']);
+    expect(tags.find((t) => t.id === 'ahead')).toMatchObject({ edge: false, name: 'Bea' });
+    expect(tags.find((t) => t.id === 'downed')).toMatchObject({ edge: true, mark: 'downed' });
+  });
+
+  it('a Battle Royale squad still holds the edges, behind you included', () => {
+    const tags = allyTags(field, W, H, false, true);
+    expect(tags.map((t) => t.id)).toEqual(['ahead', 'right', 'behind', 'downed']);
+    expect(tags.filter((t) => t.edge).map((t) => t.id)).toEqual(['right', 'behind', 'downed']);
+  });
+});
+
 describe('who gets a tag', () => {
   const seat = (id: string, team: number, over: Record<string, unknown> = {}) => ({ id, team, kind: 'player', alive: true, ...over }) as unknown as PlayerOutput;
   const field = [seat('me', 1), seat('mate', 1), seat('downed', 1, { downed: { bleedOut: 20, revive: 0 } }), seat('dead', 1, { alive: false }), seat('foe', 2), seat('dummy', 1, { kind: 'dummy' })];

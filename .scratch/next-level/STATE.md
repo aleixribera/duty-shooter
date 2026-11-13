@@ -2,10 +2,11 @@
 
 ## Now
 
-Loop pass 12 (2026-11-13) did `PLAN.md` item 7 pass 1 (rough; ticket 103): every item now has a rough pass. A fresh browser gets a name ("Player NNNN"), so Play Online joins in one click (it used to only light the empty name box), and joining a match under way shows the goal plate for 4 s. Acceptance seen with `node .scratch/next-level/newcomer/look.mjs <out> online bot` (fresh profile, dev server + `npm run server` public): Play Online live at 6.2 s, Bot Match at 11.7 s, both with the goal plate and the first hint (`newcomer/after/`, `after-phone/`). Gaps in ticket 103 (production-build timing, lobby members who join after the countdown). Next: second passes, items in order (item 1's review capture to judge them, item 4 if the laptop is back, item 6 pass 2: the sniper's and the Vantage's scopes).
+Loop pass 13 (2026-11-13) fixed review 2026-11-13a's most visible defect (ticket 104, v2.193.1): in the team modes, teammates off screen or behind you no longer pin named tags round the screen's edges over the health, the feed and the gun; only a Battle Royale squad keeps edge tags. Seen with `node .scratch/next-level/ally-edges/look.mjs <out>` (Switchyard TDM): 5 edge tags before, 0 after, names over heads kept (`ally-edges/before|after/`). Next: second passes in plan order. Item 1 pass 2 (a fresh capture and review: 13a predates private lobbies, optics, the last-minute sky and spawn fixes; fix its own gaps first: Battle Royale "no lobby", 4 s of online play, no scope raised, empty last-minute sound log), item 4 when the laptop is back, item 6 pass 2 (sniper and Vantage scopes). Other 13a defects still open: empty rank bar on the end screen (16), mirrored range signs (30-a), "change loadout" said twice (23-b), hints that don't follow the situation (ammo 0 while teaching WASD).
 
 ## Needs Aleix
 
+- Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
 - The Fedora laptop on and on Tailscale (or at home on the LAN) for one benchmark run: item 4's acceptance is measured on it.
 
 ## Where things stand
@@ -13,7 +14,7 @@ Loop pass 12 (2026-11-13) did `PLAN.md` item 7 pass 1 (rough; ticket 103): every
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Last scored review: h (`reviews/2026-11-12h.md`); the ten-row scorecard is retired by PLAN.md. Review 2026-11-13a (the first by the five objectives) fails all five; its capture predates private lobbies, so objective 1 needs a new capture.
-- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. Check this pass's tag (v2.193.0).
+- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's runs all passed. Check v2.193.1's.
 
 ## Broken
 
