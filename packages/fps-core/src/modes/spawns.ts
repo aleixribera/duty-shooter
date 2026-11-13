@@ -83,6 +83,60 @@ export function scoredSpawn(
   return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))]!.spawn;
 }
 
+/** Opening deals tried per match: each grows a set from a different first spawn. */
+const OPENING_TRIALS = 24;
+
+/**
+ * Spawns for `count` players placed at once (a free-for-all's opening), dealt
+ * together so the match doesn't open on a fight: as few pairs of them in each
+ * other's sight (or within 8 m of each other) as the map allows, then as far
+ * apart as can be. Each trial
+ * grows a set from a random first spawn, adding the spawn that brings the
+ * fewest new pairs into sight and stands farthest from those already taken;
+ * of the trials with the fewest pairs in sight, one is drawn from those whose
+ * nearest two stand within {@link SAFE_ENOUGH} of the widest, so matches don't
+ * always open on the same spots. In a random order, for the players in theirs.
+ * None when the map has fewer distinct spawns than players: they share spots
+ * whatever the deal, and placed one at a time they spread out best.
+ */
+export function openingSpawns(candidates: readonly SpawnPoint[], count: number, ctx: Pick<ModeContext, 'world'>, random: () => number = Math.random): SpawnPoint[] {
+  const spots = distinctSpawns(candidates);
+  const n = count;
+  if (n <= 0 || n > spots.length) return [];
+  // One player alone has nobody to be seen by: any spawn will do.
+  if (n === 1) return [spots[Math.min(spots.length - 1, Math.floor(random() * spots.length))]!];
+  const height = STATS.stance.standEyeHeight.value;
+  const apart = spots.map((a) => spots.map((b) => distance(a.position, b.position)));
+  // Either one seeing the other counts (a sight line is near enough the same both ways), and so does standing within 8 m, across a wall or not.
+  const sees = spots.map((a, i) => spots.map((b, j) => i !== j && (apart[i]![j]! < TOO_CLOSE || !sightBlocked(ctx.world, eye(a.position, height), eye(b.position, height)))));
+  const deals: { set: number[]; seen: number; spread: number }[] = [];
+  for (let trial = 0; trial < OPENING_TRIALS; trial++) {
+    const set = [Math.min(spots.length - 1, Math.floor(random() * spots.length))];
+    let seen = 0;
+    while (set.length < n) {
+      let pick = -1;
+      let pickSeen = Infinity;
+      let pickNear = -Infinity;
+      for (const i of shuffledOrder(spots.length, random)) {
+        if (set.includes(i)) continue;
+        const s = set.reduce((c, j) => c + (sees[i]![j]! || sees[j]![i]! ? 1 : 0), 0);
+        const near = Math.min(...set.map((j) => apart[i]![j]!));
+        if (s < pickSeen || (s === pickSeen && near > pickNear)) [pick, pickSeen, pickNear] = [i, s, near];
+      }
+      set.push(pick);
+      seen += pickSeen;
+    }
+    let spread = Infinity;
+    for (const i of set) for (const j of set) if (i < j) spread = Math.min(spread, apart[i]![j]!);
+    deals.push({ set, seen, spread });
+  }
+  const fewest = Math.min(...deals.map((d) => d.seen));
+  const widest = Math.max(...deals.filter((d) => d.seen === fewest).map((d) => d.spread));
+  const pool = deals.filter((d) => d.seen === fewest && d.spread >= widest - SAFE_ENOUGH);
+  const deal = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))]!;
+  return shuffledOrder(deal.set.length, random).map((k) => spots[deal.set[k]!]!);
+}
+
 /** The numbers 0 to `n - 1` in a random order. */
 export function shuffledOrder(n: number, random: () => number): number[] {
   const order = Array.from({ length: n }, (_, i) => i);

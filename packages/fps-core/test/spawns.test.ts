@@ -126,6 +126,51 @@ describe('spawn rules', () => {
     expect(Math.hypot(spawn.position[0], spawn.position[2] - 26)).toBeGreaterThan(8);
   });
 
+  describe("a free-for-all's opening spawns are dealt together (ticket 100)", () => {
+    // B and C stand either side of the wall and can't see each other; A, north of the wall's end, sees both.
+    const A = at(10, 30);
+    const B = at(0, 0);
+    const C = at(20, 0);
+    const entrants = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, name: `p${i + 1}`, team: null }));
+
+    it('two players open out of each other\'s sight whichever spawn the draw starts from, where one at a time could not', () => {
+      const ctx = context([], [A, B, C]);
+      for (let s = 1; s <= 20; s++) {
+        const ffa = new FreeForAll({ random: seeded(s) });
+        ffa.start(entrants(2), ctx);
+        const dealt = [ffa.chooseSpawn('p1', ctx), ffa.chooseSpawn('p2', ctx)];
+        expect(new Set(dealt)).toEqual(new Set([B, C]));
+      }
+      // Placed one at a time, the first to land on A leaves the second only a spawn A sees.
+      const old = new FreeForAll({ random: () => 0 });
+      old.start(entrants(2));
+      expect(old.chooseSpawn('p1', ctx)).toBe(A);
+    });
+
+    it('counts two spawns within 8 m as seen, across a wall or not', () => {
+      // West and East stand 3 m apart either side of the wall; North sees both from 30 m.
+      const west = at(8.5, 0);
+      const east = at(11.5, 0);
+      const north = at(8.5, 30);
+      const ctx = context([], [west, east, north]);
+      for (let s = 1; s <= 10; s++) {
+        const ffa = new FreeForAll({ random: seeded(s) });
+        ffa.start(entrants(2), ctx);
+        expect([ffa.chooseSpawn('p1', ctx), ffa.chooseSpawn('p2', ctx)]).toContain(north);
+      }
+    });
+
+    it('more players than hidden spawns open on different spawns, then later spawns follow the usual rules', () => {
+      const ctx = context([], [A, B, C, at(0, 0.1)]);
+      const ffa = new FreeForAll({ random: seeded(7) });
+      ffa.start(entrants(3), ctx);
+      const dealt = ['p1', 'p2', 'p3'].map((id) => ffa.chooseSpawn(id, ctx));
+      expect(new Set(dealt.map((s) => s.position.join()))).toEqual(new Set([A, B, C].map((s) => s.position.join())));
+      // The deal is spent: a respawn avoids the player's own last spawn.
+      expect(ffa.chooseSpawn('p1', ctx)).not.toBe(dealt[0]);
+    });
+  });
+
   describe('drawn, not always the same spot (ticket 31)', () => {
     it('respawns in the same situation land on different safe spots, never seen, never close to an enemy, never a much less safe one', () => {
       // A long wall along x = 10 and the enemy at the origin, west of it. Four spots behind the wall far enough off, one behind it but only 11 m off (much less safe), one seen, one too close.

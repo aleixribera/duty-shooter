@@ -183,6 +183,20 @@ describe('spawn protection', () => {
     expect(fire(m, alice, bob, 0.5)).toBeGreaterThan(0);
   });
 
+  it("runs from the end of the match's opening countdown, not from the spawn during it (ticket 100)", () => {
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns: [{ position: [0, 0, 0], yaw: 0 }, { position: [0, 0, -12], yaw: Math.PI }], mode: 'ffa', latency: 0.03, countdown: 3 });
+    const alice = join(m, 'alice');
+    const bob = join(m, 'bob');
+    // Both placed in the countdown, which outlasts the 1.5 s of protection.
+    m.step();
+    expect(m.server.matchStatus().countdownEnds).not.toBeNull();
+    while (m.server.matchStatus().countdownEnds !== null) m.step();
+    expect(m.server.simulation.time).toBeGreaterThan(2.9);
+    expect(fire(m, alice, bob, 1)).toBe(0);
+    m.run(ticks(0.6));
+    expect(fire(m, alice, bob, 0.5)).toBeGreaterThan(0);
+  });
+
   it('ends when the protected player fires', () => {
     const { m, alice, bob } = duel();
     // Bob fires off to the side until the server has his first shot.

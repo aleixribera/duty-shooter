@@ -1,0 +1,9 @@
+switchyard ffa x6: in sight at T0 0/48 runs; first kill median 4.4 s, under 2 s 2, under 3 s 11
+switchyard gungame x6: in sight at T0 0/48 runs; first kill median 3.5 s, under 2 s 5, under 3 s 17
+station ffa x6: in sight at T0 48/48 runs; first kill median 2.7 s, under 2 s 8, under 3 s 27
+station gungame x6: in sight at T0 48/48 runs; first kill median 2.9 s, under 2 s 4, under 3 s 25
+town ffa x6: in sight at T0 15/48 runs; first kill median 1.9 s, under 2 s 28, under 3 s 45
+town gungame x6: in sight at T0 15/48 runs; first kill median 2.0 s, under 2 s 21, under 3 s 41
+station ffa x12: in sight at T0 322/32 runs; first kill median 1.3 s, under 2 s 32, under 3 s 32
+switchyard ffa x12: in sight at T0 160/32 runs; first kill median 1.7 s, under 2 s 29, under 3 s 32
+town ffa x12: in sight at T0 384/32 runs; first kill median 1.5 s, under 2 s 31, under 3 s 32

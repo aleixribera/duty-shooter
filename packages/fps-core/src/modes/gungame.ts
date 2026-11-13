@@ -119,11 +119,11 @@ export class GunGame implements GameMode {
     return this.#ffa.chooseSpawn(id, ctx);
   }
 
-  start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
+  start(entrants: readonly MatchEntrant[], ctx?: ModeContext): ReadonlyMap<PlayerId, TeamId> {
     this.#progress.clear();
     this.#result = null;
     this.#guns = dealLadder(this.#random);
-    const teams = this.#ffa.start(entrants);
+    const teams = this.#ffa.start(entrants, ctx);
     for (const e of entrants) this.#progress.set(e.id, 0);
     return teams;
   }

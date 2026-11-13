@@ -1249,7 +1249,8 @@ export class GameServer {
 
   #spawnProtected(id: PlayerId): boolean {
     const since = this.#protectedSince.get(id);
-    return since !== undefined && this.simulation.time - since < (this.#options.spawnProtection ?? SPAWN_PROTECTION) - 1e-9;
+    // Placed in the opening countdown (everyone held), protected from when play begins, wherever that start has moved to: nobody is shot dead in the match's first second.
+    return since !== undefined && this.simulation.time - Math.max(since, this.#matchStart) < (this.#options.spawnProtection ?? SPAWN_PROTECTION) - 1e-9;
   }
 
   /** How many bots should be playing: a held seat stays empty for its player, and keeps the bots on with nobody connected. */

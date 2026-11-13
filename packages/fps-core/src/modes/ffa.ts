@@ -1,7 +1,7 @@
 import type { PlayerId, PlayerInfo, SimEvent, TeamId } from '../simulation';
 import { RESPAWN_DELAY, type GameMode, type MatchEntrant, type MatchResult, type ModeContext, type ModeEvent, type Score, type SpawnPoint, type TeamScore } from './game-mode';
 import { ScoreKeeper } from './score';
-import { RecentSpawns, scoredSpawn } from './spawns';
+import { openingSpawns, RecentSpawns, scoredSpawn } from './spawns';
 
 export interface FreeForAllOptions {
   /** Kills that win the match; null for none. Defaults to 30. */
@@ -39,6 +39,8 @@ export class FreeForAll implements GameMode {
   readonly #recent = new RecentSpawns();
   /** Players who have spawned since the match started. */
   readonly #spawned = new Set<PlayerId>();
+  /** The match's opening spawns, dealt together at its start, by player: each is taken once. */
+  readonly #opening = new Map<PlayerId, SpawnPoint>();
   readonly #random: () => number;
   readonly #score = new ScoreKeeper();
 
@@ -59,6 +61,7 @@ export class FreeForAll implements GameMode {
     this.#entries.delete(id);
     this.#recent.forget(id);
     this.#spawned.delete(id);
+    this.#opening.delete(id);
     this.#score.leave(id);
   }
 
@@ -81,6 +84,12 @@ export class FreeForAll implements GameMode {
   }
 
   chooseSpawn(id: PlayerId, ctx: ModeContext): SpawnPoint {
+    const dealt = this.#opening.get(id);
+    if (dealt) {
+      this.#opening.delete(id);
+      this.#spawned.add(id);
+      return this.#recent.add(id, dealt);
+    }
     // Only players placed this match count: the rest still stand where the last match left them.
     const enemies = ctx.players.filter((p) => p.id !== id && p.alive && this.#spawned.has(p.id));
     this.#spawned.add(id);
@@ -90,10 +99,13 @@ export class FreeForAll implements GameMode {
     return this.#recent.add(id, best);
   }
 
-  start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
+  start(entrants: readonly MatchEntrant[], ctx?: ModeContext): ReadonlyMap<PlayerId, TeamId> {
     this.#entries.clear();
     this.#recent.clear();
     this.#spawned.clear();
+    this.#opening.clear();
+    // Everyone is placed at once, so their spawns are dealt together: placed one by one, the first would be blind to the rest.
+    if (ctx) for (const [i, spawn] of openingSpawns(ctx.spawns, entrants.length, ctx, this.#random).entries()) this.#opening.set(entrants[i]!.id, spawn);
     this.#result = null;
     this.#score.start();
     const teams = new Map<PlayerId, TeamId>();
