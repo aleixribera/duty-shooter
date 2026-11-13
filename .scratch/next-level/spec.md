@@ -20,13 +20,14 @@ Tested 2026-11-13: the owner played a match to its end and the last minute lands
 
 ## Objectives
 
-The owner's five, 2026-11-13. Every item of the plan serves one of them, and they are what a review measures:
+The owner's six, 2026-11-13. Every item of the plan serves one of them, and they are what a review measures:
 
 1. **Really good multiplayer and lobby controls.**
 2. **Runs on a toaster:** integrated graphics, with the one picture. There is one graphics preset; no Low, Medium, High or Ultra (the owner, 2026-11-10 and 2026-11-13).
 3. **Gameplay and the world feel really good.**
 4. **Every weapon feels good.**
 5. **Easy to understand** for someone who has just opened the game and has only a short time to play.
+6. **Progression woven into the game** (added 2026-11-13): a profile, guns unlocked as you rank up, customizing (attachments, camos, reticles), and a loadout editor on the main menu that loads fast, runs well and looks cool. Progress stays in the browser (localStorage, with a save code to carry it to another PC); the server stays free and keeps no accounts. Every unlock is a sidegrade, so a forged save gains nothing over a new player. Battle Royale plays the same system: you choose your loadout at the start with everything you have, there is no looting, and Supply Drops never hold the sniper.
 
 Names follow objective 5: plain words a newcomer reads at once ("Smoke", "Flash", "Fast Hands") beat themed ones.
 
@@ -62,4 +63,4 @@ Names follow objective 5: plain words a newcomer reads at once ("Smoke", "Flash"
 
 ## The review
 
-A reviewer subagent judges the build against the five objectives, from evidence of what a player meets: two clients in one online lobby, a scripted player that aims at enemies and gets kills, the last minute of a match, every weapon fired, frame times on integrated graphics, and a newcomer's first minute from the link. Each objective gets a pass or fail with the evidence and its biggest gap. The ten-row score out of 10 (reviews up to 2026-11-12h) is retired: it was graded on a scripted player strafing at walls in one map and stopped moving after review (d). Reviews are kept in `reviews/`.
+A reviewer subagent judges the build against the six objectives, from evidence of what a player meets: two clients in one online lobby, a scripted player that aims at enemies and gets kills, the last minute of a match, every weapon fired, frame times on integrated graphics, and a newcomer's first minute from the link, and a Profile ranked from fresh through its unlocks. Each objective gets a pass or fail with the evidence and its biggest gap. The ten-row score out of 10 (reviews up to 2026-11-12h) is retired: it was graded on a scripted player strafing at walls in one map and stopped moving after review (d). Reviews are kept in `reviews/`.

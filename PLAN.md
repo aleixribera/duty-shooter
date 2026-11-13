@@ -1,17 +1,18 @@
 # Plan
 
-The order of work for duty-shooter. Written by the director chat; the loop's passes read it and build from the top. The vision is `.scratch/next-level/spec.md` and wins over this file: its five objectives (2026-11-13) are what every item serves.
+The order of work for duty-shooter. Written by the director chat; the loop's passes read it and build from the top. The vision is `.scratch/next-level/spec.md` and wins over this file: its six objectives (2026-11-13) are what every item serves.
 
 Decided with Aleix on 2026-11-13:
 - The countdown idea lands in play; it stays.
 - Five objectives, in this order: multiplayer and lobby controls, runs on a toaster, gameplay and world, weapons, easy to understand.
 - One graphics preset. Never add Low/Medium/High/Ultra or a quality tier; make the one picture cheaper instead.
-- The ten-row scorecard is retired: it graded a scripted player strafing at walls and stopped moving after review (d). Reviews now judge the five objectives.
+- The ten-row scorecard is retired: it graded a scripted player strafing at walls and stopped moving after review (d). Reviews now judge the six objectives.
 - Placeholder names stay plain (Smoke, Flash, Fast Hands, Soft Soles, Blast Vest): a newcomer reads them at once.
 - Bots ping only in Battle Royale; everywhere else they are annoying (Aleix).
 - Scopes and sights are super important (Aleix): they are a named part of the weapons item, not a later attachment detail.
+- Progression is the sixth objective (Aleix, 2026-11-13): progress stays in the browser with a save code; 4 guns at the start and one more about every 2 Ranks, all 9 by Rank 12, any gun tried in the Practice Range; customizing is attachments, Mastery camos and optic reticles (no soldier looks yet); a main-menu loadout editor; unlocks shown after the match, not during the fight. Battle Royale uses the same loadouts: no looting, and Supply Drops never hold the sniper.
 
-## Current stage: the five objectives
+## Current stage: the six objectives
 
 Work top to bottom, each item rough first (it works end to end) before any item gets a second pass. Tickets live in `.scratch/next-level/issues/`; file one per item when you start it. Tickets filed from review (h) on are worked only if they are something broken a player meets; the rest are closed as superseded by this plan.
 
@@ -31,14 +32,21 @@ Work top to bottom, each item rough first (it works end to end) before any item 
    - **Scopes and sights** (super important to Aleix; ticket 19's optic part moves here): every gun's iron sights, the Reflex and Prism 2x optics, and the sniper's and the Vantage's scopes. Each is a real model on the gun, lines up when aiming down sights, has a clean sight picture (reticle, lens, eye relief, edge) and zooms and sways as its gun should.
    - **Every gun:** fired in the Practice Range with its own sound, recoil that returns, a hit marker and kill confirm that land, and a role no other gun fills.
    Acceptance: a frame of every gun aimed down sights with each sight it can take, at desktop and phone width, all aligned on the target; a clip per weapon with sound; and the review's objective 4 passes for each.
-7. **Easy to understand in a short time** (objective 5). From opening the link to playing in seconds, and a first match that teaches by doing.
+7. **Progression woven into the game** (objective 6). Builds on the Profile, Rank, Mastery and Challenges already in (tickets 17-20) and on the scope and attachment models from item 6. Rough first, in this order:
+   - **Unlocks:** a new Profile starts with a rifle, an SMG, a shotgun and a pistol, each as strong as any locked gun; one more gun unlocks about every 2 Ranks, all 9 by Rank 12 (about 3 to 4 hours). Locked guns show what unlocks them and can be fired in the Practice Range.
+   - **Customizing:** all four attachment slots (ticket 19) seen on the gun model; camos earned by Mastery; a reticle colour and shape for each optic.
+   - **The loadout editor** on the main menu: the gun in 3D turning slowly with its attachments and camo on it, the gunsmith rows beside it with locked tiles saying what opens them, and 3 named loadouts picked at spawn in every mode. It loads fast, runs well on the toaster and looks cool (`DESIGN.md`, no stock AI look).
+   - **After the match:** a results screen with the XP bar filling, Mastery steps, Challenges done and anything unlocked, with "equip it" and "play again". During the fight only the score popups and one small notice when an unlock lands.
+   - **A profile screen** (Rank, lifetime numbers, Mastery, unlocks) and a **save code** that exports the Profile and imports it on another PC.
+   - **Battle Royale on loadouts:** each player drops with the loadout they chose, everything they have unlocked; ground loot is gone; Supply Drops stay but never hold the Ridgeline .308 (they hold a resupply instead), and the Ridgeline is a loadout gun like the rest.
+   Acceptance: a fresh Profile shows 4 guns open; a Profile at Rank 12 shows 9; the editor opens from the menu in under a second on this PC and holds 60 fps on the toaster, with frames at desktop and phone width; a Bot Match ends on a results screen with the bar filling and an unlock to equip; the save code carries a Profile into a fresh browser; a local Battle Royale starts every player with their loadout, shows no loot on the ground, and a Supply Drop opened without a sniper inside.
+8. **Easy to understand in a short time** (objective 5). From opening the link to playing in seconds, and a first match that teaches by doing.
    Acceptance: with a fresh profile, a scripted newcomer reaches a live match in under 15 s from the page opening; the first match shows its hint line and goal, and the review's objective 5 passes.
 
 ## Acceptance for the stage
 
-A review passes all five objectives, and Aleix has played one match of each mode online with friends without a complaint.
+A review passes all six objectives, and Aleix has played one match of each mode online with friends without a complaint.
 
 ## Later
 
-- Attachments other than optics (ticket 19: muzzle, magazine, grip): after the stage, if weapons need more depth.
 - Refactors (ticket 29): when an item above needs them.
