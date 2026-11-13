@@ -58,3 +58,39 @@ export function pinMarker(x: number, y: number, behind: boolean, width: number, 
   if (py > top && (px <= corner || px >= width - corner)) py = top;
   return { x: px, y: py };
 }
+
+/**
+ * How much room one objective marker takes (px): its 26 px letter box over its distance, and a little air. The
+ * marker's point is the bottom of its distance, centred (see `.ds-marker` in hud.ts).
+ */
+export const MARKER_ROOM = { width: 44, height: 50 } as const;
+
+/**
+ * The objective markers (Outposts' zones, Charge's sites) moved apart where they would cover each other. Pinned
+ * to the screen's edge, two zones off to one side landed on the same spot, one letter and distance printed over
+ * the other (review 2026-11-13b, Switchyard's B over A). A marker that would cover one already placed stands right
+ * above it instead, still over its own side of the screen; where that would run off the top, right below it. They
+ * are placed in the order given, so pass them in a fixed order (by letter) and none swaps places from frame to frame.
+ */
+export function spreadMarkers<T extends { readonly x: number; readonly y: number }>(marks: readonly T[]): T[] {
+  const { width, height } = MARKER_ROOM;
+  const top = MARGIN + 24;
+  const placed: T[] = [];
+  const clash = (x: number, y: number) => placed.find((p) => Math.abs(p.x - x) < width && Math.abs(p.y - y) < height);
+  // Each step clears one placed marker and only meets ones further along, so there are at most as many as are placed.
+  const walk = (m: T, step: -1 | 1): number => {
+    let y = m.y;
+    for (let k = 0; k <= placed.length; k++) {
+      const hit = clash(m.x, y);
+      if (!hit) break;
+      y = hit.y + step * height;
+    }
+    return y;
+  };
+  for (const m of marks) {
+    let y = walk(m, -1);
+    if (y < top) y = walk(m, 1);
+    placed.push(y === m.y ? m : { ...m, y });
+  }
+  return placed;
+}

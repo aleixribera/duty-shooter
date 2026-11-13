@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { barsShown } from '../src/hud/hud';
-import { cornerHeight, pinMarker, TOUCH_GROUND } from '../src/hud/markers';
+import { cornerHeight, MARKER_ROOM, pinMarker, spreadMarkers, TOUCH_GROUND } from '../src/hud/markers';
 
 describe('the Bottom bars', () => {
   it('show while you are in play, Downed included, and go once you are out (ticket 46)', () => {
@@ -84,5 +84,45 @@ describe('an edge marker', () => {
         }
       }
     });
+  });
+});
+
+describe('objective markers', () => {
+  const W = 1920;
+  const H = 1080;
+  const covers = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x - b.x) < MARKER_ROOM.width && Math.abs(a.y - b.y) < MARKER_ROOM.height;
+
+  it('two zones pinned to the same edge stand one over the other, not on top of each other (review 2026-11-13b)', () => {
+    const a = { id: 'A', ...pinMarker(-300, 505, false, W, H) };
+    const b = { id: 'B', ...pinMarker(-900, 515, false, W, H) };
+    expect(covers(a, b)).toBe(true);
+    const [sa, sb] = spreadMarkers([a, b]);
+    expect(sa).toBe(a);
+    expect(covers(sa!, sb!)).toBe(false);
+    expect(sb!.x).toBe(a.x);
+    expect(sb!.y).toBeLessThan(a.y);
+  });
+
+  it('three on one edge make a column, none covering another', () => {
+    const marks = ['A', 'B', 'C'].map((id, i) => ({ id, ...pinMarker(-200 - i * 100, 500 + i * 8, false, W, H) }));
+    const placed = spreadMarkers(marks);
+    for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) expect(covers(placed[i]!, placed[j]!)).toBe(false);
+  });
+
+  it('at the top edge, the second goes under the first instead of off the screen', () => {
+    const a = { id: 'A', ...pinMarker(W + 100, 0, false, W, H) };
+    const b = { id: 'B', ...pinMarker(W + 400, 10, false, W, H) };
+    const [sa, sb] = spreadMarkers([a, b]);
+    expect(sa).toBe(a);
+    expect(sb!.y).toBeGreaterThan(a.y);
+    expect(covers(sa!, sb!)).toBe(false);
+  });
+
+  it('markers apart stay on their points', () => {
+    const marks = [
+      { id: 'A', x: 400, y: 500 },
+      { id: 'B', x: 1200, y: 500 },
+    ];
+    expect(spreadMarkers(marks)).toEqual(marks);
   });
 });

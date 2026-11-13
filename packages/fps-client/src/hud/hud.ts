@@ -915,6 +915,9 @@ export class Hud {
     this.#pingsLifted = new Set(placed.filter((m, i) => m !== pings[i]).map((m) => m.id));
     this.#pings.update(placed, state.pingMarks?.wheel ?? null);
     this.root.classList.toggle('royale', royale !== null);
+    // The Outposts strip or Charge's round stands under the match bar; on a narrow screen the caption moves down past it.
+    const playing = state.match?.status.phase === 'playing';
+    this.root.classList.toggle('objective', playing && ((Boolean(state.self) && (state.zones?.length ?? 0) > 0) || Boolean(state.charge)));
     this.#updateCountdown(state);
     // The scoreboard is held open on Tab, and stays up for the vote after a match.
     const voting = state.match?.status.phase === 'vote';

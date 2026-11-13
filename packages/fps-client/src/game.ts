@@ -93,7 +93,7 @@ import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-c
 import { MatchLog, type RecapLookup } from './ui/recap';
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
-import { pinMarker } from './hud/markers';
+import { pinMarker, spreadMarkers } from './hud/markers';
 import { AllySight, alliesOf, allyTags, type AllySeen, type AllyTag } from './hud/ally-tags';
 import { RING_STAGES, ringNow, ringStatus, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
@@ -1731,7 +1731,7 @@ export class Game {
     const cam = this.#camera.camera;
     const w = this.#canvas.clientWidth;
     const h = this.#canvas.clientHeight;
-    return this.#zones.flatMap((zone) => {
+    const markers = this.#zones.flatMap((zone) => {
       const s = states.find((x) => x.id === zone.id);
       if (!s) return [];
       const top: Vec3 = [zone.center[0], zone.center[1] + Math.min(zone.height, 2.4), zone.center[2]];
@@ -1743,6 +1743,9 @@ export class Game {
       const inside = this.#cur?.alive === true && inZone(zone, this.#cur.position);
       return [{ id: zone.id, owner: s.owner, capturing: s.capturing, progress: s.progress, contested: s.contested, x, y, distance, inside }];
     });
+    // The zone you stand in shows no marker, so it makes no room; the rest keep clear of each other, A first.
+    const shown = spreadMarkers(markers.filter((m) => !m.inside).sort((a, b) => a.id.localeCompare(b.id)));
+    return markers.map((m) => shown.find((s) => s.id === m.id) ?? m);
   }
 
   /** Lights the gun like where the player stands: in the sun or not, and how bright the light round them is. */

@@ -8,6 +8,7 @@ import type { MatchCard } from '../ui/recap';
 import { heading, placement, ringNow, ringStatus, victoryCard } from '../ui/royale';
 import { dropMarks } from '../ui/supply-drop';
 import type { ChargeHud, ObjectiveMarker } from './hud';
+import { spreadMarkers } from './markers';
 import type { MatchCardState } from './match-card';
 import type { RoyaleHudState } from './royale-hud';
 
@@ -115,7 +116,9 @@ export function chargeHudState(ctx: ChargeHudContext): ChargeHud {
     carrying: state.carrier === selfId,
     acting: state.action?.player === selfId,
     spectating: ctx.watching === null ? null : ctx.nameOf(ctx.watching),
-    markers,
+    // Both sites pinned to one edge would print one letter over the other. A dropped charge goes first and keeps its
+    // point, since its marker is how you find it; a site beside it moves instead.
+    markers: spreadMarkers([...markers.filter((m) => m.kind === 'charge'), ...markers.filter((m) => m.kind !== 'charge')]),
     roster: chargeRoster(ctx.scores, [...ctx.others, self], selfId, self.team, state.carrier),
   };
 }

@@ -12,7 +12,7 @@ export const CAPTIONS_CSS = `
 .ds-caption.on { display: block; }
 .ds-caption small { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-right: 10px; }
 /* A phone: the thumbs own the bottom, so the line sits under the match bar instead. */
-@media (max-width: 1000px) { .ds-caption { bottom: auto; top: calc(var(--ds-safe-t, 0px) + 108px); } .ds-hud.royale .ds-caption { top: calc(var(--ds-brstack-foot, 150px) + 12px); } }
+@media (max-width: 1000px) { .ds-caption { bottom: auto; top: calc(var(--ds-safe-t, 0px) + 108px); } html:not(.ds-touch) .ds-hud.objective .ds-caption { top: calc(var(--ds-safe-t, 0px) + 144px); } html:not(.ds-touch) .ds-hud.royale .ds-caption { top: calc(var(--ds-brstack-foot, 150px) + 12px); } }
 `;
 
 /** The shortest a caption stays (s), and how long it outlasts the voice. */
