@@ -19,14 +19,14 @@ const CSS = `
 .ds-royale .ds-seg button small { display: block; margin-top: 2px; font-size: var(--ds-type-small); letter-spacing: 0.12em; color: var(--ds-text-2); }
 .ds-royale .ds-field-label { color: var(--ds-text-2); }
 .ds-royale .why { margin: 10px 0 0; font-size: var(--ds-type-small); color: var(--ds-text-2); max-width: 60ch; }
-.ds-royale h2 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-royale h2 { font-family: var(--ds-font-display); margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-royale h2 small { margin-left: 12px; font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text-2); }
 /* Squad slots: one tile a seat; a seat bots will fill is the one dashed frame. */
 .ds-royale .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ds-royale .slot { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-height: 104px; padding: 14px 16px; background: var(--ds-panel); border: 1px solid var(--ds-line); }
-.ds-royale .slot b { font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-royale .slot b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-royale .slot span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-royale .slot.you { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
+.ds-royale .slot.you { border-color: var(--ds-text-2); background: var(--ds-raised); }
 .ds-royale .slot.bot { background: transparent; border: 1px dashed var(--ds-line-2); }
 .ds-royale .slot.bot b { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); white-space: normal; }
 @keyframes ds-fill { from { opacity: 0; transform: translateY(6px); } }

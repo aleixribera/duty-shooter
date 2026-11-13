@@ -11,7 +11,7 @@
  * so a laptop with a touchscreen gets its corners back with the mouse.
  */
 export const HUD_TOUCH_CSS = `
-html.ds-touch .ds-health, html.ds-touch .ds-ammo { bottom: calc(var(--ds-safe-b) + 6px); min-width: 0; max-width: none; box-sizing: border-box; height: 60px; padding: 7px 12px 0; background: var(--ds-plate); text-shadow: none; }
+html.ds-touch .ds-health, html.ds-touch .ds-ammo { bottom: calc(var(--ds-safe-b) + 6px); min-width: 0; max-width: none; box-sizing: border-box; height: 60px; padding: 7px 12px 0; text-shadow: none; --ds-ch: 10px; }
 html.ds-touch .ds-health { left: auto; right: calc(50% + 1px); width: 108px; }
 html.ds-touch .ds-ammo { right: auto; left: 50%; width: 156px; text-align: left; }
 html.ds-touch .ds-health .hp, html.ds-touch .ds-ammo .mag { font-size: var(--ds-type-heading); line-height: 1; margin-top: 3px; }

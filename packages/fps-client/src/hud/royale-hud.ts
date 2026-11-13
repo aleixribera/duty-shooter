@@ -17,7 +17,7 @@ import { escapeHtml as escape } from '../ui/theme';
 const CSS = `
 .ds-br-top { position: absolute; left: 50%; top: calc(18px + var(--ds-safe-t)); transform: translateX(-50%); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; width: min(640px, calc(100vw - 32px)); }
 .ds-br-top .count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 4px 10px; }
-.ds-br-top .count b { font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
+.ds-br-top .count b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
 .ds-br-top .count span { font-size: var(--ds-type-small); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); margin-top: 3px; }
 .ds-compass { position: relative; height: 46px; overflow: hidden; border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); }
 .ds-compass i { position: absolute; top: 0; width: 1px; height: 7px; background: var(--ds-text-2); }
@@ -67,13 +67,13 @@ const CSS = `
 .ds-leader .n { color: var(--ds-text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-victory { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 12px 28px 14px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
 .ds-victory .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-light); }
-.ds-victory .place { margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
-.ds-victory .who { margin-top: 6px; font-size: var(--ds-type-title); font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
+.ds-victory .place { font-family: var(--ds-font-display); margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
+.ds-victory .who { font-family: var(--ds-font-display); margin-top: 6px; font-size: var(--ds-type-title); font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); max-width: calc(100vw - 80px); overflow: hidden; text-overflow: ellipsis; }
 .ds-victory .of { margin-top: 4px; font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
 .ds-hazardedge { position: absolute; inset: 0; box-shadow: inset 0 0 90px 20px color-mix(in srgb, var(--ds-hazard) 50%, transparent); opacity: 0; transition: opacity 300ms linear; }
 .ds-out { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; padding: 10px 22px 12px; background: var(--ds-glass); animation: ds-in 160ms ease-out; }
 .ds-out .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-alert); }
-.ds-out .place { margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
+.ds-out .place { font-family: var(--ds-font-display); margin-top: 4px; font-size: var(--ds-type-display); font-weight: 700; line-height: 0.95; letter-spacing: 0.02em; text-shadow: 0 2px 14px rgb(0 0 0 / 0.7); }
 .ds-out .of { font-size: var(--ds-type-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text); }
 .ds-watch { position: absolute; left: 50%; bottom: calc(28px + var(--ds-safe-b)); transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 14px; white-space: nowrap; }
 .ds-watch .who { font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.04em; }
@@ -83,7 +83,7 @@ const CSS = `
 .ds-map.open { display: flex; }
 .ds-map canvas { width: min(86vh, 64vw); height: min(86vh, 64vw); border: 1px solid var(--ds-line-2); background: var(--ds-ink); }
 .ds-map aside { width: 220px; display: flex; flex-direction: column; gap: 14px; }
-.ds-map aside h2 { margin: 0; font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
+.ds-map aside h2 { font-family: var(--ds-font-display); margin: 0; font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; }
 .ds-map aside .row { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--ds-line); }
 .ds-map aside .row b { font-size: var(--ds-type-heading); }
 .ds-map aside .row.hz b { color: var(--ds-hazard); }

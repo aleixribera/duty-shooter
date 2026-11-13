@@ -310,7 +310,7 @@ export const RECAP_CSS = `
 .ds-recap-in { display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; }
 .ds-recap-in .h { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-alert); }
 .ds-recap-in .who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.ds-recap-in .who b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.ds-recap-in .who b { font-family: var(--ds-font-display); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .ds-recap-in .who em { flex: none; font-style: normal; font-size: var(--ds-type-small); font-weight: 400; color: var(--ds-text-2); }
 .ds-recap-in .fact { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-recap-in .nums { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; margin-top: 4px; }

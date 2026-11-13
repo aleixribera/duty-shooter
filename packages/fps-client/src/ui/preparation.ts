@@ -91,10 +91,10 @@ const CSS = `
 .ds-prep .card { position: absolute; left: 0; top: 0; bottom: 0; width: min(640px, 52vw); display: flex; flex-direction: column; gap: 22px; padding: 40px var(--ds-gutter) 32px;
   background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.84) 68%, rgb(7 9 13 / 0) 100%); overflow-y: auto; scrollbar-width: none; }
 .ds-prep .card > * { max-width: 470px; }
-.ds-prep h1 { margin: 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.ds-prep h1 { font-family: var(--ds-font-display); margin: 0; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .ds-prep .goal { margin: 10px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-prep .clock { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
-.ds-prep .clock b { font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; letter-spacing: 0.01em; min-width: 2ch; }
+.ds-prep .clock b { font-family: var(--ds-font-display); font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; letter-spacing: 0.01em; min-width: 2ch; }
 .ds-prep .clock span { font-size: var(--ds-type-small); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-prep .bar { height: 3px; background: var(--ds-line-2); }
 .ds-prep .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; }
@@ -113,7 +113,7 @@ const CSS = `
 .ds-prep .mate { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 14px; background: rgb(18 22 29 / 0.92); }
 .ds-prep .mate b { min-width: 0; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-prep .mate span { flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-prep .mate.you { box-shadow: inset 4px 0 0 var(--ds-text); }
+.ds-prep .mate.you { box-shadow: inset 0 0 0 1px var(--ds-text-2); }
 .ds-prep .mate.on span { color: var(--ds-text); }
 .ds-prep .go { margin-top: auto; display: grid; gap: 10px; }
 .ds-prep .go .ds-btn { width: 100%; max-width: 470px; }
@@ -122,7 +122,7 @@ const CSS = `
 .ds-prep .alive { position: absolute; right: var(--ds-gutter); top: 36px; display: flex; flex-direction: column; align-items: flex-end; text-shadow: 0 1px 2px rgb(0 0 0 / 0.9), 0 2px 16px rgb(0 0 0 / 0.8); }
 /* A pale sky behind it: a soft shade keeps the small lines readable. */
 .ds-prep .alive::before { content: ''; position: absolute; inset: -40px -40px -30px -90px; z-index: -1; background: radial-gradient(closest-side, rgb(7 9 13 / 0.55), rgb(7 9 13 / 0)); pointer-events: none; }
-.ds-prep .alive b { font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; }
+.ds-prep .alive b { font-family: var(--ds-font-display); font-size: calc(var(--ds-type-display) * 1.6); line-height: 0.85; font-weight: 700; }
 .ds-prep .alive span { margin-top: 6px; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
 .ds-prep .alive small { margin-top: 2px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 .ds-prep.dive .card { background: linear-gradient(90deg, rgb(7 9 13 / 0.7) 0%, rgb(7 9 13 / 0) 100%); }
@@ -130,7 +130,7 @@ const CSS = `
 /* At the dive, under the field: the Squad to beat. */
 .ds-prep .champ { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; text-align: right; animation: ds-in 300ms var(--ds-ease) both; }
 .ds-prep .champ span { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ds-light); }
-.ds-prep .champ b { margin-top: 4px; max-width: min(420px, 60vw); font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
+.ds-prep .champ b { font-family: var(--ds-font-display); margin-top: 4px; max-width: min(420px, 60vw); font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; }
 .ds-prep .champ small { margin-top: 4px; font-size: var(--ds-type-small); color: var(--ds-text); letter-spacing: 0.04em; }
 @media (max-width: 760px) {
   .ds-prep .card { top: auto; width: 100%; max-height: 76vh; gap: 14px; padding: 48px var(--ds-gutter) 18px; background: linear-gradient(0deg, rgb(7 9 13 / 0.96) 0%, rgb(7 9 13 / 0.9) 84%, rgb(7 9 13 / 0) 100%); }

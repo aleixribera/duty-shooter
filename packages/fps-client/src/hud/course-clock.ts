@@ -44,7 +44,7 @@ const COURSE_CLOCK_CSS = `
 .ds-course { position: absolute; top: calc(var(--ds-safe-t, 0px) + 18px); left: 50%; transform: translateX(-50%); min-width: 220px; padding: 8px 18px 10px; background: var(--ds-scrim-soft); border-top: 2px solid var(--ds-line-2); text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
 .ds-course[hidden] { display: none; }
 .ds-course .label { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-course .figure { font-size: var(--ds-type-display); font-weight: 700; line-height: 1; letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
+.ds-course .figure { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 1; letter-spacing: 0.01em; font-variant-numeric: tabular-nums; }
 .ds-course .note { font-size: var(--ds-type-small); color: var(--ds-text-2); text-transform: none; letter-spacing: 0.02em; margin-top: 4px; }
 .ds-course.result { border-top-color: var(--ds-text); }
 .ds-course.best { border-top: 4px solid var(--ds-text); padding-top: 6px; }

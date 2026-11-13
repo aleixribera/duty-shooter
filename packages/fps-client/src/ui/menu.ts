@@ -109,13 +109,13 @@ export const MENU_CSS = `
 .ds-box + .ds-box { margin-top: 16px; }
 .ds-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--ds-line); border: 1px solid var(--ds-line); margin: 0 0 24px; }
 .ds-facts div { background: var(--ds-panel); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ds-facts span:last-child { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; overflow-wrap: anywhere; }
+.ds-facts span:last-child { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.01em; overflow-wrap: anywhere; }
 .ds-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .ds-mode { padding: 12px 14px; text-align: left; background: var(--ds-panel); border: 1px solid var(--ds-line); transition: border-color var(--ds-fast), background-color var(--ds-fast); }
 .ds-mode b { display: block; font-size: var(--ds-type-body); line-height: 1.1; text-transform: uppercase; letter-spacing: 0.03em; }
 .ds-mode span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-mode:hover { background: var(--ds-raised); }
-.ds-mode.on { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
+.ds-mode.on { border-color: var(--ds-light-edge); box-shadow: inset 0 0 0 1px var(--ds-light-edge); background: var(--ds-plate-lit); }
 .ds-mode:focus-visible, .ds-mode[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
 .ds-field { display: block; margin: 0 0 16px; }
 .ds-field input { display: block; width: 100%; height: 46px; padding: 0 14px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; transition: border-color var(--ds-fast); }
@@ -127,21 +127,20 @@ export const MENU_CSS = `
 .ds-gap { height: 20px; }
 
 /* Settings: tabs in the header, rows of label and control. */
-.ds-tabs { display: flex; gap: 2px; }
-.ds-tabs button { position: relative; height: 44px; padding: 0 18px; background: transparent; border: 0; color: var(--ds-text-2); font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; transition: color 100ms, background-color 100ms; }
-.ds-tabs button::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; background: var(--ds-light); transform: scaleX(0); transition: transform 140ms var(--ds-ease); }
-.ds-tabs button:hover { color: var(--ds-text); background: rgb(243 241 234 / 0.04); }
-.ds-tabs button.on { color: var(--ds-text); }
-.ds-tabs button.on::after { transform: none; }
-.ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: -2px; }
+/* The tabs are a list over the scrim: no plate at rest, the chosen one a lit plate, hover and focus light the edge at half (DESIGN.md, Light). */
+.ds-tabs { display: flex; gap: 4px; }
+.ds-tabs button { --ds-ch: 8px; --ds-edge: transparent; --ds-fill: transparent; height: 44px; padding: 0 16px; background: transparent; border: 0; color: var(--ds-text-2); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; transition: color 100ms; }
+.ds-tabs button:hover, .ds-tabs button:focus-visible, .ds-tabs button[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); color: var(--ds-text); outline: none; }
+.ds-tabs button.on { --ds-edge: var(--ds-light-edge); --ds-edge-w: 2px; --ds-fill: var(--ds-plate-lit); color: var(--ds-text); filter: drop-shadow(0 0 14px var(--ds-light-halo)); }
+.ds-tabs button.on:focus-visible, .ds-tabs button.on[data-pad-focus] { --ds-edge: var(--ds-reticle); }
 /* Settings: a block a section, its name at heading size (a live state under it, where it has one), then a row a setting, the control on the right. */
 .ds-rows { max-width: 980px; }
 .ds-rows section + section { margin-top: 36px; }
-.ds-rows h3 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
+.ds-rows h3 { margin: 0 0 12px; font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
 .ds-rows .ds-sub { margin: -4px 0 12px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-rows .list { display: grid; gap: 1px; background: var(--ds-line); }
 .ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: center; min-height: 56px; padding: 6px 16px 6px 20px; background: var(--ds-panel); transition: background-color var(--ds-fast), box-shadow var(--ds-fast); }
-.ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-light); }
+.ds-row:hover, .ds-row:focus-within { background: var(--ds-raised); box-shadow: inset 0 0 0 1px var(--ds-light-half); }
 .ds-row > label { font-size: var(--ds-type-body); }
 .ds-slider { display: flex; align-items: center; gap: 12px; }
 .ds-slider input { flex: 1; min-width: 0; height: 32px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
@@ -154,12 +153,12 @@ export const MENU_CSS = `
 .ds-slider input:focus { outline: none; }
 .ds-slider input:focus-visible::-webkit-slider-thumb, .ds-slider input[data-pad-focus]::-webkit-slider-thumb { background: var(--ds-light); }
 .ds-slider .val { min-width: 64px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: var(--ds-ink); border: 1px solid var(--ds-line); font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); }
-.ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.08em; text-transform: uppercase; text-align: left; }
+.ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 600 var(--ds-type-small) var(--ds-font-display); letter-spacing: 0.1em; text-transform: uppercase; text-align: left; }
 .ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffe2b0' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
-.ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-light); outline: none; }
+.ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-light-edge); outline: none; }
 .ds-bind { padding-right: 12px; cursor: pointer; }
-.ds-bind:hover { border-color: var(--ds-light); }
+.ds-bind:hover { border-color: var(--ds-light-half); }
 .ds-bind.wait { border-color: var(--ds-light); color: var(--ds-light); background: var(--ds-raised); }
 
 /* Loadout: weapon tiles by slot, and the focused weapon's card. */
@@ -167,7 +166,7 @@ export const MENU_CSS = `
 .ds-kit .ds-mode { min-height: 74px; display: flex; flex-direction: column; justify-content: flex-end; }
 .ds-kit .ds-mode b { font-size: var(--ds-type-body); }
 .ds-kit .ds-mode span { display: block; margin-top: 2px; font-size: var(--ds-type-small); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ds-text-3); }
-.ds-gun .name { font-size: var(--ds-type-title); line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.ds-gun .name { font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 .ds-gun .role { margin: 8px 0 18px; color: var(--ds-text-2); font-size: var(--ds-type-body); }
 .ds-bars { display: grid; grid-template-columns: 110px 1fr 82px; gap: 12px 12px; align-items: center; font-size: var(--ds-type-small); }
 .ds-bars .k { color: var(--ds-text-3); text-transform: uppercase; font-size: var(--ds-type-small); letter-spacing: 0.14em; }
@@ -196,18 +195,19 @@ export const MENU_CSS = `
 /* The HUD under it goes: its readouts would sit behind the actions and the key hints. */
 body:has(.ds-menu:not([hidden]) .ds-pause) .ds-hud { opacity: 0; }
 .ds-pause .col { display: flex; flex-direction: column; gap: 6px; }
-.ds-pause h1 { margin: 0 0 24px; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
-/* Its actions are the main menu's destinations at display size: a 4px bar at the left, lit in signal for Resume and for the one under the pointer or the pad. */
-.ds-pause .ds-item { position: relative; display: grid; align-items: center; min-height: 64px; padding: 8px 0 8px 22px; text-align: left; color: var(--ds-text); background: none; border: 0; cursor: pointer; }
-.ds-pause .ds-item::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; background: var(--ds-line-2); transform-origin: left; transition: background-color var(--ds-fast), transform var(--ds-fast) var(--ds-ease); }
-.ds-pause .ds-item b { font-size: var(--ds-type-display); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
-.ds-pause .ds-item.primary::before { background: var(--ds-light); }
-.ds-pause .ds-item:hover::before, .ds-pause .ds-item:focus-visible::before, .ds-pause .ds-item[data-pad-focus]::before { background: var(--ds-light); transform: scaleX(2); }
-.ds-pause .ds-item:hover b, .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { transform: translateX(10px); }
+.ds-pause h1 { margin: 0 0 24px; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+/* Its actions are the main menu's destinations (DESIGN.md, Pause): Resume lit on its plate, the others with no plate, and the one under
+   the pointer or the pad lit at half, its title sliding 10 px. */
+.ds-pause .ds-item { display: grid; align-items: center; min-height: 64px; padding: 8px 24px; text-align: left; color: var(--ds-text-2); background: none; border: 0; cursor: pointer; }
+.ds-pause .ds-item:not(.is-lit) { --ds-edge: transparent; --ds-fill: transparent; }
+.ds-pause .ds-item b { font-family: var(--ds-font-display); font-size: var(--ds-type-display); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; transition: transform var(--ds-fast) var(--ds-ease), color var(--ds-fast); }
+.ds-pause .ds-item.is-lit b { color: var(--ds-reticle); }
+.ds-pause .ds-item:not(.is-lit):hover, .ds-pause .ds-item:not(.is-lit):focus-visible, .ds-pause .ds-item:not(.is-lit)[data-pad-focus] { --ds-edge: var(--ds-light-half); --ds-fill: var(--ds-plate); }
+.ds-pause .ds-item:hover b, .ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { transform: translateX(10px); color: var(--ds-text); }
 .ds-pause .ds-item:focus-visible, .ds-pause .ds-item[data-pad-focus] { outline: none; }
-.ds-pause .ds-item:focus-visible b, .ds-pause .ds-item[data-pad-focus] b { color: var(--ds-light-edge); }
+.ds-pause .ds-item.is-lit:focus-visible, .ds-pause .ds-item.is-lit[data-pad-focus] { --ds-edge: var(--ds-reticle); }
 .ds-pause .ds-error { margin: -12px 0 12px; }
-.ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); padding: 18px 20px; background: rgb(12 15 21 / 0.86); }
+.ds-keys { align-self: end; justify-self: end; width: min(560px, 100%); box-sizing: border-box; padding: 18px 20px; }
 .ds-keys dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 8px 14px; margin: 0; align-items: center; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-keys dt { justify-self: start; }
 .ds-keys dd { margin: 0; }
@@ -223,12 +223,12 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
 
 /* Dialogs: loading, connecting, errors, tips. Set like a title card at the lower left over the world, as the main menu is, the scrim heavy where the words are. */
 .ds-dim { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(7 9 13 / 0.94) 0%, rgb(7 9 13 / 0.8) 45%, rgb(7 9 13 / 0.5) 100%); }
-.ds-panel { position: absolute; left: var(--ds-gutter); bottom: 72px; width: min(620px, calc(100vw - 2 * var(--ds-gutter))); max-height: calc(100vh - 96px); overflow: auto; animation: ds-in var(--ds-slow) var(--ds-ease) both; }
-.ds-panel.error { padding-left: 24px; box-shadow: inset 4px 0 0 var(--ds-alert); }
-.ds-panel h2 { margin: 0 0 16px; font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ds-panel { position: absolute; left: var(--ds-gutter); bottom: 72px; box-sizing: border-box; width: min(620px, calc(100vw - 2 * var(--ds-gutter))); max-height: calc(100vh - 96px); overflow: auto; padding: 24px 28px 26px; animation: ds-in var(--ds-slow) var(--ds-ease) both; }
+.ds-panel.error { --ds-edge: var(--ds-alert); --ds-edge-w: 2px; }
+.ds-panel h2 { margin: 0 0 16px; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 0.92; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; overflow-wrap: anywhere; }
 .ds-panel p { margin: 0 0 22px; max-width: 56ch; font-size: var(--ds-type-body); line-height: 1.45; color: var(--ds-text-2); }
 .ds-panel .figure { display: flex; align-items: baseline; gap: 14px; margin: 0 0 12px; }
-.ds-panel .figure b { font-size: calc(var(--ds-type-display) * 1.4); line-height: 0.85; font-weight: 700; min-width: 3ch; }
+.ds-panel .figure b { font-family: var(--ds-font-display); font-size: calc(var(--ds-type-display) * 1.4); line-height: 0.85; font-weight: 700; min-width: 3ch; }
 .ds-panel .figure span { font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .ds-btns .ds-btn { min-width: 180px; }
@@ -253,14 +253,18 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
   .ds-dim { background: var(--ds-scrim); }
   .ds-panel { bottom: 32px; }
   .ds-panel .figure b { font-size: var(--ds-type-display); }
+  /* Chakra Petch runs wide: a long word ("Unreachable") keeps whole across a phone held upright. */
+  .ds-panel { padding: 18px 16px 20px; } .ds-panel h2 { font-size: calc(var(--ds-type-title) * 0.85); overflow-wrap: normal; }
   .ds-btns .ds-btn { flex: 1 1 140px; min-width: 0; }
   .ds-kit { grid-template-columns: repeat(2, 1fr); }
   .ds-smith-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .ds-fx { grid-template-columns: minmax(0, 1fr); }
   .ds-tabs { order: 3; flex-basis: 100%; overflow-x: auto; }
+  .ds-tabs button.on { filter: none; }
   .ds-tabs button { flex: 1 0 auto; padding: 0 10px; font-size: var(--ds-type-small); letter-spacing: 0.08em; }
   .ds-pause { grid-template-columns: 1fr; padding: 20px 16px; gap: 24px; background: var(--ds-scrim); }
   .ds-pause h1 { font-size: var(--ds-type-title); } .ds-pause .ds-item { min-height: 54px; }
+  .ds-pause .ds-item.is-lit { filter: none; }
   .ds-keys { justify-self: stretch; }
   .ds-keys dl { grid-template-columns: max-content 1fr; }
 }
@@ -735,7 +739,7 @@ export class Menu {
     /** A title card at the lower left over the dimmed game, for the screens that come and go on their own. */
     const panel = (title: string, cls = '') => {
       screen.append(h('div', '', 'ds-dim'));
-      const p = h('div', '', `ds-panel ${cls}`);
+      const p = h('div', '', `ds-panel ds-plate is-scroll ${cls}`);
       p.setAttribute('role', cls === 'error' ? 'alertdialog' : 'dialog');
       p.setAttribute('aria-label', title);
       p.append(h('h2', title));
@@ -1102,7 +1106,7 @@ export class Menu {
     col.append(h('h1', 'Paused'));
     if (this.#error) col.append(h('div', this.#error, 'ds-error'));
     const item = (title: string, onClick: () => void, primary = false) => {
-      const b = h('button', '', `ds-item${primary ? ' primary' : ''}`) as HTMLButtonElement;
+      const b = h('button', '', `ds-item ds-plate${primary ? ' primary is-lit' : ''}`) as HTMLButtonElement;
       b.type = 'button';
       b.innerHTML = `<b>${escapeHtml(title)}</b>`;
       b.addEventListener('click', onClick);
@@ -1117,7 +1121,7 @@ export class Menu {
     });
     item('Leave', () => this.#callbacks.leave());
     wrap.append(col);
-    const keys = h('div', '', 'ds-keys');
+    const keys = h('div', '', 'ds-keys ds-plate');
     const b = this.#settings.bindings;
     const cap = (text: string) => `<i class="ds-kbd">${escapeHtml(text)}</i>`;
     const list = (cls: string, rows: readonly (readonly [string, string])[]) => `<dl class="${cls}">${rows.map(([k, v]) => `<dt>${cap(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('')}</dl>`;

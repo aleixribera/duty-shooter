@@ -69,13 +69,15 @@ const CSS = `
 /* The plate (DESIGN.md, Shape and depth): cut at the top left and the bottom right, drawn as two layers (the edge, then
    the fill inset by the edge's width) so the halo, a drop-shadow on the element itself, follows the cut. Its edge and fill
    are its own: a plate inside a lit one starts unlit again. Unlit, lit at half (hover, focus), lit (chosen), your own, empty. */
-.ds-plate, .ds-btn, .ds-seg button { --ds-ch: 10px; --ds-edge: var(--ds-plate-edge); --ds-edge-w: 1px; --ds-fill: var(--ds-plate); position: relative; isolation: isolate; }
-.ds-plate::before, .ds-plate::after, .ds-btn::before, .ds-btn::after, .ds-seg button::before, .ds-seg button::after {
+.ds-plate, .ds-btn, .ds-seg button, .ds-tabs button { --ds-ch: 10px; --ds-edge: var(--ds-plate-edge); --ds-edge-w: 1px; --ds-fill: var(--ds-plate); position: relative; isolation: isolate; }
+.ds-plate::before, .ds-plate::after, .ds-btn::before, .ds-btn::after, .ds-seg button::before, .ds-seg button::after, .ds-tabs button::before, .ds-tabs button::after {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
   clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); }
-.ds-plate::before, .ds-btn::before, .ds-seg button::before { inset: 0; background: var(--ds-edge); }
-.ds-plate::after, .ds-btn::after, .ds-seg button::after { inset: var(--ds-edge-w); background: var(--ds-fill); }
+.ds-plate::before, .ds-btn::before, .ds-seg button::before, .ds-tabs button::before { inset: 0; background: var(--ds-edge); }
+.ds-plate::after, .ds-btn::after, .ds-seg button::after, .ds-tabs button::after { inset: var(--ds-edge-w); background: var(--ds-fill); }
 .ds-plate { --ds-ch: var(--ds-cut); }
+/* A plate that scrolls (a long dialog, the held scoreboard) carries its own fill, cut the same: its layers only cover the first screenful. */
+.ds-plate.is-scroll { background: var(--ds-fill); clip-path: polygon(var(--ds-ch) 0, 100% 0, 100% calc(100% - var(--ds-ch)), calc(100% - var(--ds-ch)) 100%, 0 100%, 0 var(--ds-ch)); }
 .ds-plate.is-half { --ds-edge: var(--ds-light-half); }
 .ds-plate.is-lit, .ds-btn.primary, .ds-seg button.on { --ds-edge: var(--ds-light-edge); --ds-edge-w: 2px; --ds-fill: var(--ds-plate-lit); filter: drop-shadow(0 0 14px var(--ds-light-halo)); }
 /* Your own row or seat: raised, its edge in the second text colour. The light is kept for what you pick. */
@@ -188,6 +190,7 @@ html.ds-touch .ds-seg { gap: 8px; }
   .ds-ui .ds-page > header .aside { flex: 1 1 0; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; padding-bottom: 0; }
   .ds-ui .ds-page > header .aside:has(.ds-tabs) { justify-content: flex-start; }
   .ds-ui .ds-page > header .ds-tabs { order: 0; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .ds-ui .ds-page > header .ds-tabs button.on { filter: none; }
   .ds-ui .ds-page > header .ds-tabs button { flex: 0 0 auto; padding: 0 12px; font-size: var(--ds-type-small); letter-spacing: 0.08em; }
   .ds-page > .body { padding-top: 16px; padding-bottom: 20px; }
   .ds-page > footer { flex-wrap: nowrap; gap: 8px; padding: 8px var(--ds-gutter); }

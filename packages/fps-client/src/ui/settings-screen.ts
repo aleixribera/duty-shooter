@@ -144,7 +144,7 @@ export const SETTINGS_SCREEN_CSS = `
 .ds-set { display: grid; grid-template-columns: minmax(0, 980px) minmax(280px, 400px); gap: 40px; align-items: start; }
 .ds-set.solo { grid-template-columns: minmax(0, 980px); }
 .ds-preview { position: sticky; top: 0; padding: 0 0 4px; }
-.ds-preview h3 { margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
+.ds-preview h3 { font-family: var(--ds-font-display); margin: 0 0 12px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-text); }
 .ds-preview .ds-note:empty { display: none; }
 .ds-preview .ds-note { margin: 12px 0 0; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-tier { display: grid; gap: 1px; margin: 0; background: var(--ds-line); }

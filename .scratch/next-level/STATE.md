@@ -17,12 +17,12 @@ Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 
 
 Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The laptop's GPU is the bottleneck (Survival Town ~55 fps, Zero Island ~43 at the A/B spots); shipped the bloom's cheap bright pass and the TRAA's two-picture history. Levers left are first in BACKLOG for the director. Prefer `flag:` A/Bs over `post:` swaps (ticket 99).
 
-Pass 34: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep pass 1. Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
-- [x] The system in `theme.ts`: Backlit tokens (`--ds-light*`, mint gone), the two fonts (59 KB, swap), `.ds-plate` with `.is-lit`/`.is-half`/`.is-own`/`.is-empty`, buttons and segments as plates, `--ds-scrim-menu` (v2.202.0).
+Passes 34-35: PLAN item 1b (the whole UI in Backlit, ticket 114), rough sweep passes 1-2. Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG). Checklist:
+- [x] The system in `theme.ts`: Backlit tokens, two fonts (59 KB, swap), `.ds-plate` (+ `.is-scroll` for plates that scroll), buttons and segments as plates (v2.202.0).
 - [x] The main menu: lit row only on a plate, Profile and Settings row, profile corner (v2.202.0). Loadouts and its dot wait on item 7.
-- [ ] The HUD in low light: score bar, health, ammo, feed on unlit plates (the HUD's 13 `.ds-plate`s already draw as plates); the lit clock, your own feed lines lit; the kill's timed beats.
-- [ ] Every other screen: lobby, Battle Royale lobby and screen, settings (tabs still old), pause, scoreboard, match end, dialogs, gunsmith, profile, changelog, touch controls.
-- [ ] Prove: frames beside `ui/backlit/`, `design-audit`, throttled frame times menu and match. Frames: `ui/backlit-pass/look.mjs` (menu, settings, hud).
+- [x] The HUD in low light: match bar as three plates with the lit clock, health and ammo plates, feed lines as plates (yours lit), the kill's beats at 90/120/300/750 ms, changing figures at a fixed `ch` width (Chakra Petch has no tabular digits) (v2.203.0).
+- [x] Every other screen: tabs, settings rows, pause list, dialogs, scoreboard, end panel, toasts, recap, votes, lobby seats, touch controls; display type on 34 title/figure rules (v2.203.0).
+- [ ] Prove: `design-audit` on every screen, throttled frame times menu and match, the kill stack's 2.5 s end (shorten?). Frames: `ui/backlit-screens/look.mjs` (pages, royale, kill, match; before/after).
 
 ## Needs Aleix
 

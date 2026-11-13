@@ -14,18 +14,18 @@ const CSS = `
 .ds-lobby .seat { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 6px 16px 6px 14px; background: var(--ds-panel); border: 1px solid transparent; }
 .ds-lobby .seat .n { width: 22px; flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .seat .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ds-lobby .seat .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.02em; }
+.ds-lobby .seat .name { font-family: var(--ds-font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; letter-spacing: 0.02em; }
 .ds-lobby .seat .role { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .seat .ping { flex: none; font-size: var(--ds-type-small); font-weight: 700; }
 .ds-lobby .seat .ping.good { color: var(--ds-good); } .ds-lobby .seat .ping.fair { color: var(--ds-fair); } .ds-lobby .seat .ping.poor { color: var(--ds-poor); }
-.ds-lobby .seat.you { background: var(--ds-raised); box-shadow: inset 4px 0 0 var(--ds-text); }
+.ds-lobby .seat.you { background: var(--ds-raised); box-shadow: inset 0 0 0 1px var(--ds-text-2); }
 .ds-lobby .seat.bot { background: rgb(18 22 29 / 0.6); }
 .ds-lobby .seat.bot .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
 .ds-lobby .seat.open { background: transparent; border: 1px dashed var(--ds-line-2); }
 .ds-lobby .seats.teams { grid-auto-flow: row; align-items: start; }
 .ds-lobby .team { display: flex; flex-direction: column; gap: 6px; }
 /* A side's name at heading size with a 4 px bar in its colour and its mark, as on the scoreboard. */
-.ds-lobby .team h3 { margin: 0 0 4px; padding-left: 14px; box-shadow: inset 4px 0 0 currentColor; font-size: var(--ds-type-heading); line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ds-lobby .team h3 { font-family: var(--ds-font-display); margin: 0 0 4px; padding-left: 14px; box-shadow: inset 4px 0 0 currentColor; font-size: var(--ds-type-heading); line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .ds-lobby .team.t1 h3 { color: var(--ds-blue); } .ds-lobby .team.t2 h3 { color: var(--ds-orange); }
 .ds-lobby .seat.open .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
 .ds-lobby .note { margin: 14px 0 0; max-width: 64ch; font-size: var(--ds-type-body); color: var(--ds-text-2); }
@@ -48,7 +48,8 @@ const CSS = `
 /* The scrim behind the name, from the bottom edge. */
 .ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
 .ds-lobby .maps button b { position: relative; z-index: 1; }
-.ds-lobby .maps button b { font-size: var(--ds-type-heading); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
+/* Chakra Petch runs wide: a map's name at body size keeps "Switchyard" on one line in a third of the column. */
+.ds-lobby .maps button b { font-family: var(--ds-font-display); font-size: var(--ds-type-body); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
 .ds-lobby .maps button.on { border-color: var(--ds-light); box-shadow: inset 0 0 0 1px var(--ds-light); }
 .ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }

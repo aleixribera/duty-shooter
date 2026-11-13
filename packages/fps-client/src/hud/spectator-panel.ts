@@ -80,10 +80,10 @@ export const SPECTATOR_PANEL_CSS = `
 .ds-spec .head { display: flex; gap: 12px; align-items: baseline; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-spec .head .n { color: var(--ds-text); }
 .ds-spec .who { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.ds-spec .who b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.ds-spec .who b { font-family: var(--ds-font-display); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-title); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .ds-spec .who em { flex: none; font-style: normal; font-size: var(--ds-type-small); font-weight: 400; color: var(--ds-text-2); }
 .ds-spec .hp { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 10px; margin-top: 4px; }
-.ds-spec .hp .v { font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
+.ds-spec .hp .v { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
 .ds-spec .hp .l { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-spec .hp .bar { grid-column: 1 / -1; position: relative; width: 236px; height: 4px; margin-top: 6px; background: rgb(243 241 234 / 0.16); overflow: hidden; }
 .ds-spec .hp .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; transition: transform var(--ds-fast) linear; }

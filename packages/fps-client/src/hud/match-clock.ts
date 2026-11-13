@@ -96,10 +96,10 @@ export class MatchClockView {
 export const MATCH_CLOCK_CSS = `
 .ds-match .mid { position: relative; }
 .ds-match .clock { font-variant-numeric: tabular-nums; }
-.ds-match .clock.tminus { color: var(--ds-alert); min-width: 6ch; text-align: center; }
+.ds-match .clock.tminus { color: var(--ds-alert); text-shadow: none; min-width: 6ch; text-align: center; }
 .ds-match .clock.ten { transform: scale(1.12); }
 .ds-match .clock.ten.tick { transform: scale(1.3); color: var(--ds-text); }
-.ds-match .fuse { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: color-mix(in srgb, var(--ds-alert) 24%, transparent); }
+.ds-match .fuse { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; background: color-mix(in srgb, var(--ds-alert) 24%, transparent); }
 .ds-match .fuse i { display: block; height: 100%; background: var(--ds-alert); transform-origin: 50% 50%; }
 .ds-match .fuse.quiet { background: var(--ds-line); }
 .ds-match .fuse.quiet i { background: var(--ds-text-2); }

@@ -26,7 +26,9 @@ const CSS = `
 .ds-hud { position: fixed; inset: 0; pointer-events: none; font: 400 var(--ds-type-body)/1.2 var(--ds-font); color: var(--ds-text); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px var(--ds-shadow); user-select: none; z-index: 5; }
 .ds-hit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 .ds-hit i { position: absolute; width: 11px; height: 2.4px; background: var(--ds-reticle); left: -5.5px; top: -1.2px; box-shadow: 0 0 2px var(--ds-shadow); }
-.ds-hit.kill i { background: var(--ds-alert); }
+/* A kill's marker is the hit's for 90 ms, then turns the kill colour with a small glow (DESIGN.md, Motion: the kill's beats). */
+.ds-hit.kill i { animation: ds-hit-kill 90ms step-end both; }
+@keyframes ds-hit-kill { from { background: var(--ds-reticle); } to { background: var(--ds-alert); box-shadow: 0 0 6px color-mix(in srgb, var(--ds-alert) 70%, transparent); } }
 .ds-hit.head i { width: 15px; left: -7.5px; height: 3px; }
 .ds-hit.shielded i { width: 6px; left: -3px; height: 1.6px; top: -0.8px; background: var(--ds-text-2); }
 .ds-dmg { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
@@ -35,13 +37,19 @@ const CSS = `
 .ds-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, var(--ds-blood) 100%); opacity: 0; }
 /* A plate is one flat surface over the world: no outline, no rounding. */
 .ds-plate { border: 0; border-radius: 0; text-shadow: none; }
-.ds-ammo { position: absolute; right: 0; bottom: 0; min-width: 300px; padding: 0 calc(var(--ds-gutter) + var(--ds-safe-r)) calc(26px + var(--ds-safe-b)) 60px; text-align: right; isolation: isolate; }
-.ds-ammo .mag { font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
+/* Health and ammo rest on unlit plates at the bottom corners (DESIGN.md, HUD: low light). Their figures are display type. */
+.ds-ammo { position: absolute; right: calc(var(--ds-gutter) + var(--ds-safe-r)); bottom: calc(24px + var(--ds-safe-b)); min-width: 220px; padding: 12px 20px 14px; text-align: right; }
+.ds-health .hp, .ds-ammo .mag, .ds-ammo .res, .ds-ammo .nade, .ds-match .score, .ds-match .clock, .ds-match .name { font-family: var(--ds-font-display); }
+/* Chakra Petch has no tabular digits (a 1 is narrower than a 0), so each figure that changes in place holds a fixed width in ch, the widest digit's: the plates and the gauge beside them never move as it counts. */
+.ds-ammo .mag { display: inline-block; min-width: 2ch; }
+.ds-match .score { min-width: 2ch; text-align: center; }
+.ds-match .clock { min-width: 4ch; text-align: center; }
+.ds-ammo .mag { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: var(--ds-type-heading); color: var(--ds-text-2); margin-left: 8px; }
 .ds-ammo .res.low { color: var(--ds-alert); }
-.ds-ammo .gun { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-bottom: 4px; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-.ds-ammo .gun small { font-size: var(--ds-type-small); font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ds-text); }
+.ds-ammo .gun { display: flex; justify-content: flex-end; align-items: baseline; gap: 10px; margin-bottom: 4px; font-size: var(--ds-type-body); font-weight: 600; color: var(--ds-text-2); }
+.ds-ammo .gun small { font-size: var(--ds-type-small); font-weight: 600; color: var(--ds-text); }
 /* The grenade and tactical counts scale with the magazine's figure, about half of it, so they read as part of the plate
    rather than small marks beside it (review 2026-11-12f, 04-08: "small glyphs beside a '1'"). The glyph stands a quarter taller than its count. */
 .ds-ammo .nade { display: inline-flex; align-items: center; gap: 0.3em; margin-right: 0.9em; font-size: clamp(19px, calc(var(--ds-type-display) * 0.45), 24px); line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ds-text); vertical-align: 0.4em; }
@@ -58,22 +66,18 @@ const CSS = `
 .ds-scope i.v.thick { top: calc(50% + 8vmin); bottom: calc(50% - 38vmin); width: 5px; left: calc(50% - 2.5px); }
 .ds-ammo .bar, .ds-health .bar { position: relative; height: 5px; background: var(--ds-track); margin-top: 10px; overflow: hidden; }
 .ds-health .bar::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--ds-scrim) calc(10% - 2px) 10%); }
-.ds-ammo .bar { width: 220px; margin-left: auto; }
+.ds-ammo .bar { width: 180px; margin-left: auto; }
 .ds-ammo .bar i, .ds-health .bar i { display: block; height: 100%; width: 100%; background: var(--ds-text); transform-origin: 0 50%; transition: transform 120ms linear; }
 .ds-ammo .mag.low ~ .bar i { background: var(--ds-alert); }
-.ds-health { position: absolute; left: 0; bottom: 0; min-width: 300px; padding: 0 60px calc(26px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); isolation: isolate; }
-/* The plates' scrim: up from the bottom edge, and fading out toward the middle of the screen too, so it has no inner edge (review 2026-11-12d). */
-.ds-health::before, .ds-ammo::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(0deg, var(--ds-scrim-soft), var(--ds-scrim-thin) 70%, transparent); }
-.ds-health::before { -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent); mask-image: linear-gradient(90deg, #000 45%, transparent); }
-.ds-ammo::before { -webkit-mask-image: linear-gradient(270deg, #000 45%, transparent); mask-image: linear-gradient(270deg, #000 45%, transparent); }
-.ds-health .ds-label { color: var(--ds-text); }
+.ds-health { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(24px + var(--ds-safe-b)); padding: 12px 20px 14px; }
+.ds-health .ds-label { color: var(--ds-text-2); text-transform: uppercase; letter-spacing: 0.1em; }
 .ds-health.low .ds-label { color: var(--ds-alert); }
-.ds-health .bar { width: 236px; }
-.ds-health .hp { font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; margin-top: 6px; }
+.ds-health .bar { width: 220px; }
+.ds-health .hp { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; margin-top: 6px; }
 .ds-health.low .hp { color: var(--ds-alert); }
 .ds-health.low .bar i { background: var(--ds-alert); }
 .ds-feed { position: absolute; right: calc(var(--ds-gutter) + var(--ds-safe-r)); top: calc(24px + var(--ds-safe-t)); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.ds-feed div { display: flex; align-items: center; background: var(--ds-plate-soft); padding: 5px 12px; text-shadow: none; font-size: var(--ds-type-body); transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
+.ds-feed div { --ds-ch: 9px; display: flex; align-items: center; padding: 5px 12px; text-shadow: none; font-size: var(--ds-type-body); transition: opacity 400ms linear; animation: ds-slide 160ms ease-out; }
 .ds-hud.rostered .ds-feed { top: calc(84px + var(--ds-safe-t)); }
 /* A phone's Battle Royale: the feed starts under the compass and keeps its newest three, clear of the ammo. */
 @media (max-width: 1000px) { .ds-hud.royale .ds-feed { top: calc(var(--ds-brstack-foot, 150px) + 10px); } .ds-hud.royale .ds-feed div:nth-last-child(n+4) { display: none; } }
@@ -87,15 +91,12 @@ const CSS = `
 @media (max-width: 1000px) { .ds-feed { top: calc(96px + var(--ds-safe-t)); } }
 /* A phone: health and ammo each keep to their half of the screen, so the bars never cross (ticket 41). */
 @media (max-width: 640px) {
-  .ds-health, .ds-ammo { min-width: 0; max-width: 50vw; box-sizing: border-box; }
-  .ds-health { padding: 0 12px calc(22px + var(--ds-safe-b)) calc(var(--ds-gutter) + var(--ds-safe-l)); }
-  .ds-ammo { padding: 0 calc(var(--ds-gutter) + var(--ds-safe-r)) calc(22px + var(--ds-safe-b)) 12px; }
-  .ds-health .bar, .ds-ammo .bar { width: calc(50vw - 28px); }
+  .ds-health, .ds-ammo { min-width: 0; max-width: calc(50vw - var(--ds-gutter) - 4px); box-sizing: border-box; bottom: calc(12px + var(--ds-safe-b)); padding: 8px 12px 10px; }
+  .ds-health .bar, .ds-ammo .bar { width: calc(50vw - var(--ds-gutter) - 28px); }
 }
 /* Narrow screens put the ping and frame rate over the health, out from under the top bars (ticket 45). */
 @media (max-width: 960px) { .ds-hud .ds-stats { top: auto; bottom: calc(118px + var(--ds-safe-b)); left: calc(var(--ds-gutter) + var(--ds-safe-l)); } }
-/* Your own lines: a step up and a bar in text colour, as your lobby seat. */
-.ds-feed .you { box-shadow: inset 3px 0 0 var(--ds-text); background: var(--ds-raised-2); }
+/* Each line is a small unlit plate; your own lines are lit plates (DESIGN.md, Kill feed). */
 /* A bot is said in words after the name, not boxed in a tag. */
 .ds-bot { margin-left: 6px; color: var(--ds-text-2); font-size: var(--ds-type-small); font-weight: 400; }
 .ds-zones { position: absolute; left: 50%; top: calc(86px + var(--ds-safe-t)); transform: translateX(-50%); display: flex; gap: 6px; }
@@ -130,30 +131,32 @@ const CSS = `
 .ds-action div { font-variant-numeric: tabular-nums; }
 .ds-action .shield { margin-bottom: 4px; font-weight: 700; color: var(--ds-text); }
 .ds-action .bar + div { margin-top: 8px; }
-.ds-round { position: absolute; left: 50%; top: 30%; width: max-content; max-width: calc(100vw - 32px); transform: translate(-50%, -50%); padding: 10px 16px 12px; background: var(--ds-plate); text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
+.ds-round { position: absolute; left: 50%; top: 30%; width: max-content; max-width: calc(100vw - 32px); transform: translate(-50%, -50%); padding: 12px 22px 14px; text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
 .ds-round .sub { font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); text-shadow: 0 1px 8px var(--ds-shadow-hi), 0 0 2px var(--ds-shadow-hi); }
 .ds-round .goal { margin-top: 8px; font-size: var(--ds-type-body); text-shadow: none; white-space: normal; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
 .ds-round .use { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ds-line); font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; white-space: pre; }
-.ds-round h2 { margin: 6px 0 0; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
+.ds-round h2 { margin: 6px 0 0; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
 /* A mode's name in the count's place (joined under way) is long: it wraps on a narrow screen. */
 .ds-round h2.mode { white-space: normal; }
 .ds-feed .gun { color: var(--ds-text-2); margin: 0 8px; font-size: var(--ds-type-small); }
 .ds-feed .gun b { color: var(--ds-alert); margin-left: 6px; font-weight: 700; }
 .ds-stats { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); top: calc(20px + var(--ds-safe-t)); padding: 3px 8px; background: var(--ds-scrim-thin); font-size: var(--ds-type-small); font-weight: 700; color: var(--ds-text-2); letter-spacing: 0.08em; text-shadow: none; }
 .ds-stats:empty { display: none; }
-.ds-match { position: absolute; left: 50%; top: calc(24px + var(--ds-safe-t)); transform: translateX(-50%); width: max-content; display: flex; align-items: stretch; gap: 0; padding: 0; overflow: hidden; }
+/* The match bar: the scores and the clock on their own plates, the clock in the light (DESIGN.md, HUD). */
+.ds-match { position: absolute; left: 50%; top: calc(24px + var(--ds-safe-t)); transform: translateX(-50%); width: max-content; display: flex; align-items: stretch; gap: 6px; padding: 0; }
+.ds-match > .ds-plate { --ds-ch: 10px; }
 .ds-match > div { padding: 6px 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.ds-match .score { font-size: var(--ds-type-heading); font-weight: 700; line-height: 1; }
+.ds-match .score { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 1; }
 .ds-match .team { min-width: 92px; }
-.ds-match .team.mine { background: var(--ds-tint); }
+.ds-match .team.mine { --ds-edge: var(--ds-text-2); --ds-fill: var(--ds-raised); }
 .ds-match .team { position: relative; }
-.ds-match .team .prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--ds-line); }
+.ds-match .team .prog { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; background: var(--ds-line); }
 .ds-match .team .prog i { display: block; height: 100%; background: currentColor; }
 .ds-match .team.r .prog i { margin-left: auto; }
-.ds-match .mid { border-left: 1px solid var(--ds-line); border-right: 1px solid var(--ds-line); min-width: 96px; }
-.ds-match .clock { font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.02em; }
-.ds-match .clock.low { color: var(--ds-alert); }
-.ds-match .sub { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-top: 3px; white-space: nowrap; }
+.ds-match .mid { min-width: 132px; }
+.ds-match .clock { font-family: var(--ds-font-display); font-size: var(--ds-type-display); line-height: 1; font-weight: 700; letter-spacing: 0.02em; color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); }
+.ds-match .clock.low { color: var(--ds-alert); text-shadow: none; }
+.ds-match .sub { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-top: 3px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; }
 .ds-match > .roster { flex-direction: row; gap: 4px; padding: 6px 8px; }
 .ds-match > .roster.l { flex-direction: row-reverse; }
 .ds-pc { position: relative; width: 34px; height: 38px; overflow: hidden; box-shadow: inset 0 -2px 0 currentColor; }
@@ -172,20 +175,20 @@ const CSS = `
 .ds-prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 6px 12px; font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-prompt[hidden] { display: none; }
 .ds-dmgnum { position: absolute; transform: translate(-50%, -100%); text-align: center; pointer-events: none; text-shadow: 0 1px 4px var(--ds-shadow-hi); animation: ds-dmgnum 1.4s ease-out forwards; }
-.ds-dmgnum b { display: block; font-size: var(--ds-type-heading); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ds-dmgnum b { font-family: var(--ds-font-display); display: block; font-size: var(--ds-type-heading); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-dmgnum.head b { color: var(--ds-alert); }
 .ds-dmgnum small { display: block; font-size: var(--ds-type-small); letter-spacing: 0.1em; color: var(--ds-text-2); }
 @keyframes ds-dmgnum { 0% { opacity: 0; margin-top: 6px; } 10% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -34px; } }
-.ds-center { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; white-space: pre-line; line-height: 1.6; }
+.ds-center { font-family: var(--ds-font-display); position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; white-space: pre-line; line-height: 1.6; }
 .ds-overlay { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(132px + var(--ds-safe-b)); padding: 10px 12px; font-size: var(--ds-type-small); display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: center; }
 .ds-overlay canvas { grid-column: 1 / 3; margin-top: 4px; background: var(--ds-shadow-lo); }
 /* The empty box under the readouts says what will be drawn in it. */
 .ds-overlay .k.trace { grid-column: 1 / 3; margin-top: 6px; }
 .ds-overlay .k { color: var(--ds-text-2); font-size: var(--ds-type-small); }
-.ds-board { position: absolute; z-index: 2; left: 50%; top: calc(142px + var(--ds-safe-t)); max-height: calc(100vh - 332px); overflow: hidden; transform: translateX(-50%); width: min(920px, calc(100vw - 64px)); padding: 0; display: none; background: var(--ds-plate-solid); text-shadow: none; animation: ds-fade 100ms ease-out; }
+.ds-board { position: absolute; z-index: 2; left: 50%; top: calc(142px + var(--ds-safe-t)); max-height: calc(100vh - 332px); overflow: hidden; transform: translateX(-50%); width: min(920px, calc(100vw - 64px)); padding: 0; display: none; --ds-fill: var(--ds-plate-solid); text-shadow: none; animation: ds-fade 100ms ease-out; }
 .ds-hud.boarded .ds-feed, .ds-hud.boarded .ds-round, .ds-hud.boarded .ds-center, .ds-hud.boarded .ds-prompt { visibility: hidden; }
 .ds-board > header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 20px 12px; border-bottom: 1px solid var(--ds-line); }
-.ds-board > header b { font-size: var(--ds-type-heading); letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-board > header b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-board > header span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-board > header .goal { flex: 1 1 0; min-width: 0; margin: 0 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-board > header b, .ds-board > header .ds-label { flex: none; }
@@ -197,7 +200,7 @@ const CSS = `
 /* A phone: the board starts under the Battle Royale stack and runs to just over the health and ammo. One column. */
 @media (max-width: 640px) { .ds-board { width: calc(100vw - 24px); max-height: calc(100vh - var(--ds-brstack-foot, 150px) - 170px); } .ds-board .cols { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 14px; gap: 14px; } .ds-board > header { padding: 12px 14px 10px; } .ds-hud.royale .ds-board { top: calc(var(--ds-brstack-foot, 150px) + 8px); } }
 /* A side: its name and total over its rows, a bar in the team's colour at its left edge. */
-.ds-board h3 { margin: 0 0 6px; padding: 6px 10px 6px 14px; display: flex; justify-content: space-between; align-items: center; font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; box-shadow: inset 4px 0 0 currentColor; }
+.ds-board h3 { font-family: var(--ds-font-display); margin: 0 0 6px; padding: 6px 10px 6px 14px; display: flex; justify-content: space-between; align-items: center; font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; box-shadow: inset 4px 0 0 currentColor; }
 .ds-board h3 > span:first-child { color: var(--ds-text); }
 .ds-board h3 .total { font-size: var(--ds-type-heading); line-height: 1; }
 .ds-board table { width: 100%; border-collapse: collapse; }
@@ -210,20 +213,24 @@ const CSS = `
 /* Column heads in full, or their initials where the table is narrow. */
 .ds-board th .n { display: none; }
 @media (max-width: 1100px) { .ds-board th .w { display: none; } .ds-board th .n { display: inline; } .ds-board th, .ds-board td { padding-left: 6px; padding-right: 6px; } }
-.ds-board tr.you td { background: var(--ds-raised); }
-.ds-board tr.you td:first-child { box-shadow: inset 4px 0 0 var(--ds-text); }
+/* Your row: raised, its edge in the second text colour (DESIGN.md, Scoreboard). */
+.ds-board tr.you td { background: var(--ds-raised); box-shadow: inset 0 1px 0 var(--ds-text-2), inset 0 -1px 0 var(--ds-text-2); }
+.ds-board tr.you td:first-child { box-shadow: inset 1px 1px 0 var(--ds-text-2), inset 0 -1px 0 var(--ds-text-2); }
+.ds-board tr.you td:last-child { box-shadow: inset -1px 1px 0 var(--ds-text-2), inset 0 -1px 0 var(--ds-text-2); }
 .ds-board .ping { color: var(--ds-text-2); }
 .ds-end { position: absolute; left: 50%; top: calc(56px + var(--ds-safe-t)); transform: translateX(-50%); width: min(880px, calc(100vw - 112px)); text-align: center; display: none; animation: ds-in 160ms ease-out; }
 /* The result heads the panel on its plate: over the sky and the cloud it measured 1.2:1. */
-.ds-end .head { margin: 0 auto 1px; width: min(840px, 100%); padding-top: 12px; background: var(--ds-plate); }
+.ds-end .head { margin: 0 auto 6px; width: min(840px, 100%); padding-top: 12px; }
 .ds-end .head .mvp.ds-plate { --ds-edge: transparent; --ds-fill: transparent; margin-bottom: 0; border-top: 1px solid var(--ds-line); }
-.ds-end h2 { margin: 4px 0 14px; font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
+.ds-end h2 { margin: 4px 0 14px; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); }
+/* The result is lit whoever won: a team's win says its name and mark in the light (DESIGN.md, Match end panel). */
+.ds-end h2 [class^='ds-t'] { color: inherit; }
 /* The MVP: one line on its own plate, set on top of yours. */
 .ds-end .mvp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; margin: 0 auto 1px; width: min(840px, 100%); padding: 9px 14px; text-align: left; font-size: var(--ds-type-body); color: var(--ds-text-2); font-variant-numeric: tabular-nums; }
 .ds-end .mvp b { color: var(--ds-text); font-weight: 700; }
-.ds-end .mvp .who { font-size: var(--ds-type-heading); line-height: 1; text-transform: uppercase; letter-spacing: 0.03em; }
+.ds-end .mvp .who { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1; text-transform: uppercase; letter-spacing: 0.03em; }
 /* Your match: your numbers, the XP they paid and the Rank bar, as one plate. */
-.ds-end .mine { margin: 0 auto 14px; width: min(840px, 100%); padding: 12px 14px; }
+.ds-end .mine { margin: 0 auto 6px; width: min(840px, 100%); padding: 12px 14px; }
 .ds-end .mine:empty { display: none; }
 .ds-end .mine > .ds-label { display: block; margin-bottom: -2px; text-align: left; }
 @media (max-width: 640px) { .ds-end { top: calc(16px + var(--ds-safe-t)); width: calc(100vw - 24px); } .ds-end h2 { font-size: var(--ds-type-title); margin-bottom: 10px; } .ds-end .mvp { padding: 8px 10px; gap: 2px 12px; font-size: var(--ds-type-body); } .ds-end .mvp .who { font-size: var(--ds-type-body); } .ds-end .mine { padding: 10px; margin-bottom: 10px; } }
@@ -250,22 +257,22 @@ const CSS = `
 }
 .ds-end .vote { margin: 0 auto; width: min(560px, 100%); padding: 12px 14px; text-align: left; }
 .ds-end .vote header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-.ds-end .vote .clock { font-size: var(--ds-type-heading); font-weight: 700; color: var(--ds-text); }
+.ds-end .vote .clock { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); font-weight: 700; color: var(--ds-text); }
 .ds-votes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: auto; }
-.ds-votes button { position: relative; overflow: hidden; font: inherit; color: inherit; text-align: left; background: var(--ds-raised); border: 1px solid var(--ds-line); border-radius: 0; padding: 10px 12px; cursor: pointer; }
-.ds-votes button:hover { border-color: var(--ds-text-2); }
-.ds-votes button.mine { border-color: var(--ds-light); box-shadow: inset 4px 0 0 var(--ds-light); }
+.ds-votes button { position: relative; overflow: hidden; font: inherit; color: inherit; text-align: left; background: var(--ds-raised); border: 1px solid var(--ds-plate-edge); border-radius: 0; padding: 10px 12px; cursor: pointer; }
+.ds-votes button:hover { border-color: var(--ds-light-half); }
+.ds-votes button.mine { border-color: var(--ds-light-edge); box-shadow: inset 0 0 0 1px var(--ds-light-edge); background: var(--ds-plate-lit); }
 .ds-votes button > span { display: block; }
 .ds-votes button .key { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-votes button .mode { display: block; font-size: var(--ds-type-body); font-weight: 700; text-transform: uppercase; margin: 2px 0 6px; }
+.ds-votes button .mode { display: block; font-family: var(--ds-font-display); font-size: var(--ds-type-body); font-weight: 700; text-transform: uppercase; margin: 2px 0 6px; }
 .ds-votes button .tally { height: 4px; background: var(--ds-line); overflow: hidden; }
 .ds-votes button .tally i { display: block; height: 100%; background: var(--ds-light); transition: width 200ms ease-out; }
-.ds-votes button .n { position: absolute; right: 12px; top: 10px; font-size: var(--ds-type-heading); font-weight: 700; }
+.ds-votes button .n { font-family: var(--ds-font-display); position: absolute; right: 12px; top: 10px; font-size: var(--ds-type-heading); font-weight: 700; }
 .ds-end .next { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--ds-scrim-soft); font-size: var(--ds-type-small); color: var(--ds-text); }
 .ds-end .vote .next { display: block; padding: 0; background: none; color: var(--ds-text-2); }
-.ds-recap { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(156px + var(--ds-safe-b)); min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; background: var(--ds-scrim-soft); border-left: 3px solid var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
+.ds-recap { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(156px + var(--ds-safe-b)); min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; --ds-edge: var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
 @media (max-width: 640px) { .ds-recap { left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(206px + var(--ds-safe-b)); min-width: 0; padding: 8px 12px; } .ds-recap .who b { font-size: var(--ds-type-body); } .ds-recap .nums b { font-size: var(--ds-type-body); } }
-.ds-toast { position: absolute; left: 50%; bottom: calc(128px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; background: var(--ds-plate-solid); box-shadow: inset 4px 0 0 var(--ds-text); padding: 10px 16px 10px 20px; font-size: var(--ds-type-body); line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
+.ds-toast { position: absolute; left: 50%; bottom: calc(128px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; --ds-ch: 10px; --ds-fill: var(--ds-plate-solid); padding: 10px 18px; font-size: var(--ds-type-body); line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
 /* A phone: the toast runs the width, two lines at most, and the recap stands above it rather than under it. */
 @media (max-width: 640px) { .ds-toast { width: calc(100vw - 24px); padding: 8px 12px 8px 16px; font-size: var(--ds-type-body); } }
 `;
@@ -595,11 +602,11 @@ export class Hud {
     });
     this.#score = new ScoreFeed(this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);
-    this.#health = el('div', 'ds-health', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
+    this.#health = el('div', 'ds-health ds-plate', this.root, '<div class="ds-label">Health</div><div class="hp">100</div><div class="bar"><i></i></div>');
     this.#healthLabel = this.#health.querySelector('.ds-label') as HTMLElement;
     this.#hp = this.#health.querySelector('.hp') as HTMLElement;
     this.#hpBar = this.#health.querySelector('.bar i') as HTMLElement;
-    const ammo = (this.#ammo = el('div', 'ds-ammo', this.root, `<div class="gun">M4A1</div><span class="nade tac" aria-label="Tactical">${icon('smoke')}<b>1</b></span><span class="nade frag" aria-label="Grenades">${icon('grenade')}<b>1</b></span><span class="mag">30</span>` + '<span class="res">/ ∞</span><div class="bar"><i></i></div>'));
+    const ammo = (this.#ammo = el('div', 'ds-ammo ds-plate', this.root, `<div class="gun">M4A1</div><span class="nade tac" aria-label="Tactical">${icon('smoke')}<b>1</b></span><span class="nade frag" aria-label="Grenades">${icon('grenade')}<b>1</b></span><span class="mag">30</span>` + '<span class="res">/ ∞</span><div class="bar"><i></i></div>'));
     this.#mag = ammo.querySelector('.mag') as HTMLSpanElement;
     this.#res = ammo.querySelector('.res') as HTMLSpanElement;
     this.#gun = ammo.querySelector('.gun') as HTMLElement;
@@ -622,26 +629,26 @@ export class Hud {
     this.#shots = this.#overlay.querySelector('.shots') as HTMLSpanElement;
     this.#lastHit = this.#overlay.querySelector('.last-hit') as HTMLSpanElement;
     this.#trace = this.#overlay.querySelector('canvas') as HTMLCanvasElement;
-    this.#board = el('div', 'ds-board', this.root);
-    this.#match = el('div', 'ds-match ds-plate', this.root);
+    this.#board = el('div', 'ds-board ds-plate is-scroll', this.root);
+    this.#match = el('div', 'ds-match', this.root);
     this.#zones = el('div', 'ds-zones', this.root);
     this.#charge = el('div', 'ds-charge ds-plate', this.root);
     this.#action = el('div', 'ds-action ds-plate', this.root);
     this.#revive = el('div', 'ds-action ds-plate', this.root);
-    this.#round = el('div', 'ds-round', this.root);
+    this.#round = el('div', 'ds-round ds-plate', this.root);
     this.#end = el('div', 'ds-end', this.root);
-    this.#endHead = el('div', 'head', this.#end);
+    this.#endHead = el('div', 'head ds-plate', this.#end);
     this.#endMine = el('div', 'mine ds-plate ds-gain', this.#end);
     this.#endNext = el('div', 'after', this.#end);
     this.#end.addEventListener('click', (e) => {
       const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
       if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
     });
-    this.#toast = el('div', 'ds-toast', this.root);
+    this.#toast = el('div', 'ds-toast ds-plate', this.root);
     this.#hint = el('div', 'ds-hintline', this.root);
     this.#hint.hidden = true;
     this.#royale = new RoyaleHud(this.root, null);
-    this.#recap = el('div', 'ds-recap', this.root);
+    this.#recap = el('div', 'ds-recap ds-plate', this.root);
     this.#card = new MatchCardView(this.root, () => this.#royale.picture());
     this.#pings = new PingMarks(this.root);
   }
@@ -657,6 +664,11 @@ export class Hud {
 
   hitMarker(kind: HitKind): void {
     const kill = kind === 'kill' || kind === 'headshotKill';
+    // A kill right after another restarts the turn to the kill colour.
+    if (kill && this.#hit.classList.contains('kill')) {
+      this.#hit.className = 'ds-hit';
+      void this.#hit.offsetWidth;
+    }
     this.#hit.className = `ds-hit${kill ? ' kill' : ''}${kind === 'headshot' || kind === 'headshotKill' ? ' head' : ''}${kind === 'shielded' ? ' shielded' : ''}`;
     this.#hitAge = 0;
     this.#hitLife = kill ? 0.5 : 0.28;
@@ -697,7 +709,7 @@ export class Hud {
     down = false,
   ): void {
     const row = document.createElement('div');
-    if (involvesYou) row.className = 'you';
+    row.className = involvesYou ? 'ds-plate is-lit you' : 'ds-plate';
     const k = killer === null ? '' : playerName(killer, bots.killer === true, teams.killer);
     row.innerHTML = `${k}<span class="gun">${killer ? escape(headshot ? `✛ ${gun}` : gun) : '☠'}${down ? '<b>Downed</b>' : ''}</span>${playerName(victim, bots.victim === true, teams.victim)}`;
     this.#feed.append(row);
@@ -709,7 +721,7 @@ export class Hud {
   /** A line in the kill feed about the objectives (a zone taken), in `team`'s colour. */
   objectiveFeed(text: string, team: number, involvesYou: boolean, tail = ''): void {
     const row = document.createElement('div');
-    if (involvesYou) row.className = 'you';
+    row.className = involvesYou ? 'ds-plate is-lit you' : 'ds-plate';
     // `tail` is the line's end, kept whole when a narrow screen shortens the rest.
     row.innerHTML = `<span class="ds-t${team}">${TEAMS[team]?.mark ?? ''} ${escape(text)}</span>${tail ? `<span class="tail">&nbsp;${escape(tail)}</span>` : ''}`;
     this.#feed.append(row);
@@ -828,8 +840,9 @@ export class Hud {
 
     this.#hitAge += dt;
     this.#style(this.#hit, 'opacity', fixed(Math.max(0, 1 - this.#hitAge / this.#hitLife)));
-    // The marker pops out and settles over its first moments.
-    this.#style(this.#hit, 'transform', `scale(${fixed(1 + Math.max(0, 0.12 - this.#hitAge) * 2.5)})`);
+    // The marker pops out and settles over its first moments; a kill pops again at 90 ms, as it turns the kill colour (DESIGN.md, Motion).
+    const pop = Math.max(0, 0.12 - this.#hitAge) * 2.5 + (this.#hitLife > 0.3 && this.#hitAge >= 0.09 ? Math.max(0, 0.21 - this.#hitAge) * 3.5 : 0);
+    this.#style(this.#hit, 'transform', `scale(${fixed(1 + pop)})`);
     this.#score.update(dt);
 
     // Damage indicators point at the attacker relative to where you are looking now.
@@ -1124,18 +1137,18 @@ export class Hud {
       const low = round && state.charge?.state.phase !== 'freeze' && view.secondsLeft !== null && view.secondsLeft <= 30;
       const bomb = round ? null : view.secondsLeft;
       const face = bomb !== null ? matchClockHtml(bomb, s.timeLimit ?? null) : `<span class="clock${low ? ' low' : ''}">${left || '–'}</span>`;
-      const mid = `<div class="mid">${face}<span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
+      const mid = `<div class="mid ds-plate">${face}<span class="sub">${MODE_SHORT[s.mode] ?? s.mode.toUpperCase()}${bar.limit === null ? '' : ` · ${bar.limit}`}</span></div>`;
       if (bar.kind === 'tdm') {
         // Each side's way to the limit, under its score.
         const [a, b] = bar.teams.map(
           (t, i) =>
-            `<div class="team ${i === 0 ? 'l' : 'r'} ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span>${bar.limit ? `<span class="prog"><i style="width:${Math.min(100, Math.round((t.score / bar.limit) * 100))}%"></i></span>` : ''}</div>`,
+            `<div class="team ds-plate ${i === 0 ? 'l' : 'r'} ds-t${t.team}${t.mine ? ' mine' : ''}"><span class="score">${t.score}</span><span class="sub">${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}${t.mine ? ' · you' : ''}</span>${bar.limit ? `<span class="prog"><i style="width:${Math.min(100, Math.round((t.score / bar.limit) * 100))}%"></i></span>` : ''}</div>`,
         );
         // Charge: each side's portraits outside its score, greyed and struck through once dead.
         const roster = state.charge?.roster;
         const side = (team: number | undefined, end: 'l' | 'r') => {
           const cards = roster?.find((r) => r.team === team)?.cards ?? [];
-          return cards.length > 0 ? `<div class="roster ${end}">${cards.map(rosterCard).join('')}</div>` : '';
+          return cards.length > 0 ? `<div class="roster ds-plate ${end}">${cards.map(rosterCard).join('')}</div>` : '';
         };
         this.#set(this.#match, `${side(bar.teams[0]?.team, 'l')}${a}${mid}${b}${side(bar.teams[1]?.team, 'r')}`);
       } else if (bar.kind === 'gungame') {
@@ -1143,11 +1156,11 @@ export class Hud {
         const y = bar.you;
         const next = y ? ` · ${y.toNext} to ${y.next ? escape(STATS.weapons[y.next].traits.name) : 'win'}` : '';
         const you = y ? `<span class="score">${y.level}/${bar.limit}</span><span class="sub">You · ${ordinal(y.place)}${next}</span>` : '<span class="score">–</span><span class="sub">You</span>';
-        this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
+        this.#set(this.#match, `<div class="team ds-plate">${leader}</div>${mid}<div class="team ds-plate">${you}</div>`);
       } else {
         const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
         const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
-        this.#set(this.#match, `<div class="team">${leader}</div>${mid}<div class="team">${you}</div>`);
+        this.#set(this.#match, `<div class="team ds-plate">${leader}</div>${mid}<div class="team ds-plate">${you}</div>`);
       }
       // The last minute's clock and fuse move many times a second: painted into the bar, not written with it.
       this.#clock.paint(this.#match, bomb);

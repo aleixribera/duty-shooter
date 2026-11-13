@@ -44,7 +44,7 @@ export const MATCH_CARD_CSS = `
 .ds-card .what { font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ds-text-2); }
 .ds-card .what.won { color: var(--ds-light); }
 .ds-card .place { display: flex; align-items: baseline; gap: 14px; }
-.ds-card .place b { font-size: var(--ds-type-display); line-height: 0.9; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
+.ds-card .place b { font-family: var(--ds-font-display); font-size: var(--ds-type-display); line-height: 0.9; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
 .ds-card .place span { font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-card .winners { font-size: var(--ds-type-body); color: var(--ds-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-card .winners b { color: var(--ds-text); font-weight: 700; }

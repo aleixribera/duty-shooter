@@ -46,18 +46,24 @@ export function scoreFeedEntry(lines: readonly ScoreLine[], nameOf: (id: string)
 const SCORE_LINE_LIFE = 2.5;
 const SCORE_MEDAL_LIFE = 2;
 const COUNT_UP = 0.35;
+/** When each beat of a kill comes, in seconds after it (DESIGN.md, Motion): +score lights, the reason lines, the Medal. */
+const BEAT_TOTAL = 0.12;
+const BEAT_LINES = 0.3;
+const BEAT_MEDAL = 0.75;
 /** Lines on screen at once: older ones leave early rather than run down into the readouts. */
 const MAX_LINES = 6;
 
 export const SCORE_FEED_CSS = `
 .ds-score { position: absolute; left: calc(50% + 124px); top: calc(50% + 16px); width: 300px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgb(0 0 0 / 0.9); }
 /* Text over the world stands on a scrim: each row carries its own, running out to the right, and takes it along when it fades. */
-.ds-score .medal, .ds-score .total, .ds-score .lines div { padding: 0 12px; background: linear-gradient(90deg, var(--ds-scrim-soft) 35%, transparent); }
-.ds-score .medal { height: 40px; font-size: var(--ds-type-heading); line-height: 40px; font-weight: 700; font-stretch: condensed; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; opacity: 0; }
-.ds-score .medal.on { animation: ds-score-medal ${SCORE_MEDAL_LIFE}s var(--ds-ease) forwards; }
-.ds-score .total { height: 30px; font-size: var(--ds-type-heading); line-height: 30px; font-weight: 700; opacity: 0; transition: opacity var(--ds-slow) linear; }
-.ds-score .total.on { opacity: 1; transition-duration: 60ms; }
-.ds-score .lines div { display: flex; align-items: baseline; gap: 8px; height: 23px; font-size: var(--ds-type-body); line-height: 23px; white-space: nowrap; animation: ds-score-line ${SCORE_LINE_LIFE}s linear forwards; }
+/* The kill's beats (DESIGN.md, Motion): +score lights at 120 ms, the reason lines come at 300 ms, a Medal lights on its plate at 750 ms. */
+.ds-score .total, .ds-score .lines div { padding: 0 12px; background: linear-gradient(90deg, var(--ds-scrim-soft) 35%, transparent); }
+.ds-score .medal { --ds-ch: 10px; width: max-content; margin-bottom: 6px; padding: 0 16px; height: 40px; font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 40px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; text-shadow: 0 0 22px var(--ds-light-glow); opacity: 0; }
+.ds-score .medal.on { animation: ds-score-medal ${SCORE_MEDAL_LIFE - BEAT_MEDAL}s var(--ds-ease) ${BEAT_MEDAL}s both; }
+.ds-score .total { height: 30px; font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 30px; font-weight: 700; color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); opacity: 0; transition: opacity var(--ds-slow) linear; }
+.ds-score .total.on { opacity: 1; transition-duration: 60ms; transition-delay: ${BEAT_TOTAL}s; }
+.ds-score .lines div { display: flex; align-items: baseline; gap: 8px; height: 23px; font-size: var(--ds-type-body); line-height: 23px; white-space: nowrap; animation: ds-score-line ${SCORE_LINE_LIFE}s linear both; }
+.ds-score .lines div.beat { animation: ds-score-line ${SCORE_LINE_LIFE - BEAT_LINES}s linear ${BEAT_LINES}s both; }
 .ds-score .lines b { min-width: 46px; font-weight: 700; }
 .ds-score .lines i { font-style: normal; color: var(--ds-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @keyframes ds-score-line { 0% { opacity: 0; transform: translateX(-8px); } 4% { opacity: 1; transform: none; } 84% { opacity: 1; } 100% { opacity: 0; } }
@@ -65,8 +71,8 @@ export const SCORE_FEED_CSS = `
 /* A phone, or any window too narrow for the stack beside the crosshair: under it, centred, three lines at most. */
 @media (max-width: 860px) {
   .ds-score { left: 50%; top: calc(50% + 84px); width: min(300px, calc(100vw - 32px)); transform: translateX(-50%); text-align: center; }
-  .ds-score .medal, .ds-score .total, .ds-score .lines div { background: linear-gradient(90deg, transparent, var(--ds-scrim-soft) 25%, var(--ds-scrim-soft) 75%, transparent); }
-  .ds-score .medal { height: 30px; font-size: var(--ds-type-heading); line-height: 30px; }
+  .ds-score .total, .ds-score .lines div { background: linear-gradient(90deg, transparent, var(--ds-scrim-soft) 25%, var(--ds-scrim-soft) 75%, transparent); }
+  .ds-score .medal { margin-left: auto; margin-right: auto; height: 30px; font-size: var(--ds-type-heading); line-height: 30px; }
   .ds-score .total { height: 24px; font-size: var(--ds-type-body); line-height: 24px; }
   .ds-score .lines div { justify-content: center; height: 20px; font-size: var(--ds-type-body); line-height: 20px; }
   .ds-score .lines b { min-width: 0; }
@@ -102,7 +108,7 @@ export class ScoreFeed {
       return e;
     };
     this.#root = el('ds-score', parent);
-    this.#medal = el('medal', this.#root);
+    this.#medal = el('medal ds-plate is-lit', this.#root);
     this.#total = el('total', this.#root);
     this.#lines = el('lines', this.#root);
   }
@@ -111,9 +117,11 @@ export class ScoreFeed {
   add(entry: ScoreFeedEntry): void {
     if (entry.lines.length === 0) return;
     // A stack that had emptied starts its total again from nothing.
-    if (this.#live.length === 0) this.#shown = this.#target = 0;
+    const first = this.#live.length === 0;
+    if (first) this.#shown = this.#target = 0;
     const fresh = entry.lines.map((line) => {
       const div = document.createElement('div');
+      if (first) div.className = 'beat';
       // A line that paid nothing (a kill where no Score is kept) is said without a figure.
       div.innerHTML = `${line.points > 0 ? `<b>+${line.points}</b>` : ''}<span>${escape(line.label)}</span>${line.note ? `<i>${escape(line.note)}</i>` : ''}`;
       return { el: div, age: 0 };

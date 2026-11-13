@@ -23,9 +23,10 @@ describe("the pause menu's buttons", () => {
     for (const p of ['background', 'border', 'color']) expect(set, p).toContain(p);
   });
 
+  // Backlit (ticket 114): an unlit one's plate edge lights at half; Resume is already lit.
   it('light up when hovered, focused or picked with the pad', () => {
     for (const state of [':hover', ':focus-visible', '[data-pad-focus]']) {
-      expect(props(`.ds-pause .ds-item${state}::before`), state).toContain('background');
+      expect(props(`.ds-pause .ds-item:not(.is-lit)${state}`), state).toContain('--ds-edge');
     }
   });
 });

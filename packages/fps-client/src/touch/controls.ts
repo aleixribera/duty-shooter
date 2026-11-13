@@ -122,7 +122,8 @@ export const TOUCH_CSS = `
 .ds-tc .tb { position: absolute; display: none; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 1.5px solid var(--ds-touch-line); border-radius: 50%; background: var(--ds-touch-fill); color: var(--ds-text); pointer-events: auto; touch-action: none; font-size: var(--ds-type-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .ds-tc .tb svg { pointer-events: none; }
 .ds-tc .tb.down { background: var(--ds-touch-press); border-color: var(--ds-text); }
-.ds-tc .tb.lit { border-color: var(--ds-light); color: var(--ds-light); }
+/* A control that is on, or the one to press now, is lit: the light's edge and its halo (DESIGN.md, Touch controls). */
+.ds-tc .tb.lit { border-color: var(--ds-light-edge); color: var(--ds-light); box-shadow: 0 0 14px var(--ds-light-halo); }
 .ds-tc .tb.none { opacity: 0.45; }
 .ds-tc .tb.top { display: flex; width: 44px; height: 44px; }
 .ds-tc .tb[hidden] { display: none; }
@@ -144,7 +145,7 @@ export const TOUCH_CSS = `
 .ds-tc .grenade { right: calc(var(--ds-safe-r) + 180px); bottom: calc(var(--ds-safe-b) + 72px); }
 .ds-tc .tactical { right: calc(var(--ds-safe-r) + 156px); bottom: calc(var(--ds-safe-b) + 212px); }
 .ds-tc .melee { right: calc(var(--ds-safe-r) + 184px); bottom: calc(var(--ds-safe-b) + 12px); }
-.ds-tc .use { width: 60px; height: 60px; right: calc(var(--ds-safe-r) + 176px); bottom: calc(var(--ds-safe-b) + 136px); border-color: var(--ds-light); color: var(--ds-light); }
+.ds-tc .use { width: 60px; height: 60px; right: calc(var(--ds-safe-r) + 176px); bottom: calc(var(--ds-safe-b) + 136px); border-color: var(--ds-light-edge); color: var(--ds-light); box-shadow: 0 0 14px var(--ds-light-halo); }
 .ds-tc .prev { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 148px); bottom: calc(var(--ds-safe-b) + 20px); }
 .ds-tc .next { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 84px); bottom: calc(var(--ds-safe-b) + 20px); }
 .ds-tc .view { width: 56px; height: 56px; right: calc(var(--ds-safe-r) + 20px); bottom: calc(var(--ds-safe-b) + 20px); }

@@ -19,8 +19,8 @@ export const PROFILE_SCREEN_CSS = `
 .ds-prof .ds-h2 small { text-align: right; }
 .ds-prof .rank { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 20px; align-items: end; }
 .ds-prof .rank > .ds-label { grid-column: 1 / -1; }
-.ds-prof .rank .n { font-size: calc(var(--ds-type-display) * 1.4); line-height: 0.8; font-weight: 700; }
-.ds-prof .rank .t { margin-bottom: 10px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.ds-prof .rank .n { font-family: var(--ds-font-display); font-size: calc(var(--ds-type-display) * 1.4); line-height: 0.8; font-weight: 700; }
+.ds-prof .rank .t { font-family: var(--ds-font-display); margin-bottom: 10px; font-size: var(--ds-type-heading); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-prof .rank .xp { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; margin-top: 8px; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-prof .rank .xp b { color: var(--ds-text); font-weight: 700; }
 /* The lifetime strip: two full rows. */
@@ -37,10 +37,10 @@ export const PROFILE_SCREEN_CSS = `
 .ds-prof .task.done .what { color: var(--ds-text-2); }
 /* A weapon: its name and what it has done, its kills, and its Mastery with the way to the next level. */
 .ds-prof .gun { display: grid; grid-template-columns: minmax(0, 1fr) 72px minmax(150px, 210px); align-items: center; gap: 4px 20px; min-height: 68px; padding: 10px 16px; background: var(--ds-panel); }
-.ds-prof .gun .who b { display: block; font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.ds-prof .gun .who b { font-family: var(--ds-font-display); display: block; font-size: var(--ds-type-heading); line-height: 1.05; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .ds-prof .gun .who span, .ds-prof .gun .m span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-prof .gun .k { display: flex; flex-direction: column; gap: 2px; text-align: right; }
-.ds-prof .gun .k b { font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; }
+.ds-prof .gun .k b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); line-height: 1.1; font-weight: 700; }
 .ds-prof .gun .m { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; align-items: baseline; }
 .ds-prof .gun .m .lvl { color: var(--ds-text); font-weight: 700; }
 .ds-prof .gun .m .ds-xpbar { grid-column: 1 / -1; height: 4px; }
