@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 14 (2026-11-13) did PLAN item 1 pass 2 (ticket 96, v2.193.2): the capture's own gaps are closed (the last-minute sound log fills, Zero Island is in every capture, every sight is aimed and fired in the range, online makes a private lobby with a move, a kick and 45 s of play), and the dev server builds Zero Island's nav in a worker and keeps it until a source changes. Review `reviews/2026-11-13b.md`: objectives 1 and 2 pass (2 only from this PC's capped frames), 3, 4, 5 fail. Its fix first: ejected brass drawn far too big (a casing spans 100-275 px and covers the kill popup; check: no casing over 40 px in any `*-fire`/`*-kill-*` frame). Next: that fix, then item 6 pass 2 (13b: no sight puts the 25 m dummy under the reticle, the sniper's sits ~360 px low; the Vantage shows a front post inside its optic), item 5's map gaps, item 4 when the laptop is back. Open from 13b also: hint line stacking two hints in one slot, "Plant the charge" said three times, loadout prompt twice.
+Loop pass 15 (2026-11-13) did review 13b's fix first (ticket 105, v2.193.3): ejected brass is drawn no longer than 40 px at 1080 lines however near the eye it flies (was 100-275 px over the kill popup); frames `brass/sheet.jpg`. Next: item 6 pass 2 (13b: no sight puts the 25 m dummy under the reticle, the sniper's sits ~360 px low; the Vantage shows a front post inside its optic), item 5's map gaps, item 4 when the laptop is back. Open from 13b also: hint line stacking two hints in one slot, "Plant the charge" said three times, loadout prompt twice.
 
 ## Needs Aleix
 
@@ -14,7 +14,7 @@ Loop pass 14 (2026-11-13) did PLAN item 1 pass 2 (ticket 96, v2.193.2): the capt
 - Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
 - Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
 - Reviews judge PLAN.md's five objectives (the ten-row scorecard is retired). Latest: 2026-11-13b (1, 2 pass; 3, 4, 5 fail).
-- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's runs all passed. Check v2.193.2's.
+- CI: v2.192.0's main run failed once on a soak flake (`switchyard-bots-gungame.soak.test.ts`: a bot stuck 28 s at -15.6,0.1,20.1 in gun game); the same commit's tag run passed. v2.193.0's and v2.193.1's runs passed. Check v2.193.2's and v2.193.3's.
 
 ## Broken
 

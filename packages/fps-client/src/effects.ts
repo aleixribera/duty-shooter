@@ -22,6 +22,7 @@ import {
   MeshBasicNodeMaterial,
   MeshStandardNodeMaterial,
   Object3D,
+  PerspectiveCamera,
   PlaneGeometry,
   PointLight,
   Quaternion,
@@ -103,6 +104,13 @@ type Kind = 'puff' | 'chip' | 'spark' | 'flame' | 'ring';
 
 const tmp = new Object3D();
 const tmpQ = new Quaternion();
+const tmpEye = new Vector3();
+const tmpLook = new Vector3();
+const tmpScale = new Vector3();
+/** A spent case's length (m): a 5.56 case. */
+export const CASING_LENGTH = 0.045;
+/** The longest a case is drawn, as a share of the screen's height (40 px at 1080). */
+export const CASING_MAX_SCREEN = 40 / 1080;
 const tmpRight = new Vector3();
 const tmpUp = new Vector3();
 const Z = new Vector3(0, 0, 1);
@@ -724,7 +732,7 @@ export class Effects {
     }
     this.#holes = new DecalLayer(220, holeTexture(), true);
     this.#splats = new DecalLayer(60, splatTexture());
-    const casingGeometry = new CylinderGeometry(0.0048, 0.0048, 0.045, 8);
+    const casingGeometry = new CylinderGeometry(0.0048, 0.0048, CASING_LENGTH, 8);
     casingGeometry.rotateZ(Math.PI / 2);
     // Brass that stays brass: all metal, a case turned away from the sun reflected only the dim sky and ground and flew
     // as a black rod (review 2026-11-12d). A little diffuse takes the light round it and a faint warmth keeps it off black.
@@ -1205,7 +1213,7 @@ export class Effects {
       }
     }
     for (const layer of this.#layers()) layer.update(dt, camera);
-    this.#updateCasings(dt);
+    this.#updateCasings(dt, camera);
     this.#updateFalling(dt);
   }
 
@@ -1252,7 +1260,7 @@ export class Effects {
     return Math.max(0, ...this.#lightAge.map((a) => (a < 0 ? 1 : a < 0.05 ? 1 - a / 0.05 : 0)));
   }
 
-  #updateCasings(dt: number): void {
+  #updateCasings(dt: number, camera: Camera): void {
     const list = this.#casings;
     if (list.length === 0) {
       this.#casingMesh.count = 0;
@@ -1293,8 +1301,18 @@ export class Effects {
         if (w > 0) c.q.multiply(tmpQ.setFromAxisAngle(c.spin.clone().divideScalar(w), w * dt));
       }
     }
+    // A real-size case a hand's width from the eye filled a sixth of the screen and hid the kill popup (review
+    // 2026-11-13b): one that near is drawn smaller, so no case looks longer than CASING_MAX_SCREEN of the screen's height.
+    const halfTan = camera instanceof PerspectiveCamera ? Math.tan((camera.fov * Math.PI) / 360) / camera.zoom : 0.6;
+    camera.getWorldPosition(tmpEye);
+    camera.getWorldDirection(tmpLook);
     list.forEach((c, i) => {
-      m.compose(c.p, c.q, new Vector3(1, 1, 1));
+      // Off the screen's centre a case is drawn bigger than its distance says (by distance / depth², the most it
+      // stretches across the line of sight there), and a case to the side of or behind the eye is not drawn at all.
+      const d = c.p.distanceTo(tmpEye);
+      const depth = Math.max(1e-3, tmpV.subVectors(c.p, tmpEye).dot(tmpLook));
+      const fit = (CASING_MAX_SCREEN * 2 * halfTan * ((depth * depth) / Math.max(d, depth))) / CASING_LENGTH;
+      m.compose(c.p, c.q, tmpScale.setScalar(Math.min(1, fit)));
       this.#casingMesh.setMatrixAt(i, m);
     });
     this.#casingMesh.count = list.length;
