@@ -80,7 +80,7 @@ import { RebootView } from './reboot-view';
 import { RingSounds } from './ring-sounds';
 import { preparationShot, preparationTime, type PreparationShot, type PreparationTime } from './preparation-shot';
 import { PreparationSounds } from './preparation-sounds';
-import { Spectator, withRoster, type SpectateView } from './spectate';
+import { Spectator, followCamera, withRoster, type SpectateView } from './spectate';
 import { spectatorNotice, type SpectatorPanelState } from './hud/spectator-panel';
 import type { MatchCardState } from './hud/match-card';
 import { GAIN_RANK_UP_AT } from './hud/match-gain';
@@ -840,19 +840,16 @@ export class Game {
     if (watched) {
       // Out of the fight: the camera rides behind the watched player, pulled in short of any wall, and eases after them;
       // or it looks through their eyes, with their weapon in hand and their crosshair (ticket 32).
-      const head: Vec3 = [watched.position[0], watched.position[1] + watched.eyeHeight + 0.35, watched.position[2]];
       let target: Vec3;
       let targetPitch: number;
       if (eyes) {
         target = [watched.position[0], watched.position[1] + watched.eyeHeight, watched.position[2]];
         targetPitch = watched.pitch;
       } else {
-        const back = viewDirection(watched.yaw, 0);
-        const want: Vec3 = [head[0] - back[0] * 2.6, head[1] + 0.4, head[2] - back[2] * 2.6];
-        const hit = raycastWorld(this.#world, head, want);
-        const t = hit ? Math.max(0, hit.t - 0.1) : 1;
-        target = [head[0] + (want[0] - head[0]) * t, head[1] + (want[1] - head[1]) * t, head[2] + (want[2] - head[2]) * t];
-        targetPitch = Math.max(-0.5, Math.min(0.4, watched.pitch)) - 0.12;
+        // Over the right shoulder, as third-person shooters frame it (ticket 110): the camera orbits with their aim,
+        // so the screen's centre runs alongside the line they look down and their body stands left of it, never over it.
+        targetPitch = Math.max(-0.7, Math.min(0.55, watched.pitch));
+        target = followCamera((a, b) => raycastWorld(this.#world, a, b)?.t ?? null, watched.position, watched.eyeHeight, watched.yaw, targetPitch);
       }
       // The same player is followed smoothly; a switch glides to someone near and cuts to someone far; their eyes are exact.
       const was = this.#follow;
@@ -1070,6 +1067,8 @@ export class Game {
       allies: this.#allyTags(eye),
       spectator: this.#spectatorPanel(),
       spectatorAim: this.#follow?.eyes && !this.#inShot ? (this.#playerById(this.#follow.id) ?? null) : null,
+      // Not while a step's shot holds on the last one: the plate would show their gun under the new one's name.
+      watched: this.#follow && this.#follow.id === this.#spectator.watching && !this.#inShot && !this.#cur?.alive ? (this.#playerById(this.#follow.id) ?? null) : null,
       pixelsPerDegree,
       fps: this.#fps,
       ping: driver.ping === null ? null : driver.ping * 1000,
@@ -1320,7 +1319,7 @@ export class Game {
     this.#lightViewmodel(eye, dt);
   }
 
-  /** The spectator's panel: who you watch, their health, weapon and side, and the keys (ticket 32). */
+  /** The spectator's panel: who you watch, their health, kills and side, and the keys (ticket 32). */
   #spectatorPanel(): SpectatorPanelState | null {
     const driver = this.#driver;
     const id = this.#spectator.watching;
@@ -1353,7 +1352,8 @@ export class Game {
       bot: scores.some((s) => s.id === watched.id && s.bot),
       health: watched.health,
       downed: watched.downed !== null,
-      weapon: STATS.weapons[watched.weapon.id].traits.name,
+      kills: scores.find((s) => s.id === watched.id)?.kills ?? 0,
+      back: mode === 'charge' ? 'Back next round' : null,
       group: solo ? null : mode === 'battle-royale' ? 'Squad' : 'Team',
       mates,
       index: order.findIndex((p) => p.id === watched.id) + 1,

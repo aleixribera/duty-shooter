@@ -6,7 +6,7 @@ const state = (over: Partial<SpectatorPanelState> = {}): SpectatorPanelState => 
   bot: false,
   health: 74.4,
   downed: false,
-  weapon: 'Wasp 9',
+  kills: 3,
   group: 'Squad',
   mates: [
     { name: 'Ada', state: 'out' },
@@ -23,16 +23,22 @@ const state = (over: Partial<SpectatorPanelState> = {}): SpectatorPanelState => 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 describe('the spectator panel (ticket 32)', () => {
-  it('says who you watch, their health and weapon, and their Squad', () => {
+  it('says who you watch, their health and kills, and their Squad', () => {
     const t = text(spectatorPanelHtml(state()));
     expect(t).toContain('Watching');
     expect(t).toContain('Mate');
     expect(t).toContain('74');
-    expect(t).toContain('Wasp 9');
+    expect(t).toMatch(/3\s+Kills/);
     expect(t).toContain('Squad');
     expect(t).toMatch(/Ada\s+Out/);
     expect(t).toMatch(/Bo\s+Downed/);
     expect(t).toContain('2 / 5');
+  });
+
+  it('says one kill in the singular, and when you are back beside "Watching" (ticket 110)', () => {
+    expect(text(spectatorPanelHtml(state({ kills: 1 })))).toMatch(/\b1\s+Kill\s+Squad/);
+    expect(text(spectatorPanelHtml(state({ back: 'Back next round' })))).toMatch(/Watching\s+2 \/ 5\s+Back next round/);
+    expect(text(spectatorPanelHtml(state()))).not.toContain('Back next round');
   });
 
   it('marks a bot, and a Downed player by word as well as colour', () => {

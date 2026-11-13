@@ -288,13 +288,13 @@ The purple-blue (`--ds-hazard`) that means the Ring and only the Ring: its crack
 Zero Island drawn from above, opened and closed with the map key (M, the pad's Share): the Ring, the next circle, named places, a lettered 100 m grid, your Squad and you. It doesn't pause anything.
 
 **Spectating**:
-Watching another player once you're out, or from a late arrival: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Fire and Aim step to the next and previous (RT and LT on a pad), through your Squad first and then the rest of the match; Jump (A) changes between following behind them and **their view**, through their eyes with their weapon and crosshair. When the one watched is put out it moves on by itself and says who did it. Bots are watched like anyone. The server sends what is around the one watched, not where you fell. Esc opens the menu, where you can leave.
+Watching another player once you're out, or from a late arrival: in Charge the living teammates until the next round; in a Battle Royale your standing Squadmates first, then Downed ones, then whoever put you out, then anyone left. Fire and Aim step to the next and previous (RT and LT on a pad), through your Squad first and then the rest of the match; Jump (A) changes between following them, over their right shoulder and turning with their aim so the screen's centre runs just beside the line they look down, and **their view**, through their eyes with their weapon and crosshair. Either way the bottom right is theirs: their weapon, magazine and grenades. When the one watched is put out it moves on by itself and says who did it. Bots are watched like anyone. The server sends what is around the one watched, not where you fell. Esc opens the menu, where you can leave.
 
 **Spectator panel**:
-The bottom-left corner while Spectating, where your health was: who you watch (a Bot tag for a bot), where they are in the order, their health, weapon and Squad, the keys, and for a few seconds who put out the last one watched.
+The bottom-left corner while Spectating, where your health was: who you watch (a Bot tag for a bot), where they are in the order (and in Charge, "Back next round" beside it, which "You died" also says in the middle of the screen for its first 3 s), their health, kills and Squad, the keys, and for a few seconds who put out the last one watched.
 
 **Bottom bars**:
-Health in the HUD's bottom-left corner and ammo in its bottom-right, each kept to its own half of a phone's screen. They show only while you're in play (alive or Downed), and nothing is drawn over them: a marker for something off-screen sits just above.
+Health in the HUD's bottom-left corner and ammo in its bottom-right, each kept to its own half of a phone's screen. They show only while you're in play (alive or Downed); Spectating, the bottom right shows the one you watch instead. Nothing is drawn over them: a marker for something off-screen sits just above.
 
 **Stage**:
 One step of the Ring: it holds, then shrinks to the next circle, known throughout. Six to a match, each hurting more than the last. Their table is in the stats file.

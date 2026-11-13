@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Spectator, withRoster, type Watchable } from '../src/spectate';
+import { FOLLOW, Spectator, followCamera, withRoster, type Watchable } from '../src/spectate';
 
 const seat = (id: string, team: number, alive = true, downed = false): Watchable => ({ id, team, alive, downed, kind: 'player' });
 
@@ -117,5 +117,37 @@ describe('switching who you watch (ticket 32)', () => {
     expect(s.update(alone)).toBe('p7');
     expect(s.step(alone, 1)).toBe('p7');
     expect(withRoster('charge', [seat('p2', 1)], roster, 'p1').map((p) => p.id)).toEqual(['p2']);
+  });
+});
+
+describe('the follow camera (ticket 110)', () => {
+  const open = () => null;
+  const at: [number, number, number] = [10, 0, 10];
+  const eye = 1.6;
+
+  it('stands behind and over the right shoulder, looking the way they look', () => {
+    // Yaw 0 looks down -z, so behind is +z and the right shoulder is +x.
+    const c = followCamera(open, at, eye, 0, 0);
+    expect(c[0]).toBeCloseTo(10 + FOLLOW.side);
+    expect(c[1]).toBeCloseTo(eye + FOLLOW.up);
+    expect(c[2]).toBeCloseTo(10 + FOLLOW.back);
+    // Turned a quarter left (yaw +π/2 looks down -x): behind is +x, the right shoulder -z.
+    const t = followCamera(open, at, eye, Math.PI / 2, 0);
+    expect(t[0]).toBeCloseTo(10 + FOLLOW.back);
+    expect(t[2]).toBeCloseTo(10 - FOLLOW.side);
+  });
+
+  it('orbits with their aim: looking down it rises, looking up it drops', () => {
+    expect(followCamera(open, at, eye, 0, -0.5)[1]).toBeGreaterThan(eye + FOLLOW.up + 1);
+    expect(followCamera(open, at, eye, 0, 0.5)[1]).toBeLessThan(eye + FOLLOW.up - 1);
+  });
+
+  it('is pulled in short of a wall behind them, never through it', () => {
+    // A wall across +z, 1 m behind the eye: everything going further back is cut there.
+    const wall = (a: readonly number[], b: readonly number[]) => (b[2]! > 11 && a[2]! <= 11 ? (11 - a[2]!) / (b[2]! - a[2]!) : null);
+    const c = followCamera(wall, at, eye, 0, 0);
+    expect(c[2]).toBeLessThan(11);
+    expect(c[2]).toBeCloseTo(11 - FOLLOW.margin);
+    expect(c[0]).toBeCloseTo(10 + FOLLOW.side);
   });
 });

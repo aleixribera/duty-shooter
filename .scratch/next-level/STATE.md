@@ -13,13 +13,14 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Pass 23 shipped request 1 (v2.195.0, ticket 106). Pass 24 shipped request 2's handling and damage (v2.196.0, ticket 107). Pass 25 shipped request 3 (v2.197.0, ticket 108: the Ring closes in a town in 80 % of Zero Island matches; kills in towns 12 → 50 %). Pass 26 shipped request 2 reopened (v2.197.1, ticket 109): the Warden 9 aimed at 0.46 m (was 0.34), hip lower and right, a 5 mm notch around a 2.8 mm post; rear sight aimed 75 → 51 px at 1080p, gun and hands below the aim point a fifth narrower (`pistol-sights/`). Next pass: request 4 (spectator view).
+Pass 23 shipped request 1 (v2.195.0, ticket 106). Passes 24 and 26 request 2 (v2.196.0, v2.197.1, tickets 107, 109). Pass 25 request 3 (v2.197.0, ticket 108). Pass 27 shipped request 4 (v2.198.0, ticket 110): the follow camera over the right shoulder turning with their aim, their gun and magazine bottom right, their kills on the panel, "You died" off the middle after 3 s. Cut to BACKLOG: walking bots look 18° up (the fix exposes a Switchyard stuck spot in the soak). Next pass: request 5 (a whole match with friends plays well).
 
 Before: PLAN item 4 waits on the laptop (unreachable on Tailscale again at passes 22 and 23).
 
 ## Needs Aleix
 
 - Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
+- Overridable (pass 27): the follow camera sits over the right shoulder (2.4 m back, 0.55 m right); a left-shoulder swap key was left out.
 - Overridable (pass 26): the Warden 9 and Marshal .357 are now held further out when aimed (0.46 m); further would shrink the front post below 2 px on a phone.
 - Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.

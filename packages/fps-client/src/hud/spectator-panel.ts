@@ -3,10 +3,11 @@ import { recapHtml, type Recap } from '../ui/recap';
 
 /**
  * The spectator's panel (ticket 32), in every mode that has spectating: who you
- * watch with their health and weapon, their Squad (or team), where they stand in
+ * watch with their health and kills, their Squad (or team), where they stand in
  * the order next and previous step through, the keys for those and for the view,
  * and, for a few seconds after the one you watched is put out, who did it. It
- * stands at the bottom left, where your own health was.
+ * stands at the bottom left, where your own health was; their weapon and ammo
+ * stand at the bottom right, where yours were (ticket 110).
  */
 
 export interface SpectatorMate {
@@ -19,8 +20,10 @@ export interface SpectatorPanelState {
   readonly bot: boolean;
   readonly health: number;
   readonly downed: boolean;
-  /** The weapon in their hands, by name. */
-  readonly weapon: string;
+  /** Their kills this match. */
+  readonly kills: number;
+  /** When you are back in the fight, said beside "Watching" ("Back next round" in Charge), or null. */
+  readonly back?: string | null;
   /** What their side is called ("Squad", "Team"), or null with none (Solos, free-for-all). */
   readonly group: string | null;
   /** The rest of their side. */
@@ -59,10 +62,10 @@ export function spectatorPanelHtml(s: SpectatorPanelState): string {
   return (
     (s.recap ? `<div class="recap">${recapHtml(s.recap)}</div>` : '') +
     (s.notice ? `<div class="notice">${escape(s.notice)}</div>` : '') +
-    `<div class="head"><span>Watching</span>${s.of > 1 ? `<span class="n">${s.index} / ${s.of}</span>` : ''}</div>` +
+    `<div class="head"><span>Watching</span>${s.of > 1 ? `<span class="n">${s.index} / ${s.of}</span>` : ''}${s.back ? `<span class="back">${escape(s.back)}</span>` : ''}</div>` +
     `<div class="who"><b>${escape(s.name)}</b>${s.bot ? '<em>Bot</em>' : ''}</div>` +
     `<div class="hp${s.downed ? ' downed' : ''}"><span class="v">${hp}</span><span class="l">${s.downed ? 'Downed' : 'Health'}</span><span class="bar"><i style="transform:scaleX(${fill.toFixed(3)})"></i></span></div>` +
-    `<div class="gun">${escape(s.weapon)}</div>` +
+    `<div class="kills"><b>${s.kills}</b>${s.kills === 1 ? 'Kill' : 'Kills'}</div>` +
     (s.group && s.mates.length ? `<div class="mates"><span class="g">${escape(s.group)}</span>${mates}</div>` : '') +
     `<div class="keys">${keys}</div>`
   );
@@ -86,7 +89,9 @@ export const SPECTATOR_PANEL_CSS = `
 .ds-spec .hp .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; transition: transform var(--ds-fast) linear; }
 .ds-spec .hp.downed .v, .ds-spec .hp.downed .l { color: var(--ds-alert); }
 .ds-spec .hp.downed .bar i { background: var(--ds-alert); }
-.ds-spec .gun { font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.ds-spec .head .back { margin-left: 6px; color: var(--ds-text); }
+.ds-spec .kills { display: flex; align-items: baseline; gap: 8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-spec .kills b { font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); }
 .ds-spec .mates { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 4px; font-size: var(--ds-type-body); }
 .ds-spec .mates .g { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-spec .mates .m { font-weight: 700; }

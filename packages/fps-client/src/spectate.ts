@@ -1,4 +1,4 @@
-import type { ModeId, PlayerId } from '@duty-shooter/fps-core';
+import type { ModeId, PlayerId, Vec3 } from '@duty-shooter/fps-core';
 
 /** What the spectator needs of a seat. */
 export interface Watchable {
@@ -108,4 +108,34 @@ export class Spectator {
     this.#lost = null;
     return this.#watching;
   }
+}
+
+/** The over-the-shoulder follow camera's offsets (m): behind the eye, to its right, and above it. */
+export const FOLLOW = { back: 2.4, side: 0.55, up: 0.25, margin: 0.2 } as const;
+
+/**
+ * Where the follow camera stands behind someone (ticket 110): over their right
+ * shoulder, orbiting with their aim, as third-person shooters frame a player, so
+ * the screen's centre runs alongside the line they look down and their body
+ * stands to its left instead of covering it. `cast` is the fraction along a→b at
+ * which the world first blocks it, or null; the camera is pulled in short of a
+ * wall, first on the way out to the shoulder and then on the way back.
+ */
+export function followCamera(cast: (a: Vec3, b: Vec3) => number | null, position: Vec3, eyeHeight: number, yaw: number, pitch: number): Vec3 {
+  const eye: Vec3 = [position[0], position[1] + eyeHeight, position[2]];
+  const pivot = reach(cast, eye, [eye[0], eye[1] + FOLLOW.up, eye[2]]);
+  const right: Vec3 = [Math.cos(yaw), 0, -Math.sin(yaw)];
+  const shoulder = reach(cast, pivot, [pivot[0] + right[0] * FOLLOW.side, pivot[1], pivot[2] + right[2] * FOLLOW.side]);
+  const c = Math.cos(pitch);
+  const look: Vec3 = [-Math.sin(yaw) * c, Math.sin(pitch), -Math.cos(yaw) * c];
+  return reach(cast, shoulder, [shoulder[0] - look[0] * FOLLOW.back, shoulder[1] - look[1] * FOLLOW.back, shoulder[2] - look[2] * FOLLOW.back]);
+}
+
+/** The point on a→b the world lets the camera reach, `FOLLOW.margin` short of what blocks it. */
+function reach(cast: (a: Vec3, b: Vec3) => number | null, a: Vec3, b: Vec3): Vec3 {
+  const t = cast(a, b);
+  if (t === null) return b;
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const k = length > 0 ? Math.max(0, t - FOLLOW.margin / length) : 0;
+  return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 }

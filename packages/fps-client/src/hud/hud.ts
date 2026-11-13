@@ -280,6 +280,8 @@ export interface HudState {
   readonly spectator?: SpectatorPanelState | null;
   /** Watching through someone's eyes: whose aim the crosshair shows. */
   readonly spectatorAim?: PlayerOutput | null;
+  /** Out of the fight: the one you watch, whose weapon and ammo the bottom right shows (ticket 110), or null. */
+  readonly watched?: PlayerOutput | null;
   /** Pixels per degree at the screen centre, for sizing the crosshair to the spread. */
   readonly pixelsPerDegree: number;
   readonly fps: number;
@@ -414,6 +416,9 @@ export interface MatchView {
 /** The mode as the match bar names it, short. */
 const MODE_SHORT: Readonly<Record<string, string>> = { tdm: 'TDM', ffa: 'FFA', outposts: 'Outposts', charge: 'Charge', gungame: 'Gun game' };
 
+/** How long (s) "You died" holds the middle of the screen before a spectator's view gets it back. */
+const OUT_LINE_S = 3;
+
 /** A number for a style, to three places, so values that barely move are not written again. */
 /** Health and ammo show only while you are in play: alive, or Downed; out, or waiting to respawn, they go (ticket 46). */
 export function barsShown(self: Pick<PlayerOutput, 'alive'> | null): boolean {
@@ -483,6 +488,8 @@ export class Hud {
   readonly #captions: CaptionView;
   readonly #hit: HTMLDivElement;
   #hitAge = 1;
+  /** Seconds the local player has been out of the fight (0 while alive). */
+  #outFor = 0;
   #hitLife = 0.28;
   readonly #score: ScoreFeed;
   readonly #dmg: HTMLDivElement;
@@ -847,33 +854,36 @@ export class Hud {
     this.#health.classList.toggle('low', health <= 35 || Boolean(self?.downed));
     this.#text(this.#healthLabel, self?.downed ? 'Downed' : 'Health');
 
-    this.#style(this.#ammo, 'display', bars ? '' : 'none');
-    if (w && self) {
-      const row = heldRow(self);
+    // Spectating, the bottom right is the watched player's, as a spectator sees the player's own HUD in CS2 or Apex (ticket 110).
+    const gunner = bars ? self : (state.watched ?? null);
+    this.#style(this.#ammo, 'display', gunner ? '' : 'none');
+    if (gunner) {
+      const gw = gunner.weapon;
+      const row = heldRow(gunner);
       const size = row.handling.magazineSize.value;
       this.#set(this.#gun, `${escape(row.traits.name)}<small>${row.traits.sight === 'scope' ? 'scoped' : row.traits.fireMode}</small>`);
-      this.#text(this.#mag, String(w.ammo));
-      this.#text(this.#res, w.reserve === undefined ? '/ ∞' : `/ ${w.reserve}`);
-      this.#res.classList.toggle('low', w.reserve === 0);
-      this.#mag.classList.toggle('low', w.ammo <= Math.max(1, Math.floor(size / 5)));
-      this.#style(this.#bar, 'transform', `scaleX(${fixed(w.ammo / size)})`);
+      this.#text(this.#mag, String(gw.ammo));
+      this.#text(this.#res, gw.reserve === undefined ? '/ ∞' : `/ ${gw.reserve}`);
+      this.#res.classList.toggle('low', gw.reserve === 0);
+      this.#mag.classList.toggle('low', gw.ammo <= Math.max(1, Math.floor(size / 5)));
+      this.#style(this.#bar, 'transform', `scaleX(${fixed(gw.ammo / size)})`);
       // A frag in the hand counts its fuse down; a tactical's isn't lit until it leaves the hand.
-      const kind = self.grenade?.kind;
-      const cooking = self.grenade?.phase === 'cook' && kind === undefined;
-      this.#text(this.#nadeCount, cooking ? Math.max(0, STATS.grenade.fuse.value - (self.grenade?.time ?? 0)).toFixed(1) : String(self.grenades));
-      const nade = `nade frag${cooking ? ' cook' : self.grenades === 0 ? ' none' : ''}`;
+      const kind = gunner.grenade?.kind;
+      const cooking = gunner.grenade?.phase === 'cook' && kind === undefined;
+      this.#text(this.#nadeCount, cooking ? Math.max(0, STATS.grenade.fuse.value - (gunner.grenade?.time ?? 0)).toFixed(1) : String(gunner.grenades));
+      const nade = `nade frag${cooking ? ' cook' : gunner.grenades === 0 ? ' none' : ''}`;
       if (this.#nade.className !== nade) this.#nade.className = nade;
-      const tactical = state.tactical ?? null;
+      const tactical = gunner === self ? (state.tactical ?? null) : (gunner.loadout.tactical ?? null);
       if (tactical !== this.#tacKind) {
         this.#tacKind = tactical;
-        if (tactical) this.#set(this.#tac, `${icon(tactical)}<b>${self.tacticals}</b>`);
+        if (tactical) this.#set(this.#tac, `${icon(tactical)}<b>${gunner.tacticals}</b>`);
         this.#tac.setAttribute('aria-label', tactical === 'flash' ? 'Flash' : 'Smoke');
       }
       this.#style(this.#tac, 'display', tactical ? '' : 'none');
       if (tactical) {
         const count = this.#tac.querySelector('b') as HTMLElement;
-        this.#text(count, String(self.tacticals));
-        const tac = `nade tac${self.grenade?.phase === 'cook' && kind !== undefined ? ' cook' : self.tacticals === 0 ? ' none' : ''}`;
+        this.#text(count, String(gunner.tacticals));
+        const tac = `nade tac${gunner.grenade?.phase === 'cook' && kind !== undefined ? ' cook' : gunner.tacticals === 0 ? ' none' : ''}`;
         if (this.#tac.className !== tac) this.#tac.className = tac;
       }
     }
@@ -893,7 +903,10 @@ export class Hud {
     // Out of a Battle Royale (or at its end), the placement and the spectator's bar say it instead.
     const royale = state.royale ?? null;
     const quiet = royale !== null || state.match?.status.mode === 'battle-royale';
-    this.#text(this.#center, state.message ?? (self && !self.alive && !banner && !quiet ? `You died${waiting}` : ''));
+    // Watching someone, the line leaves the middle of their view after a moment: the panel says when you're back (ticket 110).
+    this.#outFor = self && !self.alive ? this.#outFor + dt : 0;
+    const watching = state.spectator != null && this.#outFor > OUT_LINE_S;
+    this.#text(this.#center, state.message ?? (self && !self.alive && !banner && !quiet && !watching ? `You died${waiting}` : ''));
     const prompt = state.message ? null : (state.prompt ?? null);
     if (prompt !== null) this.#text(this.#prompt, prompt);
 
