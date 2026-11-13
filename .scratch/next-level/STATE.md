@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 19 (2026-11-13) took item 5's boxy cliffs, pass 1 (ticket 100), and cut it: a sandstone redraw of `rock-strata` looks like worn ledges but stands up to 1 m out of its solids on a 13 m ledge, so the camera walks into the drawn rock (`strata/camera-in-rock.jpg`). Nothing shipped; the draft is `strata/sandstone.patch`, the measure `strata/protrude.mjs`, pass 2 in BACKLOG. The range's hit count "stopping after the Reflex" (13b) is not a bug: that review's capture fired before pass 16's fix. Next: item 5's other gaps (Switchyard's stretched strip; the ledges' pass 2: a ledge and a pillar model with shallow relief, boxes per bed), item 4 when the laptop is back. Item 6 leftovers in ticket 102.
+Loop pass 20 (2026-11-13) took item 5's Switchyard streaky strip, pass 1 (ticket 100), and shipped it (v2.194.3): the open boxcars' door posts and corners wear plain steel instead of the body's corrugation and rust squeezed onto a 5 cm face (`yard-strip/sheet.jpg`). Pass 19 cut the Dustlands sandstone redraw (`strata/sandstone.patch`, pass 2 in BACKLOG). Next: item 5's other gaps (Switchyard's B and A markers overlapping at the screen's edge, 11-kill-2b; the Charge spawn facing a container, 23-a; Survival Town's spawn facing a mannequin, 22-a), item 4 when the laptop is back (it was unreachable on Tailscale at pass 20). Item 6 leftovers in ticket 102.
 
 ## Needs Aleix
 

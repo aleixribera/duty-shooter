@@ -418,7 +418,9 @@ function car(b: Builder, kind: CarKind, x0: number, x1: number, c: number, finis
   }
   const doors: Opening[] = kind === 'open' ? [{ from: mid - 1, to: mid + 1, bottom: 0, top: 2.3 }] : [];
   const shell = CAR_ROOF - SHELL - CAR_FLOOR;
-  const look: Look = { side: finish, inside: 'steel', edge: finish, top: finish, bottom: 'steel' };
+  // A 5 cm sheet's cut ends (the door posts, the corners) are plain painted steel: the body's corrugation and rust
+  // squeezed onto them read as a streaky strip filling the screen when you stand in a doorway (review 2026-11-13b).
+  const look: Look = { side: finish, inside: 'steel', edge: 'steel', top: finish, bottom: 'steel' };
   for (const s of [-1, 1]) b.wall({ along: 'x', at: c + s * (CAR_HALF - SHELL / 2), from: x0, to: x1, thickness: SHELL, bottom: CAR_FLOOR, height: shell, material: 'sheetMetal', openings: doors, look });
   for (const x of [x0 + SHELL / 2, x1 - SHELL / 2]) b.wall({ along: 'z', at: x, from: c - CAR_HALF + SHELL, to: c + CAR_HALF - SHELL, thickness: SHELL, bottom: CAR_FLOOR, height: shell, material: 'sheetMetal', look });
   b.add([x0, CAR_ROOF - SHELL, c - CAR_HALF], [x1, CAR_ROOF, c + CAR_HALF], 'sheetMetal', { look: { side: finish, top: finish, bottom: 'steel' } });
