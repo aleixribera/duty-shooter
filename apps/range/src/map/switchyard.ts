@@ -732,17 +732,21 @@ const DEPOT_TANKS = [15.5, 21.5] as const;
 // ---------------------------------------------------------------------------
 // Spawns, objectives and bots.
 
-/** Team 2's spawns at the east end (x, z), facing west; team 1's mirror them at the west end. */
+/**
+ * Team 2's spawns at the east end (x, z), facing west; team 1's mirror them at the west end. They stand
+ * 7 m or more behind the end screens (x 42.5-44.8), so a screen piece doesn't fill the first screen of a
+ * life: from 4 m, the west end's green container took half of it (review 2026-11-13b, 23-a).
+ */
 const END_SPAWNS: readonly (readonly [number, number])[] = [
   [50, -26],
   [50, -20.5],
-  [49, -13],
+  [52, -13],
   [51, -7],
-  [49, -1],
+  [52, -1],
   [51, 5],
-  [49, 12],
+  [52, 12],
   [51, 19],
-  [49, 25],
+  [52, 25],
 ];
 
 function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] } {

@@ -2,7 +2,7 @@
 
 ## Now
 
-Loop pass 21 (2026-11-13) took item 5's overlapping objective markers, pass 1 (ticket 100), and shipped it (v2.194.4): Outposts' zones and Charge's sites pinned to one edge of the screen stand one over the other instead of printing letter over letter, and on a narrow screen the caption drops under the A B C strip (`edge-markers/sheet.jpg`). Pass 20 shipped the Switchyard boxcar strip (v2.194.3). Next: item 5's other gaps (the Charge spawn facing a container, 23-a; Survival Town's spawn facing a mannequin, 22-a), item 4 when the laptop is back (unreachable on Tailscale again at pass 21). Item 6 leftovers in ticket 102.
+Loop pass 22 (2026-11-13) took item 5's spawn views, pass 1 (ticket 100), and shipped it (v2.194.6): a spawn no longer opens with a mannequin under its nose (Survival Town's yards, 22-a) or an end-screen container filling half the screen (Switchyard, 23-a); `closeView` turns spawns up to 30°, and Switchyard's front-row end spawns stand 3 m further back (`spawn-near/sheet.jpg`). Pass 21 shipped side-by-side objective markers (v2.194.4). Next: item 5's other gaps (Survival Town opening fights at 6 HP behind smoke, 22-b; Zero Island's boxy cliffs, cut at pass 19, in BACKLOG; the range's hit count stopping after the Reflex), a fresh review to see what's left, item 4 when the laptop is back (unreachable on Tailscale again at pass 22). Item 6 leftovers in ticket 102.
 
 ## Needs Aleix
 
