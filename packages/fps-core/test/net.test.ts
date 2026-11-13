@@ -322,7 +322,7 @@ describe('lag compensation', () => {
   });
 
   it('rejects hits from further back than the lag-compensation window', () => {
-    const { hits, shots } = duel({ ...BAD_NETWORK, latency: 0.25 });
+    const { hits, shots } = duel({ ...BAD_NETWORK, latency: 0.35 });
 
     expect(shots.length).toBeGreaterThan(10);
     expect(hits.length / shots.length).toBeLessThan(0.3);

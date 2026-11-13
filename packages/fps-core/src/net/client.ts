@@ -418,7 +418,9 @@ export class GameClient {
     }
 
     const seq = ++this.#seq;
-    const sent: UserCmd = { ...cmd, viewTick: this.renderTick };
+    // The opening countdown holds everyone where they stand, free to look around: the server drops the rest of the
+    // usercmd, so prediction must too, or a player walking into the countdown's end is pulled back by the round trip.
+    const sent: UserCmd = { ...(this.#countingDown ? { ...cmd, forward: 0, right: 0, buttons: 0, firePresses: [] } : cmd), viewTick: this.renderTick };
     this.#pending.push({ seq, cmd: sent });
     this.#sentAt.set(seq, this.#ticks);
     // The server ignores input during the intermission, so prediction does too.
@@ -445,6 +447,17 @@ export class GameClient {
   /** The seat to ask for: this session's, or the one the page remembered. */
   get #resume(): string | null {
     return this.#token ?? this.#options.resume ?? null;
+  }
+
+  /**
+   * The match's opening countdown will still be running when the server takes
+   * the usercmd sent now. That is about a round trip past {@link serverTime}
+   * (the newest snapshot's moment); reckoning half of one keeps a ping that
+   * reads high from letting a usercmd go early, which would be a pull back.
+   */
+  get #countingDown(): boolean {
+    const match = this.#latest?.match;
+    return match?.phase === 'playing' && match.countdownEnds !== null && match.countdownEnds !== undefined && match.countdownEnds > this.serverTime + this.#ping / 2;
   }
 
   get #frozen(): boolean {
@@ -663,8 +676,8 @@ export class GameClient {
       const pb = b.player;
       const f = b.tick === a.tick ? 0 : Math.min(1, Math.max(0, (at - a.tick) / (b.tick - a.tick)));
       if (f === 0) return pa;
-      // Respawns teleport: no sliding across the map.
-      if (Math.hypot(pb.position[0] - pa.position[0], pb.position[2] - pa.position[2]) > SNAP_DISTANCE) return f < 0.5 ? pa : pb;
+      // Respawns teleport: no sliding across the map, nor from a body to a spawn beside it.
+      if (pa.alive !== pb.alive || Math.hypot(pb.position[0] - pa.position[0], pb.position[2] - pa.position[2]) > SNAP_DISTANCE) return f < 0.5 ? pa : pb;
       const near = f < 0.5 ? pa : pb;
       return {
         ...near,

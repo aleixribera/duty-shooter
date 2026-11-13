@@ -12,10 +12,19 @@ export interface MemoryNetworkOptions {
   readonly latency?: number;
   /** Extra delay in seconds, uniform in [0, jitter], per message (can reorder messages). */
   readonly jitter?: number;
-  /** Probability in [0, 1) that a message is dropped. Closes are never dropped. */
+  /** Probability in [0, 1) that a message is lost: dropped, or over {@link tcp} sent again late. Closes are never lost. */
   readonly loss?: number;
   readonly seed?: number;
+  /**
+   * The link is TCP, as a WebSocket is: nothing is lost or reordered. A lost
+   * packet is sent again once three more have drawn duplicate acks, a round
+   * trip and three packets later, and everything behind it waits for it.
+   */
+  readonly tcp?: boolean;
 }
+
+/** How long TCP takes to notice a lost packet past the round trip: three more packets' worth at 60 a second. */
+const FAST_RETRANSMIT = 0.05;
 
 export interface MemoryNetwork {
   readonly server: ServerTransport;
@@ -89,6 +98,8 @@ class Network implements MemoryNetwork {
   now = 0;
   #order = 0;
   #pending: Pending[] = [];
+  /** Over TCP, when the last message to each end lands: none overtakes it. */
+  readonly #inOrder = new Map<End, number>();
   #onConnection: ((c: Connection) => void) | null = null;
   readonly stats = { messages: 0, bytes: 0, dropped: 0 };
   readonly server: ServerTransport = { onConnection: (h) => (this.#onConnection = h) };
@@ -97,7 +108,7 @@ class Network implements MemoryNetwork {
 
   /** Nothing lost or reordered, as over TCP. */
   get reliable(): boolean {
-    return !this.options.loss && !this.options.jitter;
+    return this.options.tcp === true || (!this.options.loss && !this.options.jitter);
   }
 
   #delay(): number {
@@ -109,16 +120,23 @@ class Network implements MemoryNetwork {
     this.stats.messages += 1;
     this.stats.bytes += data.length;
     const order = this.#order++;
-    if (noise(this.options.seed ?? 0, order, 3) < (this.options.loss ?? 0)) {
-      this.stats.dropped += 1;
+    const lost = noise(this.options.seed ?? 0, order, 3) < (this.options.loss ?? 0);
+    if (lost) this.stats.dropped += 1;
+    if (!this.options.tcp) {
+      if (!lost) this.#pending.push({ at: this.now + this.#delay(), order, deliver: () => to.receive(data) });
       return;
     }
-    this.#pending.push({ at: this.now + this.#delay(), order, deliver: () => to.receive(data) });
+    const resend = lost ? 2 * (this.options.latency ?? 0) + FAST_RETRANSMIT : 0;
+    const at = Math.max(this.#inOrder.get(to) ?? 0, this.now + this.#delay() + resend);
+    this.#inOrder.set(to, at);
+    this.#pending.push({ at, order, deliver: () => to.receive(data) });
   }
 
   closeLater(to: End, reason: string): void {
     const order = this.#order++;
-    this.#pending.push({ at: this.now + (this.options.latency ?? 0), order, deliver: () => to.remoteClosed(reason) });
+    // Over TCP the close comes behind whatever is still on its way, as a FIN does.
+    const at = Math.max(this.options.tcp ? (this.#inOrder.get(to) ?? 0) : 0, this.now + (this.options.latency ?? 0));
+    this.#pending.push({ at, order, deliver: () => to.remoteClosed(reason) });
   }
 
   connect(): Connection {

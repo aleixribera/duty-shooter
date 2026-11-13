@@ -216,8 +216,13 @@ const DEFAULT_RATE = 180;
 const RATE_BURST = 10;
 /** The reason a client gives when its player leaves on purpose: the seat isn't held for them. */
 const LEFT = 'client left';
-/** Usercmds queued beyond this are dropped (oldest first), bounding the input delay. */
-const MAX_QUEUED_CMDS = 12;
+/**
+ * Usercmds queued beyond this are dropped (oldest first), bounding the input
+ * delay. Half a second: over TCP a lost packet holds back everything behind it
+ * for a round trip and more (200 ms at 150 ms of ping), then hands it all over
+ * at once, and a usercmd thrown away then is a pull back on the player's screen.
+ */
+const MAX_QUEUED_CMDS = 30;
 /** Ticks of events kept for a client that was sent no snapshot for a while. */
 const EVENT_LOG_TICKS = 300;
 /** Ticks between the pings' updates: they fill a scoreboard column, and each one would resend it. */

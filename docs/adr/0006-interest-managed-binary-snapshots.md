@@ -22,7 +22,7 @@ A snapshot was a JSON string with every seat in it, sent at 60 Hz. At 12 seats t
 
 - Team modes play as before, for fewer bytes. Their numbers are in ticket 01.
 - Scripts that read snapshots use `decodeServer`, or `codec.ts` directly: it has type imports only, so Node runs it without a build.
-- A mid seat in view adds to the delay of everyone drawn. The server rewinds 0.3 s at most (18 ticks), which has to cover that delay and the shooter's ping, so `midEvery` has to stay well inside it.
+- A mid seat in view adds to the delay of everyone drawn. The server rewinds 0.3 s at most (18 ticks; 0.5 s, 30 ticks, since ticket 98 measured 150 ms of ping over TCP with loss), which has to cover that delay and the shooter's ping, so `midEvery` has to stay well inside it.
 - There's no far tier yet. The spec's map HUD will need one; it can come as its own low-rate message.
 - A client outside the match sees everything until spectating asks otherwise.
 - `self` is the most expensive thing per client that isn't shared, which is the first place to look if the bytes need to fall further.

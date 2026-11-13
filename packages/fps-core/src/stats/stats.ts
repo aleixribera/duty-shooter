@@ -541,9 +541,9 @@ export const STATS = {
   combat: {
     flinch: estimated(1.2, 'deg', 'Upward view kick on the victim per hit; not found in any source. Visual estimate from MW2019 footage.', 0.01),
     lagCompensationWindow: estimated(
-      0.3,
+      0.5,
       's',
-      'Not an MW2019 measurement: covers 80 ms latency plus interpolation delay and jitter with margin. Source engine caps the same rewind at 1 s (sv_maxunlag).',
+      'Not an MW2019 measurement: covers 150 ms of round trip over TCP with 2% loss (a lost packet comes a round trip and 50 ms late, holding back everything behind it) plus the interpolation delay that rides out such a stall. Source engine caps the same rewind at 1 s (sv_maxunlag).',
     ),
     dummyResetDelay: estimated(1.5, 's', 'Range dummies stand back up at full health this long after dying; a design choice.'),
   },
