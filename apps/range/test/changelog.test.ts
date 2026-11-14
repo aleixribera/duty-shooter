@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { byVersion, parseLog, releaseTitle } from '../changelog/releases';
+import { CHANGELOG_ASSET, changelog } from '../changelog/plugin.ts';
 
 const RS = '\x1e';
 const FS = '\x1f';
@@ -42,5 +43,18 @@ describe('the changelog read from git', () => {
 
   it('orders versions by number, not as text', () => {
     expect(['v2.9.0', 'v2.100.0', 'v2.10.3', 'v1.40.0'].sort(byVersion)).toEqual(['v2.100.0', 'v2.10.3', 'v2.9.0', 'v1.40.0']);
+  });
+});
+
+describe('the changelog plugin', () => {
+  it('writes the releases beside index.html as changelog.json, for the Arcade page', () => {
+    const plugin = changelog();
+    const emitted: { fileName?: string; source?: unknown }[] = [];
+    (plugin.configResolved as (config: { root: string }) => void)({ root: process.cwd() });
+    (plugin.generateBundle as (this: unknown) => void).call({ emitFile: (file: { fileName?: string; source?: unknown }) => emitted.push(file) });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]!.fileName).toBe(CHANGELOG_ASSET);
+    const releases = JSON.parse(String(emitted[0]!.source)) as unknown[];
+    expect(Array.isArray(releases)).toBe(true);
   });
 });
