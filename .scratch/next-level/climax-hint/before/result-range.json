@@ -1,0 +1,9 @@
+{
+  "range": {
+    "beforeAiming": "WASD Move. The mouse looks",
+    "aiming": true,
+    "whileAiming": "WASD Move. The mouse looks",
+    "stillAiming": "WASD Move. The mouse looks",
+    "errors": []
+  }
+}

@@ -49,6 +49,7 @@ import { speechVolume } from './audio/mix';
 import { matchScene } from './audio/music/scene';
 import { SIREN_OVERLAP } from './audio/countdown';
 import { clockRan, clockSpeaks, colourDrain, countdownCall, countdownLine, countdownVoice, eased, lastMinuteLight, lastMinuteSky, lastTenBeat, type MapEnding } from './last-minute';
+import { LAST_MINUTE } from './hud/match-clock';
 import { grenadeWarnings } from './hud/grenade-warnings';
 import { COUNTDOWN_VOICES, CountdownSounds, sirenSpot } from './countdown-sounds';
 import { FirstPersonCamera, shotPose } from './camera';
@@ -1553,6 +1554,15 @@ export class Game {
     if (this.#settings.captions && !written && !VOICE_ON_THE_SECOND.includes(line)) this.hud.caption(VOICE_LINES[line], seconds);
   }
 
+  /** Seconds left on the match's one clock, or null where there is none to run out: Charge is played in rounds, and a Battle Royale ends with its last Squad. */
+  #clockLeft(driver: GameDriver | null): number | null {
+    const match = driver?.match ?? null;
+    const kind = match?.objective?.kind;
+    return driver && match && match.phase === 'playing' && match.timeLimit !== null && match.phaseEnds !== null && kind !== 'charge' && kind !== 'battle-royale'
+      ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
+      : null;
+  }
+
   /**
    * The score, the countdown and the danger state follow the match (tickets 12, 15 and 24):
    * its phase and clock choose the music's scene, its last minute brings the siren and the
@@ -1567,12 +1577,7 @@ export class Game {
     // The heart and the dulled world belong to the fight: not to the scoreboard, the vote or a paused game.
     const fighting = driver !== null && !frozen && !this.#inShot && (match === null || match.phase === 'playing');
     this.#sound.setHealth(fighting && self?.alive ? self.health : null);
-    const kind = match?.objective?.kind;
-    // One clock to run out: Charge is played in rounds, and a Battle Royale ends with its last Squad.
-    const timeLeft =
-      driver && match && match.phase === 'playing' && match.timeLimit !== null && match.phaseEnds !== null && kind !== 'charge' && kind !== 'battle-royale'
-        ? Math.min(match.timeLimit, match.phaseEnds - driver.serverTime)
-        : null;
+    const timeLeft = this.#clockLeft(driver);
     // The picture's share: the colour drains with your health, and the last minute changes the light. Both ease, so a
     // hit, a respawn and the match's end move the picture instead of cutting it.
     this.#drain = eased(this.#drain, fighting && self?.alive ? colourDrain(self.health) : 0, MOOD_RATES.drain, dt);
@@ -1969,6 +1974,7 @@ export class Game {
         firing: input.touchFiring,
         clash: hit || shot || called,
         covered: this.hud.slotTaken,
+        climax: (this.#clockLeft(driver) ?? Infinity) < LAST_MINUTE,
       },
       dt,
     );

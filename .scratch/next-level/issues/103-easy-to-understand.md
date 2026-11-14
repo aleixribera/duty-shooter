@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63), v2.211.20 (pass 64)
+Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63), v2.211.20 (pass 64), v2.213.1 (pass 72)
 
 Spec: `../spec.md`
 
@@ -75,3 +75,6 @@ Pass 66 (2026-11-14), text orphans (review 2026-11-14b: "Range" alone on the Pro
 Checked: typecheck; `score-ui.test.ts` (its shut-gun assertion follows the new label). `../text-orphans/look.mjs` measures each text's rendered lines (all shut guns 1 line, all phone tile details 1 line, the goal 2 lines at desktop and phone) and shoots Profile, Loadout on a phone and the gun game card: `text-orphans/sheet.jpg` (before from the review left, after right), frames in `text-orphans/after/`. No page errors.
 
 Pass 67 (2026-11-14), "Offline" on the menu (review 2026-11-14b, 01). Not a game defect: in dev the page asks for a game server only with `?online`, and the capture opened the menu without one and before its local server ran. `reviews/capture.mjs` now starts the local server (built once) for the menu part, opens it with `?online`, and stops it after, as the online part does; the match, tour and island run without it. Checked: `ONLY=menu` run, 01 reads "Online 0/12 players, Team deathmatch on Survival Town" with Play Online lit; then the full review 2026-11-14c confirms it (its "previous five").
+
+Pass 72 (2026-11-14), tutorial hints at the climax and down the sights (review 2026-11-14c: "Shift C Sprint" at T-0:31, T-0:11 and T-03.4; "WASD Move" while aiming in the range and on the island). `hints.ts` gives no lesson (aim, sprint, grenade) and no "Move" while the sights are up or in the match's last minute (a new `climax` fact, the match clock under 60 s; no clock in Battle Royale, Charge or the range means no climax), and one up steps aside. Reload and swap are still said. Battle Royale's final circles are not counted as a climax yet (no clock there).
+Checked: typecheck; `hints.test.ts` (two new cases, both failed before). `../climax-hint/look.mjs`: before, "WASD Move" stayed under raised sights for 7.5 s (`climax-hint/before/`); after, it goes when the sights come up, and in a 75 s Bot Match with move and aim learned, "Sprint" stood from T-1:10 to T-1:01 and was gone at T-0:59, nothing after (`climax-hint/after/`). Second opinion (subagent): no bugs; a misplaced doc comment fixed.

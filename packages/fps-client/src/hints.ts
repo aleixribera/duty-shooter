@@ -46,6 +46,8 @@ export interface HintFacts {
   readonly loadouts?: boolean;
   /** The other slot holds a different weapon to swap to (true when absent). Gun game puts the same gun in both. */
   readonly spare?: boolean;
+  /** The match's last minute: every second of it is the fight, not a time to learn (false when absent). */
+  readonly climax?: boolean;
 }
 
 /** What a browser has learned: the hints done with for good, and how often each was shown without being followed. */
@@ -122,6 +124,9 @@ const ORDER: readonly HintId[] = ['loadout', 'scoreboard', 'reload', 'swap', 'mo
 function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintId>): boolean {
   // A lesson mid-fight is read by no one and covers the fight: it waits for the quiet after.
   if (LESSONS.has(id) && s.time - s.clashed < HINT_CALM) return false;
+  // Nor down the sights (someone is lined up on a target, and "WASD Move" stood over the reticle), nor in the match's
+  // last minute (Sprint was said at T-0:31, T-0:11 and T-03.4: review 2026-11-14c). What the gun needs is still said.
+  if ((LESSONS.has(id) || id === 'move') && (f.aiming || f.climax === true)) return false;
   switch (id) {
     case 'loadout':
       return f.waiting && f.loadouts !== false;

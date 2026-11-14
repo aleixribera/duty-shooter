@@ -154,6 +154,31 @@ describe('first-match hints', () => {
     expect(s.current).toBe('move');
   });
 
+  it('down the sights, no lesson and no "Move": one up steps aside, and none starts (review 2026-11-14c)', () => {
+    const aimed: HintFacts = { ...idle, aiming: true };
+    // "Move" up, then the sights come up: it goes.
+    let s = run(hintState(NO_HINTS_SEEN), idle, 1);
+    expect(s.current).toBe('move');
+    s = stepHints(s, aimed, 0.1);
+    expect(s.current).toBeNull();
+    // Sprinting is never offered to someone looking down the sights, however long they hold them.
+    expect(run(hintState(knows('move', 'aim')), aimed, 20).current).toBeNull();
+    // What the gun needs still is: a short magazine is said down the sights too.
+    expect(run(hintState(knows('move', 'aim', 'sprint')), { ...aimed, magazine: 0.3 }, 1).current).toBe('reload');
+  });
+
+  it('the match\'s last minute is the fight: no lesson and no "Move" in it, the gun\'s needs still said (review 2026-11-14c)', () => {
+    const climax: HintFacts = { ...idle, climax: true };
+    expect(run(hintState(knows('move', 'aim')), climax, 30).current).toBeNull();
+    expect(run(hintState(NO_HINTS_SEEN), climax, 30).current).toBeNull();
+    // One up when the last minute starts steps aside.
+    let s = run(hintState(knows('move', 'aim')), idle, 2);
+    expect(s.current).toBe('sprint');
+    s = stepHints(s, climax, 0.1);
+    expect(s.current).toBeNull();
+    expect(run(hintState(knows('move', 'aim', 'sprint')), { ...climax, magazine: 0.3 }, 1).current).toBe('reload');
+  });
+
   it('a line hidden under a toast or a caption is not being read: its time there does not count as a showing', () => {
     // The loadout hint goes up while dead, then Range Control speaks over it until the respawn ends its moment.
     let s = run(hintState(NO_HINTS_SEEN), dead, 0.5);
