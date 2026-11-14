@@ -7,7 +7,8 @@
 //            and phone; then a Profile past Rank 12, whose Profile screen should show every gun open.
 //   match    one Bot Match played to its end by a scripted player who turns toward the nearest enemy in sight and
 //            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup) and one 250 ms
-//            later, mid-fall (KILL_B=<ms>[,<ms>…]; each frame's age since the kill is in killFrames), the
+//            later, mid-fall (KILL_B=<ms>[,<ms>…]; each frame's age since the kill is in killFrames; it lets go of
+//            the trigger on each kill but the second, which it fires through, `held` in killFrames), the
 //            scoreboard, the last minute, the end screen; sound recorded from the game's own output (opening and
 //            last minute, .webm) with each second's level and every sound the game asked for; frame times.
 //            Map and mode rotate through all fifteen pairs, one per review (MAIN=<map id>:<mode id> picks one).
@@ -343,6 +344,16 @@ function player(page, range = 40) {
       if (press !== held.pressed) await page.mouse(press ? 'mousePressed' : 'mouseReleased', 'left');
       Object.assign(held, want, { pressed: press });
     },
+    /** Lets go of the trigger only, as a player does when the kill feed names their kill. */
+    async ceaseFire() {
+      if (held.pressed) await page.mouse('mouseReleased', 'left');
+      Object.assign(held, { pressed: false, n: 0 });
+    },
+    /** Holds the trigger down through a kill's frames (the step's short bursts may have it up just then). */
+    async holdFire() {
+      if (!held.pressed) await page.mouse('mousePressed', 'left');
+      Object.assign(held, { pressed: true, n: 0 });
+    },
     async release() {
       if (held.walk) await page.key('keyUp', 'KeyW');
       if (held.ads) await page.mouse('mouseReleased', 'right');
@@ -372,6 +383,11 @@ async function play(page, prefix, seconds, every = async () => {}) {
     const now = await page.js(ME);
     if (now.kills > me.kills && killShots < 4) {
       killShots += 1;
+      // A player lets go on the kill-feed line; holding on fired three more rounds past every kill, whose flash and
+      // smoke hid the falling body (review 2026-11-14e). The second kill keeps the trigger held, the check that a body
+      // still shows through your own flash.
+      const held = killShots === 2;
+      await (held ? p.holdFire() : p.ceaseFire());
       const a = await age();
       await page.shot(`${prefix}-kill-${killShots}`);
       const later = [];
@@ -381,7 +397,7 @@ async function play(page, prefix, seconds, every = async () => {}) {
         later.push(await age());
         await page.shot(`${prefix}-kill-${killShots}${'bcdefgh'[i]}`);
       }
-      killFrames.push({ a, b: later.length === 1 ? later[0] : later });
+      killFrames.push({ a, b: later.length === 1 ? later[0] : later, ...(held ? { held } : {}) });
     }
     me = now;
     if (me.phase && me.phase !== 'playing') break;

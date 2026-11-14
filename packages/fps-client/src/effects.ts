@@ -153,15 +153,24 @@ const camAt = new Vector3();
  * height: clear inside the first, in full from the second out. Down the sights your muzzle sits just under the aim
  * point, and its flash and the haze of a burst stood over the very target you were shooting, so most kills were hidden
  * (review 2026-11-14b, defect 2). Well-loved shooters keep the sight picture readable while firing: the flash plays
- * round the front sight, not over the target. ~38 px clear and ~81 px to full on a 1080 px view: a man at 25 m stands
+ * round the front sight, not over the target. ~43 px clear and ~92 px to full on a 1080 px view: a man at 25 m stands
  * about 45 px tall.
  */
-const SIGHT_CLEAR = [0.035, 0.075] as const;
+const SIGHT_CLEAR = [0.04, 0.085] as const;
+/**
+ * Below the aim point the clearing reaches this many times further: a body you kill at 15-40 m falls to the ground 30-60
+ * px under the aim point, beside the front sight, where the flash's tongues and a burst's haze stood, and a held trigger
+ * hid every rifle kill but one there (review 2026-11-14e). ~73 px clear and ~156 px to full straight down.
+ */
+const SIGHT_CLEAR_BELOW = 1.7;
 /** Smoke nearer the eye than the first (m) parts round the aim point in full, and from the second out not at all: that near, it is mostly your own muzzle's. */
 const SIGHT_SMOKE_NEAR = [2.5, 4] as const;
-/** 0 at the aim point, rising to 1 at SIGHT_CLEAR[1] of the view's height from it. */
+/** 0 at the aim point, rising to 1 at SIGHT_CLEAR[1] of the view's height from it (SIGHT_CLEAR_BELOW times that below it). */
 function sightline(): N {
-  const d = screenUV.sub(0.5).mul(vec2(screenSize.x.div(screenSize.y), 1)).length();
+  const off = screenUV.sub(0.5);
+  // screenUV runs top to bottom, so below the aim point is y > 0.5.
+  const down = mix(float(1), float(1 / SIGHT_CLEAR_BELOW), step(float(0), off.y));
+  const d = vec2(off.x.mul(screenSize.x.div(screenSize.y)), off.y.mul(down)).length();
   return smoothstep(float(SIGHT_CLEAR[0]), float(SIGHT_CLEAR[1]), d);
 }
 
