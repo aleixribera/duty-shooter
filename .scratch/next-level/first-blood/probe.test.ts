@@ -47,6 +47,7 @@ it('first blood', () => {
           bots: { nav: b.nav, perTeam: PER, maxPerTeam: PER, alwaysOn: true },
         });
         let first = '';
+        const at0 = new Map<string, string>();
         let startT: number | null = null;
         for (let i = 0; i < 30 * 60 && !first; i++) {
           const out = m.step();
@@ -57,6 +58,7 @@ it('first blood', () => {
           if (i === 5 * 60 - 2) {
             // At the countdown's end: pairs of enemies that see each other.
             const ps = out.players.filter((p) => p.alive && p.kind === 'player');
+            for (const p of ps) at0.set(p.id, p.position.map((x) => x.toFixed(0)).join(','));
             for (let a = 0; a < ps.length; a++)
               for (let c = a + 1; c < ps.length; c++) {
                 const A = ps[a]!, C = ps[c]!;
@@ -70,12 +72,13 @@ it('first blood', () => {
             if (e.type === 'killFeed' && !first) {
               const k = out.players.find((p) => p.id === e.killer);
               const v = out.players.find((p) => p.id === e.victim);
-              first = `${(sim.time - startT!).toFixed(1)}s ${k ? k.position.map((x) => x.toFixed(0)).join(',') : '-'} > ${v ? v.position.map((x) => x.toFixed(0)).join(',') : '-'}`;
+              first = `${(sim.time - startT!).toFixed(1)}s ${k ? k.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.killer)}) > ${v ? v.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.victim)})`;
             }
           }
         }
         firsts.push(first || '>25s');
       }
+      if (process.env.SHOW) for (const f of firsts) console.log(`  ${mode} ${f}`);
       const t = firsts.map((f) => (f.startsWith('>') ? 25 : parseFloat(f))).sort((a, b) => a - b);
       console.log(`${name} ${mode} x${PER * 2}: in sight at T0 ${seen0}/${SEEDS} runs; first kill median ${t[t.length >> 1]!.toFixed(1)} s, under 2 s ${t.filter((x) => x < 2).length}, under 3 s ${t.filter((x) => x < 3).length}`);
     }

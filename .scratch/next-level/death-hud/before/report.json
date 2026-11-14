@@ -1,0 +1,1048 @@
+{
+  "steps": [
+    {
+      "step": "hurt, popup added",
+      "alive": true,
+      "hp": 48,
+      "prompt": null,
+      "promptText": "F  Loadout",
+      "scoreShown": true,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@943,161,971,205",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "dead",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": true,
+      "scoreOnPrompt": true,
+      "marks": [
+        "ds-marker@448,475,474,519",
+        "ds-marker@18,609,46,653",
+        "ds-marker@85,693,113,737"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "dead, popup added",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": true,
+      "scoreOnPrompt": true,
+      "marks": [
+        "ds-marker@19,456,45,500",
+        "ds-marker@610,352,638,396",
+        "ds-marker@964,512,992,556"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 0",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": true,
+      "scoreOnPrompt": true,
+      "marks": [
+        "ds-marker@19,447,45,491",
+        "ds-marker@646,347,674,391",
+        "ds-marker@977,513,1005,557"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 1",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": true,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,433,45,477",
+        "ds-marker@678,346,706,390",
+        "ds-marker@985,514,1013,558"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 2",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": true,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,420,45,464",
+        "ds-marker@707,349,735,393",
+        "ds-marker@990,515,1018,559"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 3",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": true,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,406,45,450",
+        "ds-marker@733,350,761,394",
+        "ds-marker@996,516,1024,560"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 4",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,611,45,655",
+        "ds-marker@399,359,427,403",
+        "ds-marker@723,524,751,568"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 5",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,523,45,567",
+        "ds-marker@484,344,512,388",
+        "ds-marker@775,515,803,559"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 6",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@493,346,521,390",
+        "ds-marker@775,518,803,562"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 7",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@508,353,536,397",
+        "ds-marker@773,522,801,566"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 8",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@619,252,647,296",
+        "ds-marker@843,431,871,475"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 9",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@786,399,814,443",
+        "ds-marker@964,509,992,553"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 10",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@931,465,959,509",
+        "ds-marker@1107,557,1135,601"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 11",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1054,469,1082,513",
+        "ds-marker@1225,563,1253,607"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 12",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1475,457,1503,501",
+        "ds-marker@1637,581,1665,625"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 13",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1034,670,1062,714",
+        "ds-marker@1167,753,1195,797"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 14",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@309,767,337,811",
+        "ds-marker@508,856,536,900"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956",
+        "ds-marker site@309,767,337,811"
+      ]
+    },
+    {
+      "step": "watching 15",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@94,620,122,664",
+        "ds-marker@454,782,482,826"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 16",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@53,679,81,723",
+        "ds-marker@410,836,438,880"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 17",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@69,740,97,784",
+        "ds-marker@387,879,415,923"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956",
+        "ds-marker charge@387,879,415,923"
+      ]
+    },
+    {
+      "step": "watching 18",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@116,757,144,801"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956",
+        "ds-marker site@116,757,144,801"
+      ]
+    },
+    {
+      "step": "watching 19",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@18,912,46,956",
+        "ds-marker@565,722,593,766"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 20",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@18,912,46,956",
+        "ds-marker@739,780,767,824"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 21",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@18,12,46,56",
+        "ds-marker@1176,763,1204,807"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 22",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@18,12,46,56",
+        "ds-marker@1201,726,1229,770"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 23",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@18,209,46,253",
+        "ds-marker@1820,685,1848,729"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 24",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@627,527,655,571",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 25",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@326,480,354,524",
+        "ds-marker@1874,698,1902,742"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 26",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@359,407,387,451",
+        "ds-marker@1874,630,1902,674"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 27",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@317,396,345,440",
+        "ds-marker@1874,642,1902,686"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 28",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@327,412,355,456",
+        "ds-marker@1874,541,1902,585"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 29",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@325,357,353,401",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 30",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@99,239,125,283",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 31",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,49,45,93",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 32",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1874,685,1902,729"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 33",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@1874,792,1902,836"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 34",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@1874,838,1902,882"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 35",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@198,311,226,355",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 36",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@271,315,297,359",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 37",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,39,45,83",
+        "ds-marker@1874,41,1902,85"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 38",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1874,596,1902,640"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 39",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1874,705,1902,749"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 40",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1874,749,1902,793"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 41",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,912,45,956",
+        "ds-marker@1874,823,1902,867"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@19,912,45,956"
+      ]
+    },
+    {
+      "step": "watching 42",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@19,12,45,56",
+        "ds-marker@1874,912,1902,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 43",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@64,437,90,481",
+        "ds-marker@1664,912,1692,956"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 44",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@225,479,251,523",
+        "ds-marker@1411,1004,1439,1048"
+      ],
+      "marksOnPanel": []
+    },
+    {
+      "step": "watching 45",
+      "alive": false,
+      "hp": 0,
+      "prompt": null,
+      "promptText": "Main  ·  1 2 3 to switch  ·  F  Loadout",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@824,425,850,469",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 46",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@786,445,812,489",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 47",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 48",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 49",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 50",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 51",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 52",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 53",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 54",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@784,446,810,490",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 55",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@925,329,951,373",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 56",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@917,12,943,56",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 57",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@703,12,729,56",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 58",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@432,12,458,56",
+        "ds-marker@18,912,46,956"
+      ],
+      "marksOnPanel": [
+        "ds-marker site@18,912,46,956"
+      ]
+    },
+    {
+      "step": "watching 59",
+      "alive": false,
+      "hp": 0,
+      "prompt": [
+        786,
+        670,
+        1134,
+        701
+      ],
+      "promptText": "MAIN · 1 2 3 TO SWITCH · F LOADOUT",
+      "scoreShown": false,
+      "scoreOnPrompt": false,
+      "marks": [
+        "ds-marker@742,1004,768,1048"
+      ],
+      "marksOnPanel": []
+    }
+  ],
+  "errors": []
+}

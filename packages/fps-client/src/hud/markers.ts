@@ -41,22 +41,40 @@ export function cornerHeight(width: number): number {
   return width <= 960 ? 148 : 124;
 }
 
+/** A panel standing in the screen's lower left corner, as far right and as high as it reaches (px): the spectator's, while you're out. */
+export interface CornerPanel {
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
  * Where a world marker goes on screen (the point its bottom sits on), from its projected
  * position in pixels. Behind the camera the projection mirrors, so `x` comes in already
  * flipped and the marker pins to the bottom edge. It stays on screen, and out of the Bottom
  * bars' corners: low and to a side, it sits just over them instead (ticket 50). With the
  * touch controls on the glass (`touch`), it keeps off the ground they stand on instead.
+ * A `panel` in the lower left (the spectator's) is kept clear the same way: a marker that
+ * would land on it sits just over it (review 2026-11-14a, a dropped charge's "24 m" on its
+ * health).
  */
-export function pinMarker(x: number, y: number, behind: boolean, width: number, height: number, touch = false): { x: number; y: number } {
+export function pinMarker(x: number, y: number, behind: boolean, width: number, height: number, touch = false, panel: CornerPanel | null = null): { x: number; y: number } {
   const px = Math.min(width - MARGIN, Math.max(MARGIN, x));
   let py = behind ? height - MARGIN : y;
   py = Math.min(height - MARGIN, Math.max(MARGIN + 24, py));
-  if (touch) return pinTouch(px, py, width, height);
+  const pinned = touch ? pinTouch(px, py, width, height) : offCorners(px, py, width, height);
+  if (panel && pinned.x - MARKER_ROOM.width / 2 < panel.width && pinned.y > height - panel.height) {
+    // Over it while there's room above; on a short screen, where it reaches the top, beside it instead.
+    if (height - panel.height >= MARGIN + 24 + MARKER_ROOM.height) pinned.y = height - panel.height;
+    else pinned.x = Math.min(width - MARGIN, panel.width + MARKER_ROOM.width / 2);
+  }
+  return pinned;
+}
+
+/** A marker moved up over the Bottom bars' corners, where it would land on them. */
+function offCorners(px: number, py: number, width: number, height: number): { x: number; y: number } {
   const corner = Math.min(CORNER, width / 2);
   const top = height - cornerHeight(width);
-  if (py > top && (px <= corner || px >= width - corner)) py = top;
-  return { x: px, y: py };
+  return { x: px, y: py > top && (px <= corner || px >= width - corner) ? top : py };
 }
 
 /**

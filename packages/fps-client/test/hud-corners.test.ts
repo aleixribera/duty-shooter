@@ -30,6 +30,24 @@ describe('an edge marker', () => {
     expect(pinMarker(W / 2, 0, true, W, H)).toEqual({ x: W / 2, y: H - 32 });
   });
 
+  it("while you're out, sits over the spectator's panel instead of on its health (review 2026-11-14a, 23-kill-1b)", () => {
+    const panel = { width: 460, height: 320 };
+    // The dropped charge behind you and to the left: it pinned over the 124 px health corner, onto the panel's readouts.
+    expect(pinMarker(-400, 0, true, W, H, false, panel)).toEqual({ x: 32, y: H - 320 });
+    // Low on the left in view, and with a phone's touch controls, likewise.
+    expect(pinMarker(300, 900, false, W, H, false, panel)).toEqual({ x: 300, y: H - 320 });
+    expect(pinMarker(100, 800, false, 844, 390, true, { width: 300, height: 260 }).y).toBe(390 - 260);
+    // A marker whose box reaches past the panel's right edge is lifted; one clear of it, or above it, stays where it would be without it.
+    expect(pinMarker(470, 900, false, W, H, false, panel)).toEqual({ x: 470, y: H - 320 });
+    expect(pinMarker(460 + MARKER_ROOM.width / 2, 900, false, W, H, false, panel)).toEqual({ x: 460 + MARKER_ROOM.width / 2, y: 900 });
+    expect(pinMarker(100, 500, false, W, H, false, panel)).toEqual({ x: 100, y: 500 });
+  });
+
+  it("on a short screen, where the spectator's panel reaches the top, sits beside it instead", () => {
+    // 844 x 390: the panel took 334 px of the height, and markers clamped to its top still lay on its name.
+    expect(pinMarker(18, 100, false, 844, 390, false, { width: 300, height: 334 })).toEqual({ x: 300 + MARKER_ROOM.width / 2, y: 100 });
+  });
+
   it('in view, stays where it is', () => {
     expect(pinMarker(800, 500, false, W, H)).toEqual({ x: 800, y: 500 });
     expect(pinMarker(100, 300, false, W, H)).toEqual({ x: 100, y: 300 });

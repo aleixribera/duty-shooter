@@ -1,5 +1,5 @@
 import { teamMode, type ModeId, type PlayerOutput, type TeamId } from '@duty-shooter/fps-core';
-import { offTouchCorners, pinMarker } from './markers';
+import { offTouchCorners, pinMarker, type CornerPanel } from './markers';
 
 /**
  * How far (m) an ally's name shows over their head, through walls too; past it only the chevron (ticket 52). Bare
@@ -74,7 +74,7 @@ function inView(a: AllySeen, width: number, height: number): boolean {
 }
 
 /** Lays out one ally's tag: name within the name range, dimmer behind a wall, a chevron always, held to the screen's edge when off it. */
-export function allyTag(a: AllySeen, width: number, height: number, touch = false): AllyTag {
+export function allyTag(a: AllySeen, width: number, height: number, touch = false, panel: CornerPanel | null = null): AllyTag {
   const onScreen = inView(a, width, height);
   const name = onScreen && a.distance <= NAME_RANGE ? a.name : null;
   const label = a.downed ? (a.inReach ? 'Revive' : `${Math.round(a.distance)} m`) : null;
@@ -86,7 +86,7 @@ export function allyTag(a: AllySeen, width: number, height: number, touch = fals
     return { id: a.id, name, mark, label, x: a.x, y: a.y, edge: false, angle: 0, faded, hidden: !a.seen };
   }
   // The tag centres on its pin, so it is its foot that keeps off the readouts' corners and the touch controls.
-  const foot = pinMarker(a.x, a.y + EDGE_HALF, a.behind, width, height, touch);
+  const foot = pinMarker(a.x, a.y + EDGE_HALF, a.behind, width, height, touch, panel);
   const pin = { x: foot.x, y: foot.y - EDGE_HALF };
   // Toward the ally from the screen's centre; straight down when they're behind you.
   const angle = a.behind ? 0 : (Math.atan2(a.y - height / 2, a.x - width / 2) * 180) / Math.PI - 90;
@@ -103,13 +103,13 @@ export function allyTag(a: AllySeen, width: number, height: number, touch = fals
  * into view. Five teammates pinned round the edges sat on the health, the kill feed and the gun, and
  * said nothing a player needed in a team fight (review 2026-11-13a, its most visible defect).
  */
-export function allyTags(allies: readonly AllySeen[], width: number, height: number, touch = false, edges = true): AllyTag[] {
+export function allyTags(allies: readonly AllySeen[], width: number, height: number, touch = false, edges = true, panel: CornerPanel | null = null): AllyTag[] {
   const shown = edges ? allies : allies.filter((a) => a.downed || inView(a, width, height));
-  return partTags(shown, width, height, touch);
+  return partTags(shown, width, height, touch, panel);
 }
 
-function partTags(allies: readonly AllySeen[], width: number, height: number, touch: boolean): AllyTag[] {
-  const tags = allies.map((a) => allyTag(a, width, height, touch));
+function partTags(allies: readonly AllySeen[], width: number, height: number, touch: boolean, panel: CornerPanel | null): AllyTag[] {
+  const tags = allies.map((a) => allyTag(a, width, height, touch, panel));
   const named: AllyTag[] = [];
   const nearestFirst = allies.map((_, i) => i).sort((i, j) => allies[i]!.distance - allies[j]!.distance);
   for (const i of nearestFirst) {

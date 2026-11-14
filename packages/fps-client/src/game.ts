@@ -97,7 +97,7 @@ import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-c
 import { MatchLog, type RecapLookup } from './ui/recap';
 import type { SpectateInput } from './input';
 import type { RoyaleHudState } from './hud/royale-hud';
-import { pinMarker, spreadMarkers } from './hud/markers';
+import { pinMarker, spreadMarkers, type CornerPanel } from './hud/markers';
 import { AllySight, alliesOf, allyTags, type AllySeen, type AllyTag } from './hud/ally-tags';
 import { RING_STAGES, ringNow, ringStatus, victoryCard, type RingPhase } from './ui/royale';
 import { terrainBounds, type MapBounds } from './ui/island-map';
@@ -1279,7 +1279,7 @@ export class Game {
       return { id: p.id, name: driver.nameOf(p.id), distance: flat, downed: p.downed !== null, inReach, seen, x: (((behind ? -v.x : v.x) + 1) / 2) * w, y: ((1 - v.y) / 2) * h, behind };
     });
     // Off screen, only a Battle Royale squad holds the edges; a teammate in the team modes waits until in view.
-    return allyTags(seenAllies, w, h, this.input.touchMode, match.mode === 'battle-royale');
+    return allyTags(seenAllies, w, h, this.input.touchMode, match.mode === 'battle-royale', this.#cornerPanel());
   }
 
   /** The Charge round, while one is on. */
@@ -1796,8 +1796,13 @@ export class Game {
     const h = this.#canvas.clientHeight;
     const p = new Vector3(at[0], at[1], at[2]).project(cam);
     const behind = p.z > 1;
-    const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode);
+    const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode, this.#cornerPanel());
     return { x, y, distance: Math.hypot(at[0] - eye[0], at[2] - eye[2]) };
+  }
+
+  /** The spectator's panel in the canvas's lower left while you're out, which markers keep off (see `pinMarker`). */
+  #cornerPanel(): CornerPanel | null {
+    return this.#cur?.alive === false ? this.hud.spectatorPanel(this.#canvas.getBoundingClientRect()) : null;
   }
 
   /** The Outposts zones with their state from the match, each projected to where its marker goes on screen. */
@@ -1808,6 +1813,7 @@ export class Game {
     const cam = this.#camera.camera;
     const w = this.#canvas.clientWidth;
     const h = this.#canvas.clientHeight;
+    const panel = this.#cornerPanel();
     const markers = this.#zones.flatMap((zone) => {
       const s = states.find((x) => x.id === zone.id);
       if (!s) return [];
@@ -1815,7 +1821,7 @@ export class Game {
       const p = new Vector3(top[0], top[1], top[2]).project(cam);
       // Behind the camera the projection mirrors: flip it, and pin the marker to the bottom edge.
       const behind = p.z > 1;
-      const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode);
+      const { x, y } = pinMarker((((behind ? -p.x : p.x) + 1) / 2) * w, ((1 - p.y) / 2) * h, behind, w, h, this.input.touchMode, panel);
       const distance = Math.hypot(zone.center[0] - eye[0], zone.center[2] - eye[2]);
       const inside = this.#cur?.alive === true && inZone(zone, this.#cur.position);
       return [{ id: zone.id, owner: s.owner, capturing: s.capturing, progress: s.progress, contested: s.contested, x, y, distance, inside }];

@@ -1,5 +1,6 @@
 import { STATS } from '@duty-shooter/fps-core';
 import { recapHtml, type Recap } from '../ui/recap';
+import type { CornerPanel } from './markers';
 
 /**
  * The spectator's panel (ticket 32), in every mode that has spectating: who you
@@ -129,9 +130,26 @@ export class SpectatorPanel {
   }
 
   update(state: SpectatorPanelState | null): void {
+    if (this.#root.hidden !== (state === null)) this.#box = undefined;
     this.#root.hidden = state === null;
     if (state === null) return;
     const html = spectatorPanelHtml(state);
-    if (html !== this.#html) this.#root.innerHTML = this.#html = html;
+    if (html !== this.#html) {
+      this.#root.innerHTML = this.#html = html;
+      this.#box = undefined;
+    }
+  }
+
+  #box: CornerPanel | null | undefined;
+  #frame = '';
+
+  /** How far right and how high the panel reaches from the lower left corner of `frame` (px), or null while it's hidden; measured again only when what it says or the frame's size changes. */
+  box(frame: DOMRect): CornerPanel | null {
+    const size = `${frame.width}x${frame.height}`;
+    if (size !== this.#frame) [this.#frame, this.#box] = [size, undefined];
+    if (this.#box !== undefined) return this.#box;
+    if (this.#root.hidden) return (this.#box = null);
+    const r = this.#root.getBoundingClientRect();
+    return (this.#box = { width: r.right - frame.left, height: frame.bottom - r.top });
   }
 }

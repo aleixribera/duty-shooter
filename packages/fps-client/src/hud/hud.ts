@@ -1,6 +1,7 @@
 import { STATS, heldRow, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score, type WeaponId } from '@duty-shooter/fps-core';
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
+import type { CornerPanel } from './markers';
 import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
 import { MATCH_GAIN_CSS, matchGainHtml } from './match-gain';
 import { SCORE_FEED_CSS, ScoreFeed, type ScoreFeedEntry } from './score-feed';
@@ -179,6 +180,7 @@ const CSS = `
 .ds-match .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-type-body); }
 .ds-prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 6px 12px; font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-prompt[hidden] { display: none; }
+.ds-hud.out .ds-score { visibility: hidden; }
 .ds-dmgnum { position: absolute; transform: translate(-50%, -100%); text-align: center; pointer-events: none; text-shadow: 0 1px 4px var(--ds-shadow-hi); animation: ds-dmgnum 1.4s ease-out forwards; }
 .ds-dmgnum b { font-family: var(--ds-font-display); display: block; font-size: var(--ds-type-heading); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-dmgnum.head b { color: var(--ds-alert); }
@@ -518,6 +520,8 @@ export class Hud {
   #hitAge = 1;
   /** Seconds the local player has been out of the fight (0 while alive). */
   #outFor = 0;
+  /** Whether you were out of the fight at the last update. */
+  #out = false;
   #hitLife = 0.28;
   readonly #score: ScoreFeed;
   readonly #dmg: HTMLDivElement;
@@ -725,6 +729,11 @@ export class Hud {
     this.#score.add(entry);
   }
 
+  /** The spectator's panel in the lower left corner of `frame` (the canvas's box), which markers keep off; null while it's hidden. */
+  spectatorPanel(frame: DOMRect): CornerPanel | null {
+    return this.#spectator.box(frame);
+  }
+
   /** A new match: the score lines of the last one go. */
   clearScore(): void {
     this.#score.clear();
@@ -893,6 +902,12 @@ export class Hud {
     // The marker pops out and settles over its first moments; a kill pops again at 90 ms, as it turns the kill colour (DESIGN.md, Motion).
     const pop = Math.max(0, 0.12 - this.#hitAge) * 2.5 + (this.#hitLife > 0.3 && this.#hitAge >= 0.09 ? Math.max(0, 0.21 - this.#hitAge) * 3.5 : 0);
     this.#style(this.#hit, 'transform', `scale(${fixed(1 + pop)})`);
+    // Out of the fight, the death screen has the middle: the life's score lines go at the death, and none stand while
+    // you're out (review 2026-11-14a: a "+150" ran into the loadout plate under "You died"). The kill feed keeps them.
+    const out = Boolean(self && !self.alive);
+    if (out && !this.#out) this.#score.clear();
+    if (out !== this.#out) this.root.classList.toggle('out', out);
+    this.#out = out;
     this.#score.update(dt);
 
     // Damage indicators point at the attacker relative to where you are looking now.
