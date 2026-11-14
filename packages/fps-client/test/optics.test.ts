@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { WEAPON_IDS, slotsOf, type OpticId } from '@duty-shooter/fps-core';
-import { Group, Mesh, Object3D, Quaternion, Raycaster, Vector3, type Material } from 'three/webgpu';
+import { Box3, Group, Mesh, Object3D, Quaternion, Raycaster, Vector3, type Material } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
 import { buildM4A1 } from '../src/viewmodel/m4a1';
-import { OPTICS, OPTIC_MOUNTS, mountOptic } from '../src/viewmodel/optics';
+import { OPTICS, OPTIC_MOUNTS, SIGHT_WINDOW, VANTAGE_WINDOW, addSightWindow, mountOptic, type SightWindowSpec } from '../src/viewmodel/optics';
 import { RETICLE_SHAPES } from '../src/customize';
 
 /** A GLB with its textures left out: Node has no image decoder, and only the shapes and material names matter here. */
@@ -44,8 +44,8 @@ async function load(name: string): Promise<Object3D> {
 }
 
 /** What a ray from behind the optic, down gun -Z at (x, y), meets: each hit's finish (`lens.001` reads `lens`). */
-function along(scene: Object3D, x: number, y: number): string[] {
-  const ray = new Raycaster(new Vector3(x, y, 0.3), new Vector3(0, 0, -1), 0, 0.6);
+function along(scene: Object3D, x: number, y: number, from = 0.3): string[] {
+  const ray = new Raycaster(new Vector3(x, y, from), new Vector3(0, 0, -1), 0, 0.6);
   return ray.intersectObject(scene, true).map((h) => ((h.object as Mesh).material as Material).name.replace(/\.\d+$/, ''));
 }
 
@@ -77,6 +77,33 @@ describe('rail optics (ticket 19)', () => {
       // The others taken out: this one alone holds the aim point.
       for (const other of RETICLE_SHAPES) if (other !== shape) alone.getObjectByName(`reticle_${other}`)?.removeFromParent();
       expect(along(alone, 0, axis).filter((f) => f !== 'lens')[0], shape).toBe('red_insert');
+    }
+  });
+
+  // Review 2026-11-14a: the gun's own front post and barrel, and the far end of the tube, sat in the magnified sight
+  // picture, and the reticle's post ran on past the glass. The window clears all of it to the world.
+  it.each([
+    ['prism', 'prism', OPTICS.prism.window!, 0.1],
+    // The Vantage's optic is part of the gun; the ray starts just behind its eyecup, clear of the stock.
+    ['dmr', 'the Vantage', VANTAGE_WINDOW, 0.045],
+  ] as [string, string, SightWindowSpec, number][])('%s: past the reticle, the eye down the bore meets the sight window before anything of the gun', async (name, _label, spec, from) => {
+    const scene = await load(name);
+    addSightWindow(scene, spec);
+    scene.updateMatrixWorld(true);
+    const [x, y, z] = spec.at;
+    // The reticle stands nearer the eye (gun +Z) than the window, which would hide it otherwise.
+    scene.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh || (mesh.material as Material).name.replace(/\.\d+$/, '') !== 'red_insert') return;
+      expect(new Box3().setFromObject(mesh).min.z, mesh.name).toBeGreaterThan(z);
+    });
+    // Out to the bore's edge all round (off the axis, where the disc's triangles all meet): nothing of the gun before the window, so its edge is the bore's circle.
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      for (const r of [0.5, 0.9, 0.97]) {
+        const hits = along(scene, x + Math.cos(a) * spec.radius * r, y + Math.sin(a) * spec.radius * r, from).filter((f) => f !== 'red_insert' && f !== 'lens');
+        expect(hits[0], `${name} at ${k}/16, ${r} of the radius`).toBe(SIGHT_WINDOW);
+      }
     }
   });
 

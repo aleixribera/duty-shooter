@@ -60,3 +60,17 @@ Checked:
 Second opinion (read-only, final diff): no bugs; the gas block stays inside the handguard (1.5 mm shows through the last vent), the larger dot still clears the glass and the test's off-axis rays.
 
 Left for item 6: the M4A1's front sight tower still shows low in the Reflex and Prism; the Prism's lens is a small circle in a big eyecup; the dot has no size floor on small phones; third-person guns carry no optic; a clip per weapon with sound.
+
+### Pass 45 (2026-11-14): the sight window
+
+Review 2026-11-14a's "fix first": through the Prism 2x and the Vantage's optic the gun's own front sight tower, barrel and the far end of the tube sat in the sight picture (24-kill-1, the tower over an enemy's legs), and the reticle's post ran past the visible glass onto the tube wall. Magnified sights in well-loved shooters show the world and the reticle alone inside the eyepiece; the gun never appears in the magnified view.
+
+- `addSightWindow` (`viewmodel/optics.ts`): a disc just past the reticle (muzzle side), the bore's radius, writing a clear pixel at full depth with blending off. The viewmodel pass is laid over the world by its alpha, so inside the window only the world and the reticle show. The Prism's comes with its template (`OPTICS.prism.window`), the Vantage's with its model (`VANTAGE_WINDOW`, `kit.ts`).
+- The visible glass is now the bore at the reticle's plane, not the objective: about 1.4x wider, and the posts end at its edge.
+- `dmr.py`: the optic saddle poked 1.4 mm into the bore and showed as a flat chord over the top of the new window; it now sits in the tube's wall (dmr.glb rebuilt).
+- The Loadout screen's stage hides the windows: with only the page behind its canvas they showed as a dark patch round the optic.
+- Your own muzzle flash is hidden inside the window with the rest of the gun (it is out at the muzzle): a call, since 13c counted the flash covering the kill as a defect.
+
+Checked: `optics.test.ts` (rays down the bore meet the window before anything of the gun out to 0.97 of its radius, failing on the old dmr.glb at the saddle; the reticle nearer the eye than the window), related tests, typecheck; frames in `.scratch/next-level/sight-window/` (`sheet.jpg`: before/after for the M4A1, Wasp 9 and Trident with the Prism and the Vantage; `look2/` the Loadout screen).
+
+Second opinion (read-only): the flash point above (kept, deliberately); and the viewmodel composite `mix(world, vm.rgb, vm.a)` treats the MSAA-resolved viewmodel as straight alpha, so anti-aliased edges against a clear pixel come out a little dark (k^2 instead of k), which the reticle's edges now meet. Older than this change; BACKLOG.

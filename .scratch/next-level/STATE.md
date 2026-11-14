@@ -15,21 +15,17 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
+Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited.
 
 **PLAN item 7, rough sweep (ticket 117): passes 39-44, all items built roughly; each pass's detail, review and proof are in the ticket's comments.** Checklist:
-- [x] Unlocks (pass 39): 4 guns at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`), any gun in the Practice Range, the match end names a gun opened, with Equip it.
-- [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
-- [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
-- [x] Loadout editor, rough (pass 40, v2.206.0): the gun in 3D, turning (`gun-stage.ts`); loadouts Main, Close, Breach, picked with 1 2 3 while dead. First open 3-5 s (shaders; BACKLOG).
-- [x] Results (pass 41, v2.207.0): each gun's Mastery at a match's end; Play again (P) at a Bot Match's end; Equip it on the pad.
-- [x] Customizing (pass 42, v2.208.0): fittings on the gun (Blender, `tools/weapon/fittings.py`); camos at Mastery 1-5, per gun; each optic's reticle colour and shape.
-- [x] Battle Royale on loadouts, behind a switch (pass 43): `?drops=resupply` / `ROYALE_DROPS=resupply` drop everyone with their loadout (Ridgeline too), crates resupply (frags, tacticals, health), nothing on the ground. Default stays the loot rules until Aleix says go (Needs Aleix); then flip `DropHolds`' default and drop the loot path.
-- [x] Ticket 116, the reset (pass 44, v2.210.0): key `.v2`, `.v1` wiped on load with the camos; `DS1-` codes refused; unearned attachments go stock.
-- [ ] Next (pass 45): a fresh review (`reviews/capture.mjs`), then PLAN item 7's depth (the editor's first open) or the review's weakest objective.
+- [x] Passes 39-44 (v2.205.0 to v2.210.0): unlocks by Rank, save code, Loadout on the menu, the 3D loadout editor (three loadouts, 1 2 3 while dead), results with Mastery and Play again, fittings/camos/reticles, Battle Royale on loadouts behind `?drops=resupply` (default stays loot until Aleix says go), and the one-time reset (ticket 116).
+- [x] Review 2026-11-14a (pass 45, idle PC): 1, 2 pass (worst frame 90 ms, workP99 6-18 ms); 3, 4, 5 fail; 6 unproven (the capture never opens Loadout or Profile; BACKLOG).
+
+Pass 45 then took its "fix first" (PLAN order step 5, objective 4): the gun inside its own magnified sight. Shipped (ticket 102). Next (pass 46): item 7's acceptance check the review can't see, the Loadout editor's first open in under a second (warm the stage in idle time after the menu settles: `LoadoutGunStage` show-then-stop, or draw it with the game's renderer via three's `CanvasTarget`), then the review's next most visible failing gap (BACKLOG, "Review 2026-11-14a's open defects").
 
 ## Needs Aleix
 
+- Overridable (pass 45): aiming through the Prism 2x or the Vantage now shows the world and the reticle only, so your own muzzle flash no longer shows inside the sight (it never covers the target); say if you want a flash there.
 - Battle Royale on loadouts (PLAN item 7, pass 43): once you have played loadouts in Bot Match, say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it first: Local bots with `?drops=resupply`.
 - Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level; Urban and Night pixelated); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).
@@ -44,7 +40,7 @@ Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0)
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14a (1, 2 pass; 3, 4, 5 fail; 6 unproven).
 - CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
 ## Broken

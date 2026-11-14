@@ -154,7 +154,8 @@ mid = (OPTIC_REAR + OPTIC_FRONT) / 2
 body.append(g.tube("optic_tube", OPTIC_R + OPTIC_WALL, OPTIC_R, OPTIC_FRONT - OPTIC_REAR, (0, mid, OPTIC_Z), "anodised", verts=48, bevel=0.0006))
 body.append(g.tube("optic_hood", OPTIC_R + 0.0046, OPTIC_R + 0.0006, 0.012, (0, OPTIC_FRONT + 0.004, OPTIC_Z), "anodised", verts=48, bevel=0.0006))
 body.append(g.tube("optic_eyecup", OPTIC_R + 0.0048, OPTIC_R + 0.0004, 0.008, (0, OPTIC_REAR - 0.002, OPTIC_Z), "rubber", verts=48, bevel=0.0012))
-body.append(g.box("optic_saddle", (0.026, 0.026, 0.01), (0, mid, OPTIC_Z + OPTIC_R + 0.0036), "anodised", 0.002))
+# The saddle sits in the tube's wall, not in its bore: a hair of it inside showed as a flat chord across the sight picture.
+body.append(g.box("optic_saddle", (0.026, 0.026, 0.0084), (0, mid, OPTIC_Z + OPTIC_R + 0.0044), "anodised", 0.002))
 body.append(g.box("optic_base", (0.031, 0.046, 0.0125), (0, mid, RAIL_TOP + 0.0052), "anodised", 0.0014))
 for i, y in enumerate((mid - 0.015, mid + 0.015)):
     knob = g.lathe(f"optic_clamp{i}", [(0.0, 0.0), (0.0052, 0.0), (0.006, 0.0012), (0.006, 0.0075), (0.0, 0.0075)], (-0.0155 - 0.0075, y, RAIL_TOP + 0.004), "anodised", axis="X", verts=6)

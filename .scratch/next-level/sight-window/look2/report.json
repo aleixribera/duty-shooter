@@ -1,0 +1,80 @@
+{
+  "steps": [
+    {
+      "step": "m4 forest",
+      "msToGun": 9212,
+      "rows": [
+        "Optic",
+        "Muzzle",
+        "Magazine",
+        "Grip",
+        "Camo",
+        "Reticle",
+        "Shape",
+        "Muzzle",
+        "Magazine",
+        "Camo"
+      ]
+    },
+    {
+      "step": "hover Sand",
+      "ok": true
+    },
+    {
+      "step": "hover Urban",
+      "ok": true
+    },
+    {
+      "step": "hover Night",
+      "ok": true
+    },
+    {
+      "step": "hover Gold",
+      "ok": true
+    },
+    {
+      "step": "pick gold",
+      "ok": true,
+      "saved": {
+        "m4a1": "gold"
+      }
+    },
+    {
+      "step": "pick cyan ring",
+      "colour": true,
+      "shape": true,
+      "saved": {
+        "reflex": {
+          "colour": "cyan",
+          "shape": "ring"
+        }
+      }
+    },
+    {
+      "step": "trident",
+      "msToGun": 121
+    },
+    {
+      "step": "harrow",
+      "msToGun": 64
+    },
+    {
+      "step": "ridgeline camos",
+      "tiles": [
+        "NONE / AS ISSUED",
+        "SAND / EARNED",
+        "FOREST / EARNED",
+        "URBAN / MASTERY 3 [locked]",
+        "NIGHT / MASTERY 4 [locked]",
+        "GOLD / MASTERY 5 [locked]",
+        "NONE / AS ISSUED",
+        "SAND / MASTERY 1 [locked]",
+        "FOREST / MASTERY 2 [locked]",
+        "URBAN / MASTERY 3 [locked]",
+        "NIGHT / MASTERY 4 [locked]",
+        "GOLD / MASTERY 5 [locked]"
+      ]
+    }
+  ],
+  "errors": []
+}

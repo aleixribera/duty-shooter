@@ -3,7 +3,7 @@ import { Group, Object3D, Quaternion, Vector3 } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { disposeAuthored } from './authored-m4a1';
 import { palmFrame } from './m4a1';
-import { glowBuiltInReticle } from './optics';
+import { addSightWindow, glowBuiltInReticle, VANTAGE_WINDOW } from './optics';
 
 /**
  * The v2 weapons for the first-person view: Blender models
@@ -261,7 +261,10 @@ export function buildKitGun(id: KitId): KitGun {
       return;
     }
     model = scene;
-    if (id === 'dmr') glowBuiltInReticle(scene);
+    if (id === 'dmr') {
+      glowBuiltInReticle(scene);
+      addSightWindow(scene, VANTAGE_WINDOW);
+    }
     root.add(scene);
     // A revolver: the cylinder swings with the crane, and what is in or behind it turns and slides with the cylinder.
     root.updateMatrixWorld(true);

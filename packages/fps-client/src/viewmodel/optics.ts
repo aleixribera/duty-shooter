@@ -1,5 +1,5 @@
 import type { OpticId, WeaponId } from '@duty-shooter/fps-core';
-import { Color, Matrix4, MeshStandardMaterial, Object3D, Vector3, type Material, type Mesh, type Quaternion } from 'three/webgpu';
+import { CircleGeometry, Color, DoubleSide, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoBlending, Object3D, Vector3, type Material, type Quaternion } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { reticleOf, RETICLE_SHAPES, type ReticleColour, type Reticles } from '../customize';
 
@@ -20,12 +20,50 @@ export interface OpticSpec {
   readonly rear: number;
   /** How far behind the rear rim the eye sits when aimed (m): a reflex's window fills about a third of the view, a prism's eyepiece most of it. */
   readonly eyeRelief: number;
+  /** A magnified optic's sight window (`sightWindow`): just in front of its reticle, the bore's width there. */
+  readonly window?: SightWindowSpec;
+}
+
+/** Where a sight window stands: its centre in the optic's (or gun's) space, and its radius (m). */
+export interface SightWindowSpec {
+  readonly at: V3;
+  readonly radius: number;
 }
 
 export const OPTICS: Readonly<Record<OpticId, OpticSpec>> = {
   reflex: { url: new URL('./assets/reflex.glb', import.meta.url).href, axis: 0.032, rear: 0.006, eyeRelief: 0.07 },
-  prism: { url: new URL('./assets/prism.glb', import.meta.url).href, axis: 0.032, rear: 0.0345, eyeRelief: 0.035 },
+  // The reticle's plane is the block's middle (y 0 in optics.py); the bore there is BORE (0.0135), a hair wider so the window's rim hides in the wall.
+  prism: { url: new URL('./assets/prism.glb', import.meta.url).href, axis: 0.032, rear: 0.0345, eyeRelief: 0.035, window: { at: [0, 0.032, -0.0006], radius: 0.0137 } },
 };
+
+/** The Vantage's own optic (dmr.py): its reticle at the tube's middle (y -0.009, so gun z 0.009) on the axis at OPTIC_Z, in a bore of OPTIC_R. */
+export const VANTAGE_WINDOW: SightWindowSpec = { at: [0, 0.0892, 0.0084], radius: 0.0213 };
+
+/** The name of a sight window's mesh. */
+export const SIGHT_WINDOW = 'sight_window';
+
+/**
+ * Clears the first-person picture to the world where it is drawn: a disc writing nothing but a clear pixel, at full
+ * depth so whatever of the gun lies beyond it is hidden. The viewmodel's pass is laid over the world by its alpha
+ * (`pipeline.ts`), so the disc shows the magnified world alone (PLAN item 6, review 2026-11-14a: the gun's own front
+ * post, barrel and the far end of the tube sat in the sight picture, and the reticle's post ran past the glass onto the
+ * tube). The Loadout screen's stage, with no world behind it, hides it (`gun-stage.ts`). Your own muzzle flash, out at
+ * the muzzle, is hidden inside the sight with the rest of the gun, so it never covers the target.
+ *
+ * Put on `parent` at `spec`, facing down the bore (gun -Z), with its own material so a gun let go disposes it alone.
+ */
+export function addSightWindow(parent: Object3D, spec: SightWindowSpec): Mesh {
+  const material = new MeshBasicMaterial({ color: 0x000000, opacity: 0, transparent: false, blending: NoBlending, side: DoubleSide, depthWrite: true });
+  material.name = SIGHT_WINDOW;
+  const disc = new Mesh(new CircleGeometry(spec.radius, 48), material);
+  disc.name = SIGHT_WINDOW;
+  disc.position.set(...spec.at);
+  disc.frustumCulled = false;
+  disc.castShadow = false;
+  disc.receiveShadow = false;
+  parent.add(disc);
+  return disc;
+}
 
 /** Where a gun carries each optic: the rail's top under the clamp's middle, in gun space; `on` is the moving part whose rail it is. */
 export interface OpticMount {
@@ -156,6 +194,8 @@ export function opticTemplate(optic: OpticId): Promise<Object3D | null> {
     t = new GLTFLoader().loadAsync(OPTICS[optic].url).then(({ scene }) => {
       dress(scene, optic);
       showReticle(scene, optic);
+      const sight = OPTICS[optic].window;
+      if (sight) addSightWindow(scene, sight);
       return scene as Object3D;
     }).catch((error: unknown) => {
       console.warn(`Unable to load the ${optic} model:`, error);

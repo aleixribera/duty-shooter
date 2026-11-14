@@ -8,7 +8,7 @@ import { buildKitGun, type KitGun } from './viewmodel/kit';
 import { buildM4A1 } from './viewmodel/m4a1';
 import type { CamoId, Reticles } from './customize';
 import { dressGun, type DressableGun } from './viewmodel/fittings';
-import { IRON_NODES, OPTIC_MOUNTS, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
+import { IRON_NODES, OPTIC_MOUNTS, SIGHT_WINDOW, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
 
 /** One full turn takes this long (s): slow enough to read the gun as it goes round. */
 const TURN_SECONDS = 24;
@@ -16,6 +16,16 @@ const TURN_SECONDS = 24;
 const FPS = 30;
 /** The lens's vertical field of view (degrees): long, so the gun reads flat like a product shot. */
 const FOV = 24;
+
+/**
+ * Takes a magnified sight's window out of `root` (`addSightWindow`): it clears the first-person picture to the world,
+ * and this canvas has no world behind it, only the page, which showed through as a dark patch round the optic.
+ */
+function noWindows(root: Object3D): void {
+  const windows: Object3D[] = [];
+  root.traverse((o) => o.name === SIGHT_WINDOW && windows.push(o));
+  for (const w of windows) w.visible = false;
+}
 
 /** A gun on the stage: its model, and the optic on it now. */
 interface StagedGun {
@@ -121,6 +131,7 @@ export class LoadoutGunStage implements GunStage {
       gun = { root: m4.root, kit: null, loaded, optic: null, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
     } else {
       const kit = buildKitGun(id);
+      void kit.loaded.then(() => noWindows(kit.root));
       gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
     }
     gun.root.visible = false;
@@ -147,6 +158,7 @@ export class LoadoutGunStage implements GunStage {
       if (gun.optic !== entry || !template) return;
       const part = mount.on && gun.kit ? gun.kit.part(mount.on) : null;
       entry.node = mountOptic(gun.root, template, want, mount, part);
+      noWindows(entry.node);
       irons(false);
     });
   }
