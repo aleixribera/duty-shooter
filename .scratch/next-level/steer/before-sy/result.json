@@ -1,0 +1,14 @@
+{
+ "map": "Switchyard",
+ "mode": "Team deathmatch",
+ "seconds": 90,
+ "steps": 1893,
+ "aliveS": 81,
+ "wallWithin1mS": 0.9,
+ "share": 1.1,
+ "worstRunS": 0.5,
+ "nearInFightS": 0,
+ "kills": 5,
+ "deaths": 3,
+ "errors": []
+}

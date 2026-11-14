@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-78: review 14c's defects worked, v2.213.2 to v2.213.8 (commits). Pass 79: review 2026-11-14d (1, 5 pass; 2, 3, 4, 6 fail; at 94-100% CPU; open defects in BACKLOG); its top defect, the kill never seen, was the capture's "b" frame taken ~0.6 s late, now 250 ms after the kill on the page's clock; so was the phone Loadout's camo. Item 10's test not met. Next: 14d's worst real gap, fights in the first seconds (ticket 100) or the scripted player pressed into walls (`steer`), then a fresh review.
+Passes 67-78: review 14c's defects worked, v2.213.2 to v2.213.8 (commits). Pass 79: review 2026-11-14d (1, 5 pass; 2, 3, 4, 6 fail; at 94-100% CPU; open defects in BACKLOG); its kill never seen was the capture's late "b" frame (now 250 ms after the kill), as was the phone Loadout's camo. Item 10's test not met. Pass 80: the scripted player stops standing in walls (`steer`, 21.8% to 2.2%). Next: Survival Town Outposts locking out (BACKLOG) or fights in the first seconds, then a fresh review.
 
 ## Needs Aleix
 

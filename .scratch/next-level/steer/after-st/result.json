@@ -1,0 +1,14 @@
+{
+ "map": "Survival Town",
+ "mode": "Outposts",
+ "seconds": 90,
+ "steps": 1902,
+ "aliveS": 77,
+ "wallWithin1mS": 1.7,
+ "share": 2.2,
+ "worstRunS": 0.5,
+ "nearInFightS": 0,
+ "kills": 5,
+ "deaths": 5,
+ "errors": []
+}

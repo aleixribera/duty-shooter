@@ -134,7 +134,33 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   // Caught up with the leader: look where they look (at the threat), not at the wall beside them.
   const idle = !!m && C.flat(m.position, me.position) <= 4;
   const watch = idle ? [m.position[0] - Math.sin(m.yaw) * 20, eye[1], m.position[2] - Math.cos(m.yaw) * 20] : null;
-  const goal = foe ? foe.at : watch ?? (ahead ? [ahead[0], eye[1], ahead[2]] : null);
+  let goal = foe ? foe.at : watch ?? (ahead ? [ahead[0], eye[1], ahead[2]] : null);
+  // With no one to shoot, never face a wall or a teammate's back: when the way to the goal is shut within 3 m (a
+  // route node round a corner, the leader's gaze across a wall), look, and so walk, the most open way near it. The
+  // review's frames stood pressed into walls (2026-11-14d: 13-30s, 44-play-b) and behind an ally (22-kill-1).
+  if (goal && !foe) {
+    const open = (yaw) => {
+      const f = C.fwd(yaw);
+      let reach = C.ray(eye, [eye[0] + f[0] * 12, eye[1], eye[2] + f[2] * 12]) * 12;
+      for (const q of mates) {
+        const dx = q.position[0] - eye[0], dz = q.position[2] - eye[2], along = dx * f[0] + dz * f[2];
+        if (along > 0 && along < reach && Math.abs(dx * f[2] - dz * f[0]) < 0.6) reach = along;
+      }
+      return reach;
+    };
+    const toward = Math.atan2(-(goal[0] - eye[0]), -(goal[2] - eye[2]));
+    // Only a wall nearer than the goal itself: a route node just short of a wall at a corner is still walked to.
+    if (open(toward) < Math.min(3, C.flat(goal, eye) - 0.5)) {
+      let best = toward, score = -Infinity;
+      for (let i = 0; i < 24; i++) {
+        const yaw = toward + (i * Math.PI) / 12, off = Math.abs(Math.atan2(Math.sin(yaw - toward), Math.cos(yaw - toward)));
+        const sc = Math.min(open(yaw), 10) - off * 3;
+        if (sc > score) ((score = sc), (best = yaw));
+      }
+      const f = C.fwd(best);
+      goal = [eye[0] + f[0] * 10, eye[1], eye[2] + f[2] * 10];
+    }
+  }
   // Stuck against something for a second while walking: jump (a fence, a step), as a player would.
   if (!(now - (s.mark?.t ?? -9) < 1)) {
     s.jump = !!s.mark && s.mark.walk && C.flat(s.mark.p, me.position) < 0.4;
@@ -159,9 +185,11 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   const closing = !!foe && foe.d > ${chase} && ${chase} > 0;
   // Reload on an empty magazine, or a low one with no one in sight.
   const ammo = me.weapon.ammo, reload = me.weapon.action !== 'reload' && (ammo === 0 || (!foe && ammo <= 4));
-  const walk = (!foe && far > 4) || closing;
+  // Turn, then walk: walking on while the view swung round to a new heading (a route's next corner) carried the player
+  // into the wall beside it.
+  const walk = (!foe && far > 4 && Math.abs(dy) < 0.6) || closing;
   s.walking = walk;
-  return { walk, sprint: !foe && far > 12, jump: s.jump, fire: !!foe && err < 0.035 && ammo > 0, ads: !!foe && err < 0.4, reload, dist: foe?.d ?? 0 };
+  return { walk, sprint: walk && !foe && far > 12, jump: s.jump, fire: !!foe && err < 0.035 && ammo > 0, ads: !!foe && err < 0.4, reload, dist: foe?.d ?? 0 };
 })()`;
 
 /**
