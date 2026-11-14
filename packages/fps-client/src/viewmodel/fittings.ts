@@ -81,6 +81,8 @@ interface Dressed {
   readonly nodes: Object3D[];
   magazine: { readonly node: Object3D; readonly scale: Vector3 } | null;
   muzzle: { readonly node: Object3D; readonly z: number } | null;
+  /** Settles once the dress last asked for is on. */
+  ready: Promise<void>;
 }
 
 const dressed = new WeakMap<Object3D, Dressed>();
@@ -100,13 +102,13 @@ export function dressGun(gun: DressableGun, kit: Attachments | undefined, camo: 
   const key = `${kit?.muzzle ?? ''}|${kit?.grip ?? ''}|${kit?.magazine ?? ''}|${camo ?? ''}`;
   if (state) state.last = { muzzle: kit?.muzzle, grip: kit?.grip, magazine: kit?.magazine, camo };
   if (state?.key === key) return;
-  if (!state) dressed.set(gun.root, (state = { key, last: { muzzle: kit?.muzzle, grip: kit?.grip, magazine: kit?.magazine, camo }, nodes: [], magazine: null, muzzle: null }));
+  if (!state) dressed.set(gun.root, (state = { key, last: { muzzle: kit?.muzzle, grip: kit?.grip, magazine: kit?.magazine, camo }, nodes: [], magazine: null, muzzle: null, ready: Promise.resolve() }));
   state.key = key;
   const want: Fitting[] = [];
   if (kit?.muzzle) want.push(kit.muzzle);
   if (kit?.grip && GRIP_MOUNTS[gun.id]) want.push(kit.grip);
   if (kit?.magazine === 'speed') want.push('tab');
-  void Promise.all([gun.loaded, Promise.all(want.map(template))]).then(([, models]) => {
+  state.ready = Promise.all([gun.loaded, Promise.all(want.map(template))]).then(([, models]) => {
     const s = dressed.get(gun.root);
     if (!s || s.key !== key) return;
     undress(s);
@@ -121,6 +123,11 @@ export function dressGun(gun: DressableGun, kit: Attachments | undefined, camo: 
     }
     paintGun(gun.root, camo);
   });
+}
+
+/** Settles once the dress last asked for `root` is on (at once for a gun never dressed). */
+export function dressedNow(root: Object3D): Promise<void> {
+  return dressed.get(root)?.ready ?? Promise.resolve();
 }
 
 /** Takes off everything `s` put on. */

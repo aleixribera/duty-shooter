@@ -216,6 +216,19 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     spare = createGame('range');
     void spare.prepare(restMoment, breath);
   };
+  /**
+   * The Loadout screen's gun made ready in a quiet moment while the menus are up, whose first open took 5 to 10 s of
+   * shaders on this PC; it then opens at once (PLAN item 7). After the match's own first moments, so Play never waits
+   * on it, and before the Practice Range kept behind the menus, a whole map. Not on a low-memory device, as for the Range:
+   * the stage's own renderer and gun stay for the page.
+   */
+  const warmLoadout = async () => {
+    if (((navigator as { deviceMemory?: number }).deviceMemory ?? 8) < 4) return;
+    await restMoment();
+    const wanted = () => menu.open && !game.driver;
+    // A gun that fails to load is the Loadout screen's to show; the Range is still kept ready after.
+    if (wanted()) await menu.warmLoadout(wanted).catch((error: unknown) => console.warn('The Loadout screen could not get its gun ready:', error));
+  };
   let lobby: Lobby | null = null;
   const lobbyDiscovery = findLobby(!import.meta.env.DEV || params.has('online'));
   // An invite link (`#join=<passphrase>`): the passphrase into the join form, and out of the address bar.
@@ -979,6 +992,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     void routesOf(botSetup.mapId);
     void game
       .prepare(restMoment, breath)
+      .then(warmLoadout)
       .then(keepRangeReady)
       .then(() => spare?.prepare());
   }

@@ -7,7 +7,7 @@ import { attachAuthoredM4 } from './viewmodel/authored-m4a1';
 import { buildKitGun, type KitGun } from './viewmodel/kit';
 import { buildM4A1 } from './viewmodel/m4a1';
 import type { CamoId, Reticles } from './customize';
-import { dressGun, type DressableGun } from './viewmodel/fittings';
+import { dressGun, dressedNow, type DressableGun } from './viewmodel/fittings';
 import { IRON_NODES, OPTIC_MOUNTS, SIGHT_WINDOW, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
 
 /** One full turn takes this long (s): slow enough to read the gun as it goes round. */
@@ -32,9 +32,11 @@ interface StagedGun {
   readonly root: Object3D;
   readonly kit: KitGun | null;
   readonly loaded: Promise<void>;
-  optic: { readonly id: OpticId; node: Object3D | null } | null;
+  optic: { readonly id: OpticId; node: Object3D | null; readonly ready: Promise<void> } | null;
   /** The gun as its fittings and camo see it. */
   readonly dress: DressableGun;
+  /** Its shaders made, once asked for: by the first show, or ahead of it by `warm`. */
+  compiled: Promise<void> | null;
 }
 
 /**
@@ -84,11 +86,8 @@ export class LoadoutGunStage implements GunStage {
   }
 
   show(id: WeaponId, kit: Attachments | undefined, camo: CamoId | null = null, reticles?: Reticles): void {
-    if (reticles) setReticles(reticles);
     this.element.setAttribute('aria-label', STATS.weapons[id].traits.name);
-    const gun = this.#gun(id);
-    this.#fitOptic(id, gun, kit?.optic ?? null);
-    dressGun(gun.dress, kit, camo);
+    const gun = this.#dress(id, kit, camo, reticles);
     if (this.#shown !== id) {
       for (const [other, g] of this.#guns) g.root.visible = other === id && this.#frameable(g);
       this.#shown = id;
@@ -96,16 +95,62 @@ export class LoadoutGunStage implements GunStage {
         if (this.#shown !== id) return;
         this.#place(gun);
         // Its shaders made off the frame before it first shows, so the menu doesn't stall on them.
-        const renderer = this.#renderer;
-        if (!renderer || gun.root.userData['compiled'] === true) return;
-        gun.root.userData['compiled'] = true;
         this.#compiling += 1;
-        await renderer.compileAsync(this.#scene, this.#camera).catch(() => undefined);
-        this.#compiling -= 1;
+        try {
+          await this.#compile(gun);
+        } finally {
+          this.#compiling -= 1;
+        }
       });
     }
     this.#wanted = true;
     void this.#start().then(() => this.#run());
+  }
+
+  /**
+   * Gets the gun the screen will open on ready ahead of it, drawing nothing: the renderer, the gun's model, optic
+   * and fittings, and its shaders, the slow part of a first open (5 to 10 s on this PC). Settles when done, or at once
+   * once the screen has shown a gun (it would undo a preview on show); `wanted` false (a match started) ends it early.
+   */
+  async warm(id: WeaponId, kit: Attachments | undefined, camo: CamoId | null = null, reticles?: Reticles, wanted: () => boolean = () => true): Promise<void> {
+    if (this.#shown !== null) return;
+    const gun = this.#dress(id, kit, camo, reticles);
+    await Promise.all([gun.loaded, gun.optic?.ready, dressedNow(gun.root), this.#start()]);
+    if (!wanted() || !this.#renderer) return;
+    this.#measure(gun);
+    await this.#compile(gun);
+    // For a scripted look: which gun is ready.
+    this.element.dataset['warm'] = id;
+  }
+
+  /** `id`'s gun, with `kit`'s optic and fittings and `camo` on (once they are in). */
+  #dress(id: WeaponId, kit: Attachments | undefined, camo: CamoId | null, reticles: Reticles | undefined): StagedGun {
+    if (reticles) setReticles(reticles);
+    const gun = this.#gun(id);
+    this.#fitOptic(id, gun, kit?.optic ?? null);
+    dressGun(gun.dress, kit, camo);
+    return gun;
+  }
+
+  /**
+   * Makes `gun`'s shaders off the frame, once: only that gun, lit by the stage, seen as the camera will frame it
+   * (`compileAsync` skips what is hidden or out of view). An optic or fitting put on later compiles when first drawn.
+   */
+  #compile(gun: StagedGun): Promise<void> {
+    gun.compiled ??= (async () => {
+      const renderer = this.#renderer;
+      if (!renderer || !this.#frameable(gun)) return;
+      const w = this.#canvas.clientWidth;
+      const h = this.#canvas.clientHeight;
+      this.#aim(gun.root.userData['half'] as Vector2, w > 1 && h > 1 ? w / h : 16 / 9);
+      // Shown for the call only: it gathers what it will make before its first wait.
+      const shown = gun.root.visible;
+      gun.root.visible = true;
+      const made = renderer.compileAsync(gun.root, this.#camera, this.#scene);
+      gun.root.visible = shown;
+      await made.catch(() => undefined);
+    })();
+    return gun.compiled;
   }
 
   stop(): void {
@@ -128,11 +173,11 @@ export class LoadoutGunStage implements GunStage {
         .loadAsync(new URL('./viewmodel/assets/m4a1-details.glb', import.meta.url).href)
         .then(({ scene }) => void attachAuthoredM4(m4, scene))
         .catch((error: unknown) => console.warn('Unable to load the M4A1 details for the Loadout screen:', error));
-      gun = { root: m4.root, kit: null, loaded, optic: null, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
+      gun = { root: m4.root, kit: null, loaded, optic: null, compiled: null, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
     } else {
       const kit = buildKitGun(id);
       void kit.loaded.then(() => noWindows(kit.root));
-      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
+      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, compiled: null, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
     }
     gun.root.visible = false;
     this.#turntable.add(gun.root);
@@ -152,19 +197,28 @@ export class LoadoutGunStage implements GunStage {
     });
     irons(true);
     if (!want || !mount) return;
-    const entry: { readonly id: OpticId; node: Object3D | null } = { id: want, node: null };
-    gun.optic = entry;
-    void Promise.all([opticTemplate(want), gun.loaded]).then(([template]) => {
+    const ready = Promise.all([opticTemplate(want), gun.loaded]).then(([template]) => {
       if (gun.optic !== entry || !template) return;
       const part = mount.on && gun.kit ? gun.kit.part(mount.on) : null;
       entry.node = mountOptic(gun.root, template, want, mount, part);
       noWindows(entry.node);
       irons(false);
     });
+    const entry = { id: want, node: null as Object3D | null, ready };
+    gun.optic = entry;
   }
 
   /** Centres the loaded `gun` on the turntable's axis and frames it, so the whole gun stays in view as it turns. */
   #place(gun: StagedGun): void {
+    this.#measure(gun);
+    this.#half.copy(gun.root.userData['half'] as Vector2);
+    // Each gun comes on side on, then turns.
+    this.#angle = 0;
+    gun.root.visible = this.#shown !== null && this.#guns.get(this.#shown) === gun;
+  }
+
+  /** Centres the loaded `gun` on the turntable's axis and keeps its size (`half`), once. */
+  #measure(gun: StagedGun): void {
     if (!this.#frameable(gun)) {
       // Measured in the turntable's own space, at rest.
       const turned = this.#turntable.rotation.clone();
@@ -199,10 +253,6 @@ export class LoadoutGunStage implements GunStage {
       const size = box.getSize(new Vector3());
       gun.root.userData['half'] = new Vector2(Math.max(size.x, size.z) / 2, size.y / 2);
     }
-    this.#half.copy(gun.root.userData['half'] as Vector2);
-    // Each gun comes on side on, then turns.
-    this.#angle = 0;
-    gun.root.visible = this.#shown !== null && this.#guns.get(this.#shown) === gun;
   }
 
   /** The renderer, made once: the room's light for reflections, and a clear background so the page shows through. */
@@ -243,6 +293,18 @@ export class LoadoutGunStage implements GunStage {
     this.#frame = requestAnimationFrame(tick);
   }
 
+  /** Frames a gun of `half` size on a canvas of `aspect`. */
+  #aim(half: Vector2, aspect: number): void {
+    this.#camera.aspect = aspect;
+    const across = Math.atan(Math.tan((FOV / 2) * (Math.PI / 180)) * aspect);
+    const up = (FOV / 2) * (Math.PI / 180);
+    // Side on, its length a little inside the width and its height inside the height; turned, its ends come nearer and grow a little.
+    const distance = Math.max(half.x / Math.tan(across), half.y / Math.tan(up)) * 1.3 + half.x * 0.5;
+    this.#camera.position.set(0, half.x * 0.12, distance);
+    this.#camera.lookAt(0, 0, 0);
+    this.#camera.updateProjectionMatrix();
+  }
+
   #draw(): void {
     const renderer = this.#renderer;
     if (!renderer || this.#compiling > 0) return;
@@ -251,17 +313,9 @@ export class LoadoutGunStage implements GunStage {
     if (w < 2 || h < 2) return;
     const size = renderer.getSize(this.#size);
     if (size.x !== w || size.y !== h) renderer.setSize(w, h, false);
-    const aspect = w / h;
     // Side on to start (the muzzle to the right), turning about the upright axis.
     this.#turntable.rotation.set(0, -Math.PI / 2 + this.#angle, 0);
-    this.#camera.aspect = aspect;
-    const across = Math.atan(Math.tan((FOV / 2) * (Math.PI / 180)) * aspect);
-    const up = (FOV / 2) * (Math.PI / 180);
-    // Side on, its length a little inside the width and its height inside the height; turned, its ends come nearer and grow a little.
-    const distance = Math.max(this.#half.x / Math.tan(across), this.#half.y / Math.tan(up)) * 1.3 + this.#half.x * 0.5;
-    this.#camera.position.set(0, this.#half.x * 0.12, distance);
-    this.#camera.lookAt(0, 0, 0);
-    this.#camera.updateProjectionMatrix();
+    this.#aim(this.#half, w / h);
     renderer.render(this.#scene, this.#camera);
     // Which gun is on the stage once drawn, for a scripted look (`data-drawn`).
     const gun = this.#shown ? this.#guns.get(this.#shown) : undefined;

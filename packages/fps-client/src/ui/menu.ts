@@ -186,7 +186,7 @@ export const MENU_CSS = `
 .ds-kit.ds-sets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ds-kit.ds-sets .ds-mode span { letter-spacing: 0.04em; text-transform: none; }
 /* The gun in 3D over the Details card, turning on the page's dark. */
-.ds-stage { position: relative; aspect-ratio: 16 / 9; max-height: 240px; margin-bottom: 12px; }
+.ds-stage { position: relative; aspect-ratio: 16 / 9; max-height: 240px; margin: 0 auto 12px; }
 .ds-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ds-mode.locked { cursor: not-allowed; background: var(--ds-ink); }
 .ds-mode.locked b { color: var(--ds-text-2); }
@@ -364,6 +364,8 @@ export interface GunStage {
   readonly element: HTMLElement;
   /** Shows the gun `id` with what is fitted on it and its camo, turning. */
   show(id: WeaponId, kit: Attachments | undefined, camo?: CamoId | null, reticles?: Reticles): void;
+  /** Gets gun `id`, dressed so, ready to show at once, drawing nothing; it gives up once `wanted` turns false. */
+  warm(id: WeaponId, kit: Attachments | undefined, camo?: CamoId | null, reticles?: Reticles, wanted?: () => boolean): Promise<void>;
   /** Stops drawing: the screen closed. */
   stop(): void;
 }
@@ -717,6 +719,23 @@ export class Menu {
   loadout(back: 'pause' | 'game' | 'lobby' | 'main'): void {
     this.#loadoutBack = back;
     this.show('loadout');
+  }
+
+  /**
+   * Gets the gun the Loadout screen opens on (the loadout's primary, as it is built and painted) ready on the stage
+   * ahead of the screen, so its first open shows the gun at once (PLAN item 7). Settles when ready; nothing without a
+   * stage. `wanted` false (a match started) ends it early.
+   */
+  warmLoadout(wanted?: () => boolean): Promise<void> {
+    const id = this.#settings.loadout.primary;
+    const { kit, camo } = this.#staged(id);
+    return this.gunStage?.warm(id, kit, camo, this.#settings.reticles, wanted) ?? Promise.resolve();
+  }
+
+  /** Gun `id` as the Loadout screen shows it: its build as far as opened, and the camo it wears now. */
+  #staged(id: WeaponId): { readonly kit: Attachments; readonly camo: CamoId | null } {
+    const kills = this.#profile?.profile.weapons[id]?.kills ?? 0;
+    return { kit: openKit(id, this.#settings.builds[id], kills), camo: camoOn(this.#settings.camos, id, masteryOf(kills).level) };
   }
 
   /** The settings screen over the lobby: Back closes the menu again. */
@@ -1267,7 +1286,7 @@ export class Menu {
     const kills = (id: WeaponId) => this.#profile?.profile.weapons[id]?.kills ?? 0;
     /** The gun in 3D over the card, turning, with what is fitted on it. */
     /** The camo gun `id` wears now: the one picked, while its Mastery has earned it. */
-    const camoNow = (id: WeaponId) => camoOn(this.#settings.camos, id, masteryOf(kills(id)).level);
+    const camoNow = (id: WeaponId) => this.#staged(id).camo;
     const turn = (id: WeaponId, kit: Attachments | undefined, camo: CamoId | null = camoNow(id)) => this.gunStage?.show(id, kit, camo, this.#settings.reticles);
     // Without a Profile kept (a test page), every gun is open.
     const xp = this.#profile ? this.#profile.profile.xp : Infinity;
@@ -1283,7 +1302,7 @@ export class Menu {
       const c = weaponCard(id);
       const bars = c.bars.map((b) => `<span class="k">${escapeHtml(b.label)}</span><span class="bar"><i style="width:${Math.round(b.value * 100)}%"></i></span><span class="v">${escapeHtml(b.text)}</span>`);
       // Its build, as the loadout would carry it: what is on it and open.
-      const kit = openKit(id, this.#settings.builds[id], kills(id));
+      const kit = this.#staged(id).kit;
       const build = Object.keys(kit).length ? effects(buildEffects(id, kit)) : '';
       turn(id, kit);
       const lock = gunOpen(id, xp) ? '' : `<p class="role">${escapeHtml(this.practice ? `${gunLock(id)}; yours to try here in the Practice Range.` : `${gunLock(id)}. Try it in the Practice Range.`)}</p>`;

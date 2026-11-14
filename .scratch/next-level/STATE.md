@@ -21,7 +21,7 @@ Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0)
 - [x] Passes 39-44 (v2.205.0 to v2.210.0): unlocks by Rank, save code, Loadout on the menu, the 3D loadout editor (three loadouts, 1 2 3 while dead), results with Mastery and Play again, fittings/camos/reticles, Battle Royale on loadouts behind `?drops=resupply` (default stays loot until Aleix says go), and the one-time reset (ticket 116).
 - [x] Review 2026-11-14a (pass 45, idle PC): 1, 2 pass (worst frame 90 ms, workP99 6-18 ms); 3, 4, 5 fail; 6 unproven (the capture never opens Loadout or Profile; BACKLOG).
 
-Pass 45 then took its "fix first" (PLAN order step 5, objective 4): the gun inside its own magnified sight. Shipped (ticket 102). Next (pass 46): item 7's acceptance check the review can't see, the Loadout editor's first open in under a second (warm the stage in idle time after the menu settles: `LoadoutGunStage` show-then-stop, or draw it with the game's renderer via three's `CanvasTarget`), then the review's next most visible failing gap (BACKLOG, "Review 2026-11-14a's open defects").
+Pass 45 then took its "fix first" (PLAN order step 5, objective 4): the gun inside its own magnified sight. Shipped (ticket 102). Pass 46 (pass 1 of the step): item 7's "editor opens in under a second": the stage warms the loadout's gun after the menu's match is prepared (~12-14 s after load here), then opens in 5-42 ms (was 5-10 s); a click before that is unchanged (BACKLOG, ticket 117). Next (pass 47): PLAN order step 5, the review's next most visible failing gap (BACKLOG, "Review 2026-11-14a's open defects"): Gun Game's unusable loadout and Q-swap prompts, or the leader block contradicting your place.
 
 ## Needs Aleix
 
