@@ -2,7 +2,7 @@
 
 ## Now
 
-Resumed by Aleix, 2026-11-14, for PLAN.md refinements 9e to 9h only (editor from pause, gun dip on a kill, Battle Royale on loadouts, hidden adaptive bots); once 9h ships, the loop chat pauses the loop. Nothing else before then.
+Paused by Aleix, 2026-11-14.
 
 Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all of them work in a real match; all built roughly (ideas beyond them go to BACKLOG.md):
 1. Battle Royale lobby like Play Online's (invite link, host moves/kicks, even squads, seat back after a drop), squads friends join; attachments choosable in BR (or, if loot, say so in the lobby).
