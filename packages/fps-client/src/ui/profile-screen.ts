@@ -57,6 +57,8 @@ export const PROFILE_SCREEN_CSS = `
 .ds-save-note { margin: 12px 0 0; font-size: var(--ds-type-body); color: var(--ds-text); }
 /* A gun not yet opened: its Rank in place of its kills. */
 .ds-prof .gun.shut .who b { color: var(--ds-text-2); }
+/* "Opens at Rank" stays one line over its number, reaching left into the gap past the Kills column's width. */
+.ds-prof .gun.shut .k { align-items: flex-end; } .ds-prof .gun.shut .k .ds-label { white-space: nowrap; }
 @media (max-width: 960px) {
   .ds-prof { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .ds-prof section + section { margin-top: 28px; }
@@ -138,9 +140,9 @@ export function profileHtml(profile: Profile, today: string): string {
     .sort((a, b) => Number(!gunOpen(a.id, profile.xp)) - Number(!gunOpen(b.id, profile.xp)) || (gunOpen(a.id, profile.xp) ? 0 : GUN_RANKS[a.id] - GUN_RANKS[b.id]))
     .map((w) => {
       const m = w.mastery;
-      // A gun not yet opened: the Rank that opens it, under its name.
+      // A gun not yet opened: the Rank that opens it in the Kills column, and where to try it under its name.
       if (!gunOpen(w.id, profile.xp))
-        return `<div class="gun shut"><div class="who"><b>${escape(w.name)}</b><span>Opens at Rank ${GUN_RANKS[w.id]} · try it in the Practice Range</span></div><div class="k"><span class="ds-label">Rank</span><b>${GUN_RANKS[w.id]}</b></div><div class="m"></div></div>`;
+        return `<div class="gun shut"><div class="who"><b>${escape(w.name)}</b><span>Try it in the Practice Range</span></div><div class="k"><span class="ds-label">Opens at Rank</span><b>${GUN_RANKS[w.id]}</b></div><div class="m"></div></div>`;
       const about = w.kills === 0 ? 'No kills yet' : `${figure(w.headshots)} headshot${w.headshots === 1 ? '' : 's'}${w.longest > 0 ? ` · longest ${figure(w.longest)} m` : ''}`;
       const next = m.next === null ? 'Mastered' : `${figure(m.next - w.kills)} to level ${m.level + 1}`;
       return (

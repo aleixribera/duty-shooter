@@ -192,7 +192,7 @@ describe('the Profile screen', () => {
   it('lists the guns not yet opened after the open ones, each with the Rank that opens it (PLAN item 7)', () => {
     const fresh = profileHtml(emptyProfile(), '2026-03-01');
     expect(fresh.match(/class="gun shut"/g)).toHaveLength(5);
-    expect(fresh).toContain('Opens at Rank 4');
+    expect(fresh).toMatch(/Opens at Rank<\/span><b>4<\/b>/);
     expect(fresh.indexOf('Warden 9')).toBeLessThan(fresh.indexOf('Trident 5.56'));
     expect(fresh.indexOf('Trident 5.56')).toBeLessThan(fresh.indexOf('Ridgeline .308'));
     expect(profileHtml({ ...emptyProfile(), xp: rankFloor(12) }, '2026-03-01')).not.toContain('class="gun shut"');

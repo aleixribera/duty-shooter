@@ -55,7 +55,7 @@ const CSS = `
   --ds-font: 'IBM Plex Sans Condensed', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
   --ds-font-display: 'Chakra Petch', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
-.ds-ui { font-family: var(--ds-font); font-variant-numeric: tabular-nums; color: var(--ds-text); -webkit-font-smoothing: antialiased; }
+.ds-ui { font-family: var(--ds-font); font-variant-numeric: tabular-nums; text-wrap: pretty; color: var(--ds-text); -webkit-font-smoothing: antialiased; }
 .ds-ui *, .ds-ui *::before, .ds-ui *::after { box-sizing: border-box; }
 .ds-ui button { font: inherit; color: inherit; cursor: pointer; }
 .ds-ui button:disabled { cursor: default; }

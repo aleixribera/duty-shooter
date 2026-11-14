@@ -292,7 +292,7 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
 }
 /* An upright phone: the tabs wrap onto rows; a strip that scrolls sideways hid the last ones with no sign of them. */
 /* A phone: the stock tile gives room to the two names, set in the small size (COMPENSATOR is the longest word). */
-@media (max-width: 640px) { .ds-kit.ds-smith-tiles { grid-template-columns: minmax(0, 0.8fr) repeat(2, minmax(0, 1.1fr)); gap: 6px; } .ds-kit.ds-smith-tiles .ds-mode { padding: 8px 10px; } .ds-kit.ds-smith-tiles .ds-mode b { font-size: var(--ds-type-small); letter-spacing: 0.02em; } }
+@media (max-width: 640px) { .ds-kit.ds-smith-tiles { grid-template-columns: minmax(0, 0.8fr) repeat(2, minmax(0, 1.1fr)); gap: 6px; } .ds-kit.ds-smith-tiles .ds-mode { padding: 8px 10px; } .ds-kit.ds-smith-tiles .ds-mode b { font-size: var(--ds-type-small); letter-spacing: 0.02em; } .ds-kit.ds-smith-tiles .ds-mode span { letter-spacing: 0.02em; text-transform: none; text-wrap: balance; } }
 @media (max-width: 640px) { .ds-ui .ds-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 4px; } .ds-ui .ds-tabs button { flex: 0 1 auto; } }
 /* Neighbours a thumb could mix up stand 8px apart. */
 html.ds-touch .ds-tabs { gap: 8px; }

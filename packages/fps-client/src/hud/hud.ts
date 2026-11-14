@@ -136,7 +136,7 @@ const CSS = `
 .ds-action .bar + div { margin-top: 8px; }
 .ds-round { position: absolute; left: 50%; top: 30%; width: max-content; max-width: calc(100vw - 32px); transform: translate(-50%, -50%); padding: 12px 22px 14px; text-align: center; white-space: nowrap; animation: ds-in 160ms ease-out; }
 .ds-round .sub { font-size: var(--ds-type-body); font-weight: 700; color: var(--ds-text); text-shadow: 0 1px 8px var(--ds-shadow-hi), 0 0 2px var(--ds-shadow-hi); }
-.ds-round .goal { margin-top: 8px; font-size: var(--ds-type-body); text-shadow: none; white-space: normal; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
+.ds-round .goal { margin-top: 8px; font-size: var(--ds-type-body); text-shadow: none; white-space: normal; text-wrap: balance; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; }
 .ds-round .use { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--ds-line); font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; white-space: pre; }
 .ds-round h2 { margin: 6px 0 0; font-family: var(--ds-font-display); font-size: var(--ds-type-title); line-height: 1; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 12px var(--ds-shadow); }
 /* A mode's name in the count's place (joined under way) is long: it wraps on a narrow screen. */
