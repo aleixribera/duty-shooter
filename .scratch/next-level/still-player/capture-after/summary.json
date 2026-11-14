@@ -1,0 +1,205 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": {
+    "map": "station-nine",
+    "mode": "gungame",
+    "audioContext": "running",
+    "opening": {
+      "audioKb": 2010,
+      "loudness": {
+        "lufs": -20.6,
+        "truePeakDb": -1.8
+      },
+      "heard": {
+        "footstep": 1266,
+        "gunshot": 525,
+        "impact": 444,
+        "ambientHum": 102,
+        "casing": 81,
+        "pain": 42,
+        "weaponRaise": 36,
+        "bulletCrack": 33,
+        "slide": 23,
+        "damageTaken": 21,
+        "reloadMagOut": 19,
+        "adsIn": 18,
+        "adsOut": 18,
+        "death": 17,
+        "reloadMagIn": 16,
+        "hitMarker": 12,
+        "ambientWind": 10,
+        "ambientRadio": 9,
+        "ambientBirds": 7,
+        "land": 6,
+        "heartbeat": 4,
+        "killMarker": 3,
+        "cylinderOpen": 2,
+        "cylinderLoad": 2,
+        "headshotMarker": 1
+      },
+      "levels": {
+        "samples": 260,
+        "rmsMedianDb": -31,
+        "rmsLoudestDb": -13,
+        "peakDb": -3,
+        "silentShare": 0
+      },
+      "frames": {
+        "frames": 1830,
+        "meanMs": 34.8,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 35.4,
+        "worstMs": 62.5,
+        "over50ms": 1,
+        "fps": 28.7,
+        "low1Fps": 24,
+        "workP50Ms": 5.4,
+        "workP99Ms": 11.4,
+        "render": {
+          "frames": 28,
+          "draws": 156,
+          "maxDraws": 172,
+          "triangles": 817373,
+          "gpu": 1.461,
+          "geometries": 345,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sAfterStart": 43.3,
+            "ms": 63,
+            "workMs": 6,
+            "pcPct": 24,
+            "chromePct": 9,
+            "othersPct": 15,
+            "kills": 2
+          }
+        ],
+        "longTotal": 1,
+        "longWithWork": 0,
+        "over50QuietPc": 1,
+        "cpuMeanPct": 29
+      }
+    },
+    "play": {
+      "kills": 13,
+      "deaths": 6,
+      "seconds": 123,
+      "phase": "nuke",
+      "killFrames": [
+        {
+          "a": 36,
+          "b": 259
+        },
+        {
+          "a": 1,
+          "b": 255,
+          "held": true
+        },
+        {
+          "a": 1,
+          "b": 257
+        },
+        {
+          "a": 34,
+          "b": 256
+        }
+      ]
+    },
+    "lastMinute": {
+      "audioKb": 2136,
+      "loudness": {
+        "lufs": -17.5,
+        "truePeakDb": -1.3
+      },
+      "heard": {
+        "footstep": 1074,
+        "gunshot": 337,
+        "impact": 259,
+        "geigerTick": 192,
+        "casing": 134,
+        "ambientHum": 114,
+        "pain": 30,
+        "weaponRaise": 28,
+        "adsOut": 26,
+        "adsIn": 23,
+        "death": 19,
+        "bulletCrack": 19,
+        "countdownSirenHold": 17,
+        "slide": 16,
+        "hitMarker": 11,
+        "ambientWind": 10,
+        "ambientBirds": 9,
+        "ambientRadio": 9,
+        "cylinderOpen": 9,
+        "boltOpen": 9,
+        "boltClose": 9,
+        "cylinderLoad": 8,
+        "reloadMagOut": 7,
+        "reloadMagIn": 7,
+        "cylinderShut": 7
+      },
+      "levels": {
+        "samples": 276,
+        "rmsMedianDb": -26,
+        "rmsLoudestDb": -10,
+        "peakDb": -2,
+        "silentShare": 0
+      },
+      "frames": {
+        "frames": 1951,
+        "meanMs": 34.8,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 35.3,
+        "worstMs": 106.4,
+        "over50ms": 2,
+        "fps": 28.7,
+        "low1Fps": 22.3,
+        "workP50Ms": 5.4,
+        "workP99Ms": 14.6,
+        "render": {
+          "frames": 28,
+          "draws": 148,
+          "maxDraws": 151,
+          "triangles": 857553,
+          "gpu": 1.229,
+          "geometries": 348,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sAfterStart": 30.3,
+            "ms": 106,
+            "workMs": 14,
+            "pcPct": 35,
+            "chromePct": 8,
+            "othersPct": 27,
+            "kills": 9
+          },
+          {
+            "sAfterStart": 10.6,
+            "ms": 72,
+            "workMs": 18,
+            "pcPct": 67,
+            "chromePct": 10,
+            "othersPct": 57,
+            "kills": 6
+          }
+        ],
+        "longTotal": 2,
+        "longWithWork": 0,
+        "over50QuietPc": 1,
+        "cpuMeanPct": 41
+      }
+    },
+    "soundLog": "sounds-match.json",
+    "errors": []
+  },
+  "tour": [],
+  "range": null,
+  "island": null,
+  "online": null
+}

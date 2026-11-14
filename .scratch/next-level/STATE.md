@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kill bodies seen in 5 of 8 "b" frames (v2.214.3, ticket 102). Pass 85: 14e's hitches were the capture and the busy PC; the capture logs CPU per long frame (`over50QuietPc`, ticket 99). Pass 86: review 14f (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Its Station Nine Gun Game: the scripted player stood in one alley 155 s, 0 kills, no bot came; 1 of 114 long frames fell on a quiet PC (76 ms); Loadout model 93 ms. Next: 14f's Fix first, a review Bot Match that fights (scripted player turns, moves, fires; bots come to a still player within 60 s).
+Passes 67-86: 14c-14e's defects worked (v2.213.x-v2.214.6; tickets 100, 102, 99); reviews 14e and 14f both 1, 5 pass, 2, 3, 4, 6 fail, so item 10's test not met; the capture logs CPU per long frame (`over50QuietPc`). Pass 87: 14f's Fix first done (v2.214.7, ticket 100): the review's scripted player hunts in FFA/Gun Game (Station Nine Gun Game rerun 13 kills, 6 deaths, XP +2,500), and a lone bot's hunches lean on whoever has gone quiet (still player unmet past 60 s in 6 of 80 seeded matches, was 18; `still-player.soak.test.ts`). Next: a fresh full review (14g) to judge item 10's test.
 
 ## Needs Aleix
 

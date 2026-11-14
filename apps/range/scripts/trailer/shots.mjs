@@ -108,7 +108,10 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   // within 9 m still in sight, so corners are cut only where nothing is in the way.
   const now = performance.now() / 1000;
   const sight = (q) => C.clear(eye, [q[0], q[1] + 1.2, q[2]]);
-  const m = mates[0];
+  // Alone (free-for-all, Gun Game, a solo drop): hunt the nearest enemy by the same routes. With no one to follow, the
+  // player stood at spawn for a whole Gun Game and saw no fight (review 2026-11-14f).
+  const hunted = mates.length ? null : enemies.sort((a, b) => C.flat(a.position, me.position) - C.flat(b.position, me.position)).find((p) => p.alive) ?? null;
+  const m = mates[0] ?? hunted;
   const nav = globalThis.__nav;
   if (m && nav && !(now - (s.routedAt ?? -9) < 0.5)) {
     s.routedAt = now;
@@ -132,7 +135,7 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   }
   const ahead = path ?? (s.route ?? []).find((q) => C.flat(q, eye) > 1.2) ?? m?.position ?? null;
   // Caught up with the leader: look where they look (at the threat), not at the wall beside them.
-  const idle = !!m && C.flat(m.position, me.position) <= 4;
+  const idle = !hunted && !!m && C.flat(m.position, me.position) <= 4;
   const watch = idle ? [m.position[0] - Math.sin(m.yaw) * 20, eye[1], m.position[2] - Math.cos(m.yaw) * 20] : null;
   let goal = foe ? foe.at : watch ?? (ahead ? [ahead[0], eye[1], ahead[2]] : null);
   // With no one to shoot, never face a wall or a teammate's back: when the way to the goal is shut within 3 m (a
@@ -181,7 +184,7 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   s.pitchV += (w * w * dp - 2 * w * s.pitchV) * h;
   g.input.setAngles(look.yaw + s.yawV * h, look.pitch + s.pitchV * h);
   const err = Math.hypot(dy, dp);
-  const far = mates[0] ? C.flat(mates[0].position, me.position) : 0;
+  const far = m ? C.flat(m.position, me.position) : 0;
   const closing = !!foe && foe.d > ${chase} && ${chase} > 0;
   // Reload on an empty magazine, or a low one with no one in sight.
   const ammo = me.weapon.ammo, reload = me.weapon.action !== 'reload' && (ammo === 0 || (!foe && ammo <= 4));

@@ -237,6 +237,15 @@ const BOUND: readonly [number, number] = [0.8, 1.6];
 const STOP: readonly [number, number] = [0.6, 1.8];
 /** A hunter's stops are this share of the rest's. */
 const HUNT_STOP = 0.4;
+/**
+ * An enemy it hasn't seen or heard for this long (s) starts to draw its hunches, fully at {@link QUIET_FULL}: then a
+ * roaming goal follows a hunch this often, toward them, and lands close by. A player standing still at spawn in a Gun
+ * Game was never found in 155 s while the bots fought each other elsewhere (review 2026-11-14f); in well-loved
+ * shooters a quiet player is still hunted down (bots work the map toward whoever they haven't met).
+ */
+const QUIET_HUNCH = 10;
+const QUIET_FULL = 30;
+const QUIET_CHANCE = 0.8;
 /** Holding a spot in a rally: this many times its usual hold (s). */
 const SPOT_HOLD: readonly [number, number] = [2, 5];
 /** Within this far (m) of its spot at the end of the route there, a bot is at it. */
@@ -469,6 +478,11 @@ export class Bot {
   /** Where the route being followed leads. */
   #followed: Vec3 = [0, 0, 0];
   readonly #memory = new Map<PlayerId, Sighting>();
+  /** When it last knew where each player was (its memory's newest entry for them), kept after the memory forgets; and when it started knowing anything. */
+  readonly #heardOf = new Map<PlayerId, number>();
+  #awareSince: number | null = null;
+  /** Where the quiet enemy its roaming goal follows a hunch about was, to look there on arriving. */
+  #hunted: Vec3 | null = null;
   #target: Engagement | null = null;
   /** Standing still holding use for its objective (planting or defusing). */
   #using = false;
@@ -582,6 +596,8 @@ export class Bot {
    */
   newMatch(): void {
     this.#memory.clear();
+    this.#heardOf.clear();
+    this.#awareSince = null;
     this.#loud.clear();
     this.#downs.clear();
     this.#spotting.clear();
@@ -608,6 +624,7 @@ export class Bot {
   goTo(position: Vec3): void {
     this.#ordered = nearestNode(this.#nav, this.#world, position);
     this.#goal = null;
+    this.#hunted = null;
     this.#holdUntil = 0;
   }
 
@@ -717,6 +734,8 @@ export class Bot {
     }
     this.#hear(view);
     this.#listen(view, eye, perceiving);
+    this.#awareSince ??= time;
+    for (const [id, m] of this.#memory) if (m.time > (this.#heardOf.get(id) ?? -Infinity)) this.#heardOf.set(id, m.time);
     if (this.#target || (this.#search && time >= this.#search.until)) this.#search = null;
     const caution = (this.#caution = this.#weigh(view));
     const ground = view.ground ?? null;
@@ -1162,6 +1181,7 @@ export class Bot {
     this.#compYaw = this.#compPitch = 0;
     this.#path = [];
     this.#goal = null;
+    this.#hunted = null;
     this.#target = null;
     this.#chasing = null;
     this.#alert = null;
@@ -2184,6 +2204,15 @@ export class Bot {
     if (this.#goal !== null && this.#step >= this.#path.length) {
       const reached = this.#nav.nodes[this.#goal]!;
       this.#goal = null;
+      // Come to check on a quiet enemy: it looks where it thinks they are, for a moment, before moving on.
+      const check = this.#hunted;
+      this.#hunted = null;
+      if (check && !view.objective?.hurry && flat(check, self.position) > 1) {
+        this.#holdUntil = time + this.profile.holdTime * (0.6 + 0.8 * r(22));
+        this.#holdYaw = yawTo(self.position, check);
+        this.#holdCrouch = false;
+        return null;
+      }
       // A sniper always settles in to watch the lane it came for, and for longer; so does a bot holding an objective.
       const scoped = TACTICS[self.weapon.id].scoped;
       // A careful bot stops to watch more often; one in a hurry never does.
@@ -2209,13 +2238,28 @@ export class Bot {
     // A walk over everyone, but only as often as a bot needs somewhere new to go.
     const mates = view.players.filter((p) => p.id !== self.id && p.alive && !view.isEnemy(p));
     const noises = [...this.#memory.values()].filter((m) => time - m.time < 15);
-    // Now and then a rough idea of where an enemy is (as a player reads footsteps and the kill feed), so nobody can hide for good.
+    // Now and then a rough idea of where an enemy is (as a player reads footsteps and the kill feed), so nobody can hide for good:
+    // more often, more surely and closer for one it hasn't seen or heard of in a while.
     const enemies = view.players.filter((p) => p.alive && view.isEnemy(p));
+    // Only on its own (free-for-all, Gun Game): with a team, someone always goes unheard for a while, and the team's spread and objectives matter more.
+    const alone = !view.objective && !view.players.some((p) => p.id !== self.id && !view.isEnemy(p));
+    const quietness = (p: PlayerOutput) => (!alone ? 0 : Math.min(1, Math.max(0, (time - (this.#heardOf.get(p.id) ?? this.#awareSince ?? time) - QUIET_HUNCH) / (QUIET_FULL - QUIET_HUNCH))));
+    const quiet = enemies.map(quietness);
+    const quietest = Math.max(0, ...quiet);
     let hunch: Vec3 | null = null;
-    if (enemies.length > 0 && r(90) < this.profile.hunch) {
-      const e = enemies[Math.floor(r(91) * enemies.length)]!.position;
+    let hunchQuiet = 0;
+    let hunchAt: Vec3 | null = null;
+    if (enemies.length > 0 && r(90) < this.profile.hunch + (QUIET_CHANCE - this.profile.hunch) * quietest) {
+      // Each enemy weighed by how long it has gone unheard: the quietest is the likeliest.
+      const weights = quiet.map((q) => (1 + 4 * q) ** 2);
+      let pick = r(91) * weights.reduce((a, b) => a + b, 0);
+      let k = 0;
+      while (k < enemies.length - 1 && (pick -= weights[k]!) >= 0) k += 1;
+      const e = enemies[k]!.position;
+      hunchQuiet = quiet[k]!;
+      if (hunchQuiet > 0) hunchAt = e;
       const angle = r(92) * Math.PI * 2;
-      const off = 8 + r(93) * 12;
+      const off = (8 + r(93) * 12) * (1 - 0.6 * hunchQuiet);
       hunch = [e[0] + Math.cos(angle) * off, e[1], e[2] + Math.sin(angle) * off];
     }
     // Inside its objective, if it has one; a sniper picks among the spots with a long view.
@@ -2230,7 +2274,8 @@ export class Bot {
       const p = nodes[i]!.position;
       const d = flat(self.position, p);
       let score = -Math.abs(d - this.profile.roam) * 0.6 + r(60 + k) * 12;
-      if (hunch && flat(hunch, p) < 10) score += 20;
+      // A hunch about a quiet enemy outweighs the walk there.
+      if (hunch && flat(hunch, p) < 10) score += 20 + 40 * hunchQuiet;
       for (const n of noises) if (flat(n.position, p) < 12) score += 14 * this.profile.aggression + 4;
       // Where a teammate went down: the bold go to settle it, the rest give it a wide berth.
       for (const g of this.#dangers) if (time - g.time < DANGER_MEMORY && flat(g.position, p) < 10) score += this.#bold() ? 8 : -16;
@@ -2243,6 +2288,7 @@ export class Bot {
       }
     }
     this.#recentGoals = [best, ...this.#recentGoals].slice(0, 4);
+    this.#hunted = hunchAt && hunch && flat(hunch, nodes[best]!.position) < 10 ? hunchAt : null;
     return best;
   }
 
