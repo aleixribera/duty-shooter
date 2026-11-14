@@ -146,7 +146,7 @@ One gun with its row in the stats file: the M4A1, the Wasp 9 SMG, the Harrow 12 
 _Avoid_: gun (fine in player-facing text), item
 
 **Loadout**:
-What a player carries into a life: a primary, a secondary, a grenade, a Tactical and a Perk (each of the last three may be none). A change applies at the next spawn; offline, at once. A loadout saved before Tacticals existed gets the Smoke.
+What a player carries into a life: a primary, a secondary, a grenade, a Tactical and a Perk (each of the last three may be none). A change applies at the next spawn (in the Countdown or a round's freeze, at once); offline, at once. Mid-match it is changed from the pause menu's Loadout, which holds no respawn. A loadout saved before Tacticals existed gets the Smoke.
 _Avoid_: class, kit
 
 **Primary**:

@@ -99,7 +99,7 @@ const CSS = `
 .ds-page > .body { overflow-y: auto; overscroll-behavior: contain; padding: 28px var(--ds-gutter) 32px; scrollbar-width: thin; scrollbar-color: var(--ds-line-2) transparent; }
 .ds-page > footer { display: flex; align-items: center; gap: 12px; padding: 14px var(--ds-gutter); background: var(--ds-scrim-soft); border-top: 1px solid var(--ds-line); }
 .ds-page > footer .grow { flex: 1; min-width: 0; }
-.ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-plate-edge); background: var(--ds-plate); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; }
+.ds-chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid var(--ds-plate-edge); background: var(--ds-plate); font-family: var(--ds-font-display); font-size: var(--ds-type-small); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ds-chip b { color: var(--ds-text); font-weight: 700; }
 /* A block's name at heading size, its count or note beside it in sentence case. */
 .ds-h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ds-line-2);

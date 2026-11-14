@@ -21,7 +21,7 @@ Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop)
 
 Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11); last minute's gun no longer crushed; bodies tip sideways, slim M4A1 front sight (v2.214.15). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
 
-Passes 93-96: item 9, ticket 119. a done: the clock reads `9:23` / `3.4` with no "T-" (v2.215.0). b done: Random next match on and lit at every match's end (v2.216.0). c done: a name asked once at the first Play Online, kept in the Profile and save code, Settings' Player tab changes it, solo never asks, no "Player 1234" (v2.217.0, `name/sheet.jpg`). d done: dead, the three loadouts stand as plates (1/2/3, click, tap, D-pad; v2.218.0), and a slim "New <gun> 4" plate offers a gun opened by Rank and in no loadout, gone once taken or passed on 3 deaths; results' button reads "Equip" (v2.219.0, `new-gun/after/`). Next: 9e (the editor from pause).
+Passes 93-97: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). Next: 9f (the kill dip).
 
 ## Needs Aleix
 
@@ -66,4 +66,4 @@ None.
 - Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 
 - Zero Island's nav: built by the dev server (~70 s) on first ask. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
-- Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs`: shader builds and long frames in a flight. The capture's range stall was the range's load, not play (ticket 99).
+- Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs`: shader builds and long frames in a flight.

@@ -491,6 +491,8 @@ export class Game {
     this.#course = options.course ? { gates: options.course, run: new CourseRun(options.course), clock: new CourseClockView(this.hud.root) } : null;
     if (options.content.places && options.content.terrain) this.hud.setIsland({ terrain: options.content.terrain, colors: options.content.terrainColors ?? [0x808080], places: options.content.places });
     this.hud.visible = false;
+    // A game starts paused (`#paused`), its HUD with it.
+    this.hud.root.classList.add('paused');
     this.hud.onVote = (mode) => this.#vote(mode);
     this.hud.onRandom = () => this.#toggleRandom();
     this.hud.onEquip = (id) => this.onEquip?.(id);
@@ -610,6 +612,8 @@ export class Game {
   set paused(on: boolean) {
     this.#paused = on;
     this.input.enabled = !on;
+    // Range Control's caption would read through the menu's pages (the loadout editor mid-match); its voice goes on.
+    this.hud.root.classList.toggle('paused', on);
     if (on) this.#rumbler.stop();
   }
 
@@ -1094,6 +1098,11 @@ export class Game {
     this.#myVote = mode;
     driver.vote(mode);
     this.#play('hitMarker');
+  }
+
+  /** Whether a loadout change re-arms you where you stand: alive in the opening Countdown or a round's freeze (as the server does it). */
+  get picksAtOnce(): boolean {
+    return this.#cur?.alive === true && (this.#charge?.phase === 'freeze' || this.#counting());
   }
 
   /** Whether 1, 2 and 3 pick the next life's loadout now: dead in a match being played that has a next life, the game not paused. */

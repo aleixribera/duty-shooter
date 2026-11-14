@@ -442,6 +442,8 @@ export class Menu {
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
   #loadoutBack: 'pause' | 'game' | 'lobby' | 'main' = 'pause';
   #loadoutNote = '';
+  /** The Loadout screen's chip saying when a change applies, while that screen is built. */
+  #noteChip: HTMLElement | null = null;
   /** The Loadout screen's gun in 3D, once the engine is up. */
   gunStage: GunStage | null = null;
   /** The kept loadout just picked on the Loadout screen: its tile takes the focus again once the screen is drawn anew. */
@@ -768,7 +770,14 @@ export class Menu {
 
   /** When a loadout change applies in the game being played, as the loadout screen says it. */
   set loadoutNote(text: string) {
+    if (text === this.#loadoutNote) return;
     this.#loadoutNote = text;
+    // Open, the screen's chip follows it (a respawn counting down behind the editor), with no re-render.
+    const chip = this.#noteChip;
+    if (chip?.isConnected) {
+      chip.textContent = text;
+      chip.style.display = text ? '' : 'none';
+    }
   }
 
   /** The mode being played, or null: the pause screen lists only the keys it has (the island map in a Battle Royale). */
@@ -1338,7 +1347,10 @@ export class Menu {
   #renderLoadout(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
     const { aside, body, footer } = this.#page(screen, h, 'Loadout');
     // Said only when a pick waits for something (a spawn, a drop); off a match it simply applies.
-    if (this.#loadoutNote) aside.append(h('span', this.#loadoutNote, 'ds-chip'));
+    const chip = h('span', this.#loadoutNote, 'ds-chip');
+    if (!this.#loadoutNote) chip.style.display = 'none';
+    this.#noteChip = chip;
+    aside.append(chip);
     const cols = h('div', '', 'ds-cols ds-lo-cols');
     body.append(cols);
     const left = h('section');

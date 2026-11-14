@@ -683,7 +683,14 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const updateMenuNotes = () => {
     const driver = game?.driver;
     const match = driver?.online ? driver.match : null;
-    menu.loadoutNote = loadoutNote({ online: driver?.online ?? false, mode: match?.mode ?? null, phase: match?.phase ?? null, preparing: (match?.preparation ?? null) !== null });
+    menu.loadoutNote = loadoutNote({
+      online: driver?.online ?? false,
+      mode: match?.mode ?? null,
+      phase: match?.phase ?? null,
+      preparing: (match?.preparation ?? null) !== null,
+      atOnce: game?.picksAtOnce ?? false,
+      respawnIn: driver?.respawnIn ?? null,
+    });
     menu.matchMode = driver?.match?.mode ?? null;
   };
   /** Bot Match's setup (`BotSetup`). Opening it starts the picked map's lighting downloading, so Start rarely waits. */

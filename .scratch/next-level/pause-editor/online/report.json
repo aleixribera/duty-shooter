@@ -1,0 +1,129 @@
+{
+ "steps": [
+  {
+   "step": "0 alive",
+   "alive": true,
+   "primary": "m4a1",
+   "respawnIn": null,
+   "paused": false,
+   "screen": null,
+   "chip": null,
+   "sets": []
+  },
+  {
+   "step": "1 dead, editor open",
+   "alive": false,
+   "primary": "m4a1",
+   "respawnIn": 1.6666666666666714,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR RESPAWN IN 2",
+   "sets": [
+    "*MAIN M4A1 · Warden 9",
+    "CLOSE Wasp 9 · Warden 9",
+    "BREACH Harrow 12 · Warden 9"
+   ]
+  },
+  {
+   "step": "2 1.5 s later",
+   "alive": false,
+   "primary": "m4a1",
+   "respawnIn": 0.06233333333361202,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR RESPAWN IN 1",
+   "sets": [
+    "*MAIN M4A1 · Warden 9",
+    "CLOSE Wasp 9 · Warden 9",
+    "BREACH Harrow 12 · Warden 9"
+   ]
+  },
+  {
+   "step": "3 picked another",
+   "alive": true,
+   "primary": "smg",
+   "respawnIn": null,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR NEXT SPAWN",
+   "sets": [
+    "MAIN M4A1 · Warden 9",
+    "*CLOSE Wasp 9 · Warden 9",
+    "BREACH Harrow 12 · Warden 9"
+   ]
+  },
+  {
+   "step": "4 the next life",
+   "alive": true,
+   "primary": "smg",
+   "respawnIn": null,
+   "paused": false,
+   "screen": null,
+   "chip": null,
+   "sets": []
+  },
+  {
+   "step": "5 alive, editor open",
+   "alive": true,
+   "primary": "smg",
+   "respawnIn": null,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR NEXT SPAWN",
+   "sets": [
+    "MAIN M4A1 · Warden 9",
+    "*CLOSE Wasp 9 · Warden 9",
+    "BREACH Harrow 12 · Warden 9"
+   ]
+  },
+  {
+   "step": "5b picked a third",
+   "alive": true,
+   "primary": "smg",
+   "respawnIn": null,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR NEXT SPAWN",
+   "sets": [
+    "*MAIN M4A1 · Warden 9",
+    "CLOSE Wasp 9 · Warden 9",
+    "BREACH Harrow 12 · Warden 9"
+   ]
+  },
+  {
+   "step": "6 alive after picking the third: still the second",
+   "alive": true,
+   "primary": "smg",
+   "respawnIn": null,
+   "paused": false,
+   "screen": null,
+   "chip": null,
+   "sets": []
+  },
+  {
+   "step": "7 the life after: the third",
+   "alive": true,
+   "primary": "m4a1",
+   "respawnIn": null,
+   "paused": false,
+   "screen": null,
+   "chip": null,
+   "sets": []
+  },
+  {
+   "step": "8 phone, dead, editor",
+   "alive": false,
+   "primary": "m4a1",
+   "respawnIn": 1.0513333333333605,
+   "paused": true,
+   "screen": "LOADOUT",
+   "chip": "APPLIES AT YOUR RESPAWN IN 2",
+   "sets": [
+    "*MAIN M4A1 Warden 9",
+    "CLOSE Wasp 9 Warden 9",
+    "BREACH Harrow 12 Warden 9"
+   ]
+  }
+ ],
+ "errors": []
+}

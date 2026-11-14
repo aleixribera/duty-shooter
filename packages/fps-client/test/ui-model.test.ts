@@ -355,6 +355,24 @@ describe('when a loadout change applies, as the loadout screen says it', () => {
     expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).not.toBe('');
   });
 
+  it('counts down a respawn the editor from the pause menu does not hold, and says nothing where a pick re-arms at once (PLAN item 9e)', () => {
+    const at = (over: object) => loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false, ...over });
+    expect(at({ respawnIn: 2.3 })).toBe('Applies at your respawn in 3');
+    expect(at({ respawnIn: 0.4 })).toBe('Applies at your respawn in 1');
+    expect(at({ respawnIn: 0 })).toBe(at({ respawnIn: null }));
+    expect(at({ respawnIn: null })).toBe('Applies at your next spawn');
+    // The Countdown or a round's freeze: the server re-arms you where you stand.
+    expect(at({ atOnce: true })).toBe('');
+    // Between matches a respawn left over from the last one is not counted.
+    expect(at({ phase: 'nuke', respawnIn: 2 })).toBe('Applies at your next spawn');
+    // Charge brings you back next round; Gun Game never uses the loadout.
+    expect(at({ mode: 'charge', respawnIn: 2 })).toBe('Applies next round');
+    expect(at({ mode: 'charge', atOnce: true })).toBe('');
+    expect(at({ mode: 'gungame', respawnIn: 2 })).toBe('Gun Game deals its own guns');
+    // The Practice Range, off a server: at once.
+    expect(loadoutNote({ online: false, mode: null, phase: null, preparing: false, respawnIn: 2 })).toBe('');
+  });
+
   it('in a Battle Royale, at the drop until the Preparation ends, then from the next match (ticket 59)', () => {
     const lobbyNote = loadoutNote({ online: true, mode: 'battle-royale', phase: 'lobby', preparing: false });
     expect(loadoutNote({ online: true, mode: 'battle-royale', phase: 'playing', preparing: true })).toBe(lobbyNote);

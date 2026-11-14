@@ -10,6 +10,7 @@ import { escapeHtml } from '../ui/theme';
 export const CAPTIONS_CSS = `
 .ds-caption { position: absolute; left: 50%; bottom: calc(128px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(640px, calc(100vw - 32px)); padding: 7px 14px 8px; background: var(--ds-scrim); font-size: var(--ds-type-body); line-height: 1.3; text-align: center; text-shadow: none; display: none; }
 .ds-caption.on { display: block; }
+.ds-hud.paused .ds-caption { display: none; }
 .ds-caption small { font-size: var(--ds-type-small); color: var(--ds-text-2); margin-right: 10px; }
 /* A phone: the thumbs own the bottom, so the line sits under the match bar instead. */
 @media (max-width: 1000px) { .ds-caption { bottom: auto; top: calc(var(--ds-safe-t, 0px) + 108px); } html:not(.ds-touch) .ds-hud.objective .ds-caption { top: calc(var(--ds-safe-t, 0px) + 144px); } html:not(.ds-touch) .ds-hud.royale .ds-caption { top: calc(var(--ds-brstack-foot, 150px) + 12px); } }

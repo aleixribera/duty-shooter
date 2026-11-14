@@ -560,11 +560,18 @@ export type PauseAction = Exclude<Action, 'forward' | 'back' | 'left' | 'right'>
  * When a loadout change applies in the game being played, as the loadout
  * screen says it: a Battle Royale locks it when the Preparation ends, and a
  * pick after that waits for the next match (ticket 59). Empty off a server,
- * where a pick applies at once.
+ * and in the Countdown or a round's freeze (`atOnce`), where a pick applies at
+ * once. Dead with a respawn under way, it counts that respawn down, which the
+ * editor opened from the pause menu doesn't hold (PLAN item 9e).
  */
-export function loadoutNote(game: { readonly online: boolean; readonly mode: ModeId | null; readonly phase: Phase | null; readonly preparing: boolean }): string {
+export function loadoutNote(game: { readonly online: boolean; readonly mode: ModeId | null; readonly phase: Phase | null; readonly preparing: boolean; readonly atOnce?: boolean; readonly respawnIn?: number | null }): string {
   // Off a server a pick applies at once, which needs no saying.
   if (!game.online) return '';
-  if (game.mode !== 'battle-royale') return 'Applies at your next spawn';
-  return game.phase === 'playing' && !game.preparing ? 'Locked until the next match' : 'Applies when you drop';
+  if (game.mode === 'battle-royale') return game.phase === 'playing' && !game.preparing ? 'Locked until the next match' : 'Applies when you drop';
+  const playing = game.phase === 'playing';
+  if (playing && game.mode === 'gungame') return 'Gun Game deals its own guns';
+  if (playing && game.atOnce) return '';
+  if (playing && game.mode === 'charge') return 'Applies next round';
+  const respawn = playing ? (game.respawnIn ?? null) : null;
+  return respawn !== null && respawn > 0.05 ? `Applies at your respawn in ${Math.ceil(respawn)}` : 'Applies at your next spawn';
 }
