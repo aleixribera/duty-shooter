@@ -21,9 +21,9 @@ export interface Release {
 /** Where the copy for a build without git lives. */
 export const CHANGELOG_FILE = new URL('../changelog.json', import.meta.url);
 
-/** A commit changed the game when it touched the client, the server or the shared code outside their tests, scripts and notes. */
+/** A commit changed the game when it touched the client, the server or the shared code outside their tests, scripts, notes and this changelog's own build. */
 const GAME = /^(apps|packages)\//;
-const NOT_GAME = /(^|\/)(test|scripts)\/|\.test\.ts$|\.md$/;
+const NOT_GAME = /(^|\/)(test|scripts)\/|^apps\/range\/changelog\/|\.test\.ts$|\.md$/;
 const TAG = /tag: (v\d+\.\d+\.\d+)\b/g;
 /** Record and field separators in the log below. */
 const RS = '\x1e';

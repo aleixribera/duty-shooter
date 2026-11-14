@@ -29,7 +29,8 @@ describe('the changelog read from git', () => {
       record('tag: v2.1.0', '2026-11-02', 'Bots play Battle Royale: they drop, loot and fight.', 'packages/fps-core/src/bots.ts') +
       record('HEAD -> main, tag: v2.2.1, tag: v2.2.0, origin/main', '2026-11-12', 'Open timber deck stairs: an open flight.', 'apps/range/src/map/survival-town.ts', 'apps/range/test/survival-town.test.ts') +
       record('tag: v2.1.1', '2026-11-03', 'Ticket the end-of-match train not playing', '.scratch/next-level/issues/33.md') +
-      record('tag: v2.1.2', '2026-11-03', 'Check the sniper against its row', 'apps/range/test/sniper.test.ts', 'apps/range/scripts/ttk.mjs', 'AGENTS.md');
+      record('tag: v2.1.2', '2026-11-03', 'Check the sniper against its row', 'apps/range/test/sniper.test.ts', 'apps/range/scripts/ttk.mjs', 'AGENTS.md') +
+      record('tag: v2.1.3', '2026-11-04', 'The Arcade can show this changelog', 'apps/range/changelog/plugin.ts');
     expect(parseLog(log)).toEqual([
       { version: 'v2.2.1', date: '2026-11-12', title: 'Open timber deck stairs' },
       { version: 'v2.1.0', date: '2026-11-02', title: 'Bots play Battle Royale' },
