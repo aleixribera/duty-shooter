@@ -1,0 +1,16 @@
+Pass 82 (ticket 100): Survival Town free-for-all and Gun Game, first kill after the countdown, bots only, 48 seeded matches per row (SEED0=101), probe.test.ts.
+At 6 (HEAD):
+town ffa x6: in sight at T0 15/48; first kill median 1.9 s, under 2 s 28, under 3 s 45; kills/match by 3 s 1.10, 5 s 1.58, 10 s 2.98
+town gungame x6: in sight at T0 8/48; first kill median 2.1 s, under 2 s 18, under 3 s 43; kills/match by 3 s 1.10, 5 s 1.65, 10 s 3.17
+Spots left out at 6 (EXCLUDE), none better (in sight at T0 rises to every match):
+15,4.5: ffa 2.2 s (under 2 s 17), gungame 2.2 s
+8.5,18.5: ffa 1.7 s, gungame 1.9 s
+15,4.5;8.5,18.5: ffa 2.0 s, gungame 3.2 s (in sight 96/48)
+15,4.5;8.5,18.5;8.15,30.5: ffa 1.6 s, gungame 1.7 s
+15,4.5;8.5,18.5;-19,6: ffa 1.9 s, gungame 2.8 s
+At 4 (shipped):
+town ffa x4: in sight at T0 0/48; first kill median 4.5 s, under 2 s 0, under 3 s 11; kills/match by 3 s 0.23, 5 s 0.60, 10 s 1.08
+town gungame x4: in sight at T0 0/48; first kill median 4.8 s, under 2 s 0, under 3 s 8; kills/match by 3 s 0.25, 5 s 0.58, 10 s 1.33
+Pace over 90 s (UNTIL=90, 16 matches): town x4 13.5 kills (2.3 a player a minute), town x6 25.7 (2.9), switchyard x8 35.3 (2.9), station x8 45.8.
+Team modes for reference (8 players): town tdm 9.7 s, station tdm 4.3 s, switchyard tdm 8.9 s; town tdm at 4: 11.4 s.
+In the game: three Survival Town Free-for-all Bot Matches from the menu (town-four/, look.mjs MAP="Survival Town"): lobby "Bots fill the match to 4 players"; first kill in the feed at 16.8, 19.5, 16.9 s with the player standing still; no page errors.

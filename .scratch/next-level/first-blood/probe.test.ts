@@ -38,7 +38,8 @@ it('first blood', () => {
         const m = createNetworkedMatch({
           solids: b.solids,
           ladders: b.map.ladders ?? [],
-          spawns: process.env.UNION ? [...b.map.spawns.ffa, ...b.map.spawns.teams!.flat()] : b.map.spawns.ffa,
+          // EXCLUDE="15,4.5;8.5,18.5" leaves those free-for-all spots out (x, |z|).
+          spawns: (process.env.UNION ? [...b.map.spawns.ffa, ...b.map.spawns.teams!.flat()] : b.map.spawns.ffa).filter((sp) => !(process.env.EXCLUDE ?? '').split(';').filter(Boolean).some((k) => { const [x, z] = k.split(',').map(Number); return Math.abs(sp.position[0] - x!) < 0.3 && Math.abs(Math.abs(sp.position[2]) - z!) < 0.3; })),
           teamSpawns: b.map.spawns.teams!,
           zones: b.map.zones,
           sites: b.map.sites,
@@ -52,7 +53,7 @@ it('first blood', () => {
         const times: number[] = [];
         const at0 = new Map<string, string>();
         let startT: number | null = null;
-        for (let i = 0; i < 30 * 60 && (!first || sim0(m) - 5 < 10); i++) {
+        for (let i = 0; i < 30 * 200 && (!first || sim0(m) - 5 < Number(process.env.UNTIL ?? 10)); i++) {
           const out = m.step();
           const sim = m.server.simulation;
           const counting = (m.server as unknown as { snapshotInfo?: unknown }) && false;
@@ -81,7 +82,7 @@ it('first blood', () => {
           }
         }
         firsts.push(first || '>25s');
-        k3 += times.filter((t) => t < 3).length; k5 += times.filter((t) => t < 5).length; k10 += times.filter((t) => t < 10).length;
+        k3 += times.filter((t) => t < 3).length; k5 += times.filter((t) => t < 5).length; k10 += times.filter((t) => t < Number(process.env.UNTIL ?? 10)).length; // UNTIL=90: kills in the first 90 s
       }
       if (process.env.SHOW) for (const f of firsts) console.log(`  ${mode} ${f}`);
       const t = firsts.map((f) => (f.startsWith('>') ? 25 : parseFloat(f))).sort((a, b) => a - b);

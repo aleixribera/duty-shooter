@@ -18,11 +18,11 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-78: review 14c's defects worked, v2.213.2 to v2.213.8 (commits). Pass 79: review 2026-11-14d (1, 5 pass; 2, 3, 4, 6 fail; at 94-100% CPU; defects in BACKLOG); item 10's test not met. Pass 80: the scripted player stops standing in walls. Pass 81: Outposts no longer locks out (own-end respawns, 10 s flips, bots attack an enemy zone together; Survival Town bot-only margin 731 to 290, shut-outs 2 to 0; ticket 100). Next: fights in the first seconds (review 14d defect 1), then a fresh review.
+Passes 67-81: review 14c's defects worked (v2.213.x); pass 79 review 2026-11-14d (1, 5 pass; 2, 3, 4, 6 fail; 94-100% CPU; defects in BACKLOG), item 10's test not met; pass 80 the scripted player out of walls; pass 81 Outposts no longer locks out (ticket 100). Pass 82: fights in the first seconds: team openings (9-11 s) left at a 6v6 pace, Survival Town's free-for-all and Gun Game fill to 4 (first kill 1.9 to 4.5 s; ticket 100). Next: a fresh review.
 
 ## Needs Aleix
 
-- Overridable (pass 69): Station Nine's free-for-all and Gun Game fill with bots to 6 players, not 8, so they don't open on a fight (Switchyard 8, Survival Town 6 as before); CoD-style 8 would need new spawn spots there.
+- Overridable (passes 69, 82): free-for-all and Gun Game fill with bots to 4 on Survival Town and 6 on Station Nine (Switchyard 8), so they don't open on a fight; more would need new spawn spots there.
 - Overridable (pass 62): aimed, the Prism 2x's clear picture fills about 70% of the screen's height with its eyecup a ring round it; a bigger picture would push the cup off the top and bottom.
 - Overridable (pass 61): aimed, the shotgun holds your head 22 mm over the bead's line (gun tips 2 degrees).
 - Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).
