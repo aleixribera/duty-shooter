@@ -1,0 +1,38 @@
+{
+  "steps": [
+    {
+      "step": "loadout",
+      "ok": true
+    },
+    {
+      "step": "bare",
+      "drawn": "m4a1"
+    },
+    {
+      "step": "hover suppressor",
+      "ok": true
+    },
+    {
+      "step": "suppressor",
+      "drawn": "m4a1",
+      "text": "DETAILS\nM4A1 · Muzzle\nSUPPRESSOR\n\nOpens at Mastery 2: 75 kills with this gun.\n\nGives\nHeard from 50% as far, by bots and players, and no flash shows\nCosts\nFull damage to 27 → 23 m\nRound speed 628 → 534 m/s"
+    },
+    {
+      "step": "hover forest",
+      "ok": true
+    },
+    {
+      "step": "forest",
+      "drawn": "m4a1"
+    },
+    {
+      "step": "sets",
+      "lines": [
+        "MAIN / M4A1 / Warden 9",
+        "CLOSE / Wasp 9 / Warden 9",
+        "BREACH / Harrow 12 / Warden 9"
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -17,7 +17,7 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (laptop) has its two passes spent (ticket 99); item 1b (Backlit UI) shipped. Passes 39-44: PLAN item 7 roughly (ticket 117); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Passes 45-66: reviews 14a and 14b's gaps (tickets 100, 102, 103, 117; v2.211.x), each in BACKLOG.
 
-Passes 67-70: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG); its defects 2-4 worked (tickets 100, 102): no firing into smoke, hit marker frames the target, Station Nine FFA/Gun Game fill to 6, Battle Royale seats land facing open ground. Freezes track the PC's load (`kill-seen/`). Pass 71: defect 5, the Loadout's 3D gun (camo, attachments, phone names; its 4.6 s is shaders, two passes spent, in BACKLOG).
+Passes 67-70: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG); its defects 2-4 worked (tickets 100, 102): no firing into smoke, hit marker frames the target, Station Nine FFA/Gun Game fill to 6, Battle Royale seats land facing open ground. Freezes track the PC's load (`kill-seen/`). Pass 71 (defect 5, ticket 117): a locked fitting or camo looked at is tried on the Loadout's gun; phone loadout tiles put one gun a line. Next (pass 72): the scripted player's wall-pressing in the review (`steer`, `trailer/shots.mjs`), or the close-behind list (Sprint hints at the climax first).
 
 ## Needs Aleix
 

@@ -459,6 +459,14 @@ if (want('progress'))
     r.loadoutDrawn = await page.js(`document.querySelector('.ds-stage')?.dataset.drawn ?? null`);
     await sleep(1500);
     await page.shot('05-loadout');
+    // A fresh Profile has nothing earned: looking at a locked fitting or camo tries it on the gun.
+    const hoverIn = (row, text) => page.js(`(() => { const r = [...document.querySelectorAll('.ds-smith-row')].find((r) => r.querySelector('.ds-label')?.innerText.trim().toUpperCase() === ${JSON.stringify(row.toUpperCase())}); const b = r && [...r.querySelectorAll('.ds-mode')].find((b) => b.innerText.toUpperCase().startsWith(${JSON.stringify(text.toUpperCase())})); if (!b) return false; b.dispatchEvent(new MouseEvent('mouseenter')); return true; })()`);
+    r.previewFitting = await hoverIn('Muzzle', 'Suppressor');
+    await sleep(2500);
+    await page.shot('05-loadout-fitting');
+    r.previewCamo = await hoverIn('Camo', 'Forest');
+    await sleep(2500);
+    await page.shot('05-loadout-camo');
     await phone();
     await sleep(1500);
     await page.shot('05-loadout-phone');

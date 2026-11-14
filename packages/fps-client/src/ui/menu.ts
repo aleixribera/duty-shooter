@@ -185,6 +185,10 @@ export const MENU_CSS = `
 /* The kept loadouts: three tiles, each its name and the guns it carries. */
 .ds-kit.ds-sets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ds-kit.ds-sets .ds-mode span { letter-spacing: 0.04em; text-transform: none; }
+/* Each gun's name whole; on a phone's narrow tiles, one gun a line and no dot left hanging at a line's end. */
+.ds-kit.ds-sets .ds-mode .gun, .ds-kit.ds-sets .ds-mode .sep { display: inline; margin: 0; }
+.ds-kit.ds-sets .ds-mode .gun { white-space: nowrap; }
+@media (max-width: 640px) { .ds-kit.ds-sets .ds-mode .sep { display: none; } .ds-kit.ds-sets .ds-mode .gun { display: block; white-space: normal; overflow-wrap: anywhere; } }
 /* The gun in 3D over the Details card, turning on the page's dark. */
 .ds-stage { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 480px; margin: 0 auto 12px; cursor: grab; touch-action: pan-y; }
 .ds-stage:active { cursor: grabbing; }
@@ -1257,7 +1261,7 @@ export class Menu {
         const need = CAMO_MASTERY[c];
         const locked = level < need;
         const earned = `Earned at Mastery ${need}: ${MASTERY_KILLS[need - 1]} kills with this gun.`;
-        return { name: CAMO_NAMES[c], detail: locked ? `Mastery ${need}` : 'earned', locked, on: worn === c, note: locked ? earned : worn === c ? 'Worn.' : earned, pick: () => this.#pickCamo(id, c), preview: () => (locked ? turn(id, kitNow()) : turn(id, kitNow(), c)) };
+        return { name: CAMO_NAMES[c], detail: locked ? `Mastery ${need}` : 'earned', locked, on: worn === c, note: locked ? earned : worn === c ? 'Worn.' : earned, pick: () => this.#pickCamo(id, c), preview: () => turn(id, kitNow(), c) };
       }),
     ]);
     const optic = kit.optic;
@@ -1319,9 +1323,10 @@ export class Menu {
     const showChoice = (id: WeaponId, slot: Parameters<typeof slotLock>[0], name: string, c: GunsmithChoice) => {
       const on = (this.#settings.builds[id]?.[slot] ?? null) === c.id;
       const head = `<div class="ds-label">${escapeHtml(`${STATS.weapons[id].traits.name} · ${name}`)}</div><div class="name">${escapeHtml(c.name)}</div>`;
-      // The gun as this choice would build it.
-      if (!c.locked) turn(id, openKit(id, rebuild(this.#settings.builds, id, slot, c.id)[id], kills(id)));
-      if (c.locked) card.innerHTML = `${head}<p class="role">${escapeHtml(slotLock(slot))}</p>`;
+      // The gun as this choice would build it; a locked one is tried on over what is fitted, as a look at what it waits for.
+      const fitted = openKit(id, this.#settings.builds[id], kills(id));
+      turn(id, c.locked && c.id ? { ...fitted, [slot]: c.id } : openKit(id, rebuild(this.#settings.builds, id, slot, c.id)[id], kills(id)));
+      if (c.locked) card.innerHTML = `${head}<p class="role">${escapeHtml(slotLock(slot))}</p>${c.id ? effects(buildEffects(id, { [slot]: c.id })) : ''}`;
       else if (c.id === null) card.innerHTML = `${head}<p class="role">${escapeHtml(on ? 'Fitted: the gun as issued.' : 'The gun as issued.')}</p>`;
       else card.innerHTML = `${head}${on ? '<p class="role">Fitted.</p>' : ''}${effects(buildEffects(id, { [slot]: c.id }))}`;
     };
@@ -1425,7 +1430,7 @@ export class Menu {
       const b = h('button', '', `ds-mode${chosen ? ' on' : ''}`) as HTMLButtonElement;
       b.type = 'button';
       b.setAttribute('aria-pressed', String(chosen));
-      b.innerHTML = `<b>${escapeHtml(set.name)}</b><span>${escapeHtml(`${STATS.weapons[guns.primary].traits.name} · ${STATS.weapons[guns.secondary].traits.name}`)}</span>`;
+      b.innerHTML = `<b>${escapeHtml(set.name)}</b><span><span class="gun">${escapeHtml(STATS.weapons[guns.primary].traits.name)}</span><span class="sep"> · </span><span class="gun">${escapeHtml(STATS.weapons[guns.secondary].traits.name)}</span></span>`;
       b.addEventListener('click', () => {
         if (i === this.#settings.loadoutSet) return;
         const picked = pickLoadoutSet(this.#settings, i);
