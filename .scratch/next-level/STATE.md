@@ -21,7 +21,7 @@ Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop)
 
 Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
 
-Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). f: a kill dips the gun 60 ms down, held to 200 ms, back by 700 ms, the fall seen in 4 of 4 "b" frames (v2.221.0, `kill-dip/`). g (pass 99): every Battle Royale is on loadouts, the loot rules and both switches removed (v2.222.0, soak seed v2.222.1, `royale-loadouts/live3/`). Next: 9h (adaptive bots, hidden), then the loop pauses.
+Passes 93-99: item 9, ticket 119 (details there): a clock `9:23` (v2.215.0), b Random next match on (v2.216.0), c a name asked once (v2.217.0), d loadout plates while dead (v2.219.0), e the editor from pause (v2.220.0), f the kill dip (v2.221.0), g every Battle Royale on loadouts (v2.222.0). h (pass 100): hidden adaptive bots, each person's last two minutes of fights tuning the bots fighting them within ±25%, a trailing team's bots +10% (v2.223.0, `adaptive-bots/results.txt`: strong K/D 2.67 to 2.17, weak 0.41 to 0.48, lopsided gaps 299 to 242). Ticket 119 resolved. Item 9 done; the loop pauses here. When it resumes: PLAN item 7's open parts, then a fresh review.
 
 ## Needs Aleix
 
@@ -44,6 +44,7 @@ Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
 - Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14h (1, 5 pass; 2, 3, 4, 6 fail; quiet-PC frames over 50 ms only on the island, 4, worst 62.6).
+- Adaptive bots: measured by `ADAPT_RUNS=1 npx vitest run apps/range/test/adaptive-bots.test.ts` (~6 min); unit tests `bots-adapt.test.ts`.
 - CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken

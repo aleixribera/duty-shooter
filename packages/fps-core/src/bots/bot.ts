@@ -58,6 +58,11 @@ export interface BotView {
   readonly ground?: GroundOrder;
   /** A team mode: what its team has pinged (a Battle Royale's is the ground's). */
   readonly intel?: SquadIntel;
+  /**
+   * How much sharper (positive) or slower (negative) than its standard the bot
+   * fights `target`, as a share of its reaction and aim (`adapt.ts`); 0 when absent.
+   */
+  readonly edge?: (target: PlayerId) => number;
 }
 
 /** Work the bots of one tick share. */
@@ -417,6 +422,8 @@ interface Engagement {
   /** Firing until, then paused until (bursts at range). */
   burstUntil: number;
   pauseUntil: number;
+  /** Its reaction and aim error in this fight as a share of its standard: 1 less the edge against the target (`BotView.edge`). */
+  readonly hands: number;
 }
 
 const pose = (p: PlayerOutput): HitPose => ({ position: p.position, yaw: p.yaw, stance: p.stance, eyeHeight: p.eyeHeight });
@@ -844,7 +851,7 @@ export class Bot {
       const p = this.profile;
       // A scope magnifies the picture, so the same unsteady hand is off by less of an angle.
       const magnified = 1 + (row.handling.zoom.value - 1) * self.weapon.ads;
-      const wobble = (p.aimError * p.wobble) / magnified;
+      const wobble = (p.aimError * target.hands * p.wobble) / magnified;
       target.errYaw = target.errYaw * settle + wobble * Math.sin(time * p.wobbleRate + (this.#seed % 7)) * (1 - settle);
       target.errPitch = target.errPitch * settle + (wobble * 0.6 * Math.sin(time * p.wobbleRate * 1.3 + (this.#seed % 5)) + p.aimBias / magnified) * (1 - settle);
       // Through a scope, steer against the sway as far as the bot's hand is steady.
@@ -1461,7 +1468,9 @@ export class Bot {
       const p = this.profile;
       // Off by more on a target on the move, while on the move itself, and when just hit (Battle Royale).
       const situation = ground ? 1 + 0.4 * Math.min(1, Math.hypot(best.p.velocity[0], best.p.velocity[2]) / 5) + (Math.hypot(self.velocity[0], self.velocity[2]) > 2 ? 0.3 : 0) + (time - this.#shotAt < 1 ? 0.3 : 0) : 1;
-      const e = p.aimError * (1 + Math.min(d, 40) / 40) * situation;
+      // Sharper or slower against a person in form or out of it, and a little sharper on a side far behind (adapt.ts).
+      const hands = 1 - (view.edge?.(best.p.id) ?? 0);
+      const e = p.aimError * hands * (1 + Math.min(d, 40) / 40) * situation;
       // Someone at the edge of view or far off takes longer to notice (on the ground of a Battle Royale, the spotting above did that).
       const notice = ground ? 0 : 0.22 * Math.min(1, off / FOV) ** 2 + (0.15 * Math.min(d, 50)) / 50;
       // A big turn onto them sometimes swings past before settling back.
@@ -1470,7 +1479,7 @@ export class Bot {
       this.#target = {
         id: best.p.id,
         trail: [],
-        react: time + p.reaction * (0.85 + 0.35 * r(1)) + notice,
+        react: time + p.reaction * hands * (0.85 + 0.35 * r(1)) + notice,
         // Only a head over the cover: that's what it aims at.
         zone: r(2) < p.headshots || (ground !== null && !best.chest) ? 'head' : 'upperTorso',
         errYaw: (r(3) - 0.5) * 2 * e + swing,
@@ -1480,6 +1489,7 @@ export class Bot {
         crouch: r(5) < p.crouch,
         burstUntil: 0,
         pauseUntil: 0,
+        hands,
       };
       this.#chasing = best.p.id;
       this.#holdUntil = 0;
@@ -1804,7 +1814,8 @@ export class Bot {
     if (time - (this.#loud.get(p.id) ?? -Infinity) < 1.5) rate *= 3;
     const told = this.#memory.get(p.id);
     if (told && time - told.time < 5) rate *= 2;
-    return rate * (1 - 0.5 * Math.min(1, off / FOV) ** 2);
+    // Quicker or slower to spot a person in form or out of it, as its reaction is (adapt.ts).
+    return (rate * (1 - 0.5 * Math.min(1, off / FOV) ** 2)) / (1 - (view.edge?.(p.id) ?? 0));
   }
 
   /**

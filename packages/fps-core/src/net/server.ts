@@ -1,3 +1,4 @@
+import { BotAdapter } from '../bots/adapt';
 import { Bot, type BotObjective, type BotView, type ThinkBudget } from '../bots/bot';
 import { planCharge, planOutposts } from '../bots/planner';
 import { SquadPlanner, type GroundOrder } from '../bots/squad-plan';
@@ -173,6 +174,10 @@ export interface BotOptions {
   readonly alwaysOn?: boolean;
   /** How a named bot plays, given how it would (a soak's stand-in for a good player). */
   readonly profile?: (name: string, base: BotProfile) => BotProfile;
+  /** Whether the bots fighting a person adapt to that person's form, and a trailing side's bots to the score gap (`bots/adapt.ts`); on by default. */
+  readonly adapt?: boolean;
+  /** A named bot that stands in for a person (a scripted strong or weak player): the bots fighting it adapt to it as to a person, and it never adapts itself. */
+  readonly standIn?: (name: string) => boolean;
 }
 
 /** Seconds between the bot teams' plans. */
@@ -418,6 +423,12 @@ export class GameServer {
   /** Props shot this match; cleared when a match starts. */
   readonly #popped = new Set<string>();
   readonly #bots = new Map<PlayerId, BotSeat>();
+  /** Each person's form and the edge it gives the bots fighting them (PLAN 9h). */
+  readonly #adapter = new BotAdapter();
+  /** The match the adapter's forms belong to. */
+  #adaptMatch = -1;
+  /** Each side's edge against a target, made once: the adapter it reads moves underneath. */
+  readonly #edges = new Map<TeamId, (target: PlayerId) => number>();
   /** Bots on: they fill each match to its map's team size, or to the host's own size while one is set. */
   #fill: boolean;
   #customBots: number | null = null;
@@ -1741,6 +1752,7 @@ export class GameServer {
     }
     if (!this.#squads) for (const team of heard) if (!this.#teamIntel.has(team)) this.#teamIntel.set(team, new SquadIntel());
     const teamIntel = this.#squads ? null : this.#teamIntel;
+    const edgeFor = this.#adapt(time);
     for (const [id, seat] of this.#bots) {
       const self = seats.get(id);
       if (!self || frozen || awake < waking++ % WAKE_TICKS) {
@@ -1766,6 +1778,7 @@ export class GameServer {
         ...(budget.plans >= plansPerTick ? { rest: true } : {}),
         ...(ground ? { ground } : {}),
         ...(teamIntel?.has(self.team) ? { intel: teamIntel.get(self.team)! } : {}),
+        ...(edgeFor && !this.#options.bots?.standIn?.(seat.name) ? { edge: edgeFor(self.team) } : {}),
       };
       cmds[id] = seat.bot.think(view);
       const ping = seat.bot.takePing();
@@ -1777,6 +1790,37 @@ export class GameServer {
     }
     this.#facts.plans = budget.plans;
     this.#facts.arcs = arcs - budget.arcs;
+  }
+
+  /**
+   * Hears last tick's fights and moves each person's edge (PLAN 9h), then
+   * gives the bots of a side the edge they fight each target with; null with
+   * adapting off.
+   */
+  #adapt(time: number): ((team: TeamId) => (target: PlayerId) => number) | null {
+    const options = this.#options.bots;
+    if (options?.adapt === false) return null;
+    const adapter = this.#adapter;
+    if (this.#adaptMatch !== this.#matchNumber) {
+      adapter.reset();
+      this.#adaptMatch = this.#matchNumber;
+    }
+    const standIn = options?.standIn;
+    const isPerson = (id: PlayerId) => {
+      const seat = this.#bots.get(id);
+      return seat === undefined || (standIn?.(seat.name) ?? false);
+    };
+    adapter.hear(this.#lastEvents, time, isPerson);
+    const ids = this.#last.players.filter((p) => p.kind === 'player' && isPerson(p.id)).map((p) => p.id);
+    const teams = this.#mode.teamScores();
+    const live = this.#phase === 'playing' && !this.#countingDown;
+    adapter.step(time, live ? time - this.#matchStart : 0, ids, teams ? { scores: teams, limit: this.#mode.killLimit ?? this.#mode.scoreLimit } : null);
+    const byTeam = this.#edges;
+    return (team) => {
+      let edge = byTeam.get(team);
+      if (!edge) byTeam.set(team, (edge = (target) => adapter.edge(team, target)));
+      return edge;
+    };
   }
 
   /** Queues `by`'s ping for the next tick, within the server's and the seat's caps. */

@@ -1,4 +1,6 @@
 export { Bot } from './bot';
+export { ADAPT_AFTER, ADAPT_CAP, ADAPT_RAMP, BotAdapter, FORM_WINDOW, GAP_LIFT, formEdge, gapLift } from './adapt';
+export type { TeamStanding } from './adapt';
 export type { BotObjective, BotView } from './bot';
 export { planCharge, planOutposts, targetSite } from './planner';
 export type { PlannedBot } from './planner';
