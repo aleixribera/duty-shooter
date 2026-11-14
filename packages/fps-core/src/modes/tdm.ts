@@ -31,7 +31,7 @@ export class TeamDeathmatch implements GameMode {
   constructor(options: TeamDeathmatchOptions = {}) {
     this.killLimit = options.killLimit === undefined ? 75 : options.killLimit;
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
-    this.#roster = new TeamRoster(options.random);
+    this.#roster = new TeamRoster(options.random, true);
   }
 
   join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {

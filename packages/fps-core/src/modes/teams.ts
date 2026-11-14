@@ -25,8 +25,9 @@ export interface TeamEntry {
  * team deathmatch and the objective modes. Joiners go to the smaller team
  * (on a tie, the one behind on score); teams are rebalanced at match start
  * with as few moves as possible. A player's first spawn of a match is at
- * their team's spawn set, unless enemies stand in it, taken in an order
- * drawn afresh each match and round; later spawns are out of enemy sight,
+ * their team's spawn set (which set is drawn each match where the mode
+ * asks), unless enemies stand in it, taken in an order drawn afresh each
+ * match and round; later spawns are out of enemy sight,
  * near teammates and away from enemies, drawn among the safest.
  */
 export class TeamRoster {
@@ -42,12 +43,24 @@ export class TeamRoster {
   /** Kills of those who left this match, kept with the team they were scored for: a team's tally never drops when someone goes. */
   readonly #banked = new Map<TeamId, number>();
   readonly #random: () => number;
+  /** Whether each match draws which team starts at which spawn set (see the constructor). */
+  readonly #drawSides: boolean;
+  /** This match's draw: the first team starts at the second set, and the second at the first. */
+  #swapped = false;
   /** Everyone's Score: the kills are read in {@link recordKills}, and the mode adds its own awards. */
   readonly score = new ScoreKeeper();
 
-  /** `random` (0 to 1, like `Math.random`, its default) draws where players spawn. */
-  constructor(random: () => number = Math.random) {
+  /**
+   * `random` (0 to 1, like `Math.random`, its default) draws where players
+   * spawn. With `drawSides`, each match also draws which end of the map each
+   * team starts at, as well-loved shooters do, so a team doesn't open every
+   * match on the same yard and the same view (a draw under one half keeps the
+   * map's order, so a `random` of 0 always does). A mode whose sides mean
+   * something (Charge's attackers and defenders) leaves it off.
+   */
+  constructor(random: () => number = Math.random, drawSides = false) {
     this.#random = random;
+    this.#drawSides = drawSides;
   }
 
   get(id: PlayerId): TeamEntry | undefined {
@@ -103,6 +116,7 @@ export class TeamRoster {
     this.#nextFirst.clear();
     this.#firstOrder.clear();
     this.#recent.clear();
+    this.#swapped = this.#drawSides && this.#random() >= 0.5;
     const [a, b] = TEAMS;
     const add = (e: MatchEntrant, team: TeamId) => this.#entries.set(e.id, { id: e.id, name: e.name, team, kills: 0, deaths: 0, order: this.#order++, fixed: e.side !== undefined });
     this.score.start(entrants.map((e) => e.id));
@@ -146,7 +160,7 @@ export class TeamRoster {
     this.#spawned.add(id);
     const mates = living.filter((p) => p.team === team);
     const enemies = living.filter((p) => p.team !== team);
-    const own = ctx.teamSpawns?.[TEAMS.indexOf(team)] ?? null;
+    const own = ctx.teamSpawns?.[this.#swapped ? 1 - TEAMS.indexOf(team) : TEAMS.indexOf(team)] ?? null;
     if (first && own && own.length > 0) {
       // The next of the team's own spawns with no enemy on it (at match start, all of them); a joiner mid-match whose yard is overrun spawns as on a respawn.
       const i = this.#nextFirst.get(team) ?? 0;

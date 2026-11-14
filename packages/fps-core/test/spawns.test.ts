@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation, createWorld, type Vec3 } from '@duty-shooter/fps-core';
 import { box } from '@duty-shooter/fps-core/harness';
-import { FreeForAll, TeamDeathmatch, type ModeContext, type SpawnPoint } from '@duty-shooter/fps-core/modes';
+import { FreeForAll, Outposts, TeamDeathmatch, type ModeContext, type SpawnPoint } from '@duty-shooter/fps-core/modes';
 import { FLOOR } from './support/movement';
 
 /** A seeded stream of values in [0, 1), so the draws below are the same every run. */
@@ -17,6 +17,9 @@ function seeded(seed: number): () => number {
 
 /** A tall wall along x = 10, from z = -2 to 2: whoever stands west of it can't see east of it. */
 const world = createWorld([FLOOR, box({ min: [10, 0, -2], max: [10.4, 4, 2], material: 'brick' })]);
+
+/** Draws that keep each team at its own set's end of the map (and take the first of every other draw). */
+const KEEP_ENDS = () => 0;
 
 const at = (x: number, z: number): SpawnPoint => ({ position: [x, 0, z], yaw: 0 });
 
@@ -69,7 +72,7 @@ describe('spawn rules', () => {
     const orange = [at(0, -30)];
     const hidden = at(14, 0);
     const ctx = context([{ position: [0, 0, 0], team: 2 }], [hidden, at(-40, 0)], [blue, orange]);
-    const tdm = new TeamDeathmatch();
+    const tdm = new TeamDeathmatch({ random: KEEP_ENDS });
     tdm.start([{ id: 'p1', name: 'enemy', team: 2 }, { id: 'p9', name: 'me', team: 1 }]);
     tdm.chooseSpawn('p1', ctx);
     expect(tdm.chooseSpawn('p9', ctx)).toBe(blue[0]);
@@ -106,7 +109,7 @@ describe('spawn rules', () => {
     const copy = at(30, 10);
     const other = at(30, -12);
     const ctx = context([{ position: [-30, 0, 0], team: 2 }], [copy, other], [[home], [at(-30, 0)]]);
-    const tdm = new TeamDeathmatch();
+    const tdm = new TeamDeathmatch({ random: KEEP_ENDS });
     tdm.start([{ id: 'p1', name: 'enemy', team: 2 }, { id: 'p9', name: 'me', team: 1 }]);
     tdm.chooseSpawn('p1', ctx);
     expect(tdm.chooseSpawn('p9', ctx)).toBe(home);
@@ -117,7 +120,7 @@ describe('spawn rules', () => {
     const home = at(0, 30);
     // The enemy stands in the home spawn's yard.
     const ctx = context([{ position: [0, 0, 26], team: 2 }], [at(14, 0)], [[home], [at(0, -30)]]);
-    const tdm = new TeamDeathmatch();
+    const tdm = new TeamDeathmatch({ random: KEEP_ENDS });
     tdm.start([{ id: 'p1', name: 'enemy', team: 2 }]);
     tdm.chooseSpawn('p1', ctx);
     tdm.join('p9', 'me');
@@ -188,7 +191,7 @@ describe('spawn rules', () => {
       expect(new Set(picks).size).toBe(safe.length);
     });
 
-    it("a team's first spawns of a match come in a different order each match, always from its own set", () => {
+    it("a team's first spawns of a match come in a different order each match, all from one end, and each match draws which end", () => {
       const blue = [at(0, 30), at(4, 30), at(8, 30), at(12, 30), at(16, 30)];
       const orange = [at(0, -30), at(4, -30), at(8, -30), at(12, -30), at(16, -30)];
       const ctx = context([], [at(40, 0)], [blue, orange]);
@@ -197,14 +200,33 @@ describe('spawn rules', () => {
         tdm.start([{ id: 'p9', name: 'me', team: 1 }, { id: 'p8', name: 'mate', team: 1 }, { id: 'p1', name: 'enemy', team: 2 }]);
         const mine = tdm.chooseSpawn('p9', ctx);
         const mate = tdm.chooseSpawn('p8', ctx);
-        // Two players of a team never share a first spot.
+        const enemy = tdm.chooseSpawn('p1', ctx);
+        // Two players of a team never share a first spot; a team starts together at one end, the other team at the other.
         expect(mate).not.toBe(mine);
-        expect(blue).toContain(mate);
-        expect(orange).toContain(tdm.chooseSpawn('p1', ctx));
+        const [own, theirs] = blue.includes(mine) ? [blue, orange] : [orange, blue];
+        expect(own).toContain(mine);
+        expect(own).toContain(mate);
+        expect(theirs).toContain(enemy);
         return mine;
       });
-      for (const f of firsts) expect(blue).toContain(f);
       expect(new Set(firsts).size).toBeGreaterThanOrEqual(4);
+      // Neither end is Blue's for good: over 12 matches Blue starts at each.
+      expect(firsts.filter((f) => blue.includes(f)).length).toBeGreaterThanOrEqual(3);
+      expect(firsts.filter((f) => orange.includes(f)).length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("Outposts draws the ends too; a random of 0 keeps the map's order", () => {
+      const blue = [at(0, 30), at(4, 30)];
+      const orange = [at(0, -30), at(4, -30)];
+      const ctx = context([], [at(40, 0)], [blue, orange]);
+      const entrants = [{ id: 'p9', name: 'me', team: 1 }, { id: 'p1', name: 'enemy', team: 2 }] as const;
+      const kept = new Outposts({ random: () => 0 });
+      kept.start(entrants);
+      expect(blue).toContain(kept.chooseSpawn('p9', ctx));
+      const drawn = new Outposts({ random: () => 0.75 });
+      drawn.start(entrants);
+      expect(orange).toContain(drawn.chooseSpawn('p9', ctx));
+      expect(blue).toContain(drawn.chooseSpawn('p1', ctx));
     });
   });
 });

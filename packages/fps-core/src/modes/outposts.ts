@@ -76,7 +76,7 @@ export class Outposts implements GameMode {
   constructor(options: OutpostsOptions = {}) {
     this.scoreLimit = options.scoreLimit === undefined ? 200 : options.scoreLimit;
     this.timeLimit = options.timeLimit === undefined ? 600 : options.timeLimit;
-    this.#roster = new TeamRoster(options.random);
+    this.#roster = new TeamRoster(options.random, true);
   }
 
   join(id: PlayerId, name: string, _ctx?: ModeContext, side?: TeamId): TeamId {
