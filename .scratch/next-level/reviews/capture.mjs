@@ -207,12 +207,15 @@ async function arm(page, map) {
   })()`);
 }
 
-/** Starts recording the game's sound; `stop` saves it as <file>.webm. */
+/**
+ * Starts recording the game's sound; `stop` saves it as <file>.webm. At 256 kb/s: Opus at 96 kb/s
+ * added about 1.3 dB to gunfire's true peak (pass 60), more than the game's own output had.
+ */
 async function record(page) {
   const ok = await page.js(`(() => {
     const c = globalThis.__tapContext;
     if (!c) return 'no audio context';
-    const r = new MediaRecorder(c.__tap.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 96000 });
+    const r = new MediaRecorder(c.__tap.stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 256000 });
     const chunks = [];
     r.ondataavailable = (e) => chunks.push(e.data);
     r.start(1000);

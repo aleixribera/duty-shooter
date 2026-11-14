@@ -23,21 +23,21 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
 
-Passes 55-59 (tickets 100, 102, 117; v2.211.11-15): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s), 2 (your own flash and smoke part round the aim point), 3 (the camera no longer sits inside a teammate), 4 (Loadout shows each gun's still in under 50 ms until its model is drawn, 6-9 s on a fresh page; the gun sways about side on; above the tiles on a phone) and 5 (the Range panel blanks at each drawn gun, never counts more hits than shots, holds its Distance through the kick). Next (pass 60): the "close behind" list (audio true peak +1.0 dBTP first), or a fresh review once enough has moved.
+Passes 55-59 (tickets 100, 102, 117; v2.211.11-15): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s), 2 (your own flash and smoke part round the aim point), 3 (the camera no longer sits inside a teammate), 4 (Loadout shows each gun's still in under 50 ms until its model is drawn, 6-9 s on a fresh page; the gun sways about side on; above the tiles on a phone) and 5 (the Range panel blanks at each drawn gun, never counts more hits than shots, holds its Distance through the kick). Pass 60 (ticket 100): the master no longer clips; a dense fight rendered offline peaks at -1.5 dBTP (was +0.1), 1 LU quieter (`audio/peak.mjs`); a Station Nine free-for-all recorded -1.2 / -0.9 dBTP (`audio/match-after`). Next (pass 61): the rest of the "close behind" list (the shotgun hiding the dummy first), or a fresh review once enough has moved.
 
 ## Needs Aleix
 
 - Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).
 - Overridable (pass 45): aiming through the Prism 2x or the Vantage now shows the world and the reticle only, so your own muzzle flash no longer shows inside the sight (it never covers the target); say if you want a flash there.
-- Battle Royale on loadouts (PLAN item 7, pass 43): once you have played loadouts in Bot Match, say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it first: Local bots with `?drops=resupply`.
-- Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level; Urban and Night pixelated); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
+- Battle Royale on loadouts (PLAN item 7, pass 43): say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it: Local bots, `?drops=resupply`.
+- Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).
 - Overridable (pass 29): weapon redesign numbers (ticket 112): shotgun one aimed blast to ~10 m; Trident one burst to 36 m; Vantage three body or head+body anywhere at 380 rpm; Marshal one head shot to 35 m.
 - Overridable (pass 26): the Warden 9 and Marshal .357 are now held further out when aimed (0.46 m); further would shrink the front post below 2 px on a phone.
 - Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
 - The laptop: Chromium for the toaster runs, since most players use Chrome and Firefox's own presenting hides the game's cost there: run `ssh -t uni-laptop "sudo dnf install -y chromium"` once.
-- A look (pass 31): open the game in Firefox on the laptop and go to Zero Island's Dustlands; is the sand blue? Firefox's WebGPU frames came out with red and blue swapped in a headless run (BACKLOG).
+- A look (pass 31): open the game in Firefox on the laptop and go to Zero Island's Dustlands; is the sand blue? a headless Firefox WebGPU run swapped red and blue (BACKLOG).
 
 ## Where things stand
 

@@ -1,0 +1,13 @@
+{
+  "label": "trim1",
+  "master": {
+    "samplePeakDb": -2,
+    "lufs": -12.3,
+    "truePeakDb": -1.5
+  },
+  "bare": {
+    "samplePeakDb": -2.8,
+    "lufs": -14.8,
+    "truePeakDb": -2.6
+  }
+}

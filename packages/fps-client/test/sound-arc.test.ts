@@ -5,7 +5,7 @@ import { BAR, FINAL_TEN, LAST_MINUTE, LOOP, MUSIC_SCENES, MenuArranger, MusicDir
 import { BED_SECONDS, LOOPED, STEMS, renderStem } from '../src/audio/music/score';
 import { SIREN_BLAST_SECONDS, SIREN_FALL_SECONDS, SIREN_HOLD_SECONDS, SIREN_OVERLAP, SIREN_RISE_SECONDS, sirenBlast } from '../src/audio/countdown';
 import { createRng } from '../src/audio/dsp';
-import { busOf, distanceGain } from '../src/audio/system';
+import { busOf, distanceGain, softClipCurve } from '../src/audio/system';
 import { boltReleaseVoice, chargingHandleVoice, dryFireVoice, magInVoice, magOutVoice, weaponRaiseVoice } from '../src/audio/weapon';
 import { CountdownSounds, geigerRate, sirenSpot } from '../src/countdown-sounds';
 import { DEFAULT_SETTINGS, mixOf, parseSettings } from '../src/settings';
@@ -552,5 +552,19 @@ describe('the five-minute siren', () => {
     // Cut: some 10 dB down two seconds on, and gone by the end.
     expect(rms(4.2, 4.6)).toBeLessThan(motor * 0.35);
     expect(rms(SIREN_BLAST_SECONDS - 0.2, SIREN_BLAST_SECONDS)).toBeLessThan(motor * 0.05);
+  });
+});
+
+describe("the master's clipper", () => {
+  it('passes quiet sound untouched, bends near the ceiling and never reaches it', () => {
+    const ceiling = dbToLinear(-1.5);
+    const curve = softClipCurve(ceiling, 0.2);
+    const at = (x: number) => curve[Math.round(((x + 1) / 2) * (curve.length - 1))];
+    expect(at(0.5)).toBeCloseTo(0.5, 3);
+    expect(at(-0.5)).toBeCloseTo(-0.5, 3);
+    expect(at(0.8)).toBeLessThan(0.8);
+    for (let i = 1; i < curve.length; i++) expect(curve[i]).toBeGreaterThanOrEqual(curve[i - 1] ?? -1);
+    expect(Math.max(...curve.map(Math.abs))).toBeLessThan(ceiling);
+    expect(at(1)).toBeGreaterThan(ceiling * 0.95);
   });
 });

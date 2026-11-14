@@ -333,7 +333,7 @@ const RECIPES: Readonly<Record<WeaponId, Recipe>> = {
   // .308 from a bolt gun: a crack as hard as the rifle's on the heaviest low end of any, and an echo that rolls for more than a second.
   sniper: {
     seconds: 0.7,
-    // In your own hands the .308 is the loudest thing in the game: its front is held under the master's clip knee, and keeps its full height for everyone else.
+    // In your own hands the .308 is the loudest thing in the game: its front is held under the master's ceiling, and keeps its full height for everyone else.
     front: { ms: [0.36, 0.46], gain: 1.35, away: 1.55 },
     snap: { hz: [1900, 2400], tau: [0.0028, 0.0036], gain: 1 },
     crack: { hz: [2400, 2900], q: 0.8, tau: [0.009, 0.012], gain: 0.85 },

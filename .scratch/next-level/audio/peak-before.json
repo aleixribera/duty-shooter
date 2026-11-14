@@ -1,0 +1,13 @@
+{
+  "label": "before",
+  "master": {
+    "samplePeakDb": -0.9,
+    "lufs": -11.4,
+    "truePeakDb": 0.1
+  },
+  "bare": {
+    "samplePeakDb": -1,
+    "lufs": -14.7,
+    "truePeakDb": -1
+  }
+}

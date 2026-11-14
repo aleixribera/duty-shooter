@@ -236,6 +236,35 @@ function finiteOr(v: number | undefined, fallback: number): number {
 /** How long (ms) a first press's sound waits for the worker before rendering on the page instead. */
 const WORKER_WAIT_MS = 2000;
 
+/**
+ * The master's ceiling: games and streaming hold true peaks at or under -1 dBTP (Sony's ASWG-R001,
+ * EBU R128 s1), so the clipper stops at -1.5 dBFS, leaving room for what lands between samples.
+ */
+const CEILING_DB = -1.5;
+/**
+ * Takes back most of the limiter's own make-up gain (threshold -3 dB, ratio 20: about +1.7 dB). A
+ * dense fight offline (.scratch/next-level/audio/peak.mjs) then peaks at -1.5 dBTP, 1 LU quieter.
+ */
+const LIMITER_TRIM_DB = -1;
+/** Where under the ceiling the clipper starts to bend, as a share of the ceiling. */
+const CLIP_HEADROOM = 0.2;
+
+/**
+ * A soft clipper's WaveShaper curve over -1..1: straight up to `ceiling * (1 - headroom)`, then a
+ * tanh bend that approaches `ceiling` and never passes it. Odd, rising.
+ */
+export function softClipCurve(ceiling: number, headroom: number, n = 2049): Float32Array<ArrayBuffer> {
+  const knee = ceiling * (1 - headroom);
+  const span = ceiling - knee;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    const a = Math.abs(x);
+    curve[i] = Math.sign(x) * (a < knee ? a : knee + span * Math.tanh((a - knee) / span));
+  }
+  return curve;
+}
+
 export interface SoundSystemOptions {
   /** The master volume (0..1); the same as `mix.master`. */
   readonly volume?: number;
@@ -287,7 +316,7 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
 
   function buildGraph(c: AudioContext): Graph {
     // Glue compressor: gentle, slow enough to let the transient through (punch), then a
-    // fast brick-wall-ish limiter, then a soft clipper that only touches the last ~1 dB.
+    // fast brick-wall-ish limiter, then a soft clipper that bends over the last ~2 dB under the ceiling.
     const master = c.createGain();
     master.gain.value = mix.master;
     const comp = c.createDynamicsCompressor();
@@ -302,17 +331,17 @@ export function createSoundSystem(options?: SoundSystemOptions): SoundSystem {
     limiter.ratio.value = 20;
     limiter.attack.value = 0.001;
     limiter.release.value = 0.08;
+    // A DynamicsCompressorNode adds its own make-up gain (about +1.7 dB for this limiter), which
+    // pushed loud fights into the clipper's hard edge at full scale: true peaks over 0 dBTP.
+    // Take most of it back off, then clip softly under the ceiling, oversampled so the clipper's
+    // harmonics don't fold back into overs between the samples.
+    const trim = c.createGain();
+    trim.gain.value = dbToLinear(LIMITER_TRIM_DB);
     const clip = c.createWaveShaper();
-    const n = 2049;
-    const curve = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = (i / (n - 1)) * 2 - 1;
-      const a = Math.abs(x);
-      curve[i] = Math.sign(x) * (a < 0.85 ? a : 0.85 + 0.15 * Math.tanh((a - 0.85) / 0.15));
-    }
-    clip.curve = curve;
+    clip.curve = softClipCurve(dbToLinear(CEILING_DB), CLIP_HEADROOM);
+    clip.oversample = '4x';
     if (options?.bareMaster) master.connect(c.destination);
-    else master.connect(comp).connect(limiter).connect(clip).connect(c.destination);
+    else master.connect(comp).connect(limiter).connect(trim).connect(clip).connect(c.destination);
 
     const gain = (value: number, to: AudioNode): GainNode => {
       const g = c.createGain();
