@@ -99,8 +99,12 @@ export interface Settings {
   readonly voiceVolume: number;
   readonly uiVolume: number;
   readonly name: string;
-  /** What to carry, applied from the next spawn. */
+  /** What to carry, applied from the next spawn: always the chosen one of `loadouts`. */
   readonly loadout: Loadout;
+  /** The three loadouts kept, each with its name (PLAN item 7); one is picked at spawn. */
+  readonly loadouts: readonly LoadoutSet[];
+  /** Which of `loadouts` is carried (0, 1 or 2). */
+  readonly loadoutSet: number;
   /** Each gun's own build in the gunsmith (ticket 19), kept when another gun is carried; the loadout takes the build of the guns it carries. */
   readonly builds: Readonly<Partial<Record<WeaponId, Attachments>>>;
   readonly passphrase: string;
@@ -145,6 +149,13 @@ const DEFAULT_BINDINGS: Readonly<Record<Action, string>> = {
   ping: 'Mouse1',
 };
 
+/** The three loadouts a new player starts with, each a gun every Profile has open: the rifle, the SMG and the shotgun, with the pistol. */
+export const DEFAULT_LOADOUT_SETS: readonly LoadoutSet[] = [
+  { name: 'Main', loadout: DEFAULT_LOADOUT },
+  { name: 'Close', loadout: { ...DEFAULT_LOADOUT, primary: 'smg' } },
+  { name: 'Breach', loadout: { ...DEFAULT_LOADOUT, primary: 'shotgun' } },
+];
+
 export const DEFAULT_SETTINGS: Settings = {
   bindings: DEFAULT_BINDINGS,
   adsMode: 'hold',
@@ -178,6 +189,8 @@ export const DEFAULT_SETTINGS: Settings = {
   uiVolume: DEFAULT_MIX.ui,
   name: '',
   loadout: DEFAULT_LOADOUT,
+  loadouts: DEFAULT_LOADOUT_SETS,
+  loadoutSet: 0,
   builds: {},
   passphrase: '',
   firefoxTipShown: false,
@@ -265,6 +278,43 @@ function parseCrosshair(raw: unknown): CrosshairOptions {
   };
 }
 
+/** One of the loadouts a player keeps: its name and what it carries. */
+export interface LoadoutSet {
+  readonly name: string;
+  readonly loadout: Loadout;
+}
+
+/** `settings` carrying `loadout`, written into the chosen set as well. */
+export function withLoadout(settings: Settings, loadout: Loadout): Settings {
+  return { ...settings, loadout, loadouts: settings.loadouts.map((set, i) => (i === settings.loadoutSet ? { ...set, loadout } : set)) };
+}
+
+/** `settings` with the set `index` chosen: it is what the next spawn carries. */
+export function pickLoadoutSet(settings: Settings, index: number): Settings {
+  const set = settings.loadouts[index];
+  return set ? { ...settings, loadoutSet: index, loadout: set.loadout } : settings;
+}
+
+/** The kept loadouts from storage. A save from before them keeps its one loadout as the first set; the chosen set is always the loadout carried. */
+function savedSets(loadout: unknown, sets: unknown, chosen: unknown): Pick<Settings, 'loadout' | 'loadouts' | 'loadoutSet'> {
+  const carried = savedLoadout(loadout) ?? DEFAULT_LOADOUT;
+  const index = typeof chosen === 'number' && Number.isInteger(chosen) && chosen >= 0 && chosen < DEFAULT_LOADOUT_SETS.length ? chosen : 0;
+  const kept: unknown[] = Array.isArray(sets) ? sets : [];
+  const loadouts = DEFAULT_LOADOUT_SETS.map((d, i): LoadoutSet => {
+    const raw = kept[i];
+    if (i === index) return { name: setName(raw, d.name), loadout: carried };
+    const saved = raw !== null && typeof raw === 'object' ? savedLoadout((raw as { loadout?: unknown }).loadout) : null;
+    return { name: setName(raw, d.name), loadout: saved ?? d.loadout };
+  });
+  return { loadout: carried, loadouts, loadoutSet: index };
+}
+
+/** A kept set's name: up to 16 characters, or its default. */
+function setName(raw: unknown, fallback: string): string {
+  const name = raw !== null && typeof raw === 'object' ? (raw as { name?: unknown }).name : undefined;
+  return typeof name === 'string' && name.trim() ? name.trim().slice(0, 16) : fallback;
+}
+
 /** Merges stored values over the defaults, dropping anything malformed. */
 export function parseSettings(raw: unknown): Settings {
   const d = DEFAULT_SETTINGS;
@@ -306,7 +356,7 @@ export function parseSettings(raw: unknown): Settings {
     voiceVolume: clamp(r['voiceVolume'], 0, 1, d.voiceVolume),
     uiVolume: clamp(r['uiVolume'], 0, 1, d.uiVolume),
     name: str(r['name'], d.name, 16),
-    loadout: savedLoadout(r['loadout']) ?? d.loadout,
+    ...savedSets(r['loadout'], r['loadouts'], r['loadoutSet']),
     builds: savedBuilds(r['builds']),
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),

@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "step": "spawned",
+      "primary": "m4a1"
+    },
+    {
+      "step": "dead",
+      "dead": true,
+      "prompt": "1 2 3 TO SWITCH · F LOADOUT"
+    },
+    {
+      "step": "pressed 3",
+      "set": 2,
+      "prompt": "1 2 3 TO SWITCH · F LOADOUT"
+    },
+    {
+      "step": "respawned",
+      "back": true,
+      "primary": "shotgun",
+      "secondary": "pistol",
+      "weapon": "shotgun"
+    }
+  ],
+  "errors": []
+}

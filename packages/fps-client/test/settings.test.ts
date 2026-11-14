@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOADOUT } from '@duty-shooter/fps-core';
-import { DEFAULT_SETTINGS, SECTION_SETTINGS, atDefaults, newcomerName, parseSettings, restoreDefaults, settingsWithName, type Settings, type SettingsSection } from '../src/settings';
+import { DEFAULT_SETTINGS, SECTION_SETTINGS, atDefaults, newcomerName, parseSettings, pickLoadoutSet, restoreDefaults, settingsWithName, withLoadout, type Settings, type SettingsSection } from '../src/settings';
 import { DEFAULT_CROSSHAIR } from '../src/hud/crosshair';
 
 describe('settings', () => {
@@ -28,6 +28,33 @@ describe('settings', () => {
     expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: null } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: null, tactical: 'smoke', perk: null });
     expect(parseSettings({ loadout: { primary: 'sniper', secondary: 'pistol', grenade: 'frag', tactical: null, perk: 'softSoles' } }).loadout).toEqual({ primary: 'sniper', secondary: 'pistol', grenade: 'frag', tactical: null, perk: 'softSoles' });
     expect(parseSettings({ loadout: { primary: 'pistol', secondary: 'pistol', grenade: 'frag' } }).loadout).toEqual(DEFAULT_LOADOUT);
+  });
+
+  it('keeps three named loadouts, the chosen one always the loadout carried (PLAN item 7)', () => {
+    expect(DEFAULT_SETTINGS.loadouts.map((s) => s.name)).toEqual(['Main', 'Close', 'Breach']);
+    expect(DEFAULT_SETTINGS.loadouts[0]?.loadout).toEqual(DEFAULT_SETTINGS.loadout);
+    // A save from before the three: its one loadout is the first, the other two as a new player's.
+    const sniper = { primary: 'sniper', secondary: 'pistol', grenade: 'frag', tactical: 'smoke', perk: null } as const;
+    const old = parseSettings({ loadout: sniper });
+    expect(old.loadoutSet).toBe(0);
+    expect(old.loadouts[0]?.loadout).toEqual(sniper);
+    expect(old.loadouts[1]).toEqual(DEFAULT_SETTINGS.loadouts[1]);
+    // Names and loadouts kept; a bad one falls back to the default, and the chosen set takes the carried loadout.
+    const kept = parseSettings({ loadout: sniper, loadoutSet: 2, loadouts: [{ name: '  Rush ', loadout: { ...sniper, primary: 'smg' } }, { name: 42, loadout: 'x' }, { name: 'Far', loadout: DEFAULT_LOADOUT }] });
+    expect(kept.loadouts.map((s) => s.name)).toEqual(['Rush', 'Close', 'Far']);
+    expect(kept.loadouts[0]?.loadout.primary).toBe('smg');
+    expect(kept.loadouts[1]?.loadout).toEqual(DEFAULT_SETTINGS.loadouts[1]?.loadout);
+    expect(kept.loadouts[2]?.loadout).toEqual(sniper);
+    expect(parseSettings({ loadoutSet: 5 }).loadoutSet).toBe(0);
+    // A change goes into the chosen set; picking another carries it.
+    const changed = withLoadout(kept, { ...sniper, secondary: 'revolver' });
+    expect(changed.loadouts[2]?.loadout.secondary).toBe('revolver');
+    expect(changed.loadouts[0]).toBe(kept.loadouts[0]);
+    const picked = pickLoadoutSet(changed, 0);
+    expect(picked.loadoutSet).toBe(0);
+    expect(picked.loadout.primary).toBe('smg');
+    expect(pickLoadoutSet(changed, 3)).toBe(changed);
+    expect(parseSettings(JSON.parse(JSON.stringify(picked)))).toEqual(picked);
   });
 
   it('keeps values the player chose, before and after the new defaults', () => {
@@ -83,7 +110,7 @@ describe('settings', () => {
     const all = (Object.keys(SECTION_SETTINGS) as SettingsSection[]).flatMap((s) => SECTION_SETTINGS[s]);
     expect(new Set(all).size).toBe(all.length);
     // What is not on the screen: who you are, what you carry, and what the page remembers for itself.
-    const elsewhere = ['name', 'loadout', 'builds', 'passphrase', 'firefoxTipShown'];
+    const elsewhere = ['name', 'loadout', 'loadouts', 'loadoutSet', 'builds', 'passphrase', 'firefoxTipShown'];
     for (const key of Object.keys(DEFAULT_SETTINGS)) if (!elsewhere.includes(key)) expect(all, key).toContain(key);
   });
 

@@ -1,4 +1,4 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -111,6 +111,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
     // A gun the match opened, equipped from its results: into its slot of the loadout, with its own build.
     g.onEquip = (id) => applyLoadout(withBuilds({ ...settings.loadout, [STATS.weapons[id].traits.slot]: id }, settings.builds, gunKills));
+    // Dead, 1, 2 or 3: the next life carries that kept loadout, each gun with its own build.
+    g.onPickLoadout = (index) => {
+      const picked = pickLoadoutSet(settings, index);
+      if (picked === settings || index === settings.loadoutSet) return;
+      settings = picked;
+      applyLoadout(withBuilds(picked.loadout, settings.builds, gunKills));
+    };
     // Use while dead, or at the range's station: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;
@@ -594,7 +601,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   /** Kills made with a gun, which open its attachments. */
   const gunKills = (id: WeaponId) => profile.profile.weapons[id]?.kills ?? 0;
   const applyLoadout = (loadout: Settings['loadout']) => {
-    settings = { ...settings, loadout };
+    settings = withLoadout(settings, loadout);
     saveSettings(settings);
     game?.driver?.setLoadout(matchLoadout(loadout));
     game?.applySettings(settings);
@@ -844,6 +851,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // The engine, a piece at a time: the menus stay live between the pieces.
   await nextPaint();
   engine = await engineLoading;
+  // The Loadout screen's gun in 3D: its renderer is made the first time the screen shows a gun.
+  menu.gunStage = new engine.LoadoutGunStage({ forceWebGL });
   // `?soldiers=near|mid|far`: every soldier at one level, to look at it up close.
   const soldiers = params.get('soldiers');
   if (soldiers === 'near' || soldiers === 'mid' || soldiers === 'far') engine.showSoldiersAt(soldiers);

@@ -372,6 +372,8 @@ export class Game {
   onLoadout: ((from: 'death' | 'station') => void) | null = null;
   /** A gun the match opened, equipped from the results at its end: the page puts it in the loadout (PLAN item 7). */
   onEquip: ((id: WeaponId) => void) | null = null;
+  /** Dead in a mode with a next life, 1, 2 or 3 pressed: carry that kept loadout from the next spawn. */
+  onPickLoadout: ((index: number) => void) | null = null;
   #resizeObserver: ResizeObserver;
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
@@ -409,7 +411,10 @@ export class Game {
   /** Seconds the gain has been on screen, for the sounds that go with it. */
   #gainShown = 0;
   readonly #onVoteKey = (e: KeyboardEvent) => {
-    if (e.code === 'Digit1') this.#vote('tdm');
+    // Dead, waiting for the next life: 1, 2 or 3 picks the loadout it carries.
+    const pick = (['Digit1', 'Digit2', 'Digit3'] as const).indexOf(e.code as 'Digit1');
+    if (pick >= 0 && !e.repeat && this.#picksLoadout()) this.onPickLoadout?.(pick);
+    else if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
     else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
     // At the match's end, E equips the next gun it opened (PLAN item 7).
@@ -1039,6 +1044,13 @@ export class Game {
     this.#play('hitMarker');
   }
 
+  /** Whether 1, 2 and 3 pick the next life's loadout now: dead in a match being played that has a next life, the game not paused. */
+  #picksLoadout(): boolean {
+    const self = this.#cur;
+    const match = this.#driver?.match;
+    return !this.paused && !!self && !self.alive && (!match || (match.phase === 'playing' && match.mode !== 'battle-royale'));
+  }
+
   /** The host asks for a random next match at a match's end, or takes it back (ticket 115). */
   #toggleRandom(): void {
     const driver = this.#driver;
@@ -1250,6 +1262,9 @@ export class Game {
     if (!self || (match && match.phase !== 'playing')) return null;
     const charge = this.#charge;
     if (!self.alive && match?.mode === 'battle-royale') return null;
+    // Dead, the next life's loadout is a key away on a keyboard: its name, and the keys that pick another (PLAN item 7).
+    const set = this.#settings.loadouts[this.#settings.loadoutSet];
+    if (!self.alive && set && !this.input.touchMode && !this.input.padMode) return `${set.name}  ·  1 2 3 to switch  ·  ${this.#useLabel()}  Loadout`;
     if (!self.alive || this.#atStation(self) || charge?.phase === 'freeze' || this.#counting()) return `${this.#useLabel()}  Loadout`;
     if (charge && !charge.action) {
       if (charge.phase === 'live' && charge.carrier === self.id && this.#sites.some((s) => inSite(s, self.position))) return `Hold ${this.#useLabel()}  Plant`;

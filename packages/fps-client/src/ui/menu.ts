@@ -1,6 +1,6 @@
-import { STATS, WIDE_SCALE, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, WIDE_SCALE, type Attachments, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
-import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, restoreDefaults, type Action, type Settings, type SettingsSection } from '../settings';
+import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, pickLoadoutSet, restoreDefaults, withLoadout, type Action, type Settings, type SettingsSection } from '../settings';
 import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
 import { HUD_SCALE_LIMITS } from '../hud/scale';
 import { COLOUR_VISIONS, COLOUR_VISION_NAMES } from '../team-colours';
@@ -181,6 +181,12 @@ export const MENU_CSS = `
 .ds-smith-row > .ds-label { margin: 0; color: var(--ds-text-2); }
 .ds-kit.ds-smith-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
 .ds-kit.ds-smith-tiles .ds-mode { min-height: 56px; padding: 8px 12px; }
+/* The kept loadouts: three tiles, each its name and the guns it carries. */
+.ds-kit.ds-sets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ds-kit.ds-sets .ds-mode span { letter-spacing: 0.04em; text-transform: none; }
+/* The gun in 3D over the Details card, turning on the page's dark. */
+.ds-stage { position: relative; aspect-ratio: 16 / 9; max-height: 240px; margin-bottom: 12px; }
+.ds-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ds-mode.locked { cursor: not-allowed; background: var(--ds-ink); }
 .ds-mode.locked b { color: var(--ds-text-2); }
 .ds-mode.locked:hover { background: var(--ds-ink); }
@@ -348,6 +354,19 @@ export interface MenuCallbacks {
  * passphrase or as one public lobby. `link`: a copy of the page without a
  * server (GitHub Pages), which hides Play Online.
  */
+/**
+ * The gun drawn in 3D on the Loadout screen, turning slowly (PLAN item 7). The
+ * engine gives it once three.js is up; until then the screen has none.
+ */
+export interface GunStage {
+  /** What the screen places; drawn while a gun is shown. */
+  readonly element: HTMLElement;
+  /** Shows the gun `id` with what is fitted on it, turning. */
+  show(id: WeaponId, kit: Attachments | undefined): void;
+  /** Stops drawing: the screen closed. */
+  stop(): void;
+}
+
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
 type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile' | 'changelog';
@@ -398,6 +417,10 @@ export class Menu {
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
   #loadoutBack: 'pause' | 'game' | 'lobby' | 'main' = 'pause';
   #loadoutNote = '';
+  /** The Loadout screen's gun in 3D, once the engine is up. */
+  gunStage: GunStage | null = null;
+  /** The kept loadout just picked on the Loadout screen: its tile takes the focus again once the screen is drawn anew. */
+  #focusSet = false;
   /** The game behind the menu is the Practice Range, where every gun can be carried, open or not (PLAN item 7). */
   practice = false;
   #matchMode: ModeId | null = null;
@@ -499,6 +522,7 @@ export class Menu {
   }
 
   hide(): void {
+    this.gunStage?.stop();
     const held = this.open && this.#root.contains(document.activeElement);
     this.#root.hidden = true;
     this.#left.clear();
@@ -717,13 +741,16 @@ export class Menu {
   }
 
   #change(patch: Partial<Settings>): void {
-    this.#settings = { ...this.#settings, ...patch };
+    const next = { ...this.#settings, ...patch };
+    // A loadout changed here is the chosen kept one's too.
+    this.#settings = patch.loadout ? withLoadout(next, patch.loadout) : next;
     this.#callbacks.changeSettings(this.#settings);
     this.#afterChange?.();
   }
 
   #render(): void {
     const root = this.#root;
+    if (this.#screen !== 'loadout') this.gunStage?.stop();
     this.#afterChange = null;
     root.replaceChildren();
     const screen = document.createElement('div');
@@ -1166,6 +1193,8 @@ export class Menu {
     const options = loadoutOptions();
     const card = h('div', '', 'ds-gun ds-box');
     const kills = (id: WeaponId) => this.#profile?.profile.weapons[id]?.kills ?? 0;
+    /** The gun in 3D over the card, turning, with what is fitted on it. */
+    const turn = (id: WeaponId, kit: Attachments | undefined) => this.gunStage?.show(id, kit);
     // Without a Profile kept (a test page), every gun is open.
     const xp = this.#profile ? this.#profile.profile.xp : Infinity;
     /** A gun this Profile hasn't opened: shown, previewed, but carried only in the Practice Range. */
@@ -1182,6 +1211,7 @@ export class Menu {
       // Its build, as the loadout would carry it: what is on it and open.
       const kit = openKit(id, this.#settings.builds[id], kills(id));
       const build = Object.keys(kit).length ? effects(buildEffects(id, kit)) : '';
+      turn(id, kit);
       const lock = gunOpen(id, xp) ? '' : `<p class="role">${escapeHtml(this.practice ? `${gunLock(id)}; yours to try here in the Practice Range.` : `${gunLock(id)}. Try it in the Practice Range.`)}</p>`;
       card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p>${lock}<div class="ds-bars">${bars.join('')}</div>${build}`;
     };
@@ -1189,6 +1219,8 @@ export class Menu {
     const showChoice = (id: WeaponId, slot: Parameters<typeof slotLock>[0], name: string, c: GunsmithChoice) => {
       const on = (this.#settings.builds[id]?.[slot] ?? null) === c.id;
       const head = `<div class="ds-label">${escapeHtml(`${STATS.weapons[id].traits.name} · ${name}`)}</div><div class="name">${escapeHtml(c.name)}</div>`;
+      // The gun as this choice would build it.
+      if (!c.locked) turn(id, openKit(id, rebuild(this.#settings.builds, id, slot, c.id)[id], kills(id)));
       if (c.locked) card.innerHTML = `${head}<p class="role">${escapeHtml(slotLock(slot))}</p>`;
       else if (c.id === null) card.innerHTML = `${head}<p class="role">${escapeHtml(on ? 'Fitted: the gun as issued.' : 'The gun as issued.')}</p>`;
       else card.innerHTML = `${head}${on ? '<p class="role">Fitted.</p>' : ''}${effects(buildEffects(id, { [slot]: c.id }))}`;
@@ -1273,6 +1305,33 @@ export class Menu {
       const t = STATS.weapons[id].traits;
       return [t.name, t.sight === 'scope' ? 'scoped' : t.fireMode];
     };
+    // The three kept loadouts, by name, each with the guns it carries; the chosen one lit. Picking one carries it from the next spawn.
+    left.append(h('h2', 'Loadouts', 'ds-h2'));
+    const sets = h('div', '', 'ds-kit ds-sets');
+    sets.setAttribute('role', 'group');
+    sets.setAttribute('aria-label', 'Kept loadouts');
+    this.#settings.loadouts.forEach((set, i) => {
+      const guns = this.practice ? set.loadout : openLoadout(set.loadout, xp);
+      const chosen = i === this.#settings.loadoutSet;
+      const b = h('button', '', `ds-mode${chosen ? ' on' : ''}`) as HTMLButtonElement;
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(chosen));
+      b.innerHTML = `<b>${escapeHtml(set.name)}</b><span>${escapeHtml(`${STATS.weapons[guns.primary].traits.name} · ${STATS.weapons[guns.secondary].traits.name}`)}</span>`;
+      b.addEventListener('click', () => {
+        if (i === this.#settings.loadoutSet) return;
+        const picked = pickLoadoutSet(this.#settings, i);
+        // Each gun carries its own build from the gunsmith.
+        this.#change({ ...picked, loadout: withBuilds(picked.loadout, picked.builds, kills) });
+        this.#focusSet = true;
+        this.#render();
+      });
+      const show = () => showCard(guns.primary);
+      b.addEventListener('focus', show);
+      b.addEventListener('mouseenter', show);
+      sets.append(b);
+      if (this.#focusSet && chosen) queueMicrotask(() => b.focus({ preventScroll: true }));
+    });
+    left.append(sets);
     row('Primary', 'primary', options.primary, weapon);
     row('Secondary', 'secondary', options.secondary, weapon);
     row('Grenade', 'grenade', options.grenade, (g) => (g ? ['Frag', `${STATS.grenade.perLife.value} a life`] : ['None', 'hands free']));
@@ -1285,11 +1344,13 @@ export class Menu {
     showCard(this.#settings.loadout.primary);
     // Back to the equipped weapon once the pointer leaves the tiles, not on every gap between two of them.
     left.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
-    right.append(h('h2', 'Details', 'ds-h2'), card);
+    right.append(h('h2', 'Details', 'ds-h2'), ...(this.gunStage ? [this.gunStage.element] : []), card);
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip')));
     const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'main' ? this.show('main') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');
     done.dataset['back'] = '';
-    if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus({ preventScroll: true }));
+    // A loadout just picked keeps the focus on its tile instead.
+    if (!this.#root.classList.contains('pad') && !this.#focusSet) queueMicrotask(() => done.focus({ preventScroll: true }));
+    this.#focusSet = false;
   }
 
   /**

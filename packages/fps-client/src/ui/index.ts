@@ -3,7 +3,7 @@
  * them up and take clicks while the engine is still on its way.
  */
 export { Menu } from './menu';
-export type { Lobby, LobbyInfo, MenuCallbacks } from './menu';
+export type { GunStage, Lobby, LobbyInfo, MenuCallbacks } from './menu';
 export { LobbyPage } from './lobby';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './lobby';
 export { RoyalePage } from './royale-screen';
@@ -14,7 +14,7 @@ export { royaleOpens, royaleServer } from './royale-lobby';
 export { placement } from './royale';
 export { GRAPHICS_LOST, connectionError, loadoutNote } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
-export { loadSettings, saveSettings, settingsWithName, type Settings } from '../settings';
+export { loadSettings, pickLoadoutSet, saveSettings, settingsWithName, withLoadout, type LoadoutSet, type Settings } from '../settings';
 export { padName } from '../gamepad';
 export { ProfileStore } from '../profile/store';
 export { GUN_RANKS, gunOpen, openLoadout } from '../profile/model';
