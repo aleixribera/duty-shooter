@@ -46,16 +46,21 @@ const CSS = `
 .ds-lobby .picks .ds-seg button { min-height: 44px; }
 /* Each pick's name over its choices, as a settings section names its rows: in text colour at body size, not a small grey note. */
 .ds-lobby .picks .ds-field-label { margin-bottom: 10px; font-size: var(--ds-type-body); font-weight: 700; letter-spacing: 0.02em; color: var(--ds-text); }
-/* The maps as pictures, the picked one framed in signal. */
+/* The maps as pictures. */
 .ds-lobby .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 128px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: var(--ds-raised) center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color var(--ds-fast), opacity var(--ds-fast); }
+.ds-lobby .maps button { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-start; height: 128px; padding: 12px 14px; border: 1px solid var(--ds-line-2); background: var(--ds-raised) center / cover no-repeat; text-align: left; overflow: hidden; transition: border-color var(--ds-fast), box-shadow var(--ds-fast), opacity var(--ds-fast); }
 /* The scrim behind the name, from the bottom edge. */
 .ds-lobby .maps button::before { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
 .ds-lobby .maps button b { position: relative; z-index: 1; }
 /* Chakra Petch runs wide: a map's name at body size keeps "Switchyard" on one line in a third of the column. */
 .ds-lobby .maps button b { font-family: var(--ds-font-display); font-size: var(--ds-type-body); line-height: 0.95; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
-.ds-lobby .maps button.on { border-color: var(--ds-light); box-shadow: inset 0 0 0 1px var(--ds-light); }
-.ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-text-2); }
+/* The picked map is lit as the picked mode is (DESIGN.md, one lit plate per group): a 2 px light edge, the halo round it and
+   the light from below, under the scrim's dark. A host's pick a guest can't change is unlit, as a locked picker's is. */
+.ds-lobby .maps button.on { border-color: var(--ds-light-edge); box-shadow: inset 0 0 0 1px var(--ds-light-edge); filter: drop-shadow(0 0 14px var(--ds-light-halo)); }
+.ds-lobby .maps button.on::before { background: radial-gradient(ellipse 90% 140% at 50% 115%, rgb(59 50 38 / 0.9), rgb(59 50 38 / 0) 72%), linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
+.ds-lobby .maps button.on:disabled { border-color: var(--ds-text-2); box-shadow: inset 0 0 0 1px var(--ds-text-2); filter: none; }
+.ds-lobby .maps button.on:disabled::before { background: linear-gradient(0deg, rgb(7 9 13 / 0.95) 0%, rgb(7 9 13 / 0.82) 55%, rgb(7 9 13 / 0.2) 100%); }
+.ds-lobby .maps button:not(:disabled):not(.on):hover { border-color: var(--ds-light-half); }
 .ds-lobby .maps button:focus-visible, .ds-lobby .maps button[data-pad-focus] { outline: 2px solid var(--ds-light-half); outline-offset: 2px; }
 /* A locked pick (the host's) is a disabled picker, which dims itself (theme.ts); the map tiles dim here. */
 .ds-lobby .maps.locked button:not(.on) { opacity: 0.55; }

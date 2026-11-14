@@ -23,7 +23,7 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
 
-Passes 55-61 (tickets 100, 102, 117; v2.211.11-17): review 14b's five defects, the master's clipping and the shotgun's receiver (each in BACKLOG with its pass). Pass 62 (ticket 102): Prism 2x picture fills the eyepiece. Pass 63: Bot Match's end reads "Match setup in 0:08". Pass 64 (ticket 103): no subheads under the Preparation's or the lobbies' titles; the BR goal is the BR lobby's blurb; a guest's button reads "Waiting for Marta" (`subheads/sheet.jpg`). Next (pass 65): the rest of the "close behind" list (unlit map tiles next), or a fresh review.
+Passes 55-64 (tickets 100, 102, 103, 117; v2.211.11-20): review 14b's five defects and the first five of its "close behind" list, each in BACKLOG with its pass. Pass 65 (ticket 103): the picked map tile is lit like the picked mode (`map-tiles/sheet.jpg`). Next (pass 66): the rest of the "close behind" list (text orphans next, then "Offline" on the menu), or a fresh review.
 
 ## Needs Aleix
 
