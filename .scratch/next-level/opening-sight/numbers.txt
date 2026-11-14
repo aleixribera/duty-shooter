@@ -1,0 +1,11 @@
+Bots only, 8 players (Bot Match's free-for-all on these maps), 64 seeded matches a row (SEED0=500), first-blood.probe.test.ts.
+"in sight at T0": pairs of players in each other's sight as play begins, summed over the 64 matches.
+before station ffa x8: in sight at T0 192/64 runs; first kill median 1.8 s, under 2 s 40, under 3 s 61
+before station gungame x8: in sight at T0 192/64 runs; first kill median 1.8 s, under 2 s 44, under 3 s 60
+before switchyard ffa x8: in sight at T0 64/64 runs; first kill median 2.1 s, under 2 s 19, under 3 s 45
+before switchyard gungame x8: in sight at T0 64/64 runs; first kill median 2.2 s, under 2 s 26, under 3 s 52
+after station ffa x8: in sight at T0 0/64 runs; first kill median 2.5 s, under 2 s 10, under 3 s 50
+after station gungame x8: in sight at T0 0/64 runs; first kill median 2.2 s, under 2 s 11, under 3 s 53
+after switchyard ffa x8: in sight at T0 0/64 runs; first kill median 3.1 s, under 2 s 8, under 3 s 27
+after switchyard gungame x8: in sight at T0 0/64 runs; first kill median 3.1 s, under 2 s 5, under 3 s 31
+Tried and dropped: Station Nine (+-20, -6) behind the track huts (in 46 of 57 sub-2 s first kills: one step out onto the track is in the trench spawn's sight); Switchyard (-4, 10) (29 of 33 sub-2 s kills, against (20, 13) one stride away); Switchyard (-18, 20.6) and (-12.5, 20.1) (touching the track bed or the shed's steps, or facing its corner).

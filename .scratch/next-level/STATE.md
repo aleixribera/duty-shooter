@@ -17,13 +17,13 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited.
 
-**PLAN item 7, rough sweep (ticket 117): passes 39-44, all items built roughly; each pass's detail, review and proof are in the ticket's comments.** Checklist:
-- [x] Passes 39-44 (v2.205.0 to v2.210.0): unlocks by Rank, save code, Loadout on the menu, the 3D loadout editor (three loadouts, 1 2 3 while dead), results with Mastery and Play again, fittings/camos/reticles, Battle Royale on loadouts behind `?drops=resupply` (default stays loot until Aleix says go), and the one-time reset (ticket 116).
-- [x] Review 2026-11-14a (pass 45, idle PC): 1, 2 pass (worst frame 90 ms, workP99 6-18 ms); 3, 4, 5 fail; 6 unproven (the capture never opens Loadout or Profile; BACKLOG).
+PLAN item 7 (ticket 117): built roughly in passes 39-44 (v2.205.0 to v2.210.0); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Review 2026-11-14a (pass 45): 1, 2 pass; 3, 4, 5 fail.
 
 Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass; tickets 100, 102, 103; v2.211.0 to v2.211.9); each in its ticket.
 
-Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers. Next (pass 55): its gaps, worst first.
+Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers.
+
+Pass 55 (ticket 100, v2.211.11): defect 1, a free-for-all no longer opens with an enemy in view (new spawns on Station Nine and Switchyard; bots still meet in 2-3 s). Next (pass 56): defect 2, kills hidden by your own muzzle flash or dust.
 
 ## Needs Aleix
 

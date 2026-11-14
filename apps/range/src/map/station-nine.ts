@@ -743,6 +743,13 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
     [0, 6.5, LOOK.north], // between the bunker and the road
     [-9, 26.3, LOOK.east], // behind the trailers
     [9, 26.3, LOOK.west],
+    // Out of sight of the spawns above, so eight players can open with nobody in view (ticket 100).
+    [-24, -24, null], // behind the camera towers
+    [24, -24, null],
+    [-16, 22, null], // the dock lane, behind the houses
+    [16, 22, null],
+    [-28, 20, null], // the dock lane's ends
+    [28, 20, null],
   ] as const) {
     ffa.push({ position: [x, 0, z], yaw: yaw ?? faceCentre(x, z) });
   }

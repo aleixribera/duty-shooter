@@ -764,6 +764,9 @@ function spawnSets(): { ffa: SpawnPoint[]; teams: [SpawnPoint[], SpawnPoint[]] }
     [20, 13, null], // between the shed and the depot
     [-30, 26, LOOK.east], // the back alley
     [4, 26, LOOK.west],
+    // Out of sight of the spawns above, so eight players can open with nobody in view (ticket 100).
+    [30, -26, null], // the long lane's east end
+    [-36, 6, null], // behind the crates by the west cars
   ] as const) {
     ffa.push({ position: [x, 0, z], yaw: yaw ?? faceCentre(x, z) });
   }
