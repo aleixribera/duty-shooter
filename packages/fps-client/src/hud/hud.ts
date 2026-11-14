@@ -810,6 +810,15 @@ export class Hud {
     this.#shots.textContent = `${shots} / ${hits}`;
   }
 
+  /** Range overlay: a gun drawn (a switch or a new loadout) starts it blank, so no readout is the last gun's. */
+  clearRangeStats(): void {
+    this.#ttk.textContent = '–';
+    this.#shots.textContent = '–';
+    this.#lastHit.textContent = '–';
+    this.#traceShots = [];
+    this.#drawTrace();
+  }
+
   /** Range overlay: the damage of your latest hit (and where and how far), to check against the stats tables. */
   setLastHit(damage: number, zone?: string, distance?: number): void {
     const where = [zone?.replace(/([A-Z])/g, ' $1').toLowerCase(), distance === undefined ? undefined : `${distance.toFixed(0)} m`].filter(Boolean).join(' · ');

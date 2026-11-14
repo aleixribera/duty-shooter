@@ -71,6 +71,7 @@ import type { GameDriver, PresentedEvent } from './session';
 import { PAD_LAYOUTS, padActuator, padButtonLabel } from './gamepad';
 import { aimSees } from './aim-sight';
 import { Rumbler, blastRumble, hitRumble, hurtRumble, landRumble, shotRumble, type Rumble } from './rumble';
+import { RangeStats } from './range-stats';
 import { setReticles } from './viewmodel/optics';
 import { bindingLabel, mixOf, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
@@ -215,12 +216,6 @@ interface Tracked {
   seen: PlayerOutput | null;
 }
 
-interface Engagement {
-  start: number;
-  shots: number;
-  hits: number;
-}
-
 /** The least time between one soldier's grunts (s): another's, and your own; and the damage one hit has to do before your own body says anything. */
 const GRUNT_EVERY = 0.7;
 const OWN_GRUNT_EVERY = 1.4;
@@ -292,7 +287,7 @@ export class Game {
   #lastLook = { yaw: 0, pitch: 0 };
   #simTime = 0;
   readonly #tracked = new Map<PlayerId, Tracked>();
-  readonly #engagements = new Map<PlayerId, Engagement>();
+  readonly #rangeStats = new RangeStats(TICK_SECONDS);
   #burstStart = -1;
   #paused = true;
   /** The pad's motors (ticket 13). */
@@ -548,7 +543,7 @@ export class Game {
     this.#cur = null;
     this.#others = [];
     this.#tracked.clear();
-    this.#engagements.clear();
+    this.#rangeStats.clear();
     this.#loop.reset();
     this.#newMatch();
     // The picture's moods belong to the game that was left: the menu's backdrop, and the next game, start without them.
@@ -1144,7 +1139,7 @@ export class Game {
       showFps: this.#settings.showFps,
       showPing: this.#settings.showPing,
       showOverlay,
-      targetDistance: showOverlay ? this.#targetDistance(eye, forward) : null,
+      targetDistance: showOverlay ? this.#rangeStats.distance(this.#simTime, () => this.#targetDistance(eye, forward)) : null,
       scores: driver.scores,
       pings: driver.pings,
       selfId: driver.selfId,
@@ -2064,6 +2059,12 @@ export class Game {
     input.touchAssist(s.touchAimAssist ? aimSlowdown(aim) : 1, out.hold, out.press);
   }
 
+  #rangeReset(): void {
+    this.#rangeStats.clear();
+    this.#burstStart = -1;
+    this.hud.clearRangeStats();
+  }
+
   #targetDistance(eye: Vec3, forward: Vec3): number | null {
     const far: Vec3 = [eye[0] + forward[0] * 200, eye[1] + forward[1] * 200, eye[2] + forward[2] * 200];
     const hit = raycastWorld(this.#world, eye, far);
@@ -2099,6 +2100,8 @@ export class Game {
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;
     this.#cur = self;
+    // A gun drawn (a switch, a new loadout, a respawn): the range's readouts were the last gun's, so they start blank.
+    if (self && self.weapon.action === 'draw' && (before?.weapon.action !== 'draw' || before.weapon.id !== self.weapon.id)) this.#rangeReset();
     this.#timeCourse(driver, self);
     const firePressed = cmd.firePresses.length > 0 || ((cmd.buttons & Button.Fire) !== 0 && ((this.#cmd?.buttons ?? 0) & Button.Fire) === 0);
     this.#cmd = cmd;
@@ -2242,7 +2245,7 @@ export class Game {
           const [yaw, pitch] = [Math.atan2(-e.direction[0], -e.direction[2]), Math.asin(Math.max(-1, Math.min(1, e.direction[1])))];
           this.hud.recordShot(yaw, pitch, e.index === 0 || this.#burstStart < 0);
           this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
-          for (const eng of this.#engagements.values()) eng.shots += 1;
+          this.#rangeStats.shot(this.#simTime);
         } else {
           this.#play('gunshot', { position: e.origin, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
           this.#effects.shot(e.origin, e.direction, e.weapon, e.muzzle);
@@ -2298,14 +2301,9 @@ export class Game {
           // The TTK readout times gunfire: a frag or a melee kill is not an engagement.
           if (e.cause === 'bullet') {
             const travel = e.distance / STATS.weapons[e.weapon as WeaponId].handling.muzzleVelocity.value;
-            const eng = this.#engagements.get(e.victim) ?? { start: this.#simTime - travel, shots: 1, hits: 0 };
-            eng.hits += 1;
-            this.#engagements.set(e.victim, eng);
-            if (e.killed) {
-              this.hud.setRangeStats(this.#simTime - eng.start, eng.shots, eng.hits);
-              this.#engagements.delete(e.victim);
-            } else this.hud.setRangeStats(null, eng.shots, eng.hits);
-          } else if (e.killed) this.#engagements.delete(e.victim);
+            const r = this.#rangeStats.hit(e.victim, this.#simTime, travel, e.killed);
+            this.hud.setRangeStats(r.ttk, r.shots, r.hits);
+          } else if (e.killed) this.#rangeStats.end(e.victim);
         }
         if (e.victim === selfId && landed) {
           const attacker = this.#playerById(e.shooter);

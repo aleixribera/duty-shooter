@@ -21,9 +21,9 @@ PLAN item 7 (ticket 117): built roughly in passes 39-44 (v2.205.0 to v2.210.0); 
 
 Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass; tickets 100, 102, 103; v2.211.0 to v2.211.9); each in its ticket.
 
-Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers.
+Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
 
-Passes 55-58 (tickets 100, 102, 117; v2.211.11-14): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s), 2 (your own flash and smoke part round the aim point), 3 (the camera no longer sits inside a teammate) and 4 (Loadout shows each gun's still in under 50 ms until its model is drawn, 6-9 s on a fresh page; the gun sways about side on; above the tiles on a phone). Next (pass 59): defect 5, the Range panel's stale numbers.
+Passes 55-59 (tickets 100, 102, 117; v2.211.11-15): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s), 2 (your own flash and smoke part round the aim point), 3 (the camera no longer sits inside a teammate), 4 (Loadout shows each gun's still in under 50 ms until its model is drawn, 6-9 s on a fresh page; the gun sways about side on; above the tiles on a phone) and 5 (the Range panel blanks at each drawn gun, never counts more hits than shots, holds its Distance through the kick). Next (pass 60): the "close behind" list (audio true peak +1.0 dBTP first), or a fresh review once enough has moved.
 
 ## Needs Aleix
 

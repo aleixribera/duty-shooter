@@ -84,3 +84,13 @@ Review 2026-11-14b's defect 2: at most kills your own muzzle flash or the haze o
 - Checked: `muzzle-clear/look.mjs` (Practice Range, M4A1, 1.5 s bursts aimed and from the hip, frames back to back), `before/`, `after/`, `sheet.jpg`: the flash now opens round the front post with its tongues to the sides and the post's tip and the target area clear; the haze over the post after a burst is thinner at the middle. `muzzle-flash.test.ts`, `probe-lit-smoke.test.ts`, client typecheck.
 - Second opinion (read-only): no bugs; `screenUV`/`screenSize` follow the bound target, both passes are full size, optics zoom the world camera, the additive composite fades cleanly. Noted: smoke from others' guns and frags within 4 m also parts at the middle (harmless).
 - Not touched: during a long burst the climb puts the 25 m dummy under the front post itself; that is the irons and the recoil, not the flash.
+
+### Pass 59 (2026-11-14): the Practice Range panel shows this gun's numbers
+
+Review 2026-11-14b's defect 5: the range panel kept the previous gun's readouts (reflex-ads 5/4 and 606 ms, dmr-ads 4/4 and 28.0 HP, sniper-ads 3/3 and 40 HP, shotgun-ads 1/1 and 105 HP), the Wasp showed 5 shots with 6 hits (30-b), and the sniper's fire frame read 64.1 m against a 25 m hit.
+
+- `range-stats.ts` (new): the panel's tally, out of `game.ts`. A gun drawn (a switch, a new loadout, a respawn: the weapon going into `draw`) clears it and blanks Time to kill, Shots / hits, Last hit and the recoil trace (`hud.clearRangeStats`).
+- Shots / hits: a tick fires before it moves bullets (`simulation.ts` `step()`), so the Wasp at 25 m (950 rpm, 375 m/s: both ~4 ticks) fires its next shot in the tick its first hit lands; the engagement started at `shots: 1` and missed it. It now counts every own shot since the one that hit (shots within a tick of `hit time - travel`).
+- Distance: the raycast follows the camera, kick included, so 120 ms after a sniper shot it read the wall behind. Through a burst and 0.6 s after its last shot it keeps the reading it had when the burst began.
+- Checked: `range-stats.test.ts` (the Wasp's tick order fails the old count: 3 / 4), typecheck; `range-panel/look.mjs` runs the capture's gun order: `before/` stale at every change and 64.1 m on the sniper's fire, `after/` blank at every change and on the switch to the pistol, 25.0 m through the kick; `sheet.jpg` (top before, bottom after: dmr-ads and sniper-fire).
+- Second opinion (read-only): no bugs; the window can't take the shot before (the fastest guns fire 3.8 ticks apart); online the panel never shows (the range runs offline only). Not done: a bullet still in flight across a switch opens a 1 / 1 engagement (holster time outlasts the range's flight times).
