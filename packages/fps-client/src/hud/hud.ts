@@ -1323,18 +1323,19 @@ export class Hud {
           [['Place', `${ordinal(place.place)}<small> / ${place.of} Squads</small>`], ['Score', figure(y.score)], ['Kills', String(y.kills)]]
         : [['Score', figure(y.score)], ['Kills', String(y.kills)], ['Deaths', String(y.deaths)], ['Assists', String(y.assists)], ['Place', `${ordinal(y.place)}<small> / ${y.of}</small>`]];
     changed = this.#set(this.#endMine, cells.length > 0 ? `<span class="ds-label">Your match</span>${matchGainHtml(cells, state.gain ?? null, this.onEquip ? { equipped: this.#equipped } : undefined)}` : '') || changed;
-    // From the match's end on, the host may ask for a random next match in place of the lobby (ticket 115); everyone sees that they did.
+    // A random next match comes in place of the lobby at every match's end, lit, until the host's press turns it off
+    // (ticket 115, PLAN item 9b); everyone sees whether it is on. Play again stays, unlit while the random match is on.
     const random = s.lobby?.random === true;
     const host = s.lobby != null && s.lobby.host !== null && s.lobby.host === state.selfId;
-    const again = view.playAgain ? `<button type="button" class="ds-btn primary" data-again><i class="ds-kbd key">P</i><i class="ds-kbd pad">◀</i>Play again</button>` : '';
+    const again = view.playAgain ? `<button type="button" class="ds-btn${random ? '' : ' primary'}" data-again><i class="ds-kbd key">P</i><i class="ds-kbd pad">◀</i>Play again</button>` : '';
     const button = again + (host && s.mode !== 'battle-royale' ? `<button type="button" class="ds-btn${random ? ' primary' : ''}" data-random aria-pressed="${random}"><i class="ds-kbd key">N</i><i class="ds-kbd pad">▶</i>Random next match</button>` : '');
     changed = this.#set(this.#endRandom, button) || changed;
     let html = '';
     if (s.phase === 'nuke') {
       html += `<div class="next board">Scoreboard in ${left}</div>`;
-      if (random && !host) html += `<div class="next">The host chose a random next match</div>`;
+      if (random && !host) html += `<div class="next">Random next match: on</div>`;
     } else if (s.lobby) {
-      html += `<div class="next">${random ? (host ? `Random match in ${left}` : `The host chose a random next match: it starts in ${left}`) : view.botMatch ? `Match setup in ${left}` : `Back to the lobby in ${left}`}</div>`;
+      html += `<div class="next">${random ? `Random match in ${left}` : view.botMatch ? `Match setup in ${left}` : `Back to the lobby in ${left}`}</div>`;
     } else if (s.phase === 'vote') {
       const total = Math.max(1, s.votes.tdm + s.votes.ffa);
       html += `<div class="vote ds-plate"><header><span class="ds-label">Vote for the next mode</span><span class="clock">${left}</span></header><div class="ds-votes">`;

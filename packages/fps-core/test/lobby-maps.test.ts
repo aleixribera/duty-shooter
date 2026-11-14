@@ -96,8 +96,11 @@ describe('the lobby’s maps', () => {
     alice.client.startMatch();
     m.run(ticks(1));
     expect(m.server.status().map).toBe('yard');
-    // The match runs out (2 s), then the nuke and the scoreboard: back in the lobby, the yard still picked.
-    m.run(ticks(5));
+    // The match runs out (2 s); the host turns the random next match off; then the nuke and the scoreboard: back in
+    // the lobby, the yard still picked.
+    for (let i = 0; i < ticks(4) && m.server.phase === 'playing'; i++) m.step();
+    alice.client.randomNext(false);
+    m.run(ticks(4));
     expect(m.server.phase).toBe('lobby');
     expect(alice.client.match?.lobby?.map).toBe('yard');
     alice.client.setLobby({ map: 'town' });

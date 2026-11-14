@@ -1,0 +1,53 @@
+{
+  "match": 20,
+  "steps": [
+    {
+      "step": "first match",
+      "phase": "playing",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": false,
+      "setup": false,
+      "end": "Match setup in "
+    },
+    {
+      "step": "its end",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": true,
+      "setup": false,
+      "end": "Scoreboard in 0:05"
+    },
+    {
+      "step": "N, phone: off",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": false,
+      "setup": false,
+      "end": ""
+    },
+    {
+      "step": "N again, phone: on",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": true,
+      "setup": false,
+      "end": ""
+    },
+    {
+      "step": "next match",
+      "phase": "playing",
+      "map": "station-nine",
+      "mode": "charge",
+      "random": false,
+      "setup": false,
+      "end": "Match setup in ",
+      "setupSeen": false,
+      "seconds": 18.311
+    }
+  ],
+  "errors": []
+}

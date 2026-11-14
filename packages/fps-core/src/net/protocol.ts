@@ -72,7 +72,7 @@ export type ClientMessage =
   | ({ readonly t: 'lobby' } & LobbyPick)
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' }
-  /** At a match's end, the host asks for a random next match in place of the lobby (or takes it back). */
+  /** At a match's end, the host turns the random next match (on by default) off, or on again. */
   | { readonly t: 'random'; readonly on: boolean }
   /** The host puts a person in the lobby on a side (1 or 2) for the next match. */
   | { readonly t: 'side'; readonly id: string; readonly team: 1 | 2 }
@@ -162,7 +162,7 @@ export interface LobbyState {
   readonly held?: Readonly<Record<string, string>>;
   /** The side (1 or 2) each person plays on in the next match, where it has sides; the host may move them. */
   readonly sides?: Readonly<Record<string, number>>;
-  /** At a match's end: the host asked for a random next match, which starts when the scoreboard's time runs out, in place of the lobby. */
+  /** At a match's end: a random next match is on (by default, until the host turns it off), and starts when the scoreboard's time runs out, in place of the lobby. */
   readonly random?: boolean;
 }
 

@@ -3,7 +3,7 @@ import { box, buildNavGraph, createWorld, randomNextMatch, shuffledSides, type M
 import { createNetworkedMatch, type NetworkedClient, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { FLOOR, ticks } from './support/movement';
 
-// Ticket 115: at a match's end the host may ask for a random next match, which starts in place of the lobby.
+// Ticket 115: at a match's end a random next match is on (PLAN item 9b: by default), and starts in place of the lobby unless the host turns it off.
 
 const SPREAD: readonly SpawnPoint[] = [-6, 0, 6].map((x) => ({ position: [x, 0, 0], yaw: 0 }));
 const BLUE: readonly SpawnPoint[] = [-6, -3, 0, 3, 6].map((x) => ({ position: [x, 0, 20], yaw: Math.PI }));
@@ -84,19 +84,19 @@ describe('the random next match', () => {
     expect(people.some((p) => a.get(p) !== b.get(p))).toBe(true);
   });
 
-  it('starts at the scoreboard’s end with no lobby between, on another map and mode, the sides dealt afresh', () => {
+  it('is on at every match’s end and starts at the scoreboard’s end with no lobby between, on another map and mode, the sides dealt afresh', () => {
     const m = lobby();
     const alice = join(m, 'alice');
     const bob = join(m, 'bob');
     playToEnd(m, alice);
-    // Only the host may ask.
-    bob.client.randomNext(true);
     m.run(ticks(0.2));
-    expect(alice.client.match?.lobby?.random).toBeUndefined();
-    alice.client.randomNext(true);
-    m.run(ticks(0.2));
-    // Everyone sees it asked for.
+    // On by default, and everyone sees it on.
+    expect(alice.client.match?.lobby?.random).toBe(true);
     expect(bob.client.match?.lobby?.random).toBe(true);
+    // Only the host may turn it off.
+    bob.client.randomNext(false);
+    m.run(ticks(0.2));
+    expect(alice.client.match?.lobby?.random).toBe(true);
     const phases = new Set<string>();
     for (let i = 0; i < ticks(3) && m.server.phase !== 'playing'; i++) {
       m.step();
@@ -107,47 +107,72 @@ describe('the random next match', () => {
     expect(m.server.status()).toMatchObject({ map: 'yard', mode: 'tdm' });
     m.run(ticks(0.3));
     expect(bob.client.match).toMatchObject({ map: 'yard', mode: 'tdm', phase: 'playing' });
-    // The ask is spent: the next match's end goes back to the lobby unless the host asks again.
+    // While a match plays, nothing is asked; it comes on again at the match's end.
     expect(bob.client.match?.lobby?.random).toBeUndefined();
     // Two people, a side each; everyone spawned on the yard.
     const team = (c: NetworkedClient) => m.server.latest.players.find((p) => p.id === c.client.id)!.team;
     expect(team(alice)).not.toBe(team(bob));
     for (const p of m.server.latest.players.filter((p) => p.kind === 'player')) expect(p.position[0]).toBeGreaterThan(900);
-  });
-
-  it('can be taken back: the lobby comes as usual', () => {
-    const m = lobby();
-    const alice = join(m, 'alice');
-    playToEnd(m, alice);
-    alice.client.randomNext(true);
+    for (let i = 0; i < ticks(4) && m.server.phase === 'playing'; i++) m.step();
+    expect(m.server.phase).toBe('nuke');
     m.run(ticks(0.2));
-    alice.client.randomNext(false);
-    m.run(ticks(3));
-    expect(m.server.phase).toBe('lobby');
-    expect(m.server.status().map).toBe('town');
+    expect(bob.client.match?.lobby?.random).toBe(true);
   });
 
-  it('goes with the host who asked: the next host is not taken to have asked', () => {
+  it('turned off by the host, the lobby comes as usual; turned on again, it starts', () => {
     const m = lobby();
     const alice = join(m, 'alice');
     const bob = join(m, 'bob');
     playToEnd(m, alice);
-    alice.client.randomNext(true);
+    alice.client.randomNext(false);
     m.run(ticks(0.2));
+    // Everyone sees it off.
+    expect(bob.client.match?.lobby?.random).toBeUndefined();
+    m.run(ticks(3));
+    expect(m.server.phase).toBe('lobby');
+    expect(m.server.status().map).toBe('town');
+    // The next match's end has it on again; off and back on, it starts.
+    playToEnd(m, alice);
+    alice.client.randomNext(false);
+    m.run(ticks(0.2));
+    alice.client.randomNext(true);
+    for (let i = 0; i < ticks(3) && m.server.phase !== 'playing'; i++) m.step();
+    expect(m.server.phase).toBe('playing');
+    expect(m.server.status().map).toBe('yard');
+  });
+
+  it('stays with the match when the host leaves: the next host can turn it off', () => {
+    const m = lobby();
+    const alice = join(m, 'alice');
+    const bob = join(m, 'bob');
+    playToEnd(m, alice);
     alice.client.close();
     m.run(ticks(0.3));
     expect(m.server.host).toBe(bob.client.id);
-    expect(bob.client.match?.lobby?.random).toBeUndefined();
+    expect(bob.client.match?.lobby?.random).toBe(true);
+    bob.client.randomNext(false);
     m.run(ticks(3));
     expect(m.server.phase).toBe('lobby');
     expect(m.server.status().map).toBe('town');
   });
 
-  it('is asked of the page on a server of one map (a Bot Match): the lobby comes, still asking', () => {
+  it('starts nothing on a server everyone has left: the lobby comes, with it off', () => {
+    const m = lobby();
+    const alice = join(m, 'alice');
+    playToEnd(m, alice);
+    alice.client.close();
+    m.run(ticks(3));
+    expect(m.server.phase).toBe('lobby');
+    expect(m.server.status().map).toBe('town');
+    const bob = join(m, 'bob');
+    m.run(ticks(0.2));
+    expect(bob.client.match?.lobby?.random).toBeUndefined();
+  });
+
+  it('is left to the page on a server of one map (a Bot Match): the lobby comes, still on', () => {
     const m = lobby([]);
     const alice = join(m, 'alice');
     playToEnd(m, alice);
-    alice.client.randomNext(true);
     m.run(ticks(3));
     expect(m.server.phase).toBe('lobby');
     expect(alice.client.match?.lobby?.random).toBe(true);
