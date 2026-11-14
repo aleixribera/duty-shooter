@@ -170,8 +170,15 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     });
   /** Settles once the player has rested a moment, or wants to play: when a stall nobody can feel may happen. */
   const restMoment = () => quietFor(REST_MS, () => lastInput);
-  /** Lets the screen a press opened paint before the next piece of background work. Moving the mouse counts for nothing: it would hold back the world behind the menu. */
-  const breath = () => quietFor(BREATH_MS, () => lastPress);
+  /**
+   * Lets the screen a press opened paint before the next piece of background work. Moving the mouse counts for nothing: it would hold back the world behind the menu.
+   * The Loadout screen's gun goes first too: the shaders of the Range kept ready behind the menus queued beside its own
+   * and held a first open's gun back 1.5 s more.
+   */
+  const breath = async () => {
+    await quietFor(BREATH_MS, () => lastPress);
+    while (!hurried && menu.gunStage?.busy) await new Promise((done) => setTimeout(done, 50));
+  };
   /** The game on show ready to play, with nothing held back for a quieter moment. */
   const ready = () => {
     hurried = true;

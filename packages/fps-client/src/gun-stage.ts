@@ -26,6 +26,8 @@ const RETURN_RATE = 2.5;
 const FILL = 0.86;
 /** Frames a second at most: the menu is still, and the toaster draws the map behind it as well. */
 const FPS = 30;
+/** The longest the page's background shader work waits on a gun asked for (ms, `busy`): one that never draws can't hold it back. */
+const BUSY_MS = 8000;
 /** The lens's vertical field of view (degrees): long, so the gun reads flat like a product shot. */
 const FOV = 24;
 
@@ -56,6 +58,21 @@ const STILLS: Readonly<Record<WeaponId, URL>> = {
 };
 const still = (id: WeaponId): string => STILLS[id].href;
 
+/** One shown mesh of each look under `root`: its materials and the attributes its vertices carry, which pick its shader. */
+function looks(root: Object3D): Iterable<Mesh> {
+  const one = new Map<string, Mesh>();
+  root.traverseVisible((o) => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const { attributes, index } = mesh.geometry;
+    const layout = Object.keys(attributes).sort().map((name) => `${name}${attributes[name]!.itemSize}${attributes[name]!.normalized ? 'n' : ''}`);
+    const key = `${materials.map((m) => m.uuid).join()}|${layout.join()}|${index ? 'i' : ''}|${mesh.matrixWorld.determinant() < 0 ? 'm' : ''}|${mesh.type}`;
+    if (!one.has(key)) one.set(key, mesh);
+  });
+  return one.values();
+}
+
 /** A gun on the stage: its model, and the optic on it now. */
 interface StagedGun {
   readonly root: Object3D;
@@ -83,6 +100,10 @@ export class LoadoutGunStage implements GunStage {
   readonly #still: HTMLImageElement;
   #renderer: WebGPURenderer | null = null;
   #starting: Promise<void> | null = null;
+  /** The renderer could not be made: no gun will be drawn. */
+  #failed = false;
+  /** When the gun on show was asked for (ms, `performance.now`). */
+  #asked = 0;
   readonly #scene = new Scene();
   readonly #camera = new PerspectiveCamera(FOV, 16 / 9, 0.05, 50);
   /** Turns; the gun sits in it with its middle on the axis. */
@@ -134,6 +155,7 @@ export class LoadoutGunStage implements GunStage {
     this.element.setAttribute('aria-label', STATS.weapons[id].traits.name);
     const gun = this.#dress(id, kit, camo, reticles);
     if (this.#shown !== id) {
+      this.#asked = performance.now();
       this.#showStill(id, gun);
       for (const [other, g] of this.#guns) g.root.visible = other === id && this.#frameable(g);
       this.#shown = id;
@@ -246,6 +268,9 @@ export class LoadoutGunStage implements GunStage {
   /**
    * Makes `gun`'s shaders off the frame, once: only that gun, lit by the stage, seen as the camera will frame it
    * (`compileAsync` skips what is hidden or out of view). An optic or fitting put on later compiles when first drawn.
+   * One call per look (material and vertex layout), all at once: a single call makes its pipelines one after another,
+   * about half a second each on a fresh page here, 4 s for the M4A1's nine (review 2026-11-14c), where the browser
+   * makes several side by side.
    */
   #compile(gun: StagedGun): Promise<void> {
     gun.compiled ??= (async () => {
@@ -254,14 +279,20 @@ export class LoadoutGunStage implements GunStage {
       const w = this.#canvas.clientWidth;
       const h = this.#canvas.clientHeight;
       this.#aim(gun.root.userData['half'] as Vector2, w > 1 && h > 1 ? w / h : 16 / 9);
-      // Shown for the call only: it gathers what it will make before its first wait.
+      // Shown for the calls only: each gathers what it will make before its first wait.
       const shown = gun.root.visible;
       gun.root.visible = true;
-      const made = renderer.compileAsync(gun.root, this.#camera, this.#scene);
+      this.#turntable.updateMatrixWorld(true);
+      const made = Promise.allSettled([...looks(gun.root)].map((mesh) => renderer.compileAsync(mesh, this.#camera, this.#scene)));
       gun.root.visible = shown;
-      await made.catch(() => undefined);
+      await made;
     })();
     return gun.compiled;
+  }
+
+  get busy(): boolean {
+    if (!this.#wanted || this.#shown === null || this.#failed || performance.now() - this.#asked > BUSY_MS) return false;
+    return this.#compiling > 0 || this.#guns.get(this.#shown)?.drawn !== true;
   }
 
   stop(): void {
@@ -382,6 +413,7 @@ export class LoadoutGunStage implements GunStage {
       pmrem.dispose();
       this.#renderer = renderer;
     })().catch((error: unknown) => {
+      this.#failed = true;
       console.warn('The Loadout screen draws no gun:', error);
     });
     return this.#starting;

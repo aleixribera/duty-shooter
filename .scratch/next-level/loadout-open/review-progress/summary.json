@@ -1,0 +1,25 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": null,
+  "tour": [],
+  "range": null,
+  "island": null,
+  "online": null,
+  "progress": {
+    "loadoutMsToGun": 35,
+    "loadoutMsToModel": 436,
+    "loadoutDrawn": "m4a1",
+    "previewFitting": true,
+    "previewCamo": true,
+    "fresh": {
+      "open": 4,
+      "shut": 5
+    },
+    "saveCode": "DS2-eyJ2ZXJzaW9uIjoxLCJ4",
+    "rank12": {
+      "open": 9,
+      "shut": 0
+    }
+  }
+}

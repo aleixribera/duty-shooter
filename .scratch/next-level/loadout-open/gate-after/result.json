@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "wait": 4000,
+      "run": 0,
+      "warmed": null,
+      "msToGun": 2280
+    },
+    {
+      "wait": 4000,
+      "run": 1,
+      "warmed": null,
+      "msToGun": 1971
+    }
+  ],
+  "errors": []
+}

@@ -380,6 +380,12 @@ export interface GunStage {
   warm(id: WeaponId, kit: Attachments | undefined, camo?: CamoId | null, reticles?: Reticles, wanted?: () => boolean): Promise<void>;
   /** Stops drawing: the screen closed. */
   stop(): void;
+  /**
+   * The screen is up and its gun not yet drawn: the page's background shader work waits meanwhile, which would
+   * otherwise queue beside the gun's on the GPU and hold its model back seconds. False again after a few seconds, so a
+   * gun that never draws can't hold that work back.
+   */
+  readonly busy: boolean;
 }
 
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
