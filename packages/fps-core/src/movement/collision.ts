@@ -267,7 +267,9 @@ export function clipVelocity(vx: number, vz: number, normals: readonly Flat[]): 
 /**
  * How far the hull, moving along the unit ground-plane direction `dir` from
  * `origin`, travels before its footprint touches the solid's (0 if it already
- * does), or null if it never does. Ignores height.
+ * does), or null if it never does. Ignores height. A solid the hull only
+ * touches on the side it is moving away from is not ahead: null (a ledge at
+ * a player's back is no ledge to mantle).
  */
 export function distanceToFootprint(origin: Vec3, dir: Flat, s: Solid, hull: Hull): number | null {
   let enter = -Infinity;
@@ -289,7 +291,7 @@ export function distanceToFootprint(origin: Vec3, dir: Flat, s: Solid, hull: Hul
     enter = Math.max(enter, Math.min(t1, t2));
     exit = Math.min(exit, Math.max(t1, t2));
   }
-  if (enter > exit || exit < 0) return null;
+  if (enter > exit || exit <= EPSILON) return null;
   return Math.max(0, enter);
 }
 

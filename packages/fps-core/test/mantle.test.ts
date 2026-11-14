@@ -115,6 +115,20 @@ describe('mantle', () => {
     }
   });
 
+  it('does not mantle onto a ledge at its back: a face the hull leans on from the front is not ahead', () => {
+    // Backed up against a waist-high car deck while looking away, as a bot that walks up to it looking round does.
+    const height = mantle.waistMantleMaxHeight.value - tolerance(mantle.waistMantleMaxHeight);
+    const behind = box({ min: [-2, 0, stance.hullHalfWidth.value], max: [2, height, stance.hullHalfWidth.value + 5], material: 'concrete' });
+    const match = soloMatch({ solids: [FLOOR, behind] });
+
+    const outputs = hold(match, ticks(1), jump);
+
+    expect(outputs.some((p) => p.movement === 'mantle')).toBe(false);
+    expect(outputs[0]?.movement).toBe('airborne');
+    // The same face in front, touching the hull, is a ledge.
+    expect(jumpAt(height, { gap: 0 }).outputs[0]).toMatchObject({ movement: 'mantle', mantle: 'waist' });
+  });
+
   it('does not mantle when there is no room to stand on the ledge', () => {
     const height = mantle.lowVaultMaxHeight.value;
     const face = -(stance.hullHalfWidth.value + mantle.reach.value / 2);

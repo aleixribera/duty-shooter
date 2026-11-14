@@ -243,6 +243,8 @@ const SPOT_HOLD: readonly [number, number] = [2, 5];
 const SPOT_THERE = 1;
 /** Held up this long (s) below where its route goes next, a bot jumps at it (a mantle where there's a ledge). */
 const WEDGED = 0.6;
+/** Within this far (m) of the next node on its route, and below it by more than a step, a bot looks at that node: the ledge it may have to mantle. */
+const LEDGE_LOOK = 1.5;
 /** How far round a rally (m) it looks for a spot, and how many it weighs. */
 const SPOT_REACH = 8;
 const SPOTS_WEIGHED = 24;
@@ -2347,13 +2349,18 @@ export class Bot {
   /**
    * A point a little ahead along the route, to look at while moving. Facing
    * a climb, the ledge itself: a mantle goes the way the bot looks, and a
-   * look past the ledge (up a roof climb, say) can aim it off the crate.
+   * look past the ledge (up a roof climb, say) can aim it off the crate. So
+   * too a node just ahead and above it with no climb to it (a route that
+   * starts on a car's deck beside it): looking on along the route there can
+   * face it away from the ledge it is held up at.
    */
   #lookAhead(from: Vec3): Vec3 | null {
     const nodes = this.#nav.nodes;
-    if (this.#nextLink() === 'climb' || this.#nextLink() === 'ladder') {
-      const p = nodes[this.#path[this.#step]!]!.position;
-      return [p[0], p[1] + 1.5, p[2]];
+    const next = this.#path[this.#step];
+    if (next !== undefined) {
+      const p = nodes[next]!.position;
+      const above = p[1] > from[1] + STATS.movement.stepHeight.value && flat(from, p) < LEDGE_LOOK;
+      if (above || this.#nextLink() === 'climb' || this.#nextLink() === 'ladder') return [p[0], p[1] + 1.5, p[2]];
     }
     for (let i = this.#step; i < this.#path.length; i++) {
       const p = nodes[this.#path[i]!]!.position;

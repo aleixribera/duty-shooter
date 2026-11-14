@@ -12,12 +12,13 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
 8. (2026-11-14) Random next match the host can pick at match end, Bot Match and private lobbies: built, v2.204.0 (ticket 115).
 9. (2026-11-14) Reset all progression to 0 for every browser once item 7 is built, as its last step (ticket 116).
+10. (2026-11-14) Pause the loop once the game is polished and in a good state ("Once you feel like the game is polished enough and in a good state, you can pause"). Stopping test: a fresh full review passes all six objectives, or every one it still fails waits on Aleix's call or on hardware. The loop chat pauses.
 
-Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
+Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate a game's own content (names, art, levels).
 
-Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (laptop) has its two passes spent (ticket 99); item 1b (Backlit UI) shipped. Passes 39-44: PLAN item 7 roughly (ticket 117); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Passes 45-66: reviews 14a and 14b's gaps (tickets 100, 102, 103, 117; v2.211.x), each in BACKLOG.
+Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-76: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG) worked (v2.213.2 to v2.213.6): no firing into smoke, hit marker frames the target, Station Nine FFA/Gun Game fill to 6, BR seats face open ground, locked fittings and camos preview, fewer hints, a faint hit flash, the range panel's tally, the FFA board by Kills, lone titles, objective distances on a plate, Settings on the phone menu's line. Pass 77 (v2.213.7, ticket 117): the Loadout's first gun in 2.0-2.7 s at worst (was 5-7.6 s; 436 ms in the review's flow). Next: the review's scripted player pressing into walls (`steer`, `trailer/shots.mjs`), or a fresh review.
+Passes 67-76: review 2026-11-14c's defects (1, 5 pass; 2, 3, 4, 6 fail; list in BACKLOG) worked, v2.213.2 to v2.213.6 (see their commits). Pass 77 (v2.213.7, ticket 117): the Loadout's first gun in 2.0-2.7 s at worst (was 5-7.6 s; 436 ms in the review's flow). Pass 78 (v2.213.8, ticket 118): CI's gun game soak flake fixed at its cause, a mantle backwards off a face at your back (Switchyard soaks: longest roam in place 3.9 s in 120, was up to 9.8). Item 10's test not met: 14c fails 2, 3, 4, 6. Next: a fresh review (14d) to judge the stopping test, then its worst gap.
 
 ## Needs Aleix
 
@@ -41,7 +42,7 @@ Passes 67-76: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
 - Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; 2 measured on a saturated PC).
-- CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
+- CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken
 
@@ -61,5 +62,5 @@ None.
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 
-- Zero Island's nav under the dev server: built (~70 s) on the first ask, kept until a source changes. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
+- Zero Island's nav: built by the dev server (~70 s) on first ask. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
 - Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs` lists shader builds and long frames in a flight (`DEV=1` for `?bench`). The capture's range stall was the range's load, not play (ticket 99).
