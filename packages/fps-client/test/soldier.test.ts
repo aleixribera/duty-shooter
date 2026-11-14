@@ -274,14 +274,18 @@ describe('the third-person soldier holding each weapon', () => {
         soldier.root.updateMatrixWorld(true);
         return soldier.root.getObjectByName('neck')!.getWorldPosition(new Vector3());
       };
-      // Straight on, either side; the head is well off the line half a second in, and further once it lies.
+      // Straight on, either side; thrown over sideways at once, so the head is off the line a quarter of a second in
+      // (it still stood on it before `DEATH_LEAN`), well off it half a second in, and further, the same way, once it lies.
       for (let i = 0; i < 6; i++) {
         const soldier = settled();
         soldier.die([0, 0, 2.5]);
-        for (let f = 0; f < 30; f++) soldier.fall(1 / 60);
-        expect(Math.abs(neck(soldier).x), 'half a second in').toBeGreaterThan(0.4);
+        for (let f = 0; f < 15; f++) soldier.fall(1 / 60);
+        const quarter = neck(soldier).x;
+        expect(Math.abs(quarter), 'a quarter of a second in').toBeGreaterThan(0.35);
+        for (let f = 0; f < 15; f++) soldier.fall(1 / 60);
+        expect(Math.abs(neck(soldier).x), 'half a second in').toBeGreaterThan(0.5);
         const head = fallen(soldier, 'straight on');
-        expect(Math.abs(head.x)).toBeGreaterThan(0.6);
+        expect(head.x * Math.sign(quarter)).toBeGreaterThan(0.6);
         expect(head.z).toBeGreaterThan(0.6);
       }
       // A shot a little from the side sends it that way, from the front and from behind.
@@ -356,9 +360,10 @@ describe('the third-person soldier holding each weapon', () => {
               before = now;
             }
             // A body falling its own height tops out near 6 m/s, and a slide's legs unfolding into the fall, the fastest
-            // thing a death does, near 14 at either rate. A limb snapping to the other side of the body was 17 to 68 at
-            // 60 Hz, and more the shorter the frame.
-            expect(fastest, `${pose}, shot from ${from}, at ${rate} Hz: ${which}`).toBeLessThan(15);
+            // thing a death does, near 14 at either rate, and 15.6 at 144 Hz when the turn (`DEATH_TURN`) swings the left
+            // arm the same way (the side is picked at random: at 15 the test failed whenever it was that one). A limb
+            // snapping to the other side of the body was 17 to 68 at 60 Hz, and more the shorter the frame.
+            expect(fastest, `${pose}, shot from ${from}, at ${rate} Hz: ${which}`).toBeLessThan(16.5);
           }
         }
       }

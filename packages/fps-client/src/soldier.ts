@@ -230,6 +230,15 @@ const DEATH_WIDTH = 0.9;
 const DEATH_TURN = 0.75;
 const DEATH_TURN_TIME = 0.5;
 /**
+ * The turn only carries a body aside once it is low, and a fall gathers speed slowly: a quarter of a second after the
+ * kill the body still stood upright on the aim point, behind the post. So the shot first throws it over sideways
+ * (rad, about the line it falls along, through the feet), the way shooters' death reactions stagger and twist at
+ * once, quickest at the start and all of it in `DEATH_LEAN_TIME` (s). It stays: lying along that line, the same lean
+ * only rolls the body a little onto the side it turned to.
+ */
+const DEATH_LEAN = 0.35;
+const DEATH_LEAN_TIME = 0.2;
+/**
  * What a body rests on (m): the thickness about the hips, the shoulders, the head (a point in the neck's frame),
  * and about each limb's joints and ends (points in the wrist's and the ankle's frames).
  */
@@ -395,6 +404,8 @@ const _b = new Vector3();
 const _c = new Vector3();
 const _q = new Quaternion();
 const VERTICAL = new Vector3(0, 1, 0);
+/** The line a death falls along in the root's space: straight back (+Z, the soldier faces -Z) or forward. */
+const ALONG = new Vector3(0, 0, 1);
 const _q2 = new Quaternion();
 const _q3 = new Quaternion();
 const _e = new Euler();
@@ -464,6 +475,8 @@ export class Soldier {
     origin: Vector3;
     /** How far the whole body turns about the vertical as it falls (rad, counter-clockwise seen from above: see `DEATH_TURN`). */
     turn: number;
+    /** How far the whole body leans to the side it turns to, about the line it falls along (rad, see `DEATH_LEAN`). */
+    lean: number;
     /** The way each limb was last lifted (`LIFT_SPEED`): its heading about the vertical (rad), NaN before the first. */
     ways: Float32Array;
     /** Lying still: the last pose is in the bones and nothing moves them again. */
@@ -768,7 +781,11 @@ export class Soldier {
     const start = Math.min(0.8, Math.max(0, 1 - b.hips.position.y / 0.8)) * clip.duration;
     const hips = clip.joints.find((j) => j.joint === 'hips')?.at;
     const origin = hips ? new Vector3().fromArray(hips.evaluate(deathClock(start / clip.duration) * clip.duration)) : b.hips.position.clone();
-    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })), origin, turn, ways: new Float32Array(LIFTS * 2).fill(Number.NaN), still: false };
+    // Leaning about +Z (the line a fall runs along) by a negative angle tips the head to the soldier's right (+X). A
+    // body already low (crouched, sliding) has less to throw over, and its legs are busy unfolding into the fall.
+    const upright = Math.min(1, Math.max(0, (b.hips.position.y - 0.55) / 0.35));
+    const lean = turn === 0 ? 0 : -Math.sign(lies.right) * DEATH_LEAN * upright;
+    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })), origin, turn, lean, ways: new Float32Array(LIFTS * 2).fill(Number.NaN), still: false };
     return lies;
   }
 
@@ -805,6 +822,13 @@ export class Soldier {
         if (joint === 'hips') _a.set(_a.x + bone.position.x, _a.y, _a.z + bone.position.z);
         bone.position.lerp(_a, w);
       }
+    }
+    if (d.lean !== 0) {
+      const x = Math.min(1, (d.time - d.start) / DEATH_LEAN_TIME);
+      _q.setFromAxisAngle(ALONG, d.lean * (1 - (1 - x) * (1 - x)));
+      const hips = this.#bones.hips;
+      hips.quaternion.premultiply(_q);
+      hips.position.applyQuaternion(_q);
     }
     if (d.turn !== 0) {
       // The whole body turns about the vertical through the feet, gathering and losing speed as the fall does its own.

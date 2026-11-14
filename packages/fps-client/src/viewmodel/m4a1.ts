@@ -408,44 +408,47 @@ function frontSightBase(q: Q): { readonly base: Part; readonly post: Part } {
       q.seg,
     ),
   );
-  // Triangular tower.
+  // A low saddle clamped on the gas block, under the handguard's line from the eye (ticket 102): no tower rises
+  // into the sight picture.
   parts.push(
     sideLoft(
       [
-        [-0.3415, 0.009, 0],
-        [-0.349, 0.0425, 0.004],
-        [-0.3625, 0.0425, 0.004],
-        [-0.372, 0.009, 0],
+        [-0.3445, 0.009, 0],
+        [-0.3465, 0.019, 0.002],
+        [-0.3645, 0.019, 0.002],
+        [-0.3665, 0.009, 0],
       ],
-      0.006,
-      0.001,
+      0.0075,
+      0.0008,
       q,
     ),
   );
-  // Protective ears around the post.
+  // A slim flip-up sight on the saddle: two thin protective ears joined below the handguard's line, open between
+  // them down to it, so the ground under the post, where a body shot at range falls, stays in sight (an A2 base's
+  // solid ears and tower hid it).
   post.push(
     frontLoft(
       polyRound(
         [
-          [-0.0105, 0.0385, 0.003],
-          [0.0105, 0.0385, 0.003],
-          [0.0105, 0.0675, 0.0022],
-          [0.0068, 0.0675, 0.001],
-          [0.0068, 0.0488, 0.0022],
-          [-0.0068, 0.0488, 0.0022],
-          [-0.0068, 0.0675, 0.001],
-          [-0.0105, 0.0675, 0.0022],
+          [-0.0105, 0.017, 0.002],
+          [0.0105, 0.017, 0.002],
+          [0.0105, 0.0675, 0.0016],
+          [0.0084, 0.0675, 0.0008],
+          [0.0084, 0.0245, 0.0018],
+          [-0.0084, 0.0245, 0.0018],
+          [-0.0084, 0.0675, 0.0008],
+          [-0.0105, 0.0675, 0.0016],
         ],
         q.fil,
       ),
       [],
       -0.361,
       -0.35,
-      0.0007,
+      0.0006,
       q,
     ),
   );
-  // Front sight post (square, tip at SIGHT_Y) and its detent base.
+  // Front sight post (square, tip at SIGHT_Y) on a stem as thin, down to its detent on the ears' bridge.
   const hp = 0.0009;
   post.push(
     topLoft(
@@ -455,7 +458,7 @@ function frontSightBase(q: Q): { readonly base: Part; readonly post: Part } {
         [hp, FRONT_SIGHT_Z + hp, 0.0002],
         [-hp, FRONT_SIGHT_Z + hp, 0.0002],
       ],
-      0.048,
+      0.0245,
       SIGHT_Y,
       0.0002,
       q,
@@ -477,7 +480,7 @@ function frontSightBase(q: Q): { readonly base: Part; readonly post: Part } {
         ],
         32,
         notch,
-      ).transform(mat(0, 0.047, FRONT_SIGHT_Z, aim(Y))),
+      ).transform(mat(0, 0.0255, FRONT_SIGHT_Z, aim(Y))),
     );
     // Bayonet lug, sling lug, swivel and taper pins.
     parts.push(
