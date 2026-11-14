@@ -409,6 +409,7 @@ export class Game {
   readonly #onVoteKey = (e: KeyboardEvent) => {
     if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
+    else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
   };
 
   constructor(options: GameOptions) {
@@ -466,7 +467,9 @@ export class Game {
     if (options.content.places && options.content.terrain) this.hud.setIsland({ terrain: options.content.terrain, colors: options.content.terrainColors ?? [0x808080], places: options.content.places });
     this.hud.visible = false;
     this.hud.onVote = (mode) => this.#vote(mode);
-    this.input.onPadVote = (side) => this.#vote(side === 'left' ? 'tdm' : 'ffa');
+    this.hud.onRandom = () => this.#toggleRandom();
+    // A server with a lobby holds no vote: there the D-pad's right is the host's Random next match.
+    this.input.onPadVote = (side) => (this.#driver?.match?.lobby ? side === 'right' && this.#toggleRandom() : this.#vote(side === 'left' ? 'tdm' : 'ffa'));
     addEventListener('keydown', this.#onVoteKey);
     this.applySettings(options.settings);
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
@@ -1028,6 +1031,16 @@ export class Game {
     if (!driver?.match || driver.match.phase !== 'vote') return;
     this.#myVote = mode;
     driver.vote(mode);
+    this.#play('hitMarker');
+  }
+
+  /** The host asks for a random next match at a match's end, or takes it back (ticket 115). */
+  #toggleRandom(): void {
+    const driver = this.#driver;
+    const match = driver?.match;
+    if (!driver || !match?.lobby || (match.phase !== 'nuke' && match.phase !== 'vote') || match.mode === 'battle-royale') return;
+    if (match.lobby.host === null || match.lobby.host !== driver.selfId) return;
+    driver.randomNext(!match.lobby.random);
     this.#play('hitMarker');
   }
 

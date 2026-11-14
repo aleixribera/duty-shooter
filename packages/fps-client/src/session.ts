@@ -83,6 +83,8 @@ export interface GameDriver {
   setLobby(settings: LobbyPick): void;
   /** The host starts the next match from the lobby (online only; ignored from anyone else). */
   startMatch(): void;
+  /** At a match's end, the host asks for a random next match in place of the lobby, or takes it back (online only; ignored from anyone else). */
+  randomNext(on: boolean): void;
   /** The host's controls in the lobby: a person onto side 1 or 2, the sides evened out, a person removed (online only; ignored from anyone else). */
   setSide(id: string, team: 1 | 2): void;
   evenSides(): void;
@@ -168,6 +170,8 @@ export class OfflineDriver implements GameDriver {
   setLobby(): void {}
 
   startMatch(): void {}
+
+  randomNext(): void {}
 
   setSide(): void {}
 
@@ -342,6 +346,10 @@ export class OnlineDriver implements GameDriver {
 
   startMatch(): void {
     this.#client.startMatch();
+  }
+
+  randomNext(on: boolean): void {
+    this.#client.randomNext(on);
   }
 
   setSide(id: string, team: 1 | 2): void {

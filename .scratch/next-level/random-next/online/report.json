@@ -1,0 +1,133 @@
+{
+  "steps": [
+    {
+      "step": "host joined",
+      "id": "p1",
+      "rejected": null
+    },
+    {
+      "step": "friend in the lobby",
+      "self": "p2",
+      "phase": "lobby",
+      "map": "survival-town",
+      "mode": "tdm",
+      "host": "p1",
+      "random": false,
+      "setup": true,
+      "end": "Back to the lobby in ",
+      "teams": {},
+      "hud": false,
+      "paused": true,
+      "overview": true,
+      "locked": true,
+      "menu": false
+    },
+    {
+      "step": "join the match clicked",
+      "ok": true
+    },
+    {
+      "step": "first match",
+      "self": "p2",
+      "phase": "playing",
+      "map": "survival-town",
+      "mode": "tdm",
+      "host": "p1",
+      "random": false,
+      "setup": false,
+      "end": "Back to the lobby in ",
+      "teams": {
+        "Host": 1,
+        "Player 9092": 2
+      },
+      "hud": true,
+      "paused": false,
+      "overview": false,
+      "locked": true,
+      "menu": false
+    },
+    {
+      "step": "its end, the friend",
+      "self": "p2",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "host": "p1",
+      "random": true,
+      "setup": false,
+      "end": "Scoreboard in 0:05The host chose a random next match",
+      "teams": {
+        "Host": 1,
+        "Player 9092": 2
+      },
+      "hud": true,
+      "paused": false,
+      "overview": false,
+      "locked": true,
+      "menu": false
+    },
+    {
+      "step": "scoreboard, the friend",
+      "self": "p2",
+      "phase": "vote",
+      "map": "survival-town",
+      "mode": "tdm",
+      "host": "p1",
+      "random": true,
+      "setup": false,
+      "end": "The host chose a random next match: it starts in 0:09",
+      "teams": {
+        "Host": 1,
+        "Player 9092": 2
+      },
+      "hud": true,
+      "paused": false,
+      "overview": false,
+      "locked": true,
+      "menu": false
+    },
+    {
+      "step": "next match",
+      "self": "p2",
+      "phase": "playing",
+      "map": "switchyard",
+      "mode": "outposts",
+      "host": "p1",
+      "random": false,
+      "setup": false,
+      "end": "The host chose a random next match: it starts in 0:00",
+      "teams": {
+        "Host": 1,
+        "Player 9092": 2
+      },
+      "hud": true,
+      "paused": false,
+      "overview": false,
+      "locked": true,
+      "menu": false,
+      "setupSeen": false,
+      "seconds": 8.975
+    },
+    {
+      "step": "next match, settled",
+      "self": "p2",
+      "phase": "playing",
+      "map": "switchyard",
+      "mode": "outposts",
+      "host": "p1",
+      "random": false,
+      "setup": false,
+      "end": "",
+      "teams": {
+        "Host": 1,
+        "Player 9092": 2
+      },
+      "hud": true,
+      "paused": false,
+      "overview": false,
+      "locked": true,
+      "menu": false
+    }
+  ],
+  "errors": []
+}

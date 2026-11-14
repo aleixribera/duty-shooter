@@ -315,6 +315,11 @@ export class GameClient {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'start' }));
   }
 
+  /** At a match's end, the host asks for a random next match in place of the lobby, or takes it back (ignored from anyone else). */
+  randomNext(on: boolean): void {
+    if (this.#status === 'joined') this.#connection.send(encode({ t: 'random', on }));
+  }
+
   /** The host puts a person in the lobby on side 1 or 2 (ignored from anyone else). */
   setSide(id: string, team: 1 | 2): void {
     if (this.#status === 'joined') this.#connection.send(encode({ t: 'side', id, team }));

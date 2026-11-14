@@ -59,6 +59,8 @@ export interface NetworkedMatchOptions extends MemoryNetworkOptions {
   readonly scale?: GameServerOptions['scale'];
   /** Told what each server tick did. */
   readonly probe?: GameServerOptions['probe'];
+  /** Where the host's random next match draws its luck. */
+  readonly random?: GameServerOptions['random'];
 }
 
 /** A client in the match, with every frame it produced. */
@@ -135,6 +137,7 @@ export function createNetworkedMatch(options: NetworkedMatchOptions): NetworkedM
     ...(options.net ? { net: options.net } : {}),
     ...(options.scale ? { scale: options.scale } : {}),
     ...(options.probe ? { probe: options.probe } : {}),
+    ...(options.random ? { random: options.random } : {}),
   });
   const clients = new Map<string, { name: string; client: GameClient; frames: ClientFrame[] }>();
   const history: TickOutput[] = [];

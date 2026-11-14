@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_PLAYERS, MAX_BOTS_PER_TEAM, type BotSkill, type LobbyPick, type LobbyState, type ModeId } from '@duty-shooter/fps-core';
+import { DEFAULT_MAX_PLAYERS, LOBBY_MODES, MAX_BOTS_PER_TEAM, randomNextMatch, type BotSkill, type LobbyPick, type LobbyState, type ModeId } from '@duty-shooter/fps-core';
 import type { LobbyView } from '@duty-shooter/fps-client/ui';
 import { MATCH_MAPS, TEAM_SIZES, asMapId, type MapId } from './map/catalogue';
 
@@ -42,6 +42,17 @@ export class BotSetup {
     // A size of your own lasts until the map or mode changes (or Bots is switched); offline there is always at least one a side.
     const custom = bots !== undefined || (was.custom && picks.fill === undefined && next.map === was.map && next.mode === was.mode);
     this.#state = { ...next, custom, bots: custom ? Math.max(1, Math.min(MAX_BOTS_PER_TEAM, bots ?? was.bots)) : teamSize(next.map, next.mode) };
+  }
+
+  /**
+   * The host's random next match (ticket 115): a match map and a mode it
+   * plays, unlike the one just played, taken as the picks (the bots back to
+   * the map's size; humans vs bots and the skill as they were).
+   */
+  pickRandom(played: { readonly map: string; readonly mode: ModeId }, random: () => number = Math.random): void {
+    const choices = MATCH_MAPS.flatMap((map) => LOBBY_MODES.filter((mode) => TEAM_SIZES[map][mode] !== undefined).map((mode) => ({ map, mode })));
+    const pick = randomNextMatch(played, choices, random);
+    if (pick) this.pick({ map: pick.map, mode: pick.mode, fill: true });
   }
 
   /** What the lobby page shows, for a player of this name. */

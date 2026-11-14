@@ -12,7 +12,7 @@ import { parsePing, type PingRequest } from '../pings';
 export { STICKY_FIELDS, type StickyField } from './codec';
 
 /** Bumped whenever the messages change; client and server must agree. */
-export const PROTOCOL_VERSION = 32;
+export const PROTOCOL_VERSION = 33;
 
 /** Usercmds a client repeats in every packet, so a lost packet's usercmds arrive with the next one. */
 export const REDUNDANT_CMDS = 8;
@@ -72,6 +72,8 @@ export type ClientMessage =
   | ({ readonly t: 'lobby' } & LobbyPick)
   /** The host starts the next match from the lobby. */
   | { readonly t: 'start' }
+  /** At a match's end, the host asks for a random next match in place of the lobby (or takes it back). */
+  | { readonly t: 'random'; readonly on: boolean }
   /** The host puts a person in the lobby on a side (1 or 2) for the next match. */
   | { readonly t: 'side'; readonly id: string; readonly team: 1 | 2 }
   /** The host evens the lobby's sides out. */
@@ -160,6 +162,8 @@ export interface LobbyState {
   readonly held?: Readonly<Record<string, string>>;
   /** The side (1 or 2) each person plays on in the next match, where it has sides; the host may move them. */
   readonly sides?: Readonly<Record<string, number>>;
+  /** At a match's end: the host asked for a random next match, which starts when the scoreboard's time runs out, in place of the lobby. */
+  readonly random?: boolean;
 }
 
 /** The match as every client needs it: map, mode, phase and its deadline, limits, team scores and the vote. */
@@ -292,6 +296,7 @@ export function decodeClient(data: string): ClientMessage | null {
     return { t: 'lobby', ...(mode === undefined ? {} : { mode }), ...(fill === undefined ? {} : { fill }), ...(bots === undefined ? {} : { bots }), ...(hvb === undefined ? {} : { hvb }), ...(map === undefined ? {} : { map }), ...(squads === undefined ? {} : { squads }) };
   }
   if (value['t'] === 'start') return { t: 'start' };
+  if (value['t'] === 'random') return typeof value['on'] === 'boolean' ? { t: 'random', on: value['on'] } : null;
   if (value['t'] === 'even') return { t: 'even' };
   if (value['t'] === 'side') {
     const { id, team } = value;

@@ -1,0 +1,62 @@
+{
+  "match": 20,
+  "steps": [
+    {
+      "step": "first match",
+      "phase": "playing",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": false,
+      "setup": false,
+      "end": ""
+    },
+    {
+      "step": "its end",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": false,
+      "setup": false,
+      "end": "Scoreboard in 0:05"
+    },
+    {
+      "step": "N pressed",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": true,
+      "setup": false,
+      "end": "Scoreboard in 0:04"
+    },
+    {
+      "step": "N again, phone",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": false,
+      "setup": false,
+      "end": ""
+    },
+    {
+      "step": "N again, phone",
+      "phase": "nuke",
+      "map": "survival-town",
+      "mode": "tdm",
+      "random": true,
+      "setup": false,
+      "end": ""
+    },
+    {
+      "step": "next match",
+      "phase": "playing",
+      "map": "switchyard",
+      "mode": "charge",
+      "random": false,
+      "setup": false,
+      "end": "",
+      "setupSeen": false,
+      "seconds": 15.998
+    }
+  ],
+  "errors": []
+}

@@ -383,18 +383,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     {
       pick: (picks) => (botLobbyOpen ? pickBots(picks) : game.driver?.setLobby(picks)),
       start: () => {
-        if (botLobbyOpen) {
-          menu.loading('Bot Match', null);
-          lobbyPage.hide();
-          botLobbyOpen = false;
-          whenUp(() => {
-            // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
-            if (game.driver) game.setDriver(null);
-            leaveLobby();
-            void playBots(botSetup.mapId, botSetup.state.mode, botSetup.state.bots, botSetup.state.hvb && teamMode(botSetup.state.mode), botSetup.skill);
-          });
-          return;
-        }
+        if (botLobbyOpen) return startBotMatch();
         // The click that starts the match also takes the pointer for it.
         lobbyJoin = true;
         game.driver?.startMatch();
@@ -651,6 +640,18 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       });
     }, 350);
   };
+  /** Bot Match's picks played: the loading screen, then the match. */
+  const startBotMatch = () => {
+    menu.loading('Bot Match', null);
+    lobbyPage.hide();
+    botLobbyOpen = false;
+    whenUp(() => {
+      // The match just played (if any) goes, so it isn't taken for over again while the next one loads.
+      if (game.driver) game.setDriver(null);
+      leaveLobby();
+      void playBots(botSetup.mapId, botSetup.state.mode, botSetup.state.bots, botSetup.state.hvb && teamMode(botSetup.state.mode), botSetup.skill);
+    });
+  };
   const openBotLobby = () => {
     botSetup.last = null;
     botLobbyOpen = true;
@@ -721,6 +722,13 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const { BotMatchDriver, OnlineDriver } = engine!;
     if (driver instanceof BotMatchDriver && driver.over && !botLobbyOpen) {
       const match = driver.match!;
+      // The host asked for a random next match at its end (ticket 115): straight into it, no setup page between.
+      if (match.lobby?.random) {
+        botSetup.pickRandom({ map: match.map, mode: match.mode });
+        botSetup.last = null;
+        startBotMatch();
+        return;
+      }
       botSetup.last = { mode: match.mode, result: match.result, teamScores: match.teamScores };
       botLobbyOpen = true;
       game.paused = true;

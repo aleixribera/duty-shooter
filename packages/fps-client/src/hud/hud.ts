@@ -287,6 +287,8 @@ const CSS = `
 .ds-votes button .n { font-family: var(--ds-font-display); position: absolute; right: 12px; top: 10px; font-size: var(--ds-type-heading); font-weight: 700; }
 .ds-end .next { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--ds-scrim-soft); font-size: var(--ds-type-small); color: var(--ds-text); }
 .ds-end .vote .next { display: block; padding: 0; background: none; color: var(--ds-text-2); }
+.ds-end .random { margin-top: 8px; pointer-events: auto; }
+.ds-end .random:empty { display: none; }
 .ds-recap { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(156px + var(--ds-safe-b)); min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; --ds-edge: var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
 @media (max-width: 640px) { .ds-recap { left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(206px + var(--ds-safe-b)); min-width: 0; padding: 8px 12px; } .ds-recap .who b { font-size: var(--ds-type-body); } .ds-recap .nums b { font-size: var(--ds-type-body); } }
 .ds-toast { position: absolute; left: 50%; bottom: calc(128px + var(--ds-safe-b)); transform: translateX(-50%); width: max-content; max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; --ds-ch: 10px; --ds-fill: var(--ds-plate-solid); padding: 10px 18px; font-size: var(--ds-type-body); line-height: 1.4; opacity: 0; transition: opacity 300ms; text-shadow: none; }
@@ -553,6 +555,8 @@ export class Hud {
   /** The end panel's three parts: who won, your match (drawn once, so its Rank bar fills once), and what comes next with its clock. */
   readonly #endHead: HTMLDivElement;
   readonly #endMine: HTMLDivElement;
+  /** The host's Random next match button: apart from the line under it, so the clock's tick doesn't rebuild it under a press. */
+  readonly #endRandom: HTMLDivElement;
   readonly #endNext: HTMLDivElement;
   #endFoot = -1;
   readonly #zones: HTMLDivElement;
@@ -564,6 +568,8 @@ export class Hud {
   readonly #chargeMarkers = new Map<string, HTMLDivElement>();
   /** Called when a vote button is pressed. */
   onVote: ((mode: ModeId) => void) | null = null;
+  /** The host's Random next match button at a match's end, clicked or tapped. */
+  onRandom: (() => void) | null = null;
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
   /** How long the toast up now has been (s). */
@@ -656,9 +662,12 @@ export class Hud {
     this.#end = el('div', 'ds-end', this.root);
     this.#endHead = el('div', 'head ds-plate', this.#end);
     this.#endMine = el('div', 'mine ds-plate ds-gain', this.#end);
+    this.#endRandom = el('div', 'random', this.#end);
     this.#endNext = el('div', 'after', this.#end);
     this.#end.addEventListener('click', (e) => {
-      const mode = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset['mode'];
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-random]')) return this.onRandom?.();
+      const mode = target.closest<HTMLElement>('[data-mode]')?.dataset['mode'];
       if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
     });
     this.#toast = el('div', 'ds-toast ds-plate', this.root);
@@ -673,6 +682,11 @@ export class Hud {
   /** The island the Battle Royale map draws (Zero Island), painted ahead of the map's first opening. */
   setIsland(source: IslandMapSource): void {
     this.#royale.island = source;
+  }
+
+  /** Read back too: a page that moves to another map's game carries it over (without the getter it read undefined, and hid the HUD). */
+  get visible(): boolean {
+    return this.root.style.display !== 'none';
   }
 
   set visible(on: boolean) {
@@ -1219,10 +1233,18 @@ export class Hud {
           [['Place', `${ordinal(place.place)}<small> / ${place.of} Squads</small>`], ['Score', figure(y.score)], ['Kills', String(y.kills)]]
         : [['Score', figure(y.score)], ['Kills', String(y.kills)], ['Deaths', String(y.deaths)], ['Assists', String(y.assists)], ['Place', `${ordinal(y.place)}<small> / ${y.of}</small>`]];
     changed = this.#set(this.#endMine, cells.length > 0 ? `<span class="ds-label">Your match</span>${matchGainHtml(cells, state.gain ?? null)}` : '') || changed;
+    // From the match's end on, the host may ask for a random next match in place of the lobby (ticket 115); everyone sees that they did.
+    const random = s.lobby?.random === true;
+    const host = s.lobby != null && s.lobby.host !== null && s.lobby.host === state.selfId;
+    const button = host && s.mode !== 'battle-royale' ? `<button type="button" class="ds-btn${random ? ' primary' : ''}" data-random aria-pressed="${random}"><i class="ds-kbd key">N</i><i class="ds-kbd pad">▶</i>Random next match</button>` : '';
+    changed = this.#set(this.#endRandom, button) || changed;
     let html = '';
-    if (s.phase === 'nuke') html += `<div class="next board">Scoreboard in ${left}</div>`;
-    else if (s.lobby) html += `<div class="next">Back to the lobby in ${left}</div>`;
-    else if (s.phase === 'vote') {
+    if (s.phase === 'nuke') {
+      html += `<div class="next board">Scoreboard in ${left}</div>`;
+      if (random && !host) html += `<div class="next">The host chose a random next match</div>`;
+    } else if (s.lobby) {
+      html += `<div class="next">${random ? (host ? `Random match in ${left}` : `The host chose a random next match: it starts in ${left}`) : `Back to the lobby in ${left}`}</div>`;
+    } else if (s.phase === 'vote') {
       const total = Math.max(1, s.votes.tdm + s.votes.ffa);
       html += `<div class="vote ds-plate"><header><span class="ds-label">Vote for the next mode</span><span class="clock">${left}</span></header><div class="ds-votes">`;
       for (const [i, mode] of (['tdm', 'ffa'] as const).entries()) {

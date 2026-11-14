@@ -2,7 +2,7 @@
 
 ## Now
 
-Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all of them work in a real match; item 8 is unbuilt and goes first (ideas beyond them go to BACKLOG.md):
+Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-point work until all of them work in a real match; all built roughly (ideas beyond them go to BACKLOG.md):
 1. Battle Royale lobby like Play Online's (invite link, host moves/kicks, even squads, seat back after a drop), squads friends join; attachments choosable in BR (or, if loot, say so in the lobby).
 2. Pistol: why friends all hate it, compared with well-loved shooters (sourced), fixed. Reopened for its model and sights (ticket 109, shipped v2.197.1).
 3. BR fights in towns: bias Zero Island's final circles, drops and bot routes to built-up areas; measure final circles and kills over many matches before and after.
@@ -10,7 +10,7 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 5. Multiplayer quality of life: a whole match with friends plays well.
 6. Other weapons (not the M4, sniper or SMG): review against real games (TTK, spread, rate, movement, feedback), redesign the pump shotgun, burst SCAR, semi-auto rifle (sight, role) and revolver; prove with TTK and hits-per-kill at range, range runs and frames; list the changes.
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
-8. (2026-11-14, next in line, before PLAN work) Random next match the host can pick at match end, Bot Match and private lobbies (ticket 115, his words and the reading there).
+8. (2026-11-14) Random next match the host can pick at match end, Bot Match and private lobbies: built, v2.204.0 (ticket 115).
 9. (2026-11-14) Reset all progression to 0 for every browser once item 7 is built, as its last step (ticket 116).
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
@@ -21,7 +21,9 @@ Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The lapto
 
 Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114) shipped v2.202.0 to v2.203.1 and proven (design-audit 2026-11-13: both highs and 8 mediums fixed, open mediums in BACKLOG; frame times within noise). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG).
 
-Pass 37: PLAN order step 2, the fresh review on the Backlit build: `reviews/2026-11-13c.md` (1, 4 pass; 2 not judgeable, the PC was loaded; 3, 5, 6 fail). Fixed its Outposts strip over the score bar; the rest in BACKLOG. Next pass: request 8 (ticket 115), then item 7 rough.
+Pass 37: PLAN order step 2, the fresh review on the Backlit build: `reviews/2026-11-13c.md` (1, 4 pass; 2 not judgeable, the PC was loaded; 3, 5, 6 fail). Fixed its Outposts strip over the score bar; the rest in BACKLOG.
+
+Pass 38: request 8 (ticket 115) shipped v2.204.0: the host's Random next match at a match's end, online (the server picks; protocol 33) and in Bot Match (the page picks); also the HUD no longer vanishes after an online map switch in play. Next pass: PLAN item 7 (progression) rough.
 
 ## Needs Aleix
 

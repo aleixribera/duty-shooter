@@ -39,6 +39,22 @@ describe("Bot Match's setup", () => {
     expect(setup.state.bots).toBe(MAX_BOTS_PER_TEAM);
   });
 
+  it('picks a random next match on another map in another mode, at that map’s size, keeping humans vs bots and the skill', () => {
+    const setup = new BotSetup();
+    setup.pick({ hvb: true, bots: 1 });
+    setup.skill = 'hard';
+    for (const r of [0, 0.4, 0.99]) {
+      setup.pickRandom({ map: 'survival-town', mode: 'tdm' }, () => r);
+      const { map, mode, bots, custom, hvb } = setup.state;
+      expect(map).not.toBe('survival-town');
+      expect(mode).not.toBe('tdm');
+      expect(MATCH_MAPS).toContain(map);
+      expect(TEAM_SIZES[setup.mapId][mode]).toBeDefined();
+      expect({ bots, custom, hvb }).toEqual({ bots: teamSize(map, mode), custom: false, hvb: true });
+      expect(setup.skill).toBe('hard');
+    }
+  });
+
   it('shows the last match played, and your name or "You"', () => {
     const setup = new BotSetup();
     expect(setup.view('  ').names).toEqual({ you: 'You' });

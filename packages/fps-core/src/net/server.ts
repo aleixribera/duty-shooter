@@ -19,6 +19,7 @@ import { clearOf, royaleProps, standProps } from '../modes/royale-props';
 import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
 import { TEAMS } from '../modes/teams';
+import { randomNextMatch, shuffledSides, type MatchPick } from './random-next';
 import { hashString } from '../random';
 import { SeatIndex } from '../seats';
 import { STATS } from '../stats';
@@ -124,6 +125,8 @@ export interface GameServerOptions {
    * one another with a mode vote in between (bot matches in the page).
    */
   readonly lobby?: boolean;
+  /** Where the host's random next match draws its luck (ticket 115); `Math.random` by default, a seeded stream in tests. */
+  readonly random?: () => number;
   /**
    * Humans vs bots, until a first joiner or the host picks otherwise: in team
    * modes every person plays on the first team against a bot team sized to
@@ -382,6 +385,8 @@ export class GameServer {
   #lobbyMode: ModeId;
   /** The host pressed start; the match starts on the next tick. */
   #startRequested = false;
+  /** At this match's end the host asked for a random next match in place of the lobby (ticket 115): who asked, honoured while they are still the host. */
+  #randomBy: PlayerId | null = null;
   /** Simulation time the current match started, and the time it ended (null while it is on). */
   #matchStart = 0;
   #endedAt: number | null = null;
@@ -686,6 +691,7 @@ export class GameServer {
       squads: Object.fromEntries(this.#lobbyMode === BATTLE_ROYALE ? this.#lobbySquads() : []),
       ...(this.#lobbyMode === BATTLE_ROYALE && this.#heldIds().length > 0 ? { held: Object.fromEntries([...this.#away.values()].filter((a) => !a.left).map((a) => [a.id as string, a.name])) } : {}),
       ...(teamMode(this.#lobbyMode) ? { sides: Object.fromEntries(this.#joined().map((c) => [c.id as string, this.#sides.get(c.id as PlayerId) ?? TEAMS[0]])) } : {}),
+      ...(this.#randomAsked ? { random: true } : {}),
     };
   }
 
@@ -849,6 +855,12 @@ export class GameServer {
       }
       return;
     }
+    if (message.t === 'random') {
+      // Only the host, between a match's end and the next, and never after a Battle Royale (the island plays nothing else).
+      const ended = this.#phase === 'nuke' || this.#phase === 'vote';
+      if (this.#options.lobby && ended && client.id === this.host && this.#mode.id !== BATTLE_ROYALE) this.#randomBy = message.on ? client.id : null;
+      return;
+    }
     if (message.t === 'side' || message.t === 'even') {
       // Only the host, and only in the lobby.
       if (this.#phase !== 'lobby' || client.id !== this.host) return;
@@ -1008,6 +1020,34 @@ export class GameServer {
     this.#fillBots();
   }
 
+  /** The host asked for a random next match (one who asked and has since left asks nothing). */
+  get #randomAsked(): boolean {
+    return this.#randomBy !== null && this.#randomBy === this.host;
+  }
+
+  /**
+   * The host's random next match: a lobby mode on a map that plays it, unlike
+   * the match just played. Null on a server of one map, whose page picks instead.
+   */
+  #randomPick(): MatchPick<string> | null {
+    const choices = this.#maps.flatMap((map) => LOBBY_MODES.filter((mode) => this.#modes[mode].fixedSeats === undefined && this.#plays(mode, map)).map((mode) => ({ map: map.id, mode })));
+    if (new Set(choices.map((c) => c.map)).size < 2) return null;
+    return randomNextMatch({ map: this.#map.id, mode: this.#mode.id }, choices, this.#options.random);
+  }
+
+  /** Straight into the random next match, no lobby between: the map's own number of bots (bots stay off if the host switched them off), and the sides dealt afresh where there are several people. */
+  #startRandom(pick: MatchPick<string>): ModeEvent {
+    this.#lobbyMap = this.#maps.find((m) => m.id === pick.map) ?? this.#lobbyMap;
+    this.#lobbyMode = pick.mode;
+    this.#customBots = null;
+    const members = this.#sideMembers();
+    if (teamMode(pick.mode) && members.length > 1) {
+      for (const [id, team] of shuffledSides(members, this.#options.random)) this.#sides.set(id, team);
+      this.#arranged = false;
+    }
+    return this.#startMatch(pick.mode);
+  }
+
   /** The vote's plurality; a tie or no votes keeps the current mode. */
   #nextMode(): ModeId {
     const counts = new Map<ModeId, number>();
@@ -1024,6 +1064,7 @@ export class GameServer {
     this.#matchNumber += 1;
     this.#phase = 'playing';
     this.#startRequested = false;
+    this.#randomBy = null;
     this.#matchStart = this.simulation.time;
     this.#endedAt = null;
     this.#result = null;
@@ -1844,6 +1885,9 @@ export class GameServer {
     const { nuke, vote } = this.#intermissionLengths();
     if (since >= nuke + vote - 1e-9) {
       if (!this.#options.lobby) return [this.#startMatch(this.#nextMode())];
+      const pick = this.#randomAsked ? this.#randomPick() : null;
+      if (pick) return [this.#startRandom(pick)];
+      // A server of one map (a Bot Match) keeps the host's ask in its lobby: the page, which holds the maps, picks.
       this.#openLobby();
       return [];
     }
