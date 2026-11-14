@@ -17,7 +17,7 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (laptop) has its two passes spent (ticket 99); item 1b (Backlit UI) shipped. Passes 39-44: PLAN item 7 roughly (ticket 117); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Passes 45-66: reviews 14a and 14b's gaps (tickets 100, 102, 103, 117; v2.211.x), each in BACKLOG.
 
-Passes 67-70: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG); defects 2-4 worked (tickets 100, 102): no firing into smoke, hit marker frames the target, Station Nine FFA/Gun Game fill to 6, Battle Royale seats face open ground. Freezes track the PC's load. Pass 71 (defect 5, ticket 117): locked fittings and camos preview on the Loadout's gun. Pass 72 (ticket 103): no lesson or "Move" hint while aiming or in the match's last minute (v2.213.1). Pass 73 (ticket 100): a hit soldier no longer washes flat red (faint 80 ms flash; v2.213.2). Next: the review's scripted player pressing into walls (`steer`, `trailer/shots.mjs`), or the close-behind list (the range panel's SMG "4 / 3").
+Passes 67-73: review 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG) worked: no firing into smoke, hit marker frames the target, Station Nine FFA/Gun Game fill to 6, Battle Royale seats face open ground, locked fittings and camos preview on the Loadout gun, no hints while aiming or in the last minute, a faint 80 ms hit flash (v2.213.2). Freezes track the PC's load.
 
 ## Needs Aleix
 
