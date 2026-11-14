@@ -674,8 +674,9 @@ if (want('online')) {
       if (!(await page.click('New private lobby'))) throw new Error('no New private lobby button');
       if (!(await page.waitFor(`/[?&]lobby=/.test(location.search) && !!document.querySelector('.ds-lobby:not([hidden])')`, 90_000, 500))) throw new Error('no private lobby');
       const code = await page.js(`new URLSearchParams(location.search).get('lobby')`);
-      // Two friends by its link: plain sockets that join and stay.
-      const friend = (name) => {
+      // Two friends by its link: plain sockets that join and stay, reporting a round trip each second as a real
+      // client does in its 'cmds' (pass 53: without it their rows had no ping, which no real friend's lacks).
+      const friend = (name, ping) => {
         const ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}ws?lobby=${code}`);
         const f = { ws, name, id: null, rejected: null };
         ws.on('error', (e) => (f.rejected ??= `error: ${e.message}`));
@@ -691,9 +692,10 @@ if (want('online')) {
           if (m.t === 'reject') f.rejected = m.reason;
         });
         ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name, passphrase, protocol: h.protocol })));
+        f.timer = setInterval(() => ws.readyState === 1 && ws.send(JSON.stringify({ t: 'cmds', cmds: [], ping })), 1000);
         return f;
       };
-      const friends = [friend('Marta'), friend('Pol')];
+      const friends = [friend('Marta', 38), friend('Pol', 112)];
       try {
         const r = { code, invite: await page.js(`document.querySelector('.invite input')?.value ?? null`) };
         await sleep(3000);
@@ -741,7 +743,10 @@ if (want('online')) {
         r.errors = page.chrome.errors.slice(0, 3);
         return r;
       } finally {
-        for (const f of friends) f.ws.close();
+        for (const f of friends) {
+          clearInterval(f.timer);
+          f.ws.close();
+        }
       }
     });
   } finally {

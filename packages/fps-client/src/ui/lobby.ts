@@ -18,6 +18,8 @@ const CSS = `
 .ds-lobby .seat .role { font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .seat .ping { flex: none; font-size: var(--ds-type-small); font-weight: 700; }
 .ds-lobby .seat .ping.good { color: var(--ds-good); } .ds-lobby .seat .ping.fair { color: var(--ds-fair); } .ds-lobby .seat .ping.poor { color: var(--ds-poor); }
+/* A person whose round trip isn't measured yet (the first second after joining) keeps the column, unlit. */
+.ds-lobby .seat .ping.unknown { font-weight: 400; color: var(--ds-text-2); }
 .ds-lobby .seat.you { background: var(--ds-raised); box-shadow: inset 0 0 0 1px var(--ds-text-2); }
 .ds-lobby .seat.bot { background: rgb(18 22 29 / 0.6); }
 .ds-lobby .seat.bot .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
@@ -28,6 +30,8 @@ const CSS = `
 .ds-lobby .team h3 { font-family: var(--ds-font-display); margin: 0 0 4px; padding-left: 14px; box-shadow: inset 4px 0 0 currentColor; font-size: var(--ds-type-heading); line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .ds-lobby .team.t1 h3 { color: var(--ds-blue); } .ds-lobby .team.t2 h3 { color: var(--ds-orange); }
 .ds-lobby .seat.open .name { font-size: var(--ds-type-body); font-weight: 400; letter-spacing: 0; color: var(--ds-text-2); }
+/* Online, a seat the match fills with a bot is still a friend's to take: the open seat's frame, with who plays it if no one does. */
+.ds-lobby .seat.open .fill { flex: none; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-lobby .note { margin: 14px 0 0; max-width: 64ch; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-lobby .last { margin-top: 40px; }
 .ds-lobby .last .result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; padding: 14px 16px; background: var(--ds-panel); }
@@ -299,6 +303,7 @@ export class LobbyPage {
     const peopleText = `${people} ${people === 1 ? 'player' : 'players'}`;
 
     const seatList = lobbySeats(l, v.selfId, v.names, v.pings);
+    const botsOnTop = l.hvb && teamMode(l.mode);
     const bots = seatList.filter((s) => s.bot).length;
     // Offline nobody else can join: no open seats, only the players the match has.
     const shown = offline ? seatList.filter((s) => s.bot || s.id !== null) : seatList;
@@ -306,9 +311,12 @@ export class LobbyPage {
     const controls = picking && !offline;
     const seatHtml = (list: readonly (typeof shown)[number][], team?: 1 | 2) => list
       .map((s) => {
-        if (s.bot) return `<div class="seat bot"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Bot</span></span></div>`;
-        if (s.id === null) return `<div class="seat open"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Open seat</span></span></div>`;
-        const ping = s.ping === null || offline ? '' : `<span class="ping ${pingTone(s.ping)}">${s.ping} ms</span>`;
+        // Offline nobody can join, and humans vs bots brings its bots on top of the people, so there a bot's seat is the
+        // bot's. Otherwise online it stays open until the match starts: a friend joining by the link takes it, and a bot
+        // plays it only if no one does (review 2026-11-14a, 41).
+        if (s.bot && (offline || botsOnTop)) return `<div class="seat bot"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Bot</span></span></div>`;
+        if (s.id === null) return `<div class="seat open${s.bot ? ' bot' : ''}"><span class="n">${pad(s.number)}</span><span class="who"><span class="name">Open seat</span></span>${s.bot ? '<span class="fill">Bot</span>' : ''}</div>`;
+        const ping = offline ? '' : s.ping === null ? '<span class="ping unknown">– ms</span>' : `<span class="ping ${pingTone(s.ping)}">${s.ping} ms</span>`;
         // Who this seat is to you, in words under the name: You, Host, or both.
         const role = offline ? '' : [s.you ? 'You' : '', s.host ? 'Host' : ''].filter(Boolean).join(' · ');
         const other = team === 1 ? 2 : 1;

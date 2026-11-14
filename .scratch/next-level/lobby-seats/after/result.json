@@ -1,0 +1,42 @@
+{
+  "pings": "{\"p1\":23,\"p2\":38}",
+  "tdm": [
+    "you: 01 Aleix You · Host 20 ms MOVE",
+    ": 03 Pol – ms MOVE KICK",
+    "open bot: 05 Open seat Bot",
+    "open bot: 07 Open seat Bot",
+    ": 02 Marta 38 ms MOVE KICK",
+    "open bot: 04 Open seat Bot",
+    "open bot: 06 Open seat Bot",
+    "open bot: 08 Open seat Bot"
+  ],
+  "ffa": [
+    "you: 01 Aleix You · Host 21 ms",
+    ": 02 Marta 38 ms KICK",
+    ": 03 Pol – ms KICK",
+    "open bot: 04 Open seat Bot",
+    "open bot: 05 Open seat Bot",
+    "open bot: 06 Open seat Bot",
+    "open: 07 Open seat",
+    "open: 08 Open seat",
+    "open: 09 Open seat",
+    "open: 10 Open seat",
+    "open: 11 Open seat",
+    "open: 12 Open seat"
+  ],
+  "hvb": [
+    "you: 01 Aleix You · Host 25 ms",
+    ": 02 Marta 38 ms KICK",
+    ": 03 Pol – ms KICK",
+    "bot: 04 Bot",
+    "bot: 05 Bot",
+    "bot: 06 Bot",
+    "bot: 07 Bot",
+    "bot: 08 Bot",
+    "open: 09 Open seat",
+    "open: 10 Open seat",
+    "open: 11 Open seat",
+    "open: 12 Open seat"
+  ],
+  "errors": []
+}

@@ -1,0 +1,28 @@
+{
+  "pings": "{\"p1\":34,\"p3\":38}",
+  "tdm": [
+    "you: 01 Aleix You · Host 33 ms MOVE",
+    ": 03 Marta 38 ms MOVE KICK",
+    "bot: 05 Bot",
+    "bot: 07 Bot",
+    ": 02 Pol MOVE KICK",
+    "bot: 04 Bot",
+    "bot: 06 Bot",
+    "bot: 08 Bot"
+  ],
+  "ffa": [
+    "you: 01 Aleix You · Host 33 ms",
+    ": 02 Pol KICK",
+    ": 03 Marta 38 ms KICK",
+    "bot: 04 Bot",
+    "bot: 05 Bot",
+    "bot: 06 Bot",
+    "open: 07 Open seat",
+    "open: 08 Open seat",
+    "open: 09 Open seat",
+    "open: 10 Open seat",
+    "open: 11 Open seat",
+    "open: 12 Open seat"
+  ],
+  "errors": []
+}
