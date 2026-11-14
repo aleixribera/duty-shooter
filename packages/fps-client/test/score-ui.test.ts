@@ -62,13 +62,23 @@ describe('the score lines beside the crosshair', () => {
 });
 
 describe('the scoreboard by Score', () => {
-  it('puts the highest Score first, whoever has the most kills', () => {
-    const board = scoreboard([row('kills', 1, 900, 9, 2), row('helper', 1, 1250, 6, 4, { assists: 7 }), row('new', 1, 0, 0, 0)], 'ffa', {});
-    if (board.kind !== 'ffa') throw new Error('ffa');
-    expect(board.rows.map((r) => [r.id, r.place, r.score, r.assists])).toEqual([
+  it('puts the highest Score first on a team, whoever has the most kills', () => {
+    const board = scoreboard([row('kills', 1, 900, 9, 2), row('helper', 1, 1250, 6, 4, { assists: 7 }), row('new', 1, 0, 0, 0)], 'tdm', {});
+    if (board.kind !== 'tdm') throw new Error('tdm');
+    expect(board.teams[0]!.rows.map((r) => [r.id, r.place, r.score, r.assists])).toEqual([
       ['helper', 1, 1250, 7],
       ['kills', 2, 900, 0],
       ['new', 3, 0, 0],
+    ]);
+  });
+
+  it('in a free-for-all, ranks by the race (kills), as the bar and the results do (pass 47)', () => {
+    const board = scoreboard([row('kills', 1, 900, 9, 2), row('helper', 1, 1250, 6, 4, { assists: 7 }), row('new', 1, 0, 0, 0)], 'ffa', {});
+    if (board.kind !== 'ffa') throw new Error('ffa');
+    expect(board.rows.map((r) => [r.id, r.place])).toEqual([
+      ['kills', 1],
+      ['helper', 2],
+      ['new', 3],
     ]);
   });
 
