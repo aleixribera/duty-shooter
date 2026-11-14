@@ -23,11 +23,12 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
 
-Passes 55-60 (tickets 100, 102, 117; v2.211.11-16): review 14b's five defects (in BACKLOG, each with its pass) and the master's clipping (a dense fight peaks at -1.5 dBTP offline, `audio/peak.mjs`). Pass 61 (ticket 102): aimed down the Harrow 12's bead the head is held up off the stock, so the receiver drops ~50 px under the bead (was ~8) and the rib runs up to it (`shotgun-sight/sheet.jpg`). Next (pass 62): the rest of the "close behind" list (the Prism tunnel next), or a fresh review once enough has moved.
+Passes 55-61 (tickets 100, 102, 117; v2.211.11-17): review 14b's five defects, the master's clipping and the shotgun's receiver (each in BACKLOG with its pass). Pass 62 (ticket 102): the Prism 2x's reticle and sight window moved into the eyepiece, so aimed its clear picture is ~760 px across at 1080p instead of 480 down a tube (`prism-tunnel/sheet.jpg`). Next (pass 63): the rest of the "close behind" list ("Back to the lobby in 0:08" in Bot Match next), or a fresh review once enough has moved.
 
 ## Needs Aleix
 
-- Overridable (pass 61): aiming the shotgun holds your head 22 mm over the bead's line, so the gun tips 2 degrees and you look along the rib from above; less shows more receiver under the bead.
+- Overridable (pass 62): aimed, the Prism 2x's clear picture fills about 70% of the screen's height with its eyecup a ring round it; a bigger picture would push the cup off the top and bottom.
+- Overridable (pass 61): aimed, the shotgun holds your head 22 mm over the bead's line (gun tips 2 degrees).
 - Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).
 - Overridable (pass 45): aiming through the Prism 2x or the Vantage now shows the world and the reticle only, so your own muzzle flash no longer shows inside the sight (it never covers the target); say if you want a flash there.
 - Battle Royale on loadouts (PLAN item 7, pass 43): say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it: Local bots, `?drops=resupply`.

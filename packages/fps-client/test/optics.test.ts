@@ -107,6 +107,31 @@ describe('rail optics (ticket 19)', () => {
     }
   });
 
+  // Review 2026-11-14b, "the Prism tunnel": aimed, the eyecup filled the view and the picture was a small circle at
+  // the end of a dark tube (the window 0.40 of the eyecup's width). Its picture now fills most of the eyepiece.
+  it('the prism, aimed: the clear picture fills most of the eyecup round it', async () => {
+    const scene = await load('prism');
+    const { axis, rear, eyeRelief, window } = OPTICS.prism;
+    let rim = 0;
+    const p = new Vector3();
+    scene.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh || (mesh.material as Material).name.replace(/\.\d+$/, '') !== 'rubber') return;
+      const at = mesh.geometry.getAttribute('position');
+      for (let i = 0; i < at.count; i++) {
+        p.fromBufferAttribute(at, i).applyMatrix4(mesh.matrixWorld);
+        rim = Math.max(rim, Math.hypot(p.x, p.y - axis));
+      }
+    });
+    expect(rim).toBeGreaterThan(0.01);
+    const eye = rear + eyeRelief;
+    const picture = window!.radius / (eye - window!.at[2]);
+    expect(picture / (rim / eyeRelief)).toBeGreaterThan(0.7);
+    // And big on screen: the first-person view aimed is about 47 degrees tall at the default field of view (`viewmodel.ts`;
+    // the old picture measured 480 of 1080 rows), and the picture now takes over two thirds of its height.
+    expect(picture / Math.tan((47 / 2) * (Math.PI / 180))).toBeGreaterThan(0.66);
+  });
+
   it('an optic on a moving part sits at its mount while the part is at rest, and turns with it', () => {
     const gun = new Group();
     const cover = new Object3D();

@@ -158,7 +158,7 @@ clamp(g, 0.04, (-0.01, 0.01))
 bored_block(g, "block", 0.017, 0.005 - A, 0.049 - A, BORE, -0.02, 0.02, A, "anodised", 0.0024)
 # Eyepiece: a short tube, then the rubber cup the eye sits behind.
 g.tube("eyepiece", 0.0165, BORE, 0.012, (0, -0.026, A), "anodised", verts=40, bevel=0.0005)
-g.tube("eyecup", 0.0172, BORE + 0.0006, 0.0055, (0, PRISM_REAR + 0.00275, A), "rubber", verts=40, bevel=0.001)
+g.tube("eyecup", 0.0158, BORE + 0.0006, 0.0055, (0, PRISM_REAR + 0.00275, A), "rubber", verts=40, bevel=0.001)
 # Objective: a bell flaring out to the front, its section a closed loop so the bore stays open.
 bell = g.lathe("objective", [(BORE, 0.0), (0.0175, 0.0), (0.019, 0.008), (0.019, 0.016), (0.0175, 0.017), (BORE + 0.002, 0.017), (BORE + 0.002, 0.004), (BORE, 0.004), (BORE, 0.0)],
                (0, 0.019, A), "anodised", axis="Y", verts=40, bevel=0.0004, closed=False)
@@ -166,15 +166,22 @@ turret(g, "elevation", "Z", (0, 0.002, 0.0485), 0.0068, 0.0062)
 turret(g, "windage", "X", (0.017, 0.002, A), 0.0064, 0.0062)
 turret(g, "illumination", "X", (-0.017, 0.002, A), 0.0074, 0.008)
 g.text("mark", "2x", (-0.0171, -0.011, 0.018), 0.0046, "white_paint", side="-X")
-R = 0.0002
+# The reticles stand in the eyepiece, just in front of the eyecup, where the client's sight window clears the view
+# beyond to the world (optics.ts): seen from the eye, the clear picture then fills the eyepiece instead of a small
+# circle at the end of a dark tube (review 2026-11-14b, "the Prism tunnel"). Each is drawn S times its old size
+# (when it stood in the block's middle, 0.0695 from the eye) so it looks the same size aimed; its post still runs to the bore.
+PRISM_EYE_RELIEF = 0.038
+RY = -0.0285
+S = (RY - PRISM_REAR + PRISM_EYE_RELIEF) / 0.0695
+R = 0.0002 * S
 # Three reticles, one shown at a time (the player's pick, PLAN item 7): this ring, a heavier dot, a chevron on its post.
-g.part("reticle_ring", [g.torus("ring", 0.003, R, (0, 0.0, A), "red_insert", rot=(math.pi / 2, 0, 0), verts=40, ring=6),
-                        g.cyl("centre", 0.00036, 0.0005, (0, 0.0, A), "red_insert", axis="Y", verts=12, bevel=0),
-                        g.box("post", (2 * R, 2 * R, BORE - 0.003 - R), (0, 0.0, A - 0.003 - R - (BORE - 0.003 - R) / 2), "red_insert", 0)], (0, 0, A))
-g.part("reticle_dot", [g.cyl("big_dot", 0.0006, 0.0005, (0, 0.0, A), "red_insert", axis="Y", verts=16, bevel=0),
-                       g.box("dot_post", (2 * R, 2 * R, BORE - 0.0016 - R), (0, 0.0, A - 0.0016 - R - (BORE - 0.0016 - R) / 2), "red_insert", 0)], (0, 0, A))
-g.part("reticle_chevron", chevron(g, "chevron", 0.0, A, 0.0028, 0.0004)
-       + [g.box("chevron_post", (2 * R, 2 * R, BORE - 0.0004), (0, 0.0, A - 0.0004 - (BORE - 0.0004) / 2), "red_insert", 0)], (0, 0, A))
+g.part("reticle_ring", [g.torus("ring", 0.003 * S, R, (0, RY, A), "red_insert", rot=(math.pi / 2, 0, 0), verts=40, ring=6),
+                        g.cyl("centre", 0.00036 * S, 0.0005 * S, (0, RY, A), "red_insert", axis="Y", verts=12, bevel=0),
+                        g.box("post", (2 * R, 2 * R, BORE - 0.003 * S - R), (0, RY, A - 0.003 * S - R - (BORE - 0.003 * S - R) / 2), "red_insert", 0)], (0, RY, A))
+g.part("reticle_dot", [g.cyl("big_dot", 0.0006 * S, 0.0005 * S, (0, RY, A), "red_insert", axis="Y", verts=16, bevel=0),
+                       g.box("dot_post", (2 * R, 2 * R, BORE - 0.0016 * S - R), (0, RY, A - 0.0016 * S - R - (BORE - 0.0016 * S - R) / 2), "red_insert", 0)], (0, RY, A))
+g.part("reticle_chevron", chevron(g, "chevron", RY, A, 0.0028 * S, 0.0004 * S)
+       + [g.box("chevron_post", (2 * R, 2 * R, BORE - 0.0004 * S), (0, RY, A - 0.0004 * S - (BORE - 0.0004 * S) / 2), "red_insert", 0)], (0, RY, A))
 prism = g.finish(texture=1024, draft=DRAFT)
 
 result = {"reflex": reflex, "prism": prism}

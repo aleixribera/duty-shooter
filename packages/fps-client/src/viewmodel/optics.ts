@@ -32,8 +32,10 @@ export interface SightWindowSpec {
 
 export const OPTICS: Readonly<Record<OpticId, OpticSpec>> = {
   reflex: { url: new URL('./assets/reflex.glb', import.meta.url).href, axis: 0.032, rear: 0.006, eyeRelief: 0.07 },
-  // The reticle's plane is the block's middle (y 0 in optics.py); the bore there is BORE (0.0135), a hair wider so the window's rim hides in the wall.
-  prism: { url: new URL('./assets/prism.glb', import.meta.url).href, axis: 0.032, rear: 0.0345, eyeRelief: 0.035, window: { at: [0, 0.032, -0.0006], radius: 0.0137 } },
+  // The reticle's plane is in the eyepiece just past the eyecup (RY -0.0285 in optics.py), the window 0.6 mm beyond it;
+  // the bore there is BORE (0.0135), the window a hair wider so its rim hides in the wall. So near the eye, the clear
+  // picture fills the eyepiece instead of a small circle down a dark tube (review 2026-11-14b, the Prism tunnel).
+  prism: { url: new URL('./assets/prism.glb', import.meta.url).href, axis: 0.032, rear: 0.0345, eyeRelief: 0.038, window: { at: [0, 0.032, 0.0279], radius: 0.0137 } },
 };
 
 /** The Vantage's own optic (dmr.py): its reticle at the tube's middle (y -0.009, so gun z 0.009) on the axis at OPTIC_Z, in a bore of OPTIC_R. */
