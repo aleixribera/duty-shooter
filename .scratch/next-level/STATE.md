@@ -17,18 +17,19 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 
-**PLAN item 7, rough sweep (ticket 117): passes 39-41 so far.** Checklist:
-- [x] Unlocks: 4 guns open at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`); locked tiles say their Rank; any gun in the Practice Range; a match swaps a locked gun for a starting one (`openLoadout`); the BR picker shows only open guns; the match end names each gun opened, with Equip it; Profile lists locked guns with their Rank.
+**PLAN item 7, rough sweep (ticket 117): passes 39-42 so far; each pass's detail, review and proof are in the ticket's comments.** Checklist:
+- [x] Unlocks (pass 39): 4 guns at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`), any gun in the Practice Range, the match end names a gun opened, with Equip it.
 - [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
 - [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
-- [x] Loadout editor, rough (pass 40, v2.206.0): the previewed gun in 3D with its optic, turning (`gun-stage.ts`); three kept loadouts Main, Close, Breach (`Settings.loadouts`), picked on the Loadout screen or with 1 2 3 while dead. First open 3-5 s to the gun here (shaders on its own device); the mockup layout, renaming and a pad pick in BACKLOG.
-- [x] Results (pass 41, v2.207.0): each gun's Mastery on the end screen (lit at a new level, with the slot it opened); Play again at a Bot Match's end (P, D-pad left), straight into the same match; Equip it on the pad (D-pad down). Seen in a real match (`results/after/`).
-- [ ] Customizing: attachments seen on the gun model, Mastery camos, optic reticle colour and shape.
+- [x] Loadout editor, rough (pass 40, v2.206.0): the gun in 3D, turning (`gun-stage.ts`); loadouts Main, Close, Breach, picked with 1 2 3 while dead. First open 3-5 s (shaders; BACKLOG).
+- [x] Results (pass 41, v2.207.0): each gun's Mastery at a match's end; Play again (P) at a Bot Match's end; Equip it on the pad.
+- [x] Customizing (pass 42, v2.208.0): muzzle devices, foregrips, long and speed magazines on the gun in first person and on the Loadout screen (Blender, `tools/weapon/fittings.py`); camos at Mastery 1-5, per gun; each optic's reticle colour and shape. Frames in `customize/after/`.
 - [ ] Battle Royale on loadouts: no ground loot, Supply Drops without the sniper (ask Aleix first, see PLAN).
-- [ ] Then ticket 116 (the reset), then a fresh review.
+- [ ] Then ticket 116 (the reset; it must clear `camos` too), then a fresh review.
 
 ## Needs Aleix
 
+- Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level; Urban and Night pixelated); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).
 - Overridable (pass 29): weapon redesign numbers (ticket 112): shotgun one aimed blast to ~10 m; Trident one burst to 36 m; Vantage three body or head+body anywhere at 380 rpm; Marshal one head shot to 35 m.
 - Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.

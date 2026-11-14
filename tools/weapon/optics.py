@@ -49,6 +49,17 @@ def clamp(g, length, knobs):
         g.cut(knob, [g.box(f"clamp_slot{i}", (0.004, 0.0008, 0.0064), (0.0188, y, -0.0005), "steel", 0)])
 
 
+def chevron(g, name, y, z, length, width):
+    """Two bars meeting in a point at (0, y, z), each `length` long, raked 35 degrees down to the sides.
+
+    They cross a bar's width past the point, so the point itself is lit: the aim is the chevron's tip.
+    """
+    phi = math.radians(35)
+    half = length / 2 - width
+    return [g.box(f"{name}{side}", (length, 0.0003, width), (side * math.cos(phi) * half, y, z - math.sin(phi) * half),
+                  "red_insert", 0, rot=(0, side * phi, 0)) for side in (-1, 1)]
+
+
 def bored_block(g, name, hx, zb, zt, r, y0, y1, z, mat, bevel):
     """A block x in [-hx, hx], z in [z + zb, z + zt], from y0 to y1, with a round bore of radius `r` along Y at height z.
 
@@ -123,7 +134,12 @@ g.cut(hood, [g.sweep("window", hood_in, REFLEX_REAR - 0.01, 0.02, "anodised", be
 # The glass, set in the hood's front; the dot sits just behind it on the axis.
 glass = soften([(-0.0112, 0.0228), (0.0112, 0.0228), (0.0112, 0.0356), (0.0088, 0.0416), (-0.0088, 0.0416), (-0.0112, 0.0356)], 2)
 g.sweep("glass", glass, 0.0066, 0.0074, "lens", bevel=0)
-g.cyl("dot", 0.00038, 0.0003, (0, 0.0062, A), "red_insert", axis="Y", verts=12, bevel=0)
+# Three reticles, one shown at a time (the player's pick, PLAN item 7): a dot, a ring round a small dot, a chevron.
+DOT_Y = 0.0062
+g.part("reticle_dot", [g.cyl("dot", 0.00038, 0.0003, (0, DOT_Y, A), "red_insert", axis="Y", verts=12, bevel=0)], (0, DOT_Y, A))
+g.part("reticle_ring", [g.torus("ring", 0.0011, 0.0001, (0, DOT_Y, A), "red_insert", rot=(math.pi / 2, 0, 0), verts=32, ring=6),
+                        g.cyl("ring_dot", 0.00022, 0.0003, (0, DOT_Y, A), "red_insert", axis="Y", verts=10, bevel=0)], (0, DOT_Y, A))
+g.part("reticle_chevron", chevron(g, "chevron", DOT_Y, A, 0.0011, 0.00014), (0, DOT_Y, A))
 # The emitter under the window, the brightness buttons on the left, the battery cap on the right.
 g.box("emitter", (0.0062, 0.0036, 0.0026), (0, -0.003, 0.0228), "anodised", 0.0006)
 for i, y in enumerate((-0.0005, 0.0075)):
@@ -150,11 +166,15 @@ turret(g, "elevation", "Z", (0, 0.002, 0.0485), 0.0068, 0.0062)
 turret(g, "windage", "X", (0.017, 0.002, A), 0.0064, 0.0062)
 turret(g, "illumination", "X", (-0.017, 0.002, A), 0.0074, 0.008)
 g.text("mark", "2x", (-0.0171, -0.011, 0.018), 0.0046, "white_paint", side="-X")
-# The reticle: a ring round a centre dot, held on the axis by a fine post from the floor.
 R = 0.0002
-g.torus("ring", 0.003, R, (0, 0.0, A), "red_insert", rot=(math.pi / 2, 0, 0), verts=40, ring=6)
-g.cyl("centre", 0.00036, 0.0005, (0, 0.0, A), "red_insert", axis="Y", verts=12, bevel=0)
-g.box("post", (2 * R, 2 * R, BORE - 0.003 - R), (0, 0.0, A - 0.003 - R - (BORE - 0.003 - R) / 2), "red_insert", 0)
+# Three reticles, one shown at a time (the player's pick, PLAN item 7): this ring, a heavier dot, a chevron on its post.
+g.part("reticle_ring", [g.torus("ring", 0.003, R, (0, 0.0, A), "red_insert", rot=(math.pi / 2, 0, 0), verts=40, ring=6),
+                        g.cyl("centre", 0.00036, 0.0005, (0, 0.0, A), "red_insert", axis="Y", verts=12, bevel=0),
+                        g.box("post", (2 * R, 2 * R, BORE - 0.003 - R), (0, 0.0, A - 0.003 - R - (BORE - 0.003 - R) / 2), "red_insert", 0)], (0, 0, A))
+g.part("reticle_dot", [g.cyl("big_dot", 0.0006, 0.0005, (0, 0.0, A), "red_insert", axis="Y", verts=16, bevel=0),
+                       g.box("dot_post", (2 * R, 2 * R, BORE - 0.0016 - R), (0, 0.0, A - 0.0016 - R - (BORE - 0.0016 - R) / 2), "red_insert", 0)], (0, 0, A))
+g.part("reticle_chevron", chevron(g, "chevron", 0.0, A, 0.0028, 0.0004)
+       + [g.box("chevron_post", (2 * R, 2 * R, BORE - 0.0004), (0, 0.0, A - 0.0004 - (BORE - 0.0004) / 2), "red_insert", 0)], (0, 0, A))
 prism = g.finish(texture=1024, draft=DRAFT)
 
 result = {"reflex": reflex, "prism": prism}

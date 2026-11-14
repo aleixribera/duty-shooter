@@ -1138,6 +1138,8 @@ function wornMaterial(spec: WornSpec): MeshStandardNodeMaterial {
   m.roughnessNode = mix(float(spec.rough).add(fine.mul(spec.roughVar)).add(blot.mul(spec.roughVar * 1.5)).add(machining.mul(spec.metal * 0.025)), float(spec.wornRough), wearAmt);
   m.aoNode = s.z;
   m.normalNode = bumpNormal(fine.mul(spec.bump).add(machining.mul(spec.bump * spec.metal * 0.3)));
+  // Its plain coat, which a camo's shading is measured against (camo.ts).
+  m.userData['tint'] = spec.base;
   return m;
 }
 
@@ -1224,6 +1226,13 @@ function makeMaterials(): GunMaterials {
     brass.roughnessNode = float(0.28).add(n.mul(0.06));
     brass.aoNode = s.z;
   }
+  // Finish names, as the Blender-made guns' materials carry them: a camo paints the coated ones (camo.ts).
+  anod.name = 'anodised';
+  steel.name = 'steel';
+  poly.name = 'polymer';
+  mag.name = 'magazine';
+  nitride.name = 'nitride';
+  brass.name = 'brass';
   return { anod, steel, poly, mag, brass, nitride };
 }
 

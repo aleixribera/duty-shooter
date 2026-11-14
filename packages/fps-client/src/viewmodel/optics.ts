@@ -1,6 +1,7 @@
 import type { OpticId, WeaponId } from '@duty-shooter/fps-core';
 import { Color, Matrix4, MeshStandardMaterial, Object3D, Vector3, type Material, type Mesh, type Quaternion } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { reticleOf, RETICLE_SHAPES, type ReticleColour, type Reticles } from '../customize';
 
 /**
  * The rail optics in first person (ticket 19): the Reflex and the Prism 2x,
@@ -9,7 +10,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  * iron sights fold away, and aiming puts the optic's axis on the camera's.
  */
 
-type V3 = readonly [number, number, number];
+export type V3 = readonly [number, number, number];
 
 export interface OpticSpec {
   readonly url: string;
@@ -57,8 +58,46 @@ export function opticSight(optic: OpticId, at: V3, target = new Vector3()): Vect
 
 const templates = new Map<OpticId, Promise<Object3D | null>>();
 
-/** A pure, moderate red: brighter, the film curve washes it to salmon, which vanishes on the orange targets. */
-const glowRed = () => new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(1, 0, 0.004), emissiveIntensity: 1.4, roughness: 1, metalness: 0 });
+/**
+ * The reticle's glow in each colour a player may pick (PLAN item 7). The red is pure and moderate: brighter, the film
+ * curve washes it to salmon, which vanishes on the orange targets; the others are held as saturated.
+ */
+const RETICLE_GLOW: { readonly [C in ReticleColour]: readonly [number, number, number] } = {
+  red: [1, 0, 0.004],
+  green: [0.08, 1, 0.04],
+  amber: [1, 0.4, 0],
+  cyan: [0, 0.75, 1],
+  white: [0.85, 0.85, 0.85],
+};
+const glowRed = () => new MeshStandardMaterial({ color: new Color(0, 0, 0), emissive: new Color(...RETICLE_GLOW.red), emissiveIntensity: 1.4, roughness: 1, metalness: 0 });
+
+/** Each optic's reticle glow (shared by every copy of it) and the copies on guns now, which take a new look at once. */
+const glows = new Map<OpticId, MeshStandardMaterial[]>();
+const mounted = new Set<Object3D>();
+let reticles: Reticles = {};
+
+/** Shows the picked reticle of `optic` in `node` (its template or a copy on a gun), the others hidden. */
+function showReticle(node: Object3D, optic: OpticId): void {
+  const look = reticleOf(reticles, optic);
+  for (const shape of RETICLE_SHAPES) {
+    const o = node.getObjectByName(`reticle_${shape}`);
+    if (o) o.visible = shape === look.shape;
+  }
+}
+
+/** Sets every optic's reticle colour and shape, on the templates and on every gun that carries one now. */
+export function setReticles(next: Reticles): void {
+  reticles = next;
+  for (const [optic, list] of glows) for (const m of list) m.emissive.setRGB(...RETICLE_GLOW[reticleOf(reticles, optic).colour]);
+  for (const node of mounted) {
+    if (!node.parent) {
+      mounted.delete(node);
+      continue;
+    }
+    showReticle(node, node.userData['optic'] as OpticId);
+  }
+  for (const [optic, t] of templates) void t.then((template) => template && showReticle(template, optic));
+}
 
 /**
  * A gun with its optic built in (the Vantage): its `red_insert` reticle glows as a
@@ -79,7 +118,7 @@ export function glowBuiltInReticle(scene: Object3D): void {
 }
 
 /** The glass reads as clear tinted glass and the reticle glows; both stay out of the baked texture's dark lens finish. */
-function dress(scene: Object3D): void {
+function dress(scene: Object3D, optic: OpticId): void {
   const swap = new Map<Material, Material>();
   scene.traverse((o) => {
     o.frustumCulled = false;
@@ -93,7 +132,10 @@ function dress(scene: Object3D): void {
       if (finish === 'lens') {
         next = new MeshStandardMaterial({ color: new Color(0.55, 0.75, 0.8), roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.1, depthWrite: false });
       } else if (finish === 'red_insert') {
-        next = glowRed();
+        const glow = glowRed();
+        glow.emissive.setRGB(...RETICLE_GLOW[reticleOf(reticles, optic).colour]);
+        glows.set(optic, [...(glows.get(optic) ?? []), glow]);
+        next = glow;
       } else {
         next = old;
       }
@@ -112,7 +154,8 @@ export function opticTemplate(optic: OpticId): Promise<Object3D | null> {
   let t = templates.get(optic);
   if (!t) {
     t = new GLTFLoader().loadAsync(OPTICS[optic].url).then(({ scene }) => {
-      dress(scene);
+      dress(scene, optic);
+      showReticle(scene, optic);
       return scene as Object3D;
     }).catch((error: unknown) => {
       console.warn(`Unable to load the ${optic} model:`, error);
@@ -131,9 +174,19 @@ export function opticTemplate(optic: OpticId): Promise<Object3D | null> {
 export function mountOptic(gun: Object3D, template: Object3D, optic: OpticId, mount: OpticMount, rest?: { readonly position: Vector3; readonly quaternion: Quaternion } | null): Object3D {
   const node = template.clone();
   node.name = `optic:${optic}`;
-  const at = mount[optic];
+  node.userData['optic'] = optic;
+  showReticle(node, optic);
+  mounted.add(node);
+  return mountAt(gun, node, mount[optic], mount.on, rest);
+}
+
+/**
+ * Puts `node` on `gun` at `at` (gun space). On a moving part (`on`, found in `gun`), it goes into that part's
+ * space at rest (`rest`), so it follows the part.
+ */
+export function mountAt(gun: Object3D, node: Object3D, at: V3, on?: string, rest?: { readonly position: Vector3; readonly quaternion: Quaternion } | null): Object3D {
   const pos = new Vector3(at[0], at[1], at[2]);
-  const part = mount.on ? gun.getObjectByName(mount.on) : null;
+  const part = on ? gun.getObjectByName(on) : null;
   if (part && rest) {
     // The part's own transform at rest, under the gun root (the GLB's scene sits at identity).
     const inv = new Matrix4().compose(rest.position, rest.quaternion, new Vector3(1, 1, 1)).invert();

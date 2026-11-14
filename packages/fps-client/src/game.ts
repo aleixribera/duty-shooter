@@ -70,6 +70,7 @@ import type { GameDriver, PresentedEvent } from './session';
 import { PAD_LAYOUTS, padActuator, padButtonLabel } from './gamepad';
 import { aimSees } from './aim-sight';
 import { Rumbler, blastRumble, hitRumble, hurtRumble, landRumble, shotRumble, type Rumble } from './rumble';
+import { setReticles } from './viewmodel/optics';
 import { bindingLabel, mixOf, verticalFov, type Settings } from './settings';
 import { Viewmodel } from './viewmodel/viewmodel';
 import { WorldView, type WorldContent } from './world-view';
@@ -88,7 +89,8 @@ import { RosterNotices } from './hud/roster-notices';
 import { scoreFeedEntry } from './hud/score-feed';
 import { chargeHudState, matchCardState, royaleHudState } from './hud/hud-state';
 import { WORDY, eventWords, killedWith, type EventWords } from './hud/event-words';
-import { MatchKeeper, type ProfileStore } from './profile';
+import { MatchKeeper, masteryOf, type ProfileStore } from './profile';
+import { camoOn } from './customize';
 import { CourseRun, courseGrade, type CourseGates } from './course-run';
 import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-clock';
 import { MatchLog, type RecapLookup } from './ui/recap';
@@ -428,6 +430,7 @@ export class Game {
     this.#renderer = options.renderer;
     this.#canvas = options.canvas;
     this.#settings = options.settings;
+    setReticles(options.settings.reticles);
     this.#world = options.world;
     this.#sound = options.sound;
     loadRangeControl(this.#sound.speech);
@@ -588,6 +591,7 @@ export class Game {
 
   applySettings(settings: Settings): void {
     this.#settings = settings;
+    setReticles(settings.reticles);
     this.input.settings = settings;
     const mix = mixOf(settings);
     this.#sound.setMix(mix);
@@ -810,6 +814,8 @@ export class Game {
         {
           weapon: self.weapon.id,
           optic: kitInHand(self.loadout, self.weapon)?.optic ?? null,
+          attachments: kitInHand(self.loadout, self.weapon) ?? null,
+          camo: camoOn(this.#settings.camos, self.weapon.id, masteryOf(this.#profileStore?.profile.weapons[self.weapon.id]?.kills ?? 0).level),
           grenade: self.grenade,
           action: self.weapon.action,
           actionTime: animTime(self, alpha),
@@ -1360,6 +1366,7 @@ export class Game {
       {
         weapon: p.weapon.id,
         optic: kitInHand(p.loadout, p.weapon)?.optic ?? null,
+        attachments: kitInHand(p.loadout, p.weapon) ?? null,
         grenade: p.grenade,
         action: p.weapon.action,
         actionTime: animTime(p, alpha),

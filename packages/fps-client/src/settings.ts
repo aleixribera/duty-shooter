@@ -1,5 +1,6 @@
-import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, isStock, parseAttachments, parseLoadout, type Attachments, type Loadout, type WeaponId } from '@duty-shooter/fps-core';
+import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, isStock, parseAttachments, parseLoadout, type Attachments, type Loadout, type OpticId, type WeaponId } from '@duty-shooter/fps-core';
 import { DEFAULT_MIX, type MixLevels } from './audio/mix';
+import { savedCamos, savedReticles, type CamoId, type Reticle } from './customize';
 import type { PadLayout } from './gamepad';
 import { CROSSHAIR_COLOURS, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, DEFAULT_CROSSHAIR, type CrosshairColour, type CrosshairOptions } from './hud/crosshair';
 import { FRAME_CAPS } from './quality';
@@ -107,6 +108,10 @@ export interface Settings {
   readonly loadoutSet: number;
   /** Each gun's own build in the gunsmith (ticket 19), kept when another gun is carried; the loadout takes the build of the guns it carries. */
   readonly builds: Readonly<Partial<Record<WeaponId, Attachments>>>;
+  /** Each gun's camo (PLAN item 7), worn while its Mastery has earned it. */
+  readonly camos: Readonly<Partial<Record<WeaponId, CamoId>>>;
+  /** Each optic's reticle colour and shape; an optic left out keeps its own. */
+  readonly reticles: Readonly<Partial<Record<OpticId, Reticle>>>;
   readonly passphrase: string;
   readonly firefoxTipShown: boolean;
   /** Frames a second at most, or 0 for the display's own rate. */
@@ -192,6 +197,8 @@ export const DEFAULT_SETTINGS: Settings = {
   loadouts: DEFAULT_LOADOUT_SETS,
   loadoutSet: 0,
   builds: {},
+  camos: {},
+  reticles: {},
   passphrase: '',
   firefoxTipShown: false,
   fpsCap: 0,
@@ -358,6 +365,8 @@ export function parseSettings(raw: unknown): Settings {
     name: str(r['name'], d.name, 16),
     ...savedSets(r['loadout'], r['loadouts'], r['loadoutSet']),
     builds: savedBuilds(r['builds']),
+    camos: savedCamos(r['camos']),
+    reticles: savedReticles(r['reticles']),
     passphrase: str(r['passphrase'], d.passphrase, 128),
     firefoxTipShown: bool(r['firefoxTipShown'], d.firefoxTipShown),
     // Everything from here on came with the Settings screen's sections: a save from before them has none, and gets the defaults.

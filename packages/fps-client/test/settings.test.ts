@@ -110,7 +110,7 @@ describe('settings', () => {
     const all = (Object.keys(SECTION_SETTINGS) as SettingsSection[]).flatMap((s) => SECTION_SETTINGS[s]);
     expect(new Set(all).size).toBe(all.length);
     // What is not on the screen: who you are, what you carry, and what the page remembers for itself.
-    const elsewhere = ['name', 'loadout', 'loadouts', 'loadoutSet', 'builds', 'passphrase', 'firefoxTipShown'];
+    const elsewhere = ['name', 'loadout', 'loadouts', 'loadoutSet', 'builds', 'camos', 'reticles', 'passphrase', 'firefoxTipShown'];
     for (const key of Object.keys(DEFAULT_SETTINGS)) if (!elsewhere.includes(key)) expect(all, key).toContain(key);
   });
 

@@ -1,4 +1,5 @@
-import type { MovementState, OpticId, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
+import type { Attachments, MovementState, OpticId, ReloadKind, Stance, Vec3, WeaponAction, WeaponId } from '@duty-shooter/fps-core';
+import type { CamoId } from '../customize';
 
 /**
  * Everything the first-person viewmodel needs from the game, per rendered
@@ -10,6 +11,10 @@ export interface ViewmodelState {
   readonly weapon?: WeaponId;
   /** The optic on the weapon in hand (ticket 19): the gun carries it on its rail and aims through it. Irons when absent. */
   readonly optic?: OpticId | null;
+  /** Everything fitted on the weapon in hand (PLAN item 7): its muzzle device, grip and magazine show on it. */
+  readonly attachments?: Attachments | null;
+  /** The camo on the weapon in hand; its own finish when absent. */
+  readonly camo?: CamoId | null;
   readonly action: WeaponAction;
   /** Seconds into the current action. */
   readonly actionTime: number;

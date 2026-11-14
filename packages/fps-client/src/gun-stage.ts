@@ -6,7 +6,9 @@ import type { GunStage } from './ui/menu';
 import { attachAuthoredM4 } from './viewmodel/authored-m4a1';
 import { buildKitGun, type KitGun } from './viewmodel/kit';
 import { buildM4A1 } from './viewmodel/m4a1';
-import { IRON_NODES, OPTIC_MOUNTS, mountOptic, opticTemplate } from './viewmodel/optics';
+import type { CamoId, Reticles } from './customize';
+import { dressGun, type DressableGun } from './viewmodel/fittings';
+import { IRON_NODES, OPTIC_MOUNTS, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
 
 /** One full turn takes this long (s): slow enough to read the gun as it goes round. */
 const TURN_SECONDS = 24;
@@ -21,6 +23,8 @@ interface StagedGun {
   readonly kit: KitGun | null;
   readonly loaded: Promise<void>;
   optic: { readonly id: OpticId; node: Object3D | null } | null;
+  /** The gun as its fittings and camo see it. */
+  readonly dress: DressableGun;
 }
 
 /**
@@ -69,10 +73,12 @@ export class LoadoutGunStage implements GunStage {
     this.#scene.add(key, rim, this.#turntable);
   }
 
-  show(id: WeaponId, kit: Attachments | undefined): void {
+  show(id: WeaponId, kit: Attachments | undefined, camo: CamoId | null = null, reticles?: Reticles): void {
+    if (reticles) setReticles(reticles);
     this.element.setAttribute('aria-label', STATS.weapons[id].traits.name);
     const gun = this.#gun(id);
     this.#fitOptic(id, gun, kit?.optic ?? null);
+    dressGun(gun.dress, kit, camo);
     if (this.#shown !== id) {
       for (const [other, g] of this.#guns) g.root.visible = other === id && this.#frameable(g);
       this.#shown = id;
@@ -112,10 +118,10 @@ export class LoadoutGunStage implements GunStage {
         .loadAsync(new URL('./viewmodel/assets/m4a1-details.glb', import.meta.url).href)
         .then(({ scene }) => void attachAuthoredM4(m4, scene))
         .catch((error: unknown) => console.warn('Unable to load the M4A1 details for the Loadout screen:', error));
-      gun = { root: m4.root, kit: null, loaded, optic: null };
+      gun = { root: m4.root, kit: null, loaded, optic: null, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
     } else {
       const kit = buildKitGun(id);
-      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null };
+      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
     }
     gun.root.visible = false;
     this.#turntable.add(gun.root);
@@ -161,6 +167,10 @@ export class LoadoutGunStage implements GunStage {
       const optic = gun.optic?.node ?? null;
       if (optic) optic.visible = false;
       gun.root.visible = true;
+      // Without its fittings too, which come and go.
+      const fittings: Object3D[] = [];
+      gun.root.traverse((o) => o.name.startsWith('fitting:') && o.visible && fittings.push(o));
+      for (const f of fittings) f.visible = false;
       gun.root.traverseVisible((o) => {
         const geometry = (o as Mesh).isMesh ? (o as Mesh).geometry : null;
         if (!geometry) return;
@@ -169,6 +179,7 @@ export class LoadoutGunStage implements GunStage {
       });
       gun.root.visible = shown;
       if (optic) optic.visible = true;
+      for (const f of fittings) f.visible = true;
       const centre = box.getCenter(gun.root.position).negate();
       gun.root.position.copy(centre);
       this.#turntable.rotation.copy(turned);

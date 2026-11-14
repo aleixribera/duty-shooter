@@ -11,6 +11,7 @@ import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, ty
 import { WeaponMotion } from './motion';
 import { IRON_NODES, OPTICS, OPTIC_MOUNTS, mountOptic, opticSight, opticTemplate } from './optics';
 import type { ViewmodelState } from './state';
+import { dressGun, type DressableGun } from './fittings';
 
 const W = STATS.weapon;
 const DEG = Math.PI / 180;
@@ -557,6 +558,7 @@ export class Viewmodel {
   readonly #optics = new Map<WeaponId, { readonly id: OpticId; node: Object3D | null }>();
   /** A hidden copy of each optic, shown only in `showAll`'s frame so its glass and reticle compile in the warm-up. */
   readonly #opticWarm = new Map<OpticId, Object3D>();
+  readonly #dressables = new Map<WeaponId, DressableGun>();
   readonly #sight = new Vector3();
   /** The frag in hand, built the first time one is cooked. */
   /** The frag, smoke and flash for the hand, each built the first time it is needed. */
@@ -780,6 +782,23 @@ export class Viewmodel {
     kit.sockets.ejectionPort.add(this.#ejectionPort);
   }
 
+  /** The gun `id` as its fittings and camo see it, made once. */
+  #dressable(id: WeaponId): DressableGun {
+    let d = this.#dressables.get(id);
+    if (!d) {
+      const kit = id === 'm4a1' ? null : this.#kit(id);
+      d = {
+        id,
+        root: this.#gunRoot(id),
+        loaded: kit ? kit.loaded : this.#authored,
+        magazine: () => (kit ? kit.part('mag')?.node ?? null : this.gun.magazine),
+        rest: (name) => kit?.part(name) ?? null,
+      };
+      this.#dressables.set(id, d);
+    }
+    return d;
+  }
+
   /** The gun `id`'s model root: the M4A1's, or its kit's. */
   #gunRoot(id: WeaponId): Object3D {
     return id === 'm4a1' ? this.gun.root : this.#kit(id).root;
@@ -838,6 +857,7 @@ export class Viewmodel {
     const id = this.#weapon;
     const kit = id === 'm4a1' ? null : this.#kit(id);
     this.#fitOptic(id, state.optic ?? null);
+    dressGun(this.#dressable(id), state.attachments ?? undefined, state.camo ?? null);
     this.#aim(id, kit);
     const row = STATS.weapons[id];
     const ads = ease(Math.min(1, Math.max(0, state.ads)));

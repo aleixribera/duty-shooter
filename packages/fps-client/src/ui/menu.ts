@@ -1,4 +1,4 @@
-import { STATS, WIDE_SCALE, type Attachments, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
+import { ATTACHMENT_NAMES, STATS, WIDE_SCALE, type Attachments, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
 import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, pickLoadoutSet, restoreDefaults, withLoadout, type Action, type Settings, type SettingsSection } from '../settings';
 import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
@@ -14,7 +14,8 @@ import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
 import { touchMode } from '../touch/mode';
 import { clearHintMemory, hintsSeen } from '../hint-store';
 import type { ProfileStore } from '../profile/store';
-import { GUN_RANKS, gunLock, gunOpen, openLoadout } from '../profile/model';
+import { GUN_RANKS, MASTERY_KILLS, gunLock, gunOpen, masteryOf, openLoadout } from '../profile/model';
+import { CAMO_IDS, CAMO_MASTERY, CAMO_NAMES, RETICLE_COLOURS, RETICLE_COLOUR_NAMES, RETICLE_SHAPES, RETICLE_SHAPE_NAMES, camoOn, reticleOf, type CamoId, type Reticles } from '../customize';
 
 export type { LobbyInfo } from './model';
 
@@ -361,8 +362,8 @@ export interface MenuCallbacks {
 export interface GunStage {
   /** What the screen places; drawn while a gun is shown. */
   readonly element: HTMLElement;
-  /** Shows the gun `id` with what is fitted on it, turning. */
-  show(id: WeaponId, kit: Attachments | undefined): void;
+  /** Shows the gun `id` with what is fitted on it and its camo, turning. */
+  show(id: WeaponId, kit: Attachments | undefined, camo?: CamoId | null, reticles?: Reticles): void;
   /** Stops drawing: the screen closed. */
   stop(): void;
 }
@@ -1179,6 +1180,77 @@ export class Menu {
   }
 
   /**
+   * The gunsmith's looks for gun `id` (PLAN item 7): its camo, each earned by a Mastery level, and, when it carries
+   * an optic, that optic's reticle colour and shape. Rows of tiles under its attachments; a pick is kept at once.
+   */
+  #dressRows(box: HTMLElement, h: El, id: WeaponId, kills: number, card: HTMLElement, turn: (id: WeaponId, kit: Attachments | undefined, camo?: CamoId | null) => void): void {
+    const level = masteryOf(kills).level;
+    const gunName = STATS.weapons[id].traits.name;
+    // The build as it is when a tile is shown: a fitting changed since these rows were drawn shows too.
+    const kitNow = () => openKit(id, this.#settings.builds[id], kills);
+    const kit = kitNow();
+    interface Tile { readonly name: string; readonly detail: string; readonly locked: boolean; readonly on: boolean; readonly note: string; pick(): void; preview(): void }
+    const row = (label: string, tilesOf: () => readonly Tile[]) => {
+      const line = h('div', '', 'ds-smith-row');
+      const tiles = h('div', '', 'ds-kit ds-smith-tiles');
+      tiles.setAttribute('role', 'group');
+      tiles.setAttribute('aria-label', `${gunName} ${label.toLowerCase()}`);
+      line.append(h('span', label, 'ds-label'), tiles);
+      const fill = () => {
+        tiles.replaceChildren();
+        for (const t of tilesOf()) {
+          const b = h('button', '', `ds-mode${t.on ? ' on' : ''}${t.locked ? ' locked' : ''}`) as HTMLButtonElement;
+          b.type = 'button';
+          b.setAttribute('aria-pressed', String(t.on));
+          if (t.locked) b.setAttribute('aria-disabled', 'true');
+          b.innerHTML = `<b>${escapeHtml(t.name)}</b><span>${escapeHtml(t.detail)}</span>`;
+          const show = () => {
+            t.preview();
+            card.innerHTML = `<div class="ds-label">${escapeHtml(`${gunName} · ${label}`)}</div><div class="name">${escapeHtml(t.name)}</div><p class="role">${escapeHtml(t.note)}</p>`;
+          };
+          b.addEventListener('click', () => {
+            if (t.locked) return;
+            t.pick();
+            for (const o of tiles.children) {
+              o.classList.toggle('on', o === b);
+              o.setAttribute('aria-pressed', String(o === b));
+            }
+            show();
+          });
+          b.addEventListener('focus', show);
+          b.addEventListener('mouseenter', show);
+          tiles.append(b);
+        }
+      };
+      fill();
+      box.append(line);
+    };
+    const worn = camoOn(this.#settings.camos, id, level);
+    row('Camo', () => [
+      { name: 'None', detail: 'as issued', locked: false, on: worn === null, note: 'The gun in its own finish.', pick: () => this.#pickCamo(id, null), preview: () => turn(id, kitNow(), null) },
+      ...CAMO_IDS.map((c): Tile => {
+        const need = CAMO_MASTERY[c];
+        const locked = level < need;
+        const earned = `Earned at Mastery ${need}: ${MASTERY_KILLS[need - 1]} kills with this gun.`;
+        return { name: CAMO_NAMES[c], detail: locked ? `Mastery ${need}` : 'earned', locked, on: worn === c, note: locked ? earned : worn === c ? 'Worn.' : earned, pick: () => this.#pickCamo(id, c), preview: () => (locked ? turn(id, kitNow()) : turn(id, kitNow(), c)) };
+      }),
+    ]);
+    const optic = kit.optic;
+    if (!optic) return;
+    const opticName = ATTACHMENT_NAMES[optic];
+    const look = reticleOf(this.#settings.reticles, optic);
+    const setLook = (next: Partial<typeof look>) => this.#change({ reticles: { ...this.#settings.reticles, [optic]: { ...reticleOf(this.#settings.reticles, optic), ...next } } });
+    row('Reticle', () => RETICLE_COLOURS.map((c): Tile => ({ name: RETICLE_COLOUR_NAMES[c], detail: opticName, locked: false, on: look.colour === c, note: `The ${opticName}'s reticle glows ${RETICLE_COLOUR_NAMES[c].toLowerCase()} on every gun that carries it.`, pick: () => setLook({ colour: c }), preview: () => turn(id, kitNow()) })));
+    row('Shape', () => RETICLE_SHAPES.map((sh): Tile => ({ name: RETICLE_SHAPE_NAMES[sh], detail: opticName, locked: false, on: look.shape === sh, note: `The ${opticName} shows a ${RETICLE_SHAPE_NAMES[sh].toLowerCase()} on every gun that carries it.`, pick: () => setLook({ shape: sh }), preview: () => turn(id, kitNow()) })));
+  }
+
+  /** Gun `id` wears `camo` from now on (null: its own finish). */
+  #pickCamo(id: WeaponId, camo: CamoId | null): void {
+    const { [id]: _, ...others } = this.#settings.camos;
+    this.#change({ camos: camo ? { ...others, [id]: camo } : others });
+  }
+
+  /**
    * Primary, secondary and grenade as rows of tiles, and a card with the
    * focused (or chosen) weapon's role and bars. A choice is kept at once.
    */
@@ -1194,7 +1266,9 @@ export class Menu {
     const card = h('div', '', 'ds-gun ds-box');
     const kills = (id: WeaponId) => this.#profile?.profile.weapons[id]?.kills ?? 0;
     /** The gun in 3D over the card, turning, with what is fitted on it. */
-    const turn = (id: WeaponId, kit: Attachments | undefined) => this.gunStage?.show(id, kit);
+    /** The camo gun `id` wears now: the one picked, while its Mastery has earned it. */
+    const camoNow = (id: WeaponId) => camoOn(this.#settings.camos, id, masteryOf(kills(id)).level);
+    const turn = (id: WeaponId, kit: Attachments | undefined, camo: CamoId | null = camoNow(id)) => this.gunStage?.show(id, kit, camo, this.#settings.reticles);
     // Without a Profile kept (a test page), every gun is open.
     const xp = this.#profile ? this.#profile.profile.xp : Infinity;
     /** A gun this Profile hasn't opened: shown, previewed, but carried only in the Practice Range. */
@@ -1236,6 +1310,7 @@ export class Menu {
         const tiles = h('div', '', 'ds-kit ds-smith-tiles');
         tiles.setAttribute('role', 'group');
         tiles.setAttribute('aria-label', `${STATS.weapons[id].traits.name} ${r.name.toLowerCase()}`);
+        tiles.dataset['slot'] = r.slot;
         line.append(h('span', r.name, 'ds-label'), tiles);
         for (const c of r.choices) {
           const b = h('button', '', `ds-mode${c.on ? ' on' : ''}${c.locked ? ' locked' : ''}`) as HTMLButtonElement;
@@ -1252,6 +1327,13 @@ export class Menu {
               t.setAttribute('aria-pressed', String(t === b));
             }
             showChoice(id, r.slot, r.name, { ...c, on: true });
+            // The reticle rows come and go with the optic.
+            if (r.slot === 'optic') {
+              const at = [...tiles.children].indexOf(b);
+              smith(gun);
+              const again = [...box.querySelectorAll<HTMLElement>('.ds-smith-tiles')].find((t) => t.dataset['slot'] === 'optic');
+              (again?.children[at] as HTMLButtonElement | undefined)?.focus({ preventScroll: true });
+            }
           });
           const show = () => showChoice(id, r.slot, r.name, c);
           b.addEventListener('focus', show);
@@ -1260,6 +1342,7 @@ export class Menu {
         }
         box.append(line);
       }
+      this.#dressRows(box, h, id, kills(id), card, turn);
     };
     const showKit = (id: TacticalId | PerkId | null, slot: 'tactical' | 'perk') => {
       const c = kitCard(id, slot);

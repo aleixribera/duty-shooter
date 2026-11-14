@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
 import { buildM4A1 } from '../src/viewmodel/m4a1';
 import { OPTICS, OPTIC_MOUNTS, mountOptic } from '../src/viewmodel/optics';
+import { RETICLE_SHAPES } from '../src/customize';
 
 /** A GLB with its textures left out: Node has no image decoder, and only the shapes and material names matter here. */
 function untextured(bytes: Buffer): ArrayBuffer {
@@ -63,6 +64,19 @@ describe('rail optics (ticket 19)', () => {
     // Beside it, inside the window, nothing but glass: the view through is open.
     for (const [dx, dy] of [[0.006, 0], [-0.006, 0], [0, 0.005]]) {
       expect(along(scene, dx!, axis + dy!).filter((f) => f !== 'lens')).toEqual([]);
+    }
+  });
+
+  it.each(['reflex', 'prism'] as OpticId[])('the %s: each reticle a player may pick is its own part, lit on the axis (PLAN item 7)', async (optic) => {
+    const scene = await load(optic);
+    const axis = OPTICS[optic].axis;
+    for (const shape of RETICLE_SHAPES) {
+      const alone = scene.clone();
+      alone.updateMatrixWorld(true);
+      expect(alone.getObjectByName(`reticle_${shape}`), shape).toBeTruthy();
+      // The others taken out: this one alone holds the aim point.
+      for (const other of RETICLE_SHAPES) if (other !== shape) alone.getObjectByName(`reticle_${other}`)?.removeFromParent();
+      expect(along(alone, 0, axis).filter((f) => f !== 'lens')[0], shape).toBe('red_insert');
     }
   });
 
