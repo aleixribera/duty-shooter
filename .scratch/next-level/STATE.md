@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 2026-11-14e (1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG), item 10's test not met. Pass 84: rifle kills seen (v2.214.3, ticket 102): the capture lets go on the kill (held on the second), own flash and haze clear further below the aim point; 5 of 8 match "b" frames show the body (14e: 1 of 6), the rest an ally in front, a reload, the front sight base. Next: the match's 486 ms and Gun Game's 264 ms hitches (14e defect 2), with a CPU log.
+Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kills seen (v2.214.3, ticket 102): 5 of 8 match "b" frames show the body (14e: 1 of 6). Next: the match's 486 ms and Gun Game's 264 ms hitches (14e defect 2), with a CPU log.
 
 ## Needs Aleix
 
