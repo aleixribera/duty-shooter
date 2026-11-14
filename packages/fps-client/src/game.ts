@@ -370,6 +370,8 @@ export class Game {
    * (`station`): the page opens the loadout screen.
    */
   onLoadout: ((from: 'death' | 'station') => void) | null = null;
+  /** A gun the match opened, equipped from the results at its end: the page puts it in the loadout (PLAN item 7). */
+  onEquip: ((id: WeaponId) => void) | null = null;
   #resizeObserver: ResizeObserver;
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
@@ -410,6 +412,8 @@ export class Game {
     if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
     else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
+    // At the match's end, E equips the next gun it opened (PLAN item 7).
+    else if (e.code === 'KeyE' && !e.repeat) for (const id of this.#keeper.gain?.unlocks ?? []) if (this.hud.equip(id)) break;
   };
 
   constructor(options: GameOptions) {
@@ -468,6 +472,7 @@ export class Game {
     this.hud.visible = false;
     this.hud.onVote = (mode) => this.#vote(mode);
     this.hud.onRandom = () => this.#toggleRandom();
+    this.hud.onEquip = (id) => this.onEquip?.(id);
     // A server with a lobby holds no vote: there the D-pad's right is the host's Random next match.
     this.input.onPadVote = (side) => (this.#driver?.match?.lobby ? side === 'right' && this.#toggleRandom() : this.#vote(side === 'left' ? 'tdm' : 'ffa'));
     addEventListener('keydown', this.#onVoteKey);

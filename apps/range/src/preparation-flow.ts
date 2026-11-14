@@ -1,5 +1,5 @@
-import { PreparationPage, gunsmithRows, preparationChampion, type Menu, type PreparationView, type Settings } from '@duty-shooter/fps-client/ui';
-import { royaleLoadout, type AttachmentId, type AttachmentSlot, type WeaponId } from '@duty-shooter/fps-core';
+import { PreparationPage, gunOpen, gunsmithRows, preparationChampion, type Menu, type PreparationView, type Settings } from '@duty-shooter/fps-client/ui';
+import { WEAPON_IDS, royaleLoadout, type AttachmentId, type AttachmentSlot, type WeaponId } from '@duty-shooter/fps-core';
 import type { Game, SoundSystem } from '@duty-shooter/fps-client';
 import { LoadReport } from './load-report';
 
@@ -16,6 +16,10 @@ export interface PreparationHost {
   setBuild(gun: WeaponId, slot: AttachmentSlot, choice: AttachmentId | null): void;
   /** Kills made with a gun, which open its attachment slots. */
   kills(gun: WeaponId): number;
+  /** This Profile's XP, which opens guns (PLAN item 7). */
+  xp(): number;
+  /** The loadout the match takes: a gun not yet opened swapped for a starting one, with its build. */
+  matchLoadout(): Settings['loadout'];
   /** The name this player joined under, for their own seat. */
   name(): string;
   /** The Preparation takes the screen: the lobby and Battle Royale pages go, and a Start click's wait for the match is over. */
@@ -66,7 +70,8 @@ export class PreparationFlow {
 
   /** The gunsmith rows of the two guns the Preparation shows picked. */
   #smith(): NonNullable<PreparationView['smith']> {
-    const { loadout, builds } = this.#host.settings();
+    const { builds } = this.#host.settings();
+    const loadout = this.#host.matchLoadout();
     const picked = royaleLoadout(loadout);
     const rows = (id: WeaponId, own: boolean) => gunsmithRows(id, own ? builds[id] : undefined, this.#host.kills(id));
     // A saved sniper plays as a stock M4A1 here, until something is fitted to it.
@@ -109,7 +114,8 @@ export class PreparationFlow {
         alive: state?.alive ?? driver.scores.length,
         squads: state?.squads ?? 0,
         squad,
-        loadout: this.#host.settings().loadout,
+        loadout: this.#host.matchLoadout(),
+        open: WEAPON_IDS.filter((id) => gunOpen(id, this.#host.xp())),
         smith: this.#smith(),
         ready: this.#ready || prep.ready.includes(driver.selfId ?? ''),
         readyCount: prep.ready.length,

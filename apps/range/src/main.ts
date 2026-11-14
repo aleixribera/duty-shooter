@@ -1,8 +1,8 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
-import { createWorld, royaleLoadout, teamMode, type BotSkill, type LobbyPick, type ModeId, type SpawnPoint, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, createWorld, royaleLoadout, teamMode, type BotSkill, type LobbyPick, type ModeId, type SpawnPoint, type WeaponId } from '@duty-shooter/fps-core';
 import type { WebGPURenderer } from 'three/webgpu';
 import { CameraPath } from './bench';
 import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
@@ -30,6 +30,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   useColourVision(settings.colourVision);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
+  /** The loadout a match takes: a gun not yet opened, carried in the Practice Range, gives way to a starting one (PLAN item 7). */
+  const matchLoadout = (loadout: Settings['loadout'] = settings.loadout) => {
+    const open = openLoadout(loadout, profile.profile.xp);
+    // The starting gun swapped in carries its own build from the gunsmith.
+    return open === loadout ? loadout : withBuilds(open, settings.builds, gunKills);
+  };
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');
   // `?benchmark`: the benchmark page a player opens from Settings > Video (ticket 27).
@@ -103,6 +109,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     });
     // `?nolock` (dev only): play without pointer lock, for automated playtesting.
     if (import.meta.env.DEV && params.has('nolock')) g.input.lockFree = true;
+    // A gun the match opened, equipped from its results: into its slot of the loadout, with its own build.
+    g.onEquip = (id) => applyLoadout(withBuilds({ ...settings.loadout, [STATS.weapons[id].traits.slot]: id }, settings.builds, gunKills));
     // Use while dead, or at the range's station: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;
@@ -257,7 +265,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   document.addEventListener('keydown', retrySound, true);
   /** First entry shows the one-time Firefox tip about raw mouse input. */
   let driver: GameDriver | null = null;
-  const play = (next: GameDriver) => {
+  const play = (next: GameDriver, practice = false) => {
+    menu.practice = practice;
     driver = next;
     game.setDriver(next);
     if (engine!.isFirefox() && !settings.firefoxTipShown) menu.tip(() => void enter());
@@ -271,7 +280,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     menu.loading(`Loading ${load(id).map.name}`, null);
     await ready();
     const { map, solids } = load(id);
-    play(new engine!.OfflineDriver({ solids, ladders: map.ladders ?? [], terrain: map.terrain, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }));
+    play(new engine!.OfflineDriver({ solids, ladders: map.ladders ?? [], terrain: map.terrain, spawn: offlineSpawn(map), dummies: map.dummies, loadout: settings.loadout }), true);
   };
   // `?matchtime=<s>` (dev only): Bot Matches that last that long, for testing their end without the 10 minutes.
   const matchTime = import.meta.env.DEV ? Number(params.get('matchtime')) || undefined : undefined;
@@ -285,7 +294,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     const [navGraph] = await Promise.all([routesOf(id), ready()]);
     // Let the loading screen paint before the match builds its own routes (most of a second on the main thread).
     if (!navGraph) await new Promise((done) => setTimeout(done, 50));
-    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], terrain: map.terrain, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, skill, name: settings.name.trim() || 'You', loadout: settings.loadout, ...(matchTime ? { timeLimit: matchTime } : {}) }));
+    play(new engine!.BotMatchDriver({ map: map.id, solids, ladders: map.ladders ?? [], terrain: map.terrain, spawns: map.spawns, zones: map.zones, sites: map.sites, nav: map.nav, navGraph, mode, botsPerTeam, hvb, skill, name: settings.name.trim() || 'You', loadout: matchLoadout(), ...(matchTime ? { timeLimit: matchTime } : {}) }));
   };
   /** Bumped by Cancel, so a join still in flight is dropped. */
   let joinAttempt = 0;
@@ -317,7 +326,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
         // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
         lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-        const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}${lobbyPath('/ws')}`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+        const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}${lobbyPath('/ws')}`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
         useMap(id);
         play(next);
       });
@@ -352,7 +361,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       resume: () => void enter(),
       leave: () => leaveGame(),
       changeSettings: (next) => {
-        if (next.loadout !== settings.loadout) game?.driver?.setLoadout(next.loadout);
+        if (next.loadout !== settings.loadout) game?.driver?.setLoadout(menu.practice ? next.loadout : matchLoadout(next.loadout));
         settings = next;
         saveSettings(next);
         useColourVision(next.colourVision);
@@ -370,6 +379,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (privateCode) usePrivate(null);
     botLobbyOpen = false;
     royalePre = false;
+    menu.practice = false;
     royalePage.hide();
     game?.setDriver(null);
     if (game) game.paused = true;
@@ -489,7 +499,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     if (attempt !== joinAttempt) return link.stop();
     pendingSquads = royale.squads;
     lobbyPage.invite = null;
-    const next = new engine!.LocalRoyaleDriver({ server: link.connection, stop: link.stop, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, loadout: settings.loadout });
+    const next = new engine!.LocalRoyaleDriver({ server: link.connection, stop: link.stop, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, loadout: matchLoadout() });
     driver = next;
     game.setDriver(next);
     game.paused = true;
@@ -535,7 +545,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       pendingSquads = royaleOpens(status) ? royale.squads : null;
       lobbyPage.invite = null;
       const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/royale/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: settings.loadout, mode: 'battle-royale' });
+      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/royale/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), mode: 'battle-royale' });
       // No pointer lock yet: the lobby comes first, and the match takes the pointer when it starts.
       driver = next;
       game.setDriver(next);
@@ -586,7 +596,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   const applyLoadout = (loadout: Settings['loadout']) => {
     settings = { ...settings, loadout };
     saveSettings(settings);
-    game?.driver?.setLoadout(loadout);
+    game?.driver?.setLoadout(matchLoadout(loadout));
     game?.applySettings(settings);
     menu.settings = settings;
   };
@@ -601,10 +611,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       const builds = rebuild(settings.builds, gun, slot, choice);
       settings = { ...settings, builds };
       // A saved sniper plays as the M4A1 in a Battle Royale: fitting the M4A1 here makes it the pick.
-      const primary = royaleLoadout(settings.loadout).primary === gun ? { primary: gun } : {};
+      const primary = royaleLoadout(matchLoadout()).primary === gun ? { primary: gun } : {};
       applyLoadout(withBuilds({ ...settings.loadout, ...primary }, builds, gunKills));
     },
     kills: gunKills,
+    xp: () => profile.profile.xp,
+    matchLoadout: () => matchLoadout(),
     name: () => onlineName,
     takeOver: () => {
       leaveLobby();

@@ -15,15 +15,17 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Passes 23 to 30 gave each request its rough pass (v2.195.0 to v2.201.0, tickets 106 to 113; details in each ticket). Cut to BACKLOG on the way: walking bots look 18° up; bots fight from cover only on Zero Island.
+Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 
-Passes 32-33: PLAN item 1 (the laptop), both passes spent (ticket 99). The laptop's GPU is the bottleneck (Survival Town ~55 fps, Zero Island ~43 at the A/B spots); shipped the bloom's cheap bright pass and the TRAA's two-picture history. Levers left are first in BACKLOG for the director. Prefer `flag:` A/Bs over `post:` swaps (ticket 99).
-
-Passes 34-36: PLAN item 1b (the whole UI in Backlit, ticket 114) shipped v2.202.0 to v2.203.1 and proven (design-audit 2026-11-13: both highs and 8 mediums fixed, open mediums in BACKLOG; frame times within noise). Item 1's laptop before/after on the benchmark page is still not run (two passes spent; levers in BACKLOG).
-
-Pass 37: PLAN order step 2, the fresh review on the Backlit build: `reviews/2026-11-13c.md` (1, 4 pass; 2 not judgeable, the PC was loaded; 3, 5, 6 fail). Fixed its Outposts strip over the score bar; the rest in BACKLOG.
-
-Pass 38: request 8 (ticket 115) shipped v2.204.0: the host's Random next match at a match's end, online (the server picks; protocol 33) and in Bot Match (the page picks); also the HUD no longer vanishes after an online map switch in play. Next pass: PLAN item 7 (progression) rough.
+**PLAN item 7, rough sweep (ticket 117), pass 1 of it = pass 39.** Checklist:
+- [x] Unlocks: 4 guns open at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`); locked tiles say their Rank; any gun in the Practice Range; a match swaps a locked gun for a starting one (`openLoadout`); the BR picker shows only open guns; the match end names each gun opened, with Equip it; Profile lists locked guns with their Rank.
+- [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
+- [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
+- [ ] Loadout editor: the gun in 3D turning, gunsmith rows, 3 named loadouts picked at spawn.
+- [ ] Results: Mastery steps on the end screen, "play again", a pad route for Equip it. Unproven in a browser: the unlock line at a real match's end (this pass's scripted player got no kills; seed a Profile just under Rank 4 before the review capture's match, whose player does).
+- [ ] Customizing: attachments seen on the gun model, Mastery camos, optic reticle colour and shape.
+- [ ] Battle Royale on loadouts: no ground loot, Supply Drops without the sniper (ask Aleix first, see PLAN).
+- [ ] Then ticket 116 (the reset), then a fresh review.
 
 ## Needs Aleix
 

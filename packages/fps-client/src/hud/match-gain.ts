@@ -1,3 +1,5 @@
+import { STATS } from '@duty-shooter/fps-core';
+import type { WeaponId } from '@duty-shooter/fps-core';
 import { figure, type MatchGain } from '../profile/model';
 import { escapeHtml as escape } from '../ui/theme';
 
@@ -36,6 +38,12 @@ export const MATCH_GAIN_CSS = `
 .ds-gain .tasks { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-gain .tasks > div { display: flex; gap: 8px; min-width: 0; }
 .ds-gain .tasks b { color: var(--ds-text); font-weight: 700; white-space: nowrap; }
+/* A gun the match opened: lit, with its Equip it button. */
+.ds-gain .unlocks { display: flex; flex-direction: column; gap: 6px; }
+.ds-gain .unlocks > div { display: flex; align-items: center; gap: 12px; }
+.ds-gain .unlocks b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); text-transform: uppercase; }
+.ds-gain .unlocks .ds-btn { margin-left: auto; pointer-events: auto; }
+.ds-gain .unlocks .equipped { margin-left: auto; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 @keyframes ds-gain-fill { from { transform: scaleX(var(--from)); } }
 @keyframes ds-gain-up { 0% { transform: scaleX(var(--from)); } ${CROSS * 100}% { transform: scaleX(1); } ${CROSS * 100 + 0.01}% { transform: scaleX(0); } 100% { transform: scaleX(var(--to)); } }
 @keyframes ds-gain-word { from { opacity: 0; transform: translateX(-6px); } }
@@ -63,7 +71,7 @@ export const MATCH_GAIN_CSS = `
  * kills, your place), each a label and its value as markup; the XP figures
  * follow them once the match is banked.
  */
-export function matchGainHtml(cells: readonly (readonly [string, string])[], gain: MatchGain | null): string {
+export function matchGainHtml(cells: readonly (readonly [string, string])[], gain: MatchGain | null, equip?: { readonly equipped: ReadonlySet<WeaponId> }): string {
   const all = [...cells];
   if (gain) {
     if (gain.bonus > 0) all.push(['Win bonus', `+${figure(gain.bonus)}`]);
@@ -82,6 +90,11 @@ export function matchGainHtml(cells: readonly (readonly [string, string])[], gai
     html += `<div class="tasks">${gain.challenges
       .map((c) => `<div><span>${escape(c.text)}</span><b>${c.completed ? `Done · +${figure(c.xp)} XP` : `${figure(c.progress)} / ${figure(c.target)}`}</b></div>`)
       .join('')}</div>`;
+  }
+  if (gain.unlocks.length > 0) {
+    // Each gun the match opened, and (where the screen can take a press) a button that puts it in the loadout.
+    const button = (id: WeaponId) => (!equip ? '' : equip.equipped.has(id) ? '<span class="equipped">Equipped</span>' : `<button type="button" class="ds-btn" data-equip="${id}"><i class="ds-kbd key">E</i>Equip it</button>`);
+    html += `<div class="unlocks">${gain.unlocks.map((id) => `<div><span class="ds-label">Unlocked</span><b>${escape(STATS.weapons[id].traits.name)}</b>${button(id)}</div>`).join('')}</div>`;
   }
   return html;
 }

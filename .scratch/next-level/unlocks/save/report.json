@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "step": "before",
+      "rank": "8",
+      "code": "DS1-eyJ2ZXJzaW9uIjoxLCJj…",
+      "length": 402
+    },
+    {
+      "step": "fresh",
+      "rank": "1"
+    },
+    {
+      "step": "bad code",
+      "rank": "1",
+      "note": "That is not a save code. Copy the whole line, from DS1- to its end."
+    },
+    {
+      "step": "loaded",
+      "rank": "8",
+      "note": "Loaded: this browser now holds that Profile.",
+      "kept": 21000
+    }
+  ],
+  "errors": []
+}

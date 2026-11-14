@@ -119,6 +119,15 @@ describe('the "Your match" strip', () => {
     expect(html).not.toContain('Rank up');
     for (const c of gain.challenges) expect(html).toContain(c.text);
   });
+
+  it('names a gun the match opened, with an Equip it button where the screen takes a press, and Equipped once pressed (PLAN item 7)', () => {
+    const { gain } = applyMatch({ ...emptyProfile(), xp: rankFloor(4) - 10 }, match({ score: 300 }), '2026-03-01');
+    expect(gain.unlocks).toEqual(['burst']);
+    expect(matchGainHtml([], gain)).toContain('<b>Trident 5.56</b>');
+    expect(matchGainHtml([], gain)).not.toContain('data-equip');
+    expect(matchGainHtml([], gain, { equipped: new Set() })).toContain('data-equip="burst"');
+    expect(matchGainHtml([], gain, { equipped: new Set(['burst']) })).toContain('Equipped');
+  });
 });
 
 describe('the Profile screen', () => {
@@ -147,6 +156,15 @@ describe('the Profile screen', () => {
     expect(html).not.toContain('class="none"');
     // The most used weapon leads the list.
     expect(html.indexOf('M4A1')).toBeLessThan(html.indexOf('No kills yet'));
+  });
+
+  it('lists the guns not yet opened after the open ones, each with the Rank that opens it (PLAN item 7)', () => {
+    const fresh = profileHtml(emptyProfile(), '2026-03-01');
+    expect(fresh.match(/class="gun shut"/g)).toHaveLength(5);
+    expect(fresh).toContain('Opens at Rank 4');
+    expect(fresh.indexOf('Warden 9')).toBeLessThan(fresh.indexOf('Trident 5.56'));
+    expect(fresh.indexOf('Trident 5.56')).toBeLessThan(fresh.indexOf('Ridgeline .308'));
+    expect(profileHtml({ ...emptyProfile(), xp: rankFloor(12) }, '2026-03-01')).not.toContain('class="gun shut"');
   });
 
   it("adds a Battle Royale's two figures once one has been played", () => {

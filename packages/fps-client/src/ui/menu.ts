@@ -14,6 +14,7 @@ import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
 import { touchMode } from '../touch/mode';
 import { clearHintMemory, hintsSeen } from '../hint-store';
 import type { ProfileStore } from '../profile/store';
+import { GUN_RANKS, gunLock, gunOpen, openLoadout } from '../profile/model';
 
 export type { LobbyInfo } from './model';
 
@@ -395,8 +396,10 @@ export class Menu {
   #entered = false;
   #afterTip: (() => void) | null = null;
   /** The loadout screen: where Done goes (the pause menu, or back into the game) and when a change applies. */
-  #loadoutBack: 'pause' | 'game' | 'lobby' = 'pause';
+  #loadoutBack: 'pause' | 'game' | 'lobby' | 'main' = 'pause';
   #loadoutNote = '';
+  /** The game behind the menu is the Practice Range, where every gun can be carried, open or not (PLAN item 7). */
+  practice = false;
   #matchMode: ModeId | null = null;
   readonly #padName: () => string | null;
   /** A map's name from its id. */
@@ -405,6 +408,10 @@ export class Menu {
   readonly #profile: ProfileStore | null;
   /** The Profile screen is asking whether to erase it. */
   #askReset = false;
+  /** The Profile screen shows its save code, and what the last copy or load did. */
+  #saveOpen = false;
+  #saveNote = '';
+  #savePaste = '';
   /** A pointer is pressed on the menu: a status redraw waits for the release, or the click would land on a button that is gone. */
   #pressed = false;
   #redrawAfterPress = false;
@@ -679,9 +686,10 @@ export class Menu {
 
   /**
    * The loadout screen, from the pause menu (Done goes back to it) or from
-   * the death screen or the range's station (Done goes back into the game).
+   * the death screen or the range's station (Done goes back into the game),
+   * or from the main menu (Done goes back to it).
    */
-  loadout(back: 'pause' | 'game' | 'lobby'): void {
+  loadout(back: 'pause' | 'game' | 'lobby' | 'main'): void {
     this.#loadoutBack = back;
     this.show('loadout');
   }
@@ -936,7 +944,7 @@ export class Menu {
     dest('Bot Match', '<span>Any map, any mode, against bots</span>', () => this.#callbacks.botMatch(), !server || offline);
     dest('Practice Range', '<span>Lanes, dummies and a movement course</span>', () => this.#callbacks.practiceRange());
     home.append(nav);
-    // Under the list, what is not a place to play: the Profile and Settings.
+    // Under the list, what is not a place to play: the Loadout, the Profile and Settings.
     const more = h('nav', '', 'ds-more');
     more.setAttribute('aria-label', 'More');
     const minor = (title: string, onClick: () => void) => {
@@ -945,9 +953,11 @@ export class Menu {
       b.addEventListener('click', onClick);
       more.append(b);
     };
+    minor('Loadout', () => this.loadout('main'));
     if (this.#profile)
       minor('Profile', () => {
         this.#askReset = false;
+        this.#saveOpen = false;
         this.show('profile');
       });
     minor('Settings', () => {
@@ -1156,6 +1166,12 @@ export class Menu {
     const options = loadoutOptions();
     const card = h('div', '', 'ds-gun ds-box');
     const kills = (id: WeaponId) => this.#profile?.profile.weapons[id]?.kills ?? 0;
+    // Without a Profile kept (a test page), every gun is open.
+    const xp = this.#profile ? this.#profile.profile.xp : Infinity;
+    /** A gun this Profile hasn't opened: shown, previewed, but carried only in the Practice Range. */
+    const shut = (choice: unknown) => typeof choice === 'string' && choice in GUN_RANKS && !gunOpen(choice as WeaponId, xp) && !this.practice;
+    // Outside the Practice Range a gun not yet opened is carried as its slot's starting gun: that one shows lit.
+    const carried = (slot: keyof Loadout) => (this.practice ? this.#settings.loadout : openLoadout(this.#settings.loadout, xp))[slot] ?? null;
     const effects = (fx: BuildEffects) => {
       const list = (lines: readonly string[]) => `<ul>${lines.length ? lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('') : '<li class="none">Nothing</li>'}</ul>`;
       return `<div class="ds-fx"><div><div class="ds-label">Gives</div>${list(fx.gains)}</div><div><div class="ds-label">Costs</div>${list(fx.costs)}</div></div>`;
@@ -1166,7 +1182,8 @@ export class Menu {
       // Its build, as the loadout would carry it: what is on it and open.
       const kit = openKit(id, this.#settings.builds[id], kills(id));
       const build = Object.keys(kit).length ? effects(buildEffects(id, kit)) : '';
-      card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p><div class="ds-bars">${bars.join('')}</div>${build}`;
+      const lock = gunOpen(id, xp) ? '' : `<p class="role">${escapeHtml(this.practice ? `${gunLock(id)}; yours to try here in the Practice Range.` : `${gunLock(id)}. Try it in the Practice Range.`)}</p>`;
+      card.innerHTML = `<div class="ds-label">${id === this.#settings.loadout.primary || id === this.#settings.loadout.secondary ? 'Equipped' : 'Preview'}</div><div class="name">${escapeHtml(c.name)}</div><p class="role">${escapeHtml(c.role)}</p>${lock}<div class="ds-bars">${bars.join('')}</div>${build}`;
     };
     /** One choice of the gunsmith: what it is on this gun, what it gives and costs, or what it waits for. */
     const showChoice = (id: WeaponId, slot: Parameters<typeof slotLock>[0], name: string, c: GunsmithChoice) => {
@@ -1224,11 +1241,14 @@ export class Menu {
       left.append(h('h2', title, 'ds-h2'));
       const tiles = h('div', '', 'ds-kit');
       for (const choice of choices) {
-        const b = h('button', '', `ds-mode${(this.#settings.loadout[slot] ?? null) === choice ? ' on' : ''}`) as HTMLButtonElement;
+        const locked = (slot === 'primary' || slot === 'secondary') && shut(choice);
+        const b = h('button', '', `ds-mode${carried(slot) === choice ? ' on' : ''}${locked ? ' locked' : ''}`) as HTMLButtonElement;
         b.type = 'button';
+        if (locked) b.setAttribute('aria-disabled', 'true');
         const [name, detail] = label(choice);
-        b.innerHTML = `<b>${escapeHtml(name)}</b><span>${escapeHtml(detail)}</span>`;
+        b.innerHTML = `<b>${escapeHtml(name)}</b><span>${escapeHtml(locked ? `Rank ${GUN_RANKS[choice as WeaponId]}` : detail)}</span>`;
         b.addEventListener('click', () => {
+          if (locked) return;
           // A gun carries its own build from the gunsmith.
           const loadout = { ...this.#settings.loadout, [slot]: choice };
           this.#change({ loadout: slot === 'primary' || slot === 'secondary' ? withBuilds(loadout, this.#settings.builds, kills) : loadout });
@@ -1267,7 +1287,7 @@ export class Menu {
     left.addEventListener('mouseleave', () => showCard(this.#settings.loadout.primary));
     right.append(h('h2', 'Details', 'ds-h2'), card);
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Equip')));
-    const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');
+    const done = button(footer, 'Done', () => (this.#loadoutBack === 'pause' ? this.show('pause') : this.#loadoutBack === 'main' ? this.show('main') : this.#loadoutBack === 'lobby' ? this.hide() : this.#callbacks.resume()), 'big');
     done.dataset['back'] = '';
     if (!this.#root.classList.contains('pad')) queueMicrotask(() => done.focus({ preventScroll: true }));
   }
@@ -1284,6 +1304,40 @@ export class Menu {
     const view = h('div', '', 'ds-prof');
     view.innerHTML = profileHtml(store.profile, store.today);
     body.append(view);
+    if (this.#saveOpen) {
+      // The save code: this Profile as one line to carry to another browser, and a box to paste one from there.
+      const box = h('section', '', 'ds-save');
+      box.append(h('h2', 'Save code', 'ds-h2'));
+      const out = h('textarea', '', 'ds-code') as HTMLTextAreaElement;
+      out.readOnly = true;
+      out.rows = 3;
+      out.value = store.code;
+      out.setAttribute('aria-label', 'Your save code');
+      const paste = h('textarea', '', 'ds-code') as HTMLTextAreaElement;
+      paste.rows = 3;
+      paste.placeholder = 'Paste a save code from another browser. Loading it replaces the Profile here.';
+      paste.setAttribute('aria-label', 'A save code to load');
+      paste.value = this.#savePaste;
+      paste.addEventListener('input', () => (this.#savePaste = paste.value));
+      const row = h('div', '', 'ds-save-row');
+      button(row, 'Copy', () => {
+        out.select();
+        const done = (note: string) => {
+          this.#saveNote = note;
+          this.#render();
+        };
+        navigator.clipboard?.writeText(out.value).then(() => done('Copied. Paste it into Profile, Save code on the other browser.'), () => done('Select the code and copy it by hand.')) ?? done('Select the code and copy it by hand.');
+      });
+      button(row, 'Load', () => {
+        const loaded = store.load(paste.value);
+        this.#saveNote = loaded ? 'Loaded: this browser now holds that Profile.' : 'That is not a save code. Copy the whole line, from DS1- to its end.';
+        if (loaded) this.#savePaste = '';
+        this.#render();
+      });
+      box.append(out, paste, row);
+      if (this.#saveNote) box.append(h('p', this.#saveNote, 'ds-save-note'));
+      body.append(box);
+    }
     const again = (ask: boolean) => {
       this.#askReset = ask;
       this.#render();
@@ -1299,6 +1353,11 @@ export class Menu {
       queueMicrotask(() => keep.focus({ preventScroll: true }));
     } else {
       footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('Enter', '✕', 'Select')));
+      button(footer, this.#saveOpen ? 'Hide save code' : 'Save code', () => {
+        this.#saveOpen = !this.#saveOpen;
+        this.#saveNote = '';
+        this.#render();
+      });
       button(footer, 'Reset profile', () => again(true));
     }
   }

@@ -1,4 +1,4 @@
-import { PROFILE_KEY, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, type MatchGain, type MatchRecord, type Profile } from './model';
+import { PROFILE_KEY, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, readSaveCode, saveCode, type MatchGain, type MatchRecord, type Profile } from './model';
 
 /** Where a Profile is kept: browser storage, or anything that reads and writes one string. */
 export interface ProfileStorage {
@@ -52,6 +52,20 @@ export class ProfileStore {
     this.#profile = applyCourse(before, seconds);
     if (this.#profile !== before || stored === null) this.#write();
     return before.courseBest;
+  }
+
+  /** This Profile as a save code, to carry to another browser. */
+  get code(): string {
+    return saveCode(this.#profile);
+  }
+
+  /** Takes the Profile a save code holds in place of this one; false, and nothing changed, when the text is not a save code. */
+  load(code: string): boolean {
+    const profile = readSaveCode(code);
+    if (!profile) return false;
+    this.#profile = profile;
+    this.#write();
+    return true;
   }
 
   /** Back to nothing: Rank 1, no numbers, and no progress on today's Challenges. */

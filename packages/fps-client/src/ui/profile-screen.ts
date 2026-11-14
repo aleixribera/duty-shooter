@@ -1,4 +1,4 @@
-import { figure, playedFor, rankOf, ratio, todaysChallenges, weaponRows, type Profile } from '../profile/model';
+import { GUN_RANKS, figure, gunOpen, playedFor, rankOf, ratio, todaysChallenges, weaponRows, type Profile } from '../profile/model';
 import { escapeHtml as escape } from './theme';
 
 /**
@@ -48,6 +48,15 @@ export const PROFILE_SCREEN_CSS = `
 .ds-ask { flex: 1; min-width: 0; font-size: var(--ds-type-body); color: var(--ds-text); }
 .ds-btn.danger { --ds-edge: var(--ds-alert); color: var(--ds-alert); }
 .ds-btn.danger:not(:disabled):hover, .ds-btn.danger:focus-visible, .ds-btn.danger[data-pad-focus] { --ds-edge: var(--ds-alert); --ds-edge-w: 2px; --ds-fill: var(--ds-raised); }
+/* The save code: the line to copy, a box to paste one into, and what the last copy or load did. */
+.ds-save { max-width: 1320px; margin-top: 32px; }
+.ds-save .ds-code { display: block; box-sizing: border-box; width: 100%; margin-top: 10px; padding: 10px 12px; resize: vertical; font: inherit; font-size: var(--ds-type-small); color: var(--ds-text); background: var(--ds-panel); border: 1px solid var(--ds-line); border-radius: 0; }
+.ds-save .ds-code[readonly] { word-break: break-all; }
+.ds-save .ds-code:focus-visible { outline: 2px solid var(--ds-light); outline-offset: 0; }
+.ds-save-row { display: flex; gap: 12px; margin-top: 12px; }
+.ds-save-note { margin: 12px 0 0; font-size: var(--ds-type-body); color: var(--ds-text); }
+/* A gun not yet opened: its Rank in place of its kills. */
+.ds-prof .gun.shut .who b { color: var(--ds-text-2); }
 @media (max-width: 960px) {
   .ds-prof { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .ds-prof section + section { margin-top: 28px; }
@@ -124,9 +133,14 @@ export function profileHtml(profile: Profile, today: string): string {
     .join('');
   const challenges = `<section><h2 class="ds-h2">Today's Challenges<small>New at midnight</small></h2><div class="list">${tasks}</div></section>`;
 
+  // Open guns first, the most used on top; then the locked ones in the order they open.
   const guns = weaponRows(profile)
+    .sort((a, b) => Number(!gunOpen(a.id, profile.xp)) - Number(!gunOpen(b.id, profile.xp)) || (gunOpen(a.id, profile.xp) ? 0 : GUN_RANKS[a.id] - GUN_RANKS[b.id]))
     .map((w) => {
       const m = w.mastery;
+      // A gun not yet opened: the Rank that opens it, under its name.
+      if (!gunOpen(w.id, profile.xp))
+        return `<div class="gun shut"><div class="who"><b>${escape(w.name)}</b><span>Opens at Rank ${GUN_RANKS[w.id]} · try it in the Practice Range</span></div><div class="k"><span class="ds-label">Rank</span><b>${GUN_RANKS[w.id]}</b></div><div class="m"></div></div>`;
       const about = w.kills === 0 ? 'No kills yet' : `${figure(w.headshots)} headshot${w.headshots === 1 ? '' : 's'}${w.longest > 0 ? ` · longest ${figure(w.longest)} m` : ''}`;
       const next = m.next === null ? 'Mastered' : `${figure(m.next - w.kills)} to level ${m.level + 1}`;
       return (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STATS, WEAPON_IDS, type ScoreLine } from '@duty-shooter/fps-core';
-import { CHALLENGES, DAILY_CHALLENGES, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
+import { CHALLENGES, DAILY_CHALLENGES, GUN_RANKS, gunOpen, gunsOpened, openLoadout, readSaveCode, saveCode, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
 
 const match = (over: Partial<MatchRecord> = {}): MatchRecord => ({ mode: 'tdm', won: false, score: 1000, kills: 8, deaths: 5, assists: 2, headshots: 3, seconds: 600, bestStreak: 3, place: null, weapons: {}, reasons: {}, medal: null, ...over });
 
@@ -74,6 +74,61 @@ describe('Mastery', () => {
     expect(rows[0]!.mastery.level).toBe(1);
     expect(rows[1]).toMatchObject({ id: 'sniper', kills: 2, longest: 140 });
     expect(rows.at(-1)!.kills).toBe(0);
+  });
+});
+
+describe('guns that open with Rank (PLAN item 7)', () => {
+  const at = (rank: number) => rankFloor(rank);
+  it('opens a rifle, an SMG, a shotgun and a pistol to a new Profile, and all nine by Rank 12', () => {
+    expect(WEAPON_IDS.filter((id) => gunOpen(id, 0)).sort()).toEqual(['m4a1', 'pistol', 'shotgun', 'smg']);
+    expect(WEAPON_IDS.filter((id) => gunOpen(id, at(12)))).toHaveLength(9);
+    expect(WEAPON_IDS.filter((id) => gunOpen(id, at(12) - 1))).toHaveLength(8);
+  });
+  it('opens one more gun about every two Ranks', () => {
+    const later = WEAPON_IDS.map((id) => GUN_RANKS[id]).filter((r) => r > 1).sort((a, b) => a - b);
+    expect(later).toHaveLength(5);
+    for (let i = 1; i < later.length; i++) expect(later[i]! - later[i - 1]!).toBe(2);
+  });
+  it('names the guns a match opens, in the order they open', () => {
+    expect(gunsOpened(0, at(4))).toEqual(['burst']);
+    expect(gunsOpened(at(4), at(8))).toEqual(['revolver', 'dmr']);
+    expect(gunsOpened(at(8), at(8) + 10)).toEqual([]);
+  });
+  it('a match swaps a gun not yet opened for a starting one, and keeps an open one as it is', () => {
+    const kit = { primary: 'sniper', secondary: 'revolver', grenade: 'frag', attachments: { primary: { optic: 'reflex' } } } as const;
+    expect(openLoadout(kit, 0)).toMatchObject({ primary: 'm4a1', secondary: 'pistol', grenade: 'frag', attachments: {} });
+    expect(openLoadout(kit, at(12))).toBe(kit);
+  });
+  it('a match that crosses Rank 4 reports the Trident it opened', () => {
+    const near = { ...emptyProfile(), xp: at(4) - 10 };
+    expect(applyMatch(near, match({ score: 50 }), '2026-01-01').gain.unlocks).toEqual(['burst']);
+  });
+});
+
+describe('the save code (PLAN item 7)', () => {
+  const played = applyMatch(emptyProfile(), match({ score: 9000, weapons: { smg: { kills: 30, headshots: 4, longest: 22 } } }), '2026-01-01').profile;
+  it('carries a Profile into a fresh browser whole', () => {
+    const code = saveCode(played);
+    expect(code).toMatch(/^DS1-[A-Za-z0-9_-]+$/);
+    const storage = memory();
+    const there = new ProfileStore(storage);
+    expect(there.load(code)).toBe(true);
+    expect(there.profile).toEqual(played);
+    // Kept: the next page load reads it back.
+    expect(new ProfileStore(storage).profile).toEqual(played);
+  });
+  it('takes a code with line breaks and spaces from a paste', () => {
+    const code = saveCode(played);
+    expect(readSaveCode(` ${code.slice(0, 20)}
+${code.slice(20)} `)).toEqual(played);
+  });
+  it('refuses what is not a whole code, and leaves the Profile as it was', () => {
+    const code = saveCode(played);
+    const store = new ProfileStore(memory());
+    for (const bad of ['', 'hello', code.slice(0, code.length - 9), code.replace('DS1-', 'DS9-'), 'DS1-!!!!']) {
+      expect(store.load(bad)).toBe(false);
+      expect(store.profile).toEqual(emptyProfile());
+    }
   });
 });
 

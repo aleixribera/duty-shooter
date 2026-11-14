@@ -1,4 +1,4 @@
-import { MODE_IDS, STATS, WEAPON_IDS, type Medal, type ModeId, type ScoreReason, type WeaponId } from '@duty-shooter/fps-core';
+import { MODE_IDS, STATS, WEAPON_IDS, type Loadout, type Medal, type ModeId, type ScoreReason, type WeaponId } from '@duty-shooter/fps-core';
 
 /**
  * The Profile (ticket 17): what one browser remembers of its player between
@@ -132,6 +132,56 @@ export function masteryOf(kills: number): Mastery {
   const next = MASTERY_KILLS[level] ?? null;
   const from = level === 0 ? 0 : MASTERY_KILLS[level - 1]!;
   return { level, of: MASTERY_KILLS.length, next, share: next === null ? 1 : (kills - from) / (next - from) };
+}
+
+/* ---------- Unlocks (PLAN item 7) ---------- */
+
+/**
+ * The Rank each gun opens at. A new Profile starts with a rifle, an SMG, a
+ * shotgun and a pistol, each as strong as any locked gun; one more opens
+ * every two Ranks after that, all nine by Rank 12. Any gun, locked or not,
+ * can be fired in the Practice Range.
+ */
+export const GUN_RANKS: Readonly<Record<WeaponId, number>> = {
+  m4a1: 1,
+  smg: 1,
+  shotgun: 1,
+  pistol: 1,
+  burst: 4,
+  revolver: 6,
+  dmr: 8,
+  lmg: 10,
+  sniper: 12,
+};
+
+/** The gun a locked one gives way to in a match, by slot: one every Profile starts with. */
+const OPEN_FALLBACK = { primary: 'm4a1', secondary: 'pistol' } as const satisfies Record<'primary' | 'secondary', WeaponId>;
+
+export function gunOpen(id: WeaponId, xp: number): boolean {
+  return rankOf(xp).rank >= GUN_RANKS[id];
+}
+
+/** What a locked gun waits for, in the words its tile and card show. */
+export function gunLock(id: WeaponId): string {
+  return `Opens at Rank ${GUN_RANKS[id]}`;
+}
+
+/** The guns that open between two totals of XP, in the order they open. */
+export function gunsOpened(beforeXp: number, afterXp: number): WeaponId[] {
+  const before = rankOf(beforeXp).rank;
+  const after = rankOf(afterXp).rank;
+  return WEAPON_IDS.filter((id) => GUN_RANKS[id] > before && GUN_RANKS[id] <= after).sort((a, b) => GUN_RANKS[a] - GUN_RANKS[b]);
+}
+
+/** The loadout a match takes: a gun this Profile hasn't opened (picked in the Practice Range) gives way to a starting one of its slot. */
+export function openLoadout(loadout: Loadout, xp: number): Loadout {
+  const primary = gunOpen(loadout.primary, xp);
+  const secondary = gunOpen(loadout.secondary, xp);
+  if (primary && secondary) return loadout;
+  const attachments = { ...loadout.attachments };
+  if (!primary) delete attachments.primary;
+  if (!secondary) delete attachments.secondary;
+  return { ...loadout, primary: primary ? loadout.primary : OPEN_FALLBACK.primary, secondary: secondary ? loadout.secondary : OPEN_FALLBACK.secondary, attachments };
 }
 
 export interface WeaponRow extends WeaponRecord {
@@ -307,6 +357,8 @@ export interface MatchGain {
   readonly rankUp: boolean;
   /** Today's Challenges that this match moved. */
   readonly challenges: readonly ChallengeGain[];
+  /** The guns this match's XP opened. */
+  readonly unlocks: readonly WeaponId[];
 }
 
 /** The Profile after `match`, played on local day `date`, and what it gained. */
@@ -360,7 +412,7 @@ export function applyMatch(profile: Profile, match: MatchRecord, date: string): 
   };
   const before = rankOf(profile.xp);
   const after = rankOf(next.xp);
-  return { profile: next, gain: { score, bonus, challengeXp, xp, before, after, rankUp: after.rank > before.rank, challenges } };
+  return { profile: next, gain: { score, bonus, challengeXp, xp, before, after, rankUp: after.rank > before.rank, challenges, unlocks: gunsOpened(profile.xp, next.xp) } };
 }
 
 /* ---------- Reading what storage holds ---------- */
@@ -434,6 +486,31 @@ export function readProfile(text: string | null): Profile {
     return parseProfile(JSON.parse(text));
   } catch {
     return emptyProfile();
+  }
+}
+
+/* ---------- The save code (PLAN item 7) ---------- */
+
+const SAVE_CODE_HEAD = 'DS1-';
+
+/** The Profile as one line of text to carry to another browser: a head, then its JSON in URL-safe base64. */
+export function saveCode(profile: Profile): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(profile));
+  let text = '';
+  for (const b of bytes) text += String.fromCharCode(b);
+  return SAVE_CODE_HEAD + btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** The Profile a save code holds, or null when the text is not one (a typo, a cut-off paste, another game's). Spaces and line breaks in it are ignored. */
+export function readSaveCode(code: string): Profile | null {
+  const text = code.replace(/\s+/g, '');
+  if (!text.startsWith(SAVE_CODE_HEAD)) return null;
+  try {
+    const raw = atob(text.slice(SAVE_CODE_HEAD.length).replace(/-/g, '+').replace(/_/g, '/'));
+    const json: unknown = JSON.parse(new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0))));
+    return record(json)['version'] === PROFILE_VERSION ? parseProfile(json) : null;
+  } catch {
+    return null;
   }
 }
 

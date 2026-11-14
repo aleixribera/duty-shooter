@@ -41,6 +41,8 @@ export interface PreparationView {
   readonly champion?: PreparationChampion | null;
   /** The gunsmith of the two guns picked (Aleix, 2026-11-13: attachments in a Battle Royale come from the loadout, not loot). */
   readonly smith?: { readonly primary: readonly GunsmithSlot[]; readonly secondary: readonly GunsmithSlot[] };
+  /** The guns this Profile has opened (PLAN item 7); absent, all of them. */
+  readonly open?: readonly WeaponId[];
 }
 
 /** The champion Squad as the dive introduces it. */
@@ -153,8 +155,10 @@ const CSS = `
 const weaponName = (id: WeaponId) => STATS.weapons[id].traits.name;
 
 /** The Preparation's primaries and what is lit: the sniper isn't a pick in a Battle Royale (it comes only from a Supply Drop), and a saved pick of it starts with the M4A1. */
-export function preparationKit(loadout: Loadout): { readonly primaries: readonly WeaponId[]; readonly picked: Loadout } {
-  return { primaries: loadoutOptions().primary.filter((w) => w !== DROP_WEAPON), picked: royaleLoadout(loadout) };
+export function preparationKit(loadout: Loadout, open?: readonly WeaponId[]): { readonly primaries: readonly WeaponId[]; readonly secondaries: readonly WeaponId[]; readonly picked: Loadout } {
+  const opened = (w: WeaponId) => !open || open.includes(w);
+  const options = loadoutOptions();
+  return { primaries: options.primary.filter((w) => w !== DROP_WEAPON && opened(w)), secondaries: options.secondary.filter(opened), picked: royaleLoadout(loadout) };
 }
 
 export class PreparationPage {
@@ -268,7 +272,7 @@ export class PreparationPage {
     const total = v.elapsed + v.left;
     const done = total > 0 ? Math.min(1, v.elapsed / total) : 1;
     const options = loadoutOptions();
-    const { primaries, picked } = preparationKit(v.loadout);
+    const { primaries, secondaries, picked } = preparationKit(v.loadout, v.open);
     const seg = <T extends string | null>(slot: keyof Loadout, title: string, choices: readonly T[], name: (c: T) => string) =>
       `<div><span class="ds-field-label">${escapeHtml(title)}</span><div class="ds-seg" role="group" aria-label="${escapeHtml(title)}">${choices
         .map((c) => {
@@ -302,7 +306,7 @@ export class PreparationPage {
     return `<div class="card" role="region" aria-label="Preparation">
 <div><h1>Preparation</h1><p class="goal">${escapeHtml(goalLine({ mode: 'battle-royale', killLimit: null }))}. Stay inside the Ring.</p></div>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
-<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', options.secondary, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
+<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}<div class="drop-note">Sniper: Supply Drops only</div>${seg('secondary', 'Secondary', secondaries, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
 <div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button><div class="note">${escapeHtml(action.note)}</div>${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>

@@ -1,4 +1,4 @@
-import { STATS, heldRow, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score } from '@duty-shooter/fps-core';
+import { STATS, heldRow, type ChargeState, type MatchStatus, type ModeId, type PlayerOutput, type RoundReason, type Score, type WeaponId } from '@duty-shooter/fps-core';
 import { ALLY_TAGS_CSS, AllyTagsView, type AllyTag } from './ally-tags';
 import { SPECTATOR_PANEL_CSS, SpectatorPanel, type SpectatorPanelState } from './spectator-panel';
 import { MATCH_CARD_CSS, MatchCardView, type MatchCardState } from './match-card';
@@ -570,6 +570,9 @@ export class Hud {
   onVote: ((mode: ModeId) => void) | null = null;
   /** The host's Random next match button at a match's end, clicked or tapped. */
   onRandom: (() => void) | null = null;
+  /** A gun the match opened, put in the loadout from its Equip it button at the match's end (PLAN item 7). */
+  onEquip: ((id: WeaponId) => void) | null = null;
+  readonly #equipped = new Set<WeaponId>();
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
   /** How long the toast up now has been (s). */
@@ -667,6 +670,8 @@ export class Hud {
     this.#end.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.closest('[data-random]')) return this.onRandom?.();
+      const equip = target.closest<HTMLElement>('[data-equip]')?.dataset['equip'] as WeaponId | undefined;
+      if (equip) return void this.equip(equip);
       const mode = target.closest<HTMLElement>('[data-mode]')?.dataset['mode'];
       if (mode === 'tdm' || mode === 'ffa') this.onVote?.(mode);
     });
@@ -718,6 +723,15 @@ export class Hud {
   /** A new match: the score lines of the last one go. */
   clearScore(): void {
     this.#score.clear();
+    this.#equipped.clear();
+  }
+
+  /** Puts a gun the match opened into the loadout, as its Equip it button does (PLAN item 7); false when it already is, or nothing takes it. */
+  equip(id: WeaponId): boolean {
+    if (this.#equipped.has(id) || !this.onEquip) return false;
+    this.#equipped.add(id);
+    this.onEquip(id);
+    return true;
   }
 
   /** A hit taken from an attacker at world yaw `worldYaw` (the direction from you to them). */
@@ -1232,7 +1246,7 @@ export class Hud {
         ? // A Battle Royale's result is the place: it leads.
           [['Place', `${ordinal(place.place)}<small> / ${place.of} Squads</small>`], ['Score', figure(y.score)], ['Kills', String(y.kills)]]
         : [['Score', figure(y.score)], ['Kills', String(y.kills)], ['Deaths', String(y.deaths)], ['Assists', String(y.assists)], ['Place', `${ordinal(y.place)}<small> / ${y.of}</small>`]];
-    changed = this.#set(this.#endMine, cells.length > 0 ? `<span class="ds-label">Your match</span>${matchGainHtml(cells, state.gain ?? null)}` : '') || changed;
+    changed = this.#set(this.#endMine, cells.length > 0 ? `<span class="ds-label">Your match</span>${matchGainHtml(cells, state.gain ?? null, this.onEquip ? { equipped: this.#equipped } : undefined)}` : '') || changed;
     // From the match's end on, the host may ask for a random next match in place of the lobby (ticket 115); everyone sees that they did.
     const random = s.lobby?.random === true;
     const host = s.lobby != null && s.lobby.host !== null && s.lobby.host === state.selfId;
