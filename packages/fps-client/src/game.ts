@@ -1899,15 +1899,15 @@ export class Game {
     return !!s && Math.hypot(self.position[0] - s.position[0], self.position[2] - s.position[2]) <= s.radius;
   }
 
-  /** A range dummy's report of one hit: the damage over the point it landed, and how far and how many pellets. */
-  #damageNumber(point: Vec3, damage: number, head: boolean, distance: number, pellets: number, weapon: KillWeapon): void {
+  /** A range dummy's report of one hit: the damage beside the point it landed, and how far and how many pellets. */
+  #damageNumber(dummy: string, point: Vec3, damage: number, head: boolean, killed: boolean, distance: number, pellets: number, weapon: KillWeapon): void {
     const p = new Vector3(point[0], point[1] + 0.25, point[2]).project(this.#camera.camera);
     if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) return;
     const x = ((p.x + 1) / 2) * this.#canvas.clientWidth;
     const y = ((1 - p.y) / 2) * this.#canvas.clientHeight;
     const total = STATS.weapons[weapon as WeaponId]?.damage.pellets?.value ?? 1;
     const detail = [`${distance.toFixed(0)} m`, ...(total > 1 ? [`${pellets}/${total} pellets`] : [])].join(' · ');
-    this.hud.damageNumber(x, y, Math.round(damage), head, detail);
+    this.hud.damageNumber(dummy, x, y, Math.round(damage), head, killed, detail);
   }
 
   /** In a match's opening Countdown: held at the spawn, free to change the loadout (a Battle Royale's Preparation has its own picker). */
@@ -2321,7 +2321,7 @@ export class Game {
           if (kind !== 'shielded') this.#play(e.killed ? (head ? 'headshotKill' : 'killMarker') : head ? 'headshotMarker' : 'hitMarker');
           if (e.cause === 'melee') this.#play('meleeHit', { local: true });
           this.hud.setLastHit(e.damage, e.zone, e.distance);
-          if (e.victim.startsWith('dummy')) this.#damageNumber(e.point, e.damage, e.zone === 'head', e.distance, e.pellets, e.weapon);
+          if (e.victim.startsWith('dummy')) this.#damageNumber(e.victim, e.point, e.damage, e.zone === 'head', e.killed, e.distance, e.pellets, e.weapon);
           // The TTK readout times gunfire: a frag or a melee kill is not an engagement.
           if (e.cause === 'bullet') {
             const travel = e.distance / STATS.weapons[e.weapon as WeaponId].handling.muzzleVelocity.value;

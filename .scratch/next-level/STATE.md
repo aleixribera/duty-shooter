@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-87: 14c-14f's defects worked (v2.213.x-v2.214.7; tickets 100, 102, 99, 118); the review's player hunts in FFA/Gun Game and lone bots hunt a still player (`still-player.soak.test.ts`). Pass 88: review 14g (1, 5 pass; 2, 3, 4, 6 fail), so item 10's test not met. Pass 89: 14g's Fix first, pass 1 (ticket 102): bodies killed straight on turn aside as they fall, not down the line of sight behind the front sight (probe, 15 m: 70% of joints clear lying, was 20-27%; 30 m: 27%, was 0%); the review adds a 500 ms "c" kill frame. Next: its pass 2 if the next review still fails it (the slimmer front sight, BACKLOG), else 14g's defect 2 (fights in the first seconds).
+Passes 67-87: 14c-14f's defects worked (v2.213.x-v2.214.7; tickets 100, 102, 99, 118); lone bots hunt a still player (`still-player.soak.test.ts`). Pass 88: review 14g (1, 5 pass; 2, 3, 4, 6 fail). Pass 89: 14g's Fix first, pass 1 (ticket 102): bodies killed straight on fall aside (15 m: 70% of joints clear, was 20-27%); the review adds a 500 ms "c" kill frame. Pass 90: 14g's defect 5 (ticket 102): range damage numbers stand beside the hit, one stacking total per dummy, off every sight. Defect 2 (early fights) cut after three passes (84df1ee6, a657bf2c, 210f7a7b): 7-14 s is the genre's TDM norm. Next: a fresh review (does 14g's Fix first pass?), else defect 4 (the gun black in the nuke light).
 
 ## Needs Aleix
 

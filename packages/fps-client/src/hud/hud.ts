@@ -182,9 +182,10 @@ const CSS = `
 .ds-prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); padding: 6px 12px; font-size: var(--ds-type-body); letter-spacing: 0.14em; text-transform: uppercase; }
 .ds-prompt[hidden] { display: none; }
 .ds-hud.out .ds-score { visibility: hidden; }
-.ds-dmgnum { position: absolute; transform: translate(-50%, -100%); text-align: center; pointer-events: none; text-shadow: 0 1px 4px var(--ds-shadow-hi); animation: ds-dmgnum 1.4s ease-out forwards; }
+.ds-dmgnum { position: absolute; transform: translate(0, -50%); text-align: left; white-space: nowrap; pointer-events: none; text-shadow: 0 0 2px var(--ds-black), 0 0 2px var(--ds-black), 0 1px 4px var(--ds-shadow-hi); animation: ds-dmgnum 1.4s ease-out forwards; }
 .ds-dmgnum b { font-family: var(--ds-font-display); display: block; font-size: var(--ds-type-heading); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ds-dmgnum.head b { color: var(--ds-alert); }
+.ds-dmgnum.flip { text-align: right; }
 .ds-dmgnum small { display: block; font-size: var(--ds-type-small); letter-spacing: 0.1em; color: var(--ds-text-2); }
 @keyframes ds-dmgnum { 0% { opacity: 0; margin-top: 6px; } 10% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -34px; } }
 .ds-center { font-family: var(--ds-font-display); position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); font-size: var(--ds-type-heading); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; white-space: pre-line; line-height: 1.6; }
@@ -497,6 +498,8 @@ export function freezeGoal(attacking: boolean, carrying: boolean): string {
 
 /** How long a toast stands before Range Control's caption may take its place (s). */
 const TOAST_READ = 2;
+/** A dummy's next hit within this long adds to its damage number still standing (ms; about as long as it holds full). */
+const DAMAGE_STACK_MS = 900;
 
 /**
  * Whether a notice can speak now: not over the round card, which has the screen while it is up (review 2026-11-12f, 04:
@@ -564,6 +567,8 @@ export class Hud {
   readonly #dist: HTMLSpanElement;
   readonly #shots: HTMLSpanElement;
   readonly #lastHit: HTMLSpanElement;
+  /** Each range dummy's damage number still on screen, which its next hit adds to. */
+  readonly #dmgNums = new Map<string, { div: HTMLDivElement; at: number; total: number; hits: number; head: boolean; killed: boolean }>();
   readonly #trace: HTMLCanvasElement;
   readonly #board: HTMLDivElement;
   readonly #match: HTMLDivElement;
@@ -832,15 +837,41 @@ export class Hud {
     this.#lastHit.textContent = `${damage.toFixed(1)} HP${where ? ` · ${where}` : ''}`;
   }
 
-  /** A damage number rising from a range dummy at screen point (x, y), with a smaller line under it. */
-  damageNumber(x: number, y: number, damage: number, head: boolean, detail: string): void {
-    const div = document.createElement('div');
-    div.className = `ds-dmgnum${head ? ' head' : ''}`;
-    div.innerHTML = `<b>${damage}</b><small>${escape(detail)}</small>`;
-    this.root.append(div);
-    div.style.left = `${x}px`;
+  /**
+   * A damage number rising beside a range dummy's hit at screen point (x, y), with a smaller line under it. It stands
+   * off to the side of the hit, so aimed through a sight it never covers the reticle or the target under it, and hits
+   * on the same dummy close together add up in one number (as stacking damage numbers do in Apex Legends) instead of
+   * printing over each other. A kill closes the number: the dummy's next life starts a new one.
+   */
+  damageNumber(target: string, x: number, y: number, damage: number, head: boolean, killed: boolean, detail: string): void {
+    const now = performance.now();
+    // The window, not the HUD's box: (x, y) is on the canvas, which fills it, and a hidden HUD measures 0.
+    const gap = Math.max(48, (96 * innerHeight) / 1080);
+    const left = x + gap + 240 <= innerWidth;
+    const live = this.#dmgNums.get(target);
+    const stack = live && !live.killed && live.div.isConnected && now - live.at <= DAMAGE_STACK_MS ? live : undefined;
+    const total = (stack?.total ?? 0) + damage;
+    const hits = (stack?.hits ?? 0) + 1;
+    const div = stack?.div ?? document.createElement('div');
+    div.className = `ds-dmgnum${head || stack?.head ? ' head' : ''}${left ? '' : ' flip'}`;
+    div.innerHTML = `<b>${total}</b><small>${escape(hits > 1 ? `${hits} hits · ${detail}` : detail)}</small>`;
+    div.style.left = left ? `${x + gap}px` : '';
+    div.style.right = left ? '' : `${innerWidth - x + gap}px`;
     div.style.top = `${y}px`;
-    div.addEventListener('animationend', () => div.remove());
+    if (stack) {
+      // Start the rise again, already faded in (the keyframes' 10%), so a burst's total never blinks out between hits.
+      div.style.animation = 'none';
+      void div.offsetWidth;
+      div.style.animation = '';
+      div.style.animationDelay = '-140ms';
+    } else {
+      this.root.append(div);
+      div.addEventListener('animationend', () => {
+        div.remove();
+        if (this.#dmgNums.get(target)?.div === div) this.#dmgNums.delete(target);
+      });
+    }
+    this.#dmgNums.set(target, { div, at: now, total, hits, head: head || !!stack?.head, killed });
   }
 
   /**
