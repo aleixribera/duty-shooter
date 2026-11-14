@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-86: 14c-14e's defects worked (v2.213.x-v2.214.6; tickets 100, 102, 99); reviews 14e and 14f both 1, 5 pass, 2, 3, 4, 6 fail, so item 10's test not met; the capture logs CPU per long frame (`over50QuietPc`). Pass 87: 14f's Fix first done (v2.214.7, ticket 100): the review's scripted player hunts in FFA/Gun Game (Station Nine Gun Game rerun 13 kills, 6 deaths, XP +2,500), and a lone bot's hunches lean on whoever has gone quiet (still player unmet past 60 s in 6 of 80 seeded matches, was 18; `still-player.soak.test.ts`). Next: a fresh full review (14g) to judge item 10's test.
+Passes 67-87: 14c-14f's defects worked (v2.213.x-v2.214.7; tickets 100, 102, 99, 118); the review's player hunts in FFA/Gun Game and lone bots hunt a still player (`still-player.soak.test.ts`). Pass 88: review 14g (1, 5 pass; 2, 3, 4, 6 fail), so item 10's test not met; its main Bot Match is now a fight (7 kills, 5 deaths, results +1,250 XP to Rank 2). Next: 14g's Fix first (ticket 100): the killed enemy falls behind the front sight post, flash or smoke in 6 of 10 after-kill frames; check: 6 of 8 show the body 40 px+ tall with nothing over it.
 
 ## Needs Aleix
 
@@ -41,7 +41,7 @@ Passes 67-86: 14c-14e's defects worked (v2.213.x-v2.214.6; tickets 100, 102, 99)
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14f (1, 5 pass; 2, 3, 4, 6 fail; PC busy, 1 quiet-PC long frame).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14g (1, 5 pass; 2, 3, 4, 6 fail; quiet-PC long frames only on the island, 16 of 56-63 ms).
 - CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken
