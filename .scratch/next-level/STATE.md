@@ -19,11 +19,11 @@ Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0)
 
 PLAN item 7 (ticket 117): built roughly in passes 39-44 (v2.205.0 to v2.210.0); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Review 2026-11-14a (pass 45): 1, 2 pass; 3, 4, 5 fail.
 
-Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass; tickets 100, 102, 103; v2.211.0 to v2.211.9); each in its ticket.
+Passes 45-54: review 14a's gaps (tickets 100, 102, 103; v2.211.0-9), then review 2026-11-14b (1, 2, 5 pass; 3, 4, 6 fail).
 
-Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
+Passes 55-66 (tickets 100, 102, 103, 117; v2.211.11-22): review 14b's five defects and its "close behind" list, each in BACKLOG with its pass.
 
-Passes 55-64 (tickets 100, 102, 103, 117; v2.211.11-20): review 14b's five defects and the first five of its "close behind" list, each in BACKLOG with its pass. Pass 65 (ticket 103): the picked map tile is lit like the picked mode (`map-tiles/sheet.jpg`). Pass 66 (ticket 103): no text orphans (`text-wrap: pretty` on all UI, shut guns "Opens at Rank", phone tile details one line; `text-orphans/sheet.jpg`). Next (pass 67): "Offline" on the menu, then a fresh review.
+Pass 67: the capture's menu now reads a live local server ("Online 0/12", not "Offline"); review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail. The PC was saturated by other sessions during it (CPU 96-100%, local ping 454-615 ms), so objective 2's FAIL (workP99 39-139 ms, worst frame 2.9 s) is suspect. Its defects: BACKLOG "Review 2026-11-14c's open defects". Next (pass 68): re-measure the freezes on a quiet PC (ONLY=match,tour into a scratch dir, or the toaster bench); if they don't reproduce, take defect 2, the kill never seen.
 
 ## Needs Aleix
 
@@ -45,7 +45,7 @@ Passes 55-64 (tickets 100, 102, 103, 117; v2.211.11-20): review 14b's five defec
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14b (1, 2, 5 pass; 3, 4, 6 fail).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14c (1, 5 pass; 2, 3, 4, 6 fail; 2 measured on a saturated PC).
 - CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
 ## Broken

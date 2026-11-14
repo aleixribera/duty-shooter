@@ -1,7 +1,8 @@
 // The review's evidence (PLAN item 1): what a player meets, judged by the five objectives.
 //   node .scratch/next-level/reviews/capture.mjs <out dir> [match seconds = 150] [base url = http://localhost:5173/]
 // Against the dev server (`preview_start range`). One headless Chrome at a time, each part in its own browser:
-//   menu     the main menu at desktop and phone width, and the Bot Match setup.
+//   menu     the main menu at desktop and phone width (reading a local server, started here if none answers),
+//            and the Bot Match setup.
 //   progress a fresh Profile's Loadout (time to the gun drawn) and Profile screen (guns open, save code), desktop
 //            and phone; then a Profile past Rank 12, whose Profile screen should show every gun open.
 //   match    one Bot Match played to its end by a scripted player who turns toward the nearest enemy in sight and
@@ -373,10 +374,45 @@ async function play(page, prefix, seconds, every = async () => {}) {
   };
 }
 
+// A local game server on port 3000 when none answers (built once): the menu reads its lobby, and online plays on
+// it. It runs only for those two parts, so the match, tour and island frame times leave it out.
+const health = async () =>
+  fetch(`${BASE}healthz`).then(
+    (r) => (r.ok ? r.json() : null),
+    () => null,
+  );
+let serverBuilt = false;
+async function ensureServer() {
+  let h = await health();
+  if (h?.protocol) return h;
+  log('starting a local server on port 3000');
+  if (!serverBuilt) {
+    const built = spawnSync('npm run build -w @duty-shooter/server', { cwd: REPO, shell: true, stdio: 'ignore' });
+    if (built.status !== 0) log('server build failed');
+    serverBuilt = true;
+  }
+  server = spawn(process.execPath, ['apps/server/dist/main.js'], {
+    cwd: REPO,
+    env: { ...process.env, PORT: '3000', HOST: '127.0.0.1', PASSPHRASE: '', NODE_ENV: 'development' },
+    stdio: 'ignore',
+  });
+  for (let i = 0; i < 120 && !h?.protocol; i++) {
+    await sleep(500);
+    h = await health();
+  }
+  return h;
+}
+function stopServer() {
+  server?.kill();
+  server = null;
+}
+
 // --- menu ------------------------------------------------------------------
-if (want('menu'))
+if (want('menu')) {
+  // The menu's Play Online reads a live server's lobby, as a player's does, not "Offline".
+  if (!(await ensureServer())?.protocol) log('no server for the menu: Play Online will read Offline');
   await session('menu', async (page) => {
-    await open(page);
+    await open(page, 'online'); // in dev the page asks for a game server only with ?online
     await sleep(1000);
     await page.shot('01-menu');
     await page.chrome.send('Emulation.setDeviceMetricsOverride', {
@@ -398,6 +434,8 @@ if (want('menu'))
     await sleep(400);
     await page.shot('03-bot-match-setup');
   });
+  stopServer();
+}
 
 // --- progression (objective 6) ------------------------------------------------
 // A fresh Profile (each part's Chrome starts empty): Loadout from the menu, timed to the gun drawn on its stage,
@@ -675,36 +713,7 @@ if (want('island')) {
 // --- online: two clients in one lobby --------------------------------------
 if (want('online')) {
   log('online');
-  const health = async () =>
-    fetch(`${BASE}healthz`).then(
-      (r) => (r.ok ? r.json() : null),
-      () => null,
-    );
-  let h = await health();
-  if (!h?.protocol) {
-    log('starting a local server on port 3000');
-    const built = spawnSync('npm run build -w @duty-shooter/server', {
-      cwd: REPO,
-      shell: true,
-      stdio: 'ignore',
-    });
-    if (built.status !== 0) log('server build failed');
-    server = spawn(process.execPath, ['apps/server/dist/main.js'], {
-      cwd: REPO,
-      env: {
-        ...process.env,
-        PORT: '3000',
-        HOST: '127.0.0.1',
-        PASSPHRASE: '',
-        NODE_ENV: 'development',
-      },
-      stdio: 'ignore',
-    });
-    for (let i = 0; i < 120 && !h?.protocol; i++) {
-      await sleep(500);
-      h = await health();
-    }
-  }
+  const h = await ensureServer();
   try {
     if (!h?.protocol) throw new Error('no server answers at /healthz');
     if (!h.public && process.env.PASSPHRASE === undefined) throw new Error('the server on port 3000 is private: name its passphrase in PASSPHRASE');
@@ -803,7 +812,7 @@ if (want('online')) {
       }
     });
   } finally {
-    server?.kill();
+    stopServer();
   }
   save();
   log('online', JSON.stringify(summary.online));
