@@ -5,7 +5,7 @@
 //
 //   node apps/range/scripts/trailer/cards.mjs <out dir> <cards.json>
 //
-// cards.json: [{ "name": "slate-yard", "kind": "slate", "title": "Switchyard", "readout": "T−7:12", "bottom": 96 },
+// cards.json: [{ "name": "slate-yard", "kind": "slate", "title": "Switchyard", "readout": "7:12", "bottom": 96 },
 //              { "name": "line-1", "kind": "line", "text": "Every match is a weapons test." },
 //              { "name": "title", "kind": "title", "text": "Duty Shooter" },
 //              { "name": "end", "kind": "end", "text": "Duty Shooter", "facts": ["4 maps", ...], "call": "...", "url": "..." }]

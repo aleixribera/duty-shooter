@@ -1,6 +1,6 @@
 # Duty Shooter
 
-A browser shooter on an authoritative 60 Hz server, where every match is a weapons test and the test ends the match: you fight on ground that is about to stop existing. Survival Town and Station Nine end in a nuke, Switchyard under a freight train, and Zero Island at Ground Zero. A timed match's last minute is an act of its own: the clock reads T-minus over a burning fuse, the siren starts, Range Control counts it down and the light turns to a warning lamp's.
+A browser shooter on an authoritative 60 Hz server, where every match is a weapons test and the test ends the match: you fight on ground that is about to stop existing. Survival Town and Station Nine end in a nuke, Switchyard under a freight train, and Zero Island at Ground Zero. A timed match's last minute is an act of its own: the clock counts down over a burning fuse, the siren starts, Range Control counts it down and the light turns to a warning lamp's.
 
 It began as a study of Call of Duty: Modern Warfare (2019)'s gunplay and movement, and its controls and feel still start there; its weapons, maps and rules are now tuned for this game.
 

@@ -401,7 +401,7 @@ The 5 s every match opens with (`MATCH_COUNTDOWN`), online and in Bot Match: eve
 _Avoid_: warm-up, pre-game
 
 **Last minute**:
-A timed match's final 60 s, played as an act of its own: the match clock reads T-minus over a burning fuse, the siren and the counter start, Range Control calls sixty, thirty and ten and counts the last five seconds out, and the picture moves to a warning lamp's light. It runs out on the map's ending. A Charge round's clock is not one, and Battle Royale has none.
+A timed match's final 60 s, played as an act of its own: the match clock counts down over a burning fuse, the siren and the counter start, Range Control calls sixty, thirty and ten and counts the last five seconds out, and the picture moves to a warning lamp's light. It runs out on the map's ending. A Charge round's clock is not one, and Battle Royale has none.
 _Avoid_: overtime, sudden death (nothing about the rules changes), countdown (that is the match's opening)
 
 **Range Control**:

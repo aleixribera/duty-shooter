@@ -6,29 +6,29 @@ import { LIGHTING, skyRadiance, type Lighting } from '../src/surfaces';
 import { GRENADE_WARNINGS_MOST, fuseBlink, grenadeWarnings, type WarnedPlayer } from '../src/hud/grenade-warnings';
 
 describe('the match clock', () => {
-  it('reads time left until the last minute, then T-minus, then tenths', () => {
-    expect(clockFace(599.2)).toMatchObject({ text: 'T−10:00', act: 'match' });
-    expect(clockFace(60.01)).toMatchObject({ text: 'T−1:01', act: 'match', fuse: 1 });
-    expect(clockFace(60)).toMatchObject({ text: 'T−1:00', act: 'minute' });
-    expect(clockFace(47.3)).toMatchObject({ text: 'T−0:48', act: 'minute' });
-    expect(clockFace(10.01)).toMatchObject({ text: 'T−0:11', act: 'minute' });
-    expect(clockFace(10)).toMatchObject({ text: 'T−10.0', act: 'ten' });
-    expect(clockFace(9.49)).toMatchObject({ text: 'T−09.4', act: 'ten' });
-    expect(clockFace(0.04)).toMatchObject({ text: 'T−00.0', act: 'ten' });
-    expect(clockFace(-3)).toMatchObject({ text: 'T−00.0', act: 'ten', fuse: 0 });
+  it('reads the time left bare, with no "T-", then tenths with no leading zero', () => {
+    expect(clockFace(599.2)).toMatchObject({ text: '10:00', act: 'match' });
+    expect(clockFace(562.4)).toMatchObject({ text: '9:23', act: 'match' });
+    expect(clockFace(60.01)).toMatchObject({ text: '1:01', act: 'match', fuse: 1 });
+    expect(clockFace(60)).toMatchObject({ text: '1:00', act: 'minute' });
+    expect(clockFace(47.3)).toMatchObject({ text: '0:48', act: 'minute' });
+    expect(clockFace(10.01)).toMatchObject({ text: '0:11', act: 'minute' });
+    expect(clockFace(10)).toMatchObject({ text: '10.0', act: 'ten' });
+    expect(clockFace(3.47)).toMatchObject({ text: '3.4', act: 'ten' });
+    expect(clockFace(0.04)).toMatchObject({ text: '0.0', act: 'ten' });
+    expect(clockFace(-3)).toMatchObject({ text: '0.0', act: 'ten', fuse: 0 });
   });
 
-  it('never reads a later time as the clock runs down, and keeps its width within each act', () => {
+  it('never reads a later time as the clock runs down, and no face is longer than "10:00", the width the clock holds', () => {
     let last = Infinity;
-    const widths = new Map<string, Set<number>>();
-    for (let t = 75; t >= 0; t -= 1 / 60) {
+    for (let t = 600; t >= 0; t -= 1 / 60) {
       const face = clockFace(t);
-      const read = face.act === 'ten' ? Number(face.text.slice(2)) : face.text.replace('T−', '').split(':').reduce((m, s) => m * 60 + Number(s), 0);
+      expect(face.text, `at ${t}`).not.toContain('T');
+      const read = face.act === 'ten' ? Number(face.text) : face.text.split(':').reduce((m, s) => m * 60 + Number(s), 0);
       expect(read, `at ${t}`).toBeLessThanOrEqual(last);
       last = face.act === 'ten' && last > 10 ? 10 : read;
-      (widths.get(face.act) ?? widths.set(face.act, new Set()).get(face.act)!).add(face.text.length);
+      expect(face.text.length, `at ${t}`).toBeLessThanOrEqual('10:00'.length);
     }
-    for (const [act, seen] of widths) expect(seen.size, act).toBe(1);
   });
 
   it('burns its fuse down through the last minute and ticks as each of the last ten seconds turns', () => {
@@ -49,8 +49,8 @@ describe('the match clock', () => {
     expect(ticks).toBe(LAST_TEN);
   });
 
-  it('counts T-minus from the first second, its quiet fuse burning down to the last minute', () => {
-    expect(clockFace(600, 600)).toMatchObject({ text: 'T−10:00', act: 'match', fuse: 1 });
+  it('counts down from the first second, its quiet fuse burning down to the last minute', () => {
+    expect(clockFace(600, 600)).toMatchObject({ text: '10:00', act: 'match', fuse: 1 });
     expect(clockFace(330, 600).fuse).toBeCloseTo(0.5, 5);
     expect(clockFace(60.5, 600).fuse).toBeLessThan(0.01);
     // There the alert fuse lights, full.
@@ -61,12 +61,12 @@ describe('the match clock', () => {
   });
 
   it('draws the quiet fuse before the last minute and the alert one in it', () => {
-    expect(matchClockHtml(200)).toBe('<span class="clock">T−3:20</span><span class="fuse quiet"><i style="transform:scaleX(1)"></i></span>');
+    expect(matchClockHtml(200)).toBe('<span class="clock">3:20</span><span class="fuse quiet"><i style="transform:scaleX(1)"></i></span>');
     expect(matchClockHtml(30)).toContain('<span class="fuse">');
     expect(clockClass(clockFace(200))).toBe('clock');
-    expect(clockClass(clockFace(30))).toBe('clock tminus');
-    expect(clockClass(clockFace(4.95))).toBe('clock tminus ten tick');
-    expect(clockClass(clockFace(4.5))).toBe('clock tminus ten');
+    expect(clockClass(clockFace(30))).toBe('clock last');
+    expect(clockClass(clockFace(4.95))).toBe('clock last ten tick');
+    expect(clockClass(clockFace(4.5))).toBe('clock last ten');
   });
 
   it('does not rebuild the match bar for the last minute: its markup stands still while the clock is painted into it', () => {

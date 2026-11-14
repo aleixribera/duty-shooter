@@ -46,8 +46,8 @@ const CSS = `
 /* Chakra Petch has no tabular digits (a 1 is narrower than a 0), so each figure that changes in place holds a fixed width in ch, the widest digit's: the plates and the gauge beside them never move as it counts. */
 .ds-ammo .mag { display: inline-block; min-width: 2ch; }
 .ds-match .score { min-width: 2ch; text-align: center; }
-/* The clock holds the width of its longest face ("T−10:00", about six zeros wide), so the bar never re-centres as it counts. */
-.ds-match .clock { min-width: 6.1ch; text-align: center; }
+/* The clock holds the width of its longest face ("10:00", 4.1 zeros wide with its letter spacing), so the bar never re-centres as it counts. */
+.ds-match .clock { min-width: 4.3ch; text-align: center; }
 .ds-ammo .mag { font-family: var(--ds-font-display); font-size: var(--ds-type-display); font-weight: 700; line-height: 0.9; letter-spacing: 0.01em; }
 .ds-ammo .mag.low { color: var(--ds-alert); }
 .ds-ammo .res { font-size: var(--ds-type-heading); color: var(--ds-text-2); margin-left: 8px; }
@@ -1255,7 +1255,7 @@ export class Hud {
     if (s.phase === 'playing') {
       const bar = matchBar(s, state.scores, state.selfId, view.team);
       // A Charge round's clock is a round's: its last half minute in red, but not the countdown to it. Every other
-      // match's clock runs out on the bomb and counts T-minus to it, its last minute in the alert colour (ticket 24).
+      // match's clock runs out on the bomb and counts down to it, its last minute in the alert colour (ticket 24).
       const round = s.mode === 'charge';
       const low = round && state.charge?.state.phase !== 'freeze' && view.secondsLeft !== null && view.secondsLeft <= 30;
       const bomb = round ? null : view.secondsLeft;

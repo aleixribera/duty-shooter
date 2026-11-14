@@ -1,12 +1,12 @@
 /**
  * The match clock on the match bar (ticket 24). A match ends with the bomb, so
- * the whole match is the countdown to it: the clock reads T-minus from the
- * first second, over a quiet fuse that burns down from both ends to the last
+ * the whole match is the countdown to it: the clock reads the time to it from
+ * the first second, bare (`9:23`, no "T-": Aleix, 2026-11-14), over a quiet fuse that burns down from both ends to the last
  * minute. There the fuse lights again in the alert colour, the clock turns
  * alert with it, and in the last ten seconds it reads tenths and ticks on each one.
  */
 
-/** Seconds from the end at which the clock turns to T-minus, and at which it reads tenths. */
+/** Seconds from the end at which the clock turns alert, and at which it reads tenths. */
 export const LAST_MINUTE = 60;
 export const LAST_TEN = 10;
 /** How long the clock stays big after each of the last ten seconds turns (s). */
@@ -31,18 +31,18 @@ export function clockFace(secondsLeft: number, length: number | null = null): Cl
   const whole = Math.ceil(left);
   if (left > LAST_MINUTE) {
     const before = length !== null && length > LAST_MINUTE ? Math.min(1, (left - LAST_MINUTE) / (length - LAST_MINUTE)) : 1;
-    return { text: `T−${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'match', fuse: before, tick: false };
+    return { text: `${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'match', fuse: before, tick: false };
   }
   const fuse = left / LAST_MINUTE;
-  if (left > LAST_TEN) return { text: `T−${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'minute', fuse, tick: false };
+  if (left > LAST_TEN) return { text: `${Math.floor(whole / 60)}:${two(whole % 60)}`, act: 'minute', fuse, tick: false };
   // Tenths count down, so they are cut, not rounded: the clock never reads a tenth it has not reached.
   const tenths = Math.floor(left * 10);
-  return { text: `T−${two(Math.floor(tenths / 10))}.${tenths % 10}`, act: 'ten', fuse, tick: left > 0 && whole - left < TICK_SECONDS };
+  return { text: `${Math.floor(tenths / 10)}.${tenths % 10}`, act: 'ten', fuse, tick: left > 0 && whole - left < TICK_SECONDS };
 }
 
 /** The class of the clock's own element for a face. */
 export function clockClass(face: ClockFace): string {
-  return face.act === 'match' ? 'clock' : `clock tminus${face.act === 'ten' ? ' ten' : ''}${face.tick ? ' tick' : ''}`;
+  return face.act === 'match' ? 'clock' : `clock last${face.act === 'ten' ? ' ten' : ''}${face.tick ? ' tick' : ''}`;
 }
 
 /**
@@ -55,7 +55,7 @@ export function clockClass(face: ClockFace): string {
 export function matchClockHtml(secondsLeft: number, length: number | null = null): string {
   const face = clockFace(secondsLeft, length);
   if (face.act === 'match') return `<span class="clock">${face.text}</span><span class="fuse quiet"><i style="transform:scaleX(${fuseDrawn(face.fuse)})"></i></span>`;
-  return '<span class="clock tminus"></span><span class="fuse"><i></i></span>';
+  return '<span class="clock last"></span><span class="fuse"><i></i></span>';
 }
 
 /** The fuse's length as it is drawn: in steps of half a hundredth, so it is written three times a second and not every frame. */
@@ -79,7 +79,7 @@ export class MatchClockView {
     }
     // The bar is rewritten whenever a score changes: its elements are then new ones, and empty.
     if (!this.#clock?.isConnected || !this.#fuse?.isConnected) {
-      this.#clock = bar.querySelector<HTMLElement>('.clock.tminus');
+      this.#clock = bar.querySelector<HTMLElement>('.clock.last');
       this.#fuse = bar.querySelector<HTMLElement>('.fuse i');
       this.#text = this.#cls = this.#length = '';
     }
@@ -96,7 +96,7 @@ export class MatchClockView {
 export const MATCH_CLOCK_CSS = `
 .ds-match .mid { position: relative; }
 .ds-match .clock { font-variant-numeric: tabular-nums; }
-.ds-match .clock.tminus { color: var(--ds-alert); text-shadow: none; min-width: 6ch; text-align: center; }
+.ds-match .clock.last { color: var(--ds-alert); text-shadow: none; }
 .ds-match .clock.ten { transform: scale(1.12); }
 .ds-match .clock.ten.tick { transform: scale(1.3); color: var(--ds-text); }
 .ds-match .fuse { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; background: color-mix(in srgb, var(--ds-alert) 24%, transparent); }
