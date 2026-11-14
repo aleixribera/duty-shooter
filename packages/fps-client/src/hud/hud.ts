@@ -11,7 +11,7 @@ import { HINT_LINE_CSS, hintLineHtml } from './hint-line';
 import type { HintLine } from '../hints';
 import { figure, medalName, type MatchGain } from '../profile/model';
 import { RECAP_CSS, recapHtml, type Recap } from '../ui/recap';
-import { END_REASONS, MODE_NAMES, TEAMS, endSummary, goalLine, matchBar, mvpOf, ordinal, scoreboard, type BoardRow, type RosterCard } from '../ui/model';
+import { END_REASONS, MODE_NAMES, TEAMS, endSummary, goalLine, matchBar, mvpOf, ordinal, scoreboard, type BoardRow, type Rival, type RosterCard } from '../ui/model';
 import { escapeHtml as escape, icon, installTheme } from '../ui/theme';
 import { placement, type VictoryCard } from '../ui/royale';
 import { RoyaleHud, type IslandMapSource, type RoyaleHudState } from './royale-hud';
@@ -1204,13 +1204,13 @@ export class Hud {
         };
         this.#set(this.#match, `${side(bar.teams[0]?.team, 'l')}${a}${mid}${b}${side(bar.teams[1]?.team, 'r')}`);
       } else if (bar.kind === 'gungame') {
-        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · gun ${bar.leader.level}/${bar.limit}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
+        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">${rivalLabel(bar.leader)} · gun ${bar.leader.level}/${bar.limit}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
         const y = bar.you;
         const next = y ? ` · ${y.toNext} to ${y.next ? escape(STATS.weapons[y.next].traits.name) : 'win'}` : '';
         const you = y ? `<span class="score">${y.level}/${bar.limit}</span><span class="sub">You · ${ordinal(y.place)}${next}</span>` : '<span class="score">–</span><span class="sub">You</span>';
         this.#set(this.#match, `<div class="team ds-plate">${leader}</div>${mid}<div class="team ds-plate">${you}</div>`);
       } else {
-        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">Leader · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
+        const leader = bar.leader ? `<span class="name">${escape(bar.leader.name)}</span><span class="sub">${rivalLabel(bar.leader)} · ${bar.leader.kills}</span>` : '<span class="name">–</span><span class="sub">Leader</span>';
         const you = bar.you ? `<span class="score">${bar.you.kills}</span><span class="sub">You · ${ordinal(bar.you.place)}</span>` : '<span class="score">–</span><span class="sub">You</span>';
         this.#set(this.#match, `<div class="team ds-plate">${leader}</div>${mid}<div class="team ds-plate">${you}</div>`);
       }
@@ -1374,6 +1374,11 @@ function portrait(name: string, team: number): string {
     `</svg>`;
   portraits.set(key, svg);
   return svg;
+}
+
+/** The free-for-all bar's other box says who it holds: the Leader, someone level with you at the top, or the place of the one chasing you. */
+function rivalLabel(r: Rival<unknown>): string {
+  return r.stands === 'leads' ? 'Leader' : r.stands === 'tied' ? 'Tied' : ordinal(r.place);
 }
 
 /** One portrait on the Charge bar: dead struck through, your own outlined, with your side's health and carrier. */

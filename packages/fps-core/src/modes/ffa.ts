@@ -23,8 +23,8 @@ interface Entry {
 /**
  * Free-for-all: everyone on their own team, respawning after a few seconds at the safest
  * spawn point (see {@link scoredSpawn}), a kill feed, kills and deaths. The
- * first to the kill limit wins; at the time limit the most kills wins, and a
- * tie at the top is a draw.
+ * first to the kill limit wins; at the time limit the most kills wins (then
+ * the fewest deaths), and a tie at the top on both is a draw.
  */
 export class FreeForAll implements GameMode {
   readonly id = 'ffa';
@@ -149,7 +149,8 @@ export class FreeForAll implements GameMode {
     if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
       // Kills win it, whatever the Score says.
       const [first, second] = this.scores().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-      const draw = !first || (second !== undefined && second.kills === first.kills);
+      // Level on kills, fewer deaths win it, as the scoreboard and the bar rank it: a draw is level on both.
+      const draw = !first || (second !== undefined && second.kills === first.kills && second.deaths === first.deaths);
       this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
     return this.#result;

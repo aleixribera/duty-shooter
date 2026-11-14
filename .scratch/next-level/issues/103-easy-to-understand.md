@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.193.0 (pass 1)
+Release: v2.193.0 (pass 1), v2.211.1 (pass 47)
 
 Spec: `../spec.md`
 
@@ -42,3 +42,10 @@ Built:
 After (`one-voice/after/`, `after-phone/`, `sheet.jpg`): at most one line in the slot in all three matches at 1920 and 390 wide; the hint comes in centred.
 
 Review (second opinion): a caption cut toasts posted the same frame (Kill Leader under "N squads left"), and hidden time counted as a hint showing: both fixed as above. Left: in a desktop window 1000 px wide or less the caption still sits at the top (phone rule) while the slot logic treats it as sharing the bottom.
+
+### Pass 47 (2026-11-14): Gun Game's prompts and the free-for-all bar (review 2026-11-14a, defects 2 and 3)
+
+- Gun Game hands everyone the ladder's gun in both slots, so it now offers no loadout at all: no "F Loadout" on the countdown card or under the crosshair, no "Main · 1 2 3 to switch · F Loadout" chip while dead, no "Change your loadout" hint (the scores' hint comes first instead), and F and 1 2 3 do nothing there. The "Swap to your other weapon" hint needs a different gun in the other slot. One rule in core, `pickedLoadouts(mode)`.
+- The free-for-all and Gun Game bar's left box is the best player who isn't you: "Leader" when ahead, "Tied" when level with you at the top, their place ("2nd") while you lead. Your own name never sits there beside "You · 1st".
+- One order for the race modes: the scoreboard, the bar and the results all rank a free-for-all by kills then fewest deaths and Gun Game by the ladder, kills, deaths (the scoreboard ranked by Score, so it said 3rd beside the bar's 4th). A free-for-all at its time limit now goes to the fewer deaths when kills are level, as Gun Game already did, so "Draw" never stands over a ranked 2nd (second opinion's finding).
+- Proof: `gungame-hud/look.mjs` → `gungame-hud/after/` (1-countdown: no Loadout line; 2-leading: "Onyx 2nd" beside "You · 1st"; 4-dead: no chip; F at the countdown and while dead opened nothing; the dead hint was "Tab Hold for the scores"). Before: review 2026-11-14a frames 10, 11-kill-2, 12, 13-30s, 14-last-55s. Phone width not shot: the labels are shorter than "Leader".

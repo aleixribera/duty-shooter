@@ -250,6 +250,21 @@ describe('free-for-all limits', () => {
     expect(events(m).find((e) => e.type === 'matchEnd')).toMatchObject({ winner: a!.client.id, draw: false, reason: 'timeLimit' });
   });
 
+  it('at the time limit, level on kills, the fewest deaths win it, as the scoreboard ranks it', () => {
+    const m = createNetworkedMatch({ solids: [FLOOR], spawns: LANE, modes: { ffa: { timeLimit: 40 } }, ...BAD_NETWORK });
+    const [a, b, c] = joinAll(m, 'a', 'b', 'c');
+    const alive = (p: NetworkedClient) => () => serverPlayer(m, p.client.id).alive;
+    expect(kill(m, a!, c!)).toBe(true);
+    until(m, alive(c!));
+    expect(kill(m, c!, b!)).toBe(true);
+    until(m, alive(b!));
+    until(m, alive(c!));
+    expect(kill(m, b!, c!)).toBe(true);
+    // a: 1 kill, 0 deaths; b: 1 and 1; c: 1 and 2.
+    until(m, () => m.server.phase !== 'playing', 60);
+    expect(events(m).find((e) => e.type === 'matchEnd')).toMatchObject({ winner: a!.client.id, draw: false, reason: 'timeLimit' });
+  });
+
   it('at the time limit a tie at the top is a draw', () => {
     const m = createNetworkedMatch({ solids: [FLOOR], spawns: LANE, modes: { ffa: { timeLimit: 2 } }, ...BAD_NETWORK });
     joinAll(m, 'a', 'b');

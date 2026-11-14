@@ -80,6 +80,14 @@ describe('first-match hints', () => {
     expect(r.current).toBeNull();
   });
 
+  it('gun game, the same gun in both slots and no loadout to pick: no swap, no loadout, the scores straight away', () => {
+    const reloading: HintFacts = { ...idle, reloading: true, magazine: 0.2, spare: false };
+    expect(run(hintState(knows('move', 'aim', 'sprint', 'reload')), reloading, 3).current).toBeNull();
+    expect(run(hintState(knows('move', 'aim', 'sprint', 'reload')), { ...reloading, spare: true }, 3).current).toBe('swap');
+    const s = run(hintState(knows('move')), { ...dead, loadouts: false }, HINT_REST + 0.2);
+    expect(s.current).toBe('scoreboard');
+  });
+
   it('the swap is offered only while the magazine is short, not over a full one at the end of a reload', () => {
     const reloading = { ...idle, magazine: 0.4, reloading: true };
     let r = run(hintState(knows('move', 'aim', 'sprint', 'reload')), reloading, HINT_REST + 0.2);

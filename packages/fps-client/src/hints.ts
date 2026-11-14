@@ -42,6 +42,10 @@ export interface HintFacts {
   readonly clash: boolean;
   /** The hint's slot is taken by a toast or Range Control's caption: time under them is not time the hint was read. */
   readonly covered?: boolean;
+  /** The next life carries the loadout you pick (true when absent). Gun game hands out the ladder's gun instead (review 2026-11-14a). */
+  readonly loadouts?: boolean;
+  /** The other slot holds a different weapon to swap to (true when absent). Gun game puts the same gun in both. */
+  readonly spare?: boolean;
 }
 
 /** What a browser has learned: the hints done with for good, and how often each was shown without being followed. */
@@ -120,15 +124,16 @@ function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintI
   if (LESSONS.has(id) && s.time - s.clashed < HINT_CALM) return false;
   switch (id) {
     case 'loadout':
-      return f.waiting;
+      return f.waiting && f.loadouts !== false;
     case 'scoreboard':
-      return f.waiting && f.board && done.has('loadout');
+      // After the loadout's hint, or first where there is no loadout to pick.
+      return f.waiting && f.board && (done.has('loadout') || f.loadouts === false);
     case 'reload':
       return f.fighting && f.magazine <= RELOAD_AT && !f.reloading;
     case 'swap':
       // A reload under way is when the other weapon is the faster answer: until the rounds are in. A magazine goes in
       // partway through the reload, and the hint stood over a full one for the rest of it (review 2026-11-12e).
-      return f.fighting && f.reloading && f.magazine < 1 && done.has('reload');
+      return f.fighting && f.reloading && f.magazine < 1 && done.has('reload') && f.spare !== false;
     case 'move':
       return f.fighting;
     case 'fire':

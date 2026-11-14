@@ -67,15 +67,17 @@ function level(s: Score): number {
 }
 
 /**
- * The seats in order. `by` 'score' is the scoreboard's order: the highest
- * Score first, then most kills, then fewest deaths. 'kills' is the race a
- * free-for-all is won by, for the match bar. Gun game puts the furthest up
- * the ladder first either way.
+ * The seats in order: the highest Score first, then most kills, then fewest
+ * deaths. A free-for-all and gun game are a race, won by kills (and gun game
+ * by the furthest up the ladder): their scoreboard, bar and results all rank
+ * by the race, so no two of them give you a different place (review
+ * 2026-11-14a: the bar said 4th while the scoreboard said 3rd).
  */
-function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null, by: 'score' | 'kills' = 'score'): BoardRow[] {
+function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null): BoardRow[] {
   const levels = mode === 'gungame';
+  const race = levels || mode === 'ffa';
   const key = (s: Score) => (levels ? (s.progress ?? 0) : 0);
-  const points = (s: Score) => (by === 'score' ? s.score : 0);
+  const points = (s: Score) => (race ? 0 : s.score);
   const sorted = [...scores].sort((a, b) => key(b) - key(a) || points(b) - points(a) || b.kills - a.kills || a.deaths - b.deaths);
   const same = (a: Score, b: Score) => key(a) === key(b) && points(a) === points(b) && a.kills === b.kills && a.deaths === b.deaths;
   return sorted.map((s, i) => {
@@ -101,13 +103,20 @@ export function scoreboard(scores: readonly Score[], mode: ModeId, pings: Readon
   };
 }
 
+/**
+ * The other side of a free-for-all's bar: the best player who isn't you. `stands` is where they stand against you:
+ * 'leads' ahead of you, 'tied' level with you at the top, 'chases' behind you while you lead (your own name never
+ * sits in the leader's box beside "You · 1st", review 2026-11-14a).
+ */
+export type Rival<T> = { readonly name: string; readonly place: number; readonly stands: 'leads' | 'tied' | 'chases' } & T;
+
 export type MatchBar =
   | { readonly kind: 'tdm'; readonly teams: readonly { readonly team: number; readonly score: number; readonly mine: boolean }[]; readonly limit: number | null }
-  | { readonly kind: 'ffa'; readonly leader: { readonly name: string; readonly kills: number } | null; readonly you: { readonly kills: number; readonly place: number } | null; readonly limit: number | null }
+  | { readonly kind: 'ffa'; readonly leader: Rival<{ readonly kills: number }> | null; readonly you: { readonly kills: number; readonly place: number } | null; readonly limit: number | null }
   /** Gun game: the leader's level and yours (from 1), with your weapon and the next one up. */
   | {
       readonly kind: 'gungame';
-      readonly leader: { readonly name: string; readonly level: number } | null;
+      readonly leader: Rival<{ readonly level: number }> | null;
       /** `toNext`: kills still to make on this gun (to win, on the last). */
       readonly you: { readonly level: number; readonly place: number; readonly weapon: WeaponId | null; readonly next: WeaponId | null; readonly toNext: number } | null;
       /** Guns on the ladder. */
@@ -124,9 +133,10 @@ export function matchBar(
   if (teamMode(status.mode)) {
     return { kind: 'tdm', teams: [1, 2].map((t) => ({ team: t, score: status.teamScores?.find((s) => s.team === t)?.score ?? 0, mine: t === team })), limit: status.killLimit ?? status.scoreLimit ?? null };
   }
-  const rows = ranked(scores, {}, status.mode, 'kills');
-  const top = rows[0];
+  const rows = ranked(scores, {}, status.mode);
   const me = rows.find((r) => r.id === selfId);
+  const top = rows.find((r) => r.id !== selfId);
+  const rival = <T,>(extra: T): Rival<T> | null => (top ? { name: top.name, place: top.place, stands: !me || top.place < me.place ? 'leads' : top.place === me.place ? 'tied' : 'chases', ...extra } : null);
   if (status.mode === 'gungame') {
     // This match's ladder, dealt at random by the server.
     const guns = status.objective?.kind === 'gungame' ? status.objective.guns : [];
@@ -138,9 +148,9 @@ export function matchBar(
       const toNext = Math.max(0, (at + 1) * GUN_GAME_KILLS_PER_GUN - progress);
       return { level: at + 1, place: me.place, weapon: guns[at] ?? null, next: at + 1 < GUN_GAME_LADDER_LENGTH ? (guns[at + 1] ?? null) : null, toNext };
     })();
-    return { kind: 'gungame', leader: top ? { name: top.name, level: top.level ?? 1 } : null, you, limit: GUN_GAME_LADDER_LENGTH };
+    return { kind: 'gungame', leader: rival({ level: top?.level ?? 1 }), you, limit: GUN_GAME_LADDER_LENGTH };
   }
-  return { kind: 'ffa', leader: top ? { name: top.name, kills: top.kills } : null, you: me ? { kills: me.kills, place: me.place } : null, limit: status.killLimit };
+  return { kind: 'ffa', leader: rival({ kills: top?.kills ?? 0 }), you: me ? { kills: me.kills, place: me.place } : null, limit: status.killLimit };
 }
 
 /** A player's portrait on the Charge bar: alive or dead, and for your own side their health and who carries the charge. */

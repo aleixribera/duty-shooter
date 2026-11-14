@@ -1,0 +1,657 @@
+{
+  "mode": "Gun game",
+  "map": "Survival Town",
+  "steps": [
+    {
+      "step": "countdown",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": "Gun game 4 Kills move you up 7 guns: first through them all wins, or the furthest when the clock runs out",
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "F at countdown",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": "Gun game 3 Kills move you up 7 guns: first through them all wins, or the furthest when the clock runs out",
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": [],
+      "loadoutOpen": false
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": "Gun game 3 Kills move you up 7 guns: first through them all wins, or the furthest when the clock runs out",
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": "Gun game 2 Kills move you up 7 guns: first through them all wins, or the furthest when the clock runs out",
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": "Gun game 1 Kills move you up 7 guns: first through them all wins, or the furthest when the clock runs out",
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx TIED · GUN 1/7 T−4:00 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx TIED · GUN 1/7 T−3:58 GUN GAME · 7 1/7 YOU · 1ST · 3 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 0,
+        "progress": 0,
+        "score": 0
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Onyx 2ND · GUN 1/7 T−3:57 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook TIED · GUN 1/7 T−3:56 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook TIED · GUN 1/7 T−3:55 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook TIED · GUN 1/7 T−3:54 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook TIED · GUN 1/7 T−3:53 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook TIED · GUN 1/7 T−3:51 GUN GAME · 7 1/7 YOU · 1ST · 2 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 1,
+        "progress": 1,
+        "score": 150
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Rook 2ND · GUN 1/7 T−3:50 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:49 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:48 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:46 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:45 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:44 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:43 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet 2ND · GUN 1/7 T−3:42 GUN GAME · 7 1/7 YOU · 1ST · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:40 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": false,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:39 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "Tab Hold for the scores",
+      "alive": false,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:38 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:37 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:36 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:35 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:33 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:32 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:31 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:30 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:28 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:27 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:26 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:25 GUN GAME · 7 1/7 YOU · 2ND · 1 TO MARSHAL .357",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 2,
+        "progress": 2,
+        "score": 250
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:24 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:22 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:21 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:20 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": []
+    },
+    {
+      "step": "fight",
+      "bar": "Comet LEADER · GUN 2/7 T−3:19 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": "WASD Move. The mouse looks",
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": []
+    },
+    {
+      "step": "scoreboard",
+      "bar": "Comet LEADER · GUN 2/7 T−3:18 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": [
+        "# Player Gun Score Kills Deaths Assists",
+        "1 Cometbot 2 525 4 2 0",
+        "2 Player 2646 2 375 3 1 0",
+        "3 Rookbot 1 225 2 3 0",
+        "3 Pikebot 1 225 2 3 0",
+        "5 Onyxbot 1 150 1 1 1",
+        "6 Briarbot 1 0 0 2 0"
+      ]
+    },
+    {
+      "step": "dead",
+      "bar": "Comet LEADER · GUN 2/7 T−3:11 GUN GAME · 7 2/7 YOU · 2ND · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": null,
+      "alive": false,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": [
+        "#PlayerGunScoreKillsKDeathsDAssistsA",
+        "1Cometbot2525420",
+        "2Player 26462375310",
+        "3Rookbot1225230",
+        "3Pikebot1225230",
+        "5Onyxbot1150111",
+        "6Briarbot10020"
+      ]
+    },
+    {
+      "step": "dead later",
+      "bar": "Comet LEADER · GUN 2/7 T−3:09 GUN GAME · 7 2/7 YOU · 4TH · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": "Shift C Sprint. Crouch on the run to slide",
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": [
+        "#PlayerGunScoreKillsKDeathsDAssistsA",
+        "1Cometbot2525420",
+        "2Player 26462375310",
+        "3Rookbot1225230",
+        "3Pikebot1225230",
+        "5Onyxbot1150111",
+        "6Briarbot10020"
+      ]
+    },
+    {
+      "step": "F while dead",
+      "bar": "Comet LEADER · GUN 2/7 T−3:09 GUN GAME · 7 2/7 YOU · 4TH · 3 TO WASP 9",
+      "round": null,
+      "prompt": null,
+      "hint": "Shift C Sprint. Crouch on the run to slide",
+      "alive": true,
+      "mine": {
+        "kills": 3,
+        "progress": 3,
+        "score": 375
+      },
+      "board": [
+        "#PlayerGunScoreKillsKDeathsDAssistsA",
+        "1Cometbot2525420",
+        "2Player 26462375310",
+        "3Rookbot1225230",
+        "3Pikebot1225230",
+        "5Onyxbot1150111",
+        "6Briarbot10020"
+      ],
+      "overlay": []
+    }
+  ],
+  "errors": []
+}

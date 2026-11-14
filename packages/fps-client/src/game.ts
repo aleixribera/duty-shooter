@@ -36,6 +36,7 @@ import {
   type GrenadeOutput,
   type SmokeCloud,
   hasPerk,
+  pickedLoadouts,
 } from '@duty-shooter/fps-core';
 import { DEFUSE_RANGE, standProps } from '@duty-shooter/fps-core/modes';
 import { ACESFilmicToneMapping, Vector3, type Mesh, type Object3D, type WebGPURenderer } from 'three/webgpu';
@@ -1060,7 +1061,7 @@ export class Game {
   #picksLoadout(): boolean {
     const self = this.#cur;
     const match = this.#driver?.match;
-    return !this.paused && !!self && !self.alive && (!match || (match.phase === 'playing' && match.mode !== 'battle-royale'));
+    return !this.paused && !!self && !self.alive && (!match || (match.phase === 'playing' && pickedLoadouts(match.mode)));
   }
 
   /** At a match's end, puts the next gun it opened into the loadout (PLAN item 7). */
@@ -1294,10 +1295,13 @@ export class Game {
     if (!self || (match && match.phase !== 'playing')) return null;
     const charge = this.#charge;
     if (!self.alive && match?.mode === 'battle-royale') return null;
+    // Gun game hands out the ladder's gun: no loadout to offer, dead or at the countdown.
+    const offers = !match || pickedLoadouts(match.mode);
     // Dead, the next life's loadout is a key away on a keyboard: its name, and the keys that pick another (PLAN item 7).
     const set = this.#settings.loadouts[this.#settings.loadoutSet];
-    if (!self.alive && set && !this.input.touchMode && !this.input.padMode) return `${set.name}  ·  1 2 3 to switch  ·  ${this.#useLabel()}  Loadout`;
-    if (!self.alive || this.#atStation(self) || charge?.phase === 'freeze' || this.#counting()) return `${this.#useLabel()}  Loadout`;
+    if (offers && !self.alive && set && !this.input.touchMode && !this.input.padMode) return `${set.name}  ·  1 2 3 to switch  ·  ${this.#useLabel()}  Loadout`;
+    if (offers && (!self.alive || this.#atStation(self) || charge?.phase === 'freeze' || this.#counting())) return `${this.#useLabel()}  Loadout`;
+    if (!self.alive) return null;
     if (charge && !charge.action) {
       if (charge.phase === 'live' && charge.carrier === self.id && this.#sites.some((s) => inSite(s, self.position))) return `Hold ${this.#useLabel()}  Plant`;
       const p = charge.planted?.position;
@@ -1928,6 +1932,8 @@ export class Game {
         fighting,
         // The loadout can be changed while dead wherever there is a next life; the range has no deaths, and no hint for it.
         waiting: !this.#paused && !this.#inShot && playing && self !== null && !self.alive && !royale,
+        loadouts: !match || pickedLoadouts(match.mode),
+        spare: !!self?.loadout && self.loadout.secondary !== self.loadout.primary,
         moving: self !== null && Math.hypot(self.velocity[0], self.velocity[2]) > 2,
         sprinting: self?.movement === 'sprint' || self?.movement === 'slide',
         aiming: (w?.ads ?? 0) > 0.5,
@@ -2088,10 +2094,10 @@ export class Game {
     const firePressed = cmd.firePresses.length > 0 || ((cmd.buttons & Button.Fire) !== 0 && ((this.#cmd?.buttons ?? 0) & Button.Fire) === 0);
     this.#cmd = cmd;
     const use = (cmd.buttons & Button.Use) !== 0;
-    // Out of a Battle Royale there is no next life to change the loadout for.
-    const respawns = driver.match?.mode !== 'battle-royale';
+    // Out of a Battle Royale there is no next life to change the loadout for, and gun game hands out the ladder's gun.
+    const offers = !driver.match || pickedLoadouts(driver.match.mode);
     // The opening Countdown is the same offer as a round's freeze: held at the spawn, the loadout a press away.
-    if (use && !this.#useHeld && self && ((!self.alive && respawns) || this.#atStation(self) || frozen || this.#counting())) {
+    if (use && !this.#useHeld && self && offers && (!self.alive || this.#atStation(self) || frozen || this.#counting())) {
       this.#loadoutOpened = true;
       this.onLoadout?.(self.alive ? 'station' : 'death');
     }

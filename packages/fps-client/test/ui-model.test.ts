@@ -86,7 +86,27 @@ describe('the match bar', () => {
 
   it('shows the leader and your place in free-for-all', () => {
     const bar = matchBar({ mode: 'ffa', teamScores: null, killLimit: 30 }, [score('a', 1, 4, 0, 'Ana'), score('me', 2, 9, 3, 'Me'), score('b', 3, 12, 1, 'Bo')], 'me', null);
-    expect(bar).toEqual({ kind: 'ffa', leader: { name: 'Bo', kills: 12 }, you: { kills: 9, place: 2 }, limit: 30 });
+    expect(bar).toEqual({ kind: 'ffa', leader: { name: 'Bo', kills: 12, place: 1, stands: 'leads' }, you: { kills: 9, place: 2 }, limit: 30 });
+  });
+
+  it('never names you as the leader beside your own first place: leading, it shows who chases you; level, who you share it with', () => {
+    const lead = matchBar({ mode: 'ffa', teamScores: null, killLimit: 30 }, [score('a', 1, 4, 0, 'Ana'), score('me', 2, 9, 3, 'Me'), score('b', 3, 7, 1, 'Bo')], 'me', null);
+    expect(lead.kind === 'ffa' && lead.leader).toEqual({ name: 'Bo', kills: 7, place: 2, stands: 'chases' });
+    const level = matchBar({ mode: 'ffa', teamScores: null, killLimit: 30 }, [score('me', 2, 0, 0, 'Me'), score('b', 3, 0, 0, 'Bo')], 'me', null);
+    expect(level.kind === 'ffa' && level.leader).toEqual({ name: 'Bo', kills: 0, place: 1, stands: 'tied' });
+  });
+
+  it("gives the same place on the bar, the scoreboard and the results in gun game, ranked by the ladder then kills, not the Score", () => {
+    // Gu's assists give a higher Score on fewer kills: the race still puts Me ahead.
+    const scores: Score[] = [{ ...score('me', 1, 4, 2, 'Me'), score: 400, progress: 4 }, { ...score('g', 2, 3, 2, 'Gu'), score: 650, progress: 4 }, { ...score('t', 3, 6, 1, 'Top'), progress: 6 }];
+    const status = { mode: 'gungame' as const, teamScores: null, killLimit: 21, objective: { kind: 'gungame' as const, guns: WEAPON_IDS.slice(0, 7) } };
+    const bar = matchBar(status, scores, 'me', null);
+    const board = scoreboard(scores, 'gungame', {});
+    if (bar.kind !== 'gungame' || board.kind !== 'ffa') throw new Error('gungame');
+    expect(bar.you?.place).toBe(2);
+    expect(board.rows.map((r) => r.id)).toEqual(['t', 'me', 'g']);
+    expect(endSummary(null, 'gungame', scores, 'me').you?.place).toBe(2);
+    expect(bar.leader).toEqual({ name: 'Top', level: 3, place: 1, stands: 'leads' });
   });
 });
 

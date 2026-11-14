@@ -26,6 +26,16 @@ export function teamMode(id: ModeId): boolean {
   return id !== 'ffa' && id !== 'gungame' && id !== 'battle-royale';
 }
 
+/**
+ * Whether a respawn hands you the loadout you picked. Gun game arms everyone
+ * with the ladder's gun in both slots, so a loadout screen, the keys that
+ * switch loadouts and a swap to "your other weapon" mean nothing there
+ * (review 2026-11-14a); a Battle Royale has no respawn to pick one for.
+ */
+export function pickedLoadouts(id: ModeId): boolean {
+  return id !== 'gungame' && id !== 'battle-royale';
+}
+
 /** An Outposts zone: a vertical cylinder from the map definition, captured by standing in it. */
 export interface Zone {
   /** A short letter-like label shown on the HUD (A, B, C). */

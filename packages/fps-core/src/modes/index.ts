@@ -10,7 +10,7 @@ export { CAPTURE_TIME, Outposts, captureRate } from './outposts';
 export type { OutpostsOptions } from './outposts';
 export { Charge, DEFUSE_RANGE, DEFUSE_TIME, FREEZE_TIME, FUSE_TIME, PICKUP_RANGE, PLANT_TIME, ROUND_END_TIME, ROUND_TIME } from './charge';
 export type { ChargeOptions } from './charge';
-export { LOBBY_MODES, MODE_IDS, inSite, inZone, siteCentre, teamMode } from './game-mode';
+export { LOBBY_MODES, MODE_IDS, inSite, inZone, pickedLoadouts, siteCentre, teamMode } from './game-mode';
 export { MEDALS, SCORE_POINTS, ScoreKeeper, betterMedal, isMedal } from './score';
 export type { Medal, ScoreLine, ScoreReason, ScoreTick } from './score';
 export { PlayGround, playGround } from './ground';
