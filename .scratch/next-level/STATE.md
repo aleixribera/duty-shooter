@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kills seen (v2.214.3, ticket 102): 5 of 8 match "b" frames show the body (14e: 1 of 6). Pass 85: 14e's hitches were the capture (its sound recorder, 417 ms) and the busy PC (Gun Game clean twice); the capture now logs CPU per long frame (`over50QuietPc`, ticket 99). Next: a fresh full review (item 10's test). Next: the match's 486 ms and Gun Game's 264 ms hitches (14e defect 2), with a CPU log.
+Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kill bodies seen in 5 of 8 "b" frames (v2.214.3, ticket 102). Pass 85: 14e's hitches were the capture and the busy PC; the capture logs CPU per long frame (`over50QuietPc`, ticket 99). Pass 86: review 14f (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Its Station Nine Gun Game: the scripted player stood in one alley 155 s, 0 kills, no bot came; 1 of 114 long frames fell on a quiet PC (76 ms); Loadout model 93 ms. Next: 14f's Fix first, a review Bot Match that fights (scripted player turns, moves, fires; bots come to a still player within 60 s).
 
 ## Needs Aleix
 
@@ -41,7 +41,7 @@ Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14e (1, 5 pass; 2, 3, 4, 6 fail; its 2's worst hitches were the capture and the PC, pass 85).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14f (1, 5 pass; 2, 3, 4, 6 fail; PC busy, 1 quiet-PC long frame).
 - CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken
