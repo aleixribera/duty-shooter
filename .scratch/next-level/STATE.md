@@ -12,13 +12,14 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 7. Smarter bots (not faster or more accurate): cover, routes, situation, ammo, players left, weapon (shotgun pushes close cover, sniper holds long lines, SMG flanks).
 8. (2026-11-14) Random next match the host can pick at match end, Bot Match and private lobbies: built, v2.204.0 (ticket 115).
 9. (2026-11-14) Reset all progression to 0 for every browser once item 7 is built, as its last step (ticket 116).
-10. (2026-11-14) Pause the loop once the game is polished and in a good state ("Once you feel like the game is polished enough and in a good state, you can pause"). Stopping test: a fresh full review passes all six objectives, or every one it still fails waits on Aleix's call or on hardware. The loop chat pauses.
 
 Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate a game's own content (names, art, levels).
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop): two passes spent (ticket 99); 1b (Backlit) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-90: 14c-14g's defects worked (tickets 100, 102, 99, 118); lone bots hunt a still player; bodies killed straight on fall aside (pass 89, Fix first pass 1); range damage numbers beside the hit (90). 14g's early fights cut after three passes (7-14 s is the TDM norm). Pass 91: review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11), then its defect 2 (ticket 100): the last minute's grade no longer clips shadows to black, so the gun keeps its shape (gun box crushed 31.4% -> 2.5% at T-0:17, `last-light/`; v2.214.12). Pass 92: Fix first pass 2: bodies tip sideways, slim M4A1 front sight (5 of 8 "b" frames show the body; ticket 102, v2.214.15). Next: a full review. Then 14h's defect 5 (sniper recoil, shotgun post, faint range total) or the loadout's 3.7 s model (re-measure).
+Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11); last minute's gun no longer crushed; bodies tip sideways, slim M4A1 front sight (v2.214.15). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
+
+Pass 93: item 9, ticket 119. a done: the clock reads `9:23` / `3.4` with no "T-", width 4.3 ch (v2.215.0, `clock/sheet.jpg`). b done: Random next match on and lit at every match's end, the host turns it off (v2.216.0, `random-default/sheet.jpg`). Next: 9c, a name asked once (first Play Online; kept in Profile and save code; Settings changes it; no "Player 1234" anywhere), then 9d (the three plates while dead).
 
 ## Needs Aleix
 
