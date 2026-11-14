@@ -134,7 +134,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       botSetup.last = null;
       startBotMatch();
     };
-    // Use while dead, or at the range's station: the loadout screen, back into the game when done.
+    // Use at the range's station, in a round's freeze or the opening Countdown: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;
       game.paused = true;

@@ -19,7 +19,7 @@ Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop)
 
 Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11); last minute's gun no longer crushed; bodies tip sideways, slim M4A1 front sight (v2.214.15). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
 
-Passes 93-94: item 9, ticket 119. a done: the clock reads `9:23` / `3.4` with no "T-" (v2.215.0). b done: Random next match on and lit at every match's end (v2.216.0). c done: a name asked once at the first Play Online, kept in the Profile and save code, Settings' Player tab changes it, solo never asks, no "Player 1234" (v2.217.0, `name/sheet.jpg`). Next: 9d, the three plates while dead (pass 1 of 2), then 9e (the editor from pause).
+Passes 93-95: item 9, ticket 119. a done: the clock reads `9:23` / `3.4` with no "T-" (v2.215.0). b done: Random next match on and lit at every match's end (v2.216.0). c done: a name asked once at the first Play Online, kept in the Profile and save code, Settings' Player tab changes it, solo never asks, no "Player 1234" (v2.217.0, `name/sheet.jpg`). d pass 1: dead, the three loadouts stand as plates (1/2/3, click, tap, D-pad), F no longer opens the editor while dead (v2.218.0, `kit-plates/after/`, `kit-plates/charge/`). Next: 9d pass 2, the "New: <gun>" fourth plate (key 4, offered until taken or passed on 3 deaths) and Equip on the results screen, then 9e (the editor from pause).
 
 ## Needs Aleix
 

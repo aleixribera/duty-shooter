@@ -7,14 +7,14 @@
  */
 
 /** The things a first match teaches, in no order: the rules below decide when each one matters. */
-export const HINT_IDS = ['move', 'fire', 'aim', 'sprint', 'reload', 'swap', 'grenade', 'loadout', 'scoreboard'] as const;
+export const HINT_IDS = ['move', 'fire', 'aim', 'sprint', 'reload', 'swap', 'grenade', 'scoreboard'] as const;
 export type HintId = (typeof HINT_IDS)[number];
 
 /** What the player is doing and what is true of the match, this frame. */
 export interface HintFacts {
   /** Alive and in control: the match is live (past its countdown), nothing is paused. */
   readonly fighting: boolean;
-  /** Dead with a respawn coming: the quiet seconds a loadout or the scores can be looked at. */
+  /** Dead with a respawn coming: the quiet seconds the scores can be looked at. */
   readonly waiting: boolean;
   /** Faster than a stroll. */
   readonly moving: boolean;
@@ -29,8 +29,6 @@ export interface HintFacts {
   readonly grenades: number;
   /** A grenade in hand or leaving it. */
   readonly throwing: boolean;
-  /** The loadout screen was opened since the last frame. */
-  readonly loadoutOpened: boolean;
   /** The match has a scoreboard to open. */
   readonly board: boolean;
   readonly scoreboard: boolean;
@@ -42,8 +40,6 @@ export interface HintFacts {
   readonly clash: boolean;
   /** The hint's slot is taken by a toast or Range Control's caption: time under them is not time the hint was read. */
   readonly covered?: boolean;
-  /** The next life carries the loadout you pick (true when absent). Gun game hands out the ladder's gun instead (review 2026-11-14a). */
-  readonly loadouts?: boolean;
   /** The other slot holds a different weapon to swap to (true when absent). Gun game puts the same gun in both. */
   readonly spare?: boolean;
   /** The match's last minute: every second of it is the fight, not a time to learn (false when absent). */
@@ -110,15 +106,13 @@ function doing(id: HintId, f: HintFacts, s: HintState): boolean {
       return f.fighting && s.weapon !== null && f.weapon !== s.weapon;
     case 'grenade':
       return f.fighting && f.throwing;
-    case 'loadout':
-      return f.loadoutOpened;
     case 'scoreboard':
       return f.board && f.scoreboard;
   }
 }
 
 /** The hints, most pressing first: what a dead player can look at, then what the gun needs, then how to move. */
-const ORDER: readonly HintId[] = ['loadout', 'scoreboard', 'reload', 'swap', 'move', 'fire', 'aim', 'sprint', 'grenade'];
+const ORDER: readonly HintId[] = ['scoreboard', 'reload', 'swap', 'move', 'fire', 'aim', 'sprint', 'grenade'];
 
 /** Whether this is the moment for the hint. */
 function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintId>): boolean {
@@ -128,11 +122,9 @@ function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintI
   // last minute (Sprint was said at T-0:31, T-0:11 and T-03.4: review 2026-11-14c). What the gun needs is still said.
   if ((LESSONS.has(id) || id === 'move') && (f.aiming || f.climax === true)) return false;
   switch (id) {
-    case 'loadout':
-      return f.waiting && f.loadouts !== false;
     case 'scoreboard':
-      // After the loadout's hint, or first where there is no loadout to pick.
-      return f.waiting && f.board && (done.has('loadout') || f.loadouts === false);
+      // The death screen's loadout plates carry their own keys (PLAN item 9d): the scores are the one thing to teach there.
+      return f.waiting && f.board;
     case 'reload':
       return f.fighting && f.magazine <= RELOAD_AT && !f.reloading;
     case 'swap':
@@ -264,8 +256,6 @@ export function hintLine(id: HintId, device: HintDevice, names: HintNames, autoF
       return { id, keys: touch ? glyph('switchWeapon') : cap(names.switchWeapon), text: 'Swap to your other weapon: faster than a reload' };
     case 'grenade':
       return { id, keys: touch ? glyph('grenade') : cap(names.grenade), text: 'Throw a grenade. Hold it to cook the fuse' };
-    case 'loadout':
-      return { id, keys: touch ? glyph('use') : cap(names.use), text: 'Change your loadout before you respawn' };
     case 'scoreboard':
       return { id, keys: touch ? glyph('scoreboard') : cap(names.scoreboard), text: touch ? 'The scores' : 'Hold for the scores' };
   }

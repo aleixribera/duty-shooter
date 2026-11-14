@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GRENADE_AFTER, HINT_CALM, HINT_READ, HINT_REST, HINT_SHOWINGS, HINT_STAYS, NO_HINTS_SEEN, hintLine, hintState, stepHints, type HintFacts, type HintMemory, type HintNames, type HintState } from '../src/hints';
+import { GRENADE_AFTER, HINT_CALM, HINT_IDS, HINT_READ, HINT_REST, HINT_SHOWINGS, HINT_STAYS, NO_HINTS_SEEN, hintLine, hintState, stepHints, type HintFacts, type HintMemory, type HintNames, type HintState } from '../src/hints';
 import { parseHintMemory } from '../src/hint-store';
 import { goalLine } from '../src/ui/model';
 
@@ -15,7 +15,6 @@ const idle: HintFacts = {
   weapon: 'm4a1',
   grenades: 1,
   throwing: false,
-  loadoutOpened: false,
   board: true,
   scoreboard: false,
   thumbs: false,
@@ -80,12 +79,10 @@ describe('first-match hints', () => {
     expect(r.current).toBeNull();
   });
 
-  it('gun game, the same gun in both slots and no loadout to pick: no swap, no loadout, the scores straight away', () => {
+  it('gun game, the same gun in both slots: no swap', () => {
     const reloading: HintFacts = { ...idle, reloading: true, magazine: 0.2, spare: false };
     expect(run(hintState(knows('move', 'aim', 'sprint', 'reload')), reloading, 3).current).toBeNull();
     expect(run(hintState(knows('move', 'aim', 'sprint', 'reload')), { ...reloading, spare: true }, 3).current).toBe('swap');
-    const s = run(hintState(knows('move')), { ...dead, loadouts: false }, HINT_REST + 0.2);
-    expect(s.current).toBe('scoreboard');
   });
 
   it('the swap is offered only while the magazine is short, not over a full one at the end of a reload', () => {
@@ -149,7 +146,6 @@ describe('first-match hints', () => {
     expect(s.current).toBeNull();
     // ...but next life, at the spawn.
     s = run(s, dead, 1);
-    s = run(s, { ...dead, loadoutOpened: true }, 0.1);
     s = run(s, idle, HINT_REST + 0.3);
     expect(s.current).toBe('move');
   });
@@ -180,39 +176,35 @@ describe('first-match hints', () => {
   });
 
   it('a line hidden under a toast or a caption is not being read: its time there does not count as a showing', () => {
-    // The loadout hint goes up while dead, then Range Control speaks over it until the respawn ends its moment.
+    // The scores' hint goes up while dead, then Range Control speaks over it until the respawn ends its moment.
     let s = run(hintState(NO_HINTS_SEEN), dead, 0.5);
-    expect(s.current).toBe('loadout');
+    expect(s.current).toBe('scoreboard');
     s = run(s, { ...dead, covered: true }, HINT_READ + 1);
     s = run(s, idle, 0.1);
-    expect(s.memory.shown.loadout ?? 0).toBe(0);
+    expect(s.memory.shown.scoreboard ?? 0).toBe(0);
     // Seen in the clear for as long, it counts.
     s = run(run(hintState(NO_HINTS_SEEN), dead, HINT_READ + 1), idle, 0.1);
-    expect(s.memory.shown.loadout).toBe(1);
+    expect(s.memory.shown.scoreboard).toBe(1);
   });
 
-  it('dead with a respawn coming: the loadout and its key, then the scores', () => {
+  it('dead with a respawn coming: the scores (the loadout plates carry their own keys, PLAN item 9d)', () => {
     let s = run(hintState(knows('move')), dead, 0.2);
-    expect(s.current).toBe('loadout');
-    s = stepHints(s, { ...dead, loadoutOpened: true }, 0.1);
-    expect(s.memory.done).toContain('loadout');
-    s = run(s, dead, HINT_REST + 0.2);
     expect(s.current).toBe('scoreboard');
     s = stepHints(s, { ...dead, scoreboard: true }, 0.1);
     expect(s.memory.done).toContain('scoreboard');
     // A match with no scoreboard (the range) never offers it.
-    expect(run(hintState(knows('move', 'loadout')), { ...dead, board: false }, 5).current).toBeNull();
+    expect(run(hintState(knows('move')), { ...dead, board: false }, 5).current).toBeNull();
   });
 
   it('a hint whose moment passes steps aside, and comes back next life', () => {
     let s = run(hintState(knows('move')), dead, 0.2);
-    expect(s.current).toBe('loadout');
-    // Respawned a second later: too short to count as read.
+    expect(s.current).toBe('scoreboard');
+    // Respawned a moment later: too short to count as read.
     s = run(s, idle, 0.5);
-    expect(s.current).not.toBe('loadout');
-    expect(s.memory.shown.loadout).toBeUndefined();
+    expect(s.current).not.toBe('scoreboard');
+    expect(s.memory.shown.scoreboard).toBeUndefined();
     s = run(s, dead, 2);
-    expect(s.current).toBe('loadout');
+    expect(s.current).toBe('scoreboard');
   });
 
   it('unfollowed, a hint leaves after its stay and is dropped for good after its showings', () => {
@@ -227,7 +219,6 @@ describe('first-match hints', () => {
     // Next life it comes back; unfollowed again, it is done with.
     for (let life = 1; life < HINT_SHOWINGS; life++) {
       s = run(s, dead, 1);
-      s = run(s, { ...dead, loadoutOpened: true }, 0.1);
       s = run(s, idle, HINT_REST + 0.3);
       expect(s.current).toBe('move');
       s = run(s, idle, HINT_STAYS + 0.2);
@@ -285,7 +276,6 @@ describe('a hint line names the controls of the device in hand', () => {
   it('keys: the bound keys as caps', () => {
     expect(hintLine('move', 'keys', names)).toMatchObject({ id: 'move', keys: [{ cap: 'WASD' }] });
     expect(hintLine('move', 'keys', names).text).toMatch(/mouse/i);
-    expect(hintLine('loadout', 'keys', names).keys).toEqual([{ cap: 'F' }]);
     expect(hintLine('sprint', 'keys', names).keys).toEqual([{ cap: 'Shift' }, { cap: 'C' }]);
     expect(hintLine('scoreboard', 'keys', names).keys).toEqual([{ cap: 'Tab' }]);
   });
@@ -297,7 +287,7 @@ describe('a hint line names the controls of the device in hand', () => {
   });
 
   it('touch: the marks on the glass, never a key', () => {
-    for (const id of ['move', 'fire', 'aim', 'sprint', 'reload', 'swap', 'grenade', 'loadout', 'scoreboard'] as const) {
+    for (const id of HINT_IDS) {
       const line = hintLine(id, 'touch', names);
       expect(line.keys.length).toBeGreaterThan(0);
       expect(line.keys.every((k) => k.cap === undefined && typeof k.glyph === 'string')).toBe(true);

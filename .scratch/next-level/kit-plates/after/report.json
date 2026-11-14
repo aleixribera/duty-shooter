@@ -1,0 +1,687 @@
+{
+  "steps": [
+    {
+      "step": "0 alive, before",
+      "alive": true,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": false,
+      "leaving": false,
+      "plates": [],
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "1 dead",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": true,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "2 pressed 3",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "3 pressed F",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "4 clicked second",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": true,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "5 next life",
+      "alive": true,
+      "primary": "smg",
+      "weapon": "smg",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": null,
+          "lit": false,
+          "text": "Main1M4A1"
+        },
+        {
+          "box": null,
+          "lit": true,
+          "text": "Close2Wasp 9"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Breach3Harrow 12"
+        }
+      ],
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "6 dead again",
+      "alive": false,
+      "primary": "smg",
+      "weapon": "smg",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": true,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "7 clicked in the fade",
+      "alive": true,
+      "primary": "smg",
+      "weapon": "smg",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "8 after the fade",
+      "alive": true,
+      "primary": "smg",
+      "weapon": "smg",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": null,
+          "lit": false,
+          "text": "Main1M4A1"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Close2Wasp 9"
+        },
+        {
+          "box": null,
+          "lit": true,
+          "text": "Breach3Harrow 12"
+        }
+      ],
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": "Breach from your next life",
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "9 the life after",
+      "alive": true,
+      "primary": "shotgun",
+      "weapon": "shotgun",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": null,
+          "lit": false,
+          "text": "Main1M4A1"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Close2Wasp 9"
+        },
+        {
+          "box": null,
+          "lit": true,
+          "text": "Breach3Harrow 12"
+        }
+      ],
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "10a dead, phone next",
+      "alive": false,
+      "primary": "shotgun",
+      "weapon": "shotgun",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": [
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "step": "10 phone upright",
+      "alive": false,
+      "primary": "shotgun",
+      "weapon": "shotgun",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            16,
+            644,
+            130,
+            748
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            138,
+            644,
+            252,
+            748
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            260,
+            644,
+            374,
+            748
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        98,
+        268,
+        293,
+        374
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": null
+    },
+    {
+      "step": "11 phone on its side",
+      "alive": false,
+      "primary": "shotgun",
+      "weapon": "shotgun",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            185,
+            296,
+            335,
+            380
+          ],
+          "lit": false,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            347,
+            296,
+            497,
+            380
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            509,
+            296,
+            659,
+            380
+          ],
+          "lit": true,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "center": [
+        323,
+        113,
+        521,
+        183
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false,
+      "gap": null
+    }
+  ],
+  "errors": []
+}

@@ -7,6 +7,7 @@ import { MATCH_GAIN_CSS, matchGainHtml } from './match-gain';
 import { SCORE_FEED_CSS, ScoreFeed, type ScoreFeedEntry } from './score-feed';
 import { MATCH_CLOCK_CSS, MatchClockView, matchClockHtml } from './match-clock';
 import { GRENADE_WARNINGS_CSS, GrenadeWarningsView, type GrenadeWarning } from './grenade-warnings';
+import { KIT_PLATES_CSS, KitPlatesView, type KitPlatesState } from './loadout-plates';
 import { HUD_TOUCH_CSS } from './touch-layout';
 import { HINT_LINE_CSS, hintLineHtml } from './hint-line';
 import type { HintLine } from '../hints';
@@ -358,6 +359,8 @@ export interface HudState {
   readonly tactical?: 'smoke' | 'flash' | null;
   /** The live grenades near enough to warn you of (ticket 12). */
   readonly grenades?: readonly GrenadeWarning[];
+  /** Dead with a next life to come: the three kept loadouts to pick the next life's from (PLAN item 9d), or null. */
+  readonly kits?: KitPlatesState | null;
   readonly dt: number;
 }
 
@@ -595,6 +598,9 @@ export class Hud {
   onEquip: ((id: WeaponId) => void) | null = null;
   /** Play again at a match's end, clicked or tapped (PLAN item 7). */
   onPlayAgain: (() => void) | null = null;
+  /** A loadout plate on the death screen clicked or tapped: the kept loadout's index (PLAN item 9d). */
+  onPickLoadout: ((index: number) => void) | null = null;
+  readonly #kits: KitPlatesView;
   readonly #equipped = new Set<WeaponId>();
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
@@ -625,7 +631,7 @@ export class Hud {
     if (!document.getElementById('ds-hud-css')) {
       const style = document.createElement('style');
       style.id = 'ds-hud-css';
-      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS + MATCH_GAIN_CSS + SCORE_FEED_CSS + MATCH_CLOCK_CSS + GRENADE_WARNINGS_CSS + CAPTIONS_CSS + HUD_SCALE_CSS + HINT_LINE_CSS + HUD_TOUCH_CSS;
+      style.textContent = CSS + ALLY_TAGS_CSS + SPECTATOR_PANEL_CSS + RECAP_CSS + MATCH_CARD_CSS + MATCH_GAIN_CSS + SCORE_FEED_CSS + MATCH_CLOCK_CSS + GRENADE_WARNINGS_CSS + KIT_PLATES_CSS + CAPTIONS_CSS + HUD_SCALE_CSS + HINT_LINE_CSS + HUD_TOUCH_CSS;
       document.head.append(style);
     }
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parentEl: HTMLElement, html = '') => {
@@ -642,6 +648,8 @@ export class Hud {
     this.#allies = new AllyTagsView(this.root);
     this.#grenades = new GrenadeWarningsView(this.root);
     this.#spectator = new SpectatorPanel(this.root);
+    this.#kits = new KitPlatesView(parent);
+    this.#kits.onPick = (index) => this.onPickLoadout?.(index);
     this.#cross = new CrosshairView(this.root);
     this.#captions = new CaptionView(this.root);
     this.#hit = el('div', 'ds-hit', this.root, '<i></i><i></i><i></i><i></i>');
@@ -720,6 +728,7 @@ export class Hud {
 
   set visible(on: boolean) {
     this.root.style.display = on ? '' : 'none';
+    this.#kits.visible = on;
   }
 
   hitMarker(kind: HitKind): void {
@@ -949,6 +958,12 @@ export class Hud {
     this.#allies.update(state.allies ?? []);
     this.#grenades.update(self ? (state.grenades ?? []) : [], self?.yaw ?? 0);
     this.#spectator.update(state.spectator ?? null);
+    // The held scoreboard has the screen.
+    const kits = state.showScoreboard ? null : (state.kits ?? null);
+    this.#kits.update(kits);
+    // While the plates stand, the toast and the hint line stand over them instead of behind.
+    const kitsUp = kits !== null && kits.leaving !== true;
+    if (this.root.classList.contains('kits') !== kitsUp) this.root.classList.toggle('kits', kitsUp);
     this.#cross.update((aw?.spread ?? 2) * state.pixelsPerDegree);
     this.#captions.update(dt);
 
@@ -1090,9 +1105,8 @@ export class Hud {
     const hint = slotHint(state.hint ?? null, this.#toastTime, this.#captions.speaking && !cardUp);
     if (this.#hint.hidden !== (hint === null)) this.#hint.hidden = hint === null;
     if (hint) this.#set(this.#hint, hintLineHtml(hint));
-    // While the countdown's card is up, the prompt is its last line instead of a second plate under the crosshair; and
-    // the loadout hint already names its key, so the plate does not say it twice.
-    const promptHidden = prompt === null || cardUp || hint?.id === 'loadout';
+    // While the countdown's card is up, the prompt is its last line instead of a second plate under the crosshair.
+    const promptHidden = prompt === null || cardUp;
     if (this.#prompt.hidden !== promptHidden) this.#prompt.hidden = promptHidden;
     if (this.#toastTime > 0) {
       this.#toastAge += dt;
@@ -1394,6 +1408,7 @@ export class Hud {
 
   dispose(): void {
     this.root.remove();
+    this.#kits.dispose();
   }
 }
 const SKINS = ['#e3b994', '#c99a74', '#b07c58', '#8a5a3c', '#5e3c28'];

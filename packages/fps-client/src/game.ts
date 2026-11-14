@@ -94,7 +94,8 @@ import { RosterNotices } from './hud/roster-notices';
 import { scoreFeedEntry } from './hud/score-feed';
 import { chargeHudState, matchCardState, royaleHudState } from './hud/hud-state';
 import { WORDY, eventWords, killedWith, type EventWords } from './hud/event-words';
-import { MatchKeeper, masteryOf, type ProfileStore } from './profile';
+import { MatchKeeper, masteryOf, openLoadout, type ProfileStore } from './profile';
+import type { KitPlatesState } from './hud/loadout-plates';
 import { camoOn } from './customize';
 import { CourseRun, courseGrade, type CourseGates } from './course-run';
 import { CourseClockView, RESULT_SECONDS, type CourseFace } from './hud/course-clock';
@@ -126,6 +127,8 @@ const RECAP_OUT_MS = 20_000;
 const SPECTATE_NOTICE_MS = 4000;
 /** How long the goal plate stands for someone who joined a match under way (s): the countdown's plate, without its count. */
 const JOINED_GOAL_SECONDS = 4;
+/** How long (s) the death screen's loadout plates take to fade once you are back in the fight; a click or tap in it still picks. */
+const KIT_FADE = 0.4;
 /** A binding as a short key cap for the spectator's panel. */
 const shortKey = (code: string): string => (code === 'Mouse0' ? 'LMB' : code === 'Mouse2' ? 'RMB' : code === 'Mouse1' ? 'MMB' : bindingLabel(code));
 
@@ -283,7 +286,6 @@ export class Game {
   #hintFighting = false;
   #hintGun: { readonly id: string; readonly ammo: number } | null = null;
   #hintsCleared = hintMemoryCleared();
-  #loadoutOpened = false;
   #lastFrame: number | null = null;
   #frameStart = 0;
   #fps = 60;
@@ -367,14 +369,16 @@ export class Game {
   /** Use held on the last tick, so a press opens the loadout screen once. */
   #useHeld = false;
   /**
-   * Use pressed while dead (`death`) or at the range's loadout station
-   * (`station`): the page opens the loadout screen.
+   * Use pressed at the range's loadout station, in a round's freeze or the opening Countdown: the page opens the
+   * loadout screen. Dead, the death screen's plates are the pick instead (PLAN item 9d).
    */
-  onLoadout: ((from: 'death' | 'station') => void) | null = null;
+  onLoadout: ((from: 'station') => void) | null = null;
   /** A gun the match opened, equipped from the results at its end: the page puts it in the loadout (PLAN item 7). */
   onEquip: ((id: WeaponId) => void) | null = null;
   /** Dead in a mode with a next life, 1, 2 or 3 pressed: carry that kept loadout from the next spawn. */
   onPickLoadout: ((index: number) => void) | null = null;
+  /** When (sim time) the local player last came back into the fight: the loadout plates fade over the moment after. */
+  #respawnedAt = -Infinity;
   /** Play again at a Bot Match's end: the page starts the same match at once (PLAN item 7). Null where the page can't. */
   onPlayAgain: (() => void) | null = null;
   #resizeObserver: ResizeObserver;
@@ -414,9 +418,9 @@ export class Game {
   /** Seconds the gain has been on screen, for the sounds that go with it. */
   #gainShown = 0;
   readonly #onVoteKey = (e: KeyboardEvent) => {
-    // Dead, waiting for the next life: 1, 2 or 3 picks the loadout it carries.
+    // Dead, waiting for the next life: 1, 2 or 3 picks the loadout it carries (its plate lights).
     const pick = (['Digit1', 'Digit2', 'Digit3'] as const).indexOf(e.code as 'Digit1');
-    if (pick >= 0 && !e.repeat && this.#picksLoadout()) this.onPickLoadout?.(pick);
+    if (pick >= 0 && !e.repeat && this.#picksLoadout()) this.#pickLoadout(pick);
     else if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
     else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
@@ -485,7 +489,16 @@ export class Game {
     this.hud.onEquip = (id) => this.onEquip?.(id);
     this.hud.onPlayAgain = () => this.#playAgain();
     // A server with a lobby holds no vote: there the D-pad's right is the host's Random next match, and its left Play again.
-    this.input.onPadVote = (side) => (this.#driver?.match?.lobby ? (side === 'right' ? this.#toggleRandom() : this.#playAgain()) : this.#vote(side === 'left' ? 'tdm' : 'ffa'));
+    // Dead, the D-pad's left and right light the loadout plate beside the lit one instead.
+    this.input.onPadVote = (side) => {
+      if (this.#picksLoadout()) return this.#pickLoadout(this.#settings.loadoutSet + (side === 'left' ? -1 : 1));
+      if (this.#driver?.match?.lobby) return side === 'right' ? this.#toggleRandom() : this.#playAgain();
+      this.#vote(side === 'left' ? 'tdm' : 'ffa');
+    };
+    // A loadout plate clicked or tapped: while dead, or in the moment the plates fade after the respawn.
+    this.hud.onPickLoadout = (index) => {
+      if (this.#picksLoadout() || this.#kitsLeaving()) this.#pickLoadout(index);
+    };
     // The pad's tactical (the D-pad's down) at a match's end is Equip it, as E is.
     this.input.onPadTactical = () => this.#equipNext();
     addEventListener('keydown', this.#onVoteKey);
@@ -1078,6 +1091,59 @@ export class Game {
     return !this.paused && !!self && !self.alive && (!match || (match.phase === 'playing' && pickedLoadouts(match.mode)));
   }
 
+  /** Whether the match has a next life whose loadout can be picked now: none in a Battle Royale or gun game, nor once it is over. */
+  #offersKits(): boolean {
+    const match = this.#driver?.match;
+    return !match || (match.phase === 'playing' && pickedLoadouts(match.mode));
+  }
+
+  /** Back in the fight within the plates' fade: a click or tap still lands, for the life after this one. */
+  #kitsLeaving(): boolean {
+    return !this.paused && this.#cur?.alive === true && this.#simTime - this.#respawnedAt < KIT_FADE && this.#offersKits();
+  }
+
+  /**
+   * Picks kept loadout `index` for the next life (PLAN item 9d). The respawn never waits for it: picked after the
+   * respawn, it goes with the life after this one, and a notice says so.
+   */
+  #pickLoadout(index: number): void {
+    const set = this.#settings.loadouts[index];
+    if (!set || index === this.#settings.loadoutSet) return;
+    this.onPickLoadout?.(index);
+    this.#play('hitMarker');
+    // A round's freeze and the opening Countdown hand the new loadout over at once: no notice for that.
+    if (this.#cur?.alive && this.#charge?.phase !== 'freeze' && !this.#counting()) this.hud.toast(`${set.name} from your next life`, 3);
+  }
+
+  /**
+   * Back in the fight carrying something other than the loadout picked: online, a pick that left in the last moment
+   * before the server's respawn goes with the life after. The same notice says so.
+   */
+  #pickMissed(self: PlayerOutput): void {
+    if (!this.#offersKits() || !self.loadout) return;
+    const set = this.#settings.loadouts[this.#settings.loadoutSet];
+    if (!set) return;
+    const xp = this.#profileStore?.profile.xp;
+    const want = xp === undefined ? set.loadout : openLoadout(set.loadout, xp);
+    const has = self.loadout;
+    if (want.primary !== has.primary || want.secondary !== has.secondary || (want.tactical ?? null) !== (has.tactical ?? null)) this.hud.toast(`${set.name} from your next life`, 3);
+  }
+
+  /** The death screen's loadout plates (PLAN item 9d): dead with a next life to come, and fading for a moment after it starts. */
+  #kitPlates(): KitPlatesState | null {
+    const self = this.#cur;
+    if (!self || this.#inShot || !this.#offersKits()) return null;
+    const leaving = self.alive && this.#simTime - this.#respawnedAt < KIT_FADE;
+    if (self.alive && !leaving) return null;
+    const xp = this.#profileStore?.profile.xp;
+    const sets = this.#settings.loadouts.map((set) => {
+      // What the next life would carry: a gun not yet open plays as its slot's first gun.
+      const guns = xp === undefined ? set.loadout : openLoadout(set.loadout, xp);
+      return { name: set.name, primary: guns.primary, secondary: guns.secondary, tactical: guns.tactical ?? null };
+    });
+    return { sets, chosen: this.#settings.loadoutSet, input: this.input.padMode ? 'pad' : this.input.touchMode ? 'touch' : 'keys', leaving };
+  }
+
   /** At a match's end, puts the next gun it opened into the loadout (PLAN item 7). */
   #equipNext(): void {
     for (const id of this.#keeper.gain?.unlocks ?? []) if (this.hud.equip(id)) break;
@@ -1196,6 +1262,7 @@ export class Game {
       blinded: this.#blindness(),
       grenades: grenadeWarnings(this.#cur, driver.grenades(), driver.serverTime, match !== null && match !== undefined && (teamMode(match.mode) || match.mode === 'battle-royale')),
       action,
+      kits: this.#kitPlates(),
       dt,
     });
   }
@@ -1312,11 +1379,9 @@ export class Game {
     if (!self.alive && match?.mode === 'battle-royale') return null;
     // Gun game hands out the ladder's gun: no loadout to offer, dead or at the countdown.
     const offers = !match || pickedLoadouts(match.mode);
-    // Dead, the next life's loadout is a key away on a keyboard: its name, and the keys that pick another (PLAN item 7).
-    const set = this.#settings.loadouts[this.#settings.loadoutSet];
-    if (offers && !self.alive && set && !this.input.touchMode && !this.input.padMode) return `${set.name}  ·  1 2 3 to switch  ·  ${this.#useLabel()}  Loadout`;
-    if (offers && (!self.alive || this.#atStation(self) || charge?.phase === 'freeze' || this.#counting())) return `${this.#useLabel()}  Loadout`;
+    // Dead, the loadout plates are the offer (PLAN item 9d), with no prompt over them.
     if (!self.alive) return null;
+    if (offers && (this.#atStation(self) || charge?.phase === 'freeze' || this.#counting())) return `${this.#useLabel()}  Loadout`;
     if (charge && !charge.action) {
       if (charge.phase === 'live' && charge.carrier === self.id && this.#sites.some((s) => inSite(s, self.position))) return `Hold ${this.#useLabel()}  Plant`;
       const p = charge.planted?.position;
@@ -1930,8 +1995,6 @@ export class Game {
       this.#hintsCleared = hintMemoryCleared();
       this.#hints = hintState(hintMemory());
     }
-    const opened = this.#loadoutOpened;
-    this.#loadoutOpened = false;
     if (!driver) return null;
     const self = this.#cur;
     const match = driver.match;
@@ -1955,9 +2018,8 @@ export class Game {
       this.#hints,
       {
         fighting,
-        // The loadout can be changed while dead wherever there is a next life; the range has no deaths, and no hint for it.
+        // Dead with a respawn coming; the range has no deaths, and no hint for them.
         waiting: !this.#paused && !this.#inShot && playing && self !== null && !self.alive && !royale,
-        loadouts: !match || pickedLoadouts(match.mode),
         spare: !!self?.loadout && self.loadout.secondary !== self.loadout.primary,
         moving: self !== null && Math.hypot(self.velocity[0], self.velocity[2]) > 2,
         sprinting: self?.movement === 'sprint' || self?.movement === 'slide',
@@ -1967,7 +2029,6 @@ export class Game {
         weapon: w?.id ?? '',
         grenades: self?.grenades ?? 0,
         throwing: self !== null && (self.grenade ?? null) !== null,
-        loadoutOpened: opened,
         board: driver.online && driver.scores.length > 0,
         scoreboard: input.scoreboard,
         thumbs: input.touchMode,
@@ -2119,6 +2180,10 @@ export class Game {
     const before = this.#cur;
     const self = result.self;
     // Respawn or first spawn: skip interpolating across the map.
+    if (self?.alive && before && !before.alive) {
+      this.#respawnedAt = this.#simTime;
+      this.#pickMissed(self);
+    }
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;
     this.#cur = self;
@@ -2130,10 +2195,10 @@ export class Game {
     const use = (cmd.buttons & Button.Use) !== 0;
     // Out of a Battle Royale there is no next life to change the loadout for, and gun game hands out the ladder's gun.
     const offers = !driver.match || pickedLoadouts(driver.match.mode);
-    // The opening Countdown is the same offer as a round's freeze: held at the spawn, the loadout a press away.
-    if (use && !this.#useHeld && self && offers && (!self.alive || this.#atStation(self) || frozen || this.#counting())) {
-      this.#loadoutOpened = true;
-      this.onLoadout?.(self.alive ? 'station' : 'death');
+    // The opening Countdown is the same offer as a round's freeze: held at the spawn, the loadout a press away. Dead,
+    // the plates on the death screen are the pick (PLAN item 9d): Use no longer opens the editor there.
+    if (use && !this.#useHeld && self?.alive && offers && (this.#atStation(self) || frozen || this.#counting())) {
+      this.onLoadout?.('station');
     }
     this.#useHeld = use;
     if (self && before) this.#selfFoley(before, self, firePressed);

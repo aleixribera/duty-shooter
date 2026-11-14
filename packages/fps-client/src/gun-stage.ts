@@ -7,6 +7,7 @@ import { attachAuthoredM4 } from './viewmodel/authored-m4a1';
 import { buildKitGun, type KitGun } from './viewmodel/kit';
 import { buildM4A1 } from './viewmodel/m4a1';
 import type { CamoId, Reticles } from './customize';
+import { gunStill as still } from './gun-stills';
 import { dressGun, dressedNow, type DressableGun } from './viewmodel/fittings';
 import { IRON_NODES, OPTIC_MOUNTS, SIGHT_WINDOW, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
 
@@ -40,23 +41,6 @@ function noWindows(root: Object3D): void {
   root.traverse((o) => o.name === SIGHT_WINDOW && windows.push(o));
   for (const w of windows) w.visible = false;
 }
-
-/**
- * Each gun's still, side on in its stock build (`apps/range/scripts/gun-stills.mjs` makes them from this stage):
- * shown the moment the screen asks for a gun, until its model is drawn, which on a fresh page waits seconds on shaders.
- */
-const STILLS: Readonly<Record<WeaponId, URL>> = {
-  m4a1: new URL('./viewmodel/assets/stills/m4a1.webp', import.meta.url),
-  smg: new URL('./viewmodel/assets/stills/smg.webp', import.meta.url),
-  shotgun: new URL('./viewmodel/assets/stills/shotgun.webp', import.meta.url),
-  sniper: new URL('./viewmodel/assets/stills/sniper.webp', import.meta.url),
-  pistol: new URL('./viewmodel/assets/stills/pistol.webp', import.meta.url),
-  lmg: new URL('./viewmodel/assets/stills/lmg.webp', import.meta.url),
-  dmr: new URL('./viewmodel/assets/stills/dmr.webp', import.meta.url),
-  burst: new URL('./viewmodel/assets/stills/burst.webp', import.meta.url),
-  revolver: new URL('./viewmodel/assets/stills/revolver.webp', import.meta.url),
-};
-const still = (id: WeaponId): string => STILLS[id].href;
 
 /** One shown mesh of each look under `root`: its materials and the attributes its vertices carry, which pick its shader. */
 function looks(root: Object3D): Iterable<Mesh> {
