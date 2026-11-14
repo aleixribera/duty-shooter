@@ -74,12 +74,13 @@ export interface PreparationCallbacks {
 
 /** The one action, named for what it does now, whether it can be pressed, and the line under it. */
 export function preparationAction(v: PreparationView): { readonly label: string; readonly enabled: boolean; readonly note: string } {
-  if (v.play) return { label: 'Play', enabled: true, note: 'Click to take control' };
+  // No line that only explains the button (Aleix's rule: a line only when it says what the screen doesn't): the clock beside it reads "Drop in", and Play is a click.
+  if (v.play) return { label: 'Play', enabled: true, note: '' };
   if (v.stage === 'dive') return { label: 'Dropping', enabled: false, note: 'Loadout locked' };
   const waiting = v.people - v.readyCount;
   if (v.ready && v.loading > 0) return { label: 'Ready', enabled: false, note: `Waiting for ${v.loading} ${v.loading === 1 ? 'player' : 'players'} to load` };
   if (v.ready) return { label: 'Ready', enabled: false, note: waiting > 0 ? `Waiting for ${waiting} more, or the clock` : 'Everyone is ready' };
-  return { label: 'Ready', enabled: true, note: v.people > 1 ? `${v.readyCount} of ${v.people} ready. At 0 you drop with what is picked.` : 'At 0 you drop with what is picked.' };
+  return { label: 'Ready', enabled: true, note: v.people > 1 ? `${v.readyCount} of ${v.people} ready` : '' };
 }
 
 /** The clock as it reads: whole seconds, counting down. */
@@ -318,7 +319,7 @@ export class PreparationPage {
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
 <div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}${v.holds === 'resupply' ? '' : '<div class="drop-note">Sniper: Supply Drops only</div>'}${seg('secondary', 'Secondary', secondaries, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
-<div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button><div class="note">${escapeHtml(action.note)}</div>${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
+<div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button>${action.note ? `<div class="note">${escapeHtml(action.note)}</div>` : ''}${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>
 <div class="alive" aria-label="${v.alive} alive"><b>${v.alive}</b><span>Alive</span><small>${v.squads} ${v.squads === 1 ? 'Squad' : 'Squads'}</small>${champ}</div>`;
   }

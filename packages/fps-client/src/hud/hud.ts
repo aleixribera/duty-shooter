@@ -119,7 +119,7 @@ const CSS = `
 .ds-marker.ds-t2 { color: var(--ds-orange); }
 .ds-marker.ds-t1 b { background: rgb(var(--ds-blue-rgb) / 0.4); }
 .ds-marker.ds-t2 b { background: rgb(var(--ds-orange-rgb) / 0.4); }
-.ds-marker small { font-size: var(--ds-type-small); margin-top: 2px; color: var(--ds-text-2); }
+.ds-marker small { margin-top: 2px; padding: 1px 6px 2px; background: var(--ds-ink); font-size: var(--ds-type-small); color: var(--ds-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ds-marker.contested b { border-color: var(--ds-alert); }
 .ds-marker.target b { border-color: var(--ds-light); }
 .ds-marker.charge b { border-color: var(--ds-alert); color: var(--ds-alert); }
@@ -198,7 +198,6 @@ const CSS = `
 .ds-board > header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 20px 12px; border-bottom: 1px solid var(--ds-line); }
 .ds-board > header b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); letter-spacing: 0.04em; text-transform: uppercase; }
 .ds-board > header span { font-size: var(--ds-type-small); color: var(--ds-text-2); }
-.ds-board > header .goal { flex: 1 1 0; min-width: 0; margin: 0 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-board > header b, .ds-board > header .ds-label { flex: none; }
 .ds-board .cols { padding: 14px 20px 18px; }
 /* At a match's end the board stands under the end panel, in the room that panel leaves it. */
@@ -1464,9 +1463,8 @@ export function boardHtml(state: HudState): string {
           `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${cells(r)}<td>${r.deaths}</td><td>${r.assists}</td>${pinged ? `<td class="ping">${r.ping === null ? '–' : r.ping}</td>` : ''}</tr>`,
       )
       .join('')}</table>`;
-  // The goal stays findable after the countdown: the board says what wins beside the mode's name.
-  const goal = state.match ? `<span class="goal">${escape(goalLine(state.match.status))}</span>` : '';
-  const header = `<header><b>${escape(MODE_NAMES[mode] ?? mode)}</b>${goal}<span class="ds-label">${state.scores.length} players</span></header>`;
+  // The title stands alone (review 2026-11-14c): what wins is said in the opening countdown and kept in the match bar ("FFA · 30").
+  const header = `<header><b>${escape(MODE_NAMES[mode] ?? mode)}</b><span class="ds-label">${state.scores.length} players</span></header>`;
   if (board.kind === 'ffa') return `${header}<div class="cols one"><div>${table(board.rows)}</div></div>`;
   return `${header}<div class="cols">${board.teams
     .map((t) => `<div><h3 class="ds-t${t.team}"><span>${TEAMS[t.team]!.mark} ${TEAMS[t.team]!.name}</span><span class="total">${t.score}</span></h3>${table(t.rows)}</div>`)

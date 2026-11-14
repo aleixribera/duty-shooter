@@ -173,6 +173,12 @@ describe('the Preparation’s one action', () => {
     expect(loading).not.toBe(preparationAction(view({ ready: true, readyCount: 1 })).note);
   });
 
+  it('has no line under it that only explains it (review 2026-11-14c: "At 0 you drop with what is picked")', () => {
+    expect(preparationAction(view({ people: 1 })).note).toBe('');
+    expect(preparationAction(view()).note).toBe('0 of 2 ready');
+    expect(preparationAction(view({ stage: 'dive', play: true })).note).toBe('');
+  });
+
   it('locks in the dive and asks for a click once it is over', () => {
     expect(preparationAction(view({ stage: 'dive' }))).toMatchObject({ label: 'Dropping', enabled: false, note: 'Loadout locked' });
     expect(preparationAction(view({ stage: 'dive', play: true }))).toMatchObject({ label: 'Play', enabled: true });

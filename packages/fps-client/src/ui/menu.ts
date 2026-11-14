@@ -88,7 +88,9 @@ export const MENU_CSS = `
   .ds-dest.ds-plate { padding: 10px 18px 12px; }
   /* No halo on a row this wide: a filter over half the screen costs the toaster. */
   .ds-dest.ds-plate.is-lit { filter: none; }
-  .ds-more { margin-left: 2px; }
+  /* Loadout, Profile and Settings on one line at a phone's 390 px (review 2026-11-14c left Settings alone on a second); the text stays in line with the destinations' titles. */
+  .ds-more { margin-left: 6px; gap: 4px 0; }
+  .ds-more button { padding: 0 12px; }
   .ds-home footer .ds-hints { display: none; }
 }
 /* A phone on its side (ticket 26): the profile corner stands right of the list, as on a desktop, so the list starts under the title and four destinations show at once. */
