@@ -35,7 +35,7 @@ const log = (step, detail) => {
 };
 const settingsKey = 'duty-shooter.settings.v1';
 const start = async (xp, settings, query = '') => {
-  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', JSON.stringify({ version: 1, xp: ${xp} })); ${settings ? `localStorage.setItem('${settingsKey}', ${JSON.stringify(JSON.stringify(settings))})` : `localStorage.removeItem('${settingsKey}')`}`);
+  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', JSON.stringify({ version: 1, xp: ${xp} })); ${settings ? `localStorage.setItem('${settingsKey}', ${JSON.stringify(JSON.stringify(settings))})` : `localStorage.removeItem('${settingsKey}')`}`);
   await chrome.navigate(`${BASE}?nolock${query}`);
   if (!(await chrome.waitFor('globalThis.duty?.game', 90_000))) throw new Error('page did not start');
   await sleep(1500);
@@ -96,7 +96,7 @@ try {
 
     // Rank 12 with a Reflex on the Trident: the optic on the model, irons folded.
     await start(floor(12), { loadout: { primary: 'burst', secondary: 'revolver', grenade: 'frag', tactical: 'smoke', perk: null, attachments: { primary: { optic: 'reflex' } } }, builds: { burst: { optic: 'reflex' } } });
-    await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', JSON.stringify({ version: 1, xp: ${floor(12)}, weapons: { burst: { kills: 500 } } }))`);
+    await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', JSON.stringify({ version: 1, xp: ${floor(12)}, weapons: { burst: { kills: 500 } } }))`);
     await chrome.navigate(`${BASE}?nolock`);
     await chrome.waitFor('globalThis.duty?.game', 90_000);
     await sleep(1500);

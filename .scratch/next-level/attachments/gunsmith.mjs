@@ -19,7 +19,7 @@ const profile = {
 };
 const settings = { builds: { m4a1: { optic: 'reflex', magazine: 'extended' } }, loadout: { primary: 'm4a1', secondary: 'pistol', grenade: 'frag', tactical: 'smoke', perk: null, attachments: { primary: { optic: 'reflex', magazine: 'extended' } } } };
 const HMR_SHIELD = `(() => { const Real = WebSocket; const hmr = (p) => p === 'vite-hmr' || (Array.isArray(p) && p.includes('vite-hmr')); globalThis.WebSocket = new Proxy(Real, { construct(target, args) { if (hmr(args[1])) return { addEventListener() {}, removeEventListener() {}, send() {}, close() {}, readyState: 0 }; return new target(...args); } }); })()`;
-const SEED = `(() => { localStorage.setItem('duty-shooter.profile.v1', ${JSON.stringify(JSON.stringify(profile))}); const K = 'duty-shooter.settings.v1'; let had = {}; try { had = JSON.parse(localStorage.getItem(K) ?? '{}'); } catch {} localStorage.setItem(K, JSON.stringify({ ...had, ...${JSON.stringify(settings)} })); })()`;
+const SEED = `(() => { localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(JSON.stringify(profile))}); const K = 'duty-shooter.settings.v1'; let had = {}; try { had = JSON.parse(localStorage.getItem(K) ?? '{}'); } catch {} localStorage.setItem(K, JSON.stringify({ ...had, ...${JSON.stringify(settings)} })); })()`;
 
 const chrome = await launchChrome();
 const shot = async (name) => {

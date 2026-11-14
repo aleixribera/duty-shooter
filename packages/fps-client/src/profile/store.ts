@@ -1,4 +1,4 @@
-import { PROFILE_KEY, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, readSaveCode, saveCode, type MatchGain, type MatchRecord, type Profile } from './model';
+import { PROFILE_KEY, RETIRED_PROFILE_KEYS, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, readSaveCode, saveCode, type MatchGain, type MatchRecord, type Profile } from './model';
 
 /** Where a Profile is kept: browser storage, or anything that reads and writes one string. */
 export interface ProfileStorage {
@@ -8,9 +8,10 @@ export interface ProfileStorage {
 }
 
 /**
- * The Profile of this browser, kept under `duty-shooter.profile.v1`. Storage
- * that is blocked, full or holds something unreadable never throws out of
- * here: the Profile then lives for the session, from zero.
+ * The Profile of this browser, kept under `PROFILE_KEY`. Storage that is
+ * blocked, full or holds something unreadable never throws out of here: the
+ * Profile then lives for the session, from zero. A Profile kept under a
+ * retired key, from before a reset of all progression, is wiped on load.
  */
 export class ProfileStore {
   readonly #storage: ProfileStorage | null;
@@ -18,10 +19,13 @@ export class ProfileStore {
   #profile: Profile;
   /** The last write never reached storage (full, blocked): what storage holds is then behind this session's Profile. */
   #unsaved = false;
+  /** This load wiped a Profile from before a reset of all progression. */
+  readonly wiped: boolean;
 
   constructor(storage: ProfileStorage | null = browserStorage(), now: () => Date = () => new Date()) {
     this.#storage = storage;
     this.#now = now;
+    this.wiped = this.#wipeRetired();
     this.#profile = this.#read() ?? emptyProfile();
   }
 
@@ -78,6 +82,22 @@ export class ProfileStore {
       // Storage unavailable: the Profile in hand is already empty, and stays the one to build on.
       this.#unsaved = true;
     }
+  }
+
+  /** Removes what the retired keys hold; true when there was something. */
+  #wipeRetired(): boolean {
+    const storage = this.#storage;
+    let wiped = false;
+    for (const key of RETIRED_PROFILE_KEYS) {
+      try {
+        if (storage?.getItem(key) == null) continue;
+        wiped = true;
+        storage.removeItem(key);
+      } catch {
+        // Storage unavailable: nothing under the old key can be read either.
+      }
+    }
+    return wiped;
   }
 
   /** What storage holds (an empty Profile when it holds none: never written, or reset), or null when it cannot be read at all. */

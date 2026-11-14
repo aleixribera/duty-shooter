@@ -51,7 +51,7 @@ try {
   await chrome.navigate(BASE);
   // A kill short of Rank 4 (the Trident) and of the M4A1's Mastery 1 (its Optic slot); the Warden 9 well short of its.
   const weapons = { m4a1: { kills: 24, headshots: 0, longest: 0 }, pistol: { kills: 10, headshots: 0, longest: 0 } };
-  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', JSON.stringify({ version: 1, xp: ${floor(4) - 1}, weapons: ${JSON.stringify(weapons)} }))`);
+  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', JSON.stringify({ version: 1, xp: ${floor(4) - 1}, weapons: ${JSON.stringify(weapons)} }))`);
   await chrome.navigate(`${BASE}?nolock&matchtime=${MATCH}`);
   if (!(await chrome.waitFor('globalThis.duty?.game', 90_000))) throw new Error('page did not start');
   await sleep(1500);
@@ -109,7 +109,7 @@ try {
     if (s.phase === 'playing') break;
     await sleep(150);
   }
-  log('play again', { before, after: s, setupSeen, seconds: (Date.now() - t0) / 1000, profile: await js(`JSON.parse(localStorage.getItem('duty-shooter.profile.v1')).xp`) });
+  log('play again', { before, after: s, setupSeen, seconds: (Date.now() - t0) / 1000, profile: await js(`JSON.parse(localStorage.getItem('duty-shooter.profile.v2')).xp`) });
   await sleep(3000);
   await shot('4-played-again-desktop');
 } catch (e) {

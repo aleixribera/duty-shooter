@@ -101,7 +101,7 @@ const emptyLobby = async () => {
 };
 try {
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HMR_SHIELD });
-  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('duty-shooter.profile.v1', ${JSON.stringify(PROFILE)}); } catch {}` });
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(PROFILE)}); } catch {}` });
   await emptyLobby();
 
   // 1. The invite link: a stranger opens the lobby (Trios), Pau joins and takes Squad 5; the page opens Pau's link

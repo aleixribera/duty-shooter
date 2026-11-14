@@ -48,7 +48,7 @@ const until = async (want, limit = 45000) => {
 const mastered = { kills: 600, headshots: 0, longest: 0 };
 const PROFILE = { version: 1, xp: 400000, weapons: { m4a1: mastered, burst: mastered, shotgun: mastered, sniper: { kills: 80, headshots: 0, longest: 0 } } };
 const start = async (settings, query = '') => {
-  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', ${JSON.stringify(JSON.stringify(PROFILE))}); localStorage.setItem('${settingsKey}', ${JSON.stringify(JSON.stringify(settings))})`);
+  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(JSON.stringify(PROFILE))}); localStorage.setItem('${settingsKey}', ${JSON.stringify(JSON.stringify(settings))})`);
   await chrome.navigate(`${BASE}?nolock${query}`);
   if (!(await chrome.waitFor('globalThis.duty?.game', 90_000))) throw new Error('page did not start');
   await sleep(1500);

@@ -69,7 +69,7 @@ try {
     await chrome.evaluate('globalThis.__runner.on = false');
     log.push({ run, result });
     await sleep(1000);
-    log.push({ t: 'after', clock: await clockText(), best: await chrome.evaluate('JSON.parse(localStorage.getItem("duty-shooter.profile.v1") ?? "{}").courseBest ?? null') });
+    log.push({ t: 'after', clock: await clockText(), best: await chrome.evaluate('JSON.parse(localStorage.getItem("duty-shooter.profile.v2") ?? "{}").courseBest ?? null') });
     break;
   }
   writeFileSync(`${OUT}/log-${W}.json`, JSON.stringify(log, null, 1));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { STATS, WEAPON_IDS, type ScoreLine } from '@duty-shooter/fps-core';
-import { CHALLENGES, DAILY_CHALLENGES, GUN_RANKS, gunOpen, gunsOpened, openLoadout, readSaveCode, saveCode, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
+import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, type ScoreLine } from '@duty-shooter/fps-core';
+import { earnedLoadout } from '../src/ui/gunsmith';
+import { CHALLENGES, DAILY_CHALLENGES, GUN_RANKS, gunOpen, gunsOpened, openLoadout, readSaveCode, retiredSaveCode, saveCode, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
 
 const match = (over: Partial<MatchRecord> = {}): MatchRecord => ({ mode: 'tdm', won: false, score: 1000, kills: 8, deaths: 5, assists: 2, headshots: 3, seconds: 600, bestStreak: 3, place: null, weapons: {}, reasons: {}, medal: null, ...over });
 
@@ -109,7 +110,7 @@ describe('the save code (PLAN item 7)', () => {
   const played = applyMatch(emptyProfile(), match({ score: 9000, weapons: { smg: { kills: 30, headshots: 4, longest: 22 } } }), '2026-01-01').profile;
   it('carries a Profile into a fresh browser whole', () => {
     const code = saveCode(played);
-    expect(code).toMatch(/^DS1-[A-Za-z0-9_-]+$/);
+    expect(code).toMatch(/^DS2-[A-Za-z0-9_-]+$/);
     const storage = memory();
     const there = new ProfileStore(storage);
     expect(there.load(code)).toBe(true);
@@ -125,10 +126,19 @@ ${code.slice(20)} `)).toEqual(played);
   it('refuses what is not a whole code, and leaves the Profile as it was', () => {
     const code = saveCode(played);
     const store = new ProfileStore(memory());
-    for (const bad of ['', 'hello', code.slice(0, code.length - 9), code.replace('DS1-', 'DS9-'), 'DS1-!!!!']) {
+    for (const bad of ['', 'hello', code.slice(0, code.length - 9), code.replace('DS2-', 'DS9-'), 'DS2-!!!!']) {
       expect(store.load(bad)).toBe(false);
       expect(store.profile).toEqual(emptyProfile());
     }
+  });
+  it('refuses a code made before every Profile went back to Rank 1, and says so (ticket 116)', () => {
+    const old = saveCode(played).replace('DS2-', 'DS1-');
+    const store = new ProfileStore(memory());
+    expect(store.load(old)).toBe(false);
+    expect(store.profile).toEqual(emptyProfile());
+    expect(retiredSaveCode(` ${old} `)).toBe(true);
+    expect(retiredSaveCode(saveCode(played))).toBe(false);
+    expect(retiredSaveCode('hello')).toBe(false);
   });
 });
 
@@ -291,14 +301,14 @@ describe('what storage holds', () => {
 describe('the Profile store', () => {
   const at = () => new Date(2026, 10, 9, 20, 0);
 
-  it('banks a match under duty-shooter.profile.v1 and reads it back in a new session', () => {
+  it('banks a match under duty-shooter.profile.v2 and reads it back in a new session', () => {
     const storage = memory();
     const store = new ProfileStore(storage, at);
     expect(store.profile).toEqual(emptyProfile());
     const gain = store.bank(match({ score: 2000, won: true }));
     expect(gain.score).toBe(2000);
     expect(gain.bonus).toBe(500);
-    expect(PROFILE_KEY).toBe('duty-shooter.profile.v1');
+    expect(PROFILE_KEY).toBe('duty-shooter.profile.v2');
     expect(JSON.parse(storage.data.get(PROFILE_KEY)!)).toEqual(store.profile);
     const again = new ProfileStore(storage, at);
     expect(again.profile.xp).toBe(gain.xp);
@@ -385,6 +395,33 @@ describe('the Profile store', () => {
     expect(store.profile).toEqual(emptyProfile());
     expect(storage.data.has(PROFILE_KEY)).toBe(false);
     expect(new ProfileStore(storage, at).profile).toEqual(emptyProfile());
+  });
+
+  it('wipes a Profile from before the reset of all progression: an old Rank 10 loads at Rank 1 (ticket 116)', () => {
+    const rank10 = { ...emptyProfile(), xp: rankFloor(10) + 5, weapons: { m4a1: { kills: 400, headshots: 90, longest: 120 } } };
+    expect(rankOf(rank10.xp).rank).toBe(10);
+    const storage = memory({ 'duty-shooter.profile.v1': JSON.stringify(rank10), 'duty-shooter.settings.v1': '{"name":"Kept"}' });
+    const store = new ProfileStore(storage, at);
+    expect(store.wiped).toBe(true);
+    expect(store.profile).toEqual(emptyProfile());
+    expect(rankOf(store.profile.xp).rank).toBe(1);
+    expect(gunOpen('sniper', store.profile.xp)).toBe(false);
+    expect(storage.data.has('duty-shooter.profile.v1')).toBe(false);
+    // Settings and the name are another key, left as they were.
+    expect(storage.data.get('duty-shooter.settings.v1')).toBe('{"name":"Kept"}');
+    // Once: the next load finds nothing to wipe, and keeps what this one banks.
+    store.bank(match({ score: 100 }));
+    const next = new ProfileStore(storage, at);
+    expect(next.wiped).toBe(false);
+    expect(next.profile.stats.matches).toBe(1);
+  });
+
+  it('takes a loadout saved before the reset into a match with only what the new Profile has earned', () => {
+    const saved = { ...DEFAULT_LOADOUT, attachments: { primary: { optic: 'reflex', muzzle: 'suppressor', grip: 'vertical' } } } as const;
+    expect(earnedLoadout(saved, () => 0).attachments).toBeUndefined();
+    // 25 kills: the M4A1's Mastery 1, its optic and nothing past it.
+    expect(earnedLoadout(saved, (id) => (id === 'm4a1' ? MASTERY_KILLS[0]! : 0)).attachments).toEqual({ primary: { optic: 'reflex' } });
+    expect(earnedLoadout(DEFAULT_LOADOUT, () => 0)).toBe(DEFAULT_LOADOUT);
   });
 });
 

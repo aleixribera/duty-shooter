@@ -11,7 +11,14 @@ import { MODE_IDS, STATS, WEAPON_IDS, type Loadout, type Medal, type ModeId, typ
  * match that was played to its end.
  */
 
-export const PROFILE_KEY = 'duty-shooter.profile.v1';
+/**
+ * Where this browser keeps its Profile. The key moved from `.v1` when every
+ * Profile went back to Rank 1 with the unlocks and loadouts (2026-11-14,
+ * ticket 116): what the old keys hold is wiped on the next load.
+ */
+export const PROFILE_KEY = 'duty-shooter.profile.v2';
+/** Keys a Profile was kept under before a reset of all progression. */
+export const RETIRED_PROFILE_KEYS: readonly string[] = ['duty-shooter.profile.v1'];
 const PROFILE_VERSION = 1;
 
 /** A weapon's own numbers: kills made with it, how many through the head, and the longest of them (m). */
@@ -520,7 +527,16 @@ export function readProfile(text: string | null): Profile {
 
 /* ---------- The save code (PLAN item 7) ---------- */
 
-const SAVE_CODE_HEAD = 'DS1-';
+/** The head of a save code; it moves with each reset of all progression, so a code made before one loads nothing. */
+export const SAVE_CODE_HEAD = 'DS2-';
+/** Heads of save codes made before a reset of all progression. */
+const RETIRED_SAVE_CODE_HEADS: readonly string[] = ['DS1-'];
+
+/** Whether the text is a save code made before every Profile went back to Rank 1, which can no longer be loaded. */
+export function retiredSaveCode(code: string): boolean {
+  const text = code.replace(/\s+/g, '');
+  return RETIRED_SAVE_CODE_HEADS.some((head) => text.startsWith(head));
+}
 
 /** The Profile as one line of text to carry to another browser: a head, then its JSON in URL-safe base64. */
 export function saveCode(profile: Profile): string {

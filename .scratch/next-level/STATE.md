@@ -17,15 +17,16 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 
-**PLAN item 7, rough sweep (ticket 117): passes 39-43 so far; each pass's detail, review and proof are in the ticket's comments.** Checklist:
+**PLAN item 7, rough sweep (ticket 117): passes 39-44, all items built roughly; each pass's detail, review and proof are in the ticket's comments.** Checklist:
 - [x] Unlocks (pass 39): 4 guns at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`), any gun in the Practice Range, the match end names a gun opened, with Equip it.
 - [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
 - [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
 - [x] Loadout editor, rough (pass 40, v2.206.0): the gun in 3D, turning (`gun-stage.ts`); loadouts Main, Close, Breach, picked with 1 2 3 while dead. First open 3-5 s (shaders; BACKLOG).
 - [x] Results (pass 41, v2.207.0): each gun's Mastery at a match's end; Play again (P) at a Bot Match's end; Equip it on the pad.
-- [x] Customizing (pass 42, v2.208.0): muzzle devices, foregrips, long and speed magazines on the gun in first person and on the Loadout screen (Blender, `tools/weapon/fittings.py`); camos at Mastery 1-5, per gun; each optic's reticle colour and shape. Frames in `customize/after/`.
+- [x] Customizing (pass 42, v2.208.0): fittings on the gun (Blender, `tools/weapon/fittings.py`); camos at Mastery 1-5, per gun; each optic's reticle colour and shape.
 - [x] Battle Royale on loadouts, behind a switch (pass 43): `?drops=resupply` / `ROYALE_DROPS=resupply` drop everyone with their loadout (Ridgeline too), crates resupply (frags, tacticals, health), nothing on the ground. Default stays the loot rules until Aleix says go (Needs Aleix); then flip `DropHolds`' default and drop the loot path.
-- [ ] Then ticket 116 (the reset; it must clear `camos` too), then a fresh review. The reset doesn't wait on the switch: loadouts work end to end in every mode.
+- [x] Ticket 116, the reset (pass 44, v2.210.0): key `.v2`, `.v1` wiped on load with the camos; `DS1-` codes refused; unearned attachments go stock.
+- [ ] Next (pass 45): a fresh review (`reviews/capture.mjs`), then PLAN item 7's depth (the editor's first open) or the review's weakest objective.
 
 ## Needs Aleix
 

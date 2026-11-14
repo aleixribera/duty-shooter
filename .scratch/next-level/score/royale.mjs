@@ -116,7 +116,7 @@ try {
   console.error('card at first shot', report.first.card, report.first.phase, report.first.left, '| at second', report.second.card, report.second.phase, report.second.left);
   report.shots.push(`${name}-first`, name);
   report.cardText = report.second.card ? await chrome.evaluate(`document.querySelector('.ds-card')?.innerText ?? null`) : null;
-  report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v1')`);
+  report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v2')`);
 } catch (e) {
   report.error = String(e);
   await grab('royale-failed-1920').catch(() => {});

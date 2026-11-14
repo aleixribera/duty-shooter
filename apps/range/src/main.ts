@@ -1,4 +1,4 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -30,11 +30,19 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   useColourVision(settings.colourVision);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
-  /** The loadout a match takes: a gun not yet opened, carried in the Practice Range, gives way to a starting one (PLAN item 7). */
+  // All progression went back to Rank 1 (ticket 116): the camos picked with Mastery from before it go too.
+  if (profile.wiped && Object.keys(settings.camos).length > 0) {
+    settings = { ...settings, camos: {} };
+    saveSettings(settings);
+  }
+  /**
+   * The loadout a match takes: a gun not yet opened, carried in the Practice Range, gives way to a starting one (PLAN item 7),
+   * and an attachment not yet earned (a loadout saved before the reset of ticket 116) goes stock.
+   */
   const matchLoadout = (loadout: Settings['loadout'] = settings.loadout) => {
     const open = openLoadout(loadout, profile.profile.xp);
     // The starting gun swapped in carries its own build from the gunsmith.
-    return open === loadout ? loadout : withBuilds(open, settings.builds, gunKills);
+    return earnedLoadout(open === loadout ? loadout : withBuilds(open, settings.builds, gunKills), gunKills);
   };
   // `?bench`: fly the map's benchmark path and report frame times, GPU time, draw calls and triangles.
   const benching = params.has('bench');

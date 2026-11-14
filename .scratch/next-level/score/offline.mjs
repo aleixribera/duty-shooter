@@ -46,7 +46,7 @@ try {
   report.lines = lines;
   report.total = await chrome.evaluate(`document.querySelector('.ds-score .total')?.className + ' / ' + document.querySelector('.ds-score .total')?.textContent`);
   await sleep(1000);
-  report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v1')`);
+  report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v2')`);
 } catch (e) {
   report.error = String(e);
 }

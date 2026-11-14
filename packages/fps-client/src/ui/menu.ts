@@ -14,7 +14,7 @@ import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
 import { touchMode } from '../touch/mode';
 import { clearHintMemory, hintsSeen } from '../hint-store';
 import type { ProfileStore } from '../profile/store';
-import { GUN_RANKS, MASTERY_KILLS, gunLock, gunOpen, masteryOf, openLoadout } from '../profile/model';
+import { GUN_RANKS, MASTERY_KILLS, SAVE_CODE_HEAD, gunLock, gunOpen, masteryOf, openLoadout, retiredSaveCode } from '../profile/model';
 import { CAMO_IDS, CAMO_MASTERY, CAMO_NAMES, RETICLE_COLOURS, RETICLE_COLOUR_NAMES, RETICLE_SHAPES, RETICLE_SHAPE_NAMES, camoOn, reticleOf, type CamoId, type Reticles } from '../customize';
 
 export type { LobbyInfo } from './model';
@@ -1474,7 +1474,11 @@ export class Menu {
       });
       button(row, 'Load', () => {
         const loaded = store.load(paste.value);
-        this.#saveNote = loaded ? 'Loaded: this browser now holds that Profile.' : 'That is not a save code. Copy the whole line, from DS1- to its end.';
+        this.#saveNote = loaded
+          ? 'Loaded: this browser now holds that Profile.'
+          : retiredSaveCode(paste.value)
+            ? 'That code was made before every Profile went back to Rank 1, on 14 November 2026, and can no longer be loaded.'
+            : `That is not a save code. Copy the whole line, from ${SAVE_CODE_HEAD} to its end.`;
         if (loaded) this.#savePaste = '';
         this.#render();
       });

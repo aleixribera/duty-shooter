@@ -94,6 +94,16 @@ export function withBuilds(loadout: Loadout, builds: Builds, kills: (id: WeaponI
   return attachments.primary || attachments.secondary ? { ...rest, attachments } : rest;
 }
 
+/**
+ * `loadout` with only the attachments `kills` have opened on its two guns:
+ * one saved before a reset of all progression, or fitted in the Practice
+ * Range, goes stock in a match.
+ */
+export function earnedLoadout(loadout: Loadout, kills: (id: WeaponId) => number): Loadout {
+  if (!loadout.attachments) return loadout;
+  return withBuilds(loadout, { [loadout.primary]: loadout.attachments.primary, [loadout.secondary]: loadout.attachments.secondary }, kills);
+}
+
 /** `builds` with gun `id`'s `slot` set to `choice` (null: back to stock). */
 export function rebuild(builds: Builds, id: WeaponId, slot: AttachmentSlot, choice: AttachmentId | null): Builds {
   const { [slot]: _, ...kept } = builds[id] ?? {};

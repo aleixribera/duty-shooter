@@ -37,7 +37,7 @@ try {
   });
   await chrome.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await chrome.navigate(BASE);
-  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', JSON.stringify({ version: 1, xp: 21000, stats: { matches: 14, wins: 8, kills: 160, deaths: 90 }, weapons: { smg: { kills: 90, headshots: 12, longest: 31 } } }))`);
+  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', JSON.stringify({ version: 1, xp: 21000, stats: { matches: 14, wins: 8, kills: 160, deaths: 90 }, weapons: { smg: { kills: 90, headshots: 12, longest: 31 } } }))`);
   await open();
   if (!(await click('Save code'))) throw new Error('no Save code button');
   await sleep(500);
@@ -58,7 +58,7 @@ try {
   await chrome.evaluate(`(() => { const t = document.querySelectorAll('.ds-save textarea')[1]; t.value = ${JSON.stringify(code)}; t.dispatchEvent(new Event('input')); })()`);
   await click('Load');
   await sleep(500);
-  log('loaded', { rank: await js(rank), note: await js(`document.querySelector('.ds-save-note')?.innerText`), kept: await js(`JSON.parse(localStorage.getItem('duty-shooter.profile.v1') ?? 'null')?.xp`) });
+  log('loaded', { rank: await js(rank), note: await js(`document.querySelector('.ds-save-note')?.innerText`), kept: await js(`JSON.parse(localStorage.getItem('duty-shooter.profile.v2') ?? 'null')?.xp`) });
   await chrome.evaluate(`document.querySelector('.ds-save')?.scrollIntoView()`);
   await shot('2-loaded-desktop');
   await chrome.evaluate(`document.querySelector('.ds-prof')?.scrollIntoView()`);

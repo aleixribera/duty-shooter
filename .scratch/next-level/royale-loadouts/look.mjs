@@ -33,7 +33,7 @@ const phone = (on) => chrome.send('Emulation.setDeviceMetricsOverride', on ? { w
 const royale = () => chrome.evaluate(`JSON.stringify((() => { const d = duty.game?.driver; const o = d?.match?.objective; const me = duty.game?.player ?? null; return { phase: d?.match?.phase ?? null, holds: o?.holds ?? null, stage: o?.stage ?? null, drops: o?.drops ?? null, loose: o?.loose ?? null, alive: o?.alive ?? null, time: d?.serverTime ?? null, me: me ? { alive: me.alive, primary: me.loadout?.primary, weapon: me.weapon?.id, grenades: me.grenades } : null }; })())`).then((t) => JSON.parse(t ?? 'null'));
 try {
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HMR_SHIELD });
-  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('duty-shooter.profile.v1', ${JSON.stringify(PROFILE)}); } catch {}` });
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(PROFILE)}); } catch {}` });
   await chrome.navigate(`${BASE}?${QUERY}`);
   if (!(await chrome.waitFor(`location.protocol.startsWith('http') && !!globalThis.duty?.game`, 120_000))) throw new Error('page did not start');
   await sleep(2000);

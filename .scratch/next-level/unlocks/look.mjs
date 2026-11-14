@@ -34,7 +34,7 @@ const log = (step, detail) => {
   console.log(step, JSON.stringify(detail));
 };
 const withXp = async (xp, query = '') => {
-  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v1', JSON.stringify({ version: 1, xp: ${xp} }))`);
+  await chrome.evaluate(`localStorage.setItem('duty-shooter.profile.v2', JSON.stringify({ version: 1, xp: ${xp} }))`);
   await chrome.navigate(`${BASE}?nolock${query}`);
   if (!(await chrome.waitFor('globalThis.duty?.game', 90_000))) throw new Error('page did not start');
   await sleep(1500);

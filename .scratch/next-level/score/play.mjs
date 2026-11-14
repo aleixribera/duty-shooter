@@ -202,7 +202,7 @@ if (!process.env.SKIP_MATCH) {
       await sleep(90);
     }
     report.final = state;
-    report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v1')`);
+    report.stored = await chrome.evaluate(`localStorage.getItem('duty-shooter.profile.v2')`);
     // Let the page write, then leave.
     await sleep(500);
   } catch (e) {
