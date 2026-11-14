@@ -642,7 +642,7 @@ export class Hud {
     this.#hit = el('div', 'ds-hit', this.root, '<i></i><i></i><i></i><i></i>');
     [...this.#hit.querySelectorAll('i')].forEach((i, n) => {
       const a = 45 + n * 90;
-      (i as HTMLElement).style.transform = `rotate(${a}deg) translateX(12px)`;
+      (i as HTMLElement).style.transform = `rotate(${a}deg) translateX(17px)`;
     });
     this.#score = new ScoreFeed(this.root);
     this.#dmg = el('div', 'ds-dmg', this.root);

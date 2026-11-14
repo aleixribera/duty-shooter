@@ -95,7 +95,9 @@ export const steer = ({ range = 40, chase = 0 }) => `(() => {
   const others = d.others(0).filter((p) => p.kind === 'player' && p.alive);
   const eye = [me.position[0], me.position[1] + me.eyeHeight, me.position[2]];
   const foes = others.filter((p) => p.team !== me.team).map((p) => ({ p, d: C.flat(p.position, me.position), at: [p.position[0], p.position[1] + p.eyeHeight * 0.82, p.position[2]] }))
-    .filter((f) => f.d < ${range} && C.clear(eye, f.at)).sort((a, b) => a.d - b.d);
+    // In sight as a person sees: no wall, and no smoke or soft cover either (\`game.sees\`, where the page has it); firing
+    // into a cloud left the review's kill frames showing smoke, not the kill (review 2026-11-14c, defect 2).
+    .filter((f) => f.d < ${range} && C.clear(eye, f.at) && (!g.sees || g.sees(eye, f.at))).sort((a, b) => a.d - b.d);
   const foe = foes[0] ?? null;
   // Follow the teammate nearest the enemy (the front), so the player is drawn to the fight.
   const enemies = others.filter((p) => p.team !== me.team);

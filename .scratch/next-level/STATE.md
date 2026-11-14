@@ -23,7 +23,9 @@ Passes 45-54: review 14a's gaps (tickets 100, 102, 103; v2.211.0-9), then review
 
 Passes 55-66 (tickets 100, 102, 103, 117; v2.211.11-22): review 14b's five defects and its "close behind" list, each in BACKLOG with its pass.
 
-Pass 67: the capture's menu now reads a live local server ("Online 0/12", not "Offline"); review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail. The PC was saturated by other sessions during it (CPU 96-100%, local ping 454-615 ms), so objective 2's FAIL (workP99 39-139 ms, worst frame 2.9 s) is suspect. Its defects: BACKLOG "Review 2026-11-14c's open defects". Next (pass 68): re-measure the freezes on a quiet PC (ONLY=match,tour into a scratch dir, or the toaster bench); if they don't reproduce, take defect 2, the kill never seen.
+Pass 67: the capture's menu reads a live local server; review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG "Review 2026-11-14c's open defects".
+
+Pass 68 (ticket 102): the scripted player no longer fires into smoke (`Game.sees`), the hit marker frames the target; the freezes tracked the PC's load (Station Nine FFA at ~47% CPU: worst frame 146 ms, workP99 18-23 ms; `kill-seen/`). Next (pass 69): defect 3, fights in the first seconds (ticket 100, free-for-all spawns).
 
 ## Needs Aleix
 

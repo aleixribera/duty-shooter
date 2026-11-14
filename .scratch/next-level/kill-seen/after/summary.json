@@ -1,0 +1,147 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": {
+    "map": "station-nine",
+    "mode": "ffa",
+    "audioContext": "running",
+    "opening": {
+      "audioKb": 2980,
+      "loudness": {
+        "lufs": -17.9,
+        "truePeakDb": -1.3
+      },
+      "heard": {
+        "footstep": 1804,
+        "gunshot": 562,
+        "impact": 389,
+        "casing": 192,
+        "ambientHum": 156,
+        "pain": 48,
+        "slide": 46,
+        "weaponRaise": 38,
+        "death": 37,
+        "grenadePin": 28,
+        "grenadeBounce": 28,
+        "bulletCrack": 25,
+        "grenadeThrow": 17,
+        "ambientWind": 15,
+        "boltOpen": 15,
+        "reloadMagOut": 15,
+        "reloadMagIn": 15,
+        "boltClose": 14,
+        "smokePop": 14,
+        "ambientRadio": 13,
+        "ambientBirds": 13,
+        "explosion": 12,
+        "hitMarker": 9,
+        "meleeSwing": 9,
+        "land": 7
+      },
+      "levels": {
+        "samples": 386,
+        "rmsMedianDb": -33,
+        "rmsLoudestDb": -12,
+        "peakDb": -2,
+        "silentShare": 0.01
+      },
+      "frames": {
+        "frames": 2525,
+        "meanMs": 38,
+        "p50Ms": 34.7,
+        "p95Ms": 62.1,
+        "p99Ms": 90.2,
+        "worstMs": 145.7,
+        "over50ms": 160,
+        "fps": 26.3,
+        "low1Fps": 9.4,
+        "workP50Ms": 6.8,
+        "workP99Ms": 17.6,
+        "render": {
+          "frames": 22,
+          "draws": 206,
+          "maxDraws": 211,
+          "triangles": 1242826,
+          "gpu": 1.364,
+          "geometries": 346,
+          "textures": 121
+        }
+      }
+    },
+    "play": {
+      "kills": 4,
+      "deaths": 4,
+      "seconds": 154,
+      "phase": "nuke"
+    },
+    "lastMinute": {
+      "audioKb": 2134,
+      "loudness": {
+        "lufs": -20.3,
+        "truePeakDb": -1.7
+      },
+      "heard": {
+        "footstep": 1153,
+        "gunshot": 311,
+        "impact": 261,
+        "geigerTick": 206,
+        "ambientHum": 114,
+        "pain": 30,
+        "grenadeBounce": 25,
+        "weaponRaise": 23,
+        "slide": 23,
+        "death": 18,
+        "countdownSirenHold": 17,
+        "reloadMagOut": 14,
+        "grenadePin": 13,
+        "bulletCrack": 12,
+        "grenadeThrow": 10,
+        "ambientBirds": 10,
+        "ambientWind": 10,
+        "casing": 10,
+        "reloadMagIn": 10,
+        "ambientRadio": 9,
+        "smokePop": 8,
+        "explosion": 6,
+        "boltOpen": 6,
+        "boltClose": 6,
+        "shellInsert": 5
+      },
+      "levels": {
+        "samples": 280,
+        "rmsMedianDb": -28,
+        "rmsLoudestDb": -10,
+        "peakDb": -2,
+        "silentShare": 0
+      },
+      "frames": {
+        "frames": 1950,
+        "meanMs": 35.8,
+        "p50Ms": 34.7,
+        "p95Ms": 41.6,
+        "p99Ms": 69.2,
+        "worstMs": 146,
+        "over50ms": 33,
+        "fps": 27.9,
+        "low1Fps": 11.4,
+        "workP50Ms": 6.3,
+        "workP99Ms": 23.1,
+        "render": {
+          "frames": 28,
+          "draws": 167,
+          "maxDraws": 168,
+          "triangles": 996713,
+          "gpu": 1.137,
+          "geometries": 346,
+          "textures": 121
+        }
+      }
+    },
+    "soundLog": "sounds-match.json",
+    "errors": []
+  },
+  "tour": [],
+  "range": null,
+  "island": null,
+  "online": null
+}

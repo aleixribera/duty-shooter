@@ -13,6 +13,8 @@ import {
   teamMode,
   raycastWorld,
   sightBlocked,
+  botSees,
+  smokeHides,
   wading,
   viewDirection,
   type ChargeSite,
@@ -525,6 +527,19 @@ export class Game {
   /** The local player as of the latest tick, or null with none (for scripts and tests: read, never change). */
   get player(): PlayerOutput | null {
     return this.#cur;
+  }
+
+  /**
+   * Whether an eye at `from` sees `to` as a bot does (`botSees`): no wall, soft cover or standing smoke between. For
+   * scripted players, who should shoot only what a person could see: the review's player fired into smoke, so its
+   * kill frames showed a cloud, not the kill (review 2026-11-14c, defect 2).
+   */
+  sees(from: Vec3, to: Vec3): boolean {
+    if (!botSees(this.#world, from, to)) return false;
+    const driver = this.#driver;
+    if (!driver) return true;
+    const time = driver.serverTime;
+    return !smokeCloudsOf(driver.grenades()).some((cloud) => smokeHides(cloud, from, to, time));
   }
 
   /** Lets go of the driver without ending it, for the game on another map to take over. */
