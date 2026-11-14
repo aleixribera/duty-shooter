@@ -1,0 +1,202 @@
+{
+  "F01": {
+    "verdict": "PASS",
+    "note": "All seven tabs show on three rows; nothing is off the screen.",
+    "evidence": "after/settings@phone-upright: tabs at y 87, 139, 191, the widest row ends at x 322 of 390"
+  },
+  "F02": {
+    "verdict": "PASS",
+    "note": "The result heads the panel on its plate.",
+    "evidence": "contrast failures end-vote@desktop 47 -> 0, end-panel@phone 1 -> 0"
+  },
+  "F03": {
+    "verdict": "PASS",
+    "note": "The list holds the left gutter; the name and the Rank stand right of it.",
+    "evidence": "after/main-menu@phone: four destinations and Settings between y 55 and 333 of 390"
+  },
+  "F04": {
+    "verdict": "PASS",
+    "note": "Bot Match and the Practice Range show without a scroll.",
+    "evidence": "after/main-menu@phone"
+  },
+  "F05": {
+    "verdict": "FAIL",
+    "note": "Not changed, on purpose: a phone keeps one HUD layout, fitted around the thumb controls. What has to be read in play (hint, toast, caption) went from 13 to 16 px instead.",
+    "evidence": "after/settings-hud@phone: HUD size still disabled with its note"
+  },
+  "F07": {
+    "verdict": "FAIL",
+    "note": "Not changed: the Profile screen is the owner's, shipped in v2.151.0. Left for it.",
+    "evidence": ""
+  },
+  "F08": {
+    "verdict": "PASS",
+    "note": "One line under the field says who gives the passphrase out.",
+    "evidence": "after/online@desktop: \"Whoever runs this server gives it out.\""
+  },
+  "F09": {
+    "verdict": "PASS",
+    "note": "With no server the primary slot holds Check again, there is no dead Join, and Enter does the same.",
+    "evidence": "after/online@desktop, after/online@phone"
+  },
+  "F10": {
+    "verdict": "PASS",
+    "note": "On touch a typed field never takes the focus by itself.",
+    "evidence": "after/online@phone .dom.json: focused = CHECK AGAIN [149,338,679,44]"
+  },
+  "F11": {
+    "verdict": "FAIL",
+    "note": "Not changed: the Battle Royale screen's layout is the owner's.",
+    "evidence": ""
+  },
+  "F12": {
+    "verdict": "FAIL",
+    "note": "Not changed here: the Battle Royale screen is the owner's (fixed later, see the 2026-11-13 audit, F01).",
+    "evidence": ""
+  },
+  "F13": {
+    "verdict": "PASS",
+    "note": "Tabs and pause rows stand 8 px apart on touch, and the segments of a picker too, each in its own line (theme.ts, html.ds-touch .ds-seg). The segment rule was made after the after-shots, so it is not in them; it shows in the tour's Battle Royale lobby shot of 2026-11-14 (Solos, Duos, Trios 8 px apart).",
+    "evidence": "after/pause@phone rows at y 89, 145, 201, 257 (48 tall); after/settings@phone tabs 8 px apart; .scratch/next-level/touch/shots/tour-royale-lobby-844x390.png"
+  },
+  "F14": {
+    "verdict": "FAIL",
+    "note": "Not changed: the loadout and its weapon card were the weapons session's at the time.",
+    "evidence": ""
+  },
+  "F15": {
+    "verdict": "PASS",
+    "note": "The mode, the number and the goal share one plate.",
+    "evidence": "countdown@desktop contrast warnings 10 -> 1"
+  },
+  "F16": {
+    "verdict": "PASS",
+    "note": "Edge tags that meet step along the edge; of two names in view the nearer ally keeps theirs.",
+    "evidence": "after/countdown@desktop: Ember, Briar, Rook 42 px apart at the right edge, clear of the ammo"
+  },
+  "F17": {
+    "verdict": "FAIL",
+    "note": "Not changed: the desktop readouts' ground is the owner's HUD work.",
+    "evidence": ""
+  },
+  "F18": {
+    "verdict": "PASS",
+    "note": "On touch a tap on the prompt presses Use (its own zone in the touch layer). The desktop prompt still writes the key as plain text.",
+    "evidence": "match.mjs: \"a tap on the Use prompt itself opens the loadout\", 16/16"
+  },
+  "F19": {
+    "verdict": "PASS",
+    "note": "The whole HUD is set in tabular figures.",
+    "evidence": ".ds-hud { font-variant-numeric: tabular-nums }; fire-hint.mjs reads tabular-nums on the ammo, the health and the match bar"
+  },
+  "F20": {
+    "verdict": "PASS",
+    "note": "No tag lies on another, on the crosshair or on a plate.",
+    "evidence": "after/match-hud@phone, after/countdown@phone"
+  },
+  "F21": {
+    "verdict": "FAIL",
+    "note": "Partly: Fire has its hint now, right after Move (\"Aim at an enemy and the gun fires. Or hold this\"), and the pause menu's legend names every button without a scroll. Jump, Melee and Ping are still learned from that legend.",
+    "evidence": "after/pause@phone; hints.test.ts"
+  },
+  "F22": {
+    "verdict": "PASS",
+    "note": "One speaker at a time in the slot: the caption first, the hint when it is quiet.",
+    "evidence": "after/match-hud@phone: the caption alone, 16 px"
+  },
+  "F23": {
+    "verdict": "PASS",
+    "note": "Hint, toast and caption are body size on a phone.",
+    "evidence": "after/range-hud@phone: hint 16 px on its plate"
+  },
+  "F24": {
+    "verdict": "PASS",
+    "note": "The label and its distance stand on a solid ink plate. The plate was made solid after the after-shots; in them it is the translucent one, already readable.",
+    "evidence": "after/score-lines@desktop"
+  },
+  "F25": {
+    "verdict": "PASS",
+    "note": "The board is opaque on touch and has the screen: captions, hints, ally tags, pings and the match bar hide under it.",
+    "evidence": "after/scoreboard@phone"
+  },
+  "F26": {
+    "verdict": "PASS",
+    "note": "The legend stands beside the actions.",
+    "evidence": "after/pause@phone: 14 rows in two columns, all on screen"
+  },
+  "F27": {
+    "verdict": "PASS",
+    "note": "The line is gone where the board does not come by itself; the scoreboard button brings the board in the panel's place.",
+    "evidence": "after/end-panel@phone .dom.json: no \"Scoreboard in\"; tour end 5/5"
+  },
+  "F28": {
+    "verdict": "PASS",
+    "note": "The first row reads \"Time to kill\", the panel stands clear of Health, and the empty box is labelled \"Recoil of the last burst\" (the label came after the after-shot).",
+    "evidence": "after/range-hud@desktop: panel bottom y 948, Health label y 962"
+  },
+  "F29": {
+    "verdict": "PASS",
+    "note": "The panel stands above the Health label.",
+    "evidence": "after/range-hud@desktop"
+  },
+  "F30": {
+    "verdict": "PASS",
+    "note": "Running text in play is 16 px on a phone.",
+    "evidence": "after/range-hud@phone, after/match-hud@phone"
+  },
+  "F31": {
+    "verdict": "FAIL",
+    "note": "Not changed: the Settings screen's rows are the settings session's.",
+    "evidence": ""
+  },
+  "F32": {
+    "verdict": "FAIL",
+    "note": "Not changed: the Settings screen's copy size is the settings session's call.",
+    "evidence": ""
+  },
+  "F33": {
+    "verdict": "FAIL",
+    "note": "Not changed: the challenge's wording comes from the Profile model, the owner's.",
+    "evidence": ""
+  },
+  "F34": {
+    "verdict": "FAIL",
+    "note": "Not changed: the weapons session's screen.",
+    "evidence": ""
+  },
+  "F35": {
+    "verdict": "FAIL",
+    "note": "Eased, not gone: the goal plate moved up under the match bar on touch (14 px over the crosshair instead of 10), and the prompt under it is now a real button.",
+    "evidence": "after/countdown@phone"
+  },
+  "F36": {
+    "verdict": "PASS",
+    "note": "The scoreboard's header carries the goal beside the mode.",
+    "evidence": "after/scoreboard@phone, after/end-vote@desktop"
+  },
+  "F37": {
+    "verdict": "FAIL",
+    "note": "Not changed (low).",
+    "evidence": ""
+  },
+  "F38": {
+    "verdict": "FAIL",
+    "note": "Not changed (low): the pause menu on a sideways phone keeps its title at title size.",
+    "evidence": ""
+  },
+  "F39": {
+    "verdict": "PASS",
+    "note": "8 px between pause rows and between tabs on touch.",
+    "evidence": "after/pause@phone, after/settings@phone .dom.json"
+  },
+  "F40": {
+    "verdict": "PASS",
+    "note": "Spelled out.",
+    "evidence": "after/range-hud@desktop: \"Time to kill\""
+  },
+  "F41": {
+    "verdict": "PASS",
+    "note": "Body size, with shorter copy: \"Left thumb moves, right thumb looks\".",
+    "evidence": "after/range-hud@phone"
+  }
+}

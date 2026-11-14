@@ -127,7 +127,8 @@ export const TOUCH_CSS = `
 .ds-tc .tb.none { opacity: 0.45; }
 .ds-tc .tb.top { display: flex; width: 44px; height: 44px; }
 .ds-tc .tb[hidden] { display: none; }
-.ds-tc[data-state="fight"] .tb.f:not([hidden]), .ds-tc[data-state="spectate"] .tb.s:not([hidden]), .ds-tc:not([data-state="over"]) .tb.u:not([hidden]) { display: flex; }
+/* :where keeps "not hidden" out of the rule's weight, so the map and the scoreboard below still put these away. */
+.ds-tc[data-state="fight"] .tb.f:where(:not([hidden])), .ds-tc[data-state="spectate"] .tb.s:where(:not([hidden])), .ds-tc:not([data-state="over"]) .tb.u:where(:not([hidden])) { display: flex; }
 .ds-tc.mapped .tb.f, .ds-tc.mapped .tb.s, .ds-tc.mapped .tb.u { display: none; }
 /* The scoreboard open: it has the screen, and a finger on it scrolls it. Only its own button and Pause stay. */
 .ds-tc.boarded .tb.f, .ds-tc.boarded .tb.s, .ds-tc.boarded .tb.u, .ds-tc.boarded .tb.ping, .ds-tc.boarded .tb.map, .ds-tc.boarded .stickui { display: none; }

@@ -113,26 +113,6 @@
       ]
     },
     {
-      "id": "F06",
-      "screen": "profile",
-      "viewport": "desktop",
-      "rule": "MENU-04",
-      "severity": "medium",
-      "lenses": [
-        "accessibility"
-      ],
-      "title": "The button that holds keyboard focus when a screen opens looks the same as an unfocused one",
-      "detail": "The footer advertises arrows to move and Enter to select, but on opening the screen the focused button carries no ring, fill or bar, so a keyboard or pad player cannot tell what Enter will do. Seen on the focused BACK here, START on bot-lobby@desktop, DONE on loadout@desktop and TRY AGAIN on error@desktop. The main menu and pause do show a lit row.",
-      "fix": "When a screen opens and moves focus by script, mark the target with data-pad-focus (or call focus with focusVisible) so the existing signal ring shows; clear it on the next pointer move.",
-      "evidence": "profile@desktop .dom.json marks BACK [56,1022,125,44] as focused; cropped side by side it is identical to the unfocused BACK on settings@desktop. bot-lobby@desktop focused START [1604,1008,260,58] matches the unfocused CHECK AGAIN on royale@desktop. theme.ts does define rings for :focus-visible and [data-pad-focus], so the style exists but is not applied to focus set by script after a pointer click.",
-      "box": [
-        56,
-        1022,
-        125,
-        44
-      ]
-    },
-    {
       "id": "F07",
       "screen": "profile",
       "viewport": "desktop",

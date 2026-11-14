@@ -68,4 +68,6 @@ html.ds-touch .ds-board { overflow-y: auto; overscroll-behavior: contain; pointe
 html.ds-touch .ds-votes .key .kb { display: none; }
 html.ds-touch .ds-votes .key .tp { display: inline; }
 html.ds-touch .ds-votes button { min-height: 56px; }
+/* The map closes from its own lit button on touch: the line that names a key to close it has no key to name. */
+html.ds-touch .ds-map aside .close { display: none; }
 `;
