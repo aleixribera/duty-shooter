@@ -391,6 +391,23 @@ const _e = new Euler();
 const _m = new Matrix4();
 const _glow = new Color();
 
+/**
+ * A hit's flash on the body: a faint warm glow at `peak` that fades by `fade` a second (gone in about 80 ms). It
+ * was 0.8 fading at 6, which under a rifle's fire never fell away between rounds and washed the soldier flat red,
+ * hiding its camouflage (review 2026-11-14c, 13-90s). Well-loved shooters don't tint a body that is hit at all: the
+ * hit marker, the blood at the wound and the flinch say it, so the flash only nudges.
+ */
+const HIT_GLOW = { r: 0.9, g: 0.1, b: 0.05, peak: 0.25, fade: 12 } as const;
+
+/** Fades `flash` by `dt` and lights `materials` with what is left; returns the flash after the fade. */
+function glowHit(flash: number, dt: number, materials: readonly MeshStandardNodeMaterial[]): number {
+  if (flash <= 0) return 0;
+  const left = Math.max(0, flash - dt * HIT_GLOW.fade);
+  _glow.setRGB(HIT_GLOW.r, HIT_GLOW.g, HIT_GLOW.b).multiplyScalar(left * HIT_GLOW.peak);
+  for (const m of materials) m.emissive.copy(_glow);
+  return left;
+}
+
 export class Soldier {
   readonly root = new Group();
   /** The pieces the soldier is drawn from (hidden: the far stand-in is boxed from them), by part name. */
@@ -690,9 +707,7 @@ export class Soldier {
     else this.#restArms();
     this.#playClips(p, speed, ease);
 
-    this.#flash = Math.max(0, this.#flash - dt * 6);
-    const glow = new Color(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
-    for (const m of this.#materials) m.emissive.copy(glow);
+    this.#flash = glowHit(this.#flash, dt, this.#materials);
   }
 
   /** Whether the soldier has been killed (`die`): it is a body from then on, moved by `fall`. */
@@ -736,11 +751,7 @@ export class Soldier {
   /** Carries the death on by `dt` seconds. Returns how far through its fall the body is, 0 to 1 (1: lying still). */
   fall(dt: number): number {
     const d = this.#death;
-    if (this.#flash > 0) {
-      this.#flash = Math.max(0, this.#flash - dt * 6);
-      const glow = _glow.setRGB(0.9, 0.1, 0.05).multiplyScalar(this.#flash * 0.8);
-      for (const m of this.#materials) m.emissive.copy(glow);
-    }
+    this.#flash = glowHit(this.#flash, dt, this.#materials);
     // Lying still, a body costs nothing more.
     if (!d || d.still) return 1;
     d.time = Math.min(d.clip.duration, d.time + dt);

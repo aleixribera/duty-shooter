@@ -400,3 +400,36 @@ describe('the third-person soldier holding each weapon', () => {
     });
   });
 });
+
+describe('a soldier who is hit', () => {
+  /** The strongest red the body glows with this frame. */
+  const glow = (soldier: Soldier) => {
+    let red = 0;
+    soldier.root.traverse((o) => {
+      const m = (o as Mesh).material as { emissive?: { r: number } } | undefined;
+      if (o instanceof Mesh && m?.emissive) red = Math.max(red, m.emissive.r);
+    });
+    return red;
+  };
+
+  it('glows faintly under rifle fire and stops between rounds, so its camouflage stays in sight (review 2026-11-14c)', () => {
+    const soldier = new Soldier(soldierModel()!, LOOKS[0]!);
+    // An M4A1's rounds (800 a minute, one every 75 ms) for a second, drawn at 60 frames a second.
+    let peak = 0;
+    let sum = 0;
+    const frames = 60;
+    for (let i = 0; i < frames; i++) {
+      if (i % 4.5 < 1) soldier.hitFlash();
+      soldier.update(output('m4a1', {}, i / 60), 1 / 60);
+      const red = glow(soldier);
+      peak = Math.max(peak, red);
+      sum += red;
+    }
+    expect(peak).toBeGreaterThan(0);
+    expect(peak).toBeLessThan(0.25);
+    expect(sum / frames).toBeLessThan(0.12);
+    // 100 ms after the last round, nothing is left.
+    for (let i = 0; i < 6; i++) soldier.update(output('m4a1', {}, 1 + i / 60), 1 / 60);
+    expect(glow(soldier)).toBe(0);
+  });
+});
