@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOT_NAMES, STATS, TICK_SECONDS, botProfile, box, buildNavGraph, createWorld, royaleProfile, type BattleRoyaleState, type ModeContext, type NavGraph, type PlayerOutput, type SimEvent, type SpawnPoint, type Vec3 } from '@duty-shooter/fps-core';
-import { BattleRoyale, DROP_WEAPON, planDrops, planRing, playGround, roomForDrop, royaleLoadout, type ModeActions } from '@duty-shooter/fps-core/modes';
+import { BattleRoyale, planDrops, planRing, playGround, roomForDrop, type ModeActions } from '@duty-shooter/fps-core/modes';
 import { createNetworkedMatch, usercmd, type NetworkedMatch } from '@duty-shooter/fps-core/harness';
 import { seededRandom } from '../src/random';
 import { Button } from '../src/usercmd';
@@ -15,29 +15,11 @@ const D = STATS.royale.supplyDrop;
 const SNIPER_MAG = STATS.weapons.sniper.handling.magazineSize.value;
 const flat = (a: Vec3, b: { x: number; z: number } | Vec3) => ('x' in b ? Math.hypot(a[0] - b.x, a[2] - b.z) : Math.hypot(a[0] - b[0], a[2] - b[2]));
 
-describe('the sniper leaves the Battle Royale loadout', () => {
-  it('a pick of the sniper starts with the M4A1; other picks are kept', () => {
-    expect(royaleLoadout({ primary: 'sniper', secondary: 'pistol', grenade: 'frag' })).toEqual({ primary: 'm4a1', secondary: 'pistol', grenade: 'frag' });
-    expect(royaleLoadout({ primary: 'smg', secondary: 'pistol', grenade: null })).toEqual({ primary: 'smg', secondary: 'pistol', grenade: null });
-  });
-
-  it('no bot brings it into a Battle Royale, and those who would take their next pick', () => {
+describe('Battle Royale on loadouts (PLAN item 9g)', () => {
+  it('bots bring their own picks, the sniper among them', () => {
     const arena = BOT_NAMES.map((n) => botProfile(n));
     expect(arena.some((p) => p.loadout.primary === 'sniper')).toBe(true);
-    const royale = arena.map((p) => royaleProfile(p));
-    expect(royale.filter((p) => p.loadout.primary === 'sniper')).toEqual([]);
-    for (const [i, p] of royale.entries()) if (arena[i]!.loadout.primary !== 'sniper') expect(p.loadout).toEqual(arena[i]!.loadout);
-    // An anchor mostly carries the M4A1 instead.
-    expect(royale.filter((p) => p.style === 'anchor').some((p) => p.loadout.primary === 'm4a1')).toBe(true);
-  });
-});
-
-describe('on loadouts (PLAN item 7)', () => {
-  it('a pick of the sniper is kept, and bots bring their own picks', () => {
-    const sniper = { primary: 'sniper', secondary: 'pistol', grenade: 'frag' } as const;
-    expect(royaleLoadout(sniper, 'resupply')).toEqual(sniper);
-    const arena = BOT_NAMES.map((n) => botProfile(n));
-    for (const [i, p] of arena.map((a) => royaleProfile(a, 'resupply')).entries()) expect(p.loadout).toEqual(arena[i]!.loadout);
+    for (const [i, p] of arena.map((a) => royaleProfile(a)).entries()) expect(p.loadout).toEqual(arena[i]!.loadout);
   });
 });
 
@@ -131,13 +113,13 @@ describe('planning the drops', () => {
   });
 });
 
-/** The mode alone, with seats that stand where told, hold use when told and carry what `act` says. */
-function royale(holds: 'sniper' | 'resupply' = 'sniper') {
+/** The mode alone, with seats that stand where told, hold use when told and carry a primary. */
+function royale() {
   const ids = ['p1', 'p2', 'p3', 'p4'];
-  const mode = new BattleRoyale({ squadSize: 2, seed: 5, holds });
+  const mode = new BattleRoyale({ squadSize: 2, seed: 5 });
   const where = new Map<string, Vec3>(ids.map((id, i) => [id, [i * 50, 0, 0]]));
   const alive = new Map(ids.map((id) => [id, true]));
-  const primary = new Map<string, { id: 'm4a1' | 'smg' | 'sniper'; ammo: number; reserve?: number }>(ids.map((id) => [id, { id: 'm4a1', ammo: 30 }]));
+  const primary = new Map<string, 'm4a1' | 'smg' | 'sniper'>(ids.map((id) => [id, 'm4a1']));
   const using = new Set<string>();
   const downed = new Set<string>();
   const resupplied: string[] = [];
@@ -146,18 +128,12 @@ function royale(holds: 'sniper' | 'resupply' = 'sniper') {
   const act: ModeActions = {
     respawn: () => {},
     resupply: (id) => void resupplied.push(id),
-    give: (id, weapon) => {
-      const old = primary.get(id)!;
-      primary.set(id, weapon as never);
-      return old;
-    },
-    primary: (id) => primary.get(id) ?? null,
   };
   const ctx = (): ModeContext => ({
     tick: 0,
     time,
     matchTime: time,
-    players: ids.map((id) => ({ id, team: team.get(id), alive: alive.get(id), downed: downed.has(id) ? {} : null, kind: 'player', position: where.get(id), loadout: { primary: primary.get(id)!.id } }) as unknown as PlayerOutput),
+    players: ids.map((id) => ({ id, team: team.get(id), alive: alive.get(id), downed: downed.has(id) ? {} : null, kind: 'player', position: where.get(id), loadout: { primary: primary.get(id)! } }) as unknown as PlayerOutput),
     spawns: SPAWNS,
     teamSpawns: null,
     world: WORLD,
@@ -173,17 +149,11 @@ function royale(holds: 'sniper' | 'resupply' = 'sniper') {
   const step = (seconds: number, sim: SimEvent[] = []) => {
     for (let t = 0; t < seconds - 1e-9; t += TICK_SECONDS) {
       time += TICK_SECONDS;
-      for (const e of mode.onEvents(t === 0 ? sim : [], ctx())) if (e.type === 'drop' || e.type === 'loose') events.push(e.type === 'drop' ? `${e.action}${e.player ? ` ${e.player}` : ''}` : `loose ${e.player ?? '-'} ${e.weapon}`);
+      for (const e of mode.onEvents(t === 0 ? sim : [], ctx())) if (e.type === 'drop') events.push(`${e.action}${e.player ? ` ${e.player}` : ''}`);
     }
   };
   const state = () => mode.objective() as BattleRoyaleState;
-  /** Takes `id` out with `weapon` in hand. */
-  const out = (id: string) => {
-    alive.set(id, false);
-    step(TICK_SECONDS, [{ type: 'kill', killer: 'p9', victim: id, cause: 'bullet', zone: null, weapon: 'm4a1' } as SimEvent]);
-  };
-  const mateOf = (id: string) => [...team].find(([o, t]) => o !== id && t === team.get(id))![0];
-  return { mode, where, alive, downed, primary, using, resupplied, events, step, out, mateOf, state, at: () => time };
+  return { mode, where, alive, downed, primary, using, resupplied, events, step, state };
 }
 
 describe('a match’s Supply Drops', () => {
@@ -201,27 +171,36 @@ describe('a match’s Supply Drops', () => {
     expect(r.events).toEqual(['announce', 'land']);
   });
 
-  it('opens to a seat holding use at it for the open time: the sniper with its spare magazines in place of the primary, which falls beside it', () => {
+  it('opens to a seat holding use at it for the open time and resupplies it once', () => {
     const r = royale();
     r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
     const crate = r.state().drops![0]!.position;
     r.where.set('p1', [crate[0] + 1, crate[1], crate[2]]);
     r.using.add('p1');
     r.step(D.openTime.value - 0.2);
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
+    expect(r.resupplied).toEqual([]);
     expect(r.state().drops![0]!.opening?.by).toBe('p1');
     r.step(0.3);
-    expect(r.primary.get('p1')).toEqual({ id: DROP_WEAPON, ammo: SNIPER_MAG, reserve: SNIPER_MAG * D.magazines.value });
     expect(r.state().drops![0]!.opened).toBe('p1');
-    expect(r.events.slice(-3)).toEqual(['start p1', 'open p1', 'loose - m4a1']);
-    const left = r.state().loose![0]!;
-    expect(left.weapon).toBe('m4a1');
-    expect(flat(left.position, crate)).toBeLessThan(D.reach.value);
+    expect(r.resupplied).toEqual(['p1']);
+    expect(r.events.slice(-2)).toEqual(['start p1', 'open p1']);
     // Opened, it gives no more.
     r.where.set('p3', [crate[0] - 1, crate[1], crate[2]]);
     r.using.add('p3');
     r.step(D.openTime.value + 0.5);
-    expect(r.primary.get('p3')!.id).toBe('m4a1');
+    expect(r.resupplied).toEqual(['p1']);
+  });
+
+  it('does not open to a Downed seat', () => {
+    const r = royale();
+    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
+    const crate = r.state().drops![0]!.position;
+    r.where.set('p1', [crate[0] + 1, crate[1], crate[2]]);
+    r.downed.add('p1');
+    r.using.add('p1');
+    r.step(D.openTime.value + 0.5);
+    expect(r.state().drops![0]!.opening).toBeUndefined();
+    expect(r.resupplied).toEqual([]);
   });
 
   it('stops opening when use is let go or the opener steps away, and starts over', () => {
@@ -236,215 +215,39 @@ describe('a match’s Supply Drops', () => {
     expect(r.state().drops![0]!.opening).toBeUndefined();
     r.using.add('p1');
     r.step(1.5);
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
+    expect(r.resupplied).toEqual([]);
     r.where.set('p1', [crate[0] + 5, crate[1], crate[2]]);
     r.step(1);
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
+    expect(r.resupplied).toEqual([]);
     expect(r.events.filter((e) => e.startsWith('stop'))).toHaveLength(2);
   });
 
-  it('a weapon on the ground goes to whoever presses use over it, who leaves their own there', () => {
+  it('nothing lies on the ground: a seat that goes out with the sniper leaves nothing behind', () => {
     const r = royale();
-    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
-    const crate = r.state().drops![0]!.position;
-    r.where.set('p1', [crate[0], crate[1], crate[2] + 1]);
-    r.using.add('p1');
-    r.step(D.openTime.value + 0.1);
-    r.using.delete('p1');
-    const m4 = r.state().loose![0]!;
-    r.primary.set('p2', { id: 'smg', ammo: 12 });
-    r.where.set('p2', [m4.position[0] + 0.5, 0, m4.position[2]]);
-    r.using.add('p2');
-    r.step(0.5);
-    expect(r.primary.get('p2')).toEqual({ id: 'm4a1', ammo: 30 });
-    expect(r.state().loose!.map((l) => l.weapon)).toEqual(['smg']);
-    // Held, it isn't swapped back: a new press is needed.
-    expect(r.primary.get('p2')!.id).toBe('m4a1');
-  });
-
-  it('a seat that goes out with the sniper leaves it where it fell, with the rounds it had', () => {
-    const r = royale();
-    r.primary.set('p4', { id: 'sniper', ammo: 2, reserve: 5 });
+    r.primary.set('p4', 'sniper');
     r.alive.set('p4', false);
     r.step(TICK_SECONDS, [{ type: 'kill', killer: 'p1', victim: 'p4', cause: 'bullet', zone: null, weapon: 'm4a1' } as SimEvent]);
-    expect(r.state().loose).toEqual([{ id: 1, weapon: 'sniper', position: r.where.get('p4') }]);
-    r.primary.set('p1', { id: 'm4a1', ammo: 30 });
-    r.where.set('p1', r.where.get('p4')!);
-    r.using.add('p1');
-    r.step(TICK_SECONDS * 2);
-    expect(r.primary.get('p1')).toEqual({ id: 'sniper', ammo: 2, reserve: 5 });
-  });
-});
-
-describe('a match’s Supply Drops on loadouts', () => {
-  it('says so in the state, and a crate resupplies its opener, who keeps their gun, with nothing left on the ground', () => {
-    const r = royale('resupply');
-    expect(r.state().holds).toBe('resupply');
-    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
-    const crate = r.state().drops![0]!.position;
-    // A sniper from the loadout keeps nobody from a crate.
-    r.primary.set('p1', { id: 'sniper', ammo: SNIPER_MAG });
-    r.where.set('p1', [crate[0] + 1, crate[1], crate[2]]);
-    r.using.add('p1');
-    r.step(D.openTime.value + 0.1);
-    expect(r.state().drops![0]!.opened).toBe('p1');
-    expect(r.resupplied).toEqual(['p1']);
-    expect(r.primary.get('p1')).toEqual({ id: 'sniper', ammo: SNIPER_MAG });
-    expect(r.events.slice(-2)).toEqual(['start p1', 'open p1']);
-    expect(r.state().loose).toBeUndefined();
-  });
-
-  it('a seat that goes out with the sniper leaves nothing behind', () => {
-    const r = royale('resupply');
-    r.primary.set('p4', { id: 'sniper', ammo: 2 });
-    r.alive.set('p4', false);
-    r.step(TICK_SECONDS, [{ type: 'kill', killer: 'p1', victim: 'p4', cause: 'bullet', zone: null, weapon: 'm4a1' } as SimEvent]);
-    expect(r.state().loose).toBeUndefined();
-    expect(r.events.filter((e) => e.startsWith('loose'))).toEqual([]);
-  });
-
-  it('the loot rules say nothing of it in the state', () => {
-    expect(royale().state().holds).toBeUndefined();
-  });
-});
-
-describe('a press of use meant for something else', () => {
-  /** A sniper lying at `at`, dropped by an enemy of p1 taken out there. */
-  const sniperAt = (r: ReturnType<typeof royale>, at: Vec3) => {
-    const foe = ['p2', 'p3', 'p4'].find((id) => id !== r.mateOf('p1'))!;
-    r.where.set(foe, at);
-    r.primary.set(foe, { id: 'sniper', ammo: 2, reserve: 0 });
-    r.out(foe);
-    expect(r.state().loose?.map((l) => l.weapon)).toEqual(['sniper']);
-  };
-
-  it('at a landed crate opens it and swaps nothing, and its opener’s old gun falls out of reach of the crate', () => {
-    const r = royale();
-    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
-    const crate = r.state().drops![0]!.position;
-    sniperAt(r, [crate[0] + 0.5, crate[1], crate[2]]);
-    r.where.set('p1', [crate[0] + 0.5, crate[1], crate[2]]);
-    r.using.add('p1');
-    r.step(0.5);
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
-    expect(r.state().drops![0]!.opening?.by).toBe('p1');
-    r.step(D.openTime.value);
-    expect(r.state().drops![0]!.opened).toBe('p1');
-    // Still holding use a second on, as a bot does: the crate's sniper is kept.
-    r.step(1);
-    expect(r.primary.get('p1')!.id).toBe('sniper');
-    expect(r.primary.get('p1')!.reserve).toBe(SNIPER_MAG * D.magazines.value);
-    const m4 = r.state().loose!.find((l) => l.weapon === 'm4a1')!;
-    expect(flat(m4.position, crate)).toBeGreaterThanOrEqual(1.6);
-  });
-
-  it('beside a Downed squadmate is for the Revive', () => {
-    const r = royale();
-    const mate = r.mateOf('p1');
-    const at: Vec3 = [20, 0, 40];
-    sniperAt(r, at);
-    r.where.set(mate, [at[0] + 1, 0, at[2]]);
-    r.downed.add(mate);
-    r.where.set('p1', at);
-    r.using.add('p1');
-    r.step(0.5);
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
-    // Once the squadmate is up, a new press there takes it.
-    r.downed.delete(mate);
-    r.using.delete('p1');
-    r.step(TICK_SECONDS);
-    r.using.add('p1');
-    r.step(TICK_SECONDS * 2);
-    expect(r.primary.get('p1')!.id).toBe('sniper');
-  });
-
-  it('at a Beacon with a squadmate’s Card is for the Reboot', () => {
-    const r = royale();
-    const mate = r.mateOf('p1');
-    r.out(mate);
-    const card = r.state().cards![0]!.position!;
-    r.where.set('p1', card);
-    r.step(TICK_SECONDS);
-    expect(r.state().cards![0]!.carrier).toBe('p1');
-    const beacon = r.state().beacons![0]!.position;
-    sniperAt(r, beacon);
-    r.where.set('p1', beacon);
-    r.using.add('p1');
-    r.step(0.5);
-    expect(r.state().beacons![0]!.channel?.by).toBe('p1');
-    expect(r.primary.get('p1')!.id).toBe('m4a1');
-  });
-});
-
-describe('a sniper shot dry', () => {
-  it('is no sniper: its holder can open the next crate', () => {
-    const r = royale();
-    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
-    const crate = r.state().drops![0]!.position;
-    r.primary.set('p1', { id: 'sniper', ammo: 0, reserve: 0 });
-    r.where.set('p1', [crate[0] + 1, crate[1], crate[2]]);
-    r.using.add('p1');
-    r.step(D.openTime.value + 0.2);
-    expect(r.state().drops![0]!.opened).toBe('p1');
-    expect(r.primary.get('p1')).toEqual({ id: DROP_WEAPON, ammo: SNIPER_MAG, reserve: SNIPER_MAG * D.magazines.value });
-  });
-
-  it('one with rounds left still keeps its holder from a crate', () => {
-    const r = royale();
-    r.step(r.mode.ring[1]!.start + D.warning.value + 0.1);
-    const crate = r.state().drops![0]!.position;
-    r.primary.set('p1', { id: 'sniper', ammo: 0, reserve: 1 });
-    r.where.set('p1', [crate[0] + 1, crate[1], crate[2]]);
-    r.using.add('p1');
-    r.step(D.openTime.value + 0.2);
-    expect(r.state().drops![0]!.opened).toBeUndefined();
+    expect(Object.keys(r.state())).not.toContain('loose');
+    expect(r.events).toEqual([]);
   });
 });
 
 describe('on the server', () => {
   /** A short match (the Ring at a fifth of its pace), no bots, alice on open ground. */
-  function match(holds: 'sniper' | 'resupply' = 'sniper'): NetworkedMatch {
+  function match(): NetworkedMatch {
     return createNetworkedMatch({
       solids: [GROUND],
       spawns: SPAWNS,
       mode: 'battle-royale',
-      modes: { battleRoyale: { squadSize: 1, seed: 3, timeLimit: 120, holds } },
+      modes: { battleRoyale: { squadSize: 1, seed: 3, timeLimit: 120 } },
       bots: { nav: NAV, perTeam: 0, maxPerTeam: 0 },
       countdown: 0.1,
       latency: 0.03,
     });
   }
 
-  it('a pick of the sniper spawns with the M4A1', () => {
+  it('a pick of the sniper spawns with it, and a crate fills its opener’s frags and health', () => {
     const m = match();
-    const c = m.join('alice', { loadout: { primary: 'sniper', secondary: 'pistol', grenade: 'frag' } });
-    m.run(ticks(1));
-    expect(m.server.latest.players.find((p) => p.id === c.client.id)!.loadout.primary).toBe('m4a1');
-  });
-
-  it('a seat that opens a crate holds the sniper with a reserve it reloads from, and the HUD hears of it', () => {
-    const m = match();
-    const c = m.join('alice');
-    m.run(ticks(0.5));
-    c.client.loaded();
-    const id = c.client.id!;
-    const objective = () => m.server.matchStatus().objective as BattleRoyaleState;
-    for (let i = 0; i < ticks(60) && !objective().drops?.length; i++) m.step();
-    const drop = objective().drops![0]!;
-    while (m.server.simulation.time < drop.lands + 0.1) m.step();
-    m.server.simulation.respawn(id, [drop.position[0] + 1, drop.position[1], drop.position[2]], 0);
-    m.run(ticks(D.openTime.value + 0.5), () => ({ alice: usercmd({ buttons: Button.Use }) }));
-    const me = m.server.latest.players.find((p) => p.id === id)!;
-    expect(me.weapon).toMatchObject({ id: 'sniper', slot: 0, reserve: SNIPER_MAG * D.magazines.value });
-    expect(objective().drops![0]!.opened).toBe(id);
-    expect(objective().loose?.map((l) => l.weapon)).toEqual(['m4a1']);
-    // It reaches the client too, for its own prediction and HUD.
-    m.run(ticks(0.5));
-    expect(c.client.self?.weapon.reserve).toBe(SNIPER_MAG * D.magazines.value);
-  });
-
-  it('on loadouts, a pick of the sniper spawns with it, and a crate fills its opener’s frags and health', () => {
-    const m = match('resupply');
     const c = m.join('alice', { loadout: { primary: 'sniper', secondary: 'pistol', grenade: 'frag' } });
     m.run(ticks(0.5));
     c.client.loaded();
@@ -462,6 +265,5 @@ describe('on the server', () => {
     expect(me().weapon.reserve).toBeUndefined();
     expect(me().grenades).toBe(STATS.royale.frags.value);
     expect(me().health).toBe(STATS.health.max.value);
-    expect(objective().loose).toBeUndefined();
   });
 });

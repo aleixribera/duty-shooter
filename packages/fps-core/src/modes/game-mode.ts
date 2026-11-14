@@ -1,5 +1,5 @@
 import type { Vec3 } from '../math';
-import type { HeldWeapon, KillWeapon, PlayerId, PlayerInfo, PlayerOutput, RespawnOptions, SimEvent, TeamId } from '../simulation';
+import type { KillWeapon, PlayerId, PlayerInfo, PlayerOutput, RespawnOptions, SimEvent, TeamId } from '../simulation';
 import type { WeaponId } from '../stats';
 import type { Loadout } from '../weapon/loadout';
 import type { World } from '../world';
@@ -133,10 +133,6 @@ export interface BattleRoyaleState {
   readonly squads: number;
   /** The Supply Drops announced so far, opened ones too; absent while none is. */
   readonly drops?: readonly SupplyDropState[];
-  /** What the crates hold: absent, the sniper (the loot rules); `resupply`, the match is played on loadouts. */
-  readonly holds?: 'resupply';
-  /** Weapons lying on the ground for anyone to take; absent while none does. */
-  readonly loose?: readonly LooseWeaponState[];
   /** Reboot is open (Duos and Trios, before the last Stages); absent when it isn't. */
   readonly reboot?: true;
   /** The island's Reboot Beacons, sent while Reboot is open. */
@@ -184,26 +180,14 @@ export interface SupplyDropState {
   readonly lands: number;
   /** Who is holding use at it, and since when. */
   readonly opening?: { readonly by: PlayerId; readonly since: number };
-  /** Who opened it and took the sniper. */
+  /** Who opened it and was resupplied. */
   readonly opened?: PlayerId;
 }
 
-/** A weapon on the ground: a primary dropped for a Supply Drop's sniper, or the sniper of a seat that went out. */
-export interface LooseWeaponState {
-  /** Numbers it in the match, so a client can tell one from the next. */
-  readonly id: number;
-  readonly weapon: WeaponId;
-  readonly position: Vec3;
-}
-
-/** What a mode may do to a seat's weapons (the server's simulation does it). */
+/** What a mode may do to a seat (the server's simulation does it). */
 export interface ModeActions {
-  /** Puts `weapon` in a seat's primary slot and hands; returns the primary it replaced. */
-  give(id: PlayerId, weapon: HeldWeapon): HeldWeapon | null;
-  /** A seat's primary as it is now. */
-  primary(id: PlayerId): HeldWeapon | null;
   /** Fills a seat's frags and tacticals back to what the match gives, and its health (a Supply Drop's resupply). */
-  resupply?(id: PlayerId): void;
+  resupply(id: PlayerId): void;
   /** Brings a seat that is out back at `position` with its loadout (a Reboot). */
   respawn?(id: PlayerId, position: Vec3, yaw: number, options: RespawnOptions): void;
 }
@@ -317,8 +301,6 @@ export type ModeEvent =
   | { readonly type: 'stage'; readonly stage: number }
   /** Battle Royale: a Supply Drop was announced, landed, began or stopped being opened, or was opened by `player`. */
   | { readonly type: 'drop'; readonly action: 'announce' | 'land' | 'start' | 'stop' | 'open'; readonly stage: number; readonly player: PlayerId | null; readonly position: Vec3 }
-  /** Battle Royale: `player` took `weapon` from the ground, leaving `left` there (null: nothing), or a weapon fell there (`player` null). */
-  | { readonly type: 'loose'; readonly player: PlayerId | null; readonly weapon: WeaponId; readonly left: WeaponId | null; readonly position: Vec3 }
   /** Battle Royale: `owner`'s Reboot Card fell, was taken by `player`, ran out, or was voided (the last Stages, or nobody left to carry it). */
   | { readonly type: 'card'; readonly action: 'drop' | 'take' | 'expire' | 'void'; readonly owner: PlayerId; readonly ownerName: string; readonly player: PlayerId | null; readonly playerName: string | null; readonly position: Vec3 }
   /** Battle Royale: nobody of Squad `team` is left standing; `by` put out its last seat (null: the Ring, a fall), and `squadsLeft` remain. */

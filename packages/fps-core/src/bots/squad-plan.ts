@@ -34,8 +34,6 @@ export interface PlannedSeat {
   readonly health?: number;
   /** The bot's own boldness, 0 to 1 (its profile's aggression); 0.5 when absent. */
   readonly bold?: number;
-  /** It carries the sniper already: a Supply Drop has nothing for it. */
-  readonly sniper?: boolean;
 }
 
 export interface SquadSituation {
@@ -329,7 +327,7 @@ export class SquadPlanner {
       mind.huntUntil = shared.hunt ? time + HUNT_FOR : 0;
       mind.since = shared.time;
       const crate = (state.drops ?? []).find((d) => !d.opened && flat(d.position, shared.point) < DROP_SAME);
-      if (crate && !seat.sniper) mind.drop = crate.stage;
+      if (crate) mind.drop = crate.stage;
       else delete mind.drop;
       intel.head(seat.id, { point: mind.point, time: shared.time, hunt: mind.hunt });
       return mind;
@@ -388,18 +386,18 @@ export class SquadPlanner {
    * A Supply Drop as one bot weighs it: once when it's announced, by its own
    * boldness and health and how far it has to run, against the time it lands
    * (the crate is always well inside the next circle, so the Ring is weighed by
-   * the run). Going, it heads for the crate; once the crate is opened, or it
-   * holds the sniper, it lets it go. True when it has just chosen to go.
+   * the run). Going, it heads for the crate; once the crate is opened, it lets
+   * it go. True when it has just chosen to go.
    */
   #weighDrop(seat: PlannedSeat, s: SquadSituation, mind: Mind): boolean {
     const drops = s.state.drops ?? [];
     const going = mind.drop === undefined ? undefined : drops.find((d) => d.stage === mind.drop);
     const next = s.state.next;
-    if (mind.drop !== undefined && (!going || going.opened || seat.sniper || away(going.position, next) > next.radius * DEEP)) {
+    if (mind.drop !== undefined && (!going || going.opened || away(going.position, next) > next.radius * DEEP)) {
       delete mind.drop;
       mind.shiftAt = s.time;
     }
-    if (mind.drop !== undefined || seat.sniper || seat.downed) return false;
+    if (mind.drop !== undefined || seat.downed) return false;
     for (const d of drops) {
       if (d.opened || mind.weighed?.has(d.stage) || away(d.position, next) > next.radius * DEEP) continue;
       (mind.weighed ??= new Set()).add(d.stage);

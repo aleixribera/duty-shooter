@@ -16,7 +16,7 @@ export type { Medal, ScoreLine, ScoreReason, ScoreTick } from './score';
 export { PlayGround, playGround } from './ground';
 export { landingFacing } from './spawns';
 export type { Town } from './ground';
-export { DROP_WEAPON, planDrops, roomForDrop, royaleLoadout, SupplyDrops, type DropHolds } from './supply-drops';
+export { planDrops, roomForDrop, SupplyDrops } from './supply-drops';
 export { planBeacons, Reboot } from './reboot';
 export { clearOf, propsKey, royaleProps, standProps } from './royale-props';
 export { planRing, ringAt, ringDamage, stageAt } from './ring';
@@ -26,7 +26,6 @@ export type {
   ChargeSite,
   ChargeState,
   GameMode,
-  LooseWeaponState,
   MatchEntrant,
   MatchResult,
   ModeActions,

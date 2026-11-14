@@ -1,4 +1,4 @@
-// PLAN item 7, Battle Royale on loadouts (ticket 117): a Local bots Battle Royale with `?drops=resupply`.
+// PLAN item 7 / 9g, Battle Royale on loadouts (tickets 117, 119): a Local bots Battle Royale, on loadouts with no switch since 9g.
 // A Rank 12 Profile picks the Ridgeline .308 in the Preparation and drops with it; at Stage 2 the Supply Drop
 // is called in as a resupply; the match state says so, and no weapon lies on the ground while it plays.
 // Against the dev server (`preview_start range`).
@@ -7,7 +7,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
 
 const out = process.argv[2] ?? '.scratch/next-level/royale-loadouts/after';
-const QUERY = process.argv[3] ?? 'nolock&drops=resupply&seed=7';
+const QUERY = process.argv[3] ?? 'nolock&seed=7';
 const BASE = 'http://localhost:5173/';
 mkdirSync(out, { recursive: true });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -30,7 +30,7 @@ const click = async (q) => {
   return r.result?.result?.value === true;
 };
 const phone = (on) => chrome.send('Emulation.setDeviceMetricsOverride', on ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true } : { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
-const royale = () => chrome.evaluate(`JSON.stringify((() => { const d = duty.game?.driver; const o = d?.match?.objective; const me = duty.game?.player ?? null; return { phase: d?.match?.phase ?? null, holds: o?.holds ?? null, stage: o?.stage ?? null, drops: o?.drops ?? null, loose: o?.loose ?? null, alive: o?.alive ?? null, time: d?.serverTime ?? null, me: me ? { alive: me.alive, primary: me.loadout?.primary, weapon: me.weapon?.id, grenades: me.grenades } : null }; })())`).then((t) => JSON.parse(t ?? 'null'));
+const royale = () => chrome.evaluate(`JSON.stringify((() => { const d = duty.game?.driver; const o = d?.match?.objective; const me = duty.game?.player ?? null; return { phase: d?.match?.phase ?? null, stage: o?.stage ?? null, drops: o?.drops ?? null, loose: o?.loose ?? null, alive: o?.alive ?? null, time: d?.serverTime ?? null, me: me ? { alive: me.alive, primary: me.loadout?.primary, weapon: me.weapon?.id, grenades: me.grenades } : null }; })())`).then((t) => JSON.parse(t ?? 'null'));
 try {
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: HMR_SHIELD });
   await chrome.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(PROFILE)}); } catch {}` });
@@ -41,6 +41,11 @@ try {
   if (!(await chrome.waitFor(`!!document.querySelector('.ds-royale [data-key="source-local"]')`, 30_000, 200))) throw new Error('no Local bots choice');
   await chrome.evaluate(`document.querySelector('.ds-royale [data-key="source-local"]').click()`);
   await sleep(500);
+  // `SQUADS=3`: Trios, so bot squadmates and the Reboot keep the match going past an early death.
+  if (process.env.SQUADS) {
+    await chrome.evaluate(`document.querySelector('.ds-royale [data-key="squads-${process.env.SQUADS}"]')?.click()`);
+    await sleep(500);
+  }
   await chrome.evaluate(`(() => { const i = document.querySelector('.ds-royale input[name="name"]'); if (i) i.value = 'Aleix'; document.querySelector('.ds-royale [data-key="go"]')?.click(); })()`);
   log('waiting for the local lobby (island and nav)');
   if (!(await chrome.waitFor(`!!document.querySelector('.ds-royale [data-act="start"]')`, 600_000, 1000))) throw new Error('no lobby in 10 min');
@@ -64,7 +69,7 @@ try {
   await sleep(12_000);
   result.landed = await royale();
   await shot('03-dropped-with-ridgeline');
-  log('dropped', JSON.stringify(result.landed.me), 'holds', result.landed.holds);
+  log('dropped', JSON.stringify(result.landed.me));
   // Stage 2 opens with the crate: watch the state until it lands and a while after, noting anything on the ground.
   result.looseSeen = [];
   let announced = false;

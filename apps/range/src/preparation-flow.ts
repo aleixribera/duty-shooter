@@ -1,5 +1,5 @@
 import { PreparationPage, gunOpen, gunsmithRows, preparationChampion, type Menu, type PreparationView, type Settings } from '@duty-shooter/fps-client/ui';
-import { WEAPON_IDS, royaleLoadout, type AttachmentId, type DropHolds, type AttachmentSlot, type WeaponId } from '@duty-shooter/fps-core';
+import { WEAPON_IDS, type AttachmentId, type AttachmentSlot, type WeaponId } from '@duty-shooter/fps-core';
 import type { Game, SoundSystem } from '@duty-shooter/fps-client';
 import { LoadReport } from './load-report';
 
@@ -40,7 +40,6 @@ export class PreparationFlow {
   #for: number | null = null;
   #ready = false;
   #view: PreparationView | null = null;
-  #holds: DropHolds = 'sniper';
 
   constructor(host: PreparationHost) {
     this.#host = host;
@@ -69,19 +68,12 @@ export class PreparationFlow {
     });
   }
 
-  /** What this Battle Royale's Supply Drops hold, as its last state said: on loadouts (`resupply`) the sniper is a pick like any gun. */
-  get holds(): DropHolds {
-    return this.#holds;
-  }
-
   /** The gunsmith rows of the two guns the Preparation shows picked. */
   #smith(): NonNullable<PreparationView['smith']> {
     const { builds } = this.#host.settings();
-    const loadout = this.#host.matchLoadout();
-    const picked = royaleLoadout(loadout, this.#holds);
-    const rows = (id: WeaponId, own: boolean) => gunsmithRows(id, own ? builds[id] : undefined, this.#host.kills(id));
-    // A saved sniper plays as a stock M4A1 here, until something is fitted to it.
-    return { primary: rows(picked.primary, picked.primary === loadout.primary), secondary: rows(picked.secondary, true) };
+    const picked = this.#host.matchLoadout();
+    const rows = (id: WeaponId) => gunsmithRows(id, builds[id], this.#host.kills(id));
+    return { primary: rows(picked.primary), secondary: rows(picked.secondary) };
   }
 
   /** Each frame: the Preparation up while this seated player's Battle Royale opens, and until they take control. True while it is up. */
@@ -115,7 +107,6 @@ export class PreparationFlow {
         .filter((s) => s.team === team)
         .map((s) => ({ name: s.id === driver.selfId ? this.#host.name() : s.name, you: s.id === driver.selfId, bot: s.bot === true, ready: prep.ready.includes(s.id) }));
       const state = match.objective?.kind === 'battle-royale' ? match.objective : null;
-      this.#holds = state?.holds ?? 'sniper';
       this.#view = {
         ...time,
         alive: state?.alive ?? driver.scores.length,
@@ -123,7 +114,6 @@ export class PreparationFlow {
         squad,
         loadout: this.#host.matchLoadout(),
         open: WEAPON_IDS.filter((id) => gunOpen(id, this.#host.xp())),
-        holds: this.#holds,
         smith: this.#smith(),
         ready: this.#ready || prep.ready.includes(driver.selfId ?? ''),
         readyCount: prep.ready.length,

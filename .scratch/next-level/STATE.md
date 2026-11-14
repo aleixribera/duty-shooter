@@ -21,7 +21,7 @@ Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop)
 
 Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
 
-Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). f: a kill dips the gun 60 ms down, held to 200 ms, back by 700 ms, the fall seen in 4 of 4 "b" frames (v2.221.0, `kill-dip/`). Next: 9g (BR on loadouts live).
+Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). f: a kill dips the gun 60 ms down, held to 200 ms, back by 700 ms, the fall seen in 4 of 4 "b" frames (v2.221.0, `kill-dip/`). g (pass 99): every Battle Royale is on loadouts, the loot rules and both switches removed (v2.222.0, `royale-loadouts/live3/`). Next: 9h (adaptive bots, hidden), then the loop pauses.
 
 ## Needs Aleix
 
@@ -30,7 +30,6 @@ Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3
 - Overridable (pass 61): aimed, the shotgun holds your head 22 mm over the bead's line (gun tips 2 degrees).
 - Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).
 - Overridable (pass 45): aiming through the Prism 2x or the Vantage now shows the world and the reticle only, so your own muzzle flash no longer shows inside the sight (it never covers the target); say if you want a flash there.
-- Battle Royale on loadouts (PLAN item 7, pass 43): say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it: Local bots, `?drops=resupply`.
 - Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).
 - Overridable (pass 29): weapon redesign numbers (ticket 112): shotgun one aimed blast to ~10 m; Trident one burst to 36 m; Vantage three body or head+body anywhere at 380 rpm; Marshal one head shot to 35 m.
@@ -65,5 +64,5 @@ None.
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 
-- Zero Island's nav: built by the dev server (~70 s) on first ask. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
+- Zero Island's nav: built by the dev server (~70 s) on first ask. A Local bots match with frames: `SQUADS=3 node royale-loadouts/look.mjs <out>` (~6 min; Solos ends when the scripted player dies, often before Stage 2's crate).
 - Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs`: shader builds and long frames in a flight.

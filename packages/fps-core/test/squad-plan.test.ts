@@ -249,14 +249,6 @@ describe('Supply Drops (ticket 71)', () => {
     throw new Error('no bot went for the crate');
   });
 
-  it('a bot with the sniper already leaves it to others', () => {
-    for (let i = 0; i < 20; i++) {
-      const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);
-      p.plan(situation([seat('a', 1, 120, 0, { bold: 1, sniper: true })], { time: 5 }));
-      expect(apart(p.plan(situation([seat('a', 1, 120, 0, { bold: 1, sniper: true })], { time: 10, state: announced() })).get('a')!.rally, [crate[0], crate[2]])).toBeGreaterThan(1);
-    }
-  });
-
   it('squadmates who join a run to it work it too', () => {
     for (let i = 0; i < 40; i++) {
       const p = new SquadPlanner((x, z): Vec3 => [x, 0, z], i);

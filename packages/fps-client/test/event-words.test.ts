@@ -24,15 +24,13 @@ function ctx(over: Partial<EventWordsContext> = {}): EventWordsContext {
 const ev = (e: object) => e as PresentedEvent;
 
 describe('what an event tells the player', () => {
-  it('names who opened a Supply Drop and what it held: the sniper, or on loadouts a resupply', () => {
+  it('names who opened a Supply Drop: a resupply, and where', () => {
     const open = ev({ type: 'drop', action: 'open', stage: 2, player: 'mate', position: [0, 0, 0] });
-    const loot = eventWords(open, ctx({ mode: 'battle-royale' })).feed!;
-    const resupply = eventWords(open, ctx({ mode: 'battle-royale', dropHolds: 'resupply' })).feed!;
-    expect(loot.text).toContain('Mate');
-    expect(resupply.text).toContain('Mate');
-    expect(resupply.text).toContain('C4');
-    expect(resupply.text).not.toBe(loot.text);
-    expect(resupply.mine).toBe(false);
+    const said = eventWords(open, ctx({ mode: 'battle-royale' })).feed!;
+    expect(said.text).toContain('Mate');
+    expect(said.text).toContain('resupplied');
+    expect(said.text).toContain('C4');
+    expect(said.mine).toBe(false);
   });
 
   it('reports an offline kill in the kill feed, with the callout only for your own kill', () => {

@@ -28,7 +28,7 @@ export interface WeaponState {
   readonly attachments?: Attachments;
   /** Rounds in the magazine. */
   ammo: number;
-  /** Rounds left to reload from (a Supply Drop's sniper); absent, the reserve is unlimited and a reload always fills the magazine. */
+  /** Rounds left to reload from (a weapon given with a limited reserve; none in play since PLAN 9g); absent, the reserve is unlimited and a reload always fills the magazine. */
   reserve?: number;
   action: WeaponAction;
   /** Seconds since the current action started. */

@@ -1,0 +1,150 @@
+{
+  "primaries": [
+    "m4a1",
+    "smg",
+    "shotgun",
+    "sniper",
+    "lmg",
+    "dmr",
+    "burst"
+  ],
+  "pickedSniper": true,
+  "preparationPick": "sniper",
+  "landed": {
+    "phase": "playing",
+    "stage": 1,
+    "drops": null,
+    "loose": null,
+    "alive": 60,
+    "time": 23.36166666666667,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "looseSeen": [],
+  "announced": {
+    "phase": "playing",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 161.1
+      }
+    ],
+    "loose": null,
+    "alive": 22,
+    "time": 141.21599999999998,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "toast": "Supply Drop incoming in H8: frags, tacticals and full health, landing in 20 s.",
+  "landedDrop": {
+    "phase": "playing",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 161.1
+      }
+    ],
+    "loose": null,
+    "alive": 17,
+    "time": 162.1119999999999,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "opened": {
+    "phase": "playing",
+    "stage": 3,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 161.10000000000002
+      },
+      {
+        "stage": 3,
+        "position": [
+          -56,
+          29.642704010009766,
+          -140
+        ],
+        "lands": 271.1,
+        "opened": "p24"
+      }
+    ],
+    "loose": null,
+    "alive": 11,
+    "time": 276.8653333333333,
+    "me": {
+      "alive": false,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "feed": [
+    " Kestrel was resupplied from the Supply Drop in G6",
+    "Supply Drop incoming in G6: frags, tacticals and full health, landing in 20 s."
+  ],
+  "last": {
+    "phase": "playing",
+    "stage": 3,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 161.10000000000002
+      },
+      {
+        "stage": 3,
+        "position": [
+          -56,
+          29.642704010009766,
+          -140
+        ],
+        "lands": 271.1,
+        "opened": "p24"
+      }
+    ],
+    "loose": null,
+    "alive": 11,
+    "time": 277.1266666666665,
+    "me": {
+      "alive": false,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "errors": []
+}

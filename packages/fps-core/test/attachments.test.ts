@@ -14,7 +14,6 @@ import {
   moddedRow,
   parseLoadout,
   recoilKick,
-  royaleLoadout,
   shotLoudness,
   slotsOf,
   zoneCentre,
@@ -252,13 +251,6 @@ describe('a bot hears a shot by its muzzle', () => {
     const loadout: Loadout = { ...parseLoadout({ primary: 'm4a1', secondary: 'pistol', grenade: 'frag' })!, attachments: { primary: { magazine: 'extended' } } };
     expect(heldRow({ weapon: { id: 'm4a1', slot: 0 }, loadout }).handling.magazineSize.value).toBe(45);
     expect(heldRow({ weapon: { id: 'smg', slot: 0 }, loadout })).toBe(STATS.weapons.smg);
-  });
-
-  it('starts a Battle Royale sniper pick on a stock M4A1, the secondary keeping its build', () => {
-    const picked: Loadout = { ...parseLoadout({ primary: 'sniper', secondary: 'pistol', grenade: 'frag' })!, attachments: { primary: { magazine: 'extended' }, secondary: { muzzle: 'suppressor' } } };
-    const royale = royaleLoadout(picked);
-    expect(royale.primary).toBe('m4a1');
-    expect(royale.attachments).toEqual({ secondary: { muzzle: 'suppressor' } });
   });
 
   it('makes a compensated shot louder and a suppressed one quieter', () => {

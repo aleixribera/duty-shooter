@@ -1,4 +1,4 @@
-import { DROP_WEAPON, royaleLoadout, STATS, type AttachmentId, type DropHolds, type AttachmentSlot, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
+import { STATS, type AttachmentId, type AttachmentSlot, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
 import { nameList } from '@duty-shooter/fps-core/modes';
 import type { PadNav } from '../gamepad';
 import type { PreparationStage } from '../preparation-shot';
@@ -43,8 +43,6 @@ export interface PreparationView {
   readonly smith?: { readonly primary: readonly GunsmithSlot[]; readonly secondary: readonly GunsmithSlot[] };
   /** The guns this Profile has opened (PLAN item 7); absent, all of them. */
   readonly open?: readonly WeaponId[];
-  /** What the match's Supply Drops hold; absent, the sniper (the loot rules). */
-  readonly holds?: DropHolds;
 }
 
 /** The champion Squad as the dive introduces it. */
@@ -104,7 +102,6 @@ const CSS = `
 .ds-prep .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; }
 .ds-prep .ds-field-label { margin-bottom: 6px; color: var(--ds-text-2); }
 .ds-prep .kit { display: grid; gap: 14px; }
-.ds-prep .kit .drop-note { margin-top: -8px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 /* A gun's attachments under it: a short row a slot that is open, and the next one still shut in a line. */
 .ds-prep .smith { display: grid; gap: 6px; margin-top: -6px; }
 .ds-prep .smith-row { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 10px; }
@@ -159,17 +156,11 @@ const CSS = `
 
 const weaponName = (id: WeaponId) => STATS.weapons[id].traits.name;
 
-/**
- * The Preparation's primaries and what is lit. Under the loot rules the sniper
- * isn't a pick in a Battle Royale (it comes only from a Supply Drop), and a
- * saved pick of it starts with the M4A1; on loadouts (`holds` is `resupply`)
- * it is a pick like any opened gun.
- */
-export function preparationKit(loadout: Loadout, open?: readonly WeaponId[], holds: DropHolds = 'sniper'): { readonly primaries: readonly WeaponId[]; readonly secondaries: readonly WeaponId[]; readonly picked: Loadout } {
+/** The Preparation's primaries and secondaries, every gun this Profile has opened (the sniper too: a Battle Royale is played on loadouts), and what is lit. */
+export function preparationKit(loadout: Loadout, open?: readonly WeaponId[]): { readonly primaries: readonly WeaponId[]; readonly secondaries: readonly WeaponId[]; readonly picked: Loadout } {
   const opened = (w: WeaponId) => !open || open.includes(w);
   const options = loadoutOptions();
-  const loot = holds === 'sniper';
-  return { primaries: options.primary.filter((w) => (!loot || w !== DROP_WEAPON) && opened(w)), secondaries: options.secondary.filter(opened), picked: royaleLoadout(loadout, holds) };
+  return { primaries: options.primary.filter(opened), secondaries: options.secondary.filter(opened), picked: loadout };
 }
 
 export class PreparationPage {
@@ -283,7 +274,7 @@ export class PreparationPage {
     const total = v.elapsed + v.left;
     const done = total > 0 ? Math.min(1, v.elapsed / total) : 1;
     const options = loadoutOptions();
-    const { primaries, secondaries, picked } = preparationKit(v.loadout, v.open, v.holds);
+    const { primaries, secondaries, picked } = preparationKit(v.loadout, v.open);
     const seg = <T extends string | null>(slot: keyof Loadout, title: string, choices: readonly T[], name: (c: T) => string) =>
       `<div><span class="ds-field-label">${escapeHtml(title)}</span><div class="ds-seg" role="group" aria-label="${escapeHtml(title)}">${choices
         .map((c) => {
@@ -317,7 +308,7 @@ export class PreparationPage {
     return `<div class="card" role="region" aria-label="Preparation">
 <h1>Preparation</h1>
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
-<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}${v.holds === 'resupply' ? '' : '<div class="drop-note">Sniper: Supply Drops only</div>'}${seg('secondary', 'Secondary', secondaries, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
+<div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}${seg('secondary', 'Secondary', secondaries, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
 <div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button>${action.note ? `<div class="note">${escapeHtml(action.note)}</div>` : ''}${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
 </div>

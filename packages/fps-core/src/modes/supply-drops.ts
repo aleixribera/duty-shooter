@@ -1,51 +1,19 @@
 import type { Vec3 } from '../math';
-import type { HeldWeapon, PlayerId, PlayerOutput, SimEvent } from '../simulation';
-import { STATS, type WeaponId } from '../stats';
-import type { Loadout } from '../weapon/loadout';
+import type { PlayerId, PlayerOutput } from '../simulation';
+import { STATS } from '../stats';
 import type { World } from '../world';
-import type { LooseWeaponState, ModeContext, ModeEvent, SupplyDropState } from './game-mode';
+import type { ModeContext, ModeEvent, SupplyDropState } from './game-mode';
 import type { PlayGround } from './ground';
 import type { RingStage } from './ring';
 
 const D = STATS.royale.supplyDrop;
 
-/** The weapon a Supply Drop holds under the loot rules: the only sniper of a Battle Royale. */
-export const DROP_WEAPON: WeaponId = 'sniper';
-
-/**
- * What a Battle Royale's Supply Drops hold. `sniper`, the loot rules: the
- * match's only Ridgeline .308, and weapons change hands on the ground.
- * `resupply`, on loadouts (PLAN item 7): everyone drops with the loadout they
- * chose, the Ridgeline included; a crate fills its opener's frags, tacticals
- * and health, and nothing lies on the ground.
- */
-export type DropHolds = 'sniper' | 'resupply';
-
-/**
- * A Battle Royale loadout. Under the loot rules the sniper comes only from a
- * Supply Drop, so a pick of it starts with the M4A1; on loadouts (`holds` is
- * `resupply`) every loadout plays as it is.
- */
-export function royaleLoadout(loadout: Loadout, holds: DropHolds = 'sniper'): Loadout {
-  if (holds === 'resupply' || loadout.primary !== DROP_WEAPON) return loadout;
-  // The sniper's build was made for the sniper: the M4A1 that stands in for it goes stock.
-  const { attachments, ...rest } = loadout;
-  const secondary = attachments?.secondary;
-  return { ...rest, primary: 'm4a1', ...(secondary ? { attachments: { secondary } } : {}) };
-}
-
-/** The most weapons that lie on the ground at once; past it the oldest that isn't a sniper goes. */
-const MOST_LOOSE = 16;
 /** Tries at a spot inside the circle before the ground nearest its middle. */
 const TRIES = 16;
 /** Room (m) a crate needs between it and any solid around it, so one landing on a body can put it beside the crate rather than in a wall. */
 const ROOM = 2;
 /** Height (m) above the ground a solid counts as in the way: lower is a kerb or a step, part of the ground. */
 const STEP = 0.4;
-/** How far (m) from a crate its opener's old primary lands: out of the pickup reach of anyone still at the crate's middle. */
-const BESIDE = 1.8;
-/** A seat that just opened a crate swaps nothing for this long (s): a bot still holding use at it would take its old gun straight back. */
-const OPENED_PAUSE = 1.5;
 
 interface Drop {
   readonly stage: number;
@@ -59,19 +27,7 @@ interface Drop {
   opened: PlayerId | null;
 }
 
-interface Loose {
-  readonly id: number;
-  readonly weapon: HeldWeapon;
-  readonly position: Vec3;
-}
-
 const flat = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-
-/** The sniper as a crate gives it: a full magazine and the spare magazines. */
-function dropSniper(): HeldWeapon {
-  const magazine = STATS.weapons[DROP_WEAPON].handling.magazineSize.value;
-  return { id: DROP_WEAPON, ammo: magazine, reserve: magazine * D.magazines.value };
-}
 
 /** Whether a crate at `at` has {@link ROOM} clear around it: no solid that stands above the ground there within it. */
 export function roomForDrop(world: World, at: Vec3): boolean {
@@ -129,65 +85,29 @@ export function planDrops(ring: readonly RingStage[], ground: PlayGround, random
 }
 
 /**
- * A Battle Royale's Supply Drops and the weapons lying on the ground. Each
- * crate is announced at its Stage's start and lands its warning later; any
- * seat on its feet holding use at a landed crate opens it in its open time.
- * Under the loot rules it takes the sniper in place of its primary, which
- * falls beside the crate; a weapon on the ground goes to whoever presses use
- * over it, who leaves their own primary in its place; a seat that goes out
- * with the sniper leaves it where it fell. On loadouts the opener is
- * resupplied instead, and nothing ever lies on the ground. Bots and people use
- * the same rules.
+ * A Battle Royale's Supply Drops. Each crate is announced at its Stage's start
+ * and lands its warning later; any seat on its feet holding use at a landed
+ * crate opens it in its open time, and is resupplied: frags, tacticals and
+ * full health. Everyone drops with their own loadout, so a crate never holds a
+ * weapon and nothing lies on the ground. Bots and people use the same rules.
  */
 export class SupplyDrops {
-  /** What the crates hold. */
-  readonly holds: DropHolds;
   #drops: Drop[] = [];
-  #loose: Loose[] = [];
-  #nextLoose = 1;
-  /** Who held use on the last tick, so a press is a new one. */
-  #held = new Set<PlayerId>();
   /** Simulation time at match time 0. */
   #clock = 0;
-  /** When each seat last opened a crate. */
-  readonly #openedAt = new Map<PlayerId, number>();
-
-  constructor(holds: DropHolds = 'sniper') {
-    this.holds = holds;
-  }
 
   /** A new match's crates. */
   start(ring: readonly RingStage[], ground: PlayGround, random: () => number, world?: World): void {
     this.#drops = planDrops(ring, ground, random, world).map((d) => ({ ...d, announced: false, landed: false, opening: null, opened: null }));
-    this.#loose = [];
-    this.#nextLoose = 1;
-    this.#held = new Set();
-    this.#openedAt.clear();
   }
 
-  /** A tick: crates announced, landing and being opened, weapons taken from the ground and dropped by the fallen. */
-  step(events: readonly SimEvent[], ctx: ModeContext, claimed: (p: PlayerOutput) => boolean = () => false): ModeEvent[] {
+  /** A tick: crates announced, landing and being opened. */
+  step(ctx: ModeContext): ModeEvent[] {
     this.#clock = ctx.time - ctx.matchTime;
     const out: ModeEvent[] = [];
     const seats = new Map<PlayerId, PlayerOutput>();
     for (const p of ctx.players) seats.set(p.id, p);
     const standing = (p: PlayerOutput | undefined): p is PlayerOutput => p !== undefined && p.alive && !p.downed;
-    const loot = this.holds === 'sniper';
-    // A sniper shot dry, with nothing left to reload, is no reason to keep away from a crate; on loadouts nothing is.
-    const sniperIn = (p: PlayerOutput) => {
-      if (!loot) return false;
-      const held = ctx.act?.primary(p.id);
-      return held ? held.id === DROP_WEAPON && held.ammo + (held.reserve ?? 0) > 0 : p.loadout?.primary === DROP_WEAPON;
-    };
-    // The fallen leave the sniper where they fell.
-    for (const e of events) {
-      if (e.type !== 'kill' || !ctx.act || !loot) continue;
-      const victim = seats.get(e.victim);
-      const held = ctx.act.primary(e.victim);
-      if (!victim || held?.id !== DROP_WEAPON || held.ammo + (held.reserve ?? 0) <= 0) continue;
-      this.#lay(held, victim.position);
-      out.push({ type: 'loose', player: null, weapon: held.id, left: null, position: victim.position });
-    }
     for (const d of this.#drops) {
       if (!d.announced && ctx.matchTime >= d.announce - 1e-9) {
         d.announced = true;
@@ -207,28 +127,16 @@ export class SupplyDrops {
         } else if (ctx.time - d.opening.since >= D.openTime.value - 1e-9) {
           d.opened = by.id;
           d.opening = null;
-          this.#openedAt.set(by.id, ctx.time);
-          if (!loot) {
-            ctx.act?.resupply?.(by.id);
-            out.push({ type: 'drop', action: 'open', stage: d.stage, player: by.id, position: d.position });
-            continue;
-          }
-          const old = ctx.act?.give(by.id, dropSniper()) ?? null;
+          ctx.act?.resupply(by.id);
           out.push({ type: 'drop', action: 'open', stage: d.stage, player: by.id, position: d.position });
-          if (old && old.id !== DROP_WEAPON) {
-            const turn = (d.stage * 2.4) % (Math.PI * 2);
-            const at: Vec3 = [d.position[0] + Math.cos(turn) * BESIDE, d.position[1], d.position[2] + Math.sin(turn) * BESIDE];
-            this.#lay(old, at);
-            out.push({ type: 'loose', player: null, weapon: old.id, left: null, position: at });
-          }
           continue;
         }
       }
       if (!d.opening) {
-        // The nearest of those holding use at it, who don't carry the sniper already.
+        // The nearest of those holding use at it.
         let best: PlayerOutput | null = null;
         for (const p of ctx.players) {
-          if (!standing(p) || !ctx.using.has(p.id) || !near(p) || sniperIn(p)) continue;
+          if (!standing(p) || !ctx.using.has(p.id) || !near(p)) continue;
           if (!best || flat(p.position, d.position) < flat(best.position, d.position)) best = p;
         }
         if (best) {
@@ -237,41 +145,7 @@ export class SupplyDrops {
         }
       }
     }
-    // A press of use over a weapon on the ground swaps it for the primary in hand, unless the press is for something else there:
-    // a landed crate, a Beacon or a Revive (`claimed`), or it has just opened a crate.
-    if (this.#loose.length > 0 && ctx.act) {
-      for (const id of ctx.using) {
-        if (this.#held.has(id)) continue;
-        const p = seats.get(id);
-        if (!standing(p) || this.#opening(id) || ctx.time - (this.#openedAt.get(id) ?? -Infinity) < OPENED_PAUSE) continue;
-        if (this.#drops.some((d) => d.landed && !d.opened && flat(p.position, d.position) <= D.reach.value && Math.abs(p.position[1] - d.position[1]) <= D.reach.value) || claimed(p)) continue;
-        const mine = ctx.act.primary(id);
-        let best: Loose | null = null;
-        for (const l of this.#loose) {
-          if (l.weapon.id === mine?.id || flat(l.position, p.position) > D.pickupReach.value || Math.abs(l.position[1] - p.position[1]) > 2) continue;
-          if (!best || flat(l.position, p.position) < flat(best.position, p.position)) best = l;
-        }
-        if (!best) continue;
-        this.#loose = this.#loose.filter((l) => l !== best);
-        const old = ctx.act.give(id, best.weapon);
-        if (old) this.#lay(old, best.position);
-        out.push({ type: 'loose', player: id, weapon: best.weapon.id, left: old?.id ?? null, position: best.position });
-      }
-    }
-    this.#held = new Set(ctx.using);
     return out;
-  }
-
-  #opening(id: PlayerId): boolean {
-    return this.#drops.some((d) => d.opening?.by === id);
-  }
-
-  #lay(weapon: HeldWeapon, position: Vec3): void {
-    this.#loose.push({ id: this.#nextLoose++, weapon, position: [position[0], position[1], position[2]] });
-    if (this.#loose.length > MOST_LOOSE) {
-      const i = this.#loose.findIndex((l) => l.weapon.id !== DROP_WEAPON);
-      this.#loose.splice(i < 0 ? 0 : i, 1);
-    }
   }
 
   /** The crates announced so far, for the snapshot. */
@@ -285,10 +159,5 @@ export class SupplyDrops {
         ...(d.opening ? { opening: { by: d.opening.by, since: d.opening.since } } : {}),
         ...(d.opened ? { opened: d.opened } : {}),
       }));
-  }
-
-  /** The weapons lying on the ground, for the snapshot. */
-  loose(): LooseWeaponState[] {
-    return this.#loose.map((l) => ({ id: l.id, weapon: l.weapon.id, position: l.position }));
   }
 }

@@ -2,7 +2,6 @@ import { DEG } from '../math';
 import { hashString, noise } from '../random';
 import { STATS, type WeaponId } from '../stats';
 import type { Loadout, PerkId, TacticalId } from '../weapon/loadout';
-import type { DropHolds } from '../modes/supply-drops';
 
 /** How a bot likes to play. */
 export type BotStyle = 'rusher' | 'flanker' | 'anchor' | 'roamer' | 'support';
@@ -163,9 +162,9 @@ const PRIMARY_WEIGHTS: Readonly<Record<BotStyle, Readonly<Partial<Record<WeaponI
 /** The share of bots that carry the revolver instead of the pistol. */
 const REVOLVER_SHARE = 0.35;
 
-/** A primary for `style`, picked by its weights with `roll` (0 to 1), leaving out `not`. */
-function pickPrimary(style: BotStyle, roll: number, not?: WeaponId): WeaponId {
-  const weights = (Object.entries(PRIMARY_WEIGHTS[style]) as [WeaponId, number][]).filter(([id]) => id !== not);
+/** A primary for `style`, picked by its weights with `roll` (0 to 1). */
+function pickPrimary(style: BotStyle, roll: number): WeaponId {
+  const weights = Object.entries(PRIMARY_WEIGHTS[style]) as [WeaponId, number][];
   let left = roll * weights.reduce((n, [, w]) => n + w, 0);
   for (const [id, w] of weights) {
     left -= w;
@@ -218,15 +217,12 @@ export function botProfile(name: string): BotProfile {
 /**
  * A bot as it plays a Battle Royale: the same style, with slower eyes and a
  * looser hand from the stats file. One life against 59 means many more fights
- * than an arena match, so what's a fair duel there is a wall here. Under the
- * loot rules the sniper comes only from a Supply Drop (ticket 71), so a style
- * that would bring it brings its next pick by the same roll (an anchor, mostly
- * the M4A1); on loadouts (`holds` is `resupply`) it brings its own pick.
+ * than an arena match, so what's a fair duel there is a wall here. It drops
+ * with its own loadout, as everyone does.
  */
-export function royaleProfile(profile: BotProfile, holds: DropHolds = 'sniper'): BotProfile {
+export function royaleProfile(profile: BotProfile): BotProfile {
   const R = STATS.royale;
-  const loadout = holds === 'sniper' && profile.loadout.primary === 'sniper' ? { ...profile.loadout, primary: pickPrimary(profile.style, noise(hashString(profile.name), 99), 'sniper') } : profile.loadout;
-  return { ...profile, loadout, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
+  return { ...profile, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
 }
 
 /** How well a match's bots play, picked in Bot Match's setup: Normal is the moderate bot as {@link botProfile} makes it. */

@@ -80,7 +80,7 @@ export interface RespawnOptions {
   readonly tacticals?: number;
 }
 
-/** A weapon as it changes hands (a Supply Drop's sniper, one lying on the ground): which, and the rounds it carries. */
+/** A weapon as it changes hands (`giveWeapon`; nothing in play does since Battle Royale went on loadouts, PLAN 9g): which, and the rounds it carries. */
 export interface HeldWeapon {
   readonly id: WeaponId;
   /** Rounds in its magazine. */
@@ -112,7 +112,7 @@ export interface WeaponOutput {
   readonly shotIndex: number;
   /** Scope sway the aim point drifts by (radians, yaw and pitch); zero without a scope. */
   readonly sway: readonly [number, number];
-  /** Rounds left to reload from, for a weapon without an unlimited reserve (a Supply Drop's sniper). */
+  /** Rounds left to reload from, for a weapon given with a limited reserve (none in play since PLAN 9g). */
   readonly reserve?: number;
 }
 

@@ -330,7 +330,7 @@ export class Game {
   #lastPanel: SpectatorPanelState | null = null;
   /** The Battle Royale's wall in the world and its sound (Zero Island only), and what the Ring was doing last frame. */
   readonly #ringWall: RingWall | null;
-  /** The Supply Drops and the weapons on the ground (island maps only). */
+  /** The Supply Drops (island maps only). */
   readonly #supplyDrops: SupplyDropView | null;
   /** The Reboot Beacons and the Cards lying on the island (island maps only). */
   readonly #rebootView: RebootView | null;
@@ -481,7 +481,7 @@ export class Game {
     this.#players = new PlayersView(this.#worldView.scene, options.world, options.thirdPersonWeapon ?? null);
     this.#arsenal = new ArsenalView(this.#worldView.scene);
     const island = Boolean(options.content.places && options.content.terrain);
-    this.#supplyDrops = island ? new SupplyDropView(this.#worldView.scene, (id) => this.#players.gunMesh(id)) : null;
+    this.#supplyDrops = island ? new SupplyDropView(this.#worldView.scene) : null;
     this.#rebootView = island ? new RebootView(this.#worldView.scene) : null;
     this.#islandBounds = options.content.places && options.content.terrain ? terrainBounds(options.content.terrain) : null;
     this.#pipeline = new GamePipeline(options.renderer, this.#worldView.scene, this.#camera.camera, this.#viewmodel.scene, this.#viewmodel.camera);
@@ -1440,7 +1440,7 @@ export class Game {
     const driver = this.#driver;
     const reboot = royale && driver ? rebootPrompt(self, royale, driver.serverTime, this.#useLabel(), (id) => driver.nameOf(id)) : null;
     if (reboot) return reboot;
-    return royale && this.#driver ? dropPrompt(self, royale, this.#driver.serverTime, self.loadout?.primary ?? null, this.#useLabel()) : null;
+    return royale && this.#driver ? dropPrompt(self, royale, this.#driver.serverTime, this.#useLabel()) : null;
   }
 
   /** The Downed squadmate a Revive would start on (the nearest in reach nobody is at yet), as the simulation picks it. */
@@ -2595,7 +2595,6 @@ export class Game {
         useLabel: this.#useLabel(),
         serverTime: driver.serverTime,
         dropLands: (stage) => this.#royale?.drops?.find((d) => d.stage === stage)?.lands,
-        ...(this.#royale?.holds ? { dropHolds: this.#royale.holds } : {}),
       }),
     );
   }

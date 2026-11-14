@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, STATS, teamMode, type DropHolds, type KillWeapon, type ModeId, type PlayerId, type Score, type TeamId, type Vec3 } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, STATS, teamMode, type KillWeapon, type ModeId, type PlayerId, type Score, type TeamId, type Vec3 } from '@duty-shooter/fps-core';
 import type { PresentedEvent } from '../session';
 import { TEAMS } from '../ui/model';
 import { pingCallout } from '../ui/pings';
@@ -44,8 +44,6 @@ export interface EventWordsContext {
   readonly serverTime: number;
   /** When a Battle Royale's Supply Drop of this stage lands (server time), if known. */
   dropLands(stage: number): number | undefined;
-  /** What the Battle Royale's Supply Drops hold; absent, the sniper (the loot rules). */
-  readonly dropHolds?: DropHolds;
 }
 
 /** How a kill feed line names what did it. */
@@ -61,7 +59,7 @@ export function killedWith(cause: string, weapon: KillWeapon | null): string {
 const NONE: EventWords = {};
 
 /** The events that can say anything: the rest (shots, impacts, blasts...) are only seen and heard. */
-export const WORDY: ReadonlySet<PresentedEvent['type']> = new Set<PresentedEvent['type']>(['kill', 'killFeed', 'revive', 'capture', 'drop', 'card', 'reboot', 'squadOut', 'killLeader', 'ping', 'loose', 'charge', 'level']);
+export const WORDY: ReadonlySet<PresentedEvent['type']> = new Set<PresentedEvent['type']>(['kill', 'killFeed', 'revive', 'capture', 'drop', 'card', 'reboot', 'squadOut', 'killLeader', 'ping', 'charge', 'level']);
 
 export function eventWords(e: PresentedEvent, ctx: EventWordsContext): EventWords {
   const selfId = ctx.selfId;
@@ -110,11 +108,11 @@ export function eventWords(e: PresentedEvent, ctx: EventWordsContext): EventWord
       const cell = ctx.cell(e.position);
       if (e.action === 'announce') {
         const lands = ctx.dropLands(e.stage);
-        return { toast: { text: dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - ctx.serverTime, ctx.dropHolds), seconds: 6 } };
+        return { toast: { text: dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - ctx.serverTime), seconds: 6 } };
       }
       if (e.action === 'open' && e.player !== null) {
         const mine = e.player === selfId;
-        const took = ctx.dropHolds === 'resupply' ? (mine ? 'You were resupplied' : `${ctx.nameOf(e.player)} was resupplied`) : `${mine ? 'You' : ctx.nameOf(e.player)} took the sniper`;
+        const took = mine ? 'You were resupplied' : `${ctx.nameOf(e.player)} was resupplied`;
         return { feed: { text: `${took} from the Supply Drop${cell ? ` in ${cell}` : ''}`, team: teamOf(e.player) ?? 0, mine } };
       }
       return NONE;
@@ -153,9 +151,6 @@ export function eventWords(e: PresentedEvent, ctx: EventWordsContext): EventWord
       // An enemy ping is a moving target: no grid cell for it.
       return { feed: { text: pingCallout(e.kind, name, e.kind === 'enemy' ? '' : ctx.cell(e.position)), team: e.team, mine } };
     }
-    case 'loose':
-      if (e.player !== selfId) return NONE;
-      return { toast: { text: `${STATS.weapons[e.weapon].traits.name} in hand${e.left ? `; your ${STATS.weapons[e.left].traits.name} lies where it was` : ''}.`, seconds: 3 } };
     case 'charge': {
       const who = e.player === null ? null : e.player === selfId ? 'You' : ctx.nameOf(e.player);
       // Where the charge lies is the attackers' to know: defenders hear only of the plant and what follows.

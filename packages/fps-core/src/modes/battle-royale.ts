@@ -9,7 +9,7 @@ import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
 import { Reboot, planBeacons } from './reboot';
 import { ScoreKeeper } from './score';
-import { SupplyDrops, type DropHolds } from './supply-drops';
+import { SupplyDrops } from './supply-drops';
 
 /** Seats a Squad: Solos, Duos or Trios. */
 export type SquadSize = 1 | 2 | 3;
@@ -23,8 +23,6 @@ export interface BattleRoyaleOptions {
   readonly seed?: number;
   /** Draws each match's seed (0 to 1, like `Math.random`, its default). */
   readonly random?: () => number;
-  /** What Supply Drops hold: `resupply` plays the match on loadouts, with no weapons on the ground. Defaults to the sniper. */
-  readonly holds?: DropHolds;
 }
 
 interface Entry {
@@ -84,8 +82,8 @@ export class BattleRoyale implements GameMode {
   #squadsAlive = 0;
   /** A person has had a seat in this match. */
   #peopled = false;
-  /** The Supply Drops, and the weapons on the ground. */
-  readonly #drops: SupplyDrops;
+  /** The Supply Drops. */
+  readonly #drops = new SupplyDrops();
   /** Reboot Cards and Beacons (Duos and Trios). */
   readonly #reboot = new Reboot();
   /** The seat with the most eliminations, from `KILL_LEADER` on: a tie keeps the one who got there first. */
@@ -104,12 +102,6 @@ export class BattleRoyale implements GameMode {
     this.timeLimit = options.timeLimit ?? STATS.royale.matchLength.value;
     this.#seed = options.seed ?? null;
     this.#random = options.random ?? Math.random;
-    this.#drops = new SupplyDrops(options.holds);
-  }
-
-  /** What this mode's Supply Drops hold: the sniper (the loot rules) or a resupply (on loadouts). */
-  get holds(): DropHolds {
-    return this.#drops.holds;
   }
 
   /** This match's circles. */
@@ -204,11 +196,7 @@ export class BattleRoyale implements GameMode {
       this.#stage = stage;
       out.push({ type: 'stage', stage: stage + 1 });
     }
-    // A press of use that starts a Revive or a Reboot doesn't also swap guns with one lying there.
-    const reach = STATS.royale.reviveReach.value;
-    const revives = (p: PlayerOutput) =>
-      this.squadSize > 1 && ctx.players.some((o) => o.id !== p.id && o.team === p.team && o.alive && o.downed !== null && Math.hypot(o.position[0] - p.position[0], o.position[2] - p.position[2]) <= reach && Math.abs(o.position[1] - p.position[1]) <= reach);
-    out.push(...this.#drops.step(events, ctx, (p) => this.#reboot.claims(p) || revives(p)));
+    out.push(...this.#drops.step(ctx));
     const scoring = this.#result === null;
     for (const e of this.#reboot.step(events, ctx, this.#stage + 1, (id) => this.#entries.get(id)?.team, (id) => this.#entries.get(id)?.name ?? id)) {
       out.push(e);
@@ -351,16 +339,13 @@ export class BattleRoyale implements GameMode {
       squads: this.#squadsAlive,
       ...(this.#leader ? { leader: { id: this.#leader.id, name: this.#leader.name, kills: this.#leader.kills } } : {}),
       ...(this.#champion ? { champion: this.#champion } : {}),
-      ...(this.holds === 'resupply' ? { holds: 'resupply' as const } : {}),
     };
     const drops = this.#drops.drops();
-    const loose = this.#drops.loose();
     const beacons = this.#reboot.beacons();
     const cards = this.#reboot.cards();
     return {
       ...state,
       ...(drops.length > 0 ? { drops } : {}),
-      ...(loose.length > 0 ? { loose } : {}),
       ...(this.#reboot.open ? { reboot: true as const, beacons } : {}),
       ...(cards.length > 0 ? { cards } : {}),
     };

@@ -25,8 +25,7 @@ function royale(size: SquadSize = 2, people: string[] = []) {
   let team = new Map<string, number>();
   let time = 0;
   const act: ModeActions = {
-    give: () => null,
-    primary: () => null,
+    resupply: () => {},
     respawn: (id, position, _yaw, options) => {
       back.push({ id, position, ...options });
       alive.set(id, true);

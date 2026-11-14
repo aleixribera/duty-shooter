@@ -14,7 +14,6 @@ import { GunGame, type GunGameOptions } from '../modes/gungame';
 import { LOBBY_MODES, teamMode, type BattleRoyaleState, type ChargeSite, type GameMode, type MatchResult, type ModeActions, type ModeContext, type ModeEvent, type ModeId, type Score, type SpawnPoint, type Zone } from '../modes/game-mode';
 import { Outposts, type OutpostsOptions } from '../modes/outposts';
 import { playGround, type Town } from '../modes/ground';
-import { royaleLoadout } from '../modes/supply-drops';
 import { clearOf, royaleProps, standProps } from '../modes/royale-props';
 import { MATCH_SCALES, WIDE_SCALE, type MatchScale } from '../modes/scale';
 import { TeamDeathmatch, type TeamDeathmatchOptions } from '../modes/tdm';
@@ -255,7 +254,7 @@ const MAX_NAME = 16;
 /** Ticks over which a match that seats its own wakes its bots. */
 const WAKE_TICKS = 30;
 /** Events repeated in later snapshots (lost packets still reach the feed); the rest (shots, impacts, reloads) are cosmetic and sent once. */
-export const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'loose', 'card', 'reboot', 'ping', 'squadOut', 'killLeader', 'score']);
+export const IMPORTANT = new Set(['hit', 'kill', 'down', 'revive', 'killFeed', 'matchEnd', 'matchStart', 'explosion', 'capture', 'roundStart', 'roundEnd', 'charge', 'stage', 'drop', 'card', 'reboot', 'ping', 'squadOut', 'killLeader', 'score']);
 
 interface Client {
   readonly connection: Connection;
@@ -1223,8 +1222,7 @@ export class GameServer {
   /** The loadout a player's next spawn carries (the mode's, else their pick or a bot's from its profile), as spawn options (empty for the default). */
   #loadoutOf(id: PlayerId): { loadout?: Loadout } {
     const loadout = this.#mode.loadoutOf?.(id) ?? [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
-    // In a Battle Royale under the loot rules the sniper comes only from a Supply Drop (ticket 71); on loadouts, as picked.
-    return loadout ? { loadout: this.#mode.id === BATTLE_ROYALE ? royaleLoadout(loadout, this.#royale.holds) : loadout } : {};
+    return loadout ? { loadout } : {};
   }
 
   #remove(id: PlayerId): void {
@@ -1472,10 +1470,8 @@ export class GameServer {
     this.#fillBots();
   }
 
-  /** What a mode may do to seats' weapons, through the simulation. */
+  /** What a mode may do to seats, through the simulation. */
   readonly #act: ModeActions = {
-    give: (id, weapon) => this.simulation.giveWeapon(id, weapon),
-    primary: (id) => this.simulation.primary(id),
     resupply: (id) => this.simulation.resupply(id),
     respawn: (id, position, yaw, options) => {
       // Back with what it dropped in with, not whatever its person picked while out.
@@ -1705,23 +1701,15 @@ export class GameServer {
       state,
       seats: seats.map((p) => {
         const bot = this.#bots.get(p.id)?.bot;
-        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}), ...(this.#armedSniper(p.id) ? { sniper: true } : {}) };
+        return { id: p.id, team: p.team, position: p.position, bot: bot !== undefined, downed: p.downed, health: p.health, ...(bot ? { bold: bot.profile.aggression } : {}) };
       }),
       ...(this.#countingDown ? { fresh: FIRST_RALLIES } : {}),
     });
   }
 
-  /** Whether a seat holds the sniper with rounds left to fire: one shot dry has nothing to keep it from the next crate. */
-  #armedSniper(id: PlayerId): boolean {
-    // On loadouts a crate holds no sniper, so one in hand keeps nobody from it.
-    if (this.#royale.holds !== 'sniper') return false;
-    const held = this.simulation.primary(id);
-    return held?.id === 'sniper' && held.ammo + (held.reserve ?? 0) > 0;
-  }
-
   /** How a named bot plays. */
   #profile(name: string): BotProfile {
-    const base = this.#mode.id === BATTLE_ROYALE ? royaleProfile(botProfile(name), this.#royale.holds) : botProfile(name);
+    const base = this.#mode.id === BATTLE_ROYALE ? royaleProfile(botProfile(name)) : botProfile(name);
     return this.#options.bots?.profile?.(name, base) ?? base;
   }
 

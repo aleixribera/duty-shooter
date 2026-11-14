@@ -1,4 +1,4 @@
-import type { BattleRoyaleState, Vec3, WeaponId } from '@duty-shooter/fps-core';
+import type { BattleRoyaleState, Vec3 } from '@duty-shooter/fps-core';
 import { CanvasTexture, DoubleSide, Group, Mesh, MeshBasicNodeMaterial, MeshStandardNodeMaterial, PlaneGeometry, RepeatWrapping, SRGBColorSpace, type Camera, type MeshStandardMaterial, type Object3D, type Scene } from 'three/webgpu';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { dropPose } from './ui/supply-drop';
@@ -91,22 +91,19 @@ interface Crate {
  * A Battle Royale's Supply Drops in the world (the Blender crate under its
  * canopy, coming down in its last seconds, its lid swinging open once taken,
  * and the red smoke of the flare that marks where it lands from the moment
- * it is called in) and the weapons lying on the ground.
+ * it is called in).
  */
 export class SupplyDropView {
   readonly #root = new Group();
   readonly #crates = new Map<number, Crate>();
-  readonly #loose = new Map<number, Object3D>();
-  readonly #gun: (id: WeaponId) => Object3D | null;
   readonly #smokeGeometry = new PlaneGeometry(1, 1).translate(0, 0.5, 0);
   readonly #smokeMaterial: MeshBasicNodeMaterial;
   #template: Object3D | null = null;
   #disposed = false;
   readonly loaded: Promise<void>;
 
-  constructor(scene: Scene, gun: (id: WeaponId) => Object3D | null) {
+  constructor(scene: Scene) {
     scene.add(this.#root);
-    this.#gun = gun;
     const smoke = smokeTexture();
     smoke.repeat.set(1, 0.35);
     this.#smokeMaterial = new MeshBasicNodeMaterial({ map: smoke, alphaMap: columnTexture(), transparent: true, depthWrite: false, side: DoubleSide, fog: true });
@@ -127,7 +124,7 @@ export class SupplyDropView {
       });
   }
 
-  /** Draws the crates and loose weapons of `state` (null: none) at simulation time `time`. */
+  /** Draws the crates of `state` (null: none) at simulation time `time`. */
   update(state: BattleRoyaleState | null, time: number, camera: Camera, dt: number): void {
     const now = performance.now() / 1000;
     const shown = new Set<number>();
@@ -170,26 +167,6 @@ export class SupplyDropView {
       c.root.removeFromParent();
       (c.smoke.material as MeshBasicNodeMaterial).dispose();
       this.#crates.delete(stage);
-    }
-    const lying = new Set<number>();
-    for (const l of state?.loose ?? []) {
-      let mesh = this.#loose.get(l.id);
-      if (!mesh) {
-        const made = this.#gun(l.weapon);
-        if (!made) continue;
-        mesh = made;
-        // On its side, turned by its number so a pile doesn't line up.
-        mesh.rotation.set(0, (l.id * 2.39996) % (Math.PI * 2), Math.PI / 2, 'YXZ');
-        this.#loose.set(l.id, mesh);
-        this.#root.add(mesh);
-      }
-      lying.add(l.id);
-      mesh.position.set(l.position[0], l.position[1] + 0.05, l.position[2]);
-    }
-    for (const [id, mesh] of this.#loose) {
-      if (lying.has(id)) continue;
-      mesh.removeFromParent();
-      this.#loose.delete(id);
     }
   }
 

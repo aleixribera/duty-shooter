@@ -1075,7 +1075,7 @@ export class Bot {
     // The pistol when the primary runs dry close up; the primary again once things are quiet.
     const w = self.weapon;
     const busy = w.action === 'holster' || w.action === 'draw' || w.action === 'grenade' || self.grenade !== null;
-    // A primary with nothing left to reload from (a Supply Drop's sniper, shot dry) is put away for good.
+    // A primary with nothing left to reload from (a limited reserve shot dry) is put away for good.
     const dry = w.slot === 0 && w.ammo === 0 && w.reserve === 0;
     if (w.slot === 0 && !dry) this.#dry = false;
     else if (dry) this.#dry = true;

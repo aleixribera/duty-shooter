@@ -352,17 +352,15 @@ export const STATS = {
     bleedOut: estimate(30, 's', 'How long a seat stays Downed before it dies (the Battle Royale spec).'),
     reviveTime: estimate(5, 's', 'Holding use this long stands a Downed seat back up (the Battle Royale spec).'),
     reviveReach: estimate(2, 'm', 'How near a Downed seat its reviver must stay: an arm, plus the length of a prone body.'),
-    /** Supply Drops (ticket 71): the only sniper in a Battle Royale, one crate a Stage from the second. */
+    /** Supply Drops (ticket 71): one crate a Stage from the second, a resupply of frags, tacticals and health (PLAN item 9g). */
     supplyDrop: {
       firstStage: estimate(2, 'level', 'The first Stage that opens with a crate (lead, ticket 71): Stage 1 is for finding your feet, and the next circle is known by then.'),
-      lastStage: estimate(4, 'level', 'The last Stage that opens with one (lead, ticket 71): three snipers a match, and none in the last Stages, where a scope across a small circle is no fight.'),
+      lastStage: estimate(4, 'level', 'The last Stage that opens with one (lead, ticket 71): three crates a match, and none in the last Stages, where the circle is too small to run for one.'),
       warning: estimate(20, 's', 'From the announcement to the landing (lead, ticket 71): long enough to decide and run 100 m, too short to cross the island.'),
       fall: estimate(14, 's', 'The last seconds of the warning the crate is seen falling under its parachute: a falling crate seen from far off, not an object in the sky all the warning long.'),
       openTime: estimate(2, 's', 'Holding use this long opens a landed crate (lead, ticket 71): a moment exposed, under half a Revive.'),
       reach: estimate(2.2, 'm', 'How near a crate its opener must stand: the crate is 1.2 m across, plus an arm.'),
-      magazines: estimate(3, 'rounds', 'Spare magazines the sniper comes with (lead, ticket 71): 5 in it and 15 to reload, the one weapon without an unlimited reserve.'),
       ring: estimate(0.7, 'multiplier', 'A crate lands within this share of the radius of the next circle from its middle, so the Ring never takes it before anyone can reach it.'),
-      pickupReach: estimate(1.5, 'm', 'How near a weapon on the ground must be to take it: underfoot, as a Charge is picked up.'),
     },
     /** Reboot (ticket 70): a Squad's way back, Duos and Trios only, on Fortnite's numbers. */
     reboot: {

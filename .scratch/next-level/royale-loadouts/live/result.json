@@ -1,0 +1,43 @@
+{
+  "primaries": [
+    "m4a1",
+    "smg",
+    "shotgun",
+    "sniper",
+    "lmg",
+    "dmr",
+    "burst"
+  ],
+  "pickedSniper": true,
+  "preparationPick": "sniper",
+  "landed": {
+    "phase": "playing",
+    "stage": 1,
+    "drops": null,
+    "loose": null,
+    "alive": 60,
+    "time": 23.803333333333345,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "looseSeen": [],
+  "last": {
+    "phase": "nuke",
+    "stage": 1,
+    "drops": null,
+    "loose": null,
+    "alive": 52,
+    "time": 77.43066666666661,
+    "me": {
+      "alive": false,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "errors": []
+}

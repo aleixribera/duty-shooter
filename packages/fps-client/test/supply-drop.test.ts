@@ -53,44 +53,29 @@ describe('a Supply Drop in the client (ticket 71)', () => {
     ]);
   });
 
-  it('prompts a hold to open a landed crate in reach, not a falling one, nor for whoever holds the sniper', () => {
+  it('prompts a hold to open a landed crate in reach, not a falling one, nor one someone else is opening', () => {
     const near = player([11, 4, 20]);
-    expect(dropPrompt(near, state(), 99, 'm4a1', 'F')).toBeNull();
-    const hold = dropPrompt(near, state(), 101, 'm4a1', 'F')!;
+    expect(dropPrompt(near, state(), 99, 'F')).toBeNull();
+    const hold = dropPrompt(near, state(), 101, 'F')!;
     expect(hold).toContain('F');
-    expect(dropPrompt(near, state(), 101, 'sniper', 'F')).toBeNull();
-    expect(dropPrompt(player([20, 4, 20]), state(), 101, 'm4a1', 'F')).toBeNull();
+    expect(dropPrompt(player([20, 4, 20]), state(), 101, 'F')).toBeNull();
     const opening = state({ drops: [{ stage: 2, position: [10, 4, 20], lands: 100, opening: { by: 'me', since: 101 } }] });
-    const busy = dropPrompt(near, opening, 102, 'm4a1', 'F')!;
+    const busy = dropPrompt(near, opening, 102, 'F')!;
     expect(busy).toBeTruthy();
     expect(busy).not.toBe(hold);
-    // On loadouts the crate is a resupply, for a sniper's holder too, and the call-in says something else.
-    expect(dropPrompt(near, state({ holds: 'resupply' }), 101, 'sniper', 'F')).toBe(hold);
-    expect(dropAnnouncement('F6', 19.6, 'resupply')).not.toBe(dropAnnouncement('F6', 19.6));
-  });
-
-  it('prompts a press to take a different weapon lying in reach', () => {
-    const s = state({ drops: [], loose: [{ id: 1, weapon: 'sniper', position: [0, 0, 0] }, { id: 2, weapon: 'm4a1', position: [0.5, 0, 0] }] });
-    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'm4a1', 'F')).toContain(STATS.weapons.sniper.traits.name);
-    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'sniper', 'F')).toContain(STATS.weapons.m4a1.traits.name);
-    expect(dropPrompt(player([0.4, 0, 0]), s, 0, 'sniper', 'F')).toContain('F');
-    expect(dropPrompt(player([5, 0, 0]), s, 0, 'm4a1', 'F')).toBeNull();
+    // Someone else opening it: nothing to do there.
+    expect(dropPrompt(near, state({ drops: [{ stage: 2, position: [10, 4, 20], lands: 100, opening: { by: 'mate', since: 101 } }] }), 102, 'F')).toBeNull();
+    // The call-in says it is a resupply, never a gun.
+    expect(dropAnnouncement('F6', 19.6)).toContain('full health');
+    expect(dropAnnouncement('F6', 19.6)).not.toContain(STATS.weapons.sniper.traits.name);
   });
 });
 
-describe('the Preparation’s picker (ticket 71)', () => {
-  it('offers no sniper, and lights the M4A1 for a saved sniper pick', () => {
+describe('the Preparation’s picker on loadouts (PLAN item 9g)', () => {
+  it('offers the sniper, opened, and keeps a saved pick of it', () => {
     const kit = preparationKit({ primary: 'sniper', secondary: 'pistol', grenade: 'frag' });
-    expect(kit.primaries).not.toContain('sniper');
-    expect(kit.primaries).toContain('m4a1');
-    expect(kit.picked.primary).toBe('m4a1');
-    expect(preparationKit({ primary: 'smg', secondary: 'pistol', grenade: null }).picked.primary).toBe('smg');
-  });
-
-  it('on loadouts offers the sniper, opened, and keeps a saved pick of it', () => {
-    const kit = preparationKit({ primary: 'sniper', secondary: 'pistol', grenade: 'frag' }, undefined, 'resupply');
     expect(kit.primaries).toContain('sniper');
     expect(kit.picked.primary).toBe('sniper');
-    expect(preparationKit({ primary: 'm4a1', secondary: 'pistol', grenade: null }, ['m4a1', 'pistol'], 'resupply').primaries).not.toContain('sniper');
+    expect(preparationKit({ primary: 'm4a1', secondary: 'pistol', grenade: null }, ['m4a1', 'pistol']).primaries).not.toContain('sniper');
   });
 });

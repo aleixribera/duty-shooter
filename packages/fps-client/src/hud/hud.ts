@@ -546,7 +546,7 @@ export class Hud {
   /** A flash's white-out over the world (the HUD stays over it). */
   readonly #blind: HTMLDivElement;
   readonly #mag: HTMLSpanElement;
-  /** The spare rounds: infinite, except a sniper from a Supply Drop. */
+  /** The spare rounds: infinite, except a weapon given with a limited reserve (none in play since PLAN 9g). */
   readonly #res: HTMLSpanElement;
   readonly #gun: HTMLElement;
   readonly #nade: HTMLElement;
