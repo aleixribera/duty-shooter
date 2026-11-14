@@ -374,6 +374,8 @@ export class Game {
   onEquip: ((id: WeaponId) => void) | null = null;
   /** Dead in a mode with a next life, 1, 2 or 3 pressed: carry that kept loadout from the next spawn. */
   onPickLoadout: ((index: number) => void) | null = null;
+  /** Play again at a Bot Match's end: the page starts the same match at once (PLAN item 7). Null where the page can't. */
+  onPlayAgain: (() => void) | null = null;
   #resizeObserver: ResizeObserver;
   /** The mode this player voted for in the current intermission. */
   #myVote: ModeId | null = null;
@@ -417,8 +419,9 @@ export class Game {
     else if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
     else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
+    else if (e.code === 'KeyP' && !e.repeat) this.#playAgain();
     // At the match's end, E equips the next gun it opened (PLAN item 7).
-    else if (e.code === 'KeyE' && !e.repeat) for (const id of this.#keeper.gain?.unlocks ?? []) if (this.hud.equip(id)) break;
+    else if (e.code === 'KeyE' && !e.repeat) this.#equipNext();
   };
 
   constructor(options: GameOptions) {
@@ -478,8 +481,11 @@ export class Game {
     this.hud.onVote = (mode) => this.#vote(mode);
     this.hud.onRandom = () => this.#toggleRandom();
     this.hud.onEquip = (id) => this.onEquip?.(id);
-    // A server with a lobby holds no vote: there the D-pad's right is the host's Random next match.
-    this.input.onPadVote = (side) => (this.#driver?.match?.lobby ? side === 'right' && this.#toggleRandom() : this.#vote(side === 'left' ? 'tdm' : 'ffa'));
+    this.hud.onPlayAgain = () => this.#playAgain();
+    // A server with a lobby holds no vote: there the D-pad's right is the host's Random next match, and its left Play again.
+    this.input.onPadVote = (side) => (this.#driver?.match?.lobby ? (side === 'right' ? this.#toggleRandom() : this.#playAgain()) : this.#vote(side === 'left' ? 'tdm' : 'ffa'));
+    // The pad's tactical (the D-pad's down) at a match's end is Equip it, as E is.
+    this.input.onPadTactical = () => this.#equipNext();
     addEventListener('keydown', this.#onVoteKey);
     this.applySettings(options.settings);
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
@@ -1051,6 +1057,25 @@ export class Game {
     return !this.paused && !!self && !self.alive && (!match || (match.phase === 'playing' && match.mode !== 'battle-royale'));
   }
 
+  /** At a match's end, puts the next gun it opened into the loadout (PLAN item 7). */
+  #equipNext(): void {
+    for (const id of this.#keeper.gain?.unlocks ?? []) if (this.hud.equip(id)) break;
+  }
+
+  /** Whether Play again stands at this match's end: a Bot Match (its server in this page) over, not a Battle Royale. */
+  #canPlayAgain(): boolean {
+    const driver = this.#driver;
+    const match = driver?.match;
+    return !!this.onPlayAgain && driver?.pausesWithGame === true && !!match && (match.phase === 'nuke' || match.phase === 'vote') && match.mode !== 'battle-royale';
+  }
+
+  /** Play again pressed at a Bot Match's end: the same match starts at once (PLAN item 7). */
+  #playAgain(): void {
+    if (this.paused || !this.#canPlayAgain()) return;
+    this.#play('hitMarker');
+    this.onPlayAgain?.();
+  }
+
   /** The host asks for a random next match at a match's end, or takes it back (ticket 115). */
   #toggleRandom(): void {
     const driver = this.#driver;
@@ -1130,6 +1155,7 @@ export class Game {
             joined: match.phase === 'playing' && performance.now() / 1000 < this.#goalUntil,
             team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
+            playAgain: this.#canPlayAgain(),
           }
         : null,
       respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,

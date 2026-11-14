@@ -118,6 +118,12 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       settings = picked;
       applyLoadout(withBuilds(picked.loadout, settings.builds, gunKills));
     };
+    // Play again at a Bot Match's end: the same picks, straight into the loading screen, no setup page between.
+    g.onPlayAgain = () => {
+      if (!(game.driver instanceof engine!.BotMatchDriver) || botLobbyOpen) return;
+      botSetup.last = null;
+      startBotMatch();
+    };
     // Use while dead, or at the range's station: the loadout screen, back into the game when done.
     g.onLoadout = () => {
       if (game.paused) return;

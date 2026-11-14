@@ -1,5 +1,5 @@
-import { STATS } from '@duty-shooter/fps-core';
-import type { WeaponId } from '@duty-shooter/fps-core';
+import { SLOT_MASTERY, STATS, slotsOf } from '@duty-shooter/fps-core';
+import type { AttachmentSlot, WeaponId } from '@duty-shooter/fps-core';
 import { figure, type MatchGain } from '../profile/model';
 import { escapeHtml as escape } from '../ui/theme';
 
@@ -12,6 +12,8 @@ import { escapeHtml as escape } from '../ui/theme';
  * Its markup is the same from the moment the match is banked, so the bar's
  * fill plays once: the clock beside it is drawn in another element.
  */
+
+const SLOT_NAMES: { readonly [S in AttachmentSlot]: string } = { optic: 'Optic', muzzle: 'Muzzle', magazine: 'Magazine', grip: 'Grip' };
 
 /** When the bar starts to fill after the strip shows, and how long it takes (ms); with a Rank crossed it runs to the end and starts again. */
 const GAIN_FILL_DELAY = 400;
@@ -35,6 +37,12 @@ export const MATCH_GAIN_CSS = `
 .ds-gain .bar { height: 6px; background: rgb(243 241 234 / 0.16); overflow: hidden; }
 .ds-gain .bar i { display: block; height: 100%; background: var(--ds-text); transform-origin: 0 50%; transform: scaleX(var(--to)); animation: ds-gain-fill ${FILL}ms var(--ds-ease) ${GAIN_FILL_DELAY}ms backwards; }
 .ds-gain .bar i.up { animation: ds-gain-up ${FILL_UP}ms linear ${GAIN_FILL_DELAY}ms backwards; }
+/* Each gun's Mastery, as the Rank's row: its name and level, the bar, the kills to the next level; a level reached is lit. */
+.ds-gain .mastery { display: flex; flex-direction: column; gap: 6px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
+.ds-gain .mastery > div { display: grid; grid-template-columns: minmax(150px, auto) minmax(60px, 1fr) auto; align-items: center; gap: 4px 14px; }
+.ds-gain .mastery .who b { color: var(--ds-text); font-weight: 700; margin-right: 8px; }
+.ds-gain .mastery .up { color: var(--ds-light); font-weight: 700; text-shadow: 0 0 16px var(--ds-light-glow); }
+.ds-gain .mastery .bar { height: 4px; }
 .ds-gain .tasks { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-gain .tasks > div { display: flex; gap: 8px; min-width: 0; }
 .ds-gain .tasks b { color: var(--ds-text); font-weight: 700; white-space: nowrap; }
@@ -58,6 +66,8 @@ export const MATCH_GAIN_CSS = `
   .ds-gain .ds-readouts b { font-size: var(--ds-type-body); }
   .ds-gain .rank { grid-template-columns: minmax(0, 1fr) auto; }
   .ds-gain .rank .bar { grid-column: 1 / -1; grid-row: 2; }
+  .ds-gain .mastery > div { grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; }
+  .ds-gain .mastery .bar { grid-column: 1 / -1; grid-row: 2; }
   .ds-gain .tasks { flex-direction: column; gap: 3px; }
   .ds-gain .tasks > div { justify-content: space-between; }
 }
@@ -91,9 +101,25 @@ export function matchGainHtml(cells: readonly (readonly [string, string])[], gai
       .map((c) => `<div><span>${escape(c.text)}</span><b>${c.completed ? `Done · +${figure(c.xp)} XP` : `${figure(c.progress)} / ${figure(c.target)}`}</b></div>`)
       .join('')}</div>`;
   }
+  if (gain.mastery.length > 0) {
+    // Each gun the match's kills moved along its Mastery: its bar filling, and the slot a new level opened.
+    html += `<div class="mastery">${gain.mastery
+      .map((m) => {
+        const up = m.after.level > m.before.level;
+        const opened = up ? slotsOf(m.id).filter((s) => SLOT_MASTERY[s] > m.before.level && SLOT_MASTERY[s] <= m.after.level) : [];
+        const to = m.after.next === null ? 'Mastered' : `${figure(m.total)} / ${figure(m.after.next)} kills`;
+        return (
+          `<div><span class="who"><b>${escape(STATS.weapons[m.id].traits.name)}</b>${up ? `<span class="up">Mastery ${m.after.level}</span>` : `Mastery ${m.after.level}`}</span>` +
+          `<span class="bar"><i${up ? ' class="up"' : ''} style="--from:${share(m.before.share)};--to:${share(m.after.share)}"></i></span>` +
+          `<span class="xp">${opened.length > 0 ? `${opened.map((s) => SLOT_NAMES[s]).join(', ')} open · ` : ''}${to}</span></div>`
+        );
+      })
+      .join('')}</div>`;
+  }
   if (gain.unlocks.length > 0) {
     // Each gun the match opened, and (where the screen can take a press) a button that puts it in the loadout.
-    const button = (id: WeaponId) => (!equip ? '' : equip.equipped.has(id) ? '<span class="equipped">Equipped</span>' : `<button type="button" class="ds-btn" data-equip="${id}"><i class="ds-kbd key">E</i>Equip it</button>`);
+    const button = (id: WeaponId) =>
+      !equip ? '' : equip.equipped.has(id) ? '<span class="equipped">Equipped</span>' : `<button type="button" class="ds-btn" data-equip="${id}"><i class="ds-kbd key">E</i><i class="ds-kbd pad">▼</i>Equip it</button>`;
     html += `<div class="unlocks">${gain.unlocks.map((id) => `<div><span class="ds-label">Unlocked</span><b>${escape(STATS.weapons[id].traits.name)}</b>${button(id)}</div>`).join('')}</div>`;
   }
   return html;

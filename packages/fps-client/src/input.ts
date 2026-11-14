@@ -106,6 +106,8 @@ export class InputController {
   onPadMenu: ((nav: PadNav) => void) | null = null;
   /** The D-pad's left or right pressed in play (unbound there): the intermission's vote. */
   onPadVote: ((side: 'left' | 'right') => void) | null = null;
+  /** The controller's tactical button pressed in play: at a match's end, Equip it (the keyboard's E has its own listener). */
+  onPadTactical: (() => void) | null = null;
   /** The last reading's pressed buttons, for press and release edges. */
   #padPressed: readonly boolean[] = [];
   #padMove: { forward: number; right: number } = { forward: 0, right: 0 };
@@ -399,6 +401,7 @@ export class InputController {
       this.#crouchToggled = false;
     }
     if (this.#is('map', code)) this.#mapOpen = !this.#mapOpen;
+    if (fromPad && this.#is('tactical', code)) this.onPadTactical?.();
     if (this.#is('ping', code)) {
       this.#pingSince = now;
       this.#wheelPush = [0, 0];

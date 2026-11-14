@@ -1,0 +1,2098 @@
+{
+  "match": 150,
+  "map": "Survival Town",
+  "steps": [
+    {
+      "step": "first match",
+      "phase": "playing",
+      "map": "survival-town",
+      "mode": "tdm",
+      "setup": false
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -40
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 0.18333333333333332,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -40
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 2.9999999999999942,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -39
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 5.783333333333318,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -13,
+          0,
+          -30
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 8.600000000000007,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2.1047945503079846,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -12,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 11.483333333333483,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 14.350000000000293,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 17.21666666666697,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 20.050000000000143,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 22.916666666666647,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 25.69999999999982,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 28.54999999999966,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 31.416666666666163,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 34.28333333333267,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 37.11666666666584,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 39.949999999999015,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 42.76666666666552,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 45.58333333333203,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 48.3666666666652,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 51.23333333333171,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 54.049999999998214,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 56.849999999998055,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 59.66666666666456,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 62.449999999997736,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 65.28333333333092,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -12,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 68.04999999999742,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -11,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 70.89999999999726,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -12,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 73.68333333333044,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -12,
+          0,
+          -28
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 76.54999999999694,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2.390532471889106,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -13,
+          0,
+          -21
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 79.36666666666345,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2.516930748567304,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": true,
+        "reload": false,
+        "dist": 11.149599518732662
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -14,
+          0,
+          -20
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 82.28333333332995,
+          "reload": null,
+          "ammo": 17,
+          "ads": 1,
+          "spread": 0,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -17,
+          0,
+          -18
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 85.06666666666312,
+          "reload": null,
+          "ammo": 17,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -8,
+          0,
+          -16
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 87.88333333332963,
+          "reload": null,
+          "ammo": 17,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "fire": false,
+        "ads": false,
+        "sprint": false
+      },
+      "me": {
+        "alive": false,
+        "pos": [
+          -11,
+          0,
+          -13
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 89.84999999999619,
+          "reload": null,
+          "ammo": 15,
+          "ads": 1,
+          "spread": 0,
+          "canFire": false,
+          "shotIndex": 2,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -8,
+          0,
+          -39
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "draw",
+          "actionTime": 0.6666666666666671,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": false,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -2,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 2.6499999999999955,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.2272747712034944,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -3,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 5.499999999999986,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 8.500000000000002,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -7,
+          0,
+          -33
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 11.300000000000141,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 14.133333333333615,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -1,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 16.966666666666985,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 2.3738325379240868,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 19.816666666666823,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 22.616666666666664,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -2,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 25.449999999999836,
+          "reload": null,
+          "ammo": 30,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 0,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -8,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 28.31666666666634,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0.035812672176308236,
+          "spread": 3.3746556473829212,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -6,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 31.099999999999515,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 2.0553312653253433,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -6,
+          0,
+          -35
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 33.93333333333269,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -6,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 36.76666666666586,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 2.331730243471322,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -2,
+          0,
+          -34
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 39.64999999999903,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -2,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 42.49999999999887,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -2,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 45.33333333333204,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 3.3839204058455983,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -4,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 48.166666666665215,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": false,
+        "sprint": false,
+        "jump": false,
+        "fire": false,
+        "ads": true,
+        "reload": false,
+        "dist": 10.989875212295846
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -3,
+          0,
+          -32
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 50.94999999999839,
+          "reload": null,
+          "ammo": 24,
+          "ads": 0.6887052341597798,
+          "spread": 0.7090072961591399,
+          "canFire": true,
+          "shotIndex": 6,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -9,
+          0,
+          -25
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 53.849999999998225,
+          "reload": null,
+          "ammo": 19,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 3,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -14,
+          0,
+          -17
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 56.66666666666473,
+          "reload": null,
+          "ammo": 17,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 2,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "steer",
+      "want": {
+        "walk": true,
+        "sprint": true,
+        "jump": false,
+        "fire": false,
+        "ads": false,
+        "reload": false,
+        "dist": 0
+      },
+      "me": {
+        "alive": true,
+        "pos": [
+          -16,
+          0,
+          -5
+        ],
+        "ammo": null,
+        "weapon": {
+          "id": "m4a1",
+          "slot": 0,
+          "action": "ready",
+          "actionTime": 59.499999999997904,
+          "reload": null,
+          "ammo": 17,
+          "ads": 0,
+          "spread": 3.5,
+          "canFire": true,
+          "shotIndex": 2,
+          "sway": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "step": "my score",
+      "id": "p1",
+      "team": 1,
+      "name": "Player 2413",
+      "kills": 3,
+      "deaths": 1,
+      "score": 450,
+      "assists": 1,
+      "medal": "streak3"
+    },
+    {
+      "step": "the end",
+      "mine": "Your match\nScore\n450\nKills\n3\nDeaths\n1\nAssists\n1\nPlace\n3rd / 8\nWin bonus\n+113\nXP earned\n+563\nRank 4ObserverRANK UP\n5,162 / 7,300 XP\nM4A1Mastery 1\nOptic open · 27 / 75 kills\nUnlocked\nTRIDENT 5.56\nE\nEQUIP IT",
+      "buttons": [
+        "P\nPLAY AGAIN",
+        "N\nRANDOM NEXT MATCH"
+      ]
+    },
+    {
+      "step": "E pressed",
+      "mine": "Your match\nScore\n450\nKills\n3\nDeaths\n1\nAssists\n1\nPlace\n3rd / 8\nWin bonus\n+113\nXP earned\n+563\nRank 4ObserverRANK UP\n5,162 / 7,300 XP\nM4A1Mastery 1\nOptic open · 27 / 75 kills\nUnlocked\nTRIDENT 5.56\nEquipped",
+      "buttons": [
+        "P\nPLAY AGAIN",
+        "N\nRANDOM NEXT MATCH"
+      ],
+      "loadout": {
+        "primary": "burst",
+        "secondary": "pistol",
+        "grenade": "frag",
+        "tactical": "smoke",
+        "perk": null
+      }
+    },
+    {
+      "step": "play again",
+      "before": {
+        "phase": "nuke",
+        "map": "survival-town",
+        "mode": "tdm",
+        "setup": false
+      },
+      "after": {
+        "phase": "playing",
+        "map": "survival-town",
+        "mode": "tdm",
+        "setup": false
+      },
+      "setupSeen": false,
+      "seconds": 0.165,
+      "profile": 5162
+    }
+  ],
+  "errors": []
+}

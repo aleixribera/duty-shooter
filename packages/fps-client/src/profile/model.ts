@@ -343,6 +343,33 @@ export interface ChallengeGain extends ChallengeView {
   readonly completed: boolean;
 }
 
+/** A gun's Mastery moved by a match's kills with it. */
+export interface MasteryGain {
+  readonly id: WeaponId;
+  /** Kills with it in this match. */
+  readonly kills: number;
+  /** All its kills, after this match. */
+  readonly total: number;
+  readonly before: Mastery;
+  readonly after: Mastery;
+}
+
+/** The guns whose Mastery a match moved, most kills first, at most `limit` of them. */
+function masteryGains(profile: Profile, match: MatchRecord, limit = 3): MasteryGain[] {
+  const out: MasteryGain[] = [];
+  for (const id of WEAPON_IDS) {
+    const kills = Math.max(0, Math.floor(match.weapons[id]?.kills ?? 0));
+    if (kills === 0) continue;
+    const had = profile.weapons[id]?.kills ?? 0;
+    // A gun mastered before the match has nothing left to move.
+    if (masteryOf(had).next === null) continue;
+    out.push({ id, kills, total: had + kills, before: masteryOf(had), after: masteryOf(had + kills) });
+  }
+  // A level reached first, so a cut never drops the slot it opened.
+  const up = (m: MasteryGain) => (m.after.level > m.before.level ? 1 : 0);
+  return out.sort((a, b) => up(b) - up(a) || b.kills - a.kills).slice(0, limit);
+}
+
 /** What one match did to the Profile: the end screen's "Your match" strip. */
 export interface MatchGain {
   readonly score: number;
@@ -359,6 +386,8 @@ export interface MatchGain {
   readonly challenges: readonly ChallengeGain[];
   /** The guns this match's XP opened. */
   readonly unlocks: readonly WeaponId[];
+  /** The guns this match's kills moved along their Mastery, most kills first. */
+  readonly mastery: readonly MasteryGain[];
 }
 
 /** The Profile after `match`, played on local day `date`, and what it gained. */
@@ -412,7 +441,7 @@ export function applyMatch(profile: Profile, match: MatchRecord, date: string): 
   };
   const before = rankOf(profile.xp);
   const after = rankOf(next.xp);
-  return { profile: next, gain: { score, bonus, challengeXp, xp, before, after, rankUp: after.rank > before.rank, challenges, unlocks: gunsOpened(profile.xp, next.xp) } };
+  return { profile: next, gain: { score, bonus, challengeXp, xp, before, after, rankUp: after.rank > before.rank, challenges, unlocks: gunsOpened(profile.xp, next.xp), mastery: masteryGains(profile, match) } };
 }
 
 /* ---------- Reading what storage holds ---------- */

@@ -287,7 +287,7 @@ const CSS = `
 .ds-votes button .n { font-family: var(--ds-font-display); position: absolute; right: 12px; top: 10px; font-size: var(--ds-type-heading); font-weight: 700; }
 .ds-end .next { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--ds-scrim-soft); font-size: var(--ds-type-small); color: var(--ds-text); }
 .ds-end .vote .next { display: block; padding: 0; background: none; color: var(--ds-text-2); }
-.ds-end .random { margin-top: 8px; pointer-events: auto; }
+.ds-end .random { margin-top: 8px; pointer-events: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .ds-end .random:empty { display: none; }
 .ds-recap { position: absolute; left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(156px + var(--ds-safe-b)); min-width: 260px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; --ds-edge: var(--ds-alert); animation: ds-in var(--ds-slow) var(--ds-ease); }
 @media (max-width: 640px) { .ds-recap { left: calc(var(--ds-gutter) + var(--ds-safe-l)); bottom: calc(206px + var(--ds-safe-b)); min-width: 0; padding: 8px 12px; } .ds-recap .who b { font-size: var(--ds-type-body); } .ds-recap .nums b { font-size: var(--ds-type-body); } }
@@ -436,6 +436,8 @@ export interface MatchView {
   readonly countdown?: number | null;
   /** Joined this match under way, these first seconds: the goal plate stands without a count (ticket 103). */
   readonly joined?: boolean;
+  /** At the match's end, the same match can start again at once (a Bot Match): its Play again button shows. */
+  readonly playAgain?: boolean;
 }
 
 
@@ -572,6 +574,8 @@ export class Hud {
   onRandom: (() => void) | null = null;
   /** A gun the match opened, put in the loadout from its Equip it button at the match's end (PLAN item 7). */
   onEquip: ((id: WeaponId) => void) | null = null;
+  /** Play again at a match's end, clicked or tapped (PLAN item 7). */
+  onPlayAgain: (() => void) | null = null;
   readonly #equipped = new Set<WeaponId>();
   readonly #toast: HTMLDivElement;
   #toastTime = 0;
@@ -670,6 +674,7 @@ export class Hud {
     this.#end.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.closest('[data-random]')) return this.onRandom?.();
+      if (target.closest('[data-again]')) return this.onPlayAgain?.();
       const equip = target.closest<HTMLElement>('[data-equip]')?.dataset['equip'] as WeaponId | undefined;
       if (equip) return void this.equip(equip);
       const mode = target.closest<HTMLElement>('[data-mode]')?.dataset['mode'];
@@ -1250,7 +1255,8 @@ export class Hud {
     // From the match's end on, the host may ask for a random next match in place of the lobby (ticket 115); everyone sees that they did.
     const random = s.lobby?.random === true;
     const host = s.lobby != null && s.lobby.host !== null && s.lobby.host === state.selfId;
-    const button = host && s.mode !== 'battle-royale' ? `<button type="button" class="ds-btn${random ? ' primary' : ''}" data-random aria-pressed="${random}"><i class="ds-kbd key">N</i><i class="ds-kbd pad">▶</i>Random next match</button>` : '';
+    const again = view.playAgain ? `<button type="button" class="ds-btn primary" data-again><i class="ds-kbd key">P</i><i class="ds-kbd pad">◀</i>Play again</button>` : '';
+    const button = again + (host && s.mode !== 'battle-royale' ? `<button type="button" class="ds-btn${random ? ' primary' : ''}" data-random aria-pressed="${random}"><i class="ds-kbd key">N</i><i class="ds-kbd pad">▶</i>Random next match</button>` : '');
     changed = this.#set(this.#endRandom, button) || changed;
     let html = '';
     if (s.phase === 'nuke') {

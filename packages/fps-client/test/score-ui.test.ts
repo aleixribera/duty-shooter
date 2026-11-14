@@ -128,6 +128,27 @@ describe('the "Your match" strip', () => {
     expect(matchGainHtml([], gain, { equipped: new Set() })).toContain('data-equip="burst"');
     expect(matchGainHtml([], gain, { equipped: new Set(['burst']) })).toContain('Equipped');
   });
+
+  it("shows each gun's Mastery the match moved, most kills first, lit with the slot it opened when a level is reached (PLAN item 7)", () => {
+    const profile = { ...emptyProfile(), weapons: { m4a1: { kills: 20, headshots: 0, longest: 0 }, pistol: { kills: 3, headshots: 0, longest: 0 } } };
+    const { gain } = applyMatch(profile, match({ weapons: { pistol: { kills: 2, headshots: 0, longest: 9 }, m4a1: { kills: 8, headshots: 3, longest: 41 } } }), '2026-03-01');
+    expect(gain.mastery.map((m) => m.id)).toEqual(['m4a1', 'pistol']);
+    expect(gain.mastery[0]).toMatchObject({ kills: 8, total: 28, before: { level: 0 }, after: { level: 1 } });
+    const html = matchGainHtml([], gain);
+    expect(html).toContain('<b>M4A1</b><span class="up">Mastery 1</span>');
+    expect(html).toContain('Optic open · 28 / 75 kills');
+    // The pistol moved without a new level: its level unlit, its kills to the next.
+    expect(html).toContain('Mastery 0</span>');
+    expect(html).toContain('5 / 25 kills');
+    expect(html.indexOf('M4A1')).toBeLessThan(html.indexOf('Warden 9'));
+    // No kills, no Mastery rows; nor for a gun mastered before.
+    expect(applyMatch(emptyProfile(), match({ weapons: {} }), '2026-03-01').gain.mastery).toEqual([]);
+    expect(applyMatch({ ...emptyProfile(), weapons: { m4a1: { kills: 600, headshots: 0, longest: 0 } } }, match(), '2026-03-01').gain.mastery).toEqual([]);
+    // A level reached leads, ahead of guns with more kills.
+    const many = applyMatch(profile, match({ weapons: { smg: { kills: 9, headshots: 0, longest: 5 }, shotgun: { kills: 9, headshots: 0, longest: 5 }, burst: { kills: 9, headshots: 0, longest: 5 }, m4a1: { kills: 5, headshots: 0, longest: 5 } } }), '2026-03-01').gain;
+    expect(many.mastery).toHaveLength(3);
+    expect(many.mastery[0]!.id).toBe('m4a1');
+  });
 });
 
 describe('the Profile screen', () => {

@@ -17,12 +17,12 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 
-**PLAN item 7, rough sweep (ticket 117): pass 39 and pass 40 so far.** Checklist:
+**PLAN item 7, rough sweep (ticket 117): passes 39-41 so far.** Checklist:
 - [x] Unlocks: 4 guns open at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`); locked tiles say their Rank; any gun in the Practice Range; a match swaps a locked gun for a starting one (`openLoadout`); the BR picker shows only open guns; the match end names each gun opened, with Equip it; Profile lists locked guns with their Rank.
 - [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
 - [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
 - [x] Loadout editor, rough (pass 40, v2.206.0): the previewed gun in 3D with its optic, turning (`gun-stage.ts`); three kept loadouts Main, Close, Breach (`Settings.loadouts`), picked on the Loadout screen or with 1 2 3 while dead. First open 3-5 s to the gun here (shaders on its own device); the mockup layout, renaming and a pad pick in BACKLOG.
-- [ ] Results: Mastery steps on the end screen, "play again", a pad route for Equip it. Unproven in a browser: the unlock line at a real match's end (this pass's scripted player got no kills; seed a Profile just under Rank 4 before the review capture's match, whose player does).
+- [x] Results (pass 41, v2.207.0): each gun's Mastery on the end screen (lit at a new level, with the slot it opened); Play again at a Bot Match's end (P, D-pad left), straight into the same match; Equip it on the pad (D-pad down). Seen in a real match (`results/after/`).
 - [ ] Customizing: attachments seen on the gun model, Mastery camos, optic reticle colour and shape.
 - [ ] Battle Royale on loadouts: no ground loot, Supply Drops without the sniper (ask Aleix first, see PLAN).
 - [ ] Then ticket 116 (the reset), then a fresh review.
