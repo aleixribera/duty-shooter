@@ -33,6 +33,9 @@ export interface KitRig {
   /** The sight line's rear point: aiming puts it on the camera axis, `eyeRelief` in front of the eye. */
   readonly rearSight: V3;
   readonly eyeRelief: number;
+  /** The front sight's top, when the rear point stands above the sights (a head held up off the stock): aiming then
+   * tips the gun's nose up until the line from `rearSight` through it runs down the camera's axis. */
+  readonly frontSight?: V3;
   readonly muzzle: V3;
   readonly ejectionPort: V3;
   /** Where the support hand grabs the magazine, in the magazine's own space, or loads a shell, in gun space. */
@@ -94,7 +97,12 @@ export const KIT_RIGS: Readonly<Record<KitId, KitRig>> = {
     right: { pos: [0.021, -0.05, 0.06], normal: [-1, 0, 0], wrist: [0.1, -0.5, 0.86] },
     left: { pos: [-0.006, -0.031, -0.36], normal: [0, 1, 0], wrist: [-0.819, 0, 0.574] },
     leftOnPump: true,
-    rearSight: [0, 0.049, 0.03],
+    // The head held 22 mm over the bead's line at the receiver's back: aimed along the line itself, the receiver's
+    // back face stood a few pixels under the bead and hid the lower half of whatever stood on it; held up, the gun
+    // tips 2.1 degrees and the receiver drops about 3 degrees under the bead, the rib running up to it, as the pump
+    // guns of well-loved shooters show it aimed.
+    rearSight: [0, 0.071, 0.03],
+    frontSight: [0, 0.0456, -0.658],
     eyeRelief: 0.2,
     muzzle: [0, 0.022, -0.67],
     ejectionPort: [0.0175, 0.021, -0.065],
@@ -341,4 +349,16 @@ export function buildFrag(kind: 'frag' | 'smoke' | 'flash' = 'frag'): { readonly
       if (model) disposeAuthored(model);
     },
   };
+}
+
+/**
+ * Where aiming puts a gun that turns about its own origin: the nose-up turn (radians, about x) that lays the line from
+ * `rear` through `front` along the view axis (none without a front sight), and the gun's offset that then puts `rear`
+ * on the axis, `eyeRelief` in front of the eye.
+ */
+export function aimPose(rear: V3, front: V3 | undefined, eyeRelief: number): { pitch: number; offset: V3 } {
+  const pitch = front ? Math.atan2(rear[1] - front[1], rear[2] - front[2]) : 0;
+  const cos = Math.cos(pitch);
+  const sin = Math.sin(pitch);
+  return { pitch, offset: [-rear[0], -(rear[1] * cos - rear[2] * sin), -eyeRelief - (rear[1] * sin + rear[2] * cos)] };
 }

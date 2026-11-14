@@ -6,7 +6,7 @@ import { strafeSpeed } from '../motion';
 import { Spring } from '../spring';
 import { LIGHTING, type Lighting } from '../surfaces/lighting';
 import { buildArms, type ArmsModel } from './arms';
-import { buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
+import { aimPose, buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, type M4A1Model } from './m4a1';
 import { WeaponMotion } from './motion';
 import { IRON_NODES, OPTICS, OPTIC_MOUNTS, mountOptic, opticSight, opticTemplate } from './optics';
@@ -553,6 +553,8 @@ export class Viewmodel {
   readonly #chargeRest = new Vector3();
   readonly #catchRest = new Quaternion();
   readonly #adsOffset: Vector3;
+  /** How far aiming tips the gun's nose up (radians), so a rear point held above the sights still looks down them. */
+  #aimPitch = 0;
   readonly #kits = new Map<KitId, KitGun>();
   /** The optic each gun carries (ticket 19): its model once mounted. */
   readonly #optics = new Map<WeaponId, { readonly id: OpticId; node: Object3D | null }>();
@@ -844,10 +846,13 @@ export class Viewmodel {
     if (optic?.node && mount) {
       const sight = opticSight(optic.id, mount[optic.id], this.#sight);
       this.#adsOffset.set(-sight.x, -sight.y, -OPTICS[optic.id].eyeRelief - sight.z);
+      this.#aimPitch = 0;
       return;
     }
     const rear = kit ? kit.sockets.rearSight.position : this.gun.sockets.rearSight.position;
-    this.#adsOffset.set(-rear.x, -rear.y, -(kit ? kit.rig.eyeRelief : EYE_RELIEF) - rear.z);
+    const pose = aimPose([rear.x, rear.y, rear.z], kit?.rig.frontSight, kit ? kit.rig.eyeRelief : EYE_RELIEF);
+    this.#aimPitch = pose.pitch;
+    this.#adsOffset.set(...pose.offset);
   }
 
   /** Advances the animation. `worldVerticalFov` (radians) only nudges the viewmodel FOV with the player's setting. */
@@ -935,7 +940,7 @@ export class Viewmodel {
     );
     const hipRot = 1 - ads;
     this.#pivot.rotation.set(
-      HIP_ROT.x * hipRot + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + m.r[0],
+      HIP_ROT.x * hipRot + this.#aimPitch * ads + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + m.r[0],
       HIP_ROT.y * hipRot + (r[1] ?? 0) * actionWeight + (sprintR[1] ?? 0) * sprint + this.#kickYaw.value * 0.01 + m.r[1],
       HIP_ROT.z * hipRot + (r[2] ?? 0) * actionWeight + (sprintR[2] ?? 0) * sprint + m.r[2],
       'YXZ',

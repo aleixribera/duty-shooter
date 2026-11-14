@@ -7,8 +7,9 @@ It writes packages/fps-client/src/viewmodel/assets/shotgun.glb and tools/weapon/
 
 Gun space and the shared tools are described in gunsmith.py. The rig numbers in
 packages/fps-client/src/viewmodel/kit.ts (`shotgun`) come from the landmarks
-below: the sight line's rear point at (0, -0.03, 0.049) level with the top of
-the front bead, the muzzle at y = 0.67, the port at (0.0175, 0.065, 0.021), the
+below: the front bead's top at (0, 0.658, 0.0456) (the rig's aimed eye line runs
+through it from 22 mm over the bead's line at y = -0.03, the head held up off the
+stock), the muzzle at y = 0.67, the port at (0.0175, 0.065, 0.021), the
 loading port at (0, 0.085, -0.028), the pump's pivot and travel (the bolt rides
 with it), and the palms on the grip and under the forend.
 """
