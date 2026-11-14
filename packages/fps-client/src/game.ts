@@ -115,6 +115,7 @@ import { ambientScale, currentLighting, setHaze } from './surface-materials';
 import { cloudySky } from './surface-sky';
 import { Announcer, LeadCalls, browserSpeaker, closesRange, leadOf, leftLine, liveLine, loadRangeControl } from './announcer';
 import { VOICE_LINES, VOICE_ON_THE_SECOND, type VoiceLineId } from './voice-lines';
+import { newGunOffer, newGunPasses, passNewGun, tookNewGun } from './new-gun-offer';
 
 const TICK_MS = TICK_SECONDS * 1000;
 /** How far the nuke's shock shakes the ending's shot at its strongest (radians, peak to peak). */
@@ -379,6 +380,10 @@ export class Game {
   onPickLoadout: ((index: number) => void) | null = null;
   /** When (sim time) the local player last came back into the fight: the loadout plates fade over the moment after. */
   #respawnedAt = -Infinity;
+  /** The new gun whose plate stood on this death screen: passed on it, once the next life begins without it taken. */
+  #freshShown: WeaponId | null = null;
+  /** The new gun's plate as it stood at the respawn: it fades as it was, and a click in the fade takes that gun. */
+  #freshFading: WeaponId | null = null;
   /** Play again at a Bot Match's end: the page starts the same match at once (PLAN item 7). Null where the page can't. */
   onPlayAgain: (() => void) | null = null;
   #resizeObserver: ResizeObserver;
@@ -421,6 +426,8 @@ export class Game {
     // Dead, waiting for the next life: 1, 2 or 3 picks the loadout it carries (its plate lights).
     const pick = (['Digit1', 'Digit2', 'Digit3'] as const).indexOf(e.code as 'Digit1');
     if (pick >= 0 && !e.repeat && this.#picksLoadout()) this.#pickLoadout(pick);
+    // 4 takes the new gun on its slim plate.
+    else if (e.code === 'Digit4' && !e.repeat && this.#picksLoadout()) this.#takeNewGun();
     else if (e.code === 'Digit1') this.#vote('tdm');
     else if (e.code === 'Digit2') this.#vote('ffa');
     else if (e.code === 'KeyN' && !e.repeat) this.#toggleRandom();
@@ -497,10 +504,15 @@ export class Game {
     };
     // A loadout plate clicked or tapped: while dead, or in the moment the plates fade after the respawn.
     this.hud.onPickLoadout = (index) => {
-      if (this.#picksLoadout() || this.#kitsLeaving()) this.#pickLoadout(index);
+      if (this.#picksLoadout() || this.#kitsLeaving()) return index === 'new' ? this.#takeNewGun() : this.#pickLoadout(index);
     };
-    // The pad's tactical (the D-pad's down) at a match's end is Equip it, as E is.
-    this.input.onPadTactical = () => this.#equipNext();
+    // The pad's tactical (the D-pad's down) at a match's end is Equip, as E is.
+    // Dead, it takes the new gun on its slim plate, the same press.
+    this.input.onPadTactical = () => {
+      if (!this.#picksLoadout()) return this.#equipNext();
+      this.#takeNewGun();
+      return true;
+    };
     addEventListener('keydown', this.#onVoteKey);
     this.applySettings(options.settings);
     this.#resizeObserver = new ResizeObserver(() => this.#resize());
@@ -1141,7 +1153,33 @@ export class Game {
       const guns = xp === undefined ? set.loadout : openLoadout(set.loadout, xp);
       return { name: set.name, primary: guns.primary, secondary: guns.secondary, tactical: guns.tactical ?? null };
     });
-    return { sets, chosen: this.#settings.loadoutSet, input: this.input.padMode ? 'pad' : this.input.touchMode ? 'touch' : 'keys', leaving };
+    const fresh = leaving ? this.#freshFading : this.#newGun();
+    // Seen, not behind a page of the pause menu: a death sat out in Settings passes on nothing.
+    if (!self.alive && !this.paused) this.#freshShown = fresh;
+    return { sets, chosen: this.#settings.loadoutSet, input: this.input.padMode ? 'pad' : this.input.touchMode ? 'touch' : 'keys', leaving, fresh };
+  }
+
+  /** The gun opened and in none of the kept loadouts that the death screen offers (PLAN item 9d), or null. */
+  #newGun(): WeaponId | null {
+    const xp = this.#profileStore?.profile.xp;
+    if (xp === undefined || !this.onEquip) return null;
+    return newGunOffer(this.#settings.loadouts.map((set) => set.loadout), xp, newGunPasses());
+  }
+
+  /**
+   * Takes the new gun from its slim plate: into the lit loadout's slot for it, with its gunsmith build, for the next
+   * life (picked in the fade after the respawn, the life after, with the same notice as a plate's pick).
+   */
+  #takeNewGun(): void {
+    // In the fade, the gun its plate shows; dead, the one offered now.
+    const id = this.#cur?.alive ? this.#freshFading : this.#newGun();
+    if (!id) return;
+    tookNewGun(id);
+    this.#freshShown = null;
+    this.#freshFading = null;
+    this.onEquip?.(id);
+    this.#play('hitMarker');
+    if (this.#cur?.alive && this.#charge?.phase !== 'freeze' && !this.#counting()) this.hud.toast(`${STATS.weapons[id].traits.name} from your next life`, 3);
   }
 
   /** At a match's end, puts the next gun it opened into the loadout (PLAN item 7). */
@@ -2183,6 +2221,10 @@ export class Game {
     if (self?.alive && before && !before.alive) {
       this.#respawnedAt = this.#simTime;
       this.#pickMissed(self);
+      // Back in the fight without the new gun its plate offered: passed on one more death.
+      if (this.#freshShown && this.#freshShown === this.#newGun()) passNewGun(this.#freshShown);
+      this.#freshFading = this.#freshShown;
+      this.#freshShown = null;
     }
     if (self && (!before || (!before.alive && self.alive) || Math.hypot(self.position[0] - before.position[0], self.position[2] - before.position[2]) > 4)) this.#prev = self;
     else this.#prev = before;

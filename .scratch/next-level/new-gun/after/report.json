@@ -1,0 +1,671 @@
+{
+  "steps": [
+    {
+      "step": "0 alive, before",
+      "alive": true,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": false,
+      "leaving": false,
+      "plates": [],
+      "fresh": null,
+      "secondary": "pistol",
+      "passes": null,
+      "toastBox": [
+        942,
+        932,
+        978,
+        952
+      ],
+      "hint": null,
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "1 dead, the Trident offered",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": true,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          1052,
+          856,
+          1314,
+          900
+        ],
+        "text": "NEW Trident 5.56 4"
+      },
+      "secondary": "pistol",
+      "passes": null,
+      "toastBox": [
+        942,
+        818,
+        978,
+        838
+      ],
+      "hint": null,
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "2 respawned without it: passed once",
+      "alive": true,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": null,
+          "lit": true,
+          "text": "Main1M4A1"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Close2Wasp 9"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Breach3Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": null,
+        "text": "NewTrident 5.564"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":1}",
+      "toastBox": [
+        942,
+        932,
+        978,
+        952
+      ],
+      "hint": null,
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "3 dead again: still offered",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": true,
+          "text": "MAIN 1 M4A1"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          1052,
+          856,
+          1314,
+          900
+        ],
+        "text": "NEW Trident 5.56 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":1}",
+      "toastBox": [
+        942,
+        818,
+        978,
+        838
+      ],
+      "hint": [
+        857,
+        796,
+        1063,
+        838
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "4 pressed 4: taken, the Marshal next",
+      "alive": false,
+      "primary": "m4a1",
+      "weapon": "m4a1",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": true,
+          "text": "MAIN 1 Trident 5.56"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          1075,
+          856,
+          1314,
+          900
+        ],
+        "text": "NEW Marshal .357 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3}",
+      "toastBox": [
+        942,
+        818,
+        978,
+        838
+      ],
+      "hint": [
+        857,
+        796,
+        1063,
+        838
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "5 next life carries the Trident",
+      "alive": true,
+      "primary": "burst",
+      "weapon": "burst",
+      "kitsShown": false,
+      "leaving": true,
+      "plates": [
+        {
+          "box": null,
+          "lit": true,
+          "text": "Main1Trident 5.56"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Close2Wasp 9"
+        },
+        {
+          "box": null,
+          "lit": false,
+          "text": "Breach3Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": null,
+        "text": "NewMarshal .3574"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3,\"revolver\":1}",
+      "toastBox": [
+        942,
+        932,
+        978,
+        952
+      ],
+      "hint": null,
+      "center": [
+        960,
+        410,
+        960,
+        410
+      ],
+      "centerText": "",
+      "spec": null,
+      "ammo": [
+        1569,
+        937,
+        1864,
+        1056
+      ],
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "6 dead: the Marshal offered",
+      "alive": false,
+      "primary": "burst",
+      "weapon": "burst",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            606,
+            908,
+            834,
+            1044
+          ],
+          "lit": true,
+          "text": "MAIN 1 Trident 5.56"
+        },
+        {
+          "box": [
+            846,
+            908,
+            1074,
+            1044
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            1086,
+            908,
+            1314,
+            1044
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          1075,
+          856,
+          1314,
+          900
+        ],
+        "text": "NEW Marshal .357 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3,\"revolver\":1}",
+      "toastBox": [
+        942,
+        818,
+        978,
+        838
+      ],
+      "hint": [
+        857,
+        796,
+        1063,
+        838
+      ],
+      "center": [
+        861,
+        375,
+        1059,
+        446
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 3",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "7 1280",
+      "alive": false,
+      "primary": "burst",
+      "weapon": "burst",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            403,
+            548,
+            553,
+            684
+          ],
+          "lit": true,
+          "text": "MAIN 1 Trident 5.56"
+        },
+        {
+          "box": [
+            565,
+            548,
+            715,
+            684
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            727,
+            548,
+            877,
+            684
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          638,
+          496,
+          877,
+          540
+        ],
+        "text": "NEW Marshal .357 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3,\"revolver\":1}",
+      "toastBox": [
+        622,
+        458,
+        658,
+        478
+      ],
+      "hint": [
+        537,
+        436,
+        743,
+        478
+      ],
+      "center": [
+        541,
+        238,
+        739,
+        309
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "8 phone upright",
+      "alive": false,
+      "primary": "burst",
+      "weapon": "burst",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            16,
+            644,
+            130,
+            748
+          ],
+          "lit": true,
+          "text": "MAIN 1 Trident 5.56"
+        },
+        {
+          "box": [
+            138,
+            644,
+            252,
+            748
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            260,
+            644,
+            374,
+            748
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          171,
+          600,
+          374,
+          636
+        ],
+        "text": "NEW Marshal .357 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3,\"revolver\":1}",
+      "toastBox": [
+        16,
+        566,
+        374,
+        582
+      ],
+      "hint": [
+        16,
+        540,
+        374,
+        582
+      ],
+      "center": [
+        98,
+        268,
+        293,
+        374
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 2",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    },
+    {
+      "step": "9 phone on its side",
+      "alive": false,
+      "primary": "burst",
+      "weapon": "burst",
+      "kitsShown": true,
+      "leaving": false,
+      "plates": [
+        {
+          "box": [
+            212,
+            296,
+            347,
+            380
+          ],
+          "lit": true,
+          "text": "MAIN 1 Trident 5.56"
+        },
+        {
+          "box": [
+            355,
+            296,
+            489,
+            380
+          ],
+          "lit": false,
+          "text": "CLOSE 2 Wasp 9"
+        },
+        {
+          "box": [
+            497,
+            296,
+            632,
+            380
+          ],
+          "lit": false,
+          "text": "BREACH 3 Harrow 12"
+        }
+      ],
+      "fresh": {
+        "box": [
+          429,
+          252,
+          632,
+          288
+        ],
+        "text": "NEW Marshal .357 4"
+      },
+      "secondary": "pistol",
+      "passes": "{\"burst\":3,\"revolver\":1}",
+      "toastBox": [
+        404,
+        224,
+        440,
+        244
+      ],
+      "hint": [
+        335,
+        210,
+        509,
+        244
+      ],
+      "center": [
+        325,
+        113,
+        519,
+        183
+      ],
+      "centerText": "YOU DIED\nRESPAWNING IN 1",
+      "spec": null,
+      "ammo": null,
+      "prompt": null,
+      "toast": null,
+      "menuPage": false
+    }
+  ],
+  "errors": []
+}

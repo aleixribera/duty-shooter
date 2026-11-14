@@ -106,8 +106,11 @@ export class InputController {
   onPadMenu: ((nav: PadNav) => void) | null = null;
   /** The D-pad's left or right pressed in play (unbound there): the intermission's vote. */
   onPadVote: ((side: 'left' | 'right') => void) | null = null;
-  /** The controller's tactical button pressed in play: at a match's end, Equip it (the keyboard's E has its own listener). */
-  onPadTactical: (() => void) | null = null;
+  /**
+   * The controller's tactical button pressed in play: at a match's end, Equip (the keyboard's E has its own listener);
+   * dead, the new gun's plate. True when the press was used there, so it is not also held as the tactical.
+   */
+  onPadTactical: (() => boolean | void) | null = null;
   /** The last reading's pressed buttons, for press and release edges. */
   #padPressed: readonly boolean[] = [];
   #padMove: { forward: number; right: number } = { forward: 0, right: 0 };
@@ -401,7 +404,11 @@ export class InputController {
       this.#crouchToggled = false;
     }
     if (this.#is('map', code)) this.#mapOpen = !this.#mapOpen;
-    if (fromPad && this.#is('tactical', code)) this.onPadTactical?.();
+    if (fromPad && this.#is('tactical', code) && this.onPadTactical?.() === true) {
+      // Taken by the death screen: held through the respawn, it would throw the tactical.
+      this.#held.delete(code);
+      this.#tapped.delete(code);
+    }
     if (this.#is('ping', code)) {
       this.#pingSince = now;
       this.#wheelPush = [0, 0];

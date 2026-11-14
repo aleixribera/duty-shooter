@@ -46,7 +46,7 @@ export const MATCH_GAIN_CSS = `
 .ds-gain .tasks { display: flex; flex-wrap: wrap; gap: 4px 22px; font-size: var(--ds-type-small); color: var(--ds-text-2); }
 .ds-gain .tasks > div { display: flex; gap: 8px; min-width: 0; }
 .ds-gain .tasks b { color: var(--ds-text); font-weight: 700; white-space: nowrap; }
-/* A gun the match opened: lit, with its Equip it button. */
+/* A gun the match opened: lit, with its Equip button. */
 .ds-gain .unlocks { display: flex; flex-direction: column; gap: 6px; }
 .ds-gain .unlocks > div { display: flex; align-items: center; gap: 12px; }
 .ds-gain .unlocks b { font-family: var(--ds-font-display); font-size: var(--ds-type-heading); color: var(--ds-light); text-shadow: 0 0 22px var(--ds-light-glow); text-transform: uppercase; }
@@ -119,7 +119,7 @@ export function matchGainHtml(cells: readonly (readonly [string, string])[], gai
   if (gain.unlocks.length > 0) {
     // Each gun the match opened, and (where the screen can take a press) a button that puts it in the loadout.
     const button = (id: WeaponId) =>
-      !equip ? '' : equip.equipped.has(id) ? '<span class="equipped">Equipped</span>' : `<button type="button" class="ds-btn" data-equip="${id}"><i class="ds-kbd key">E</i><i class="ds-kbd pad">▼</i>Equip it</button>`;
+      !equip ? '' : equip.equipped.has(id) ? '<span class="equipped">Equipped</span>' : `<button type="button" class="ds-btn" data-equip="${id}"><i class="ds-kbd key">E</i><i class="ds-kbd pad">▼</i>Equip</button>`;
     html += `<div class="unlocks">${gain.unlocks.map((id) => `<div><span class="ds-label">Unlocked</span><b>${escape(STATS.weapons[id].traits.name)}</b>${button(id)}</div>`).join('')}</div>`;
   }
   return html;

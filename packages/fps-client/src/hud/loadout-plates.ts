@@ -27,6 +27,8 @@ export interface KitPlatesState {
   readonly input: 'keys' | 'pad' | 'touch';
   /** Back in the fight: the plates fade, and a click or tap that lands in the fade still counts (for the life after). */
   readonly leaving?: boolean;
+  /** A gun opened and in none of the loadouts: its slim plate, "New: Trident", stands over the row (key 4, the D-pad's down). */
+  readonly fresh?: WeaponId | null;
 }
 
 export const KIT_PLATES_CSS = `
@@ -34,7 +36,7 @@ export const KIT_PLATES_CSS = `
 .ds-kits[hidden] { display: none; }
 .ds-kits.leaving { opacity: 0; }
 /* On glass a thumb coming down to move in the fade would pick: there the fade takes no taps. */
-html.ds-touch .ds-kits.leaving .kit { pointer-events: none; }
+html.ds-touch .ds-kits.leaving .kit, html.ds-touch .ds-kits.leaving .fresh { pointer-events: none; }
 /* A page opened over the match (the pause menu, Settings) has the screen, as it does over the HUD. */
 body:has(.ds-menu:not([hidden]) .ds-page) .ds-kits { visibility: hidden; }
 .ds-kits .kit { --ds-ch: 10px; display: grid; grid-template-rows: auto 1fr auto; gap: 6px; width: clamp(150px, calc((100vw - 820px) / 3 - 8px), 228px); height: 136px; padding: 12px 14px 12px 16px; border: 0; background: none; text-align: left; pointer-events: auto; color: var(--ds-text-2); cursor: pointer; touch-action: manipulation; }
@@ -58,6 +60,17 @@ body:has(.ds-menu:not([hidden]) .ds-page) .ds-kits { visibility: hidden; }
 @media (min-width: 1001px) { .ds-hud.kits .ds-caption { bottom: calc(190px + var(--ds-safe-b)); } }
 @media (max-width: 760px) { .ds-hud.kits .ds-toast, .ds-hud.kits .ds-hintline, html.ds-touch .ds-hud.kits .ds-caption { bottom: calc(214px + var(--ds-safe-b)); } }
 @media (max-height: 520px) { .ds-hud.kits .ds-toast, .ds-hud.kits .ds-hintline, html.ds-touch .ds-hud.kits .ds-hintline, html.ds-touch .ds-hud.kits .ds-caption { bottom: calc(104px + var(--ds-safe-b)); } }
+/* The new gun's plate: slim, over the row's right end, its edge half lit; the toast and the hint go up past it too. */
+.ds-kits .fresh { --ds-ch: 8px; position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 10px; height: 44px; max-width: 100%; box-sizing: border-box; padding: 0 12px 0 14px; border: 0; background: none; pointer-events: auto; color: var(--ds-text); cursor: pointer; touch-action: manipulation; white-space: nowrap; }
+.ds-kits .fresh:hover { --ds-edge: var(--ds-light-edge); }
+.ds-kits .fresh .new { flex: none; font: 600 var(--ds-type-small)/1 var(--ds-font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-light); }
+.ds-kits .fresh .cut { height: 22px; width: calc(22px * var(--r)); }
+.ds-kits .fresh .primary { min-width: 0; }
+.ds-hud.kits-new .ds-toast, .ds-hud.kits-new .ds-hintline { bottom: calc(242px + var(--ds-safe-b)); }
+@media (min-width: 1001px) { .ds-hud.kits-new .ds-caption { bottom: calc(242px + var(--ds-safe-b)); } }
+@media (max-width: 760px) { .ds-hud.kits-new .ds-toast, .ds-hud.kits-new .ds-hintline, html.ds-touch .ds-hud.kits-new .ds-caption { bottom: calc(262px + var(--ds-safe-b)); } }
+@media (max-height: 520px) { .ds-hud.kits-new .ds-toast, .ds-hud.kits-new .ds-hintline, html.ds-touch .ds-hud.kits-new .ds-hintline, html.ds-touch .ds-hud.kits-new .ds-caption { bottom: calc(146px + var(--ds-safe-b)); } }
+@media (max-width: 760px), (max-height: 520px) { .ds-kits .fresh { height: 36px; gap: 8px; padding: 0 10px; } .ds-kits .fresh .cut { height: 18px; width: calc(18px * var(--r)); } .ds-kits .fresh .primary { font-size: var(--ds-type-small); } }
 /* The spectator's panel up (a Charge round, out until the next): its words end 388 px in, and the plates' width above
    keeps them 400 px clear of either edge down to 1280 wide; on a narrower screen they stand over it. */
 @media (max-width: 1279px) and (min-height: 521px) { .ds-hud:has(> .ds-spec:not([hidden])) ~ .ds-kits { bottom: calc(300px + var(--ds-safe-b)); } }
@@ -89,9 +102,22 @@ function padCap(i: number, chosen: number): string {
   return i === chosen - 1 ? '◀' : i === chosen + 1 ? '▶' : '';
 }
 
-/** The plates' markup: one button each, the chosen one lit. */
+/** The new gun's slim plate: "New", its silhouette and name, and what takes it (4, the D-pad's down, or a tap). */
+function freshHtml(id: WeaponId, state: KitPlatesState): string {
+  const name = STATS.weapons[id].traits.name;
+  const into = state.sets[state.chosen]?.name ?? '';
+  const cap = state.input === 'keys' ? '<kbd>4</kbd>' : state.input === 'pad' ? '<kbd>▼</kbd>' : '';
+  const gun = gunMask(id);
+  return (
+    `<button type="button" class="ds-plate is-half fresh" data-kit="new" aria-label="${escapeHtml(`New: ${name}, into ${into}`)}">` +
+    `<span class="new">New</span><i class="cut" style="${gun.style};--r:${gun.aspect.toFixed(3)}"></i><span class="primary">${escapeHtml(name)}</span>${cap}` +
+    `</button>`
+  );
+}
+
+/** The plates' markup: one button each, the chosen one lit, and the new gun's slim plate when there is one. */
 export function kitPlatesHtml(state: KitPlatesState): string {
-  return state.sets
+  return (state.fresh ? freshHtml(state.fresh, state) : '') + state.sets
     .map((set, i) => {
       const lit = i === state.chosen;
       const cap = state.input === 'keys' ? String(i + 1) : state.input === 'pad' ? padCap(i, state.chosen) : '';
@@ -114,8 +140,8 @@ export function kitPlatesHtml(state: KitPlatesState): string {
 /** The plates on the page: drawn again only when what they show changes. */
 export class KitPlatesView {
   readonly root: HTMLDivElement;
-  /** A plate clicked or tapped: its index. */
-  onPick: ((index: number) => void) | null = null;
+  /** A plate clicked or tapped: its index, or `new` for the new gun's. */
+  onPick: ((index: number | 'new') => void) | null = null;
   #html = '';
 
   constructor(parent: HTMLElement) {
@@ -129,7 +155,8 @@ export class KitPlatesView {
     for (const type of ['mousedown', 'pointerdown', 'touchstart'] as const) this.root.addEventListener(type, (e) => e.stopPropagation());
     this.root.addEventListener('click', (e) => {
       const plate = (e.target as Element).closest<HTMLElement>('[data-kit]');
-      if (plate) this.onPick?.(Number(plate.dataset['kit']));
+      const kit = plate?.dataset['kit'];
+      if (kit !== undefined) this.onPick?.(kit === 'new' ? 'new' : Number(kit));
     });
   }
 

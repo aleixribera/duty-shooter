@@ -594,12 +594,12 @@ export class Hud {
   onVote: ((mode: ModeId) => void) | null = null;
   /** The host's Random next match button at a match's end, clicked or tapped. */
   onRandom: (() => void) | null = null;
-  /** A gun the match opened, put in the loadout from its Equip it button at the match's end (PLAN item 7). */
+  /** A gun the match opened, put in the loadout from its Equip button at the match's end (PLAN item 7). */
   onEquip: ((id: WeaponId) => void) | null = null;
   /** Play again at a match's end, clicked or tapped (PLAN item 7). */
   onPlayAgain: (() => void) | null = null;
-  /** A loadout plate on the death screen clicked or tapped: the kept loadout's index (PLAN item 9d). */
-  onPickLoadout: ((index: number) => void) | null = null;
+  /** A loadout plate on the death screen clicked or tapped: the kept loadout's index, or `new` for the new gun's plate (PLAN item 9d). */
+  onPickLoadout: ((index: number | 'new') => void) | null = null;
   readonly #kits: KitPlatesView;
   readonly #equipped = new Set<WeaponId>();
   readonly #toast: HTMLDivElement;
@@ -764,7 +764,7 @@ export class Hud {
     this.#equipped.clear();
   }
 
-  /** Puts a gun the match opened into the loadout, as its Equip it button does (PLAN item 7); false when it already is, or nothing takes it. */
+  /** Puts a gun the match opened into the loadout, as its Equip button does (PLAN item 7); false when it already is, or nothing takes it. */
   equip(id: WeaponId): boolean {
     if (this.#equipped.has(id) || !this.onEquip) return false;
     this.#equipped.add(id);
@@ -964,6 +964,8 @@ export class Hud {
     // While the plates stand, the toast and the hint line stand over them instead of behind.
     const kitsUp = kits !== null && kits.leaving !== true;
     if (this.root.classList.contains('kits') !== kitsUp) this.root.classList.toggle('kits', kitsUp);
+    const freshUp = kitsUp && !!kits.fresh;
+    if (this.root.classList.contains('kits-new') !== freshUp) this.root.classList.toggle('kits-new', freshUp);
     this.#cross.update((aw?.spread ?? 2) * state.pixelsPerDegree);
     this.#captions.update(dt);
 

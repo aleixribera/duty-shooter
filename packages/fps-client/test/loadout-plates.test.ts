@@ -53,3 +53,22 @@ describe("the death screen's loadout plates (PLAN item 9d)", () => {
     expect(html).toContain('&#60;b&#62;Mine');
   });
 });
+
+describe("the death screen's new-gun plate (PLAN item 9d)", () => {
+  const fresh = (s: KitPlatesState): string | null => /<button[^>]*data-kit="new"[^>]*>(.*?)<\/button>/.exec(kitPlatesHtml(s))?.[1] ?? null;
+
+  it('stands only while a new gun is offered, slim, with "New", its silhouette and name, apart from the three', () => {
+    expect(fresh(state())).toBeNull();
+    const html = fresh(state({ fresh: 'burst' }))!;
+    expect(html).toContain('New');
+    expect(html).toContain('Trident 5.56');
+    expect(html).toMatch(/burst\.webp/);
+    expect(kitPlatesHtml(state({ fresh: 'burst' })).match(/data-kit="\d"/g)).toHaveLength(3);
+  });
+
+  it('names 4 on a keyboard, the D-pad down on a pad, and nothing on glass', () => {
+    expect(fresh(state({ fresh: 'burst' }))).toContain('<kbd>4</kbd>');
+    expect(fresh(state({ fresh: 'burst', input: 'pad' }))).toContain('<kbd>▼</kbd>');
+    expect(fresh(state({ fresh: 'burst', input: 'touch' }))).not.toContain('<kbd>');
+  });
+});
