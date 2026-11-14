@@ -1,0 +1,11 @@
+{
+  "steps": [
+    {
+      "step": "freeze"
+    },
+    {
+      "step": "live"
+    }
+  ],
+  "errors": []
+}

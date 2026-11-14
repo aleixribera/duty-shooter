@@ -485,6 +485,14 @@ export function roundCardUp(state: HudState): boolean {
   return view.status.mode !== 'battle-royale' && (view.countdown ?? 0) > 0;
 }
 
+/**
+ * The goal on a Charge freeze's card, the one place it is said while the card is up: the carrier learns there that the
+ * charge is theirs, in the words the plate under the bar keeps once the round is live.
+ */
+export function freezeGoal(attacking: boolean, carrying: boolean): string {
+  return attacking && carrying ? 'You carry the charge · plant it at A or B' : goalLine({ mode: 'charge', killLimit: null }, attacking);
+}
+
 /** How long a toast stands before Range Control's caption may take its place (s). */
 const TOAST_READ = 2;
 
@@ -1117,7 +1125,8 @@ export class Hud {
    */
   #updateCharge(state: HudState): void {
     const c = state.match?.status.phase === 'playing' ? (state.charge ?? null) : null;
-    this.#style(this.#charge, 'display', c ? '' : 'none');
+    // The freeze's card says the goal; the plate under the bar would say it again (review 2026-11-14a, 23-a).
+    this.#style(this.#charge, 'display', c && !roundCardUp(state) ? '' : 'none');
     this.#style(this.#action, 'display', c?.state.action && c.acting ? '' : 'none');
     this.#style(this.#round, 'display', c && (c.state.phase === 'freeze' || c.state.phase === 'over') ? '' : 'none');
     const markers = c ? c.markers : [];
@@ -1159,7 +1168,7 @@ export class Hud {
       this.#set(this.#action, `${s.action.kind === 'plant' ? 'Planting' : 'Defusing'}<div class="bar"><i style="width:${Math.round(s.action.progress * 100)}%"></i></div>`);
     }
     if (s.phase === 'freeze') {
-      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2 class="count">${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(goalLine({ mode: 'charge', killLimit: null }, c.attacking))}</div>${cardPrompt(state)}`);
+      this.#set(this.#round, `<div class="sub">Round ${s.round} · ${c.attacking ? 'Attack' : 'Defend'}</div><h2 class="count">${Math.max(1, Math.ceil(s.remaining))}</h2><div class="goal">${escape(freezeGoal(c.attacking, c.carrying))}</div>${cardPrompt(state)}`);
     } else if (s.phase === 'over' && s.outcome) {
       const won = TEAMS[s.outcome.winner];
       this.#set(this.#round, `<div class="sub">${ROUND_REASONS[s.outcome.reason]}</div><h2 class="ds-t${s.outcome.winner}">${won?.mark ?? ''} ${won?.name ?? 'Team'} wins the round</h2>`);

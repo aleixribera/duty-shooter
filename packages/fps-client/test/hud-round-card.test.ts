@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardPrompt, noticeDue, roundCardUp, slotHint, type HudState } from '../src/hud/hud';
+import { cardPrompt, freezeGoal, noticeDue, roundCardUp, slotHint, type HudState } from '../src/hud/hud';
 import type { HintLine } from '../src/hints';
 
 const at = (over: object) => ({ message: null, prompt: 'F  Loadout', charge: null, ...over }) as unknown as HudState;
@@ -27,6 +27,17 @@ describe('the loadout prompt during the countdown', () => {
   it('adds nothing to the card without a prompt, or under a message', () => {
     expect(cardPrompt(at({ match: match(3), prompt: null }))).toBe('');
     expect(cardPrompt(at({ match: match(3), message: 'Connecting' }))).toBe('');
+  });
+});
+
+describe("a Charge freeze's goal (review 2026-11-14a, 23-a: said on the card and again on the plate)", () => {
+  it("tells the carrier the charge is theirs, in the plate's own words", () => {
+    expect(freezeGoal(true, true)).toBe('You carry the charge · plant it at A or B');
+  });
+
+  it("gives everyone else their side's goal", () => {
+    expect(freezeGoal(true, false)).toBe('Plant the charge at A or B and guard it');
+    expect(freezeGoal(false, false)).toBe('Keep the charge off A and B, or defuse it');
   });
 });
 

@@ -1,0 +1,17 @@
+{
+  "steps": [
+    {
+      "step": "freeze",
+      "phase": "freeze",
+      "plate": null,
+      "card": "You carry the charge · plant it at A or B"
+    },
+    {
+      "step": "live",
+      "phase": "live",
+      "plate": "Round 1 · Attacking / You carry the charge · plant it at A or B",
+      "card": null
+    }
+  ],
+  "errors": []
+}
