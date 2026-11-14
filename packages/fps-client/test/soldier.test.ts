@@ -269,6 +269,33 @@ describe('the third-person soldier holding each weapon', () => {
       expect(fallen(behind, 'from behind').z).toBeLessThan(-0.6);
     });
 
+    it('turns as it falls, landing to one side of the shot rather than down its line, behind the shooter\'s sights', () => {
+      const neck = (soldier: Soldier) => {
+        soldier.root.updateMatrixWorld(true);
+        return soldier.root.getObjectByName('neck')!.getWorldPosition(new Vector3());
+      };
+      // Straight on, either side; the head is well off the line half a second in, and further once it lies.
+      for (let i = 0; i < 6; i++) {
+        const soldier = settled();
+        soldier.die([0, 0, 2.5]);
+        for (let f = 0; f < 30; f++) soldier.fall(1 / 60);
+        expect(Math.abs(neck(soldier).x), 'half a second in').toBeGreaterThan(0.4);
+        const head = fallen(soldier, 'straight on');
+        expect(Math.abs(head.x)).toBeGreaterThan(0.6);
+        expect(head.z).toBeGreaterThan(0.6);
+      }
+      // A shot a little from the side sends it that way, from the front and from behind.
+      for (const [push, side] of [[[0.8, 0, 2.5], 1], [[-0.8, 0, 2.5], -1], [[0.8, 0, -2.5], 1], [[-0.8, 0, -2.5], -1]] as const) {
+        const soldier = settled();
+        soldier.die([...push]);
+        expect(fallen(soldier, `pushed ${push.join(',')}`).x * side, `pushed ${push.join(',')}`).toBeGreaterThan(0.6);
+      }
+      // A wall on that side: the other.
+      const walled = settled();
+      walled.die([0.8, 0, 2.5], (right) => right <= 0);
+      expect(fallen(walled, 'walled on the right').x).toBeLessThan(-0.6);
+    });
+
     it('folds onto the side the shot pushed it to', () => {
       for (const side of [1, -1]) {
         const soldier = settled({ stance: 'crouch', eyeHeight: 1 });

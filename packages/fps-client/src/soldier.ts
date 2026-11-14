@@ -221,6 +221,15 @@ const deathClock = (done: number) => Math.pow(done, 1.35) * MANTLE_END;
 const DEATH_LENGTH = 1.5;
 const DEATH_WIDTH = 0.9;
 /**
+ * A body thrown onto its back or chest turns as it goes (rad, about the vertical), so it lands back and to one side
+ * of where it stood rather than straight along the shot: a fall straight away from the shooter drops down the line
+ * of sight, behind the shooter's own front sight, and the kill is never seen. Shooters' canned deaths do the same,
+ * twisting the body as it drops. It turns in `DEATH_TURN_TIME` (s), eased in and out: turning quickest at the start
+ * would add to a slide's legs unfolding, the fastest thing a death does.
+ */
+const DEATH_TURN = 0.75;
+const DEATH_TURN_TIME = 0.5;
+/**
  * What a body rests on (m): the thickness about the hips, the shoulders, the head (a point in the neck's frame),
  * and about each limb's joints and ends (points in the wrist's and the ankle's frames).
  */
@@ -385,6 +394,7 @@ const _a = new Vector3();
 const _b = new Vector3();
 const _c = new Vector3();
 const _q = new Quaternion();
+const VERTICAL = new Vector3(0, 1, 0);
 const _q2 = new Quaternion();
 const _q3 = new Quaternion();
 const _e = new Euler();
@@ -452,6 +462,8 @@ export class Soldier {
     from: { q: Quaternion; at: Vector3 }[];
     /** Where the clip has the hips at the moment the body joins it: the body is carried on from where it is, by how far the clip moves from here. */
     origin: Vector3;
+    /** How far the whole body turns about the vertical as it falls (rad, counter-clockwise seen from above: see `DEATH_TURN`). */
+    turn: number;
     /** The way each limb was last lifted (`LIFT_SPEED`): its heading about the vertical (rad), NaN before the first. */
     ways: Float32Array;
     /** Lying still: the last pose is in the bones and nothing moves them again. */
@@ -732,19 +744,31 @@ export class Soldier {
     const size = Math.hypot(back, right);
     const low = this.#prone > 0.5 || this.#crawl > 0.5;
     let name: Death = low ? 'fallFront' : size < DEATH_PUSH || Math.abs(back) < size * 0.5 ? 'crumple' : back > 0 ? 'fallBack' : 'fallFront';
-    if (!low && name !== 'crumple' && !room(0, name === 'fallBack' ? DEATH_LENGTH : -DEATH_LENGTH)) name = 'crumple';
+    // Thrown onto its back or chest, the body turns as it goes and lands to one side (`DEATH_TURN`): the side the shot
+    // pushed it to, or either when it came straight on; the other side, or straight, where a wall is in the way. It
+    // starts straight back and turns on the way, so it needs room straight back as well.
+    let turn = 0;
+    const along = name === 'fallBack' ? DEATH_LENGTH : -DEATH_LENGTH;
+    if (!low && name !== 'crumple') {
+      if (room(0, along)) {
+        const lands = (t: number) => room(along * Math.sin(t), along * Math.cos(t));
+        const side = Math.abs(right) > size * 0.15 ? Math.sign(right) : Math.random() < 0.5 ? 1 : -1;
+        const first = side * Math.sign(along) * DEATH_TURN;
+        turn = lands(first) ? first : lands(-first) ? -first : 0;
+      } else name = 'crumple';
+    }
     // The fold lands on the right side: mirrored, on the left, the way the push went or wherever there is room.
     let mirror = name === 'crumple' && (size < DEATH_PUSH ? Math.random() < 0.5 : right < 0);
     if (name === 'crumple' && !room(mirror ? -DEATH_WIDTH : DEATH_WIDTH, 0) && room(mirror ? DEATH_WIDTH : -DEATH_WIDTH, 0)) mirror = !mirror;
     const clip = clips.get(name);
     this.#gunMount.visible = false;
-    const lies = name === 'crumple' ? { right: mirror ? -DEATH_WIDTH : DEATH_WIDTH, back: 0 } : { right: 0, back: name === 'fallBack' ? DEATH_LENGTH : -DEATH_LENGTH };
+    const lies = name === 'crumple' ? { right: mirror ? -DEATH_WIDTH : DEATH_WIDTH, back: 0 } : { right: along * Math.sin(turn), back: along * Math.cos(turn) };
     if (!clip) return lies;
     // A body already low joins the fall part-way down.
     const start = Math.min(0.8, Math.max(0, 1 - b.hips.position.y / 0.8)) * clip.duration;
     const hips = clip.joints.find((j) => j.joint === 'hips')?.at;
     const origin = hips ? new Vector3().fromArray(hips.evaluate(deathClock(start / clip.duration) * clip.duration)) : b.hips.position.clone();
-    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })), origin, ways: new Float32Array(LIFTS * 2).fill(Number.NaN), still: false };
+    this.#death = { clip, time: start, start, mirror, from: JOINTS.map((j) => ({ q: b[j].quaternion.clone(), at: b[j].position.clone() })), origin, turn, ways: new Float32Array(LIFTS * 2).fill(Number.NaN), still: false };
     return lies;
   }
 
@@ -781,6 +805,15 @@ export class Soldier {
         if (joint === 'hips') _a.set(_a.x + bone.position.x, _a.y, _a.z + bone.position.z);
         bone.position.lerp(_a, w);
       }
+    }
+    if (d.turn !== 0) {
+      // The whole body turns about the vertical through the feet, gathering and losing speed as the fall does its own.
+      // (A body that joins the clip part-way down turns in what is left of it, to lie where `die` said.)
+      const k = smooth((d.time - d.start) / Math.min(DEATH_TURN_TIME, d.clip.duration - d.start));
+      _q.setFromAxisAngle(VERTICAL, d.turn * k);
+      const hips = this.#bones.hips;
+      hips.quaternion.premultiply(_q);
+      hips.position.applyQuaternion(_q);
     }
     this.#restOnGround(dt);
     d.still = d.time >= d.clip.duration;

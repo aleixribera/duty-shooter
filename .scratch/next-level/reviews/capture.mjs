@@ -6,9 +6,9 @@
 //   progress a fresh Profile's Loadout (time to the gun drawn) and Profile screen (guns open, save code), desktop
 //            and phone; then a Profile past Rank 12, whose Profile screen should show every gun open.
 //   match    one Bot Match played to its end by a scripted player who turns toward the nearest enemy in sight and
-//            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup) and one 250 ms
-//            later, mid-fall (KILL_B=<ms>[,<ms>…]; each frame's age since the kill is in killFrames; it lets go of
-//            the trigger on each kill but the second, which it fires through, `held` in killFrames), the
+//            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup), one 250 ms
+//            later, mid-fall, and one 500 ms later, as the body turns aside to land (KILL_B=<ms>[,<ms>…]; each
+//            frame's age since the kill is in killFrames; it lets go of the trigger on each kill but the second, which it fires through, `held` in killFrames), the
 //            scoreboard, the last minute, the end screen; sound recorded from the game's own output (opening and
 //            last minute, .webm) with each second's level and every sound the game asked for; frame times.
 //            Map and mode rotate through all fifteen pairs, one per review (MAIN=<map id>:<mode id> picks one).
@@ -37,7 +37,7 @@ const MATCH_SECONDS = Number(process.argv[3] ?? 150);
 // The online match is played this long by the scripted player.
 const ONLINE_SECONDS = Number(process.env.ONLINE_SECONDS ?? 45);
 /** How long after a kill (ms) its later frames are taken, "b", "c" and on: KILL_B=<ms>[,<ms>…]. */
-const KILL_B = (process.env.KILL_B ?? '250').split(',').map(Number);
+const KILL_B = (process.env.KILL_B ?? '250,500').split(',').map(Number);
 const BASE = process.argv[4] ?? 'http://localhost:5173/';
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 mkdirSync(out, { recursive: true });
@@ -498,9 +498,9 @@ async function play(page, prefix, seconds, every = async () => {}) {
   const first = me;
   let killShots = 0;
   // Each kill frame's age (ms since the kill count rose, page clock) as its screenshot was asked for. The "b" frame is
-  // asked for at KILL_B ms, mid-fall (a body is down about 0.5 s after the kill, and down the irons it then lies behind
-  // the front sight); a fixed 250 ms sleep after the first frame's screenshot put it at 0.6 s or later, the body
-  // already down, so the review read every kill as unseen (2026-11-14d; pass 79's series in kill-seen/pass79c).
+  // asked for at KILL_B ms, mid-fall (a body is down about 0.5 s after the kill; one killed straight on turns aside
+  // as it falls, which shows from about 0.5 s: the "c" frame); a fixed 250 ms sleep after the first frame's
+  // screenshot put it at 0.6 s or later, the body already down, so the review read every kill as unseen (2026-11-14d; pass 79's series in kill-seen/pass79c).
   const killFrames = [];
   const age = () => page.js('Math.round(performance.now() - (__ft.killAt ?? -1e9))');
   while (Date.now() - start < seconds * 1000) {
