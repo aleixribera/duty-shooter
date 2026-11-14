@@ -2,6 +2,8 @@
 //   node .scratch/next-level/reviews/capture.mjs <out dir> [match seconds = 150] [base url = http://localhost:5173/]
 // Against the dev server (`preview_start range`). One headless Chrome at a time, each part in its own browser:
 //   menu     the main menu at desktop and phone width, and the Bot Match setup.
+//   progress a fresh Profile's Loadout (time to the gun drawn) and Profile screen (guns open, save code), desktop
+//            and phone; then a Profile past Rank 12, whose Profile screen should show every gun open.
 //   match    one Bot Match played to its end by a scripted player who turns toward the nearest enemy in sight and
 //            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup), the
 //            scoreboard, the last minute, the end screen; sound recorded from the game's own output (opening and
@@ -15,8 +17,8 @@
 //            Node sockets join by its link, the host moves one to the other side and kicks the other, starts the
 //            match and plays it with the same player.
 // Everything lands in <out>: frames (.jpg), sound (.webm), and summary.json (per part: kills, deaths, frame
-// times, sound levels, the sounds heard, page errors). ONLY=<part>,<part> runs just those parts (menu, match, tour,
-// island, online) into an existing capture, keeping the rest of its summary.
+// times, sound levels, the sounds heard, page errors). ONLY=<part>,<part> runs just those parts (menu, progress,
+// match, tour, island, online) into an existing capture, keeping the rest of its summary.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -392,6 +394,51 @@ if (want('menu'))
     for (const p of ['Bot Match', MAPS[MAIN[0]], MODES[MAIN[1]]]) await page.click(p);
     await sleep(400);
     await page.shot('03-bot-match-setup');
+  });
+
+// --- progression (objective 6) ------------------------------------------------
+// A fresh Profile (each part's Chrome starts empty): Loadout from the menu, timed to the gun drawn on its stage,
+// the Profile screen with its guns open and shut and its save code, at desktop and phone width; then a Profile
+// at 400,000 XP (past Rank 12), whose Profile screen should show every gun open.
+if (want('progress'))
+  summary.progress = await session('05-progress', async (page) => {
+    const phone = () => page.chrome.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    const desktop = () => page.chrome.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+    const guns = `(() => ({ open: document.querySelectorAll('.ds-prof .gun:not(.shut)').length, shut: document.querySelectorAll('.ds-prof .gun.shut').length }))()`;
+    const r = {};
+    await open(page);
+    await sleep(4000);
+    if (!(await page.click('Loadout'))) throw new Error('no "Loadout" button');
+    const t0 = Date.now();
+    const drawn = await page.waitFor(`!!document.querySelector('.ds-stage')?.dataset.drawn`, 45_000, 25);
+    r.loadoutMsToGun = drawn ? Date.now() - t0 : null;
+    r.loadoutDrawn = await page.js(`document.querySelector('.ds-stage')?.dataset.drawn ?? null`);
+    await sleep(1500);
+    await page.shot('05-loadout');
+    await phone();
+    await sleep(1500);
+    await page.shot('05-loadout-phone');
+    await desktop();
+    await open(page);
+    if (!(await page.click('Profile'))) throw new Error('no "Profile" button');
+    await sleep(800);
+    r.fresh = await page.js(guns);
+    await page.click('Save code');
+    await sleep(500);
+    r.saveCode = ((await page.js(`document.querySelector('textarea.ds-code')?.value ?? ''`)) || '').slice(0, 24);
+    await page.shot('06-profile');
+    await phone();
+    await sleep(1200);
+    await page.shot('06-profile-phone');
+    await desktop();
+    await page.js(`localStorage.setItem('duty-shooter.profile.v2', ${JSON.stringify(JSON.stringify({ version: 1, xp: 400000, weapons: {} }))})`);
+    await open(page);
+    await page.click('Profile');
+    await sleep(800);
+    r.rank12 = await page.js(guns);
+    await page.shot('06-profile-rank12');
+    log(`progress: ${JSON.stringify(r)}`);
+    return r;
   });
 
 // --- the match, to its end ---------------------------------------------------

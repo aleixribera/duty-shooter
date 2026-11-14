@@ -21,7 +21,9 @@ Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0)
 - [x] Passes 39-44 (v2.205.0 to v2.210.0): unlocks by Rank, save code, Loadout on the menu, the 3D loadout editor (three loadouts, 1 2 3 while dead), results with Mastery and Play again, fittings/camos/reticles, Battle Royale on loadouts behind `?drops=resupply` (default stays loot until Aleix says go), and the one-time reset (ticket 116).
 - [x] Review 2026-11-14a (pass 45, idle PC): 1, 2 pass (worst frame 90 ms, workP99 6-18 ms); 3, 4, 5 fail; 6 unproven (the capture never opens Loadout or Profile; BACKLOG).
 
-Passes 45-50 (PLAN order step 5, the review's visible gaps, one per pass; details in BACKLOG "Review 2026-11-14a's open defects" and tickets 100, 102, 103): magnified sights, Loadout opening at once, Gun Game's prompts and bar, the death screen, Station Nine's tanks, team sides drawn each match (v2.211.5). Pass 51: Charge's goal once (v2.211.7). Pass 52: no "WASD Move" in a fight (v2.211.8, ticket 103). Pass 53: online, bot-filled seats read "Open seat · Bot" and an unmeasured ping "– ms"; the capture's friends now report pings (`lobby-seats/after/`, v2.211.9, ticket 103). Review 2026-11-14a's listed defects are all worked; next (pass 54): a fresh review (2026-11-14b) to judge the six objectives again, then its gaps.
+Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass; tickets 100, 102, 103; v2.211.0 to v2.211.9); each in its ticket.
+
+Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers. Next (pass 55): its gaps, worst first.
 
 ## Needs Aleix
 
@@ -40,7 +42,7 @@ Passes 45-50 (PLAN order step 5, the review's visible gaps, one per pass; detail
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14a (1, 2 pass; 3, 4, 5 fail; 6 unproven).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14b (1, 2, 5 pass; 3, 4, 6 fail).
 - CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
 ## Broken
