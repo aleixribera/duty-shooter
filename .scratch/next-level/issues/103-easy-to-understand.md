@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63), v2.211.20 (pass 64), v2.213.1 (pass 72)
+Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63), v2.211.20 (pass 64), v2.213.1 (pass 72), v2.213.5 (pass 75)
 
 Spec: `../spec.md`
 
@@ -78,3 +78,6 @@ Pass 67 (2026-11-14), "Offline" on the menu (review 2026-11-14b, 01). Not a game
 
 Pass 72 (2026-11-14), tutorial hints at the climax and down the sights (review 2026-11-14c: "Shift C Sprint" at T-0:31, T-0:11 and T-03.4; "WASD Move" while aiming in the range and on the island). `hints.ts` gives no lesson (aim, sprint, grenade) and no "Move" while the sights are up or in the match's last minute (a new `climax` fact, the match clock under 60 s; no clock in Battle Royale, Charge or the range means no climax), and one up steps aside. Reload and swap are still said. Battle Royale's final circles are not counted as a climax yet (no clock there).
 Checked: typecheck; `hints.test.ts` (two new cases, both failed before). `../climax-hint/look.mjs`: before, "WASD Move" stayed under raised sights for 7.5 s (`climax-hint/before/`); after, it goes when the sights come up, and in a 75 s Bot Match with move and aim learned, "Sprint" stood from T-1:10 to T-1:01 and was gone at T-0:59, nothing after (`climax-hint/after/`). Second opinion (subagent): no bugs; a misplaced doc comment fixed.
+
+Pass 75 (2026-11-14), the scoreboard's order (review 2026-11-14c: a free-for-all ranked by kills under a bold Score column put Rook's 1,225 sixth under Briar's 1,000, and Briar and Onyx, level on 8 kills and 7 deaths, both 4th). The board now leads with the column it ranks by, in bold: Kills in a free-for-all, the Gun in gun game (Kills plain beside it), Score in team modes and Battle Royale. Level on the race and deaths, the higher Score goes first (client `ranked`, and the server's time-limit winner in FreeForAll and GunGame, so a draw is level on all of them); a shared place now needs every ranked column level. Halo and CoD's free-for-all both rank the race's own number first.
+Checked: typecheck; `ui-model`, `board-ping` and `score` tests (the tie and lead-column cases fail on the old code). `../board-order/look.mjs`: a 75 s Station Nine free-for-all Bot Match's end board, Kills first and bold, 11 / 7 / 4 / 2 / 1 / 0 down it (`board-order/after/board-desktop.jpg`). Second opinion (subagent): Battle Royale's board, an 'ffa' board ranked by Score, would have led with Kills; fixed and tested.

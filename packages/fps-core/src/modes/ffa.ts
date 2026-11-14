@@ -148,9 +148,9 @@ export class FreeForAll implements GameMode {
   result(ctx: ModeContext): MatchResult | null {
     if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
       // Kills win it, whatever the Score says.
-      const [first, second] = this.scores().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-      // Level on kills, fewer deaths win it, as the scoreboard and the bar rank it: a draw is level on both.
-      const draw = !first || (second !== undefined && second.kills === first.kills && second.deaths === first.deaths);
+      const [first, second] = this.scores().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
+      // Level on kills, fewer deaths win it, then the higher Score, as the scoreboard and the bar rank it: a draw is level on all three.
+      const draw = !first || (second !== undefined && second.kills === first.kills && second.deaths === first.deaths && second.score === first.score);
       this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
     return this.#result;

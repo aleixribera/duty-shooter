@@ -1,0 +1,52 @@
+{
+ "mode": "Free-for-all",
+ "map": "Station Nine",
+ "rows": [
+  "#\tPlayer\tKill \tScore\tDeath \tA i t",
+  "1\tCometbot\t11\t1,575\t4\t0",
+  "2\tPikebot\t7\t975\t4\t2",
+  "3\tOnyxbot\t4\t450\t7\t0",
+  "4\tBriarbot\t2\t400\t4\t3",
+  "5\tRookbot\t1\t200\t4\t2",
+  "6\tPlayer 1386\t0\t0\t2\t0"
+ ],
+ "scores": [
+  [
+   "Comet",
+   11,
+   4,
+   1575
+  ],
+  [
+   "Pike",
+   7,
+   4,
+   975
+  ],
+  [
+   "Onyx",
+   4,
+   7,
+   450
+  ],
+  [
+   "Briar",
+   2,
+   4,
+   400
+  ],
+  [
+   "Rook",
+   1,
+   4,
+   200
+  ],
+  [
+   "Player 1386",
+   0,
+   2,
+   0
+  ]
+ ],
+ "errors": []
+}

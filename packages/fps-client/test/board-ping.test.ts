@@ -18,3 +18,22 @@ describe('the scoreboard’s ping column', () => {
     expect(html).toContain('class="ping">–<');
   });
 });
+
+describe('the scoreboard’s lead column', () => {
+  const row = (id: string, kills: number, score: number) => ({ id, name: id, team: 1, kills, deaths: 0, assists: 0, score, bot: true }) as unknown as Score;
+  const board = (mode: string) =>
+    boardHtml({ scores: [row('a', 9, 900), row('b', 8, 1200)], pings: {}, selfId: 'a', match: { status: { mode, teamScores: null, killLimit: 30 } } } as unknown as HudState);
+  const firstStat = (html: string) => /<th>Player<\/th>(<th>.*?<\/th>)/.exec(html)?.[1] ?? '';
+
+  it('is Kills, first and in bold, in a free-for-all, which ranks by kills', () => {
+    const html = board('ffa');
+    expect(firstStat(html)).toContain('Kills');
+    expect(html).toContain('<td class="lead">9</td><td>900</td>');
+  });
+
+  it.each(['tdm', 'battle-royale'])('is Score in %s, which ranks by Score', (mode) => {
+    const html = board(mode);
+    expect(firstStat(html)).toBe('<th>Score</th>');
+    expect(html).toContain('<td class="lead">1,200</td><td>8</td>');
+  });
+});

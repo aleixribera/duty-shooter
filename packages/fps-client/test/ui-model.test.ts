@@ -60,6 +60,22 @@ describe('the scoreboard', () => {
     if (board.kind !== 'ffa') throw new Error('ffa');
     expect(board.rows.map((r) => r.place)).toEqual([1, 1, 3]);
   });
+  it('level on kills and deaths, puts the higher Score first in its own place (review 2026-11-14c: two 4th places)', () => {
+    const rows = [
+      { ...score('onyx', 1, 8, 7), score: 950 },
+      { ...score('rook', 2, 8, 9), score: 1225 },
+      { ...score('briar', 3, 8, 7), score: 1000 },
+      { ...score('ember', 4, 12, 12), score: 1750 },
+    ];
+    const board = scoreboard(rows, 'ffa', {});
+    if (board.kind !== 'ffa') throw new Error('ffa');
+    expect(board.rows.map((r) => [r.id, r.place])).toEqual([
+      ['ember', 1],
+      ['briar', 2],
+      ['onyx', 3],
+      ['rook', 4],
+    ]);
+  });
   it('marks bots, so they show with a BOT tag', () => {
     const board = scoreboard([score('a', 1, 2, 1), { ...score('b', 2, 1, 1), bot: true }], 'ffa', {});
     if (board.kind !== 'ffa') throw new Error('ffa');

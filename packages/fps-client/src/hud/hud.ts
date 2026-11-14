@@ -217,7 +217,7 @@ const CSS = `
 .ds-board td { padding: 7px 8px; border-top: 1px solid var(--ds-line); text-align: right; font-size: var(--ds-type-body); }
 .ds-board td:nth-child(2) { font-weight: 700; width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-board td.place { color: var(--ds-text-2); width: 36px; }
-.ds-board td.score { font-weight: 700; }
+.ds-board td.lead { font-weight: 700; }
 /* Column heads in full, or their initials where the table is narrow. */
 .ds-board th .n { display: none; }
 @media (max-width: 1100px) { .ds-board th .w { display: none; } .ds-board th .n { display: inline; } .ds-board th, .ds-board td { padding-left: 6px; padding-right: 6px; } }
@@ -1437,18 +1437,31 @@ function playerName(name: string, bot: boolean, team?: number): string {
 /** A column's head: the word, and the initial a narrow board shows in its place. */
 const colHead = (word: string) => `<th><span class="w">${word}</span><span class="n" title="${word}">${word[0]}</span></th>`;
 
-/** The held scoreboard: both teams side by side, or the free-for-all ranking; each row its Score, kills, deaths, assists and ping, the highest Score first. */
+/**
+ * The held scoreboard: both teams side by side, or the free-for-all ranking; each row its Score, kills, deaths,
+ * assists and ping. The column the board ranks by comes first and in bold: Score in a team mode, Kills in a
+ * free-for-all, the Gun in gun game, so the order reads down the bold column (review 2026-11-14c: a free-for-all
+ * ranked by kills under a bold Score column put Rook's 1,225 sixth under Briar's 1,000).
+ */
 export function boardHtml(state: HudState): string {
   const mode: ModeId = state.match?.status.mode ?? 'ffa';
   const board = scoreboard(state.scores, mode, state.pings, state.match?.status.teamScores ?? null);
   const levels = board.kind === 'ffa' && board.levels;
+  // The races `ranked` orders by kills or the ladder; Battle Royale's rows (an 'ffa' board too) go by Score.
+  const race = mode === 'ffa' || levels;
   // Against bots nobody has a ping: a column of dashes says nothing, so it goes.
   const pinged = (board.kind === 'ffa' ? board.rows : board.teams.flatMap((t) => t.rows)).some((r) => r.ping !== null);
+  const lead = (on: boolean) => (on ? ' class="lead"' : '');
+  const heads = race ? `${levels ? '<th>Gun</th>' : ''}${colHead('Kills')}<th>Score</th>` : `<th>Score</th>${colHead('Kills')}`;
+  const cells = (r: BoardRow) =>
+    race
+      ? `${levels ? `<td class="lead">${r.level}</td>` : ''}<td${lead(!levels)}>${r.kills}</td><td>${figure(r.score)}</td>`
+      : `<td class="lead">${figure(r.score)}</td><td>${r.kills}</td>`;
   const table = (rows: readonly BoardRow[]) =>
-    `<table><tr><th>#</th><th>Player</th>${levels ? '<th>Gun</th>' : ''}<th>Score</th>${colHead('Kills')}${colHead('Deaths')}${colHead('Assists')}${pinged ? '<th>Ping</th>' : ''}</tr>${rows
+    `<table><tr><th>#</th><th>Player</th>${heads}${colHead('Deaths')}${colHead('Assists')}${pinged ? '<th>Ping</th>' : ''}</tr>${rows
       .map(
         (r) =>
-          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${levels ? `<td>${r.level}</td>` : ''}<td class="score">${figure(r.score)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.assists}</td>${pinged ? `<td class="ping">${r.ping === null ? '–' : r.ping}</td>` : ''}</tr>`,
+          `<tr class="${r.id === state.selfId ? 'you' : ''}"><td class="place">${r.place}</td><td>${playerName(r.name, r.bot)}</td>${cells(r)}<td>${r.deaths}</td><td>${r.assists}</td>${pinged ? `<td class="ping">${r.ping === null ? '–' : r.ping}</td>` : ''}</tr>`,
       )
       .join('')}</table>`;
   // The goal stays findable after the countdown: the board says what wins beside the mode's name.

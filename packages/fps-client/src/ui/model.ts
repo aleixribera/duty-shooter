@@ -71,15 +71,18 @@ function level(s: Score): number {
  * deaths. A free-for-all and gun game are a race, won by kills (and gun game
  * by the furthest up the ladder): their scoreboard, bar and results all rank
  * by the race, so no two of them give you a different place (review
- * 2026-11-14a: the bar said 4th while the scoreboard said 3rd).
+ * 2026-11-14a: the bar said 4th while the scoreboard said 3rd). Level on the
+ * race and deaths, the higher Score goes first, as the server's winner does,
+ * so two rows share a place only when every column they rank by is level
+ * (review 2026-11-14c: Briar 1,000 and Onyx 950 were both 4th).
  */
 function ranked(scores: readonly Score[], pings: Readonly<Record<string, number>>, mode: ModeId | null = null): BoardRow[] {
   const levels = mode === 'gungame';
   const race = levels || mode === 'ffa';
   const key = (s: Score) => (levels ? (s.progress ?? 0) : 0);
   const points = (s: Score) => (race ? 0 : s.score);
-  const sorted = [...scores].sort((a, b) => key(b) - key(a) || points(b) - points(a) || b.kills - a.kills || a.deaths - b.deaths);
-  const same = (a: Score, b: Score) => key(a) === key(b) && points(a) === points(b) && a.kills === b.kills && a.deaths === b.deaths;
+  const sorted = [...scores].sort((a, b) => key(b) - key(a) || points(b) - points(a) || b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
+  const same = (a: Score, b: Score) => key(a) === key(b) && a.score === b.score && a.kills === b.kills && a.deaths === b.deaths;
   return sorted.map((s, i) => {
     let place = i + 1;
     while (place > 1 && same(sorted[place - 2]!, s)) place--;

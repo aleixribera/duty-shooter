@@ -53,6 +53,19 @@ describe('the points table', () => {
   });
 });
 
+describe('a free-for-all won on time', () => {
+  it('level on kills and deaths, goes to the higher Score, and is a draw only when that is level too', () => {
+    // d's kill carried First Blood (150); a's is a plain 100.
+    const plain = ffa({ timeLimit: 60 }).blooded();
+    plain.at(0, kill('a', 'b'));
+    expect(plain.mode.result(ctx(60))).toMatchObject({ winner: 'd', draw: false, reason: 'timeLimit' });
+    // a's headshot makes it 150 each.
+    const level = ffa({ timeLimit: 60 }).blooded();
+    level.at(0, kill('a', 'b', { zone: 'head' }));
+    expect(level.mode.result(ctx(60))).toMatchObject({ winner: null, draw: true });
+  });
+});
+
 describe('score for a kill', () => {
   it('pays 100 for a kill, to the killer alone, and counts it on their row beside kills and deaths', () => {
     const m = ffa().blooded();

@@ -159,7 +159,7 @@ export class GunGame implements GameMode {
   result(ctx: ModeContext): MatchResult | null {
     if (this.#result === null && this.timeLimit !== null && ctx.matchTime >= this.timeLimit - 1e-9) {
       const [first, second] = this.#ranked();
-      const draw = !first || (second !== undefined && second.progress === first.progress && second.kills === first.kills && second.deaths === first.deaths);
+      const draw = !first || (second !== undefined && second.progress === first.progress && second.kills === first.kills && second.deaths === first.deaths && second.score === first.score);
       this.#result = { winner: draw ? null : first.id, winnerName: draw ? null : first.name, draw, reason: 'timeLimit' };
     }
     return this.#result;
@@ -170,12 +170,12 @@ export class GunGame implements GameMode {
     return this.#ffa.scores().map((s) => ({ ...s, progress: this.#progress.get(s.id) ?? 0 }));
   }
 
-  /** The rows as the ladder ranks them: furthest up first, then most kills, then fewest deaths. */
+  /** The rows as the ladder ranks them: furthest up first, then most kills, then fewest deaths, then the higher Score. */
   #ranked(): (Score & { readonly progress: number })[] {
     return this.#ffa
       .scores()
       .map((s) => ({ ...s, progress: this.#progress.get(s.id) ?? 0 }))
-      .sort((a, b) => b.progress - a.progress || b.kills - a.kills || a.deaths - b.deaths);
+      .sort((a, b) => b.progress - a.progress || b.kills - a.kills || a.deaths - b.deaths || b.score - a.score);
   }
 
   teamScores(): readonly TeamScore[] | null {
