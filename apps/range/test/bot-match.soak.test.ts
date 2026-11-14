@@ -53,15 +53,16 @@ describe('Bot Match, played through', () => {
       ['survival-town', 'outposts'],
       ['switchyard', 'charge'],
       ['station-nine', 'outposts'],
-    ] as const)('on %s (%s) you start somewhere different from match to match, always in your own team’s yard', (mapId, mode) => {
+    ] as const)('on %s (%s) you start somewhere different from match to match, always in a team yard: your own in Charge, either end drawn per match otherwise', (mapId, mode) => {
       // Seeded, so the test is the same every run; the game draws from Math.random.
       let state = 31;
       vi.spyOn(Math, 'random').mockImplementation(() => ((state = (Math.imul(state, 1103515245) + 12345) >>> 0) / 2 ** 32));
       const map = buildMapById(mapId);
       const starts = firstSpawns(mapId, mode, 6);
+      const yard = (set: number) => map.spawns.teams![set]!.map((p) => `${p.position[0].toFixed(1)},${p.position[2].toFixed(1)}`);
       for (const s of starts) {
-        const yard = map.spawns.teams![s.team - 1]!.map((p) => `${p.position[0].toFixed(1)},${p.position[2].toFixed(1)}`);
-        expect(yard).toContain(s.at);
+        // Charge's attackers start at the first set and its defenders at the second; the other modes draw the ends each match.
+        expect(mode === 'charge' ? yard(s.team - 1) : [...yard(0), ...yard(1)]).toContain(s.at);
       }
       expect(new Set(starts.map((s) => s.at)).size).toBeGreaterThanOrEqual(3);
     }, 60_000);
