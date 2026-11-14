@@ -1,5 +1,5 @@
 import { STATS, raycastWorld, smokeAmount, smokeCentre, type Material, type MuzzleId, type SmokeCloud, type Solid, type Vec3, type WeaponId, type World } from '@duty-shooter/fps-core';
-import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, positionWorld, sin, smoothstep, sqrt, step, time, uniform, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
+import { abs, attribute, instanceColor, instanceIndex, texture as textureNode, cameraFar, cameraNear, cameraPosition, cameraViewMatrix, clamp, cos, dot, float, floor, linearDepth, max, mix, normalize, positionWorld, screenSize, screenUV, sin, smoothstep, sqrt, step, time, uniform, uv, vec2, vec3, viewportLinearDepth } from 'three/tsl';
 import {
   AddEquation,
   AdditiveBlending,
@@ -148,8 +148,24 @@ export const CHIP_CLEAR = 0.4;
 /** The most of the view (rad) a chip may span along its length: a fleck stays a fleck however near it flies. */
 export const CHIP_ARC = 0.08;
 const camAt = new Vector3();
+/**
+ * Where your own muzzle flash and smoke part round the aim point, the middle of the screen, as fractions of the view's
+ * height: clear inside the first, in full from the second out. Down the sights your muzzle sits just under the aim
+ * point, and its flash and the haze of a burst stood over the very target you were shooting, so most kills were hidden
+ * (review 2026-11-14b, defect 2). Well-loved shooters keep the sight picture readable while firing: the flash plays
+ * round the front sight, not over the target. ~38 px clear and ~81 px to full on a 1080 px view: a man at 25 m stands
+ * about 45 px tall.
+ */
+const SIGHT_CLEAR = [0.035, 0.075] as const;
+/** Smoke nearer the eye than the first (m) parts round the aim point in full, and from the second out not at all: that near, it is mostly your own muzzle's. */
+const SIGHT_SMOKE_NEAR = [2.5, 4] as const;
+/** 0 at the aim point, rising to 1 at SIGHT_CLEAR[1] of the view's height from it. */
+function sightline(): N {
+  const d = screenUV.sub(0.5).mul(vec2(screenSize.x.div(screenSize.y), 1)).length();
+  return smoothstep(float(SIGHT_CLEAR[0]), float(SIGHT_CLEAR[1]), d);
+}
 
-function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
+function particleMaterial(kind: Kind, clearSight = false): MeshBasicNodeMaterial {
   const additive = kind === 'spark' || kind === 'flame' || kind === 'ring';
   const material = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: additive ? AdditiveBlending : NormalBlending });
   // alpha, roll (rad), age (0 to 1), sun (0 to 1).
@@ -187,7 +203,11 @@ function particleMaterial(kind: Kind): MeshBasicNodeMaterial {
     material.colorNode = haze(lit) as never;
     // Breaks into wisps as it ages: the noise eats further in.
     const body = float(1).sub(r).sub(billow.mul(age.mul(0.65).add(0.22)));
-    material.opacityNode = smoothstep(float(0), float(0.3), body).mul(alpha).mul(soft);
+    const opacity = smoothstep(float(0), float(0.3), body).mul(alpha).mul(soft);
+    if (clearSight) {
+      const near = float(1).sub(smoothstep(float(SIGHT_SMOKE_NEAR[0]), float(SIGHT_SMOKE_NEAR[1]), positionWorld.sub(cameraPosition).length()));
+      material.opacityNode = opacity.mul(mix(float(1), sightline(), near));
+    } else material.opacityNode = opacity;
   } else if (kind === 'chip') {
     const ambient = horizonColor.add(skyZenith).mul(0.5).mul(sun.mul(0.3).add(0.7)).mul(around);
     // Two faces: one side of the shard catches the light and the other is in its own shade, and the tumble turns which
@@ -238,7 +258,7 @@ class ParticleLayer {
   /** Holds its alpha through its life and fades only at the end, instead of fading from the start. */
   readonly #steady: boolean;
 
-  constructor(max: number, kind: Kind, options: { essential?: boolean; steady?: boolean } = {}) {
+  constructor(max: number, kind: Kind, options: { essential?: boolean; steady?: boolean; clearSight?: boolean } = {}) {
     this.#max = max;
     this.#kind = kind;
     this.#essential = options.essential === true;
@@ -253,7 +273,7 @@ class ParticleLayer {
     geometry.setAttribute('pColor', this.#color);
     geometry.setAttribute('pSeed', this.#seed);
     geometry.setAttribute('pAmbient', this.#ambient);
-    this.mesh = new InstancedMesh(geometry, particleMaterial(kind), max);
+    this.mesh = new InstancedMesh(geometry, particleMaterial(kind, options.clearSight === true), max);
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     this.mesh.count = 0;
     // Hidden while empty: a soft particle asks for a copy of the frame's depth, which nothing should pay for when there is no smoke.
@@ -678,7 +698,8 @@ export class Effects {
   readonly #sparks = new ParticleLayer(280, 'spark');
   readonly #dust = new ParticleLayer(260, 'puff');
   readonly #chips = new ParticleLayer(240, 'chip');
-  readonly #smoke = new ParticleLayer(150, 'puff');
+  /** Muzzle, frag and flash smoke; it parts round the aim point when it drifts within a few metres of the eye (SIGHT_CLEAR). */
+  readonly #smoke = new ParticleLayer(150, 'puff', { clearSight: true });
   readonly #blood = new ParticleLayer(60, 'puff');
   readonly #flames = new ParticleLayer(40, 'flame');
   readonly #rings = new ParticleLayer(6, 'ring');
@@ -703,6 +724,8 @@ export class Effects {
   readonly #flashes: { mesh: Mesh; age: number }[] = [];
   readonly #falling: { mesh: Mesh; v: Vector3; spin: Vector3; age: number; resting: boolean }[] = [];
   readonly #flashMaterial: MeshBasicNodeMaterial;
+  /** Your own gun's flash: parts round the aim point (SIGHT_CLEAR). */
+  readonly #ownFlashMaterial: MeshBasicNodeMaterial;
   readonly #recentShots: number[] = [];
   /** A frag's flash: brighter and longer than a muzzle's. */
   readonly #blastLight = new PointLight(BLAST_COLOR, 0, 22, 1.4);
@@ -741,6 +764,7 @@ export class Effects {
     this.#casingMesh.frustumCulled = false;
     this.#casingMesh.castShadow = true;
     this.#flashMaterial = flashMaterial();
+    this.#ownFlashMaterial = flashMaterial(true);
     this.#root.add(this.#blastLight);
     this.#root.add(...this.#layers().map((l) => l.mesh), this.#holes.mesh, this.#splats.mesh, this.#casingMesh);
     scene.add(this.#root);
@@ -762,9 +786,9 @@ export class Effects {
     this.#key = at;
   }
 
-  /** A muzzle-flash star mesh, for attaching to a weapon's muzzle socket. */
-  createFlash(): Mesh {
-    const mesh = new Mesh(flashGeometry(), this.#flashMaterial);
+  /** A muzzle-flash star mesh, for attaching to a weapon's muzzle socket; `own` for the gun in your hands, whose flash parts round the aim point. */
+  createFlash(own = false): Mesh {
+    const mesh = new Mesh(flashGeometry(), own ? this.#ownFlashMaterial : this.#flashMaterial);
     mesh.visible = false;
     mesh.frustumCulled = false;
     mesh.renderOrder = 10;
@@ -1360,7 +1384,7 @@ function flashGeometry(): PlaneGeometry {
  * ragged ends round a white heart, a new shape about every frame, so two shots
  * never show the same one.
  */
-function flashMaterial(): MeshBasicNodeMaterial {
+function flashMaterial(clearSight = false): MeshBasicNodeMaterial {
   const m = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide });
   const p = uv().sub(0.5).mul(2);
   const r = p.length();
@@ -1372,6 +1396,6 @@ function flashMaterial(): MeshBasicNodeMaterial {
   const shape = float(1).sub(smoothstep(reach.mul(0.3), reach, r));
   const heart = float(1).sub(smoothstep(float(0), float(0.3), r));
   m.colorNode = vec3(1, 0.6, 0.24).mul(shape.mul(4.5)).add(vec3(1, 0.95, 0.8).mul(heart.mul(7)));
-  m.opacityNode = shape;
+  m.opacityNode = clearSight ? shape.mul(sightline()) : shape;
   return m;
 }

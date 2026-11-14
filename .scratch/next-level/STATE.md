@@ -23,7 +23,7 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers.
 
-Pass 55 (ticket 100, v2.211.11): defect 1, a free-for-all no longer opens with an enemy in view (new spawns on Station Nine and Switchyard; bots still meet in 2-3 s). Next (pass 56): defect 2, kills hidden by your own muzzle flash or dust.
+Pass 55 (ticket 100, v2.211.11): defect 1, a free-for-all no longer opens with an enemy in view (new spawns on Station Nine and Switchyard; bots still meet in 2-3 s). Pass 56 (ticket 102, v2.211.12): defect 2, your own muzzle flash and near smoke part round the aim point, so the target shows while you fire down the sights. Next (pass 57): defect 3, the camera buried in an ally's body or in untextured geometry.
 
 ## Needs Aleix
 

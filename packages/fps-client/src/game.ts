@@ -459,7 +459,7 @@ export class Game {
     this.#tracers = new Tracers(this.#worldView.scene, options.world);
     this.#effects.probes = this.#worldView.probes;
     this.#effects.onCasingBounce = (position, material, intensity) => this.#play('casing', { position, material, intensity });
-    this.#viewFlash = this.#effects.createFlash();
+    this.#viewFlash = this.#effects.createFlash(true);
     this.#viewmodel.muzzle.add(this.#viewFlash);
     for (let i = 0; i < 4; i++) {
       const flash = this.#effects.createFlash();
