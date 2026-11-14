@@ -129,6 +129,20 @@ describe('spawn rules', () => {
     expect(Math.hypot(spawn.position[0], spawn.position[2] - 26)).toBeGreaterThan(8);
   });
 
+  it("respawns beside a teammate standing on a spawn, not inside them, while there's another spawn as safe", () => {
+    // Two spawns behind the wall, out of the enemy's sight; the teammate stands on the first.
+    const onMate = at(14, 0);
+    const beside = at(14, 1.5);
+    const ctx = context([{ position: [14, 0, 0.1], team: 1 }, { position: [0, 0, 0], team: 2 }], [onMate, beside], [[at(0, 30)], [at(0, -30)]]);
+    const tdm = new TeamDeathmatch({ random: KEEP_ENDS });
+    tdm.start([{ id: 'p1', name: 'mate', team: 1 }, { id: 'p2', name: 'enemy', team: 2 }, { id: 'p9', name: 'me', team: 1 }]);
+    tdm.chooseSpawn('p1', ctx);
+    tdm.chooseSpawn('p2', ctx);
+    tdm.chooseSpawn('p9', ctx);
+    // Later spawns weigh nearness to teammates, which alone would put 'me' on the teammate's spot.
+    expect(tdm.chooseSpawn('p9', ctx)).toBe(beside);
+  });
+
   describe("a free-for-all's opening spawns are dealt together (ticket 100)", () => {
     // B and C stand either side of the wall and can't see each other; A, north of the wall's end, sees both.
     const A = at(10, 30);

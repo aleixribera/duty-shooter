@@ -191,6 +191,21 @@ function levelAt(distance: number, was: Level | undefined): Level {
   return NEAR;
 }
 
+/**
+ * How near (m, along the ground) the camera may come to a soldier's feet before that soldier is not drawn.
+ * Players pass through each other, and a camera that ends up inside someone saw the inside of their
+ * arms, head and gun fill the screen (review 2026-11-14b, 21-kill-2b and 13-60s). Games without
+ * solid players hide or dither a body the camera enters; this hides it, within the half-width
+ * of a player's hull plus a hand's breadth, so a friend at your shoulder still shows.
+ */
+export const CAMERA_CLEARANCE = 0.55;
+
+/** Whether the camera at `eye` stands inside `p`'s body: within {@link CAMERA_CLEARANCE} of its feet along the ground, between its feet and the top of its head. */
+export function cameraInside(p: Pick<PlayerOutput, 'position' | 'eyeHeight'>, eye: Vec3): boolean {
+  const dy = eye[1] - p.position[1];
+  return dy > -0.2 && dy < p.eyeHeight + 0.3 && Math.hypot(eye[0] - p.position[0], eye[2] - p.position[2]) < CAMERA_CLEARANCE;
+}
+
 /** A far soldier's stance: its stand-in is posed in each. */
 type FarStance = 'stand' | 'crouch' | 'prone';
 const farStance = (p: PlayerOutput): FarStance => (p.downed || p.stance === 'prone' ? 'prone' : p.stance === 'crouch' ? 'crouch' : 'stand');
@@ -510,9 +525,12 @@ export class PlayersView {
    * Poses everyone from this frame's output. With teams on, soldiers wear
    * their team's uniform. Seen from `viewer` (the camera), each is drawn at
    * its distance's level (`SOLDIER_LEVELS`), that distance divided by
-   * `zoom` (a scope's magnification); with no viewer, all in full.
+   * `zoom` (a scope's magnification); with no viewer, all in full. With
+   * `clear`, a soldier the viewer stands inside is not drawn ({@link cameraInside}),
+   * except the one it names (the player a following camera watches, kept in view):
+   * the camera is someone's eyes or follows them, not a framed shot.
    */
-  update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS, viewer: Vec3 | null = null, zoom = 1): void {
+  update(players: readonly PlayerOutput[], dt: number, allegiance: Allegiance = NO_TEAMS, viewer: Vec3 | null = null, zoom = 1, clear: { readonly except: PlayerId | null } | null = null): void {
     const model = soldierModel();
     if (!model) {
       // Soldiers are built once their model is in (`prepare` fetches it).
@@ -572,7 +590,7 @@ export class PlayersView {
       // Whatever hit a soldier in its last life has nothing to do with the next.
       if (!p.alive) this.#lastPush.delete(p.id);
       this.#alive.set(p.id, p.alive);
-      soldier.root.visible = p.alive && level !== FAR;
+      soldier.root.visible = p.alive && level !== FAR && !(clear !== null && p.id !== clear.except && viewer !== null && cameraInside(p, viewer));
       if (!p.alive) continue;
       // The time since this soldier was last posed, so a pose that waited catches up (no more than a moment of it).
       const unposed = Math.min(0.5, (this.#unposed.get(p.id) ?? 0) + dt);

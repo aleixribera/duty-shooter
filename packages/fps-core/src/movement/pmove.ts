@@ -145,23 +145,40 @@ function advanceLadder(state: MoveState, cmd: UserCmd, world: World, dt: number)
   state.airPeak = null;
 }
 
+/** A walk forward above this (of 1) at a ladder end, facing onto the ladder, gets on it. */
+export const LADDER_GRIP = 0.2;
+
+/** Which end of `route` a player standing at `position` gets on at by walking forward facing `yaw`: its foot (going up), its landing (going down), or neither. */
+function ladderEnd(position: Vec3, yaw: number, route: Ladder): 'bottom' | 'landing' | null {
+  const forward = basis(yaw).forward;
+  const {bottom,landing} = route;
+  const x = bottom[0]-landing[0], z = bottom[2]-landing[2], length = Math.hypot(x,z);
+  if (length < EPSILON || landing[1] <= bottom[1]) return null;
+  const facing = (forward[0]*x+forward[1]*z)/length;
+  const near = (p: Vec3) => Math.hypot(position[0]-p[0],position[2]-p[2]) < 0.55 && Math.abs(position[1]-p[1]) < 0.12;
+  if (near(bottom) && facing < -0.5) return 'bottom';
+  if (near(landing) && facing > 0.5) return 'landing';
+  return null;
+}
+
+/** True when a player standing at `position`, facing `yaw`, would get on a ladder by walking forward (more than {@link LADDER_GRIP}). */
+export function atLadderEnd(position: Vec3, yaw: number, world: World): boolean {
+  return world.ladders.some((route) => ladderEnd(position, yaw, route) !== null);
+}
+
 /** Attach only while walking toward a ladder from a supported end. */
 function enterLadder(state: MoveState, cmd: UserCmd, world: World): void {
-  if (!state.grounded || state.stance !== 'stand' || cmd.forward <= 0.2 || isPressed(cmd,'Jump')) return;
+  if (!state.grounded || state.stance !== 'stand' || cmd.forward <= LADDER_GRIP || isPressed(cmd,'Jump')) return;
   const hull = hullFor('stand');
-  const forward = basis(cmd.yaw).forward;
   for (const route of world.ladders) {
-    const {bottom,landing} = route;
-    const x = bottom[0]-landing[0], z = bottom[2]-landing[2], length = Math.hypot(x,z);
-    if (length < EPSILON || landing[1] <= bottom[1]) continue;
-    const facing = (forward[0]*x+forward[1]*z)/length;
-    const near = (p: Vec3) => Math.hypot(state.position[0]-p[0],state.position[2]-p[2]) < 0.55 && Math.abs(state.position[1]-p[1]) < 0.12;
-    if (near(bottom) && facing < -0.5) {
+    const {bottom} = route;
+    const end = ladderEnd(state.position, cmd.yaw, route);
+    if (end === 'bottom') {
       const moved = slideMove(world,state.position,hull,bottom[0]-state.position[0],bottom[2]-state.position[2]);
       if (Math.hypot(moved.pos[0]-bottom[0],moved.pos[2]-bottom[2]) > 0.01) continue;
       state.position = moved.pos;
       state.ladder = {route,direction:1,phase:'climb'};
-    } else if (near(landing) && facing > 0.5) {
+    } else if (end === 'landing') {
       state.ladder = {route,direction:-1,phase:'topEntry'};
     } else continue;
     state.slide = null;

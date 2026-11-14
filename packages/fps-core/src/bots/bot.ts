@@ -8,6 +8,7 @@ import { TICK_SECONDS, type PlayerId, type PlayerOutput, type SimEvent } from '.
 import { STATS, type WeaponId } from '../stats';
 import { Button, usercmd, type ButtonName, type UserCmd } from '../usercmd';
 import type { World } from '../world';
+import { LADDER_GRIP, atLadderEnd } from '../movement/pmove';
 import { moddedRow, shotLoudness } from '../weapon/attachments';
 import { kitInHand, type ThrowableId } from '../weapon/loadout';
 import { coverBits, coverNear } from './cover-spots';
@@ -220,6 +221,15 @@ const REPLAN_MOVE = 2;
 /** The route key while heading for an objective (a player id never looks like it). */
 const OBJECTIVE_KEY = '#objective';
 
+/**
+ * A bot steps out of anyone standing nearer than this (m, centre to centre; a hull is 0.76 m across), pushed
+ * this many full moves at most, scaled by how far inside it is: a third of the way in, the push already
+ * outweighs a walk straight at them, so their hulls never meet.
+ */
+const PERSONAL_SPACE = 0.9;
+const ROOM_PUSH = 3;
+/** A teammate this near (m) ahead on its way, within {@link PERSONAL_SPACE} of its line, is someone to veer round. */
+const MAKE_WAY = 4;
 /** On the ground of a Battle Royale. A route counts this many metres against a node with no cover near it, so it hugs cover where it can. */
 const OPEN_GROUND = 1.2;
 /** A bound runs the bot's roam length times this; a stop at the end of one lasts this long (s), twice that for a careful bot. */
@@ -543,6 +553,9 @@ export class Bot {
   readonly #downs = new Set<PlayerId>();
   /** The Downed squadmate it has said it will Revive, when it next weighs that, and the enemy eye its way there keeps out of. */
   #reviving: PlayerId | null = null;
+  /** Where it last stood on the ground, and, on a ladder, the end it will get off at (the one away from where it got on). */
+  #ground: Vec3 = [0, 0, 0];
+  #ladderTo: Vec3 | null = null;
   #reviveAt = 0;
   /** Its primary is shot dry with nothing to reload from: the pistol stays in hand. */
   #dry = false;
@@ -688,6 +701,8 @@ export class Bot {
     if (!this.#alive || flat(self.position, this.#lastPos) > 3) this.#reset(view);
     this.#alive = true;
     this.#lastPos = self.position;
+    if (self.movement !== 'ladder') [this.#ground, this.#ladderTo] = [self.position, null];
+    else this.#ladderTo ??= this.#ladderEnd();
     const eye = eyeOf(self);
 
     // The sum passed a multiple of the interval: a bot thinking every tick looks on exactly that tick, one that isn't on the next it thinks.
@@ -1033,6 +1048,8 @@ export class Bot {
       this.#blocked = 0;
       this.#progress = { position: self.position, time };
     }
+    // Room to stand: players pass through each other, so a bot keeps out of anyone's body by itself.
+    if (!using && !self.downed && self.movement !== 'mantle' && self.movement !== 'ladder') [forward, right] = this.#makeRoom(self, forward, right, (o) => view.isEnemy(o));
 
     // The pistol when the primary runs dry close up; the primary again once things are quiet.
     const w = self.weapon;
@@ -1060,9 +1077,62 @@ export class Bot {
     // Finish the current ladder even if combat or a new objective changes
     // the route mid-climb; jumping or stopping here would strand the bot.
     if (self.movement === 'ladder') return this.#cmd(1,0,[]);
+    // It gets on a ladder only where its route climbs one: walking past a ladder's foot or landing (a route through the node there, a strafe in a fight),
+    // it walks on no harder than gets on. A route along the foot of a tower's ladder took a bot up it, and off the top it walked back to the foot's node over the edge.
+    if (this.#nextLink() !== 'ladder' && atLadderEnd(self.position, this.#yaw, this.#world)) forward = Math.min(forward, LADDER_GRIP);
     if (ads) buttons.push('Ads');
     if (fire) buttons.push('Fire');
     return this.#cmd(forward, right, buttons);
+  }
+
+  /**
+   * Steps out of anyone standing within {@link PERSONAL_SPACE}: a push straight away from each, the
+   * harder the nearer, added to the move it chose. Shooters with solid teammates (CoD's soft
+   * collision, Valorant's solid bodies) never let two players share a spot; here nothing in the
+   * movement stops it, and a bot walked into its own side's player until their camera sat inside its body
+   * (review 2026-11-14b, 21-kill-2b). A Downed player is left out: a Revive kneels over them.
+   */
+  #makeRoom(self: PlayerOutput, forward: number, right: number, isEnemy: (o: PlayerOutput) => boolean): [number, number] {
+    let px = 0;
+    let pz = 0;
+    // Where it is walking (world yaw), and how hard: a direction in its own frame is (cos, -sin) of the turn from its yaw.
+    const pace = Math.min(1, Math.hypot(forward, right));
+    const heading = self.yaw + Math.atan2(-right, forward);
+    let aside = 0;
+    for (const i of this.#seats.near(self.position, MAKE_WAY)) {
+      const o = this.#seats.players[i]!;
+      if (o.id === self.id || !o.alive || o.downed || Math.abs(o.position[1] - self.position[1]) > 1.5) continue;
+      const dx = self.position[0] - o.position[0];
+      const dz = self.position[2] - o.position[2];
+      const d = Math.hypot(dx, dz);
+      if (d < PERSONAL_SPACE) {
+        const k = 1 - d / PERSONAL_SPACE;
+        // Right on top of each other: each takes its own side, by seat.
+        const [ux, uz] = d > 1e-3 ? [dx / d, dz / d] : self.id < o.id ? [1, 0] : [-1, 0];
+        px += ux * k;
+        pz += uz * k;
+      }
+      // A teammate in its way: it veers off before they meet, away from the side they're on, and to its own right when they're dead ahead,
+      // so two walking at each other pass, as people do. A push alone only holds them nose to nose.
+      if (pace < 0.3 || d < 1e-3 || d >= MAKE_WAY || isEnemy(o)) continue;
+      const bearing = angleDelta(heading, yawTo(self.position, o.position));
+      const along = d * Math.cos(bearing);
+      const across = -d * Math.sin(bearing);
+      if (along <= 0 || Math.abs(across) >= PERSONAL_SPACE) continue;
+      // One walking on ahead as fast is no obstacle: a Squad in single file keeps its line.
+      const [hx, hz] = [-Math.sin(heading), -Math.cos(heading)];
+      if (o.velocity[0] * hx + o.velocity[2] * hz > self.velocity[0] * hx + self.velocity[2] * hz - 0.5) continue;
+      const k = (1 - along / MAKE_WAY) * pace;
+      aside += across > 0.05 ? -k : k;
+    }
+    if (px === 0 && pz === 0 && aside === 0) return [forward, right];
+    // Both in the bot's own frame, as the steering above turns a direction into forward and right.
+    const strength = Math.min(1, Math.hypot(px, pz)) * ROOM_PUSH;
+    const d = angleDelta(self.yaw, Math.atan2(-px, -pz));
+    const side = angleDelta(self.yaw, heading - Math.PI / 2);
+    const a = Math.max(-1, Math.min(1, aside));
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    return [clamp(forward + Math.cos(d) * strength + Math.cos(side) * a), clamp(right - Math.sin(d) * strength - Math.sin(side) * a)];
   }
 
   #cmd(forward: number, right: number, buttons: ButtonName[]): UserCmd {
@@ -2199,6 +2269,9 @@ export class Bot {
 
   /** A route from `from` to node `to`; a fresh one (not a retry when stuck) restarts the progress clock. */
   #plan(from: Vec3, to: number, view: BotView, fresh = true, unseenBy: Vec3 | null = null): void {
+    // On a ladder it climbs to the end whatever the route says, so a route starts where it gets off: one from the node nearest partway up can start at
+    // the far end and walk it straight back on, and a bot following someone went up and down a tower's ladder for 12 s.
+    if (this.#ladderTo) from = this.#ladderTo;
     if (view.budget) view.budget.plans += 1;
     // Stranded in the shallows or a pit, the way out is where it starts.
     const start = startNode(this.#nav, this.#world, from);
@@ -2251,6 +2324,19 @@ export class Bot {
     }
     // Past the last node: the last few metres straight at the goal, if it's close.
     return flat(self.position, goal) > 0.5 && flat(self.position, goal) < 3 ? goal : null;
+  }
+
+  /** The end of the ladder it is on that it will get off at: the one away from where it got on. */
+  #ladderEnd(): Vec3 | null {
+    let best: Vec3 | null = null;
+    let near = 2;
+    for (const { bottom, landing } of this.#world.ladders) {
+      for (const [on, off] of [[bottom, landing], [landing, bottom]] as const) {
+        const d = flat(this.#ground, on) + Math.abs(this.#ground[1] - on[1]);
+        if (d < near) [best, near] = [off, d];
+      }
+    }
+    return best;
   }
 
   #nextLink(): string | null {

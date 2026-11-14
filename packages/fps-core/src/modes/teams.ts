@@ -1,7 +1,7 @@
 import type { PlayerId, SimEvent, TeamId } from '../simulation';
 import type { MatchEntrant, ModeContext, ModeEvent, Score, SpawnPoint, Zone } from './game-mode';
 import { ScoreKeeper } from './score';
-import { RecentSpawns, distinctSpawns, overrun, scoredSpawn, shuffledOrder } from './spawns';
+import { RecentSpawns, distinctSpawns, occupied, overrun, scoredSpawn, shuffledOrder } from './spawns';
 
 /** The two teams: blue, then orange. */
 export const TEAMS: readonly [TeamId, TeamId] = [1, 2];
@@ -162,15 +162,19 @@ export class TeamRoster {
     const enemies = living.filter((p) => p.team !== team);
     const own = ctx.teamSpawns?.[this.#swapped ? 1 - TEAMS.indexOf(team) : TEAMS.indexOf(team)] ?? null;
     if (first && own && own.length > 0) {
-      // The next of the team's own spawns with no enemy on it (at match start, all of them); a joiner mid-match whose yard is overrun spawns as on a respawn.
+      // The next of the team's own spawns with no enemy on it (at match start, all of them), and no teammate on it while one is free;
+      // a joiner mid-match whose yard is overrun spawns as on a respawn.
       const i = this.#nextFirst.get(team) ?? 0;
       let order = this.#firstOrder.get(team);
       if (order?.length !== own.length) this.#firstOrder.set(team, (order = shuffledOrder(own.length, this.#random)));
-      for (let k = 0; k < own.length; k++) {
-        const spawn = own[order[(i + k) % own.length]!] as SpawnPoint;
-        if (overrun(spawn, enemies)) continue;
-        this.#nextFirst.set(team, i + k + 1);
-        return this.#recent.add(id, spawn);
+      const free = (spawn: SpawnPoint) => !occupied(spawn, mates);
+      for (const ok of [free, () => true]) {
+        for (let k = 0; k < own.length; k++) {
+          const spawn = own[order[(i + k) % own.length]!] as SpawnPoint;
+          if (overrun(spawn, enemies) || !ok(spawn)) continue;
+          this.#nextFirst.set(team, i + k + 1);
+          return this.#recent.add(id, spawn);
+        }
       }
     }
     const candidates = distinctSpawns([...(ctx.teamSpawns ?? []).flat(), ...ctx.spawns]);

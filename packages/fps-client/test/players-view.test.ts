@@ -2,7 +2,7 @@ import { createWorld, type PlayerOutput, type Solid, type Vec3 } from '@duty-sho
 import { box } from '@duty-shooter/fps-core/harness';
 import { Box3, Mesh, Scene, Vector3, type Object3D } from 'three/webgpu';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { BODIES, PlayersView, SOLDIER_LEVELS } from '../src/players-view';
+import { BODIES, CAMERA_CLEARANCE, PlayersView, SOLDIER_LEVELS } from '../src/players-view';
 import { Soldier } from '../src/soldier';
 import { loadTestSoldier } from './helpers/soldier';
 
@@ -23,6 +23,28 @@ function colours(root: Object3D): Set<string> {
 }
 
 describe('player presentation', () => {
+  it('does not draw a soldier the camera stands inside, unless the shot is framed', () => {
+    const scene = new Scene();
+    const view = new PlayersView(scene, createWorld([]), null);
+    const shown = () => scene.children[0]!.children[0]!.visible;
+    const near = { ...player(), position: [0.3, 0, 0.2] as Vec3 };
+    const eye: Vec3 = [0, 1.6, 0];
+    view.update([near], 1 / 60, undefined, eye, 1, { except: null });
+    expect(shown()).toBe(false);
+    // A film or the Preparation places its camera itself, and sees whoever it frames.
+    view.update([near], 1 / 60, undefined, eye, 1, null);
+    expect(shown()).toBe(true);
+    // A teammate at your shoulder still shows; so does one under your feet's level by a storey.
+    view.update([{ ...near, position: [CAMERA_CLEARANCE + 0.05, 0, 0] as Vec3 }], 1 / 60, undefined, eye, 1, { except: null });
+    expect(shown()).toBe(true);
+    view.update([{ ...near, position: [0.1, -3, 0] as Vec3 }], 1 / 60, undefined, eye, 1, { except: null });
+    expect(shown()).toBe(true);
+    // The player a camera follows over the shoulder stays in view, however near a wall pulls it in.
+    view.update([near], 1 / 60, undefined, eye, 1, { except: near.id });
+    expect(shown()).toBe(true);
+    view.dispose();
+  });
+
   it('leaves a body lying where a soldier dies, and stands a new soldier up when they are back', () => {
     const scene = new Scene();
     const view = new PlayersView(scene, createWorld([]), null);

@@ -967,7 +967,10 @@ export class Game {
       const shown = ((prep && prep.stage !== 'dive') || (this.cinema && this.#cur?.alive)) && this.#cur ? [...this.#others, this.#cur] : eyes && !this.cinema ? this.#others.filter((p) => p.id !== watched.id) : this.#others;
       // Each soldier at its distance's level from the camera (full near, cheap mid, instanced far), nearer through a scope.
       const zoom = Math.tan(verticalFov(this.#settings.fov) / 2) / Math.tan((this.#camera.camera.fov * Math.PI) / 360);
-      this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom);
+      // A soldier the camera stands inside is not drawn, except in a framed shot (the Preparation, a film, a map's ending), which places its camera itself,
+      // and the player watched over the shoulder, whom a camera pulled in short of a wall would otherwise lose.
+      const clear = !prep && !cinema && !this.#inShot ? { except: watched && !eyes ? watched.id : null } : null;
+      this.#players.update(shown, dt, { teams, self: teams ? (this.#cur?.team ?? null) : null }, eye, zoom, clear);
       this.#worldView.zoom(zoom);
       this.#arsenal.grenades(driver.grenades(), alpha);
       this.#effects.smokeClouds(smokeCloudsOf(driver.grenades()), driver.serverTime, dt);

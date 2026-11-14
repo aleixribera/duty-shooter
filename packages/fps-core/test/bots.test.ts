@@ -232,4 +232,59 @@ describe('a bot', () => {
     };
     expect(run()).toEqual(run());
   });
+
+  it("keeps out of a teammate's body: sent to where one stands, it stops beside them, and steps aside when one walks into it", () => {
+    const sim = new Simulation(open);
+    sim.addPlayer({ id: 'b', team: 1, position: [0, 0, 8], yaw: 0 });
+    sim.addPlayer({ id: 'a', team: 1, position: [0, 0, 0], yaw: 0 });
+    const bot = new Bot('b', botProfile('Kestrel'), openNav, open);
+    let out = sim.output();
+    let events: readonly SimEvent[] = [];
+    const gap = () => {
+      const [b, a] = ['b', 'a'].map((id) => out.players.find((p) => p.id === id)!.position);
+      return Math.hypot(b![0] - a![0], b![2] - a![2]);
+    };
+    const closest = (seconds: number, ally: ReturnType<typeof usercmd>, spot?: Vec3) => {
+      // Sent to the teammate, from halfway on, once it has had time to get there; holding its spot, all along.
+      let least = Infinity;
+      for (let i = 0; i < ticks(seconds); i++) {
+        const self = out.players.find((p) => p.id === 'b')!;
+        // Its team sends it to the very spot the teammate stands on, or keeps it on its own.
+        const objective = { position: spot ?? out.players.find((p) => p.id === 'a')!.position, radius: 0.5 };
+        const cmd = bot.think({ tick: out.tick, time: sim.time, self, players: out.players, events, objective, isEnemy: (o: PlayerOutput) => o.team !== self.team });
+        out = sim.step({ b: cmd, a: ally });
+        events = out.events;
+        if (spot || i > ticks(seconds / 2)) least = Math.min(least, gap());
+      }
+      return least;
+    };
+    // Hulls are 0.76 m across: closer than that, a camera at one's eyes is inside the other.
+    expect(closest(6, usercmd({ yaw: 0 }))).toBeGreaterThan(0.6);
+    // Holding its spot, it steps aside from a teammate who walks straight through it (yaw 0 faces -z; the bot stands at +z, so turn round).
+    const spot = out.players.find((p) => p.id === 'b')!.position;
+    expect(closest(4, usercmd({ yaw: Math.PI, forward: 0.3 }), spot)).toBeGreaterThan(0.45);
+  });
+
+  it('passes a teammate coming the other way head on, each keeping to its right', () => {
+    const sim = new Simulation(open);
+    const goals: Record<string, Vec3> = { n: [0, 0, -7], s: [0, 0, 7] };
+    sim.addPlayer({ id: 'n', team: 1, position: goals.s!, yaw: 0 });
+    sim.addPlayer({ id: 's', team: 1, position: goals.n!, yaw: Math.PI });
+    const bots = Object.keys(goals).map((id) => new Bot(id, botProfile(id === 'n' ? 'Kestrel' : 'Rook'), openNav, open));
+    let out = sim.output();
+    let least = Infinity;
+    for (let i = 0; i < ticks(8); i++) {
+      const cmds = Object.fromEntries(
+        bots.map((bot) => {
+          const self = out.players.find((p) => p.id === bot.id)!;
+          return [bot.id, bot.think({ tick: out.tick, time: sim.time, self, players: out.players, events: out.events, objective: { position: goals[bot.id]!, radius: 1 }, isEnemy: () => false })];
+        }),
+      );
+      out = sim.step(cmds);
+      const [a, b] = out.players.map((p) => p.position);
+      least = Math.min(least, Math.hypot(a![0] - b![0], a![2] - b![2]));
+    }
+    for (const p of out.players) expect(Math.hypot(p.position[0] - goals[p.id]![0], p.position[2] - goals[p.id]![2]), p.id).toBeLessThan(1.5);
+    expect(least).toBeGreaterThan(0.45);
+  });
 });

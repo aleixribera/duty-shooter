@@ -10,6 +10,8 @@ const FAR_ENOUGH = 40;
 const TEAMMATE_WEIGHT = 0.5;
 /** No spawn this close (m) to a living enemy while any other will do. */
 const TOO_CLOSE = 8;
+/** A teammate standing this near (m) a spawn is on it: a player put there would stand inside them (a hull is 0.76 m across). */
+const OCCUPIED = 1;
 /** How many of a player's own latest spawns they avoid going back to. */
 const REMEMBERED = 2;
 /** How much less safe (m of the distance score) than the safest a spawn may be and still be drawn, so players don't keep appearing in one spot. */
@@ -43,10 +45,15 @@ export function overrun(spawn: SpawnPoint, enemies: readonly PlayerOutput[]): bo
   return enemies.some((e) => distance(e.position, spawn.position) < TOO_CLOSE);
 }
 
+/** True when a living teammate stands on the spawn (within 1 m): a player put there would stand inside them. */
+export function occupied(spawn: SpawnPoint, teammates: readonly PlayerOutput[]): boolean {
+  return teammates.some((m) => distance(m.position, spawn.position) < OCCUPIED);
+}
+
 /**
  * The safest spawn, by these rules in order: never within 8 m of a living
- * enemy, out of every living enemy's sight, one the mode `favoured` (when it
- * says), not one of the player's own last two spawns (`recent`), then the
+ * enemy, out of every living enemy's sight, not on a living teammate (within
+ * 1 m), one the mode `favoured` (when it says), not one of the player's own last two spawns (`recent`), then the
  * best mix of distance from living enemies and nearness to living teammates.
  * Each rule gives way only when no candidate meets it. With `random`, the
  * spawn is drawn from every candidate that meets the same rules and scores
@@ -68,6 +75,8 @@ export function scoredSpawn(
     const rank = [
       nearestEnemy >= TOO_CLOSE ? 1 : 0,
       enemies.some((e) => seenBy(e, spawn, ctx)) ? 0 : 1,
+      // The nearness to teammates below would put a player on top of one standing there, inside their body.
+      occupied(spawn, teammates) ? 0 : 1,
       favoured?.(spawn) ? 1 : 0,
       recent.some((r) => samePlace(r, spawn)) ? 0 : 1,
       Math.min(FAR_ENOUGH, nearestEnemy) - TEAMMATE_WEIGHT * Math.min(FAR_ENOUGH, nearestMate),
