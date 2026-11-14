@@ -11,25 +11,51 @@ describe('the Practice Range panel', () => {
     const travel = 25 / 375;
     const shots = [0, 4, 8, 12].map((k) => k * TICK);
     const lands = shots.map((t) => t + Math.ceil(travel / TICK) * TICK);
-    let last = { ttk: null as number | null, shots: 0, hits: 0 };
+    let last = { ttk: null as number | null, shots: 0, hits: 0, fired: 0, landed: 0 };
     const events = [...shots.map((t) => ({ t, kind: 'shot' as const })), ...lands.map((t) => ({ t, kind: 'hit' as const }))].sort((a, b) => a.t - b.t || (a.kind === 'shot' ? -1 : 1));
     for (const e of events) {
       if (e.kind === 'shot') stats.shot(e.t);
       else last = stats.hit('dummy-25', e.t, travel, false);
       expect(last.shots).toBeGreaterThanOrEqual(last.hits);
     }
-    expect(last).toEqual({ ttk: null, shots: 4, hits: 4 });
+    expect(last).toMatchObject({ ttk: null, shots: 4, hits: 4, fired: 4, landed: 4 });
   });
 
   it('starts the count at the shot that hit, not at a miss before it', () => {
     const stats = new RangeStats(TICK);
     stats.shot(0);
     stats.shot(10 * TICK);
-    expect(stats.hit('dummy-10', 12 * TICK, 2 * TICK, false)).toEqual({ ttk: null, shots: 1, hits: 1 });
+    expect(stats.hit('dummy-10', 12 * TICK, 2 * TICK, false)).toMatchObject({ ttk: null, shots: 1, hits: 1, fired: 2, landed: 1 });
     stats.shot(20 * TICK);
     const kill = stats.hit('dummy-10', 22 * TICK, 2 * TICK, true);
     expect(kill).toMatchObject({ shots: 2, hits: 2 });
     expect(kill.ttk).toBeCloseTo(12 * TICK, 9);
+  });
+
+  it('tallies every shot and hit since the gun was drawn, past a kill and the respawned target (review 2026-11-14c: "4 / 3" after 23 rounds)', () => {
+    const stats = new RangeStats(TICK);
+    let t = 0;
+    let last = null as ReturnType<RangeStats['hit']> | null;
+    // Five hits kill the dummy; the sixth lands on the one that stands up in its place.
+    for (let i = 0; i < 6; i++) {
+      stats.shot((t += 4) * TICK);
+      last = stats.hit('dummy-25', (t + 2) * TICK, 2 * TICK, i === 4);
+      if (i === 4) expect(last).toMatchObject({ shots: 5, hits: 5, fired: 5, landed: 5 });
+    }
+    expect(last).toMatchObject({ ttk: null, shots: 1, hits: 1, fired: 6, landed: 6 });
+    stats.shot((t += 4) * TICK); // a miss
+    stats.shot((t += 4) * TICK);
+    expect(stats.hit('dummy-25', (t + 2) * TICK, 2 * TICK, false)).toMatchObject({ ttk: null, shots: 3, hits: 2, fired: 8, landed: 7 });
+    stats.clear();
+    stats.shot(1000 * TICK);
+    expect(stats.hit('dummy-25', 1002 * TICK, 2 * TICK, false)).toMatchObject({ fired: 1, landed: 1 });
+  });
+
+  it('never tallies more hits than shots when one blast hits two targets', () => {
+    const stats = new RangeStats(TICK);
+    stats.shot(0);
+    stats.hit('dummy-10', 2 * TICK, 2 * TICK, false);
+    expect(stats.hit('dummy-10b', 2 * TICK, 2 * TICK, false)).toMatchObject({ fired: 1, landed: 1 });
   });
 
   it('forgets every engagement when cleared, so a new gun starts its own', () => {

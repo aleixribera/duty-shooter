@@ -21,6 +21,7 @@ import { CAPTIONS_CSS, CaptionView } from './captions';
 import { CrosshairView, type CrosshairOptions } from './crosshair';
 import { HUD_SCALE_CSS, HUD_SCALE_LIMITS } from './scale';
 import { colourVision, teamColours } from '../team-colours';
+import type { EngagementReadout } from '../range-stats';
 import type { PingKind } from '@duty-shooter/fps-core';
 
 const CSS = `
@@ -806,10 +807,15 @@ export class Hud {
     this.#drawTrace();
   }
 
-  /** Range overlay readouts after a kill or a burst. */
-  setRangeStats(ttk: number | null, shots: number, hits: number): void {
-    this.#ttk.textContent = ttk === null ? '–' : `${Math.round(ttk * 1000)} ms`;
-    this.#shots.textContent = `${shots} / ${hits}`;
+  /** Range overlay readouts after one of your hits: a kill's time and hits stay up until the next kill. */
+  setRangeStats(r: EngagementReadout): void {
+    if (r.ttk !== null) this.#ttk.textContent = `${Math.round(r.ttk * 1000)} ms · ${r.hits} ${r.hits === 1 ? 'hit' : 'hits'}`;
+    this.setRangeTally(r.fired, r.landed);
+  }
+
+  /** Range overlay: the gun's shots and hits since it was drawn, kept current shot by shot, misses included. */
+  setRangeTally(fired: number, landed: number): void {
+    this.#shots.textContent = `${fired} / ${landed}`;
   }
 
   /** Range overlay: a gun drawn (a switch or a new loadout) starts it blank, so no readout is the last gun's. */

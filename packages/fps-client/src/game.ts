@@ -559,7 +559,7 @@ export class Game {
     this.#cur = null;
     this.#others = [];
     this.#tracked.clear();
-    this.#rangeStats.clear();
+    this.#rangeReset();
     this.#loop.reset();
     this.#newMatch();
     // The picture's moods belong to the game that was left: the menu's backdrop, and the next game, start without them.
@@ -2268,6 +2268,8 @@ export class Game {
           this.hud.recordShot(yaw, pitch, e.index === 0 || this.#burstStart < 0);
           this.#burstStart = e.index === 0 ? this.#simTime : this.#burstStart;
           this.#rangeStats.shot(this.#simTime);
+          const tally = this.#rangeStats.tally;
+          this.hud.setRangeTally(tally.fired, tally.landed);
         } else {
           this.#play('gunshot', { position: e.origin, weapon: e.weapon, ...device, when: this.#when(tickStart, e.fraction) });
           this.#effects.shot(e.origin, e.direction, e.weapon, e.muzzle);
@@ -2323,8 +2325,7 @@ export class Game {
           // The TTK readout times gunfire: a frag or a melee kill is not an engagement.
           if (e.cause === 'bullet') {
             const travel = e.distance / STATS.weapons[e.weapon as WeaponId].handling.muzzleVelocity.value;
-            const r = this.#rangeStats.hit(e.victim, this.#simTime, travel, e.killed);
-            this.hud.setRangeStats(r.ttk, r.shots, r.hits);
+            this.hud.setRangeStats(this.#rangeStats.hit(e.victim, this.#simTime, travel, e.killed));
           } else if (e.killed) this.#rangeStats.end(e.victim);
         }
         if (e.victim === selfId && landed) {
