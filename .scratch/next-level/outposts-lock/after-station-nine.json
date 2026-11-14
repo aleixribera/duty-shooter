@@ -1,0 +1,173 @@
+{
+ "summary": {
+  "matches": 8,
+  "medianMargin": 319,
+  "shutouts": 0,
+  "meanBothHeldPct": 16,
+  "worstLongestBothS": 66,
+  "capturesPerMatch": 29.375,
+  "behindCapsPerMatch": 14.875
+ },
+ "rows": [
+  {
+   "draw": 0.0625,
+   "points": [
+    546,
+    1091
+   ],
+   "caps": [
+    12,
+    12
+   ],
+   "bothHeldPct": 15,
+   "longestBothS": 39,
+   "behindCaps": 12,
+   "contestedS": 15,
+   "capturingS": 358,
+   "kills": [
+    164,
+    204
+   ]
+  },
+  {
+   "draw": 0.1875,
+   "points": [
+    808,
+    911
+   ],
+   "caps": [
+    15,
+    15
+   ],
+   "bothHeldPct": 4,
+   "longestBothS": 7,
+   "behindCaps": 15,
+   "contestedS": 14,
+   "capturingS": 437,
+   "kills": [
+    197,
+    194
+   ]
+  },
+  {
+   "draw": 0.3125,
+   "points": [
+    676,
+    995
+   ],
+   "caps": [
+    14,
+    15
+   ],
+   "bothHeldPct": 8,
+   "longestBothS": 17,
+   "behindCaps": 14,
+   "contestedS": 12,
+   "capturingS": 457,
+   "kills": [
+    192,
+    189
+   ]
+  },
+  {
+   "draw": 0.4375,
+   "points": [
+    752,
+    952
+   ],
+   "caps": [
+    14,
+    15
+   ],
+   "bothHeldPct": 12,
+   "longestBothS": 38,
+   "behindCaps": 16,
+   "contestedS": 21,
+   "capturingS": 449,
+   "kills": [
+    182,
+    169
+   ]
+  },
+  {
+   "draw": 0.5625,
+   "points": [
+    763,
+    953
+   ],
+   "caps": [
+    17,
+    19
+   ],
+   "bothHeldPct": 8,
+   "longestBothS": 28,
+   "behindCaps": 17,
+   "contestedS": 24,
+   "capturingS": 498,
+   "kills": [
+    192,
+    179
+   ]
+  },
+  {
+   "draw": 0.6875,
+   "points": [
+    757,
+    938
+   ],
+   "caps": [
+    16,
+    14
+   ],
+   "bothHeldPct": 38,
+   "longestBothS": 66,
+   "behindCaps": 16,
+   "contestedS": 13,
+   "capturingS": 499,
+   "kills": [
+    191,
+    181
+   ]
+  },
+  {
+   "draw": 0.8125,
+   "points": [
+    583,
+    1134
+   ],
+   "caps": [
+    14,
+    15
+   ],
+   "bothHeldPct": 30,
+   "longestBothS": 63,
+   "behindCaps": 15,
+   "contestedS": 24,
+   "capturingS": 401,
+   "kills": [
+    181,
+    186
+   ]
+  },
+  {
+   "draw": 0.9375,
+   "points": [
+    685,
+    1054
+   ],
+   "caps": [
+    14,
+    14
+   ],
+   "bothHeldPct": 14,
+   "longestBothS": 58,
+   "behindCaps": 14,
+   "contestedS": 25,
+   "capturingS": 393,
+   "kills": [
+    189,
+    173
+   ]
+  }
+ ]
+}

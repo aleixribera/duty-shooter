@@ -147,12 +147,27 @@ export class TeamRoster {
   }
 
   /**
+   * Whether a spawn lies on `team`'s own side of the map this match: nearer
+   * its own team set (after this match's swap of ends) than the other's. Always
+   * true on a map without two team sets.
+   */
+  onOwnSide(team: TeamId, ctx: ModeContext): (spawn: SpawnPoint) => boolean {
+    const sets = ctx.teamSpawns;
+    const i = this.#swapped ? 1 - TEAMS.indexOf(team) : TEAMS.indexOf(team);
+    const own = sets?.[i];
+    const other = sets?.[1 - i];
+    if (!own?.length || !other?.length) return () => true;
+    const nearest = (set: readonly SpawnPoint[], s: SpawnPoint) => Math.min(...set.map((p) => Math.hypot(p.position[0] - s.position[0], p.position[2] - s.position[2])));
+    return (spawn) => nearest(own, spawn) < nearest(other, spawn);
+  }
+
+  /**
    * Where `id` spawns: the next free spot of their team's own set (in this
    * match's drawn order) on their first spawn of the match, otherwise the safest spawn anywhere (see
-   * {@link scoredSpawn}), preferring those `favoured` ones that pass the
-   * same safety rules.
+   * {@link scoredSpawn}), preferring those the mode `favoured` most (a higher
+   * tier first) among the ones that pass the same safety rules.
    */
-  spawn(id: PlayerId, ctx: ModeContext, favoured?: (spawn: SpawnPoint) => boolean): SpawnPoint {
+  spawn(id: PlayerId, ctx: ModeContext, favoured?: (spawn: SpawnPoint) => boolean | number): SpawnPoint {
     const team = this.#entries.get(id)?.team ?? TEAMS[0];
     const first = !this.#spawned.has(id);
     // Only players placed this match count: the rest still stand where the last match left them.

@@ -54,7 +54,7 @@ export function occupied(spawn: SpawnPoint, teammates: readonly PlayerOutput[]):
 /**
  * The safest spawn, by these rules in order: never within 8 m of a living
  * enemy, out of every living enemy's sight, not on a living teammate (within
- * 1 m), one the mode `favoured` (when it says), not one of the player's own last two spawns (`recent`), then the
+ * 1 m), the one the mode `favoured` most (when it says: higher first, `true` above `false`), not one of the player's own last two spawns (`recent`), then the
  * best mix of distance from living enemies and nearness to living teammates.
  * Each rule gives way only when no candidate meets it. With `random`, the
  * spawn is drawn from every candidate that meets the same rules and scores
@@ -67,7 +67,7 @@ export function scoredSpawn(
   enemies: readonly PlayerOutput[],
   ctx: ModeContext,
   recent: readonly SpawnPoint[] = [],
-  favoured?: (spawn: SpawnPoint) => boolean,
+  favoured?: (spawn: SpawnPoint) => boolean | number,
   random?: () => number,
 ): SpawnPoint | null {
   const ranked = candidates.map((spawn) => {
@@ -78,7 +78,7 @@ export function scoredSpawn(
       enemies.some((e) => seenBy(e, spawn, ctx)) ? 0 : 1,
       // The nearness to teammates below would put a player on top of one standing there, inside their body.
       occupied(spawn, teammates) ? 0 : 1,
-      favoured?.(spawn) ? 1 : 0,
+      Number(favoured?.(spawn) ?? 0),
       recent.some((r) => samePlace(r, spawn)) ? 0 : 1,
       Math.min(FAR_ENOUGH, nearestEnemy) - TEAMMATE_WEIGHT * Math.min(FAR_ENOUGH, nearestMate),
     ];

@@ -25,10 +25,14 @@ export interface OutpostsOptions {
   readonly random?: () => number;
 }
 
-/** Seconds one player takes to capture a neutral zone. */
+/**
+ * Seconds one player takes to capture a zone, neutral or the other team's.
+ * Taking a held zone once took twice as long, and on Survival Town the team
+ * that won both zones then held both for 84% of a match (median margin 731
+ * points, two shut-outs in twelve bot matches): an attacker had to stand 20 s
+ * in the open against defenders running back in (`.scratch/next-level/outposts-lock/`).
+ */
 export const CAPTURE_TIME = 10;
-/** Taking a zone from the other team takes this many times as long. */
-const FLIP_FACTOR = 2;
 /** The capture rate grows by this much per extra player in the zone, up to {@link MAX_CAPTURE_RATE}. */
 const RATE_PER_PLAYER = 0.5;
 const MAX_CAPTURE_RATE = 2;
@@ -51,13 +55,18 @@ interface ZoneRun {
 
 /**
  * Outposts: two teams fight over the map's zones. Standing in a zone captures
- * it, faster with more teammates (see {@link captureRate}); taking it from the
- * other team takes twice as long, and with both teams inside it is contested
- * and frozen. An empty zone's half-done capture drains away, and so does the
+ * it, faster with more teammates (see {@link captureRate}), as fast from the
+ * other team as from nobody; with both teams inside it is contested and
+ * frozen. An empty zone's half-done capture drains away, and so does the
  * other team's progress while the holders stand in it. Every held zone scores
  * its team a point a second; kills score nothing for the team. The first team
  * to the score limit wins, or the leader at the time limit (a tie is a draw).
- * Spawns favour the team's held zones, under the usual safety rules.
+ * Respawns keep to the team's own side of the map (nearer its own team set
+ * than the other's), and there favour its held zones, under the usual safety
+ * rules: as in CoD's Domination, a team that holds every zone still comes back
+ * from its own end, so the other team always has a front to push and the
+ * holders don't appear around the zones from both sides (Survival Town's two
+ * zones both sit mid-map, and the side holding both spawned all round them).
  */
 export class Outposts implements GameMode {
   readonly id = 'outposts';
@@ -107,7 +116,8 @@ export class Outposts implements GameMode {
     const team = this.#roster.get(id)?.team ?? TEAMS[0];
     const held = ctx.zones.filter((z) => this.#zones.get(z.id)?.owner === team);
     const near = (s: SpawnPoint) => held.some((z) => Math.hypot(s.position[0] - z.center[0], s.position[2] - z.center[2]) <= z.radius + NEAR_HELD);
-    return this.#roster.spawn(id, ctx, held.length > 0 ? near : undefined);
+    const own = this.#roster.onOwnSide(team, ctx);
+    return this.#roster.spawn(id, ctx, (s) => (own(s) ? 2 : 0) + (near(s) ? 1 : 0));
   }
 
   start(entrants: readonly MatchEntrant[]): ReadonlyMap<PlayerId, TeamId> {
@@ -149,11 +159,9 @@ export class Outposts implements GameMode {
     const present = TEAMS.filter((_, i) => counts[i]! > 0);
     run.contested = present.length > 1;
     if (run.contested) return null;
-    // The time a full capture of this zone takes one player, for the team taking it.
-    const full = (team: TeamId) => CAPTURE_TIME * (run.owner !== 0 && run.owner !== team ? FLIP_FACTOR : 1);
     const drain = () => {
       if (run.capturing === 0) return;
-      run.progress = Math.max(0, run.progress - TICK_SECONDS / full(run.capturing));
+      run.progress = Math.max(0, run.progress - TICK_SECONDS / CAPTURE_TIME);
       if (run.progress === 0) run.capturing = 0;
     };
     const team = present[0];
@@ -168,7 +176,7 @@ export class Outposts implements GameMode {
       return null;
     }
     run.capturing = team;
-    run.progress += (captureRate(counts[TEAMS.indexOf(team)]!) * TICK_SECONDS) / full(team);
+    run.progress += (captureRate(counts[TEAMS.indexOf(team)]!) * TICK_SECONDS) / CAPTURE_TIME;
     if (run.progress < 1 - 1e-9) return null;
     const previous = run.owner;
     run.owner = team;

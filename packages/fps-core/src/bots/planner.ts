@@ -14,6 +14,12 @@ export interface PlannedBot {
 
 /** What one more bot already sent to a zone adds to sending another there (m of extra walk). */
 const CROWDING = 40;
+/**
+ * The same for a zone the other team holds: attackers go in together. Split
+ * two and two over two held zones they met two dug-in defenders at each and
+ * never took one back (Survival Town, one team holding both 84% of a match).
+ */
+const ATTACK_CROWDING = 8;
 /** Holding is worth less than taking: a held zone costs this much more (m). */
 const HELD = 15;
 /** A held zone needs one defender (two while the other team is in it or taking it); past that, sending more costs this much. */
@@ -37,7 +43,8 @@ export function planOutposts(team: TeamId, bots: readonly PlannedBot[], zones: r
     const threatened = held && state !== undefined && (state.contested || (state.capturing !== 0 && state.capturing !== team));
     const n = sent.get(zone.id) ?? 0;
     const walk = Math.hypot(bot.position[0] - zone.center[0], bot.position[2] - zone.center[2]);
-    return walk + CROWDING * n + (held ? HELD : 0) + (held && n >= (threatened ? 2 : 1) ? ENOUGH : 0);
+    const enemy = state !== undefined && state.owner !== 0 && state.owner !== team;
+    return walk + (enemy ? ATTACK_CROWDING : CROWDING) * n + (held ? HELD : 0) + (held && n >= (threatened ? 2 : 1) ? ENOUGH : 0);
   };
   const left = [...bots].sort((a, b) => (a.id < b.id ? -1 : 1));
   while (left.length > 0) {

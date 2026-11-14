@@ -1,0 +1,181 @@
+{
+ "summary": {
+  "matches": 12,
+  "medianMargin": 731,
+  "shutouts": 2,
+  "meanBothHeldPct": 84,
+  "worstLongestBothS": 560,
+  "capturesPerMatch": 5.916666666666667,
+  "behindCapsPerMatch": 3.1666666666666665
+ },
+ "rows": [
+  {
+   "draw": 0.041666666666666664,
+   "points": [
+    384,
+    730
+   ],
+   "caps": [
+    5,
+    3
+   ],
+   "bothHeldPct": 66,
+   "longestBothS": 200,
+   "behindCaps": 5
+  },
+  {
+   "draw": 0.125,
+   "points": [
+    0,
+    1136
+   ],
+   "caps": [
+    0,
+    2
+   ],
+   "bothHeldPct": 93,
+   "longestBothS": 560,
+   "behindCaps": 0
+  },
+  {
+   "draw": 0.20833333333333334,
+   "points": [
+    53,
+    1054
+   ],
+   "caps": [
+    1,
+    2
+   ],
+   "bothHeldPct": 87,
+   "longestBothS": 520,
+   "behindCaps": 2
+  },
+  {
+   "draw": 0.2916666666666667,
+   "points": [
+    181,
+    976
+   ],
+   "caps": [
+    3,
+    3
+   ],
+   "bothHeldPct": 88,
+   "longestBothS": 401,
+   "behindCaps": 3
+  },
+  {
+   "draw": 0.375,
+   "points": [
+    647,
+    512
+   ],
+   "caps": [
+    2,
+    4
+   ],
+   "bothHeldPct": 89,
+   "longestBothS": 302,
+   "behindCaps": 4
+  },
+  {
+   "draw": 0.4583333333333333,
+   "points": [
+    0,
+    1112
+   ],
+   "caps": [
+    0,
+    2
+   ],
+   "bothHeldPct": 93,
+   "longestBothS": 556,
+   "behindCaps": 0
+  },
+  {
+   "draw": 0.5416666666666666,
+   "points": [
+    320,
+    834
+   ],
+   "caps": [
+    2,
+    2
+   ],
+   "bothHeldPct": 94,
+   "longestBothS": 412,
+   "behindCaps": 2
+  },
+  {
+   "draw": 0.625,
+   "points": [
+    699,
+    454
+   ],
+   "caps": [
+    3,
+    4
+   ],
+   "bothHeldPct": 80,
+   "longestBothS": 179,
+   "behindCaps": 3
+  },
+  {
+   "draw": 0.7083333333333334,
+   "points": [
+    16,
+    1137
+   ],
+   "caps": [
+    1,
+    3
+   ],
+   "bothHeldPct": 93,
+   "longestBothS": 402,
+   "behindCaps": 1
+  },
+  {
+   "draw": 0.7916666666666666,
+   "points": [
+    240,
+    895
+   ],
+   "caps": [
+    4,
+    4
+   ],
+   "bothHeldPct": 83,
+   "longestBothS": 286,
+   "behindCaps": 4
+  },
+  {
+   "draw": 0.875,
+   "points": [
+    548,
+    600
+   ],
+   "caps": [
+    4,
+    5
+   ],
+   "bothHeldPct": 74,
+   "longestBothS": 221,
+   "behindCaps": 6
+  },
+  {
+   "draw": 0.9583333333333334,
+   "points": [
+    205,
+    936
+   ],
+   "caps": [
+    6,
+    6
+   ],
+   "bothHeldPct": 70,
+   "longestBothS": 171,
+   "behindCaps": 8
+  }
+ ]
+}

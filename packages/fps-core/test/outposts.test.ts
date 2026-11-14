@@ -26,13 +26,13 @@ const ENTRANTS = [1, 2, 3, 4].flatMap((i) => [
 ]);
 
 /** A running Outposts match: place players, step ticks, read the zones. */
-function outposts(options: { scoreLimit?: number | null; timeLimit?: number | null } = {}) {
+function outposts(options: { scoreLimit?: number | null; timeLimit?: number | null; random?: () => number } = {}, teamSpawns: ModeContext['teamSpawns'] = null) {
   const mode = new Outposts(options);
   mode.start(ENTRANTS);
   const at = new Map<string, Vec3>(ENTRANTS.map((e, i) => [e.id, [100 + i * 5, 0, 100] as Vec3]));
   let tick = 0;
   const players = (): PlayerOutput[] => ENTRANTS.map((e) => ({ id: e.id, team: e.team, alive: true, kind: 'player', position: at.get(e.id)! }) as unknown as PlayerOutput);
-  const ctx = (): ModeContext => ({ tick, time: tick * TICK_SECONDS, matchTime: tick * TICK_SECONDS, players: players(), spawns: SPAWNS, teamSpawns: null, world: WORLD, zones: ZONES, sites: [], using: new Set() });
+  const ctx = (): ModeContext => ({ tick, time: tick * TICK_SECONDS, matchTime: tick * TICK_SECONDS, players: players(), spawns: SPAWNS, teamSpawns, world: WORLD, zones: ZONES, sites: [], using: new Set() });
   const events: ModeEvent[] = [];
   return {
     mode,
@@ -83,13 +83,13 @@ describe('Outposts capturing', () => {
     }
   });
 
-  it('takes twice as long to flip a zone the other team holds', () => {
+  it("takes a zone from the other team as fast as a neutral one", () => {
     const m = outposts();
     m.place({ o1: 'C' });
     m.run(CAPTURE_TIME + 0.1);
     expect(m.zone('C').owner).toBe(2);
     m.place({ o1: null, b1: 'C' });
-    m.run(2 * CAPTURE_TIME - 0.1);
+    m.run(CAPTURE_TIME - 0.1);
     expect(m.zone('C').owner).toBe(2);
     m.run(0.15);
     expect(m.zone('C').owner).toBe(1);
@@ -196,6 +196,27 @@ describe('Outposts spawns', () => {
       expect(Math.hypot(s.position[0] - -30, s.position[2] - 18)).toBeGreaterThanOrEqual(8);
     }
   });
+
+  it.each([
+    ['as dealt', 0, 1],
+    ['with the ends swapped', 0.9, -1],
+  ])('keep each team to its own end (%s), even holding every zone, so the other team always has a front', (_, draw, blueEnd) => {
+    // The first set at the north end (z +40), the second at the south (z -40); every zone on the line between, with spawns
+    // either side of it. A draw over one half swaps the ends, so blue starts from the south set.
+    const sets: ModeContext['teamSpawns'] = [ZONES.map((z) => ({ position: [z.center[0], 0, 40], yaw: 0 })), ZONES.map((z) => ({ position: [z.center[0], 0, -40], yaw: 0 }))];
+    const m = outposts({ random: () => draw }, sets);
+    m.place({ b1: 'A', b2: 'B', b3: 'C' });
+    m.run(CAPTURE_TIME + 0.1);
+    expect(ZONES.map((z) => m.zone(z.id).owner)).toEqual([1, 1, 1]);
+    m.place({ b1: null, b2: null, b3: null });
+    for (const e of ENTRANTS) m.mode.chooseSpawn(e.id, m.ctx());
+    for (let i = 0; i < 12; i++) {
+      const blue = m.mode.chooseSpawn(`b${(i % 4) + 1}`, m.ctx());
+      // Held zones still pull blue's respawns in from its yard, to the spawns by the zones on its own side.
+      expect(blue.position[2]).toBe(20 * blueEnd);
+      expect(Math.sign(m.mode.chooseSpawn(`o${(i % 4) + 1}`, m.ctx()).position[2])).toBe(-blueEnd);
+    }
+  });
 });
 
 describe('Outposts on the server', () => {
@@ -237,5 +258,12 @@ describe('the Outposts bot planner', () => {
     const threatened = planOutposts(1, bots, ZONES, [state('A', 1, { capturing: 2 }), state('B', 1), state('C', 2)]);
     expect([...threatened.values()].filter((z) => z.id === 'A')).toHaveLength(2);
     expect([...threatened.values()].some((z) => z.id === 'C')).toBe(true);
+  });
+
+  it('sends a team that holds nothing at one of the other team’s zones together, not one or two at each', () => {
+    // Four bots just past B, A 30 m further on: all four go for B (spread out, two of them went on to A).
+    const bots = [bot('a', 2), bot('b', 3), bot('c', 4), bot('d', 5)];
+    const plan = planOutposts(1, bots, ZONES.slice(0, 2), [state('A', 2), state('B', 2)]);
+    expect([...plan.values()].map((z) => z.id)).toEqual(['B', 'B', 'B', 'B']);
   });
 });
