@@ -16,9 +16,9 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate a game's own content (names, art, levels).
 
-Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
+Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop): two passes spent (ticket 99); 1b (Backlit) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-87: 14c-14f's defects worked (v2.213.x-v2.214.7; tickets 100, 102, 99, 118); lone bots hunt a still player (`still-player.soak.test.ts`). Pass 88: review 14g (1, 5 pass; 2, 3, 4, 6 fail). Pass 89: 14g's Fix first, pass 1 (ticket 102): bodies killed straight on fall aside (15 m: 70% of joints clear, was 20-27%); the review adds a 500 ms "c" kill frame. Pass 90: 14g's defect 5 (ticket 102): range damage numbers stand beside the hit, one stacking total per dummy, off every sight. Defect 2 (early fights) cut after three passes (84df1ee6, a657bf2c, 210f7a7b): 7-14 s is the genre's TDM norm. Next: a fresh review (does 14g's Fix first pass?), else defect 4 (the gun black in the nuke light).
+Passes 67-90: 14c-14g's defects worked (tickets 100, 102, 99, 118); lone bots hunt a still player; bodies killed straight on fall aside (pass 89, Fix first pass 1); range damage numbers beside the hit (90). 14g's early fights cut after three passes (7-14 s is the TDM norm). Pass 91: review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11), then its defect 2 (ticket 100): the last minute's grade no longer clips shadows to black, so the gun keeps its shape (gun box crushed 31.4% -> 2.5% at T-0:17, `last-light/`; v2.214.12). Next: 14h's Fix first, the kill behind the front sight post, pass 2 of 2 (1 of 10 "b" frames passes; at range the turn moves a body only 20-40 px), else cut to a cruder stand-in. Then 14h's defect 5 (sniper recoil, shotgun post, faint range total) or the loadout's 3.7 s model (re-measure).
 
 ## Needs Aleix
 
@@ -41,7 +41,7 @@ Passes 67-87: 14c-14f's defects worked (v2.213.x-v2.214.7; tickets 100, 102, 99,
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14g (1, 5 pass; 2, 3, 4, 6 fail; quiet-PC long frames only on the island, 16 of 56-63 ms).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14h (1, 5 pass; 2, 3, 4, 6 fail; quiet-PC frames over 50 ms only on the island, 4, worst 62.6).
 - CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken
@@ -63,4 +63,4 @@ None.
 - Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 
 - Zero Island's nav: built by the dev server (~70 s) on first ask. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
-- Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs` lists shader builds and long frames in a flight (`DEV=1` for `?bench`). The capture's range stall was the range's load, not play (ticket 99).
+- Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs`: shader builds and long frames in a flight. The capture's range stall was the range's load, not play (ticket 99).
