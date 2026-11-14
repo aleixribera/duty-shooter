@@ -19,9 +19,9 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop): two passes spent (ticket 99); 1b (Backlit) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail; v2.214.11); last minute's gun no longer crushed; bodies tip sideways, slim M4A1 front sight (v2.214.15). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
+Passes 67-92: 14c-14h's defects worked (tickets 100, 102, 99, 118); review 14h (1, 5 pass; 2, 3, 4, 6 fail). Aleix paused, then resumed through the director (6aea3f3a): PLAN item 9 (his refinements, a to h, one or two a pass) leads, then item 7's open parts, then a fresh review.
 
-Passes 93-97: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). Next: 9f (the kill dip).
+Passes 93-98: item 9, ticket 119 (details there). a: the clock reads `9:23` / `3.4` (v2.215.0). b: Random next match on at every match's end (v2.216.0). c: a name asked once at the first Play Online (v2.217.0). d: dead, the three loadout plates and a "New <gun> 4" plate (v2.219.0). e: the pause menu's Loadout editor says live when a change applies ("Applies at your respawn in 3"; online the respawn runs on behind it, a Bot Match holds still paused) and no caption reads through the menu (v2.220.0, `pause-editor/`). f: a kill dips the gun 60 ms down, held to 200 ms, back by 700 ms, the fall seen in 4 of 4 "b" frames (v2.221.0, `kill-dip/`). Next: 9g (BR on loadouts live).
 
 ## Needs Aleix
 
