@@ -153,7 +153,10 @@ export function royaleSession(s: RoyaleSessionState): RoyaleSessionLine {
       ? { tone: 'busy', line: 'The match has started.', go: { label: 'Join the match', act: 'enter' }, picks: false }
       : { tone: 'busy', line: 'A match is under way without you: watch it, and play the next one.', go: { label: 'Watch the match', act: 'enter' }, picks: false };
   }
+  // Waiting in the lobby, the main button says whose the start is ("Start match",
+  // "Waiting for Aleix"): a line saying so stood under the title on a phone as a
+  // subhead (review 2026-11-14b).
   return s.host
-    ? { tone: 'up', line: 'You are the host.', go: { label: 'Start match', act: 'start' }, picks: true }
-    : { tone: 'up', line: s.hostName ? `${s.hostName} is the host.` : 'Waiting for a host.', go: { label: 'Waiting for host', act: null }, picks: false };
+    ? { tone: 'up', line: '', go: { label: 'Start match', act: 'start' }, picks: true }
+    : { tone: 'up', line: '', go: { label: s.hostName ? `Waiting for ${s.hostName}` : 'Waiting for host', act: null }, picks: false };
 }

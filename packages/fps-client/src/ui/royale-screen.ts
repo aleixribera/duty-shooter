@@ -1,6 +1,6 @@
 import { STATS, WIDE_SCALE, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
-import { lastMatch, type LobbyInfo } from './model';
+import { MODE_BLURBS, lastMatch, type LobbyInfo } from './model';
 import { royaleLocal, royaleOpens, royaleServer, royaleSession, royaleSquads, royaleSteps, type SquadView } from './royale-lobby';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
@@ -56,7 +56,10 @@ const CSS = `
 .ds-royale .island .pic { aspect-ratio: 960 / 414; background: var(--ds-raised) center / cover no-repeat; border: 1px solid var(--ds-line); border-bottom: 0; }
 .ds-royale .island .ds-readouts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ds-royale .island .ds-readouts > div { background: var(--ds-ink); }
+.ds-royale .island .blurb { margin: 14px 0 0; font-size: var(--ds-type-body); color: var(--ds-text-2); text-wrap: pretty; }
 .ds-royale .conn { display: grid; gap: 14px; margin-top: 22px; }
+/* Nothing to say (the host waiting in their lobby): no slot, which on a phone left a gap under the title. */
+.ds-royale .conn:empty { display: none; }
 .ds-royale .steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--ds-type-body); color: var(--ds-text-2); }
 .ds-royale .steps li { display: flex; align-items: center; gap: 10px; }
 .ds-royale .steps li::before { content: ''; width: 14px; height: 2px; background: var(--ds-line-2); }
@@ -389,7 +392,7 @@ ${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads"
     // The connection: the server's state before joining, the steps while joining, and the lobby once in.
     let conn: string;
     if (joined) {
-      conn = `<p class="ds-state ${joined.tone}">${escapeHtml(joined.line)}</p>`;
+      conn = joined.line ? `<p class="ds-state ${joined.tone}">${escapeHtml(joined.line)}</p>` : '';
     } else if (v.joining !== null) {
       conn = `<ol class="steps">${royaleSteps(v.source).map((label, i) => `<li class="${i < v.joining! ? 'done' : i === v.joining ? 'now' : ''}">${label}</li>`).join('')}</ol>`;
     } else if (v.status === undefined && !local) {
@@ -433,7 +436,7 @@ ${lastHtml}
 </div>
 <aside>
 <div class="island"><div class="pic" style="background-image:url('${escapeHtml(this.#image)}')" role="img" aria-label="Zero Island from the south-west"></div>
-<div class="ds-readouts"><div><span>Seats</span><b>${WIDE_SCALE.seats}</b></div><div><span>Island</span><b>Zero</b></div><div><span>Match</span><b>${MINUTES} min</b></div><div><span>Ring</span><b>${STAGES} stages</b></div></div></div>
+<div class="ds-readouts"><div><span>Seats</span><b>${WIDE_SCALE.seats}</b></div><div><span>Island</span><b>Zero</b></div><div><span>Match</span><b>${MINUTES} min</b></div><div><span>Ring</span><b>${STAGES} stages</b></div></div><p class="blurb">${escapeHtml(MODE_BLURBS['battle-royale']!)}</p></div>
 <div class="conn" aria-live="polite">${conn}</div>
 </aside>
 </div>

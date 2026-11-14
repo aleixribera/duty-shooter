@@ -148,9 +148,11 @@ describe('the Battle Royale screen once joined', () => {
     expect(host).toMatchObject({ tone: 'up', go: { act: 'start' }, picks: true });
     const guest = royaleSession(session({ host: false }));
     expect(guest).toMatchObject({ tone: 'up', go: { act: null }, picks: false });
-    // A guest is told who the host is.
-    expect(guest.line).toContain('Aleix');
-    expect(host.line).not.toContain('Aleix');
+    // A guest's button says who they wait for; no line under the title says it again (review 2026-11-14b).
+    expect(guest.go.label).toBe('Waiting for Aleix');
+    expect(guest.line).toBe('');
+    expect(host.line).toBe('');
+    expect(royaleSession(session({ host: false, hostName: null })).go.label).toBe('Waiting for host');
   });
 
   it('says the connection is coming back, and holds Start and the picks, while it reconnects (ticket 38)', () => {

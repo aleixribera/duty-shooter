@@ -390,7 +390,6 @@ export class LobbyPage {
     const invite = this.invite && !offline
       ? `<div><span class="ds-field-label">Invite link</span><div class="invite"><input readonly value="${escapeHtml(this.invite)}" aria-label="Invite link"><button type="button" class="ds-btn" data-act="copy" data-key="copy" aria-live="polite">${copied ? 'Copied' : 'Copy'}</button></div></div>`
       : '';
-    const hostName = l.host === null ? null : (v.names[l.host] ?? l.host);
     const start = reconnecting
       ? `<button type="button" class="ds-btn primary big" disabled>Reconnecting…</button>`
       : underway
@@ -399,18 +398,20 @@ export class LobbyPage {
         : `<button type="button" class="ds-btn primary big" data-act="join" data-key="start">Join the match</button>`
       : host
         ? `<button type="button" class="ds-btn primary big" data-act="start" data-key="start">Start match</button>`
-        : `<button type="button" class="ds-btn primary big" disabled>Waiting for the host</button>`;
-    // The connection line: a dot for the state and what it means for you.
-    // Offline there is no connection to speak of: the roster says who plays.
-    const who = reconnecting ? 'Lost the connection. Reconnecting…' : offline ? '' : underway ? 'The match has started: join it now' : host ? 'You are the host: the picks and Start are yours' : hostName ? `${escapeHtml(hostName)} is the host and picks the match` : 'Waiting for a host';
-    const state = reconnecting ? 'busy' : offline || host || underway ? 'up' : 'wait';
+        : `<button type="button" class="ds-btn primary big" disabled>${l.host === null ? 'Waiting for the host' : `Waiting for ${escapeHtml(v.names[l.host] ?? l.host)}`}</button>`;
+    // The connection line, only while it is coming back: otherwise the
+    // host's seat reads "Host", the lit or locked picks and the main button
+    // ("Start match", "Waiting for Marta", "Join the match") say the rest.
+    // On a phone this line stands under the title, so a sentence there read as
+    // a subhead (review 2026-11-14b).
+    const who = reconnecting ? 'Lost the connection. Reconnecting…' : '';
     // With the sides headed, a line saying who is on which side only repeats them.
     const fill = sided ? '' : offline ? `Bots fill the match to ${matchSize(l.mode, l.bots)}.` : lobbyFill(l);
     const hints = `<div class="ds-hints grow">${hint('↑↓', '✥', 'Move')}${hint('Enter', '✕', 'Select')}</div>`;
 
     return `<div class="ds-page${offline ? ' solo' : ''}">
 <header><div class="heading"><h1>${offline ? 'Bot Match' : v.private ? 'Private lobby' : 'Lobby'}</h1></div>
-<div class="aside">${who ? `<span class="ds-state ${state}" role="status">${who}</span>` : ''}</div></header>
+<div class="aside">${who ? `<span class="ds-state busy" role="status">${who}</span>` : ''}</div></header>
 <div class="body">
 <section><h2 class="ds-h2">Players${offline ? '' : ` <small>${peopleText}${bots > 0 ? ` + ${bots} ${bots === 1 ? 'bot' : 'bots'}` : ''} · ${people + bots} of ${l.capacity} seats</small>`}</h2>${seatsBlock}${fill ? `<p class="note">${escapeHtml(fill)}</p>` : ''}${lobbyActs}${lastHtml}</section>
 <aside class="match">

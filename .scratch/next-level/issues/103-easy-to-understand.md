@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63)
+Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63), v2.211.20 (pass 64)
 
 Spec: `../spec.md`
 
@@ -64,3 +64,6 @@ Checked: typecheck, `ui-model.test.ts` and `bot-match-sides.test.ts`. `../lobby-
 
 Pass 63 (2026-11-14), "Back to the lobby in 0:08" in Bot Match (review 2026-11-14b, 16): a Bot Match's scoreboard counted down to "the lobby", but its page is titled Bot Match and names no lobby. A Bot Match's countdown now reads "Match setup in 0:08", in the "<what comes> in <time>" form of "Scoreboard in" and "Random match in"; online still says "Back to the lobby". Decision: "Match setup" over "Back to Bot Match" (reads as a match starting) because it says what the page is for (map, mode, Start).
 Checked: typecheck. `../bot-match-end/look.mjs` (a 15 s Bot Match on Switchyard, nobody at the controls): the end line reads "Match setup in 0:09" at 1920x1080 and "Match setup in 0:08" at 844x390 (`bot-match-end/after/1-end-desktop.jpg`, `2-end-phone.jpg`), then the BOT MATCH page (`3-bot-match-page.jpg`); before: `reviews/2026-11-14b/16-match-after.jpg`.
+
+Pass 64 (2026-11-14), the two subheads (review 2026-11-14b: 31-preparation "Last Squad alive wins…", 43 "You are the host…"), against DESIGN.md's "a title stands alone": the Preparation's title now stands alone, and the goal moved to the Battle Royale lobby, under the island's readouts, as Bot Match's mode blurb sits under its modes ("Drop onto Zero Island and stay inside the Ring as it closes. The last Squad alive wins."; `MODE_BLURBS['battle-royale']`). The online lobby's header line ("You are the host: the picks and Start are yours", "Marta is the host and picks the match", "The match has started: join it now", "Waiting for a host") only repeated the seat's "Host", the lit or locked picks and the main button, and on a phone stood under the title as a subhead: it now shows only "Lost the connection. Reconnecting…", and a guest's button names who they wait for ("Waiting for Marta"). The Battle Royale lobby likewise drops "You are the host." / "Marta is the host." (on a phone it was the first line under the title; the empty slot is hidden) and its guest button reads "Waiting for Marta". Decided: the guest is told who hosts by the button rather than a line, since in Battle Royale a host in another Squad shows no "host" tag.
+Checked: typecheck; the 17 related test files (217 tests, `royale-lobby-view.test.ts` updated). `../lobbies/look.mjs` (host, private lobby, desktop and phone), `../subheads/guest.mjs` (a socket friend holds the public lobby; this page is the guest: button "WAITING FOR MARTA", no header line), `../royale-lobby/look.mjs` (server Battle Royale lobby and the Preparation, desktop and phone); frames in `subheads/after-*`, before/after crops in `subheads/sheet.jpg`. No page errors.

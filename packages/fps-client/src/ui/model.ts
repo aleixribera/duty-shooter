@@ -260,6 +260,7 @@ export const MODE_BLURBS: Readonly<Record<string, string>> = {
   outposts: 'Stand in a zone to take it. Every zone your team holds scores a point a second. First to 200.',
   gungame: `Everyone for themselves. Every ${GUN_GAME_KILLS_PER_GUN} kills move you to the next of ${GUN_GAME_LADDER_LENGTH} guns. A melee kill sets your victim back. First through the last gun wins.`,
   charge: 'Attackers plant a charge at one of two sites; defenders stop or defuse it. No respawns in a round. First to 4 rounds.',
+  'battle-royale': 'Drop onto Zero Island and stay inside the Ring as it closes. The last Squad alive wins.',
 };
 
 /**
