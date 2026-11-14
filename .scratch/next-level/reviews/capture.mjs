@@ -6,7 +6,8 @@
 //   progress a fresh Profile's Loadout (time to the gun drawn) and Profile screen (guns open, save code), desktop
 //            and phone; then a Profile past Rank 12, whose Profile screen should show every gun open.
 //   match    one Bot Match played to its end by a scripted player who turns toward the nearest enemy in sight and
-//            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup), the
+//            fires (the trailer's `steer`): a frame on each of its first kills (hit marker, score popup) and one 250 ms
+//            later, mid-fall (KILL_B=<ms>[,<ms>…]; each frame's age since the kill is in killFrames), the
 //            scoreboard, the last minute, the end screen; sound recorded from the game's own output (opening and
 //            last minute, .webm) with each second's level and every sound the game asked for; frame times.
 //            Map and mode rotate through all fifteen pairs, one per review (MAIN=<map id>:<mode id> picks one).
@@ -33,6 +34,8 @@ if (!out) throw new Error('usage: capture.mjs <out dir> [match seconds] [base ur
 const MATCH_SECONDS = Number(process.argv[3] ?? 150);
 // The online match is played this long by the scripted player.
 const ONLINE_SECONDS = Number(process.env.ONLINE_SECONDS ?? 45);
+/** How long after a kill (ms) its later frames are taken, "b", "c" and on: KILL_B=<ms>[,<ms>…]. */
+const KILL_B = (process.env.KILL_B ?? '250').split(',').map(Number);
 const BASE = process.argv[4] ?? 'http://localhost:5173/';
 const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 mkdirSync(out, { recursive: true });
@@ -101,6 +104,13 @@ const PROBES = `(() => {
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = (cb) => raf((t) => { const s = performance.now(); try { cb(t); } finally { ft.busy += performance.now() - s; } });
   const tick = (t) => { if (ft.on && ft.last) { ft.d.push(t - ft.last); ft.w.push(ft.busy); } ft.busy = 0; ft.last = t; raf(tick); };
+  // When (performance.now) the player's own kill count last rose, read every 10 ms (a frame's tick missed some, the
+  // scores changing between frames): a kill frame's age is measured from it.
+  setInterval(() => {
+    const d = globalThis.duty?.driver, k = d?.scores?.find((x) => x.id === d.selfId)?.kills ?? 0;
+    if (k > (ft.kills ?? 0)) ft.killAt = performance.now();
+    ft.kills = k;
+  }, 10);
   raf(tick);
 })()`;
 
@@ -351,14 +361,27 @@ async function play(page, prefix, seconds, every = async () => {}) {
   let me = await page.js(ME);
   const first = me;
   let killShots = 0;
+  // Each kill frame's age (ms since the kill count rose, page clock) as its screenshot was asked for. The "b" frame is
+  // asked for at KILL_B ms, mid-fall (a body is down about 0.5 s after the kill, and down the irons it then lies behind
+  // the front sight); a fixed 250 ms sleep after the first frame's screenshot put it at 0.6 s or later, the body
+  // already down, so the review read every kill as unseen (2026-11-14d; pass 79's series in kill-seen/pass79c).
+  const killFrames = [];
+  const age = () => page.js('Math.round(performance.now() - (__ft.killAt ?? -1e9))');
   while (Date.now() - start < seconds * 1000) {
     await p.step();
     const now = await page.js(ME);
     if (now.kills > me.kills && killShots < 4) {
       killShots += 1;
+      const a = await age();
       await page.shot(`${prefix}-kill-${killShots}`);
-      await sleep(250);
-      await page.shot(`${prefix}-kill-${killShots}b`);
+      const later = [];
+      for (const [i, ms] of KILL_B.entries()) {
+        const wait = ms - (await age());
+        if (wait > 0) await sleep(wait);
+        later.push(await age());
+        await page.shot(`${prefix}-kill-${killShots}${'bcdefgh'[i]}`);
+      }
+      killFrames.push({ a, b: later.length === 1 ? later[0] : later });
     }
     me = now;
     if (me.phase && me.phase !== 'playing') break;
@@ -371,6 +394,7 @@ async function play(page, prefix, seconds, every = async () => {}) {
     deaths: me.deaths - first.deaths,
     seconds: Math.round((Date.now() - start) / 1000),
     phase: me.phase,
+    killFrames,
   };
 }
 
@@ -467,6 +491,9 @@ if (want('progress'))
     r.previewCamo = await hoverIn('Camo', 'Forest');
     await sleep(2500);
     await page.shot('05-loadout-camo');
+    // The pointer leaves the tiles, as a mouse would, so the tried-on camo goes back to what is fitted (a mouseenter
+    // alone left the phone shot showing Forest on a gun fitted with none, review 2026-11-14d).
+    await page.js(`(() => { for (let e = document.querySelector('.ds-smith'); e; e = e.parentElement) e.dispatchEvent(new MouseEvent('mouseleave')); })()`);
     await phone();
     await sleep(1500);
     await page.shot('05-loadout-phone');

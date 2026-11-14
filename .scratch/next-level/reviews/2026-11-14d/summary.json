@@ -1,0 +1,714 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": {
+    "map": "survival-town",
+    "mode": "outposts",
+    "audioContext": "running",
+    "opening": {
+      "audioKb": 2966,
+      "loudness": {
+        "lufs": -17.5,
+        "truePeakDb": -1
+      },
+      "heard": {
+        "footstep": 2158,
+        "impact": 821,
+        "gunshot": 345,
+        "casing": 241,
+        "weaponRaise": 29,
+        "pain": 29,
+        "hitMarker": 27,
+        "bulletCrack": 27,
+        "death": 25,
+        "ambientCreak": 24,
+        "boltOpen": 16,
+        "adsIn": 16,
+        "slide": 15,
+        "boltClose": 15,
+        "adsOut": 15,
+        "grenadeBounce": 15,
+        "reloadMagOut": 15,
+        "ambientBirds": 14,
+        "ambientWind": 14,
+        "ambientRadio": 13,
+        "grenadePin": 13,
+        "reloadMagIn": 12,
+        "damageTaken": 10,
+        "grenadeThrow": 9,
+        "smokePop": 9
+      },
+      "levels": {
+        "samples": 389,
+        "rmsMedianDb": -30,
+        "rmsLoudestDb": -11,
+        "peakDb": -2,
+        "silentShare": 0
+      },
+      "frames": {
+        "frames": 2775,
+        "meanMs": 34.9,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 36.6,
+        "worstMs": 173.7,
+        "over50ms": 7,
+        "fps": 28.7,
+        "low1Fps": 19,
+        "workP50Ms": 11.3,
+        "workP99Ms": 19.2,
+        "render": {
+          "frames": 29,
+          "draws": 218,
+          "maxDraws": 227,
+          "triangles": 919753,
+          "gpu": 1.429,
+          "geometries": 361,
+          "textures": 121
+        }
+      }
+    },
+    "play": {
+      "kills": 16,
+      "deaths": 4,
+      "seconds": 154,
+      "phase": "nuke"
+    },
+    "lastMinute": {
+      "audioKb": 2083,
+      "loudness": {
+        "lufs": -16.8,
+        "truePeakDb": -1
+      },
+      "heard": {
+        "footstep": 1349,
+        "impact": 554,
+        "gunshot": 308,
+        "geigerTick": 200,
+        "casing": 121,
+        "pain": 32,
+        "death": 22,
+        "grenadeBounce": 21,
+        "weaponRaise": 20,
+        "hitMarker": 19,
+        "countdownSirenHold": 17,
+        "ambientCreak": 16,
+        "grenadePin": 15,
+        "damageTaken": 14,
+        "bulletCrack": 14,
+        "grenadeThrow": 12,
+        "adsOut": 11,
+        "ambientWind": 10,
+        "adsIn": 10,
+        "slide": 9,
+        "ambientRadio": 9,
+        "explosion": 8,
+        "ambientBirds": 8,
+        "smokePop": 7,
+        "reloadMagIn": 5
+      },
+      "levels": {
+        "samples": 274,
+        "rmsMedianDb": -25,
+        "rmsLoudestDb": -11,
+        "peakDb": -3,
+        "silentShare": 0
+      },
+      "frames": {
+        "frames": 1962,
+        "meanMs": 34.8,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 37.8,
+        "worstMs": 48.9,
+        "over50ms": 0,
+        "fps": 28.7,
+        "low1Fps": 24.2,
+        "workP50Ms": 11.2,
+        "workP99Ms": 19.3,
+        "render": {
+          "frames": 29,
+          "draws": 239,
+          "maxDraws": 241,
+          "triangles": 1067852,
+          "gpu": 1.239,
+          "geometries": 361,
+          "textures": 121
+        }
+      }
+    },
+    "soundLog": "sounds-match.json",
+    "errors": []
+  },
+  "tour": [
+    {
+      "map": "switchyard",
+      "mode": "tdm",
+      "play": {
+        "kills": 0,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing"
+      },
+      "frames": {
+        "frames": 741,
+        "meanMs": 35.3,
+        "p50Ms": 34.7,
+        "p95Ms": 36.4,
+        "p99Ms": 55.5,
+        "worstMs": 90.7,
+        "over50ms": 9,
+        "fps": 28.3,
+        "low1Fps": 14.7,
+        "workP50Ms": 12.7,
+        "workP99Ms": 23.7,
+        "render": {
+          "frames": 29,
+          "draws": 199,
+          "maxDraws": 207,
+          "triangles": 1347181,
+          "gpu": 1.719,
+          "geometries": 530,
+          "textures": 167
+        }
+      },
+      "heard": {
+        "footstep": 1028,
+        "impact": 110,
+        "gunshot": 109,
+        "ambientHum": 49,
+        "slide": 18,
+        "bulletCrack": 16,
+        "weaponRaise": 15,
+        "pain": 7,
+        "damageTaken": 7,
+        "ambientRadio": 4,
+        "ambientBirds": 4,
+        "land": 4,
+        "reloadMagOut": 4,
+        "reloadMagIn": 4,
+        "death": 4,
+        "ambientWind": 3,
+        "mantle": 3,
+        "boltOpen": 3,
+        "boltClose": 3,
+        "grenadePin": 2,
+        "heartbeat": 1,
+        "ambientCouplings": 1,
+        "pumpRack": 1,
+        "explosion": 1,
+        "grenadeThrow": 1
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -34,
+        "rmsLoudestDb": -13,
+        "peakDb": -4,
+        "silentShare": 0
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "ffa",
+      "play": {
+        "kills": 1,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing"
+      },
+      "frames": {
+        "frames": 744,
+        "meanMs": 35,
+        "p50Ms": 34.7,
+        "p95Ms": 35,
+        "p99Ms": 41.4,
+        "worstMs": 104.9,
+        "over50ms": 3,
+        "fps": 28.6,
+        "low1Fps": 16.1,
+        "workP50Ms": 10.2,
+        "workP99Ms": 20,
+        "render": {
+          "frames": 29,
+          "draws": 220,
+          "maxDraws": 227,
+          "triangles": 1074758,
+          "gpu": 1.649,
+          "geometries": 352,
+          "textures": 121
+        }
+      },
+      "heard": {
+        "footstep": 351,
+        "gunshot": 99,
+        "impact": 74,
+        "ambientHum": 42,
+        "casing": 30,
+        "bulletCrack": 20,
+        "grenadeBounce": 11,
+        "weaponRaise": 9,
+        "slide": 8,
+        "grenadePin": 7,
+        "pain": 7,
+        "damageTaken": 5,
+        "grenadeThrow": 5,
+        "ambientBirds": 4,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "reloadMagOut": 4,
+        "explosion": 4,
+        "reloadMagIn": 3,
+        "heartbeat": 3,
+        "smokePop": 3,
+        "hitMarker": 3,
+        "boltOpen": 2,
+        "boltClose": 2,
+        "land": 2
+      },
+      "levels": {
+        "samples": 104,
+        "rmsMedianDb": -44,
+        "rmsLoudestDb": -14,
+        "peakDb": -3,
+        "silentShare": 0.04
+      },
+      "errors": []
+    },
+    {
+      "map": "switchyard",
+      "mode": "charge",
+      "play": {
+        "kills": 1,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing"
+      },
+      "frames": {
+        "frames": 745,
+        "meanMs": 35,
+        "p50Ms": 34.7,
+        "p95Ms": 35,
+        "p99Ms": 42.4,
+        "worstMs": 69.4,
+        "over50ms": 3,
+        "fps": 28.6,
+        "low1Fps": 19.4,
+        "workP50Ms": 12.4,
+        "workP99Ms": 21.3,
+        "render": {
+          "frames": 29,
+          "draws": 181,
+          "maxDraws": 188,
+          "triangles": 1100774,
+          "gpu": 1.605,
+          "geometries": 530,
+          "textures": 167
+        }
+      },
+      "heard": {
+        "footstep": 888,
+        "impact": 98,
+        "gunshot": 92,
+        "ambientHum": 49,
+        "casing": 28,
+        "bulletCrack": 14,
+        "weaponRaise": 11,
+        "slide": 10,
+        "mantle": 8,
+        "land": 8,
+        "pain": 8,
+        "reloadMagOut": 5,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "ambientBirds": 4,
+        "death": 4,
+        "jump": 4,
+        "reloadMagIn": 4,
+        "grenadeBounce": 4,
+        "boltOpen": 3,
+        "boltClose": 3,
+        "grenadePin": 3,
+        "grenadeThrow": 2,
+        "adsIn": 2,
+        "ambientCouplings": 1
+      },
+      "levels": {
+        "samples": 104,
+        "rmsMedianDb": -33,
+        "rmsLoudestDb": -13,
+        "peakDb": -3,
+        "silentShare": 0.03
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "gungame",
+      "play": {
+        "kills": 0,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing"
+      },
+      "frames": {
+        "frames": 749,
+        "meanMs": 34.7,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 34.9,
+        "worstMs": 37.2,
+        "over50ms": 0,
+        "fps": 28.8,
+        "low1Fps": 28.3,
+        "workP50Ms": 8.5,
+        "workP99Ms": 13.3,
+        "render": {
+          "frames": 29,
+          "draws": 176,
+          "maxDraws": 178,
+          "triangles": 953197,
+          "gpu": 1.279,
+          "geometries": 345,
+          "textures": 121
+        }
+      },
+      "heard": {
+        "footstep": 290,
+        "gunshot": 131,
+        "impact": 100,
+        "ambientHum": 42,
+        "weaponRaise": 11,
+        "slide": 8,
+        "pain": 8,
+        "death": 7,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "ambientBirds": 3,
+        "bulletCrack": 1,
+        "reloadMagOut": 1,
+        "reloadMagIn": 1,
+        "land": 1
+      },
+      "levels": {
+        "samples": 104,
+        "rmsMedianDb": -45,
+        "rmsLoudestDb": -14,
+        "peakDb": -4,
+        "silentShare": 0.06
+      },
+      "errors": []
+    }
+  ],
+  "range": {
+    "guns": [
+      {
+        "gun": "m4a1",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "14 / 4",
+        "heard": {
+          "casing": 25,
+          "gunshot": 14,
+          "impact": 10,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "reflex",
+        "target": "dummy-25",
+        "hits": "11 / 4",
+        "heard": {
+          "casing": 24,
+          "gunshot": 11,
+          "impact": 7,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "prism",
+        "target": "dummy-25",
+        "hits": "15 / 4",
+        "heard": {
+          "casing": 29,
+          "gunshot": 15,
+          "impact": 11,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "dmr",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "5 / 3",
+        "heard": {
+          "casing": 12,
+          "gunshot": 5,
+          "hitMarker": 2,
+          "impact": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "sniper",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "2 / 2",
+        "heard": {
+          "casing": 5,
+          "gunshot": 2,
+          "killMarker": 2,
+          "boltOpen": 2,
+          "boltClose": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "shotgun",
+        "optic": null,
+        "target": "dummy-10",
+        "hits": "2 / 2",
+        "heard": {
+          "impact": 11,
+          "casing": 5,
+          "gunshot": 2,
+          "hitMarker": 2,
+          "pumpRack": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "smg",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "17 / 6",
+        "heard": {
+          "casing": 31,
+          "gunshot": 17,
+          "impact": 11,
+          "hitMarker": 4,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "headshotKill": 1,
+          "adsOut": 1
+        }
+      }
+    ],
+    "frames": {
+      "frames": 1625,
+      "meanMs": 34.8,
+      "p50Ms": 34.7,
+      "p95Ms": 34.8,
+      "p99Ms": 35.2,
+      "worstMs": 55.5,
+      "over50ms": 1,
+      "fps": 28.8,
+      "low1Fps": 25.9,
+      "workP50Ms": 5.6,
+      "workP99Ms": 10.7,
+      "render": {
+        "frames": 29,
+        "draws": 106,
+        "maxDraws": 108,
+        "triangles": 245195,
+        "gpu": 1.281,
+        "geometries": 329,
+        "textures": 145
+      }
+    },
+    "errors": []
+  },
+  "island": {
+    "play": {
+      "kills": 1,
+      "deaths": 0,
+      "seconds": 30,
+      "phase": "playing"
+    },
+    "frames": {
+      "frames": 865,
+      "meanMs": 34.7,
+      "p50Ms": 34.7,
+      "p95Ms": 35.3,
+      "p99Ms": 36.4,
+      "worstMs": 37.9,
+      "over50ms": 0,
+      "fps": 28.8,
+      "low1Fps": 27,
+      "workP50Ms": 9.8,
+      "workP99Ms": 15.2,
+      "render": {
+        "frames": 29,
+        "draws": 136,
+        "maxDraws": 136,
+        "triangles": 1073583,
+        "gpu": 2.494,
+        "geometries": 816,
+        "textures": 168
+      }
+    },
+    "heard": {
+      "footstep": 1055,
+      "gunshot": 34,
+      "slide": 11,
+      "ringHum": 11,
+      "casing": 6,
+      "ambientWind": 5,
+      "trapBirds": 3,
+      "land": 3,
+      "reloadMagOut": 2,
+      "adsIn": 1,
+      "bulletCrack": 1,
+      "impact": 1,
+      "pain": 1,
+      "hitMarker": 1,
+      "adsOut": 1,
+      "headshotMarker": 1,
+      "grenadePin": 1,
+      "headshotKill": 1,
+      "grenadeBounce": 1,
+      "smokePop": 1
+    },
+    "levels": {
+      "samples": 120,
+      "rmsMedianDb": -47,
+      "rmsLoudestDb": -20,
+      "peakDb": -4,
+      "silentShare": 0
+    },
+    "errors": []
+  },
+  "online": {
+    "code": "JAN8UN",
+    "invite": "http://localhost:5173/?lobby=JAN8UN",
+    "friends": [
+      {
+        "name": "Marta",
+        "in": true,
+        "rejected": null
+      },
+      {
+        "name": "Pol",
+        "in": true,
+        "rejected": null
+      }
+    ],
+    "lobby": "PRIVATE LOBBY\nPLAYERS\n3 player  + 5 bot  · 8 of 12  eat \n◆ BLUE\n01\nReviewer\nYou · Ho t\n14 m \nMOVE\n03\nPol\n112 m \nMOVE\nKICK\n05\nOpen  eat\nBot\n07\nOpen  eat\nBot\n▲ ORANGE\n02\nMarta\n38 m \nMOVE\nKICK\n04\nOpen  eat\nBot\n06\nOpen  eat\nBot\n08\nOpen  eat\nBot\nEVEN TEAMS\nMATCH\nSURVIVAL TOWN\nSWITCHYARD\nSTATION NINE\nRANDOM MAP & MODE\nMode\nTEAM DEATHMATCH\nFREE-FOR-ALL\nOUTPOSTS\nCHARGE\nGUN GAME\n\nBlue again t orange. Fir t",
+    "moved": true,
+    "kicked": true,
+    "polRejected": "kicked",
+    "sides": "{\"p1\":1,\"p2\":1}",
+    "started": true,
+    "playing": true,
+    "map": "survival-town",
+    "play": {
+      "kills": 1,
+      "deaths": 0,
+      "seconds": 45,
+      "phase": "playing"
+    },
+    "frames": {
+      "frames": 1323,
+      "meanMs": 34.8,
+      "p50Ms": 34.7,
+      "p95Ms": 34.9,
+      "p99Ms": 36.4,
+      "worstMs": 62.6,
+      "over50ms": 1,
+      "fps": 28.8,
+      "low1Fps": 25,
+      "workP50Ms": 8.4,
+      "workP99Ms": 13.5,
+      "render": {
+        "frames": 29,
+        "draws": 199,
+        "maxDraws": 232,
+        "triangles": 1073393,
+        "gpu": 1.607,
+        "geometries": 361,
+        "textures": 121
+      }
+    },
+    "heard": {
+      "footstep": 1030,
+      "gunshot": 64,
+      "impact": 58,
+      "weaponRaise": 14,
+      "slide": 14,
+      "casing": 14,
+      "ambientCreak": 11,
+      "mantle": 9,
+      "death": 9,
+      "pain": 8,
+      "ambientBirds": 7,
+      "ambientWind": 7,
+      "ambientRadio": 6,
+      "land": 5,
+      "bulletCrack": 3,
+      "reloadMagOut": 3,
+      "hitMarker": 3,
+      "jump": 2,
+      "boltOpen": 2,
+      "boltClose": 2,
+      "reloadMagIn": 2,
+      "grenadePin": 1,
+      "grenadeBounce": 1,
+      "smokePop": 1,
+      "adsIn": 1
+    },
+    "levels": {
+      "samples": 184,
+      "rmsMedianDb": -37,
+      "rmsLoudestDb": -13,
+      "peakDb": -3,
+      "silentShare": 0
+    },
+    "errors": []
+  },
+  "progress": {
+    "loadoutMsToGun": 421,
+    "loadoutMsToModel": 3854,
+    "loadoutDrawn": "m4a1",
+    "previewFitting": true,
+    "previewCamo": true,
+    "fresh": {
+      "open": 4,
+      "shut": 5
+    },
+    "saveCode": "DS2-eyJ2ZXJzaW9uIjoxLCJ4",
+    "rank12": {
+      "open": 9,
+      "shut": 0
+    }
+  },
+  "navWarm": {
+    "status": 200,
+    "mb": 18.4,
+    "seconds": 149
+  }
+}
