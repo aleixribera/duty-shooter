@@ -1,0 +1,8 @@
+{
+  "spawnHint": true,
+  "hintWhileFiring": true,
+  "hintAtKill": true,
+  "shots": "4 / 4",
+  "hintInQuiet": false,
+  "errors": []
+}

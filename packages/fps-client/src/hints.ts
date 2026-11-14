@@ -135,7 +135,9 @@ function matters(id: HintId, f: HintFacts, s: HintState, done: ReadonlySet<HintI
       // partway through the reload, and the hint stood over a full one for the rest of it (review 2026-11-12e).
       return f.fighting && f.reloading && f.magazine < 1 && done.has('reload') && f.spare !== false;
     case 'move':
-      return f.fighting;
+      // Not over a fight either: a player turning and firing on someone is using the mouse, and "Move" stood over their
+      // kills (review 2026-11-14a). A fight takes it down as a passed moment: read, it counts; it is back next life.
+      return f.fighting && s.time - s.clashed >= HINT_CALM;
     case 'fire':
       // A touch player's: a mouse button needs no introduction, a mark on the glass does.
       return f.fighting && f.thumbs && done.has('move');

@@ -130,6 +130,30 @@ describe('first-match hints', () => {
     expect(run(hintState(knows('move', 'aim', 'sprint')), { ...fight, magazine: 0.3 }, 1).current).toBe('reload');
   });
 
+  it('"Move" never stands over a fight: a shot takes it down, and it is back next life, not in this one', () => {
+    const fight: HintFacts = { ...idle, clash: true };
+    // A spawn into a fight: nothing, then still nothing in the seconds after it.
+    let s = run(hintState(NO_HINTS_SEEN), fight, 3);
+    expect(s.current).toBeNull();
+    s = run(s, idle, HINT_CALM - 0.5);
+    expect(s.current).toBeNull();
+    s = run(s, idle, 1);
+    expect(s.current).toBe('move');
+    // Up and read, then the player turns and fires on someone: it goes at once, as a showing.
+    s = run(s, idle, HINT_READ + 0.5);
+    s = stepHints(s, fight, 0.1);
+    expect(s.current).toBeNull();
+    expect(s.memory.shown.move).toBe(1);
+    // Not back over the next quiet of this life (a range player firing at dummies sees no flicker)...
+    s = run(s, idle, HINT_CALM + HINT_STAYS);
+    expect(s.current).toBeNull();
+    // ...but next life, at the spawn.
+    s = run(s, dead, 1);
+    s = run(s, { ...dead, loadoutOpened: true }, 0.1);
+    s = run(s, idle, HINT_REST + 0.3);
+    expect(s.current).toBe('move');
+  });
+
   it('a line hidden under a toast or a caption is not being read: its time there does not count as a showing', () => {
     // The loadout hint goes up while dead, then Range Control speaks over it until the respawn ends its moment.
     let s = run(hintState(NO_HINTS_SEEN), dead, 0.5);
