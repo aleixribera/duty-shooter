@@ -6,7 +6,7 @@
  * the protocol a WebSocket carries (`connectPort`), so everything from the
  * lobby to the Preparation, the Ring, Downed and spectating is the online game.
  */
-import { GameServer, TICK_SECONDS, WIDE_SCALE, createWorld, decodeLargeNav, messageData, servePort, type NavGraph, type PortLike, type ServerTransport } from '@duty-shooter/fps-core';
+import { GameServer, TICK_SECONDS, WIDE_SCALE, createWorld, decodeLargeNav, messageData, servePort, type NavGraph, type DropHolds, type PortLike, type ServerTransport } from '@duty-shooter/fps-core';
 import { TEAM_SIZES, buildMapById, mapConcealment, mapSolids } from './map/maps';
 
 const MAP = 'zero-island';
@@ -20,6 +20,8 @@ const IDLE_SECONDS = 600;
 export interface LocalRoyaleOptions {
   /** Every match's seed (spawns and circles); a fresh one each match when absent, as on the server. */
   readonly seed?: number;
+  /** What its Supply Drops hold: `resupply` plays it on loadouts. The sniper when absent, as on the server. */
+  readonly holds?: DropHolds;
 }
 
 /** The island's Battle Royale server, set up as the Battle Royale process sets up its own. */
@@ -39,7 +41,7 @@ export class LocalRoyale {
       passphrase: '',
       maxPlayers: WIDE_SCALE.seats,
       idleTimeout: IDLE_SECONDS,
-      modes: { battleRoyale: options.seed === undefined ? {} : { seed: options.seed } },
+      modes: { battleRoyale: { ...(options.seed === undefined ? {} : { seed: options.seed }), ...(options.holds === undefined ? {} : { holds: options.holds }) } },
       bots: { nav, perTeam: 3, maxPerTeam: WIDE_SCALE.botsPerTeam },
       lobby: true,
     });
@@ -87,7 +89,7 @@ export type FromLocalRoyale =
   | { readonly t: 'stats'; readonly ticks: number; readonly seconds: number; readonly mean: number; readonly p99: number; readonly worst: number };
 
 /** What the page says to the worker: start, with the island's nav as bytes or where to fetch it, and a seed for every match (a fresh one each when absent). */
-export type ToLocalRoyale = { readonly t: 'start'; readonly nav: Uint8Array | string; readonly seed?: number };
+export type ToLocalRoyale = { readonly t: 'start'; readonly nav: Uint8Array | string; readonly seed?: number; readonly holds?: DropHolds };
 
 const STATS_MS = 2000;
 
@@ -106,7 +108,7 @@ export function serveLocalRoyale(scope: PortLike): () => void {
     // Node's in the last bit, which changes the fingerprint and nothing else, and this file comes from the
     // same build as this code (served no-cache with an ETag, so never a release behind).
     const nav = decodeLargeNav(bytes);
-    const local = new LocalRoyale(transport, nav, message.seed === undefined ? {} : { seed: message.seed });
+    const local = new LocalRoyale(transport, nav, { ...(message.seed === undefined ? {} : { seed: message.seed }), ...(message.holds === undefined ? {} : { holds: message.holds }) });
     scope.postMessage({ t: 'ready' } satisfies FromLocalRoyale);
     const clock = new TickClock(performance.now());
     const costs: number[] = [];

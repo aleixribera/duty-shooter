@@ -483,6 +483,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         document.body.dataset['localBots'] = JSON.stringify(m);
       },
       params.has('seed') && Number.isFinite(seed) ? seed : undefined,
+      // `?drops=resupply`: Local bots plays the Battle Royale on loadouts (PLAN item 7), Supply Drops resupplying and nothing on the ground.
+      params.get('drops') === 'resupply' ? 'resupply' : undefined,
     );
   /** Local bots: the worker starts while the island builds here, then this page joins its lobby as its host. */
   const joinLocalRoyale = async (attempt: number, name: string) => {
@@ -623,8 +625,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
     setBuild: (gun, slot, choice) => {
       const builds = rebuild(settings.builds, gun, slot, choice);
       settings = { ...settings, builds };
-      // A saved sniper plays as the M4A1 in a Battle Royale: fitting the M4A1 here makes it the pick.
-      const primary = royaleLoadout(matchLoadout()).primary === gun ? { primary: gun } : {};
+      // Under the loot rules a saved sniper plays as the M4A1 in a Battle Royale: fitting the M4A1 here makes it the pick.
+      const primary = royaleLoadout(matchLoadout(), preparation.holds).primary === gun ? { primary: gun } : {};
       applyLoadout(withBuilds({ ...settings.loadout, ...primary }, builds, gunKills));
     },
     kills: gunKills,

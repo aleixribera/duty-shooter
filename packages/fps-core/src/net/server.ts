@@ -1216,8 +1216,8 @@ export class GameServer {
   /** The loadout a player's next spawn carries (the mode's, else their pick or a bot's from its profile), as spawn options (empty for the default). */
   #loadoutOf(id: PlayerId): { loadout?: Loadout } {
     const loadout = this.#mode.loadoutOf?.(id) ?? [...this.#clients].find((c) => c.id === id)?.loadout ?? this.#bots.get(id)?.bot.profile.loadout ?? null;
-    // In a Battle Royale the sniper comes only from a Supply Drop (ticket 71).
-    return loadout ? { loadout: this.#mode.id === BATTLE_ROYALE ? royaleLoadout(loadout) : loadout } : {};
+    // In a Battle Royale under the loot rules the sniper comes only from a Supply Drop (ticket 71); on loadouts, as picked.
+    return loadout ? { loadout: this.#mode.id === BATTLE_ROYALE ? royaleLoadout(loadout, this.#royale.holds) : loadout } : {};
   }
 
   #remove(id: PlayerId): void {
@@ -1469,6 +1469,7 @@ export class GameServer {
   readonly #act: ModeActions = {
     give: (id, weapon) => this.simulation.giveWeapon(id, weapon),
     primary: (id) => this.simulation.primary(id),
+    resupply: (id) => this.simulation.resupply(id),
     respawn: (id, position, yaw, options) => {
       // Back with what it dropped in with, not whatever its person picked while out.
       const loadout = this.#locked?.has(id) ? this.#locked.get(id) : this.#loadoutOf(id).loadout;
@@ -1705,13 +1706,15 @@ export class GameServer {
 
   /** Whether a seat holds the sniper with rounds left to fire: one shot dry has nothing to keep it from the next crate. */
   #armedSniper(id: PlayerId): boolean {
+    // On loadouts a crate holds no sniper, so one in hand keeps nobody from it.
+    if (this.#royale.holds !== 'sniper') return false;
     const held = this.simulation.primary(id);
     return held?.id === 'sniper' && held.ammo + (held.reserve ?? 0) > 0;
   }
 
   /** How a named bot plays. */
   #profile(name: string): BotProfile {
-    const base = this.#mode.id === BATTLE_ROYALE ? royaleProfile(botProfile(name)) : botProfile(name);
+    const base = this.#mode.id === BATTLE_ROYALE ? royaleProfile(botProfile(name), this.#royale.holds) : botProfile(name);
     return this.#options.bots?.profile?.(name, base) ?? base;
   }
 

@@ -202,11 +202,11 @@ The thin grey trail a sniper round leaves behind its Tracer, which drifts with t
 _Avoid_: contrail, vapour trail
 
 **Supply Drop**:
-A crate that parachutes into a Battle Royale at the start of Stages 2, 3 and 4, landing inside the next Ring circle. It is announced 20 s ahead (grid cell on the HUD, a square on the Island map and the compass) and burns a red flare column from then until a few seconds after it is opened with a 2 s hold. It holds the only Ridgeline .308 in the match, with 3 spare magazines: the one weapon with a limited reserve.
+A crate that parachutes into a Battle Royale at the start of Stages 2, 3 and 4, landing inside the next Ring circle. It is announced 20 s ahead (grid cell on the HUD, a square on the Island map and the compass) and burns a red flare column from then until a few seconds after it is opened with a 2 s hold. It holds the only Ridgeline .308 in the match, with 3 spare magazines: the one weapon with a limited reserve. In a Battle Royale played on loadouts (`?drops=resupply` for Local bots, `ROYALE_DROPS=resupply` on the server, until it becomes the rule), the Ridgeline is a pick like any opened gun and a Supply Drop holds a Resupply instead: its opener's frags and tacticals back to the match's count, and full health.
 _Avoid_: airdrop, care package, loot crate
 
 **Loose weapon**:
-A primary lying on the ground in a Battle Royale: the one you dropped when a Supply Drop's sniper replaced it, or a sniper left where its holder fell. Walking onto it and pressing F swaps it for your primary.
+A primary lying on the ground in a Battle Royale: the one you dropped when a Supply Drop's sniper replaced it, or a sniper left where its holder fell. Walking onto it and pressing F swaps it for your primary. There are none in a Battle Royale played on loadouts.
 _Avoid_: pickup, loot
 
 **Reboot Card**:

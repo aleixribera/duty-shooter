@@ -1,4 +1,4 @@
-import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, STATS, teamMode, type KillWeapon, type ModeId, type PlayerId, type Score, type TeamId, type Vec3 } from '@duty-shooter/fps-core';
+import { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, STATS, teamMode, type DropHolds, type KillWeapon, type ModeId, type PlayerId, type Score, type TeamId, type Vec3 } from '@duty-shooter/fps-core';
 import type { PresentedEvent } from '../session';
 import { TEAMS } from '../ui/model';
 import { pingCallout } from '../ui/pings';
@@ -44,6 +44,8 @@ export interface EventWordsContext {
   readonly serverTime: number;
   /** When a Battle Royale's Supply Drop of this stage lands (server time), if known. */
   dropLands(stage: number): number | undefined;
+  /** What the Battle Royale's Supply Drops hold; absent, the sniper (the loot rules). */
+  readonly dropHolds?: DropHolds;
 }
 
 /** How a kill feed line names what did it. */
@@ -108,11 +110,12 @@ export function eventWords(e: PresentedEvent, ctx: EventWordsContext): EventWord
       const cell = ctx.cell(e.position);
       if (e.action === 'announce') {
         const lands = ctx.dropLands(e.stage);
-        return { toast: { text: dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - ctx.serverTime), seconds: 6 } };
+        return { toast: { text: dropAnnouncement(cell, lands === undefined ? STATS.royale.supplyDrop.warning.value : lands - ctx.serverTime, ctx.dropHolds), seconds: 6 } };
       }
       if (e.action === 'open' && e.player !== null) {
         const mine = e.player === selfId;
-        return { feed: { text: `${mine ? 'You' : ctx.nameOf(e.player)} took the sniper from the Supply Drop${cell ? ` in ${cell}` : ''}`, team: teamOf(e.player) ?? 0, mine } };
+        const took = ctx.dropHolds === 'resupply' ? (mine ? 'You were resupplied' : `${ctx.nameOf(e.player)} was resupplied`) : `${mine ? 'You' : ctx.nameOf(e.player)} took the sniper`;
+        return { feed: { text: `${took} from the Supply Drop${cell ? ` in ${cell}` : ''}`, team: teamOf(e.player) ?? 0, mine } };
       }
       return NONE;
     }

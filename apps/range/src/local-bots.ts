@@ -1,4 +1,4 @@
-import { connectPort, type Connection } from '@duty-shooter/fps-core';
+import { connectPort, type Connection, type DropHolds } from '@duty-shooter/fps-core';
 import type { FromLocalRoyale, ToLocalRoyale } from './local-royale';
 
 /** Local bots' server, running: the connection to join it by, and how to stop it. */
@@ -11,9 +11,9 @@ export interface LocalBots {
  * Starts Local bots' worker (ticket 15, ADR 0010): the island's server on
  * this page, ready once it has built the island and its nav. `onStats` hears
  * its tick costs every 2 s; `seed` puts every match on the same spawns and
- * circles.
+ * circles; `holds` is what its Supply Drops hold.
  */
-export function startLocalBots(onStats: (stats: FromLocalRoyale) => void, seed?: number): Promise<LocalBots> {
+export function startLocalBots(onStats: (stats: FromLocalRoyale) => void, seed?: number, holds?: DropHolds): Promise<LocalBots> {
   return new Promise((done, fail) => {
     const worker = new Worker(new URL('./royale-worker.ts', import.meta.url), { type: 'module', name: 'local-bots' });
     const stop = () => worker.terminate();
@@ -36,6 +36,6 @@ export function startLocalBots(onStats: (stats: FromLocalRoyale) => void, seed?:
       if (connection) connection.close('The bots stopped on this machine.');
       else fail(new Error(e.message || 'the worker failed to load'));
     });
-    worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href, ...(seed === undefined ? {} : { seed }) } satisfies ToLocalRoyale);
+    worker.postMessage({ t: 'start', nav: new URL('nav/zero-island.nav', location.href).href, ...(seed === undefined ? {} : { seed }), ...(holds === undefined ? {} : { holds }) } satisfies ToLocalRoyale);
   });
 }

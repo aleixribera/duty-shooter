@@ -555,6 +555,20 @@ export class Simulation {
   }
 
   /**
+   * A Supply Drop's resupply: frags and tacticals back up to what a fresh set
+   * of weapons comes with in this match (never fewer than held), and full
+   * health. The guns, whose reserves are unlimited, stay as they are.
+   */
+  resupply(id: PlayerId): void {
+    const p = this.#players.get(id);
+    if (!p || p.diedAt !== null || p.downed) return;
+    if (p.loadout.grenade) p.grenades = Math.max(p.grenades, this.#frags());
+    if (p.loadout.tactical) p.tacticals = Math.max(p.tacticals, this.#tacticals());
+    p.health = H.max.value;
+    this.#output = null;
+  }
+
+  /**
    * Puts `weapon` in a player's primary slot and in their hands, drawing; the
    * secondary and grenades stay as they are. Returns the primary it replaced,
    * as it was, or null for no such player.

@@ -8,7 +8,7 @@ import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
 import { Reboot, planBeacons } from './reboot';
 import { ScoreKeeper } from './score';
-import { SupplyDrops } from './supply-drops';
+import { SupplyDrops, type DropHolds } from './supply-drops';
 
 /** Seats a Squad: Solos, Duos or Trios. */
 export type SquadSize = 1 | 2 | 3;
@@ -22,6 +22,8 @@ export interface BattleRoyaleOptions {
   readonly seed?: number;
   /** Draws each match's seed (0 to 1, like `Math.random`, its default). */
   readonly random?: () => number;
+  /** What Supply Drops hold: `resupply` plays the match on loadouts, with no weapons on the ground. Defaults to the sniper. */
+  readonly holds?: DropHolds;
 }
 
 interface Entry {
@@ -81,8 +83,8 @@ export class BattleRoyale implements GameMode {
   #squadsAlive = 0;
   /** A person has had a seat in this match. */
   #peopled = false;
-  /** The crates that bring the sniper, and the weapons on the ground. */
-  readonly #drops = new SupplyDrops();
+  /** The Supply Drops, and the weapons on the ground. */
+  readonly #drops: SupplyDrops;
   /** Reboot Cards and Beacons (Duos and Trios). */
   readonly #reboot = new Reboot();
   /** The seat with the most eliminations, from `KILL_LEADER` on: a tie keeps the one who got there first. */
@@ -101,6 +103,12 @@ export class BattleRoyale implements GameMode {
     this.timeLimit = options.timeLimit ?? STATS.royale.matchLength.value;
     this.#seed = options.seed ?? null;
     this.#random = options.random ?? Math.random;
+    this.#drops = new SupplyDrops(options.holds);
+  }
+
+  /** What this mode's Supply Drops hold: the sniper (the loot rules) or a resupply (on loadouts). */
+  get holds(): DropHolds {
+    return this.#drops.holds;
   }
 
   /** This match's circles. */
@@ -337,6 +345,7 @@ export class BattleRoyale implements GameMode {
       squads: this.#squadsAlive,
       ...(this.#leader ? { leader: { id: this.#leader.id, name: this.#leader.name, kills: this.#leader.kills } } : {}),
       ...(this.#champion ? { champion: this.#champion } : {}),
+      ...(this.holds === 'resupply' ? { holds: 'resupply' as const } : {}),
     };
     const drops = this.#drops.drops();
     const loose = this.#drops.loose();

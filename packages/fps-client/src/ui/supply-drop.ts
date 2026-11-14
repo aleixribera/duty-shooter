@@ -1,4 +1,4 @@
-import { DROP_WEAPON, STATS, type BattleRoyaleState, type LooseWeaponState, type PlayerOutput, type SupplyDropState, type Vec3, type WeaponId } from '@duty-shooter/fps-core';
+import { DROP_WEAPON, STATS, type BattleRoyaleState, type DropHolds, type LooseWeaponState, type PlayerOutput, type SupplyDropState, type Vec3, type WeaponId } from '@duty-shooter/fps-core';
 import type { MapBounds } from './island-map';
 
 /**
@@ -55,10 +55,11 @@ export function dropMarks(state: BattleRoyaleState, time: number, bounds: MapBou
   }));
 }
 
-/** The announcement when a crate is called in. */
-export function dropAnnouncement(cell: string, landsIn: number): string {
+/** The announcement when a crate is called in: what it holds, the only sniper or (on loadouts) a resupply. */
+export function dropAnnouncement(cell: string, landsIn: number, holds: DropHolds = 'sniper'): string {
   const where = cell ? ` in ${cell}` : '';
-  return `Supply Drop incoming${where}: the only sniper, landing in ${Math.max(1, Math.round(landsIn))} s.`;
+  const what = holds === 'resupply' ? 'frags, tacticals and full health' : 'the only sniper';
+  return `Supply Drop incoming${where}: ${what}, landing in ${Math.max(1, Math.round(landsIn))} s.`;
 }
 
 const flat = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -70,7 +71,8 @@ function dropAction(self: PlayerOutput, state: BattleRoyaleState, primary: Weapo
     if (d.opened !== undefined) continue;
     if (flat(self.position, d.position) > D.reach.value || Math.abs(self.position[1] - d.position[1]) > D.reach.value) continue;
     if (d.opening?.by === self.id) return { kind: 'opening' };
-    if (primary !== DROP_WEAPON && !d.opening) return { kind: 'open', weapon: DROP_WEAPON };
+    // Under the loot rules a crate has nothing for someone holding its sniper; a resupply is for anyone.
+    if ((state.holds === 'resupply' || primary !== DROP_WEAPON) && !d.opening) return { kind: 'open', weapon: DROP_WEAPON };
   }
   let best: LooseWeaponState | null = null;
   for (const l of state.loose ?? []) {

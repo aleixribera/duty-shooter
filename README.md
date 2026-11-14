@@ -48,6 +48,7 @@ To play online locally:
    | `MAP` | `survival-town` | `survival-town`, `switchyard`, `station-nine`, `range` or `zero-island` (with bots it reads its nav from the built app in `STATIC_DIR`). |
    | `MODE` | `tdm` | `tdm`, `ffa`, `outposts`, `charge`, `gungame` or `battle-royale` (which plays only on `zero-island`, so `MAP` defaults to it, and needs its nav from `STATIC_DIR`). |
    | `SQUADS` | `1` | Seats a Squad in `battle-royale`: `1`, `2` or `3`. |
+   | `ROYALE_DROPS` | `sniper` | What `battle-royale`'s Supply Drops hold: `sniper` (the only Ridgeline .308, weapons change hands on the ground) or `resupply` (played on loadouts, nothing on the ground). |
    | `TIME_LIMIT` | the mode's own | Seconds; Charge ignores it. |
    | `MAX_PLAYERS` | `12` | Seats, bots included. At most `32`, `60` with `NET=wide`. |
    | `BOTS_PER_TEAM` | `3` | Bots a side on a map with no team size of its own; `0` starts the lobby with bots off. At most `MAX_BOTS_PER_TEAM`. |
@@ -77,6 +78,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - `?lod=off` draws a large map without its distance detail (soldier levels, far ground in blocks, far surfaces), to measure what that detail saves.
 - `?plants=off` draws a map without its plants (their soft cover still hides from bots; rocks and trunks show as their plain solids), to measure what the plants cost.
 - `?seed=<n>` plays every Local bots match on the same spawns and circles.
+- `?drops=resupply` plays Local bots' Battle Royale on loadouts: the Ridgeline .308 is a pick like any opened gun, Supply Drops resupply their opener (frags, tacticals, full health) instead of holding the sniper, and no weapon lies on the ground. The server takes `ROYALE_DROPS=resupply` for the same.
 - `?stats` writes each second's mean draw calls, triangles and GPU time (ms a frame, `gpu`, null where the browser doesn't measure it) and the renderer's live geometries and textures to `document.body.dataset.render`, for measuring a production build from a script.
 - *dev* `?nolock` plays without pointer lock, for scripted browsers.
 - *dev* `?matchtime=<s>` makes Bot Matches last that many seconds (in the modes with a clock), to reach their end and the lobby quickly.

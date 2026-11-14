@@ -1,0 +1,138 @@
+{
+  "primaries": [
+    "m4a1",
+    "smg",
+    "shotgun",
+    "sniper",
+    "lmg",
+    "dmr",
+    "burst"
+  ],
+  "pickedSniper": true,
+  "preparationPick": "sniper",
+  "landed": {
+    "phase": "playing",
+    "holds": "resupply",
+    "stage": 1,
+    "drops": null,
+    "loose": null,
+    "alive": 60,
+    "time": 24.433333333333334,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "looseSeen": [],
+  "announced": {
+    "phase": "playing",
+    "holds": "resupply",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 162.1
+      }
+    ],
+    "loose": null,
+    "alive": 27,
+    "time": 142.84799999999996,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "toast": "Supply Drop incoming in H8: frags, tacticals and full health, landing in 20 s.",
+  "landedDrop": {
+    "phase": "playing",
+    "holds": "resupply",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 162.1
+      }
+    ],
+    "loose": null,
+    "alive": 23,
+    "time": 163.751333333333,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "opened": {
+    "phase": "playing",
+    "holds": "resupply",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 162.1,
+        "opened": "p29"
+      }
+    ],
+    "loose": null,
+    "alive": 21,
+    "time": 168.8643333333333,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "feed": [
+    "Sniper: Supply Drops only",
+    " Nomad2 was resupplied from the Supply Drop in H8",
+    "Supply Drop incoming in H8: frags, tacticals and full health, landing in 20 s."
+  ],
+  "last": {
+    "phase": "playing",
+    "holds": "resupply",
+    "stage": 2,
+    "drops": [
+      {
+        "stage": 2,
+        "position": [
+          -12,
+          4.109309673309326,
+          -26
+        ],
+        "lands": 162.1,
+        "opened": "p29"
+      }
+    ],
+    "loose": null,
+    "alive": 21,
+    "time": 168.93333333333334,
+    "me": {
+      "alive": true,
+      "primary": "sniper",
+      "weapon": "sniper",
+      "grenades": 3
+    }
+  },
+  "errors": []
+}

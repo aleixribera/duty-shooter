@@ -123,6 +123,8 @@ export interface BattleRoyaleState {
   readonly squads: number;
   /** The Supply Drops announced so far, opened ones too; absent while none is. */
   readonly drops?: readonly SupplyDropState[];
+  /** What the crates hold: absent, the sniper (the loot rules); `resupply`, the match is played on loadouts. */
+  readonly holds?: 'resupply';
   /** Weapons lying on the ground for anyone to take; absent while none does. */
   readonly loose?: readonly LooseWeaponState[];
   /** Reboot is open (Duos and Trios, before the last Stages); absent when it isn't. */
@@ -190,6 +192,8 @@ export interface ModeActions {
   give(id: PlayerId, weapon: HeldWeapon): HeldWeapon | null;
   /** A seat's primary as it is now. */
   primary(id: PlayerId): HeldWeapon | null;
+  /** Fills a seat's frags and tacticals back to what the match gives, and its health (a Supply Drop's resupply). */
+  resupply?(id: PlayerId): void;
   /** Brings a seat that is out back at `position` with its loadout (a Reboot). */
   respawn?(id: PlayerId, position: Vec3, yaw: number, options: RespawnOptions): void;
 }

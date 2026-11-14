@@ -64,6 +64,9 @@ describe('a Supply Drop in the client (ticket 71)', () => {
     const busy = dropPrompt(near, opening, 102, 'm4a1', 'F')!;
     expect(busy).toBeTruthy();
     expect(busy).not.toBe(hold);
+    // On loadouts the crate is a resupply, for a sniper's holder too, and the call-in says something else.
+    expect(dropPrompt(near, state({ holds: 'resupply' }), 101, 'sniper', 'F')).toBe(hold);
+    expect(dropAnnouncement('F6', 19.6, 'resupply')).not.toBe(dropAnnouncement('F6', 19.6));
   });
 
   it('prompts a press to take a different weapon lying in reach', () => {
@@ -82,5 +85,12 @@ describe('the Preparation’s picker (ticket 71)', () => {
     expect(kit.primaries).toContain('m4a1');
     expect(kit.picked.primary).toBe('m4a1');
     expect(preparationKit({ primary: 'smg', secondary: 'pistol', grenade: null }).picked.primary).toBe('smg');
+  });
+
+  it('on loadouts offers the sniper, opened, and keeps a saved pick of it', () => {
+    const kit = preparationKit({ primary: 'sniper', secondary: 'pistol', grenade: 'frag' }, undefined, 'resupply');
+    expect(kit.primaries).toContain('sniper');
+    expect(kit.picked.primary).toBe('sniper');
+    expect(preparationKit({ primary: 'm4a1', secondary: 'pistol', grenade: null }, ['m4a1', 'pistol'], 'resupply').primaries).not.toContain('sniper');
   });
 });

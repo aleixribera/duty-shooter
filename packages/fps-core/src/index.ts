@@ -69,7 +69,7 @@ export { LOBBY_MODES, MODE_IDS, RESPAWN_DELAY, inSite, inZone, siteCentre, teamM
 export { GUN_GAME_KILLS_PER_GUN, GUN_GAME_LADDER_LENGTH, dealLadder, gunGameLevel } from './modes/gungame';
 export { MEDALS, SCORE_POINTS, betterMedal, isMedal } from './modes/score';
 export type { Medal, ScoreLine, ScoreReason } from './modes/score';
-export { DROP_WEAPON, royaleLoadout } from './modes/supply-drops';
+export { DROP_WEAPON, royaleLoadout, type DropHolds } from './modes/supply-drops';
 export { PING_WHEEL, Pings, placePing } from './pings';
 export type { PingEvent, PingKind, PingRequest } from './pings';
 export { SoundTraps, TRAP_HEARD, TRAP_REACH, TRAP_REST } from './sound-traps';

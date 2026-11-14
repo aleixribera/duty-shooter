@@ -9,7 +9,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { DEFAULT_MAX_PLAYERS, GameServer, MATCH_SCALES, MAX_BOTS_PER_TEAM, PROTOCOL_VERSION, TICK_SECONDS, WIDE_MAP, WIDE_SCALE, buildNavGraph, createWorld, decodeLargeNav, type Connection, type GameServerOptions, type NavGraph, type ServerMap, type ServerTransport, type WireData } from '@duty-shooter/fps-core';
 import { EventLog } from './event-log';
 import { spendFirstUpgrade } from './first-upgrade';
-import { MODE_IDS, type ModeId, type SquadSize } from '@duty-shooter/fps-core/modes';
+import { MODE_IDS, type ModeId, type DropHolds, type SquadSize } from '@duty-shooter/fps-core/modes';
 import { MATCH_MAPS, MAP_IDS, TEAM_SIZES, buildMapById, mapConcealment, mapSolids, type MapDefinition, type MapId } from '@duty-shooter/range/maps';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { watchTicks } from './slow-ticks';
@@ -34,6 +34,8 @@ export interface ServerOptions {
   readonly timeLimit?: number;
   /** Seats a Squad in a Battle Royale: 1, 2 or 3; Solos when absent. */
   readonly squadSize?: SquadSize;
+  /** What a Battle Royale's Supply Drops hold: `resupply` plays it on loadouts, with nothing on the ground; the sniper when absent. */
+  readonly dropHolds?: DropHolds;
   /** Bots a side the lobby fills to while anyone plays (0: none unless a first joiner asks); none when absent. */
   readonly botsPerTeam?: number;
   /** The most bots a side a first joiner may ask for; 0 or absent turns bots off. Only on maps with a nav graph. */
@@ -479,7 +481,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       ...(options.timeLimit === undefined ? {} : { tdm: { timeLimit: options.timeLimit }, ffa: { timeLimit: options.timeLimit }, outposts: { timeLimit: options.timeLimit }, gungame: { timeLimit: options.timeLimit } }),
       // A load test measures play: a kill limit would end it partway and measure the lobby.
       ...(options.wideNet ? { ffa: { killLimit: null, ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) } } : {}),
-      battleRoyale: { ...(options.squadSize === undefined ? {} : { squadSize: options.squadSize }), ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) },
+      battleRoyale: { ...(options.squadSize === undefined ? {} : { squadSize: options.squadSize }), ...(options.dropHolds === undefined ? {} : { holds: options.dropHolds }), ...(options.timeLimit === undefined ? {} : { timeLimit: options.timeLimit }) },
     },
     ...(first.nav ? { bots: { nav: first.nav, perTeam: options.botsPerTeam ?? 0, maxPerTeam: maxBots } } : {}),
     onLog: (event) => log.write(event),
@@ -704,6 +706,8 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
   if (royale && map !== 'zero-island') throw new Error('Battle Royale plays only on zero-island.');
   const squads = env['SQUADS'] ? Number(env['SQUADS']) : undefined;
   if (squads !== undefined && squads !== 1 && squads !== 2 && squads !== 3) throw new Error('SQUADS must be 1, 2 or 3.');
+  const holds = env['ROYALE_DROPS'] || undefined;
+  if (holds !== undefined && holds !== 'sniper' && holds !== 'resupply') throw new Error('ROYALE_DROPS must be sniper or resupply.');
   const timeLimit = env['TIME_LIMIT'] ? Number(env['TIME_LIMIT']) : undefined;
   const slowTickMs = env['SLOW_TICK_MS'] ? Number(env['SLOW_TICK_MS']) : undefined;
   if (slowTickMs !== undefined && !(slowTickMs > 0)) throw new Error('SLOW_TICK_MS must be a number of milliseconds above 0.');
@@ -727,6 +731,7 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv, defaultStaticDir: string)
     map: map as MapId,
     ...(timeLimit === undefined ? {} : { timeLimit }),
     ...(squads === undefined ? {} : { squadSize: squads }),
+    ...(holds === undefined ? {} : { dropHolds: holds }),
     botsPerTeam,
     maxBotsPerTeam,
     ...(env['EVENT_LOG'] ? { eventLog: env['EVENT_LOG'] } : {}),

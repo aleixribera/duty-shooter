@@ -2439,6 +2439,7 @@ export class Game {
         useLabel: this.#useLabel(),
         serverTime: driver.serverTime,
         dropLands: (stage) => this.#royale?.drops?.find((d) => d.stage === stage)?.lands,
+        ...(this.#royale?.holds ? { dropHolds: this.#royale.holds } : {}),
       }),
     );
   }

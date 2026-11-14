@@ -17,23 +17,22 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited; review 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 
-**PLAN item 7, rough sweep (ticket 117): passes 39-42 so far; each pass's detail, review and proof are in the ticket's comments.** Checklist:
+**PLAN item 7, rough sweep (ticket 117): passes 39-43 so far; each pass's detail, review and proof are in the ticket's comments.** Checklist:
 - [x] Unlocks (pass 39): 4 guns at Rank 1, one more every 2 Ranks to all 9 at Rank 12 (`GUN_RANKS`), any gun in the Practice Range, the match end names a gun opened, with Equip it.
 - [x] Save code on the Profile screen (copy, paste, load; `DS1-` + base64 JSON).
 - [x] Loadout on the main menu (the existing loadout screen; not yet the 3D editor).
 - [x] Loadout editor, rough (pass 40, v2.206.0): the gun in 3D, turning (`gun-stage.ts`); loadouts Main, Close, Breach, picked with 1 2 3 while dead. First open 3-5 s (shaders; BACKLOG).
 - [x] Results (pass 41, v2.207.0): each gun's Mastery at a match's end; Play again (P) at a Bot Match's end; Equip it on the pad.
 - [x] Customizing (pass 42, v2.208.0): muzzle devices, foregrips, long and speed magazines on the gun in first person and on the Loadout screen (Blender, `tools/weapon/fittings.py`); camos at Mastery 1-5, per gun; each optic's reticle colour and shape. Frames in `customize/after/`.
-- [ ] Battle Royale on loadouts: no ground loot, Supply Drops without the sniper (ask Aleix first, see PLAN).
-- [ ] Then ticket 116 (the reset; it must clear `camos` too), then a fresh review.
+- [x] Battle Royale on loadouts, behind a switch (pass 43): `?drops=resupply` / `ROYALE_DROPS=resupply` drop everyone with their loadout (Ridgeline too), crates resupply (frags, tacticals, health), nothing on the ground. Default stays the loot rules until Aleix says go (Needs Aleix); then flip `DropHolds`' default and drop the loot path.
+- [ ] Then ticket 116 (the reset; it must clear `camos` too), then a fresh review. The reset doesn't wait on the switch: loadouts work end to end in every mode.
 
 ## Needs Aleix
 
+- Battle Royale on loadouts (PLAN item 7, pass 43): once you have played loadouts in Bot Match, say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it first: Local bots with `?drops=resupply`.
 - Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level; Urban and Night pixelated); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.
 - Overridable (pass 29): the burst rifle is a bullpup model, though Aleix calls it a "SCAR"; a SCAR-shaped model would be its own step. The Vantage's fire-mode "F" glows with its reticle (same paint in the model).
 - Overridable (pass 29): weapon redesign numbers (ticket 112): shotgun one aimed blast to ~10 m; Trident one burst to 36 m; Vantage three body or head+body anywhere at 380 rpm; Marshal one head shot to 35 m.
-- Overridable (pass 13): teammates' tags at the screen's edge now show only in Battle Royale; in the team modes a teammate off screen has no tag.
-- Overridable (pass 27): the follow camera sits over the right shoulder (2.4 m back, 0.55 m right); a left-shoulder swap key was left out.
 - Overridable (pass 26): the Warden 9 and Marshal .357 are now held further out when aimed (0.46 m); further would shrink the front post below 2 px on a phone.
 - Overridable (pass 24): the pistol's new numbers (3 torso hits within 12 m, head x1.6) and the revolver's faster trigger (210 rpm) are a balance call; request 6 revisits the revolver.
 - Overridable (pass 23): one Battle Royale at a time on the server (ADR 0009), so there is no private Battle Royale code; the invite link joins the one Battle Royale and the inviter's Squad. Private ones would need a second island process per lobby (~415 MB each). No "Even squads" either: bots fill every Squad to its size, and the host's Move does the arranging.
@@ -42,8 +41,8 @@ Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0)
 
 ## Where things stand
 
-- Arc "next level" (`spec.md`): tickets 01-84; every one filed from reviews up to (f) is resolved (73-84 on 2026-11-12, v2.187.22 to v2.187.33).
-- Long-running, open: 19 attachments (phase 1 and the gunsmith shipped v2.165.0; optic models moved to 102, muzzle/grip models left), 102 scopes and sights (pass 1 shipped), 103 easy to understand (pass 1 shipped), 29 refactors (claimed), 33 the Ring's final tuning (waits on 35), 35 one picture fast on weak PCs (phases 1-2 shipped), 36 the whole match is the countdown (parts 1-2 shipped).
+- Arc "next level" (`spec.md`): tickets 01-84 all resolved.
+- Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
 - Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-13c (1, 4 pass; 2 not judgeable; 3, 5, 6 fail).
 - CI: a known soak flake, `switchyard-bots-gungame.soak.test.ts` (a bot stuck 28 s in gun game, v2.192.0); later runs passed.
 
@@ -63,7 +62,7 @@ None.
 
 - The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there with nothing on its screen; the recipe and probes are in ticket 99 (pass 31). Compare only within one page: its runs drift 40% with the owner on it. `REAL=1` runs it in a real full-screen window; a server inside an `lt run` script starts as `python3 -m http.server -d <dir> &` with a `trap`, or it keeps lt's lock (pass 32).
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
-- The shared headless Blender on port 9876 was reset under pass 5 twice (another session's `bkit.reset()` or a crash). Model rebuilds run reliably in their own process: `tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>` with a runner that calls `bkit.reset(); bkit.run(script, export=True)`.
+- Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 
-- Zero Island's nav under the dev server: built in a worker (~70 s here) on the first ask and kept until a source changes; the capture asks for it after its match.
+- Zero Island's nav under the dev server: built (~70 s) on the first ask, kept until a source changes. A Local bots match with frames: `royale-loadouts/look.mjs` (~6 min).
 - Toaster stand-in: `node .scratch/next-level/toaster/bench.mjs <label> [rate] [maps]` (benchmark page, uncapped, CPU throttle after load); `bench-builds.mjs` lists shader builds and long frames in a flight (`DEV=1` for `?bench`). The capture's range stall was the range's load, not play (ticket 99).

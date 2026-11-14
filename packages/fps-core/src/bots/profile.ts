@@ -2,6 +2,7 @@ import { DEG } from '../math';
 import { hashString, noise } from '../random';
 import { STATS, type WeaponId } from '../stats';
 import type { Loadout, PerkId, TacticalId } from '../weapon/loadout';
+import type { DropHolds } from '../modes/supply-drops';
 
 /** How a bot likes to play. */
 export type BotStyle = 'rusher' | 'flanker' | 'anchor' | 'roamer' | 'support';
@@ -217,13 +218,14 @@ export function botProfile(name: string): BotProfile {
 /**
  * A bot as it plays a Battle Royale: the same style, with slower eyes and a
  * looser hand from the stats file. One life against 59 means many more fights
- * than an arena match, so what's a fair duel there is a wall here. The sniper
- * comes only from a Supply Drop (ticket 71), so a style that would bring it
- * brings its next pick by the same roll (an anchor, mostly the M4A1).
+ * than an arena match, so what's a fair duel there is a wall here. Under the
+ * loot rules the sniper comes only from a Supply Drop (ticket 71), so a style
+ * that would bring it brings its next pick by the same roll (an anchor, mostly
+ * the M4A1); on loadouts (`holds` is `resupply`) it brings its own pick.
  */
-export function royaleProfile(profile: BotProfile): BotProfile {
+export function royaleProfile(profile: BotProfile, holds: DropHolds = 'sniper'): BotProfile {
   const R = STATS.royale;
-  const loadout = profile.loadout.primary === 'sniper' ? { ...profile.loadout, primary: pickPrimary(profile.style, noise(hashString(profile.name), 99), 'sniper') } : profile.loadout;
+  const loadout = holds === 'sniper' && profile.loadout.primary === 'sniper' ? { ...profile.loadout, primary: pickPrimary(profile.style, noise(hashString(profile.name), 99), 'sniper') } : profile.loadout;
   return { ...profile, loadout, reaction: profile.reaction * R.botReaction.value, aimError: profile.aimError * R.botAim.value };
 }
 
