@@ -2,7 +2,7 @@
 
 Status: open
 
-Release: v2.193.0 (pass 1), v2.211.1 (pass 47)
+Release: v2.193.0 (pass 1), v2.211.1 (pass 47), v2.211.19 (pass 63)
 
 Spec: `../spec.md`
 
@@ -61,3 +61,6 @@ Checked: `hints.test.ts` (new case fails on the old rule, passes on the new), ty
 
 Pass 53 (2026-11-14), the private lobby's rows (review 2026-11-14a, 41: "friend rows with no ping and open seats reading 'Bot'"): online, a seat the match fills with a bot is a friend's to take until the start (a friend joining by the link takes it), so it now has the open seat's dashed frame and reads "Open seat", with "Bot" small on its right for who plays it if no one joins; it is the bot's alone offline (Bot Match) and in Humans vs bots, which brings its bots on top of the people, so those still read "Bot". A person whose round trip isn't measured yet shows "– ms", unlit, instead of a gap. The friends' missing pings in the review were the capture's: its friends were bare sockets that never report a round trip, as every real client does in its `cmds`; `reviews/capture.mjs`'s friends now send one each second (Marta 38 ms, Pol 112 ms). Named bots in the lobby (CoD and Halo list them by name and skill) would need the server to name its bots before the start: left in BACKLOG.
 Checked: typecheck, `ui-model.test.ts` and `bot-match-sides.test.ts`. `../lobby-seats/look.mjs` (host in a private lobby; Marta reports 38 ms, Pol nothing): before, Pol's row had no ping and the five bot seats read "Bot" (`lobby-seats/before/01-tdm.jpg`); after, Pol "– ms", Marta "38 ms", bot seats "Open seat · Bot" in Team deathmatch and Free-for-all, plain "Bot" in Humans vs bots, desktop and phone (`lobby-seats/after/01-tdm.jpg`, `02-ffa.jpg`, `04-phone-seats.jpg`, `05-hvb.jpg`, `sheet.jpg`).
+
+Pass 63 (2026-11-14), "Back to the lobby in 0:08" in Bot Match (review 2026-11-14b, 16): a Bot Match's scoreboard counted down to "the lobby", but its page is titled Bot Match and names no lobby. A Bot Match's countdown now reads "Match setup in 0:08", in the "<what comes> in <time>" form of "Scoreboard in" and "Random match in"; online still says "Back to the lobby". Decision: "Match setup" over "Back to Bot Match" (reads as a match starting) because it says what the page is for (map, mode, Start).
+Checked: typecheck. `../bot-match-end/look.mjs` (a 15 s Bot Match on Switchyard, nobody at the controls): the end line reads "Match setup in 0:09" at 1920x1080 and "Match setup in 0:08" at 844x390 (`bot-match-end/after/1-end-desktop.jpg`, `2-end-phone.jpg`), then the BOT MATCH page (`3-bot-match-page.jpg`); before: `reviews/2026-11-14b/16-match-after.jpg`.

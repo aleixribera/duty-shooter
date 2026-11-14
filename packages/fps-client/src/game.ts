@@ -1161,6 +1161,7 @@ export class Game {
             team: teamMode(match.mode) ? (this.#cur?.team ?? null) : null,
             myVote: this.#myVote,
             playAgain: this.#canPlayAgain(),
+            botMatch: driver.pausesWithGame === true,
           }
         : null,
       respawnIn: match && (match.phase !== 'playing' || match.objective?.kind === 'charge') ? null : driver.respawnIn,

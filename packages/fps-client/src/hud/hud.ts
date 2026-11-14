@@ -440,6 +440,8 @@ export interface MatchView {
   readonly joined?: boolean;
   /** At the match's end, the same match can start again at once (a Bot Match): its Play again button shows. */
   readonly playAgain?: boolean;
+  /** A Bot Match: after its scoreboard you go back to the Bot Match page, which names no lobby. */
+  readonly botMatch?: boolean;
 }
 
 
@@ -1296,7 +1298,7 @@ export class Hud {
       html += `<div class="next board">Scoreboard in ${left}</div>`;
       if (random && !host) html += `<div class="next">The host chose a random next match</div>`;
     } else if (s.lobby) {
-      html += `<div class="next">${random ? (host ? `Random match in ${left}` : `The host chose a random next match: it starts in ${left}`) : `Back to the lobby in ${left}`}</div>`;
+      html += `<div class="next">${random ? (host ? `Random match in ${left}` : `The host chose a random next match: it starts in ${left}`) : view.botMatch ? `Match setup in ${left}` : `Back to the lobby in ${left}`}</div>`;
     } else if (s.phase === 'vote') {
       const total = Math.max(1, s.votes.tdm + s.votes.ffa);
       html += `<div class="vote ds-plate"><header><span class="ds-label">Vote for the next mode</span><span class="clock">${left}</span></header><div class="ds-votes">`;

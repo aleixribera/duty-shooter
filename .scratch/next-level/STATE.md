@@ -23,7 +23,7 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part). 1, 2, 5 pass; 3, 4, 6 fail. Its five defects and "close behind" list: BACKLOG "Review 2026-11-14b's open defects".
 
-Passes 55-61 (tickets 100, 102, 117; v2.211.11-17): review 14b's five defects, the master's clipping and the shotgun's receiver (each in BACKLOG with its pass). Pass 62 (ticket 102): the Prism 2x's reticle and sight window moved into the eyepiece, so aimed its clear picture is ~760 px across at 1080p instead of 480 down a tube (`prism-tunnel/sheet.jpg`). Next (pass 63): the rest of the "close behind" list ("Back to the lobby in 0:08" in Bot Match next), or a fresh review once enough has moved.
+Passes 55-61 (tickets 100, 102, 117; v2.211.11-17): review 14b's five defects, the master's clipping and the shotgun's receiver (each in BACKLOG with its pass). Pass 62 (ticket 102): Prism 2x picture fills the eyepiece. Pass 63 (ticket 103): a Bot Match's end counts down "Match setup in 0:08", not "Back to the lobby" (`bot-match-end/after/`). Next (pass 64): the rest of the "close behind" list (two subheads next), or a fresh review once enough has moved.
 
 ## Needs Aleix
 
