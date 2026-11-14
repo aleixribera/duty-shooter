@@ -1,7 +1,8 @@
-import { sightBlocked } from '../combat/projectiles';
+import { sightBlocked, sightReach } from '../combat/projectiles';
 import { distance, type Vec3 } from '../math';
 import type { PlayerOutput } from '../simulation';
 import { STATS } from '../stats';
+import type { World } from '../world';
 import type { ModeContext, SpawnPoint } from './game-mode';
 
 /** Distance (m) beyond which an enemy adds nothing more to a spawn's safety. */
@@ -159,6 +160,39 @@ export function shuffledOrder(n: number, random: () => number): number[] {
 function better(a: readonly number[], b: readonly number[]): boolean {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! > b[i]!;
   return false;
+}
+
+/** Ways a spawn's facing is chosen from, evenly round the compass (15 degrees apart). */
+const FACINGS = 24;
+/** Past this (m), more open ground ahead adds nothing to a facing. */
+const OPEN_VIEW = 40;
+/** A facing is judged by the view across it, the ways either side weighing less: about 60 degrees, as a screen shows. */
+const VIEW_WEIGHTS = [0.5, 1, 2, 1, 0.5] as const;
+/** What facing straight at `toward` is worth (m of open view): enough to choose between views alike, never to pick a wall. */
+const TOWARD_WORTH = 4;
+
+/**
+ * The yaw a person put down at `position` should face: the way with the most open ground in front of them,
+ * judged across the screen's width out to 40 m, so nobody starts nose to a wall or a hillside. `toward` (x, z),
+ * when given, breaks near ties (where the match goes on). Yaw 0 looks down -Z. For ground with no facing of its own (a
+ * Battle Royale's landings); a map's own spawns keep the facing they were given, turned only off a wall (`spawn-facing.ts`).
+ */
+export function landingFacing(world: World, position: Vec3, toward?: readonly [x: number, z: number]): number {
+  const eyeAt = eye(position, STATS.stance.standEyeHeight.value);
+  const yaws = Array.from({ length: FACINGS }, (_, i) => (i / FACINGS) * Math.PI * 2);
+  const open = yaws.map((yaw) => OPEN_VIEW * sightReach(world, eyeAt, [eyeAt[0] - Math.sin(yaw) * OPEN_VIEW, eyeAt[1], eyeAt[2] - Math.cos(yaw) * OPEN_VIEW]));
+  const half = (VIEW_WEIGHTS.length - 1) / 2;
+  const total = VIEW_WEIGHTS.reduce((a, b) => a + b, 0);
+  const goal = toward && Math.hypot(toward[0] - position[0], toward[1] - position[2]) > 1 ? Math.atan2(-(toward[0] - position[0]), -(toward[1] - position[2])) : null;
+  let best = 0;
+  let bestScore = -Infinity;
+  for (let i = 0; i < FACINGS; i++) {
+    let view = 0;
+    VIEW_WEIGHTS.forEach((w, k) => (view += w * open[(i + k - half + FACINGS) % FACINGS]!));
+    const score = view / total + (goal === null ? 0 : TOWARD_WORTH * Math.cos(yaws[i]! - goal));
+    if (score > bestScore) [best, bestScore] = [i, score];
+  }
+  return yaws[best]!;
 }
 
 /** Each player's latest spawns, so they don't keep coming back at the same spot. */

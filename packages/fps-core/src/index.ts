@@ -37,7 +37,7 @@ export { blastDamage } from './combat/grenade';
 export type { GrenadeOutput } from './combat/grenade';
 export { SmokeField, smokeAmount, smokeCentre, smokeHides, type SmokeCloud } from './combat/smoke';
 export type { TimeToKill } from './combat/ttk';
-export { raycastWorld, segmentSolid, sightBlocked, solidNormal } from './combat/projectiles';
+export { raycastWorld, segmentSolid, sightBlocked, sightReach, solidNormal } from './combat/projectiles';
 export type { WorldHit } from './combat/projectiles';
 export { SWAY_SETTLED, recoilKick, rowOf } from './weapon/weapon';
 export { DEFAULT_LOADOUT, PERK_IDS, TACTICAL_IDS, hasPerk, heldRow, kitInHand, kitOf, parseLoadout, slotWeapons } from './weapon/loadout';

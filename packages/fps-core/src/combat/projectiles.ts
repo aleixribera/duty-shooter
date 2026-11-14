@@ -82,6 +82,16 @@ export function sightBlocked(world: World, a: Vec3, b: Vec3): boolean {
   );
 }
 
+/** How far along a→b (0 to 1) a person's sight gets before something hides what lies beyond, by the rules of {@link sightBlocked}; 1 when nothing does. */
+export function sightReach(world: World, a: Vec3, b: Vec3): number {
+  const hit = world.bullets.firstHit(a, b, (i) => {
+    const s = world.solids[i] as Solid;
+    return s.prop === null && s.material !== 'glass' ? segmentSolid(a, b, s) : null;
+  });
+  const ground = world.terrain ? world.terrain.raycast(a, b, hit?.t ?? 1) : null;
+  return ground ?? hit?.t ?? 1;
+}
+
 /** Entry fraction of the segment a→b into a solid, or null on a miss. */
 export function segmentSolid(a: Vec3, b: Vec3, s: Solid): number | null {
   const o = s.orientation;

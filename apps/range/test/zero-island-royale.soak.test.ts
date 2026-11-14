@@ -19,7 +19,7 @@ const LENGTH = process.env['ROYALE_FULL'] ? 600 : 120;
 function opening(size: SquadSize, squads: number, seed: number) {
   const mode = new BattleRoyale({ squadSize: size, seed });
   const seats = Array.from({ length: 60 }, (_, i) => ({ id: `p${i + 1}`, name: `n${i + 1}`, team: null }));
-  const ctx = { spawns: map.spawns.ffa, ground } as unknown as ModeContext;
+  const ctx = { spawns: map.spawns.ffa, world, ground } as unknown as ModeContext;
   const teams = mode.start(seats, ctx);
   expect(new Set(teams.values()).size).toBe(squads);
   return { ring: mode.ring, spawns: seats.map((s) => ({ team: teams.get(s.id)!, spawn: mode.chooseSpawn(s.id, ctx) })) };

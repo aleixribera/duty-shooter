@@ -14,6 +14,7 @@ export { LOBBY_MODES, MODE_IDS, inSite, inZone, pickedLoadouts, siteCentre, team
 export { MEDALS, SCORE_POINTS, ScoreKeeper, betterMedal, isMedal } from './score';
 export type { Medal, ScoreLine, ScoreReason, ScoreTick } from './score';
 export { PlayGround, playGround } from './ground';
+export { landingFacing } from './spawns';
 export type { Town } from './ground';
 export { DROP_WEAPON, planDrops, roomForDrop, royaleLoadout, SupplyDrops, type DropHolds } from './supply-drops';
 export { planBeacons, Reboot } from './reboot';

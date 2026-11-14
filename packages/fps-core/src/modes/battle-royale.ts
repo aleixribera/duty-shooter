@@ -4,6 +4,7 @@ import type { PlayerId, PlayerInfo, PlayerOutput, SimEvent, TeamId } from '../si
 import { STATS } from '../stats';
 import type { BattleRoyaleState, GameMode, MatchEntrant, MatchResult, ModeContext, ModeEvent, ObjectiveState, RoyaleChampion, Score, SpawnPoint, TeamScore } from './game-mode';
 import { groundFromSpawns, squadSpots } from './ground';
+import { landingFacing } from './spawns';
 import { planRing, ringDamage, stageAt, type RingStage } from './ring';
 import { WIDE_SCALE } from './scale';
 import { Reboot, planBeacons } from './reboot';
@@ -180,7 +181,12 @@ export class BattleRoyale implements GameMode {
     const seed = this.#seed ?? Math.floor(this.#random() * 2 ** 32);
     const ground = ctx.ground ?? groundFromSpawns(ctx.spawns);
     this.#ring = planRing(ground, seededRandom(seed), this.timeLimit);
-    squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) => this.#spawns.set(i + 1, spawns));
+    // Each seat faces the most open way from where it lands, leaning to the first circle, not wherever chance turned it:
+    // a random facing put people nose to a wall or a barrier for their first seconds (review 2026-11-14c, defect 4).
+    const toward = this.#ring[0] ? ([this.#ring[0].to.x, this.#ring[0].to.z] as const) : undefined;
+    squadSpots(ground, this.#squads, this.squadSize, seededRandom(seed ^ 0x5bd1e995)).forEach((spawns, i) =>
+      this.#spawns.set(i + 1, spawns.map((s) => ({ ...s, yaw: landingFacing(ctx.world, s.position, toward) }))),
+    );
     this.#drops.start(this.#ring, ground, seededRandom(seed ^ 0x2f6b1c3d), ctx.world);
     this.#reboot.start(this.squadSize > 1 ? beaconsOf(ground) : [], this.squadSize, this.#ring.length);
     return teams;

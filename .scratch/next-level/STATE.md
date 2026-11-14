@@ -17,9 +17,9 @@ Standing direction (Aleix, 2026-11-13), for every request above and after: study
 
 Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (laptop) has its two passes spent (ticket 99); item 1b (Backlit UI) shipped. Passes 39-44: PLAN item 7 roughly (ticket 117); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Passes 45-66: reviews 14a and 14b's gaps (tickets 100, 102, 103, 117; v2.211.x), each in BACKLOG.
 
-Pass 67: review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG "Review 2026-11-14c's open defects". Pass 68 (ticket 102): no firing into smoke, the hit marker frames the target; the freezes track the PC's load (`kill-seen/`).
+Pass 67: review 2026-11-14c: 1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG. Pass 68 (ticket 102): no firing into smoke, the hit marker frames the target; the freezes track the PC's load (`kill-seen/`).
 
-Pass 69 (ticket 100, defect 3): Station Nine's free-for-all and Gun Game fill to 6 (first kill 2.4 to 3.3 s median); four opening-deal changes tried, none better (`first-blood/pass69.txt`). Next (pass 70): defect 4, the camera pressed into walls or the sky (21-b, 22-b, 44-play-b, 31-a/b), or defect 5, the Loadout's 4.6 s to its 3D gun.
+Pass 69 (ticket 100, defect 3): Station Nine's FFA and Gun Game fill to 6. Pass 70 (ticket 100, defect 4): Battle Royale seats land facing open ground (`zero-island-landing.test.ts`: 89 of 480 within 5 m of a wall before, 1 after); the rest of defect 4 is the review's scripted player (BACKLOG). Next (pass 71): defect 5, the Loadout's 3D gun (no camo or attachments on it, phone names wrap; its 4.6 s is shaders, two passes spent, in BACKLOG), or the scripted player's wall-pressing.
 
 ## Needs Aleix
 

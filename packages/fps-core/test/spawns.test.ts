@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation, createWorld, type Vec3 } from '@duty-shooter/fps-core';
 import { box } from '@duty-shooter/fps-core/harness';
-import { FreeForAll, Outposts, TeamDeathmatch, type ModeContext, type SpawnPoint } from '@duty-shooter/fps-core/modes';
+import { FreeForAll, Outposts, TeamDeathmatch, landingFacing, type ModeContext, type SpawnPoint } from '@duty-shooter/fps-core/modes';
 import { FLOOR } from './support/movement';
 
 /** A seeded stream of values in [0, 1), so the draws below are the same every run. */
@@ -242,5 +242,41 @@ describe('spawn rules', () => {
       expect(orange).toContain(drawn.chooseSpawn('p9', ctx));
       expect(blue).toContain(drawn.chooseSpawn('p1', ctx));
     });
+  });
+});
+
+describe('the way a spawn faces (review 2026-11-14c, defect 4)', () => {
+  /** Which way (x, z) a yaw looks: yaw 0 down -Z. */
+  const ahead = (yaw: number) => [-Math.sin(yaw), -Math.cos(yaw)] as const;
+  const wall = (min: Vec3, max: Vec3) => box({ min, max, material: 'concrete' });
+
+  it('turns away from a wall a step in front, to the open ground', () => {
+    // A wall 1.5 m to the north (-Z), wide and tall: a random facing would meet it a quarter of the time.
+    const world = createWorld([FLOOR, wall([-10, 0, -2], [10, 3, -1.5])]);
+    const [, z] = ahead(landingFacing(world, [0, 0, 0]));
+    // Its whole view clear of the wall: 30 degrees either side of straight ahead stays south of west and east.
+    expect(z).toBeGreaterThan(0.4);
+  });
+
+  it('faces the one way out of a pen of barriers', () => {
+    // Walled on the north, west and east; open to the south (+Z).
+    const world = createWorld([FLOOR, wall([-3, 0, -3], [3, 3, -2.5]), wall([-3, 0, -3], [-2.5, 3, 3]), wall([2.5, 0, -3], [3, 3, 3])]);
+    const [x, z] = ahead(landingFacing(world, [0, 0, 0]));
+    expect(z).toBeGreaterThan(0.9);
+    expect(Math.abs(x)).toBeLessThan(0.3);
+  });
+
+  it('on open ground, faces where it is told the match goes', () => {
+    const world = createWorld([FLOOR]);
+    const [x, z] = ahead(landingFacing(world, [0, 0, 0], [30, 0]));
+    expect(x).toBeGreaterThan(0.95);
+    expect(Math.abs(z)).toBeLessThan(0.3);
+  });
+
+  it('never picks a wall for the way the match goes', () => {
+    // The first circle lies past the wall to the north: the view away from it wins.
+    const world = createWorld([FLOOR, wall([-10, 0, -2], [10, 3, -1.5])]);
+    const [, z] = ahead(landingFacing(world, [0, 0, 0], [0, -100]));
+    expect(z).toBeGreaterThan(-0.5);
   });
 });

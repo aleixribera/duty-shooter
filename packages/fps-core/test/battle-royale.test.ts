@@ -270,7 +270,7 @@ describe('Early end', () => {
 describe('the Ring', () => {
   const ring = (seed: number, timeLimit?: number) => {
     const mode = new BattleRoyale({ seed, ...(timeLimit ? { timeLimit } : {}) });
-    mode.start(entrants(4), { spawns: SPAWNS, ground: playGround(NAV, WORLD) } as unknown as ModeContext);
+    mode.start(entrants(4), { spawns: SPAWNS, world: WORLD, ground: playGround(NAV, WORLD) } as unknown as ModeContext);
     return mode.ring;
   };
 

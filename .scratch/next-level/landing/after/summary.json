@@ -1,0 +1,63 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": null,
+  "tour": [],
+  "range": null,
+  "island": {
+    "play": {
+      "kills": 0,
+      "deaths": 0,
+      "seconds": 30,
+      "phase": "playing"
+    },
+    "frames": {
+      "frames": 844,
+      "meanMs": 35.7,
+      "p50Ms": 34.7,
+      "p95Ms": 41.6,
+      "p99Ms": 50.6,
+      "worstMs": 116,
+      "over50ms": 10,
+      "fps": 28,
+      "low1Fps": 12.7,
+      "workP50Ms": 7.9,
+      "workP99Ms": 39.1,
+      "render": {
+        "frames": 29,
+        "draws": 154,
+        "maxDraws": 154,
+        "triangles": 1279824,
+        "gpu": 2.297,
+        "geometries": 826,
+        "textures": 170
+      }
+    },
+    "heard": {
+      "footstep": 1452,
+      "slide": 28,
+      "gunshot": 23,
+      "impact": 6,
+      "ambientWind": 5,
+      "land": 5,
+      "casing": 2,
+      "mantle": 1,
+      "pain": 1,
+      "death": 1,
+      "adsIn": 1,
+      "adsOut": 1,
+      "grenadePin": 1,
+      "grenadeThrow": 1
+    },
+    "levels": {
+      "samples": 120,
+      "rmsMedianDb": -53,
+      "rmsLoudestDb": -27,
+      "peakDb": -4,
+      "silentShare": 0
+    },
+    "errors": []
+  },
+  "online": null,
+  "navWarm": "still building"
+}
