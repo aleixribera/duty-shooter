@@ -14,16 +14,28 @@ Decided with Aleix on 2026-11-13:
 - The UI style is Backlit (Aleix, 2026-11-13). He chose it from two rounds of mockups, after rejecting the period-themed looks and asking for "a dark theme, with low light, illuminating the important buttons/selection". `DESIGN.md` holds it, and `.scratch/next-level/ui/backlit/` holds the reference frames and the mockup's CSS.
 - Progression leads the loop's work now (Aleix, 2026-11-13, choosing what an overnight run should bring). The laptop's speed takes turns between progression passes instead of blocking them.
 
+Decided with Aleix on 2026-11-14, after he played (his answers to a grilling; item 9 holds them):
+- The match clock drops "T-".
+- Random next match is on at every match's end, and pressing it turns it off.
+- Choosing a loadout while dead is a pick, not a menu: you get 3 seconds there, and his friends won't explore menus, so new guns are offered to them where they already look.
+- Bots adapt to how each person is doing, hidden, with no difficulty setting.
+- A player gives a name once.
+- Battle Royale on loadouts goes live.
+- A kill dips the gun so the fall is seen.
+
 ## Current stage: the six objectives
 
 Items 0, 2, 3 and 4 are done; don't reopen them unless a review finds something broken a player meets. Tickets live in `.scratch/next-level/issues/`; file one per item when you start it. Tickets filed from review (h) on are worked only if they are something broken a player meets; the rest are closed as superseded by this plan.
 
-**The order of passes now:**
-1. Finish item 1b's open checks: the design-audit, the throttled frame times, and the kill moment gone by 1.8 s.
-2. Run a fresh review (`.claude/iterate.md`, Review) on the Backlit build.
-3. Item 7, rough, in its own order below. Between two progression passes, when the laptop is free and plugged in, one item 1 pass may run; never two item 1 passes in a row.
-4. Run a fresh review once item 7 works end to end.
-5. Second passes, worst first: take the failing objective whose gap the latest review calls most visible, fix that, and repeat. Items 5, 6 and 8 are worked this way, not top to bottom, and so is item 1 once its cap below is met.
+**The order of passes now** (2026-11-14):
+1. Item 9, Aleix's refinements, in its own order: a to h, one or two a pass. They come before everything else.
+2. Item 7's open parts from review 2026-11-14h:
+   - an unlock to equip from the results screen;
+   - the editor's 3D gun under 1 s (it takes 3.7 s);
+   - a save code imported into a fresh browser;
+   - a real Rank 12 Profile instead of the test fixture.
+3. A fresh review.
+4. Second passes, worst first: take the failing objective whose gap the latest review calls most visible, fix it, and repeat. Items 5, 6 and 8 are worked this way. So is item 1, when the laptop is free and plugged in: never two item 1 passes in a row.
 
 Each item is rough first (it works end to end) before any item gets a second pass.
 
@@ -77,10 +89,72 @@ Each item is rough first (it works end to end) before any item gets a second pas
    - **After the match:** a results screen with the XP bar filling, Mastery steps, Challenges done and anything unlocked, with "equip it" and "play again". During the fight only the score popups and one small notice when an unlock lands.
    - **A profile screen** (Rank, lifetime numbers, Mastery, unlocks) and a **save code** that exports the Profile and imports it on another PC.
    - **Customizing:** all four attachment slots (ticket 19) seen on the gun model; camos earned by Mastery; a reticle colour and shape for each optic.
-   - **Battle Royale on loadouts:** each player drops with the loadout they chose, everything they have unlocked; ground loot is gone; Supply Drops stay but never hold the Ridgeline .308 (they hold a resupply instead), and the Ridgeline is a loadout gun like the rest. Built last: dropping with loadouts can come in on its own, but ground loot is removed only after Aleix has played loadouts in Bot Match (ask under "Needs Aleix" once the rest of item 7 works, and keep going with other work meanwhile).
+   - **Battle Royale on loadouts:** each player drops with the loadout they chose, everything they have unlocked; ground loot is gone; Supply Drops stay but never hold the Ridgeline .308 (they hold a resupply instead), and the Ridgeline is a loadout gun like the rest. Aleix said go on 2026-11-14 (item 9g).
    Acceptance: a fresh Profile shows 4 guns open; a Profile at Rank 12 shows 9; the editor opens from the menu in under a second on this PC and holds 60 fps on the toaster, with frames at desktop and phone width; a Bot Match ends on a results screen with the bar filling and an unlock to equip; the save code carries a Profile into a fresh browser; a local Battle Royale starts every player with their loadout, shows no loot on the ground, and a Supply Drop opened without a sniper inside.
 8. **Easy to understand in a short time** (objective 5). From opening the link to playing in seconds, and a first match that teaches by doing.
    Acceptance: with a fresh profile, a scripted newcomer reaches a live match in under 15 s from the page opening; the first match shows its hint line and goal, and the review's objective 5 passes.
+
+9. **Aleix's refinements** (2026-11-14, from playing it, his answers to a grilling). Work them first, in this order, and give each its own acceptance check:
+   - **a. The clock without "T-".**
+     - The bar reads `9:23`, and in the last ten seconds `3.4`, with no leading zero.
+     - The announcer's spoken "T-minus five minutes" and "T-minus 60 seconds" stay: that is the world's voice, not the HUD.
+     - The clock's fixed width shrinks to its new longest face.
+   - **b. Random next match is on by default** (Aleix: "after the match ends it always starts on").
+     - At every match's end, online lobbies and Bot Match alike, the Random next match button starts pressed and lit.
+     - Pressing it turns it off. The timer then goes back to the lobby online, or to the match setup in a Bot Match.
+     - Left on, the timer runs straight into a random match: any lobby mode on a map that plays it, never Battle Royale.
+     - Online it is the host's button, and everyone sees whether it is on.
+     - Play Again stays a button in Bot Match.
+   - **c. A name, asked once.**
+     - The first time Play Online opens, it asks for the player's name.
+     - The name is kept in the Profile and the save code, and can be changed in Settings.
+     - Solo play never asks.
+     - Once a name is set, the same name shows everywhere (menu, lobby, feed, scoreboard), and no "Player 1234" appears.
+     - Aleix asked for the same in 3d-souls-low; that project's plan holds it.
+   - **d. Picking a loadout while dead.** Today F opens the full main-menu editor, while the respawn takes 3 s. Aleix finds it bloated and hard to read in a rush.
+     - **The three plates.**
+       - In every mode with a next life, the three loadouts appear on the death screen by themselves, with no key to press.
+       - They sit as three plates in the bottom third, with "YOU DIED" and the killcam readable above them.
+       - Each plate shows the loadout's name, the primary's silhouette and name, and the secondary and tactical as small icons.
+       - The loadout you carry is lit.
+     - **Picking.**
+       - A click, a tap, 1/2/3 or the D-pad picks one, for the next life.
+       - Picked after respawning, it applies the life after that, with one small notice.
+       - The respawn never waits.
+       - F no longer opens the editor while dead.
+     - **New guns are offered where players look.** Aleix's friends won't explore menus, and without this they'd keep the starting guns forever.
+       - On the death screen, a fourth, slimmer plate appears while a gun you have opened is in none of your loadouts, for example "New: Trident", key 4.
+       - One press puts that gun, with its saved attachments, in the lit loadout's primary slot.
+       - The plate goes away once taken, or after it has been passed on three deaths.
+       - On the results screen, when a gun unlocks, its plate has "Equip", which puts it in the loadout just played.
+       - Locked guns are not shown while dead.
+   - **e. The full editor from the pause menu.** Pause, then Loadouts, opens the editor mid-match. The respawn keeps counting, and changes apply to the next life.
+   - **f. The kill dip.**
+     - When a shot kills, the gun dips for about 150 ms and comes back, so the falling body is in view instead of behind the front sight post.
+     - It happens only on a kill.
+     - Review 14h's check on the kill frames (the "b" frame at 250 ms and the "c" frame at 500 ms) judges it.
+   - **g. Battle Royale on loadouts goes live** (Aleix said go).
+     - Everyone drops with their loadout, the Ridgeline is a pick, and Supply Drops hold a resupply.
+     - Nothing lies on the ground.
+     - This becomes the only Battle Royale, not something behind `?drops=resupply`.
+   - **h. Adaptive bots, hidden.** Bots sit on both sides, so adapting to the team score alone would make a strong player's own allies worse. Instead:
+     - **For each person.**
+       - Each human's recent form, the fights won and lost over about the last two minutes, tunes the reaction and aim of the enemy bots fighting that person.
+       - A player who keeps winning meets slightly sharper bots; one who keeps dying meets slower ones.
+       - Ally bots stay at the standard level.
+       - Online, each friend's enemies are tuned to that friend.
+     - **The score gap.** In team modes, a big score gap also lifts the losing side's bots a little. Free-for-all and Battle Royale adapt per person only.
+     - **Guardrails.**
+       - Within about ±25% of standard.
+       - Changes over about a minute.
+       - Nothing changes in the first two minutes.
+       - Never an aimbot or a punching bag.
+       - A strong player still wins more fights than they lose.
+       - No setting, and no text in the game.
+     - **Acceptance.**
+       - Tests hold the caps, the timing, and that ally bots don't change.
+       - In scripted Bot Matches, a strong scripted player's kills-to-deaths falls toward 1 but stays above it, and a weak one's rises.
+       - A lopsided team match ends with a smaller gap than the same seed without adapting.
 
 ## Acceptance for the stage
 
