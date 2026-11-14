@@ -1,0 +1,18 @@
+Pass 69 (ticket 100): first kill after the countdown, bots only, 48 seeded matches per row (SEED0=101), probe.test.ts.
+Baseline, 8 players:
+station ffa x8: first kill median 2.4 s, under 2 s 11, under 3 s 36; kills/match by 3 s 0.94, 5 s 2.44, 10 s 4.77
+station gungame x8: first kill median 2.4 s, under 2 s 9, under 3 s 39; kills/match by 3 s 1.33, 5 s 2.90, 10 s 5.60
+switchyard ffa x8: first kill median 3.0 s, under 2 s 11, under 3 s 22; kills/match by 3 s 0.56, 5 s 2.17, 10 s 3.90
+switchyard gungame x8: first kill median 2.8 s, under 2 s 1, under 3 s 26; kills/match by 3 s 0.69, 5 s 1.98, 10 s 4.02
+Tried, none better (all on Station Nine and Switchyard at 8):
+- bots' hunches off at the start: no change (2.4/2.2, 3.1/3.0)
+- opening deal also counting pairs that see each other after a stride along the facing (5, 6, 8 m; weight 0.3, 0.5): no better at 5 and 8 m, worse at 6 m/0.5 (1.6-1.8 s)
+- opening deal from the outermost spawns only (1.5x, 1.25x the players): worse (1.5-2.1 s): the end spawns see each other
+- leaving the worst-offending spawns out of the opening (Station (0,6.5), (+-16,22); Switchyard (+-24,-3), (-12,-26)): worse (1.5-2.8 s): the deal runs out of hidden spots
+At 6 players (shipped for Station Nine):
+station ffa x6: first kill median 3.3 s, under 2 s 4, under 3 s 23; kills/match by 3 s 0.58, 5 s 1.40, 10 s 2.92
+station gungame x6: first kill median 2.7 s, under 2 s 3, under 3 s 31; kills/match by 3 s 0.81, 5 s 1.54, 10 s 3.21
+switchyard ffa x6: first kill median 3.8 s, under 2 s 3, under 3 s 12; kills/match by 3 s 0.29, 5 s 0.94, 10 s 2.17
+switchyard gungame x6: first kill median 3.9 s, under 2 s 2, under 3 s 12; kills/match by 3 s 0.31, 5 s 1.00, 10 s 2.50
+Survival Town ffa x6 (unchanged): median 1.9 s, kills by 3 s 1.10.
+In the game: three Station Nine Gun Game Bot Matches from the menu (after-six/, look.mjs MODE="Gun Game"): lobby "Bots fill the match to 6 players"; first kill in the feed at 3.5, 2.2, 6.0 s; no page errors.

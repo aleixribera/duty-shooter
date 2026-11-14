@@ -25,13 +25,18 @@ export interface MapEntry {
  * Team sizes: the switchyard's long open yard takes 6v6, Survival Town's
  * streets 4v4; Station Nine, between them in size, plays 6v6 but Charge 4v4,
  * its two sites close together at one end. Modes where everyone is an enemy
- * (free-for-all, gun game) play emptier: 6 players on Survival Town and 8 on
- * the switchyard, so a spawn isn't a crossfire from every side.
+ * (free-for-all, gun game) play emptier: 6 players on Survival Town and
+ * Station Nine, 8 on the switchyard, so a spawn isn't a crossfire from every
+ * side. Station Nine seats 8 out of each other's sight but no more, and at 8
+ * its first kill came 2.4 s after the start (median of 48 bot matches; at 6,
+ * 3.3 s, and half as many kills in the first 5 s), against 3.0 s on the
+ * switchyard at 8 (ticket 100). Bots fill to these sizes; friends online can
+ * still join past them.
  */
 export const MAP_CATALOGUE = {
   'survival-town': { name: 'Survival Town', teamSizes: { tdm: 4, ffa: 3, outposts: 4, charge: 4, gungame: 3 }, match: true, baked: true, picture: true },
   switchyard: { name: 'Switchyard', teamSizes: { tdm: 6, ffa: 4, outposts: 6, charge: 6, gungame: 4 }, match: true, baked: true, picture: true },
-  'station-nine': { name: 'Station Nine', teamSizes: { tdm: 6, ffa: 4, outposts: 6, charge: 4, gungame: 4 }, match: true, baked: true, picture: true },
+  'station-nine': { name: 'Station Nine', teamSizes: { tdm: 6, ffa: 3, outposts: 6, charge: 4, gungame: 3 }, match: true, baked: true, picture: true },
   range: { name: 'Practice Range', teamSizes: {}, match: false, baked: true, picture: false },
   'zero-island': { name: 'Zero Island', teamSizes: { 'battle-royale': 30 }, match: false, baked: true, picture: true },
 } as const satisfies Record<string, MapEntry>;

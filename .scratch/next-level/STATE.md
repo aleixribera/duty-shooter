@@ -15,20 +15,15 @@ Aleix's requests (2026-11-13), in order; they come before PLAN.md and weakest-po
 
 Standing direction (Aleix, 2026-11-13), for every request above and after: study how well-loved shooters solve the same problem and copy the patterns that help (feel, tuning, feedback, UX); never recreate one game's own content (names, art, levels).
 
-Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (the laptop) has its two passes spent (ticket 99, levers in BACKLOG); item 1b (Backlit UI) shipped and audited.
+Passes 23-38: requests 1-8 built roughly (tickets 106-115, v2.195.0 to v2.204.0); PLAN item 1 (laptop) has its two passes spent (ticket 99); item 1b (Backlit UI) shipped. Passes 39-44: PLAN item 7 roughly (ticket 117); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Passes 45-66: reviews 14a and 14b's gaps (tickets 100, 102, 103, 117; v2.211.x), each in BACKLOG.
 
-PLAN item 7 (ticket 117): built roughly in passes 39-44 (v2.205.0 to v2.210.0); Battle Royale on loadouts stays behind `?drops=resupply` until Aleix says go. Review 2026-11-14a (pass 45): 1, 2 pass; 3, 4, 5 fail.
+Pass 67: review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG "Review 2026-11-14c's open defects". Pass 68 (ticket 102): no firing into smoke, the hit marker frames the target; the freezes track the PC's load (`kill-seen/`).
 
-Passes 45-54: review 14a's gaps (tickets 100, 102, 103; v2.211.0-9), then review 2026-11-14b (1, 2, 5 pass; 3, 4, 6 fail).
-
-Passes 55-66 (tickets 100, 102, 103, 117; v2.211.11-22): review 14b's five defects and its "close behind" list, each in BACKLOG with its pass.
-
-Pass 67: the capture's menu reads a live local server; review 2026-11-14c (`reviews/2026-11-14c.md`): 1, 5 pass; 2, 3, 4, 6 fail; defects in BACKLOG "Review 2026-11-14c's open defects".
-
-Pass 68 (ticket 102): the scripted player no longer fires into smoke (`Game.sees`), the hit marker frames the target; the freezes tracked the PC's load (Station Nine FFA at ~47% CPU: worst frame 146 ms, workP99 18-23 ms; `kill-seen/`). Next (pass 69): defect 3, fights in the first seconds (ticket 100, free-for-all spawns).
+Pass 69 (ticket 100, defect 3): Station Nine's free-for-all and Gun Game fill to 6 (first kill 2.4 to 3.3 s median); four opening-deal changes tried, none better (`first-blood/pass69.txt`). Next (pass 70): defect 4, the camera pressed into walls or the sky (21-b, 22-b, 44-play-b, 31-a/b), or defect 5, the Loadout's 4.6 s to its 3D gun.
 
 ## Needs Aleix
 
+- Overridable (pass 69): Station Nine's free-for-all and Gun Game fill with bots to 6 players, not 8, so they don't open on a fight (Switchyard 8, Survival Town 6 as before); CoD-style 8 would need new spawn spots there.
 - Overridable (pass 62): aimed, the Prism 2x's clear picture fills about 70% of the screen's height with its eyecup a ring round it; a bigger picture would push the cup off the top and bottom.
 - Overridable (pass 61): aimed, the shotgun holds your head 22 mm over the bead's line (gun tips 2 degrees).
 - Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).

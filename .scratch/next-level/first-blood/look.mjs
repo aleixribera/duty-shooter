@@ -24,6 +24,7 @@ try {
     await chrome.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 4, y: 4, button: 'left', clickCount: 1 });
     await chrome.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 4, y: 4, button: 'left', clickCount: 1 });
     for (const p of ['Bot Match', process.env.MAP ?? 'Station Nine', process.env.MODE ?? 'Free-for-all', 'Start']) {
+      if (p === 'Start') await shot(`run${run}-lobby`);
       if (!(await click(chrome, p))) throw new Error(`no "${p}" button`);
       await sleep(400);
     }

@@ -6,9 +6,9 @@ import { BOUNDARY, buildStationNine } from '../src/map/station-nine';
 const station = botMap(buildStationNine(), BOUNDARY);
 
 describe('Station Nine: bots on their own', () => {
-  it("play three minutes of gun game with the map's 8 players: they climb the ladder of guns, each with the gun of their level", () => {
-    const r = soak(station, 'gungame', 4);
-    expect(r.players).toBe(8);
+  it("play three minutes of gun game with the map's 6 players: they climb the ladder of guns, each with the gun of their level", () => {
+    const r = soak(station, 'gungame', 3);
+    expect(r.players).toBe(6);
     expect(r.outside).toEqual([]);
     expect(r.longest, r.where).toBeLessThan(8);
     expect(r.wrongGun.slice(0, 5)).toEqual([]);

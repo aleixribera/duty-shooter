@@ -24,6 +24,7 @@ const modes = (process.env.MODES ?? 'ffa,gungame').split(',') as ModeId[];
 const SEEDS = Number(process.env.SEEDS ?? 8);
 const PER = Number(process.env.PER ?? 3);
 
+const sim0 = (m: { server: { simulation: { time: number } } }) => m.server.simulation.time;
 it('first blood', () => {
   const all = { station: () => botMap(buildStationNine(), SN), switchyard: () => botMap(buildSwitchyard(), SY), town: () => botMap(buildSurvivalTown(), ST) } as const;
   for (const name of maps) {
@@ -31,6 +32,7 @@ it('first blood', () => {
     for (const mode of modes) {
       const firsts: string[] = [];
       let seen0 = 0;
+      let k3 = 0, k5 = 0, k10 = 0;
       for (let s = 1; s <= SEEDS; s++) {
         const random = rng(s * 7919 + Number(process.env.SEED0 ?? 0));
         const m = createNetworkedMatch({
@@ -47,9 +49,10 @@ it('first blood', () => {
           bots: { nav: b.nav, perTeam: PER, maxPerTeam: PER, alwaysOn: true },
         });
         let first = '';
+        const times: number[] = [];
         const at0 = new Map<string, string>();
         let startT: number | null = null;
-        for (let i = 0; i < 30 * 60 && !first; i++) {
+        for (let i = 0; i < 30 * 60 && (!first || sim0(m) - 5 < 10); i++) {
           const out = m.step();
           const sim = m.server.simulation;
           const counting = (m.server as unknown as { snapshotInfo?: unknown }) && false;
@@ -69,18 +72,20 @@ it('first blood', () => {
               }
           }
           for (const e of m.server.modeEvents) {
+            if (e.type === 'killFeed') times.push(sim.time - startT!);
             if (e.type === 'killFeed' && !first) {
               const k = out.players.find((p) => p.id === e.killer);
               const v = out.players.find((p) => p.id === e.victim);
-              first = `${(sim.time - startT!).toFixed(1)}s ${k ? k.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.killer)}) > ${v ? v.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.victim)})`;
+              first = `${(sim.time - startT!).toFixed(1)}s ${k ? k.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.killer ?? "")}) > ${v ? v.position.map((x) => x.toFixed(0)).join(',') : '-'} (from ${at0.get(e.victim)})`;
             }
           }
         }
         firsts.push(first || '>25s');
+        k3 += times.filter((t) => t < 3).length; k5 += times.filter((t) => t < 5).length; k10 += times.filter((t) => t < 10).length;
       }
       if (process.env.SHOW) for (const f of firsts) console.log(`  ${mode} ${f}`);
       const t = firsts.map((f) => (f.startsWith('>') ? 25 : parseFloat(f))).sort((a, b) => a - b);
-      console.log(`${name} ${mode} x${PER * 2}: in sight at T0 ${seen0}/${SEEDS} runs; first kill median ${t[t.length >> 1]!.toFixed(1)} s, under 2 s ${t.filter((x) => x < 2).length}, under 3 s ${t.filter((x) => x < 3).length}`);
+      console.log(`${name} ${mode} x${PER * 2}: in sight at T0 ${seen0}/${SEEDS} runs; first kill median ${t[t.length >> 1]!.toFixed(1)} s, under 2 s ${t.filter((x) => x < 2).length}, under 3 s ${t.filter((x) => x < 3).length}; kills/match by 3 s ${(k3 / SEEDS).toFixed(2)}, 5 s ${(k5 / SEEDS).toFixed(2)}, 10 s ${(k10 / SEEDS).toFixed(2)}`);
     }
   }
 }, 600_000);
