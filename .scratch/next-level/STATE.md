@@ -23,10 +23,11 @@ Passes 45-53 (PLAN order step 5, review 2026-11-14a's visible gaps, one per pass
 
 Pass 54: review 2026-11-14b (`reviews/2026-11-14b.md`; the capture gained a `progress` part: Loadout timed to the gun, Profile with guns open and save code). 1, 2, 5 pass; 3, 4, 6 fail. Its five, in order (BACKLOG "Review 2026-11-14b's open defects"): fights in the first seconds; kills hidden by your own muzzle flash or dust; camera buried in allies or geometry; Loadout 6.8 s to the gun with a sliver of a preview; the Range panel's stale numbers.
 
-Passes 55-56 (tickets 100, 102; v2.211.11-12): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s) and 2 (your own flash and smoke part round the aim point). Pass 57 (ticket 100, v2.211.13): defect 3, the camera no longer sits inside a teammate (a body the camera enters is hidden, bots keep 0.9 m and veer round teammates, respawns skip a spot a teammate stands on; bots no longer loop on Station Nine's tower ladders). Next (pass 58): defect 4, Loadout 6.8 s to the gun and its sliver of a preview.
+Passes 55-58 (tickets 100, 102, 117; v2.211.11-14): defects 1 (no free-for-all opens with an enemy in view; bots still meet in 2-3 s), 2 (your own flash and smoke part round the aim point), 3 (the camera no longer sits inside a teammate) and 4 (Loadout shows each gun's still in under 50 ms until its model is drawn, 6-9 s on a fresh page; the gun sways about side on; above the tiles on a phone). Next (pass 59): defect 5, the Range panel's stale numbers.
 
 ## Needs Aleix
 
+- Overridable (pass 58): the Loadout gun sways about side on and turns when dragged, instead of turning full circle (end on, it read as a sliver).
 - Overridable (pass 45): aiming through the Prism 2x or the Vantage now shows the world and the reticle only, so your own muzzle flash no longer shows inside the sight (it never covers the target); say if you want a flash there.
 - Battle Royale on loadouts (PLAN item 7, pass 43): once you have played loadouts in Bot Match, say go and Battle Royale drops everyone with their loadout, the Ridgeline is a pick, Supply Drops resupply instead of holding the sniper, and nothing lies on the ground. Try it first: Local bots with `?drops=resupply`.
 - Overridable (pass 42): camos Sand 1, Forest 2, Urban 3, Night 4, Gold 5 (Mastery level; Urban and Night pixelated); reticles red, green, amber, cyan or white as a dot, ring or chevron, set per optic, not per gun.

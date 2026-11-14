@@ -186,8 +186,11 @@ export const MENU_CSS = `
 .ds-kit.ds-sets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ds-kit.ds-sets .ds-mode span { letter-spacing: 0.04em; text-transform: none; }
 /* The gun in 3D over the Details card, turning on the page's dark. */
-.ds-stage { position: relative; aspect-ratio: 16 / 9; max-height: 240px; margin: 0 auto 12px; }
-.ds-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ds-stage { position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 480px; margin: 0 auto 12px; cursor: grab; touch-action: pan-y; }
+.ds-stage:active { cursor: grabbing; }
+.ds-stage canvas, .ds-stage img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ds-stage img { object-fit: contain; pointer-events: none; }
+.ds-stage img[hidden] { display: none; }
 .ds-mode.locked { cursor: not-allowed; background: var(--ds-ink); }
 .ds-mode.locked b { color: var(--ds-text-2); }
 .ds-mode.locked:hover { background: var(--ds-ink); }
@@ -256,6 +259,9 @@ html.ds-touch .ds-keys .touch-list { display: grid; }
 
 @media (max-width: 960px) {
   .ds-cols { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  /* One column: the gun comes first, above the tiles, instead of below every row of them. */
+  .ds-lo-cols > section:last-child { display: contents; }
+  .ds-lo-cols .ds-stage { order: -1; margin-bottom: 0; }
   .ds-row { grid-template-columns: 1fr; gap: 6px; padding: 10px 12px 12px 16px; }
   .ds-facts span:last-child { font-size: var(--ds-type-body); }
   .ds-dim { background: var(--ds-scrim); }
@@ -1275,8 +1281,9 @@ export class Menu {
    */
   #renderLoadout(screen: HTMLElement, h: El, button: (p: HTMLElement, text: string, onClick: () => void, kind?: 'primary' | 'back' | 'big' | '', iconName?: string) => HTMLButtonElement): void {
     const { aside, body, footer } = this.#page(screen, h, 'Loadout');
-    aside.append(h('span', this.#loadoutNote || 'Applies at your next spawn', 'ds-chip'));
-    const cols = h('div', '', 'ds-cols');
+    // Said only when a pick waits for something (a spawn, a drop); off a match it simply applies.
+    if (this.#loadoutNote) aside.append(h('span', this.#loadoutNote, 'ds-chip'));
+    const cols = h('div', '', 'ds-cols ds-lo-cols');
     body.append(cols);
     const left = h('section');
     const right = h('section');

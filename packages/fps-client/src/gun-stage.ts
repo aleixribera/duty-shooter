@@ -10,8 +10,20 @@ import type { CamoId, Reticles } from './customize';
 import { dressGun, dressedNow, type DressableGun } from './viewmodel/fittings';
 import { IRON_NODES, OPTIC_MOUNTS, SIGHT_WINDOW, mountOptic, opticTemplate, setReticles } from './viewmodel/optics';
 
-/** One full turn takes this long (s): slow enough to read the gun as it goes round. */
-const TURN_SECONDS = 24;
+/**
+ * The gun sways this far (radians) either side of side on, never end on: a full turn showed a sliver of muzzle half
+ * the time (review 2026-11-14b). Dragging turns it any way round.
+ */
+const SWAY = (32 * Math.PI) / 180;
+/** One sway, there and back (s). */
+const SWAY_SECONDS = 16;
+/** Turn (radians) per pixel dragged. */
+const DRAG_TURN = 0.012;
+/** Let go this long (ms), a dragged gun turns back to side on, the short way, by this much a second (1/s). */
+const RETURN_AFTER = 2500;
+const RETURN_RATE = 2.5;
+/** Side on, the gun's length fills this much of the stage's width. */
+const FILL = 0.86;
 /** Frames a second at most: the menu is still, and the toaster draws the map behind it as well. */
 const FPS = 30;
 /** The lens's vertical field of view (degrees): long, so the gun reads flat like a product shot. */
@@ -27,6 +39,23 @@ function noWindows(root: Object3D): void {
   for (const w of windows) w.visible = false;
 }
 
+/**
+ * Each gun's still, side on in its stock build (`apps/range/scripts/gun-stills.mjs` makes them from this stage):
+ * shown the moment the screen asks for a gun, until its model is drawn, which on a fresh page waits seconds on shaders.
+ */
+const STILLS: Readonly<Record<WeaponId, URL>> = {
+  m4a1: new URL('./viewmodel/assets/stills/m4a1.webp', import.meta.url),
+  smg: new URL('./viewmodel/assets/stills/smg.webp', import.meta.url),
+  shotgun: new URL('./viewmodel/assets/stills/shotgun.webp', import.meta.url),
+  sniper: new URL('./viewmodel/assets/stills/sniper.webp', import.meta.url),
+  pistol: new URL('./viewmodel/assets/stills/pistol.webp', import.meta.url),
+  lmg: new URL('./viewmodel/assets/stills/lmg.webp', import.meta.url),
+  dmr: new URL('./viewmodel/assets/stills/dmr.webp', import.meta.url),
+  burst: new URL('./viewmodel/assets/stills/burst.webp', import.meta.url),
+  revolver: new URL('./viewmodel/assets/stills/revolver.webp', import.meta.url),
+};
+const still = (id: WeaponId): string => STILLS[id].href;
+
 /** A gun on the stage: its model, and the optic on it now. */
 interface StagedGun {
   readonly root: Object3D;
@@ -37,17 +66,21 @@ interface StagedGun {
   readonly dress: DressableGun;
   /** Its shaders made, once asked for: by the first show, or ahead of it by `warm`. */
   compiled: Promise<void> | null;
+  /** Drawn on the stage at least once: its still is no longer needed. */
+  drawn: boolean;
 }
 
 /**
  * The Loadout screen's gun in 3D (PLAN item 7): the gun's own Blender model
- * with its optic on, turning slowly on the page's dark. Its own small
- * renderer on its own canvas, made the first time the screen opens and kept
- * for the page after, drawn only while the screen is up.
+ * with its optic on, swaying slowly on the page's dark, turned by dragging. Its
+ * own small renderer on its own canvas, made the first time the screen opens
+ * and kept for the page after, drawn only while the screen is up. Until a gun's
+ * model is drawn, its still stands in.
  */
 export class LoadoutGunStage implements GunStage {
   readonly element: HTMLElement;
   readonly #canvas: HTMLCanvasElement;
+  readonly #still: HTMLImageElement;
   #renderer: WebGPURenderer | null = null;
   #starting: Promise<void> | null = null;
   readonly #scene = new Scene();
@@ -58,7 +91,15 @@ export class LoadoutGunStage implements GunStage {
   #shown: WeaponId | null = null;
   /** Half the gun's length and half its height (m), which frame it side on. */
   #half = new Vector2(0.4, 0.12);
-  #angle = 0;
+  /** Seconds of sway drawn since the gun came on: 0 is side on, as its still. */
+  #time = 0;
+  /** Turned by dragging (radians). */
+  #spin = 0;
+  /** A drag is on, or when the last one ended (ms, `performance.now`). */
+  #dragging = false;
+  #released = 0;
+  /** The player asks for less motion. */
+  readonly #calm = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   #frame = 0;
   #last = 0;
   #drawn = 0;
@@ -77,7 +118,11 @@ export class LoadoutGunStage implements GunStage {
     this.element.className = 'ds-stage';
     this.element.setAttribute('role', 'img');
     this.#canvas = document.createElement('canvas');
-    this.element.append(this.#canvas);
+    this.#still = document.createElement('img');
+    this.#still.alt = '';
+    this.#still.hidden = true;
+    this.element.append(this.#still, this.#canvas);
+    this.#dragToTurn();
     const key = new DirectionalLight(0xffffff, 2.2);
     key.position.set(1.5, 2.5, 2);
     const rim = new DirectionalLight(0xffe2b8, 1.6);
@@ -89,6 +134,7 @@ export class LoadoutGunStage implements GunStage {
     this.element.setAttribute('aria-label', STATS.weapons[id].traits.name);
     const gun = this.#dress(id, kit, camo, reticles);
     if (this.#shown !== id) {
+      this.#showStill(id, gun);
       for (const [other, g] of this.#guns) g.root.visible = other === id && this.#frameable(g);
       this.#shown = id;
       void Promise.all([gun.loaded, this.#start()]).then(async () => {
@@ -121,6 +167,71 @@ export class LoadoutGunStage implements GunStage {
     await this.#compile(gun);
     // For a scripted look: which gun is ready.
     this.element.dataset['warm'] = id;
+  }
+
+  /**
+   * `id`'s still until its model is drawn; `data-shown` names the gun once either is on the screen. A gun drawn before
+   * shows at once, unless another gun's shaders are being made, which holds every frame: its still stands in meanwhile.
+   */
+  #showStill(id: WeaponId, gun: StagedGun): void {
+    if (gun.drawn && this.#compiling === 0) {
+      this.#still.hidden = true;
+      this.element.dataset['shown'] = id;
+      return;
+    }
+    delete this.element.dataset['shown'];
+    const src = still(id);
+    this.#still.hidden = false;
+    if (this.#still.getAttribute('src') !== src) this.#still.src = src;
+    void this.#still
+      .decode()
+      .then(() => {
+        if (this.#shown === id && !this.#still.hidden) this.element.dataset['shown'] = id;
+      })
+      .catch(() => undefined);
+  }
+
+  /** A drag across the stage turns the gun; a vertical swipe on a phone still scrolls the page (`touch-action`). */
+  #dragToTurn(): void {
+    let from: number | null = null;
+    this.element.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      from = e.clientX;
+      this.#dragging = true;
+      this.element.setPointerCapture(e.pointerId);
+    });
+    this.element.addEventListener('pointermove', (e) => {
+      if (from === null) return;
+      this.#spin += (e.clientX - from) * DRAG_TURN;
+      from = e.clientX;
+    });
+    const end = () => {
+      from = null;
+      this.#dragging = false;
+      this.#released = performance.now();
+      // Within half a turn of side on, so it comes back the short way.
+      this.#spin = Math.atan2(Math.sin(this.#spin), Math.cos(this.#spin));
+    };
+    this.element.addEventListener('pointerup', end);
+    this.element.addEventListener('pointercancel', end);
+    // The screen redrawn mid-drag takes the stage out of the page, and the capture with it.
+    this.element.addEventListener('lostpointercapture', end);
+  }
+
+  /**
+   * The stage's picture of the gun on it now, side on, as a WebP with a clear background: how its still is made
+   * (`apps/range/scripts/gun-stills.mjs`). Null until that gun is drawn.
+   */
+  snapshot(): string | null {
+    const gun = this.#shown ? this.#guns.get(this.#shown) : undefined;
+    if (!gun?.drawn) return null;
+    const [time, spin] = [this.#time, this.#spin];
+    this.#time = 0;
+    this.#spin = 0;
+    this.#render();
+    this.#time = time;
+    this.#spin = spin;
+    return this.#canvas.toDataURL('image/webp', 0.9);
   }
 
   /** `id`'s gun, with `kit`'s optic and fittings and `camo` on (once they are in). */
@@ -173,11 +284,11 @@ export class LoadoutGunStage implements GunStage {
         .loadAsync(new URL('./viewmodel/assets/m4a1-details.glb', import.meta.url).href)
         .then(({ scene }) => void attachAuthoredM4(m4, scene))
         .catch((error: unknown) => console.warn('Unable to load the M4A1 details for the Loadout screen:', error));
-      gun = { root: m4.root, kit: null, loaded, optic: null, compiled: null, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
+      gun = { root: m4.root, kit: null, loaded, optic: null, compiled: null, drawn: false, dress: { id, root: m4.root, loaded, magazine: () => m4.magazine, rest: () => null } };
     } else {
       const kit = buildKitGun(id);
       void kit.loaded.then(() => noWindows(kit.root));
-      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, compiled: null, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
+      gun = { root: kit.root, kit, loaded: kit.loaded, optic: null, compiled: null, drawn: false, dress: { id, root: kit.root, loaded: kit.loaded, magazine: () => kit.part('mag')?.node ?? null, rest: (name) => kit.part(name) } };
     }
     gun.root.visible = false;
     this.#turntable.add(gun.root);
@@ -212,8 +323,9 @@ export class LoadoutGunStage implements GunStage {
   #place(gun: StagedGun): void {
     this.#measure(gun);
     this.#half.copy(gun.root.userData['half'] as Vector2);
-    // Each gun comes on side on, then turns.
-    this.#angle = 0;
+    // Each gun comes on side on, as its still, then sways.
+    this.#time = 0;
+    this.#spin = 0;
     gun.root.visible = this.#shown !== null && this.#guns.get(this.#shown) === gun;
   }
 
@@ -287,8 +399,12 @@ export class LoadoutGunStage implements GunStage {
       this.#drawn = now;
       const dt = Math.min(0.1, (now - this.#last) / 1000);
       this.#last = now;
-      this.#angle = (this.#angle + (dt * Math.PI * 2) / TURN_SECONDS) % (Math.PI * 2);
-      this.#draw();
+      // The sway runs only while the gun is drawn, so it comes on side on, as its still, however long its shaders took.
+      if (this.#draw()) this.#time = (this.#time + dt) % SWAY_SECONDS;
+      if (!this.#dragging && this.#spin !== 0 && now - this.#released > RETURN_AFTER) {
+        this.#spin *= Math.exp(-RETURN_RATE * dt);
+        if (Math.abs(this.#spin) < 1e-3) this.#spin = 0;
+      }
     };
     this.#frame = requestAnimationFrame(tick);
   }
@@ -298,28 +414,46 @@ export class LoadoutGunStage implements GunStage {
     this.#camera.aspect = aspect;
     const across = Math.atan(Math.tan((FOV / 2) * (Math.PI / 180)) * aspect);
     const up = (FOV / 2) * (Math.PI / 180);
-    // Side on, its length a little inside the width and its height inside the height; turned, its ends come nearer and grow a little.
-    const distance = Math.max(half.x / Math.tan(across), half.y / Math.tan(up)) * 1.3 + half.x * 0.5;
+    // Side on, its length `FILL` of the width and its height inside the height. Swayed, it is shorter across, and its
+    // nearer end grows by less than that (the lens is long), so side on is its widest.
+    const distance = Math.max(half.x / Math.tan(across) / FILL, half.y / Math.tan(up) / 0.8);
     this.#camera.position.set(0, half.x * 0.12, distance);
     this.#camera.lookAt(0, 0, 0);
     this.#camera.updateProjectionMatrix();
   }
 
-  #draw(): void {
-    const renderer = this.#renderer;
-    if (!renderer || this.#compiling > 0) return;
-    const w = this.#canvas.clientWidth;
-    const h = this.#canvas.clientHeight;
-    if (w < 2 || h < 2) return;
-    const size = renderer.getSize(this.#size);
-    if (size.x !== w || size.y !== h) renderer.setSize(w, h, false);
-    // Side on to start (the muzzle to the right), turning about the upright axis.
-    this.#turntable.rotation.set(0, -Math.PI / 2 + this.#angle, 0);
-    this.#aim(this.#half, w / h);
-    renderer.render(this.#scene, this.#camera);
+  /** Draws a frame, unless shaders are being made; whether it drew the gun asked for. */
+  #draw(): boolean {
+    if (this.#compiling > 0 || !this.#render()) return false;
     // Which gun is on the stage once drawn, for a scripted look (`data-drawn`).
     const gun = this.#shown ? this.#guns.get(this.#shown) : undefined;
-    const drawn = gun?.root.visible ? `${this.#shown}${gun.optic?.node ? `+${gun.optic.id}` : ''}` : '';
+    const on = gun?.root.visible === true;
+    const drawn = on ? `${this.#shown}${gun.optic?.node ? `+${gun.optic.id}` : ''}` : '';
     if (this.element.dataset['drawn'] !== drawn) this.element.dataset['drawn'] = drawn;
+    if (on && this.#shown) {
+      gun.drawn = true;
+      // The model is on: its still goes in the same frame.
+      this.#still.hidden = true;
+      this.element.dataset['shown'] = this.#shown;
+    }
+    return on;
+  }
+
+  /** Renders the stage as it stands; false without a renderer or a canvas to draw on. */
+  #render(): boolean {
+    const renderer = this.#renderer;
+    if (!renderer) return false;
+    const w = this.#canvas.clientWidth;
+    const h = this.#canvas.clientHeight;
+    if (w < 2 || h < 2) return false;
+    const size = renderer.getSize(this.#size);
+    if (size.x !== w || size.y !== h) renderer.setSize(w, h, false);
+    // Side on at rest (the muzzle to the right), swaying about the upright axis, and turned as dragged.
+    // Held side on for a player who asks for less motion; dragging still turns it.
+    const sway = this.#calm?.matches ? 0 : SWAY * Math.sin((this.#time / SWAY_SECONDS) * Math.PI * 2);
+    this.#turntable.rotation.set(0, -Math.PI / 2 + sway + this.#spin, 0);
+    this.#aim(this.#half, w / h);
+    renderer.render(this.#scene, this.#camera);
+    return true;
   }
 }

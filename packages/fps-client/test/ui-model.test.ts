@@ -334,8 +334,9 @@ describe('the lobby', () => {
 });
 
 describe('when a loadout change applies, as the loadout screen says it', () => {
-  it('at once offline, from the next spawn online', () => {
-    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).not.toBe(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false }));
+  it('says nothing offline, where it applies at once, and from the next spawn online', () => {
+    expect(loadoutNote({ online: false, mode: 'tdm', phase: 'playing', preparing: false })).toBe('');
+    expect(loadoutNote({ online: true, mode: 'tdm', phase: 'playing', preparing: false })).not.toBe('');
   });
 
   it('in a Battle Royale, at the drop until the Preparation ends, then from the next match (ticket 59)', () => {

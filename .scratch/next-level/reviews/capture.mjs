@@ -410,8 +410,11 @@ if (want('progress'))
     await sleep(4000);
     if (!(await page.click('Loadout'))) throw new Error('no "Loadout" button');
     const t0 = Date.now();
+    // A gun on the screen: its still at first, its model once drawn (`data-shown`); then its model (`data-drawn`).
+    const shown = await page.waitFor(`!!document.querySelector('.ds-stage')?.dataset.shown`, 45_000, 25);
+    r.loadoutMsToGun = shown ? Date.now() - t0 : null;
     const drawn = await page.waitFor(`!!document.querySelector('.ds-stage')?.dataset.drawn`, 45_000, 25);
-    r.loadoutMsToGun = drawn ? Date.now() - t0 : null;
+    r.loadoutMsToModel = drawn ? Date.now() - t0 : null;
     r.loadoutDrawn = await page.js(`document.querySelector('.ds-stage')?.dataset.drawn ?? null`);
     await sleep(1500);
     await page.shot('05-loadout');

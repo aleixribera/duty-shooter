@@ -555,10 +555,12 @@ export type PauseAction = Exclude<Action, 'forward' | 'back' | 'left' | 'right'>
 /**
  * When a loadout change applies in the game being played, as the loadout
  * screen says it: a Battle Royale locks it when the Preparation ends, and a
- * pick after that waits for the next match (ticket 59).
+ * pick after that waits for the next match (ticket 59). Empty off a server,
+ * where a pick applies at once.
  */
 export function loadoutNote(game: { readonly online: boolean; readonly mode: ModeId | null; readonly phase: Phase | null; readonly preparing: boolean }): string {
-  if (!game.online) return 'Applies at once';
+  // Off a server a pick applies at once, which needs no saying.
+  if (!game.online) return '';
   if (game.mode !== 'battle-royale') return 'Applies at your next spawn';
   return game.phase === 'playing' && !game.preparing ? 'Locked until the next match' : 'Applies when you drop';
 }
