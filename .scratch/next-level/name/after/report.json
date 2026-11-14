@@ -1,0 +1,131 @@
+{
+  "steps": [
+    {
+      "step": "1 fresh menu",
+      "screen": "DUTY SHOOTER",
+      "corner": "1 Rank 1 Observer · 0 / 800 XP",
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": null,
+        "profile": []
+      }
+    },
+    {
+      "step": "2 bot match setup",
+      "screen": "Duty Shooter",
+      "corner": "1Rank 1 Observer · 0 / 800 XP",
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": null,
+        "profile": []
+      }
+    },
+    {
+      "step": "3 play online",
+      "screen": "YOUR NAME",
+      "corner": null,
+      "cornerBox": null,
+      "asked": true,
+      "playerNNNN": false,
+      "stored": {
+        "settings": null,
+        "profile": []
+      }
+    },
+    {
+      "step": "4 lobby",
+      "screen": "Connecting",
+      "corner": null,
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": "Aleix",
+        "profile": [
+          [
+            "duty-shooter.profile.v2",
+            "Aleix"
+          ]
+        ]
+      },
+      "names": [],
+      "lobbyText": true
+    },
+    {
+      "step": "5 menu again",
+      "screen": "DUTY SHOOTER",
+      "corner": "1 Rank 1 Observer · 0 / 800 XP",
+      "cornerBox": "Aleix",
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": "Aleix",
+        "profile": [
+          [
+            "duty-shooter.profile.v2",
+            "Aleix"
+          ]
+        ]
+      }
+    },
+    {
+      "step": "6 settings",
+      "screen": "SETTINGS",
+      "corner": null,
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": "Aleix",
+        "profile": [
+          [
+            "duty-shooter.profile.v2",
+            "Aleix"
+          ]
+        ]
+      },
+      "box": "Aleix"
+    },
+    {
+      "step": "7 reload, play online",
+      "screen": "CONNECTING",
+      "corner": null,
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": "Aleix",
+        "profile": [
+          [
+            "duty-shooter.profile.v2",
+            "Aleix"
+          ]
+        ]
+      }
+    },
+    {
+      "step": "8 joined without asking",
+      "screen": "Connecting",
+      "corner": null,
+      "cornerBox": null,
+      "asked": false,
+      "playerNNNN": false,
+      "stored": {
+        "settings": "Aleix",
+        "profile": [
+          [
+            "duty-shooter.profile.v2",
+            "Aleix"
+          ]
+        ]
+      },
+      "joined": true
+    }
+  ],
+  "errors": [],
+  "profile": "{\"version\":1,\"xp\":0,\"stats\":{\"matches\":0,\"wins\":0,\"kills\":0,\"deaths\":0,\"headshots\":0,\"assists\":0,\"score\":0,\"seconds\":0,\"bestStreak\":0,\"royaleWins\":0,\"royaleBest\":null,\"modes\":{}},\"weapons\":{},\"daily\":{\"date\":\"\",\"progress\":{}},\"courseBest\":null,\"name\":\"Aleix\"}"
+}

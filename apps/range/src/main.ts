@@ -1,4 +1,4 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, rebuild, royaleOpens, royaleServer, saveSettings, settingsWithName, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, Menu, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, profileName, rebuild, standInName, royaleOpens, royaleServer, saveSettings, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -20,16 +20,18 @@ if (!canvas || !status) throw new Error('index.html is missing #view or #status'
 const params = new URLSearchParams(location.search);
 async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWebGL: boolean): Promise<void> {
   let settings: Settings = loadSettings();
-  // A first visit gets a name at once (ticket 103): Play Online joins in one click under it, and the menu's name box changes it.
-  const named = settingsWithName(settings);
-  if (named !== settings) {
-    settings = named;
-    saveSettings(settings);
-  }
   // The menus draw the team colours too, before the engine is there to set them.
   useColourVision(settings.colourVision);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
+  // The name (PLAN item 9c) is the Profile's, asked the first time Play Online joins; one kept with the settings before moves in,
+  // and the stand-in "Player 1234" a first visit was once given is no name, so it is asked for too.
+  const kept = profile.profile.name || (standInName(settings.name) ? '' : profileName(settings.name));
+  if (kept !== settings.name) {
+    settings = { ...settings, name: kept };
+    saveSettings(settings);
+  }
+  if (kept !== profile.profile.name) profile.rename(kept);
   // All progression went back to Rank 1 (ticket 116): the camos picked with Mastery from before it go too.
   if (profile.wiped && Object.keys(settings.camos).length > 0) {
     settings = { ...settings, camos: {} };
@@ -402,6 +404,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       resume: () => void enter(),
       leave: () => leaveGame(),
       changeSettings: (next) => {
+        if (next.name !== settings.name) profile.rename(next.name);
         if (next.loadout !== settings.loadout) game?.driver?.setLoadout(menu.practice ? next.loadout : matchLoadout(next.loadout));
         settings = next;
         saveSettings(next);
@@ -549,16 +552,21 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   const joinRoyale = (name: string, passphrase: string) => {
     const attempt = ++joinAttempt;
-    onlineName = name;
-    if (name !== settings.name) {
+    // Local bots is solo play: it never asks for a name (PLAN item 9c), and plays under the one there is, or as "You".
+    // The screen keeps the name there is, not "You", so a switch to the server after a failed start still asks.
+    const local = royale.source === 'local';
+    const playAs = local ? settings.name.trim() || 'You' : name;
+    onlineName = playAs;
+    if (!local && name !== settings.name) {
       settings = { ...settings, name };
       saveSettings(settings);
+      profile.rename(name);
       menu.settings = settings;
     }
-    royale = { ...royale, name, joining: 0, error: null };
+    royale = { ...royale, name: local ? settings.name.trim() : name, joining: 0, error: null };
     royalePassphrase = lobby?.kind === 'server' && lobby.public ? '' : passphrase;
     showRoyale();
-    if (royale.source === 'local') return void joinLocalRoyale(attempt, name);
+    if (local) return void joinLocalRoyale(attempt, playAs);
     void lobbyStatus(ROYALE_STATUS).then(async (status) => {
       if (attempt !== joinAttempt) return;
       if (!status || !royaleServer(status).join) {

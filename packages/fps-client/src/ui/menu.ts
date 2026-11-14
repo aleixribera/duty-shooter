@@ -160,6 +160,10 @@ export const MENU_CSS = `
 .ds-row select, .ds-bind { width: 100%; height: 40px; padding: 0 36px 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 600 var(--ds-type-small) var(--ds-font-display); letter-spacing: 0.1em; text-transform: uppercase; text-align: left; }
 .ds-row select { appearance: none; -webkit-appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ffe2b0' stroke-width='1.8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 .ds-row select option { background: var(--ds-panel); text-transform: none; }
+.ds-row input.ds-text { box-sizing: border-box; width: 100%; height: 40px; padding: 0 12px; background: var(--ds-ink); color: var(--ds-text); border: 1px solid var(--ds-line-2); border-radius: 0; font: 700 var(--ds-type-body) var(--ds-font); letter-spacing: 0.02em; }
+.ds-row input.ds-text::placeholder { color: var(--ds-text-2); font-weight: 400; }
+.ds-row input.ds-text:focus, .ds-row input.ds-text[data-pad-focus] { border-color: var(--ds-light-edge); outline: none; }
+@media (pointer: coarse) { .ds-row input.ds-text { min-height: 44px; } }
 .ds-row select:focus, .ds-bind:focus, .ds-row select[data-pad-focus], .ds-bind[data-pad-focus] { border-color: var(--ds-light-edge); outline: none; }
 .ds-bind { padding-right: 12px; cursor: pointer; }
 .ds-bind:hover { border-color: var(--ds-light-half); }
@@ -390,7 +394,7 @@ export interface GunStage {
 
 export type Lobby = { readonly kind: 'server'; readonly public: boolean; status?: LobbyInfo | null } | { readonly kind: 'link'; readonly url: string };
 
-type Screen = 'main' | 'online' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile' | 'changelog';
+type Screen = 'main' | 'online' | 'name' | 'loading' | 'connecting' | 'error' | 'pause' | 'settings' | 'tip' | 'loadout' | 'profile' | 'changelog';
 
 type El = (tag: string, text?: string, cls?: string) => HTMLElement;
 
@@ -826,6 +830,38 @@ export class Menu {
       case 'online':
         this.#renderOnline(screen, h, button);
         break;
+      case 'name': {
+        // Asked once, the first time Play Online joins (PLAN item 9c): kept in the Profile after, and changed in Settings.
+        const p = panel('Your name');
+        const form = h('form') as HTMLFormElement;
+        // An empty box only takes the focus again: no browser bubble over the Backlit panel.
+        form.noValidate = true;
+        const wrap = h('label', '', 'ds-field');
+        const input = h('input') as HTMLInputElement;
+        input.maxLength = 16;
+        input.required = true;
+        input.setAttribute('aria-label', 'Your name');
+        input.setAttribute('autocomplete', 'nickname');
+        input.spellcheck = false;
+        wrap.append(input);
+        const row = h('div', '', 'ds-btns');
+        const go = h('button', 'Play Online', 'ds-btn primary') as HTMLButtonElement;
+        go.type = 'submit';
+        row.append(go);
+        button(row, 'Back', () => this.show('main'), 'back');
+        form.append(wrap, row);
+        p.append(form);
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const n = input.value.trim().slice(0, 16);
+          if (!n) return input.focus();
+          this.#change({ name: n });
+          this.#callbacks.playOnline(n, '', null, null);
+        });
+        // The one thing to do here is type: the box has the focus, on a phone too, since this page exists to ask.
+        queueMicrotask(() => input.focus({ preventScroll: true }));
+        break;
+      }
       case 'loading': {
         const p = panel(this.#loading.title);
         // The screen's one figure: how much of the map is in, or a quiet line while that is unknown.
@@ -940,6 +976,22 @@ export class Menu {
     return el;
   }
 
+  /** The name, typed over in place: an emptied box goes back to the name it had, since a name once given stays. */
+  #nameInput(h: El, label: string): HTMLInputElement {
+    const name = h('input') as HTMLInputElement;
+    name.maxLength = 16;
+    name.value = this.#settings.name;
+    name.setAttribute('aria-label', label);
+    name.setAttribute('autocomplete', 'nickname');
+    name.spellcheck = false;
+    name.addEventListener('change', () => {
+      const n = name.value.trim().slice(0, 16);
+      if (n) this.#change({ name: n });
+      name.value = this.#settings.name;
+    });
+    return name;
+  }
+
   #renderMain(screen: HTMLElement, h: El): void {
     const home = h('div', '', 'ds-home');
     screen.append(home);
@@ -948,24 +1000,20 @@ export class Menu {
     brand.innerHTML = `<h1>Duty Shooter</h1>`;
     top.append(brand);
 
-    // The profile corner: the Rank this browser has earned, and the name, remembered between visits and typed over in place.
+    // The profile corner: the Rank this browser has earned, and the name once Play Online has asked for it (PLAN item 9c), typed over in place.
+    // With no name yet there is no box: solo play never asks.
     const rank = this.#profile ? rankCorner(this.#profile.profile) : null;
-    const corner = h('div', '', `ds-corner ds-plate${rank ? '' : ' no-rank'}`);
-    if (rank) corner.insertAdjacentHTML('beforeend', rank.badge);
-    const who = h('div', '', 'who');
-    const name = h('input') as HTMLInputElement;
-    name.maxLength = 16;
-    name.placeholder = 'Your name';
-    name.value = this.#settings.name;
-    name.setAttribute('aria-label', 'Name');
-    name.setAttribute('autocomplete', 'nickname');
-    name.spellcheck = false;
-    name.addEventListener('change', () => this.#change({ name: name.value.trim().slice(0, 16) }));
-    who.append(name);
-    if (rank) who.insertAdjacentHTML('beforeend', rank.meta);
-    corner.append(who);
-    if (rank) corner.insertAdjacentHTML('beforeend', rank.bar);
-    top.append(corner);
+    const named = this.#settings.name.trim() !== '';
+    if (rank || named) {
+      const corner = h('div', '', `ds-corner ds-plate${rank ? '' : ' no-rank'}`);
+      if (rank) corner.insertAdjacentHTML('beforeend', rank.badge);
+      const who = h('div', '', 'who');
+      if (named) who.append(this.#nameInput(h, 'Name'));
+      if (rank) who.insertAdjacentHTML('beforeend', rank.meta);
+      corner.append(who);
+      if (rank) corner.insertAdjacentHTML('beforeend', rank.bar);
+      top.append(corner);
+    }
     home.append(top);
 
     const lobby = this.#lobby;
@@ -985,16 +1033,12 @@ export class Menu {
     const server = lobby?.kind === 'server';
     const link = lobby?.kind === 'link' ? lobby.url : null;
     const t = lobbyTile(server ? (lobby.status ?? null) : null, this.#mapName);
-    // The public lobby joins in one click under the name above (typed first if there is none); a private server asks for its passphrase.
+    // The public lobby joins in one click under the name above, asked for once first (PLAN item 9c); a private server asks for its passphrase, and its page for the name.
     const playOnline = () => {
       if (link) return location.assign(link);
       if (!server || !lobby.public) return this.#openOnline();
-      const n = name.value.trim().slice(0, 16);
-      if (!n) {
-        name.focus();
-        return;
-      }
-      this.#change({ name: n });
+      const n = this.#settings.name.trim().slice(0, 16);
+      if (!n) return this.show('name');
       this.#callbacks.playOnline(n, '', null, null);
     };
     // No server answering: Play Online keeps its place but steps back, saying what it waits for, and the lit Bot Match leads.
@@ -1519,6 +1563,8 @@ export class Menu {
             ? 'That code was made before every Profile went back to Rank 1, on 14 November 2026, and can no longer be loaded.'
             : `That is not a save code. Copy the whole line, from ${SAVE_CODE_HEAD} to its end.`;
         if (loaded) this.#savePaste = '';
+        // The code's name comes with it (PLAN item 9c).
+        if (loaded && store.profile.name && store.profile.name !== this.#settings.name) this.#change({ name: store.profile.name });
         this.#render();
       });
       box.append(out, paste, row);
@@ -1802,6 +1848,13 @@ export class Menu {
         shown.refresh(this.#settings.crosshair);
         restorable();
       };
+    } else if (tab === 'player') {
+      // The name others see online (PLAN item 9c), kept in the Profile and its save code.
+      section('Online');
+      const name = this.#nameInput(h, 'Name');
+      name.placeholder = 'Asked the first time you play online';
+      name.classList.add('ds-text');
+      row('Name', name);
     } else {
       section('Motion');
       slider('Camera motion', s.cameraMotion, 0, 1, 0.05, percent, (v) => this.#change({ cameraMotion: v }), 'Bob, lean, landing dip and weapon sway.');
@@ -1833,6 +1886,8 @@ export class Menu {
     };
     restorable();
     this.#afterChange ??= restorable;
+    // Nothing on the Player tab has a default to go back to.
+    if (tab === 'player') restore.remove();
     tabs.querySelector('.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     footer.append(this.#hints(h, hint('↑↓', '✥', 'Move'), hint('←→', '✥', 'Adjust')));
     footer.classList.add('ds-set-foot');

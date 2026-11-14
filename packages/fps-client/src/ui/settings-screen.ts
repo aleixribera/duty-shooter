@@ -20,11 +20,12 @@ export const SECTION_NAMES: Readonly<Record<SettingsSection, string>> = {
   audio: 'Audio',
   hud: 'HUD and crosshair',
   accessibility: 'Accessibility',
+  player: 'Player',
 };
 
 /** The sections in the order their tabs stand: Touch first where a finger plays, after the mouse and the pad elsewhere. */
 export function sectionOrder(touch: boolean): readonly SettingsSection[] {
-  return touch ? ['touch', 'controls', 'mouse', 'video', 'audio', 'hud', 'accessibility'] : ['controls', 'mouse', 'touch', 'video', 'audio', 'hud', 'accessibility'];
+  return touch ? ['touch', 'controls', 'mouse', 'video', 'audio', 'hud', 'accessibility', 'player'] : ['controls', 'mouse', 'touch', 'video', 'audio', 'hud', 'accessibility', 'player'];
 }
 
 /** What the page knows of the picture once the engine is up; null before. */

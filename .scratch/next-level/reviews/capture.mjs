@@ -902,6 +902,13 @@ if (want('online')) {
       await page.js(fill);
       if (!(await page.click('Play Online'))) throw new Error('no Play Online button');
       await sleep(1500);
+      // A fresh browser's first Play Online asks for the name, once (PLAN item 9c).
+      if (await page.js(`!!document.querySelector('[aria-label="Your name"]')`)) {
+        await page.shot('40-online-name');
+        await page.js(fill);
+        if (!(await page.click('Play Online'))) throw new Error('no Play Online button under the name');
+        await sleep(1500);
+      }
       await page.shot('40-online-join');
       if (passphrase) {
         await page.js(fill);

@@ -212,7 +212,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /** The Settings screen's sections, and the settings each one holds: what "Restore defaults" puts back. */
-export type SettingsSection = 'controls' | 'mouse' | 'touch' | 'video' | 'audio' | 'hud' | 'accessibility';
+export type SettingsSection = 'controls' | 'mouse' | 'touch' | 'video' | 'audio' | 'hud' | 'accessibility' | 'player';
 export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof Settings)[]>> = {
   controls: ['bindings', 'adsMode', 'crouchMode', 'sprintMode'],
   mouse: ['sensitivity', 'adsMultiplier', 'invertY', 'padLayout', 'padSensitivityX', 'padSensitivityY', 'padAdsMultiplier', 'padInvertY', 'padDeadzone', 'padAimAssist', 'padRumble'],
@@ -221,6 +221,8 @@ export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof 
   audio: ['volume', 'musicVolume', 'effectsVolume', 'voiceVolume', 'uiVolume'],
   hud: ['hudScale', 'showPing', 'showRangeOverlay', 'crosshair'],
   accessibility: ['cameraMotion', 'fovEffects', 'colourVision', 'captions'],
+  // The name (PLAN item 9c): who you are, so no default to go back to.
+  player: [],
 };
 
 /** `settings` with one section back at its defaults; everything else, and what Auto measured, as it was. */
@@ -384,21 +386,6 @@ export function parseSettings(raw: unknown): Settings {
 /** The mix these settings ask for: the master and a level for each bus. */
 export function mixOf(settings: Settings): MixLevels {
   return { master: settings.volume, music: settings.musicVolume, effects: settings.effectsVolume, voice: settings.voiceVolume, ui: settings.uiVolume };
-}
-
-/**
- * A name to play under from the first visit (next-level ticket 103): Play
- * Online joins in one click under the menu's name, and with none it only lit
- * the empty name box. Plain and visibly a stand-in, so it reads as one to
- * change; at most 16 characters, as every name.
- */
-export function newcomerName(random: () => number = Math.random): string {
-  return `Player ${1000 + Math.floor(random() * 9000)}`;
-}
-
-/** The settings, with a name given to a browser that has none yet (saved, so it stays the same visit to visit). */
-export function settingsWithName(settings: Settings, random?: () => number): Settings {
-  return settings.name.trim() ? settings : { ...settings, name: newcomerName(random) };
 }
 
 export function loadSettings(): Settings {

@@ -83,7 +83,8 @@ try {
     await chrome.waitFor(`!!globalThis.__find?.('Play Online')`, 60_000, 50);
     if (royale) {
       // Battle Royale's screen: the name, the Squad size, Join server, then Start and Ready in the Preparation.
-      await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; document.querySelector('.ds-menu input').dispatchEvent(new Event('input')); __find('Battle Royale').click()`);
+      // The Battle Royale screen asks for the name itself (filled below) when none is kept yet.
+      await chrome.evaluate(`__find('Battle Royale').click()`);
       await chrome.waitFor(`!!__find('Join server')`, 120_000, 100);
       const size = { 2: 'Duos', 3: 'Trios' }[process.env.SQUADS ?? ''];
       if (size) await chrome.evaluate(`__find(${JSON.stringify(size)}).click()`);
@@ -95,8 +96,10 @@ try {
       await chrome.evaluate(`__find('Ready')?.click()`);
       if (!(await chrome.waitFor(`__state() === 'playing' && (document.querySelector('.ds-prep')?.hidden ?? true)`, 60_000, 100))) throw new Error(`Not in the match: ${await chrome.evaluate('__state()')}`);
     } else {
-      // A public lobby joins from the tile, under the name above it; with no name the tile only focuses the field.
-      await chrome.evaluate(`document.querySelector('.ds-menu input').value = 'Chaos'; __find('Play Online').click()`);
+      // A public lobby joins from the tile, under the kept name; a browser with none is asked for it once first (PLAN item 9c).
+      await chrome.evaluate(`__find('Play Online').click()`);
+      await chrome.waitFor(`!!document.querySelector('[aria-label="Your name"]') || !!__find('Join') || !!__find('Start')`, 20_000, 50);
+      await chrome.evaluate(`{ const i = document.querySelector('[aria-label="Your name"]'); if (i) { i.value = 'Chaos'; i.form.requestSubmit(); } }`);
       await chrome.waitFor(`!!__find('Join') || !!__find('Start')`, 20_000, 50);
       await chrome.evaluate(`if (__find('Join')) { document.querySelector('.ds-field input').value = 'Chaos'; __find('Join').click(); }`);
       await chrome.waitFor(`__state() === 'lobby' && !!__find('Start')`, 90_000, 50);

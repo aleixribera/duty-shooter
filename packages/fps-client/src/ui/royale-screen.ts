@@ -269,7 +269,8 @@ export class RoyalePage {
     const v = this.#view;
     if (!v || v.session || v.joining !== null) return;
     const name = this.#root.querySelector<HTMLInputElement>('input[name="name"]')?.value.trim().slice(0, 16) ?? '';
-    if (!name) {
+    // Local bots is solo play, which never asks for a name (PLAN item 9c).
+    if (!name && v.source !== 'local') {
       this.#root.querySelector<HTMLInputElement>('input[name="name"]')?.focus();
       return;
     }
@@ -382,7 +383,7 @@ ${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads"
       footNote = `${view.people} ${view.people === 1 ? 'player' : 'players'} + ${view.bots} bots`;
     } else {
       // Before joining: your own seat, and the seats friends take when they join, bots otherwise.
-      const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: !v.name && server.join ? 'Type your name to join' : v.name ? 'You' : '', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
+      const mine: SquadView = { squad: 0, open: size > 1, slots: [{ id: 'you', name: v.name || 'You', role: !v.name && server.join && !local ? 'Type your name to join' : v.name ? 'You' : '', you: true }, ...Array.from({ length: size - 1 }, () => ({ id: null, name: '', role: '', you: false }))] };
       squadsHtml = `<section class="sec-squad"><h2>Your Squad</h2>${this.#slots(mine, false, local)}</section>`;
       footNote = '';
     }
@@ -400,7 +401,7 @@ ${others ? `<section class="sec-others"><h2>Other Squads</h2><div class="squads"
       conn = '';
     } else {
       conn = `${server.line ? `<p class="ds-state ${server.tone}">${escapeHtml(server.line)}</p>` : ''}${v.error ? `<p class="error">${escapeHtml(v.error)}</p>` : ''}
-${server.join ? `<label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>` : ''}
+${server.join && !local ? `<label class="ds-field"><span class="ds-field-label">Name</span><input name="name" maxlength="16" autocomplete="nickname" spellcheck="false" value="${escapeHtml(v.name)}" data-key="name"></label>` : ''}
 ${v.passphrase && !local && server.join ? `<label class="ds-field"><span class="ds-field-label">Passphrase</span><input name="passphrase" type="password" autocomplete="current-password" value="${escapeHtml(v.passphraseText ?? '')}" data-key="passphrase"></label>` : ''}`;
     }
 

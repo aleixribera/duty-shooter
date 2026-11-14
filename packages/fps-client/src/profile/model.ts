@@ -61,6 +61,8 @@ export interface Profile {
   readonly daily: Daily;
   /** The best time (s) through the Practice Range's Course, or null before a first finish. */
   readonly courseBest: number | null;
+  /** The name this player goes by online (PLAN item 9c), at most 16 characters; empty until the first Play Online asks for it. */
+  readonly name: string;
 }
 
 export function emptyProfile(): Profile {
@@ -71,6 +73,7 @@ export function emptyProfile(): Profile {
     weapons: {},
     daily: { date: '', progress: {} },
     courseBest: null,
+    name: '',
   };
 }
 
@@ -428,6 +431,7 @@ export function applyMatch(profile: Profile, match: MatchRecord, date: string): 
   const next: Profile = {
     version: PROFILE_VERSION,
     courseBest: profile.courseBest,
+    name: profile.name,
     xp: profile.xp + xp,
     stats: {
       matches: s.matches + 1,
@@ -490,6 +494,7 @@ export function parseProfile(raw: unknown): Profile {
   return {
     version: PROFILE_VERSION,
     courseBest: typeof course === 'number' && Number.isFinite(course) && course > 0 ? course : null,
+    name: profileName(r['name']),
     xp: count(r['xp']),
     stats: {
       matches: count(s['matches']),
@@ -523,6 +528,20 @@ export function readProfile(text: string | null): Profile {
   } catch {
     return emptyProfile();
   }
+}
+
+/** A name as kept (PLAN item 9c): trimmed, at most 16 characters. */
+export function profileName(raw: unknown): string {
+  return typeof raw === 'string' ? raw.trim().slice(0, 16) : '';
+}
+
+/**
+ * Whether a name kept with the settings is the stand-in "Player 1234" that a
+ * first visit was given before the game asked (PLAN item 9c): it does not move
+ * into the Profile, so that player is asked too. One typed since is theirs.
+ */
+export function standInName(name: string): boolean {
+  return /^Player \d{4}$/.test(name.trim());
 }
 
 /* ---------- The save code (PLAN item 7) ---------- */

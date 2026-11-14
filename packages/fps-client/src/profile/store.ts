@@ -1,4 +1,4 @@
-import { PROFILE_KEY, RETIRED_PROFILE_KEYS, applyCourse, applyMatch, dateKey, emptyProfile, readProfile, readSaveCode, saveCode, type MatchGain, type MatchRecord, type Profile } from './model';
+import { PROFILE_KEY, RETIRED_PROFILE_KEYS, applyCourse, applyMatch, dateKey, emptyProfile, profileName, readProfile, readSaveCode, saveCode, type MatchGain, type MatchRecord, type Profile } from './model';
 
 /** Where a Profile is kept: browser storage, or anything that reads and writes one string. */
 export interface ProfileStorage {
@@ -63,17 +63,28 @@ export class ProfileStore {
     return saveCode(this.#profile);
   }
 
-  /** Takes the Profile a save code holds in place of this one; false, and nothing changed, when the text is not a save code. */
+  /** Takes the Profile a save code holds in place of this one, with its name (a code without one keeps the name here); false, and nothing changed, when the text is not a save code. */
   load(code: string): boolean {
     const profile = readSaveCode(code);
     if (!profile) return false;
-    this.#profile = profile;
+    this.#profile = profile.name ? profile : { ...profile, name: this.#profile.name };
     this.#write();
     return true;
   }
 
-  /** Back to nothing: Rank 1, no numbers, and no progress on today's Challenges. */
+  /** Keeps the name this player goes by (PLAN item 9c). */
+  rename(name: string): void {
+    const kept = profileName(name);
+    const stored = this.#unsaved ? null : this.#read();
+    const before = stored ?? this.#profile;
+    if (before.name === kept && stored !== null) return;
+    this.#profile = { ...before, name: kept };
+    this.#write();
+  }
+
+  /** Back to nothing: Rank 1, no numbers, and no progress on today's Challenges. The name stays: it is who plays, not what they earned. */
   reset(): void {
+    const name = this.#profile.name;
     this.#profile = emptyProfile();
     try {
       this.#storage?.removeItem(PROFILE_KEY);
@@ -81,6 +92,10 @@ export class ProfileStore {
     } catch {
       // Storage unavailable: the Profile in hand is already empty, and stays the one to build on.
       this.#unsaved = true;
+    }
+    if (name) {
+      this.#profile = { ...this.#profile, name };
+      this.#write();
     }
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOADOUT, STATS, WEAPON_IDS, type ScoreLine } from '@duty-shooter/fps-core';
 import { earnedLoadout } from '../src/ui/gunsmith';
-import { CHALLENGES, DAILY_CHALLENGES, GUN_RANKS, gunOpen, gunsOpened, openLoadout, readSaveCode, retiredSaveCode, saveCode, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
+import { CHALLENGES, DAILY_CHALLENGES, GUN_RANKS, gunOpen, gunsOpened, openLoadout, readSaveCode, retiredSaveCode, saveCode, MASTERY_KILLS, MAX_RANK, MatchKeeper, MatchTracker, PROFILE_KEY, ProfileStore, RANK_TITLES, applyMatch, dailyChallenges, dateKey, emptyProfile, figure, masteryOf, parseProfile, playedFor, profileName, standInName, rankFloor, rankOf, rankTitle, readProfile, todaysChallenges, weaponRows, type MatchRecord, type ProfileStorage } from '../src/profile';
 
 const match = (over: Partial<MatchRecord> = {}): MatchRecord => ({ mode: 'tdm', won: false, score: 1000, kills: 8, deaths: 5, assists: 2, headshots: 3, seconds: 600, bestStreak: 3, place: null, weapons: {}, reasons: {}, medal: null, ...over });
 
@@ -139,6 +139,49 @@ ${code.slice(20)} `)).toEqual(played);
     expect(retiredSaveCode(` ${old} `)).toBe(true);
     expect(retiredSaveCode(saveCode(played))).toBe(false);
     expect(retiredSaveCode('hello')).toBe(false);
+  });
+});
+
+describe('the name, asked once (PLAN item 9c)', () => {
+  it('is kept in the Profile, through matches and page loads', () => {
+    const storage = memory();
+    const store = new ProfileStore(storage);
+    expect(store.profile.name).toBe('');
+    store.rename('  Aleix  ');
+    expect(store.profile.name).toBe('Aleix');
+    store.bank(match());
+    expect(new ProfileStore(storage).profile.name).toBe('Aleix');
+  });
+  it('keeps at most 16 characters, and knows the stand-in "Player 1234" a first visit was once given', () => {
+    expect(profileName('  An extremely long name')).toBe('An extremely lon');
+    expect(profileName(42)).toBe('');
+    expect(parseProfile({ ...emptyProfile(), name: ' Bea ' }).name).toBe('Bea');
+    expect(standInName('Player 4821')).toBe(true);
+    expect(standInName('Player 48210')).toBe(false);
+    expect(standInName('Player One')).toBe(false);
+    // Typed by the player since, it is theirs: the Profile keeps it.
+    const store = new ProfileStore(memory());
+    store.rename('Player 4821');
+    expect(store.profile.name).toBe('Player 4821');
+  });
+  it('travels in the save code, and a code without one keeps the name here', () => {
+    const there = new ProfileStore(memory());
+    there.rename('Bea');
+    expect(there.load(saveCode({ ...emptyProfile(), xp: 900, name: 'Aleix' }))).toBe(true);
+    expect(there.profile.name).toBe('Aleix');
+    // A code made before names were kept has none.
+    const { name: _, ...unnamed } = { ...emptyProfile(), xp: 900 };
+    expect(there.load(saveCode(unnamed as never))).toBe(true);
+    expect(there.profile).toMatchObject({ xp: 900, name: 'Aleix' });
+  });
+  it('stays through a reset of the Profile', () => {
+    const storage = memory();
+    const store = new ProfileStore(storage);
+    store.rename('Aleix');
+    store.bank(match());
+    store.reset();
+    expect(store.profile).toEqual({ ...emptyProfile(), name: 'Aleix' });
+    expect(new ProfileStore(storage).profile).toEqual({ ...emptyProfile(), name: 'Aleix' });
   });
 });
 

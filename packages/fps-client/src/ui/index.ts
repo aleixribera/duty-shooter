@@ -14,10 +14,10 @@ export { royaleOpens, royaleServer } from './royale-lobby';
 export { placement } from './royale';
 export { GRAPHICS_LOST, connectionError, loadoutNote } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
-export { loadSettings, pickLoadoutSet, saveSettings, settingsWithName, withLoadout, type LoadoutSet, type Settings } from '../settings';
+export { loadSettings, pickLoadoutSet, saveSettings, withLoadout, type LoadoutSet, type Settings } from '../settings';
 export { padName } from '../gamepad';
 export { ProfileStore } from '../profile/store';
-export { GUN_RANKS, gunOpen, openLoadout } from '../profile/model';
+export { GUN_RANKS, gunOpen, openLoadout, profileName, standInName } from '../profile/model';
 // The picture, the frame pacer and the team colours: plain data and arithmetic, so the page has them before the engine.
 export { FramePacer, PICTURE } from '../quality';
 export type { AdapterHints, QualityProfile } from '../quality';
