@@ -1,4 +1,4 @@
-import { Fn, If, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
+import { Fn, If, Loop, clamp, dot, float, frameId, getViewPosition, interleavedGradientNoise, length, max, min, mix, mrt, output, pass, pow, velocity as velocityNode, perspectiveDepthToViewZ, rtt, screenCoordinate, screenSize, screenUV, sin, smoothstep, step, time, uniform, vec2, vec3, vec4, velocity } from 'three/tsl';
 import { HalfFloatType, RenderPipeline, Vector2, Vector3, type Matrix4, type Node, type PerspectiveCamera, type Scene, type TextureNode, type WebGPURenderer } from 'three/webgpu';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
@@ -143,7 +143,12 @@ function mooded(c: Node<'vec3'>, drain: Node<'float'>, dread: Node<'float'>, bea
   const luma = dot(drained, LUMA);
   const lamp = vec3(luma).mul(vec3(1.3, 0.96, 0.56));
   const lit = mix(drained, lamp, dread.mul(0.5).mul(float(1).sub(smoothstep(float(0.45), float(1.1), luma).mul(0.7))));
-  const tight = max(lit.sub(0.18).mul(dread.mul(0.22).add(1)).add(0.18), vec3(0));
+  // The contrast tightens about middle grey: a straight stretch above it, a power curve below it, so a shadow darkens in
+  // proportion and keeps its shape. The stretch carried on below grey clipped everything under a fifth of it to black,
+  // and the gun in hand, a dark rifle and gloves, went to a flat black cut-out by the last ten seconds (review 14g).
+  const above = lit.sub(0.18).mul(dread.mul(0.22).add(1)).add(0.18);
+  const below = pow(max(lit, vec3(1e-5)).div(0.18), vec3(dread.mul(0.12).add(1))).mul(0.18);
+  const tight = mix(below, above, step(float(0.18), lit));
   const edge = length(screenUV.sub(0.5).mul(vec2(1, 0.7)));
   const closed = tight.mul(float(1).sub(smoothstep(float(0.3), float(0.75), edge).mul(dread).mul(0.3)));
   return closed.mul(beat.mul(0.09).add(1)) as unknown as Node<'vec3'>;
