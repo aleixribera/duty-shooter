@@ -111,8 +111,10 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
     throw new Error('Chrome did not start');
   }
   // Chrome raises its own GPU process (above normal) and its active renderer (normal) over the idle class they
-  // inherit, and starts a renderer per site, so every couple of seconds its processes are put back to idle.
+  // inherit, and starts a renderer per site, so every second its processes are put back to idle.
+  // Each look also logs [wall ms, CPU seconds of all Chrome's processes so far], to tell its own load from the PC's.
   let keepIdle = null;
+  const cpuLog = [];
   if (!uncapped) {
     let top;
     try {
@@ -126,7 +128,10 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
       throw new Error('Chrome did not open its browser target', { cause: e });
     }
     top.onmessage = (e) => {
-      for (const { id } of JSON.parse(e.data).result?.processInfo ?? []) {
+      const info = JSON.parse(e.data).result?.processInfo ?? [];
+      if (info.length) cpuLog.push([Date.now(), info.reduce((a, p) => a + (p.cpuTime ?? 0), 0)]);
+      if (cpuLog.length > 4000) cpuLog.splice(0, 1000);
+      for (const { id } of info) {
         try {
           setPriority(id, constants.priority.PRIORITY_LOW);
         } catch {
@@ -136,7 +141,7 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
     };
     const lower = () => top.readyState === WebSocket.OPEN && top.send(JSON.stringify({ id: 1, method: 'SystemInfo.getProcessInfo' }));
     lower();
-    keepIdle = { top, timer: setInterval(lower, 2000) };
+    keepIdle = { top, timer: setInterval(lower, 1000) };
     keepIdle.timer.unref();
   }
   const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -172,6 +177,8 @@ export async function launchChrome({ profile: keep, uncapped = false } = {}) {
   return {
     send,
     errors,
+    /** [wall ms, Chrome's CPU seconds so far], about every second (not for an uncapped launch). */
+    cpuLog,
     async evaluate(expression) {
       return (await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })).result?.result?.value;
     },

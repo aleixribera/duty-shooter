@@ -1,0 +1,286 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": {
+    "map": "switchyard",
+    "mode": "charge",
+    "audioContext": "running",
+    "play": {
+      "kills": 5,
+      "deaths": 6,
+      "seconds": 423,
+      "phase": "nuke",
+      "killFrames": [
+        {
+          "a": 2,
+          "b": 272
+        },
+        {
+          "a": 57,
+          "b": 259,
+          "held": true
+        },
+        {
+          "a": 1,
+          "b": 253
+        },
+        {
+          "a": 31,
+          "b": 252
+        }
+      ]
+    },
+    "lastMinute": {
+      "audioKb": 13578,
+      "loudness": {
+        "lufs": -20.4,
+        "truePeakDb": -0.9
+      },
+      "heard": {
+        "footstep": 10019,
+        "ambientHum": 819,
+        "impact": 792,
+        "gunshot": 733,
+        "casing": 200,
+        "chargeBeep": 123,
+        "slide": 105,
+        "weaponRaise": 83,
+        "land": 82,
+        "pain": 81,
+        "chargeKey": 76,
+        "bulletCrack": 74,
+        "ambientWind": 64,
+        "mantle": 63,
+        "ambientBirds": 60,
+        "ambientRadio": 57,
+        "death": 44,
+        "grenadeBounce": 41,
+        "trainClack": 35,
+        "jump": 32,
+        "reloadMagOut": 32,
+        "reloadMagIn": 29,
+        "boltOpen": 23,
+        "boltClose": 23,
+        "adsIn": 22
+      },
+      "levels": {
+        "samples": 1748,
+        "rmsMedianDb": -36,
+        "rmsLoudestDb": -12,
+        "peakDb": -2,
+        "silentShare": 0.02
+      },
+      "frames": {
+        "frames": 12443,
+        "meanMs": 35.2,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 40.5,
+        "worstMs": 416.6,
+        "over50ms": 75,
+        "fps": 28.4,
+        "low1Fps": 12.9,
+        "workP50Ms": 5.8,
+        "workP99Ms": 23.6,
+        "render": {
+          "frames": 29,
+          "draws": 137,
+          "maxDraws": 137,
+          "triangles": 1210274,
+          "gpu": 1.348,
+          "geometries": 343,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sBeforeEnd": 4.6,
+            "ms": 417,
+            "workMs": 6,
+            "cpuPct": 49,
+            "kills": 5,
+            "top": [
+              "r.onstop :4 261",
+              "(program) :0 101",
+              "(garbage collector) :0 16",
+              "btoa :0 13",
+              "#updateMatch hud.ts:1022 2",
+              "updateLobby main.ts:920 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 426.2,
+            "ms": 315,
+            "workMs": 314,
+            "cpuPct": 61,
+            "kills": 0,
+            "top": [
+              "finishRender three_webgpu.js?v=f9158b8f:59657 175",
+              "_getChildren three_webgpu.js?v=f9158b8f:1291 123",
+              "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 9",
+              "(program) :0 7",
+              "(anon) :16 4",
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 3"
+            ]
+          },
+          {
+            "sBeforeEnd": 199.8,
+            "ms": 233,
+            "workMs": 194,
+            "cpuPct": 100,
+            "kills": 4,
+            "top": [
+              "(program) :0 50",
+              "updateForRender three_webgpu.js?v=f9158b8f:40375 38",
+              "updateGroup three_webgpu.js?v=f9158b8f:39824 27",
+              "_updateBindings three_webgpu.js?v=f9158b8f:22748 24",
+              "_draw three_webgpu.js?v=f9158b8f:60013 23",
+              "updateAttributes three_webgpu.js?v=f9158b8f:21617 22"
+            ]
+          },
+          {
+            "sBeforeEnd": 427,
+            "ms": 200,
+            "workMs": 201,
+            "cpuPct": 66,
+            "kills": 0,
+            "top": [
+              "decodeClient protocol.ts:51 99",
+              "#pressed input.ts:309 42",
+              "#stepPlayer simulation.ts:365 36",
+              "_draw three_webgpu.js?v=f9158b8f:60013 6",
+              "findPath nav.ts:484 5",
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 4"
+            ]
+          },
+          {
+            "sBeforeEnd": 192.6,
+            "ms": 199,
+            "workMs": 88,
+            "cpuPct": 88,
+            "kills": 4,
+            "top": [
+              "(program) :0 78",
+              "_getChildren three_webgpu.js?v=f9158b8f:1291 76",
+              "#context server.ts:1338 39",
+              "_getBufferForType three_webgpu.js?v=f9158b8f:45662 6",
+              "submit three_webgpu.js?v=f9158b8f:52699 1"
+            ]
+          },
+          {
+            "sBeforeEnd": 200,
+            "ms": 192,
+            "workMs": 186,
+            "cpuPct": 100,
+            "kills": 4,
+            "top": [
+              "getForRender three_webgpu.js?v=f9158b8f:22616 47",
+              "playBuffer synth-voice.ts:19 44",
+              "_projectObject three_webgpu.js?v=f9158b8f:44643 36",
+              "#updateHud game.ts:1105 17",
+              "renderObjectFunction three_webgpu.js?v=f9158b8f:31623 17",
+              "writeString codec.ts:427 15"
+            ]
+          },
+          {
+            "sBeforeEnd": 391.6,
+            "ms": 165,
+            "workMs": 113,
+            "cpuPct": 99,
+            "kills": 1,
+            "top": [
+              "get value three_webgpu.js?v=f9158b8f:35884 36",
+              "createBindings three_webgpu.js?v=f9158b8f:57523 22",
+              "#inGrid grid.ts:156 13",
+              "#holdGun soldier.ts:1038 12",
+              "_renderScene three_webgpu.js?v=f9158b8f:43650 9",
+              "renderObject three_webgpu.js?v=f9158b8f:44854 7"
+            ]
+          },
+          {
+            "sBeforeEnd": 200.2,
+            "ms": 156,
+            "workMs": 123,
+            "cpuPct": 92,
+            "kills": 4,
+            "top": [
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 36",
+              "getValueFromReference three_webgpu.js?v=f9158b8f:10791 36",
+              "(program) :0 25",
+              "addUniformUpdateRange three_webgpu.js?v=f9158b8f:45374 19",
+              "cyrb53 three_webgpu.js?v=f9158b8f:660 9",
+              "getIndex three_webgpu.js?v=f9158b8f:21673 6"
+            ]
+          },
+          {
+            "sBeforeEnd": 310.5,
+            "ms": 154,
+            "workMs": 156,
+            "cpuPct": 86,
+            "kills": 2,
+            "top": [
+              "_draw three_webgpu.js?v=f9158b8f:60013 78",
+              "updateMatrix4 three_webgpu.js?v=f9158b8f:45642 62",
+              "getCacheKey three_webgpu.js?v=f9158b8f:40102 3",
+              "ambientTint surface-materials.ts:1148 3",
+              "(anon) world-view.ts:672 3",
+              "#collect grid.ts:263 3"
+            ]
+          },
+          {
+            "sBeforeEnd": 390.9,
+            "ms": 143,
+            "workMs": 84,
+            "cpuPct": 95,
+            "kills": 1,
+            "top": [
+              "#stepGrenades simulation.ts:637 50",
+              "side hud.ts:1048 21",
+              "_resolveQueries three_webgpu.js?v=f9158b8f:58589 10",
+              "(program) :0 8",
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 6",
+              "#turn bot.ts:1394 4"
+            ]
+          },
+          {
+            "sBeforeEnd": 199.6,
+            "ms": 143,
+            "workMs": 62,
+            "cpuPct": 100,
+            "kills": 4,
+            "top": [
+              "(program) :0 62",
+              "renderObject three_webgpu.js?v=f9158b8f:44854 31",
+              "#holdGun soldier.ts:1038 23",
+              "submit three_webgpu.js?v=f9158b8f:52699 9",
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 180.2,
+            "ms": 143,
+            "workMs": 141,
+            "cpuPct": 84,
+            "kills": 4,
+            "top": [
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 90",
+              "updateAttributes three_webgpu.js?v=f9158b8f:21617 8",
+              "writeString codec.ts:427 8",
+              "start system.ts:758 7",
+              "AudioNode.connect :3 5",
+              "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 2"
+            ]
+          }
+        ],
+        "longWithWork": 55,
+        "over50QuietPc": 9,
+        "cpuMeanPct": 36
+      }
+    },
+    "soundLog": "sounds-match.json",
+    "errors": []
+  },
+  "tour": [],
+  "range": null,
+  "island": null,
+  "online": null
+}

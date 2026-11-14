@@ -24,6 +24,7 @@
 // match, tour, island, online) into an existing capture, keeping the rest of its summary.
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 import { launchChrome, sleep } from '../../../apps/range/scripts/chrome.mjs';
@@ -84,6 +85,40 @@ process.on('exit', () => server?.kill());
 const save = () => writeFileSync(`${out}/summary.json`, JSON.stringify(summary, null, 2));
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
+// The CPU log: the whole PC's busy share, every half second, so a hitch can be told from the PC being busy.
+const cpuLog = [];
+const cpuTotals = () => cpus().reduce((a, c) => { const t = Object.values(c.times).reduce((x, y) => x + y, 0); return [a[0] + t - c.times.idle, a[1] + t]; }, [0, 0]);
+let cpuLast = cpuTotals();
+setInterval(() => {
+  const now = cpuTotals();
+  cpuLog.push([Date.now(), Math.round((100 * (now[0] - cpuLast[0])) / Math.max(1, now[1] - cpuLast[1]))]);
+  cpuLast = now;
+  if (cpuLog.length > 4000) cpuLog.splice(0, 1000);
+}, 500).unref();
+/** The PC's busy share (%) over [from, to] (each half-second sample that ends in it). */
+const cpuMean = (from, to) => {
+  const v = cpuLog.filter(([t]) => t >= from && t <= to + 500).map(([, b]) => b);
+  return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null;
+};
+const CORES = cpus().length;
+/**
+ * The second around a wall-clock time, from Chrome's own CPU log (`launchChrome`): the whole PC's busy share and
+ * Chrome's, in % of the PC. What is left is other programs': past a third of the PC they hold up this idle-priority
+ * page, whose threads get only the cores nothing else wants.
+ */
+function loadAt(chrome, wall) {
+  const log = chrome.cpuLog ?? [];
+  const i = log.findIndex(([t]) => t >= wall);
+  if (i < 1) return { pcPct: null, chromePct: null, othersPct: null };
+  const [[t0, c0], [t1, c1]] = [log[i - 1], log[i]];
+  const pcPct = cpuMean(t0, t1 - 500);
+  // A Chrome process that exits between looks takes its seconds with it: never below 0.
+  const chromePct = Math.max(0, Math.round((100 * (c1 - c0)) / (((t1 - t0) / 1000) * CORES)));
+  return { pcPct, chromePct, othersPct: pcPct === null ? null : Math.max(0, pcPct - chromePct) };
+}
+// PROFILE=1: a sampled CPU profile of the page for each part, so a long frame's own work can be named.
+const PROFILE = process.env.PROFILE === '1';
+
 // Vite's hot reload stubbed: another session's edit must not reload a scripted page mid-run.
 const HMR_SHIELD = `(() => { const Real = WebSocket; const hmr = (p) => p === 'vite-hmr' || (Array.isArray(p) && p.includes('vite-hmr')); globalThis.WebSocket = new Proxy(Real, { construct(target, args) { if (hmr(args[1])) return { addEventListener() {}, removeEventListener() {}, send() {}, close() {}, readyState: 0 }; return new target(...args); } }); })()`;
 // Every node the game connects to its context's speakers is also connected to a tap, which a recorder and a
@@ -104,7 +139,21 @@ const PROBES = `(() => {
   const ft = (globalThis.__ft = { on: false, d: [], w: [], busy: 0, last: 0 });
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = (cb) => raf((t) => { const s = performance.now(); try { cb(t); } finally { ft.busy += performance.now() - s; } });
-  const tick = (t) => { if (ft.on && ft.last) { ft.d.push(t - ft.last); ft.w.push(ft.busy); } ft.busy = 0; ft.last = t; raf(tick); };
+  // Each frame over 50 ms (the first 400 listed, all counted), and the wall clock since the window opened.
+  ft.long = [];
+  ft.longN = 0;
+  ft.since = 0;
+  const tick = (t) => {
+    if (ft.on && !ft.since) ft.since = Date.now();
+    if (ft.on && ft.last) {
+      ft.d.push(t - ft.last);
+      ft.w.push(ft.busy);
+      if (t - ft.last > 50 && ft.longN++ < 400) ft.long.push([t, Date.now(), t - ft.last, ft.busy, ft.kills ?? 0]);
+    }
+    ft.busy = 0;
+    ft.last = t;
+    raf(tick);
+  };
   // When (performance.now) the player's own kill count last rose, read every 10 ms (a frame's tick missed some, the
   // scores changing between frames): a kill frame's age is measured from it.
   setInterval(() => {
@@ -164,6 +213,11 @@ async function session(name, fn) {
     await chrome.send('Page.addScriptToEvaluateOnNewDocument', {
       source: PROBES,
     });
+    if (PROFILE) {
+      await chrome.send('Profiler.enable');
+      await chrome.send('Profiler.setSamplingInterval', { interval: 1000 });
+      await chrome.send('Profiler.start');
+    }
     let timer;
     const stuck = new Promise((_, fail) => (timer = setTimeout(() => fail(new Error(`not done in ${PART_MS / 60_000} min`)), PART_MS)));
     return await Promise.race([fn(page), stuck]).finally(() => clearTimeout(timer));
@@ -237,6 +291,8 @@ async function record(page) {
   return {
     state: ok,
     async stop(file) {
+      // Packing minutes of sound holds the page up for a few hundred ms: frames aren't counted meanwhile.
+      await page.js('__ft.held = __ft.on; __ft.on = false');
       const b64 = await page.js(`new Promise((done) => {
         const { r, chunks } = globalThis.__rec ?? {};
         if (!r) return done(null);
@@ -254,7 +310,7 @@ async function record(page) {
           .at(-1);
         loudness = { lufs: Number(tail.match(/I:\s+(-?[\d.]+) LUFS/)?.[1] ?? NaN), truePeakDb: Number(tail.match(/Peak:\s+(-?[\d.]+) dBFS/)?.[1] ?? NaN) };
       }
-      await page.js('__ft.last = 0');
+      await page.js('__ft.on = __ft.held; __ft.last = 0');
       return { audioKb: b64 ? Math.round((b64.length * 3) / 4 / 1024) : 0, loudness };
     },
   };
@@ -262,7 +318,10 @@ async function record(page) {
 
 /** Frame times since `__ft.on`: mean, percentiles and the 1% low, in ms and fps. */
 async function frames(page) {
-  const { d, w } = (await page.js(`(() => { const r = { d: __ft.d, w: __ft.w }; __ft.d = []; __ft.w = []; return r; })()`)) ?? {};
+  const { d, w, long, longN, since, now } =
+    (await page.js(
+      `(() => { const r = { d: __ft.d, w: __ft.w, long: __ft.long, longN: __ft.longN, since: __ft.since, now: [performance.now(), Date.now()] }; __ft.d = []; __ft.w = []; __ft.long = []; __ft.longN = 0; __ft.since = 0; return r; })()`,
+    )) ?? {};
   if (!d?.length) return null;
   const ws = [...w].sort((a, b) => a - b);
   const s = [...d].sort((a, b) => a - b);
@@ -285,6 +344,72 @@ async function frames(page) {
     workP50Ms: r(ws[Math.floor(ws.length / 2)]),
     workP99Ms: r(ws[Math.floor(ws.length * 0.99)]),
     render,
+    ...(await longFrames(page, long, longN, now, since)),
+  };
+}
+
+/**
+ * The frames over 50 ms, worst first: when (s after the window opened), how long, the main thread's work in them,
+ * the PC's busy share then, and the player's kills by then; with PROFILE=1, the page's own functions that ran most
+ * in each. A long frame with little work and a busy PC is the PC; one full of work is the game's.
+ */
+async function longFrames(page, long = [], longN = 0, [, wallNow] = [0, 0], since = 0) {
+  const cpuMeanPct = cpuMean(since || wallNow, wallNow);
+  // The profile, stopped once per page; the page's clock read either side of the stop places its end.
+  let profile = null;
+  let pageAtEnd = 0;
+  if (PROFILE && !page.profiled) {
+    page.profiled = true;
+    const before = await page.js('performance.now()');
+    const res = await page.chrome.send('Profiler.stop');
+    pageAtEnd = (before + (await page.js('performance.now()'))) / 2;
+    profile = res?.result?.profile ?? null;
+    // Stopping holds the page up: that gap is the capture's, not the game's.
+    await page.js('__ft.last = 0');
+  }
+  if (!long.length) return { long: [], longTotal: 0, longWithWork: 0, over50QuietPc: 0, cpuMeanPct, ...(PROFILE ? { profiled: true } : {}) };
+  let at = null;
+  if (profile) {
+    const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+    let t = profile.startTime;
+    const times = profile.timeDeltas.map((dt) => (t += dt));
+    const offset = profile.endTime / 1000 - pageAtEnd;
+    at = (from, to) => {
+      const self = {};
+      for (let i = 0; i < profile.samples.length; i++) {
+        const ms = times[i] / 1000 - offset;
+        if (ms < from || ms > to) continue;
+        const f = byId.get(profile.samples[i])?.callFrame;
+        const key = `${f?.functionName || '(anon)'} ${(f?.url ?? '').split('/').pop()}:${(f?.lineNumber ?? 0) + 1}`;
+        self[key] = (self[key] ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000;
+      }
+      return Object.entries(self)
+        .filter(([k]) => !k.startsWith('(idle)'))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([k, v]) => `${k} ${Math.round(v)}`);
+    };
+  }
+  const worst = [...long].sort((a, b) => b[2] - a[2]).slice(0, 12);
+  return {
+    long: worst.map(([t, wall, ms, work, kills]) => ({
+      sAfterStart: Math.round((wall - since) / 100) / 10,
+      ms: Math.round(ms),
+      workMs: Math.round(work),
+      ...loadAt(page.chrome, wall),
+      kills,
+      ...(at ? { top: at(t - ms, t) } : {}),
+    })),
+    // Counts among the listed frames (the first 400 of `longTotal`).
+    longTotal: longN,
+    longWithWork: long.filter(([, , ms, work]) => work > ms / 2).length,
+    // Other programs over a third of the PC hold up this idle-priority page: those long frames are the PC's.
+    over50QuietPc: long.filter(([, wall]) => {
+      const o = loadAt(page.chrome, wall).othersPct;
+      return o !== null && o < 33;
+    }).length,
+    cpuMeanPct,
+    ...(PROFILE ? { profiled: true } : {}),
   };
 }
 

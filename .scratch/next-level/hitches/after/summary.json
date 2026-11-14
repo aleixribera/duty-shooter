@@ -1,0 +1,1230 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": {
+    "map": "switchyard",
+    "mode": "charge",
+    "audioContext": "running",
+    "play": {
+      "kills": 0,
+      "deaths": 4,
+      "seconds": 306,
+      "phase": "nuke",
+      "killFrames": []
+    },
+    "lastMinute": {
+      "audioKb": 9912,
+      "loudness": {
+        "lufs": -21.1,
+        "truePeakDb": -1.1
+      },
+      "heard": {
+        "footstep": 5806,
+        "ambientHum": 595,
+        "gunshot": 420,
+        "impact": 366,
+        "slide": 60,
+        "casing": 54,
+        "pain": 48,
+        "ambientWind": 47,
+        "weaponRaise": 47,
+        "chargeBeep": 47,
+        "land": 44,
+        "ambientBirds": 43,
+        "ambientRadio": 42,
+        "chargeKey": 29,
+        "trainClack": 29,
+        "mantle": 28,
+        "death": 27,
+        "reloadMagOut": 23,
+        "reloadMagIn": 23,
+        "grenadeBounce": 21,
+        "boltOpen": 16,
+        "boltClose": 15,
+        "ambientCouplings": 14,
+        "grenadePin": 12,
+        "meleeSwing": 12
+      },
+      "levels": {
+        "samples": 1279,
+        "rmsMedianDb": -37,
+        "rmsLoudestDb": -11,
+        "peakDb": -3,
+        "silentShare": 0.02
+      },
+      "frames": {
+        "frames": 9017,
+        "meanMs": 35,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 41.7,
+        "worstMs": 147.5,
+        "over50ms": 52,
+        "fps": 28.6,
+        "low1Fps": 15.7,
+        "workP50Ms": 5.3,
+        "workP99Ms": 28.8,
+        "render": {
+          "frames": 29,
+          "draws": 135,
+          "maxDraws": 136,
+          "triangles": 1057862,
+          "gpu": 1.35,
+          "geometries": 588,
+          "textures": 201
+        },
+        "long": [
+          {
+            "sAfterStart": 79.9,
+            "ms": 148,
+            "workMs": 124,
+            "pcPct": 79,
+            "chromePct": 6,
+            "othersPct": 73,
+            "kills": 0,
+            "top": [
+              "renderObject three_webgpu.js?v=f9158b8f:44854 25",
+              "updateByType three_webgpu.js?v=f9158b8f:45492 19",
+              "_draw three_webgpu.js?v=f9158b8f:60013 15",
+              "update three_webgpu.js?v=f9158b8f:21426 13",
+              "(program) :0 9",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 8"
+            ]
+          },
+          {
+            "sAfterStart": 173.5,
+            "ms": 141,
+            "workMs": 58,
+            "pcPct": 50,
+            "chromePct": 7,
+            "othersPct": 43,
+            "kills": 0,
+            "top": [
+              "(program) :0 9",
+              "update three_webgpu.js?v=f9158b8f:52426 3",
+              "_draw three_webgpu.js?v=f9158b8f:60013 3",
+              "cleanupOnEnd synth-voice.ts:5 2",
+              "createBindingsLayout three_webgpu.js?v=f9158b8f:57498 2",
+              "applyMatrix4 three.core-DDCWwOCg.js?v=f9158b8f:4338 2"
+            ]
+          },
+          {
+            "sAfterStart": 189.3,
+            "ms": 132,
+            "workMs": 121,
+            "pcPct": 47,
+            "chromePct": 7,
+            "othersPct": 40,
+            "kills": 0,
+            "top": [
+              "(program) :0 8",
+              "_draw three_webgpu.js?v=f9158b8f:60013 3",
+              "(anon) :16 2",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 2",
+              "copy three.core-DDCWwOCg.js?v=f9158b8f:4158 2",
+              "tick :6 2"
+            ]
+          },
+          {
+            "sAfterStart": 289.6,
+            "ms": 129,
+            "workMs": 40,
+            "pcPct": 53,
+            "chromePct": 9,
+            "othersPct": 44,
+            "kills": 0,
+            "top": [
+              "addScaledVector three.core-DDCWwOCg.js?v=f9158b8f:4208 20",
+              "(program) :0 13",
+              "#threatNear bot.ts:1795 2",
+              "needsRenderUpdate three_webgpu.js?v=f9158b8f:60186 2",
+              "play gunshot.ts:2055 2",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 2"
+            ]
+          },
+          {
+            "sAfterStart": 284.1,
+            "ms": 124,
+            "workMs": 87,
+            "pcPct": 98,
+            "chromePct": 9,
+            "othersPct": 89,
+            "kills": 0,
+            "top": [
+              "(program) :0 52",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 7",
+              "nearby collision.ts:63 4",
+              "_draw three_webgpu.js?v=f9158b8f:60013 3",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 3",
+              "updateBefore three_examples_jsm_tsl_display_BloomNode__js.js?v=f9158b8f:298 3"
+            ]
+          },
+          {
+            "sAfterStart": 172.9,
+            "ms": 111,
+            "workMs": 85,
+            "pcPct": 43,
+            "chromePct": 8,
+            "othersPct": 35,
+            "kills": 0,
+            "top": [
+              "get value three_webgpu.js?v=f9158b8f:35884 17",
+              "(program) :0 6",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 3",
+              "#stepPlayer simulation.ts:365 2",
+              "_update three_webgpu.js?v=f9158b8f:22757 2",
+              "has three_webgpu.js?v=f9158b8f:21360 2"
+            ]
+          },
+          {
+            "sAfterStart": 285.3,
+            "ms": 109,
+            "workMs": 93,
+            "pcPct": 84,
+            "chromePct": 10,
+            "othersPct": 74,
+            "kills": 0,
+            "top": [
+              "#act charge.ts:177 29",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 25",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 16",
+              "clipVelocity collision.ts:242 10"
+            ]
+          },
+          {
+            "sAfterStart": 189.4,
+            "ms": 105,
+            "workMs": 95,
+            "pcPct": 47,
+            "chromePct": 7,
+            "othersPct": 40,
+            "kills": 0,
+            "top": [
+              "writeString codec.ts:427 3",
+              "setPlayerState simulation.ts:307 3",
+              "(program) :0 2",
+              "decodeClient protocol.ts:51 2",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 2",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 2"
+            ]
+          },
+          {
+            "sAfterStart": 188.7,
+            "ms": 96,
+            "workMs": 85,
+            "pcPct": 47,
+            "chromePct": 7,
+            "othersPct": 40,
+            "kills": 0,
+            "top": [
+              "(program) :0 8",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 3",
+              "(garbage collector) :0 3",
+              "#inGrid grid.ts:156 2",
+              "get buffer three_webgpu.js?v=f9158b8f:45432 2",
+              "get needsFrameBufferTarget three_webgpu.js?v=f9158b8f:44237 2"
+            ]
+          },
+          {
+            "sAfterStart": 146.3,
+            "ms": 92,
+            "workMs": 43,
+            "pcPct": 84,
+            "chromePct": 9,
+            "othersPct": 75,
+            "kills": 0,
+            "top": [
+              "(program) :0 35",
+              "#set hud.ts:1127 19",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 7",
+              "#updateHud game.ts:1105 6",
+              "requestAnimationFrame :0 3",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 3"
+            ]
+          },
+          {
+            "sAfterStart": 308.1,
+            "ms": 90,
+            "workMs": 75,
+            "pcPct": 28,
+            "chromePct": 6,
+            "othersPct": 22,
+            "kills": 0,
+            "top": [
+              "(program) :0 10",
+              "_draw three_webgpu.js?v=f9158b8f:60013 2",
+              "traverse three.core-DDCWwOCg.js?v=f9158b8f:9968 2",
+              "determinantAffine three.core-DDCWwOCg.js?v=f9158b8f:8320 2",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 1",
+              "LinearToSRGB three.core-DDCWwOCg.js?v=f9158b8f:5511 1"
+            ]
+          },
+          {
+            "sAfterStart": 146.1,
+            "ms": 86,
+            "workMs": 74,
+            "pcPct": 84,
+            "chromePct": 9,
+            "othersPct": 75,
+            "kills": 0,
+            "top": [
+              "(program) :0 10",
+              "#set hud.ts:1127 3",
+              "_update three_webgpu.js?v=f9158b8f:22757 2",
+              "#thinkBots server.ts:1604 2",
+              "playBuffer synth-voice.ts:19 2",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 2"
+            ]
+          }
+        ],
+        "longTotal": 52,
+        "longWithWork": 39,
+        "over50QuietPc": 5,
+        "cpuMeanPct": 27,
+        "profiled": true
+      }
+    },
+    "soundLog": "sounds-match.json",
+    "errors": []
+  },
+  "tour": [
+    {
+      "map": "switchyard",
+      "mode": "tdm",
+      "play": {
+        "kills": 0,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": []
+      },
+      "frames": {
+        "frames": 723,
+        "meanMs": 36,
+        "p50Ms": 34.7,
+        "p95Ms": 35.4,
+        "p99Ms": 70.8,
+        "worstMs": 156.1,
+        "over50ms": 16,
+        "fps": 27.8,
+        "low1Fps": 8.6,
+        "workP50Ms": 7.3,
+        "workP99Ms": 51.6,
+        "render": {
+          "frames": 29,
+          "draws": 183,
+          "maxDraws": 187,
+          "triangles": 1148936,
+          "gpu": 1.402,
+          "geometries": 343,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sAfterStart": 21.8,
+            "ms": 156,
+            "workMs": 143,
+            "pcPct": 55,
+            "chromePct": 8,
+            "othersPct": 47,
+            "kills": 0,
+            "top": [
+              "writeValue codec.ts:460 33",
+              "text codec.ts:418 16",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 11",
+              "shot effects.ts:840 10",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 9",
+              "shotRumble rumble.ts:7 5"
+            ]
+          },
+          {
+            "sAfterStart": 22.7,
+            "ms": 143,
+            "workMs": 49,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "(program) :0 15",
+              "submit three_webgpu.js?v=f9158b8f:52699 9",
+              "#drawTrace hud.ts:705 9",
+              "(anon) :1 6",
+              "think bot.ts:679 6",
+              "writeString codec.ts:427 5"
+            ]
+          },
+          {
+            "sAfterStart": 22.5,
+            "ms": 132,
+            "workMs": 28,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "(program) :0 38",
+              "_draw three_webgpu.js?v=f9158b8f:60013 21",
+              "#regenerate simulation.ts:872 12",
+              "#thinkBots server.ts:1604 9",
+              "AudioNode.connect :3 8",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 7"
+            ]
+          },
+          {
+            "sAfterStart": 22,
+            "ms": 130,
+            "workMs": 84,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "draw three_webgpu.js?v=f9158b8f:60102 53",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 13",
+              "submit three_webgpu.js?v=f9158b8f:52699 9",
+              "makeRoom system.ts:734 7",
+              "magazineOf bot.ts:411 5",
+              "toArray three.core-DDCWwOCg.js?v=f9158b8f:8746 5"
+            ]
+          },
+          {
+            "sAfterStart": 19.7,
+            "ms": 124,
+            "workMs": 125,
+            "pcPct": 79,
+            "chromePct": 10,
+            "othersPct": 69,
+            "kills": 0,
+            "top": [
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 15",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 9",
+              "submit three_webgpu.js?v=f9158b8f:52699 9",
+              "needsRenderUpdate three_webgpu.js?v=f9158b8f:60186 8",
+              "(program) :0 7",
+              "updateBackground three_webgpu.js?v=f9158b8f:40143 7"
+            ]
+          },
+          {
+            "sAfterStart": 22.2,
+            "ms": 89,
+            "workMs": 78,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "_draw three_webgpu.js?v=f9158b8f:60013 18",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 10",
+              "get needsGeometryUpdate three_webgpu.js?v=f9158b8f:21085 8",
+              "doing hints.ts:55 7",
+              "update three_webgpu.js?v=f9158b8f:3444 7",
+              "submit three_webgpu.js?v=f9158b8f:52699 6"
+            ]
+          },
+          {
+            "sAfterStart": 21.8,
+            "ms": 84,
+            "workMs": 59,
+            "pcPct": 55,
+            "chromePct": 8,
+            "othersPct": 47,
+            "kills": 0,
+            "top": [
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 23",
+              "finish three_webgpu.js?v=f9158b8f:23112 15",
+              "(anon) grid.ts:212 8",
+              "#allyTags game.ts:1285 8",
+              "boxCentre hitboxes.ts:297 8",
+              "_renderObjects three_webgpu.js?v=f9158b8f:44742 7"
+            ]
+          },
+          {
+            "sAfterStart": 21.9,
+            "ms": 71,
+            "workMs": 78,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "(program) :0 22",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 16",
+              "updateReference three_webgpu.js?v=f9158b8f:10804 15",
+              "getPreviousMatrix three_webgpu.js?v=f9158b8f:28264 5",
+              "update three_webgpu.js?v=f9158b8f:8953 1",
+              "submit three_webgpu.js?v=f9158b8f:52699 1"
+            ]
+          },
+          {
+            "sAfterStart": 21.6,
+            "ms": 71,
+            "workMs": 71,
+            "pcPct": 55,
+            "chromePct": 8,
+            "othersPct": 47,
+            "kills": 0,
+            "top": [
+              "(program) :0 9",
+              "text codec.ts:418 2",
+              "add effects.ts:559 2",
+              "updateMatrix three.core-DDCWwOCg.js?v=f9158b8f:6083 2",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 2",
+              "update spring.ts:15 2"
+            ]
+          },
+          {
+            "sAfterStart": 22.1,
+            "ms": 64,
+            "workMs": 42,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "(program) :0 29",
+              "play system.ts:1007 14",
+              "writeString codec.ts:427 14",
+              "firstHit grid.ts:178 8",
+              "updateMatrix three.core-DDCWwOCg.js?v=f9158b8f:10005 7",
+              "start system.ts:758 4"
+            ]
+          },
+          {
+            "sAfterStart": 22.3,
+            "ms": 63,
+            "workMs": 43,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "updateByType three_webgpu.js?v=f9158b8f:45492 13",
+              "(program) :0 12",
+              "step simulation.ts:327 10",
+              "update three_webgpu.js?v=f9158b8f:8953 5",
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 3",
+              "getForRender three_webgpu.js?v=f9158b8f:22347 3"
+            ]
+          },
+          {
+            "sAfterStart": 22.8,
+            "ms": 60,
+            "workMs": 39,
+            "pcPct": 99,
+            "chromePct": 11,
+            "othersPct": 88,
+            "kills": 0,
+            "top": [
+              "(program) :0 6"
+            ]
+          }
+        ],
+        "longTotal": 16,
+        "longWithWork": 13,
+        "over50QuietPc": 0,
+        "cpuMeanPct": 42,
+        "profiled": true
+      },
+      "heard": {
+        "footstep": 951,
+        "impact": 181,
+        "gunshot": 170,
+        "ambientHum": 49,
+        "casing": 32,
+        "slide": 20,
+        "weaponRaise": 13,
+        "pain": 8,
+        "grenadeBounce": 7,
+        "damageTaken": 7,
+        "ambientBirds": 5,
+        "death": 5,
+        "bulletCrack": 5,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "reloadMagOut": 4,
+        "grenadePin": 3,
+        "grenadeThrow": 3,
+        "reloadMagIn": 3,
+        "boltOpen": 2,
+        "boltClose": 2,
+        "adsIn": 2,
+        "adsOut": 2,
+        "heartbeat": 2,
+        "smokePop": 1
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -32,
+        "rmsLoudestDb": -14,
+        "peakDb": -3,
+        "silentShare": 0.1
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "ffa",
+      "play": {
+        "kills": 1,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": [
+          {
+            "a": 2,
+            "b": 264
+          }
+        ]
+      },
+      "frames": {
+        "frames": 737,
+        "meanMs": 35.2,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 35.4,
+        "worstMs": 186,
+        "over50ms": 6,
+        "fps": 28.4,
+        "low1Fps": 13.2,
+        "workP50Ms": 5.6,
+        "workP99Ms": 19,
+        "render": {
+          "frames": 29,
+          "draws": 185,
+          "maxDraws": 189,
+          "triangles": 849436,
+          "gpu": 1.397,
+          "geometries": 342,
+          "textures": 121
+        },
+        "long": [
+          {
+            "sAfterStart": 15.5,
+            "ms": 186,
+            "workMs": 104,
+            "pcPct": 72,
+            "chromePct": 7,
+            "othersPct": 65,
+            "kills": 1,
+            "top": [
+              "(program) :0 5",
+              "setFromAxisAngle three.core-DDCWwOCg.js?v=f9158b8f:3632 2",
+              "updateNumber three_webgpu.js?v=f9158b8f:45508 2",
+              "frame game.ts:758 2",
+              "(anon) simulation.ts:1373 2",
+              "getCacheKey three_webgpu.js?v=f9158b8f:40102 2"
+            ]
+          },
+          {
+            "sAfterStart": 14.8,
+            "ms": 89,
+            "workMs": 88,
+            "pcPct": 23,
+            "chromePct": 6,
+            "othersPct": 17,
+            "kills": 1,
+            "top": [
+              "release system.ts:711 26",
+              "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 15",
+              "#reach soldier.ts:1163 14",
+              "submit three_webgpu.js?v=f9158b8f:52699 11",
+              "(anon) main.ts:1224 8",
+              "readPad gamepad.ts:73 4"
+            ]
+          },
+          {
+            "sAfterStart": 15.5,
+            "ms": 74,
+            "workMs": 27,
+            "pcPct": 72,
+            "chromePct": 7,
+            "othersPct": 65,
+            "kills": 1,
+            "top": [
+              "updateNode three_webgpu.js?v=f9158b8f:39077 21",
+              "#updateMatch hud.ts:1022 6",
+              "copy three.core-DDCWwOCg.js?v=f9158b8f:13524 5",
+              "updateBinding three_webgpu.js?v=f9158b8f:57549 3",
+              "_draw three_webgpu.js?v=f9158b8f:60013 2",
+              "#setPadMode input.ts:454 2"
+            ]
+          },
+          {
+            "sAfterStart": 14.6,
+            "ms": 61,
+            "workMs": 56,
+            "pcPct": 23,
+            "chromePct": 6,
+            "othersPct": 17,
+            "kills": 1,
+            "top": [
+              "(program) :0 5",
+              "#tick game.ts:2216 2",
+              "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 2",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 2"
+            ]
+          },
+          {
+            "sAfterStart": 14.8,
+            "ms": 61,
+            "workMs": 31,
+            "pcPct": 72,
+            "chromePct": 7,
+            "othersPct": 65,
+            "kills": 1,
+            "top": [
+              "_getWeakMap three_webgpu.js?v=f9158b8f:20461 14",
+              "submit three_webgpu.js?v=f9158b8f:52699 13",
+              "tick session.ts:394 8",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 5",
+              "update hud.ts:744 5",
+              "updateByType three_webgpu.js?v=f9158b8f:45492 4"
+            ]
+          },
+          {
+            "sAfterStart": 14.6,
+            "ms": 59,
+            "workMs": 6,
+            "pcPct": 23,
+            "chromePct": 6,
+            "othersPct": 17,
+            "kills": 1,
+            "top": [
+              "_draw three_webgpu.js?v=f9158b8f:60013 2",
+              "get three_webgpu.js?v=f9158b8f:20476 2",
+              "_renderScene three_webgpu.js?v=f9158b8f:43650 2",
+              "think bot.ts:679 2",
+              "decompose three.core-DDCWwOCg.js?v=f9158b8f:8583 2",
+              "#outputOf simulation.ts:1386 2"
+            ]
+          }
+        ],
+        "longTotal": 6,
+        "longWithWork": 4,
+        "over50QuietPc": 3,
+        "cpuMeanPct": 29,
+        "profiled": true
+      },
+      "heard": {
+        "footstep": 360,
+        "gunshot": 144,
+        "impact": 119,
+        "ambientHum": 42,
+        "casing": 42,
+        "weaponRaise": 11,
+        "pain": 10,
+        "grenadeBounce": 10,
+        "adsOut": 7,
+        "grenadePin": 7,
+        "slide": 6,
+        "smokePop": 6,
+        "damageTaken": 5,
+        "ambientBirds": 4,
+        "ambientWind": 4,
+        "adsIn": 4,
+        "grenadeThrow": 4,
+        "death": 4,
+        "ambientRadio": 3,
+        "headshotMarker": 3,
+        "reloadMagOut": 3,
+        "reloadMagIn": 3,
+        "land": 2,
+        "hitMarker": 2,
+        "mantle": 2
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -42,
+        "rmsLoudestDb": -12,
+        "peakDb": -4,
+        "silentShare": 0.1
+      },
+      "errors": []
+    },
+    {
+      "map": "survival-town",
+      "mode": "outposts",
+      "play": {
+        "kills": 0,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": []
+      },
+      "frames": {
+        "frames": 750,
+        "meanMs": 34.7,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 35,
+        "worstMs": 35.6,
+        "over50ms": 0,
+        "fps": 28.8,
+        "low1Fps": 28.4,
+        "workP50Ms": 6.6,
+        "workP99Ms": 12,
+        "render": {
+          "frames": 29,
+          "draws": 217,
+          "maxDraws": 233,
+          "triangles": 1199686,
+          "gpu": 2.989,
+          "geometries": 361,
+          "textures": 123
+        },
+        "long": [],
+        "longTotal": 0,
+        "longWithWork": 0,
+        "over50QuietPc": 0,
+        "cpuMeanPct": 23,
+        "profiled": true
+      },
+      "heard": {
+        "footstep": 573,
+        "impact": 166,
+        "gunshot": 66,
+        "weaponRaise": 10,
+        "grenadeBounce": 9,
+        "pain": 8,
+        "slide": 7,
+        "ambientCreak": 5,
+        "ambientWind": 4,
+        "grenadePin": 4,
+        "grenadeThrow": 4,
+        "smokePop": 4,
+        "meleeSwing": 4,
+        "ambientRadio": 3,
+        "ambientBirds": 3,
+        "death": 2,
+        "reloadMagOut": 2,
+        "reloadMagIn": 2,
+        "jump": 1,
+        "land": 1,
+        "pumpRack": 1,
+        "shellInsert": 1,
+        "adsIn": 1,
+        "adsOut": 1
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -34,
+        "rmsLoudestDb": -15,
+        "peakDb": -5,
+        "silentShare": 0
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "gungame",
+      "play": {
+        "kills": 0,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": []
+      },
+      "frames": {
+        "frames": 750,
+        "meanMs": 34.7,
+        "p50Ms": 34.7,
+        "p95Ms": 34.9,
+        "p99Ms": 35.2,
+        "worstMs": 40.4,
+        "over50ms": 0,
+        "fps": 28.8,
+        "low1Fps": 27.5,
+        "workP50Ms": 5,
+        "workP99Ms": 9.3,
+        "render": {
+          "frames": 29,
+          "draws": 169,
+          "maxDraws": 175,
+          "triangles": 881964,
+          "gpu": 1.417,
+          "geometries": 343,
+          "textures": 123
+        },
+        "long": [],
+        "longTotal": 0,
+        "longWithWork": 0,
+        "over50QuietPc": 0,
+        "cpuMeanPct": 16,
+        "profiled": true
+      },
+      "heard": {
+        "footstep": 302,
+        "gunshot": 98,
+        "impact": 59,
+        "ambientHum": 42,
+        "weaponRaise": 13,
+        "pain": 10,
+        "death": 6,
+        "ambientWind": 4,
+        "slide": 4,
+        "ambientRadio": 3,
+        "ambientBirds": 3,
+        "land": 3
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -50,
+        "rmsLoudestDb": -15,
+        "peakDb": -5,
+        "silentShare": 0.11
+      },
+      "errors": []
+    }
+  ],
+  "range": {
+    "guns": [
+      {
+        "gun": "m4a1",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "11 / 4",
+        "heard": {
+          "casing": 20,
+          "gunshot": 11,
+          "impact": 7,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "reflex",
+        "target": "dummy-25",
+        "hits": "15 / 4",
+        "heard": {
+          "casing": 29,
+          "gunshot": 15,
+          "impact": 11,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "prism",
+        "target": "dummy-25",
+        "hits": "13 / 4",
+        "heard": {
+          "casing": 26,
+          "gunshot": 13,
+          "impact": 9,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "dmr",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "5 / 3",
+        "heard": {
+          "casing": 12,
+          "gunshot": 5,
+          "hitMarker": 2,
+          "impact": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "sniper",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "2 / 2",
+        "heard": {
+          "casing": 5,
+          "gunshot": 2,
+          "killMarker": 2,
+          "boltOpen": 2,
+          "boltClose": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "shotgun",
+        "optic": null,
+        "target": "dummy-10",
+        "hits": "2 / 2",
+        "heard": {
+          "impact": 11,
+          "casing": 4,
+          "gunshot": 2,
+          "hitMarker": 2,
+          "pumpRack": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "smg",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "13 / 6",
+        "heard": {
+          "casing": 24,
+          "gunshot": 13,
+          "impact": 7,
+          "hitMarker": 4,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "headshotKill": 1,
+          "adsOut": 1
+        }
+      }
+    ],
+    "frames": {
+      "frames": 1598,
+      "meanMs": 35,
+      "p50Ms": 34.7,
+      "p95Ms": 34.9,
+      "p99Ms": 48,
+      "worstMs": 85.9,
+      "over50ms": 13,
+      "fps": 28.6,
+      "low1Fps": 16.8,
+      "workP50Ms": 3.7,
+      "workP99Ms": 25,
+      "render": {
+        "frames": 29,
+        "draws": 105,
+        "maxDraws": 107,
+        "triangles": 234427,
+        "gpu": 1.198,
+        "geometries": 310,
+        "textures": 137
+      },
+      "long": [
+        {
+          "sAfterStart": 38.3,
+          "ms": 86,
+          "workMs": 61,
+          "pcPct": 100,
+          "chromePct": 7,
+          "othersPct": 93,
+          "kills": 0,
+          "top": [
+            "(program) :0 27",
+            "update viewmodel.ts:2044 6",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 3",
+            "updateSampler three_webgpu.js?v=f9158b8f:54081 3",
+            "start system.ts:758 2",
+            "updateAttribute three_webgpu.js?v=f9158b8f:57232 2"
+          ]
+        },
+        {
+          "sAfterStart": 38.5,
+          "ms": 84,
+          "workMs": 65,
+          "pcPct": 44,
+          "chromePct": 6,
+          "othersPct": 38,
+          "kills": 0,
+          "top": [
+            "(program) :0 30",
+            "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 6",
+            "_resolveQueries three_webgpu.js?v=f9158b8f:58589 5",
+            "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 3",
+            "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 2"
+          ]
+        },
+        {
+          "sAfterStart": 42.2,
+          "ms": 69,
+          "workMs": 11,
+          "pcPct": 29,
+          "chromePct": 5,
+          "othersPct": 24,
+          "kills": 0,
+          "top": [
+            "_update three_webgpu.js?v=f9158b8f:22757 31",
+            "_renderScene three_webgpu.js?v=f9158b8f:43650 26",
+            "allocateQueriesForContext three_webgpu.js?v=f9158b8f:58553 2",
+            "#animateKit viewmodel.ts:2169 2",
+            "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 2",
+            "updateByType three_webgpu.js?v=f9158b8f:45492 2"
+          ]
+        },
+        {
+          "sAfterStart": 38,
+          "ms": 63,
+          "workMs": 11,
+          "pcPct": 100,
+          "chromePct": 7,
+          "othersPct": 93,
+          "kills": 0,
+          "top": [
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 10",
+            "_update three_webgpu.js?v=f9158b8f:22757 5",
+            "update hud.ts:744 4",
+            "(program) :0 2",
+            "update three_webgpu.js?v=f9158b8f:52426 2",
+            "submit three_webgpu.js?v=f9158b8f:52699 2"
+          ]
+        },
+        {
+          "sAfterStart": 38.4,
+          "ms": 62,
+          "workMs": 7,
+          "pcPct": 44,
+          "chromePct": 6,
+          "othersPct": 38,
+          "kills": 0,
+          "top": [
+            "updateAttributes three_webgpu.js?v=f9158b8f:21617 9",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 9",
+            "multiplyMatrices three.core-DDCWwOCg.js?v=f9158b8f:8234 6",
+            "_getShadowNodes three_webgpu.js?v=f9158b8f:44756 2",
+            "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 2",
+            "end players-view.ts:350 1"
+          ]
+        },
+        {
+          "sAfterStart": 37.2,
+          "ms": 62,
+          "workMs": 45,
+          "pcPct": 55,
+          "chromePct": 6,
+          "othersPct": 49,
+          "kills": 0,
+          "top": [
+            "beginRender three_webgpu.js?v=f9158b8f:59381 3",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 3",
+            "setComponents three.core-DDCWwOCg.js?v=f9158b8f:15223 2",
+            "(program) :0 2",
+            "updateGroup three_webgpu.js?v=f9158b8f:39824 2",
+            "#updateHud game.ts:1105 1"
+          ]
+        },
+        {
+          "sAfterStart": 37.9,
+          "ms": 61,
+          "workMs": 19,
+          "pcPct": 100,
+          "chromePct": 7,
+          "othersPct": 93,
+          "kills": 0,
+          "top": [
+            "(program) :0 13",
+            "#updateScore game.ts:1633 6",
+            "getValueFromReference three_webgpu.js?v=f9158b8f:10791 3",
+            "setRGB three.core-DDCWwOCg.js?v=f9158b8f:10902 2",
+            "get value three_webgpu.js?v=f9158b8f:35884 2",
+            "updateMatrix three.core-DDCWwOCg.js?v=f9158b8f:10005 2"
+          ]
+        },
+        {
+          "sAfterStart": 35.2,
+          "ms": 57,
+          "workMs": 12,
+          "pcPct": 78,
+          "chromePct": 6,
+          "othersPct": 72,
+          "kills": 0,
+          "top": [
+            "updateNode three_webgpu.js?v=f9158b8f:39077 10",
+            "hash$1 three_webgpu.js?v=f9158b8f:704 8",
+            "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 6",
+            "getCacheKey three_webgpu.js?v=f9158b8f:1328 6",
+            "_draw three_webgpu.js?v=f9158b8f:60013 4",
+            "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 2"
+          ]
+        },
+        {
+          "sAfterStart": 38.4,
+          "ms": 55,
+          "workMs": 31,
+          "pcPct": 100,
+          "chromePct": 7,
+          "othersPct": 93,
+          "kills": 0,
+          "top": [
+            "onQuaternionChange three.core-DDCWwOCg.js?v=f9158b8f:9295 24",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 7",
+            "frame game.ts:758 3"
+          ]
+        },
+        {
+          "sAfterStart": 42.8,
+          "ms": 53,
+          "workMs": 67,
+          "pcPct": 66,
+          "chromePct": 5,
+          "othersPct": 61,
+          "kills": 0,
+          "top": [
+            "(program) :0 3",
+            "submit three_webgpu.js?v=f9158b8f:52699 2",
+            "arraysEqual three_webgpu.js?v=f9158b8f:45688 2",
+            "copy three.core-DDCWwOCg.js?v=f9158b8f:4158 2"
+          ]
+        },
+        {
+          "sAfterStart": 35,
+          "ms": 53,
+          "workMs": 15,
+          "pcPct": 78,
+          "chromePct": 6,
+          "othersPct": 72,
+          "kills": 0,
+          "top": [
+            "(program) :0 3",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 2",
+            "_renderScene three_webgpu.js?v=f9158b8f:43650 2",
+            "getDrawParameters three_webgpu.js?v=f9158b8f:20966 2",
+            "allocateQueriesForContext three_webgpu.js?v=f9158b8f:58553 2",
+            "setSize three_examples_jsm_tsl_display_BloomNode__js.js?v=f9158b8f:281 2"
+          ]
+        },
+        {
+          "sAfterStart": 37.3,
+          "ms": 51,
+          "workMs": 13,
+          "pcPct": 55,
+          "chromePct": 6,
+          "othersPct": 49,
+          "kills": 0,
+          "top": [
+            "(program) :0 7",
+            "#clear soldier.ts:952 2",
+            "push three_webgpu.js?v=f9158b8f:23050 2",
+            "copyTextureToTexture three_webgpu.js?v=f9158b8f:60616 2",
+            "_draw three_webgpu.js?v=f9158b8f:60013 2",
+            "getDynamicCacheKey three_webgpu.js?v=f9158b8f:21123 1"
+          ]
+        }
+      ],
+      "longTotal": 13,
+      "longWithWork": 5,
+      "over50QuietPc": 1,
+      "cpuMeanPct": 24,
+      "profiled": true
+    },
+    "errors": []
+  },
+  "island": null,
+  "online": null
+}

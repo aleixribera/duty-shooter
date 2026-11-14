@@ -18,7 +18,7 @@ Standing direction (Aleix, 2026-11-13): study how well-loved shooters solve the 
 
 Passes 23-66: requests 1-8 built roughly (tickets 106-115); PLAN item 1 (laptop) has its two passes spent (ticket 99); 1b (Backlit UI) shipped; item 7 roughly (ticket 117; BR on loadouts behind `?drops=resupply` until Aleix says go); reviews 14a/14b's gaps worked (v2.211.x).
 
-Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kills seen (v2.214.3, ticket 102): 5 of 8 match "b" frames show the body (14e: 1 of 6). Next: the match's 486 ms and Gun Game's 264 ms hitches (14e defect 2), with a CPU log.
+Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass 83: review 14e (1, 5 pass; 2, 3, 4, 6 fail), item 10's test not met. Pass 84: rifle kills seen (v2.214.3, ticket 102): 5 of 8 match "b" frames show the body (14e: 1 of 6). Pass 85: 14e's hitches were the capture (its sound recorder, 417 ms) and the busy PC (Gun Game clean twice); the capture now logs CPU per long frame (`over50QuietPc`, ticket 99). Next: a fresh full review (item 10's test). Next: the match's 486 ms and Gun Game's 264 ms hitches (14e defect 2), with a CPU log.
 
 ## Needs Aleix
 
@@ -41,7 +41,7 @@ Passes 67-82: 14c and 14d's defects worked (v2.213.x-v2.214.1; ticket 100). Pass
 
 - Arc "next level" (`spec.md`): tickets 01-84 all resolved.
 - Long-running, open: 19 attachments, 102 scopes and sights, 103 easy to understand, 29 refactors, 33 the Ring's tuning (waits on 35), 35 fast on weak PCs, 36 the whole match is the countdown.
-- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14e (1, 5 pass; 2, 3, 4, 6 fail; no CPU log, so 2's worse hitches may be the PC).
+- Reviews judge PLAN.md's six objectives (the ten-row scorecard is retired). Latest: 2026-11-14e (1, 5 pass; 2, 3, 4, 6 fail; its 2's worst hitches were the capture and the PC, pass 85).
 - CI: the `switchyard-bots-gungame.soak.test.ts` flake's cause fixed in v2.213.8 (ticket 118); a recurrence would be a new cause.
 
 ## Broken
@@ -58,7 +58,7 @@ None.
 
 ## Ideas for the loop
 
-- The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there with nothing on its screen; the recipe and probes are in ticket 99 (pass 31). Compare only within one page: its runs drift 40% with the owner on it. `REAL=1` runs it in a real full-screen window; a server inside an `lt run` script starts as `python3 -m http.server -d <dir> &` with a `trap`, or it keeps lt's lock (pass 32).
+- The toaster (Fedora laptop, Intel UHD): `toaster/laptop-bench.mjs` runs the benchmark page or a probe there; recipe and probes in ticket 99 (passes 31-32). Compare only within one page: runs drift 40% with the owner on it.
 - Online at real ping: `node .scratch/next-level/ping/look.mjs <out> <rtt> <loss>` plays Play Online through a TCP-like lagging proxy (own server 3010, proxy 3811, dev server 5181); `PING_REPORT=1 npx vitest run packages/fps-core/test/real-ping.test.ts` prints the in-memory numbers.
 - Model rebuilds: run Blender in its own process (`tools/.blender/blender-5.2.2-windows-x64/blender.exe --background --factory-startup --python <runner>`, runner calls `bkit.reset(); bkit.run(script, export=True)`); the shared one on 9876 gets reset by others.
 

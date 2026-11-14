@@ -1,0 +1,662 @@
+{
+  "base": "http://localhost:5173/",
+  "frameCap": 30,
+  "match": null,
+  "tour": [
+    {
+      "map": "switchyard",
+      "mode": "tdm",
+      "play": {
+        "kills": 1,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": [
+          {
+            "a": 3,
+            "b": 256
+          }
+        ]
+      },
+      "frames": {
+        "frames": 746,
+        "meanMs": 34.8,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 35.4,
+        "worstMs": 54.2,
+        "over50ms": 1,
+        "fps": 28.8,
+        "low1Fps": 25,
+        "workP50Ms": 7.5,
+        "workP99Ms": 13.2,
+        "render": {
+          "frames": 29,
+          "draws": 223,
+          "maxDraws": 230,
+          "triangles": 1414184,
+          "gpu": 1.754,
+          "geometries": 343,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sBeforeEnd": 12.1,
+            "ms": 54,
+            "workMs": 45,
+            "cpuPct": 44,
+            "kills": 0,
+            "top": [
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 11",
+              "#thinkBots server.ts:1604 8",
+              "#stepPlayer simulation.ts:365 6",
+              "#playing server.ts:1765 2",
+              "#stuck bot.ts:2617 2",
+              "writeString codec.ts:427 1"
+            ]
+          }
+        ],
+        "longWithWork": 1,
+        "cpuMeanPct": 49
+      },
+      "heard": {
+        "footstep": 959,
+        "impact": 199,
+        "gunshot": 160,
+        "casing": 59,
+        "ambientHum": 49,
+        "slide": 20,
+        "weaponRaise": 19,
+        "pain": 14,
+        "death": 9,
+        "grenadeBounce": 5,
+        "adsOut": 5,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "reloadMagOut": 4,
+        "reloadMagIn": 4,
+        "adsIn": 4,
+        "hitMarker": 4,
+        "meleeSwing": 4,
+        "ambientBirds": 3,
+        "boltOpen": 3,
+        "boltClose": 3,
+        "grenadePin": 3,
+        "mantle": 2,
+        "land": 2,
+        "grenadeThrow": 2
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -34,
+        "rmsLoudestDb": -12,
+        "peakDb": -3,
+        "silentShare": 0.05
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "ffa",
+      "play": {
+        "kills": 3,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": [
+          {
+            "a": 16,
+            "b": 261
+          },
+          {
+            "a": 33,
+            "b": 260,
+            "held": true
+          },
+          {
+            "a": 2,
+            "b": 266
+          }
+        ]
+      },
+      "frames": {
+        "frames": 703,
+        "meanMs": 36.7,
+        "p50Ms": 34.7,
+        "p95Ms": 36.7,
+        "p99Ms": 97,
+        "worstMs": 203.2,
+        "over50ms": 24,
+        "fps": 27.3,
+        "low1Fps": 7.6,
+        "workP50Ms": 6.4,
+        "workP99Ms": 93.5,
+        "render": {
+          "frames": 29,
+          "draws": 169,
+          "maxDraws": 186,
+          "triangles": 869547,
+          "gpu": 1.329,
+          "geometries": 346,
+          "textures": 123
+        },
+        "long": [
+          {
+            "sBeforeEnd": 22.6,
+            "ms": 203,
+            "workMs": 184,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "start system.ts:758 56",
+              "updateMatrix three.core-DDCWwOCg.js?v=f9158b8f:10005 51",
+              "update three_webgpu.js?v=f9158b8f:3444 29",
+              "_draw three_webgpu.js?v=f9158b8f:60013 24",
+              "joinSnapshot codec.ts:685 13",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 10"
+            ]
+          },
+          {
+            "sBeforeEnd": 9.1,
+            "ms": 178,
+            "workMs": 182,
+            "cpuPct": 83,
+            "kills": 3,
+            "top": [
+              "#stepPlayer simulation.ts:365 31",
+              "#thinkBots server.ts:1604 24",
+              "tick session.ts:394 23",
+              "_getDefaultRenderPassDescriptor three_webgpu.js?v=f9158b8f:59113 21",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 21",
+              "updateWeapon weapon.ts:184 9"
+            ]
+          },
+          {
+            "sBeforeEnd": 23.3,
+            "ms": 154,
+            "workMs": 96,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "decodeClient protocol.ts:51 32",
+              "updateReference three_webgpu.js?v=f9158b8f:10910 20",
+              "setFromEuler three.core-DDCWwOCg.js?v=f9158b8f:3573 12",
+              "update players-view.ts:607 10",
+              "needsRenderUpdate three_webgpu.js?v=f9158b8f:60186 10",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 4"
+            ]
+          },
+          {
+            "sBeforeEnd": 8.3,
+            "ms": 113,
+            "workMs": 107,
+            "cpuPct": 65,
+            "kills": 3,
+            "top": [
+              "_projectObject three_webgpu.js?v=f9158b8f:44643 38",
+              "update grenade-warnings.ts:73 35",
+              "(program) :0 12",
+              "#planBots server.ts:1522 11",
+              "_draw three_webgpu.js?v=f9158b8f:60013 7",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 4"
+            ]
+          },
+          {
+            "sBeforeEnd": 23.2,
+            "ms": 107,
+            "workMs": 101,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "compose three.core-DDCWwOCg.js?v=f9158b8f:8544 49",
+              "begin three_webgpu.js?v=f9158b8f:22983 23",
+              "submit three_webgpu.js?v=f9158b8f:52699 15",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 15",
+              "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 3",
+              "decodeClient protocol.ts:51 3"
+            ]
+          },
+          {
+            "sBeforeEnd": 23.6,
+            "ms": 102,
+            "workMs": 100,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "finishRender three_webgpu.js?v=f9158b8f:59657 30",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 29",
+              "cyrb53 three_webgpu.js?v=f9158b8f:660 15",
+              "getShadowRenderObjectFunction three_webgpu.js?v=f9158b8f:31705 7",
+              "get three_webgpu.js?v=f9158b8f:23189 4",
+              "sample input.ts:592 4"
+            ]
+          },
+          {
+            "sBeforeEnd": 23.5,
+            "ms": 99,
+            "workMs": 95,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "_draw three_webgpu.js?v=f9158b8f:60013 81",
+              "copy three.core-DDCWwOCg.js?v=f9158b8f:7959 2",
+              "_renderObjectDirect three_webgpu.js?v=f9158b8f:44936 2",
+              "copy three.core-DDCWwOCg.js?v=f9158b8f:3557 2",
+              "(anon) three_webgpu.js?v=f9158b8f:12687 2",
+              "take codec.ts:376 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 9.2,
+            "ms": 97,
+            "workMs": 94,
+            "cpuPct": 83,
+            "kills": 3,
+            "top": [
+              "#bodiesAt simulation.ts:900 35",
+              "update three_webgpu.js?v=f9158b8f:21426 23",
+              "think bot.ts:679 7",
+              "(program) :0 6",
+              "#updateHud game.ts:1105 6",
+              "updateMatrix three.core-DDCWwOCg.js?v=f9158b8f:10005 5"
+            ]
+          },
+          {
+            "sBeforeEnd": 8.4,
+            "ms": 94,
+            "workMs": 11,
+            "cpuPct": 71,
+            "kills": 3,
+            "top": [
+              "(anon) :31 11",
+              "beginRender three_webgpu.js?v=f9158b8f:59381 2",
+              "updateValue three_webgpu.js?v=f9158b8f:10830 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 22.3,
+            "ms": 86,
+            "workMs": 59,
+            "cpuPct": 100,
+            "kills": 0,
+            "top": [
+              "writeString codec.ts:427 27",
+              "updateByType three_webgpu.js?v=f9158b8f:45492 12",
+              "_draw three_webgpu.js?v=f9158b8f:60013 8",
+              "decompose three.core-DDCWwOCg.js?v=f9158b8f:8583 6",
+              "step simulation.ts:327 3",
+              "sample input.ts:592 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 22.8,
+            "ms": 81,
+            "workMs": 54,
+            "cpuPct": 99,
+            "kills": 0,
+            "top": [
+              "_renderScene three_webgpu.js?v=f9158b8f:43650 29",
+              "(program) :0 28",
+              "submit three_webgpu.js?v=f9158b8f:52699 11",
+              "updateFog three_webgpu.js?v=f9158b8f:40205 3",
+              "clone simulation.ts:31 3",
+              "_draw three_webgpu.js?v=f9158b8f:60013 2"
+            ]
+          },
+          {
+            "sBeforeEnd": 25.9,
+            "ms": 72,
+            "workMs": 74,
+            "cpuPct": 91,
+            "kills": 0,
+            "top": [
+              "updateByType three_webgpu.js?v=f9158b8f:45492 35",
+              "render three_webgpu.js?v=f9158b8f:43552 28",
+              "writeString codec.ts:427 2",
+              "step simulation.ts:327 2",
+              "get value three_webgpu.js?v=f9158b8f:35884 2",
+              "_projectObject three_webgpu.js?v=f9158b8f:44643 2"
+            ]
+          }
+        ],
+        "longWithWork": 16,
+        "cpuMeanPct": 48
+      },
+      "heard": {
+        "footstep": 355,
+        "gunshot": 160,
+        "impact": 122,
+        "casing": 100,
+        "ambientHum": 42,
+        "pain": 13,
+        "weaponRaise": 10,
+        "bulletCrack": 9,
+        "heartbeat": 9,
+        "grenadeBounce": 8,
+        "slide": 7,
+        "hitMarker": 6,
+        "grenadePin": 6,
+        "death": 6,
+        "boltOpen": 5,
+        "boltClose": 5,
+        "smokePop": 5,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "ambientBirds": 4,
+        "headshotMarker": 4,
+        "adsOut": 4,
+        "adsIn": 3,
+        "reloadMagOut": 3,
+        "grenadeThrow": 3
+      },
+      "levels": {
+        "samples": 105,
+        "rmsMedianDb": -35,
+        "rmsLoudestDb": -12,
+        "peakDb": -3,
+        "silentShare": 0.06
+      },
+      "errors": []
+    },
+    {
+      "map": "survival-town",
+      "mode": "outposts",
+      "play": {
+        "kills": 0,
+        "deaths": 0,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": []
+      },
+      "frames": {
+        "frames": 749,
+        "meanMs": 34.7,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 35.3,
+        "worstMs": 41.9,
+        "over50ms": 0,
+        "fps": 28.8,
+        "low1Fps": 26.9,
+        "workP50Ms": 6.4,
+        "workP99Ms": 15.3,
+        "render": {
+          "frames": 29,
+          "draws": 193,
+          "maxDraws": 199,
+          "triangles": 1057926,
+          "gpu": 1.504,
+          "geometries": 361,
+          "textures": 123
+        },
+        "long": [],
+        "cpuMeanPct": 38
+      },
+      "heard": {
+        "footstep": 526,
+        "impact": 126,
+        "gunshot": 53,
+        "bulletCrack": 14,
+        "weaponRaise": 9,
+        "ambientCreak": 6,
+        "ambientRadio": 4,
+        "slide": 4,
+        "pain": 4,
+        "death": 4,
+        "ambientWind": 3,
+        "grenadeBounce": 3,
+        "damageTaken": 3,
+        "ambientBirds": 2,
+        "grenadePin": 2,
+        "boltOpen": 2,
+        "boltClose": 2,
+        "smokePop": 2,
+        "reloadMagOut": 2,
+        "reloadMagIn": 2,
+        "jump": 1,
+        "land": 1,
+        "grenadeThrow": 1
+      },
+      "levels": {
+        "samples": 104,
+        "rmsMedianDb": -35,
+        "rmsLoudestDb": -15,
+        "peakDb": -5,
+        "silentShare": 0.01
+      },
+      "errors": []
+    },
+    {
+      "map": "station-nine",
+      "mode": "gungame",
+      "play": {
+        "kills": 1,
+        "deaths": 1,
+        "seconds": 25,
+        "phase": "playing",
+        "killFrames": [
+          {
+            "a": 33,
+            "b": 259
+          }
+        ]
+      },
+      "frames": {
+        "frames": 747,
+        "meanMs": 34.7,
+        "p50Ms": 34.7,
+        "p95Ms": 34.8,
+        "p99Ms": 35,
+        "worstMs": 48.7,
+        "over50ms": 0,
+        "fps": 28.8,
+        "low1Fps": 27.1,
+        "workP50Ms": 5.5,
+        "workP99Ms": 11.1,
+        "render": {
+          "frames": 29,
+          "draws": 124,
+          "maxDraws": 129,
+          "triangles": 870604,
+          "gpu": 1.309,
+          "geometries": 345,
+          "textures": 123
+        },
+        "long": [],
+        "cpuMeanPct": 47
+      },
+      "heard": {
+        "footstep": 338,
+        "ambientHum": 42,
+        "weaponRaise": 11,
+        "gunshot": 10,
+        "boltOpen": 10,
+        "boltClose": 10,
+        "slide": 9,
+        "impact": 6,
+        "death": 6,
+        "ambientWind": 4,
+        "ambientRadio": 4,
+        "reloadMagOut": 4,
+        "reloadMagIn": 4,
+        "casing": 4,
+        "ambientBirds": 3,
+        "adsIn": 2,
+        "bulletCrack": 2,
+        "killMarker": 1,
+        "adsOut": 1,
+        "damageTaken": 1
+      },
+      "levels": {
+        "samples": 104,
+        "rmsMedianDb": -48,
+        "rmsLoudestDb": -13,
+        "peakDb": -4,
+        "silentShare": 0.09
+      },
+      "errors": []
+    }
+  ],
+  "range": {
+    "guns": [
+      {
+        "gun": "m4a1",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "14 / 4",
+        "heard": {
+          "casing": 25,
+          "gunshot": 14,
+          "impact": 10,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "reflex",
+        "target": "dummy-25",
+        "hits": "11 / 4",
+        "heard": {
+          "casing": 23,
+          "gunshot": 11,
+          "impact": 7,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "m4a1",
+        "optic": "prism",
+        "target": "dummy-25",
+        "hits": "13 / 4",
+        "heard": {
+          "casing": 25,
+          "gunshot": 13,
+          "impact": 9,
+          "hitMarker": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "dmr",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "5 / 3",
+        "heard": {
+          "casing": 12,
+          "gunshot": 5,
+          "hitMarker": 2,
+          "impact": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "killMarker": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "sniper",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "2 / 2",
+        "heard": {
+          "casing": 5,
+          "gunshot": 2,
+          "killMarker": 2,
+          "boltOpen": 2,
+          "boltClose": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "shotgun",
+        "optic": null,
+        "target": "dummy-10",
+        "hits": "2 / 2",
+        "heard": {
+          "impact": 11,
+          "casing": 4,
+          "gunshot": 2,
+          "hitMarker": 2,
+          "pumpRack": 2,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "adsOut": 1
+        }
+      },
+      {
+        "gun": "smg",
+        "optic": null,
+        "target": "dummy-25",
+        "hits": "14 / 6",
+        "heard": {
+          "casing": 26,
+          "gunshot": 14,
+          "impact": 8,
+          "hitMarker": 4,
+          "weaponRaise": 1,
+          "adsIn": 1,
+          "headshotMarker": 1,
+          "headshotKill": 1,
+          "adsOut": 1
+        }
+      }
+    ],
+    "frames": {
+      "frames": 1615,
+      "meanMs": 34.8,
+      "p50Ms": 34.7,
+      "p95Ms": 34.8,
+      "p99Ms": 35.2,
+      "worstMs": 67.4,
+      "over50ms": 1,
+      "fps": 28.8,
+      "low1Fps": 25.5,
+      "workP50Ms": 4.3,
+      "workP99Ms": 14.7,
+      "render": {
+        "frames": 29,
+        "draws": 106,
+        "maxDraws": 108,
+        "triangles": 243355,
+        "gpu": 1.068,
+        "geometries": 329,
+        "textures": 147
+      },
+      "long": [
+        {
+          "sBeforeEnd": 42.1,
+          "ms": 67,
+          "workMs": 52,
+          "cpuPct": 73,
+          "kills": 0,
+          "top": [
+            "updateWeapon weapon.ts:184 48",
+            "renderObject three_webgpu.js?v=f9158b8f:44854 3",
+            "updateMatrixWorld three.core-DDCWwOCg.js?v=f9158b8f:10028 2",
+            "updateBinding three_webgpu.js?v=f9158b8f:57549 1"
+          ]
+        }
+      ],
+      "longWithWork": 1,
+      "cpuMeanPct": 42
+    },
+    "errors": []
+  },
+  "island": null,
+  "online": null
+}
