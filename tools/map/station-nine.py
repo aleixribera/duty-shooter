@@ -25,7 +25,7 @@ import os
 import sys
 
 import bmesh
-from mathutils import Vector
+from mathutils import Vector, noise
 
 sys.path.insert(0, os.path.dirname(__file__))
 import mapkit  # noqa: E402
@@ -645,15 +645,49 @@ def generator():
     return kit.asset("generator", parts, smooth_angle=45)
 
 
+TANK_HEAD = [(-3.5, 0.0), (-3.49, 0.45), (-3.45, 0.85), (-3.36, 1.12), (-3.25, 1.26), (-3.12, TANK_R)]
+
+
+def tank_profile():
+    """The barrel's profile, (x, radius): the dished heads (`TANK_HEAD`) in rings every 10-15 cm of radius and the
+    shell every 30 cm, so the weathering baked into its vertices (`weather_tank`) has the points to draw on."""
+    head = []
+    for rr in (0.0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85, 0.95, 1.04, 1.12, 1.2, 1.26, TANK_R):
+        for (x0, r0), (x1, r1) in zip(TANK_HEAD, TANK_HEAD[1:]):
+            if r0 <= rr <= r1:
+                head.append((x0 + (x1 - x0) * (rr - r0) / (r1 - r0), rr))
+                break
+    shell = [(-3.12 + k * 6.24 / 21, TANK_R) for k in range(1, 21)]
+    return head + shell + [(-x, rr) for x, rr in reversed(head)]
+
+
 def fuel_tank():
     """A 7 m fuel tank lying on two saddles: a barrel with dished heads, weld seams, a red band, a manway, a placard
-    and the draw-off pipe and valve under the +x head."""
+    and the draw-off pipe and valve under the +x head. Each head carries a red flammable diamond on a white plate, a
+    dark data plate and a level gauge, so a tank seen end on reads as a tank, not a plain white ball (review
+    2026-11-14a); its paint is weathered by `weather_tank`."""
     r, a = TANK_R, TANK_AXIS
-    prof = [(-3.5, 0.0), (-3.49, 0.45), (-3.45, 0.85), (-3.36, 1.12), (-3.25, 1.26), (-3.12, r)]
-    prof += [(-x, rr) for x, rr in reversed(prof)]
-    parts = [kit.lathe(prof, (0, a, 0), TANK, 36, "x")]
+    parts = [kit.lathe(tank_profile(), (0, a, 0), TANK, 36, "x")]
     for x in (-1.2, 1.2):
         parts.append(ring(x, a, 0, r + 0.006, 0.025, "x", TANK, 36))
+    # The heads' weld seams, where the knuckle meets the shell.
+    for x in (-3.12, 3.12):
+        parts.append(ring(x, a, 0, r + 0.006, 0.03, "x", TANK, 36))
+    for s in (-1, 1):
+        def along(x0, x1):
+            """An x span out from the head's middle, mirrored onto the -x head."""
+            return tuple(sorted((s * x0, s * x1)))
+
+        # The placard on the head's middle (which stands within 1 cm of x = 3.5 out to 45 cm): a white diamond 0.62 m
+        # across standing 2 cm proud, and a red one inside it 1 cm prouder still.
+        for d, (x0, x1), mat in ((0.31, (3.48, 3.52), TRIM), (0.25, (3.5, 3.53), DRUM_RED)):
+            parts.append(kit.section([(a + 0.12 - d, 0.0), (a + 0.12, d), (a + 0.12 + d, 0.0), (a + 0.12, -d)], *along(x0, x1), mat))
+        # The data plate under it, right of centre seen from outside (game -z is on the right, looking at the +x head).
+        z = -s * 0.32
+        parts.append(kit.box((along(3.46, 3.505)[0], a - 0.5, z - 0.16), (along(3.46, 3.505)[1], a - 0.3, z + 0.16), STEEL))
+        # The level gauge up on the head, left of centre: a dial in a steel bezel, its white face toward the end.
+        parts.append(kit.cylinder(0.09, *along(3.42, 3.5), (0, a + 0.72, s * 0.3), "x", STEEL, 16))
+        parts.append(kit.cylinder(0.072, *along(3.5, 3.507), (0, a + 0.72, s * 0.3), "x", TRIM, 16))
     parts.append(ring(-1.8, a, 0, r + 0.005, 0.35, "x", STRIPE, 36))
     for x in (-2.4, 2.4):
         parts.append(kit.box((x - 0.25, 0, -0.68), (x + 0.25, 0.32, 0.68), PIER, 0.02, 1))
@@ -673,6 +707,45 @@ def fuel_tank():
     parts.append(kit.lathe([(-0.015, 0.1), (-0.015, 0.13), (0.015, 0.13), (0.015, 0.1)], (3.38, 0.35, 0.4), DRUM_RED, 16, "x"))
     parts.append(kit.box((3.36, 0.3, 0.38), (3.4, 0.4, 0.42), STEEL))
     return kit.asset("fuel-tank", parts, smooth_angle=50)
+
+
+def weather_tank(o):
+    """Weathers the fuel tank's paint, in the vertex colour's alpha, which the game multiplies into the finish's colour
+    (`map-models.ts`): rust and dirt run down from its top in streaks of their own length, down the shell's sides and
+    the heads; grime lies along the weld seams; and the desert's dust is splashed up its lower third. A white tank
+    without them read as a placeholder ball end on (review 2026-11-14a)."""
+    mesh = o.data
+    ca = mesh.color_attributes["Color"]
+    paint = {i for i, m in enumerate(mesh.materials) if m and m.name == TANK.name}
+    verts = {v for p in mesh.polygons if p.material_index in paint for v in p.vertices}
+    top = TANK_AXIS + TANK_R
+    for i in verts:
+        co = mesh.vertices[i].co
+        x, y, z = co.x, co.z, -co.y
+        head = abs(x) > 3.12
+        # Along the surface across the streaks: x on the shell, each side its own pattern (blended over the crest, so
+        # the two don't meet in a line along the top); z on a head, each end its own.
+        if head:
+            pattern = lambda k: noise.noise(Vector((z * 2.6 * k[0], 7.3 + (x > 0) * 3.1, k[1])))  # noqa: E731
+        else:
+            w = min(1.0, max(0.0, 0.5 + z / 0.6))
+            pattern = lambda k: (1 - w) * noise.noise(Vector((x * 2.6 * k[0], 1.9, k[1]))) + w * noise.noise(Vector((x * 2.6 * k[0], 6.3, k[1])))  # noqa: E731
+        streak = min(1.0, max(0.0, pattern((1.0, 0.5)) * 2.2 + 0.1))
+        length = 1.0 + 2.0 * (0.5 + 0.5 * pattern((0.5, 2.5)))
+        streak *= max(0.0, 1.0 - (top - y) / length)
+        # Rust run down a head from under its level gauge (z = ±0.3, 63 cm over the axis), narrow and fading.
+        rust = 0.0
+        if head and y < TANK_AXIS + 0.63:
+            rust = max(0.0, 1.0 - abs(z - math.copysign(0.3, x)) / 0.12) * max(0.0, 1.0 - (TANK_AXIS + 0.63 - y) / 1.1)
+        seam = min(abs(abs(x) - 3.12), abs(abs(x) - 1.2))
+        grime = 0.15 * max(0.0, 1.0 - seam / 0.25)
+        dust = max(0.0, 1.0 - y / 1.2) ** 1.3 * (0.7 + 0.3 * noise.noise(Vector((x * 2.1, z * 2.1, 4.0))))
+        tone = 0.08 * (0.5 + 0.5 * noise.noise(Vector((x * 0.6, y * 0.6, z * 0.6))))
+        shade = max(0.35, 1.0 - 0.5 * streak - 0.45 * rust - grime - 0.5 * dust - tone)
+        c = ca.data[i].color
+        if head and abs(y - TANK_AXIS - 0.12) + abs(z) < 0.41:
+            c = (1.0, 1.0, 1.0, 1.0)  # under and just round the placard: its occlusion would spread from there in spikes
+        ca.data[i].color = (c[0], c[1], c[2], shade)
 
 
 def instrument_trailer():
@@ -896,6 +969,7 @@ SOLIDS.update({crate_name(w, d, h): box(w / 2, h, d / 2) for w, d, h in CRATES})
 SOLIDS.update({f"container-600-{p}": box(3.0, 2.6, 1.2) for p in PAINTS})
 
 kit.bake_ao(built + scenery, distance=0.6)
+weather_tank(next(o for o in built if o.name == "fuel-tank"))
 report = {}
 for o in scenery:
     report[o.name] = {"tris": kit.tris(o)}
