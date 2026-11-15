@@ -8,7 +8,6 @@ import { LIGHTING, type Lighting } from '../surfaces/lighting';
 import { buildArms, type ArmsModel } from './arms';
 import { aimPose, buildFrag, buildKitGun, type KitGun, type KitId } from './kit';
 import { M4A1_BOLT_TRAVEL, M4A1_CHARGING_HANDLE_TRAVEL, buildM4A1, palmFrame, type M4A1Model } from './m4a1';
-import { KillDip } from './kill-dip';
 import { WeaponMotion } from './motion';
 import { IRON_NODES, OPTICS, OPTIC_MOUNTS, mountOptic, opticSight, opticTemplate } from './optics';
 import type { ViewmodelState } from './state';
@@ -469,10 +468,6 @@ function shellReload(row: WeaponRow, t: number, ammo: number, empty: boolean): S
 
 /** Cooking: the gun lowered and the frag held up in the support hand. */
 const GRENADE_LOWERED = pose([0.06, -0.22, 0.08], [-0.7, 0.2, 0.3]);
-/** The kill dip at its deepest (PLAN 9f): metres down and back, and the muzzle's nod down (radians). */
-const KILL_DROP = 0.036;
-const KILL_BACK = 0.016;
-const KILL_NOD = 0.072;
 /** Mantling (ticket 67): the gun swung down and rolled over to the right, out of the way of the hands on the ledge. */
 const MANTLE_AWAY = pose([0.08, -0.18, 0.08], [-0.6, -0.25, -0.6]);
 /** The right hand on a bolt knob (tools/weapon/sniper.py), in gun space: from below and behind, palm up and in, the knob at the base of the fingers. */
@@ -593,8 +588,6 @@ export class Viewmodel {
   readonly #motion = new WeaponMotion();
   /** How far the gun is swung out of the way for a mantle, eased, 0 to 1. */
   #mantle = 0;
-  /** Your shot killed: the gun drops out of the way so the fall is seen (PLAN 9f). */
-  readonly #killDip = new KillDip();
   #boltCycle = 1;
   #time = 0;
   #disposed = false;
@@ -693,11 +686,6 @@ export class Viewmodel {
     this.#kickPitch.velocity += (2.4 + Math.random() * 0.6) * kick;
     this.#kickYaw.velocity += (Math.random() - 0.5) * 1.2 * kick;
     this.#boltCycle = 0;
-  }
-
-  /** The shot from these hands killed: the gun dips so the falling body is in view, then comes back. */
-  killed(): void {
-    this.#killDip.kill();
   }
 
   land(fallHeight: number): void {
@@ -917,8 +905,6 @@ export class Viewmodel {
     this.#kickZ.update(dt);
     this.#kickPitch.update(dt);
     this.#kickYaw.update(dt);
-    // Whole at any camera-motion setting, like the sprint carry: it shows the kill, it isn't decoration.
-    const dip = this.#killDip.update(dt);
     // The body's motion in the gun: nothing aimed but the breath, and all of it the camera-motion setting's to scale.
     const m = this.#motion.update({
       dt,
@@ -949,12 +935,12 @@ export class Viewmodel {
     const actionWeight = 1 - ads * 0.6;
     this.#pivot.position.set(
       base.x + (p[0] ?? 0) * actionWeight + sprintP.x * sprint + m.p[0],
-      base.y + (p[1] ?? 0) * actionWeight + sprintP.y * sprint + m.p[1] - dip * KILL_DROP,
-      base.z + (p[2] ?? 0) * actionWeight + sprintP.z * sprint + m.p[2] + this.#kickZ.value * 0.025 * (1 - ads * 0.4) + dip * KILL_BACK,
+      base.y + (p[1] ?? 0) * actionWeight + sprintP.y * sprint + m.p[1],
+      base.z + (p[2] ?? 0) * actionWeight + sprintP.z * sprint + m.p[2] + this.#kickZ.value * 0.025 * (1 - ads * 0.4),
     );
     const hipRot = 1 - ads;
     this.#pivot.rotation.set(
-      HIP_ROT.x * hipRot + this.#aimPitch * ads + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + m.r[0] - dip * KILL_NOD,
+      HIP_ROT.x * hipRot + this.#aimPitch * ads + (r[0] ?? 0) * actionWeight + (sprintR[0] ?? 0) * sprint + this.#kickPitch.value * 0.02 * (1 - ads * 0.5) + m.r[0],
       HIP_ROT.y * hipRot + (r[1] ?? 0) * actionWeight + (sprintR[1] ?? 0) * sprint + this.#kickYaw.value * 0.01 + m.r[1],
       HIP_ROT.z * hipRot + (r[2] ?? 0) * actionWeight + (sprintR[2] ?? 0) * sprint + m.r[2],
       'YXZ',

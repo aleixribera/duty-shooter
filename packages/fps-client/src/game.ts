@@ -2429,10 +2429,6 @@ export class Game {
           this.#players.hit(e.victim, dir, e.damage);
         }
         if (landed) this.#voice(e.victim, e.victim === selfId, e.killed, e.zone === 'head', e.damage, e.point);
-        // A gunshot kill from the hands on screen (yours, or theirs you watch through): the gun dips so the fall is seen (PLAN 9f).
-        // Whose hands are on screen, not who fired: a round still in flight can kill after you die, while you watch through someone else.
-        const hands = this.#cur?.alive ? selfId : this.#follow?.eyes ? this.#follow.id : null;
-        if (e.killed && e.cause === 'bullet' && e.victim !== e.shooter && e.shooter === hands) this.#viewmodel.killed();
         if (e.shooter === selfId && e.victim !== selfId) {
           const head = e.zone === 'head';
           const kind = hitKind(e.killed, head, e.damage);
