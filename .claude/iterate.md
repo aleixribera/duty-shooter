@@ -1,5 +1,7 @@
 # Iterate: duty-shooter
 
+Model: opus, effort medium
+
 The project-specific half of the iterate skill. Where this file and the skill differ, this file wins; `AGENTS.md` wins over both.
 
 ## Vision
