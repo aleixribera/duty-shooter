@@ -1,6 +1,6 @@
 {
   "name": "duty-shooter",
-  "url": "http://localhost:5173/?nolock",
+  "url": "http://localhost:5173/?nolock&hz=60",
   "launch": {
     "command": "npm run dev -w @duty-shooter/range -- --port 5173 --strictPort",
     "readyUrl": "http://localhost:5173/",
@@ -31,38 +31,250 @@
         {
           "wait": 2000
         }
+      ],
+      "viewports": [
+        "desktop",
+        "phone",
+        "phone-upright"
       ]
     },
     {
-      "id": "settings",
-      "title": "Settings",
+      "id": "online",
+      "title": "Play Online",
+      "steps": [
+        {
+          "clickText": "Play Online"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "from": "main-menu"
+    },
+    {
+      "id": "royale",
+      "title": "Battle Royale",
+      "steps": [
+        {
+          "clickText": "Battle Royale"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "from": "main-menu"
+    },
+    {
+      "id": "royale-local",
+      "title": "Battle Royale, Local bots",
+      "steps": [
+        {
+          "clickText": "Local bots"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "from": "royale"
+    },
+    {
+      "id": "bot-lobby",
+      "title": "Bot Match lobby",
+      "steps": [
+        {
+          "clickText": "Bot Match"
+        },
+        {
+          "wait": 1200
+        }
+      ],
       "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone",
+        "phone-upright"
+      ]
+    },
+    {
+      "id": "loadout",
+      "title": "Loadout",
+      "steps": [
+        {
+          "eval": "duty.menu.loadout('lobby')"
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "from": "bot-lobby"
+    },
+    {
+      "id": "gunsmith",
+      "title": "Gunsmith",
+      "steps": [
+        {
+          "eval": "(document.querySelector('[data-act=gunsmith],[data-gunsmith],.gunsmith button, button[aria-label*=unsmith]')||[...document.querySelectorAll('button')].find(b=>/gunsmith|attachments|optic/i.test(b.textContent)))?.click()"
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "from": "loadout"
+    },
+    {
+      "id": "profile",
+      "title": "Profile and Rank",
+      "steps": [
+        {
+          "eval": "duty.menu.show('profile')"
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "from": "main-menu"
+    },
+    {
+      "id": "settings-controls",
+      "title": "Settings: Controls",
       "steps": [
         {
           "clickText": "Settings"
         },
         {
           "wait": 800
+        },
+        {
+          "clickText": "Controls"
+        },
+        {
+          "wait": 800
         }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
       ]
     },
     {
-      "id": "bot-lobby",
-      "title": "Bot Match lobby",
-      "from": "main-menu",
+      "id": "settings-mouse",
+      "title": "Settings: Mouse and pad",
       "steps": [
         {
-          "clickText": "Bot Match"
+          "clickText": "Settings"
         },
         {
-          "wait": 1000
+          "wait": 800
+        },
+        {
+          "clickText": "Mouse and pad"
+        },
+        {
+          "wait": 800
         }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
+      ]
+    },
+    {
+      "id": "settings-touch",
+      "title": "Settings: Touch",
+      "steps": [
+        {
+          "clickText": "Settings"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "clickText": "Touch"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
+      ]
+    },
+    {
+      "id": "settings-video",
+      "title": "Settings: Video",
+      "steps": [
+        {
+          "clickText": "Settings"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "clickText": "Video"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
+      ]
+    },
+    {
+      "id": "settings-audio",
+      "title": "Settings: Audio",
+      "steps": [
+        {
+          "clickText": "Settings"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "clickText": "Audio"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
+      ]
+    },
+    {
+      "id": "settings-accessibility",
+      "title": "Settings: Accessibility",
+      "steps": [
+        {
+          "clickText": "Settings"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "clickText": "Accessibility"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop",
+        "phone"
       ]
     },
     {
       "id": "loading",
       "title": "Loading a map",
-      "from": "main-menu",
       "steps": [
         {
           "eval": "duty.menu.loading('Survival Town', 0.42)"
@@ -70,12 +282,25 @@
         {
           "wait": 800
         }
-      ]
+      ],
+      "from": "main-menu"
+    },
+    {
+      "id": "connecting",
+      "title": "Connecting",
+      "steps": [
+        {
+          "eval": "duty.menu.connecting(1)"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu"
     },
     {
       "id": "error",
       "title": "Connection failed",
-      "from": "main-menu",
       "steps": [
         {
           "eval": "duty.menu.failed(null)"
@@ -83,12 +308,28 @@
         {
           "wait": 800
         }
+      ],
+      "from": "main-menu"
+    },
+    {
+      "id": "tip",
+      "title": "Firefox tip",
+      "steps": [
+        {
+          "eval": "duty.menu.tip(() => {})"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "from": "main-menu",
+      "viewports": [
+        "desktop"
       ]
     },
     {
       "id": "range-hud",
       "title": "Practice Range, first spawn",
-      "from": "main-menu",
       "steps": [
         {
           "clickText": "Practice Range"
@@ -98,31 +339,41 @@
           "timeoutMs": 120000
         },
         {
-          "wait": 2500
+          "wait": 3000
         }
-      ]
+      ],
+      "from": "main-menu"
     },
     {
-      "id": "match-hud",
-      "title": "Bot Match in play",
-      "from": "bot-lobby",
+      "id": "countdown",
+      "title": "Bot Match opening",
       "steps": [
         {
           "clickText": "Start"
         },
         {
-          "waitForJs": "globalThis.duty?.driver?.match?.phase === 'playing'",
+          "waitForJs": "globalThis.duty?.driver?.match?.phase === 'playing' && !globalThis.duty.menu.open",
           "timeoutMs": 180000
         },
         {
-          "wait": 3000
+          "wait": 400
         }
-      ]
+      ],
+      "from": "bot-lobby"
+    },
+    {
+      "id": "match-hud",
+      "title": "Bot Match in play",
+      "steps": [
+        {
+          "wait": 6000
+        }
+      ],
+      "from": "countdown"
     },
     {
       "id": "scoreboard",
       "title": "Scoreboard (Tab held)",
-      "from": "match-hud",
       "steps": [
         {
           "keyDown": "Tab"
@@ -130,12 +381,15 @@
         {
           "wait": 600
         }
+      ],
+      "from": "match-hud",
+      "viewports": [
+        "desktop"
       ]
     },
     {
       "id": "pause",
       "title": "Pause menu",
-      "from": "match-hud",
       "steps": [
         {
           "press": "Escape"
@@ -143,7 +397,73 @@
         {
           "wait": 800
         }
+      ],
+      "from": "match-hud"
+    },
+    {
+      "id": "end-panel",
+      "title": "Match end",
+      "steps": [
+        {
+          "goto": "http://localhost:5173/?nolock&hz=60&matchtime=12"
+        },
+        {
+          "waitForJs": "globalThis.duty?.game && globalThis.duty?.menu?.open",
+          "timeoutMs": 90000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "clickText": "Bot Match"
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "clickText": "Start"
+        },
+        {
+          "waitForJs": "globalThis.duty?.driver?.match?.phase === 'vote' || globalThis.duty?.driver?.match?.phase === 'nuke'",
+          "timeoutMs": 240000
+        },
+        {
+          "wait": 4000
+        }
+      ]
+    },
+    {
+      "id": "benchmark",
+      "title": "Benchmark page",
+      "steps": [
+        {
+          "goto": "http://localhost:5173/?benchmark&nolock"
+        },
+        {
+          "wait": 4000
+        }
+      ],
+      "viewports": [
+        "desktop",
+        "phone"
       ]
     }
-  ]
+  ],
+  "viewports": {
+    "phone": {
+      "width": 844,
+      "height": 390,
+      "deviceScaleFactor": 2,
+      "isMobile": true,
+      "hasTouch": true
+    },
+    "phone-upright": {
+      "width": 390,
+      "height": 844,
+      "deviceScaleFactor": 2,
+      "isMobile": true,
+      "hasTouch": true
+    }
+  },
+  "initScript": "(() => { const Real = WebSocket; const hmr = (p) => p === 'vite-hmr' || (Array.isArray(p) && p.includes('vite-hmr')); globalThis.WebSocket = new Proxy(Real, { construct(target, args) { if (hmr(args[1])) return { addEventListener() {}, removeEventListener() {}, send() {}, close() {}, readyState: 0 }; return new target(...args); } }); })()"
 }
