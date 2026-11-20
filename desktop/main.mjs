@@ -1,8 +1,7 @@
 // Duty Shooter's desktop shell: one window that opens the live game, so the
 // page, its socket and its updates are exactly those of the browser version.
 // The built-in address may be the arcade portal; it names the game's own.
-// When the home server can't be reached it opens the Pages copy (Bot Match and
-// Practice Range), and when that fails too, a local page with a Retry button.
+// When the home server can't be reached it shows a local page with a Retry button.
 import { app, BrowserWindow, Menu, screen, session, shell } from 'electron';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

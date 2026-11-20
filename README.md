@@ -89,7 +89,7 @@ In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `soun
 
 ## Desktop app
 
-`desktop/` wraps the game in a Windows app, so it opens in its own window with a Start menu entry and a taskbar icon instead of a browser tab. The app is a window onto the live game: same page, same server, same updates, nothing copied. It opens the lobby's address (the `LOBBY_URL` repository variable, built in; when that is the arcade portal, the game's own address from the portal's `/api/live`). If the home server doesn't answer it opens the GitHub Pages copy (Bot Match and Practice Range), and if that fails too, a page that retries.
+`desktop/` wraps the game in a Windows app, so it opens in its own window with a Start menu entry and a taskbar icon instead of a browser tab. The app is a window onto the live game: same page, same server, same updates, nothing copied. It opens the lobby's address (the `LOBBY_URL` repository variable, built in; when that is the arcade portal, the game's own address from the portal's `/api/live`). If the home server doesn't answer it shows a page that retries.
 
 Install it from the latest release that has one: [Duty-Shooter-Setup.exe](https://github.com/aleixribera/duty-shooter/releases/latest/download/Duty-Shooter-Setup.exe). It installs for your user only, without an admin prompt. The installer isn't signed, so the first time Windows shows "Windows protected your PC": **More info**, then **Run anyway**. Uninstall it from Settings → Apps.
 
@@ -183,4 +183,4 @@ The server answers `GET /status` with the lobby's map, mode, players, capacity, 
 
 ## Deploy
 
-See [docs/deploy.md](docs/deploy.md). CI publishes a container image to GHCR, and the home server runs it with Compose behind Tailscale Funnel as the single public lobby. GitHub Pages hosts a copy for offline practice that links to that lobby. A version tag that changes `desktop/` also builds the Windows installer and attaches it to that tag's release (`.github/workflows/desktop.yaml`).
+See [docs/deploy.md](docs/deploy.md). CI publishes a container image to GHCR, and the home server runs it with Compose behind Tailscale Funnel as the single public lobby. A version tag that changes `desktop/` also builds the Windows installer and attaches it to that tag's release (`.github/workflows/desktop.yaml`).

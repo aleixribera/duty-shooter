@@ -152,17 +152,15 @@ Players reload the page after an update. A page from an older build is refused w
 
 To change the player cap or set a passphrase, edit `.env` and run `docker compose up -d --wait`. No rebuild is needed.
 
-## The GitHub Pages copy
+## The GitHub Pages copy (retired)
 
-`.github/workflows/pages.yaml` publishes the client alone to `https://aleixribera.github.io/duty-shooter/` on every push to `main`. That copy has no server, so its main menu offers Bot Match and Practice Range and hides Play Online; a small link under the title opens the home server's public lobby instead.
+Until v2.223.4 a workflow published the client alone to GitHub Pages for offline practice. The game is now hosted only on the home server, so that copy is gone. The client still builds without a server (its main menu then hides Play Online and links to `LOBBY_URL` if set), but nothing publishes that build.
 
-The link comes from the `LOBBY_URL` repository variable (Settings → Secrets and variables → Actions → Variables), so the address is never committed:
+The `LOBBY_URL` repository variable (Settings → Secrets and variables → Actions → Variables) is still the address the desktop app opens, so it is never committed. It may be the arcade portal, which names the game's own address at `/api/live`:
 
 ```bash
 gh variable set LOBBY_URL --body 'https://<machine>.<tailnet>.ts.net/'
 ```
-
-Pages must be set to deploy from GitHub Actions (Settings → Pages → Source: GitHub Actions). Without `LOBBY_URL`, the copy shows offline practice only.
 
 ## Operating
 

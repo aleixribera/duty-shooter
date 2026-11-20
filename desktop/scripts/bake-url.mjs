@@ -1,7 +1,7 @@
 // Writes the live lobby's address into config.json, which the shell opens
 // first. It comes from DUTY_URL, or else the LOBBY_URL repository variable
 // (through `gh`), so the address is never committed. With neither, an
-// existing config.json is kept; without one the app opens the Pages copy.
+// existing config.json is kept; without one the app shows its offline page.
 import { execFileSync } from 'node:child_process';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,5 +25,5 @@ if (url) {
   console.log('lobby: no DUTY_URL or LOBBY_URL; keeping config.json');
 } else {
   writeFileSync(target, `${JSON.stringify({ url: null })}\n`);
-  console.warn('lobby: no DUTY_URL or LOBBY_URL; the app will open the Pages copy');
+  console.warn('lobby: no DUTY_URL or LOBBY_URL; the app will show its offline page');
 }

@@ -1,30 +1,31 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { PAGES_URL, candidates, firstReachable, normalize, opensExternally, resolveGame, staysInApp, urlFlag } from '../config.mjs';
+import { candidates, firstReachable, normalize, opensExternally, resolveGame, staysInApp, urlFlag } from '../config.mjs';
 
 const LIVE = 'https://lobby.example.ts.net/';
+const SPARE = 'https://spare.example.ts.net/';
 
 test('the --url flag is read from the command line', () => {
   assert.equal(urlFlag(['electron', '.', '--url=http://localhost:3000']), 'http://localhost:3000');
   assert.equal(urlFlag(['electron', '.']), null);
 });
 
-test('addresses are tried as flag, live lobby, then the Pages copy', () => {
-  assert.deepEqual(candidates({ flag: 'http://localhost:3000', baked: LIVE }), ['http://localhost:3000/', LIVE, PAGES_URL]);
-  assert.deepEqual(candidates({ flag: null, baked: LIVE }), [LIVE, PAGES_URL]);
-  assert.deepEqual(candidates({ flag: null, baked: null }), [PAGES_URL]);
+test('addresses are tried as flag, then live lobby', () => {
+  assert.deepEqual(candidates({ flag: 'http://localhost:3000', baked: LIVE }), ['http://localhost:3000/', LIVE]);
+  assert.deepEqual(candidates({ flag: null, baked: LIVE }), [LIVE]);
+  assert.deepEqual(candidates({ flag: null, baked: null }), [], 'nothing to try: the offline page');
 });
 
 test('repeated and malformed addresses are dropped', () => {
-  assert.deepEqual(candidates({ flag: LIVE, baked: 'https://lobby.example.ts.net' }), [LIVE, PAGES_URL]);
-  assert.deepEqual(candidates({ flag: 'not a url', baked: 'file:///C:/game/index.html' }), [PAGES_URL]);
-  assert.equal(normalize('https://aleixribera.github.io/duty-shooter'), PAGES_URL);
+  assert.deepEqual(candidates({ flag: LIVE, baked: 'https://lobby.example.ts.net' }), [LIVE]);
+  assert.deepEqual(candidates({ flag: 'not a url', baked: 'file:///C:/game/index.html' }), []);
+  assert.equal(normalize('https://arcade.example.ts.net/duty'), 'https://arcade.example.ts.net/duty/');
 });
 
 test('pages on a game origin stay in the window, others open in the browser', () => {
-  const urls = candidates({ flag: null, baked: LIVE });
+  const urls = candidates({ flag: SPARE, baked: LIVE });
   assert.ok(staysInApp(`${LIVE}#join=secret`, urls));
-  assert.ok(staysInApp('https://aleixribera.github.io/duty-shooter/?map=range', urls));
+  assert.ok(staysInApp(`${SPARE}?map=range`, urls));
   assert.ok(!staysInApp('https://github.com/aleixribera/duty-shooter', urls));
   assert.ok(!staysInApp('http://lobby.example.ts.net/', urls), 'another scheme is another origin');
   assert.ok(!staysInApp('nonsense', urls));
@@ -37,16 +38,17 @@ test('only http(s) links go to the default browser', () => {
 });
 
 test('the first address that answers is chosen', async () => {
-  const up = new Set([PAGES_URL]);
+  const up = new Set([SPARE]);
   const fetch = async (url) => {
     if (!up.has(url)) throw new TypeError('fetch failed');
     return { ok: true };
   };
-  assert.equal(await firstReachable([LIVE, PAGES_URL], { fetch }), PAGES_URL);
+  assert.equal(await firstReachable([LIVE, SPARE], { fetch }), SPARE);
   up.add(LIVE);
-  assert.equal(await firstReachable([LIVE, PAGES_URL], { fetch }), LIVE);
+  assert.equal(await firstReachable([LIVE, SPARE], { fetch }), LIVE);
   up.clear();
-  assert.equal(await firstReachable([LIVE, PAGES_URL], { fetch }), null);
+  assert.equal(await firstReachable([LIVE, SPARE], { fetch }), null);
+  assert.equal(await firstReachable([], { fetch }), null);
 });
 
 test('the arcade portal hands over the game\'s own address', async () => {
@@ -62,6 +64,6 @@ test('the arcade portal hands over the game\'s own address', async () => {
 });
 
 test('an error page counts as down', async () => {
-  const fetch = async (url) => ({ ok: url === PAGES_URL });
-  assert.equal(await firstReachable([LIVE, PAGES_URL], { fetch }), PAGES_URL);
+  const fetch = async (url) => ({ ok: url === SPARE });
+  assert.equal(await firstReachable([LIVE, SPARE], { fetch }), SPARE);
 });

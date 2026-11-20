@@ -3,7 +3,7 @@ name: Build the desktop app
 # The Windows installer (desktop/), attached to the release of each version tag
 # whose commits changed desktop/ since the tag before it. The app opens the live
 # lobby, so game releases reach it without a new installer. Its address comes
-# from the LOBBY_URL repository variable, as for the Pages copy.
+# from the LOBBY_URL repository variable.
 
 on:
   push:

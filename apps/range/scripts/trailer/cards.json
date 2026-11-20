@@ -6,5 +6,5 @@
   { "name": "line-test", "kind": "line", "text": "Every match is a weapons test." },
   { "name": "line-ends", "kind": "line", "text": "The test ends the match." },
   { "name": "title", "kind": "title", "text": "Duty Shooter" },
-  { "name": "end", "kind": "end", "text": "Duty Shooter", "facts": ["4 maps", "9 guns", "Battle Royale for 60"], "call": "Free in your browser", "url": "aleixribera.github.io/duty-shooter" }
+  { "name": "end", "kind": "end", "text": "Duty Shooter", "facts": ["4 maps", "9 guns", "Battle Royale for 60"], "call": "Free in your browser", "url": "github.com/aleixribera/duty-shooter" }
 ]

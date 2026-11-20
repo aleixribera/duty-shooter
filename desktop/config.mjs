@@ -1,9 +1,6 @@
 // The shell's decisions, kept free of Electron so they can be tested with
 // plain `node --test`: which address to open, and which links stay in the window.
 
-/** The client alone on GitHub Pages: Bot Match and Practice Range without the server. */
-export const PAGES_URL = 'https://aleixribera.github.io/duty-shooter/';
-
 /** `--url=<address>` from the command line, if given. */
 export function urlFlag(argv) {
   for (const arg of argv) if (arg.startsWith('--url=')) return arg.slice('--url='.length);
@@ -12,11 +9,12 @@ export function urlFlag(argv) {
 
 /**
  * The addresses to try, in order: the `--url` flag, then the live lobby baked
- * in at build time, then the Pages copy. Empty and repeated entries are dropped.
+ * in at build time. Empty and repeated entries are dropped; with none left the
+ * app shows its offline page.
  */
 export function candidates({ flag, baked }) {
   const urls = [];
-  for (const url of [flag, baked, PAGES_URL]) {
+  for (const url of [flag, baked]) {
     const normal = normalize(url);
     if (normal && !urls.includes(normal)) urls.push(normal);
   }
@@ -39,8 +37,7 @@ export function normalize(url) {
 
 /**
  * Whether a navigation to `target` stays in the game window: any page on the
- * origin of one of the game's addresses (so the Pages copy's lobby link opens
- * the lobby in place). Everything else goes to the default browser.
+ * origin of one of the game's addresses. Everything else goes to the default browser.
  */
 export function staysInApp(target, urls) {
   let origin;
@@ -65,7 +62,7 @@ export function opensExternally(target) {
 /**
  * The game's own address behind `url`. The lobby address may be the arcade
  * portal, which lists its games at `/api/live`; this game's `play_url` there
- * wins. Anything else (the game itself, the Pages copy, no answer) is kept.
+ * wins. Anything else (the game itself, no answer) is kept.
  */
 export async function resolveGame(url, { fetch = globalThis.fetch, timeoutMs = 3000 } = {}) {
   try {

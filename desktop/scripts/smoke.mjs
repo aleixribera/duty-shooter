@@ -103,7 +103,7 @@ try {
     await app.close();
   }
 
-  // An address that doesn't answer falls back to the next one (the live lobby or the Pages copy).
+  // An address that doesn't answer falls back to the next one (the live lobby baked into config.json).
   const fallback = await launch('http://127.0.0.1:9/');
   try {
     check(await waitFor(async () => fallback.page.url().startsWith('https://')), `unreachable address falls back (${fallback.page.url()})`);
