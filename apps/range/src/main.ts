@@ -7,7 +7,7 @@ import type { WebGPURenderer } from 'three/webgpu';
 import { CameraPath } from './bench';
 import { openBenchmarkPage, startBenchmarkOn, type BenchFrame } from './benchmark-run';
 import { BotSetup } from './bot-setup';
-import { ROYALE_STATUS, SEAT_KEY, findLobby, hasSeat, lobbyStatus, newLobbyCode, privateLobbyCode } from './lobby-status';
+import { ROYALE_STATUS, SEAT_KEY, findLobby, hasSeat, lobbyStatus, newLobbyCode, privateLobbyCode, serverWebSocketUrl } from './lobby-status';
 import { startLocalBots } from './local-bots';
 import { MapStore } from './map-store';
 import { PreparationFlow } from './preparation-flow';
@@ -347,7 +347,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       onlineName = name.trim() || 'You';
       menu.connecting(0);
       // The lobby status first: a server that is down or full is reported without opening a socket.
-      void lobbyStatus(lobbyPath('/status')).then(async (status) => {
+      void lobbyStatus(lobbyPath('status')).then(async (status) => {
         if (attempt !== joinAttempt) return;
         menu.updateLobby(status);
         if (!status) return menu.failed(null);
@@ -366,10 +366,9 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         await ready();
         if (attempt !== joinAttempt) return;
         menu.connecting(2);
-        const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
         // The game ticks the client, which is what reads the server's answer; the frame loop reports a refusal or a drop.
         lobbyPage.invite = inviteLink(lobby?.kind === 'server' && lobby.public ? '' : passphrase);
-        const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}${lobbyPath('/ws')}`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
+        const next = new engine!.OnlineDriver({ server: serverWebSocketUrl(lobbyPath('ws')), solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), ...(mode ? { mode } : {}), ...(bots === null ? {} : { bots }) });
         useMap(id);
         play(next);
       });
@@ -593,8 +592,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       }
       pendingSquads = royaleOpens(status) ? royale.squads : null;
       lobbyPage.invite = null;
-      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-      const next = new engine!.OnlineDriver({ server: `${scheme}://${location.host}/royale/ws`, solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), mode: 'battle-royale' });
+      const next = new engine!.OnlineDriver({ server: serverWebSocketUrl('royale/ws'), solids: load(id).solids, ladders: load(id).map.ladders ?? [], terrain: load(id).map.terrain, name, passphrase, seatKey: SEAT_KEY, loadout: matchLoadout(), mode: 'battle-royale' });
       // No pointer lock yet: the lobby comes first, and the match takes the pointer when it starts.
       driver = next;
       game.setDriver(next);

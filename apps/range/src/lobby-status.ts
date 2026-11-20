@@ -4,7 +4,14 @@ import type { Lobby, LobbyInfo } from '@duty-shooter/fps-client/ui';
 export const SEAT_KEY = 'duty-shooter.seat';
 
 /** The Battle Royale process's lobby status, which the server holding the page answers for it (ADR 0009). */
-export const ROYALE_STATUS = '/royale/status';
+export const ROYALE_STATUS = 'royale/status';
+
+/** WebSocket address for a server path relative to the page (works at `/` and behind a subpath proxy like `/duty/`). */
+export function serverWebSocketUrl(path: string, base: string = location.href): string {
+  const url = new URL(path, base);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.href;
+}
 
 /** Whether this page remembers a seat from an earlier connection. */
 export function hasSeat(): boolean {
@@ -16,7 +23,7 @@ export function hasSeat(): boolean {
 }
 
 /** The lobby status, a second time if the first try fails: one lost request is not a server that is down. */
-export async function lobbyStatus(path = '/status'): Promise<LobbyInfo | null> {
+export async function lobbyStatus(path = 'status'): Promise<LobbyInfo | null> {
   return (await askLobbyStatus(path)) ?? (await askLobbyStatus(path));
 }
 
@@ -40,7 +47,7 @@ async function askLobbyStatus(path: string): Promise<LobbyInfo | null> {
 export async function findLobby(askServer: boolean): Promise<Lobby | null> {
   if (askServer) {
     try {
-      const res = await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+      const res = await fetch('healthz', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
       const health = res.ok && res.headers.get('content-type')?.includes('application/json') ? ((await res.json()) as { status?: unknown; public?: unknown }) : null;
       if (health?.status === 'ok') return { kind: 'server', public: health.public === true, status: await lobbyStatus() };
     } catch {
