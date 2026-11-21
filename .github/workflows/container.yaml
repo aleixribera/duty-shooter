@@ -33,8 +33,13 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
+      # The code and the root files only: .scratch's notes and captures are most of the repository's size.
       - name: Check out
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          sparse-checkout: |
+            packages
+            apps
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -72,8 +77,12 @@ jobs:
       - name: Check out
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          # Tags and history, for `git describe`.
+          # Tags and history, for `git describe` and the changelog, without the files' contents outside what the image is built from.
           fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: |
+            packages
+            apps
       # Node 24 for the changelog writer, and the smoke script's one dependency (ws).
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
