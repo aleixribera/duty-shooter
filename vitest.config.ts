@@ -1,10 +1,11 @@
 import { constants, cpus, setPriority } from 'node:os';
 import { defineConfig } from 'vitest/config';
 
-// On the owner's PC the suite gives way: the run and its workers (which inherit it) take idle priority, and at most a
-// third of the cores, so a game played beside a run keeps its frames. CI's runner and the test laptop (`remote-test`,
-// which sets REMOTE_TEST and runs every job niced in its own capped slice) have nothing else to serve and run flat out.
-const local = !process.env.CI && !process.env.REMOTE_TEST;
+// On this PC the suite gives way: the run and its workers (which inherit it) take idle priority, and at most a third
+// of the cores, so a game played beside a run keeps its frames. CI's runner has nothing else to serve and runs flat out.
+// The shared test laptop (`remote-test`) keeps the local settings: flat out beside other sessions' jobs, the busiest
+// match tests ran past their 30 s timeout.
+const local = !process.env.CI;
 if (local) {
   try {
     setPriority(constants.priority.PRIORITY_LOW);
