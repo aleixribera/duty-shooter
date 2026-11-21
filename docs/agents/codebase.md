@@ -35,7 +35,7 @@ The suite has two tiers (`vitest.config.ts` names them as projects):
 
 - **fast** (`npm test`): every rule the game keeps, a few minutes on this PC. Files are `*.test.ts`.
 - **soak** (`npm run test:soak`): whole matches played out by bots, minutes of simulated play each: the bot soaks for each map and mode, the Battle Royale played through, Bot Match from start to lobby, a long life of fire online. Files are `*.soak.test.ts`. A soak catches what only shows over a whole match, so a change to bots, a mode, a map's layout or nav, or the match flow runs the soaks for what it touched, not all of them.
-- CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main` (`npm run test:all`, about 12 minutes there; a version tag's run only builds and smoke-tests the image). Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
+- CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main`, split over four runners beside the image build (a version tag's run only builds and smoke-tests the image); `:latest` moves only once both pass. Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
 
 How to test a change, in order:
 
@@ -49,8 +49,9 @@ A test checks what the game does, not how it is worded or styled. For a function
 
 A test that only times out while the PC is busy is load, not a failure: run that file alone before blaming the change. A new test belongs in the fast tier unless it plays a whole match or minutes of play; then it goes in a `*.soak.test.ts` beside the file it came from, and a long check in a fast file is first made cheaper (an index instead of a scan of every solid, fewer seeds) before it is moved.
 
-- Zero Island's nav is cached once built (see `apps/range/test/support/island-nav.ts`); a change to the map or the nav generator builds a new one, about 100 s for each test file that needs one at that moment. `zero-island-nav.test.ts` builds it at import and can't be split.
-- `packages/fps-core/test/balance.test.ts` fights 5,760 seeded bot duels (about 90 s); `BALANCE_REPORT=docs/balance.md` rewrites the duel tables.
+- Zero Island's nav is cached once built (`apps/range/test/support/island-nav.ts`), named by a hash of every source file the generator imports; an edit to any of them builds a new one, about 100 s for each test file that needs one at that moment. `zero-island-nav.test.ts` checks that cached build (`BENCH=1` builds it afresh and times it). CI keeps the cache between runs.
+- A long check that can be cut along its cases is split over files so they run on parallel workers, its body in `test/support/`: the balance duels (`balance.test.ts` and `balance-challengers.test.ts`, about 40 s; `BALANCE_REPORT=docs/balance.md npx vitest run packages/fps-core/test/balance.test.ts` rewrites the tables), the island's sightlines (standing and crouched), the still player and the Battle Royale matches (one file per Squad size).
+- A passing test's console output is hidden (`silent: 'passed-only'`); `--silent=false` shows the reports the sightline and balance tests print.
 - Shared test helpers live in each package's `test/support/` or `test/helpers/` (bot soaks and nav reachability in `apps/range/test/support/bots.ts`).
 - `apps/range/test/server-cpu.test.ts` and the benchmarks skip unless `BENCH=1`.
 - `apps/range/test/zero-island-royale-pace.test.ts` skips unless `ROYALE_PACE=size:seed,...` and prints whole Battle Royale matches (about 20 s each): length, Stage, deaths to the Ring, what bots were doing, and per Squad size the Revive measures (share, revives started under an enemy's sight, interrupted, Down to start), when Squads went out, the 60-seat tick (mean, p99, late ticks) and the longest a bot stood stuck. `ROYALE_GOOD=1` puts the good-player proxy in a seat and prints how it did; retune `royale.botReaction` and `royale.botAim` in the stats file against that, over 30 seeds at least, since one match in four needs that many to tell from noise.

@@ -1,6 +1,12 @@
 # Build stage: install the workspace, build the range client (baking each map's
 # lighting) and bundle the server. Its output is plain JavaScript and data, so it
 # runs on the builder's own platform: under emulation the bake would take many times longer.
+
+# The lighting bakes and the island's nav from an earlier build, each named by a hash of what it
+# was built from, so an unchanged map skips minutes of work. Empty here; CI passes the last
+# build's as the `buildcache` context (container.yaml), and the `buildcache-out` stage hands them back.
+FROM scratch AS buildcache
+
 FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json tsconfig.base.json ./
@@ -9,12 +15,17 @@ COPY packages/fps-client/package.json packages/fps-client/
 COPY apps/range/package.json apps/range/
 COPY apps/server/package.json apps/server/
 RUN npm ci
+COPY --from=buildcache / apps/range/node_modules/.cache/
 COPY packages ./packages
 COPY apps ./apps
 # The release, shown on the client's main menu as well as reported by /healthz.
 ARG VERSION=dev
 ENV VITE_VERSION=${VERSION}
 RUN npm run build -w @duty-shooter/range && npm run build -w @duty-shooter/server
+
+# What CI keeps for the next build (`--target buildcache-out --output type=local`); never the image.
+FROM scratch AS buildcache-out
+COPY --from=build /src/apps/range/node_modules/.cache/ /
 
 # Runtime stage: the bundled server, its one npm dependency (ws) and the static client.
 FROM node:24-alpine
