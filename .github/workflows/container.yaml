@@ -1,6 +1,6 @@
 name: Publish game container
 
-# Three jobs: the suite (split over parallel runners) and the image (built, smoke-tested and pushed
+# Three jobs: the suite (split over eight runners) and the image (built, smoke-tested and pushed
 # as :sha-<commit>, which nothing runs) go side by side; only when both pass does `promote` point
 # :latest (main) or :vX.Y.Z (a tag) at that image, without building it again. A pull request runs
 # the suite and builds and smoke-tests the image, and publishes nothing.
@@ -26,12 +26,13 @@ jobs:
   test:
     if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
-    # About 3 minutes a shard; a run past this is a test that got slow, not a busy runner.
-    timeout-minutes: 8
+    # About a minute and a half a shard, three when the island's nav is built afresh: a run past this is a
+    # test that got slow, not a busy runner (AGENTS.md, "Test time budget").
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       # The code, the generators' plans the tests compare with (tools/) and the root files: .scratch's notes and
       # captures are most of the repository's size.
@@ -63,12 +64,13 @@ jobs:
           npm run typecheck
           docker compose config --quiet
       # Both tiers, fast and soak, a share of the files per runner (the reporter prints failures and the summary only).
-      - name: Test (shard ${{ matrix.shard }} of 4)
-        run: npx vitest run --shard=${{ matrix.shard }}/4
+      - name: Test (shard ${{ matrix.shard }} of 8)
+        run: npx vitest run --shard=${{ matrix.shard }}/8
 
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # About two minutes, six when every map's lighting and the island's nav are built afresh.
+    timeout-minutes: 12
     permissions:
       contents: read
       packages: write

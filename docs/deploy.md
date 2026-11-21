@@ -10,7 +10,7 @@ Nothing secret lives in this repository. The player cap (and a passphrase, if yo
 
 `.github/workflows/container.yaml` runs on every push to `main` (and on `v*` tags, pull requests or by hand). Its jobs run side by side:
 
-1. `test`: typechecks, validates `compose.yaml` and runs the whole suite (both tiers), split over four runners.
+1. `test`: typechecks, validates `compose.yaml` and runs the whole suite (both tiers), split over eight runners.
 2. `image`: builds the image, runs it read-only with all capabilities dropped and checks it with `apps/server/scripts/smoke.mjs`. It runs two containers: one as a public lobby and one with a passphrase. The smoke test covers the page, `/healthz`, a join to the public lobby, a join with the passphrase, a rejected wrong passphrase, a refused cross-site socket and the passphrase lockout. It then publishes the image for amd64 and arm64 as `:sha-<commit>`, which nothing runs. The maps' lighting bakes and the island's nav are carried from one build to the next (the Dockerfile's `buildcache` stage), so a commit that leaves the maps alone skips minutes of baking.
 3. `promote`, once both passed: points `:latest` (a push to `main`) or `:vX.Y.Z` (a version tag) at that `:sha-<commit>` image, without building again. Only `main` moves `:latest`, so a release that pushes a commit and its tag together restarts the lobby once.
 

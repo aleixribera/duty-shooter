@@ -35,7 +35,7 @@ The suite has two tiers (`vitest.config.ts` names them as projects):
 
 - **fast** (`npm test`): every rule the game keeps, a few minutes on this PC. Files are `*.test.ts`.
 - **soak** (`npm run test:soak`): whole matches played out by bots, minutes of simulated play each: the bot soaks for each map and mode, the Battle Royale played through, Bot Match from start to lobby, a long life of fire online. Files are `*.soak.test.ts`. A soak catches what only shows over a whole match, so a change to bots, a mode, a map's layout or nav, or the match flow runs the soaks for what it touched, not all of them.
-- CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main`, split over four runners beside the image build (a version tag's run only builds and smoke-tests the image); `:latest` moves only once both pass. Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
+- CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main`, split over eight runners beside the image build (a version tag's run only builds and smoke-tests the image); `:latest` moves only once both pass. Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
 
 How to test a change, in order:
 
