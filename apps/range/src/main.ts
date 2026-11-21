@@ -1,5 +1,5 @@
 import type { PadNav } from '@duty-shooter/fps-client';
-import { FramePacer, LobbyPage, inputSeen, Menu, PadMenuReader, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padKeyboard, padKeyboardOpen, padName, pickLoadoutSet, readPad, placement, profileName, rebuild, standInName, royaleOpens, royaleServer, saveSettings, useColourVision, useMenuText, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import { FramePacer, LobbyPage, inputSeen, Menu, PadMenuReader, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padKeyboard, padKeyboardOpen, padName, pickLoadoutSet, readPad, placement, profileName, quitGame, rebuild, standInName, royaleOpens, royaleServer, saveOnExit, saveSettings, useColourVision, useMenuText, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -26,6 +26,10 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   useMenuText(settings.menuText);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
+  // Progress and settings are written as they change; going (hidden, closed, Quit) writes the Profile again if that write failed.
+  // Settings are not written again: another tab's newer ones would be lost.
+  const saveProgress = () => profile.save();
+  saveOnExit(saveProgress);
   // The name (PLAN item 9c) is the Profile's, asked the first time Play Online joins; one kept with the settings before moves in,
   // and the stand-in "Player 1234" a first visit was once given is no name, so it is asked for too.
   const kept = profile.profile.name || (standInName(settings.name) ? '' : profileName(settings.name));
@@ -408,6 +412,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
       },
       resume: () => void enter(),
       leave: () => leaveGame(),
+      quit: () => {
+        // Out of the match or lobby first, so the server frees the seat at once rather than when the socket times out.
+        if (game?.driver || botLobbyOpen || royalePre || royaleSession) leaveGame();
+        quitGame(saveProgress);
+      },
       changeSettings: (next) => {
         if (next.name !== settings.name) profile.rename(next.name);
         if (next.loadout !== settings.loadout) game?.driver?.setLoadout(menu.practice ? next.loadout : matchLoadout(next.loadout));

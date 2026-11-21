@@ -362,6 +362,8 @@ export interface MenuCallbacks {
   resume(): void;
   /** Leave the current game for the main menu. */
   leave(): void;
+  /** Leave the game for good: progress written, out of any match or lobby, then the window (or the Arcade's frame) closed. */
+  quit(): void;
   /** Settings changed (already validated); persist and apply them. A new `loadout` goes to the game too. */
   changeSettings(settings: Settings): void;
   /** Wait for the next key or mouse button, for rebinding; null cancels. */
@@ -1116,6 +1118,7 @@ export class Menu {
       this.#back = 'main';
       this.show('settings');
     });
+    minor('Quit', () => this.#callbacks.quit());
     home.append(more);
     // The destinations rise in the first time the menu shows, and never on a redraw.
     if (!this.#entered) {
@@ -1282,6 +1285,7 @@ export class Menu {
       this.show('settings');
     });
     item('Leave', () => this.#callbacks.leave());
+    item('Quit', () => this.#callbacks.quit());
     wrap.append(col);
     const keys = h('div', '', 'ds-keys ds-plate');
     const b = this.#settings.bindings;

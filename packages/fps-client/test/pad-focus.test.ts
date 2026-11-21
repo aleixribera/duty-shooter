@@ -23,6 +23,18 @@ describe('moving the focus with the d-pad', () => {
     expect(padMove(all, at('ridge'), 'down')?.name).toBe('vantage');
   });
 
+  // The main menu on a phone: Loadout, Profile and Settings fill the row, Quit wraps under Loadout, the Changelog lower still.
+  it('reaches a control wrapped onto a line of its own from the far end of the row above', () => {
+    const box = (name: string, left: number, right: number, top: number, bottom: number) => ({ name, getBoundingClientRect: () => ({ left, right, top, bottom }) });
+    const row = [box('loadout', 22, 122, 664, 708), box('profile', 146, 216, 664, 708), box('settings', 229, 344, 664, 708), box('quit', 22, 91, 712, 752), box('changelog', 16, 122, 790, 815)];
+    const of = (n: string) => row.find((c) => c.name === n);
+    expect(padMove(row, of('settings'), 'down')?.name).toBe('quit');
+    expect(padMove(row, of('profile'), 'down')?.name).toBe('quit');
+    expect(padMove(row, of('loadout'), 'down')?.name).toBe('quit');
+    expect(padMove(row, of('quit'), 'up')?.name).toBe('loadout');
+    expect(padMove(row, of('quit'), 'down')?.name).toBe('changelog');
+  });
+
   it('comes round from the far end up and down, and stays put left and right at an edge', () => {
     expect(padMove(all, at('done'), 'down')?.name).toBe('m4');
     expect(padMove(all, at('m4'), 'up')?.name).toBe('done');

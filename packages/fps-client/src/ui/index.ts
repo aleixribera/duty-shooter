@@ -7,6 +7,7 @@ export type { GunStage, Lobby, LobbyInfo, MenuCallbacks } from './menu';
 export { LobbyPage } from './lobby';
 export type { LobbyCallbacks, LobbyMap, LobbyView } from './lobby';
 export { RoyalePage } from './royale-screen';
+export { quitGame, saveOnExit } from './quit';
 export { PreparationPage, preparationChampion } from './preparation';
 export { earnedLoadout, gunsmithRows, rebuild, withBuilds, type Builds, type GunsmithSlot } from './gunsmith';
 export type { PreparationCallbacks, PreparationChampion, PreparationMate, PreparationView } from './preparation';

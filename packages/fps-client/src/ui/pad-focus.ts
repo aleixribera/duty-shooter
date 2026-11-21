@@ -55,6 +55,9 @@ export function padMove<T extends Boxed>(items: readonly T[], current: T | undef
 function nearest<T extends Boxed>(from: Box, pool: readonly T[], dir: PadDirection): T | undefined {
   const vertical = dir === 'up' || dir === 'down';
   const sign = dir === 'down' || dir === 'right' ? 1 : -1;
+  // One in line with this control (overlapping it across the move) wins over any off to the side: the column stays.
+  let inLine: T | undefined;
+  let inLineScore = Infinity;
   let best: T | undefined;
   let bestScore = Infinity;
   for (const item of pool) {
@@ -65,16 +68,21 @@ function nearest<T extends Boxed>(from: Box, pool: readonly T[], dir: PadDirecti
     const centre = vertical ? (to.top + to.bottom - from.top - from.bottom) / 2 : (to.left + to.right - from.left - from.right) / 2;
     if (ahead < -4 || centre * sign <= 0) continue;
     const side = vertical ? Math.max(0, to.left - from.right, from.left - to.right) : Math.max(0, to.top - from.bottom, from.top - to.bottom);
-    // Off to the side weighs more than ahead, so the next row's control under this one wins over a nearer one beside it;
-    // of a row under a wide control, the one lined up with its leading edge (the row's first).
+    // Of a row under a wide control, the one lined up with its leading edge (the row's first).
     const align = vertical ? Math.abs(to.left - from.left) : Math.abs(to.top - from.top);
-    const score = Math.max(0, ahead) + side * 4 + align * 0.1;
+    const score = Math.max(0, ahead) + side + align * 0.1;
+    if (side === 0 && score < inLineScore) {
+      inLineScore = score;
+      inLine = item;
+    }
+    // Nothing in line: the nearest, as far to the side counting as far ahead, so a row wrapped onto a line of its own
+    // (Quit under Loadout on a phone) is reached from its far end before what lies further down.
     if (score < bestScore) {
       bestScore = score;
       best = item;
     }
   }
-  return best;
+  return inLine ?? best;
 }
 
 /** The scrolling box an element sits in (its nearest ancestor that scrolls), or null: the `area` for {@link padMove}. */

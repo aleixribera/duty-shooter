@@ -99,6 +99,11 @@ export class ProfileStore {
     }
   }
 
+  /** Writes the Profile again if its last write never reached storage; the page calls it as it goes (hidden, closed, Quit). */
+  save(): void {
+    if (this.#unsaved) this.#write();
+  }
+
   /** Removes what the retired keys hold; true when there was something. */
   #wipeRetired(): boolean {
     const storage = this.#storage;

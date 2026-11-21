@@ -419,6 +419,23 @@ describe('the Profile store', () => {
     expect(new ProfileStore(storage, at).profile.stats).toMatchObject({ matches: 1, score: 500 });
   });
 
+  // The page saves again as it goes (hidden, closed, Quit): a match storage refused while full is kept once there is room.
+  it('writes a match storage refused once saved again with room, and writes nothing when storage already has it', () => {
+    const storage = memory();
+    let full = true;
+    const flaky: ProfileStorage = { ...storage, setItem: (k, v) => { if (full) throw new Error('full'); storage.setItem(k, v); } };
+    const store = new ProfileStore(flaky, at);
+    store.bank(match({ score: 700 }));
+    expect(storage.data.has(PROFILE_KEY)).toBe(false);
+    full = false;
+    store.save();
+    expect(new ProfileStore(storage, at).profile.stats).toMatchObject({ matches: 1, score: 700 });
+    // Saved: another tab's newer match is not overwritten by a save from this one.
+    new ProfileStore(storage, at).bank(match({ score: 100 }));
+    store.save();
+    expect(new ProfileStore(storage, at).profile.stats).toMatchObject({ matches: 2, score: 800 });
+  });
+
   it('does not undo a reset made in another tab', () => {
     const storage = memory();
     const a = new ProfileStore(storage, at);
