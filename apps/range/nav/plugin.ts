@@ -34,10 +34,23 @@ function generate(root: string): Promise<{ bytes: Uint8Array; sources: string[] 
 
 export function largeMapNav(): Plugin {
   let root = process.cwd();
+  let building = false;
+  // A build's nav, started with the build so it runs beside the bundling and the lighting bake (minutes, on a cold cache).
+  let pending: ReturnType<typeof generate> | null = null;
+  let started = 0;
   return {
     name: 'duty-nav',
     configResolved(config) {
       root = config.root;
+      building = config.command === 'build';
+    },
+    buildStart() {
+      if (building) {
+        started = performance.now();
+        pending = generate(root);
+        // Awaited in generateBundle; a failure is reported there, not as an unhandled rejection.
+        pending.catch(() => {});
+      }
     },
     configureServer(server) {
       // The last build, kept while none of its sources changes; a failed one isn't kept. Its sources are
@@ -78,9 +91,10 @@ export function largeMapNav(): Plugin {
       });
     },
     async generateBundle() {
-      const started = performance.now();
-      const { bytes: source } = await generate(root);
-      this.info(`nav: ${FILE}, ${(source.length / 1e6).toFixed(1)} MB in ${((performance.now() - started) / 1000).toFixed(1)} s`);
+      if (!pending) started = performance.now();
+      const { bytes: source } = await (pending ?? generate(root));
+      pending = null;
+      this.info(`nav: ${FILE}, ${(source.length / 1e6).toFixed(1)} MB, ready ${((performance.now() - started) / 1000).toFixed(1)} s after it began`);
       this.emitFile({ type: 'asset', fileName: FILE, source });
     },
   };

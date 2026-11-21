@@ -8,13 +8,13 @@ Nothing secret lives in this repository. The player cap (and a passphrase, if yo
 
 ## How the image is built
 
-`.github/workflows/container.yaml` runs on every push to `main` (and on `v*` tags or by hand). It:
+`.github/workflows/container.yaml` runs on every push to `main` (and on `v*` tags, pull requests or by hand). Its jobs run side by side:
 
-1. Installs, typechecks and runs the test suite, and validates `compose.yaml`.
-2. Builds the image, runs it read-only with all capabilities dropped and checks it with `apps/server/scripts/smoke.mjs`. It runs two containers: one as a public lobby and one with a passphrase. The smoke test covers the page, `/healthz`, a join to the public lobby, a join with the passphrase, a rejected wrong passphrase, a refused cross-site socket and the passphrase lockout.
-3. Publishes the image for amd64 and arm64: a push to `main` as `:latest`, a version tag `vX.Y.Z` as `:vX.Y.Z`, and both as `:sha-<commit>`. Only `main` moves `:latest`, so a release that pushes a commit and its tag together restarts the lobby once.
+1. `test`: typechecks, validates `compose.yaml` and runs the whole suite (both tiers), split over eight runners.
+2. `image`: builds the image, runs it read-only with all capabilities dropped and checks it with `apps/server/scripts/smoke.mjs`. It runs two containers: one as a public lobby and one with a passphrase. The smoke test covers the page, `/healthz`, a join to the public lobby, a join with the passphrase, a rejected wrong passphrase, a refused cross-site socket and the passphrase lockout. It then publishes the image for amd64 and arm64 as `:sha-<commit>`, which nothing runs. The maps' lighting bakes and the island's nav are carried from one build to the next (the Dockerfile's `buildcache` stage), so a commit that leaves the maps alone skips minutes of baking.
+3. `promote`, once both passed: points `:latest` (a push to `main`) or `:vX.Y.Z` (a version tag) at that `:sha-<commit>` image, without building again. Only `main` moves `:latest`, so a release that pushes a commit and its tag together restarts the lobby once.
 
-A tag's run skips step 1: its commit is pushed to `main` with it, and that run tests it, so a broken commit fails one run (one email), not two.
+A tag's run skips `test`: its commit is pushed to `main` with it, and that run tests it, so a broken commit fails one run (one email), not two. A pull request's run tests and smoke-tests and publishes nothing.
 
 The smoke test joins with the protocol `/healthz` reports. From v1.3.1 to v1.3.8 it sent a hard-coded protocol number that the protocol bump had left behind, every release failed the smoke step, and the live lobby stayed on v1.3.0 while main moved on.
 

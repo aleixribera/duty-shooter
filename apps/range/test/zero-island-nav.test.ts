@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { Terrain, coverNear, coveredFrom, createWorld, decodeLargeNav, encodeLargeNav, findPath, linkKind, nearestNode, sightBlocked, startNode, type Vec3 } from '@duty-shooter/fps-core';
 import { buildMapById, insidePolygon, mapSolids } from '../src/map/maps';
 import { buildZeroIslandNav } from '../src/map/zero-island-nav';
+import { islandNav } from './support/island-nav';
 import { BRIDGES, CORES, REGION_IDS, SUMMIT, SUMMIT_RADIUS, regionAt } from '../src/map/zero-island-terrain';
 
 const map = buildMapById('zero-island');
 const terrain = new Terrain(map.terrain!);
 const world = createWorld(mapSolids(map), { terrain: map.terrain });
+// The generator's output for these sources, from the cache the other island tests share (support/island-nav.ts:
+// named for a hash of every file the generator imports, so any edit to them builds it afresh here). BENCH builds
+// it here regardless, to time the build.
 const built = performance.now();
-const nav = buildZeroIslandNav(map);
+const nav = process.env['BENCH'] ? buildZeroIslandNav(map) : islandNav(map);
 const buildSeconds = (performance.now() - built) / 1000;
 const coreNode = (id: (typeof REGION_IDS)[number]) => {
   const { x, z } = CORES[id];

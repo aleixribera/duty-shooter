@@ -1,9 +1,14 @@
 name: Publish game container
 
+# Three jobs: the suite (split over eight runners) and the image (built, smoke-tested and pushed
+# as :sha-<commit>, which nothing runs) go side by side; only when both pass does `promote` point
+# :latest (main) or :vX.Y.Z (a tag) at that image, without building it again. A pull request runs
+# the suite and builds and smoke-tests the image, and publishes nothing.
 on:
   push:
     branches: [main]
     tags: ['v*']
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -13,21 +18,31 @@ permissions:
 # tag push cancel its main push (or the reverse), and :latest or :vX.Y.Z never got published.
 concurrency:
   group: publish-game-container-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  publish:
+  # Once a commit: its main push runs the suite, and its version tag's run (the same commit, pushed
+  # with it) only builds and smoke-tests the image. Testing both sent two failure emails for one push.
+  test:
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: write
+    # About a minute and a half a shard, three when the island's nav is built afresh: a run past this is a
+    # test that got slow, not a busy runner (AGENTS.md, "Test time budget").
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
+      # The code, the generators' plans the tests compare with (tools/) and the root files: .scratch's notes and
+      # captures are most of the repository's size.
       - name: Check out
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          # Tags and history, for `git describe`.
-          fetch-depth: 0
+          sparse-checkout: |
+            packages
+            apps
+            tools
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -35,14 +50,51 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      # Once a commit: its main push runs the suite, and its version tag's run (the same commit, pushed
-      # with it) only builds and smoke-tests the image. Testing both sent two failure emails for one push.
-      - name: Typecheck and test
-        if: github.ref_type != 'tag'
+      # Zero Island's nav for the tests that play on it (apps/range/test/support/island-nav.ts): a
+      # minute and a half to build, named for its generator and checked against the map when read.
+      - name: Island nav from an earlier run
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: apps/range/node_modules/.cache/duty-nav
+          key: island-nav-${{ hashFiles('packages/fps-core/src/**', 'apps/range/src/map/**') }}
+          restore-keys: island-nav-
+      - name: Typecheck
+        if: matrix.shard == 1
         run: |
           npm run typecheck
-          npm run test:all
           docker compose config --quiet
+      # Both tiers, fast and soak, a share of the files per runner (the reporter prints failures and the summary only).
+      - name: Test (shard ${{ matrix.shard }} of 8)
+        run: npx vitest run --shard=${{ matrix.shard }}/8
+
+  image:
+    runs-on: ubuntu-latest
+    # About two minutes, six when every map's lighting and the island's nav are built afresh.
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      name: ${{ steps.image.outputs.name }}
+      moving: ${{ steps.image.outputs.moving }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Tags and history, for `git describe` and the changelog, without the files' contents outside what the image is built from.
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: |
+            packages
+            apps
+      # Node 24 for the changelog writer, and the smoke script's one dependency (ws).
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install
+        run: npm ci
       - name: Image name
         id: image
         run: |
@@ -59,6 +111,17 @@ jobs:
       # The image's build has no git (.dockerignore): the menu's Changelog is read from the tags here and copied in.
       - name: Write the changelog
         run: node apps/range/changelog/write.ts
+      # The lighting bakes and the island's nav from the last build (the Dockerfile's `buildcache`
+      # stage): files named by a hash of their inputs, so a commit that leaves the maps alone skips
+      # four minutes of baking, and one that changes a map rebuilds just that map.
+      - name: Bakes and nav from an earlier build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/buildcache
+          key: build-cache-${{ github.sha }}
+          restore-keys: build-cache-
+      - name: Empty build cache
+        run: mkdir -p "$RUNNER_TEMP/buildcache"
       - name: Set up multi-platform emulation
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
       - name: Set up Docker builder
@@ -67,6 +130,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          build-contexts: buildcache=${{ runner.temp }}/buildcache
           build-args: VERSION=${{ steps.image.outputs.version }}
           load: true
           tags: duty-shooter-smoke:local
@@ -88,27 +152,73 @@ jobs:
           node apps/server/scripts/smoke.mjs http://127.0.0.1:3090
           node apps/server/scripts/smoke.mjs http://127.0.0.1:3091 smoke-test --lockout
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish the latest (or version) and commit-tagged images
+      # Under its commit's tag only: nothing runs :sha-<commit>, and `promote` moves the live tag once the suite passes.
+      - name: Publish the commit-tagged image
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          build-contexts: buildcache=${{ runner.temp }}/buildcache
           build-args: VERSION=${{ steps.image.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.moving }}
-            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          tags: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The build's bakes and nav, for the next build (the stages are already built: seconds).
+      - name: Take the build cache out
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          build-contexts: buildcache=${{ runner.temp }}/buildcache
+          build-args: VERSION=${{ steps.image.outputs.version }}
+          target: buildcache-out
+          outputs: type=local,dest=${{ runner.temp }}/buildcache-new
+          cache-from: type=gha
+      - name: Keep the build cache
+        run: rm -rf "$RUNNER_TEMP/buildcache" && mv "$RUNNER_TEMP/buildcache-new" "$RUNNER_TEMP/buildcache"
+      - name: Save the build cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        # Its main push and its tag build the same commit; the second save of the key would fail.
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/buildcache
+          key: build-cache-${{ github.sha }}
       - name: Container logs
         if: always()
         run: |
           docker logs game-smoke 2>/dev/null || true
           docker logs game-smoke-passphrase 2>/dev/null || true
+
+  # Moves :latest (main) or :vX.Y.Z (a tag) to the image `image` pushed, once the suite passed
+  # (a tag's run has no suite: its commit's main push ran it).
+  promote:
+    needs: [test, image]
+    if: always() && github.event_name != 'pull_request' && needs.image.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Point the live tag at the tested image
+        run: docker buildx imagetools create -t "$NAME:$MOVING" "$NAME:sha-$GITHUB_SHA"
+        env:
+          NAME: ${{ needs.image.outputs.name }}
+          MOVING: ${{ needs.image.outputs.moving }}
