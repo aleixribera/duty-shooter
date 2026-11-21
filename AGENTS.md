@@ -18,7 +18,7 @@ Before adding a map, mode or weapon, writing a test, or crossing a package bound
 - Budgets: CI from push to `:latest` under 4 min (eight test shards beside the image build, under 2 min each when warm). A whole tier at a third of the cores (this PC, the test laptop): `npm test` under 600 s, `npm run test:soak` under 330 s.
 - Guards: `vitest.budget.ts` prints a yellow `TEST BUDGET` warning when a whole tier runs over its budget or any fast-tier test takes over 10 s; CI's `timeout-minutes` fail a shard past 5 min and the image job past 12. Don't raise them to get green: make the test cheaper, split a long file (vitest runs files in parallel, not tests), or move a whole match to a soak.
 - While working, run only what your change covers: one file (`npx vitest run apps/range/test/foo.test.ts`), a name (`-t "<name>"`), or the tests importing what you changed (`npx vitest related --run <files>`). The full suite runs on CI.
-- The soak tier (`*.soak.test.ts`, whole matches) runs in the pre-push hook and on every CI run, never in `npm test`.
+- The soak tier (`*.soak.test.ts`, whole matches) runs on every CI run (and `npm run test:soak` when you change match flow), never in `npm test`; the pre-push hook runs only the typecheck.
 - Output is dots, failures and the summary; passing tests' logs are hidden (`--silent=false` shows them).
 
 ## UI
