@@ -55,6 +55,10 @@ const CSS = `
   --ds-font: 'IBM Plex Sans Condensed', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
   --ds-font-display: 'Chakra Petch', Bahnschrift, 'DIN Alternate', 'Roboto Condensed', 'Arial Narrow', sans-serif;
 }
+/* Large menu text (Settings, or Auto on a TV): the menus' five sizes a step up, read from a sofa. The HUD has its own size. */
+html.ds-text-large .ds-ui:not(.ds-hud):not(.ds-tc) { --ds-type-display: clamp(30px, min(6.8vh, 5vw), 74px); --ds-type-title: clamp(32px, 5.8vh, 64px); --ds-type-heading: 28px; --ds-type-body: 21px; --ds-type-small: 17px; }
+html.ds-text-large .ds-ui:not(.ds-hud) .ds-kbd { min-width: 32px; height: 30px; }
+html.ds-text-large .ds-ui:not(.ds-hud) .ds-kbd.pad { min-width: 30px; width: 30px; }
 .ds-ui { font-family: var(--ds-font); font-variant-numeric: tabular-nums; text-wrap: pretty; color: var(--ds-text); -webkit-font-smoothing: antialiased; }
 .ds-ui *, .ds-ui *::before, .ds-ui *::after { box-sizing: border-box; }
 .ds-ui button { font: inherit; color: inherit; cursor: pointer; }

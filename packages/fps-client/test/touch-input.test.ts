@@ -3,7 +3,7 @@ import { Button, isPressed, type UserCmd } from '@duty-shooter/fps-core';
 import { PAD } from '../src/gamepad';
 import { InputController } from '../src/input';
 import { DEFAULT_SETTINGS, parseSettings, type Settings } from '../src/settings';
-import { nextTouchMode, setTouchMode, touchMode } from '../src/touch/mode';
+import { nextPadSeen, nextTouchMode, setTouchMode, touchMode } from '../src/touch/mode';
 
 /** The page as InputController sees it: a document and a window that carry events, and a pad slot. No elements, so the controls' page is never built. */
 let pad: Gamepad | null = null;
@@ -68,6 +68,20 @@ describe('which input is in use', () => {
 
   it('a controller turns it off', () => {
     expect(nextTouchMode(true, { kind: 'pad' })).toBe(false);
+  });
+});
+
+describe('whether the controller was the last input', () => {
+  it('a pad press turns it on; a key, a mouse or a finger turns it off', () => {
+    expect(nextPadSeen(false, { kind: 'pad' })).toBe(true);
+    expect(nextPadSeen(true, { kind: 'key', typing: false })).toBe(false);
+    expect(nextPadSeen(true, { kind: 'pointer', pointerType: 'mouse', down: false })).toBe(false);
+    expect(nextPadSeen(true, { kind: 'pointer', pointerType: 'touch', down: true })).toBe(false);
+  });
+
+  it('a key typed into a field or a finger hovering leaves it as it was', () => {
+    expect(nextPadSeen(true, { kind: 'key', typing: true })).toBe(true);
+    expect(nextPadSeen(true, { kind: 'pointer', pointerType: 'touch', down: false })).toBe(true);
   });
 });
 

@@ -68,6 +68,8 @@ import { Ambience, environmentAt, muffled } from './map-sound';
 import { GamePipeline } from './pipeline';
 import { STEP_LENGTH } from './motion';
 import { useColourVision } from './team-colours';
+import { hudScaleFor } from './tv';
+import { HUD_SCALE_LIMITS } from './hud/scale';
 import { pipelinesReady } from './renderer';
 import { PlayersView } from './players-view';
 import type { GameDriver, PresentedEvent } from './session';
@@ -641,7 +643,7 @@ export class Game {
     // The team colours and the enemy marker's: the HUD follows at once, the world as its soldiers and rings are next built.
     useColourVision(settings.colourVision);
     this.hud.crosshair = settings.crosshair;
-    this.hud.scale = settings.hudScale;
+    this.hud.scale = hudScaleFor(settings.hudScale, HUD_SCALE_LIMITS[1]);
     if (!settings.captions) this.hud.caption(null);
   }
 
@@ -1255,6 +1257,8 @@ export class Game {
       tactical: this.#cur?.loadout.tactical ?? null,
       tacticals: this.#cur?.tacticals ?? 0,
     };
+    // The HUD's own buttons (Play again, Random next match, Equip) show the pad's glyphs while the pad is in use.
+    this.hud.root.classList.toggle('pad', this.input.padMode);
     this.hud.update({
       self: this.#inShot ? null : this.#cur,
       allies: this.#allyTags(eye),

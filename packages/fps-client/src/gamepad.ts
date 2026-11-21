@@ -43,10 +43,56 @@ export const PAD_LAYOUTS: Readonly<Record<PadLayout, Readonly<Partial<Record<Act
 /** The buttons play keeps for itself, so no action is bound to them: Options opens the menu, d-pad left and right vote for the next mode. */
 export const PAD_KEPT_IN_PLAY: readonly number[] = [PAD.options, PAD.left, PAD.right];
 
-/** Menu navigation from the pad. */
-export type PadNav = 'up' | 'down' | 'left' | 'right' | 'accept' | 'back' | 'start';
+/**
+ * Menu navigation from the pad: the d-pad or left stick moves, Cross accepts, Circle goes back, Options is start,
+ * Square erases (the on-screen keyboard), Triangle is the screen's second action, L1 and R1 page between tabs.
+ */
+export type PadNav = 'up' | 'down' | 'left' | 'right' | 'accept' | 'back' | 'start' | 'erase' | 'alt' | 'prev' | 'next';
 
-/** One reading of the first connected pad. */
+/** Stick travel that counts as a menu move, and the delay before a held move repeats (ms). */
+const MENU_STICK = 0.6;
+const MENU_REPEAT_MS = 220;
+
+/** The buttons that are one menu press each. */
+const MENU_PRESSES: readonly (readonly [number, PadNav])[] = [
+  [PAD.cross, 'accept'],
+  [PAD.circle, 'back'],
+  [PAD.options, 'start'],
+  [PAD.square, 'erase'],
+  [PAD.triangle, 'alt'],
+  [PAD.l1, 'prev'],
+  [PAD.r1, 'next'],
+];
+
+/** Turns pad readings into menu moves: a press each, and a held direction (d-pad or left stick) repeating. */
+export class PadMenuReader {
+  #nav: PadNav | null = null;
+  #next = 0;
+
+  /** The menu moves in `pad` at `now` (ms), `last` being the buttons pressed at the reading before. */
+  read(pad: PadReading, now: number, last: readonly boolean[]): PadNav[] {
+    const out: PadNav[] = [];
+    const held = (i: number) => pad.pressed[i] ?? false;
+    for (const [button, nav] of MENU_PRESSES) if (held(button) && !(last[button] ?? false)) out.push(nav);
+    const [x, y] = pad.leftStick;
+    let nav: PadNav | null = null;
+    if (held(PAD.up) || y < -MENU_STICK) nav = 'up';
+    else if (held(PAD.down) || y > MENU_STICK) nav = 'down';
+    else if (held(PAD.left) || x < -MENU_STICK) nav = 'left';
+    else if (held(PAD.right) || x > MENU_STICK) nav = 'right';
+    if (nav !== this.#nav) {
+      this.#nav = nav;
+      this.#next = now + MENU_REPEAT_MS * 2;
+      if (nav) out.push(nav);
+    } else if (nav && now >= this.#next) {
+      this.#next = now + MENU_REPEAT_MS;
+      out.push(nav);
+    }
+    return out;
+  }
+}
+
+/** One reading of the pad in use. */
 export interface PadReading {
   /** The browser's name for the pad. */
   readonly id: string;
@@ -59,34 +105,95 @@ export interface PadReading {
 /** How far a trigger travels before it counts as pressed. */
 const TRIGGER_THRESHOLD = 0.12;
 
-/** The first connected pad, or null (also while the page is hidden or another window has the focus). */
-export function readPad(): PadReading | null {
-  // The browser hands the controller to every page, focused or not: a pad used in another
-  // window (another game, a person at the PC beside a scripted match) must not play here.
-  if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) return null;
+/** How far a stick goes before a push counts as someone using that pad. */
+const ACTIVE_STICK = 0.5;
+
+/**
+ * The pad in use: the last one pressed or pushed. Steam adds a virtual pad beside the real one (often ahead of it,
+ * and often mirroring it), so reading only the first connected pad could read an idle one; the one in use holds
+ * until another pad is used while it is not.
+ */
+let activeIndex: number | null = null;
+/** Each pad's buttons at the last look, by `Gamepad.index`, for presses. */
+const lastPressed = new Map<number, readonly boolean[]>();
+/** Whether each pad's sticks were pushed at the last look, by `Gamepad.index`: a push counts as use when it starts. */
+const lastPushed = new Map<number, boolean>();
+
+function connectedPads(): Gamepad[] {
   const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
-  for (const pad of pads) {
-    if (!pad || !pad.connected) continue;
-    const pressed = pad.buttons.map((b, i) => (i === PAD.l2 || i === PAD.r2 ? b.value > TRIGGER_THRESHOLD || b.pressed : b.pressed));
-    const axis = (i: number) => {
-      const v = pad.axes[i] ?? 0;
-      return Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
-    };
-    return { id: pad.id, pressed, leftStick: [axis(0), axis(1)], rightStick: [axis(2), axis(3)] };
-  }
-  return null;
+  const out: Gamepad[] = [];
+  for (const pad of pads) if (pad && pad.connected) out.push(pad);
+  // A pad without the standard layout (a raw driver's, its triggers resting at -1) only where no standard one is.
+  const standard = out.filter((p) => p.mapping === 'standard');
+  return standard.length ? standard : out;
 }
 
-/** The rumble motors of the pad `readPad` reads, or null (none connected, none that rumbles, or the page not in focus). */
-export function padActuator(): Actuator | null {
-  if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) return null;
-  const pads = typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
-  for (const pad of pads) {
-    if (!pad || !pad.connected) continue;
-    const actuator = (pad as Gamepad & { vibrationActuator?: Actuator | null }).vibrationActuator;
-    return actuator && typeof actuator.playEffect === 'function' ? actuator : null;
+function buttonsOf(pad: Gamepad): boolean[] {
+  return pad.buttons.map((b, i) => (i === PAD.l2 || i === PAD.r2 ? b.value > TRIGGER_THRESHOLD || b.pressed : b.pressed));
+}
+
+/** Whether `pad` was used since the last look: a new press or a stick pushed past the drift. */
+function used(pad: Gamepad, pressed: readonly boolean[]): boolean {
+  const was = lastPressed.get(pad.index) ?? [];
+  const pushed = pad.axes.slice(0, 4).some((v) => Number.isFinite(v) && Math.abs(v) > ACTIVE_STICK);
+  const pushedBefore = lastPushed.get(pad.index) ?? false;
+  lastPushed.set(pad.index, pushed);
+  return pressed.some((p, i) => p && !was[i]) || (pushed && !pushedBefore);
+}
+
+/** The pad in use (see `activeIndex`), after a look at every connected pad; null with none connected. */
+function activePad(): Gamepad | null {
+  const pads = connectedPads();
+  if (!pads.length) {
+    activeIndex = null;
+    lastPressed.clear();
+    return null;
   }
-  return null;
+  let current = pads.find((p) => p.index === activeIndex) ?? null;
+  let currentUsed = false;
+  let other: Gamepad | null = null;
+  for (const pad of pads) {
+    const pressed = buttonsOf(pad);
+    const busy = used(pad, pressed);
+    lastPressed.set(pad.index, pressed);
+    if (pad === current) currentUsed = busy;
+    else if (busy && !other) other = pad;
+  }
+  for (const index of lastPressed.keys()) if (!pads.some((p) => p.index === index)) lastPressed.delete(index);
+  for (const index of lastPushed.keys()) if (!pads.some((p) => p.index === index)) lastPushed.delete(index);
+  if (other && !currentUsed) current = other;
+  current ??= pads[0]!;
+  activeIndex = current.index;
+  return current;
+}
+
+/** Whether the page may read the controller now: not while it is hidden or another window has the focus. */
+function readable(): boolean {
+  // The browser hands the controller to every page, focused or not: a pad used in another
+  // window (another game, a person at the PC beside a scripted match) must not play here.
+  return !(typeof document !== 'undefined' && (document.hidden || !document.hasFocus()));
+}
+
+/** The pad in use (the last one pressed or pushed, of any connected), or null (also while the page is hidden or another window has the focus). */
+export function readPad(): PadReading | null {
+  if (!readable()) return null;
+  const pad = activePad();
+  if (!pad) return null;
+  const axis = (i: number) => {
+    const v = pad.axes[i] ?? 0;
+    return Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0;
+  };
+  return { id: pad.id, pressed: buttonsOf(pad), leftStick: [axis(0), axis(1)], rightStick: [axis(2), axis(3)] };
+}
+
+/** The rumble motors of the pad in use, or null (none connected, none that rumbles, or the page not in focus). */
+export function padActuator(): Actuator | null {
+  if (!readable()) return null;
+  const pads = connectedPads();
+  const pad = pads.find((p) => p.index === activeIndex) ?? pads[0];
+  if (!pad) return null;
+  const actuator = (pad as Gamepad & { vibrationActuator?: Actuator | null }).vibrationActuator;
+  return actuator && typeof actuator.playEffect === 'function' ? actuator : null;
 }
 
 /**

@@ -15,7 +15,8 @@ export { placement } from './royale';
 export { GRAPHICS_LOST, connectionError, loadoutNote } from './model';
 export type { RoyaleCallbacks, RoyaleSession, RoyaleView } from './royale-screen';
 export { loadSettings, pickLoadoutSet, saveSettings, withLoadout, type LoadoutSet, type Settings } from '../settings';
-export { padName } from '../gamepad';
+export { PadMenuReader, padName, readPad } from '../gamepad';
+export { padKeyboard, padKeyboardOpen } from './pad-keyboard';
 export { ProfileStore } from '../profile/store';
 export { GUN_RANKS, gunOpen, openLoadout, profileName, standInName } from '../profile/model';
 // The picture, the frame pacer and the team colours: plain data and arithmetic, so the page has them before the engine.
@@ -25,3 +26,5 @@ export type { VideoStatus } from './settings-screen';
 export { BenchmarkPage } from './benchmark-page';
 export type { BenchmarkRow } from './benchmark-page';
 export { useColourVision } from '../team-colours';
+export { useMenuText } from '../tv';
+export { inputSeen } from '../touch/mode';

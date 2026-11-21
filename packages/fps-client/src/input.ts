@@ -1,5 +1,5 @@
 import { Button, CMD_PITCH_LIMIT, MAX_PITCH, STATS, usercmd, type PingKind, type UserCmd } from '@duty-shooter/fps-core';
-import { PAD, PAD_KEPT_IN_PLAY, PAD_LAYOUTS, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
+import { PAD, PAD_KEPT_IN_PLAY, PAD_LAYOUTS, PadMenuReader, deadzone, readPad, type PadNav, type PadReading } from './gamepad';
 import { adsSensitivityScale, radiansPerCount, stickTurnRate, type Action, type Settings } from './settings';
 import { wheelPick } from './ui/pings';
 import { TouchControls, fillScreen, type TouchContext, type TouchSink } from './touch/controls';
@@ -18,11 +18,8 @@ const WHEEL_HOLD_MS = 250;
 const SPRINT_RELEASE_FORWARD = 0.5;
 /** A sprint press made before forward is pushed waits this long (ms) for it, so Shift a frame before W still sprints. */
 const SPRINT_ARM_MS = 300;
-/** Stick travel that counts as a menu move, and the delay before a held move repeats (ms). */
-const MENU_STICK = 0.6;
 /** Stick travel that counts as using the controller, well past any drift. */
 const PAD_ACTIVE_STICK = 0.35;
-const MENU_REPEAT_MS = 220;
 
 /**
  * The mouse pitch after moving it by `delta`, kept so the view (mouse pitch
@@ -113,11 +110,14 @@ export class InputController {
   onPadTactical: (() => boolean | void) | null = null;
   /** The last reading's pressed buttons, for press and release edges. */
   #padPressed: readonly boolean[] = [];
+  /** The pad came back after the page was away (or the pad gone): buttons already held then are not new presses. */
+  #padFresh = false;
   #padMove: { forward: number; right: number } = { forward: 0, right: 0 };
   /** When the controller's crouch button went down (ms), while it is held and has not turned into prone. */
   #padCrouchSince: number | null = null;
-  #padMenuNav: PadNav | null = null;
-  #padMenuNext = 0;
+  readonly #padMenuReader = new PadMenuReader();
+  /** Ends the key capture waiting for a rebind, if one is. */
+  #cancelCapture: (() => void) | null = null;
   /** Playing on the controller: no pointer lock is needed, and the mouse cursor is hidden over the game. */
   #padMode = false;
   #padName: string | null = null;
@@ -511,10 +511,16 @@ export class InputController {
     const pad = readPad();
     if (!pad) {
       this.#padPressed.forEach((was, i) => was && this.#up(`Pad${i}`));
+      this.#padFresh ||= this.#padPressed.length > 0;
       this.#padPressed = [];
       this.#padMove = { forward: 0, right: 0 };
       this.#setPadMode(false);
       return;
+    }
+    if (this.#padFresh) {
+      // Circle still held as the Steam overlay closes, say, does not go back a second time.
+      this.#padFresh = false;
+      this.#padPressed = pad.pressed;
     }
     this.#padName = pad.id;
     const dz = this.#settings.padDeadzone;
@@ -576,26 +582,7 @@ export class InputController {
 
   #padMenu(pad: PadReading, now: number): void {
     this.#padMove = { forward: 0, right: 0 };
-    const pressed = (i: number) => (pad.pressed[i] ?? false) && !(this.#padPressed[i] ?? false);
-    if (pressed(PAD.cross)) this.onPadMenu?.('accept');
-    if (pressed(PAD.circle)) this.onPadMenu?.('back');
-    if (pressed(PAD.options)) this.onPadMenu?.('start');
-    // The D-pad or the left stick moves through the menu, repeating while held.
-    const [x, y] = pad.leftStick;
-    const held = (i: number) => pad.pressed[i] ?? false;
-    let nav: PadNav | null = null;
-    if (held(PAD.up) || y < -MENU_STICK) nav = 'up';
-    else if (held(PAD.down) || y > MENU_STICK) nav = 'down';
-    else if (held(PAD.left) || x < -MENU_STICK) nav = 'left';
-    else if (held(PAD.right) || x > MENU_STICK) nav = 'right';
-    if (nav !== this.#padMenuNav) {
-      this.#padMenuNav = nav;
-      this.#padMenuNext = now + MENU_REPEAT_MS * 2;
-      if (nav) this.onPadMenu?.(nav);
-    } else if (nav && now >= this.#padMenuNext) {
-      this.#padMenuNext = now + MENU_REPEAT_MS;
-      this.onPadMenu?.(nav);
-    }
+    for (const nav of this.#padMenuReader.read(pad, now, this.#padPressed)) this.onPadMenu?.(nav);
   }
 
   #move(e: MouseEvent): void {
@@ -715,19 +702,27 @@ export class InputController {
 
   /** Captures the next key or mouse button (for rebinding). Resolves to its code, or null on Escape. */
   captureNext(): Promise<string | null> {
+    this.#cancelCapture?.();
     return new Promise((resolve) => {
-      const done = (code: string | null, e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
+      const done = (code: string | null, e?: Event) => {
+        e?.preventDefault();
+        e?.stopPropagation();
         document.removeEventListener('keydown', key, true);
         document.removeEventListener('mousedown', mouse, true);
+        this.#cancelCapture = null;
         resolve(code);
       };
+      this.#cancelCapture = () => done(null);
       const key = (e: KeyboardEvent) => done(e.code === 'Escape' ? null : e.code, e);
       const mouse = (e: MouseEvent) => done(`Mouse${e.button}`, e);
       document.addEventListener('keydown', key, true);
       document.addEventListener('mousedown', mouse, true);
     });
+  }
+
+  /** Ends a `captureNext` that is waiting, as Escape does: a controller has no key to give it. */
+  cancelCapture(): void {
+    this.#cancelCapture?.();
   }
 
   dispose(): void {

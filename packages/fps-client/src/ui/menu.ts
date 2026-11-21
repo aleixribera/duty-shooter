@@ -1,5 +1,6 @@
 import { ATTACHMENT_NAMES, STATS, WIDE_SCALE, type Attachments, type GrenadeId, type Loadout, type ModeId, type PerkId, type TacticalId, type WeaponId } from '@duty-shooter/fps-core';
 import { padName, type PadNav } from '../gamepad';
+import { fieldLabel, padKeyboard, padKeyboardOpen, typable } from './pad-keyboard';
 import { ACTIONS, ACTION_LABELS, atDefaults, bindingLabel, pickLoadoutSet, restoreDefaults, withLoadout, type Action, type Settings, type SettingsSection } from '../settings';
 import { CROSSHAIR_COLOUR_NAMES, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, CROSSHAIR_SHAPE_NAMES, type CrosshairColour, type CrosshairOptions } from '../hud/crosshair';
 import { HUD_SCALE_LIMITS } from '../hud/scale';
@@ -11,7 +12,7 @@ import { escapeHtml, hint, icon, installTheme } from './theme';
 import { PROFILE_SCREEN_CSS, profileHtml, rankCorner } from './profile-screen';
 import { CHANGELOG_SCREEN_CSS, changelogHtml, type Release } from './changelog-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
-import { touchMode } from '../touch/mode';
+import { padSeen, touchMode } from '../touch/mode';
 import { clearHintMemory, hintsSeen } from '../hint-store';
 import type { ProfileStore } from '../profile/store';
 import { GUN_RANKS, MASTERY_KILLS, SAVE_CODE_HEAD, gunLock, gunOpen, masteryOf, openLoadout, retiredSaveCode } from '../profile/model';
@@ -364,6 +365,8 @@ export interface MenuCallbacks {
   changeSettings(settings: Settings): void;
   /** Wait for the next key or mouse button, for rebinding; null cancels. */
   captureKey(): Promise<string | null>;
+  /** Ends a `captureKey` that is waiting, with null. */
+  cancelKeyCapture?(): void;
 }
 
 /**
@@ -543,12 +546,16 @@ export class Menu {
     const first = screen === 'main' && !this.#entered;
     this.#screen = screen;
     this.#error = error;
+    // Opened by the controller (Options, or Circle out of a lobby), it speaks the controller's glyphs from the start.
+    if (from === null && padSeen()) this.#root.classList.add('pad');
+    if (from !== screen && padKeyboardOpen()) padKeyboard().cancel();
     this.#root.hidden = false;
     this.#render();
     if (from !== screen && !first) this.#focusOpened(screen);
   }
 
   hide(): void {
+    if (padKeyboardOpen()) padKeyboard().cancel();
     this.gunStage?.stop();
     const held = this.open && this.#root.contains(document.activeElement);
     this.#root.hidden = true;
@@ -628,7 +635,8 @@ export class Menu {
 
   /** The lobby's status changed: the screens that show it are drawn again, once no press is under way. */
   #statusChanged(): void {
-    if (this.#pressed) {
+    // Not under the on-screen keyboard either: a redraw would take its field away mid-word.
+    if (this.#pressed || padKeyboardOpen()) {
       this.#redrawAfterPress = true;
       return;
     }
@@ -672,6 +680,22 @@ export class Menu {
   }
 
   #navigate(nav: PadNav): void {
+    if (this.#redrawAfterPress && !this.#pressed) this.#statusChanged();
+    // A key rebind waiting for its key: the controller has none to give, so any press ends the wait.
+    if (this.#root.querySelector('.ds-bind.wait')) {
+      this.#callbacks.cancelKeyCapture?.();
+      return;
+    }
+    // L1 and R1 page through a screen's tabs (Settings).
+    if (nav === 'prev' || nav === 'next') {
+      const tabs = [...this.#root.querySelectorAll<HTMLButtonElement>('.ds-tabs button')].filter((b) => b.offsetParent !== null);
+      const on = tabs.findIndex((b) => b.classList.contains('on'));
+      if (tabs.length > 1 && on >= 0) {
+        tabs[(on + (nav === 'next' ? 1 : tabs.length - 1)) % tabs.length]!.click();
+        this.#root.querySelector<HTMLButtonElement>('.ds-tabs button.on')?.focus({ preventScroll: true });
+      }
+      return;
+    }
     const items = this.#controls();
     const focused = items.indexOf(document.activeElement as HTMLElement);
     const current = items[focused];
@@ -714,7 +738,15 @@ export class Menu {
           return;
         }
         const screen = this.#screen;
-        if (current instanceof HTMLInputElement && current.type !== 'range') {
+        if (typable(current)) {
+          // The controller types on the on-screen keyboard; Done goes on to the next control.
+          padKeyboard().edit(current, fieldLabel(current), () => {
+            const next = this.#controls();
+            const at = next.indexOf(current);
+            (next[at + 1] ?? current).focus();
+            this.#markFocus();
+          });
+        } else if (current instanceof HTMLInputElement && current.type !== 'range') {
           if (current.form) current.form.requestSubmit();
           else focus(focused + 1);
         } else if (current instanceof HTMLButtonElement || current instanceof HTMLAnchorElement) current.click();
@@ -1875,6 +1907,8 @@ export class Menu {
       select('Colour vision', s.colourVision, COLOUR_VISIONS.map((v) => [v, v === 'off' ? 'Standard' : COLOUR_VISION_NAMES[v]] as const), (v) => this.#change({ colourVision: v }));
       section('Captions');
       toggle('Announcer captions', s.captions, (v) => this.#change({ captions: v }));
+      section('Text');
+      select('Menu text size', s.menuText, [['auto', 'Auto'], ['standard', 'Standard'], ['large', 'Large']] as const, (v) => this.#change({ menuText: v }), 'Auto is large on a TV.');
       const shown = teamPreview(h, s.colourVision);
       preview(shown.root);
       this.#afterChange = () => {

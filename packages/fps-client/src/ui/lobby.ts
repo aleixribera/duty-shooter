@@ -1,5 +1,6 @@
 import { BOT_SKILLS, LOBBY_MODES, teamMode, type BotSkill, type LobbyPick, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
+import { padSeen } from '../touch/mode';
 import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, lobbySides, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
 
@@ -210,6 +211,8 @@ export class LobbyPage {
   show(view: LobbyView): void {
     this.#view = view;
     const opening = this.#root.hidden;
+    // Opened by the controller, it speaks the controller's glyphs from the start.
+    if (opening && padSeen()) this.#root.classList.add('pad');
     this.#root.hidden = false;
     const html = this.#render(view);
     // Each time the page opens it starts at its top: your seat, not where Bot Match was last scrolled to.

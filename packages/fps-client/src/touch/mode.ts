@@ -29,6 +29,7 @@ export function nextTouchMode(on: boolean, seen: InputSeen): boolean {
 }
 
 let mode = false;
+let pad = false;
 let installed = false;
 const listeners = new Set<(on: boolean) => void>();
 
@@ -53,7 +54,20 @@ export function setTouchMode(on: boolean): void {
 
 /** Tells the mode about an input seen elsewhere (the controller is read by polling, not events). */
 export function inputSeen(seen: InputSeen): void {
+  pad = nextPadSeen(pad, seen);
   setTouchMode(nextTouchMode(mode, seen));
+}
+
+/** Whether the controller was the last input: a pad press turns it on, a key outside a text field or any pointer press or mouse move turns it off. */
+export function nextPadSeen(on: boolean, seen: InputSeen): boolean {
+  if (seen.kind === 'pad') return true;
+  if (seen.kind === 'key') return seen.typing ? on : false;
+  return seen.pointerType === 'mouse' || seen.down ? false : on;
+}
+
+/** True while the controller was the last input, so a screen opening shows pad hints and the pad focus from the start. */
+export function padSeen(): boolean {
+  return pad;
 }
 
 function typing(target: EventTarget | null): boolean {

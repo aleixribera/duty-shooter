@@ -1,4 +1,5 @@
-import { FramePacer, LobbyPage, Menu, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padName, pickLoadoutSet, placement, profileName, rebuild, standInName, royaleOpens, royaleServer, saveSettings, useColourVision, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
+import type { PadNav } from '@duty-shooter/fps-client';
+import { FramePacer, LobbyPage, inputSeen, Menu, PadMenuReader, ProfileStore, earnedLoadout, openLoadout, RoyalePage, GRAPHICS_LOST, connectionError, loadSettings, loadoutNote, padKeyboard, padKeyboardOpen, padName, pickLoadoutSet, readPad, placement, profileName, rebuild, standInName, royaleOpens, royaleServer, saveSettings, useColourVision, useMenuText, withBuilds, withLoadout, type VideoStatus, type Lobby, type LobbyView, type RoyaleSession, type RoyaleView, type Settings } from '@duty-shooter/fps-client/ui';
 import type { Game, GameDriver, OnlineDriver, SoundSystem } from '@duty-shooter/fps-client';
 import type { BakeFile } from '@duty-shooter/fps-client/surfaces';
 import type { FromLocalRoyale } from './local-royale';
@@ -22,6 +23,7 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let settings: Settings = loadSettings();
   // The menus draw the team colours too, before the engine is there to set them.
   useColourVision(settings.colourVision);
+  useMenuText(settings.menuText);
   // This browser's Profile: the game banks a finished match in it, the menu shows it.
   const profile = new ProfileStore();
   // The name (PLAN item 9c) is the Profile's, asked the first time Play Online joins; one kept with the settings before moves in,
@@ -64,6 +66,8 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   let sound!: SoundSystem;
   let engineUp!: () => void;
   const engineReady = new Promise<void>((done) => (engineUp = done));
+  /** A key rebind cancelled (by the controller) before the engine could take the key. */
+  let captureCancelled = false;
   let up = false;
   /** Runs `act` once the engine and the first game are up: now, if they are. */
   const whenUp = (act: () => void) => {
@@ -89,9 +93,11 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   };
   /** A game on one map; switching maps builds a new one. */
   /** Wires a game to the page's menus, which only the game on show may answer to. */
+  /** A menu move from the controller, to the page on show. */
+  const padNav = (nav: PadNav) =>
+    padKeyboardOpen() ? padKeyboard().navigate(nav) : menu.open ? menu.navigate(nav) : lobbyPage.open ? lobbyPage.navigate(nav) : royalePage.open ? royalePage.navigate(nav) : preparation.page.open ? preparation.page.navigate(nav) : menu.navigate(nav);
   const wire = (g: Game) => {
-    g.input.onPadMenu = (nav) =>
-      menu.open ? menu.navigate(nav) : lobbyPage.open ? lobbyPage.navigate(nav) : royalePage.open ? royalePage.navigate(nav) : preparation.page.open ? preparation.page.navigate(nav) : menu.navigate(nav);
+    g.input.onPadMenu = padNav;
     g.input.onUnlock = () => {
       if (!game.paused && game.driver) {
         game.paused = true;
@@ -408,11 +414,20 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
         settings = next;
         saveSettings(next);
         useColourVision(next.colourVision);
+        useMenuText(next.menuText);
         if (pacer && !benchmarkPage) pacer.fpsCap = next.fpsCap;
         game?.applySettings(next);
         menu.settings = next;
       },
-      captureKey: () => engineReady.then(() => game.input.captureNext()),
+      captureKey: () => {
+        captureCancelled = false;
+        return engineReady.then(() => (captureCancelled ? null : game.input.captureNext()));
+      },
+      // A rebind can wait on the engine still loading: the cancel holds until it is up.
+      cancelKeyCapture: () => {
+        captureCancelled = true;
+        game?.input.cancelCapture();
+      },
     },
     { lobby, version, mapName, padName: () => game?.input.padName ?? null, profile, video: videoStatus, changelog: () => import('virtual:changelog').then((m) => m.default) },
   );
@@ -895,6 +910,22 @@ async function startGame(canvas: HTMLCanvasElement, status: HTMLElement, forceWe
   // It waits for the round card to go: at a match's start the card has the screen.
   addEventListener('gamepadconnected', (e) => game?.hud.notice(`Controller connected: ${padName(e.gamepad.id)}`, 4));
 
+  // The menus take the controller before the engine and its game are up: a slow machine can sit on the menu for a while.
+  {
+    const reader = new PadMenuReader();
+    let last: readonly boolean[] = [];
+    const look = (now: number) => {
+      if (up) return;
+      const pad = readPad();
+      const navs = pad ? reader.read(pad, now, last) : [];
+      if (navs.length) inputSeen({ kind: 'pad' });
+      for (const nav of navs) padNav(nav);
+      // Kept while the page is away: a button held over a refocus is not a new press.
+      if (pad) last = pad.pressed;
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  }
   // The engine, a piece at a time: the menus stay live between the pieces.
   await nextPaint();
   engine = await engineLoading;

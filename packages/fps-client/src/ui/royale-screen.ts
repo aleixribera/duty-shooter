@@ -1,5 +1,7 @@
 import { STATS, WIDE_SCALE, type LobbyState, type MatchResult, type ModeId, type PlayerId, type TeamScore } from '@duty-shooter/fps-core';
 import type { PadNav } from '../gamepad';
+import { padSeen } from '../touch/mode';
+import { fieldLabel, padKeyboard, padKeyboardOpen, typable } from './pad-keyboard';
 import { MODE_BLURBS, lastMatch, type LobbyInfo } from './model';
 import { royaleLocal, royaleOpens, royaleServer, royaleSession, royaleSquads, royaleSteps, type SquadView } from './royale-lobby';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
@@ -229,6 +231,8 @@ export class RoyalePage {
   /** Shows the screen as `view` has it (cheap to call every frame). */
   show(view: RoyaleView): void {
     const opening = this.#root.hidden;
+    // Opened by the controller, it speaks the controller's glyphs from the start.
+    if (opening && padSeen()) this.#root.classList.add('pad');
     this.#view = view;
     this.#root.hidden = false;
     const html = this.#render(view);
@@ -242,6 +246,7 @@ export class RoyalePage {
   }
 
   hide(): void {
+    if (padKeyboardOpen()) padKeyboard().cancel();
     this.#root.hidden = true;
     this.#seen.clear();
   }
@@ -252,7 +257,14 @@ export class RoyalePage {
     this.#root.classList.add('pad');
     const items = [...this.#root.querySelectorAll<HTMLElement>('button:not(:disabled), input')];
     const i = items.indexOf(document.activeElement as HTMLElement);
-    if (nav === 'accept') items[i]?.click();
+    const current = items[i];
+    if (nav === 'accept' && typable(current))
+      padKeyboard().edit(current, fieldLabel(current), () => {
+        const next = [...this.#root.querySelectorAll<HTMLElement>('button:not(:disabled), input')];
+        (next[next.indexOf(current) + 1] ?? current).focus();
+        this.#markFocus();
+      });
+    else if (nav === 'accept') current?.click();
     else if (nav === 'back') this.#callbacks.leave();
     else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
     else if (nav === 'down' || nav === 'right') items[i < 0 ? 0 : (i + 1) % items.length]?.focus();

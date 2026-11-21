@@ -1,6 +1,7 @@
 import { STATS, type AttachmentId, type AttachmentSlot, type GrenadeId, type Loadout, type RoyaleChampion, type TeamId, type WeaponId } from '@duty-shooter/fps-core';
 import { nameList } from '@duty-shooter/fps-core/modes';
 import type { PadNav } from '../gamepad';
+import { padSeen } from '../touch/mode';
 import type { PreparationStage } from '../preparation-shot';
 import type { GunsmithSlot } from './gunsmith';
 import { loadoutOptions } from './model';
@@ -197,6 +198,8 @@ export class PreparationPage {
   /** Shows the Preparation as `view` has it (cheap to call every frame). */
   show(view: PreparationView): void {
     const opening = this.#root.hidden;
+    // Opened by the controller, it speaks the controller's glyphs from the start.
+    if (opening && padSeen()) this.#root.classList.add('pad');
     this.#view = view;
     if (opening) {
       // From black, each time a Preparation opens.
@@ -310,7 +313,7 @@ export class PreparationPage {
 <div><div class="clock"><b>${escapeHtml(clock)}</b><span>${escapeHtml(clockLabel)}</span></div><div class="bar" aria-hidden="true"><i style="transform: scaleX(${(1 - done).toFixed(3)})"></i></div></div>
 <div class="kit">${seg('primary', 'Primary', primaries, weaponName)}${smith(picked.primary, v.smith?.primary)}${seg('secondary', 'Secondary', secondaries, weaponName)}${smith(picked.secondary, v.smith?.secondary)}${seg('grenade', 'Grenade', options.grenade, (g) => (g ? `Frag ×${STATS.royale.frags.value}` : 'None'))}</div>
 ${v.squad.length > 1 ? `<div class="squad"><span class="ds-field-label">Your Squad</span><div class="mates">${mates}</div></div>` : ''}
-<div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button>${action.note ? `<div class="note">${escapeHtml(action.note)}</div>` : ''}${action.enabled ? `<div class="ds-hints">${hint('Enter', 'A', action.label)}</div>` : ''}</div>
+<div class="go"><button type="button" class="ds-btn primary big" data-act="go" data-key="go"${action.enabled ? '' : ' disabled'}>${escapeHtml(action.label)}</button>${action.note ? `<div class="note">${escapeHtml(action.note)}</div>` : ''}${action.enabled ? `<div class="ds-hints">${hint('Enter', '✕', action.label)}</div>` : ''}</div>
 </div>
 <div class="alive" aria-label="${v.alive} alive"><b>${v.alive}</b><span>Alive</span><small>${v.squads} ${v.squads === 1 ? 'Squad' : 'Squads'}</small>${champ}</div>`;
   }

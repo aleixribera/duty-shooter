@@ -13,6 +13,8 @@ It began as a study of Call of Duty: Modern Warfare (2019)'s gunplay and movemen
 - **Offline**, **Bot Match** plays the match maps in any mode against bots, and the **Practice Range** has firing lanes, dummies and a movement course with a timed Course.
 - **Progress** lives in the browser (no account, no server database): a match's Score feeds XP and a Rank from 1 to 50, each weapon earns Mastery by its kills, and three Challenges change each day. Only a match played to its end counts.
 
+It plays with mouse and keyboard, on a touchscreen, or from the sofa with a controller (see [Controller](#controller)).
+
 TypeScript, Three.js (WebGPU, with a WebGL2 fallback), Vite, Node 24.
 
 ## Run it
@@ -83,6 +85,7 @@ Dev URL parameters (the ones marked *dev* work only under `npm run dev`):
 - *dev* `?online` looks for a local server behind Vite's proxy (`/ws`, `/healthz`, `/status`, `/royale/`); a production build always does.
 - `?viewer` opens the viewmodel viewer, which loops every first-person animation; `&weapon=<id>`, `&clip=<name>` and `&t=<s>` hold one weapon, clip or moment, and `&optic=reflex` or `&optic=prism` puts that optic on a gun that takes one.
 - `?webgl` forces the WebGL2 fallback.
+- `?tv` is for a living-room TV: the menus' text is a size larger and the HUD starts at its largest size (Settings > Accessibility > Menu text size and HUD > HUD size still change them).
 - `#join=<passphrase>` is an invite link: it opens Play Online with the passphrase filled in.
 
 In dev the page also exposes `globalThis.duty` (`game`, `map`, `renderer`, `sound`, `menu`, `driver`, `pacer`) for the console and for scripts.
@@ -152,7 +155,9 @@ A PS4 controller (or any pad the browser reports with the standard mapping) work
 | Island map (Battle Royale) | Share |
 | Menu | Options |
 
-The Tactical preset puts crouch on R3 and melee on Circle. Settings → Mouse and pad has the layout, stick sensitivity, ADS multiplier, deadzone, invert Y, aim slowdown and vibration strength. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press.
+The Tactical preset puts crouch on R3 and melee on Circle. Settings → Mouse and pad has the layout, stick sensitivity, ADS multiplier, deadzone, invert Y, aim slowdown and vibration strength. Browsers don't count controller buttons as user activation, so on a controller-only start the sound begins at the first click or key press (a kiosk Chrome can pass `--autoplay-policy=no-user-gesture-required`).
+
+In the menus the d-pad or left stick moves, Cross selects, Circle goes back, L1 and R1 page through tabs (Settings), and Options opens and closes the pause menu. Cross on a text field (a name, a passphrase) opens an on-screen keyboard: Cross types, Square deletes, Triangle types a space, Options is Done and Circle puts the field back. With more than one pad connected (Steam's virtual pad beside the real one), the game follows the pad pressed last.
 
 ### Where the defaults differ from MW2019
 

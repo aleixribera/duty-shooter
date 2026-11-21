@@ -5,6 +5,7 @@ import type { PadLayout } from './gamepad';
 import { CROSSHAIR_COLOURS, CROSSHAIR_LIMITS, CROSSHAIR_SHAPES, DEFAULT_CROSSHAIR, type CrosshairColour, type CrosshairOptions } from './hud/crosshair';
 import { FRAME_CAPS } from './quality';
 import { COLOUR_VISIONS, type ColourVision } from './team-colours';
+import { MENU_TEXTS, type MenuText } from './tv';
 
 /** Everything the player can bind. Escape (menu) is fixed. */
 export type Action =
@@ -128,6 +129,8 @@ export interface Settings {
   readonly hudScale: number;
   /** The announcer's lines as text. */
   readonly captions: boolean;
+  /** The menus' text size: Auto is large on a TV (`?tv`), standard elsewhere. */
+  readonly menuText: MenuText;
   readonly crosshair: CrosshairOptions;
 }
 
@@ -208,6 +211,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colourVision: 'off',
   hudScale: 1,
   captions: true,
+  menuText: 'auto',
   crosshair: DEFAULT_CROSSHAIR,
 };
 
@@ -220,7 +224,7 @@ export const SECTION_SETTINGS: Readonly<Record<SettingsSection, readonly (keyof 
   video: ['fpsCap', 'fov', 'adsFov', 'showFps'],
   audio: ['volume', 'musicVolume', 'effectsVolume', 'voiceVolume', 'uiVolume'],
   hud: ['hudScale', 'showPing', 'showRangeOverlay', 'crosshair'],
-  accessibility: ['cameraMotion', 'fovEffects', 'colourVision', 'captions'],
+  accessibility: ['cameraMotion', 'fovEffects', 'colourVision', 'captions', 'menuText'],
   // The name (PLAN item 9c): who you are, so no default to go back to.
   player: [],
 };
@@ -379,6 +383,7 @@ export function parseSettings(raw: unknown): Settings {
     colourVision: oneOf(r['colourVision'], COLOUR_VISIONS, d.colourVision),
     hudScale: clamp(r['hudScale'], 0.8, 1.3, d.hudScale),
     captions: bool(r['captions'], d.captions),
+    menuText: oneOf(r['menuText'], MENU_TEXTS, d.menuText),
     crosshair: parseCrosshair(r['crosshair']),
   };
 }
