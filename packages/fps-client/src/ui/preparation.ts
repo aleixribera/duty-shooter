@@ -6,6 +6,7 @@ import type { PreparationStage } from '../preparation-shot';
 import type { GunsmithSlot } from './gunsmith';
 import { loadoutOptions } from './model';
 import { escapeHtml, hint, installTheme, patchHtml } from './theme';
+import { padMove, scrollArea } from './pad-focus';
 
 /**
  * A Battle Royale's Preparation over the live island: the clock to the drop,
@@ -233,8 +234,7 @@ export class PreparationPage {
     const items = [...this.#root.querySelectorAll<HTMLElement>('button:not(:disabled)')];
     const i = items.indexOf(document.activeElement as HTMLElement);
     if (nav === 'accept') items[i]?.click();
-    else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
-    else if (nav === 'down' || nav === 'right') items[i < 0 ? 0 : (i + 1) % items.length]?.focus();
+    else if (nav === 'up' || nav === 'down' || nav === 'left' || nav === 'right') padMove(items, items[i], nav, scrollArea)?.focus();
     this.#markFocus();
   }
 

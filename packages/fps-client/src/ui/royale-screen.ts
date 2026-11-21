@@ -5,6 +5,7 @@ import { fieldLabel, padKeyboard, padKeyboardOpen, typable } from './pad-keyboar
 import { MODE_BLURBS, lastMatch, type LobbyInfo } from './model';
 import { royaleLocal, royaleOpens, royaleServer, royaleSession, royaleSquads, royaleSteps, type SquadView } from './royale-lobby';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
+import { padMove, scrollArea } from './pad-focus';
 
 type SquadSize = LobbyState['squadSize'];
 
@@ -200,6 +201,8 @@ export class RoyalePage {
   #seen = new Set<string>();
   /** Until when the invite's Copy button says Copied. */
   #copiedUntil = 0;
+  /** Opened before Go could be pressed (the server still being asked): Go takes the focus once it can. */
+  #wantGo = false;
 
   constructor(parent: HTMLElement, callbacks: RoyaleCallbacks, options: { readonly image: string }) {
     installTheme();
@@ -236,13 +239,27 @@ export class RoyalePage {
     this.#view = view;
     this.#root.hidden = false;
     const html = this.#render(view);
-    if (html === this.#html) return;
-    const focused = this.#root.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['key'] : undefined;
-    this.#html = html;
-    patchHtml(this.#root, html);
-    if (focused && document.activeElement?.getAttribute('data-key') !== focused) this.#root.querySelector<HTMLElement>(`[data-key="${focused}"]`)?.focus();
-    if (opening && !view.session) this.#root.querySelector<HTMLElement>('[data-key="go"]:not(:disabled)')?.focus({ preventScroll: true });
-    this.#markFocus();
+    const before = document.activeElement;
+    const changed = html !== this.#html;
+    if (changed) {
+      const focused = this.#root.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['key'] : undefined;
+      this.#html = html;
+      patchHtml(this.#root, html);
+      if (focused && document.activeElement?.getAttribute('data-key') !== focused) this.#root.querySelector<HTMLElement>(`[data-key="${focused}"]`)?.focus();
+    }
+    // The way on (Go) has the focus on opening, or as soon as it can take it when it was still waiting then; and when
+    // the controller is in use and the focus fell off a button that went, a button that does something takes it.
+    // Never Back: a Cross pressed again on a "Joining…" that dropped the focus must not leave the screen.
+    const go = this.#root.querySelector<HTMLElement>('[data-key="go"]:not(:disabled)');
+    if (opening) this.#wantGo = !view.session;
+    const idle = document.activeElement === null || document.activeElement === document.body;
+    if (this.#wantGo && go && (idle || this.#root.contains(document.activeElement))) {
+      go.focus({ preventScroll: true });
+      this.#wantGo = false;
+    } else if (idle && this.#root.classList.contains('pad') && !padKeyboardOpen()) {
+      this.#root.querySelector<HTMLElement>('button:not(:disabled):not([data-act="leave"])')?.focus({ preventScroll: true });
+    }
+    if (opening || changed || document.activeElement !== before) this.#markFocus();
   }
 
   hide(): void {
@@ -255,6 +272,8 @@ export class RoyalePage {
   navigate(nav: PadNav): void {
     if (!this.open) return;
     this.#root.classList.add('pad');
+    // The player moves on their own: Go no longer takes the focus when it comes.
+    this.#wantGo = false;
     const items = [...this.#root.querySelectorAll<HTMLElement>('button:not(:disabled), input')];
     const i = items.indexOf(document.activeElement as HTMLElement);
     const current = items[i];
@@ -266,8 +285,7 @@ export class RoyalePage {
       });
     else if (nav === 'accept') current?.click();
     else if (nav === 'back') this.#callbacks.leave();
-    else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
-    else if (nav === 'down' || nav === 'right') items[i < 0 ? 0 : (i + 1) % items.length]?.focus();
+    else if (nav === 'up' || nav === 'down' || nav === 'left' || nav === 'right') padMove(items, items[i], nav, scrollArea)?.focus();
     this.#markFocus();
   }
 

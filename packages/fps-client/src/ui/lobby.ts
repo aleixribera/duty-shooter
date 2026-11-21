@@ -3,6 +3,7 @@ import type { PadNav } from '../gamepad';
 import { padSeen } from '../touch/mode';
 import { MODE_BLURBS, MODE_NAMES, TEAMS, botMatchSides, lastMatch, lobbyFill, lobbySeats, lobbySides, matchSize, pingTone, randomLobbyPick } from './model';
 import { escapeHtml, hint, icon, installTheme, patchHtml } from './theme';
+import { padMove, scrollArea } from './pad-focus';
 
 const CSS = `
 .ds-lobby { position: fixed; inset: 0; z-index: 18; font: 400 var(--ds-type-body)/1.4 var(--ds-font); }
@@ -242,8 +243,7 @@ export class LobbyPage {
     if (nav === 'accept') items[i]?.click();
     else if (nav === 'back') {
       if (this.#view?.offline) this.#callbacks.leave();
-    } else if (nav === 'up' || nav === 'left') items[i <= 0 ? items.length - 1 : i - 1]?.focus();
-    else if (nav === 'down' || nav === 'right') items[i < 0 ? 0 : (i + 1) % items.length]?.focus();
+    } else if (nav === 'up' || nav === 'down' || nav === 'left' || nav === 'right') padMove(items, items[i], nav, scrollArea)?.focus();
     this.#markFocus();
   }
 

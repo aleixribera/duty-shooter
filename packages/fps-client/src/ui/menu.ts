@@ -9,6 +9,7 @@ import { SECTION_NAMES, SETTINGS_SCREEN_CSS, capChoices, crosshairPreview, secti
 import { MODE_NAMES, connectionError, kitCard, loadoutOptions, lobbyTile, pauseActions, weaponCard, type LobbyInfo } from './model';
 import { buildEffects, gunsmithRows, openKit, rebuild, slotLock, withBuilds, type BuildEffects, type GunsmithChoice } from './gunsmith';
 import { escapeHtml, hint, icon, installTheme } from './theme';
+import { padMove, scrollArea } from './pad-focus';
 import { PROFILE_SCREEN_CSS, profileHtml, rankCorner } from './profile-screen';
 import { CHANGELOG_SCREEN_CSS, changelogHtml, type Release } from './changelog-screen';
 import { TOUCH_GLYPHS, type TouchGlyph } from '../touch/controls';
@@ -711,20 +712,21 @@ export class Menu {
           current.selectedIndex = i;
           current.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      } else focus(focused < 0 ? 0 : focused + d);
+      } else padMove(items, current, d > 0 ? 'right' : 'left', scrollArea)?.focus();
     };
-    // The Changelog has one control and a long list: up and down scroll the list.
+    // The Changelog has one control and a long list: up and down scroll the list, and down at its end goes on to Back.
     const log = this.#screen === 'changelog' ? this.#root.querySelector<HTMLElement>('.ds-page > .body') : null;
     if (log && (nav === 'up' || nav === 'down')) {
-      log.scrollBy({ top: (nav === 'up' ? -0.6 : 0.6) * log.clientHeight });
+      const room = nav === 'up' ? log.scrollTop > 1 : log.scrollTop + log.clientHeight < log.scrollHeight - 1;
+      if (!current && room) log.scrollBy({ top: (nav === 'up' ? -0.6 : 0.6) * log.clientHeight });
+      else if (!current) items[0]?.focus();
+      else if (nav === 'up' && log.tabIndex >= 0) log.focus({ preventScroll: true });
       return;
     }
     switch (nav) {
       case 'up':
-        focus(focused < 0 ? 0 : focused - 1);
-        return;
       case 'down':
-        focus(focused < 0 ? 0 : focused + 1);
+        padMove(items, current, nav, scrollArea)?.focus();
         return;
       case 'left':
         step(-1);

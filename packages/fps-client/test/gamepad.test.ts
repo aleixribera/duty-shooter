@@ -32,6 +32,22 @@ describe('reading the controller', () => {
     expect(readPad()).toBeNull();
   });
 
+  // The Arcade runs the game in a same-origin frame and keeps the focus on its own page until the frame is clicked.
+  it('reads the pad in a frame while the page around it has the focus, not while another window has it', () => {
+    page(false);
+    const top = { document: { hasFocus: () => true } };
+    vi.stubGlobal('window', { top });
+    expect(readPad()?.pressed[PAD.r2]).toBe(true);
+    top.document.hasFocus = () => false;
+    expect(readPad()).toBeNull();
+  });
+
+  it('ignores the pad in an unfocused frame of another origin, whose page it cannot ask', () => {
+    page(false);
+    vi.stubGlobal('window', { top: { get document(): never { throw new DOMException('Blocked a frame', 'SecurityError'); } } });
+    expect(readPad()).toBeNull();
+  });
+
   it('ignores the pad while the game is hidden', () => {
     page(true, true);
     expect(readPad()).toBeNull();

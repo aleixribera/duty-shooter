@@ -171,7 +171,21 @@ function activePad(): Gamepad | null {
 function readable(): boolean {
   // The browser hands the controller to every page, focused or not: a pad used in another
   // window (another game, a person at the PC beside a scripted match) must not play here.
-  return !(typeof document !== 'undefined' && (document.hidden || !document.hasFocus()));
+  return !(typeof document !== 'undefined' && (document.hidden || !windowFocused()));
+}
+
+/**
+ * Whether this window has the focus. In the Arcade the game runs in a same-origin frame, and the Arcade's own page
+ * has the focus until something in the frame is clicked: a controller-only player never clicks, so there the
+ * question goes to the topmost page, whose focus covers its frames. A frame of another origin answers for itself.
+ */
+function windowFocused(): boolean {
+  if (document.hasFocus()) return true;
+  try {
+    return typeof window !== 'undefined' && window.top !== null && window.top !== window && window.top.document.hasFocus();
+  } catch {
+    return false;
+  }
 }
 
 /** The pad in use (the last one pressed or pushed, of any connected), or null (also while the page is hidden or another window has the focus). */
