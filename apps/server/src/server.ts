@@ -1,5 +1,6 @@
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
+// vitest.passed: pure. It reads only the static folder it is handed (a test's temp folder), never the repo's code.
 import { promisify } from 'node:util';
 import { brotliCompress, constants as zlib, gzip } from 'node:zlib';
 import { isIP } from 'node:net';

@@ -1,12 +1,12 @@
 // The primaries without a band of their own (the light machine gun, the marksman rifle, the burst rifle) against
 // the four that have one; beside balance.test.ts, so the two sets of duels run side by side.
 import { beforeAll, describe, expect, it } from 'vitest';
-import { CHALLENGER_WEAPONS, DUEL_WEAPONS, challengerRuns, type DuelCell } from '@duty-shooter/fps-core/harness';
-import { CHALLENGER_ERROR, CHALLENGER_ROUNDS, band, challengerOverall, rate } from './support/balance';
+import { CHALLENGER_WEAPONS, DUEL_WEAPONS, type DuelCell } from '@duty-shooter/fps-core/harness';
+import { CHALLENGER_ERROR, band, challengerCells, challengerOverall, rate } from './support/balance';
 
 let challengers: DuelCell[] = [];
 beforeAll(() => {
-  challengers = challengerRuns(CHALLENGER_ROUNDS);
+  challengers = challengerCells();
 }, 1_500_000);
 
 describe('the primaries without a band of their own, against the four that have one', () => {

@@ -33,7 +33,7 @@ Everything under `vitest` is Node-only; there are no browser tests in the suite.
 
 The suite has two tiers (`vitest.config.ts` names them as projects):
 
-- **fast** (`npm test`): every rule the game keeps, a few minutes on this PC. Files are `*.test.ts`.
+- **fast** (`npm run test:fast`, about a minute on this PC; `npm test` runs only its files that changed since they last passed, see AGENTS.md "Test time budget"): every rule the game keeps. Files are `*.test.ts`.
 - **soak** (`npm run test:soak`): whole matches played out by bots, minutes of simulated play each: the bot soaks for each map and mode, the Battle Royale played through, Bot Match from start to lobby, a long life of fire online. Files are `*.soak.test.ts`. A soak catches what only shows over a whole match, so a change to bots, a mode, a map's layout or nav, or the match flow runs the soaks for what it touched, not all of them.
 - CI (`.github/workflows/container.yaml`) runs both tiers on every push to `main`, split over eight runners beside the image build (a version tag's run only builds and smoke-tests the image); `:latest` moves only once both pass. Check it after a push (`gh run list --workflow container.yaml`); a red run is yours to fix before anything else.
 
@@ -50,7 +50,7 @@ A test checks what the game does, not how it is worded or styled. For a function
 A test that only times out while the PC is busy is load, not a failure: run that file alone before blaming the change. A new test belongs in the fast tier unless it plays a whole match or minutes of play; then it goes in a `*.soak.test.ts` beside the file it came from, and a long check in a fast file is first made cheaper (an index instead of a scan of every solid, fewer seeds) before it is moved.
 
 - Zero Island's nav is cached once built (`apps/range/test/support/island-nav.ts`), named by a hash of every source file the generator imports; an edit to any of them builds a new one, about 100 s for each test file that needs one at that moment. `zero-island-nav.test.ts` checks that cached build (`BENCH=1` builds it afresh and times it). CI keeps the cache between runs.
-- A long check that can be cut along its cases is split over files so they run on parallel workers, its body in `test/support/`: the balance duels (`balance.test.ts` and `balance-challengers.test.ts`, about 40 s; `BALANCE_REPORT=docs/balance.md npx vitest run packages/fps-core/test/balance.test.ts` rewrites the tables), the island's sightlines (standing and crouched), the still player and the Battle Royale matches (one file per Squad size).
+- A long check that can be cut along its cases is split over files so they run on parallel workers, its body in `test/support/`: the balance duels (`balance.test.ts` and `balance-challengers.test.ts`, about 40 s; `BALANCE_REPORT=docs/balance.md npx vitest run packages/fps-core/test/balance.test.ts` rewrites the tables), the island's sightlines (standing and crouched), the still player and the Battle Royale matches (one file per Squad size). The duels and the sightlines come out the same for the same sources, so `measured()` keeps them locally until a source they use changes (CI always runs them).
 - A passing test's console output is hidden (`silent: 'passed-only'`); `--silent=false` shows the reports the sightline and balance tests print.
 - Shared test helpers live in each package's `test/support/` or `test/helpers/` (bot soaks and nav reachability in `apps/range/test/support/bots.ts`).
 - `apps/range/test/server-cpu.test.ts` and the benchmarks skip unless `BENCH=1`.

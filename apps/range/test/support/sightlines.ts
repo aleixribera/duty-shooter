@@ -74,31 +74,48 @@ export function nearestCover(world: World, p: Standing, reach: number): number {
   return best;
 }
 
-/** Along each bearing from `p`, the farthest person standing on the ground its eye can see. */
-function viewsFrom(world: World, p: Standing, o: Required<Pick<SightOptions, 'viewReach' | 'viewStep'>> & SightOptions): number[] {
+/**
+ * Along each bearing from `p`, the farthest person standing on the ground its eye can see: through soft cover
+ * (`bare`) and, when asked, not through it (`soft`, as a bot sees). One pass serves both, the rays being the same.
+ */
+function viewsFrom(world: World, p: Standing, o: Required<Pick<SightOptions, 'viewReach' | 'viewStep'>> & SightOptions): { bare: number[]; soft: number[] } {
   const target = o.target ?? EYE;
   const t = world.terrain!;
   const eye: Vec3 = [p.x, p.y + EYE, p.z];
-  const out: number[] = [];
+  const bare: number[] = [];
+  const soft: number[] = [];
   for (let k = 0; k < BEARINGS; k++) {
     const turn = (k / BEARINGS) * Math.PI * 2;
     const [ux, uz] = [Math.cos(turn), Math.sin(turn)];
     let far = 0;
+    let farSoft = 0;
     for (let r = o.viewStep; r <= o.viewReach; r += o.viewStep) {
       const [x, z] = [p.x + ux * r, p.z + uz * r];
       if (!o.standable(x, z)) continue;
       const seen: Vec3 = [x, t.heightAt(x, z) + target, z];
-      if (!sightBlocked(world, eye, seen) && !(o.soft && world.concealment?.hides(eye, seen))) far = r;
+      if (sightBlocked(world, eye, seen)) continue;
+      far = r;
+      if (o.soft && !world.concealment?.hides(eye, seen)) farSoft = r;
     }
-    out.push(far);
+    bare.push(far);
+    soft.push(farSoft);
   }
-  return out;
+  return { bare, soft };
 }
+
+const withDefaults = (options: SightOptions) => ({ viewReach: 320, viewStep: 10, ...options });
 
 /** Measures one point. */
 export function sight(world: World, p: Standing, options: SightOptions): Sighted {
-  const o = { viewReach: 320, viewStep: 10, ...options };
-  return { ...p, cover: nearestCover(world, p, options.coverReach ?? 24), views: viewsFrom(world, p, o) };
+  const views = viewsFrom(world, p, withDefaults(options));
+  return { ...p, cover: nearestCover(world, p, options.coverReach ?? 24), views: options.soft ? views.soft : views.bare };
+}
+
+/** Measures one point twice in one pass: seen through soft cover, and as a bot sees it, not through it. */
+export function sightBareAndSoft(world: World, p: Standing, options: Omit<SightOptions, 'soft'>): { bare: Sighted; soft: Sighted } {
+  const views = viewsFrom(world, p, { ...withDefaults(options), soft: true });
+  const cover = nearestCover(world, p, options.coverReach ?? 24);
+  return { bare: { ...p, cover, views: views.bare }, soft: { ...p, cover, views: views.soft } };
 }
 
 export function quantile(values: readonly number[], q: number): number {

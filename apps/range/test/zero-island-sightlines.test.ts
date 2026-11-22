@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { SoftCover } from '@duty-shooter/fps-core';
 import { regionAt, REGION_IDS } from '../src/map/zero-island-terrain';
-import { quantile, report, sight, type Sighted } from './support/sightlines';
-import { AREA, landPoints, line, map, mapSeconds, nav, options, seaPoints, world } from './support/island-sightlines';
+import { quantile, report, type Sighted } from './support/sightlines';
+import { AREA, line, map, mapSeconds, standing } from './support/island-sightlines';
 
 // A crouched body, as bots see it, is measured in zero-island-sightlines-crouched.test.ts.
 
-const t0 = performance.now();
-const land: Sighted[] = landPoints().map((p) => sight(world, p, options));
-const sea: Sighted[] = seaPoints().map((p) => sight(world, p, options));
-const seconds = (performance.now() - t0) / 1000;
+const { land, sea, seconds, nodes, links } = standing();
 
 /** The land cut into squares: an area is what a player would call one place. */
 function areas(points: readonly Sighted[]): Map<string, Sighted[]> {
@@ -35,7 +32,7 @@ const onFoot = (p: Sighted) => !onRoof(p);
 
 describe('Zero Island: sightlines', () => {
   it('reports what it measured', () => {
-    console.log(`${map.solids.length} solids, ${nav.nodes.length} nodes, ${nav.packed.linkTo.length} links, map ${mapSeconds.toFixed(2)} s, sampled in ${seconds.toFixed(1)} s`);
+    console.log(`${map.solids.length} solids, ${nodes} nodes, ${links} links, map ${mapSeconds.toFixed(2)} s, sampled in ${seconds.toFixed(1)} s`);
     console.log(line('land', land));
     for (const id of REGION_IDS) console.log(line(id, land.filter((p) => regionAt(p.x, p.z) === id)));
     console.log(line('shallows', sea));
