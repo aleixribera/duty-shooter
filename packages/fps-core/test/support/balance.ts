@@ -2,7 +2,9 @@
 // balance.test.ts holds the four primaries with a band, balance-challengers.test.ts the three without: two files,
 // so their duels run side by side.
 import { STATS, WEAPON_IDS, timeToKillTable, type WeaponId } from '@duty-shooter/fps-core';
-import { CHALLENGER_WEAPONS, DUEL_DISTANCES, DUEL_WEAPONS, winRate, type DuelCell } from '@duty-shooter/fps-core/harness';
+import { fileURLToPath } from 'node:url';
+import { CHALLENGER_WEAPONS, DUEL_DISTANCES, DUEL_WEAPONS, balanceRuns, challengerRuns, winRate, type DuelCell } from '@duty-shooter/fps-core/harness';
+import { measured } from './measured';
 
 /** Seeded duels per pair, distance and side: 240 duels a cell, enough that one more win or loss moves a cell by under half a point. */
 export const ROUNDS = 120;
@@ -13,6 +15,13 @@ export const ROUNDS = 120;
  * points, at two fifths of what the four-by-four costs.
  */
 export const CHALLENGER_ROUNDS = 24;
+/**
+ * The four-by-four's duels and the challengers': a minute of seeded duels between them, the same for the same
+ * engine, so kept (`measured`) and fought again only when the engine or these counts change; CI always fights them.
+ */
+export const balanceCells = (): DuelCell[] => measured('duty-balance', [fileURLToPath(import.meta.url)], () => balanceRuns(ROUNDS));
+export const challengerCells = (): DuelCell[] => measured('duty-balance-challengers', [fileURLToPath(import.meta.url)], () => challengerRuns(CHALLENGER_ROUNDS));
+
 /** `BALANCE_REPORT=docs/balance.md npx vitest run packages/fps-core/test/balance.test.ts` writes the tables there. */
 export const REPORT = process.env.BALANCE_REPORT;
 

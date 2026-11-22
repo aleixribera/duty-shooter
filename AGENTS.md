@@ -15,9 +15,12 @@ Before adding a map, mode or weapon, writing a test, or crossing a package bound
 
 ## Test time budget
 
-- Budgets: CI from push to `:latest` under 4 min (eight test shards beside the image build, under 2 min each when warm). A whole tier at a third of the cores (this PC, the test laptop): `npm test` under 600 s, `npm run test:soak` under 330 s.
+- Budgets: CI from push to `:latest` under 4 min (eight test shards beside the image build, under 2 min each when warm). A whole tier at a third of the cores (this PC, the test laptop): `npm run test:fast` about 60 s with the island's nav and the measurements kept, under 240 s when an engine edit builds them again; `npm run test:soak` under 330 s. `npm test` with nothing changed: a few seconds.
+- `npm test` (`vitest.passed.ts`) runs only the fast-tier files that could fail: each passed file is skipped while its import graph, snapshot, the env vars it reads, the config, lockfile and Node are what it passed with (a file that reads files reruns on any asset change; one that scans folders or starts processes, on any change). `npm run test:fast` and CI run every file. A file that reads only what it is handed, or a cache named for a hash of its sources, says `// vitest.passed: pure` and why.
+- Deterministic measurements that take minutes (the island's sightlines, the balance duels) are kept by `measured()` (`packages/fps-core/test/support/measured.ts`) under a hash of the sources they use; the island nav is built by one file while the others wait (`builtOnce`). Neither is read on CI.
+- The fast tier's files share a worker's modules (`isolate: false`): a file that stubs a global, spies on a prototype or changes module state puts it back.
 - Guards: `vitest.budget.ts` prints a yellow `TEST BUDGET` warning when a whole tier runs over its budget or any fast-tier test takes over 10 s; CI's `timeout-minutes` fail a shard past 5 min and the image job past 12. Don't raise them to get green: make the test cheaper, split a long file (vitest runs files in parallel, not tests), or move a whole match to a soak.
-- While working, run only what your change covers: one file (`npx vitest run apps/range/test/foo.test.ts`), a name (`-t "<name>"`), or the tests importing what you changed (`npx vitest related --run <files>`). The full suite runs on CI.
+- While working, run only what your change covers (or `npm test`, which does that by itself): one file (`npx vitest run apps/range/test/foo.test.ts`), a name (`-t "<name>"`), or the tests importing what you changed (`npx vitest related --run <files>`). The full suite runs on CI.
 - The soak tier (`*.soak.test.ts`, whole matches) runs on every CI run (and `npm run test:soak` when you change match flow), never in `npm test`; the pre-push hook runs only the typecheck.
 - Output is dots, failures and the summary; passing tests' logs are hidden (`--silent=false` shows them).
 

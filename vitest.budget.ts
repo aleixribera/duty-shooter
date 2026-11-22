@@ -4,9 +4,11 @@ import type { Reporter, TestModule } from 'vitest/node';
  * The suite's time budget, said out loud: a whole tier that runs past its budget, or a fast-tier test
  * that takes longer than SLOW_TEST_MS, prints a warning under the summary naming what to make cheaper
  * (or, for a whole match, move to a soak). The budgets are a whole tier's run at a third of the cores (this PC, the
- * test laptop); CI's shards are held to their `timeout-minutes` instead.
+ * test laptop); CI's shards are held to their `timeout-minutes` instead. The fast tier's is for a run that builds the
+ * island's nav and takes the sightline and balance measurements again (an edit to the engine's core); with them kept,
+ * it takes about a minute.
  */
-const BUDGET_S = { fast: 600, soak: 330 } as const;
+const BUDGET_S = { fast: 240, soak: 330 } as const;
 const SLOW_TEST_MS = 10_000;
 
 export default class Budget implements Reporter {

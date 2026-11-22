@@ -24,13 +24,17 @@ export default defineConfig({
     testTimeout: 30_000,
     // Dots, then each failure in full and the summary: a passing run is a few lines, not one per file.
     // vitest.budget.ts warns when a tier runs over its budget or a fast test over 10 s (AGENTS.md, "Test time budget").
-    reporters: ['dot', './vitest.budget.ts'],
+    // Here vitest.passed.ts also records each fast-tier file that passed, so `npm test` runs only the files that changed since.
+    reporters: local ? ['dot', './vitest.budget.ts', './vitest.passed.ts'] : ['dot', './vitest.budget.ts'],
     // What a test prints (the sightline and balance reports) shows only when it fails; `--silent=false` shows it all.
     silent: 'passed-only',
     maxWorkers: local ? Math.max(2, Math.floor(cpus().length / 3)) : undefined,
     projects: [
       // What a change is checked against before it ships: every rule the game keeps, in a few minutes.
-      { extends: true, test: { name: 'fast', include: ALL, exclude: SOAK } },
+      // Its files share a worker's modules (isolate: false): each file evaluating the engine, the maps and three
+      // afresh was two thirds of the run. A file that stubs a global or spies on a prototype puts it back
+      // (afterAll / mockRestore), and restoreMocks puts back any spy it forgets.
+      { extends: true, test: { name: 'fast', include: ALL, exclude: SOAK, isolate: false, restoreMocks: true } },
       // Whole matches played out by bots, minutes of simulated play: run for the map, mode or bots a change touches, and on CI.
       { extends: true, test: { name: 'soak', include: SOAK } },
     ],

@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { STATS, shotsToKill, timeToKill } from '@duty-shooter/fps-core';
-import { DUEL_WEAPONS, balanceRuns, challengerRuns, type DuelCell } from '@duty-shooter/fps-core/harness';
-import { CHALLENGER_ROUNDS, REPORT, ROUNDS, SAMPLING_ERROR, band, overall, rate, report } from './support/balance';
+import { DUEL_WEAPONS, type DuelCell } from '@duty-shooter/fps-core/harness';
+import { REPORT, SAMPLING_ERROR, balanceCells, band, challengerCells, overall, rate, report } from './support/balance';
 
 const M4A1 = STATS.weapons.m4a1.damage.bands;
 
@@ -38,8 +38,8 @@ describe('time-to-kill targets', () => {
 
 let cells: DuelCell[] = [];
 beforeAll(() => {
-  cells = balanceRuns(ROUNDS);
-  if (REPORT) writeFileSync(REPORT, report(cells, challengerRuns(CHALLENGER_ROUNDS)));
+  cells = balanceCells();
+  if (REPORT) writeFileSync(REPORT, report(cells, challengerCells()));
 }, 1_500_000);
 
 describe('bot-vs-bot balance runs', () => {
